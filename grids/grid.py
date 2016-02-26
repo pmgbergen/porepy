@@ -7,7 +7,7 @@ Created on Wed Feb 17 20:55:43 2016
 
 import numpy as np
 from src.utils import accumarray
-import Enum
+from enum import Enum
 
 
 class GridType(Enum):
