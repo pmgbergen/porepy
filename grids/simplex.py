@@ -11,6 +11,7 @@ import scipy.spatial
 
 from grid import Grid, GridType
 from src.utils import setmembership
+from src.utils import accumarray
 
 
 class TriangleGrid(Grid):
@@ -63,3 +64,19 @@ class TriangleGrid(Grid):
         data = np.ones(cellFaces.shape, dtype=bool)
         self.cellFaces = sps.csc_matrix((data, cellFaces, indptr),
                                         shape=(self.Nf, self.Nc))
+
+    def cell_node_matrix(self):
+        """ Get cell-node relations in a Nc x 3 matrix
+        Perhaps move this method to a superclass when tet-grids are implemented
+        """
+        cn = self.faceNodes * self.cellFaces * sps.eye(self.Nc)
+        row, col = cn.nonzero()
+        scol = np.argsort(col)
+
+        # Consistency check
+        assert np.all(accumarray.accum(col, np.ones(col.size)) ==
+                      (self.dim + 1))
+
+        return row[scol].reshape(self.Nc, 3)
+
+        
