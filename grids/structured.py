@@ -15,7 +15,10 @@ from grid import Grid, GridType
 class TensorGrid(Grid):
 
     def __init__(self, x, y, z=None):
-        self.type = GridType.tensor2D
+
+        if not hasattr(self, 'type'):
+            self.type = GridType.tensor_2D
+
         if z is None:
             self.create2Dgrid(x, y)
         else:
