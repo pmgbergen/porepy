@@ -20,9 +20,9 @@ class GridType(Enum):
     triangle = 1
     cartesian_2D = 2
     tensor_2D = 3
-    
 
-class Grid:
+
+class Grid(object):
 
     def __init__(self, nodes, faces, cells):
         self.dim = nodes.dim
