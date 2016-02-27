@@ -61,7 +61,9 @@ class TriangleGrid(Grid):
         cellFaces = cellFaces.reshape(nFacesPerCell, self.Nc).ravel(1)
         indptr = np.hstack((np.arange(0, nFacesPerCell*self.Nc, nFacesPerCell),
                             nFacesPerCell * self.Nc))
-        data = np.ones(cellFaces.shape, dtype=bool)
+        data = -np.ones(cellFaces.shape)
+        tmp, sgns = np.unique(cellFaces, return_index=True)
+        data[sgns] = 1
         self.cellFaces = sps.csc_matrix((data, cellFaces, indptr),
                                         shape=(self.Nf, self.Nc))
 
@@ -69,7 +71,9 @@ class TriangleGrid(Grid):
         """ Get cell-node relations in a Nc x 3 matrix
         Perhaps move this method to a superclass when tet-grids are implemented
         """
-        cn = self.faceNodes * self.cellFaces * sps.eye(self.Nc)
+
+        # Absolute value needed since cellFaces can be negative
+        cn = self.faceNodes * np.abs(self.cellFaces) * sps.eye(self.Nc)
         row, col = cn.nonzero()
         scol = np.argsort(col)
 

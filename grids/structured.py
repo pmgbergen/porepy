@@ -76,10 +76,10 @@ class TensorGrid(Grid):
         nFacesPerCell = 4
         indptr = np.append(np.arange(0, nFacesPerCell*numC, nFacesPerCell),
                            nFacesPerCell * numC)
-        data = np.ones(cellFaces.shape, dtype=bool)
+        data = np.vstack((-np.ones(FW.size), np.ones(FE.size),
+                          -np.ones(FS.size), np.ones(FN.size))).ravel(1)
         self.cellFaces = sps.csc_matrix((data, cellFaces, indptr),
                                         shape=(numF, numC))
-
 """
         # Face neighbors
         # Let index -1 define boundary
