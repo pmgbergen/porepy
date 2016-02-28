@@ -8,6 +8,7 @@ Created on Wed Feb 17 20:55:43 2016
 import numpy as np
 from src.utils import accumarray
 from enum import Enum
+from scipy import sparse as sps
 
 
 class GridType(Enum):
@@ -76,3 +77,22 @@ class Grid(object):
         ccy = accumarray.accum(cellno, subVol * subCentroid[1])
 
         self.cellCenters = np.vstack((ccx, ccy)) / self.cellVolumes
+
+        # Ensure that normal vector direction corresponds with sign convention
+        # in self.cellFaces
+        def nrm(u):
+            return np.sqrt(u[0]*u[0] + u[1]*u[1])
+
+        [fi, ci, val] = sps.find(self.cellFaces)
+        _, idx = np.unique(fi, return_index=True)
+        sgn = val[idx]
+        fc = self.faceCenters[:, fi[idx]]
+        cc = self.cellCenters[:, ci[idx]]
+        v = fc - cc
+        # Prolong the vector from cell to face center in the direction of the
+        # normal vector. If the prolonged vector is shorter, the normal should
+        # flipped
+        vn = v + nrm(v) * self.faceNormals[:, fi[idx]] * 0.001
+        flip = np.logical_or(np.logical_and(nrm(v) > nrm(vn), sgn > 0),
+                             np.logical_and(nrm(v) < nrm(vn), sgn < 0))
+        self.faceNormals[:, flip] *= -1  # Is it correct not to have fi here?
