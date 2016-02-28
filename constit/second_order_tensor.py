@@ -35,7 +35,7 @@ class SecondOrderTensor(object):
             raise ValueError('Dimension should be between 1 and 3')
 
         Nc = kxx.size
-        perm = np.zeros(dim, dim, Nc)
+        perm = np.zeros((dim, dim, Nc))
 
         if not np.all(kxx > 0):
             raise ValueError('Tensor is not positive definite because of '
