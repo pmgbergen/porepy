@@ -8,7 +8,7 @@ Created on Sat Feb 27 20:22:25 2016
 import numpy as np
 
 
-class Permeability(object):
+class SecondOrderTensor(object):
     """ Cell-wise permeability represented by (dim,dim,Nc)-matrix
     """    
     
