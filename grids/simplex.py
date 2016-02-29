@@ -10,8 +10,8 @@ import scipy.sparse as sps
 import scipy.spatial
 
 from grid import Grid, GridType
-from src.utils import setmembership
-from src.utils import accumarray
+from utils import setmembership
+from utils import accumarray
 
 
 class TriangleGrid(Grid):
@@ -83,4 +83,4 @@ class TriangleGrid(Grid):
 
         return row[scol].reshape(self.Nc, 3)
 
-        
+
