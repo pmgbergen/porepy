@@ -6,7 +6,7 @@ Created on Wed Feb 17 20:55:43 2016
 """
 
 import numpy as np
-from src.utils import accumarray
+from utils import accumarray
 from enum import Enum
 from scipy import sparse as sps
 

@@ -9,7 +9,7 @@ import scipy as sp
 import scipy.sparse as sps
 
 
-from grid import Grid, GridType
+from .grid import Grid, GridType
 
 
 class TensorGrid(Grid):
