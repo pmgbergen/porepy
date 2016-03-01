@@ -6,7 +6,6 @@ Created on Wed Feb 17 20:55:43 2016
 """
 
 import numpy as np
-from utils import accumarray
 from enum import Enum
 from scipy import sparse as sps
 
@@ -58,23 +57,24 @@ class Grid(object):
 
         cellFaces, cellno = self.cellFaces.nonzero()
 
-        nCellFaces = accumarray.accum(cellno, np.ones(cellno.shape))
+        nCellFaces = np.bincount(cellno)
 
-        cx = accumarray.accum(cellno, self.faceCenters[0, cellFaces])
-        cy = accumarray.accum(cellno, self.faceCenters[1, cellFaces])
+        cx = np.bincount(cellno, weights=self.faceCenters[0, cellFaces])
+        cy = np.bincount(cellno, weights=self.faceCenters[1, cellFaces])
         cCenters = np.vstack((cx, cy)) / nCellFaces
 
         a = xe1[:, cellFaces] - cCenters[:, cellno]
         b = xe2[:, cellFaces] - cCenters[:, cellno]
 
         subVol = 0.5 * np.abs(a[0] * b[1] - a[1] * b[0])
-        self.cellVolumes = accumarray.accum(cellno, subVol)
-
+        self.cellVolumes = np.bincount(cellno, weights=subVol)        
+        
         subCentroid = (cCenters[:, cellno] + 2 *
                        self.faceCenters[:, cellFaces]) / 3
 
-        ccx = accumarray.accum(cellno, subVol * subCentroid[0])
-        ccy = accumarray.accum(cellno, subVol * subCentroid[1])
+        ccx = np.bincount(cellno, weights=subVol * subCentroid[0])
+        ccy = np.bincount(cellno, weights=subVol * subCentroid[1])
+        
 
         self.cellCenters = np.vstack((ccx, ccy)) / self.cellVolumes
 
