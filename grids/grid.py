@@ -96,3 +96,6 @@ class Grid(object):
         flip = np.logical_or(np.logical_and(nrm(v) > nrm(vn), sgn > 0),
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
         self.faceNormals[:, flip] *= -1  # Is it correct not to have fi here?
+
+    def cellNodes(self):
+        return self.faceNodes * np.abs(self.cellFaces) * sps.eye(self.Nc)
