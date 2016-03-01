@@ -43,7 +43,7 @@ def tpfa(g, K, bc, faces=None):
     T= np.divide(T,nrmFC)
 
     # Return horamonic average
-    T = 1 / accumarray.accum(fi, 1/T)
+    T = 1 / np.bincount(fi, weights=1/T)
     T[bc.isNeu] = 0
     F = sps.coo_matrix((T[fi] * sgn,(fi,ci)))
     
