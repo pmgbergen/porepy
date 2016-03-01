@@ -9,7 +9,7 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.spatial
 
-from grid import Grid, GridType
+from core.grids.grid import Grid, GridType
 from utils import setmembership
 from utils import accumarray
 
