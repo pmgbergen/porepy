@@ -106,9 +106,6 @@ class CartGrid(TensorGrid):
 
         self.type = GridType.cartesian_2D
 
-        if any(i < 1 for i in nx):
-            raise ValueError('All dimensions should be positive')
-
         if physdims is None:
             physdims = nx
 
