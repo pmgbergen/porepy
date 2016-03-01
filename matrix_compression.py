@@ -14,11 +14,11 @@ def rldecode(A,n):
         however, requirements on the shape of functions are probably somewhat
         different.
         
-        >>> rlencode(np.array([1, 2, 3]), np.array([2, 3, 1]))
+        >>> rldecode(np.array([1, 2, 3]), np.array([2, 3, 1]))
         [1, 1, 2, 2, 2, 3]
         
-        >>> rlencode(np.array([0, 2]), np.array([0, 3]))
-        [2, 2, 2]
+        >>> rldecode(np.array([1, 2]), np.array([1, 3]))
+        [1, 2, 2, 2]
         
         Args:
             A (double, m x k), compressed matrix to be recovered. The 
