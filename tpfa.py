@@ -11,10 +11,10 @@ import scipy.sparse as sps
 from core.constit import second_order_tensor as perm
 from utils import accumarray
 
-def tpfa(g, K, bc=None, faces=None):
+def tpfa(g, K, bc, faces=None):
     """  Discretize the second order elliptic equation using two-point flux
 
-    Args
+    Args:
         g (grid): Grid, or a subclass, with geometry fields computed.
         K (second_order_tensor): Permeability. Cell-wise.
         bc (): Boundary conditions
