@@ -33,10 +33,12 @@ def createMapping(g):
     subFaces = subFaces.data-1
 
     # Sort data
-    idx = np.argsort(nodesDuplicated)
+    idx = np.lexsort((subFaces, facesDuplicated, nodesDuplicated, 
+                      cellsDuplicated))
     nno = nodesDuplicated[idx]
     cno = cellsDuplicated[idx]
     fno = facesDuplicated[idx]
     subfno = subFaces[idx].astype(int)
     subhfno = np.arange(idx.size, dtype='>i4')
+
     return nno, cno, fno, subfno, subhfno
