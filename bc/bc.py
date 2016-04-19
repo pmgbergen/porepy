@@ -36,7 +36,7 @@ class BoundaryCondition(object):
         bf = np.argwhere(fcnt == 1).ravel()
         
         self.isbnd = np.zeros(self.Nf, dtype=bool)
-        self.isDir = self.isbnd
+        self.isDir = np.zeros(self.Nf, dtype=bool)
 
         self.isbnd[bf] = True
         self.isNeu = self.isbnd
