@@ -11,19 +11,19 @@ import scipy.sparse as sps
 from utils import matrix_compression 
 
 
-def createMapping(g):
+def create_mapping(g):
 
     g.cellFaces.sort_indices()
     fi, ci = g.cellFaces.nonzero()
 
     nfn = np.diff(g.faceNodes.indptr)
-    cellsDuplicated = matrix_compression.rldecode(ci, nfn[fi])
-    facesDuplicated = matrix_compression.rldecode(fi, nfn[fi])
+    cells_duplicated = matrix_compression.rldecode(ci, nfn[fi])
+    faces_duplicated = matrix_compression.rldecode(fi, nfn[fi])
 
     M = sps.coo_matrix((np.ones(fi.size), (fi, np.arange(fi.size))),
                        shape=(fi.max()+1, fi.size))
-    nodesDuplicated = g.faceNodes * M
-    nodesDuplicated = nodesDuplicated.indices
+    nodes_duplicated = g.faceNodes * M
+    nodes_duplicated = nodes_duplicated.indices
 
     indptr = g.faceNodes.indptr
     indices = g.faceNodes.indices
@@ -33,11 +33,11 @@ def createMapping(g):
     subFaces = subFaces.data-1
 
     # Sort data
-    idx = np.lexsort((subFaces, facesDuplicated, nodesDuplicated, 
-                      cellsDuplicated))
-    nno = nodesDuplicated[idx]
-    cno = cellsDuplicated[idx]
-    fno = facesDuplicated[idx]
+    idx = np.lexsort((subFaces, faces_duplicated, nodes_duplicated,
+                      cells_duplicated))
+    nno = nodes_duplicated[idx]
+    cno = cells_duplicated[idx]
+    fno = faces_duplicated[idx]
     subfno = subFaces[idx].astype(int)
     subhfno = np.arange(idx.size, dtype='>i4')
 
