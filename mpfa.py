@@ -184,7 +184,7 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno, exclude_dir
     sorted_nodes_cols = np.argsort(cell_node_blocks[1])
     subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel(1) # Direction here is uncertain
     cols2blk_diag = sps.coo_matrix((np.ones(sub_cell_index.size),
-                                   (np.arange(sub_cell_index.size), subcind_nodes)))
+                                   (subcind_nodes, np.arange(sub_cell_index.size))))
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
