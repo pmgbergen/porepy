@@ -68,7 +68,8 @@ def mpfa(g, k, bound, faces=None, eta=0):
     cno = cno[unique_sub_fno]
     subfno = subfno[unique_sub_fno]
     nsubfno = subfno.max()+1
-    
+
+    # Update signs
     sgn = g.cellFaces[fno, cno].A.ravel(1)
 
     # Obtain mappings to exclude boundary faces
@@ -123,7 +124,7 @@ def _tensor_vector_prod(g, k, cno, fno, nno, subhfno):
     -------
     nk sub-face wise product of normal vector and permeability tensor.
     a pairings of node and cell indices, which together define a sub-cell
-    j index of all subcells
+    sub_cell_ind index of all subcells
     """
     a, blocksz = matrix_compression.rlencode(np.vstack((cno, nno)))
 
