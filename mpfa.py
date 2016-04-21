@@ -57,10 +57,10 @@ def mpfa(g, k, bound, faces=None, eta=0):
 
     # Contribution from cell center potentials to local systems
     # For pressure continuity, +-1
-    pr_cont_cell = sps.coo_matrix((sgn[0], (subfno, cno)))
+    pr_cont_cell = sps.coo_matrix((sgn[0], (subfno, cno))).tocsr()
     # Zero contribution to flux continuity
     nk_cell = sps.coo_matrix((np.zeros(1), (np.zeros(1), np.zeros(1))),
-                             shape=(np.max(subfno)+1, np.max(cno)+1))
+                             shape=(np.max(subfno)+1, np.max(cno)+1)).tocsr()
     
     # Reduce topology to one field per subface
     nno = nno[unique_sub_fno]
@@ -97,10 +97,11 @@ def mpfa(g, k, bound, faces=None, eta=0):
 
     ####
     # Boundary conditions
-    rhs_bound = _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann, fno, sgn, g,
-                                  nk_cell.shape[0], pr_cont_grad.shape[0])
+    rhs_bound = _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann, fno, subfno,
+                                  sgn, g, nk_cell.shape[0], pr_cont_grad.shape[0])
     # Discretization of boundary values
     bound_flux = hf2f * darcy * igrad * rhs_bound
+
 
     return flux, bound_flux
 
@@ -136,10 +137,10 @@ def _tensor_vector_prod(g, k, cno, fno, nno, subhfno):
     num_nodes = np.diff(g.faceNodes.indptr)
 
     normals = g.faceNormals[:, fno] / num_nodes[fno]
-    normals_mat = sps.coo_matrix((normals.ravel(1), (i.ravel(1), j.ravel(1))))
-    k_mat = sps.coo_matrix((k.perm[::, ::, a[0]].ravel(1), (i.ravel(1), j.ravel(1))))
+    normals_mat = sps.coo_matrix((normals.ravel(1), (i.ravel(1), j.ravel(1)))).tocsr()
+    k_mat = sps.coo_matrix((k.perm[::, ::, a[0]].ravel(1), (i.ravel(1), j.ravel(1)))).tocsr()
 
-    nk = normals_mat.multiply(k_mat)
+    nk = normals_mat * k_mat
     j = j[::, 0::2]
     return nk, a, j
 
@@ -162,11 +163,11 @@ def _exclude_boundary_mappings(fno, nsubfno, bnd):
     j = np.argwhere([not it for it in bnd.isNeu[fno]])
     i = np.arange(j.size)
     exclude_neumann = sps.coo_matrix((np.ones(i.size), (i, j.ravel(0))),
-                                     shape=(i.size, nsubfno))
+                                     shape=(i.size, nsubfno)).tocsr()
     j = np.argwhere([not it for it in bnd.isDir[fno]])
     i = np.arange(j.size)
     exclude_dirichlet = sps.coo_matrix((np.ones(i.size), (i, j.ravel(0))),
-                                       shape=(i.size, nsubfno))
+                                       shape=(i.size, nsubfno)).tocsr()
     return exclude_neumann, exclude_dirichlet
 
 
@@ -179,16 +180,16 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno, exclude_dir
     sorted_nodes_rows = node_occ[sorted_ind]
     size_of_blocks = np.bincount(sorted_nodes_rows.astype('int64'))
     rows2blk_diag = sps.coo_matrix((np.ones(sorted_nodes_rows.size),
-                                   (np.arange(sorted_ind.size), sorted_ind)))
+                                   (np.arange(sorted_ind.size), sorted_ind))).tocsr()
 
     sorted_nodes_cols = np.argsort(cell_node_blocks[1])
     subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel(1) # Direction here is uncertain
     cols2blk_diag = sps.coo_matrix((np.ones(sub_cell_index.size),
-                                   (subcind_nodes, np.arange(sub_cell_index.size))))
+                                   (subcind_nodes, np.arange(sub_cell_index.size)))).tocsr()
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
-def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, sgn, g,
+def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, subfno, sgn, g,
                       num_flux, num_pr):
     """
     Define rhs matrix to get basis functions that incorporates boundary conditions
@@ -236,7 +237,22 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, sgn, g,
     else:
         dir_cell = sps.coo_matrix((num_pr, num_bound))
 
-    rhs_bound = sps.vstack([neu_cell, dir_cell])
+    if neu_ind.size > 0 and dir_ind.size > 0:
+        neu_dir_ind = sps.hstack([neu_ind, dir_ind]).A.ravel(1)
+    elif neu_ind.size > 0:
+        neu_dir_ind = neu_ind
+    elif dir_ind.size > 0:
+        neu_dir_ind = dir_ind
+    else:
+        raise ValueError('huh?')
+
+    num_subfno = np.max(subfno) + 1
+    bnd_2_all_faces = sps.coo_matrix((np.ones(num_bound),(np.arange(num_bound), neu_dir_ind)),
+                                     shape=(num_bound, num_subfno))
+    bnd_hf_2_f = sps.coo_matrix((np.ones(subfno.size), (subfno, fno)),
+                                shape=(num_subfno, g.Nf))
+
+    rhs_bound = -sps.vstack([neu_cell, dir_cell]) * bnd_2_all_faces * bnd_hf_2_f
     return rhs_bound
 
 
