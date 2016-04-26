@@ -111,3 +111,6 @@ class FourthOrderTensor(object):
 
         c = mu_mat * mu + lmbda_mat * lmbda + phi_mat * phi
         self.c = c
+
+    def copy(self):
+        return np.copy(self.c)
