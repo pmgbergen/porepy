@@ -103,10 +103,7 @@ def mpsa(g, constit, bound, faces=None, eta=0):
     subfno = subfno[unique_sub_fno]
     nsubfno = subfno.max() + 1
 
-    hfi = __expand_indices_nd(subfno, nd)
-    hf = __expand_indices_nd(fno, nd)
-    hf2f = sps.coo_matrix((np.ones(hf.size), (hf, hfi)),
-                          shape=(hf.max()+1, hfi.max()+1)).tocsr()
+    hf2f = _map_hf_2_f(fno, subfno, nd)
 
     # Update signs
     sgn = g.cellFaces[fno, cno].A.ravel(1)
@@ -151,8 +148,13 @@ def mpsa(g, constit, bound, faces=None, eta=0):
 
     stress = hf2f * hook * igrad * rhs_cells
 
+    rhs_bound = _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann,
+                                  fno, subfno, sgn, g, hook_cell.shape[0],
+                                  d_cont_grad.shape[0])
+    # Discretization of boundary values
+    bound_stress = hf2f * hook * igrad * rhs_bound
 
-    return stress
+    return stress, bound_stress
 
 
 def _split_stiffness_matrix(constit):
@@ -392,6 +394,130 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
+def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, subfno,
+                      sgn, g, num_stress, num_displ):
+
+    """
+    Define rhs matrix to get basis functions for incorporates boundary
+    conditions
+
+    Parameters
+    ----------
+    bnd
+    exclude_dirichlet
+    exclude_neumann
+    fno
+    sgn : +-1, defining here and there of the faces
+    g : grid
+    num_flux : number of equations for flux continuity
+    num_pr: number of equations for pressure continuity
+
+    Returns
+    -------
+    rhs_bound: Matrix that can be multiplied with inverse block matrix to get
+               basis functions for boundary values
+    """
+    nd = g.dim
+
+    num_neu = sum(bnd.isNeu[fno]) * nd
+    num_dir = sum(bnd.isDir[fno]) * nd
+    num_bound = num_neu + num_dir
+
+    def expand_ind(ind, dim, increment):
+        return (np.tile(ind, (dim, 1)) + increment * np.array([np.arange(
+            dim)]).transpose()).reshape(-1, order='F')
+
+    # Neumann boundary conditions
+    is_neu = (exclude_dirichlet * bnd.isNeu[fno]).astype('int64')
+    neu_ind_single = np.argwhere(is_neu).ravel(1)
+    neu_ind = (np.tile(neu_ind_single, (nd, 1)) +
+               is_neu.size * np.array([np.arange(nd)]).transpose()).reshape(
+        -1, order='F')
+    neu_ind = expand_ind(neu_ind_single, nd, is_neu.size)
+    #neu_ind = np.argwhere(exclude_dirichlet *
+    #                      bnd.isNeu[fno].astype('int64')).ravel(1)
+
+    # Some care is needed to compute coefficients in Neumann matrix: sgn is
+    # already defined according to the subcell topology [fno], while areas
+    # must be drawn from the grid structure, and thus go through fno
+    neu_sgn = expand_ind(sgn[neu_ind_single], nd, 0)
+    fno_ext = np.tile(fno, nd)
+    num_face_nodes = g.faceNodes.sum(axis=0).A.ravel(1)
+    neu_area = g.faceAreas[fno_ext[neu_ind]] / num_face_nodes[fno_ext[neu_ind]]
+    neu_coeff = neu_sgn * neu_area
+
+    if neu_ind.size > 0:
+        neu_cell = sps.coo_matrix((neu_coeff.ravel(1),
+                                   (neu_ind, np.arange(neu_ind.size))),
+                                  shape=(num_stress, num_bound)).tocsr()
+    else:
+        # Special handling when no elements are found. Not sure if this is
+        # necessary, or if it is me being stupid
+        neu_cell = sps.coo_matrix((num_stress, num_bound)).tocsr()
+
+    # Dirichlet boundary conditions
+    is_dir = exclude_neumann * bnd.isDir[fno].astype('int64')
+    dir_ind_single = np.argwhere(is_dir).ravel(1)
+    dir_ind = expand_ind(dir_ind_single, nd, is_dir.size)
+    dir_val = expand_ind(sgn[dir_ind_single], nd, 0)
+    if dir_ind.size > 0:
+        dir_cell = sps.coo_matrix((dir_val, (dir_ind, num_neu +
+                                                  np.arange(dir_ind.size))),
+                                  shape=(num_displ, num_bound)).tocsr()
+    else:
+        # Special handling when no elements are found. Not sure if this is
+        # necessary, or if it is me being stupid
+        dir_cell = sps.coo_matrix((num_displ, num_bound)).tocsr()
+
+    if neu_ind.size > 0 and dir_ind.size > 0:
+        neu_dir_ind = sps.hstack([neu_ind, dir_ind]).A.ravel(1)
+    elif neu_ind.size > 0:
+        neu_dir_ind = neu_ind
+    elif dir_ind.size > 0:
+        neu_dir_ind = dir_ind
+    else:
+        raise ValueError("Boundary values should be either Dirichlet or "
+                         "Neumann")
+
+    num_subfno = np.max(subfno) + 1
+
+    # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
+    # Map these to all half-face indices
+
+    is_bnd = np.hstack((neu_ind_single, dir_ind_single))
+    bnd_ind = __expand_indices_nd(is_bnd, nd)
+    bnd_2_all_hf = sps.coo_matrix((np.ones(num_bound),
+                                   (np.arange(num_bound), bnd_ind)),
+                                  shape=(num_bound, num_subfno * nd))
+    # The user of the discretization should now nothing about half faces,
+    # thus map from half face to face indices.
+    hf_2_f = _map_hf_2_f(fno, subfno, nd).transpose()
+
+    rhs_bound = -sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
+    return rhs_bound
+
+
+def _map_hf_2_f(fno, subfno, nd):
+    """
+    Create mapping from half-faces to faces
+    Parameters
+    ----------
+    fno face numbering in sub-cell topology based on unique subfno
+    subfno sub-face numbering
+    nd dimension
+
+    Returns
+    -------
+
+    """
+
+    hfi = __expand_indices_nd(subfno, nd)
+    hf = __expand_indices_nd(fno, nd)
+    hf2f = sps.coo_matrix((np.ones(hf.size), (hf, hfi)),
+                          shape=(hf.max() + 1, hfi.max() + 1)).tocsr()
+    return hf2f
+
+
 def __expand_indices_nd(ind, nd, direction=1):
     dim_inds = np.arange(nd)
     dim_inds = dim_inds[:, np.newaxis]  # Prepare for broadcasting
@@ -415,7 +541,7 @@ def __unique_hooks_law(csym, casym, unique_sub_fno, nd):
 
 if __name__ == '__main__':
     # Method used for debuging
-    nx = np.array([2, 2])
+    nx = np.array([2, 1])
     g = structured.CartGrid(nx)
     g.nodes[0, 4] = 1.
     g.computeGeometry()
