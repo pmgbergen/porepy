@@ -78,6 +78,55 @@ def block_diag_index(m, n=None):
     m_n_full = matrix_compression.rldecode(m, n)
     j = matrix_compression.rldecode(sumn, m_n_full)
     return i, j
-    
+
+
+def scalar_divergence(g):
+    """
+    Get divergence operator for a grid.
+
+    The operator is easily accessible from the grid itself, so we keep it
+    here for completeness.
+
+    See also vector_divergence(g)
+
+    Parameters
+    ----------
+    g grid
+
+    Returns
+    -------
+    divergence operator
+    """
+    return g.cellFaces.T
+
+
+def vector_divergence(g):
+    """
+    Get vector divergence operator for a grid g
+
+    It is assumed that the first column corresponds to the x-equation of face
+    0, second column is y-equation etc. (and so on in nd>2). The next column is
+    then the x-equation for face 1. Correspondingly, the first row
+    represents x-component in first cell etc.
+
+    Parameters
+    ----------
+    g grid
+
+    Returns
+    -------
+    vector_div (sparse csr matrix), dimensions: nd * (num_cells, num_faces)
+    """
+    # Scalar divergence
+    scalar_div = g.cellFaces
+
+    # Vector extension, convert to coo-format to avoid odd errors when one
+    # grid dimension is 1 (this may return a bsr matrix)
+    # The order of arguments to sps.kron is important.
+    block_div = sps.kron(scalar_div, sps.eye(g.dim)).tocsr()
+
+    return block_div.transpose()
+
+
 if __name__ == '__main__':
     block_diag_index(np.array([2, 3]))
