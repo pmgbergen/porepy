@@ -94,7 +94,7 @@ def mpfa(g, k, bnd, faces=None, eta=0):
     hf2f = sps.coo_matrix((np.ones(unique_sub_fno.size), (fno, subfno)))
 
     # Update signs
-    sgn = g.cellFaces[fno, cno].A.ravel(1)
+    sgn = g.cellFaces[fno, cno].A.ravel('F')
 
     # Obtain mappings to exclude boundary faces
     exclude_neumann, exclude_dirichlet = fvutils.exclude_boundary_mappings(fno,
@@ -189,10 +189,10 @@ def _tensor_vector_prod(g, k, cno, fno, nno, subhfno):
     normals = g.faceNormals[:, fno] / num_nodes[fno]
 
     # Represent normals and permeability on matrix form
-    normals_mat = sps.coo_matrix((normals.ravel(1), (i.ravel(1),
-                                                     j.ravel(1)))).tocsr()
-    k_mat = sps.coo_matrix((k.perm[::, ::, cell_node_blocks[0]].ravel(1),
-                            (i.ravel(1), j.ravel(1)))).tocsr()
+    normals_mat = sps.coo_matrix((normals.ravel('F'), (i.ravel('F'),
+                                                     j.ravel('F')))).tocsr()
+    k_mat = sps.coo_matrix((k.perm[::, ::, cell_node_blocks[0]].ravel('F'),
+                            (i.ravel('F'), j.ravel('F')))).tocsr()
 
     nk = normals_mat * k_mat
 
@@ -239,7 +239,7 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     # sub-cell gradient (and so column of the local linear systems). A sort
     # of these will give a block-diagonal structure
     sorted_nodes_cols = np.argsort(cell_node_blocks[1])
-    subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel(1)
+    subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel('F')
     cols2blk_diag = sps.coo_matrix((np.ones(sub_cell_index.size),
                                     (subcind_nodes,
                                      np.arange(sub_cell_index.size))
@@ -275,14 +275,14 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, subfno,
 
     # Neumann boundary conditions
     neu_ind = np.argwhere(exclude_dirichlet *
-                          bnd.isNeu[fno].astype('int64')).ravel(1)
+                          bnd.isNeu[fno].astype('int64')).ravel('F')
     num_face_nodes = g.faceNodes.sum(axis=0).A.ravel(1)
     # sgn is already defined according to fno, while g.faceAreas is raw data,
     # and therefore needs a combined mapping
     signed_bound_areas = sgn[neu_ind] * g.faceAreas[fno[neu_ind]]\
                         /num_face_nodes[fno[neu_ind]]
     if neu_ind.size > 0:
-        neu_cell = sps.coo_matrix((signed_bound_areas.ravel(1),
+        neu_cell = sps.coo_matrix((signed_bound_areas.ravel('F'),
                                    (neu_ind, np.arange(neu_ind.size))),
                                   shape=(num_flux, num_bound))
     else:
@@ -292,7 +292,7 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, subfno,
 
     # Dirichlet boundary conditions
     dir_ind = np.argwhere(exclude_neumann *
-                          bnd.isDir[fno].astype('int64')).ravel(1)
+                          bnd.isDir[fno].astype('int64')).ravel('F')
     if dir_ind.size > 0:
         dir_cell = sps.coo_matrix((sgn[dir_ind], (dir_ind, num_neu +
                                                   np.arange(dir_ind.size))),
@@ -303,7 +303,7 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, subfno,
         dir_cell = sps.coo_matrix((num_pr, num_bound))
 
     if neu_ind.size > 0 and dir_ind.size > 0:
-        neu_dir_ind = sps.hstack([neu_ind, dir_ind]).A.ravel(1)
+        neu_dir_ind = sps.hstack([neu_ind, dir_ind]).A.ravel('F')
     elif neu_ind.size > 0:
         neu_dir_ind = neu_ind
     elif dir_ind.size > 0:
