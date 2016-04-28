@@ -129,5 +129,35 @@ def vector_divergence(g):
     return block_div.transpose()
 
 
+def exclude_boundary_mappings(fno, nsubfno, bound):
+    """
+    Define mappings to exclude boundary faces with dirichlet and neumann
+    conditions
+
+    Parameters
+    ----------
+    fno
+    nsubfno
+
+    Returns
+    -------
+    exclude_neumann: Matrix, mapping from all faces to those having flux
+                     continuity
+    exclude_dirichlet: Matrix, mapping from all faces to those having pressure
+                       continuity
+    """
+    # Define mappings to exclude boundary values
+    col_neu = np.argwhere([not it for it in bound.isNeu[fno]])
+    row_neu = np.arange(col_neu.size)
+    exclude_neumann = sps.coo_matrix((np.ones(row_neu.size),
+                                      (row_neu, col_neu.ravel(0))),
+                                     shape=(row_neu.size, nsubfno)).tocsr()
+    col_dir = np.argwhere([not it for it in bound.isDir[fno]])
+    row_dir = np.arange(col_dir.size)
+    exclude_dirichlet = sps.coo_matrix((np.ones(row_dir.size),
+                                        (row_dir, col_dir.ravel(0))),
+                                       shape=(row_dir.size, nsubfno)).tocsr()
+    return exclude_neumann, exclude_dirichlet
+
 if __name__ == '__main__':
     block_diag_index(np.array([2, 3]))

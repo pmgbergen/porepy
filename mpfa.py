@@ -97,7 +97,7 @@ def mpfa(g, k, bnd, faces=None, eta=0):
     sgn = g.cellFaces[fno, cno].A.ravel(1)
 
     # Obtain mappings to exclude boundary faces
-    exclude_neumann, exclude_dirichlet = _exclude_boundary_mappings(fno,
+    exclude_neumann, exclude_dirichlet = fvutils.exclude_boundary_mappings(fno,
                                                                     nsubfno,
                                                                     bnd)
 
@@ -200,35 +200,6 @@ def _tensor_vector_prod(g, k, cno, fno, nno, subhfno):
     # every nd column (since nd faces of the cell meet at each vertex)
     sub_cell_ind = j[::, 0::nd]
     return nk, cell_node_blocks, sub_cell_ind
-
-
-def _exclude_boundary_mappings(fno, nsubfno, bnd):
-    """
-    Define mappings to exclude boundary faces with dirichlet and neumann
-    conditions
-
-    Parameters
-    ----------
-    fno
-    nsubfno
-
-    Returns
-    -------
-    exclude_neumann: Matrix, mapping from all faces to those having flux
-                     continuity
-    exclude_dirichlet: Matrix, mapping from all faces to those having pressure
-                       continuity
-    """
-    # Define mappings to exclude boundary values
-    j = np.argwhere([not it for it in bnd.isNeu[fno]])
-    i = np.arange(j.size)
-    exclude_neumann = sps.coo_matrix((np.ones(i.size), (i, j.ravel(0))),
-                                     shape=(i.size, nsubfno)).tocsr()
-    j = np.argwhere([not it for it in bnd.isDir[fno]])
-    i = np.arange(j.size)
-    exclude_dirichlet = sps.coo_matrix((np.ones(i.size), (i, j.ravel(0))),
-                                       shape=(i.size, nsubfno)).tocsr()
-    return exclude_neumann, exclude_dirichlet
 
 
 def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
