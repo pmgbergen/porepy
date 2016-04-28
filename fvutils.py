@@ -13,24 +13,25 @@ from utils import mcolon
 
 
 def compute_dist_face_cell(g, cno, fno, nno, subhfno, eta):
-    _ , blocksz = matrix_compression.rlencode(np.vstack((cno, nno)))
+    _, blocksz = matrix_compression.rlencode(np.vstack((cno, nno)))
     dims = g.dim
 
     i, j = np.meshgrid(subhfno, np.arange(dims))
     j += matrix_compression.rldecode(np.cumsum(blocksz)-blocksz[0], blocksz)
     
-    etaVec = eta*np.ones(fno.size)
+    eta_vec = eta*np.ones(fno.size)
     # Set eta values to zero at the boundary
     bnd = np.argwhere(np.abs(g.cellFaces).sum(axis=1).A.squeeze() 
                             == 1).squeeze()
-    etaVec[bnd] = 0
-    cp = g.faceCenters[:, fno] + etaVec * (g.nodes[:, nno] - 
+    eta_vec[bnd] = 0
+    cp = g.faceCenters[:, fno] + eta_vec * (g.nodes[:, nno] -
                                 g.faceCenters[:, fno])
     dist = cp - g.cellCenters[:, cno]
     return sps.coo_matrix((dist.ravel(), (i.ravel(), j.ravel()))).tocsr()
 
-@profile
+
 def invert_diagonal_blocks(A, sz):
+    # TODO: Try using numba on this code
     v = np.zeros(np.sum(np.square(sz)))
     p1 = 0
     p2 = 0
@@ -38,7 +39,7 @@ def invert_diagonal_blocks(A, sz):
         n = sz[b]
         n2 = n * n
         i = p1 + np.arange(n+1)
-        #vals = A.A[i[0]:i[-1], i[0]:i[-1]]
+        vals = A[i[0]:i[-1], i[0]:i[-1]].A
         v[p2 + np.arange(n2)] = np.linalg.inv(A[i[0]:i[-1], i[0]:i[-1]].A)
         p1 = p1 + n
         p2 = p2 + n2
