@@ -62,7 +62,7 @@ def mpsa(g, constit, bound, faces=None, eta=0):
                                  comp2face_ind)),
                                shape=(comp2face_ind.size, comp2face_ind.size))
     hook = comp2face * (hook_sym_grad + hook_asym_grad)
-    #hook = (hook_sym_grad + hook_asym_grad)
+
     # For force balance, displacements and stresses on the two sides of the
     # matrices must be paired
     # Operator to create the pairing
@@ -120,6 +120,7 @@ def mpsa(g, constit, bound, faces=None, eta=0):
     d_cont_cell = exclude_neumann_nd * d_cont_cell
 
     ncsym = exclude_dirichlet_nd * ncsym
+    hook_cell = exclude_dirichlet_nd * hook_cell
 
     # Mappings to convert linear system to block diagonal form
     rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
@@ -336,14 +337,16 @@ def _exclude_boundary_mappings(fno, nsubfno, bnd):
                        continuity
     """
     # Define mappings to exclude boundary values
-    j = np.argwhere([not it for it in bnd.isNeu[fno]])
-    i = np.arange(j.size)
-    exclude_neumann = sps.coo_matrix((np.ones(i.size), (i, j.ravel(0))),
-                                     shape=(i.size, nsubfno)).tocsr()
-    j = np.argwhere([not it for it in bnd.isDir[fno]])
-    i = np.arange(j.size)
-    exclude_dirichlet = sps.coo_matrix((np.ones(i.size), (i, j.ravel(0))),
-                                       shape=(i.size, nsubfno)).tocsr()
+    col_neu = np.argwhere([not it for it in bnd.isNeu[fno]])
+    row_neu = np.arange(col_neu.size)
+    exclude_neumann = sps.coo_matrix((np.ones(row_neu.size),
+                                      (row_neu, col_neu.ravel(0))),
+                                     shape=(row_neu.size, nsubfno)).tocsr()
+    col_dir = np.argwhere([not it for it in bnd.isDir[fno]])
+    row_dir = np.arange(col_dir.size)
+    exclude_dirichlet = sps.coo_matrix((np.ones(row_dir.size),
+                                        (row_dir, col_dir.ravel(0))),
+                                       shape=(row_dir.size, nsubfno)).tocsr()
     return exclude_neumann, exclude_dirichlet
 
 
@@ -550,6 +553,6 @@ if __name__ == '__main__':
     mu = lmbda
     perm = fourth_order_tensor.FourthOrderTensor(g.dim, mu, lmbda)
 
-    bound = bc.BoundaryCondition(g)
-    mpsa(g, perm, bound)
+    bnd = bc.BoundaryCondition(g)
+    mpsa(g, perm, bnd)
 
