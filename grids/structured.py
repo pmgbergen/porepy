@@ -8,7 +8,6 @@ import numpy as np
 import scipy as sp
 import scipy.sparse as sps
 
-
 from core.grids.grid import Grid, GridType
 
 
@@ -20,85 +19,70 @@ class TensorGrid(Grid):
             self.type = GridType.tensor_2D
 
         if z is None:
-            self.create2Dgrid(x, y)
+            self._create_2d_grid(x, y)
         else:
             raise NotImplementedError('Only 2D supported for now')
 
-    def create2Dgrid(self, x, y):
+    def _create_2d_grid(self, x, y):
         self.dim = 2
 
         sx = x.size - 1
         sy = y.size - 1
 
-        numC = sx * sy
-        numN = (sx + 1) * (sy + 1)
-        numFX = (sx + 1) * sy
-        numFY = sx * (sy + 1)
-        numF = numFX + numFY
+        num_cells = sx * sy
+        num_nodes = (sx + 1) * (sy + 1)
+        num_faces_x = (sx + 1) * sy
+        num_faces_y = sx * (sy + 1)
+        num_faces = num_faces_x + num_faces_y
 
-        self.Nc = numC
-        self.Nf = numF
-        self.Nn = numN
+        self.Nc = num_cells
+        self.Nf = num_faces
+        self.Nn = num_nodes
 
-        xCoord, yCoord = sp.meshgrid(x, y)
+        x_coord, y_coord = sp.meshgrid(x, y)
 
-        self.nodes = np.vstack((xCoord.flatten(), yCoord.flatten()))
+        self.nodes = np.vstack((x_coord.flatten(), y_coord.flatten()))
 
         # Face nodes
-        N = np.arange(0, numN).reshape(sy+1, sx+1)
-        fn1 = N[:-1, ::].ravel()
-        fn2 = N[1:, ::].ravel()
-        faceNodesX = np.vstack((fn1, fn2)).ravel(1)
+        node_array = np.arange(0, num_nodes).reshape(sy+1, sx+1)
+        fn1 = node_array[:-1, ::].ravel()
+        fn2 = node_array[1:, ::].ravel()
+        face_nodes_x = np.vstack((fn1, fn2)).ravel(order='F')
 
-        fn1 = N[::, :-1].ravel()
-        fn2 = N[::, 1:].ravel()
-        faceNodesY = np.vstack((fn1, fn2)).ravel(1)
+        fn1 = node_array[::, :-1].ravel(order='C')
+        fn2 = node_array[::, 1:].ravel(order='C')
+        face_nodes_y = np.vstack((fn1, fn2)).ravel(order='F')
 
-        nNodesPerFace = 2
-        indptr = np.append(np.arange(0, nNodesPerFace*numF, nNodesPerFace),
-                           nNodesPerFace * numF)
-        faceNodes = np.hstack((faceNodesX, faceNodesY))
-        data = np.ones(faceNodes.shape, dtype=bool)
-        self.faceNodes = sps.csc_matrix((data, faceNodes, indptr),
-                                        shape=(numN, numF))
+        num_nodes_per_face = 2
+        indptr = np.append(np.arange(0, num_nodes_per_face*num_faces,
+                                     num_nodes_per_face),
+                           num_nodes_per_face * num_faces)
+        face_nodes = np.hstack((face_nodes_x, face_nodes_y))
+        data = np.ones(face_nodes.shape, dtype=bool)
+        self.faceNodes = sps.csc_matrix((data, face_nodes, indptr),
+                                        shape=(num_nodes, num_faces))
 
         # Cell faces
-        faceX = np.arange(numFX).reshape(sy, sx+1)
-        faceY = numFX + np.arange(numFY).reshape(sy+1, sx)
+        face_x = np.arange(num_faces_x).reshape(sy, sx+1)
+        face_y = num_faces_x + np.arange(num_faces_y).reshape(sy+1, sx)
 
-        FW = faceX[::, :-1].ravel(0)
-        FE = faceX[::, 1:].ravel(0)
-        FS = faceY[:-1, ::].ravel(0)
-        FN = faceY[1:, ::].ravel(0)
+        face_west = face_x[::, :-1].ravel(order='C')
+        face_east = face_x[::, 1:].ravel(order='C')
+        face_south = face_y[:-1, ::].ravel(order='C')
+        face_north = face_y[1:, ::].ravel(order='C')
 
-        cellFaces = np.vstack((FW, FE, FS, FN)).ravel(1)
+        cell_faces = np.vstack((face_west, face_east,
+                                face_south, face_north)).ravel(order='F')
 
-        nFacesPerCell = 4
-        indptr = np.append(np.arange(0, nFacesPerCell*numC, nFacesPerCell),
-                           nFacesPerCell * numC)
-        data = np.vstack((-np.ones(FW.size), np.ones(FE.size),
-                          -np.ones(FS.size), np.ones(FN.size))).ravel(1)
-        self.cellFaces = sps.csc_matrix((data, cellFaces, indptr),
-                                        shape=(numF, numC))
-"""
-        # Face neighbors
-        # Let index -1 define boundary
-        con = -np.ones((sy+2,sx+2))
-        con[1:sy+1,1:sx+1] = np.arange(numC).reshape(sy,sx)
-
-        NX1 = con[1:-1,:-1]
-        NX2 = con[1:-1,1:]
-        neighsX = np.vstack((NX1.ravel(),NX2.ravel()))
-
-        NY1 = con[:-1,1:-1]
-        NY2 = con[1:,1:-1]
-        neighsY = np.vstack((NY1.ravel(),NY2.ravel()))
-
-        neighs = np.hstack((neighsX,neighsY))
-
-        a = 2
-
-"""
+        num_faces_per_cell = 4
+        indptr = np.append(np.arange(0, num_faces_per_cell*num_cells,
+                                     num_faces_per_cell),
+                           num_faces_per_cell * num_cells)
+        data = np.vstack((-np.ones(face_west.size), np.ones(face_east.size),
+                          -np.ones(face_south.size), np.ones(
+            face_north.size))).ravel(order='F')
+        self.cellFaces = sps.csc_matrix((data, cell_faces, indptr),
+                                        shape=(num_faces, num_cells))
 
 
 class CartGrid(TensorGrid):
