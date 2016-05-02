@@ -8,7 +8,6 @@ Created on Tue Mar  1 13:34:33 2016
 import numpy as np
 import scipy.sparse as sps
 
-from fvdiscr import subcellMapping
 from fvdiscr import fvutils
 from utils import matrix_compression
 from core.grids import structured
@@ -45,61 +44,51 @@ def mpfa(g, k, bnd, faces=None, eta=0):
     """
 
     # Define subcell topology
-    nno, cno, fno, subfno, subhfno = subcellMapping.create_mapping(g)
+    # nno, cno, fno, subfno, subhfno = subcellMapping.create_mapping(g)
+    subcell_topology = fvutils.SubcellTopology(g)
 
     # TODO: Scaling should be done here, but first in Matlab
 
     # Obtain normal_vector * k, pairings of cells and nodes (which together
     # uniquely define sub-cells, and thus index for gradients.
-    nk_grad, cell_node_blocks, sub_cell_index = _tensor_vector_prod(g, k, cno,
-                                                                    fno, nno,
-                                                                    subhfno)
+    nk_grad, cell_node_blocks, \
+        sub_cell_index = _tensor_vector_prod(g, k, subcell_topology)
 
     # Distance from cell centers to face centers, this will be the
     # contribution from gradient unknown to equations for pressure continuity
-    pr_cont_grad = fvutils.compute_dist_face_cell(g, cno, fno, nno, subhfno,
-                                                  eta)
-
-    # Make subface indices unique, that is, pair the indices from the two
-    # adjacent cells
-    _, unique_sub_fno = np.unique(subfno, return_index=True)
-
-    # Operator to create the pairing
-    sgn = g.cellFaces[fno, cno].A
-    pair_over_subfaces = sps.coo_matrix((sgn[0], (subfno, subhfno)))
+    pr_cont_grad = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
 
     # Darcy's law
-    darcy = -nk_grad[unique_sub_fno, ::]
+    darcy = -nk_grad[subcell_topology.unique_subfno]
 
     # Pair over subfaces    
-    nk_grad = pair_over_subfaces * nk_grad
-    pr_cont_grad = pair_over_subfaces * pr_cont_grad
+    nk_grad = subcell_topology.pair_over_subfaces(nk_grad)
+    pr_cont_grad = subcell_topology.pair_over_subfaces(pr_cont_grad)
 
     # Contribution from cell center potentials to local systems
     # For pressure continuity, +-1
-    pr_cont_cell = sps.coo_matrix((sgn[0], (subfno, cno))).tocsr()
+    sgn = g.cellFaces[subcell_topology.fno, subcell_topology.cno].A
+    pr_cont_cell = sps.coo_matrix((sgn[0], (subcell_topology.subfno,
+                                            subcell_topology.cno))).tocsr()
     # Zero contribution to flux continuity
     nk_cell = sps.coo_matrix((np.zeros(1), (np.zeros(1), np.zeros(1))),
-                             shape=(np.max(subfno) + 1, np.max(cno) + 1)
+                             shape=(subcell_topology.num_subfno,
+                                    subcell_topology.num_cno)
                              ).tocsr()
 
-    # Reduce topology to one field per subface
-    nno = nno[unique_sub_fno]
-    fno = fno[unique_sub_fno]
-    cno = cno[unique_sub_fno]
-    subfno = subfno[unique_sub_fno]
-    nsubfno = subfno.max() + 1
-
     # Mapping from sub-faces to faces
-    hf2f = sps.coo_matrix((np.ones(unique_sub_fno.size), (fno, subfno)))
+    hf2f = sps.coo_matrix((np.ones(subcell_topology.unique_subfno.size),
+                           (subcell_topology.fno_unique,
+                            subcell_topology.subfno_unique)))
 
     # Update signs
-    sgn = g.cellFaces[fno, cno].A.ravel('F')
+    sgn_unique = g.cellFaces[subcell_topology.fno_unique,
+                             subcell_topology.cno_unique].A.ravel('F')
 
     # Obtain mappings to exclude boundary faces
-    exclude_neumann, exclude_dirichlet = fvutils.exclude_boundary_mappings(fno,
-                                                                    nsubfno,
-                                                                    bnd)
+    exclude_neumann, \
+        exclude_dirichlet = fvutils.exclude_boundary_mappings(subcell_topology,
+                                                              bnd)
 
     # No flux conditions for Dirichlet boundary faces
     nk_grad = exclude_dirichlet * nk_grad
@@ -110,8 +99,8 @@ def mpfa(g, k, bnd, faces=None, eta=0):
 
     # Mappings to convert linear system to block diagonal form
     rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
-        sub_cell_index, cell_node_blocks, nno, exclude_dirichlet,
-        exclude_neumann)
+        sub_cell_index, cell_node_blocks, subcell_topology.nno_unique,
+        exclude_dirichlet, exclude_neumann)
 
     grad_eqs = sps.vstack([nk_grad, pr_cont_grad])
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
@@ -127,7 +116,8 @@ def mpfa(g, k, bnd, faces=None, eta=0):
     ####
     # Boundary conditions
     rhs_bound = _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann,
-                                  fno, subfno, sgn, g, nk_cell.shape[0],
+                                  subcell_topology, sgn_unique, g,
+                                  nk_cell.shape[0],
                                   pr_cont_grad.shape[0])
     # Discretization of boundary values
     bound_flux = hf2f * darcy * igrad * rhs_bound
@@ -135,7 +125,7 @@ def mpfa(g, k, bnd, faces=None, eta=0):
     return flux, bound_flux
 
 
-def _tensor_vector_prod(g, k, cno, fno, nno, subhfno):
+def _tensor_vector_prod(g, k, subcell_topology):
     """
     Compute product of normal vectors and tensors on a sub-cell level.
 
@@ -166,8 +156,8 @@ def _tensor_vector_prod(g, k, cno, fno, nno, subhfno):
     # correspond to a unique rows (Matlab-style) from what I understand.
     # This also means that the pairs in cell_node_blocks uniquely defines
     # subcells, and can be used to index gradients etc.
-    cell_node_blocks, blocksz = matrix_compression.rlencode(np.vstack((cno,
-                                                                       nno)))
+    cell_node_blocks, blocksz = matrix_compression.rlencode(np.vstack((
+        subcell_topology.cno, subcell_topology.nno)))
 
     nd = g.dim
 
@@ -180,13 +170,14 @@ def _tensor_vector_prod(g, k, cno, fno, nno, subhfno):
     # Rows are based on sub-face numbers.
     # Columns have nd elements for each sub-cell (to store a gradient) and
     # is adjusted according to block sizes
-    i, j = np.meshgrid(subhfno, np.arange(nd))
+    i, j = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
     sum_blocksz = np.cumsum(blocksz)
     j += matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
 
     # Distribute faces equally on the sub-faces
     num_nodes = np.diff(g.faceNodes.indptr)
-    normals = g.faceNormals[:, fno] / num_nodes[fno]
+    normals = g.faceNormals[:, subcell_topology.fno] / num_nodes[
+        subcell_topology.fno]
 
     # Represent normals and permeability on matrix form
     normals_mat = sps.coo_matrix((normals.ravel('F'), (i.ravel('F'),
@@ -247,8 +238,8 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
-def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, subfno,
-                      sgn, g, num_flux, num_pr):
+def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann,
+                      subcell_topology, sgn, g, num_flux, num_pr):
     """
     Define rhs matrix to get basis functions for incorporates boundary
     conditions
@@ -269,6 +260,9 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, subfno,
     rhs_bound: Matrix that can be multiplied with inverse block matrix to get
                basis functions for boundary values
     """
+
+    fno = subcell_topology.fno_unique
+
     num_neu = sum(bnd.isNeu[fno])
     num_dir = sum(bnd.isDir[fno])
     num_bound = num_neu + num_dir
@@ -280,7 +274,7 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, subfno,
     # sgn is already defined according to fno, while g.faceAreas is raw data,
     # and therefore needs a combined mapping
     signed_bound_areas = sgn[neu_ind] * g.faceAreas[fno[neu_ind]]\
-                        /num_face_nodes[fno[neu_ind]]
+                        / num_face_nodes[fno[neu_ind]]
     if neu_ind.size > 0:
         neu_cell = sps.coo_matrix((signed_bound_areas.ravel('F'),
                                    (neu_ind, np.arange(neu_ind.size))),
@@ -312,17 +306,19 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, subfno,
         raise ValueError("Boundary values should be either Dirichlet or "
                          "Neumann")
 
-    num_subfno = np.max(subfno) + 1
+    num_subfno = subcell_topology.num_subfno_unique
 
     # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
     # Map these to all half-face indices
     bnd_2_all_hf = sps.coo_matrix((np.ones(num_bound),
-                                      (np.arange(num_bound), neu_dir_ind)),
-                                     shape=(num_bound, num_subfno))
+                                   (np.arange(num_bound), neu_dir_ind)),
+                                  shape=(num_bound, num_subfno))
     # The user of the discretization should now nothing about half faces,
     # thus map from half face to face indices.
-    hf_2_f = sps.coo_matrix((np.ones(subfno.size), (subfno, fno)),
-                                shape=(num_subfno, g.Nf))
+    hf_2_f = sps.coo_matrix((np.ones(subcell_topology.subfno_unique.size),
+                             (subcell_topology.subfno_unique,
+                              subcell_topology.fno_unique)),
+                            shape=(num_subfno, g.Nf))
 
     rhs_bound = -sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
     return rhs_bound
@@ -330,7 +326,7 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann, fno, subfno,
 
 if __name__ == '__main__':
     # Method used for debuging
-    nx = np.array([100, 200])
+    nx = np.array([2, 1])
     g = structured.CartGrid(nx)
     g.computeGeometry()
 

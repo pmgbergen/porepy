@@ -12,21 +12,90 @@ from utils import matrix_compression
 from utils import mcolon
 
 
-def compute_dist_face_cell(g, cno, fno, nno, subhfno, eta):
-    _, blocksz = matrix_compression.rlencode(np.vstack((cno, nno)))
+class SubcellTopology(object):
+
+    def __init__(self, g):
+
+        self.g = g
+        g.cellFaces.sort_indices()
+        face_ind, cell_ind = g.cellFaces.nonzero()
+
+        num_face_nodes = np.diff(g.faceNodes.indptr)
+        cells_duplicated = matrix_compression.rldecode(cell_ind, num_face_nodes[face_ind])
+        faces_duplicated = matrix_compression.rldecode(face_ind, num_face_nodes[face_ind])
+
+        M = sps.coo_matrix((np.ones(face_ind.size), (face_ind, np.arange(face_ind.size))),
+                           shape=(face_ind.max() + 1, face_ind.size))
+        nodes_duplicated = g.faceNodes * M
+        nodes_duplicated = nodes_duplicated.indices
+
+        indptr = g.faceNodes.indptr
+        indices = g.faceNodes.indices
+        data = np.arange(indices.size) + 1
+        sub_face_mat = sps.csc_matrix((data, indices, indptr))
+        sub_faces = sub_face_mat * M
+        sub_faces = sub_faces.data - 1
+
+        # Sort data
+        idx = np.lexsort((sub_faces, faces_duplicated, nodes_duplicated,
+                          cells_duplicated))
+        self.nno = nodes_duplicated[idx]
+        self.cno = cells_duplicated[idx]
+        self.fno = faces_duplicated[idx]
+        self.subfno = sub_faces[idx].astype(int)
+        self.subhfno = np.arange(idx.size, dtype='>i4')
+        self.num_subfno = self.subfno.max() + 1
+        self.num_cno = self.cno.max() + 1
+
+        # Make subface indices unique, that is, pair the indices from the two
+        # adjacent cells
+        _, unique_subfno = np.unique(self.subfno, return_index=True)
+
+        # Reduce topology to one field per subface
+        self.nno_unique = self.nno[unique_subfno]
+        self.fno_unique = self.fno[unique_subfno]
+        self.cno_unique = self.cno[unique_subfno]
+        self.subfno_unique = self.subfno[unique_subfno]
+        self.num_subfno_unique = self.subfno_unique.max() + 1
+        self.unique_subfno = unique_subfno
+
+    def pair_over_subfaces(self, other):
+        # Operator to create the pairing
+        sgn = self.g.cellFaces[self.fno, self.cno].A
+        pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno,
+                                                      self.subhfno)))
+        return pair_over_subfaces * other
+
+    def pair_over_subfaces_nd(self, other):
+        nd = self.g.dim
+        # For force balance, displacements and stresses on the two sides of the
+        # matrices must be paired
+        # Operator to create the pairing
+        sgn = self.g.cellFaces[self.fno, self.cno].A
+        pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno,
+                                                      self.subhfno)))
+        # vector version, to be used on stresses
+        pair_over_subfaces_nd = sps.kron(sps.eye(nd), pair_over_subfaces)
+        return pair_over_subfaces_nd * other
+
+
+def compute_dist_face_cell(g, subcell_topology, eta):
+    _, blocksz = matrix_compression.rlencode(np.vstack((
+        subcell_topology.cno, subcell_topology.nno)))
     dims = g.dim
 
-    i, j = np.meshgrid(subhfno, np.arange(dims))
+    i, j = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
     j += matrix_compression.rldecode(np.cumsum(blocksz)-blocksz[0], blocksz)
     
-    eta_vec = eta*np.ones(fno.size)
+    eta_vec = eta*np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
     bnd = np.argwhere(np.abs(g.cellFaces).sum(axis=1).A.squeeze() 
                             == 1).squeeze()
     eta_vec[bnd] = 0
-    cp = g.faceCenters[:, fno] + eta_vec * (g.nodes[:, nno] -
-                                g.faceCenters[:, fno])
-    dist = cp - g.cellCenters[:, cno]
+    cp = g.faceCenters[:, subcell_topology.fno] + eta_vec * (g.nodes[:,
+                                                             subcell_topology.nno] -
+                                g.faceCenters[:, subcell_topology.fno])
+    dist = cp - g.cellCenters[:, subcell_topology.cno]
     return sps.coo_matrix((dist.ravel(), (i.ravel(), j.ravel()))).tocsr()
 
 
@@ -129,15 +198,15 @@ def vector_divergence(g):
     return block_div.transpose()
 
 
-def exclude_boundary_mappings(fno, nsubfno, bound):
+def exclude_boundary_mappings(subcell_topology, bound):
     """
     Define mappings to exclude boundary faces with dirichlet and neumann
     conditions
 
     Parameters
     ----------
-    fno
-    nsubfno
+    subcell_topology
+    bound
 
     Returns
     -------
@@ -146,17 +215,22 @@ def exclude_boundary_mappings(fno, nsubfno, bound):
     exclude_dirichlet: Matrix, mapping from all faces to those having pressure
                        continuity
     """
+
+    # Short hand notation
+    fno = subcell_topology.fno_unique
+    num_subfno = subcell_topology.num_subfno_unique
+
     # Define mappings to exclude boundary values
     col_neu = np.argwhere([not it for it in bound.isNeu[fno]])
     row_neu = np.arange(col_neu.size)
     exclude_neumann = sps.coo_matrix((np.ones(row_neu.size),
                                       (row_neu, col_neu.ravel(0))),
-                                     shape=(row_neu.size, nsubfno)).tocsr()
+                                     shape=(row_neu.size, num_subfno)).tocsr()
     col_dir = np.argwhere([not it for it in bound.isDir[fno]])
     row_dir = np.arange(col_dir.size)
     exclude_dirichlet = sps.coo_matrix((np.ones(row_dir.size),
                                         (row_dir, col_dir.ravel(0))),
-                                       shape=(row_dir.size, nsubfno)).tocsr()
+                                       shape=(row_dir.size, num_subfno)).tocsr()
     return exclude_neumann, exclude_dirichlet
 
 if __name__ == '__main__':
