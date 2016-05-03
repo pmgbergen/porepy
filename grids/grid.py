@@ -41,7 +41,7 @@ class Grid(object):
         else:
             raise NotImplementedError('3D not handled yet')
 
-    def __compute_geometry_2D(self):
+    def __compute_geometry_2d(self):
 
         xn = self.nodes
 
@@ -59,25 +59,25 @@ class Grid(object):
         self.face_centers = 0.5 * (xe1 + xe2)
         self.face_normals = np.vstack((edge_length_y, -edge_length_x))
 
-        cellFaces, cellno = self.cell_faces.nonzero()
+        cell_faces, cellno = self.cell_faces.nonzero()
 
-        nCellFaces = np.bincount(cellno)
+        num_cell_faces = np.bincount(cellno)
 
-        cx = np.bincount(cellno, weights=self.face_centers[0, cellFaces])
-        cy = np.bincount(cellno, weights=self.face_centers[1, cellFaces])
-        cCenters = np.vstack((cx, cy)) / nCellFaces
+        cx = np.bincount(cellno, weights=self.face_centers[0, cell_faces])
+        cy = np.bincount(cellno, weights=self.face_centers[1, cell_faces])
+        cell_centers = np.vstack((cx, cy)) / num_cell_faces
 
-        a = xe1[:, cellFaces] - cCenters[:, cellno]
-        b = xe2[:, cellFaces] - cCenters[:, cellno]
+        a = xe1[:, cell_faces] - cell_centers[:, cellno]
+        b = xe2[:, cell_faces] - cell_centers[:, cellno]
 
-        subVol = 0.5 * np.abs(a[0] * b[1] - a[1] * b[0])
-        self.cell_volumes = np.bincount(cellno, weights=subVol)
+        sub_volumes = 0.5 * np.abs(a[0] * b[1] - a[1] * b[0])
+        self.cell_volumes = np.bincount(cellno, weights=sub_volumes)
         
-        subCentroid = (cCenters[:, cellno] + 2 *
-                       self.face_centers[:, cellFaces]) / 3
+        sub_centroids = (cell_centers[:, cellno] + 2 *
+                         self.face_centers[:, cell_faces]) / 3
 
-        ccx = np.bincount(cellno, weights=subVol * subCentroid[0])
-        ccy = np.bincount(cellno, weights=subVol * subCentroid[1])
+        ccx = np.bincount(cellno, weights=sub_volumes * sub_centroids[0])
+        ccy = np.bincount(cellno, weights=sub_volumes * sub_centroids[1])
 
         self.cell_centers = np.vstack((ccx, ccy)) / self.cell_volumes
 
@@ -98,7 +98,7 @@ class Grid(object):
         vn = v + nrm(v) * self.face_normals[:, fi[idx]] * 0.001
         flip = np.logical_or(np.logical_and(nrm(v) > nrm(vn), sgn > 0),
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
-        self.face_normals[:, flip] *= -1  # Is it correct not to have fi here?
+        self.face_normals[:, flip] *= -1
 
     def cell_nodes(self):
         mat = (self.face_nodes * np.abs(self.cell_faces) *
