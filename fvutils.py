@@ -7,6 +7,7 @@ Created on Fri Mar  4 09:04:16 2016
 
 import numpy as np
 import scipy.sparse as sps
+import numba
 
 from utils import matrix_compression
 from utils import mcolon
@@ -181,25 +182,145 @@ def compute_dist_face_cell(g, subcell_topology, eta):
         + eta_vec * (g.nodes[:, subcell_topology.nno] -
                       g.faceCenters[:, subcell_topology.fno])
     dist = cp - g.cellCenters[:, subcell_topology.cno]
-    return sps.coo_matrix((dist.ravel(), (i.ravel(), j.ravel()))).tocsr()
+    return sps.coo_matrix((dist.ravel(), (rows.ravel(), cols.ravel()))).tocsr()
 
 
-def invert_diagonal_blocks(A, sz):
-    # TODO: Try using numba on this code
-    v = np.zeros(np.sum(np.square(sz)))
-    p1 = 0
-    p2 = 0
-    for b in range(sz.size):
-        n = sz[b]
-        n2 = n * n
-        i = p1 + np.arange(n+1)
-        vals = A[i[0]:i[-1], i[0]:i[-1]].A
-        v[p2 + np.arange(n2)] = np.linalg.inv(A[i[0]:i[-1], i[0]:i[-1]].A)
-        p1 = p1 + n
-        p2 = p2 + n2
-    iA = block_diag_matrix(v, sz)
-    return iA
+# @profile
+def invert_diagonal_blocks(mat, s, method='numba'):
+    """
+    Invert block diagonal matrix.
 
+    Two implementations are available, either pure numpy, or a speedup using
+    numba. The latter is default.
+
+    Parameters
+    ----------
+    mat: sps.csr matrix to be inverted.
+    s: block size. Must be int64 for the numba acceleration to work
+    method: Choice of method. Either numba (default) or 'python'. If a third
+        option is passed, numba is used.
+
+    Returns
+    -------
+    imat: Inverse matrix
+    """
+
+    def invert_diagonal_blocks_python(a, sz):
+        """
+        Invert block diagonal matrix using pure python code.
+
+        The implementation is slow for large matrices, consider to use the
+        numba-accelerated method invert_invert_diagagonal_blocks_numba instead
+
+        Parameters
+        ----------
+        A sps.crs-matrix, to be inverted
+        sz - size of the individual blocks
+
+        Returns
+        -------
+        inv_a inverse matrix
+        """
+        v = np.zeros(np.sum(np.square(sz)))
+        p1 = 0
+        p2 = 0
+        for b in range(sz.size):
+            n = sz[b]
+            n2 = n * n
+            i = p1 + np.arange(n+1)
+            # Picking out the sub-matrices here takes a lot of time.
+            v[p2 + np.arange(n2)] = np.linalg.inv(a[i[0]:i[-1], i[0]:i[-1]].A)
+            p1 = p1 + n
+            p2 = p2 + n2
+        return v
+
+    def invert_diagonal_blocks_numba(a, size):
+        """
+        Invert block diagonal matrix by invoking numba acceleration of a simple
+        for-loop based algorithm.
+
+        This approach should be more efficient than the related method
+        invert_diagonal_blocks_python for larger problems.
+
+        Parameters
+        ----------
+        a : sps.csr matrix
+        size : Size of individual blocks
+
+        Returns
+        -------
+        ia: inverse of a
+        """
+
+        # Sort matrix storage before pulling indices and data
+        a.sorted_indices()
+        ptr = a.indptr
+        indices = a.indices
+        dat = a.data
+
+        # Just in time compilation
+        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True)
+        def inv_python(indptr, ind, data, sz):
+            """
+            Invert block matrices by explicitly forming local matrices. The code
+            in itself is not efficient, but it is hopefully well suited for
+            speeding up with numba.
+
+            It may be possible to restruct the code to further help numba,
+            this has not been investigated.
+
+            The computation can easily be parallelized, consider this later.
+            """
+            inv_vals = np.zeros(np.sum(np.square(sz)))
+
+            # Bookkeeping
+            num_per_row = indptr[1:] - indptr[0:-1]
+            row_next = 0
+            global_counter = 0
+            block_size_prev = 0
+            next_imat = 0
+
+            # Loop over all blocks
+            for iter1 in range(sz.size):
+                n = sz[iter1]
+                loc_mat = np.zeros((n, n))
+                row_loc = 0
+                # Fill in non-zero elements in local matrix
+                for iter2 in range(n):
+                    for iter3 in range(num_per_row[row_next]):
+                        loc_col = ind[global_counter] - block_size_prev
+                        loc_mat[row_loc, loc_col] = data[global_counter]
+                        global_counter += 1
+                    row_next += 1
+                    row_loc += 1
+
+                # Compute inverse. np.linalg.inv is supported by numba (May
+                # 2016), it is not clear if this is the best option. To be
+                # revised
+                inv_mat = np.linalg.inv(loc_mat).reshape(n**2)
+
+                loc_ind = next_imat + np.arange(n**2)
+                inv_vals[loc_ind] = inv_mat
+                # Update fields
+                next_imat += n**2
+                block_size_prev += n
+            return inv_vals
+
+        v = inv_python(ptr, indices, dat, size)
+        return v
+
+    if method == 'python':
+        inv_vals = invert_diagonal_blocks_python(mat, s)
+    else:
+        inv_vals = invert_diagonal_blocks_numba(mat, s)
+
+    ia = block_diag_matrix(inv_vals, s)
+    return ia
+
+
+def block_diag_matrix(vals, sz):
+    """
+    Construct block diagonal matrix based on matrix elements and block sizes.
 
     Parameters
     ----------

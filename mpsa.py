@@ -115,7 +115,7 @@ def mpsa(g, constit, bound, faces=None, eta=0):
     # Compute inverse gradient operator, and map back again
     igrad = cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
                                                            size_of_blocks) \
-        * rows2blk_diag
+            * rows2blk_diag
 
     # Right hand side for cell center variables
     rhs_cells = -sps.vstack([hook_cell, d_cont_cell])
@@ -624,9 +624,9 @@ def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell,
 
 if __name__ == '__main__':
     # Method used for debuging
-    nx = np.array([2, 1])
+    nx = np.array([30, 30])
     g = structured.CartGrid(nx)
-    g.nodes[0, 4] = 1.
+    # g.nodes[0, 4] = 1.
     g.computeGeometry()
 
     lmbda = np.ones(g.Nc)

@@ -326,7 +326,7 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann,
 
 if __name__ == '__main__':
     # Method used for debuging
-    nx = np.array([2, 1])
+    nx = np.array([330, 330])
     g = structured.CartGrid(nx)
     g.computeGeometry()
 
