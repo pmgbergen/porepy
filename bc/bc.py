@@ -25,21 +25,20 @@ class BoundaryCondition(object):
         
     """
     def __init__(self, g, faces=None, cond=None):
-        
-        
-        self.Nf = g.Nf
+
+        self.num_faces = g.num_faces
         self.dim = g.dim - 1
 
         # Find boundary faces
-        fi, ci = g.cellFaces.nonzero()
+        fi, ci = g.cell_faces.nonzero()
         fcnt = accumarray.accum(fi, np.ones(fi.size))
         bf = np.argwhere(fcnt == 1).ravel()
         
-        self.isbnd = np.zeros(self.Nf, dtype=bool)
-        self.isDir = np.zeros(self.Nf, dtype=bool)
+        self.is_bnd = np.zeros(self.num_faces, dtype=bool)
+        self.is_dir = np.zeros(self.num_faces, dtype=bool)
 
-        self.isbnd[bf] = True
-        self.isNeu = self.isbnd
+        self.is_bnd[bf] = True
+        self.is_neu = self.is_bnd
 
         if faces is not None:
             # Validate arguments
@@ -49,14 +48,13 @@ class BoundaryCondition(object):
             if faces.size != len(cond):
                 raise ValueError('One BC per face')
 
-            
             for l in range(len(cond)):
                 s = cond[l]
                 if s.lower() == 'neu':
                     pass  # Neumann is already default
                 elif s.lower() == 'dir':
-                    self.isDir[faces[l]] = True
-                    self.isNeu[faces[l]] = False
+                    self.is_dir[faces[l]] = True
+                    self.is_neu[faces[l]] = False
                 else:
                     raise ValueError('Boundary should be Dirichlet or Neumann')
                 

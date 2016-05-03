@@ -34,38 +34,43 @@ class TriangleGrid(Grid):
             Tri = scipy.spatial.Delaunay(p)
             T = Tri.simplices
 
-        self.nodes = p.T
-        self.Nn = self.nodes.shape[1]
-        assert self.Nn > 2   # Check of transposes of point array
+        nodes = p.T
+        num_nodes = nodes.shape[1]
+        assert num_nodes > 2   # Check of transposes of point array
 
         # Face node relations
-        faceNodes = np.vstack((T[::, [0, 1]],
+        face_nodes = np.vstack((T[::, [0, 1]],
                                T[::, [1, 2]],
                                T[::, [2, 0]]))
-        faceNodes.sort(axis=1)
-        faceNodes, tmp, cellFaces = setmembership.unique_rows(faceNodes)
+        face_nodes.sort(axis=1)
+        face_nodes, tmp, cell_faces = setmembership.unique_rows(face_nodes)
 
-        self.Nf = faceNodes.shape[0]
-        self.Nc = T.shape[0]
+        num_faces = face_nodes.shape[0]
+        num_cells = T.shape[0]
 
-        nNodesPerFace = 2
-        faceNodes = faceNodes.ravel(0)
-        indptr = np.hstack((np.arange(0, nNodesPerFace*self.Nf, nNodesPerFace),
-                           nNodesPerFace * self.Nf))
-        data = np.ones(faceNodes.shape, dtype=bool)
-        self.faceNodes = sps.csc_matrix((data, faceNodes, indptr),
-                                        shape=(self.Nn, self.Nf))
+        num_nodes_per_face = 2
+        face_nodes = face_nodes.ravel(0)
+        indptr = np.hstack((np.arange(0, num_nodes_per_face * num_faces,
+                                      num_nodes_per_face),
+                            num_nodes_per_face * num_faces))
+        data = np.ones(face_nodes.shape, dtype=bool)
+        face_nodes = sps.csc_matrix((data, face_nodes, indptr),
+                                    shape=(num_nodes, num_faces))
 
         # Cell face relation
-        nFacesPerCell = 3
-        cellFaces = cellFaces.reshape(nFacesPerCell, self.Nc).ravel(1)
-        indptr = np.hstack((np.arange(0, nFacesPerCell*self.Nc, nFacesPerCell),
-                            nFacesPerCell * self.Nc))
-        data = -np.ones(cellFaces.shape)
-        tmp, sgns = np.unique(cellFaces, return_index=True)
+        num_faces_per_cell = 3
+        cell_faces = cell_faces.reshape(num_faces_per_cell, num_cells).ravel(1)
+        indptr = np.hstack((np.arange(0, num_faces_per_cell*num_cells,
+                                      num_faces_per_cell),
+                            num_faces_per_cell * num_cells))
+        data = -np.ones(cell_faces.shape)
+        tmp, sgns = np.unique(cell_faces, return_index=True)
         data[sgns] = 1
-        self.cellFaces = sps.csc_matrix((data, cellFaces, indptr),
-                                        shape=(self.Nf, self.Nc))
+        cell_faces = sps.csc_matrix((data, cell_faces, indptr),
+                                    shape=(num_faces, num_cells))
+
+        super(TriangleGrid, self).__init__(2, nodes, face_nodes, cell_faces,
+                                           'TriangleGrid')
 
     def cell_node_matrix(self):
         """ Get cell-node relations in a Nc x 3 matrix

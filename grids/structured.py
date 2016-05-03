@@ -13,18 +13,21 @@ from core.grids.grid import Grid, GridType
 
 class TensorGrid(Grid):
 
-    def __init__(self, x, y, z=None):
+    def __init__(self, x, y, z=None, name=None):
 
-        if not hasattr(self, 'type'):
-            self.type = GridType.tensor_2D
+        if name is None:
+            name = 'TensorGrid'
 
         if z is None:
-            self._create_2d_grid(x, y)
+            nodes, face_nodes, cell_faces = self._create_2d_grid(x, y)
+            super(TensorGrid, self).__init__(2, nodes, face_nodes,
+                                             cell_faces, name)
         else:
-            self._create_3d_grid(x, y, z)
+            nodes, face_nodes, cell_faces = self._create_3d_grid(x, y, z)
+            super(TensorGrid, self).__init__(3, nodes, face_nodes,
+                                             cell_faces, name)
 
     def _create_2d_grid(self, x, y):
-        self.dim = 2
 
         sx = x.size - 1
         sy = y.size - 1
@@ -35,13 +38,13 @@ class TensorGrid(Grid):
         num_faces_y = sx * (sy + 1)
         num_faces = num_faces_x + num_faces_y
 
-        self.Nc = num_cells
-        self.Nf = num_faces
-        self.Nn = num_nodes
+        num_cells = num_cells
+        num_faces = num_faces
+        num_nodes = num_nodes
 
         x_coord, y_coord = sp.meshgrid(x, y)
 
-        self.nodes = np.vstack((x_coord.flatten(), y_coord.flatten()))
+        nodes = np.vstack((x_coord.flatten(), y_coord.flatten()))
 
         # Face nodes
         node_array = np.arange(0, num_nodes).reshape(sy+1, sx+1)
@@ -59,8 +62,8 @@ class TensorGrid(Grid):
                            num_nodes_per_face * num_faces)
         face_nodes = np.hstack((face_nodes_x, face_nodes_y))
         data = np.ones(face_nodes.shape, dtype=bool)
-        self.faceNodes = sps.csc_matrix((data, face_nodes, indptr),
-                                        shape=(num_nodes, num_faces))
+        face_nodes = sps.csc_matrix((data, face_nodes, indptr),
+                                    shape=(num_nodes, num_faces))
 
         # Cell faces
         face_x = np.arange(num_faces_x).reshape(sy, sx+1)
@@ -81,11 +84,12 @@ class TensorGrid(Grid):
         data = np.vstack((-np.ones(face_west.size), np.ones(face_east.size),
                           -np.ones(face_south.size), np.ones(
             face_north.size))).ravel(order='F')
-        self.cellFaces = sps.csc_matrix((data, cell_faces, indptr),
-                                        shape=(num_faces, num_cells))
+        cell_faces = sps.csc_matrix((data, cell_faces, indptr),
+                                    shape=(num_faces, num_cells))
+        return nodes, face_nodes, cell_faces
 
     def _create_3d_grid(self, x, y, z):
-        self.dim = 3
+        dim = 3
 
         sx = x.size - 1
         sy = y.size - 1
@@ -98,9 +102,9 @@ class TensorGrid(Grid):
         num_faces_z = sx * sy * (sz + 1)
         num_faces = num_faces_x + num_faces_y + num_faces_z
 
-        self.Nc = num_cells
-        self.Nf = num_faces
-        self.Nn = num_nodes
+        num_cells = num_cells
+        num_faces = num_faces
+        num_nodes = num_nodes
 
         x_coord, y_coord, z_coord = np.meshgrid(x, y, z)
         # This rearangement turned out to work. Not the first thing I tried..
@@ -108,7 +112,7 @@ class TensorGrid(Grid):
         y_coord = np.swapaxes(y_coord, 1, 0).ravel(order='F')
         z_coord = np.swapaxes(z_coord, 1, 0).ravel(order='F')
 
-        self.nodes = np.vstack((x_coord, y_coord, z_coord))
+        nodes = np.vstack((x_coord, y_coord, z_coord))
 
         # Face nodes
         node_array = np.arange(num_nodes).reshape(sx + 1, sy + 1, sz + 1,
@@ -145,15 +149,15 @@ class TensorGrid(Grid):
                            num_nodes_per_face * num_faces)
         face_nodes = np.hstack((face_nodes_x, face_nodes_y, face_nodes_z))
         data = np.ones(face_nodes.shape, dtype=bool)
-        self.faceNodes = sps.csc_matrix((data, face_nodes, indptr),
-                                        shape=(num_nodes, num_faces))
+        face_nodes = sps.csc_matrix((data, face_nodes, indptr),
+                                         shape=(num_nodes, num_faces))
 
         # Cell faces
         face_x = np.arange(num_faces_x).reshape(sx + 1, sy, sz, order='F')
         face_y = num_faces_x + np.arange(num_faces_y).reshape(sx, sy + 1,
                                                               sx, order='F')
         face_z = num_faces_x + num_faces_y + \
-                 np.arange(num_faces_y).reshape(sx, sy + 1, sx, order='F')
+                 np.arange(num_faces_y).reshape(sx, sy , sz + 1, order='F')
 
         face_west = face_x[:-1, :, :].ravel(order='F')
         face_east = face_x[1:, :, :].ravel(order='F')
@@ -174,9 +178,9 @@ class TensorGrid(Grid):
                           -np.ones(num_cells), np.ones(num_cells),
                           -np.ones(num_cells), np.ones(num_cells))
                          ).ravel(order='F')
-        self.cellFaces = sps.csc_matrix((data, cell_faces, indptr),
-                                        shape=(num_faces, num_cells))
-
+        cell_faces = sps.csc_matrix((data, cell_faces, indptr),
+                                    shape=(num_faces, num_cells))
+        return nodes, face_nodes, cell_faces
 
 class CartGrid(TensorGrid):
     def __init__(self, nx, physdims=None):
