@@ -123,21 +123,21 @@ class TensorGrid(Grid):
         fn2 = node_array[:, 1:, :-1].ravel(order='F')
         fn3 = node_array[:, 1:, 1:].ravel(order='F')
         fn4 = node_array[:, :-1, 1:].ravel(order='F')
-        face_nodes_x = np.hstack((fn1, fn2, fn3, fn4))
+        face_nodes_x = np.vstack((fn1, fn2, fn3, fn4)).ravel(order='F')
 
         # Define face-node relations for all y-faces
         fn1 = node_array[:-1:, :, :-1].ravel(order='F')
         fn2 = node_array[:-1, :, 1:].ravel(order='F')
         fn3 = node_array[1:, :, 1:].ravel(order='F')
         fn4 = node_array[1:, :, :-1].ravel(order='F')
-        face_nodes_y = np.hstack((fn1, fn2, fn3, fn4))
+        face_nodes_y = np.vstack((fn1, fn2, fn3, fn4)).ravel(order='F')
 
         # Define face-node relations for all y-faces
         fn1 = node_array[:-1:, :-1, :].ravel(order='F')
         fn2 = node_array[1:, :-1, :].ravel(order='F')
         fn3 = node_array[1:, 1:, :].ravel(order='F')
         fn4 = node_array[:-1, 1:, :].ravel(order='F')
-        face_nodes_z = np.hstack((fn1, fn2, fn3, fn4))
+        face_nodes_z = np.vstack((fn1, fn2, fn3, fn4)).ravel(order='F')
 
         # Test
         assert face_nodes_x.size == face_nodes_y.size
@@ -150,7 +150,7 @@ class TensorGrid(Grid):
         face_nodes = np.hstack((face_nodes_x, face_nodes_y, face_nodes_z))
         data = np.ones(face_nodes.shape, dtype=bool)
         face_nodes = sps.csc_matrix((data, face_nodes, indptr),
-                                         shape=(num_nodes, num_faces))
+                                    shape=(num_nodes, num_faces))
 
         # Cell faces
         face_x = np.arange(num_faces_x).reshape(sx + 1, sy, sz, order='F')
@@ -166,9 +166,9 @@ class TensorGrid(Grid):
         face_top = face_z[:, :, :-1].ravel(order='F')
         face_bottom = face_z[:, :, 1:].ravel(order='F')
 
-        cell_faces = np.hstack((face_west, face_east,
+        cell_faces = np.vstack((face_west, face_east,
                                 face_south, face_north, face_top,
-                                face_bottom))
+                                face_bottom)).ravel(order='F')
 
         num_faces_per_cell = 6
         indptr = np.append(np.arange(0, num_faces_per_cell * num_cells,
