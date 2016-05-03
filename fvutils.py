@@ -55,11 +55,11 @@ class SubcellTopology(object):
 
         # Indices of neighboring faces and cells. The indices are sorted to
         # simplify later treatment
-        g.cellFaces.sort_indices()
-        face_ind, cell_ind = g.cellFaces.nonzero()
+        g.cell_faces.sort_indices()
+        face_ind, cell_ind = g.cell_faces.nonzero()
 
         # Number of faces per node
-        num_face_nodes = np.diff(g.faceNodes.indptr)
+        num_face_nodes = np.diff(g.face_nodes.indptr)
 
         # Duplicate cell and face indices, so that they can be matched with
         # the nodes
@@ -70,11 +70,11 @@ class SubcellTopology(object):
         M = sps.coo_matrix((np.ones(face_ind.size),
                             (face_ind, np.arange(face_ind.size))),
                            shape=(face_ind.max() + 1, face_ind.size))
-        nodes_duplicated = g.faceNodes * M
+        nodes_duplicated = g.face_nodes * M
         nodes_duplicated = nodes_duplicated.indices
 
-        face_nodes_indptr = g.faceNodes.indptr
-        face_nodes_indices = g.faceNodes.indices
+        face_nodes_indptr = g.face_nodes.indptr
+        face_nodes_indices = g.face_nodes.indices
         face_nodes_data = np.arange(face_nodes_indices.size) + 1
         sub_face_mat = sps.csc_matrix((face_nodes_data, face_nodes_indices,
                                        face_nodes_indptr))
@@ -125,7 +125,7 @@ class SubcellTopology(object):
         sps.matrix, size (self.subfno_unique.size x something)
         """
 
-        sgn = self.g.cellFaces[self.fno, self.cno].A
+        sgn = self.g.cell_faces[self.fno, self.cno].A
         pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno,
                                                       self.subhfno)))
         return pair_over_subfaces * other
@@ -136,7 +136,7 @@ class SubcellTopology(object):
         # For force balance, displacements and stresses on the two sides of the
         # matrices must be paired
         # Operator to create the pairing
-        sgn = self.g.cellFaces[self.fno, self.cno].A
+        sgn = self.g.cell_faces[self.fno, self.cno].A
         pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno,
                                                       self.subhfno)))
         # vector version, to be used on stresses
@@ -175,13 +175,13 @@ def compute_dist_face_cell(g, subcell_topology, eta):
     
     eta_vec = eta*np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
-    bnd = np.argwhere(np.abs(g.cellFaces).sum(axis=1).A.squeeze() 
+    bnd = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.squeeze()
                             == 1).squeeze()
     eta_vec[bnd] = 0
-    cp = g.faceCenters[:, subcell_topology.fno] \
+    cp = g.face_centers[:, subcell_topology.fno] \
         + eta_vec * (g.nodes[:, subcell_topology.nno] -
-                      g.faceCenters[:, subcell_topology.fno])
-    dist = cp - g.cellCenters[:, subcell_topology.cno]
+                      g.face_centers[:, subcell_topology.fno])
+    dist = cp - g.cell_centers[:, subcell_topology.cno]
     return sps.coo_matrix((dist.ravel(), (rows.ravel(), cols.ravel()))).tocsr()
 
 
@@ -392,7 +392,7 @@ def scalar_divergence(g):
     -------
     divergence operator
     """
-    return g.cellFaces.T
+    return g.cell_faces.T
 
 
 def vector_divergence(g):
@@ -413,7 +413,7 @@ def vector_divergence(g):
     vector_div (sparse csr matrix), dimensions: nd * (num_cells, num_faces)
     """
     # Scalar divergence
-    scalar_div = g.cellFaces
+    scalar_div = g.cell_faces
 
     # Vector extension, convert to coo-format to avoid odd errors when one
     # grid dimension is 1 (this may return a bsr matrix)
@@ -446,12 +446,12 @@ def exclude_boundary_mappings(subcell_topology, bound):
     num_subfno = subcell_topology.num_subfno_unique
 
     # Define mappings to exclude boundary values
-    col_neu = np.argwhere([not it for it in bound.isNeu[fno]])
+    col_neu = np.argwhere([not it for it in bound.is_neu[fno]])
     row_neu = np.arange(col_neu.size)
     exclude_neumann = sps.coo_matrix((np.ones(row_neu.size),
                                       (row_neu, col_neu.ravel(0))),
                                      shape=(row_neu.size, num_subfno)).tocsr()
-    col_dir = np.argwhere([not it for it in bound.isDir[fno]])
+    col_dir = np.argwhere([not it for it in bound.is_dir[fno]])
     row_dir = np.arange(col_dir.size)
     exclude_dirichlet = sps.coo_matrix((np.ones(row_dir.size),
                                         (row_dir, col_dir.ravel(0))),

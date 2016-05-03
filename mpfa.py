@@ -67,7 +67,7 @@ def mpfa(g, k, bnd, faces=None, eta=0):
 
     # Contribution from cell center potentials to local systems
     # For pressure continuity, +-1
-    sgn = g.cellFaces[subcell_topology.fno, subcell_topology.cno].A
+    sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
     pr_cont_cell = sps.coo_matrix((sgn[0], (subcell_topology.subfno,
                                             subcell_topology.cno))).tocsr()
     # Zero contribution to flux continuity
@@ -82,7 +82,7 @@ def mpfa(g, k, bnd, faces=None, eta=0):
                             subcell_topology.subfno_unique)))
 
     # Update signs
-    sgn_unique = g.cellFaces[subcell_topology.fno_unique,
+    sgn_unique = g.cell_faces[subcell_topology.fno_unique,
                              subcell_topology.cno_unique].A.ravel('F')
 
     # Obtain mappings to exclude boundary faces
@@ -175,8 +175,8 @@ def _tensor_vector_prod(g, k, subcell_topology):
     j += matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
 
     # Distribute faces equally on the sub-faces
-    num_nodes = np.diff(g.faceNodes.indptr)
-    normals = g.faceNormals[:, subcell_topology.fno] / num_nodes[
+    num_nodes = np.diff(g.face_nodes.indptr)
+    normals = g.face_normals[:, subcell_topology.fno] / num_nodes[
         subcell_topology.fno]
 
     # Represent normals and permeability on matrix form
@@ -263,17 +263,17 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann,
 
     fno = subcell_topology.fno_unique
 
-    num_neu = sum(bnd.isNeu[fno])
-    num_dir = sum(bnd.isDir[fno])
+    num_neu = sum(bnd.is_neu[fno])
+    num_dir = sum(bnd.is_dir[fno])
     num_bound = num_neu + num_dir
 
     # Neumann boundary conditions
     neu_ind = np.argwhere(exclude_dirichlet *
-                          bnd.isNeu[fno].astype('int64')).ravel('F')
-    num_face_nodes = g.faceNodes.sum(axis=0).A.ravel(1)
+                          bnd.is_neu[fno].astype('int64')).ravel('F')
+    num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(1)
     # sgn is already defined according to fno, while g.faceAreas is raw data,
     # and therefore needs a combined mapping
-    signed_bound_areas = sgn[neu_ind] * g.faceAreas[fno[neu_ind]]\
+    signed_bound_areas = sgn[neu_ind] * g.face_areas[fno[neu_ind]]\
                         / num_face_nodes[fno[neu_ind]]
     if neu_ind.size > 0:
         neu_cell = sps.coo_matrix((signed_bound_areas.ravel('F'),
@@ -286,7 +286,7 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann,
 
     # Dirichlet boundary conditions
     dir_ind = np.argwhere(exclude_neumann *
-                          bnd.isDir[fno].astype('int64')).ravel('F')
+                          bnd.is_dir[fno].astype('int64')).ravel('F')
     if dir_ind.size > 0:
         dir_cell = sps.coo_matrix((sgn[dir_ind], (dir_ind, num_neu +
                                                   np.arange(dir_ind.size))),
@@ -318,7 +318,7 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann,
     hf_2_f = sps.coo_matrix((np.ones(subcell_topology.subfno_unique.size),
                              (subcell_topology.subfno_unique,
                               subcell_topology.fno_unique)),
-                            shape=(num_subfno, g.Nf))
+                            shape=(num_subfno, g.num_faces))
 
     rhs_bound = -sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
     return rhs_bound
@@ -330,7 +330,7 @@ if __name__ == '__main__':
     g = structured.CartGrid(nx)
     g.compute_geometry()
 
-    kxx = np.ones(g.Nc)
+    kxx = np.ones(g.num_cells)
     perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
 
     bound = bc.BoundaryCondition(g)

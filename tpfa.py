@@ -19,15 +19,15 @@ def tpfa(g, k, bc, faces=None):
         faces (np.array, int): Index of faces where TPFA should be applied.
             Currently unused, and defaults to all faces in the grid.
     """
-    fi, ci, sgn = sps.find(g.cellFaces)
+    fi, ci, sgn = sps.find(g.cell_faces)
 
     # Normal vectors and permeability for each face (here and there side)
-    n = g.faceNormals[:, fi]
+    n = g.face_normals[:, fi]
     n *= sgn
     perm = k.perm[::, ::, ci]
 
     # Distance from face center to cell center
-    fc_cc = g.faceCenters[::, fi] - g.cellCenters[::, ci]
+    fc_cc = g.face_centers[::, fi] - g.cell_centers[::, ci]
 
     # Transpose normal vectors to match the shape of K
 
@@ -42,8 +42,7 @@ def tpfa(g, k, bc, faces=None):
 
     # Return horamonic average
     t = 1 / np.bincount(fi, weights=1/t_face)
-    t[bc.isNeu] = 0
+    t[bc.is_neu] = 0
     flux = sps.coo_matrix((t[fi] * sgn, (fi, ci)))
     
     return flux
-    

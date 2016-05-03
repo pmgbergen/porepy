@@ -37,7 +37,7 @@ def mpsa(g, constit, bound, faces=None, eta=0):
     # TODO: Move this to other function
     rows = __expand_indices_nd(subcell_topology.cno, nd)
     cols = np.arange(num_subhfno * nd)
-    sgn = g.cellFaces[subcell_topology.fno, subcell_topology.cno].A
+    sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
     vals = np.tile(sgn, nd)
     div_gradp = sps.coo_matrix((vals[0], (rows, cols)),
                                shape=(subcell_topology.num_cno * nd,
@@ -76,8 +76,8 @@ def mpsa(g, constit, bound, faces=None, eta=0):
     # nsubfno = subfno.max() + 1
 
     # Update signs
-    sgn_unique = g.cellFaces[subcell_topology.fno_unique,
-                             subcell_topology.cno_unique].A.ravel(1)
+    sgn_unique = g.cell_faces[subcell_topology.fno_unique,
+                              subcell_topology.cno_unique].A.ravel(1)
 
     # Obtain mappings to exclude boundary faces
     exclude_neumann, exclude_dirichlet = fvutils.exclude_boundary_mappings(
@@ -217,8 +217,8 @@ def _tensor_vector_prod(g, constit, subcell_topology):
     cn += matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
 
     # Distribute faces equally on the sub-faces, and store in a matrix
-    num_nodes = np.diff(g.faceNodes.indptr)
-    normals = g.faceNormals[:, subcell_topology.fno] / num_nodes[
+    num_nodes = np.diff(g.face_nodes.indptr)
+    normals = g.face_normals[:, subcell_topology.fno] / num_nodes[
         subcell_topology.fno]
     normals_mat = sps.coo_matrix((normals.ravel(1), (rn.ravel('F'),
                                                      cn.ravel('F')))).tocsr()
@@ -255,7 +255,7 @@ def _tensor_vector_prod(g, constit, subcell_topology):
     # Associate a volume with each sub-cell, and a node-volume as the sum of
     # all surrounding sub-cells
     num_cell_nodes = g.num_cell_nodes()
-    cell_vol = g.cellVolumes / num_cell_nodes
+    cell_vol = g.cell_volumes / num_cell_nodes
     node_vol = np.bincount(subcell_topology.nno, weights=cell_vol[
         subcell_topology.cno]) / g.dim
 
@@ -377,8 +377,8 @@ def _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann, fno, subfno,
     """
     nd = g.dim
 
-    num_neu = sum(bound.isNeu[fno]) * nd
-    num_dir = sum(bound.isDir[fno]) * nd
+    num_neu = sum(bound.is_neu[fno]) * nd
+    num_dir = sum(bound.is_dir[fno]) * nd
     num_bound = num_neu + num_dir
 
     # Convenience method for duplicating a list, with a certain increment
@@ -393,7 +393,7 @@ def _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann, fno, subfno,
 
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
-    is_neu = (exclude_dirichlet * bound.isNeu[fno]).astype('int64')
+    is_neu = (exclude_dirichlet * bound.is_neu[fno]).astype('int64')
     neu_ind_single = np.argwhere(is_neu).ravel('F')
     # There are is_neu.size Neumann conditions per dimension
     neu_ind = expand_ind(neu_ind_single, nd, is_neu.size)
@@ -406,9 +406,10 @@ def _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann, fno, subfno,
     # row indices, but with zero increment
     neu_sgn = expand_ind(sgn[neu_ind_single], nd, 0)
     fno_ext = np.tile(fno, nd)
-    num_face_nodes = g.faceNodes.sum(axis=0).A.ravel('F')
+    num_face_nodes = g.face_nodes.sum(axis=0).A.ravel('F')
     # No need to expand areas, this is done implicitly via neu_ind
-    neu_area = g.faceAreas[fno_ext[neu_ind]] / num_face_nodes[fno_ext[neu_ind]]
+    neu_area = g.face_areas[fno_ext[neu_ind]] / num_face_nodes[fno_ext[
+        neu_ind]]
     # Coefficients in the matrix
     neu_val = neu_sgn * neu_area
 
@@ -423,7 +424,7 @@ def _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann, fno, subfno,
         neu_cell = sps.coo_matrix((num_stress, num_bound)).tocsr()
 
     # Dirichlet boundary conditions, procedure is similar to that for Neumann
-    is_dir = exclude_neumann * bound.isDir[fno].astype('int64')
+    is_dir = exclude_neumann * bound.is_dir[fno].astype('int64')
     dir_ind_single = np.argwhere(is_dir).ravel('F')
     dir_ind = expand_ind(dir_ind_single, nd, is_dir.size)
     # The coefficients in the matrix should be duplicated the same way as
@@ -565,7 +566,7 @@ def __cell_variable_contribution(g, subcell_topology):
 
     """
     nd = g.dim
-    sgn = g.cellFaces[subcell_topology.fno, subcell_topology.cno].A
+    sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
     num_subfno = subcell_topology.subfno.max() + 1
 
     # Contribution from cell center potentials to local systems
@@ -629,7 +630,7 @@ if __name__ == '__main__':
     # g.nodes[0, 4] = 1.
     g.compute_geometry()
 
-    lmbda = np.ones(g.Nc)
+    lmbda = np.ones(g.num_cells)
     mu = lmbda
     perm = fourth_order_tensor.FourthOrderTensor(g.dim, mu, lmbda)
 
