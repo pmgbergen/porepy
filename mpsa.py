@@ -627,7 +627,7 @@ if __name__ == '__main__':
     nx = np.array([30, 30])
     g = structured.CartGrid(nx)
     # g.nodes[0, 4] = 1.
-    g.computeGeometry()
+    g.compute_geometry()
 
     lmbda = np.ones(g.Nc)
     mu = lmbda

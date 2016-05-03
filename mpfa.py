@@ -328,7 +328,7 @@ if __name__ == '__main__':
     # Method used for debuging
     nx = np.array([330, 330])
     g = structured.CartGrid(nx)
-    g.computeGeometry()
+    g.compute_geometry()
 
     kxx = np.ones(g.Nc)
     perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
