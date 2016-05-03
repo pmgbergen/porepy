@@ -13,26 +13,70 @@ from utils import mcolon
 
 
 class SubcellTopology(object):
+    """
+    Class to represent data of subcell topology (interaction regions) for
+    mpsa/mpfa.
+
+    Attributes:
+        g - the grid
+
+        Subcell topology, all cells seen apart:
+        nno - node numbers
+        fno - face numbers
+        cno - cell numbers
+        subfno - subface numbers. Has exactly two duplicates for internal faces
+        subhfno - subface numbers. No duplicates
+        num_cno - cno.max() + 1
+        num_subfno - subfno.max() + 1
+
+        Subcell topology, after cells sharing a face have been joined. Use
+        terminology _unique, since subfno is unique after
+        nno_unique - node numbers after pairing sub-faces
+        fno_unique - face numbers after pairing sub-faces
+        cno_unique - cell numbers after pairing sub-faces
+        subfno_unique - subface numbers  after pairing sub-faces
+        unique_subfno - index of those elements in subfno that are included
+            in subfno_unique, that is subfno_unique = subfno[unique_subfno],
+            and similarly cno_unique = cno[subfno_unique] etc.
+        num_subfno_unique = subfno_unique.max() + 1
+
+    """
 
     def __init__(self, g):
+        """
+        Constructor for subcell topology
 
+        Parameters
+        ----------
+        g grid
+        """
         self.g = g
+
+        # Indices of neighboring faces and cells. The indices are sorted to
+        # simplify later treatment
         g.cellFaces.sort_indices()
         face_ind, cell_ind = g.cellFaces.nonzero()
 
+        # Number of faces per node
         num_face_nodes = np.diff(g.faceNodes.indptr)
-        cells_duplicated = matrix_compression.rldecode(cell_ind, num_face_nodes[face_ind])
-        faces_duplicated = matrix_compression.rldecode(face_ind, num_face_nodes[face_ind])
 
-        M = sps.coo_matrix((np.ones(face_ind.size), (face_ind, np.arange(face_ind.size))),
+        # Duplicate cell and face indices, so that they can be matched with
+        # the nodes
+        cells_duplicated = matrix_compression.rldecode(
+            cell_ind, num_face_nodes[face_ind])
+        faces_duplicated = matrix_compression.rldecode(
+            face_ind, num_face_nodes[face_ind])
+        M = sps.coo_matrix((np.ones(face_ind.size),
+                            (face_ind, np.arange(face_ind.size))),
                            shape=(face_ind.max() + 1, face_ind.size))
         nodes_duplicated = g.faceNodes * M
         nodes_duplicated = nodes_duplicated.indices
 
-        indptr = g.faceNodes.indptr
-        indices = g.faceNodes.indices
-        data = np.arange(indices.size) + 1
-        sub_face_mat = sps.csc_matrix((data, indices, indptr))
+        face_nodes_indptr = g.faceNodes.indptr
+        face_nodes_indices = g.faceNodes.indices
+        face_nodes_data = np.arange(face_nodes_indices.size) + 1
+        sub_face_mat = sps.csc_matrix((face_nodes_data, face_nodes_indices,
+                                       face_nodes_indptr))
         sub_faces = sub_face_mat * M
         sub_faces = sub_faces.data - 1
 
@@ -60,13 +104,33 @@ class SubcellTopology(object):
         self.unique_subfno = unique_subfno
 
     def pair_over_subfaces(self, other):
-        # Operator to create the pairing
+        """
+        Transfer quantities from a cell-face base (cells sharing a face have
+        their own expressions) to a face-based. The quantities should live
+        on sub-faces (not faces)
+
+        The normal vector is honored, so that the here and there side get
+        different signs when paired up.
+
+        The method is intended used for combining forces, fluxes,
+        displacements and pressures, as used in MPSA / MPFA.
+
+        Parameters
+        ----------
+        other: sps.matrix, size (self.subhfno.size x something)
+
+        Returns
+        -------
+        sps.matrix, size (self.subfno_unique.size x something)
+        """
+
         sgn = self.g.cellFaces[self.fno, self.cno].A
         pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno,
                                                       self.subhfno)))
         return pair_over_subfaces * other
 
     def pair_over_subfaces_nd(self, other):
+        """ nd-version of pair_over_subfaces, see above. """
         nd = self.g.dim
         # For force balance, displacements and stresses on the two sides of the
         # matrices must be paired
@@ -80,21 +144,42 @@ class SubcellTopology(object):
 
 
 def compute_dist_face_cell(g, subcell_topology, eta):
+    """
+    Compute vectors from cell centers continuity points on each sub-face.
+
+    The location of the continuity point is given by
+
+        x_cp = (1-eta) * x_facecenter + eta * x_vertex
+
+    On the boundary, eta is set to zero, thus the continuity point is at the
+    face center
+
+    Parameters
+    ----------
+    g: Grid
+    subcell_topology: Of class subcell topology in this module
+    eta: [0,1), eta = 0 gives cont. pt. at face midpoint, eta = 1 means at
+    the vertex
+
+    Returns
+    -------
+    sps.csr() matrix representation of vectors. Size g.nf x (g.nc * g.nd)
+    """
     _, blocksz = matrix_compression.rlencode(np.vstack((
         subcell_topology.cno, subcell_topology.nno)))
     dims = g.dim
 
-    i, j = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
-    j += matrix_compression.rldecode(np.cumsum(blocksz)-blocksz[0], blocksz)
+    rows, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
+    cols += matrix_compression.rldecode(np.cumsum(blocksz)-blocksz[0], blocksz)
     
     eta_vec = eta*np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
     bnd = np.argwhere(np.abs(g.cellFaces).sum(axis=1).A.squeeze() 
                             == 1).squeeze()
     eta_vec[bnd] = 0
-    cp = g.faceCenters[:, subcell_topology.fno] + eta_vec * (g.nodes[:,
-                                                             subcell_topology.nno] -
-                                g.faceCenters[:, subcell_topology.fno])
+    cp = g.faceCenters[:, subcell_topology.fno] \
+        + eta_vec * (g.nodes[:, subcell_topology.nno] -
+                      g.faceCenters[:, subcell_topology.fno])
     dist = cp - g.cellCenters[:, subcell_topology.cno]
     return sps.coo_matrix((dist.ravel(), (i.ravel(), j.ravel()))).tocsr()
 
@@ -116,13 +201,27 @@ def invert_diagonal_blocks(A, sz):
     return iA
 
 
-def block_diag_matrix(v, sz):
-    i, j = block_diag_index(sz)
-    return sps.coo_matrix((v, (j, i))).tocsr()
+    Parameters
+    ----------
+    vals: matrix values
+    sz: size of matrix blocks
+
+    Returns
+    -------
+    sps.csr matrix
+    """
+    row, col = block_diag_index(sz)
+    # TODO: Removed a bug by changing col and row here. Check this..
+    return sps.coo_matrix((vals, (col, row))).tocsr()
 
 
 def block_diag_index(m, n=None):
     """
+    Get row and column indices for block diagonal matrix
+
+    This is intended as the equivalent of the corresponding method in MRST.
+
+    Examples:
     >>> m = np.array([2, 3])
     >>> n = np.array([1, 2])
     >>> i, j = block_diag_index(m, n)
@@ -132,6 +231,11 @@ def block_diag_index(m, n=None):
     >>> i, j = block_diag_index(a)
     >>> i, j
     (array([0, 1, 2, 3, 1, 2, 3, 1, 2, 3]), array([0, 1, 1, 1, 2, 2, 2, 3, 3, 3]))
+
+    Parameters:
+        m - ndarray, dimension 1
+        n - ndarray, dimension 1, defaults to m
+
     """
     if n is None:
         n = m
