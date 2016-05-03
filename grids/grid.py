@@ -31,13 +31,13 @@ class Grid(object):
         self.cells = cells
         self.name = 'Hei'
 
-    def computeGeometry(self):
+    def compute_geometry(self):
         if self.dim == 2:
-            self.computeGeometry2D()
+            self.__compute_geometry_2D()
         else:
             raise NotImplementedError('3D not handled yet')
 
-    def computeGeometry2D(self):
+    def __compute_geometry_2D(self):
 
         xn = self.nodes
 
@@ -48,12 +48,12 @@ class Grid(object):
         xe1 = xn[:, edge1]
         xe2 = xn[:, edge2]
 
-        edgeLengthX = xe2[0] - xe1[0]
-        edgeLengthY = xe2[1] - xe1[1]
-        self.faceAreas = np.sqrt(np.power(edgeLengthX, 2) +
-                                 np.power(edgeLengthY, 2))
+        edge_length_x = xe2[0] - xe1[0]
+        edge_length_y = xe2[1] - xe1[1]
+        self.faceAreas = np.sqrt(np.power(edge_length_x, 2) +
+                                 np.power(edge_length_y, 2))
         self.faceCenters = 0.5 * (xe1 + xe2)
-        self.faceNormals = np.vstack((edgeLengthY, -edgeLengthX))
+        self.faceNormals = np.vstack((edge_length_y, -edge_length_x))
 
         cellFaces, cellno = self.cellFaces.nonzero()
 
