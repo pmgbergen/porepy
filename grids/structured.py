@@ -12,9 +12,26 @@ from core.grids.grid import Grid, GridType
 
 
 class TensorGrid(Grid):
+    """Representation of grid formed by a tensor product of line point
+    distributions.
+
+    See documentation of Grid for further details
+    """
 
     def __init__(self, x, y, z=None, name=None):
+        """
+        Constructor for 2D or 3D tensor grid
 
+        The resulting grid is 2D or 3D, depending of the number of
+        coordinate lines are provided
+
+        Parameters
+            x (np.ndarray): Node coordinates in x-direction
+            y (np.ndarray): Node coordinates in y-direction
+            z (np.ndarray): Node coordinates in z-direction. Defaults to
+                None, in which case the grid is 2D.
+            name (str): Name of grid, passed to super constructor
+        """
         if name is None:
             name = 'TensorGrid'
 
@@ -28,6 +45,13 @@ class TensorGrid(Grid):
                                              cell_faces, name)
 
     def _create_2d_grid(self, x, y):
+        """
+        Compute grid topology for 2D grids.
+
+        This is really a part of the constructor, but put it here to improve
+        readability. Not sure if that is the right choice..
+
+        """
 
         sx = x.size - 1
         sy = y.size - 1
@@ -89,7 +113,6 @@ class TensorGrid(Grid):
         return nodes, face_nodes, cell_faces
 
     def _create_3d_grid(self, x, y, z):
-        dim = 3
 
         sx = x.size - 1
         sy = y.size - 1
@@ -118,7 +141,9 @@ class TensorGrid(Grid):
         node_array = np.arange(num_nodes).reshape(sx + 1, sy + 1, sz + 1,
                                                   order='F')
 
-        # Define face-node relations for all x-faces
+        # Define face-node relations for all x-faces.
+        # The code here is a bit different from the corresponding part in
+        # 2d, I did learn some tricks in python the past month
         fn1 = node_array[:, :-1, :-1].ravel(order='F')
         fn2 = node_array[:, 1:, :-1].ravel(order='F')
         fn3 = node_array[:, 1:, 1:].ravel(order='F')
@@ -182,16 +207,33 @@ class TensorGrid(Grid):
                                     shape=(num_faces, num_cells))
         return nodes, face_nodes, cell_faces
 
-class CartGrid(TensorGrid):
-    def __init__(self, nx, physdims=None):
 
-        self.type = GridType.cartesian_2D
+class CartGrid(TensorGrid):
+    """Representation of a 2D or 3D Cartesian grid.
+
+    See main Grid class for further explanation.
+    """
+
+    def __init__(self, nx, physdims=None):
+        """
+        Constructor for Cartesian grid
+
+        Parameters
+        ----------
+        nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
+        physdims (np.ndarray): Physical dimensions in each direction.
+            Defaults to same as nx, that is, cells of unit size.
+        """
 
         if physdims is None:
             physdims = nx
 
         dims = nx.shape
+
+        # Create point distribution, and then leave construction to
+        # TensorGrid constructor
         if dims[0] == 1:
+            # This may actually work, but hasn't been tried
             raise NotImplementedError('only 2D and 3D supported for now')
         elif dims[0] == 2:
             x = np.linspace(0, physdims[0], nx[0]+1)
