@@ -23,25 +23,89 @@ class GridType(Enum):
 
 
 class Grid(object):
+    """
+    Parent class for all grids.
+
+    The grid stores topological information, as well as geometric
+    information (after a call to self.compute_geometry().
+
+    As of yet, there is no structure for tags (face or cell) is the grid.
+    This will be introduced later.
+
+    Attributes:
+        Comes in two classes. Topologogical information, defined at
+        construction time:
+
+        dim (int): dimension. Should be 2 or 3
+        nodes (np.ndarray): node coordinates. size: dim x num_nodes
+        face_nodes (sps.csc-matrix): Face-node relationships. Matrix size:
+            num_faces x num_cells.
+        cell_faces (sps.csc-matrix): Cell-face relationships. Matrix size:
+            num_faces x num_cells. Matrix elements have value +-1, where +
+            corresponds to the face normal vector being outwards.
+        name (str): Placeholder field to give information on the grid. Will
+            be changed to something meaningful in the future
+        num_nodes (int): Number of nodes in the grid
+        num_faces (int): Number of faces in the grid
+        num_cells (int): Number of cells in the grid
+
+        ---
+        Geometric information, available after compute_geometry() has been
+        called on the object:
+
+        face_areas (np.ndarray): Areas of all faces
+        face_centers (np.ndarray): Centers of all faces. Dimensions dim x
+            num_faces
+        face_normals (np.ndarray): Normal vectors of all faces. Dimensions
+            dim x num_faces. See also cell_faces.
+        cell_centers (np.ndarray): Centers of all cells. Dimensions dim x
+            num_cells
+        cell_volumes (np.ndarray): Volumes of all cells
+
+    """
 
     def __init__(self, dim, nodes, face_nodes, cell_faces, name):
+        """Initialize the grid
+
+        See class documentation for further description of parameters.
+
+        Parameters
+        ----------
+        dim (int): grid dimension
+        nodes (np.ndarray): node coordinates.
+        face_nodes (sps.csc_matrix): Face-node relations.
+        cell_faces (sps.csc_matrix): Cell-face relations
+        name (str): Name of grid
+        """
         self.dim = dim
         self.nodes = nodes
         self.cell_faces = cell_faces
         self.face_nodes = face_nodes
         self.name = name
 
+        # Infer bookkeeping from size of parameters
         self.num_nodes = nodes.shape[1]
         self.num_faces = face_nodes.shape[1]
         self.num_cells = cell_faces.shape[1]
 
     def compute_geometry(self):
+        """Compute geometric quantities for the grid.
+
+        This method initializes class variables describing the grid
+        geometry, see class documentation for details.
+
+        The method could have been called from the constructor, however,
+        in cases where the grid is modified after the initial construction (
+        say, grid refinement), this may lead to costly, unnecessary
+        computations.
+        """
         if self.dim == 2:
-            self.__compute_geometry_2D()
+            self.__compute_geometry_2d()
         else:
             raise NotImplementedError('3D not handled yet')
 
     def __compute_geometry_2d(self):
+        "Compute 2D geometry, with method motivated by similar MRST function"
 
         xn = self.nodes
 
