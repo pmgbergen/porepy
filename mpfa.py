@@ -15,7 +15,7 @@ from core.constit import second_order_tensor
 from core.bc import bc
 
 
-def mpfa(g, k, bnd, faces=None, eta=0):
+def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
     """
     MPFA discretization
 
@@ -106,7 +106,8 @@ def mpfa(g, k, bnd, faces=None, eta=0):
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
 
     igrad = cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
-                                                           size_of_blocks) \
+                                                           size_of_blocks,
+                                                           method=inverter) \
                           * rows2blk_diag
 
     rhs_cells = -sps.vstack([nk_cell, pr_cont_cell])

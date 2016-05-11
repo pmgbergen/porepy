@@ -8,7 +8,7 @@ from core.constit import fourth_order_tensor
 from core.bc import bc
 
 
-def mpsa(g, constit, bound, faces=None, eta=0):
+def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     nd = g.dim
 
@@ -114,7 +114,8 @@ def mpsa(g, constit, bound, faces=None, eta=0):
 
     # Compute inverse gradient operator, and map back again
     igrad = cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
-                                                           size_of_blocks) \
+                                                           size_of_blocks,
+                                                           method=inverter) \
             * rows2blk_diag
 
     # Right hand side for cell center variables
