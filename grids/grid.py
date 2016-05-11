@@ -230,7 +230,9 @@ class Grid(object):
         sub_centroids = (xn[:, face_nodes] + xn[:, face_nodes[next_node]]
                          + tmp_face_center.transpose()) / 3
         # Face normals are given as the sum of the sub-components
-        face_normals = edge_2_face.transpose() * sub_normals.transpose()
+        face_normals = (edge_2_face.transpose() * sub_normals.transpose()).transpose()
+        face_normals = sub_normals * edge_2_face
+        # face_normals = sub_normals * edge_2_face
         # Similar with face areas
         face_areas = edge_2_face.transpose() * sub_areas
 
@@ -240,7 +242,7 @@ class Grid(object):
         # assert np.isclose(nrm(face_normals), face_areas).all()
 
         sub_normals_sign = np.sign(np.sum(sub_normals * (edge_2_face *
-                                       face_normals).transpose(), axis=0))
+                                       face_normals.transpose()).transpose(), axis=0))
 
         # Finally, face centers are the area weighted means of centroids of
         # the sub-faces
