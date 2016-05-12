@@ -170,7 +170,11 @@ class Grid(object):
         """
         Helper function to compute geometry for 3D grids
 
-        The implementation is motivated by the similar MRST function
+        The implementation is motivated by the similar MRST function.
+
+        NOTE: The function is very long, and could have been broken up into
+        parts (face and cell computations are an obvious solution).
+
         """
         print('Not finished yet. Use with caution')
         xn = self.nodes
@@ -179,7 +183,11 @@ class Grid(object):
 
         num_nodes_per_face = face_node_ptr[1:] - face_node_ptr[:-1]
 
+        # Face-node relationships. Note that the elements here will also
+        # serve as a representation of an edge along the face (face_nodes[i]
+        #  represents the edge running from face_nodes[i] to face_nodes[i+1])
         face_nodes = self.face_nodes.indices
+        # For each node, index of its parent face
         face_node_ind = matrix_compression.rldecode(np.arange(
             self.num_faces), num_nodes_per_face)
 
@@ -219,30 +227,29 @@ class Grid(object):
         def nrm(v):
             return np.sqrt(np.sum(v*v, axis=0))
 
-        # Calculate area of sub-face associated with each edge
+        # Calculate area of sub-face associated with each edge - note that
+        # the sub-normals are area weighted
         sub_areas = nrm(sub_normals)
-        assert np.all(sub_areas > 0)  # This really cannot fail because of
-        # properties of the norm
 
         # Centers of sub-faces are given by the centroid coordinates,
         # e.g. the mean coordinate of the edge endpoints and the temporary
         # face center
         sub_centroids = (xn[:, face_nodes] + xn[:, face_nodes[next_node]]
                          + tmp_face_center.transpose()) / 3
+
         # Face normals are given as the sum of the sub-components
-        face_normals = (edge_2_face.transpose() * sub_normals.transpose()).transpose()
         face_normals = sub_normals * edge_2_face
-        # face_normals = sub_normals * edge_2_face
         # Similar with face areas
         face_areas = edge_2_face.transpose() * sub_areas
 
-        # Consistency check - this will only work if all sub-normals are
-        # pointing in the same direction, but this they should. Maybe this
-        # is a test of the ordering of the nodes in face_nodes?
-        # assert np.isclose(nrm(face_normals), face_areas).all()
-
+        # Test whether the sub-normals are pointing in the same direction as
+        # the main normal: Distribute the main normal onto the edges,
+        # and take scalar product by element-wise multiplication with
+        # sub-normals, and sum over the components (axis=0).
+        # NOTE: There should be a built-in function for this in numpy?
         sub_normals_sign = np.sign(np.sum(sub_normals * (edge_2_face *
-                                       face_normals.transpose()).transpose(), axis=0))
+                                          face_normals.transpose()).transpose(),
+                                          axis=0))
 
         # Finally, face centers are the area weighted means of centroids of
         # the sub-faces
@@ -254,108 +261,47 @@ class Grid(object):
         self.face_areas = face_areas
 
         # Cells
-        cell_volumes = np.zeros(self.num_cells)
-        cell_centers = np.zeros((self.dim, self.num_cells))
-
-        num_edges = edge_2_face.shape[0]
-        cell_face_mat = np.abs(self.cell_faces)
-        faceptr = self.cell_faces.indptr
-        cell_faces = self.cell_faces.indices
-        num_cell_faces = faceptr[1:] - faceptr[:-1]
 
         # Temporary cell center coordinates as the mean of the face center
         # coordinates. The cells are divided into sub-tetrahedra (
         # corresponding to triangular sub-faces above), with the temporary
         # cell center as the final node
-        tmp_cell_centers = (face_centers * cell_face_mat) / num_cell_faces
 
-        def vec_2_diag_mat(vec):
-            num_elem = vec.shape[0]
-            return sps.dia_matrix((vec, 0), shape=(num_elem, num_elem))
+        # Mapping from edges to cells. Take absolute value of cell_faces,
+        # since the elementsn are signed (contains the divergence)
+        # Note that edge_2_cell will cotain more elements than edge_2_face,
+        # since the former will count internal faces twice (one for each
+        # adjacent cell)
+        edge_2_cell = edge_2_face * np.abs(self.cell_faces)
+        # Sort indices to avoid messing up the mappingsn later
+        edge_2_cell.sort_indices()
 
-        # Vectors from
-        cx_edge = edge_2_face * cell_face_mat * \
-            sps.dia_matrix((tmp_cell_centers[0], 0),
-                           shape=(self.num_cells, self.num_cells))
-        cy_edge = edge_2_face * cell_face_mat * \
-            sps.dia_matrix((tmp_cell_centers[1], 0),
-                           shape=(self.num_cells, self.num_cells))
-        cz_edge = edge_2_face * cell_face_mat * \
-            sps.dia_matrix((tmp_cell_centers[2], 0),
-                           shape=(self.num_cells, self.num_cells))
+        # Obtain relations between edges, faces and cells, in the form of
+        # index lists. Each element in the list corresponds to an edge seen
+        # from a cell (e.g. edges on internal faces are seen twice).
 
-        edge_2_cell = edge_2_face * cell_face_mat
-
-        sub_centroids_cellwise_x = edge_2_cell.transpose() * \
-            sps.dia_matrix((sub_centroids[0], 0), shape=(num_edges, num_edges))
-        sub_centroids_cellwise_y = edge_2_cell.transpose() * \
-            sps.dia_matrix((sub_centroids[1], 0), shape=(num_edges, num_edges))
-        sub_centroids_cellwise_z = edge_2_cell.transpose() * \
-            sps.dia_matrix((sub_centroids[2], 0), shape=(num_edges, num_edges))
-
-        orient = edge_2_face * self.cell_faces * vec_2_diag_mat(np.ones(
-            self.num_cells))
-        # Something is wrong with orientation - Sunday night
-        orientation = edge_2_face * self.cell_faces * np.ones(self.num_cells)
-            # sps.dia_matrix((np.ones(self.num_cells), 0),
-            #                shape=(self.num_cells, self.num_cells))
-        outer_normals_x = sub_normals[0] * orientation
-        outer_normals_y = sub_normals[1] * orientation
-        outer_normals_z = sub_normals[2] * orientation
-
-        on_x = orient.transpose() * vec_2_diag_mat(sub_normals[0])
-        on_y = orient.transpose() * vec_2_diag_mat(sub_normals[1])
-        on_z = orient.transpose() * vec_2_diag_mat(sub_normals[2])
-
-
-
-
-        cell_center_2_edge_x = sub_centroids_cellwise_x.transpose() - cx_edge
-        cell_center_2_edge_y = sub_centroids_cellwise_y.transpose() - cy_edge
-        cell_center_2_edge_z = sub_centroids_cellwise_z.transpose() - cz_edge
-
-        tvx = on_x * cell_center_2_edge_x
-        tvy = on_y * cell_center_2_edge_y
-        tvz = on_z * cell_center_2_edge_z
-
-        tet_volumes = (cell_center_2_edge_x.transpose() * outer_normals_x
-                       + cell_center_2_edge_y.transpose() * outer_normals_y
-                       + cell_center_2_edge_z.transpose() * outer_normals_z
-                       ) / 3
-        tet_centers = 3/4 * np.vstack((cell_center_2_edge_x.sum(axis=1),
-                                       cell_center_2_edge_y.sum(axis=1),
-                                       cell_center_2_edge_z.sum(axis=1)
-                                       ))
-
-        # Accumulate edge quantities to faces by np.bincount,
-        # using edge_2_mat.indices as weights, but not sure if we should
-        # sort them first
-
-
-        # dist_subcentroid_tmpcc_x = edge_cell_mask.multiply((tmp_cell_centers[
-        #                                                       0] - cx_edge))
-        # dist_subcentroid_tmpcc_y = edge_cell_mask.multiply((tmp_cell_centers[
-        #                                                       1] - cy_edge))
-        # dist_subcentroid_tmpcc_z = edge_cell_mask.multiply((tmp_cell_centers[
-        #                                                       2] - cz_edge))
-        # dist_subcentroid_tmpcc_y = tmp_cell_centers[1] - cy_edge
-        # dist_subcentroid_tmpcc_z = tmp_cell_centers[2] - cz_edge
-
-        e2c = edge_2_cell * vec_2_diag_mat(np.ones(self.num_cells))
-
+        # Cell numbers are obtained from the columns in edge_2_cell.
         cell_numbers = matrix_compression.rldecode(np.arange(self.num_cells),
-                                                   np.diff(e2c.indptr))
-        edge_numbers = e2c.indices
+                                                   np.diff(edge_2_cell.indptr))
+        # Edge numbers from the rows. Here it is crucial that the indices
+        # are sorted
+        edge_numbers = edge_2_cell.indices
+        # Face numbers are obtained from the face-node relations (with the
+        # nodes doubling as representation of edges)
         face_numbers = face_node_ind[edge_numbers]
 
+        # Number of edges per cell
         num_cell_edges = edge_2_cell.indptr[1:] - edge_2_cell.indptr[:-1]
 
-        def bincount_nd(arr, weights=None):
+        def bincount_nd(arr, weights):
+            """ Utility function to sum vector quantities by np.bincount. We
+            could probably have used np.apply_along_axis, but I could not
+            make it work.
+
+            Intended use: Map sub-cell centroids to a quantity for the cell.
+            """
             dim = weights.shape[0]
             sz = arr.max() + 1
-
-            if weights is None:
-                weights = np.ones((dim, arr.shape[1]))
 
             count = np.zeros((dim, sz))
             for iter1 in range(dim):
@@ -363,33 +309,48 @@ class Grid(object):
                                            minlength=sz)
             return count
 
+        # First estimate of cell centers as the mean of its faces' centers
+        # Divide by num_cell_edges here since all edges bring in their faces
         tmp_cell_centers = bincount_nd(cell_numbers,
-                                       weights=face_centers[:, face_numbers]
-                                               / num_cell_edges[cell_numbers])
+                                       face_centers[:, face_numbers]
+                                       / num_cell_edges[cell_numbers])
 
-        dist_cell_edge = sub_centroids[:, edge_numbers] - \
-                         tmp_cell_centers[:, cell_numbers]
+        # Distance from the temporary cell center to the sub-centroids (of
+        # the tetrahedra associated with each edge)
+        dist_cellcenter_subface = sub_centroids[:, edge_numbers] \
+                                  - tmp_cell_centers[:, cell_numbers]
 
-        orientation = self.cell_faces[face_numbers, cell_numbers].A
+        # Get sign of normal vectors, seen from all faces.
+        # Make sure we get a numpy ndarray, and not a matrix (.A), and that
+        # the array is 1D (squeeze)
+        orientation = np.squeeze(self.cell_faces[face_numbers, cell_numbers].A)
 
-        outer_normals = sub_normals[:, edge_numbers] * \
-            np.squeeze(orientation * sub_normals_sign[edge_numbers])
+        # Get outwards pointing sub-normals for all sub-faces: We need to
+        # account for both the orientation of the face, and the orientation
+        # of sub-faces relative to faces.
+        outer_normals = sub_normals[:, edge_numbers] \
+                        * orientation * sub_normals_sign[edge_numbers]
 
-        tri_volumes = np.sum(dist_cell_edge * outer_normals, axis=0) / 3
-        assert np.all(tri_volumes > 0)
-        cell_volumes = np.bincount(cell_numbers, weights=tri_volumes)
-        tri_centroids = 3 / 4 * dist_cell_edge
+        # Volumes of tetrahedra are now given by the dot product between the
+        #  outer normal (which is area weighted, and thus represent the base
+        #  of the tet), with the distancance from temporary cell center (the
+        # dot product gives the hight).
+        tet_volumes = np.sum(dist_cellcenter_subface * outer_normals,
+                             axis=0) / 3
+        assert np.all(tet_volumes > 0)  # On the fly test
+        # The cell volumes are now found by summing sub-tetrahedra
+        cell_volumes = np.bincount(cell_numbers, weights=tet_volumes)
+        tri_centroids = 3 / 4 * dist_cellcenter_subface
 
-        rel_centroid = bincount_nd(cell_numbers,
-                                   weights=tri_volumes * tri_centroids) / \
-                       cell_volumes
+        # Compute a correction to the temporary cell center, by a volume
+        # weighted sum of the sub-tetrahedra
+        rel_centroid = bincount_nd(cell_numbers, tet_volumes * tri_centroids) \
+                       / cell_volumes
         cell_centers = tmp_cell_centers + rel_centroid
 
+        # ... and we're done
         self.cell_centers = cell_centers
         self.cell_volumes = cell_volumes
-
-        a = 2
-
 
     def cell_nodes(self):
         mat = (self.face_nodes * np.abs(self.cell_faces) *
