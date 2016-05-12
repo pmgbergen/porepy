@@ -16,7 +16,23 @@ from utils import accumarray
 
 class TriangleGrid(Grid):
 
-    def __init__(self, p, T=None):
+    def __init__(self, p, tri=None):
+        """
+        Create triangular grid from point cloud.
+
+        If no triangulation is provided, Delaunay will be applied.
+
+        Examples:
+        >>> p = np.random.rand(2, 10)
+        >>> tri = scipy.spatial.Delaunay(p.transpose()).simplices
+        >>> g = TriangleGrid(p, tri.transpose())
+
+        Parameters
+        ----------
+        p (np.ndarray, 2 x num_nodes): Point coordinates
+        tri (np.ndarray, 3 x num_cells): Cell-node connections. If not
+        provided, a Delaunay triangulation will be applied
+        """
 
         self.dim = 2
         self.type = GridType.triangle
@@ -24,29 +40,28 @@ class TriangleGrid(Grid):
         # Transform points to column vector if necessary (scipy.Delaunay
         # requires this format)
         pdims = p.shape
-        if pdims[0] < pdims[1]:
-            p = p.T
 
-        if p.shape[1] != 2:
+        if p.shape[0] != 2:
             raise NotImplementedError("Have not yet implemented triangle grids "
                                       "embeded in 2D")
-        if T is None:
-            Tri = scipy.spatial.Delaunay(p)
-            T = Tri.simplices
+        if tri is None:
+            tri = scipy.spatial.Delaunay(p.transpose())
+            tri = tri.simplices
+            tri = tri.transpose()
 
-        nodes = p.T
+        nodes = p
         num_nodes = nodes.shape[1]
         assert num_nodes > 2   # Check of transposes of point array
 
         # Face node relations
-        face_nodes = np.vstack((T[::, [0, 1]],
-                               T[::, [1, 2]],
-                               T[::, [2, 0]]))
+        face_nodes = np.hstack((tri[[0, 1]],
+                                tri[[1, 2]],
+                                tri[[2, 0]])).transpose()
         face_nodes.sort(axis=1)
         face_nodes, tmp, cell_faces = setmembership.unique_rows(face_nodes)
 
         num_faces = face_nodes.shape[0]
-        num_cells = T.shape[0]
+        num_cells = tri.shape[1]
 
         num_nodes_per_face = 2
         face_nodes = face_nodes.ravel(0)
@@ -78,7 +93,8 @@ class TriangleGrid(Grid):
         """
 
         # Absolute value needed since cellFaces can be negative
-        cn = self.faceNodes * np.abs(self.cellFaces) * sps.eye(self.Nc)
+        cn = self.face_nodes * np.abs(self.cell_faces) \
+             * sps.eye(self.num_cells)
         row, col = cn.nonzero()
         scol = np.argsort(col)
 
@@ -86,6 +102,6 @@ class TriangleGrid(Grid):
         assert np.all(accumarray.accum(col, np.ones(col.size)) ==
                       (self.dim + 1))
 
-        return row[scol].reshape(self.Nc, 3)
+        return row[scol].reshape(self.num_cells, 3)
 
 
