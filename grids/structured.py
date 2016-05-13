@@ -37,10 +37,12 @@ class TensorGrid(Grid):
 
         if z is None:
             nodes, face_nodes, cell_faces = self._create_2d_grid(x, y)
+            self.cart_dims = np.array([x.size, y.size])
             super(TensorGrid, self).__init__(2, nodes, face_nodes,
                                              cell_faces, name)
         else:
             nodes, face_nodes, cell_faces = self._create_3d_grid(x, y, z)
+            self.cart_dims = np.array([x.size, y.size, z.size])
             super(TensorGrid, self).__init__(3, nodes, face_nodes,
                                              cell_faces, name)
 
