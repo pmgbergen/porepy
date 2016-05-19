@@ -359,3 +359,7 @@ class Grid(object):
 
     def num_cell_nodes(self):
         return self.cell_nodes().sum(axis=0).A.ravel(1)
+
+    def get_boundary_faces(self):
+        return np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel(1)
+                           == 1).ravel(1)
