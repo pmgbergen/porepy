@@ -266,7 +266,7 @@ def _tensor_vector_prod(g, constit, subcell_topology):
     weight_mat = sps.coo_matrix((cell_vol[cell_node_blocks[0]] / node_vol[
         cell_node_blocks[1]], (cell_node_blocks[1], np.arange(num_elem))))
     # Operator for carying out the average
-    average = map_mat * weight_mat
+    average = sps.kron(map_mat * weight_mat, sps.identity(nd)).tocsr()
 
     for iter1 in range(nd):
         # Pick out part of Hook's law associated with this dimension
@@ -288,9 +288,8 @@ def _tensor_vector_prod(g, constit, subcell_topology):
         casym_mat = sps.coo_matrix((asym_vals.ravel(0),
                                    (rc.ravel('F'), cc.ravel('F')))).tocsr()
 
-        # For asymmetric part, do compute an average
-        for iter2 in range(nd):
-            casym_mat[iter2::nd] = average * casym_mat[iter2::nd]
+        # Compute average around vertexes
+        casym_mat = average * casym_mat
 
         # Compute products of normal vectors and stiffness tensors,
         # and stack dimensions vertically
