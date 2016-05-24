@@ -182,7 +182,8 @@ def compute_dist_face_cell(g, subcell_topology, eta):
         + eta_vec * (g.nodes[:, subcell_topology.nno] -
                       g.face_centers[:, subcell_topology.fno])
     dist = cp - g.cell_centers[:, subcell_topology.cno]
-    return sps.coo_matrix((dist.ravel(), (rows.ravel(), cols.ravel()))).tocsr()
+    mat = sps.coo_matrix((dist.ravel(), (rows.ravel(), cols.ravel()))).tocsr()
+    return subcell_topology.pair_over_subfaces(mat)
 
 
 # @profile
@@ -423,40 +424,58 @@ def vector_divergence(g):
     return block_div.transpose()
 
 
-def exclude_boundary_mappings(subcell_topology, bound):
-    """
-    Define mappings to exclude boundary faces with dirichlet and neumann
-    conditions
+class ExcludeBoundaries(object):
 
-    Parameters
-    ----------
-    subcell_topology
-    bound
+    def __init__(self, subcell_topology, bound, nd):
 
-    Returns
-    -------
-    exclude_neumann: Matrix, mapping from all faces to those having flux
-                     continuity
-    exclude_dirichlet: Matrix, mapping from all faces to those having pressure
-                       continuity
-    """
+        """
+        Define mappings to exclude boundary faces with dirichlet and neumann
+        conditions
 
-    # Short hand notation
-    fno = subcell_topology.fno_unique
-    num_subfno = subcell_topology.num_subfno_unique
+        Parameters
+        ----------
+        subcell_topology
+        bound
 
-    # Define mappings to exclude boundary values
-    col_neu = np.argwhere([not it for it in bound.is_neu[fno]])
-    row_neu = np.arange(col_neu.size)
-    exclude_neumann = sps.coo_matrix((np.ones(row_neu.size),
-                                      (row_neu, col_neu.ravel(0))),
-                                     shape=(row_neu.size, num_subfno)).tocsr()
-    col_dir = np.argwhere([not it for it in bound.is_dir[fno]])
-    row_dir = np.arange(col_dir.size)
-    exclude_dirichlet = sps.coo_matrix((np.ones(row_dir.size),
-                                        (row_dir, col_dir.ravel(0))),
-                                       shape=(row_dir.size, num_subfno)).tocsr()
-    return exclude_neumann, exclude_dirichlet
+        Returns
+        -------
+        exclude_neumann: Matrix, mapping from all faces to those having flux
+                         continuity
+        exclude_dirichlet: Matrix, mapping from all faces to those having pressure
+                           continuity
+        """
+        self.nd = nd
 
-if __name__ == '__main__':
-    block_diag_index(np.array([2, 3]))
+        # Short hand notation
+        fno = subcell_topology.fno_unique
+        num_subfno = subcell_topology.num_subfno_unique
+
+        # Define mappings to exclude boundary values
+        col_neu = np.argwhere([not it for it in bound.is_neu[fno]])
+        row_neu = np.arange(col_neu.size)
+        self.exclude_neu = sps.coo_matrix((np.ones(row_neu.size),
+                                           (row_neu, col_neu.ravel(0))),
+                                          shape=(row_neu.size,
+                                                num_subfno)).tocsr()
+        col_dir = np.argwhere([not it for it in bound.is_dir[fno]])
+        row_dir = np.arange(col_dir.size)
+        self.exclude_dir = sps.coo_matrix((np.ones(row_dir.size),
+                                            (row_dir, col_dir.ravel(0))),
+                                           shape=(row_dir.size,
+                                                  num_subfno)).tocsr()
+
+    def exclude_dirichlet(self, other):
+        return self.exclude_dir * other
+
+    def exclude_neumann(self, other):
+        return self.exclude_neu * other
+
+    def exclude_neumann_nd(self, other):
+        exclude_neumann_nd = sps.kron(sps.eye(self.nd), self.exclude_neu)
+        return exclude_neumann_nd * other
+
+    def exclude_dirichlet_nd(self, other):
+        exclude_dirichlet_nd = sps.kron(sps.eye(self.nd),
+                                        self.exclude_dir)
+        return exclude_dirichlet_nd * other
+

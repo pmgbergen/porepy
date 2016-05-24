@@ -63,7 +63,6 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
 
     # Pair over subfaces    
     nk_grad = subcell_topology.pair_over_subfaces(nk_grad)
-    pr_cont_grad = subcell_topology.pair_over_subfaces(pr_cont_grad)
 
     # Contribution from cell center potentials to local systems
     # For pressure continuity, +-1
@@ -86,21 +85,19 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
                              subcell_topology.cno_unique].A.ravel('F')
 
     # Obtain mappings to exclude boundary faces
-    exclude_neumann, \
-        exclude_dirichlet = fvutils.exclude_boundary_mappings(subcell_topology,
-                                                              bnd)
+    bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
 
     # No flux conditions for Dirichlet boundary faces
-    nk_grad = exclude_dirichlet * nk_grad
-    nk_cell = exclude_dirichlet * nk_cell
+    nk_grad = bound_exclusion.exclude_dirichlet(nk_grad)
+    nk_cell = bound_exclusion.exclude_dirichlet(nk_cell)
     # No pressure condition for Neumann boundary faces
-    pr_cont_grad = exclude_neumann * pr_cont_grad
-    pr_cont_cell = exclude_neumann * pr_cont_cell
+    pr_cont_grad = bound_exclusion.exclude_neumann(pr_cont_grad)
+    pr_cont_cell = bound_exclusion.exclude_neumann(pr_cont_cell)
 
     # Mappings to convert linear system to block diagonal form
     rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
         sub_cell_index, cell_node_blocks, subcell_topology.nno_unique,
-        exclude_dirichlet, exclude_neumann)
+        bound_exclusion)
 
     grad_eqs = sps.vstack([nk_grad, pr_cont_grad])
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
@@ -116,7 +113,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
 
     ####
     # Boundary conditions
-    rhs_bound = _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann,
+    rhs_bound = _create_bound_rhs(bnd, bound_exclusion,
                                   subcell_topology, sgn_unique, g,
                                   nk_cell.shape[0],
                                   pr_cont_grad.shape[0])
@@ -195,7 +192,7 @@ def _tensor_vector_prod(g, k, subcell_topology):
 
 
 def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
-                              exclude_dirichlet, exclude_neumann):
+                              bound_exclusion):
     """ Define matrices to turn linear system into block-diagonal form
 
     Parameters
@@ -216,8 +213,8 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     # Stack node numbers of equations on top of each other, and sort them to
     # get block-structure. First eliminate node numbers at the boundary, where
     # the equations are either of flux or pressure continuity (not both)
-    nno_flux = exclude_dirichlet * nno
-    nno_pressure = exclude_neumann * nno
+    nno_flux = bound_exclusion.exclude_dirichlet(nno)
+    nno_pressure = bound_exclusion.exclude_neumann(nno)
     node_occ = np.hstack((nno_flux, nno_pressure))
     sorted_ind = np.argsort(node_occ)
     sorted_nodes_rows = node_occ[sorted_ind]
@@ -239,7 +236,7 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
-def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann,
+def _create_bound_rhs(bnd, bound_exclusion,
                       subcell_topology, sgn, g, num_flux, num_pr):
     """
     Define rhs matrix to get basis functions for incorporates boundary
@@ -269,8 +266,8 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann,
     num_bound = num_neu + num_dir
 
     # Neumann boundary conditions
-    neu_ind = np.argwhere(exclude_dirichlet *
-                          bnd.is_neu[fno].astype('int64')).ravel('F')
+    neu_ind = np.argwhere(bound_exclusion.exclude_dirichlet(
+                          bnd.is_neu[fno].astype('int64'))).ravel('F')
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(1)
     # sgn is already defined according to fno, while g.faceAreas is raw data,
     # and therefore needs a combined mapping
@@ -286,8 +283,8 @@ def _create_bound_rhs(bnd, exclude_dirichlet, exclude_neumann,
         neu_cell = sps.coo_matrix((num_flux, num_bound))
 
     # Dirichlet boundary conditions
-    dir_ind = np.argwhere(exclude_neumann *
-                          bnd.is_dir[fno].astype('int64')).ravel('F')
+    dir_ind = np.argwhere(bound_exclusion.exclude_neumann(
+                          bnd.is_dir[fno].astype('int64'))).ravel('F')
     if dir_ind.size > 0:
         dir_cell = sps.coo_matrix((sgn[dir_ind], (dir_ind, num_neu +
                                                   np.arange(dir_ind.size))),
