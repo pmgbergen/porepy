@@ -13,113 +13,14 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
     nd = g.dim
 
     # Define subcell topology
-    # nno, cno, fno, subfno, subhfno = subcellMapping.create_mapping(g)
     subcell_topology = fvutils.SubcellTopology(g)
-
-    # Compute product between normal vectors and stiffness matrices
-    ncsym, ncasym, cell_node_blocks, \
-        sub_cell_index = _tensor_vector_prod(g, constit, subcell_topology)
-    # Book keeping
-    num_subhfno = subcell_topology.subhfno.size
-    num_sub_cells = cell_node_blocks[0].size
-
-    # Normal vectors, used for computing pressure gradient terms in
-    # Biot's equations. These are mappings from cells to their faces,
-    # and are most easily computed prior to elimination of subfaces (below)
-    # TODO: Move this to separate function
-    ind_face = np.argsort(np.tile(subcell_topology.subhfno, nd))
-    hook_normal = sps.coo_matrix((np.ones(num_subhfno * nd),
-                                  (np.arange(num_subhfno*nd), ind_face)),
-                                 shape=(nd*num_subhfno, ind_face.size)).tocsr()
-    # Face-wise gradient operator. Used for the term grad_p in Biot's
-    # equations.
-    # This can be moved prior to unique_subfno
-    # TODO: Move this to other function
-    rows = __expand_indices_nd(subcell_topology.cno, nd)
-    cols = np.arange(num_subhfno * nd)
-    sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
-    vals = np.tile(sgn, nd)
-    div_gradp = sps.coo_matrix((vals[0], (rows, cols)),
-                               shape=(subcell_topology.num_cno * nd,
-                                      num_subhfno * nd)).tocsr()
-
-    # Distance from cell centers to face centers, this will be the
-    # contribution from gradient unknown to equations for displacement
-    # continuity
-    d_cont_grad = fvutils.compute_dist_face_cell(g, subcell_topology,
-                                                 eta)
-    # Contribution from cell center potentials to local systems
-    d_cont_cell, hook_cell = __cell_variable_contribution(g, subcell_topology)
-
-    # Make subface indices unique, that is, pair the indices from the two
-    # adjacent cells.
-    # _, unique_subfno = np.unique(subfno, return_index=True)
-
-    # The final expression of Hook's law will involve deformation gradients
-    # on one side of the faces only; eliminate the other one.
-    # Note that this must be done before we can pair forces from the two
-    # sides of the faces.
-    hook = __unique_hooks_law(ncsym, ncasym, subcell_topology, nd)
-
-    # For force balance, displacements and stresses on the two sides of the
-    # matrices must be paired
-    # d_cont_grad, ncsym = __pair_over_subfaces(g, fno, cno, subfno, subhfno,
-    #                                           d_cont_grad, ncsym)
-    d_cont_grad = subcell_topology.pair_over_subfaces(d_cont_grad)
-    ncsym = subcell_topology.pair_over_subfaces_nd(ncsym)
-
-    # # Reduce topology to one field per subface
-    # nno = nno[unique_subfno]
-    # fno = fno[unique_subfno]
-    # cno = cno[unique_subfno]
-    # subfno = subfno[unique_subfno]
-    # nsubfno = subfno.max() + 1
-
-    # Update signs
-    sgn_unique = g.cell_faces[subcell_topology.fno_unique,
-                              subcell_topology.cno_unique].A.ravel(1)
-
     # Obtain mappings to exclude boundary faces
-    exclude_neumann, exclude_dirichlet = fvutils.exclude_boundary_mappings(
-        subcell_topology, bound)
-    # Vector equations by Kronecker products
-    exclude_neumann_nd = sps.kron(sps.eye(nd), exclude_neumann)
-    exclude_dirichlet_nd = sps.kron(sps.eye(nd), exclude_dirichlet)
+    bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
 
-    # Expand equations for displacement balance, and eliminate rows
-    # associated with neumann boundary conditions
-    d_cont_grad = sps.kron(sps.eye(nd), d_cont_grad)
-    d_cont_grad = exclude_neumann_nd * d_cont_grad
-    d_cont_cell = exclude_neumann_nd * d_cont_cell
-
-    # Remove rows of dirichlet boundaries from force balance equations
-    ncsym = exclude_dirichlet_nd * ncsym
-    hook_cell = exclude_dirichlet_nd * hook_cell
-
-    # Mappings to convert linear system to block diagonal form
-    rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
-        sub_cell_index, cell_node_blocks, subcell_topology.nno_unique,
-        exclude_dirichlet, exclude_neumann, nd)
-
-    # The column ordering of the displacement equilibrium equations are
-    # formed as a Kronecker product of scalar equations. Bring them to the
-    # same form as that applied in the force balance equations
-    d_cont_grad, d_cont_cell = __rearange_columns_displacement_eqs(
-        d_cont_grad, d_cont_cell, num_sub_cells, nd,
-        subcell_topology.cno_unique)
-
-    # Construct gradient equations, and convert to block diagonal form
-    grad_eqs = sps.vstack([ncsym, d_cont_grad])
-    grad = rows2blk_diag * grad_eqs * cols2blk_diag
-
-    # Compute inverse gradient operator, and map back again
-    igrad = cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
-                                                           size_of_blocks,
-                                                           method=inverter) \
-            * rows2blk_diag
-
-    # Right hand side for cell center variables
-    rhs_cells = -sps.vstack([hook_cell, d_cont_cell])
+    hook, igrad, rhs_cells, _, _ = __mpsa_elasticity(g, constit,
+                                                   subcell_topology,
+                                                  bound_exclusion, eta,
+                                                  inverter)
 
     # Output should be on face-level (not sub-face)
     hf2f = _map_hf_2_f(subcell_topology.fno_unique,
@@ -129,16 +30,191 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
     stress = hf2f * hook * igrad * rhs_cells
 
     # Right hand side for boundary discretization
-    rhs_bound = _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann,
-                                  subcell_topology.fno_unique,
-                                  subcell_topology.subfno_unique,
-                                  sgn_unique, g,
-                                  hook_cell.shape[0],
-                                  d_cont_grad.shape[0])
+    rhs_bound = _create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
     # Discretization of boundary values
     bound_stress = hf2f * hook * igrad * rhs_bound
 
     return stress, bound_stress
+
+
+def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
+                      inverter):
+
+    nd = g.dim
+
+    # Compute product between normal vectors and stiffness matrices
+    ncsym, ncasym, cell_node_blocks, \
+        sub_cell_index = _tensor_vector_prod(g, constit, subcell_topology)
+
+    ind_f = np.argsort(np.tile(subcell_topology.subhfno, nd), kind='mergesort')
+    hook_normal = sps.coo_matrix((np.ones(ind_f.size),
+                                  (np.arange(ind_f.size), ind_f)),
+                                 shape=(ind_f.size, ind_f.size)) * (ncsym
+                                                                    + ncasym)
+
+    # The final expression of Hook's law will involve deformation gradients
+    # on one side of the faces only; eliminate the other one.
+    # Note that this must be done before we can pair forces from the two
+    # sides of the faces.
+    hook = __unique_hooks_law(ncsym, ncasym, subcell_topology, nd)
+
+    ncsym = subcell_topology.pair_over_subfaces_nd(ncsym)
+    ncsym = bound_exclusion.exclude_dirichlet_nd(ncsym)
+    num_subfno = subcell_topology.subfno.max() + 1
+    hook_cell = sps.coo_matrix((np.zeros(1), (np.zeros(1), np.zeros(1))),
+                               shape=(num_subfno * nd,
+                                      (np.max(subcell_topology.cno) + 1) *
+                                      nd)).tocsr()
+    hook_cell = bound_exclusion.exclude_dirichlet_nd(hook_cell)
+
+    # Book keeping
+    num_sub_cells = cell_node_blocks[0].size
+
+    d_cont_grad, d_cont_cell = __get_displacement_submatrices(g,
+                                                              subcell_topology,
+                                                              eta,
+                                                              num_sub_cells,
+                                                              bound_exclusion)
+
+    grad_eqs = sps.vstack([ncsym, d_cont_grad])
+
+    igrad = inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
+                             subcell_topology.nno_unique, bound_exclusion,
+                             nd, inverter)
+
+    # Right hand side for cell center variables
+    rhs_cells = -sps.vstack([hook_cell, d_cont_cell])
+    return hook, igrad, rhs_cells, cell_node_blocks, hook_normal
+
+
+def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
+    nd = g.dim
+
+    # Define subcell topology
+    subcell_topology = fvutils.SubcellTopology(g)
+    # Obtain mappings to exclude boundary faces
+    bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
+
+    num_subhfno = subcell_topology.subhfno.size
+
+    num_nodes = np.diff(g.face_nodes.indptr)
+    sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
+
+    def build_rhs_normals_single_dimension(dim):
+        val = g.face_normals[dim, subcell_topology.fno] \
+              * sgn / num_nodes[subcell_topology.fno]
+        mat = sps.coo_matrix((val.squeeze(), (subcell_topology.subfno,
+                                              subcell_topology.cno)),
+                             shape=(subcell_topology.num_subfno,
+                                    subcell_topology.num_cno))
+        return mat
+
+    rhs_normals = build_rhs_normals_single_dimension(0)
+    for iter1 in range(1, nd):
+        this_dim = build_rhs_normals_single_dimension(iter1)
+        rhs_normals = sps.vstack([rhs_normals, this_dim])
+
+    rhs_normals = bound_exclusion.exclude_dirichlet_nd(rhs_normals)
+
+    num_dir_subface = (bound_exclusion.exclude_neu.shape[1] -
+                       bound_exclusion.exclude_neu.shape[0]) * nd
+    rhs_normals_displ_var = sps.coo_matrix((nd * subcell_topology.num_subfno
+                                            - num_dir_subface,
+                                            subcell_topology.num_cno))
+
+    # Why minus?
+    rhs_normals = -sps.vstack([rhs_normals, rhs_normals_displ_var])
+
+    # Call core part of MPSA
+    hook, igrad, rhs_cells, \
+        cell_node_blocks, hook_normal = __mpsa_elasticity(g, constit,
+                                                   subcell_topology,
+                                             bound_exclusion, eta, inverter)
+
+    # Output should be on face-level (not sub-face)
+    hf2f = _map_hf_2_f(subcell_topology.fno_unique,
+                       subcell_topology.subfno_unique, nd)
+
+    # Stress discretization
+    stress = hf2f * hook * igrad * rhs_cells
+
+    # Right hand side for boundary discretization
+    rhs_bound = _create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
+    # Discretization of boundary values
+    bound_stress = hf2f * hook * igrad * rhs_bound
+
+    # Face-wise gradient operator. Used for the term grad_p in Biot's
+    # equations.
+    rows = __expand_indices_nd(subcell_topology.cno, nd)
+    cols = np.arange(num_subhfno * nd)
+    vals = np.tile(sgn, (nd, 1)).ravel('F')
+    div_gradp = sps.coo_matrix((vals, (rows, cols)),
+                               shape=(subcell_topology.num_cno * nd,
+                                      num_subhfno * nd)).tocsr()
+    # Normal vectors, used for computing pressure gradient terms in
+    # Biot's equations. These are mappings from cells to their faces,
+    # and are most easily computed prior to elimination of subfaces (below)
+    # ind_face = np.argsort(np.tile(subcell_topology.subhfno, nd))
+    # hook_normal = sps.coo_matrix((np.ones(num_subhfno * nd),
+    #                               (np.arange(num_subhfno*nd), ind_face)),
+    #                              shape=(nd*num_subhfno, ind_face.size)).tocsr()
+
+    grad_p = div_gradp * hook_normal * igrad * rhs_normals
+    # assert np.allclose(grad_p.sum(axis=0), np.zeros(g.num_cells))
+
+    num_cell_nodes = g.num_cell_nodes()
+    cell_vol = g.cell_volumes[subcell_topology.cno] \
+               / num_cell_nodes[subcell_topology.cno]
+
+    if nd == 2:
+        trace = np.array([0, 3])
+    elif nd == 3:
+        trace = np.array([0, 4, 8])
+    row, col = np.meshgrid(np.arange(cell_node_blocks.shape[1]), trace)
+    incr = np.cumsum(nd**2 * np.ones(cell_node_blocks.shape[1])) - nd**2
+    col += incr.astype('int32')
+    val = np.tile(cell_vol[cell_node_blocks[0]], (nd, 1))
+    vector_2_scalar = sps.coo_matrix((val.ravel('C'),
+                                      (row.ravel('F'),
+                                       col.ravel('F')))).tocsr()
+    div_op = sps.coo_matrix((np.ones(cell_node_blocks.shape[1]),
+                             (cell_node_blocks[0], np.arange(
+                                 cell_node_blocks.shape[1])))).tocsr()
+    div = div_op * vector_2_scalar
+
+    div_d = div * igrad * rhs_cells
+    stabilization = -div * igrad * rhs_normals
+
+    return stress, bound_stress, grad_p, div_d, stabilization
+
+
+def __get_displacement_submatrices(g, subcell_topology, eta, num_sub_cells,
+                                   bound_exclusion):
+    nd = g.dim
+    # Distance from cell centers to face centers, this will be the
+    # contribution from gradient unknown to equations for displacement
+    # continuity
+    d_cont_grad = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
+
+    # For force balance, displacements and stresses on the two sides of the
+    # matrices must be paired
+    d_cont_grad = sps.kron(sps.eye(nd), d_cont_grad)
+
+    # Contribution from cell center potentials to local systems
+    d_cont_cell = __cell_variable_contribution(g, subcell_topology)
+
+    # Expand equations for displacement balance, and eliminate rows
+    # associated with neumann boundary conditions
+    d_cont_grad = bound_exclusion.exclude_neumann_nd(d_cont_grad)
+    d_cont_cell = bound_exclusion.exclude_neumann_nd(d_cont_cell)
+
+    # The column ordering of the displacement equilibrium equations are
+    # formed as a Kronecker product of scalar equations. Bring them to the
+    # same form as that applied in the force balance equations
+    d_cont_grad, d_cont_cell = __rearange_columns_displacement_eqs(
+        d_cont_grad, d_cont_cell, num_sub_cells, nd,
+        subcell_topology.cno_unique)
+    return d_cont_grad, d_cont_cell
 
 
 def _split_stiffness_matrix(constit):
@@ -305,8 +381,25 @@ def _tensor_vector_prod(g, constit, subcell_topology):
     return ncsym, ncasym, cell_node_blocks, grad_ind
 
 
+def inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
+                     nno_unique, bound_exclusion, nd, inverter):
+
+    # Mappings to convert linear system to block diagonal form
+    rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
+        sub_cell_index, cell_node_blocks, nno_unique, bound_exclusion, nd)
+
+    grad = rows2blk_diag * grad_eqs * cols2blk_diag
+
+    # Compute inverse gradient operator, and map back again
+    igrad = cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
+                                                           size_of_blocks,
+                                                           method=inverter) \
+            * rows2blk_diag
+    return igrad
+
+
 def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
-                              exclude_dirichlet, exclude_neumann, nd):
+                              bound_exclusion, nd):
     """
     Define matrices to turn linear system into block-diagonal form.
 
@@ -328,8 +421,8 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     # Stack node numbers of equations on top of each other, and sort them to
     # get block-structure. First eliminate node numbers at the boundary, where
     # the equations are either of flux or pressure continuity (not both)
-    nno_stress = exclude_dirichlet * nno
-    nno_displacement = exclude_neumann * nno
+    nno_stress = bound_exclusion.exclude_dirichlet(nno)
+    nno_displacement = bound_exclusion.exclude_neumann(nno)
     node_occ = np.hstack((np.tile(nno_stress, nd),
                           np.tile(nno_displacement, nd)))
     sorted_ind = np.argsort(node_occ, kind='mergesort')
@@ -352,9 +445,7 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
-def _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann, fno, subfno,
-                      sgn, g, num_stress, num_displ):
-
+def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     """
     Define rhs matrix to get basis functions for incorporates boundary
     conditions
@@ -362,8 +453,7 @@ def _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann, fno, subfno,
     Parameters
     ----------
     bound
-    exclude_dirichlet
-    exclude_neumann
+    bound_exclusion
     fno
     sgn : +-1, defining here and there of the faces
     g : grid
@@ -376,6 +466,12 @@ def _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann, fno, subfno,
                basis functions for boundary values
     """
     nd = g.dim
+    num_stress = bound_exclusion.exclude_dir.shape[0] * nd
+    num_displ = bound_exclusion.exclude_neu.shape[0] * nd
+    fno = subcell_topology.fno_unique
+    subfno = subcell_topology.subfno_unique
+    sgn = g.cell_faces[subcell_topology.fno_unique,
+                       subcell_topology.cno_unique].A.ravel(1)
 
     num_neu = sum(bound.is_neu[fno]) * nd
     num_dir = sum(bound.is_dir[fno]) * nd
@@ -393,7 +489,8 @@ def _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann, fno, subfno,
 
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
-    is_neu = (exclude_dirichlet * bound.is_neu[fno]).astype('int64')
+    is_neu = bound_exclusion.exclude_dirichlet(bound.is_neu[fno].astype(
+        'int64'))
     neu_ind_single = np.argwhere(is_neu).ravel('F')
     # There are is_neu.size Neumann conditions per dimension
     neu_ind = expand_ind(neu_ind_single, nd, is_neu.size)
@@ -424,7 +521,8 @@ def _create_bound_rhs(bound, exclude_dirichlet, exclude_neumann, fno, subfno,
         neu_cell = sps.coo_matrix((num_stress, num_bound)).tocsr()
 
     # Dirichlet boundary conditions, procedure is similar to that for Neumann
-    is_dir = exclude_neumann * bound.is_dir[fno].astype('int64')
+    is_dir = bound_exclusion.exclude_neumann(bound.is_dir[fno].astype(
+        'int64'))
     dir_ind_single = np.argwhere(is_dir).ravel('F')
     dir_ind = expand_ind(dir_ind_single, nd, is_dir.size)
     # The coefficients in the matrix should be duplicated the same way as
@@ -567,7 +665,6 @@ def __cell_variable_contribution(g, subcell_topology):
     """
     nd = g.dim
     sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
-    num_subfno = subcell_topology.subfno.max() + 1
 
     # Contribution from cell center potentials to local systems
     # For pressure continuity, +-1
@@ -575,11 +672,8 @@ def __cell_variable_contribution(g, subcell_topology):
                                            subcell_topology.cno))).tocsr()
     d_cont_cell = sps.kron(sps.eye(nd), d_cont_cell)
     # Zero contribution to stress continuity
-    hook_cell = sps.coo_matrix((np.zeros(1), (np.zeros(1), np.zeros(1))),
-                               shape=(num_subfno * nd,
-                                      (np.max(subcell_topology.cno) + 1) *
-                                      nd)).tocsr()
-    return d_cont_cell, hook_cell
+
+    return d_cont_cell
 
 
 def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell,
@@ -625,7 +719,7 @@ def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell,
 
 if __name__ == '__main__':
     # Method used for debuging
-    nx = np.array([30, 30])
+    nx = np.array([2, 1])
     g = structured.CartGrid(nx)
     # g.nodes[0, 4] = 1.
     g.compute_geometry()
@@ -635,5 +729,5 @@ if __name__ == '__main__':
     perm = fourth_order_tensor.FourthOrderTensor(g.dim, mu, lmbda)
 
     bnd = bc.BoundaryCondition(g)
-    mpsa(g, perm, bnd)
+    biot(g, perm, bnd)
 
