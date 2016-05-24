@@ -36,7 +36,7 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     return stress, bound_stress
 
-
+@profile
 def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
                       inverter):
 
@@ -163,8 +163,7 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
     # assert np.allclose(grad_p.sum(axis=0), np.zeros(g.num_cells))
 
     num_cell_nodes = g.num_cell_nodes()
-    cell_vol = g.cell_volumes[subcell_topology.cno] \
-               / num_cell_nodes[subcell_topology.cno]
+    cell_vol = g.cell_volumes / num_cell_nodes
 
     if nd == 2:
         trace = np.array([0, 3])
@@ -174,7 +173,7 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
     incr = np.cumsum(nd**2 * np.ones(cell_node_blocks.shape[1])) - nd**2
     col += incr.astype('int32')
     val = np.tile(cell_vol[cell_node_blocks[0]], (nd, 1))
-    vector_2_scalar = sps.coo_matrix((val.ravel('C'),
+    vector_2_scalar = sps.coo_matrix((val.ravel('F'),
                                       (row.ravel('F'),
                                        col.ravel('F')))).tocsr()
     div_op = sps.coo_matrix((np.ones(cell_node_blocks.shape[1]),
@@ -183,7 +182,7 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
     div = div_op * vector_2_scalar
 
     div_d = div * igrad * rhs_cells
-    stabilization = -div * igrad * rhs_normals
+    stabilization = div * igrad * rhs_normals
 
     return stress, bound_stress, grad_p, div_d, stabilization
 
@@ -719,9 +718,9 @@ def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell,
 
 if __name__ == '__main__':
     # Method used for debuging
-    nx = np.array([2, 1])
+    nx = np.array([2, 2])
     g = structured.CartGrid(nx)
-    # g.nodes[0, 4] = 1.
+    g.nodes[0, 4] = 1.5
     g.compute_geometry()
 
     lmbda = np.ones(g.num_cells)
