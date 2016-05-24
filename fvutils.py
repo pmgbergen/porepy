@@ -8,9 +8,11 @@ Created on Fri Mar  4 09:04:16 2016
 import numpy as np
 import scipy.sparse as sps
 import numba
+import sys
 
 from utils import matrix_compression
 from utils import mcolon
+import fvdiscr.cythoninvert
 
 
 class SubcellTopology(object):
@@ -235,6 +237,16 @@ def invert_diagonal_blocks(mat, s, method='numba'):
             p2 = p2 + n2
         return v
 
+    def invert_diagonal_blocks_cython(a, size):
+        a.sorted_indices()
+        ptr = a.indptr
+        indices = a.indices
+        dat = a.data
+
+        v = fvdiscr.cythoninvert.inv_python(ptr, indices, dat, size)
+        return v
+
+
     def invert_diagonal_blocks_numba(a, size):
         """
         Invert block diagonal matrix by invoking numba acceleration of a simple
@@ -260,7 +272,7 @@ def invert_diagonal_blocks(mat, s, method='numba'):
         dat = a.data
 
         # Just in time compilation
-        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True)
+        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True, nogil=True)
         def inv_python(indptr, ind, data, sz):
             """
             Invert block matrices by explicitly forming local matrices. The code
@@ -312,8 +324,10 @@ def invert_diagonal_blocks(mat, s, method='numba'):
 
     if method == 'python':
         inv_vals = invert_diagonal_blocks_python(mat, s)
+    elif method == 'cython' and sys.platform == 'linux':
+        inv_vals = invert_diagonal_blocks_cython(mat, s)
     else:
-        inv_vals = invert_diagonal_blocks_numba(mat, s)
+        inv_vals = invert_diagonal_blocks_cython(mat, s)
 
     ia = block_diag_matrix(inv_vals, s)
     return ia
