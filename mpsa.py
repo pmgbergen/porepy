@@ -36,7 +36,7 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     return stress, bound_stress
 
-@profile
+# @profile
 def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
                       inverter):
 
