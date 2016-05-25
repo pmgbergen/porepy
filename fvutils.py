@@ -12,7 +12,6 @@ import sys
 
 from utils import matrix_compression
 from utils import mcolon
-import fvdiscr.cythoninvert
 
 
 class SubcellTopology(object):
@@ -238,6 +237,7 @@ def invert_diagonal_blocks(mat, s, method='numba'):
         return v
 
     def invert_diagonal_blocks_cython(a, size):
+        import fvdiscr.cythoninvert
         a.sorted_indices()
         ptr = a.indptr
         indices = a.indices
@@ -327,7 +327,7 @@ def invert_diagonal_blocks(mat, s, method='numba'):
     elif method == 'cython' and sys.platform == 'linux':
         inv_vals = invert_diagonal_blocks_cython(mat, s)
     else:
-        inv_vals = invert_diagonal_blocks_cython(mat, s)
+        inv_vals = invert_diagonal_blocks_numba(mat, s)
 
     ia = block_diag_matrix(inv_vals, s)
     return ia
