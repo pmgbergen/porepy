@@ -51,7 +51,7 @@ def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
     if tags.size > 0:
         new_edges = np.vstack((np.array([[start, pt_ind],
                                          [pt_ind, end]]),
-                               np.tile(tags, 2)))
+                               np.tile(tags[:, np.newaxis], 2)))
     else:
         new_edges = np.array([[start, pt_ind],
                              [pt_ind, end]])
@@ -218,8 +218,10 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
 if __name__ == '__main__':
     p = np.array([[-1, 1, 0, 0],
                   [0, 0, -1, 1]])
-    lines = np.array([[0, 1],
-                      [2, 3]])
+    lines = np.array([[0, 2],
+                      [1, 3],
+                      [1, 2],
+                      [3, 4]])
     box = np.array([[2], [2]])
     new_pts, new_lines = remove_edge_crossings(p, lines, box)
     assert np.allclose(new_pts, p)
