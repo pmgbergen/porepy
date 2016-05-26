@@ -173,7 +173,7 @@ def compute_dist_face_cell(g, subcell_topology, eta):
 
     rows, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
     cols += matrix_compression.rldecode(np.cumsum(blocksz)-blocksz[0], blocksz)
-    
+
     eta_vec = eta*np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
     bnd = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.squeeze()
@@ -246,7 +246,6 @@ def invert_diagonal_blocks(mat, s, method='numba'):
         v = fvdiscr.cythoninvert.inv_python(ptr, indices, dat, size)
         return v
 
-
     def invert_diagonal_blocks_numba(a, size):
         """
         Invert block diagonal matrix by invoking numba acceleration of a simple
@@ -272,7 +271,8 @@ def invert_diagonal_blocks(mat, s, method='numba'):
         dat = a.data
 
         # Just in time compilation
-        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True, nogil=True)
+        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True,
+                   nogil=False)
         def inv_python(indptr, ind, data, sz):
             """
             Invert block matrices by explicitly forming local matrices. The code
@@ -284,39 +284,58 @@ def invert_diagonal_blocks(mat, s, method='numba'):
 
             The computation can easily be parallelized, consider this later.
             """
-            inv_vals = np.zeros(np.sum(np.square(sz)))
 
-            # Bookkeeping
-            num_per_row = indptr[1:] - indptr[0:-1]
-            row_next = 0
-            global_counter = 0
-            block_size_prev = 0
-            next_imat = 0
+            # Index of where the rows start for each block.
+            # block_row_starts_ind = np.hstack((np.array([0]),
+            #                                   np.cumsum(sz[:-1])))
+            block_row_starts_ind = np.zeros(sz.size, dtype=np.int32)
+            block_row_starts_ind[1:] = np.cumsum(sz[:-1])
+
+            # Number of columns per row. Will change from one column to the
+            # next
+            num_cols_per_row = indptr[1:] - indptr[0:-1]
+            # Index to where the columns start for each row (NOT blocks)
+            # row_cols_start_ind = np.hstack((np.zeros(1),
+            #                                 np.cumsum(num_cols_per_row)))
+            row_cols_start_ind = np.zeros(num_cols_per_row.size + 1,
+                                          dtype=np.int32)
+            row_cols_start_ind[1:] = np.cumsum(num_cols_per_row)
+
+            # Index to where the (full) data starts. Needed, since the
+            # inverse matrix will generally be full
+            # full_block_starts_ind = np.hstack((np.array([0]),
+            #                                    np.cumsum(np.square(sz))))
+            full_block_starts_ind = np.zeros(sz.size + 1, dtype=np.int32)
+            full_block_starts_ind[1:] = np.cumsum(np.square(sz))
+            # Structure to store the solution
+            inv_vals = np.zeros(np.sum(np.square(sz)))
 
             # Loop over all blocks
             for iter1 in range(sz.size):
                 n = sz[iter1]
                 loc_mat = np.zeros((n, n))
-                row_loc = 0
                 # Fill in non-zero elements in local matrix
-                for iter2 in range(n):
-                    for iter3 in range(num_per_row[row_next]):
-                        loc_col = ind[global_counter] - block_size_prev
-                        loc_mat[row_loc, loc_col] = data[global_counter]
-                        global_counter += 1
-                    row_next += 1
-                    row_loc += 1
+                for iter2 in range(n):  # Local rows
+                    global_row = block_row_starts_ind[iter1] + iter2
+                    data_counter = row_cols_start_ind[global_row]
+
+                    # Loop over local columns. Getting the number of columns
+                    #  for each row is a bit involved
+                    for iter3 in range(num_cols_per_row[iter2 +
+                            block_row_starts_ind[iter1]]):
+                        loc_col = ind[data_counter] \
+                                  - block_row_starts_ind[iter1]
+                        loc_mat[iter2, loc_col] = data[data_counter]
+                        data_counter += 1
 
                 # Compute inverse. np.linalg.inv is supported by numba (May
                 # 2016), it is not clear if this is the best option. To be
                 # revised
                 inv_mat = np.linalg.inv(loc_mat).reshape(n**2)
-
-                loc_ind = next_imat + np.arange(n**2)
+                loc_ind = np.arange(full_block_starts_ind[iter1],
+                                    full_block_starts_ind[iter1 + 1])
                 inv_vals[loc_ind] = inv_mat
                 # Update fields
-                next_imat += n**2
-                block_size_prev += n
             return inv_vals
 
         v = inv_python(ptr, indices, dat, size)
@@ -493,3 +512,16 @@ class ExcludeBoundaries(object):
                                         self.exclude_dir)
         return exclude_dirichlet_nd * other
 
+if __name__ == '__main__':
+    rows = np.array([0, 0, 1, 2, 2, 3, 4, 4])
+    cols = np.array([0, 1, 0, 2, 4, 3, 3, 4])
+    data = np.array([1, 2, 3, 3, 3, 7, 1, 2])
+    block = sps.coo_matrix((data, (rows, cols))).tocsr()
+    sz = np.array([2, 3], dtype='i8')
+
+    iblock_python = invert_diagonal_blocks(block, sz, 'python')
+    iblock_numba = invert_diagonal_blocks(block, sz)
+    iblock_ex = np.linalg.inv(block.toarray())
+
+    assert np.allclose(iblock_ex, iblock_python.toarray())
+    assert np.allclose(iblock_ex, iblock_numba.toarray())
