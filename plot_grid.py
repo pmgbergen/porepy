@@ -12,17 +12,17 @@ import matplotlib.tri
 from core.grids import simplex, structured
 
 
-def plot_grid(g):
+def plot_grid(g, show=True):
     
     if isinstance(g, simplex.TriangleGrid):
-        plot_tri_grid(g)
+        plot_tri_grid(g, show)
     elif isinstance(g, structured.TensorGrid) and g.dim == 2:
-        plot_cart_grid_2d(g)
+        plot_cart_grid_2d(g, show)
     else:
         raise NotImplementedError('Under construction')
 
 
-def plot_tri_grid(g):
+def plot_tri_grid(g, show=True):
     """
     Plot triangular mesh using matplotlib.
 
@@ -44,10 +44,11 @@ def plot_tri_grid(g):
     plt.figure()
     triang = matplotlib.tri.Triangulation(g.nodes[0], g.nodes[1], tri)
     plt.triplot(triang)
-    plt.show()
+    if show:
+        plt.show()
 
 
-def plot_cart_grid_2d(g):
+def plot_cart_grid_2d(g, show=True):
     """
     Plot quadrilateral mesh using matplotlib.
 
@@ -76,4 +77,18 @@ def plot_cart_grid_2d(g):
     ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
     # It would have been better to have a color map which makes all
     ax.pcolormesh(x, y, z, edgecolors='k', cmap='gray', alpha=0.5)
+    if show:
+        plt.show()
+
+
+def plot_grid_fractures(g):
+    plot_grid(g, show=False)
+    face_info = g.face_info
+    tags = face_info['tags']
+    face_nodes = g.face_nodes.indices.reshape((2, -1), order='F')
+    xf = g.nodes
+    for ff in np.nditer(np.where(np.isfinite(tags))):
+        fn_loc = face_nodes[:, ff]
+        plt.plot([xf[0, fn_loc[0]], xf[0, fn_loc[1]]],
+                 [xf[1, fn_loc[0]], xf[1, fn_loc[1]]], linewidth=4, color='k')
     plt.show()
