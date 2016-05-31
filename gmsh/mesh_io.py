@@ -79,6 +79,7 @@ def read(filename):
                 line = next(islice(f, 1))
                 num_cells = int(line)
                 cells = {}
+                cell_info = {'columns': ('Physical tag', 'Elementary tag')}
                 gmsh_to_meshio_type = {
                         15: ('vertex', 1),
                         1: ('line', 2),
@@ -96,16 +97,39 @@ def read(filename):
                     # are 0-based.
                     if t[0] in cells:
                         cells[t[0]].append(data[-t[1]:] - 1)
+                        cell_info[t[0]].append(data[3:5])
                     else:
                         cells[t[0]] = [data[-t[1]:] - 1]
+                        cell_info[t[0]] = [data[3:5]]
 
                 line = next(islice(f, 1))
                 assert(line.strip() == '$EndElements')
             elif environ == 'PhysicalNames':
                 line = next(islice(f, 1))
                 num_phys_names = int(line)
+
+                physnames = {'columns': ('Cell type', 'Physical name tag',
+                                         'Physical name')}
+                gmsh_to_meshio_type = {
+                    15: ('vertex', 1),
+                    1: ('line', 2),
+                    2: ('triangle', 3),
+                    3: ('quad', 4),
+                    4: ('tetra', 4),
+                    5: ('hexahedron', 8),
+                    6: ('wedge', 6)
+                }
                 for k, line in enumerate(islice(f, num_phys_names)):
-                    pass
+                    data = line.split(' ')
+                    cell_type = int(data[0])
+                    t = gmsh_to_meshio_type[int(data[0])]
+                    tag = int(data[1])
+                    name = data[2].strip().replace('\"','')
+                    if t[0] in physnames:
+                        physnames[t[0]].append((cell_type, tag, name))
+                    else:
+                        physnames[t[0]] = [(cell_type, tag, name)]
+
                 line = next(islice(f, 1))
                 assert(line.strip() == '$EndPhysicalNames')
             else:
@@ -113,8 +137,10 @@ def read(filename):
 
     for key in cells:
         cells[key] = numpy.vstack(cells[key])
+    for key in cell_info:
+        cell_info[key] = numpy.vstack(cell_info[key])
 
-    return points, cells, {}, {}, {}
+    return points, cells, physnames, cell_info
 
 def write(
         filename,
