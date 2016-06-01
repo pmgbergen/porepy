@@ -24,7 +24,8 @@ def generate_grid(fracs, box, filename=None):
     Examples
     >>> p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
     >>> lines = np.array([[0, 2], [1, 3]])
-    >>> fracs = {'points': p, 'edges': lines}
+    >>> char_h = 0.5 * np.ones(p.shape[1])
+    >>> fracs = {'points': p, 'edges': lines, 'lchar': char_h}
     >>> box = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'lcar': 0.7}
     >>> g = generate_grid(fracs, box, 'gmsh_test')
     >>> plot_grid.plot_grid_fractures(g)
@@ -74,8 +75,11 @@ def generate_grid(fracs, box, filename=None):
     pts, edges = basics.remove_edge_crossings(pts, edges, domain)
 
     # Default values for characteristic point size. Need to give input here.
-    lcar_points = 0.5 * np.ones(pts.shape[1])
-    point_names = __add_points(geom, pts, lcar_points)
+    lcar_points_orig = fracs['lchar']
+    lchar_points = np.zeros(pts.shape[1])
+    lchar_points[:lcar_points_orig.size] = lcar_points_orig
+    lchar_points[lcar_points_orig.size:] = np.mean(lcar_points_orig)
+    point_names = __add_points(geom, pts, lchar_points)
 
     # Add domain to geometry description
     domain_surface = geom.add_rectangle(box['xmin'], box['xmax'],
