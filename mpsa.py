@@ -211,8 +211,8 @@ def __get_displacement_submatrices(g, subcell_topology, eta, num_sub_cells,
     # formed as a Kronecker product of scalar equations. Bring them to the
     # same form as that applied in the force balance equations
     d_cont_grad, d_cont_cell = __rearange_columns_displacement_eqs(
-        d_cont_grad, d_cont_cell, num_sub_cells, nd,
-        subcell_topology.cno_unique)
+        d_cont_grad, d_cont_cell, num_sub_cells, nd)
+
     return d_cont_grad, d_cont_cell
 
 
@@ -676,7 +676,7 @@ def __cell_variable_contribution(g, subcell_topology):
 
 
 def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell,
-                                        num_sub_cells, nd, cno):
+                                        num_sub_cells, nd):
     """ Transform columns of displacement balance from increasing cell
     ordering (first x-variables of all cells, then y) to increasing
     variables (first all variables of the first cells, then...)
@@ -710,7 +710,8 @@ def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell,
 
     # For the cell displacement variables, we only need a single expansion (
     # corresponding to the second step for the gradient unknowns)
-    d_cont_cell_map = np.argsort(np.tile(np.arange(cno.max() + 1), nd),
+    num_cells = d_cont_cell.shape[1] / nd
+    d_cont_cell_map = np.argsort(np.tile(np.arange(num_cells), nd),
                                  kind='mergesort')
     d_cont_cell = d_cont_cell[:, d_cont_cell_map]
     return d_cont_grad, d_cont_cell
