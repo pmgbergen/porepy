@@ -4,7 +4,7 @@ Created on Tue Mar  1 13:34:33 2016
 
 @author: keile
 """
-
+from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 

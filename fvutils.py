@@ -4,7 +4,7 @@ Created on Fri Mar  4 09:04:16 2016
 
 @author: eke001
 """
-
+from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 import numba
