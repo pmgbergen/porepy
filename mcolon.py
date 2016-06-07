@@ -12,13 +12,13 @@ def mcolon(lo, hi):
     """ Get set of expanded indices
     
     >>> mcolon(np.array([0, 0, 0]), np.array([1, 3, 2]))
-    array([0, 1, 0, 1, 2, 3, 0, 1, 2])
+    array([0, 1, 0, 1, 2, 3, 0, 1, 2], dtype=int64)
     
     >>> mcolon(np.array([0, 1]), np.array([2]))
-    array([0, 1, 2, 1, 2])
+    array([0, 1, 2, 1, 2], dtype=int64)
 
     >>> mcolon(np.array([0, 1, 1, 1]), np.array([0, 3, 3, 3]))
-    array([0, 1, 2, 3, 1, 2, 3, 1, 2, 3])
+    array([0, 1, 2, 3, 1, 2, 3, 1, 2, 3], dtype=int64)
     """
     if lo.size == 1:
         lo = lo * np.ones(hi.size, dtype='int64')
