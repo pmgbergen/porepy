@@ -4,7 +4,7 @@ Created on Wed Feb 17 20:55:43 2016
 
 @author: keile
 """
-
+from __future__ import division
 import numpy as np
 from enum import Enum
 from scipy import sparse as sps
