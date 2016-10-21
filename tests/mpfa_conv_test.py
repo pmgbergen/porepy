@@ -24,7 +24,7 @@ from core.grids import structured, simplex
 from core.constit import second_order_tensor, fourth_order_tensor
 from core.bc import bc
 from fvdiscr import mpfa, fvutils, mpsa
-from scripts.convergence_tests.finite_volume import setup_grids
+from fvdiscr.jupyter import setup_grids
 from utils.mcolon import mcolon
 
 

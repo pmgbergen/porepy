@@ -4,7 +4,7 @@ from core.constit import fourth_order_tensor
 from core.bc import bc
 from fvdiscr import mpsa
 from fvdiscr import fvutils
-from tests.fvdiscr import setup_grids
+from fvdiscr.tests import setup_grids
 
 
 def setup_stiffness(g, mu=1, l=1):

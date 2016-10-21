@@ -5,7 +5,7 @@ import unittest
 
 from fvdiscr import mpfa, mpsa, fvutils
 from core.bc import bc
-from tests.fvdiscr import setup_grids
+from fvdiscr.tests import setup_grids
 from core.constit import second_order_tensor, fourth_order_tensor
 
 
