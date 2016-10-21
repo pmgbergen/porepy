@@ -11,7 +11,7 @@ from utils import setmembership
 from viz import plot_grid
 
 
-def generate_grid(fracs, box, filename=None):
+def generate_grid(fracs, box, filename=None, subdom_lines=None):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -95,12 +95,20 @@ def generate_grid(fracs, box, filename=None):
     for iter1 in range(edges.shape[1]):
         line_names.append(geom.add_line(point_names[edges[0, iter1]],
                                         point_names[edges[1, iter1]]))
+    if subdom_lines is not None:
+        for ln, h in zip(subdom_lines['lines'], subdom_lines['lchar']):
+            pl = np.array([[box['xmin'], box['xmax']], ln * np.ones(2)])
+            pl_name = __add_points(geom, pl, h * np.ones(2))
+            line_names.append(geom.add_line(pl_name[0], pl_name[1]))
+            # __add_physical_lines(geom, nm)
+            # __embed_lines_in_surface(geom, nm, domain_surface)
+
+    # Print the domain to a geo-file, run gmsh, and read the result
     # Define fractures as physical lines, and embed them in the domain
     # surface. This will make gmsh conform to the line
     __add_physical_lines(geom, line_names)
     __embed_lines_in_surface(geom, line_names, domain_surface)
 
-    # Print the domain to a geo-file, run gmsh, and read the result
     __print_geo_file(geom, geofile)
     __run_gmsh(geofile, mshfile, ' -2 ')
     # Points are nodes in the grid. Cells contain both triangles, and lines
@@ -131,6 +139,35 @@ def generate_grid(fracs, box, filename=None):
 
     return g
 
+
+def read_gmsh(mshfile, edges):
+
+    # Emergency hard-coding of input
+    edges = np.array([[0], [1], [1]])
+
+    point, cells, physnames, cell_info = mesh_io.read(mshfile)
+    # gmsh works with 3D points, whereas we only need 2D
+    point = point[:, :2].transpose()
+    tri = cells['triangle'].transpose()
+    # Construct grid
+    g = simplex.TriangleGrid(point, tri)
+
+    line_2_frac = __match_face_fractures(edges, cell_info, physnames)
+    # Nodes of faces in the grid
+    face_nodes = g.face_nodes.indices.reshape((2, -1), order='F').astype('int')
+
+    # Nodes of faces defined as laying on a physical line
+    frac_face_nodes = cells['line'].transpose()
+    # Mapping between the two sets of fracture nodes
+    _, frac_ind = setmembership.ismember_rows(frac_face_nodes, face_nodes)
+
+    # Assign tags according to fracture faces
+    face_tags = np.zeros(g.num_faces)
+    face_tags[:] = None
+    face_tags[frac_ind] = line_2_frac
+    g.face_info = {'tagcols': ['Fracture_faces'], 'tags': face_tags}
+
+    return g
 
 def __add_points(geom, pts, lcar):
     if pts.shape[0] == 2:
@@ -220,12 +257,22 @@ def __run_gmsh(infile, outfile, opts):
     # Run GMSH.
     # Note that the path to gmsh is hardcoded here
     if sys.platform == 'linux':
-        path = '/home/eke001/Dropbox/workspace/lib/gmsh/run/linux/gmsh'
+        # path = '/home/eke001/Dropbox/workspace/lib/gmsh/run/linux/gmsh'
+        path = 'gmsh'
     else:
         path = 'C:\\Users\\keile\\Dropbox\\workspace\\lib\\gmsh\\run' \
                '\\win\\gmsh.exe'
     cmd = path + ' ' + infile + opts + '-o ' + outfile
-    subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    # import os
+    # print(os.getcwd())
+    # args = infile + opts + '-o ' + outfile
+    # args = [infile, opts, '-o', outfile]
+    # print(args)
+    # process = subprocess.Popen(cmd, args=args)
+    # a = process.communicate(input = infile + opts + '-o ' + outfile)
+    # cmd = ["gmsh", infile, opts, "-o", outfile]
+    a = subprocess.check_output(cmd,  stderr=subprocess.STDOUT)
+    # print(a)
 
 
 def __print_geo_file(geom, filename):
