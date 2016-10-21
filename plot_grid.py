@@ -15,7 +15,7 @@ from core.grids import simplex, structured
 def plot_grid(g, show=True):
     
     if isinstance(g, simplex.TriangleGrid):
-        plot_tri_grid(g, show)
+        return plot_tri_grid(g, show)
     elif isinstance(g, structured.TensorGrid) and g.dim == 2:
         plot_cart_grid_2d(g, show)
     else:
@@ -41,12 +41,12 @@ def plot_tri_grid(g, show=True):
 
     """
     tri = g.cell_node_matrix()
-    plt.figure()
+    h = plt.figure()
     triang = matplotlib.tri.Triangulation(g.nodes[0], g.nodes[1], tri)
     plt.triplot(triang)
     if show:
         plt.show()
-
+    return h
 
 def plot_cart_grid_2d(g, show=True):
     """
@@ -81,8 +81,8 @@ def plot_cart_grid_2d(g, show=True):
         plt.show()
 
 
-def plot_grid_fractures(g):
-    plot_grid(g, show=False)
+def plot_grid_fractures(g, show=True):
+    h = plot_grid(g, show=False)
     face_info = g.face_info
     tags = face_info['tags']
     face_nodes = g.face_nodes.indices.reshape((2, -1), order='F')
@@ -91,4 +91,5 @@ def plot_grid_fractures(g):
         fn_loc = face_nodes[:, ff]
         plt.plot([xf[0, fn_loc[0]], xf[0, fn_loc[1]]],
                  [xf[1, fn_loc[0]], xf[1, fn_loc[1]]], linewidth=4, color='k')
-    plt.show()
+        # if show:
+        #     plt.show()
