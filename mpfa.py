@@ -28,6 +28,8 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
         discretization, may change in the future
     eta Location of continuity point. Should be 1/3 for simplex grids,
         0 otherwise
+    inverter (string) Block inverter to be used, either numba (default), 
+        cython or python. See fvutils.invert_diagonal_blocks
 
     Returns
     -------
