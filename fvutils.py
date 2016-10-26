@@ -331,7 +331,8 @@ def invert_diagonal_blocks(mat, s, method='numba'):
                 # Compute inverse. np.linalg.inv is supported by numba (May
                 # 2016), it is not clear if this is the best option. To be
                 # revised
-                inv_mat = np.linalg.inv(loc_mat).reshape(n**2)
+                inv_mat = np.ravel(np.linalg.inv(loc_mat))
+              
                 loc_ind = np.arange(full_block_starts_ind[iter1],
                                     full_block_starts_ind[iter1 + 1])
                 inv_vals[loc_ind] = inv_mat
