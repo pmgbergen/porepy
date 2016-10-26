@@ -199,8 +199,8 @@ def invert_diagonal_blocks(mat, s, method='numba'):
     ----------
     mat: sps.csr matrix to be inverted.
     s: block size. Must be int64 for the numba acceleration to work
-    method: Choice of method. Either numba (default) or 'python'. If a third
-        option is passed, numba is used.
+    method: Choice of method. Either numba (default), cython or 'python'. 
+        If another option is passed, numba is used.
 
     Returns
     -------
