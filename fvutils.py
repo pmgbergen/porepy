@@ -344,7 +344,8 @@ def invert_diagonal_blocks(mat, s, method='numba'):
 
     if method == 'python':
         inv_vals = invert_diagonal_blocks_python(mat, s)
-    elif method == 'cython' and sys.platform == 'linux':
+    elif method == 'cython' and (sys.platform == 'linux' 
+                                 or sys.platform == 'linux2'):
         inv_vals = invert_diagonal_blocks_cython(mat, s)
     else:
         inv_vals = invert_diagonal_blocks_numba(mat, s)
