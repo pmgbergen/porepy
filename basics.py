@@ -134,7 +134,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
     
     # Loop over all edges, search for intersections. The number of edges can
     #  change due to splitting.
-    while edge_counter < num_edges:
+    while edge_counter < edges.shape[1]:
         # The direct test of whether two edges intersect is somewhat
         # expensive, and it is hard to vectorize this part. Therefore,
         # we first identify edges which crosses the extention of this edge (
