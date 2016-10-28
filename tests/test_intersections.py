@@ -47,10 +47,24 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         box = np.array([[1], [2]])
 
         new_pts, new_lines = basics.remove_edge_crossings(p, lines, box)
-        print(new_pts)
         p_known = basics.snap_to_grid(p, box)
         assert np.allclose(new_pts, p_known)
         assert np.allclose(new_lines, lines)
+        
+    def test_three_lines_one_crossing(self):
+        # This test gave an error at some point
+        p = np.array([[ 0., 0.5,   0.3, 1.,  0.3,  0.5],
+                      [2/3, 0.3, 0.3, 2/3, 0.5, 0.5]])
+        lines = np.array([[0, 3], [2, 5], [1, 4]]).T
+        box = np.array([[1], [2]])
+
+        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box)
+        p_known = np.hstack((p, np.array([[0.4], [0.4]])))
+        p_known = basics.snap_to_grid(p_known, box)
+        lines_known = np.array([[0, 3], [2, 6], [6, 5], [1, 6], [6, 4]]).T
+        assert np.allclose(new_pts, p_known)
+        assert np.allclose(new_lines, lines_known)
+    
 
         
     if __name__ == '__main__':
