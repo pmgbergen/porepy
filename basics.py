@@ -78,7 +78,17 @@ def add_point(vertices, pt, box=None, precision=1e-3):
 def lines_intersect(start_1, end_1, start_2, end_2):
     # Check if lines intersect. For the moment, we do this by methods
     # incorpoated in sympy. The implementation can be done by pure algebra
-    # if necessary (although this is a bit dirty).
+    # if necessary (although this becomes cumbersome).
+    
+    # It seems that if sympy is provided point coordinates as integers, it may
+    # do calculations in integers also, with an unknown approach to rounding.
+    # Cast the values to floats to avoid this. It is not the most pythonic 
+    # style, but tracking down such a bug would have been a nightmare.
+    start_1 = start_1.astype(np.float)
+    end_1 = end_1.astype(np.float)
+    start_2 = start_2.astype(np.float)
+    end_2 = end_2.astype(np.float)
+
     p1 = sympy.Point(start_1[0], start_1[1])
     p2 = sympy.Point(end_1[0], end_1[1])
     p3 = sympy.Point(start_2[0], start_2[1])
@@ -93,7 +103,7 @@ def lines_intersect(start_1, end_1, start_2, end_2):
     else:
         p = isect[0]
         # Should this be a column vector?
-        return np.array([[p.x], [p.y]])
+        return np.array([[p.x], [p.y]], dtype='float')
 
 
 def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
