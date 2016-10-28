@@ -4,7 +4,7 @@ import unittest
 from compgeom import basics
 
 
-class LineIntersection2DTest(unittest.TestCase):
+class SplitIntersectingLines2DTest(unittest.TestCase):
 
     def test_lines_crossing_origin(self):
         p = np.array([[-1, 1, 0, 0],
