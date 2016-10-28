@@ -74,3 +74,17 @@ class SnapToGridTest(unittest.TestCase):
 
     if __name__ == '__main__':
         unittest.main()
+        
+
+class LinesIntersectTest(unittest.TestCase):
+    
+    def test_lines_intersect_segments_do_not(self):
+        s0 = np.array([0.3, 0.3])
+        e0 = np.array([0.5, 0.5])
+        s1 = np.array([0, 2/3])
+        e1 = np.array([1, 2/3])
+        pi = basics.lines_intersect(s0, e0, s1, e1)
+        assert(pi is None or len(pi)==0)
+        
+    if __name__ == '__main__':
+        unittest.main()
