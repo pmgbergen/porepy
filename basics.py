@@ -171,7 +171,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
         # this to truly 1D, or simply continue with the next edge if there
         # are no candidate edges
         if intersections.size > 0:
-            intersections = intersections[0]
+            intersections = intersections.ravel()
         else:
             # There are no candidates for intersection
             edge_counter += 1
@@ -198,6 +198,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
                                        vertices[:, edges[1, edge_counter]],
                                        vertices[:, edges[0, intsect]],
                                        vertices[:, edges[1, intsect]])
+
             if new_pt is not None:
                 # Split edge edge_counter (outer loop), unless the
                 # intersection hits an existing point (in practices this
