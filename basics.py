@@ -84,11 +84,11 @@ def lines_intersect(start_1, end_1, start_2, end_2):
     p3 = sympy.Point(start_2[0], start_2[1])
     p4 = sympy.Point(end_2[0], end_2[1])
 
-    l1 = sympy.Line(p1, p2)
-    l2 = sympy.Line(p3, p4)
+    l1 = sympy.Segment(p1, p2)
+    l2 = sympy.Segment(p3, p4)
 
     isect = l1.intersection(l2)
-    if isect is None:
+    if isect is None or len(isect) == 0:
         return None
     else:
         p = isect[0]
