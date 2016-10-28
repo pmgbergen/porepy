@@ -171,7 +171,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
         # this to truly 1D, or simply continue with the next edge if there
         # are no candidate edges
         if intersections.size > 0:
-            intersections = intersections.ravel()
+            intersections = intersections.ravel(0)
         else:
             # There are no candidates for intersection
             edge_counter += 1
@@ -202,8 +202,9 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
             if new_pt is not None:
                 # Split edge edge_counter (outer loop), unless the
                 # intersection hits an existing point (in practices this
-                # means the intersection runs through and endpoint of the
-                # edge, in which case )
+                # means the intersection runs through an endpoint of the
+                # edge in an L-type configuration, in which case no new point 
+                # is needed)
                 vertices, edges, split_outer_edge = split_edge(vertices, edges,
                                                                edge_counter,
                                                                new_pt, box,
@@ -213,7 +214,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
                 # index of the inner edge
                 intsect += split_outer_edge
                 # Possibly split the inner edge
-                vertices, edges, split_inner_edge = split_edge(vertices,  edges,
+                vertices, edges, split_inner_edge = split_edge(vertices, edges,
                                                                intsect,
                                                                new_pt, box,
                                                                precision)
@@ -222,7 +223,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
 
             # We're done with this candidate edge. Increase index of inner loop
             int_counter += 1
-        # We're done with all intersectiosn of this loop. increase index of
+        # We're done with all intersections of this loop. increase index of
         # outer loop
         edge_counter += 1
     return vertices, edges
