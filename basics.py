@@ -120,6 +120,8 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
 
     edge_counter = 0
 
+    vertices = snap_to_grid(vertices, box, precision)
+    
     # Loop over all edges, search for intersections. The number of edges can
     #  change due to splitting.
     while edge_counter < num_edges:
