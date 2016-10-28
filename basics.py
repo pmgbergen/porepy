@@ -75,7 +75,7 @@ def add_point(vertices, pt, box=None, precision=1e-3):
     return vertices, ind, pt
 
 
-def __lines_intersect(start_1, end_1, start_2, end_2):
+def lines_intersect(start_1, end_1, start_2, end_2):
     # Check if lines intersect. For the moment, we do this by methods
     # incorpoated in sympy. The implementation can be done by pure algebra
     # if necessary (although this is a bit dirty).
@@ -182,7 +182,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
             intsect = intersections[int_counter]
 
             # Check if this point intersects
-            new_pt = __lines_intersect(vertices[:, edges[0, edge_counter]],
+            new_pt = lines_intersect(vertices[:, edges[0, edge_counter]],
                                        vertices[:, edges[1, edge_counter]],
                                        vertices[:, edges[0, intsect]],
                                        vertices[:, edges[1, intsect]])
