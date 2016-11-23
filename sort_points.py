@@ -1,3 +1,5 @@
+import numpy as np
+
 def sort_point_pairs(lines, check_circular=True):
     """ Sort pairs of numbers to form a chain.
     
