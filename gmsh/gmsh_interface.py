@@ -14,7 +14,7 @@ class GmshWriter(object):
      compartments
     """
 
-    def __init__(self, pts, lines, nd=None):
+    def __init__(self, pts, lines, nd=None, lchar=None):
         """
 
         :param pts: np.ndarary, Points
@@ -31,7 +31,10 @@ class GmshWriter(object):
         else:
             self.nd = nd
 
-        self.lchar = 0.1
+        if lchar is None:
+            self.lchar = 1 * np.ones(self.pts.shape[1])
+        else:
+            self.lchar = lchar
 
 
     def write_geo(self, file_name):
@@ -110,7 +113,7 @@ class GmshWriter(object):
         for i in range(self.pts.shape[1]):
             s += 'p' + str(i) + ' = newp; Point(p' + str(i) + ') = '
             s += '{' + str(p[0, i]) + ', ' + str(p[1, i]) + ', '\
-                 + str(p[2, i]) + ', ' + str(self.lchar) + ' };\n'
+                 + str(p[2, i]) + ', ' + str(self.lchar[i]) + ' };\n'
         s += '// End of point specification \n \n'
         return s
 

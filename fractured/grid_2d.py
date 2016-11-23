@@ -8,7 +8,7 @@ from utils import setmembership
 import gridding.constants
 
 
-def create_grid(fracs, domain, compartments=None, file_name='fractures_gmsh'):
+def create_grid(fracs, box, compartments=None, file_name='fractures_gmsh'):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -60,6 +60,8 @@ def create_grid(fracs, domain, compartments=None, file_name='fractures_gmsh'):
     # if frac_con.shape[0] == 2:
     #     frac_con = np.vstack((frac_con, np.arange(frac_con.shape[1])))
 
+    domain = box['domain']
+
     # Unified description of points and lines for domain, fractures and
     # internal compartments
     pts, lines, line_tag_description = \
@@ -70,10 +72,22 @@ def create_grid(fracs, domain, compartments=None, file_name='fractures_gmsh'):
 
     pts_split, lines_split = geom_basics.remove_edge_crossings(pts, lines, dx)
 
+    # Create a writer of gmsh .geo-files
     gw = gmsh_interface.GmshWriter(pts_split, lines_split)
 
+    # Constants used in the gmsh.geo-file
+    const = gridding.constants.GmshConstants()
+
     # Replace this at some point with a more
-    gw.lchar = np.mean(fracs['lchar'])
+    lchar_frac = fracs['lchar']
+    lchar_dom = box['lchar']
+    lchar_p =  lchar_dom * np.ones(pts_split.shape[1])
+
+    frac_pts = np.ravel(lines_split[:2, np.argwhere(lines_split[2] ==
+                                              const.FRACTURE_TAG)])
+
+    lchar_p[frac_pts] = lchar_frac
+    gw.lchar = lchar_p
 
     gw.write_geo(in_file)
 
@@ -107,7 +121,6 @@ def create_grid(fracs, domain, compartments=None, file_name='fractures_gmsh'):
                                             phys_names).astype('int')
     lines_frac_face = lines[2:, frac_face_tags]
     # Faces corresponding to real fractures - not compartments or boundaries
-    const = gridding.constants.GmshConstants()
     real_frac_ind = np.ravel(np.argwhere(lines_frac_face[0] ==
                                          const.FRACTURE_TAG))
 
