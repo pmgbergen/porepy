@@ -119,9 +119,9 @@ def create_grid(fracs, box, compartments=None, file_name='fractures_gmsh'):
     face_tags[:] = -1
     frac_face_tags = __match_face_fractures(cell_info,
                                             phys_names).astype('int')
-    lines_frac_face = lines[2:, frac_face_tags]
+    lines_frac_face = lines_split[2:, frac_face_tags]
     # Faces corresponding to real fractures - not compartments or boundaries
-    real_frac_ind = np.ravel(np.argwhere(lines_frac_face[0] ==
+    real_frac_ind = np.ravel(np.argwhere(lines_frac_face ==
                                          const.FRACTURE_TAG))
 
     # Counting measure of the real fractures
