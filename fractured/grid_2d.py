@@ -103,37 +103,65 @@ def create_grid(fracs, box, compartments=None, file_name='fractures_gmsh'):
     # Construct grid
     g = simplex.TriangleGrid(points, triangles)
 
-    # Next, recover faces that coincides with fractures
+    # Next, recover faces that coincides with fractures, and assign the
+    # appropriate tags to the nodes
 
-    # Fracture nodes
+    # Nodes that define 1D physical entities, that is compartment lines
+    # or fractures, as computed by gmsh.
     frac_face_nodes = cells['line'].transpose()
     # Nodes of faces in the grid
     face_nodes = g.face_nodes.indices.reshape((2, g.num_faces),
                                               order='F').astype('int')
-
+    # Match faces in the grid with the 1D lines in gmsh. frac_ind gives a
+    # mapping from faces laying on Physical Lines to all faces in the grid
     _, frac_ind = setmembership.ismember_rows(np.sort(frac_face_nodes, axis=0),
                                               np.sort(face_nodes, axis=0))
+    frac_ind = np.array(frac_ind)
 
-    # Assign tags according to fracture faces
-    face_tags = np.zeros(g.num_faces)
-    face_tags[:] = -1
+    # Find tags (in gmsh sense) of the line elements as specified as cell_info.
+    # The 1-1 correspondence between line elements in cells and cell_info means
+    # the tags will correspond to the indices in frac_ind
     frac_face_tags = __match_face_fractures(cell_info,
                                             phys_names).astype('int')
-    lines_frac_face = lines_split[2:, frac_face_tags]
-    # Faces corresponding to real fractures - not compartments or boundaries
-    real_frac_ind = np.ravel(np.argwhere(lines_frac_face ==
-                                         const.FRACTURE_TAG))
 
+    # Having the pieces necessary for the connection between physical lines and
+    # fracture faces, we also need to identify the correct 'unsplit' lines,
+    # that is fractures as they were passed to this function
+
+    # Lines that are not compartment or fracture were not passed to gmsh
+    line_is_constraint = np.ravel(np.argwhere(
+        np.logical_or(lines_split[2] == const.COMPARTMENT_BOUNDARY_TAG,
+                      lines_split[2] == const.FRACTURE_TAG)))
+    constraints = lines_split[:, line_is_constraint]
+
+    # Among the constraints, we are only interested in the ones that are tagged
+    # as fractures.
+    # NOTE: If we ever need to identify faces laying on compartments, this is
+    # the place to do it. However, a more reasonable approach probably is to
+    # ignore compartments altogether, and instead pass the lines as extra
+    # fractures.
+    lines_types = constraints[2:, frac_face_tags]
+    # Faces corresponding to real fractures - not compartments or boundaries
+    real_frac_ind = np.ravel(np.argwhere(lines_types[0] ==
+                                         const.FRACTURE_TAG))
     # Counting measure of the real fractures
-    real_frac_num = lines_frac_face[1, real_frac_ind]
+    real_frac_num = lines_types[1, real_frac_ind]
     # Remove contribution from domain and compartments
     real_frac_num = real_frac_num - np.min(real_frac_num)
 
+    import pdb
+    pdb.set_trace()
+
+    # Assign tags according to fracture faces
+    face_tags = np.zeros(g.num_faces)
+    # The default value is set to nan. Not sure if this is the optimal option
+    face_tags[:] = np.nan
+
     key = 'tags'
     if key in fracs:
-        face_tags[real_frac_ind] = fracs[real_frac_num]
+        face_tags[frac_ind[real_frac_ind]] = fracs.g[real_frac_num]
     else:
-        face_tags[real_frac_ind] = real_frac_num
+        face_tags[frac_ind[real_frac_ind]] = real_frac_num
 
     g.face_info = {'tagcols': ['Fracture_faces'], 'tags': face_tags}
 
@@ -237,7 +265,7 @@ def __match_face_fractures(cell_info, phys_names):
     # .msh file
     line_names = phys_names['line']
 
-    # Tags of the cells, corrensponding to the physical entities (gmsh
+    # Tags of the cells, corresponding to the physical entities (gmsh
     # terminology) are known to be in the first column
     cell_tags = cell_info['line'][:, 0]
 
