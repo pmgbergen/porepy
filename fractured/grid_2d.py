@@ -149,9 +149,6 @@ def create_grid(fracs, box, compartments=None, file_name='fractures_gmsh'):
     # Remove contribution from domain and compartments
     real_frac_num = real_frac_num - np.min(real_frac_num)
 
-    import pdb
-    pdb.set_trace()
-
     # Assign tags according to fracture faces
     face_tags = np.zeros(g.num_faces)
     # The default value is set to nan. Not sure if this is the optimal option
