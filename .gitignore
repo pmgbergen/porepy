@@ -1,2 +1,4 @@
 *.pyc
-
+*.msh
+*.geo
+*.exe
