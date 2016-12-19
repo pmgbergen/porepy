@@ -138,7 +138,7 @@ class Grid(object):
 
         sub_volumes = 0.5 * np.abs(a[0] * b[1] - a[1] * b[0])
         self.cell_volumes = np.bincount(cellno, weights=sub_volumes)
-        
+
         sub_centroids = (cell_centers[:, cellno] + 2 *
                          self.face_centers[:, cell_faces]) / 3
 
