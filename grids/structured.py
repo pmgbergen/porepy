@@ -230,7 +230,7 @@ class CartGrid(TensorGrid):
         if physdims is None:
             physdims = nx
 
-        dims = nx.shape
+        dims = np.asarray(nx).shape
 
         # Create point distribution, and then leave construction to
         # TensorGrid constructor
