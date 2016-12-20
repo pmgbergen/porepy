@@ -66,9 +66,12 @@ def plot_cart_grid_2d(g, show=True):
     g grid to be plotted
 
     """
-    cart_dims = g.cart_dims
-    x = g.nodes[0].reshape(cart_dims)
-    y = g.nodes[1].reshape(cart_dims)
+    
+    # In each direction there is one more node than cell
+    node_dims = g.cart_dims + 1
+    
+    x = g.nodes[0].reshape(node_dims)
+    y = g.nodes[1].reshape(node_dims)
 
     # pcolormesh needs colors for its cells. Let the value be one
     z = np.ones(x.shape)
