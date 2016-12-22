@@ -63,3 +63,30 @@ def plot_cart_data(g, data):
     plt.pcolormesh(x, y, z, edgecolors='k', alpha=0.5)
     plt.colorbar()
     plt.show()
+
+
+def surf_cart_data(g, data):
+    """
+    Surface plot of data on a Cartesian 2D grid
+    
+    input: g: 2D Cartesian grid (equidistanc spacing in each direction is assumed)
+    data: array of cell data to be visualized.
+    """
+
+    if not isinstance(g, structured.TensorGrid) or not g.dim == 2:
+        raise ValueError('Method is only available for 2D Cartesian grids')
+
+    nx = g.cart_dims
+    node_min = np.min(g.nodes, axis=1)
+    Lx = np.max(g.nodes, axis=1) - node_min
+    dx = Lx/nx
+    x = node_min[0] + np.linspace(0.5 * dx[0], (Lx[0] - 0.5 * dx[0]) * dx[0], nx[0])
+    y = node_min[1] + np.linspace(0.5 * dx[1], (Lx[1] - 0.5 * dx[1]) * dx[1], nx[1])
+    x, y = np.meshgrid(x, y)
+    z = data.reshape(nx)
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    surf = ax.plot_surface(x, y, z, rstride=1, cstride=1, cmap=cm.coolwarm,
+                       linewidth=0, antialiased=False)
+    return fig
+
