@@ -6,7 +6,9 @@ Created on Fri Feb 26 22:20:50 2016
 """
 
 import matplotlib.pyplot as plt
+import numpy as np
 import matplotlib.tri
+from matplotlib import cm
 
 from core.grids import structured, simplex
 
