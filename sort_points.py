@@ -60,6 +60,18 @@ def sort_point_pairs(lines, check_circular=True):
 #------------------------------------------------------------------------------#
 
 def sort_point_face( _pts, _centre ):
+    """ Sort the points that form a face in 3D.
+
+    The algorithm is brute-force and assume a planar face.
+
+    Parameters:
+    _pts: np.ndarray, 3xn, the face points.
+    _centre: np.ndarray, 3x1, the face centre.
+
+    Returns:
+    map_pts: np.array, 1xn, sorted point ids.
+
+    """
     delta = np.array( [ p - _centre for p in _pts.T ] )
     norm = np.linalg.norm( delta )
     map_pts = np.zeros( _pts.shape[1], dtype = np.int )
