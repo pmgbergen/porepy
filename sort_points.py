@@ -20,8 +20,8 @@ def sort_point_pairs(lines, check_circular=True):
     """
 
     num_lines = lines.shape[1]
-    sorted_lines = -np.ones((2, num_lines))
-    
+    sorted_lines = -np.ones( (2, num_lines), dtype = lines.dtype )
+
     # Start with the first line in input
     sorted_lines[:, 0] = lines[:, 0]
 
