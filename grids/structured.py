@@ -182,9 +182,9 @@ class TensorGrid(Grid):
         # Cell faces
         face_x = np.arange(num_faces_x).reshape(sx + 1, sy, sz, order='F')
         face_y = num_faces_x + np.arange(num_faces_y).reshape(sx, sy + 1,
-                                                              sx, order='F')
+                                                              sz, order='F')
         face_z = num_faces_x + num_faces_y + \
-                 np.arange(num_faces_y).reshape(sx, sy , sz + 1, order='F')
+                 np.arange(num_faces_z).reshape(sx, sy, sz + 1, order='F')
 
         face_west = face_x[:-1, :, :].ravel(order='F')
         face_east = face_x[1:, :, :].ravel(order='F')
