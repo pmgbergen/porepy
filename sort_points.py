@@ -1,5 +1,7 @@
 import numpy as np
 
+#------------------------------------------------------------------------------#
+
 def sort_point_pairs(lines, check_circular=True):
     """ Sort pairs of numbers to form a chain.
 
@@ -54,3 +56,22 @@ def sort_point_pairs(lines, check_circular=True):
     if check_circular:
         assert sorted_lines[0, 0] == sorted_lines[1, -1]
     return sorted_lines
+
+#------------------------------------------------------------------------------#
+
+def sort_point_face( _pts, _centre ):
+    delta = np.array( [ p - _centre for p in _pts.T ] )
+    norm = np.linalg.norm( delta )
+    map_pts = np.zeros( _pts.shape[1], dtype = np.int )
+    not_visited = np.ones( _pts.shape[1], dtype = np.bool )
+    not_visited[0] = False
+    for n in np.arange( 1, _pts.shape[1] ):
+        dot_prod = [ np.dot( delta[map_pts[n-1], :], d ) for d in delta[ not_visited, : ] ]
+        min_val = np.argmin( np.arccos( np.divide( dot_prod, norm ) ) )
+        mask = np.all( delta == delta[ not_visited, : ][ min_val ], axis = 1 )
+        map_pts[n] = np.where( mask )[0]
+        not_visited[map_pts[n]] = False
+
+    return map_pts
+
+#------------------------------------------------------------------------------#
