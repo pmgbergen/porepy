@@ -47,7 +47,7 @@ def sort_point_pairs(lines, check_circular=True):
             elif not found[j] and lines[1, j] == prev:
                 sorted_lines[:, i] = lines[::-1, j]
                 found[j] = True
-                prev = lines[1, j]
+                prev = lines[0, j]
                 break
     # By now, we should have used all lines
     assert(np.all(found))
