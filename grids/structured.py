@@ -166,10 +166,6 @@ class TensorGrid(Grid):
         fn4 = node_array[:-1, 1:, :].ravel(order='F')
         face_nodes_z = np.vstack((fn1, fn2, fn3, fn4)).ravel(order='F')
 
-        # Test
-        #assert face_nodes_x.size == face_nodes_y.size
-        #assert face_nodes_x.size == face_nodes_z.size
-
         num_nodes_per_face = 4
         indptr = np.append(np.arange(0, num_nodes_per_face * num_faces,
                                      num_nodes_per_face),
