@@ -73,7 +73,9 @@ def export_3d( g ):
         fsVTK.InsertNextId( fs.shape[0] ) # Number faces that make up the cell
         for f in fs:
             ptsId = nodes_faces[ faces == f ]
-            mask = sort_points.sort_point_face( g.nodes[:, ptsId], g.face_centers[:, f] )
+            mask = sort_points.sort_point_plane( g.nodes[:, ptsId], \
+                                                 g.face_centers[:, f], \
+                                                 g.face_normals[:, f] )
             fsVTK.InsertNextId( ptsId.shape[0] ) # Number of points in face
             [ fsVTK.InsertNextId( p ) for p in ptsId[mask] ]
 
