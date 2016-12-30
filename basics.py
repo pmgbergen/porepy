@@ -2,6 +2,7 @@ import numpy as np
 from math import sqrt
 import sympy
 
+#------------------------------------------------------------------------------#
 
 def snap_to_grid(pts, box=None, precision=1e-3):
 
@@ -15,14 +16,17 @@ def snap_to_grid(pts, box=None, precision=1e-3):
     pts = np.rint(pts.astype(np.float64) / delta) * delta
     return pts
 
+#------------------------------------------------------------------------------#
 
 def __nrm(v):
     return np.sqrt(np.sum(v * v, axis=0))
 
+#------------------------------------------------------------------------------#
 
 def __dist(p1, p2):
     return __nrm(p1 - p2)
 
+#------------------------------------------------------------------------------#
 #
 # def is_unique_vert_array(pts, box=None, precision=1e-3):
 #     nd = pts.shape[0]
@@ -31,12 +35,14 @@ def __dist(p1, p2):
 #     for iter in range(num_pts):
 #
 
+#------------------------------------------------------------------------------#
 
 def __points_equal(p1, p2, box, precesion=1e-3):
     d = __dist(p1, p2)
     nd = p1.shape[0]
     return d < precesion * sqrt(nd)
 
+#------------------------------------------------------------------------------#
 
 def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
 
@@ -59,6 +65,7 @@ def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
     new_line = True
     return vertices, edges, new_line
 
+#------------------------------------------------------------------------------#
 
 def add_point(vertices, pt, box=None, precision=1e-3):
     nd = vertices.shape[0]
@@ -74,15 +81,16 @@ def add_point(vertices, pt, box=None, precision=1e-3):
     ind = vertices.shape[1]-1
     return vertices, ind, pt
 
+#------------------------------------------------------------------------------#
 
 def lines_intersect(start_1, end_1, start_2, end_2):
     # Check if lines intersect. For the moment, we do this by methods
     # incorpoated in sympy. The implementation can be done by pure algebra
     # if necessary (although this becomes cumbersome).
-    
+
     # It seems that if sympy is provided point coordinates as integers, it may
     # do calculations in integers also, with an unknown approach to rounding.
-    # Cast the values to floats to avoid this. It is not the most pythonic 
+    # Cast the values to floats to avoid this. It is not the most pythonic
     # style, but tracking down such a bug would have been a nightmare.
     start_1 = start_1.astype(np.float)
     end_1 = end_1.astype(np.float)
@@ -105,6 +113,7 @@ def lines_intersect(start_1, end_1, start_2, end_2):
         # Should this be a column vector?
         return np.array([[p.x], [p.y]], dtype='float')
 
+#------------------------------------------------------------------------------#
 
 def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
     """
@@ -131,7 +140,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
     edge_counter = 0
 
     vertices = snap_to_grid(vertices, box, precision)
-    
+
     # Loop over all edges, search for intersections. The number of edges can
     #  change due to splitting.
     while edge_counter < edges.shape[1]:
@@ -203,7 +212,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
                 # Split edge edge_counter (outer loop), unless the
                 # intersection hits an existing point (in practices this
                 # means the intersection runs through an endpoint of the
-                # edge in an L-type configuration, in which case no new point 
+                # edge in an L-type configuration, in which case no new point
                 # is needed)
                 vertices, edges, split_outer_edge = split_edge(vertices, edges,
                                                                edge_counter,
