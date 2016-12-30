@@ -1,4 +1,5 @@
 import numpy as np
+from compgeom.geometry import project_plane
 
 #------------------------------------------------------------------------------#
 
@@ -59,20 +60,23 @@ def sort_point_pairs(lines, check_circular=True):
 
 #------------------------------------------------------------------------------#
 
-def sort_point_face( _pts, _centre ):
-    """ Sort the points that form a face in 3D.
+def sort_point_plane( pts, centre, normal = None ):
+    """ Sort the points which lie on a plane.
 
-    The algorithm is brute-force and assume a planar face.
+    The algorithm assumes a star-shaped disposition of the points with respect
+    the centre.
 
     Parameters:
-    _pts: np.ndarray, 3xn, the face points.
-    _centre: np.ndarray, 3x1, the face centre.
+    pts: np.ndarray, 3xn, the points.
+    centre: np.ndarray, 3x1, the face centre.
+    normal: (optional) the normal of the plane, otherwise three points are
+    required.
 
     Returns:
     map_pts: np.array, 1xn, sorted point ids.
 
     """
-    delta = np.array( [ p - _centre for p in _pts.T ] )
+    delta = project_plane( np.array( [ p - centre for p in pts.T ] ).T, normal )
     delta = np.divide( delta, np.linalg.norm( delta ) )
     return np.argsort( np.arctan2( *delta.T ) )
 
