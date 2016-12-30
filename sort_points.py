@@ -1,5 +1,5 @@
 import numpy as np
-from compgeom.geometry import project_plane
+from compgeom.basics import project_plane
 
 #------------------------------------------------------------------------------#
 
