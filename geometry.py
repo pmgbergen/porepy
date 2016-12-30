@@ -15,10 +15,16 @@ def project_plane( pts, normal = None ):
 
     """
 
-    if normal is None: normal = compute_normal( pts )
-    else:              normal = normal / np.linalg.norm( normal )
+    if normal is None:
+    	normal = compute_normal( pts )
+    else:
+    	normal = normal / np.linalg.norm( normal )
+
+    # Projection matrix onto tangential plane
     T = np.identity(3) - np.outer( normal, normal )
+    # Projected points
     pts = np.array( [ np.dot( T, p ) for p in pts.T ] )
+    # Disregard points on the origin??
     index = np.where( np.sum( np.abs( pts ), axis = 0 ) != 0 )[0]
     return pts[:,index]
 
@@ -27,11 +33,13 @@ def project_plane( pts, normal = None ):
 def compute_normal( pts ):
     """ Compute the normal of a set of points.
 
-    The algorithm assume that the points lie on a plane.
-    Three points are required.
+    The algorithm computes the normal of the plane defined by the first three
+    points in the set. 
+    TODO: Introduce optional check that all points lay in the same plane
+    (should be separate subroutine).
 
     Parameters:
-    pts: np.ndarray, 3xn, the points.
+    pts: np.ndarray, 3xn, the points. Need n > 2.
 
     Returns:
     normal: np.array, 1x3, the normal.
