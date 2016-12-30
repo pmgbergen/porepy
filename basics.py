@@ -228,16 +228,46 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
         edge_counter += 1
     return vertices, edges
 
+#------------------------------------------------------------------------------#
 
-if __name__ == '__main__':
-    p = np.array([[-1, 1, 0, 0],
-                  [0, 0, -1, 1]])
-    lines = np.array([[0, 2],
-                      [1, 3],
-                      [1, 2],
-                      [3, 4]])
-    box = np.array([[2], [2]])
-    new_pts, new_lines = remove_edge_crossings(p, lines, box)
-    assert np.allclose(new_pts, p)
-    assert np.allclose(new_lines, lines)
+def project_plane( pts, normal = None ):
+    """ Project the points on a plane using local coordinates.
 
+    Parameters:
+    pts: np.ndarray, 3xn, the points.
+    normal: (optional) the normal of the plane, otherwise three points are
+    required.
+
+    Returns:
+    pts: np.array, 2xn, projected points on the plane in the local coordinates.
+
+    """
+
+    if normal is None: normal = compute_normal( pts )
+    else:              normal = normal / np.linalg.norm( normal )
+    T = np.identity(3) - np.outer( normal, normal )
+    pts = np.array( [ np.dot( T, p ) for p in pts.T ] )
+    index = np.where( np.sum( np.abs( pts ), axis = 0 ) != 0 )[0]
+    return pts[:,index]
+
+#------------------------------------------------------------------------------#
+
+def compute_normal( pts ):
+    """ Compute the normal of a set of points.
+
+    The algorithm assume that the points lie on a plane.
+    Three points are required.
+
+    Parameters:
+    pts: np.ndarray, 3xn, the points.
+
+    Returns:
+    normal: np.array, 1x3, the normal.
+
+    """
+
+    assert( pts.shape[1] > 2 )
+    normal = np.cross( pts[:,0] - pts[:,1], pts[:,0] - pts[:,2] )
+    return normal / np.linalg.norm( normal )
+
+#------------------------------------------------------------------------------#
