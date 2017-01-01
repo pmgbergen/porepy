@@ -1,3 +1,10 @@
+"""
+Various utility functions related to computational geometry.
+
+Some functions (add_point, split_edges, ...?) are mainly aimed at finding
+intersection between lines, with grid generation in mind, and should perhaps
+be moved to a separate module.
+"""
 import numpy as np
 from math import sqrt
 import sympy
@@ -5,11 +12,41 @@ import sympy
 #------------------------------------------------------------------------------#
 
 def snap_to_grid(pts, box=None, precision=1e-3):
+    """
+    Snap points to an underlying Cartesian grid. 
+    Used e.g. for avoiding rounding issues when testing for equality between
+    points.
+
+    Anisotropy in the rounding rules can be enforced by the parameter box.
+
+    >>> snap_to_grid([[0.2445], [0.501]])
+    array([[0.245], [0.501])
+
+    >>> snap_to_grid([[0.2445], [0.501]], box=[[10], 1])
+    array([[0.24], [0.501])
+
+    >>> snap_to_grid([[0.2445], [0.501]], precision=0.01)
+    array([[0.24], [0.5]])
+
+    Parameters:
+        pts (np.ndarray, nd x n_pts): Points to be rounded.
+        box (np.ndarray, nd x 1, optional): Size of the domain, precision will
+	    be taken relative to the size. Defaults to unit box.
+        precision (double, optional): Resolution of the underlying grid.
+
+    Returns:
+        np.ndarray, nd x n_pts: Rounded coordinates.
+
+    """
+
+    pts = np.asarray(pts)
 
     nd = pts.shape[0]
 
     if box is None:
         box = np.reshape(np.ones(nd), (nd, 1))
+    else:
+    	box = np.asarray(box)
 
     # Precission in each direction
     delta = box * precision
@@ -45,22 +82,70 @@ def __points_equal(p1, p2, box, precesion=1e-3):
 #------------------------------------------------------------------------------#
 
 def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
+    """
+    Split a line into two by introcuding a new point.
+    Function is used e.g. for gridding purposes.
+
+    The input can be a set of points, and lines between them, of which one is 
+    to be split.
+
+    A new line will be inserted, unless the new point coincides with the 
+    start or endpoint of the edge (under the given precision).
+
+    The code is intended for 2D, in 3D use with caution.
+
+    Examples:
+        >>> p = [[0, 0], [0, 1]]
+        >>> edges = [[0], [1]]
+        >>> new_pt = [[0], [0.5]]
+        >>> v, e, nl = split_edge(p, edges, 0, new_pt)
+        >>> e
+        array([[0, 2], [2, 1]])
+
+    Parameters:
+        vertices (np.ndarray, nd x num_pt): Points of the vertex sets.
+        edges (np.ndarray, n x num_edges): Connections between lines. If n>2, 
+	    the additional rows are treated as tags, that are preserved under 
+	    splitting.
+        edge_ind (int): index of edge to be split, refering to edges.
+        new_pt (np.ndarray, nd x 1): new point to be inserted. Assumed to be
+	    on the edge to be split.
+        box (np.ndarray, nd x 1): bounding box of the domain, see snap_to_grid
+	    for usage.
+        precission (double): precision of underlying grid. See snap_to_grid 
+	    for usage.
+
+    Returns:
+        np.ndarray, nd x n_pt: new point set, possibly with new point inserted.
+        np.ndarray, n x n_con: new edge set, possibly with new lines defined.
+        boolean: True if a new line is created, otherwise false.
+
+
+    """
 
     start = edges[0, edge_ind]
     end = edges[1, edge_ind]
+    # Save tags associated with the edge.
     tags = edges[2:, edge_ind]
 
+    # Add a new point
     vertices, pt_ind, _ = add_point(vertices, new_pt, box, precision)
+    # If the new point coincide with the start point, nothing happens
     if start == pt_ind or end == pt_ind:
         new_line = False
         return vertices, edges, new_line
+    
+    # If we get here, we know that a new point has been created.
+
+    # Add any tags to the new edge.
     if tags.size > 0:
         new_edges = np.vstack((np.array([[start, pt_ind],
                                          [pt_ind, end]]),
                                np.tile(tags[:, np.newaxis], 2)))
     else:
         new_edges = np.array([[start, pt_ind],
-                             [pt_ind, end]])
+                              [pt_ind, end]])
+    # Insert the new edge in the midle of the set of edges.
     edges = np.hstack((edges[:, :edge_ind], new_edges, edges[:, edge_ind+1:]))
     new_line = True
     return vertices, edges, new_line
@@ -68,34 +153,92 @@ def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
 #------------------------------------------------------------------------------#
 
 def add_point(vertices, pt, box=None, precision=1e-3):
+    """
+    Add a point to a point set, unless the point already exist in the set.
+
+    Point coordinates are compared relative to an underlying Cartesian grid,
+    see snap_to_grid for details.
+
+    The function is created with gridding in mind, but may be useful for other
+    purposes as well.
+
+    Parameters:
+        vertices (np.ndarray, nd x num_pts): existing point set
+        pt (np.ndarray, nd x 1): Point to be added
+        box, precision: Parameters bassed to snap_to_grid, see that function 
+	    for details.
+
+    Returns:
+        np.ndarray, nd x n_pt: New point set, possibly containing a new point
+        int: Index of the new point added (if any). If not, index of the 
+	closest existing point, i.e. the one that made a new point unnecessary.
+        np.ndarray, nd x 1: The new point, or None if no new point was needed.
+    
+    """
+
     nd = vertices.shape[0]
+    # Before comparing coordinates, snap both existing and new point to the
+    # underlying grid
     vertices = snap_to_grid(vertices, box, precision)
     pt = snap_to_grid(pt, box, precision)
+
+    # Distance 
     dist = __dist(pt, vertices)
     min_dist = np.min(dist)
-    if min_dist < precision * nd:
+
+    if min_dist < precision * np.sqrt(nd):
+    	# No new point is needed
         ind = np.argmin(dist)
         new_point = None
         return vertices, ind, new_point
-    vertices = np.append(vertices, pt, axis=1)
-    ind = vertices.shape[1]-1
-    return vertices, ind, pt
+    else:
+    	# Append the new point.
+        vertices = np.append(vertices, pt, axis=1)
+        ind = vertices.shape[1]-1
+        return vertices, ind, pt
 
 #------------------------------------------------------------------------------#
 
 def lines_intersect(start_1, end_1, start_2, end_2):
-    # Check if lines intersect. For the moment, we do this by methods
-    # incorpoated in sympy. The implementation can be done by pure algebra
-    # if necessary (although this becomes cumbersome).
+    """
+    Check if two line segments defined by their start end endpoints, intersect.
+
+    The lines are assumed to be in 2D.
+
+    The function uses sympy to find intersections. At the moment (Jan 2017),
+    sympy is not very effective, so this may become a bottleneck if the method
+    is called repeatedly. An purely algebraic implementation is simple, but
+    somewhat cumbersome.
+
+    Example:
+        >>> lines_intersect([0, 0], [1, 1], [0, 1], [1, 0])
+        array([0.5, 0.5])
+
+        >>> lines_intersect([0, 0], [1, 0], [0, 1], [1, 1])
+        None
+
+    Parameters:
+        start_1 (np.ndarray or list): coordinates of start point for first 
+	    line.
+        end_1 (np.ndarray or list): coordinates of end point for first line.
+        start_2 (np.ndarray or list): coordinates of start point for first 
+	    line.
+        end_2 (np.ndarray or list): coordinates of end point for first line.
+
+    Returns:
+        np.ndarray: coordinates of intersection point, or None if the lines do
+    	    not intersect.
+    """
+    
 
     # It seems that if sympy is provided point coordinates as integers, it may
     # do calculations in integers also, with an unknown approach to rounding.
     # Cast the values to floats to avoid this. It is not the most pythonic
     # style, but tracking down such a bug would have been a nightmare.
-    start_1 = start_1.astype(np.float)
-    end_1 = end_1.astype(np.float)
-    start_2 = start_2.astype(np.float)
-    end_2 = end_2.astype(np.float)
+    start_1 = np.asarray(start_1).astype(np.float)
+    end_1 = np.asarray(end_1).astype(np.float)
+    start_2 = np.asarray(start_2).astype(np.float)
+    end_2 = np.asarray(end_2).astype(np.float)
 
     p1 = sympy.Point(start_1[0], start_1[1])
     p2 = sympy.Point(end_1[0], end_1[1])
@@ -110,23 +253,38 @@ def lines_intersect(start_1, end_1, start_2, end_2):
         return None
     else:
         p = isect[0]
-        # Should this be a column vector?
         return np.array([[p.x], [p.y]], dtype='float')
 
 #------------------------------------------------------------------------------#
 
 def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
     """
+    Process a set of points and connections between them so that the result
+    is an extended point set and new connections that do not intersect.
 
-    Parameters
-    ----------
-    vertices
-    edges
-    box
-    precision
+    The function is written for gridding of fractured domains, but may be
+    of use in other cases as well. The geometry is assumed to be 2D, (the
+    corresponding operation in 3D requires intersection between planes, and
+    is a rather complex, although doable, task).
 
-    Returns
-    -------
+    The connections are defined by their start and endpoints, and can also
+    have tags assigned. If so, the tags are preserved as connections are split.
+
+    Parameters:
+	vertices (np.ndarray, 2 x n_pt): Coordinates of points to be processed
+	edges (np.ndarray, n x n_con): Connections between lines. n >= 2, row
+	    0 and 1 are index of start and endpoints, additional rows are tags
+	box (np.ndarray, nd): Size of domain, passed to snap_to_grid, see that
+	    function for comments.
+	precission (double): Resolution of underlying Cartesian grid, see
+	    snap_to_grid for details.
+
+    Returns:
+	np.ndarray, (2 x n_pt), array of points, possibly expanded.
+	np.ndarray, (n x n_edges), array of new edges. Non-intersecting. 
+
+    Raises:
+	NotImplementedError if a 3D point array is provided.
 
     """
     num_edges = edges.shape[1]
@@ -242,19 +400,22 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
 def project_plane_matrix( pts, normal = None ):
     """ Project the points on a plane using local coordinates.
 
-    Parameters:
-    pts: np.ndarray, 3xn, the points.
-    normal: (optional) the normal of the plane, otherwise three points are
-    required.
-
-    Returns:
-    matrix: np.ndarray, 3x3, projection matrix.
     The projected points are computed by a dot product.
     example: np.array( [ np.dot( R, p ) for p in pts.T ] ).T
+    
+    Parameters:
+        pts (np.ndarray, 3xn): the points.
+        normal: (optional) the normal of the plane, otherwise three points are
+            required.
+
+    Returns:
+    	np.ndarray, 3x3, projection matrix.
 
     """
-    if normal is None: normal = compute_normal( pts )
-    else:              normal = normal / np.linalg.norm( normal )
+    if normal is None: 
+        normal = compute_normal( pts )
+    else:
+        normal = normal / np.linalg.norm( normal )
 
     reference = np.array( [0., 0., 1.] )
     angle = np.arccos( np.dot( normal, reference ) )
@@ -268,14 +429,15 @@ def rot( a, vect ):
     form of Rodrigues formula.
 
     Parameters:
-    a: double, the angle.
-    vect: np.array, 3, the vector.
+        a: double, the angle.
+        vect: np.array, 3, the vector.
 
     Returns:
-    matrix: np.ndarray, 3x3, the rotation matrix.
+        matrix: np.ndarray, 3x3, the rotation matrix.
 
     """
-    if np.allclose( vect, [0.,0.,0.] ): return np.identity(3)
+    if np.allclose( vect, [0.,0.,0.] ): 
+        return np.identity(3)
     vect = vect / np.linalg.norm( vect )
     W = np.array( [ [       0., -vect[2],  vect[1] ],
                     [  vect[2],       0., -vect[0] ],
@@ -292,10 +454,10 @@ def compute_normal( pts ):
     Three points are required.
 
     Parameters:
-    pts: np.ndarray, 3xn, the points.
+        pts: np.ndarray, 3xn, the points.
 
     Returns:
-    normal: np.array, 1x3, the normal.
+        normal: np.array, 1x3, the normal.
 
     """
     assert( pts.shape[1] > 2 )
