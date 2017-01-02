@@ -10,15 +10,16 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_compute_normal_2d( self ):
-        pts = np.array( [ [ 0., 2., -1 ],
-                          [ 0., 4.,  2 ] ] )
+        pts = np.array( [ [ 0., 2., -1. ],
+                          [ 0., 4.,  2. ],
+                          [ 0., 0.,  0. ] ] )
         normal = basics.compute_normal( pts )
         normal_test = np.array([0.,0.,1.])
-        pt = basics.to_3d_pt( pts[:,0] )
+        pt = pts[:,0]
 
         assert np.allclose( np.linalg.norm( normal ), 1. )
         assert np.allclose( [ np.dot( normal, p - pt ) \
-                              for p in basics.to_3d(pts[:,1:]).T ],
+                              for p in pts[:,1:].T ],
                             np.zeros( pts.shape[1] - 1 )  )
         assert np.allclose( normal, normal_test )
 
