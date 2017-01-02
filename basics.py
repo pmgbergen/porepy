@@ -4,7 +4,9 @@ Various utility functions related to computational geometry.
 Some functions (add_point, split_edges, ...?) are mainly aimed at finding
 intersection between lines, with grid generation in mind, and should perhaps
 be moved to a separate module.
+
 """
+
 import numpy as np
 from math import sqrt
 import sympy
@@ -13,25 +15,28 @@ import sympy
 
 def snap_to_grid(pts, box=None, precision=1e-3):
     """
-    Snap points to an underlying Cartesian grid. 
+    Snap points to an underlying Cartesian grid.
     Used e.g. for avoiding rounding issues when testing for equality between
     points.
 
     Anisotropy in the rounding rules can be enforced by the parameter box.
 
-    >>> snap_to_grid([[0.2445], [0.501]])
-    array([[0.245], [0.501])
+    >>> snap_to_grid([[0.2443], [0.501]])
+    array([[ 0.244],
+    	   [ 0.501]])
 
-    >>> snap_to_grid([[0.2445], [0.501]], box=[[10], 1])
-    array([[0.24], [0.501])
+    >>> snap_to_grid([[0.2443], [0.501]], box=[[10], [1]])
+    array([[ 0.24 ],
+           [ 0.501]])
 
-    >>> snap_to_grid([[0.2445], [0.501]], precision=0.01)
-    array([[0.24], [0.5]])
+    >>> snap_to_grid([[0.2443], [0.501]], precision=0.01)
+    array([[ 0.24],
+           [ 0.5 ]])
 
     Parameters:
         pts (np.ndarray, nd x n_pts): Points to be rounded.
         box (np.ndarray, nd x 1, optional): Size of the domain, precision will
-	    be taken relative to the size. Defaults to unit box.
+            be taken relative to the size. Defaults to unit box.
         precision (double, optional): Resolution of the underlying grid.
 
     Returns:
@@ -46,7 +51,7 @@ def snap_to_grid(pts, box=None, precision=1e-3):
     if box is None:
         box = np.reshape(np.ones(nd), (nd, 1))
     else:
-    	box = np.asarray(box)
+        box = np.asarray(box)
 
     # Precission in each direction
     delta = box * precision
@@ -86,43 +91,42 @@ def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
     Split a line into two by introcuding a new point.
     Function is used e.g. for gridding purposes.
 
-    The input can be a set of points, and lines between them, of which one is 
+    The input can be a set of points, and lines between them, of which one is
     to be split.
 
-    A new line will be inserted, unless the new point coincides with the 
+    A new line will be inserted, unless the new point coincides with the
     start or endpoint of the edge (under the given precision).
 
     The code is intended for 2D, in 3D use with caution.
 
     Examples:
-        >>> p = [[0, 0], [0, 1]]
-        >>> edges = [[0], [1]]
-        >>> new_pt = [[0], [0.5]]
-        >>> v, e, nl = split_edge(p, edges, 0, new_pt)
+        >>> p = np.array([[0, 0], [0, 1]])
+        >>> edges = np.array([[0], [1]])
+        >>> new_pt = np.array([[0], [0.5]])
+        >>> v, e, nl = split_edge(p, edges, 0, new_pt, [[1], [1]], 1e-3)
         >>> e
-        array([[0, 2], [2, 1]])
+        array([[0, 2],
+               [2, 1]])
 
     Parameters:
         vertices (np.ndarray, nd x num_pt): Points of the vertex sets.
-        edges (np.ndarray, n x num_edges): Connections between lines. If n>2, 
-	    the additional rows are treated as tags, that are preserved under 
-	    splitting.
+        edges (np.ndarray, n x num_edges): Connections between lines. If n>2,
+            the additional rows are treated as tags, that are preserved under
+            splitting.
         edge_ind (int): index of edge to be split, refering to edges.
         new_pt (np.ndarray, nd x 1): new point to be inserted. Assumed to be
-	    on the edge to be split.
+            on the edge to be split.
         box (np.ndarray, nd x 1): bounding box of the domain, see snap_to_grid
-	    for usage.
-        precission (double): precision of underlying grid. See snap_to_grid 
-	    for usage.
+            for usage.
+        precission (double): precision of underlying grid. See snap_to_grid
+            for usage.
 
     Returns:
         np.ndarray, nd x n_pt: new point set, possibly with new point inserted.
         np.ndarray, n x n_con: new edge set, possibly with new lines defined.
         boolean: True if a new line is created, otherwise false.
 
-
     """
-
     start = edges[0, edge_ind]
     end = edges[1, edge_ind]
     # Save tags associated with the edge.
@@ -134,7 +138,7 @@ def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
     if start == pt_ind or end == pt_ind:
         new_line = False
         return vertices, edges, new_line
-    
+
     # If we get here, we know that a new point has been created.
 
     # Add any tags to the new edge.
@@ -165,15 +169,16 @@ def add_point(vertices, pt, box=None, precision=1e-3):
     Parameters:
         vertices (np.ndarray, nd x num_pts): existing point set
         pt (np.ndarray, nd x 1): Point to be added
-        box, precision: Parameters bassed to snap_to_grid, see that function 
-	    for details.
+        box, precision: Parameters bassed to snap_to_grid, see that function
+            for details.
 
     Returns:
         np.ndarray, nd x n_pt: New point set, possibly containing a new point
-        int: Index of the new point added (if any). If not, index of the 
-	closest existing point, i.e. the one that made a new point unnecessary.
+        int: Index of the new point added (if any). If not, index of the
+            closest existing point, i.e. the one that made a new point
+            unnecessary.
         np.ndarray, nd x 1: The new point, or None if no new point was needed.
-    
+
     """
 
     nd = vertices.shape[0]
@@ -192,9 +197,10 @@ def add_point(vertices, pt, box=None, precision=1e-3):
         new_point = None
         return vertices, ind, new_point
     else:
-    	# Append the new point.
-        vertices = np.append(vertices, pt, axis=1)
         ind = vertices.shape[1]-1
+        # Append the new point at the end of the point list
+        vertices = np.append(vertices, pt, axis=1)
+        ind = vertices.shape[1] - 1
         return vertices, ind, pt
 
 #------------------------------------------------------------------------------#
@@ -210,26 +216,31 @@ def lines_intersect(start_1, end_1, start_2, end_2):
     is called repeatedly. An purely algebraic implementation is simple, but
     somewhat cumbersome.
 
+    Note that, oposed to other functions related to grid generation such as
+    remove_edge_crossings, this function does not use the concept of
+    snap_to_grid. This may cause problems at some point, although no issues
+    have been discovered so far.
+
     Example:
         >>> lines_intersect([0, 0], [1, 1], [0, 1], [1, 0])
-        array([0.5, 0.5])
+        array([[ 0.5],
+	       [ 0.5]])
 
         >>> lines_intersect([0, 0], [1, 0], [0, 1], [1, 1])
-        None
 
     Parameters:
-        start_1 (np.ndarray or list): coordinates of start point for first 
-	    line.
+        start_1 (np.ndarray or list): coordinates of start point for first
+            line.
         end_1 (np.ndarray or list): coordinates of end point for first line.
-        start_2 (np.ndarray or list): coordinates of start point for first 
-	    line.
+        start_2 (np.ndarray or list): coordinates of start point for first
+            line.
         end_2 (np.ndarray or list): coordinates of end point for first line.
 
     Returns:
         np.ndarray: coordinates of intersection point, or None if the lines do
-    	    not intersect.
+            not intersect.
     """
-    
+
 
     # It seems that if sympy is provided point coordinates as integers, it may
     # do calculations in integers also, with an unknown approach to rounding.
@@ -273,15 +284,15 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
     Parameters:
 	vertices (np.ndarray, 2 x n_pt): Coordinates of points to be processed
 	edges (np.ndarray, n x n_con): Connections between lines. n >= 2, row
-	    0 and 1 are index of start and endpoints, additional rows are tags
+            0 and 1 are index of start and endpoints, additional rows are tags
 	box (np.ndarray, nd): Size of domain, passed to snap_to_grid, see that
-	    function for comments.
+            function for comments.
 	precission (double): Resolution of underlying Cartesian grid, see
-	    snap_to_grid for details.
+            snap_to_grid for details.
 
     Returns:
 	np.ndarray, (2 x n_pt), array of points, possibly expanded.
-	np.ndarray, (n x n_edges), array of new edges. Non-intersecting. 
+	np.ndarray, (n x n_edges), array of new edges. Non-intersecting.
 
     Raises:
 	NotImplementedError if a 3D point array is provided.
