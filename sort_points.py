@@ -1,5 +1,5 @@
 import numpy as np
-from compgeom.basics import project_plane
+from compgeom.basics import project_plane_matrix
 
 #------------------------------------------------------------------------------#
 
@@ -76,8 +76,11 @@ def sort_point_plane( pts, centre, normal = None ):
     map_pts: np.array, 1xn, sorted point ids.
 
     """
-    delta = project_plane( np.array( [ p - centre for p in pts.T ] ).T, normal )
-    delta = np.divide( delta, np.linalg.norm( delta ) )
-    return np.argsort( np.arctan2( *delta.T ) )
+    R = project_plane_matrix( pts, normal )
+    pts = np.array( [ np.dot(R, p) for p in pts.T ] ).T
+    centre = np.dot(R, centre)
+    delta = np.array( [ p - centre for p in pts.T] ).T[0:2,:]
+    delta = np.array( [ d / np.linalg.norm(d) for d in delta.T] ).T
+    return np.argsort( np.arctan2( *delta ) )
 
 #------------------------------------------------------------------------------#
