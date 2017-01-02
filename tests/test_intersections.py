@@ -5,7 +5,14 @@ from compgeom import basics
 
 
 class SplitIntersectingLines2DTest(unittest.TestCase):
+    """
+    Various tests of remove_edge_crossings.
 
+    Note that since this function in itself uses several subfunctions, this is
+    somewhat against the spirit of unit testing. The subfunctions are also
+    fairly well covered by unit tests, in the form of doctests.
+
+    """
     def test_lines_crossing_origin(self):
         p = np.array([[-1, 1, 0, 0],
                       [0, 0, -1, 1]])
