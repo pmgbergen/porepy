@@ -42,7 +42,6 @@ def export_2d( g ):
     for c in np.arange( g.num_cells ):
         fs = faces_cells[ cells == c ]
         ptsId = np.array( [ nodes_faces[ faces == f ] for f in fs ] ).T
-        print( ptsId )
         ptsId = sort_points.sort_point_pairs( ptsId )[0,:]
 
         fsVTK = vtk.vtkIdList()
