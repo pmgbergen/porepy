@@ -716,18 +716,3 @@ def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell,
     d_cont_cell = d_cont_cell[:, d_cont_cell_map]
     return d_cont_grad, d_cont_cell
 
-
-if __name__ == '__main__':
-    # Method used for debuging
-    nx = np.array([2, 2])
-    g = structured.CartGrid(nx)
-    g.nodes[0, 4] = 1.5
-    g.compute_geometry()
-
-    lmbda = np.ones(g.num_cells)
-    mu = lmbda
-    perm = fourth_order_tensor.FourthOrderTensor(g.dim, mu, lmbda)
-
-    bnd = bc.BoundaryCondition(g)
-    biot(g, perm, bnd)
-
