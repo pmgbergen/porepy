@@ -13,7 +13,7 @@ import sympy
 
 #------------------------------------------------------------------------------#
 
-def snap_to_grid(pts, box=None, precision=1e-3):
+def snap_to_grid(pts, precision=1e-3, box=None):
     """
     Snap points to an underlying Cartesian grid.
     Used e.g. for avoiding rounding issues when testing for equality between
@@ -86,7 +86,7 @@ def __points_equal(p1, p2, box, precesion=1e-3):
 
 #------------------------------------------------------------------------------#
 
-def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
+def split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
     """
     Split a line into two by introcuding a new point.
     Function is used e.g. for gridding purposes.
@@ -103,7 +103,7 @@ def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
         >>> p = np.array([[0, 0], [0, 1]])
         >>> edges = np.array([[0], [1]])
         >>> new_pt = np.array([[0], [0.5]])
-        >>> v, e, nl = split_edge(p, edges, 0, new_pt, [[1], [1]], 1e-3)
+        >>> v, e, nl = split_edge(p, edges, 0, new_pt)
         >>> e
         array([[0, 2],
                [2, 1]])
@@ -116,10 +116,7 @@ def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
         edge_ind (int): index of edge to be split, refering to edges.
         new_pt (np.ndarray, nd x 1): new point to be inserted. Assumed to be
             on the edge to be split.
-        box (np.ndarray, nd x 1): bounding box of the domain, see snap_to_grid
-            for usage.
-        precission (double): precision of underlying grid. See snap_to_grid
-            for usage.
+        **kwargs: Arguments passed to snap_to_grid
 
     Returns:
         np.ndarray, nd x n_pt: new point set, possibly with new point inserted.
@@ -133,7 +130,7 @@ def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
     tags = edges[2:, edge_ind]
 
     # Add a new point
-    vertices, pt_ind, _ = add_point(vertices, new_pt, box, precision)
+    vertices, pt_ind, _ = add_point(vertices, new_pt, **kwargs)
     # If the new point coincide with the start point, nothing happens
     if start == pt_ind or end == pt_ind:
         new_line = False
@@ -156,7 +153,7 @@ def split_edge(vertices, edges, edge_ind, new_pt, box, precision):
 
 #------------------------------------------------------------------------------#
 
-def add_point(vertices, pt, box=None, precision=1e-3):
+def add_point(vertices, pt, precision=1e-3, **kwargs):
     """
     Add a point to a point set, unless the point already exist in the set.
 
@@ -169,8 +166,8 @@ def add_point(vertices, pt, box=None, precision=1e-3):
     Parameters:
         vertices (np.ndarray, nd x num_pts): existing point set
         pt (np.ndarray, nd x 1): Point to be added
-        box, precision: Parameters bassed to snap_to_grid, see that function
-            for details.
+        precesion (double): Precision of underlying Cartesian grid
+        **kwargs: Arguments passed to snap_to_grid
 
     Returns:
         np.ndarray, nd x n_pt: New point set, possibly containing a new point
@@ -180,12 +177,14 @@ def add_point(vertices, pt, box=None, precision=1e-3):
         np.ndarray, nd x 1: The new point, or None if no new point was needed.
 
     """
+    if not 'precision' in kwargs:
+        kwargs['precision'] = precision
 
     nd = vertices.shape[0]
     # Before comparing coordinates, snap both existing and new point to the
     # underlying grid
-    vertices = snap_to_grid(vertices, box, precision)
-    pt = snap_to_grid(pt, box, precision)
+    vertices = snap_to_grid(vertices, **kwargs)
+    pt = snap_to_grid(pt, **kwargs)
 
     # Distance 
     dist = __dist(pt, vertices)
@@ -268,7 +267,7 @@ def lines_intersect(start_1, end_1, start_2, end_2):
 
 #------------------------------------------------------------------------------#
 
-def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
+def remove_edge_crossings(vertices, edges, **kwargs):
     """
     Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
@@ -285,10 +284,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
 	vertices (np.ndarray, 2 x n_pt): Coordinates of points to be processed
 	edges (np.ndarray, n x n_con): Connections between lines. n >= 2, row
             0 and 1 are index of start and endpoints, additional rows are tags
-	box (np.ndarray, nd): Size of domain, passed to snap_to_grid, see that
-            function for comments.
-	precission (double): Resolution of underlying Cartesian grid, see
-            snap_to_grid for details.
+        **kwargs: Arguments passed to snap_to_grid
 
     Returns:
 	np.ndarray, (2 x n_pt), array of points, possibly expanded.
@@ -308,7 +304,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
 
     edge_counter = 0
 
-    vertices = snap_to_grid(vertices, box, precision)
+    vertices = snap_to_grid(vertices, **kwargs)
 
     # Loop over all edges, search for intersections. The number of edges can
     #  change due to splitting.
@@ -385,8 +381,8 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
                 # is needed)
                 vertices, edges, split_outer_edge = split_edge(vertices, edges,
                                                                edge_counter,
-                                                               new_pt, box,
-                                                               precision)
+                                                               new_pt,
+                                                               **kwargs)
                 # If the outer edge (represented by edge_counter) was split,
                 # e.g. inserted into the list of edges we need to increase the
                 # index of the inner edge
@@ -394,8 +390,8 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
                 # Possibly split the inner edge
                 vertices, edges, split_inner_edge = split_edge(vertices, edges,
                                                                intsect,
-                                                               new_pt, box,
-                                                               precision)
+                                                               new_pt,
+                                                               **kwargs)
                 # Update index of possible intersections
                 intersections += split_outer_edge + split_inner_edge
 

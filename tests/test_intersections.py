@@ -22,10 +22,10 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
                           [3, 4]])
         box = np.array([[2], [2]])
 
-        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box)
+        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box=box)
 
         p_known = np.hstack((p, np.array([[0], [0]])))
-        p_known = basics.snap_to_grid(p_known, box)
+        p_known = basics.snap_to_grid(p_known, box=box)
 
         lines_known = np.array([[0, 4, 2, 4],
                                 [4, 1, 4, 3],
@@ -42,7 +42,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         lines = np.array([[0, 1],
                           [2, 3]])
         box = np.array([[2], [2]])
-        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box)
+        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box=box)
         assert np.allclose(new_pts, p)
         assert np.allclose(new_lines, lines)
 
@@ -53,8 +53,8 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         lines = np.array([[0, 3], [1, 4], [2, 5]]).T
         box = np.array([[1], [2]])
 
-        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box)
-        p_known = basics.snap_to_grid(p, box)
+        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box=box)
+        p_known = basics.snap_to_grid(p, box=box)
         assert np.allclose(new_pts, p_known)
         assert np.allclose(new_lines, lines)
 
@@ -65,9 +65,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         lines = np.array([[0, 3], [2, 5], [1, 4]]).T
         box = np.array([[1], [2]])
 
-        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box)
+        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box=box)
         p_known = np.hstack((p, np.array([[0.4], [0.4]])))
-        p_known = basics.snap_to_grid(p_known, box)
+        p_known = basics.snap_to_grid(p_known, box=box)
         lines_known = np.array([[0, 3], [2, 6], [6, 5], [1, 6], [6, 4]]).T
         assert np.allclose(new_pts, p_known)
         assert np.allclose(new_lines, lines_known)
@@ -86,11 +86,11 @@ class SnapToGridTest(unittest.TestCase):
         self.p = np.array([0.6, 0.6])
 
     def test_snapping(self):
-        p_snapped = basics.snap_to_grid(self.p, self.box, precision=1)
+        p_snapped = basics.snap_to_grid(self.p, box=self.box, precision=1)
         assert np.allclose(p_snapped, np.array([1, 1]))
 
     def test_aniso_snapping(self):
-        p_snapped = basics.snap_to_grid(self.p, self.anisobox, precision=1)
+        p_snapped = basics.snap_to_grid(self.p, box=self.anisobox, precision=1)
         assert np.allclose(p_snapped, np.array([0, 1]))
 
     if __name__ == '__main__':
