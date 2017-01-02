@@ -9,7 +9,7 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.spatial
 
-from core.grids.grid import Grid, GridType
+from core.grids.grid import Grid
 from utils import setmembership
 from utils import accumarray
 
@@ -35,7 +35,6 @@ class TriangleGrid(Grid):
         """
 
         self.dim = 2
-        self.type = GridType.triangle
 
         # Transform points to column vector if necessary (scipy.Delaunay
         # requires this format)
