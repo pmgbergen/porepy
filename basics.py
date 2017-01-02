@@ -258,7 +258,6 @@ def project_plane_matrix( pts, normal = None ):
 
     reference = np.array( [0., 0., 1.] )
     angle = np.arccos( np.dot( normal, reference ) )
-    if angle == 0: return np.identity(3)
     vect = np.cross( normal, reference )
     return rot( angle, vect )
 
@@ -276,6 +275,7 @@ def rot( a, vect ):
     matrix: np.ndarray, 3x3, the rotation matrix.
 
     """
+    if np.allclose( vect, [0.,0.,0.] ): return np.identity(3)
     vect = vect / np.linalg.norm( vect )
     W = np.array( [ [       0., -vect[2],  vect[1] ],
                     [  vect[2],       0., -vect[0] ],
