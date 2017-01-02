@@ -12,18 +12,6 @@ from scipy import sparse as sps
 from utils import matrix_compression
 
 
-class GridType(Enum):
-    """
-    Enumeration to define types of grids. Not quite sure what I want to use
-    them for; right now the primary motivation is to test which type of grid
-    this is.
-    Possible future usage could assign dimension to the fields, etc.
-    """
-    triangle = 1
-    cartesian_2D = 2
-    tensor_2D = 3
-
-
 class Grid(object):
     """
     Parent class for all grids.
