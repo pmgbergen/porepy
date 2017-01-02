@@ -45,7 +45,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         new_pts, new_lines = basics.remove_edge_crossings(p, lines, box)
         assert np.allclose(new_pts, p)
         assert np.allclose(new_lines, lines)
-        
+
     def test_three_lines_no_crossing(self):
         # This test gave an error at some point
         p = np.array([[ 0., 0.,   0.3, 1.,  1.,   0.5],
@@ -57,7 +57,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p_known = basics.snap_to_grid(p, box)
         assert np.allclose(new_pts, p_known)
         assert np.allclose(new_lines, lines)
-        
+
     def test_three_lines_one_crossing(self):
         # This test gave an error at some point
         p = np.array([[ 0., 0.5,   0.3, 1.,  0.3,  0.5],
@@ -71,9 +71,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         lines_known = np.array([[0, 3], [2, 6], [6, 5], [1, 6], [6, 4]]).T
         assert np.allclose(new_pts, p_known)
         assert np.allclose(new_lines, lines_known)
-    
 
-        
+
+
     if __name__ == '__main__':
         unittest.main()
 
@@ -95,10 +95,10 @@ class SnapToGridTest(unittest.TestCase):
 
     if __name__ == '__main__':
         unittest.main()
-        
+
 
 class LinesIntersectTest(unittest.TestCase):
-    
+
     def test_lines_intersect_segments_do_not(self):
         s0 = np.array([0.3, 0.3])
         e0 = np.array([0.5, 0.5])
@@ -106,6 +106,6 @@ class LinesIntersectTest(unittest.TestCase):
         e1 = np.array([1, 2/3])
         pi = basics.lines_intersect(s0, e0, s1, e1)
         assert(pi is None or len(pi)==0)
-        
+
     if __name__ == '__main__':
         unittest.main()
