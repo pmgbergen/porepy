@@ -258,6 +258,26 @@ def project_plane( pts, normal = None ):
     pts = np.array( [ np.dot( T, p ) for p in pts.T ] )
     index = np.where( np.sum( np.abs( pts ), axis = 0 ) != 0 )[0]
     return pts[:,index]
+#------------------------------------------------------------------------------#
+
+def rot( a, vect ):
+    """ Compute the rotation matrix about a vector by an angle using the matrix
+    form of Rodrigues formula.
+
+    Parameters:
+    a: double, the angle.
+    vect: np.array, 3, the vector.
+
+    Returns:
+    matrix: np.ndarray, 3x3, the rotation matrix.
+
+    """
+    vect = vect / np.linalg.norm( vect )
+    W = np.array( [ [       0., -vect[2],  vect[1] ],
+                    [  vect[2],       0., -vect[0] ],
+                    [ -vect[1],  vect[0],       0. ] ] )
+    return np.identity(3) + np.sin(a)*W + \
+           (1.-np.cos(a))*np.linalg.matrix_power(W,2)
 
 #------------------------------------------------------------------------------#
 
