@@ -4,10 +4,13 @@ import numpy as np
 import scipy.sparse as sps
 
 from core.grids.grid import Grid
+from utils import matrix_compression
 
 #------------------------------------------------------------------------------#
 
 def generateCoarseGrid( _g, _subdiv ):
+    _subdiv = np.asarray( _subdiv )
+    assert( _subdiv.shape[0] == _g.num_cells )
 
     cell_faces = np.empty( 0, dtype = np.int )
     cells = np.empty( 0, dtype = np.int )
@@ -18,6 +21,10 @@ def generateCoarseGrid( _g, _subdiv ):
     # there is no check for disconnected cells
 
     cells_list = np.unique( _subdiv )
+    num_nodes_per_face = _g.face_nodes.indptr[1:] - _g.face_nodes.indptr[:-1]
+    face_node_ind = matrix_compression.rldecode(np.arange(
+                                              _g.num_faces), num_nodes_per_face)
+
     for cellId, cell in enumerate( cells_list ):
         cells_old = np.where( _subdiv == cell )[0]
         faces_old, _, orient_old = sps.find( _g.cell_faces[:, cells_old] )
@@ -29,12 +36,15 @@ def generateCoarseGrid( _g, _subdiv ):
                                              for f in faces_old[~mask]]).ravel()
         faces_new = np.delete( faces_old, index )
         cell_faces = np.r_[ cell_faces, faces_new ]
-        cells = np.r_[ cells, cellId * np.ones( faces_new.shape[0], dtype = np.int ) ]
+        cells = np.r_[ cells, cellId*np.ones(faces_new.shape[0], dtype = np.int) ]
         orient = np.r_[ orient, np.delete( orient_old, index ) ]
 
         # nodes
-        nodes_new, _, _ = sps.find( _g.face_nodes[:, faces_new] )
-        face_nodes = np.r_[ face_nodes, np.c_[ faces_new, faces_new ].ravel() ]
+        mask = np.sum( [ face_node_ind == f for f in faces_new ], \
+                       axis = 0, dtype = np.bool )
+        #nodes_new, rep, _ = sps.find( _g.face_nodes[:, faces_new] )
+        face_nodes = np.r_[ face_nodes, face_node_ind[ mask ] ]
+        nodes_new = _g.face_nodes.indices[ mask ]
         nodes = np.r_[ nodes, nodes_new ]
 
     # Rename the faces
