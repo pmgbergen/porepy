@@ -323,15 +323,3 @@ def _create_bound_rhs(bnd, bound_exclusion,
     rhs_bound = -sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
     return rhs_bound
 
-
-if __name__ == '__main__':
-    # Method used for debuging
-    nx = np.array([330, 330])
-    g = structured.CartGrid(nx)
-    g.compute_geometry()
-
-    kxx = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-
-    bound = bc.BoundaryCondition(g)
-    mpfa(g, perm, bound)
