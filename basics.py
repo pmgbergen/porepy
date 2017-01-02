@@ -239,7 +239,7 @@ def remove_edge_crossings(vertices, edges, box=None, precision=1e-3):
 
 #------------------------------------------------------------------------------#
 
-def project_plane( pts, normal = None ):
+def project_plane_matrix( pts, normal = None ):
     """ Project the points on a plane using local coordinates.
 
     Parameters:
@@ -248,16 +248,20 @@ def project_plane( pts, normal = None ):
     required.
 
     Returns:
-    pts: np.array, 2xn, projected points on the plane in the local coordinates.
+    matrix: np.ndarray, 3x3, projection matrix.
+    The projected points are computed by a dot product.
+    example: np.array( [ np.dot( R, p ) for p in pts.T ] ).T
 
     """
-
     if normal is None: normal = compute_normal( pts )
     else:              normal = normal / np.linalg.norm( normal )
-    T = np.identity(3) - np.outer( normal, normal )
-    pts = np.array( [ np.dot( T, p ) for p in pts.T ] )
-    index = np.where( np.sum( np.abs( pts ), axis = 0 ) != 0 )[0]
-    return pts[:,index]
+
+    reference = np.array( [0., 0., 1.] )
+    angle = np.arccos( np.dot( normal, reference ) )
+    if angle == 0: return np.identity(3)
+    vect = np.cross( normal, reference )
+    return rot( angle, vect )
+
 #------------------------------------------------------------------------------#
 
 def rot( a, vect ):
