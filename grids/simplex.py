@@ -49,8 +49,8 @@ class TriangleGrid(Grid):
             tri = tri.simplices
             tri = tri.transpose()
 
-        nodes = p
-        num_nodes = nodes.shape[1]
+        num_nodes = p.shape[1]
+        nodes = np.vstack( (p,np.zeros(num_nodes)) )
         assert num_nodes > 2   # Check of transposes of point array
 
         # Face node relations
