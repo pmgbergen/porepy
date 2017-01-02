@@ -20,11 +20,12 @@ from compgeom import sort_points
 
 def plot_grid(g, info = None, show=True):
 
-    if isinstance(g, simplex.TriangleGrid):
-        figId, ax = plot_tri_grid(g)
-    elif isinstance(g, structured.TensorGrid) and g.dim == 2:
-        figId, ax = plot_cart_grid_2d(g)
-    elif g.dim == 2:
+#    if isinstance(g, simplex.TriangleGrid):
+#        figId, ax = plot_tri_grid(g)
+#    elif isinstance(g, structured.TensorGrid) and g.dim == 2:
+#        figId, ax = plot_cart_grid_2d(g)
+#    elif g.dim == 2:
+    if g.dim == 2:
         figId, ax = plot_grid_2d(g)
     else:
         raise NotImplementedError('Under construction')
@@ -117,19 +118,22 @@ def plot_grid_fractures(g, show=True):
 #------------------------------------------------------------------------------#
 
 def add_info( _g, _info, _figId, _ax ):
+    def mask_index( _p ): return _p[0:2]
     def disp( _i, _p, _c ): _ax.plot( *_p, _c ); _ax.annotate( _i, _p )
     def disp_loop( _v, _c ): [ disp( i, c, _c ) for i, c in enumerate( _v.T ) ]
 
     fig = plt.figure( _figId )
     _info = _info.upper()
 
-    if "C" in _info: disp_loop( _g.cell_centers, 'ro' )
-    if "N" in _info: disp_loop( _g.nodes, 'bs' )
-    if "F" in _info: disp_loop( _g.face_centers, 'yd' )
+    if "C" in _info: disp_loop( mask_index( _g.cell_centers ), 'ro' )
+    if "N" in _info: disp_loop( mask_index( _g.nodes ), 'bs' )
+    if "F" in _info: disp_loop( mask_index( _g.face_centers ), 'yd' )
 
     if "O" in _info.upper():
-        normals = np.divide( _g.face_normals, np.linalg.norm( _g.face_normals ) )
-        [ _ax.arrow( *_g.face_centers[:,f], *normals[:,f], fc = 'k', ec = 'k' ) \
+        normals = np.divide( mask_index( _g.face_normals ), \
+                             np.linalg.norm( _g.face_normals ) )
+        [ _ax.arrow( *mask_index( _g.face_centers[:,f] ), \
+                     *normals[:,f], fc = 'k', ec = 'k' ) \
                                             for f in np.arange( _g.num_faces ) ]
 
 #------------------------------------------------------------------------------#
@@ -143,8 +147,8 @@ def plot_grid_2d( _g ):
     for c in np.arange( _g.num_cells ):
         mask = np.where( cells == c )
         cell_nodes = _g.nodes[:, nodes[mask]]
-        index = sort_points.sort_point_face( cell_nodes, _g.cell_centers[:,c] )
-        polygons.append( Polygon( cell_nodes[:,index].T, True ) )
+        index = sort_points.sort_point_plane( cell_nodes, _g.cell_centers[:,c] )
+        polygons.append( Polygon( cell_nodes[0:2,index].T, True ) )
 
     p = PatchCollection( polygons, cmap=matplotlib.cm.jet, alpha=0.4 )
     p.set_array( np.zeros( len( polygons ) ) )
