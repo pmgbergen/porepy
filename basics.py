@@ -299,7 +299,6 @@ def compute_normal( pts ):
 
     """
     assert( pts.shape[1] > 2 )
-    if pts.shape[0] == 2: pts = to_3d(pts)
     normal = np.cross( pts[:,0] - pts[:,1], pts[:,0] - np.mean( pts, axis = 1 ) )
     return normal / np.linalg.norm( normal )
 
