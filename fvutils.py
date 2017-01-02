@@ -514,16 +514,3 @@ class ExcludeBoundaries(object):
                                         self.exclude_dir)
         return exclude_dirichlet_nd * other
 
-if __name__ == '__main__':
-    rows = np.array([0, 0, 1, 2, 2, 3, 4, 4])
-    cols = np.array([0, 1, 0, 2, 4, 3, 3, 4])
-    data = np.array([1, 2, 3, 3, 3, 7, 1, 2])
-    block = sps.coo_matrix((data, (rows, cols))).tocsr()
-    sz = np.array([2, 3], dtype='i8')
-
-    iblock_python = invert_diagonal_blocks(block, sz, 'python')
-    iblock_numba = invert_diagonal_blocks(block, sz)
-    iblock_ex = np.linalg.inv(block.toarray())
-
-    assert np.allclose(iblock_ex, iblock_python.toarray())
-    assert np.allclose(iblock_ex, iblock_numba.toarray())
