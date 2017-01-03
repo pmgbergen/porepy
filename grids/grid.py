@@ -358,3 +358,30 @@ class Grid(object):
     def get_boundary_faces(self):
         return np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel(1)
                            == 1).ravel(1)
+
+    def cell_face_as_dense(self):
+        """
+        Obtain the cell-face relation in the from of two rows, rather than a
+        sparse matrix. This alterative format can be useful in some cases.
+
+        Each column in the array corresponds to a face, and the elements in
+        that column refers to cell indices. The value -1 signifies a boundary.
+        The normal vector of the face points from the first to the second row.
+
+        Returns:
+            np.ndarray, 2 x num_faces: Array representation of face-cell
+                relations
+        """
+        n = self.cell_faces.tocsr()
+        d = np.diff(n.indptr)
+        rows = matrix_compression.rldecode(np.arange(d.size), d)
+        # Increase the data by one to distinguish cell indices from boundary
+        # cells
+        data = n.indices + 1
+        cols = ((n.data + 1)/2).astype('i')
+        neighs = sps.coo_matrix((data, (rows, cols))).todense()
+        # Subtract 1 to get back to real cell indices
+        neighs -= 1
+        return neighs.transpose().A.astype('int')
+
+
