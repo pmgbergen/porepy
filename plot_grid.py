@@ -12,6 +12,9 @@ import matplotlib.tri
 from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 
+import mpl_toolkits.mplot3d as a3
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
 
 from core.grids import simplex, structured
 from compgeom import sort_points
@@ -27,6 +30,8 @@ def plot_grid(g, info = None, show=True):
 #    elif g.dim == 2:
     if g.dim == 2:
         figId, ax = plot_grid_2d(g)
+    elif g.dim == 3:
+        figId, ax = plot_grid_3d(g)
     else:
         raise NotImplementedError('Under construction')
 
@@ -159,6 +164,32 @@ def plot_grid_2d( g ):
     p = PatchCollection( polygons, cmap=matplotlib.cm.jet, alpha=0.4 )
     p.set_array( np.zeros( len( polygons ) ) )
     ax.add_collection(p)
+
+    return fig.number, ax
+
+#------------------------------------------------------------------------------#
+
+def plot_grid_3d( g ):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+
+    faces_cells, cells, _ = sps.find( g.cell_faces )
+    nodes_faces, faces, _ = sps.find( g.face_nodes )
+
+    for c in np.arange( g.num_cells ):
+        fs = faces_cells[ cells == c ]
+        for f in fs:
+            ptsId = nodes_faces[ faces == f ]
+            mask = sort_points.sort_point_plane( g.nodes[:, ptsId], \
+                                                 g.face_centers[:, f], \
+                                                 g.face_normals[:, f] )
+            pts = g.nodes[:, ptsId[mask]]
+            poly = Poly3DCollection( [pts.T] )
+            poly.set_edgecolor('k')
+            poly.set_facecolors('r')
+            poly.set_alpha(0.5)
+            ax.add_collection3d(poly)
 
     return fig.number, ax
 
