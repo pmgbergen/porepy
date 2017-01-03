@@ -117,24 +117,30 @@ def plot_grid_fractures(g, show=True):
 
 #------------------------------------------------------------------------------#
 
-def add_info( _g, _info, _figId, _ax ):
-    def mask_index( _p ): return _p[0:2]
-    def disp( _i, _p, _c ): _ax.plot( *_p, _c ); _ax.annotate( _i, _p )
-    def disp_loop( _v, _c ): [ disp( i, c, _c ) for i, c in enumerate( _v.T ) ]
+def add_info( g, info, figId, ax ):
 
-    fig = plt.figure( _figId )
-    _info = _info.upper()
+    def mask_index( p ): return p[0:g.dim]
+    def disp( i, p, c, m ): ax.scatter( *p, c=c, marker=m ); ax.text( *p, i )
+    def disp_loop( v, c, m ): [ disp( i, ic, c, m ) for i, ic in enumerate( v.T ) ]
 
-    if "C" in _info: disp_loop( mask_index( _g.cell_centers ), 'ro' )
-    if "N" in _info: disp_loop( mask_index( _g.nodes ), 'bs' )
-    if "F" in _info: disp_loop( mask_index( _g.face_centers ), 'yd' )
+    fig = plt.figure( figId )
+    info = info.upper()
 
-    if "O" in _info.upper():
-        normals = np.divide( mask_index( _g.face_normals ), \
-                             np.linalg.norm( _g.face_normals ) )
-        [ _ax.arrow( *mask_index( _g.face_centers[:,f] ), \
-                     *normals[:,f], fc = 'k', ec = 'k' ) \
-                                            for f in np.arange( _g.num_faces ) ]
+    if "C" in info: disp_loop( mask_index( g.cell_centers ), 'r', 'o' )
+    if "N" in info: disp_loop( mask_index( g.nodes ), 'b', 's' )
+    if "F" in info: disp_loop( mask_index( g.face_centers ), 'y', 'd' )
+
+    if "O" in info.upper():
+        normals = 0.1*np.array( [ mask_index(n)/np.linalg.norm(n) \
+                                  for n in g.face_normals.T ] ).T
+        if g.dim == 2:
+            [ ax.quiver( *mask_index( g.face_centers[:,f] ), \
+                         *normals[:,f], color = 'k', scale=1 )
+                                            for f in np.arange( g.num_faces ) ]
+        elif g.dim == 3:
+            [ ax.quiver( *mask_index( g.face_centers[:,f] ), \
+                         *normals[:,f], color = 'k', length=0.25 )
+                                            for f in np.arange( g.num_faces ) ]
 
 #------------------------------------------------------------------------------#
 
