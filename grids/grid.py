@@ -33,8 +33,8 @@ class Grid(object):
         cell_faces (sps.csc-matrix): Cell-face relationships. Matrix size:
             num_faces x num_cells. Matrix elements have value +-1, where +
             corresponds to the face normal vector being outwards.
-        name (str): Placeholder field to give information on the grid. Will
-            be changed to something meaningful in the future
+        name (list): Information on the formation of the grid, such as the
+            constructor, computations of geometry etc.
         num_nodes (int): Number of nodes in the grid
         num_faces (int): Number of faces in the grid
         num_cells (int): Number of cells in the grid
@@ -71,7 +71,11 @@ class Grid(object):
         self.nodes = nodes
         self.cell_faces = cell_faces
         self.face_nodes = face_nodes
-        self.name = name
+
+        if isinstance(name, list):
+            self.name = name
+        else:
+            self.name = [name]
 
         # Infer bookkeeping from size of parameters
         self.num_nodes = nodes.shape[1]
@@ -89,6 +93,9 @@ class Grid(object):
         say, grid refinement), this may lead to costly, unnecessary
         computations.
         """
+
+        self.name.append('Compute geometry')
+
         if self.dim == 2:
             self.__compute_geometry_2d()
         else:
