@@ -144,16 +144,16 @@ def add_info( g, info, figId, ax ):
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_2d( _g ):
+def plot_grid_2d( g ):
     fig = plt.figure()
     ax = fig.add_subplot(111)
 
-    nodes, cells, _  = sps.find( _g.cell_nodes() )
+    nodes, cells, _  = sps.find( g.cell_nodes() )
     polygons = []
-    for c in np.arange( _g.num_cells ):
+    for c in np.arange( g.num_cells ):
         mask = np.where( cells == c )
-        cell_nodes = _g.nodes[:, nodes[mask]]
-        index = sort_points.sort_point_plane( cell_nodes, _g.cell_centers[:,c] )
+        cell_nodes = g.nodes[:, nodes[mask]]
+        index = sort_points.sort_point_plane( cell_nodes, g.cell_centers[:,c] )
         polygons.append( Polygon( cell_nodes[0:2,index].T, True ) )
 
     p = PatchCollection( polygons, cmap=matplotlib.cm.jet, alpha=0.4 )
