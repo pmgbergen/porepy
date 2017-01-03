@@ -10,19 +10,19 @@ import numpy as np
 from utils import accumarray
 
 class BoundaryCondition(object):
-    """ Class to store information on boundary conditions. 
-    
-        The BCs are specified by face number, and can have type Dirichlet or 
+    """ Class to store information on boundary conditions.
+
+        The BCs are specified by face number, and can have type Dirichlet or
         Neumann (Robin may be included later).
         The face-based indexing makes this natural for control volume methods.
-        For vector equations, it is ismplicitly assumed that the 
-        
+        For vector equations, it is ismplicitly assumed that the
+
     """
-    
+
     """ Initialize boundary conditions
-        
+
         Note: By default, all boundaries
-        
+
     """
     def __init__(self, g, faces=None, cond=None):
 
@@ -33,7 +33,7 @@ class BoundaryCondition(object):
         fi, ci = g.cell_faces.nonzero()
         fcnt = accumarray.accum(fi, np.ones(fi.size))
         bf = np.argwhere(fcnt == 1).ravel()
-        
+
         self.is_bnd = np.zeros(self.num_faces, dtype=bool)
         self.is_dir = np.zeros(self.num_faces, dtype=bool)
 
@@ -42,7 +42,7 @@ class BoundaryCondition(object):
 
         if faces is not None:
             # Validate arguments
-            assert cond is not None 
+            assert cond is not None
             if not np.all(np.in1d(faces,bf)):
                 raise ValueError('Give boundary condition only on the boundary')
             if faces.size != len(cond):
@@ -57,6 +57,4 @@ class BoundaryCondition(object):
                     self.is_neu[faces[l]] = False
                 else:
                     raise ValueError('Boundary should be Dirichlet or Neumann')
-                
-            
-        
+
