@@ -90,6 +90,29 @@ class Grid(object):
         self.num_faces = face_nodes.shape[1]
         self.num_cells = cell_faces.shape[1]
 
+    def copy(self):
+        """
+        Create a deep copy of the grid.
+
+        Returns:
+            grid: A deep copy of self
+
+        """
+        h = Grid(self.dim, self.nodes.copy(), self.face_nodes.copy(),
+                 self.cell_faces.copy(), self.name)
+        if hasattr(self, 'cell_volumes'):
+            h.cell_volumes = self.cell_volumes.copy()
+        if hasattr(self, 'cell_centers'):
+            h.cell_centers = self.cell_centers.copy()
+        if hasattr(self, 'face_centers'):
+            h.face_centers = self.face_centers.copy()
+        if hasattr(self, 'face_normals'):
+            h.face_normals = self.face_normals.copy()
+        if hasattr(self, 'face_areas'):
+            h.face_areas = self.face_areas.copy()
+        return h
+
+
     def compute_geometry(self):
         """Compute geometric quantities for the grid.
 
