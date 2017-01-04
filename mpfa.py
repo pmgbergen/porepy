@@ -45,6 +45,16 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
         operator
     """
 
+    if g.dim == 2:
+        g = g.copy()
+        g.cell_centers = np.delete(g.cell_centers, (2), axis=0)
+        g.face_centers = np.delete(g.face_centers, (2), axis=0)
+        g.face_normals = np.delete(g.face_normals, (2), axis=0)
+        g.nodes = np.delete(g.nodes, (2), axis=0)
+
+        k.perm = np.delete(k.perm, (2), axis=0)
+        k.perm = np.delete(k.perm, (2), axis=1)
+
     # Define subcell topology
     # nno, cno, fno, subfno, subhfno = subcellMapping.create_mapping(g)
     subcell_topology = fvutils.SubcellTopology(g)
