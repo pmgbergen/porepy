@@ -17,7 +17,7 @@ class TestGrids(unittest.TestCase):
 
     def test_cart_2d(self):
         g = structured.CartGrid([3, 2])
-        g.nodes = g.nodes + 0.2 * np.random.random((g.dim, g.nodes.shape[1]))
+        g.nodes = g.nodes + 0.2 * np.random.random(g.nodes.shape)
         g.compute_geometry()
 
         c = np.array([0, 1, 3])
