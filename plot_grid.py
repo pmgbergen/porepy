@@ -40,53 +40,8 @@ def plot_grid(g, info = None, show=True):
 
     return figId
 
-#------------------------------------------------------------------------------#
-
-def plot_tri_grid(g):
-    """
-    Plot triangular mesh using matplotlib.
-
-    The function uses matplotlib's built-in methods for plotting of
-    triangular meshes
-
-    Examples:
-    >>> x = np.arange(3)
-    >>> y = np.arange(2)
-    >>> g = simplex.StructuredTriangleGrid(x, y)
-    >>> plot_tri_grid(g)
-
-    Parameters
-    ----------
-    g
-
-    """
-    tri = g.cell_node_matrix()
     fig = plt.figure()
-    ax = fig.add_subplot(111)
-    triang = matplotlib.tri.Triangulation(g.nodes[0], g.nodes[1], tri)
-    ax.triplot(triang)
-    return fig.number, ax
 
-#------------------------------------------------------------------------------#
-
-def plot_cart_grid_2d(g):
-    """
-    Plot quadrilateral mesh using matplotlib.
-
-    The function uses matplotlib's bulit-in function pcolormesh
-
-    For the moment, the cells have an ugly blue color.
-
-    Examples:
-
-    >>> g = structured.CartGrid(np.array([3, 4]))
-    >>> plot_cart_grid_2d(g)
-
-    Parameters
-    ----------
-    g grid to be plotted
-
-    """
 
     # In each direction there is one more node than cell
     node_dims = g.cart_dims + 1
