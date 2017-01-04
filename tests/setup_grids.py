@@ -25,10 +25,10 @@ def setup_2d():
     g_cart_rpert = structured.CartGrid(nx)
     dx = 1
     pert = .4
+    rand = np.vstack( (np.random.rand(g_cart_rpert.dim, g_cart_rpert.num_nodes),
+                       np.repeat( 0., g_cart_rpert.num_nodes) ) )
     g_cart_rpert.nodes = g_cart_rpert.nodes + dx * pert * \
-                                              (0.5 -
-                                               np.random.rand(g_cart_rpert.dim,
-                                                              g_cart_rpert.num_nodes))
+                                              (0.5 - rand)
     g_cart_rpert.compute_geometry()
     grid_list.append(g_cart_rpert)
 
@@ -36,7 +36,9 @@ def setup_2d():
 
 
 def perturb(g, rate, dx):
-    g.nodes += rate * dx * (np.random.rand(g.dim, g.num_nodes) - 0.5)
+    rand = np.vstack( (np.random.rand(g.dim, g.num_nodes),
+                       np.repeat( 0., g.num_nodes) ) )
+    g.nodes += rate * dx * (rand - 0.5)
     return g
 
 
