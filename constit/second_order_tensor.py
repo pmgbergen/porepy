@@ -10,13 +10,13 @@ import numpy as np
 
 class SecondOrderTensor(object):
     """ Cell-wise permeability represented by (dim,dim,Nc)-matrix
-    """    
-    
+    """
+
     def __init__(self, dim, kxx, kyy=None, kzz=None,
                  kxy=None, kxz=None, kyz=None):
         """ Initialize permeability
 
-        Note: An exception is raised if the permeability is not positive 
+        Note: An exception is raised if the permeability is not positive
             definite
 
         Args:
@@ -25,7 +25,7 @@ class SecondOrderTensor(object):
             kyy (optional, double): Nc array of kyy. Default equal to kxx.
             kzz (optional, double): Nc array of kzz. Default equal to kxx.
                 Not used if dim < 3.
-            kxy (optional, double): Nc array of kxy. Defaults to zero.    
+            kxy (optional, double): Nc array of kxy. Defaults to zero.
             kxz (optional, double): Nc array of kxz. Defaults to zero.
                 Not used if dim < 3.
             kyz (optional, double): Nc array of kyz. Defaults to zero.
@@ -35,7 +35,7 @@ class SecondOrderTensor(object):
             raise ValueError('Dimension should be between 1 and 3')
 
         Nc = kxx.size
-        perm = np.zeros((dim, dim, Nc))
+        perm = np.zeros((3, 3, Nc))
 
         if not np.all(kxx > 0):
             raise ValueError('Tensor is not positive definite because of '
@@ -56,6 +56,7 @@ class SecondOrderTensor(object):
             perm[1, 0, ::] = kxy
             perm[0, 1, ::] = kxy
             perm[1, 1, ::] = kyy
+            perm[2, 2, ::] = 1.
 
         if dim > 2:
             if kyy is None:
