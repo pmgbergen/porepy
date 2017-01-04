@@ -9,39 +9,48 @@ import numpy as np
 
 
 class SecondOrderTensor(object):
-    """ Cell-wise permeability represented by (dim,dim,Nc)-matrix
-    """    
-    
+    """ Cell-wise permeability represented by (3 ,3 ,Nc)-matrix.
+
+    The permeability is always 3-dimensional (since the geometry is always 3D),
+    however, 1D and 2D problems are accomodated by assigning unit values to kzz
+    and kyy, and no cross terms.
+    """
+
     def __init__(self, dim, kxx, kyy=None, kzz=None,
                  kxy=None, kxz=None, kyz=None):
         """ Initialize permeability
 
-        Note: An exception is raised if the permeability is not positive 
-            definite
-
-        Args:
-            dim (int): Dimension, should be between 1 and 3
+        Parameters:
+            dim (int): Dimension, should be between 1 and 3.
             kxx (double): Nc array, with cell-wise values of kxx permeability.
             kyy (optional, double): Nc array of kyy. Default equal to kxx.
             kzz (optional, double): Nc array of kzz. Default equal to kxx.
                 Not used if dim < 3.
-            kxy (optional, double): Nc array of kxy. Defaults to zero.    
+            kxy (optional, double): Nc array of kxy. Defaults to zero.
             kxz (optional, double): Nc array of kxz. Defaults to zero.
                 Not used if dim < 3.
             kyz (optional, double): Nc array of kyz. Defaults to zero.
                 Not used if dim < 3.
+
+        Raises:
+            ValueError if the permeability is not positive definite.
        """
         if dim > 3 or dim < 0:
             raise ValueError('Dimension should be between 1 and 3')
 
         Nc = kxx.size
-        perm = np.zeros((dim, dim, Nc))
+        perm = np.zeros((3, 3, Nc))
 
         if not np.all(kxx > 0):
             raise ValueError('Tensor is not positive definite because of '
                              'components in x-direction')
 
         perm[0, 0, ::] = kxx
+
+        # Assign unit values to the diagonal, these are overwritten later if
+        # the specified dimension requires it.
+        perm[1, 1, ::] = 1
+        perm[2, 2, ::] = 1
 
         if dim > 1:
             if kyy is None:

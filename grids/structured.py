@@ -70,7 +70,8 @@ class TensorGrid(Grid):
 
         x_coord, y_coord = sp.meshgrid(x, y)
 
-        nodes = np.vstack((x_coord.flatten(), y_coord.flatten()))
+        num = x_coord.size
+        nodes = np.vstack((x_coord.flatten(), y_coord.flatten(), np.zeros(num)))
 
         # Face nodes
         node_array = np.arange(0, num_nodes).reshape(sy+1, sx+1)

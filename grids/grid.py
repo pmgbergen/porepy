@@ -90,6 +90,29 @@ class Grid(object):
         self.num_faces = face_nodes.shape[1]
         self.num_cells = cell_faces.shape[1]
 
+    def copy(self):
+        """
+        Create a deep copy of the grid.
+
+        Returns:
+            grid: A deep copy of self
+
+        """
+        h = Grid(self.dim, self.nodes.copy(), self.face_nodes.copy(),
+                 self.cell_faces.copy(), self.name)
+        if hasattr(self, 'cell_volumes'):
+            h.cell_volumes = self.cell_volumes.copy()
+        if hasattr(self, 'cell_centers'):
+            h.cell_centers = self.cell_centers.copy()
+        if hasattr(self, 'face_centers'):
+            h.face_centers = self.face_centers.copy()
+        if hasattr(self, 'face_normals'):
+            h.face_normals = self.face_normals.copy()
+        if hasattr(self, 'face_areas'):
+            h.face_areas = self.face_areas.copy()
+        return h
+
+
     def compute_geometry(self):
         """Compute geometric quantities for the grid.
 
@@ -120,10 +143,13 @@ class Grid(object):
 
         edge_length_x = xe2[0] - xe1[0]
         edge_length_y = xe2[1] - xe1[1]
+        edge_length_z = xe2[2] - xe1[2]
         self.face_areas = np.sqrt(np.power(edge_length_x, 2) +
-                                  np.power(edge_length_y, 2))
+                                  np.power(edge_length_y, 2) +
+                                  np.power(edge_length_z, 2))
         self.face_centers = 0.5 * (xe1 + xe2)
-        self.face_normals = np.vstack((edge_length_y, -edge_length_x))
+        n = edge_length_z.shape[0]
+        self.face_normals = np.vstack((edge_length_y, -edge_length_x, np.zeros(n)))
 
         cell_faces, cellno = self.cell_faces.nonzero()
 
@@ -131,7 +157,8 @@ class Grid(object):
 
         cx = np.bincount(cellno, weights=self.face_centers[0, cell_faces])
         cy = np.bincount(cellno, weights=self.face_centers[1, cell_faces])
-        cell_centers = np.vstack((cx, cy)) / num_cell_faces
+        cz = np.bincount(cellno, weights=self.face_centers[2, cell_faces])
+        cell_centers = np.vstack((cx, cy, cz)) / num_cell_faces
 
         a = xe1[:, cell_faces] - cell_centers[:, cellno]
         b = xe2[:, cell_faces] - cell_centers[:, cellno]
@@ -144,13 +171,14 @@ class Grid(object):
 
         ccx = np.bincount(cellno, weights=sub_volumes * sub_centroids[0])
         ccy = np.bincount(cellno, weights=sub_volumes * sub_centroids[1])
+        ccz = np.bincount(cellno, weights=sub_volumes * sub_centroids[2])
 
-        self.cell_centers = np.vstack((ccx, ccy)) / self.cell_volumes
+        self.cell_centers = np.vstack((ccx, ccy, ccz)) / self.cell_volumes
 
         # Ensure that normal vector direction corresponds with sign convention
         # in self.cellFaces
         def nrm(u):
-            return np.sqrt(u[0]*u[0] + u[1]*u[1])
+            return np.sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2])
 
         [fi, ci, val] = sps.find(self.cell_faces)
         _, idx = np.unique(fi, return_index=True)
