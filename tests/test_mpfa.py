@@ -112,7 +112,7 @@ def test_uniform_flow_cart_2d_structured_pert():
 
     a = div * flux
 
-    xf = np.zeros((2, g.num_faces))
+    xf = np.zeros_like(g.face_centers)
     xf[:, bound_faces.ravel()] = g.face_centers[:, bound_faces.ravel()]
     xc = g.cell_centers
     pr_bound = xf.sum(axis=0)
@@ -130,7 +130,7 @@ def test_uniform_flow_cart_2d_pert():
     g, perm = setup_cart_2d(np.array([10, 10]))
     dx = 1
     pert = .4
-    g.nodes = g.nodes + dx * pert * (0.5 - np.random.rand(g.dim, g.num_nodes))
+    g.nodes = g.nodes + dx * pert * (0.5 - np.random.rand(g.nodes.shape[0], g.num_nodes))
     g.compute_geometry()
 
     bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel(1) == 1)
