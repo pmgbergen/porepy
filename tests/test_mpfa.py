@@ -112,7 +112,7 @@ def test_uniform_flow_cart_2d_structured_pert():
 
     a = div * flux
 
-    xf = np.zeros((2, g.num_faces))
+    xf = np.zeros_like(g.face_centers)
     xf[:, bound_faces.ravel()] = g.face_centers[:, bound_faces.ravel()]
     xc = g.cell_centers
     pr_bound = xf.sum(axis=0)
