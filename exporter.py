@@ -15,6 +15,9 @@ def export_vtk( g, name, data = None, binary = True ):
     VTK module need to be installed.
     In 3d the geometry of the mesh needs to be computed.
 
+    To work with python3, the package vtk should be installed in version 7 or
+    higher.
+
     Parameters:
     g: the grid
     name: the file name with extension ".vtu".
