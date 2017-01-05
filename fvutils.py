@@ -397,7 +397,7 @@ def block_diag_index(m, n=None):
     if n is None:
         n = m
 
-    start = np.hstack((np.zeros(1), m))
+    start = np.hstack((np.zeros(1, dtype='int'), m))
     pos = np.cumsum(start)
     p1 = pos[0:-1]
     p2 = pos[1:]-1
