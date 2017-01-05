@@ -410,6 +410,9 @@ class Grid(object):
         neighs = sps.coo_matrix((data, (rows, cols))).todense()
         # Subtract 1 to get back to real cell indices
         neighs -= 1
-        return neighs.transpose().A.astype('int')
+        neighs = neighs.transpose().A.astype('int')
+        # Finally, we need to switch order of rows to get normal vectors
+        # pointing from first to second row.
+        return neighs[::-1]
 
 
