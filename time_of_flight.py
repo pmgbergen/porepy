@@ -33,9 +33,9 @@ def compute_tof(g, flux, poro, q):
     int_neigh = neighs[:, is_int]
 
     # Outflow fluxes are non-positive
-    out_flow = np.minimum(f[is_int], 0)
+    out_flow = np.minimum(flux[is_int], 0)
     # Inflow fluxes are non-negative
-    in_flow = np.maximum(f[is_int], 0)
+    in_flow = np.maximum(flux[is_int], 0)
 
     # Find accumulation in each cell.
     # A positive flow is from neigh[0] to neigh[1], so in_flow will
@@ -47,7 +47,7 @@ def compute_tof(g, flux, poro, q):
 
     # To consider flow from sources/boundaries to cells, we only need to
     # consider positive sources
-    np.clip(q, 0, out=q)
+    np.clip(q, 0, np.inf, out=q)
 
     # The average TOF for cells with sources are set to twice the time it takes
     # to fill the cell. Achieve this by adding twice the sources.
