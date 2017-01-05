@@ -404,6 +404,30 @@ def remove_edge_crossings(vertices, edges, **kwargs):
 
 #------------------------------------------------------------------------------#
 
+def is_planar( pts, normal = None ):
+    """ Check if the points lie on a plane.
+
+    Parameters:
+    pts (np.ndarray, 3xn): the points.
+    normal: (optional) the normal of the plane, otherwise three points are
+        required.
+
+    Returns:
+    check, bool, if the points lie on a plane or not.
+
+    """
+
+    if normal is None:
+        normal = compute_normal( pts )
+    else:
+        normal = normal / np.linalg.norm( normal )
+
+    check = np.array( [ np.isclose( np.dot( normal, pts[:,0] - p ), 0. ) \
+                      for p in pts[:,1:].T ], dtype=np.bool )
+    return np.all( check )
+
+#------------------------------------------------------------------------------#
+
 def project_plane_matrix( pts, normal = None ):
     """ Project the points on a plane using local coordinates.
 
