@@ -23,7 +23,7 @@ def snap_to_grid(pts, precision=1e-3, box=None):
 
     >>> snap_to_grid([[0.2443], [0.501]])
     array([[ 0.244],
-    	   [ 0.501]])
+           [ 0.501]])
 
     >>> snap_to_grid([[0.2443], [0.501]], box=[[10], [1]])
     array([[ 0.24 ],
@@ -186,12 +186,12 @@ def add_point(vertices, pt, precision=1e-3, **kwargs):
     vertices = snap_to_grid(vertices, **kwargs)
     pt = snap_to_grid(pt, **kwargs)
 
-    # Distance 
+    # Distance
     dist = __dist(pt, vertices)
     min_dist = np.min(dist)
 
     if min_dist < precision * np.sqrt(nd):
-    	# No new point is needed
+        # No new point is needed
         ind = np.argmin(dist)
         new_point = None
         return vertices, ind, new_point
@@ -281,17 +281,17 @@ def remove_edge_crossings(vertices, edges, **kwargs):
     have tags assigned. If so, the tags are preserved as connections are split.
 
     Parameters:
-	vertices (np.ndarray, 2 x n_pt): Coordinates of points to be processed
-	edges (np.ndarray, n x n_con): Connections between lines. n >= 2, row
+    vertices (np.ndarray, 2 x n_pt): Coordinates of points to be processed
+    edges (np.ndarray, n x n_con): Connections between lines. n >= 2, row
             0 and 1 are index of start and endpoints, additional rows are tags
         **kwargs: Arguments passed to snap_to_grid
 
     Returns:
-	np.ndarray, (2 x n_pt), array of points, possibly expanded.
-	np.ndarray, (n x n_edges), array of new edges. Non-intersecting.
+    np.ndarray, (2 x n_pt), array of points, possibly expanded.
+    np.ndarray, (n x n_edges), array of new edges. Non-intersecting.
 
     Raises:
-	NotImplementedError if a 3D point array is provided.
+    NotImplementedError if a 3D point array is provided.
 
     """
     num_edges = edges.shape[1]
@@ -435,15 +435,16 @@ def project_plane_matrix( pts, normal = None ):
     example: np.array( [ np.dot( R, p ) for p in pts.T ] ).T
     
     Parameters:
-        pts (np.ndarray, 3xn): the points.
-        normal: (optional) the normal of the plane, otherwise three points are
-            required.
+    pts (np.ndarray, 3xn): the points.
+    normal: (optional) the normal of the plane, otherwise three points are
+        required.
 
     Returns:
-    	np.ndarray, 3x3, projection matrix.
+    np.ndarray, 3x3, projection matrix.
 
     """
-    if normal is None: 
+
+    if normal is None:
         normal = compute_normal( pts )
     else:
         normal = normal / np.linalg.norm( normal )
@@ -460,14 +461,15 @@ def rot( a, vect ):
     form of Rodrigues formula.
 
     Parameters:
-        a: double, the angle.
-        vect: np.array, 3, the vector.
+    a: double, the angle.
+    vect: np.array, 1x3, the vector.
 
     Returns:
-        matrix: np.ndarray, 3x3, the rotation matrix.
+    matrix: np.ndarray, 3x3, the rotation matrix.
 
     """
-    if np.allclose( vect, [0.,0.,0.] ): 
+
+    if np.allclose( vect, [0.,0.,0.] ):
         return np.identity(3)
     vect = vect / np.linalg.norm( vect )
     W = np.array( [ [       0., -vect[2],  vect[1] ],
@@ -482,13 +484,13 @@ def compute_normal( pts ):
     """ Compute the normal of a set of points.
 
     The algorithm assume that the points lie on a plane.
-    Three points are required.
+    Three non-aligned points are required.
 
     Parameters:
-        pts: np.ndarray, 3xn, the points.
+    pts: np.ndarray, 3xn, the points. Need n > 2.
 
     Returns:
-        normal: np.array, 1x3, the normal.
+    normal: np.array, 1x3, the normal.
 
     """
     assert( pts.shape[1] > 2 )
