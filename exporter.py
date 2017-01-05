@@ -8,7 +8,7 @@ from compgeom import sort_points
 
 #------------------------------------------------------------------------------#
 
-def export( g, name, data = None, binary = True ):
+def export_vtk( g, name, data = None, binary = True ):
     """ export in VTK the grid and additional data.
 
     In 2d the cells are represented as polygon, while in 3d as polyhedra.
@@ -22,18 +22,18 @@ def export( g, name, data = None, binary = True ):
     binary: export in binary format, default is True.
 
     How to use:
-    export( g, "polyhedron.vtu", { "cell": np.arange( g.num_cells ) } )
+    export_vtk( g, "polyhedron.vtu", { "cell": np.arange( g.num_cells ) } )
 
     """
 
     if g.dim == 1: raise NotImplementedError
-    if g.dim == 2: gVTK = export_2d( g )
-    if g.dim == 3: gVTK = export_3d( g )
-    writeVTK( gVTK, name, data, binary )
+    if g.dim == 2: gVTK = export_vtk_2d( g )
+    if g.dim == 3: gVTK = export_vtk_3d( g )
+    write_vtk( gVTK, name, data, binary )
 
 #------------------------------------------------------------------------------#
 
-def export_2d( g ):
+def export_vtk_2d( g ):
 
     faces_cells, cells, _ = sps.find( g.cell_faces )
     nodes_faces, faces, _ = sps.find( g.face_nodes )
@@ -60,7 +60,7 @@ def export_2d( g ):
 
 #------------------------------------------------------------------------------#
 
-def export_3d( g ):
+def export_vtk_3d( g ):
 
     faces_cells, cells, _ = sps.find( g.cell_faces )
     nodes_faces, faces, _ = sps.find( g.face_nodes )
@@ -88,7 +88,7 @@ def export_3d( g ):
 
 #------------------------------------------------------------------------------#
 
-def writeVTK( gVTK, name, data = None, binary = True ):
+def write_vtk( gVTK, name, data = None, binary = True ):
     writer = vtk.vtkXMLUnstructuredGridWriter()
     writer.SetInputData( gVTK )
     writer.SetFileName( name )
