@@ -1,4 +1,7 @@
 import numpy as np
+from compgeom.basics import project_plane_matrix
+
+#------------------------------------------------------------------------------#
 
 def sort_point_pairs(lines, check_circular=True):
     """ Sort pairs of numbers to form a chain.
@@ -20,7 +23,7 @@ def sort_point_pairs(lines, check_circular=True):
     """
 
     num_lines = lines.shape[1]
-    sorted_lines = -np.ones((2, num_lines))
+    sorted_lines = -np.ones( (2, num_lines), dtype = lines.dtype )
 
     # Start with the first line in input
     sorted_lines[:, 0] = lines[:, 0]
@@ -54,3 +57,30 @@ def sort_point_pairs(lines, check_circular=True):
     if check_circular:
         assert sorted_lines[0, 0] == sorted_lines[1, -1]
     return sorted_lines
+
+#------------------------------------------------------------------------------#
+
+def sort_point_plane( pts, centre, normal = None ):
+    """ Sort the points which lie on a plane.
+
+    The algorithm assumes a star-shaped disposition of the points with respect
+    the centre.
+
+    Parameters:
+    pts: np.ndarray, 3xn, the points.
+    centre: np.ndarray, 3x1, the face centre.
+    normal: (optional) the normal of the plane, otherwise three points are
+    required.
+
+    Returns:
+    map_pts: np.array, 1xn, sorted point ids.
+
+    """
+    R = project_plane_matrix( pts, normal )
+    pts = np.array( [ np.dot(R, p) for p in pts.T ] ).T
+    centre = np.dot(R, centre)
+    delta = np.array( [ p - centre for p in pts.T] ).T[0:2,:]
+    delta = np.array( [ d / np.linalg.norm(d) for d in delta.T] ).T
+    return np.argsort( np.arctan2( *delta ) )
+
+#------------------------------------------------------------------------------#
