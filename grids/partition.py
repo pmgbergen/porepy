@@ -90,6 +90,10 @@ def partition_structured(g, coarse_dims=None, num_part=None):
 
     nd = g.dim
     fine_dims = g.cart_dims
+
+    if coarse_dims is None:
+        determine_coarse_dimensions(num_part, fine_dims)
+
     # Number of fine cells per coarse cell
     fine_per_coarse = np.floor(fine_dims / coarse_dims)
 
