@@ -131,3 +131,105 @@ def partition_structured(g, coarse_dims=None, num_part=None):
     # Return an int
     return glob_dims.astype('int')
 
+
+def determine_coarse_dimensions(target, fine_size):
+    """
+    For a logically Cartesian grid determine a coarse partitioning based on a
+    target number of coarse cells.
+
+    The target size in general will not be a product of the possible grid
+    dimensions (it may be a prime, or it may be outside the bounds [1,
+    fine_size]. For concreteness, we seek to have roughly the same number of
+    cells in each directions (given by the Nd-root of the target). If this
+    requires more coarse cells in a dimension than there are fine cells there,
+    the coarse size is set equal to the fine, and the remaining cells are
+    distributed to the other dimensions.
+
+    Parameters:
+        target (int): Target number of coarse cells.
+        fine_size (np.ndarray): Number of fine-scale cell in eac dimension
+
+    Returns:
+        np.ndarray: Coarse dimension sizes.
+
+    Raises:
+        ValueError if the while-loop runs more iterations than the number of
+            dimensions. This should not happen, in practice it means there is
+            bug.
+
+    """
+
+    # The algorithm may be unstable for values outside the relevant bounds
+    target = np.maximum(1, np.minimum(target, fine_size.prod()))
+
+    nd = fine_size.size
+
+    # Array to store optimal values. Set the default value to one, this avoids
+    # interfering with target_now below.
+    optimum = np.ones(nd)
+    found = np.zeros(nd, dtype=np.bool)
+
+    # Counter for number of iterations. Should be unnecessary, remove when the
+    # code is trusted.
+    it_counter = 0
+
+    # Loop until all dimensions have been assigned a number of cells.
+    while not np.all(found) and it_counter <= nd:
+
+        it_counter += 1
+
+        # Remaining cells to deal with
+        target_now = target / optimum.prod()
+
+        # The simplest option is to take the Nd-root of the target number. This
+        # will generally not give integers, and we will therefore settle for the
+        # combination of rounding up and down which brings us closest to the
+        # target.
+        # There should be at least one coarse cell in each dimension, and at
+        # maximum as many cells as on the fine scale.
+        s_num = np.power(target_now, 1/(nd - found.sum()))
+        s_low = np.maximum(np.ones(nd), np.floor(s_num))
+        s_high = np.minimum(fine_size, np.ceil(s_num))
+
+        # Find dimensions where we have hit the ceiling
+        hit_ceil = np.squeeze(np.argwhere(np.logical_and(s_high == fine_size,
+                                                         ~found)))
+        # These have a bound, and will have their leeway removed
+        optimum[hit_ceil] = s_high[hit_ceil]
+        found[hit_ceil] = True
+
+        # If the ceiling was hit in some dimension, we have to start over
+        # again.
+        if np.any(hit_ceil):
+            continue
+
+        # There is no room for variations in found cells
+        s_low[found] = optimum[found]
+        s_high[found] = optimum[found]
+
+        # Array for storing the combinations.
+        coarse_size = np.vstack((s_low, s_high))
+        # The closest we've been to hit the target size. Set this to an
+        # unrealistically high number
+        dist = fine_size.prod()
+
+        # Loop over all combinations of rounding up and down, and test if we
+        # are closer to the target number.
+        for perm in permutations.multinary_permutations(2, nd):
+            size_now = np.zeros(nd)
+            for i, bit in enumerate(perm):
+                size_now[i] = coarse_size[bit, i]
+            if np.abs(target - size_now.prod()) < dist:
+                dist = target - size_now.prod()
+                optimum = size_now
+
+        # All dimensions that may hit the ceiling have been found, and we have
+        # the optimum solution. Declare victory and return home.
+        found[:] = True
+
+    if it_counter > nd:
+        raise ValueError('Maximum number of iterations exceeded. There is a \
+                         bug somewhere.')
+
+    return optimum
+
