@@ -29,7 +29,8 @@ class Grid(object):
         dim (int): dimension. Should be 2 or 3
         nodes (np.ndarray): node coordinates. size: dim x num_nodes
         face_nodes (sps.csc-matrix): Face-node relationships. Matrix size:
-            num_faces x num_cells.
+            num_faces x num_cells. To use compute_geometry() later, he field
+            face_nodes.indices should store the nodes of each face sorted.
         cell_faces (sps.csc-matrix): Cell-face relationships. Matrix size:
             num_faces x num_cells. Matrix elements have value +-1, where +
             corresponds to the face normal vector being outwards.
