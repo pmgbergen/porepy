@@ -7,7 +7,9 @@ Intended support is by Cartesian indexing, and METIS-based.
 
 import pymetis
 import numpy as np
+import scipy.sparse as sps
 
+from core.grids.grid import Grid
 from core.grids import structured
 from utils import permutations
 
@@ -305,3 +307,35 @@ def __extract_submatrix(mat, ind):
                                       return_inverse=True)
     return sps.csc_matrix((data, rows_sub, cols)), unique_rows
 
+
+def partition_grid(g, ind):
+    """
+    Partition a grid into multiple subgrids based on an index set.
+
+    No tests are made on whether the resulting grids are connected.
+
+    Example:
+        >>> g = structured.CartGrid(np.array([10, 10]))
+        >>> p = partition_structured(g, num_part=4)
+        >>> subg = partition_grid(g, p)
+
+    Parameters:
+        g (core.grids.grid): Global grid to be partitioned
+        ind (np.array): Partition vector, one per cell. Should be 0-offset.
+
+    Returns:
+        list: List of grids, each element representing a grid.
+
+    """
+
+    subg = []
+    cell_mat = []
+    face_mat = []
+    for i in np.unique(ind):
+        ci = np.squeeze(np.argwhere(ind == i))
+        sg, cm, fm = extract_single(g, ci)
+        subg.append(sg)
+        cell_mat.append(cm)
+        face_mat.append(fm)
+
+    return subg
