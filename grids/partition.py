@@ -317,7 +317,7 @@ def partition_grid(g, ind):
     Example:
         >>> g = structured.CartGrid(np.array([10, 10]))
         >>> p = partition_structured(g, num_part=4)
-        >>> subg = partition_grid(g, p)
+        >>> subg, face_map, node_map = partition_grid(g, p)
 
     Parameters:
         g (core.grids.grid): Global grid to be partitioned
@@ -325,17 +325,71 @@ def partition_grid(g, ind):
 
     Returns:
         list: List of grids, each element representing a grid.
+        list of np.arrays: Each element contains the global indices of the
+            local faces.
+        list of np.arrays: Each element contains the global indices of the
+            local nodes.
+    """
+
+    sub_grid = []
+    face_map_list = []
+    node_map_list = []
+    for i in np.unique(ind):
+        ci = np.squeeze(np.argwhere(ind == i))
+        sg, fm, nm = extract_single(g, ci)
+        sub_grid.append(sg)
+        face_map_list.append(fm)
+        node_map_list.append(nm)
+
+    return sub_grid, face_map_list, node_map_list
+
+
+def overlap(g, cell_ind, num_layers):
+    """
+    From a set of cell indices, find an extended set of cells that form an
+    overlap (in the domain decomposition sense).
+
+    The cell set is increased by including all cells that share at least one
+    node with the existing set. When multiple layers are asked for, this
+    process is repeated.
+
+    It should be possible to define other rules for overlap, such as based on
+    cell-face mappings by changing the connection matrix cn below.
+
+    Parameters:
+        g (core.grids.grid): The grid; the cell-node relation will be used to
+            extend the cell set.
+        cell_ind (np.array): Cell indices, the initial cell set.
+        num_layers (int): Number of overlap layers.
+
+    Returns:
+        np.array: Indices of the extended cell set.
+
+    Examples:
+        >>> g = structured.CartGrid([5, 5])
+        >>> ci = np.array([0, 1, 5, 6])
+        >>> overlap(g, ci, 1)
+        array([ 0,  1,  2,  5,  6,  7, 10, 11, 12])
 
     """
 
-    subg = []
-    cell_mat = []
-    face_mat = []
-    for i in np.unique(ind):
-        ci = np.squeeze(np.argwhere(ind == i))
-        sg, cm, fm = extract_single(g, ci)
-        subg.append(sg)
-        cell_mat.append(cm)
-        face_mat.append(fm)
+    # Construct cell-node map, its transpose will be a node-cell map
+    cn = g.cell_nodes()
 
-    return subg
+    # Boolean storage of cells and nodes in the active set
+    active_cells = np.zeros(g.num_cells, dtype=np.bool)
+    active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
+    active_cells[cell_ind] = 1
+
+    # Gradually increase the size of the cell set
+    for i in range(num_layers):
+        # Nodes are found via the mapping 
+        active_nodes[np.squeeze(np.where((cn * active_cells) > 0))] = 1
+        # Map back to new cells
+        ci_new = np.squeeze(np.where((cn.transpose() * active_nodes) > 0))
+        # Activate new cells.
+        active_cells[ci_new] = 1
+
+    # Sort the output, this should not be a disadvantage
+    return np.sort(np.squeeze(np.argwhere(active_cells > 0)))
+
