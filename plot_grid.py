@@ -21,13 +21,13 @@ from compgeom import sort_points
 
 #------------------------------------------------------------------------------#
 
-def plot_grid(g, info = None, show=True):
+def plot_grid(g, info = None, show=True, alpha=0.5):
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    if g.dim == 2:   plot_grid_2d(g, ax)
-    elif g.dim == 3: plot_grid_3d(g, ax)
+    if g.dim == 2:   plot_grid_2d(g, ax, alpha)
+    elif g.dim == 3: plot_grid_3d(g, ax, alpha)
     else:            raise NotImplementedError('Under construction')
 
     x = [ np.amin(g.nodes[0,:]), np.amax(g.nodes[0,:]) ]
@@ -82,9 +82,9 @@ def add_info( g, info, ax ):
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_2d( g, ax ):
-
+def plot_grid_2d( g, ax, alpha ):
     nodes, cells, _  = sps.find( g.cell_nodes() )
+    RGB_face = [1,0,0,alpha]
     for c in np.arange( g.num_cells ):
         ptsId = nodes[ cells == c ]
         mask = sort_points.sort_point_plane( g.nodes[:, ptsId], \
@@ -93,19 +93,17 @@ def plot_grid_2d( g, ax ):
         pts = g.nodes[:, ptsId[mask]]
         poly = Poly3DCollection( [pts.T] )
         poly.set_edgecolor('k')
-        poly.set_facecolors('r')
-        poly.set_alpha(0.5)
+        poly.set_facecolors(RGB_face)
         ax.add_collection3d(poly)
 
     ax.view_init(90, 0)
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_3d( g, ax ):
-
+def plot_grid_3d( g, ax, alpha ):
     faces_cells, cells, _ = sps.find( g.cell_faces )
     nodes_faces, faces, _ = sps.find( g.face_nodes )
-
+    RGB_face = [1,0,0,alpha]
     for c in np.arange( g.num_cells ):
         fs = faces_cells[ cells == c ]
         for f in fs:
@@ -116,8 +114,7 @@ def plot_grid_3d( g, ax ):
             pts = g.nodes[:, ptsId[mask]]
             poly = Poly3DCollection( [pts.T] )
             poly.set_edgecolor('k')
-            poly.set_facecolors('r')
-            poly.set_alpha(0.5)
+            poly.set_facecolors(RGB_face)
             ax.add_collection3d(poly)
 
 #------------------------------------------------------------------------------#
