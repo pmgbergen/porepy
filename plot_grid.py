@@ -65,9 +65,8 @@ def plot_grid_fractures(g, show=True):
 def add_info( g, info, ax ):
 
     def disp( i, p, c, m ): ax.scatter( *p, c=c, marker=m ); ax.text( *p, i )
-    def disp_loop( v, c, m ): [ disp( i, ic, c, m ) for i, ic in enumerate( v.T ) ]
+    def disp_loop( v, c, m ): [disp( i, ic, c, m ) for i, ic in enumerate(v.T)]
 
-#    fig = plt.figure( figId )
     info = info.upper()
 
     if "C" in info: disp_loop( g.cell_centers, 'r', 'o' )
