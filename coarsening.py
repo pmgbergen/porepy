@@ -4,7 +4,12 @@ import numpy as np
 import scipy.sparse as sps
 
 from core.grids.grid import Grid
+from core.constit import second_order_tensor
+from core.bc import bc
+
 from utils import matrix_compression
+
+from fvdiscr import tpfa
 
 #------------------------------------------------------------------------------#
 
@@ -101,3 +106,11 @@ def generate_coarse_grid( g, subdiv ):
     return Grid( g.dim, g.nodes[:,nodes_list], face_nodes, cell_faces, name )
 
 #------------------------------------------------------------------------------#
+
+def tpfa_matrix( g, perm = None ):
+    if perm is None:
+        perm = second_order_tensor.SecondOrderTensor(g.dim,np.ones(g.num_cells))
+    bound = bc.BoundaryCondition(g, np.empty(0), '')
+    trm = tpfa.tpfa(g, perm, bound)
+    div = g.cell_faces.T
+    return div * trm
