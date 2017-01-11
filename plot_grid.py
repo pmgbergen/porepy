@@ -37,7 +37,7 @@ def plot_grid(g, info = None, show=True, alpha=0.5):
     if x[0] != x[1]: ax.set_xlim( x ); ax.set_xlabel('x')
     if y[0] != y[1]: ax.set_ylim( y ); ax.set_ylabel('y')
     if z[0] != z[1]: ax.set_zlim( z ); ax.set_zlabel('z')
-    ax.set_title( g.name )
+    ax.set_title( " ".join( g.name ) )
 
     if info is not None: add_info( g, info, ax )
     if show: plt.show()
