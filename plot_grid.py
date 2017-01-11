@@ -21,7 +21,7 @@ from compgeom import sort_points
 
 #------------------------------------------------------------------------------#
 
-def plot_grid(g, info = None, show=True, alpha=0.5):
+def plot_grid(g, info = None, alpha=0.5):
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -40,7 +40,7 @@ def plot_grid(g, info = None, show=True, alpha=0.5):
     ax.set_title( " ".join( g.name ) )
 
     if info is not None: add_info( g, info, ax )
-    if show: plt.show()
+    plt.show()
 
     return fig.number
 
