@@ -22,6 +22,24 @@ from compgeom import sort_points
 #------------------------------------------------------------------------------#
 
 def plot_grid(g, info = None, alpha=0.5):
+    """ plot the grid in a 3d framework.
+
+    It is possible to add the cell ids at the cells centers (info option 'c'),
+    the face ids at the face centers (info option 'f'), the node ids at the node
+    (info option 'n'), and the normal at the face (info option 'o').
+
+    Parameters:
+    g: the grid
+    info: (optional) add extra information to the plot
+    alpha: (optonal) transparency of cells (2d) and faces (3d)
+
+    Return:
+    fig.number: the id of the plot
+
+    How to use:
+    plot_grid( g, info = "ncfo", alpha = 0 )
+
+    """
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
