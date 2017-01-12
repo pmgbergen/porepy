@@ -14,7 +14,10 @@ from fvdiscr import tpfa
 #------------------------------------------------------------------------------#
 
 def generate_coarse_grid( g, subdiv ):
-    """ generate a coarse grid clustering the cells according to some flags.
+    """ Generate a coarse grid clustering the cells according to the flags
+    given by subdiv. Subdiv should be long as the number of cells in the
+    original grid, it contains integers (possibly not continuous) which
+    represent the cells in the final mesh.
 
     The values computed in "compute_geometry" are not preserved and they should
     be computed out from this function.
