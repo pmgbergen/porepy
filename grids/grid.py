@@ -416,4 +416,27 @@ class Grid(object):
         # pointing from first to second row.
         return neighs[::-1]
 
+    def cell_connection_map(self):
+        """
+        Get a matrix representation of cell-cell connections, as defined by
+        two cells sharing a face.
+
+        Returns:
+            scipy.sparse.csr_matrix, size num_cells * num_cells: Boolean
+                matrix, element (i,j) is true if cells i and j share a face.
+                The matrix is thus symmetric.
+        """
+
+        # Create a copy of the cell-face relation, so that we can modify it at will
+        cell_faces = self.cell_faces.copy()
+
+        # Direction of normal vector does not matter here, only 0s and 1s
+        cell_faces.data = np.abs(cell_faces.data)
+
+        # Find connection between cells via the cell-face map
+        c2c = cell_faces.transpose() * cell_faces
+        # Only care about absolute values
+        c2c.data = np.clip(c2c.data, 0, 1).astype('bool')
+
+        return c2c
 
