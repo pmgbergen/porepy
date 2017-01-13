@@ -233,7 +233,7 @@ def determine_coarse_dimensions(target, fine_size):
     return optimum
 
 
-def extract_single(g, c):
+def extract_subgrid(g, c):
     """
     Extract a subgrid based on cell indices.
 
@@ -329,7 +329,7 @@ def partition_grid(g, ind):
     node_map_list = []
     for i in np.unique(ind):
         ci = np.squeeze(np.argwhere(ind == i))
-        sg, fm, nm = extract_single(g, ci)
+        sg, fm, nm = extract_subgrid(g, ci)
         sub_grid.append(sg)
         face_map_list.append(fm)
         node_map_list.append(nm)

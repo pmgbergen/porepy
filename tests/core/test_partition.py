@@ -142,7 +142,7 @@ class TestGrids(unittest.TestCase):
 
         c = np.array([0, 1, 3])
 
-        h, sub_f, sub_n = partition.extract_single(g, c)
+        h, sub_f, sub_n = partition.extract_subgrid(g, c)
 
         true_nodes = np.array([0, 1, 2, 4, 5, 6, 8, 9])
         true_faces = np.array([0, 1, 2, 4, 5, 8, 9, 11, 12, 14])
@@ -160,7 +160,7 @@ class TestGrids(unittest.TestCase):
         # Pick out cells (0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1), (0, 0, 2), (1, 0, 2)
         c = np.array([0, 1, 4, 12, 24, 25])
 
-        h, sub_f, sub_n = partition.extract_single(g, c)
+        h, sub_f, sub_n = partition.extract_subgrid(g, c)
 
         # There are 20 nodes in each layer
         nodes_0 = np.array([0, 1, 2, 5, 6, 7, 10, 11])
@@ -189,7 +189,7 @@ class TestGrids(unittest.TestCase):
         true_nodes = np.array([0, 1, 4, 5, 6])
         true_faces = np.array([0, 1, 2, 4, 5, 10, 13])
 
-        h, sub_f, sub_n = partition.extract_single(g, c)
+        h, sub_f, sub_n = partition.extract_subgrid(g, c)
 
         assert np.array_equal(true_nodes, sub_n)
         assert np.array_equal(true_faces, sub_f)
@@ -253,7 +253,7 @@ class TestConnectivityChecker(unittest.TestCase):
     def test_subgrid_connected(self):
         g, p = self.setup()
 
-        sub_g, _, _ = partition.extract_single(g, np.where(p==0)[0])
+        sub_g, _, _ = partition.extract_subgrid(g, np.where(p==0)[0])
         is_connected, components = partition.grid_is_connected(sub_g)
         assert is_connected
         assert np.array_equal(np.sort(components[0]),
@@ -263,7 +263,7 @@ class TestConnectivityChecker(unittest.TestCase):
         g, p = self.setup()
 
         p_sub = np.r_[np.where(p==0)[0], np.where(p==3)[0]]
-        sub_g, _, _ = partition.extract_single(g, p_sub)
+        sub_g, _, _ = partition.extract_subgrid(g, p_sub)
         is_connected, components = partition.grid_is_connected(sub_g)
         assert not is_connected
         assert np.array_equal(np.sort(p_sub[components[0]]),
