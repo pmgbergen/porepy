@@ -220,3 +220,56 @@ class TestOverlap(unittest.TestCase):
     if __name__ == '__main__':
         unittest.main()
 
+
+class TestConnectivityChecker(unittest.TestCase):
+
+    def setup(self):
+        g = structured.CartGrid([4, 4])
+        p = partition.partition_structured(g, np.array([2, 2]))
+        return g, p
+
+    def test_connected(self):
+        g, p = self.setup()
+        p_sub = np.r_[np.where(p==0)[0], np.where(p==1)[0]]
+        is_connected, components = partition.grid_is_connected(g, p_sub)
+        assert is_connected
+        assert np.array_equal(np.sort(components[0]), np.arange(8))
+
+    def test_not_connected(self):
+        # Pick out the lower left and upper right squares
+        g, p = self.setup()
+
+        p_sub = np.r_[np.where(p==0)[0], np.where(p==3)[0]]
+        is_connected, components = partition.grid_is_connected(g, p_sub)
+        assert not is_connected
+
+        # To test that we pick the right components, we need to map back to
+        # global indices.
+        assert np.array_equal(np.sort(p_sub[components[0]]),
+                              np.array([0, 1, 4, 5]))
+        assert np.array_equal(np.sort(p_sub[components[1]]),
+                              np.array([10, 11, 14, 15]))
+
+    def test_subgrid_connected(self):
+        g, p = self.setup()
+
+        sub_g, _, _ = partition.extract_single(g, np.where(p==0)[0])
+        is_connected, components = partition.grid_is_connected(sub_g)
+        assert is_connected
+        assert np.array_equal(np.sort(components[0]),
+                              np.arange(sub_g.num_cells))
+
+    def test_subgrid_not_connected(self):
+        g, p = self.setup()
+
+        p_sub = np.r_[np.where(p==0)[0], np.where(p==3)[0]]
+        sub_g, _, _ = partition.extract_single(g, p_sub)
+        is_connected, components = partition.grid_is_connected(sub_g)
+        assert not is_connected
+        assert np.array_equal(np.sort(p_sub[components[0]]),
+                              np.array([0, 1, 4, 5]))
+        assert np.array_equal(np.sort(p_sub[components[1]]),
+                              np.array([10, 11, 14, 15]))
+
+    if __name__ == '__main__':
+        unittest.main()

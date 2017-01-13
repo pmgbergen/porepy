@@ -4,14 +4,15 @@ Module for partitioning of grids based on various methods.
 Intended support is by Cartesian indexing, and METIS-based.
 
 """
-
 import pymetis
 import numpy as np
 import scipy.sparse as sps
+import networkx
 
 from core.grids.grid import Grid
 from core.grids import structured
 from utils import permutations
+
 
 def partition_metis(g, num_part):
     """
@@ -384,4 +385,66 @@ def overlap(g, cell_ind, num_layers):
 
     # Sort the output, this should not be a disadvantage
     return np.sort(np.squeeze(np.argwhere(active_cells > 0)))
+
+#----------------------------------------------------------------------------#
+
+def grid_is_connected(g, cell_ind=None):
+    """
+    Check if a grid is fully connected, as defined by its cell_connection_map().
+
+    The function is intended used in one of two ways:
+        1) To test if a subgrid will be connected before it is extracted. In
+        this case, the cells to be tested is specified by cell_ind.
+        2) To check if an existing grid is composed of a single component. In
+        this case, all cells are should be included in the analyzis.
+
+    Parameters:
+        g (core.grids.grid): Grid to be tested. Only its cell_faces map is
+            used.
+        cell_ind (np.array): Index of cells to be included when looking for
+            connections. Defaults to all cells in the grid.
+
+    Returns:
+        boolean: True if the grid is connected.
+        list of np.arrays: Each list item contains a np.array with cell indices
+            of a connected component.
+
+    Examples:
+        >>> g = structured.CartGrid(np.array([2, 2]))
+        >>> p = np.array([0, 1])
+        >>> is_con, l = grid_is_connected(g, p)
+        >>> is_con
+        True    
+
+        >>> g = structured.CartGrid(np.array([2, 2]))
+        >>> p = np.array([0, 3])
+        >>> is_con, l = grid_is_connected(g, p)
+        >>> is_con
+        False
+
+    """
+
+    # If no cell indices are specified, we use them all.
+    if cell_ind is None:
+        cell_ind = np.arange(g.num_cells)
+
+    # Get connection map for the full grid
+    c2c = g.cell_connection_map()
+
+    # Extract submatrix of the active cell set. 
+    # To slice the sparse matrix, we first convert to row storage, slice rows,
+    # and then convert to columns and slice those as well.
+    c2c = c2c.tocsr()[cell_ind, :].tocsc()[:, cell_ind]
+
+    # Represent the connections as a networkx graph and check for connectivity
+    graph = networkx.from_scipy_sparse_matrix(c2c)
+    is_connected = networkx.is_connected(graph)
+
+    # Get the connected components of the network.
+    # networkx gives an generator that produce sets of node indices. Use this
+    # to define a list of numpy arrays.
+    component_generator = networkx.connected_components(graph)
+    components = [np.array(list(i)) for i in component_generator]
+
+    return is_connected, components
 
