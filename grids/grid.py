@@ -105,6 +105,20 @@ class Grid(object):
             h.face_areas = self.face_areas.copy()
         return h
 
+    def __repr__(self):
+        """
+        Implementation of __repr__
+
+        NOTE: Should be revisited - not sure if this is the optimal information
+        to provide here.
+        """
+        s = 'Grid with history ' + ', '.join(self.name) + '\n'
+        s = s + 'Number of cells ' + str(self.num_cells) + '\n'
+        s = s + 'Number of faces ' + str(self.num_faces) + '\n'
+        s = s + 'Number of nodes ' + str(self.num_nodes) + '\n'
+        print(s)
+        return s
+
 
     def compute_geometry(self):
         """Compute geometric quantities for the grid.
