@@ -259,7 +259,7 @@ def extract_subgrid(g, c):
         np.ndarray, dtype=int: Index of the extracted nodes, ordered so that
             element i is the global index of node i in the subgrid.
     """
-    c.sort()
+    c = np.sort(c)
 
     # Local cell-face and face-node maps.
     cf_sub, unique_faces = __extract_submatrix(g.cell_faces, c)
