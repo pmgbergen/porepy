@@ -116,7 +116,6 @@ class Grid(object):
         s = s + 'Number of cells ' + str(self.num_cells) + '\n'
         s = s + 'Number of faces ' + str(self.num_faces) + '\n'
         s = s + 'Number of nodes ' + str(self.num_nodes) + '\n'
-        print(s)
         return s
 
 
