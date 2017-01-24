@@ -6,6 +6,7 @@ Created on Wed Feb 17 20:55:43 2016
 """
 from __future__ import division
 import numpy as np
+import itertools
 from enum import Enum
 from scipy import sparse as sps
 
@@ -400,6 +401,31 @@ class Grid(object):
     def get_boundary_faces(self):
         return np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel(1)
                            == 1).ravel(1)
+
+    def cell_diameters(self, cn = None):
+        """
+        Compute the cell diameters.
+
+        Parameters:
+            cn (optional): cell nodes map, previously already computed.
+            Otherwise a call to self.cell_nodes is provided.
+
+        Returns:
+            np.array, num_cells: values of the cell diameter for each cell
+        """
+
+        def comb( n ): return np.fromiter(itertools.chain.from_iterable( \
+                                          itertools.combinations(n,2)), \
+                                          n.dtype).reshape((2,-1), order='F')
+
+        def diam( n ): return np.amax( np.linalg.norm( self.nodes[:, n[0,:]] - \
+                                                       self.nodes[:, n[1,:]], \
+                                                       axis=0 ) )
+
+        if cn is None: cn = self.cell_nodes()
+        return np.array([ diam(comb(cn.indices[cn.indptr[c]:cn.indptr[c+1]])) \
+                                          for c in np.arange(self.num_cells) ] )
+
 
     def cell_face_as_dense(self):
         """
