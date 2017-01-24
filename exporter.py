@@ -98,8 +98,10 @@ def write_vtk( gVTK, name, data = None, binary = True ):
 
     if data is not None:
         for name, data in data.items():
-            dataVTK = ns.numpy_to_vtk( data, deep = True, array_type = vtk.VTK_DOUBLE )
+            dataVTK = ns.numpy_to_vtk( data.ravel(order='F'), deep = True, \
+                                       array_type = vtk.VTK_DOUBLE )
             dataVTK.SetName( str( name ) )
+            dataVTK.SetNumberOfComponents( 1 if data.ndim == 1 else 3 )
             gVTK.GetCellData().AddArray( dataVTK )
 
     if not binary: writer.SetDataModeToAscii()
