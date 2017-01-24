@@ -9,7 +9,7 @@ import scipy.sparse as sps
 
 #------------------------------------------------------------------------------#
 
-def matrix(g, k, bc):
+def matrix(g, k, bc=None):
     """  Discretize the second order elliptic equation using dual virtual
     element method.
 
@@ -80,7 +80,7 @@ def matrix(g, k, bc):
 
 #------------------------------------------------------------------------------#
 
-def rhs(g, f, bc):
+def rhs(g, f, bc=None):
     """  Discretize the source term for a dual virtual element method.
 
     Args:
@@ -96,6 +96,7 @@ def rhs(g, f, bc):
 
 #------------------------------------------------------------------------------#
 
+def extract(g, up):
     """  Extract the velocity and the pressure from a dual virtual element
     solution.
 
@@ -103,12 +104,11 @@ def rhs(g, f, bc):
         g (grid): Grid, or a subclass, with geometry fields computed.
         up (np.array): Solution, stored as [velocity,pressure]
     """
-def extract(up, g):
     return up[:g.num_faces], up[g.num_faces:]
 
 #------------------------------------------------------------------------------#
 
-def projectU(u, g, k):
+def projectU(g, k, u):
     """  Project the velocity computed with a dual vem solver to obtain a
     piecewise constant vector field, one triplet for each cell.
 
