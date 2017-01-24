@@ -16,7 +16,7 @@ def matrix(g, k, bc):
     Args:
         g (grid): Grid, or a subclass, with geometry fields computed.
         k (second_order_tensor): Permeability. Cell-wise.
-        bc (): Boundary conditions
+        bc (): Boundary conditions (optional)
     """
     faces, cells, sgn = sps.find(g.cell_faces)
     tol = 1e-10
@@ -81,6 +81,14 @@ def matrix(g, k, bc):
 #------------------------------------------------------------------------------#
 
 def rhs(g, f, bc):
+    """  Discretize the source term for a dual virtual element method.
+
+    Args:
+        g (grid): Grid, or a subclass, with geometry fields computed.
+        f (scalar function): Scalar source term.
+        bc (): Boundary conditions (optional)
+    """
+
     size = g.num_faces + g.num_cells
     rhs = np.zeros(size)
     rhs[size-g.num_cells:] = -np.multiply( g.cell_volumes, f( g.cell_centers ) )
@@ -88,18 +96,26 @@ def rhs(g, f, bc):
 
 #------------------------------------------------------------------------------#
 
+    """  Extract the velocity and the pressure from a dual virtual element
+    solution.
+
+    Args:
+        g (grid): Grid, or a subclass, with geometry fields computed.
+        up (np.array): Solution, stored as [velocity,pressure]
+    """
 def extract(up, g):
     return up[:g.num_faces], up[g.num_faces:]
 
 #------------------------------------------------------------------------------#
 
 def projectU(u, g, k):
-    """  Discretize the second order elliptic equation using dual virtual
-    element method.
+    """  Project the velocity computed with a dual vem solver to obtain a
+    piecewise constant vector field, one triplet for each cell.
 
     Args:
         g (grid): Grid, or a subclass, with geometry fields computed.
         k (second_order_tensor): Permeability. Cell-wise.
+        u (np.array): Velocity computed from a dual virtual element method.
     """
     faces, cells, sgn = sps.find(g.cell_faces)
     tol = 1e-10
