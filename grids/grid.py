@@ -404,7 +404,7 @@ class Grid(object):
 
     def cell_diameters(self, cn = None):
         """
-        Compute the cell diameters as the maximum of segments from cell nodes.
+        Compute the cell diameters.
 
         Parameters:
             cn (optional): cell nodes map, previously already computed.
