@@ -6,6 +6,7 @@ Created on Sat Feb 27 20:22:25 2016
 """
 
 import numpy as np
+import copy
 
 
 class SecondOrderTensor(object):
@@ -37,6 +38,8 @@ class SecondOrderTensor(object):
        """
         if dim > 3 or dim < 0:
             raise ValueError('Dimension should be between 1 and 3')
+
+        self.dim = dim
 
         Nc = kxx.size
         perm = np.zeros((3, 3, Nc))
@@ -91,3 +94,31 @@ class SecondOrderTensor(object):
             perm[2, 2, ::] = kzz
 
         self.perm = perm
+
+    def copy(self):
+        """
+        Define a deep copy of the tensor.
+
+        Returns:
+            SecondOrderTensor: New tensor with identical fields, but separate
+                arrays (in the memory sense).
+        """
+
+        if self.dim == 2:
+
+            kxx = self.perm[0, 0, :].copy()
+            kxy = self.perm[1, 0, :].copy()
+            kyy = self.perm[1, 1, :].copy()
+
+            return SecondOrderTensor(self.dim, kxx, kxy=kxy, kyy=kyy)
+        else:
+            kxx = self.perm[0, 0, :].copy()
+            kxy = self.perm[1, 0, :].copy()
+            kyy = self.perm[1, 1, :].copy()
+
+            kxz = self.perm[2, 0, :].copy()
+            kyz = self.perm[2, 1, :].copy()
+            kzz = self.perm[2, 2, :].copy()
+
+            return SecondOrderTensor(self.dim, kxx, kxy=kxy, kxz=kxz, kyy=kyy,
+                                     kyz=kyz, kzz=kzz)
