@@ -125,8 +125,12 @@ class StructuredTriangleGrid(TriangleGrid):
         physdims (np.ndarray, size 2): domain size. Defaults to nx,
         thus Cartesian cells are unit squares
         """
+        nx = np.asarray(nx)
         if physdims is None:
             physdims = nx
+        else:
+            physdims = np.asarray(physdims)
+
         x = np.linspace(0, physdims[0], nx[0] + 1)
         y = np.linspace(0, physdims[1], nx[1] + 1)
 
