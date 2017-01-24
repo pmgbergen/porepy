@@ -113,7 +113,7 @@ def plot_grid_2d( g, ax, alpha ):
         poly.set_facecolors(RGB_face)
         ax.add_collection3d(poly)
 
-    ax.view_init(90, 0)
+    ax.view_init(90, -90)
 
 #------------------------------------------------------------------------------#
 
