@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
-Created on Tue Mar  1 13:34:33 2016
+Implementation of the multi-point flux approximation O-method.
 
-@author: keile
 """
 from __future__ import division
 import numpy as np
@@ -17,49 +15,143 @@ from core.bc import bc
 
 def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
     """
-    MPFA discretization
+    Discretize the scalar elliptic equation by the multi-point flux
+    approximation method.
 
-    Parameters
-    ----------
-    g (core.grids.grid) to be discretized
-    k (core.constit.second_order_tensor) permeability tensor
-    bnd (core.bc.bc) class for boundary values
-    faces (np.ndarray) faces to be considered. Intended for partial
-        discretization, may change in the future
-    eta Location of continuity point. Should be 1/3 for simplex grids,
-        0 otherwise
-    inverter (string) Block inverter to be used, either numba (default), 
-        cython or python. See fvutils.invert_diagonal_blocks
+    The method computes fluxes over faces in terms of pressures in adjacent
+    cells (defined as all cells sharing at least one vertex with the face).
+    This corresponds to the MPFA-O method, see
 
-    Returns
-    -------
-    flux (np.ndarray, shape (num_faces, num_cells), flux discretization,
-        in the form of mapping from cell pressures to face fluxes
-    bound_flux (np.ndaray, shape (num_faces, num_faces) discretization of
-        boundary conditions. Interpreted as fluxes induced by the boundary
-        condition (both Dirichlet and Neumann). For Neumann, this will be
-        the prescribed flux over the boundary face, and possibly fluxes over
-        faces having nodes on the boundary. For Dirichlet, the values will
-        be fluxes induced by the prescribed pressure. Incorporation as a
-        right hand side in linear system by multiplication with divergence
-        operator
+    Aavatsmark (2002): An introduction to the MPFA-O method on
+            quadrilateral grids, Comp. Geosci. for details.
+
+    The pressure is discretized as a linear function on sub-cells (see
+    reference paper). In this implementation, the pressure is represented by
+    its cell center value and the sub-cell gradients (this is in contrast to
+    most papers, which use auxiliary pressures on the faces; the current
+    formulation is equivalent, but somewhat easier to implement).
+
+    The method will give continuous fluxes over the faces, and pressure
+    continuity for certain points (controlled by the parameter eta). This can
+    be expressed as a linear system on the form
+
+        (i)   A * grad_p            = 0
+        (ii)  B * grad_p + C * p_cc = 0
+        (iii) 0            D * p_cc = I
+
+    Here, the first equation represents flux continuity, and involves only the
+    pressure gradients (grad_p). The second equation gives pressure continuity
+    over cell faces, thus B will contain distances between cell centers and the
+    face continuity points, while C consists of +- 1 (depending on which side
+    the cell is relative to the face normal vector). The third equation
+    enforces the pressure to be unity in one cell at a time. Thus (i)-(iii) can
+    be inverted to express the pressure gradients as in terms of the cell
+    center variables, that is, we can compute the basis functions on the
+    sub-cells. Because of the method construction (again see reference paper),
+    the basis function of a cell c will be non-zero on all sub-cells sharing
+    a vertex with c. Finally, the fluxes as functions of cell center values are
+    computed by insertion into Darcy's law (which is essentially half of A from
+    (i), that is, only consider contribution from one side of the face.
+
+    Boundary values can be incorporated with appropriate modifications -
+    Neumann conditions will have a non-zero right hand side for (i), while
+    Dirichlet gives a right hand side for (ii).
+
+    Implementation needs:
+        1) The local linear systems should be scaled with the permeability and
+        the local grid size, so that we avoid rounding errors accumulating
+        under grid refinement / convergence tests.
+        2) It should be possible to do a partial update of the discretization
+        stensil (say, if we introduce an internal boundary, or modify the
+        permeability field).
+        3) For large grids, the current implementation will run into memory
+        issues, due to the construction of a block diagonal matrix. This can be
+        overcome by splitting the discretization into several partial updates.
+        4) It probably makes sense to create a wrapper class to store the
+        discretization, interface to linear solvers etc.
+    Right now, there are concrete plans for 2) - 4).
+
+    Parameters:
+        g (core.grids.grid): grid to be discretized
+        k (core.constit.second_order_tensor) permeability tensor
+        bnd (core.bc.bc) class for boundary values
+        faces (np.ndarray) faces to be considered. Intended for partial
+            discretization, may change in the future
+        eta Location of pressure continuity point. Should be 1/3 for simplex
+            grids, 0 otherwise. On boundary faces with Dirichlet conditions,
+            eta=0 will be enforced.
+        inverter (string) Block inverter to be used, either numba (default),
+            cython or python. See fvutils.invert_diagonal_blocks for details.
+
+    Returns:
+        np.ndarray (shape num_faces, num_cells): flux discretization,
+            in the form of mapping from cell pressures to face fluxes
+        np.ndaray (shape num_faces, num_faces): discretization of
+            boundary conditions. Interpreted as fluxes induced by the boundary
+            condition (both Dirichlet and Neumann). For Neumann, this will be
+            the prescribed flux over the boundary face, and possibly fluxes over
+            faces having nodes on the boundary. For Dirichlet, the values will
+            be fluxes induced by the prescribed pressure. Incorporation as a
+            right hand side in linear system by multiplication with divergence
+            operator
+
+    Example:
+        # Set up a Cartesian grid
+        g = structured.CartGrid([5, 5])
+        k = second_order_tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+
+        # Dirirchlet boundary conditions
+        bound_faces = g.get_boundary_faces().ravel()
+        bnd = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
+
+        # Discretization
+        flux, bound_flux = mpfa(g, k, bnd)
+
+        # Source in the middle of the domain
+        q = np.zeros(g.num_cells)
+        q[12] = 1
+
+        # Divergence operator for the grid
+        div = fvutils.scalar_divergence(g)
+
+        # Discretization matrix
+        A = div * flux
+
+        # Assign boundary values to all faces on the bounary
+        bound_vals = np.zeros(g.num_faces)
+        bound_vals[bound_faces] = np.arange(bound_faces.size)
+
+        # Assemble the right hand side and solve
+        rhs = q + div * bound_flux * bound_vals
+        x = sps.linalg.spsolve(A, rhs)
+
     """
 
+    # The grid coordinates are always three-dimensional, even if the grid is
+    # really 2D. This means that there is not a 1-1 relation between the number
+    # of coordinates of a point / vector and the real dimension. This again
+    # violates some assumptions tacitly made in the discretization (in
+    # particular that the number of faces of a cell that meets in a vertex
+    # equals the grid dimension, and that this can be used to construct an
+    # index of local variables in the discretization). These issues should be
+    # possible to overcome, but for the moment, we simply force 2D grids to be
+    # proper 2D.
     if g.dim == 2:
+        # Make a copy before modifying the grid.
         g = g.copy()
         g.cell_centers = np.delete(g.cell_centers, (2), axis=0)
         g.face_centers = np.delete(g.face_centers, (2), axis=0)
         g.face_normals = np.delete(g.face_normals, (2), axis=0)
         g.nodes = np.delete(g.nodes, (2), axis=0)
-
+        # Same treatment for the permeability tensor
+        k = k.copy()
         k.perm = np.delete(k.perm, (2), axis=0)
         k.perm = np.delete(k.perm, (2), axis=1)
 
-    # Define subcell topology
-    # nno, cno, fno, subfno, subhfno = subcellMapping.create_mapping(g)
+    # Define subcell topology, that is, the local numbering of faces, subfaces,
+    # sub-cells and nodes. This numbering is used throughout the
+    # discretization.
     subcell_topology = fvutils.SubcellTopology(g)
-
-    # TODO: Scaling should be done here, but first in Matlab
 
     # Obtain normal_vector * k, pairings of cells and nodes (which together
     # uniquely define sub-cells, and thus index for gradients.
@@ -73,15 +165,18 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
     # Darcy's law
     darcy = -nk_grad[subcell_topology.unique_subfno]
 
-    # Pair over subfaces    
+    # Pair fluxes over subfaces, that is, enforce conservation
     nk_grad = subcell_topology.pair_over_subfaces(nk_grad)
 
     # Contribution from cell center potentials to local systems
-    # For pressure continuity, +-1
+    # For pressure continuity, +-1 (Depending on whether the cell is on the
+    # positive or negative side of the face.
+    # The .A suffix is necessary to get a numpy array, instead of a scipy
+    # matrix.
     sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
     pr_cont_cell = sps.coo_matrix((sgn[0], (subcell_topology.subfno,
                                             subcell_topology.cno))).tocsr()
-    # Zero contribution to flux continuity
+    # The cell centers give zero contribution to flux continuity
     nk_cell = sps.coo_matrix((np.zeros(1), (np.zeros(1), np.zeros(1))),
                              shape=(subcell_topology.num_subfno,
                                     subcell_topology.num_cno)
@@ -96,7 +191,9 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
     sgn_unique = g.cell_faces[subcell_topology.fno_unique,
                              subcell_topology.cno_unique].A.ravel('F')
 
-    # Obtain mappings to exclude boundary faces
+    # The boundary faces will have either a Dirichlet or Neumann condition, but
+    # not both (Robin is not implemented). 
+    # Obtain mappings to exclude boundary faces.
     bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
 
     # No flux conditions for Dirichlet boundary faces
@@ -106,14 +203,21 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
     pr_cont_grad = bound_exclusion.exclude_neumann(pr_cont_grad)
     pr_cont_cell = bound_exclusion.exclude_neumann(pr_cont_cell)
 
-    # Mappings to convert linear system to block diagonal form
+    # So far, the local numbering has been based on the numbering scheme
+    # implemented in SubcellTopology (which treats one cell at a time). For
+    # efficient inversion (below), it is desirable to get the system over to a
+    # block-diagonal structure, with one block centered around each vertex.
+    # Obtain the necessary mappings.
     rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
         sub_cell_index, cell_node_blocks, subcell_topology.nno_unique,
         bound_exclusion)
 
+    # System of equations for the subcell gradient variables. On block diagonal
+    # form.
     grad_eqs = sps.vstack([nk_grad, pr_cont_grad])
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
 
+    # 
     igrad = cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
                                                            size_of_blocks,
                                                            method=inverter) \
@@ -135,6 +239,14 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
     return flux, bound_flux
 
 
+#----------------------------------------------------------------------------#
+#
+# The functions below are helper functions, which are not really necessary to
+# understand in detail to use the method. They also tend to be less well
+# documented.
+#
+#----------------------------------------------------------------------------#
+
 def _tensor_vector_prod(g, k, subcell_topology):
     """
     Compute product of normal vectors and tensors on a sub-cell level.
@@ -144,21 +256,22 @@ def _tensor_vector_prod(g, k, subcell_topology):
     of sub-cell gradient variables (via the interpretation of the columns in
     nk).
 
-    Parameters
-    ----------
-    g
-    k
-    cno
-    fno
-    nno
-    subhfno
+    NOTE: In the local numbering below, in particular in the variables i and j,
+    it is tacitly assumed that g.dim == g.nodes.shape[0] ==
+    g.face_normals.shape[0] etc. See implementation note in main method.
 
-    Returns
-    -------
-    nk sub-face wise product of normal vector and permeability tensor.
-    cell_node_blocks pairings of node and cell indices, which together define
-              a sub-cell
-    sub_cell_ind index of all subcells
+    Parameters:
+        g (core.grids.grid): Discretization grid
+        k (core.constit.second_order_tensor): The permeability tensor
+        subcell_topology (fvutils.SubcellTopology): Wrapper class containing
+            subcell numbering.
+
+    Returns:
+        nk: sub-face wise product of normal vector and permeability tensor.
+        cell_node_blocks pairings of node and cell indices, which together
+            define a sub-cell.
+        sub_cell_ind: index of all subcells
+
     """
 
     # Stack cell and nodes, and remove duplicate rows. Since subcell_mapping
