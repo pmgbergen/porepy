@@ -84,16 +84,17 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
             cython or python. See fvutils.invert_diagonal_blocks for details.
 
     Returns:
-        np.ndarray (shape num_faces, num_cells): flux discretization,
-            in the form of mapping from cell pressures to face fluxes
-        np.ndaray (shape num_faces, num_faces): discretization of
+        scipy.sparse.csr_matrix (shape num_faces, num_cells): flux
+            discretization, in the form of mapping from cell pressures to face
+            fluxes.
+        scipy.sparse.csr_matrix (shape num_faces, num_faces): discretization of
             boundary conditions. Interpreted as fluxes induced by the boundary
             condition (both Dirichlet and Neumann). For Neumann, this will be
-            the prescribed flux over the boundary face, and possibly fluxes over
-            faces having nodes on the boundary. For Dirichlet, the values will
-            be fluxes induced by the prescribed pressure. Incorporation as a
-            right hand side in linear system by multiplication with divergence
-            operator
+            the prescribed flux over the boundary face, and possibly fluxes
+            over faces having nodes on the boundary. For Dirichlet, the values
+            will be fluxes induced by the prescribed pressure. Incorporation as
+            a right hand side in linear system by multiplication with
+            divergence operator.
 
     Example:
         # Set up a Cartesian grid
@@ -124,6 +125,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
         # Assemble the right hand side and solve
         rhs = q + div * bound_flux * bound_vals
         x = sps.linalg.spsolve(A, rhs)
+        f = flux * x - bound_flux * bound_vals
 
     """
 
