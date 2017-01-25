@@ -1,3 +1,13 @@
+"""
+
+Implementation of the multi-point stress appoximation method, and also terms
+related to poro-elastic coupling.
+
+The methods are very similar to those of the MPFA method, although vector
+equations tend to become slightly more complex thus, it may be useful to confer
+that module as well.
+
+"""
 import numpy as np
 import scipy.sparse as sps
 
@@ -9,8 +19,132 @@ from core.bc import bc
 
 
 def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
+    """
+    Discretize the vector elliptic equation by the multi-point flux
+    approximation method, specifically the weakly symmetric MPSA-W method.
 
- 
+    The method computes stresses over faces in terms of displacments in
+    adjacent cells (defined as all cells sharing at least one vertex with the
+    face).  This corresponds to the MPSA-W method, see
+
+    Keilegavlen, Nordbotten: Finite volume methods for elasticity with weak
+        symmetry, arxiv: 1512.01042
+
+    The displacement is discretized as a linear function on sub-cells (see
+    reference paper). In this implementation, the displacement is represented by
+    its cell center value and the sub-cell gradients.
+
+    The method will give continuous stresses over the faces, and displacement
+    continuity for certain points (controlled by the parameter eta). This can
+    be expressed as a linear system on the form
+
+        (i)   A * grad_u            = 0
+        (ii)  B * grad_u + C * u_cc = 0
+        (iii) 0            D * u_cc = I
+
+    Here, the first equation represents stress continuity, and involves only
+    the displacement gradients (grad_u). The second equation gives displacement
+    continuity over cell faces, thus B will contain distances between cell
+    centers and the face continuity points, while C consists of +- 1 (depending
+    on which side the cell is relative to the face normal vector). The third
+    equation enforces the displacement to be unity in one cell at a time. Thus
+    (i)-(iii) can be inverted to express the displacement gradients as in terms
+    of the cell center variables, that is, we can compute the basis functions
+    on the sub-cells. Because of the method construction (again see reference
+    paper), the basis function of a cell c will be non-zero on all sub-cells
+    sharing a vertex with c. Finally, the fluxes as functions of cell center
+    values are computed by insertion into Hook's law (which is essentially half
+    of A from (i), that is, only consider contribution from one side of the
+    face.
+
+    Boundary values can be incorporated with appropriate modifications -
+    Neumann conditions will have a non-zero right hand side for (i), while
+    Dirichlet gives a right hand side for (ii).
+
+    Implementation needs:
+        1) The local linear systems should be scaled with the elastic moduli
+        and the local grid size, so that we avoid rounding errors accumulating
+        under grid refinement / convergence tests.
+        2) It should be possible to do a partial update of the discretization
+        stensil (say, if we introduce an internal boundary, or modify the
+        permeability field).
+        3) For large grids, the current implementation will run into memory
+        issues, due to the construction of a block diagonal matrix. This can be
+        overcome by splitting the discretization into several partial updates.
+        4) It probably makes sense to create a wrapper class to store the
+        discretization, interface to linear solvers etc.
+    Right now, there are concrete plans for 2) - 4).
+
+    Parameters:
+        g (core.grids.grid): grid to be discretized
+        k (core.constit.second_order_tensor) permeability tensor
+        constit (core.bc.bc) class for boundary values
+        faces (np.ndarray) faces to be considered. Intended for partial
+            discretization, may change in the future
+        eta Location of pressure continuity point. Should be 1/3 for simplex
+            grids, 0 otherwise. On boundary faces with Dirichlet conditions,
+            eta=0 will be enforced.
+        inverter (string) Block inverter to be used, either numba (default),
+            cython or python. See fvutils.invert_diagonal_blocks for details.
+
+    Returns:
+        scipy.sparse.csr_matrix (shape num_faces, num_cells): stress
+            discretization, in the form of mapping from cell displacement to
+            face stresses.
+            NOTE: The cell displacements are ordered cellwise (first u_x_1,
+            u_y_1, u_x_2 etc)
+        scipy.sparse.csr_matrix (shape num_faces, num_faces): discretization of
+            boundary conditions. Interpreted as istresses induced by the boundary
+            condition (both Dirichlet and Neumann). For Neumann, this will be
+            the prescribed stress over the boundary face, and possibly stress
+            on faces having nodes on the boundary. For Dirichlet, the values
+            will be stresses induced by the prescribed displacement.
+            Incorporation as a right hand side in linear system by
+            multiplication with divergence operator.
+            NOTE: The stresses are ordered facewise (first s_x_1, s_y_1 etc)
+
+    Example:
+        # Set up a Cartesian grid
+        g = structured.CartGrid([5, 5])
+        c = fourth_order_tensor.FourthOrderTensor(g.dim, np.ones(g.num_cells))
+
+        # Dirirchlet boundary conditions
+        bound_faces = g.get_boundary_faces().ravel()
+        bnd = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
+
+        # Discretization
+        stress, bound_stress = mpsa(g, c, bnd)
+
+        # Source in the middle of the domain
+        q = np.zeros(g.num_cells * g.dim)
+        q[12 * g.dim] = 1
+
+        # Divergence operator for the grid
+        div = fvutils.vector_divergence(g)
+
+        # Discretization matrix
+        A = div * stress
+
+        # Assign boundary values to all faces on the bounary
+        bound_vals = np.zeros(g.num_faces * g.dim)
+        bound_vals[bound_faces] = np.arange(bound_faces.size * g.dim)
+
+        # Assemble the right hand side and solve
+        rhs = q + div * bound_stress * bound_vals
+        x = sps.linalg.spsolve(A, rhs)
+        s = stress * x - bound_stress * bound_vals
+
+    """
+
+    # The grid coordinates are always three-dimensional, even if the grid is
+    # really 2D. This means that there is not a 1-1 relation between the number
+    # of coordinates of a point / vector and the real dimension. This again
+    # violates some assumptions tacitly made in the discretization (in
+    # particular that the number of faces of a cell that meets in a vertex
+    # equals the grid dimension, and that this can be used to construct an
+    # index of local variables in the discretization). These issues should be
+    # possible to overcome, but for the moment, we simply force 2D grids to be
+    # proper 2D.
     if g.dim == 2:
         g = g.copy()
         g.cell_centers = np.delete(g.cell_centers, (2), axis=0)
@@ -18,8 +152,11 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
         g.face_normals = np.delete(g.face_normals, (2), axis=0)
         g.nodes = np.delete(g.nodes, (2), axis=0)
 
+        # TODO: Need to copy constit here, but first implement a deep copy.
         constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=0)
         constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=1)
+
+
     nd = g.dim
 
     # Define subcell topology
@@ -27,6 +164,8 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
     # Obtain mappings to exclude boundary faces
     bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
 
+    # Most of the work is done by submethod for elasticity (which is common for
+    # elasticity and poro-elasticity).
     hook, igrad, rhs_cells, _, _ = __mpsa_elasticity(g, constit,
                                                    subcell_topology,
                                                   bound_exclusion, eta,
@@ -46,9 +185,38 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     return stress, bound_stress
 
-# @profile
 def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
                       inverter):
+    """
+    This is the function where the real discretization takes place. It contains
+    the parts that are common for elasticity and poro-elasticity, and was thus
+    separated out as a helper function.
+
+    The steps in the discretization are the same as in mpfa (although with
+    everything being somewhat more complex since this is a vector equation).
+    The mpfa function is currently more clean, so confer that for additional
+    comments.
+
+    Parameters:
+        g: Grid
+        constit: Constitutive law
+        subcell_topology: Wrapper class for numbering of subcell faces, cells
+            etc.
+        bound_exclusion: Object that can eliminate faces related to boundary
+            conditions.
+        eta: Parameter determining the continuity point
+        inverter: Parameter determining which method to use for inverting the
+            local systems
+
+    Returns:
+        hook: Hooks law, ready to be multiplied with inverse gradients
+        igrad: Inverse gradients
+        rhs_cells: Right hand side used to get basis functions in terms of cell
+            center displacements
+        cell_node_blocks: Relation between cells and vertexes, used to group
+            equations in linear system.
+        hook_normal: Hooks law for the term div(I*p) in poro-elasticity
+    """
 
     nd = g.dim
 
@@ -56,6 +224,10 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
     ncsym, ncasym, cell_node_blocks, \
         sub_cell_index = _tensor_vector_prod(g, constit, subcell_topology)
 
+    # Prepare for computation of forces due to cell center pressures (the term
+    # div(I*p) in poro-elasticity equations. hook_normal will be used as a right
+    # hand side by the biot disretization, but needs to be computed here, since
+    # this is where we have access to the relevant data.
     ind_f = np.argsort(np.tile(subcell_topology.subhfno, nd), kind='mergesort')
     hook_normal = sps.coo_matrix((np.ones(ind_f.size),
                                   (np.arange(ind_f.size), ind_f)),
@@ -68,6 +240,7 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
     # sides of the faces.
     hook = __unique_hooks_law(ncsym, ncasym, subcell_topology, nd)
 
+    # Pair the forces from eahc side
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym)
     ncsym = bound_exclusion.exclude_dirichlet_nd(ncsym)
     num_subfno = subcell_topology.subfno.max() + 1
@@ -88,7 +261,7 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
 
     grad_eqs = sps.vstack([ncsym, d_cont_grad])
 
-    igrad = inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
+    igrad = _inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
                              subcell_topology.nno_unique, bound_exclusion,
                              nd, inverter)
 
@@ -98,6 +271,97 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
 
 
 def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
+    """
+    Discretization of poro-elasticity by the MPSA-W method.
+
+    Implementation needs (in addition to those mentioned in mpsa function):
+        1) Fields for non-zero boundary conditions. Should be simple.
+        2) Split return value grad_p into forces and a divergence operator, so
+           that we can compute Biot forces on a face.
+
+    Parameters:
+        g (core.grids.grid): grid to be discretized
+        k (core.constit.second_order_tensor) permeability tensor
+        constit (core.bc.bc) class for boundary values
+        faces (np.ndarray) faces to be considered. Intended for partial
+            discretization, may change in the future
+        eta Location of pressure continuity point. Should be 1/3 for simplex
+            grids, 0 otherwise. On boundary faces with Dirichlet conditions,
+            eta=0 will be enforced.
+        inverter (string) Block inverter to be used, either numba (default),
+            cython or python. See fvutils.invert_diagonal_blocks for details.
+
+    Returns:
+        scipy.sparse.csr_matrix (shape num_faces * dim, num_cells * dim): stres
+            discretization, in the form of mapping from cell displacement to
+            face stresses.
+        scipy.sparse.csr_matrix (shape num_faces * dim, num_faces * dim):
+            discretization of boundary conditions. Interpreted as istresses
+            induced by the boundary condition (both Dirichlet and Neumann). For
+            Neumann, this will be the prescribed stress over the boundary face,
+            and possibly stress on faces having nodes on the boundary. For
+            Dirichlet, the values will be stresses induced by the prescribed
+            displacement.  Incorporation as a right hand side in linear system
+            by multiplication with divergence operator.
+        scipy.sparse.csr_matrix (shape num_cells * dim, num_cells): Forces from
+            the pressure gradient (I*p-term), represented as body forces.
+            TODO: Should rather be represented as forces on faces.
+        scipy.sparse.csr_matrix (shape num_cells, num_cells * dim): Trace of
+            strain matrix, cell-wise.
+        scipy.sparse.csr_matrix (shape num_cells x num_cells): Stabilization
+            term.
+
+    Example:
+        # Set up a Cartesian grid
+        g = structured.CartGrid([5, 5])
+        c = fourth_order_tensor.FourthOrderTensor(g.dim, np.ones(g.num_cells))
+        k = second_order_tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+
+        # Dirirchlet boundary conditions for mechanics
+        bound_faces = g.get_boundary_faces().ravel()
+        bnd = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
+
+        # Use no boundary conditions for flow, will default to homogeneous
+        # Neumann.
+
+        # Discretization
+        stress, bound_stress, grad_p, div_d, stabilization = biot(g, c, bnd)
+        flux, bound_flux = mpfa(g, k, None)
+
+        # Source in the middle of the domain
+        q_mech = np.zeros(g.num_cells * g.dim)
+
+        # Divergence operator for the grid
+        div_mech = fvutils.vector_divergence(g)
+        div_flow = fvutils.scalar_divergence(g)
+        a_mech = div_mech * stress
+        a_flow = div_flow * flux
+
+        a_biot = sps.bmat([[a_mech, grad_p], [div_d, a_flow +
+                                                       stabilization]])
+
+        # Zero boundary conditions by default.
+
+        # Injection in the middle of the domain
+        rhs = np.zeros(g.num_cells * (g.dim + 1))
+        rhs[g.num_cells * g.dim + np.ceil(g.num_cells / 2)] = 1
+        x = sps.linalg.spsolve(A, rhs)
+
+        u_x = x[0:g.num_cells * g.dim: g.dim]
+        u_y = x[1:g.num_cells * g.dim: g.dim]
+        p = x[g.num_cells * gdim:]
+
+    """
+
+    # The grid coordinates are always three-dimensional, even if the grid is
+    # really 2D. This means that there is not a 1-1 relation between the number
+    # of coordinates of a point / vector and the real dimension. This again
+    # violates some assumptions tacitly made in the discretization (in
+    # particular that the number of faces of a cell that meets in a vertex
+    # equals the grid dimension, and that this can be used to construct an
+    # index of local variables in the discretization). These issues should be
+    # possible to overcome, but for the moment, we simply force 2D grids to be
+    # proper 2D.
     if g.dim == 2:
         g = g.copy()
         g.cell_centers = np.delete(g.cell_centers, (2), axis=0)
@@ -205,6 +469,12 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     return stress, bound_stress, grad_p, div_d, stabilization
 
+
+#-----------------------------------------------------------------------------
+#
+# Below here are helper functions, which tend to be less than well documented.
+#
+#-----------------------------------------------------------------------------
 
 def __get_displacement_submatrices(g, subcell_topology, eta, num_sub_cells,
                                    bound_exclusion):
@@ -399,7 +669,7 @@ def _tensor_vector_prod(g, constit, subcell_topology):
     return ncsym, ncasym, cell_node_blocks, grad_ind
 
 
-def inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
+def _inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
                      nno_unique, bound_exclusion, nd, inverter):
 
     # Mappings to convert linear system to block diagonal form
