@@ -64,7 +64,7 @@ class BasicsTest( unittest.TestCase ):
                           [  1., -2., -1.,  1. ],
                           [ -1.,  0.,  2., -8. ] ] )
         R = basics.project_plane_matrix( pts )
-        P_pts = np.array( [ np.dot( R, p ) for p in pts.T ] ).T
+        P_pts = np.dot( R, pts )
 
         assert np.allclose( P_pts[2,:], 1.15470054 * np.ones(4) )
 
