@@ -499,3 +499,22 @@ def compute_normal( pts ):
     return normal / np.linalg.norm( normal )
 
 #------------------------------------------------------------------------------#
+
+def compute_tangent(pts):
+    """ Compute a tangent of a set of points.
+
+    The algorithm assume that the points lie on a plane.
+
+    Parameters:
+    pts: np.ndarray, 3xn, the points.
+
+    Returns:
+    tangent: np.array, 1x3, the tangent.
+
+    """
+
+    tangent = pts[:,0] - np.mean( pts, axis = 1 )
+    assert not np.allclose( tangent, np.zeros(3) )
+    return tangent / np.linalg.norm(tangent)
+
+#------------------------------------------------------------------------------#
