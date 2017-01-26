@@ -76,7 +76,7 @@ def matrix(g, k, bc=None):
     mass = sps.coo_matrix((data,(I,J))).tocsr()
     div = -g.cell_faces.T
 
-    return sps.bmat([[mass, div.T],[div,None]])
+    return sps.bmat([[mass, div.T],[div,None]], format='csr')
 
 #------------------------------------------------------------------------------#
 
