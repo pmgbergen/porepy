@@ -480,7 +480,7 @@ def rot( a, vect ):
 
 #------------------------------------------------------------------------------#
 
-def compute_normal( pts ):
+def compute_normal(pts):
     """ Compute the normal of a set of points.
 
     The algorithm assume that the points lie on a plane.
@@ -493,9 +493,10 @@ def compute_normal( pts ):
     normal: np.array, 1x3, the normal.
 
     """
-    assert( pts.shape[1] > 2 )
-    normal = np.cross( pts[:,0] - pts[:,1], pts[:,0] - np.mean( pts, axis = 1 ) )
-    assert( not np.allclose( normal, np.zeros(3) ) )
+
+    assert pts.shape[1] > 2
+    normal = np.cross( pts[:,0] - pts[:,1], compute_tangent(pts) )
+    assert not np.allclose( normal, np.zeros(3) )
     return normal / np.linalg.norm( normal )
 
 #------------------------------------------------------------------------------#
