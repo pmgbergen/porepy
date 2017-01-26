@@ -432,8 +432,8 @@ def project_plane_matrix( pts, normal = None ):
     """ Project the points on a plane using local coordinates.
 
     The projected points are computed by a dot product.
-    example: np.array( [ np.dot( R, p ) for p in pts.T ] ).T
-    
+    example: np.dot( R, pts )
+
     Parameters:
     pts (np.ndarray, 3xn): the points.
     normal: (optional) the normal of the plane, otherwise three points are
@@ -471,7 +471,7 @@ def rot( a, vect ):
 
     if np.allclose( vect, [0.,0.,0.] ):
         return np.identity(3)
-    vect = vect / np.linalg.norm( vect )
+    vect = vect / np.linalg.norm(vect)
     W = np.array( [ [       0., -vect[2],  vect[1] ],
                     [  vect[2],       0., -vect[0] ],
                     [ -vect[1],  vect[0],       0. ] ] )
