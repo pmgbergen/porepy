@@ -52,9 +52,9 @@ def plot_grid(g, info = None, alpha=0.5):
     y = [ np.amin(g.nodes[1,:]), np.amax(g.nodes[1,:]) ]
     z = [ np.amin(g.nodes[2,:]), np.amax(g.nodes[2,:]) ]
 
-    if x[0] != x[1]: ax.set_xlim( x ); ax.set_xlabel('x')
-    if y[0] != y[1]: ax.set_ylim( y ); ax.set_ylabel('y')
-    if z[0] != z[1]: ax.set_zlim( z ); ax.set_zlabel('z')
+    if not np.isclose(x[0], x[1]): ax.set_xlim3d( x ); ax.set_xlabel('x')
+    if not np.isclose(y[0], y[1]): ax.set_ylim3d( y ); ax.set_ylabel('y')
+    if not np.isclose(z[0], z[1]): ax.set_zlim3d( z ); ax.set_zlabel('z')
     ax.set_title( " ".join( g.name ) )
 
     if info is not None: add_info( g, info, ax )
@@ -92,10 +92,9 @@ def add_info( g, info, ax ):
     if "F" in info: disp_loop( g.face_centers, 'y', 'd' )
 
     if "O" in info.upper():
-        normals = 0.1*np.array( [ n/np.linalg.norm(n) \
+        normals = np.array( [ n/np.linalg.norm(n) \
                                   for n in g.face_normals.T ] ).T
-        [ ax.quiver( *g.face_centers[:,f], *normals[:,f], color = 'k', \
-          length=0.25 ) for f in np.arange( g.num_faces ) ]
+        ax.quiver( *g.face_centers, *normals, color = 'k', length=0.25 )
 
 #------------------------------------------------------------------------------#
 
