@@ -44,18 +44,21 @@ def plot_grid(g, info = None, alpha=0.5):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    if g.dim == 2:   plot_grid_2d(g, ax, alpha)
-    elif g.dim == 3: plot_grid_3d(g, ax, alpha)
-    else:            raise NotImplementedError('Under construction')
+    if g.dim == 1:   plot_grid_1d(g, ax)
+    elif g.dim == 2: plot_grid_2d(g, ax, alpha)
+    else:            plot_grid_3d(g, ax, alpha)
 
-    x = [ np.amin(g.nodes[0,:]), np.amax(g.nodes[0,:]) ]
-    y = [ np.amin(g.nodes[1,:]), np.amax(g.nodes[1,:]) ]
-    z = [ np.amin(g.nodes[2,:]), np.amax(g.nodes[2,:]) ]
+    x = [np.amin(g.nodes[0,:]), np.amax(g.nodes[0,:])]
+    y = [np.amin(g.nodes[1,:]), np.amax(g.nodes[1,:])]
+    z = [np.amin(g.nodes[2,:]), np.amax(g.nodes[2,:])]
+    if not np.isclose(x[0], x[1]): ax.set_xlim3d( x )
+    if not np.isclose(y[0], y[1]): ax.set_ylim3d( y )
+    if not np.isclose(z[0], z[1]): ax.set_zlim3d( z )
 
-    if not np.isclose(x[0], x[1]): ax.set_xlim3d( x ); ax.set_xlabel('x')
-    if not np.isclose(y[0], y[1]): ax.set_ylim3d( y ); ax.set_ylabel('y')
-    if not np.isclose(z[0], z[1]): ax.set_zlim3d( z ); ax.set_zlabel('z')
     ax.set_title( " ".join( g.name ) )
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
 
     if info is not None: add_info( g, info, ax )
     plt.show()
