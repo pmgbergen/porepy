@@ -3,6 +3,7 @@ import unittest
 
 from core.grids import structured, simplex
 from core.constit import second_order_tensor as sot
+import compgeom.basics as cg
 
 from vem import dual
 
@@ -122,7 +123,6 @@ class BasicsTest( unittest.TestCase ):
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
         map_faces = np.array([1, 4, 0, 2, 3])
-
         M_known = np.array([[0.865079365079365, 0.337301587301587,
                              0.301587301587302, -0.301587301587302,
                              -0.337301587301587, -1, 1],
@@ -145,3 +145,34 @@ class BasicsTest( unittest.TestCase ):
                            M_known[np.ix_(map_faces, map_faces)], rtol, atol)
 
 #------------------------------------------------------------------------------#
+
+    def test_dual_vem_2d_iso_cart_surf(self):
+        g = structured.CartGrid([2, 1], [1, 1])
+        R = cg.rot(np.pi/4., [0,1,0])
+        g.nodes = np.dot(R, g.nodes)
+        g.compute_geometry(is_embedded=True)
+
+        kxx = np.ones(g.num_cells)
+        perm = sot.SecondOrderTensor(g.dim, kxx)
+        M = dual.matrix(g, perm).todense()
+
+        # Matrix computed with an already validated code (MRST)
+        M_known = np.array( [[ 0.625, -0.375,      0, 0, 0,  0,  0,  1,  0],
+                             [-0.375,   1.25, -0.375, 0, 0,  0,  0, -1,  1],
+                             [     0, -0.375,  0.625, 0, 0,  0,  0,  0, -1],
+                             [     0,      0,      0, 1, 0,  0,  0,  1,  0],
+                             [     0,      0,      0, 0, 1,  0,  0,  0,  1],
+                             [     0,      0,      0, 0, 0,  1,  0, -1,  0],
+                             [     0,      0,      0, 0, 0,  0,  1,  0, -1],
+                             [     1,     -1,      0, 1, 0, -1,  0,  0,  0],
+                             [     0,      1,     -1, 0, 1,  0, -1,  0,  0]] )
+
+        rtol = 1e-15
+        atol = rtol
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
+
+#------------------------------------------------------------------------------#
+
+bt = BasicsTest()
+bt.test_dual_vem_2d_iso_cart_surf()
