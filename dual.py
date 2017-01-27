@@ -6,6 +6,7 @@
 
 import numpy as np
 import scipy.sparse as sps
+from compgeom import basics as cg
 
 #------------------------------------------------------------------------------#
 
@@ -20,7 +21,16 @@ def matrix(g, k, bc=None):
     """
     faces, cells, sgn = sps.find(g.cell_faces)
 
-    # Normal vectors, permeability, and diameter for each face of cell
+    cell_centers = g.cell_centers
+    face_normals = g.face_normals
+    face_centers = g.face_centers
+
+    if g.dim != 3:
+        R = cg.project_plane_matrix(g.nodes)
+        cell_centers = np.dot(R, cell_centers)
+        face_normals = np.dot(R, face_normals)
+        face_centers = np.dot(R, face_centers)
+
     diams = g.cell_diameters()
 
     size = np.sum(np.square(g.cell_faces.indptr[1:] - g.cell_faces.indptr[:-1]))
@@ -31,14 +41,12 @@ def matrix(g, k, bc=None):
 
     for c in np.arange(g.num_cells):
         loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-
-        c_center = g.cell_centers[:,c]
-        mono = np.array([lambda pt,i=i: (pt[i] - c_center[i])/diams[c] \
+        mono = np.array([lambda pt,i=i: (pt[i] - cell_centers[i, c])/diams[c] \
                                                      for i in np.arange(g.dim)])
         grad = np.eye(g.dim)/diams[c]
 
         K = k.perm[0:g.dim, 0:g.dim, c]
-        normals = g.face_normals[0:g.dim, faces[loc]]
+        normals = face_normals[0:g.dim, faces[loc]]
 
         # local matrix D
         D = np.array([np.dot(normals.T, np.dot(K, g)) for g in grad]).T
@@ -49,7 +57,7 @@ def matrix(g, k, bc=None):
         # local matrix F
         faces_loc = faces[loc]
         sgn_loc = sgn[loc]
-        F = np.array([ s*m( g.face_centers[:,f] ) for m in mono \
+        F = np.array([ s*m( face_centers[:,f] ) for m in mono \
                         for s,f in zip(sgn_loc,faces_loc)] ).reshape((g.dim,-1))
 
         assert np.allclose(G, np.dot(F,D))
@@ -119,7 +127,18 @@ def projectU(g, k, u):
     faces, cells, sgn = sps.find(g.cell_faces)
     tol = 1e-10
 
-    # Normal vectors, permeability, and diameter for each face of cell
+    cell_centers = g.cell_centers
+    face_normals = g.face_normals
+    face_centers = g.face_centers
+    invR = np.eye(3)
+
+    if g.dim != 3:
+        R = cg.project_plane_matrix(g.nodes)
+        invR = np.linalg.inv(R)
+        cell_centers = np.dot(R, cell_centers)
+        face_normals = np.dot(R, face_normals)
+        face_centers = np.dot(R, face_centers)
+
     diams = g.cell_diameters()
 
     P0u = np.zeros((3,g.num_cells))
@@ -127,14 +146,12 @@ def projectU(g, k, u):
 
     for c in np.arange(g.num_cells):
         loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-
-        c_center = g.cell_centers[:,c]
-        mono = np.array([lambda pt,i=i: (pt[i] - c_center[i])/diams[c] \
+        mono = np.array([lambda pt,i=i: (pt[i] - cell_centers[i, c])/diams[c] \
                                                      for i in np.arange(g.dim)])
         grad = np.eye(g.dim)/diams[c]
 
         K = k.perm[0:g.dim, 0:g.dim, c]
-        normals = g.face_normals[0:g.dim, faces[loc]]
+        normals = face_normals[0:g.dim, faces[loc]]
 
         # local matrix D
         D = np.array([np.dot(normals.T, np.dot(K, g)) for g in grad]).T
@@ -145,7 +162,7 @@ def projectU(g, k, u):
         # local matrix F
         faces_loc = faces[loc]
         sgn_loc = sgn[loc]
-        F = np.array([ s*m( g.face_centers[:,f] ) for m in mono \
+        F = np.array([ s*m( face_centers[:,f] ) for m in mono \
                         for s,f in zip(sgn_loc,faces_loc)] ).reshape((g.dim,-1))
 
         assert np.all( np.abs( G - np.dot(F,D) ) < tol )
@@ -155,8 +172,7 @@ def projectU(g, k, u):
 
         # extract the velocity for the current cell
         P0u[:g.dim,c] = np.dot(Pi_s, u[faces_loc]) / diams[c]
-#        u_full = I_rotation * [ u_tang; 0 ];
-#        O_Pu_h( cellId, : ) = u_full';
+        P0u[:,c] = np.dot(invR, P0u[:,c])
 
     return P0u
 
