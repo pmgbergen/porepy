@@ -85,13 +85,13 @@ def rhs(g, f, bc=None):
 
     Args:
         g (grid): Grid, or a subclass, with geometry fields computed.
-        f (scalar function): Scalar source term.
+        f (np.array): Scalar source term.
         bc (): Boundary conditions (optional)
     """
 
     size = g.num_faces + g.num_cells
     rhs = np.zeros(size)
-    rhs[size-g.num_cells:] = -np.multiply( g.cell_volumes, f( g.cell_centers ) )
+    rhs[size-g.num_cells:] = -np.multiply(g.cell_volumes, f)
     return rhs
 
 #------------------------------------------------------------------------------#
