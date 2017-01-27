@@ -80,7 +80,7 @@ def matrix(g, k, bc=None):
         idx += cols.size
 
     # construct the global matrices
-    mass = sps.coo_matrix((data,(I,J))).tocsr()
+    mass = sps.coo_matrix((data,(I,J)))
     div = -g.cell_faces.T
 
     return sps.bmat([[mass, div.T],[div,None]], format='csr')
