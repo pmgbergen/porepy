@@ -120,7 +120,7 @@ class Grid(object):
         return s
 
 
-    def compute_geometry(self, is_surf=False):
+    def compute_geometry(self, is_embedded=False):
         """Compute geometric quantities for the grid.
 
         This method initializes class variables describing the grid
@@ -137,7 +137,7 @@ class Grid(object):
         if self.dim == 1:
             self.__compute_geometry_1d()
         elif self.dim == 2:
-            self.__compute_geometry_2d()
+            self.__compute_geometry_2d(is_embedded)
         else:
             self.__compute_geometry_3d()
 
@@ -180,13 +180,13 @@ class Grid(object):
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
         self.face_normals[:, flip] *= -1
 
-    def __compute_geometry_2d(self):
+    def __compute_geometry_2d(self, is_embedded):
         "Compute 2D geometry, with method motivated by similar MRST function"
 
         xn = self.nodes
 
-        if is_surf:
-            R = project_plane_matrix(xn)
+        if is_embedded:
+            R = cg.project_plane_matrix(xn)
             xn = np.dot(R, xn)
 
         fn = self.face_nodes.indices
@@ -249,7 +249,7 @@ class Grid(object):
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
         self.face_normals[:, flip] *= -1
 
-        if is_surf:
+        if is_embedded:
             invR = np.linalg.inv(R)
             self.face_normals = np.dot(invR, self.face_normals)
             self.face_centers = np.dot(invR, self.face_centers)
