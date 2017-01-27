@@ -23,10 +23,15 @@ def grid(g):
         check.grid(g)
     """
 
-    if g.dim == 2:
-        assert cg.is_planar( g.nodes )
+    if g.dim == 1:
+        assert cg.is_collinear(g.nodes)
+        face_normals_1d(g)
 
-    face_normals(g)
+    if g.dim == 2:
+        assert cg.is_planar(g.nodes)
+
+    if g.dim != 1:
+        face_normals(g)
 
 #------------------------------------------------------------------------------#
 
@@ -44,5 +49,20 @@ def face_normals(g):
         normal = g.face_normals[:, f]
         tangent = cg.compute_tangent(g.nodes[:, nodes[loc]])
         assert np.isclose(np.dot(normal, tangent), 0)
+
+#------------------------------------------------------------------------------#
+
+def face_normals_1d(g):
+    """ Check if the face normals are actually normal to the faces, 1d case.
+
+    Args:
+        g (grid): 1D grid, or a subclass, with geometry fields computed.
+    """
+
+    assert g.dim == 1
+    tangent = cg.compute_tangent(g.nodes)
+    a_normal = np.array([tangent[1], -tangent[0], 0])
+    for f in np.arange(g.num_faces):
+        assert np.isclose(np.dot(g.face_normals[:, f], a_normal), 0)
 
 #------------------------------------------------------------------------------#
