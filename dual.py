@@ -19,7 +19,6 @@ def matrix(g, k, bc=None):
         bc (): Boundary conditions (optional)
     """
     faces, cells, sgn = sps.find(g.cell_faces)
-    tol = 1e-10
 
     # Normal vectors, permeability, and diameter for each face of cell
     diams = g.cell_diameters()
@@ -53,7 +52,7 @@ def matrix(g, k, bc=None):
         F = np.array([ s*m( g.face_centers[:,f] ) for m in mono \
                         for s,f in zip(sgn_loc,faces_loc)] ).reshape((g.dim,-1))
 
-        assert np.all( np.abs( G - np.dot(F,D) ) < tol )
+        assert np.allclose(G, np.dot(F,D))
 
         # local matrix Pi
         Pi_s = np.dot(np.linalg.inv(G), F)
