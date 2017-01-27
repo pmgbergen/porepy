@@ -27,7 +27,7 @@ class Grid(object):
         Comes in two classes. Topologogical information, defined at
         construction time:
 
-        dim (int): dimension. Should be 2 or 3
+        dim (int): dimension. Should be 1 or 2 or 3
         nodes (np.ndarray): node coordinates. size: dim x num_nodes
         face_nodes (sps.csc-matrix): Face-node relationships. Matrix size:
             num_faces x num_cells. To use compute_geometry() later, he field
@@ -134,12 +134,57 @@ class Grid(object):
 
         self.name.append('Compute geometry')
 
-        if self.dim == 2:
-            self.__compute_geometry_2d(is_surf)
+        if self.dim == 1:
+            self.__compute_geometry_1d()
+        elif self.dim == 2:
+            self.__compute_geometry_2d()
         else:
             self.__compute_geometry_3d()
 
-    def __compute_geometry_2d(self, is_surf):
+    def __compute_geometry_1d(self):
+        "Compute 2D geometry"
+
+        xn = self.nodes
+
+        self.face_areas = np.ones(self.num_faces)
+
+        fn = self.face_nodes.indices
+        n = fn.size
+        self.face_centers = self.nodes[:,fn]
+
+        self.face_normals = np.vstack((np.ones(n), np.zeros(n), np.zeros(n)))
+
+        cell_faces, cellno = self.cell_faces.nonzero()
+
+        num_cell_faces = np.bincount(cellno)
+
+        cf = self.cell_faces.indices
+        xf1 = self.face_centers[:, cf[::2]]
+        xf2 = self.face_centers[:, cf[1::2]]
+
+        self.cell_volumes = np.linalg.norm(xf1 - xf2, axis=0)
+        self.cell_centers = 0.5*(xf1 + xf2)
+
+        # Ensure that normal vector direction corresponds with sign convention
+        # in self.cellFaces
+        def nrm(u):
+            return np.sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2])
+
+        [fi, ci, val] = sps.find(self.cell_faces)
+        _, idx = np.unique(fi, return_index=True)
+        sgn = val[idx]
+        fc = self.face_centers[:, fi[idx]]
+        cc = self.cell_centers[:, ci[idx]]
+        v = fc - cc
+        # Prolong the vector from cell to face center in the direction of the
+        # normal vector. If the prolonged vector is shorter, the normal should
+        # flipped
+        vn = v + nrm(v) * self.face_normals[:, fi[idx]] * 0.001
+        flip = np.logical_or(np.logical_and(nrm(v) > nrm(vn), sgn > 0),
+                             np.logical_and(nrm(v) < nrm(vn), sgn < 0))
+        self.face_normals[:, flip] *= -1
+
+    def __compute_geometry_2d(self):
         "Compute 2D geometry, with method motivated by similar MRST function"
 
         xn = self.nodes
