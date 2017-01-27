@@ -125,7 +125,6 @@ def projectU(g, k, u):
         u (np.array): Velocity computed from a dual virtual element method.
     """
     faces, cells, sgn = sps.find(g.cell_faces)
-    tol = 1e-10
 
     cell_centers = g.cell_centers
     face_normals = g.face_normals
@@ -165,7 +164,7 @@ def projectU(g, k, u):
         F = np.array([ s*m( face_centers[:,f] ) for m in mono \
                         for s,f in zip(sgn_loc,faces_loc)] ).reshape((g.dim,-1))
 
-        assert np.all( np.abs( G - np.dot(F,D) ) < tol )
+        assert np.allclose(G, np.dot(F,D))
 
         # local matrix Pi
         Pi_s = np.dot(np.linalg.inv(G), F)
