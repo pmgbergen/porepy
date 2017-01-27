@@ -11,7 +11,7 @@ from enum import Enum
 from scipy import sparse as sps
 
 from utils import matrix_compression
-
+from compgeom import basics as cg
 
 class Grid(object):
     """
@@ -119,7 +119,8 @@ class Grid(object):
         s = s + 'Number of nodes ' + str(self.num_nodes) + '\n'
         return s
 
-    def compute_geometry(self):
+
+    def compute_geometry(self, is_embedded=False):
         """Compute geometric quantities for the grid.
 
         This method initializes class variables describing the grid
@@ -136,12 +137,12 @@ class Grid(object):
         if self.dim == 1:
             self.__compute_geometry_1d()
         elif self.dim == 2:
-            self.__compute_geometry_2d()
+            self.__compute_geometry_2d(is_embedded)
         else:
             self.__compute_geometry_3d()
 
     def __compute_geometry_1d(self):
-        "Compute 2D geometry"
+        "Compute 1D geometry"
 
         xn = self.nodes
 
@@ -149,13 +150,9 @@ class Grid(object):
 
         fn = self.face_nodes.indices
         n = fn.size
-        self.face_centers = self.nodes[:,fn]
+        self.face_centers = xn[:,fn]
 
-        self.face_normals = np.vstack((np.ones(n), np.zeros(n), np.zeros(n)))
-
-        cell_faces, cellno = self.cell_faces.nonzero()
-
-        num_cell_faces = np.bincount(cellno)
+        self.face_normals = np.tile(cg.compute_tangent(xn), (n,1)).T
 
         cf = self.cell_faces.indices
         xf1 = self.face_centers[:, cf[::2]]
@@ -183,10 +180,14 @@ class Grid(object):
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
         self.face_normals[:, flip] *= -1
 
-    def __compute_geometry_2d(self):
+    def __compute_geometry_2d(self, is_embedded):
         "Compute 2D geometry, with method motivated by similar MRST function"
 
         xn = self.nodes
+
+        if is_embedded:
+            R = cg.project_plane_matrix(xn)
+            xn = np.dot(R, xn)
 
         fn = self.face_nodes.indices
         edge1 = fn[::2]
@@ -247,6 +248,12 @@ class Grid(object):
         flip = np.logical_or(np.logical_and(nrm(v) > nrm(vn), sgn > 0),
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
         self.face_normals[:, flip] *= -1
+
+        if is_embedded:
+            invR = np.linalg.inv(R)
+            self.face_normals = np.dot(invR, self.face_normals)
+            self.face_centers = np.dot(invR, self.face_centers)
+            self.cell_centers = np.dot(invR, self.cell_centers)
 
     def __compute_geometry_3d(self):
         """
