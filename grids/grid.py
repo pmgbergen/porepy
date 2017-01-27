@@ -11,7 +11,7 @@ from enum import Enum
 from scipy import sparse as sps
 
 from utils import matrix_compression
-from compgeom.basics import project_plane_matrix
+from compgeom import basics as cg
 
 class Grid(object):
     """
@@ -142,7 +142,7 @@ class Grid(object):
             self.__compute_geometry_3d()
 
     def __compute_geometry_1d(self):
-        "Compute 2D geometry"
+        "Compute 1D geometry"
 
         xn = self.nodes
 
@@ -150,13 +150,9 @@ class Grid(object):
 
         fn = self.face_nodes.indices
         n = fn.size
-        self.face_centers = self.nodes[:,fn]
+        self.face_centers = xn[:,fn]
 
-        self.face_normals = np.vstack((np.ones(n), np.zeros(n), np.zeros(n)))
-
-        cell_faces, cellno = self.cell_faces.nonzero()
-
-        num_cell_faces = np.bincount(cellno)
+        self.face_normals = np.tile(cg.compute_tangent(xn), (n,1)).T
 
         cf = self.cell_faces.indices
         xf1 = self.face_centers[:, cf[::2]]
