@@ -18,16 +18,17 @@ class TensorGrid(Grid):
     See documentation of Grid for further details
     """
 
-    def __init__(self, x, y, z=None, name=None):
+    def __init__(self, x, y=None, z=None, name=None):
         """
-        Constructor for 2D or 3D tensor grid
+        Constructor for 1D or 2D or 3D tensor grid
 
-        The resulting grid is 2D or 3D, depending of the number of
+        The resulting grid is 1D or 2D or 3D, depending of the number of
         coordinate lines are provided
 
         Parameters
             x (np.ndarray): Node coordinates in x-direction
-            y (np.ndarray): Node coordinates in y-direction
+            y (np.ndarray): Node coordinates in y-direction. Defaults to
+                None, in which case the grid is 1D.
             z (np.ndarray): Node coordinates in z-direction. Defaults to
                 None, in which case the grid is 2D.
             name (str): Name of grid, passed to super constructor
@@ -35,7 +36,12 @@ class TensorGrid(Grid):
         if name is None:
             name = 'TensorGrid'
 
-        if z is None:
+        if y is None:
+            nodes, face_nodes, cell_faces = self._create_1d_grid(x)
+            self.cart_dims = np.array([x.size - 1])
+            super(TensorGrid, self).__init__(1, nodes, face_nodes,
+                                             cell_faces, name)
+        elif z is None:
             nodes, face_nodes, cell_faces = self._create_2d_grid(x, y)
             self.cart_dims = np.array([x.size, y.size]) - 1
             super(TensorGrid, self).__init__(2, nodes, face_nodes,
@@ -45,6 +51,47 @@ class TensorGrid(Grid):
             self.cart_dims = np.array([x.size, y.size, z.size]) - 1
             super(TensorGrid, self).__init__(3, nodes, face_nodes,
                                              cell_faces, name)
+
+    def _create_1d_grid(self, x):
+        """
+        Compute grid topology for 1D grids.
+
+        This is really a part of the constructor, but put it here to improve
+        readability. Not sure if that is the right choice..
+
+        """
+
+        sx = x.size - 1
+
+        num_cells = sx
+        num_nodes = sx + 1
+        num_faces = sx + 1
+
+        nodes = np.vstack((x, np.zeros(x.size), np.zeros(x.size)))
+
+        # Face nodes
+        indptr = np.arange(num_faces+1)
+        face_nodes = np.arange(num_faces)
+        data = np.ones(face_nodes.shape, dtype=bool)
+        face_nodes = sps.csc_matrix((data, face_nodes, indptr),
+                                    shape=(num_nodes, num_faces))
+
+        # Cell faces
+        face_array = np.arange(num_faces)
+        cell_faces = np.vstack((face_array[:-1],
+                                face_array[1:])).ravel(order='F')
+
+        num_faces_per_cell = 2
+        indptr = np.append(np.arange(0, num_faces_per_cell*num_cells,
+                                     num_faces_per_cell),
+                           num_faces_per_cell * num_cells)
+        data = np.empty(cell_faces.size)
+        data[::2] = -1
+        data[1::2] = 1
+
+        cell_faces = sps.csc_matrix((data, cell_faces, indptr),
+                                    shape=(num_faces, num_cells))
+        return nodes, face_nodes, cell_faces
 
     def _create_2d_grid(self, x, y):
         """
@@ -231,9 +278,9 @@ class CartGrid(TensorGrid):
 
         # Create point distribution, and then leave construction to
         # TensorGrid constructor
-        if dims[0] == 1:
-            # This may actually work, but hasn't been tried
-            raise NotImplementedError('only 2D and 3D supported for now')
+        if dims is (): # dirty trick
+            x = np.linspace(0, physdims, nx+1)
+            super(self.__class__, self).__init__(x)
         elif dims[0] == 2:
             x = np.linspace(0, physdims[0], nx[0]+1)
             y = np.linspace(0, physdims[1], nx[1]+1)
