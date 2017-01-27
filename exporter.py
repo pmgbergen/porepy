@@ -29,10 +29,36 @@ def export_vtk( g, name, data = None, binary = True ):
 
     """
 
-    if g.dim == 1: raise NotImplementedError
+    if g.dim == 1: gVTK = export_vtk_1d( g )
     if g.dim == 2: gVTK = export_vtk_2d( g )
     if g.dim == 3: gVTK = export_vtk_3d( g )
     write_vtk( gVTK, name, data, binary )
+
+#------------------------------------------------------------------------------#
+
+def export_vtk_1d( g ):
+    cell_nodes = g.cell_nodes()
+    nodes, cells, _  = sps.find( cell_nodes )
+    gVTK = vtk.vtkUnstructuredGrid()
+
+    for c in np.arange( g.num_cells ):
+        loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
+        ptsId = nodes[loc]
+        fsVTK = vtk.vtkIdList()
+        [ fsVTK.InsertNextId( p ) for p in ptsId ]
+
+        gVTK.InsertNextCell( vtk.VTK_LINE, fsVTK )
+
+    ptsVTK = vtk.vtkPoints()
+    if g.nodes.shape[0] == 1:
+        [ ptsVTK.InsertNextPoint( node, 0., 0. ) for node in g.nodes.T ]
+    if g.nodes.shape[0] == 2:
+        [ ptsVTK.InsertNextPoint( *node, 0. ) for node in g.nodes.T ]
+    else:
+        [ ptsVTK.InsertNextPoint( *node ) for node in g.nodes.T ]
+    gVTK.SetPoints( ptsVTK )
+
+    return gVTK
 
 #------------------------------------------------------------------------------#
 
