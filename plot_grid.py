@@ -112,10 +112,12 @@ def plot_grid_1d( g, ax ):
 #------------------------------------------------------------------------------#
 
 def plot_grid_2d( g, ax, alpha ):
-    nodes, cells, _  = sps.find( g.cell_nodes() )
+    cell_nodes = g.cell_nodes()
+    nodes, cells, _  = sps.find( cell_nodes )
     RGB_face = [1,0,0,alpha]
     for c in np.arange( g.num_cells ):
-        ptsId = nodes[ cells == c ]
+        loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
+        ptsId = nodes[loc]
         mask = sort_points.sort_point_plane( g.nodes[:, ptsId], \
                                              g.cell_centers[:, c] )
 
@@ -133,10 +135,12 @@ def plot_grid_3d( g, ax, alpha ):
     faces_cells, cells, _ = sps.find( g.cell_faces )
     nodes_faces, faces, _ = sps.find( g.face_nodes )
     RGB_face = [1,0,0,alpha]
-    for c in np.arange( g.num_cells ):
-        fs = faces_cells[ cells == c ]
+    for c in np.arange(g.num_cells):
+        loc_c = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+        fs = faces_cells[loc_c]
         for f in fs:
-            ptsId = nodes_faces[ faces == f ]
+            loc_f = slice(g.face_nodes.indptr[f], g.face_nodes.indptr[f+1])
+            ptsId = nodes_faces[loc_f]
             mask = sort_points.sort_point_plane( g.nodes[:, ptsId], \
                                                  g.face_centers[:, f], \
                                                  g.face_normals[:, f] )
