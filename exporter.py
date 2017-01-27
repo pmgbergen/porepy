@@ -37,14 +37,16 @@ def export_vtk( g, name, data = None, binary = True ):
 #------------------------------------------------------------------------------#
 
 def export_vtk_2d( g ):
+    faces_cells, _, _ = sps.find( g.cell_faces )
+    nodes_faces, _, _ = sps.find( g.face_nodes )
 
-    faces_cells, cells, _ = sps.find( g.cell_faces )
-    nodes_faces, faces, _ = sps.find( g.face_nodes )
     gVTK = vtk.vtkUnstructuredGrid()
 
     for c in np.arange( g.num_cells ):
-        fs = faces_cells[ cells == c ]
-        ptsId = np.array( [ nodes_faces[ faces == f ] for f in fs ] ).T
+        loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+        ptsId = np.array( [ nodes_faces[ g.face_nodes.indptr[f]: \
+                                         g.face_nodes.indptr[f+1] ]
+                          for f in faces_cells[loc] ] ).T
         ptsId = sort_points.sort_point_pairs( ptsId )[0,:]
 
         fsVTK = vtk.vtkIdList()
@@ -64,17 +66,18 @@ def export_vtk_2d( g ):
 #------------------------------------------------------------------------------#
 
 def export_vtk_3d( g ):
-
     faces_cells, cells, _ = sps.find( g.cell_faces )
     nodes_faces, faces, _ = sps.find( g.face_nodes )
     gVTK = vtk.vtkUnstructuredGrid()
 
     for c in np.arange( g.num_cells ):
-        fs = faces_cells[ cells == c ]
+        loc_c = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+        fs = faces_cells[loc_c]
         fsVTK = vtk.vtkIdList()
         fsVTK.InsertNextId( fs.shape[0] ) # Number faces that make up the cell
         for f in fs:
-            ptsId = nodes_faces[ faces == f ]
+            loc_f = slice(g.face_nodes.indptr[f], g.face_nodes.indptr[f+1])
+            ptsId = nodes_faces[loc_f]
             mask = sort_points.sort_point_plane( g.nodes[:, ptsId], \
                                                  g.face_centers[:, f], \
                                                  g.face_normals[:, f] )
