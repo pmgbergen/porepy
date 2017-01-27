@@ -98,6 +98,19 @@ def add_info( g, info, ax ):
 
 #------------------------------------------------------------------------------#
 
+def plot_grid_1d( g, ax ):
+    cell_nodes = g.cell_nodes()
+    nodes, cells, _  = sps.find( cell_nodes )
+    for c in np.arange( g.num_cells ):
+        loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
+        ptsId = nodes[loc]
+        pts = g.nodes[:, ptsId]
+        poly = Poly3DCollection( [pts.T] )
+        poly.set_edgecolor('k')
+        ax.add_collection3d(poly)
+
+#------------------------------------------------------------------------------#
+
 def plot_grid_2d( g, ax, alpha ):
     nodes, cells, _  = sps.find( g.cell_nodes() )
     RGB_face = [1,0,0,alpha]
