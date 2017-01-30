@@ -174,5 +174,28 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-bt = BasicsTest()
-bt.test_dual_vem_2d_iso_cart_surf()
+    def test_dual_vem_1d_iso_line(self):
+        g = structured.CartGrid(3, 1)
+        R = cg.rot(np.pi/6., [0,0,1])
+        g.nodes = np.dot(R, g.nodes)
+        g.compute_geometry()
+
+        kxx = np.ones(g.num_cells)
+        perm = sot.SecondOrderTensor(g.dim, kxx)
+        M = dual.matrix(g, perm).todense()
+
+        # Matrix computed with an already validated code (MRST)
+        M_known = 1e-2 * np.array( [[ 25, -(8+1/3.), 0, 0, 1e2, 0, 0],
+                                    [ -(8+1/3.), 50, -(8+1/3.), 0, -1e2, 1e2, 0],
+                                    [ 0, -(8+1/3.), 50, -(8+1/3.), 0, -1e2, 1e2],
+                                    [ 0, 0, -(8+1/3.), 25, 0, 0, -1e2],
+                                    [ 1e2, -1e2,  0, 0, 0, 0, 0],
+                                    [ 0, 1e2, -1e2, 0, 0, 0, 0],
+                                    [ 0, 0, 1e2, -1e2, 0, 0, 0]] )
+
+        rtol = 1e-15
+        atol = rtol
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
+
+#------------------------------------------------------------------------------#
