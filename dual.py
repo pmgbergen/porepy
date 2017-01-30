@@ -20,18 +20,9 @@ def matrix(g, k, bc=None):
         bc (): Boundary conditions (optional)
     """
     faces, cells, sgn = sps.find(g.cell_faces)
+    cell_centers, face_normals, face_centers, _ = cg.map_grid(g)
 
     weight = np.ones(g.num_cells) if g.dim != 1 else g.cell_volumes
-    cell_centers = g.cell_centers
-    face_normals = g.face_normals
-    face_centers = g.face_centers
-
-    if g.dim != 3:
-        R = cg.project_plane_matrix(g.nodes)
-        cell_centers = np.dot(R, cell_centers)
-        face_normals = np.dot(R, face_normals)
-        face_centers = np.dot(R, face_centers)
-
     diams = g.cell_diameters()
 
     size = np.sum(np.square(g.cell_faces.indptr[1:] - g.cell_faces.indptr[:-1]))
@@ -47,7 +38,7 @@ def matrix(g, k, bc=None):
         grad = np.eye(g.dim)/diams[c]
 
         K = k.perm[0:g.dim, 0:g.dim, c]
-        normals = face_normals[0:g.dim, faces[loc]]
+        normals = face_normals[:, faces[loc]]
 
         # local matrix D
         D = np.array([np.dot(normals.T, np.dot(K, g)) for g in grad]).T
@@ -84,7 +75,7 @@ def matrix(g, k, bc=None):
     mass = sps.coo_matrix((data,(I,J)))
     div = -g.cell_faces.T
 
-    return sps.bmat([[mass, div.T],[div,None]], format='csr')
+    return sps.bmat([[mass, div.T], [div,None]], format='csr')
 
 #------------------------------------------------------------------------------#
 
@@ -126,18 +117,7 @@ def projectU(g, k, u):
         u (np.array): Velocity computed from a dual virtual element method.
     """
     faces, cells, sgn = sps.find(g.cell_faces)
-
-    cell_centers = g.cell_centers
-    face_normals = g.face_normals
-    face_centers = g.face_centers
-    invR = np.eye(3)
-
-    if g.dim != 3:
-        R = cg.project_plane_matrix(g.nodes)
-        invR = np.linalg.inv(R)
-        cell_centers = np.dot(R, cell_centers)
-        face_normals = np.dot(R, face_normals)
-        face_centers = np.dot(R, face_centers)
+    cell_centers, face_normals, face_centers, R = cg.map_grid(g)
 
     diams = g.cell_diameters()
 
@@ -151,7 +131,7 @@ def projectU(g, k, u):
         grad = np.eye(g.dim)/diams[c]
 
         K = k.perm[0:g.dim, 0:g.dim, c]
-        normals = face_normals[0:g.dim, faces[loc]]
+        normals = face_normals[:, faces[loc]]
 
         # local matrix D
         D = np.array([np.dot(normals.T, np.dot(K, g)) for g in grad]).T
@@ -172,7 +152,7 @@ def projectU(g, k, u):
 
         # extract the velocity for the current cell
         P0u[:g.dim,c] = np.dot(Pi_s, u[faces_loc]) / diams[c]
-        P0u[:,c] = np.dot(invR, P0u[:,c])
+        P0u[:,c] = np.dot(R.T, P0u[:,c])
 
     return P0u
 
