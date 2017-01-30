@@ -501,6 +501,13 @@ def compute_normal(pts):
 
 #------------------------------------------------------------------------------#
 
+def compute_normals_1d(pts):
+    t = compute_tangent(pts)
+    n = np.array([t[1], -t[0], 0]) / np.sqrt(t[0]**2+t[1]**2)
+    return np.r_['1,2,0', n, np.dot(rot(np.pi/2., t), n)]
+
+#------------------------------------------------------------------------------#
+
 def compute_tangent(pts):
     """ Compute a tangent of a set of points.
 
