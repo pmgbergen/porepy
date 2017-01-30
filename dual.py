@@ -21,6 +21,7 @@ def matrix(g, k, bc=None):
     """
     faces, cells, sgn = sps.find(g.cell_faces)
 
+    weight = np.ones(g.num_cells) if g.dim != 1 else g.cell_volumes
     cell_centers = g.cell_centers
     face_normals = g.face_normals
     face_centers = g.face_centers
@@ -68,7 +69,7 @@ def matrix(g, k, bc=None):
         I_Pi = np.eye(ndof) - np.dot(D, Pi_s)
 
         # local Hdiv-Stiffness matrix
-        w = np.linalg.norm(np.linalg.inv(K),np.inf)
+        w = weight[c] * np.linalg.norm(np.linalg.inv(K),np.inf)
         A = np.dot(Pi_s.T, np.dot(G, Pi_s)) + w * np.dot(I_Pi.T, I_Pi)
 
         # save values for Hdiv-Stiffness matrix
