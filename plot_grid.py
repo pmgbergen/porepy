@@ -7,6 +7,7 @@ Created on Fri Feb 26 19:37:05 2016
 
 import numpy as np
 import scipy.sparse as sps
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.tri
 from matplotlib.patches import Polygon
@@ -21,7 +22,7 @@ from compgeom import sort_points
 
 #------------------------------------------------------------------------------#
 
-def plot_grid(g, info = None, alpha=0.5):
+def plot_grid(g, cell_value=None, info=None, alpha=1):
     """ plot the grid in a 3d framework.
 
     It is possible to add the cell ids at the cells centers (info option 'c'),
@@ -30,6 +31,7 @@ def plot_grid(g, info = None, alpha=0.5):
 
     Parameters:
     g: the grid
+    cell_value: (optional) cell scalar field to be represented (only 1d and 2d)
     info: (optional) add extra information to the plot
     alpha: (optonal) transparency of cells (2d) and faces (3d)
 
@@ -37,15 +39,16 @@ def plot_grid(g, info = None, alpha=0.5):
     fig.number: the id of the plot
 
     How to use:
-    plot_grid( g, info = "ncfo", alpha = 0 )
+    cell_id = np.arange(g.num_cells)
+    plot_grid(g, cell_value=cell_id, info="ncfo", alpha=0.75)
 
     """
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    if g.dim == 1:   plot_grid_1d(g, ax)
-    elif g.dim == 2: plot_grid_2d(g, ax, alpha)
+    if g.dim == 1:   plot_grid_1d(g, cell_value, ax, alpha)
+    elif g.dim == 2: plot_grid_2d(g, cell_value, ax, alpha)
     else:            plot_grid_3d(g, ax, alpha)
 
     x = [np.amin(g.nodes[0,:]), np.amax(g.nodes[0,:])]
@@ -61,6 +64,7 @@ def plot_grid(g, info = None, alpha=0.5):
     ax.set_zlabel('z')
 
     if info is not None: add_info( g, info, ax )
+    if cell_value is not None: fig.colorbar(color_map(cell_value))
     plt.show()
 
     return fig.number
@@ -83,6 +87,16 @@ def plot_grid_fractures(g, show=True):
 
 #------------------------------------------------------------------------------#
 
+def color_map(cell_value, cmap_type='jet'):
+    cmap = plt.get_cmap(cmap_type)
+    extr_value = np.array([np.amin(cell_value), np.amax(cell_value)])
+    scalar_map = mpl.cm.ScalarMappable(cmap=cmap)
+    scalar_map.set_array(extr_value)
+    scalar_map.set_clim(vmin=extr_value[0], vmax=extr_value[1])
+    return scalar_map
+
+#------------------------------------------------------------------------------#
+
 def add_info( g, info, ax ):
 
     def disp( i, p, c, m ): ax.scatter( *p, c=c, marker=m ); ax.text( *p, i )
@@ -101,23 +115,38 @@ def add_info( g, info, ax ):
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_1d( g, ax ):
+def plot_grid_1d(g, cell_value, ax, alpha):
     cell_nodes = g.cell_nodes()
     nodes, cells, _  = sps.find( cell_nodes )
+
+    if cell_value is not None:
+        scalar_map = color_map(cell_value)
+        def color_edge(value): return scalar_map.to_rgba(value, alpha)
+    else:
+        cell_value = np.zeros(g.num_cells)
+        def color_edge(value): return 'k'
+
     for c in np.arange( g.num_cells ):
         loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
         ptsId = nodes[loc]
         pts = g.nodes[:, ptsId]
         poly = Poly3DCollection( [pts.T] )
-        poly.set_edgecolor('k')
+        poly.set_edgecolor(color_edge(cell_value[c]))
         ax.add_collection3d(poly)
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_2d( g, ax, alpha ):
+def plot_grid_2d( g, cell_value, ax, alpha ):
     cell_nodes = g.cell_nodes()
     nodes, cells, _  = sps.find( cell_nodes )
-    RGB_face = [1,0,0,alpha]
+
+    if cell_value is not None:
+        scalar_map = color_map(cell_value)
+        def color_face(value): return scalar_map.to_rgba(value, alpha)
+    else:
+        cell_value = np.zeros(g.num_cells)
+        def color_face(value): return [1,0,0,alpha]
+
     for c in np.arange( g.num_cells ):
         loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
         ptsId = nodes[loc]
@@ -127,7 +156,7 @@ def plot_grid_2d( g, ax, alpha ):
         pts = g.nodes[:, ptsId[mask]]
         poly = Poly3DCollection( [pts.T] )
         poly.set_edgecolor('k')
-        poly.set_facecolors(RGB_face)
+        poly.set_facecolors(color_face(cell_value[c]))
         ax.add_collection3d(poly)
 
     ax.view_init(90, -90)
