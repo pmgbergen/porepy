@@ -64,7 +64,7 @@ def plot_grid(g, cell_value=None, info=None, alpha=1):
     ax.set_zlabel('z')
 
     if info is not None: add_info( g, info, ax )
-    if cell_value is not None: fig.colorbar(color_map(cell_value))
+    if cell_value is not None and g.dim !=3: fig.colorbar(color_map(cell_value))
     plt.show()
 
     return fig.number
