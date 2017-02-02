@@ -30,8 +30,8 @@ def half_space_int(n,x0, pts):
     >>> import numpy as np
     >>> n = np.array([[0,1],[1,0],[0,0]])
     >>> x0 = np.array([[0,-1],[0,0],[0,0]])
-    >>> pts = np.array([[-1,1,4],[2,1,-2],[0,0,0]])
-    >>> out = half_plane_int(n,x0,pts)
+    >>> pts = np.array([[-1,-1,4],[2,-2,-2],[0,0,0]])
+    >>> half_space_int(n,x0,pts)
     array([False,  True, False], dtype=bool)
     """
     assert n.shape[0] == 3, ' only 3D supported'
