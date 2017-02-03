@@ -584,3 +584,101 @@ def map_grid(g):
     return cell_centers, face_normals, face_centers, R
 
 #------------------------------------------------------------------------------#
+
+def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
+    """
+    Compute the distance between two line segments.
+
+    The implementaion is based on http://geomalgorithms.com/a07-_distance.html
+    (C++ code can be found somewhere on the page). Also confer that page for
+    explanation of the algorithm.
+
+    Implementation note:
+        It should be possible to rewrite the algorithm to allow for one of (or
+        both?) segments to be a set of segments, thus exploiting
+        vectorization.
+
+    Parameters:
+        s1_start (np.array, size nd): Start point for the first segment
+        s1_end (np.array, size nd): End point for the first segment
+        s2_start (np.array, size nd): Start point for the second segment
+        s2_end (np.array, size nd): End point for the second segment
+
+    Returns:
+        double: Minimum distance between the segments
+
+    """
+
+    # Variable used to fine almost parallel lines. Sensitivity to this value has not been tested.
+    SMALL_TOLERANCE = 1e-6
+
+    # For the rest of the algorithm, see the webpage referred to above for details.
+    d1 = s1_end - s1_start
+    d2 = s2_end - s2_start
+    d_starts = s1_start - s2_start
+
+    dot_1_1 = d1.dot(d1)
+    dot_1_2 = d1.dot(d2)
+    dot_2_2 = d2.dot(d2)
+    dot_1_starts = d1.dot(d_starts)
+    dot_2_starts = d2.dot(d_starts)
+    discr = dot_1_1 * dot_2_2 - dot_1_2 ** 2
+    # Sanity check
+    assert discr >= 0
+
+    sc = sN = sD = discr
+    tc = tN = tD = discr
+
+    if discr < SMALL_TOLERANCE:
+        sN = 0
+        sD = 1
+        tN = dot_2_starts
+        tD = dot_2_2
+    else:
+        sN = dot_1_2 * dot_2_starts - dot_2_2 * dot_1_starts
+        tN = dot_1_1 * dot_2_starts - dot_1_2 * dot_1_starts
+        if sN < 0.0:        # sc < 0 => the s=0 edge is visible
+            sN = 0.0
+            tN = dot_2_starts
+            tD = dot_2_2
+
+        elif sN > sD:   # sc > 1  => the s=1 edge is visible
+            sN = sD
+            tN = dot_1_2 + dot_2_starts
+            tD = dot_2_2
+
+    if tN < 0.0:            # tc < 0 => the t=0 edge is visible
+        tN = 0.0
+        # recompute sc for this edge
+        if -dot_1_starts < 0.0:
+            sN = 0.0
+        elif (-dot_1_starts > dot_1_1):
+            sN = sD
+        else:
+            sN = -dot_1_starts
+            sD = dot_1_1
+    elif tN > tD:       # tc > 1  => the t=1 edge is visible
+        tN = tD
+        # recompute sc for this edge
+        if (-dot_1_starts + dot_1_2) < 0.0:
+            sN = 0
+        elif (-dot_1_starts+ dot_1_2) > dot_1_1:
+            sN = sD
+        else:
+            sN = (-dot_1_starts + dot_1_2)
+            sD = dot_1_1
+
+    # finally do the division to get sc and tc
+    if abs(sN) < SMALL_TOLERANCE:
+        sc = 0.0
+    else:
+        sc = sN / sD
+    if abs(tN) < SMALL_TOLERANCE:
+        tc = 0.0
+    else:
+        tc = tN / tD
+
+    # get the difference of the two closest points
+    dist = d_starts + sc * d1 - tc * d2
+    return np.sqrt(dist.dot(dist))
+
