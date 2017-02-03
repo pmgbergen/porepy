@@ -220,6 +220,9 @@ def lines_intersect(start_1, end_1, start_2, end_2):
     snap_to_grid. This may cause problems at some point, although no issues
     have been discovered so far.
 
+    Implementation note:
+        This function can be replaced by a call to segments_intersect_3d. Todo.
+
     Example:
         >>> lines_intersect([0, 0], [1, 1], [0, 1], [1, 0])
         array([[ 0.5],
@@ -238,6 +241,7 @@ def lines_intersect(start_1, end_1, start_2, end_2):
     Returns:
         np.ndarray: coordinates of intersection point, or None if the lines do
             not intersect.
+
     """
 
 
@@ -266,6 +270,99 @@ def lines_intersect(start_1, end_1, start_2, end_2):
         return np.array([[p.x], [p.y]], dtype='float')
 
 #------------------------------------------------------------------------------#
+
+def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
+    """
+    Check if two line segments defined in 3D intersect.
+
+    Note that, oposed to other functions related to grid generation such as
+    remove_edge_crossings, this function does not use the concept of
+    snap_to_grid. This may cause problems at some point, although no issues
+    have been discovered so far.
+
+    Parameters:
+        start_1 (np.ndarray or list): coordinates of start point for first
+            line.
+        end_1 (np.ndarray or list): coordinates of end point for first line.
+        start_2 (np.ndarray or list): coordinates of start point for first
+            line.
+        end_2 (np.ndarray or list): coordinates of end point for first line.
+
+    Returns:
+        np.ndarray: coordinates of intersection point, or None if the lines do
+            not intersect.
+
+    """
+
+    # Convert input to numpy if necessary
+    start_1 = np.asarray(start_1).astype(np.float)
+    end_1 = np.asarray(end_1).astype(np.float)
+    start_2 = np.asarray(start_2).astype(np.float)
+    end_2 = np.asarray(end_2).astype(np.float)
+
+    # Short hand for component of start and end points, as well as vectors
+    # along lines.
+    xs_1 = start_1[0]
+    ys_1 = start_1[1]
+    zs_1 = start_1[2]
+
+    xe_1 = end_1[0]
+    ye_1 = end_1[1]
+    ze_1 = end_1[2]
+
+    dx_1 = xe_1 - xs_1
+    dy_1 = ye_1 - ys_1
+    dz_1 = ze_1 - zs_1
+
+    xs_2 = start_2[0]
+    ys_2 = start_2[1]
+    zs_2 = start_2[2]
+
+    xe_2 = end_2[0]
+    ye_2 = end_2[1]
+    ze_2 = end_2[2]
+
+    dx_2 = xe_2 - xs_2
+    dy_2 = ye_2 - ys_2
+    dz_2 = ze_2 - zs_2
+
+
+
+    # An intersection will be a solution of the linear system
+    #   xs_1 + dx_1 * t_1 = xs_2 + dx_2 * t_2 (1)
+    #   ys_1 + dy_1 * t_1 = ys_2 + dy_2 * t_2 (2)
+    #
+    # In addition, the solution should satisfy
+    #   zs_1 + dz_1 * t_1 = zs_2 + dz_2 * t_2 (3)
+    #
+    # The intersection is on the line segments if 0 <= (t_1, t_2) <= 1
+
+    # Minus in front of _2 after reorganizing (1)-(2)
+    discr = dx_1 * (-dy_2) - dy_1 *(-dx_2)
+
+    if np.abs(discr) < tol:
+        # If the lines are (almost) parallel, there is no intersection
+        return None
+
+    # Solve 2x2 system by Cramer's rule
+    t_1 = ((xs_2 - xs_1) * (-dy_2) - (ys_2 - ys_1) * (-dx_2)) / discr
+    t_2 = (dx_1 * (ys_2 - ys_1) - dy_1 * (xs_2 - xs_1)) / discr
+
+    # Check that we are on line segment
+    if t_1 < 0 or t_1 > 1 or t_2 < 0 or t_2 > 1:
+        return None
+
+    # Compute the z-coordinates of the intersection points
+    z_1_isect = zs_1 + t_1 * dz_1
+    z_2_isect = zs_2 + t_2 * dz_2
+
+    if np.abs(z_1_isect - z_2_isect) < tol:
+        return np.array([xs_1 + t_1 * dx_1, ys_1 + t_1 * dy_1, z_1_isect])
+    else:
+        return None
+
+
+#-----------------------------------------------------------------------------#
 
 def remove_edge_crossings(vertices, edges, **kwargs):
     """
