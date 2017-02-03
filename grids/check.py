@@ -60,8 +60,7 @@ def face_normals_1d(g):
     """
 
     assert g.dim == 1
-    tangent = cg.compute_tangent(g.nodes)
-    a_normal = np.array([tangent[1], -tangent[0], 0])
+    a_normal = cg.compute_a_normal_1d(g.nodes)
     for f in np.arange(g.num_faces):
         assert np.isclose(np.dot(g.face_normals[:, f], a_normal), 0)
 
