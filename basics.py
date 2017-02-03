@@ -10,6 +10,7 @@ be moved to a separate module.
 import numpy as np
 from math import sqrt
 import sympy
+import scipy.optimize as opt
 
 #------------------------------------------------------------------------------#
 
@@ -221,11 +222,12 @@ def lines_intersect(start_1, end_1, start_2, end_2):
     have been discovered so far.
 
     Example:
-        >>> lines_intersect([0, 0], [1, 1], [0, 1], [1, 0])
+        >>> lines_intersect([0, 0, 0], [1, 1, 0], [0, 1, 0], [1, 0, 0])
         array([[ 0.5],
-	       [ 0.5]])
+           [ 0.5],
+           [ 0]])
 
-        >>> lines_intersect([0, 0], [1, 0], [0, 1], [1, 1])
+        >>> lines_intersect([0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0])
 
     Parameters:
         start_1 (np.ndarray or list): coordinates of start point for first
