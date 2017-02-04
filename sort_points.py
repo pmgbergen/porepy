@@ -3,7 +3,7 @@ from compgeom.basics import project_plane_matrix
 
 #------------------------------------------------------------------------------#
 
-def sort_point_pairs(lines, check_circular=True):
+def sort_point_pairs(lines, check_circular=True, ordering=False):
     """ Sort pairs of numbers to form a chain.
 
     The target application is to sort lines, defined by their
@@ -16,6 +16,7 @@ def sort_point_pairs(lines, check_circular=True):
     lines: np.ndarray, 2xn, the line pairs.
     check_circular: Verify that the sorted polyline form a circle.
                     Defaluts to true.
+    ordering: np.array, return in the original order if a line is flipped or not
 
     Returns:
     sorted_lines: np.ndarray, 2xn, sorted line pairs.
@@ -35,6 +36,10 @@ def sort_point_pairs(lines, check_circular=True):
     found = np.zeros(num_lines, dtype=np.bool)
     found[0] = True
 
+    # Order of the origin line list, store if they're flip or not to form the chain
+    is_ordered = np.zeros(num_lines, dtype=np.bool)
+    is_ordered[0] = True
+
     # The sorting algorithm: Loop over all places in sorted_line to be filled,
     # for each of these, loop over all members in lines, check if the line is still
     # a candidate, and if one of its points equals the current starting point.
@@ -46,6 +51,7 @@ def sort_point_pairs(lines, check_circular=True):
                 sorted_lines[:, i] = lines[:, j]
                 found[j] = True
                 prev = lines[1, j]
+                is_ordered[j] = True
                 break
             elif not found[j] and lines[1, j] == prev:
                 sorted_lines[:, i] = lines[::-1, j]
@@ -56,7 +62,8 @@ def sort_point_pairs(lines, check_circular=True):
     assert(np.all(found))
     if check_circular:
         assert sorted_lines[0, 0] == sorted_lines[1, -1]
-    return sorted_lines
+    if ordering: return sorted_lines, is_ordered
+    else:        return sorted_lines
 
 #------------------------------------------------------------------------------#
 
