@@ -10,6 +10,7 @@ be moved to a separate module.
 import numpy as np
 from math import sqrt
 import sympy
+from sympy import geometry as geom
 
 #------------------------------------------------------------------------------#
 
@@ -436,6 +437,26 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
 
 #----------------------------------------------------------------------------#
 from compgeom import basics
+
+# Represent the polygon as a sympy polygon
+def _np2p(p):
+    # Convert a numpy point array (3xn) to sympy points
+    if p.ndim == 1:
+        return geom.Point(p[:])
+    else:
+        return [geom.Point(p[:, i]) for i in range(p.shape[1])]
+
+def _p2np(p):
+    # Convert sympy points to numpy format. If more than one point, these should be sent as a list
+    if isinstance(p, list):
+        return np.array(list([i.args for i in p]), dtype='float').transpose()
+    else:
+        return np.array(list(p.args), dtype='float').reshape((-1, 1))
+
+def _to3D(p):
+    # Add a third dimension
+    return np.vstack((p, np.zeros(p.shape[1])))
+
 
 def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
     """
