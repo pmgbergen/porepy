@@ -341,23 +341,81 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     discr = dx_1 * (-dy_2) - dy_1 *(-dx_2)
 
     if np.abs(discr) < tol:
-        # If the lines are (almost) parallel, there is no intersection
-        return None
+        # If the lines are (almost) parallel, there is no single intersection,
+        # but it may be a segment
 
-    # Solve 2x2 system by Cramer's rule
-    t_1 = ((xs_2 - xs_1) * (-dy_2) - (ys_2 - ys_1) * (-dx_2)) / discr
-    t_2 = (dx_1 * (ys_2 - ys_1) - dy_1 * (xs_2 - xs_1)) / discr
+        # First check if the third dimension is also parallel, if not, no
+        # intersection
 
-    # Check that we are on line segment
-    if t_1 < 0 or t_1 > 1 or t_2 < 0 or t_2 > 1:
-        return None
 
-    # Compute the z-coordinates of the intersection points
-    z_1_isect = zs_1 + t_1 * dz_1
-    z_2_isect = zs_2 + t_2 * dz_2
+	    # The lines are parallel in the x-y plane, but we don't know about the
+	    # z-direction. CHeck this
+        deltas_1 = np.array([dx_1, dy_1, dz_1])
+        deltas_2 = np.array([dx_2, dy_2, dz_2])
 
-    if np.abs(z_1_isect - z_2_isect) < tol:
-        return np.array([xs_1 + t_1 * dx_1, ys_1 + t_1 * dy_1, z_1_isect])
+        # Use masked arrays to avoid divisions by zero
+        mask_1 = np.ma.greater(np.abs(deltas_1), tol)
+        mask_2 = np.ma.greater(np.abs(deltas_2), tol)
+
+        # A first, simple test
+        if np.any(mask_1 != mask_2):
+            return None
+
+        t = deltas_1[mask_1] / deltas_2[mask_2]
+
+        # Second, test for alignment in all directions
+        if not np.allclose(t, t.mean(), tol):
+            return None
+
+            # If we have made it this far, the lines are indeed parallel. Next,
+        # check if they overlap, and if so, test if the segments are overlapping
+
+        # For dimensions with an incline, the vector between segment start points should be parallel to the segments
+        # Since the masks are equal, we can use any of them
+        t_1_2 = (start_1[mask_1] - start_2[mask_1]) / deltas_1[mask_1]
+        if (not np.allclose(t_1_2, t_1_2, tol)):
+            return None 
+        # For dimensions with no incline, the start cooordinates should be the same
+        if not np.allclose(start_1[~mask_1], start_2[~mask_1], tol):
+            return None
+
+        # We have overlapping lines! finally check if segments are overlapping.
+            
+        # Since everything is parallel, it suffices to work with a single coordinate
+        s_1 = start_1[mask_1][0]
+        e_1 = end_1[mask_1][0]
+        s_2 = start_2[mask_1][0]
+        e_2 = end_2[mask_1][0]
+
+        d = deltas_1[mask_1][0]
+        max_1 = max(s_1, e_1)
+        min_1 = min(s_1, e_1)
+        max_2 = max(s_2, e_2)
+        min_2 = min(s_2, e_2)
+
+        # Rule out case with non-overlapping segments
+        if max_1 < min_2:
+            return None
+        elif max_2 < min_1:
+            return None
+
+
+        # The lines are overlapping, we need to find their common line
+        lines = np.array([s_1, e_1, s_2, e_2])
+        sort_ind = np.argsort(lines)
+
+        # The overlap will be between the middle two points in the sorted list
+        target = sort_ind[1:3]
+
+        # Array of the full coordinates - same order as lines
+        lines_full = np.vstack((start_1, end_1, start_2, end_2)).transpose()
+        # Our segment consists of the second and third column. We're done!
+        return lines_full[:, target]
+
+
+
+
+
     else:
         return None
 
