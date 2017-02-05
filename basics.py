@@ -417,7 +417,116 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
 
 
     else:
+        # Solve 2x2 system by Cramer's rule
+        t_1 = ((xs_2 - xs_1) * (-dy_2) - (ys_2 - ys_1) * (-dx_2)) / discr
+        t_2 = (dx_1 * (ys_2 - ys_1) - dy_1 * (xs_2 - xs_1)) / discr
+
+        # Check that we are on line segment
+        if t_1 < 0 or t_1 > 1 or t_2 < 0 or t_2 > 1:
+            return None
+
+        # Compute the z-coordinates of the intersection points
+        z_1_isect = zs_1 + t_1 * dz_1
+        z_2_isect = zs_2 + t_2 * dz_2
+
+        if np.abs(z_1_isect - z_2_isect) < tol:
+            return np.array([xs_1 + t_1 * dx_1, ys_1 + t_1 * dy_1, z_1_isect])
+        else:
+            return None
+
+#----------------------------------------------------------------------------#
+from compgeom import basics
+
+def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
+    """
+    Find intersections between polygons embeded in 3D. 
+    
+    The intersections are defined as between the interior of the first polygon and the second.
+    
+    Raises:
+        NotImplementedError if the two polygons overlap in a 2D area. An extension should not be difficult, but the function is not intended for this use.
+    
+    """
+    
+    # First translate the points so that the first plane is located at the origin
+    center_1 = np.mean(poly_1, axis=1).reshape((-1, 1))
+    poly_1 = poly_1 - center_1
+    poly_2 = poly_2 - center_1
+
+    # Obtain the rotation matrix that projects p1 to the xy-plane
+    rot = basics.project_plane_matrix(poly_1)
+    irot = rot.transpose()
+    poly_1_xy = rot.dot(poly_1)
+
+    # Sanity check: The points should lay on a plane
+    assert np.all(np.abs(poly_1_xy[2]) < tol)
+    # Drop the z-coordinate
+    poly_1_xy = poly_1_xy[:2]
+    # Convert the first polygon to sympy format
+    poly_1_sp = geom.Polygon(*_np2p(poly_1_xy))
+
+    # Rotate the second polygon with the same rotation matrix
+    poly_2_rot = rot.dot(poly_2)
+
+    # If the rotation of whole second point cloud lies on the same side of z=0, there are no intersections
+    if poly_2_rot[2].min() > 0:
         return None
+    elif poly_2_rot[2].max() < 0:
+        return None
+
+    # Check if the second plane is parallel to the first (same xy-plane)
+    dz_2 = poly_2_rot[2].max() - poly_2_rot[2].min()
+    if dz_2 < tol:
+        if poly_2_rot[2].max() < tol:
+            # The polygons are parallel, and in the same plane
+            # Represent second polygon by sympy, and use sympy function to detect intersection.
+            poly_2_sp = geom.Polygon(*_np2p(poly_2_rot[:2]))
+            print('2D intersect')
+
+            isect = poly_1_sp.intersection(poly_2_sp)
+            if (isinstance(isect, list) and len(isect) > 0):
+                # It would have been possible to return the intersecting area, but this is not the intended behavior of the function. Instead raise an error, and leave it to the user to deal with tihs.
+                raise NotImplementedError
+            else:
+                return None
+        else:
+            print('Different planes')
+            # Polygons lies in different parallel planes. No intersection
+            return None
+    else:
+        # Loop over all boundary segments of the second plane. Check if they intersect with the first polygon.
+        num_p2 = poly_2.shape[1]
+        # Roling indexing
+        ind = np.append(np.arange(num_p2), np.zeros(1)).astype('int')
+
+        isect = []
+
+        for i in range(num_p2):
+            # Indices of points of this segment
+            i1 = ind[i]
+            i2 = ind[i+1]
+            pt_1 = poly_2_rot[:, ind[i]]
+            pt_2 = poly_2_rot[:, ind[i+1]]
+            dx = pt_1[0] - pt_2[0]
+            dy = pt_1[1] - pt_2[1]
+            dz = pt_1[2] - pt_2[2]
+            if np.abs(dz) > tol:
+                # We are on a plane, and we know that dz_2 is non-zero, so all individiual segments must have an incline.
+                # Parametrize the line, find parameter value for intersection with z=0
+                t = (pt_1[2] - 0) / dz
+                # x and y-coordinate for z=0
+                x0 = pt_1[0] + dx * t
+                y0 = pt_1[1] + dy * t
+                # Sympy representation
+                p_00 = geom.Point2D(x0, y0)
+                # Check if the first polygon encloses the point. If the intersection is on the border, this will not be detected.
+                if poly_1_sp.encloses_point(p_00):
+                    # Back to physical coordinates by 1) converting to numpy format, 2) expand to 3D, 3) inverse rotation, 4) translate to original coordinate
+                    isect.append(irot.dot(_to3D(_p2np(p_00))) + center_1)
+
+        if len(isect) == 0:
+            isect = None
+        return isect
 
 
 #-----------------------------------------------------------------------------#
