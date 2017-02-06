@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import sparse as sps
-from utils.half_space_int import half_space_int
+from utils.half_space import half_space_int
 
 def split_grid(g, frac_tag):
     """
