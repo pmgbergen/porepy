@@ -10,7 +10,7 @@ import itertools
 from enum import Enum
 from scipy import sparse as sps
 
-from utils import matrix_compression, half_space_int
+from utils import matrix_compression, half_space
 
 from compgeom import basics as cg
 from compgeom.sort_points import sort_point_pairs
@@ -248,8 +248,8 @@ class Grid(object):
                 x0 = xn[:,nodes[loc_n]]
                 x1 = xn[:,nodes[loc_n+1]]
                 coords = np.concatenate((x0,x1),axis=1)
-                if not np.all(half_space_int.half_space_int(normal, x0, coords)):
-                    center = half_space_int.half_space_pt(normal, x0, coords)
+                if not np.all(half_space.half_space_int(normal, x0, coords)):
+                    center = half_space.half_space_pt(normal, x0, coords)
                     center_tile = np.tile(center, (faces_loc.size,1)).T
                     a = xe1[:,faces_loc] - center_tile
                     b = xe2[:,faces_loc] - center_tile
