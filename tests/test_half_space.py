@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from utils import half_space_int
+from utils import half_space
 
 #------------------------------------------------------------------------------#
 
@@ -14,7 +14,7 @@ class BasicsTest( unittest.TestCase ):
         n  = np.array([[-1],[0],[0]])
         x0 = np.array([[0],[0],[0]])
         pts = np.array([[1,-1],[0,0],[0,0]])
-        out = half_space_int.half_space_int(n,x0,pts)
+        out = half_space.half_space_int(n,x0,pts)
         assert np.all(out == np.array([True,False]))
 
 #------------------------------------------------------------------------------#
@@ -23,7 +23,7 @@ class BasicsTest( unittest.TestCase ):
         n  = np.array([[-1,0],[0,-1],[0,0]])
         x0 = np.array([[0,0],[0,1],[0,0]])
         pts = np.array([[1,-1,1,0],[2,0,2,0],[0,0,0,0]])
-        out = half_space_int.half_space_int(n,x0,pts)
+        out = half_space.half_space_int(n,x0,pts)
         assert np.all(out == np.array([True,False,True,False]))
 
 #------------------------------------------------------------------------------#
