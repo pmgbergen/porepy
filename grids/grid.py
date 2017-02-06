@@ -10,8 +10,10 @@ import itertools
 from enum import Enum
 from scipy import sparse as sps
 
-from utils import matrix_compression
+from utils import matrix_compression, half_space_int
+
 from compgeom import basics as cg
+from compgeom.sort_points import sort_point_pairs
 
 class Grid(object):
     """
@@ -120,7 +122,7 @@ class Grid(object):
         return s
 
 
-    def compute_geometry(self, is_embedded=False):
+    def compute_geometry(self, is_embedded=False, is_starshaped=False):
         """Compute geometric quantities for the grid.
 
         This method initializes class variables describing the grid
@@ -137,7 +139,7 @@ class Grid(object):
         if self.dim == 1:
             self.__compute_geometry_1d()
         elif self.dim == 2:
-            self.__compute_geometry_2d(is_embedded)
+            self.__compute_geometry_2d(is_embedded, is_starshaped)
         else:
             self.__compute_geometry_3d()
 
@@ -180,7 +182,7 @@ class Grid(object):
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
         self.face_normals[:, flip] *= -1
 
-    def __compute_geometry_2d(self, is_embedded):
+    def __compute_geometry_2d(self, is_embedded, is_starshaped):
         "Compute 2D geometry, with method motivated by similar MRST function"
 
         xn = self.nodes
@@ -207,7 +209,6 @@ class Grid(object):
         self.face_normals = np.vstack((edge_length_y, -edge_length_x, np.zeros(n)))
 
         cell_faces, cellno = self.cell_faces.nonzero()
-
         num_cell_faces = np.bincount(cellno)
 
         cx = np.bincount(cellno, weights=self.face_centers[0, cell_faces])
@@ -229,6 +230,32 @@ class Grid(object):
         ccz = np.bincount(cellno, weights=sub_volumes * sub_centroids[2])
 
         self.cell_centers = np.vstack((ccx, ccy, ccz)) / self.cell_volumes
+
+        if is_starshaped:
+            faces, _, _ = sps.find(self.cell_faces)
+            nodes, _, _ = sps.find(self.face_nodes)
+
+            for c in np.arange(self.num_cells):
+                loc = slice(self.cell_faces.indptr[c],
+                            self.cell_faces.indptr[c+1])
+                faces_loc = faces[loc]
+                loc_n = self.face_nodes.indptr[faces_loc]
+                ordering = sort_point_pairs(np.array([nodes[loc_n],
+                            nodes[loc_n+1]]), ordering=True)[1].astype(np.float)
+                normal = np.multiply( 1-2.*ordering, np.divide(
+                    self.face_normals[:,faces_loc], self.face_areas[faces_loc]))
+
+                x0 = xn[:,nodes[loc_n]]
+                x1 = xn[:,nodes[loc_n+1]]
+                coords = np.concatenate((x0,x1),axis=1)
+                if not np.all(half_space_int.half_space_int(normal, x0, coords)):
+                    center = half_space_int.half_space_pt(normal, x0, coords)
+                    center_tile = np.tile(center, (faces_loc.size,1)).T
+                    a = xe1[:,faces_loc] - center_tile
+                    b = xe2[:,faces_loc] - center_tile
+                    sub_volumes = 0.5 * np.abs(a[0] * b[1] - a[1] * b[0])
+                    self.cell_centers[:,c] = center
+                    self.cell_volumes[c] = np.sum(sub_volumes)
 
         # Ensure that normal vector direction corresponds with sign convention
         # in self.cellFaces
