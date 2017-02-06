@@ -250,10 +250,9 @@ class Grid(object):
         self.face_normals[:, flip] *= -1
 
         if is_embedded:
-            invR = np.linalg.inv(R)
-            self.face_normals = np.dot(invR, self.face_normals)
-            self.face_centers = np.dot(invR, self.face_centers)
-            self.cell_centers = np.dot(invR, self.cell_centers)
+            self.face_normals = np.dot(R.T, self.face_normals)
+            self.face_centers = np.dot(R.T, self.face_centers)
+            self.cell_centers = np.dot(R.T, self.cell_centers)
 
     def __compute_geometry_3d(self):
         """
