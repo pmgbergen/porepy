@@ -10,6 +10,20 @@ from compgeom import basics as cg
 
 #------------------------------------------------------------------------------#
 
+def matrix_rhs(g, k, f, bc=None):
+    """  Discretize the second order elliptic equation using dual virtual
+    element method, both matrix and source term.
+
+    Args:
+        g (grid): Grid, or a subclass, with geometry fields computed.
+        k (second_order_tensor): Permeability. Cell-wise.
+        f (np.array): Scalar source term.
+        bc (): Boundary conditions (optional)
+    """
+    return matrix(g, k, bc), rhs(g, f, bc)
+
+#------------------------------------------------------------------------------#
+
 def matrix(g, k, bc=None):
     """  Discretize the second order elliptic equation using dual virtual
     element method.
