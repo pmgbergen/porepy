@@ -166,7 +166,7 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
 
 
         p_int = basics.segments_intersect_3d(p_1, p_2, p_3, p_4)
-        p_known = np.array([1, 0, 0]).reshape((-1, 1))
+        p_known = np.array([1, 0, 0.5]).reshape((-1, 1))
         assert np.min(np.sum(np.abs(p_int - p_known), axis=0)) < 1e-8
 
 
