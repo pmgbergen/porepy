@@ -483,6 +483,53 @@ def _to3D(p):
 #-------------------------------------------------------------------
 
 
+def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
+    """
+    Test for intersection between the bounding segments of two 3D polygons.
+    
+    No tests are done for intersections with polygons interiors. The code has only been tested for convex polygons, status for non-convex polygons is unknown.
+    
+    A segment can either be intersected by segments of the other polygon as 
+     i) a single point
+     ii) two points, hit by different segments (cannot be more than 2 for convex polygons)
+     iii) along a line, if the segments are parallel.
+     
+    Note that if the polygons share a vertex, this point will be found multiple times (depending on the configuration of the polygons).
+    
+    Each intersection is represented as a list of three items. The first two are the segment index (numbered according to start point) of the intersecting segments. The third is the coordinates of the intersection point, this can either be a single point (3x1 nd.array), or a 3x2 array with columns representing the same (shared vertex) or different (shared segment) points.
+    
+    Paremeters:
+        poly_1 (np.array, 3 x n_pt): First polygon, assumed to be non-intersecting. The closing segment is defined by the last and first column.
+        poly_2 (np.array, 3 x n_pt): Second polygon, assumed to be non-intersecting. The closing segment is defined by the last and first column.
+        tol (float, optional): Tolerance used for equality.
+    
+    Returns:
+        list: of intersections. See above for description of data format. If no intersections are found, an empty list is returned.
+        
+    """
+    
+    l_1 = poly_1.shape[1]
+    ind_1 = np.append(np.arange(l_1), 0)
+    l_2 = poly_2.shape[1]
+    ind_2 = np.append(np.arange(l_2), 0)
+    
+    isect = []
+    
+    for i in range(l_1):
+        p_1_1 = poly_1[:, ind_1[i]]
+        p_1_2 = poly_1[:, ind_1[i+1]]
+
+        for j in range(l_2):
+            p_2_1 = poly_2[:, ind_2[j]]
+            p_2_2 = poly_2[:, ind_2[j+1]]
+            isect_loc = segments_intersect_3d(p_1_1, p_1_2, p_2_1, p_2_2)
+            if isect_loc is not None:
+                isect.append([i, j, isect_loc])
+   
+    return isect
+
+#----------------------------------------------------------
+
 def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     """
     Find intersections between polygons embeded in 3D. 
