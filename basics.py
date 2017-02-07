@@ -480,8 +480,10 @@ def _to3D(p):
     # Add a third dimension
     return np.vstack((p, np.zeros(p.shape[1])))
 
+#-------------------------------------------------------------------
 
-def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
+
+def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     """
     Find intersections between polygons embeded in 3D. 
     
@@ -571,6 +573,8 @@ def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
         if len(isect) == 0:
             isect = None
         return isect
+
+
 
 
 #-----------------------------------------------------------------------------#
