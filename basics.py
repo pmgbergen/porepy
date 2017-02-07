@@ -432,8 +432,6 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         # Solve 2x2 system by Cramer's rule
 
         discr = deltas_1[in_discr[0]] * (-deltas_2[in_discr[1]]) - deltas_1[in_discr[1]] * (-deltas_2[in_discr[0]])
-        #import pdb
-        #pdb.set_trace()
         t_1 = ((start_2[in_discr[0]] - start_1[in_discr[0]]) * (-deltas_2[in_discr[1]]) - \
                (start_2[in_discr[1]] - start_1[in_discr[1]]) * (-deltas_2[in_discr[0]]))/discr
 
@@ -452,7 +450,11 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         z_2_isect = start_2[not_in_discr] + t_2 * deltas_2[not_in_discr]
 
         if np.abs(z_1_isect - z_2_isect) < tol:
-            return np.array([xs_1 + t_1 * dx_1, ys_1 + t_1 * dy_1, z_1_isect])
+            vec = np.zeros(3)
+            vec[in_discr] = start_1[in_discr] + t_1 * deltas_1[in_discr]
+            vec[not_in_discr] = z_1_isect
+            return vec.reshape((-1, 1))
+#            return np.array([xs_1 + t_1 * dx_1, ys_1 + t_1 * dy_1, z_1_isect])
         else:
             return None
 
