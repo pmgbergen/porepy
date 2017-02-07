@@ -27,6 +27,10 @@ def test_split_fracture():
     # check that no faces are hanging
     b = np.abs(h.cell_faces).sum(axis=1).A.ravel(1)==0
     assert np.any(b) == False
+    # check that internal boundaries are added
+    bndr_g = g.get_boundary_faces()
+    bndr_h = h.get_boundary_faces()
+    assert bndr_g.size ==  bndr_h.size - 2*np.sum(frac_tag)
 
 
 def test_intersecting_fracture():
@@ -53,15 +57,15 @@ def test_intersecting_fracture():
     assert h.cell_faces.shape[0] == h.num_faces
     assert h.cell_faces.shape[1] == g.num_cells
     assert h.num_cells == g.num_cells
-    # Check that correct number of nodes are added
-    print(h.num_nodes)
-    print(g.num_nodes)
-    print(np.sum(f.tag))
-    print(f.tag.shape[0])
+    # check that correct number of nodes are added
     assert h.num_nodes == h.face_nodes.shape[0]
     # check that no faces are hanging
     b = np.abs(h.cell_faces).sum(axis=1).A.ravel(1)==0
     assert np.any(b) == False
-
+    # check that internal boundaries are added
+    bndr_g = g.get_boundary_faces()
+    bndr_h = h.get_boundary_faces()
+    assert bndr_g.size ==  bndr_h.size - 2*np.sum(f.tag)
+    
 if __name__ == '__main__':
     test_split_fracture()
