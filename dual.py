@@ -20,7 +20,7 @@ def matrix(g, k, bc=None):
         bc (): Boundary conditions (optional)
     """
     faces, cells, sgn = sps.find(g.cell_faces)
-    cell_centers, face_normals, face_centers, _ = cg.map_grid(g)
+    c_centers, f_normals, f_centers, _ = cg.map_grid(g)
 
     weight = np.ones(g.num_cells) if g.dim != 1 else g.cell_volumes
     diams = g.cell_diameters()
@@ -33,38 +33,18 @@ def matrix(g, k, bc=None):
 
     for c in np.arange(g.num_cells):
         loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-        mono = np.array([lambda pt,i=i: (pt[i] - cell_centers[i, c])/diams[c] \
-                                                     for i in np.arange(g.dim)])
-        grad = np.eye(g.dim)/diams[c]
+        faces_loc = faces[loc]
 
         K = k.perm[0:g.dim, 0:g.dim, c]
-        normals = face_normals[:, faces[loc]]
-
-        # local matrix D
-        D = np.array([np.dot(normals.T, np.dot(K, g)) for g in grad]).T
-
-        # local matrix G
-        G = np.dot(grad, np.dot(K, grad.T))*g.cell_volumes[c]
-
-        # local matrix F
-        faces_loc = faces[loc]
         sgn_loc = sgn[loc]
-        F = np.array([ s*m( face_centers[:,f] ) for m in mono \
-                        for s,f in zip(sgn_loc,faces_loc)] ).reshape((g.dim,-1))
+        normals = f_normals[:, faces_loc]
 
-        assert np.allclose(G, np.dot(F,D))
-
-        # local matrix Pi
-        Pi_s = np.dot(np.linalg.inv(G), F)
-        ndof = faces_loc.size
-        I_Pi = np.eye(ndof) - np.dot(D, Pi_s)
-
-        # local Hdiv-Stiffness matrix
-        w = weight[c] * np.linalg.norm(np.linalg.inv(K),np.inf)
-        A = np.dot(Pi_s.T, np.dot(G, Pi_s)) + w * np.dot(I_Pi.T, I_Pi)
+        A, _ = massHdiv(K, c_centers[:,c], g.cell_volumes[c],
+                        f_centers[:,faces_loc], normals, sgn_loc, diams[c],
+                        weight[c])
 
         # save values for Hdiv-Stiffness matrix
-        cols = np.tile(faces_loc, (ndof,1))
+        cols = np.tile(faces_loc, (faces_loc.size,1))
         loc_idx = slice(idx,idx+cols.size)
         I[loc_idx] = cols.T.ravel()
         J[loc_idx] = cols.ravel()
@@ -117,7 +97,7 @@ def projectU(g, k, u):
         u (np.array): Velocity computed from a dual virtual element method.
     """
     faces, cells, sgn = sps.find(g.cell_faces)
-    cell_centers, face_normals, face_centers, R = cg.map_grid(g)
+    c_centers, f_normals, f_centers, R = cg.map_grid(g)
 
     diams = g.cell_diameters()
 
@@ -126,34 +106,50 @@ def projectU(g, k, u):
 
     for c in np.arange(g.num_cells):
         loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-        mono = np.array([lambda pt,i=i: (pt[i] - cell_centers[i, c])/diams[c] \
-                                                     for i in np.arange(g.dim)])
-        grad = np.eye(g.dim)/diams[c]
+        faces_loc = faces[loc]
 
         K = k.perm[0:g.dim, 0:g.dim, c]
-        normals = face_normals[:, faces[loc]]
-
-        # local matrix D
-        D = np.array([np.dot(normals.T, np.dot(K, g)) for g in grad]).T
-
-        # local matrix G
-        G = np.dot(grad, np.dot(K, grad.T))*g.cell_volumes[c]
-
-        # local matrix F
-        faces_loc = faces[loc]
         sgn_loc = sgn[loc]
-        F = np.array([ s*m( face_centers[:,f] ) for m in mono \
-                        for s,f in zip(sgn_loc,faces_loc)] ).reshape((g.dim,-1))
+        normals = f_normals[:, faces_loc]
 
-        assert np.allclose(G, np.dot(F,D))
-
-        # local matrix Pi
-        Pi_s = np.dot(np.linalg.inv(G), F)
+        _, Pi_s = massHdiv(K, c_centers[:,c], g.cell_volumes[c],
+                           f_centers[:,faces_loc], normals, sgn_loc, diams[c])
 
         # extract the velocity for the current cell
         P0u[:g.dim,c] = np.dot(Pi_s, u[faces_loc]) / diams[c]
         P0u[:,c] = np.dot(R.T, P0u[:,c])
 
     return P0u
+
+#------------------------------------------------------------------------------#
+
+def massHdiv(K, c_center, c_volume, f_centers, normals, sgn_loc, diam, weight=0):
+
+    dim = K.shape[0]
+    mono = np.array([lambda pt,i=i: (pt[i] - c_center[i])/diam \
+                                                       for i in np.arange(dim)])
+    grad = np.eye(dim)/diam
+
+    # local matrix D
+    D = np.array([np.dot(normals.T, np.dot(K, g)) for g in grad]).T
+
+    # local matrix G
+    G = np.dot(grad, np.dot(K, grad.T))*c_volume
+
+    # local matrix F
+    F = np.array([ s*m(f) for m in mono \
+                    for s,f in zip(sgn_loc,f_centers.T)] ).reshape((dim,-1))
+
+    assert np.allclose(G, np.dot(F,D))
+
+    # local matrix Pi
+    Pi_s = np.dot(np.linalg.inv(G), F)
+    I_Pi = np.eye(f_centers.shape[1]) - np.dot(D, Pi_s)
+
+    # local Hdiv-Mass matrix
+    w = weight * np.linalg.norm(np.linalg.inv(K),np.inf)
+    A = np.dot(Pi_s.T, np.dot(G, Pi_s)) + w * np.dot(I_Pi.T, I_Pi)
+
+    return A, Pi_s
 
 #------------------------------------------------------------------------------#
