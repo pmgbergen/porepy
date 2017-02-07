@@ -329,6 +329,27 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
 
 
 
+    # The lines are parallel in the x-y plane, but we don't know about the
+    # z-direction. CHeck this
+    deltas_1 = np.array([dx_1, dy_1, dz_1])
+    deltas_2 = np.array([dx_2, dy_2, dz_2])
+
+    # Use masked arrays to avoid divisions by zero
+    mask_1 = np.ma.greater(np.abs(deltas_1), tol)
+    mask_2 = np.ma.greater(np.abs(deltas_2), tol)
+
+    if mask_1.sum() > 1:
+        in_discr = np.argwhere(mask_1)[:2]
+    elif mask_2.sum() > 1:
+        in_discr = np.argwhere(mask_2)[:2]
+    else:
+        # We're going to have a zero discreminant anyhow, just pick some dimensions.
+        in_discr = np.arange(2)
+
+    not_in_discr = np.setdiff1d(np.arange(3), in_discr)[0]
+    discr = deltas_1[in_discr[0]] * deltas_2[in_discr[1]] - deltas_1[in_discr[1]] * deltas_2[in_discr[0]]
+        
+
     # An intersection will be a solution of the linear system
     #   xs_1 + dx_1 * t_1 = xs_2 + dx_2 * t_2 (1)
     #   ys_1 + dy_1 * t_1 = ys_2 + dy_2 * t_2 (2)
@@ -339,8 +360,9 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     # The intersection is on the line segments if 0 <= (t_1, t_2) <= 1
 
     # Minus in front of _2 after reorganizing (1)-(2)
-    discr = dx_1 * (-dy_2) - dy_1 *(-dx_2)
+#    discr = dx_1 * (-dy_2) - dy_1 *(-dx_2)
 
+    
     if np.abs(discr) < tol:
         # If the lines are (almost) parallel, there is no single intersection,
         # but it may be a segment
@@ -349,14 +371,6 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         # intersection
 
 
-	    # The lines are parallel in the x-y plane, but we don't know about the
-	    # z-direction. CHeck this
-        deltas_1 = np.array([dx_1, dy_1, dz_1])
-        deltas_2 = np.array([dx_2, dy_2, dz_2])
-
-        # Use masked arrays to avoid divisions by zero
-        mask_1 = np.ma.greater(np.abs(deltas_1), tol)
-        mask_2 = np.ma.greater(np.abs(deltas_2), tol)
 
         # A first, simple test
         if np.any(mask_1 != mask_2):
@@ -414,21 +428,28 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         return lines_full[:, target]
 
 
-
-
-
     else:
         # Solve 2x2 system by Cramer's rule
-        t_1 = ((xs_2 - xs_1) * (-dy_2) - (ys_2 - ys_1) * (-dx_2)) / discr
-        t_2 = (dx_1 * (ys_2 - ys_1) - dy_1 * (xs_2 - xs_1)) / discr
+
+        discr = deltas_1[in_discr[0]] * (-deltas_2[in_discr[1]]) - deltas_1[in_discr[1]] * (-deltas_2[in_discr[0]])
+        #import pdb
+        #pdb.set_trace()
+        t_1 = ((start_2[in_discr[0]] - start_1[in_discr[0]]) * (-deltas_2[in_discr[1]]) - \
+               (start_2[in_discr[1]] - start_1[in_discr[1]]) * (-deltas_2[in_discr[0]]))/discr
+
+        t_2 = (deltas_1[in_discr[0]] * (start_2[in_discr[1]] - start_1[in_discr[1]]) - \
+               deltas_1[in_discr[1]] * (start_2[in_discr[0]] - start_1[in_discr[0]])) / discr
+
+#        t_1 = ((xs_2 - xs_1) * (-dy_2) - (ys_2 - ys_1) * (-dx_2)) / discr
+#        t_2 = (dx_1 * (ys_2 - ys_1) - dy_1 * (xs_2 - xs_1)) / discr
 
         # Check that we are on line segment
         if t_1 < 0 or t_1 > 1 or t_2 < 0 or t_2 > 1:
             return None
 
         # Compute the z-coordinates of the intersection points
-        z_1_isect = zs_1 + t_1 * dz_1
-        z_2_isect = zs_2 + t_2 * dz_2
+        z_1_isect = start_1[not_in_discr] + t_1 * deltas_1[not_in_discr]
+        z_2_isect = start_2[not_in_discr] + t_2 * deltas_2[not_in_discr]
 
         if np.abs(z_1_isect - z_2_isect) < tol:
             return np.array([xs_1 + t_1 * dx_1, ys_1 + t_1 * dy_1, z_1_isect])

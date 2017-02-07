@@ -158,6 +158,18 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8   
     
 
+    def test_constant_y_axis(self):
+        p_1 = np.array([1, 0, -1])
+        p_2 = np.array([1, 0, 1])
+        p_3 = np.array([1.5, 0, 0])
+        p_4 = np.array([0, 0, 1.5])
+
+
+        p_int = basics.segments_intersect_3d(p_1, p_2, p_3, p_4)
+        p_known = np.array([1, 0, 0]).reshape((-1, 1))
+        assert np.min(np.sum(np.abs(p_int - p_known), axis=0)) < 1e-8
+
+
 
     if __name__ == '__main__':
         unittest.main()
