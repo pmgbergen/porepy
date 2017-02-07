@@ -71,7 +71,7 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         p_3 = np.random.rand(3)
 
         p_i = basics.segments_intersect_3d(p_1, p_2, p_2, p_3)
-        assert np.allclose(p_i, p_2)
+        assert np.allclose(p_i, p_2.reshape((-1, 1)))
 
     def test_equal_lines_segments_not_overlapping(self):
         p_1 = np.ones(3)
