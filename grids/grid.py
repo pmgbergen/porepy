@@ -10,7 +10,7 @@ import itertools
 from enum import Enum
 from scipy import sparse as sps
 
-from utils import matrix_compression, half_space
+from utils import matrix_compression, half_space, mcolon
 
 from compgeom import basics as cg
 from compgeom.sort_points import sort_point_pairs
@@ -484,6 +484,15 @@ class Grid(object):
     def get_boundary_faces(self):
         return np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel(1)
                            == 1).ravel(1)
+
+    def get_boundary_nodes(self):
+        """
+        Return the boundary nodes id of the grid
+        """
+        b_faces = self.get_boundary_faces()
+        first = self.face_nodes.indptr[b_faces]
+        second = self.face_nodes.indptr[b_faces+1]-1
+        return np.unique(self.face_nodes.indices[mcolon.mcolon(first, second)])
 
     def cell_diameters(self, cn = None):
         """
