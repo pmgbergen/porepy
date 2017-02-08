@@ -490,6 +490,9 @@ class Grid(object):
                             assume_unique=True)
 
     def get_boundary_faces(self):
+        """
+        Return the boundary faces id of the grid
+        """
         return np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel(1)
                            == 1).ravel(1)
 
