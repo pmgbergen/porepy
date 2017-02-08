@@ -11,27 +11,68 @@ from compgeom import basics as cg
 #------------------------------------------------------------------------------#
 
 def matrix_rhs(g, k, f, bc=None):
-    """  Discretize the second order elliptic equation using dual virtual
-    element method, both matrix and source term.
+    """
+    Return the matrix and righ-hand side for a discretization of a second order
+    elliptic equation using dual virtual element method.
 
-    Args:
-        g (grid): Grid, or a subclass, with geometry fields computed.
-        k (second_order_tensor): Permeability. Cell-wise.
-        f (np.array): Scalar source term.
-        bc (): Boundary conditions (optional)
+    Parameters
+    ----------
+    g : grid
+        Grid, or a subclass, with geometry fields computed.
+    k : second_order_tensor)
+        Permeability. Cell-wise.
+    f : array (g.num_cells)
+        Scalar source term.
+    bc :
+        Boundary conditions (optional)
+
+    Return
+    ------
+    matrix: sparse csr (g.num_faces+g_num_cells, g.num_faces+g_num_cells)
+        Saddle point matrix obtained from the discretization.
+    rhs: array (g.num_faces+g_num_cells)
+        Right-hand side which contains the boundary conditions and the scalar
+        source term.
+
+    Examples
+    --------
+    D, rhs = dual.matrix_rhs(g, perm, f, bc)
+    up = sps.linalg.spsolve(D, rhs)
+    u, p = dual.extract(g, up)
+    P0u = dual.projectU(g, perm, u)
+
     """
     return matrix(g, k, bc), rhs(g, f, bc)
 
 #------------------------------------------------------------------------------#
 
 def matrix(g, k, bc=None):
-    """  Discretize the second order elliptic equation using dual virtual
-    element method.
+    """
+    Return the matrix for a discretization of a second order elliptic equation
+    using dual virtual element method.
 
-    Args:
-        g (grid): Grid, or a subclass, with geometry fields computed.
-        k (second_order_tensor): Permeability. Cell-wise.
-        bc (): Boundary conditions (optional)
+    Parameters
+    ----------
+    g : grid
+        Grid, or a subclass, with geometry fields computed.
+    k : second_order_tensor)
+        Permeability. Cell-wise.
+    bc :
+        Boundary conditions (optional)
+
+    Return
+    ------
+    matrix: sparse csr (g.num_faces+g_num_cells, g.num_faces+g_num_cells)
+        Saddle point matrix obtained from the discretization.
+
+    Examples
+    --------
+    D = dual.matrix(g, perm, bc)
+    rhs = dual.rhs(g, f, bc)
+    up = sps.linalg.spsolve(D, rhs)
+    u, p = dual.extract(g, up)
+    P0u = dual.projectU(g, perm, u)
+
     """
     faces, cells, sgn = sps.find(g.cell_faces)
     c_centers, f_normals, f_centers, _ = cg.map_grid(g)
@@ -74,14 +115,34 @@ def matrix(g, k, bc=None):
 #------------------------------------------------------------------------------#
 
 def rhs(g, f, bc=None):
-    """  Discretize the source term for a dual virtual element method.
-
-    Args:
-        g (grid): Grid, or a subclass, with geometry fields computed.
-        f (np.array): Scalar source term.
-        bc (): Boundary conditions (optional)
     """
+    Return the righ-hand side for a discretization of a second order elliptic
+    equation using dual virtual element method.
 
+    Parameters
+    ----------
+    g : grid
+        Grid, or a subclass, with geometry fields computed.
+    f : array (g.num_cells)
+        Scalar source term.
+    bc :
+        Boundary conditions (optional)
+
+    Return
+    ------
+    rhs: array (g.num_faces+g_num_cells)
+        Right-hand side which contains the boundary conditions and the scalar
+        source term.
+
+    Examples
+    --------
+    D = dual.matrix(g, perm, bc)
+    rhs = dual.rhs(g, f, bc)
+    up = sps.linalg.spsolve(D, rhs)
+    u, p = dual.extract(g, up)
+    P0u = dual.projectU(g, perm, u)
+
+    """
     size = g.num_faces + g.num_cells
     rhs = np.zeros(size)
     rhs[size-g.num_cells:] = -np.multiply(g.cell_volumes, f)
@@ -93,9 +154,27 @@ def extract(g, up):
     """  Extract the velocity and the pressure from a dual virtual element
     solution.
 
-    Args:
-        g (grid): Grid, or a subclass, with geometry fields computed.
-        up (np.array): Solution, stored as [velocity,pressure]
+    Parameters
+    ----------
+    g : grid
+        Grid, or a subclass, with geometry fields computed.
+    up : array (g.num_faces+g.num_cells)
+        Solution, stored as [velocity,pressure]
+
+    Return
+    ------
+    u : array (g.num_faces)
+        Velocity at each face.
+    p : array (g.num_cells)
+        Pressure at each cell.
+
+    Examples
+    --------
+    D, rhs = dual.matrix_rhs(g, perm, f, bc)
+    up = sps.linalg.spsolve(D, rhs)
+    u, p = dual.extract(g, up)
+    P0u = dual.projectU(g, perm, u)
+
     """
     return up[:g.num_faces], up[g.num_faces:]
 
@@ -105,10 +184,27 @@ def projectU(g, k, u):
     """  Project the velocity computed with a dual vem solver to obtain a
     piecewise constant vector field, one triplet for each cell.
 
-    Args:
-        g (grid): Grid, or a subclass, with geometry fields computed.
-        k (second_order_tensor): Permeability. Cell-wise.
-        u (np.array): Velocity computed from a dual virtual element method.
+    Parameters
+    ----------
+    g : grid
+        Grid, or a subclass, with geometry fields computed.
+    k : second_order_tensor)
+        Permeability. Cell-wise.
+    u : array (g.num_faces)
+        Velocity at each face.
+
+    Return
+    ------
+    P0u : ndarray (3, g.num_faces)
+        Velocity at each cell.
+
+    Examples
+    --------
+    D, rhs = dual.matrix_rhs(g, perm, f, bc)
+    up = sps.linalg.spsolve(D, rhs)
+    u, p = dual.extract(g, up)
+    P0u = dual.projectU(g, perm, u)
+
     """
     faces, cells, sgn = sps.find(g.cell_faces)
     c_centers, f_normals, f_centers, R = cg.map_grid(g)
@@ -138,6 +234,32 @@ def projectU(g, k, u):
 #------------------------------------------------------------------------------#
 
 def massHdiv(K, c_center, c_volume, f_centers, normals, sgn, diam, weight=0):
+    """ Compute the local mass Hdiv matrix using the mixed vem approach.
+
+    Parameters
+    ----------
+    K : ndarray (g.dim, g.dim)
+        Permeability of the cell.
+    c_center : array (g.dim)
+        Cell center.
+    c_volume : scalar
+        Cell volume.
+    f_centers : ndarray (g.dim, num_faces_of_cell)
+        Center of the cell faces.
+    normals : ndarray (g.dim, num_faces_of_cell)
+        Normal of the cell faces weighted by the face areas.
+    sgn : array (num_faces_of_cell)
+        +1 or -1 if the normal is inward or outward to the cell.
+    diam : scalar
+        Diameter of the cell.
+    weight : scalar
+        weight for the stabilization term. Optional, default = 0.
+
+    Return
+    ------
+    out: ndarray (num_faces_of_cell, num_faces_of_cell)
+        Local mass Hdiv matrix.
+    """
 
     dim = K.shape[0]
     mono = np.array([lambda pt,i=i: (pt[i] - c_center[i])/diam \

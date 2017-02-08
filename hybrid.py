@@ -15,13 +15,36 @@ from vem import dual
 #------------------------------------------------------------------------------#
 
 def matrix_rhs(g, k, f, bc=None):
-    """  Discretize the second order elliptic equation using hybrid-dual virtual
-    element method.
+    """
+    Return the matrix and righ-hand side for a discretization of a second order
+    elliptic equation using hybdrid dual virtual element method.
 
-    Args:
-        g (grid): Grid, or a subclass, with geometry fields computed.
-        k (second_order_tensor): Permeability. Cell-wise.
-        bc (): Boundary conditions (optional)
+    Parameters
+    ----------
+    g : grid
+        Grid, or a subclass, with geometry fields computed.
+    k : second_order_tensor)
+        Permeability. Cell-wise.
+    f : array (g.num_cells)
+        Scalar source term.
+    bc :
+        Boundary conditions (optional)
+
+    Return
+    ------
+    matrix: sparse csr (g.num_faces, g.num_faces)
+        Spd matrix obtained from the discretization.
+    rhs: array (g.num_faces)
+        Right-hand side which contains the boundary conditions and the scalar
+        source term.
+
+    Examples
+    --------
+    H, rhs = hybrid.matrix_rhs(g, perm, f, bc)
+    l = sps.linalg.spsolve(H, rhs)
+    u, p = hybrid.computeUP(g, l, perm, f)
+    P0u = dual.projectU(g, perm, u)
+
     """
     faces, cells, sgn = sps.find(g.cell_faces)
     c_centers, f_normals, f_centers, _ = cg.map_grid(g)
@@ -83,14 +106,41 @@ def matrix_rhs(g, k, f, bc=None):
 
 #------------------------------------------------------------------------------#
 
-def computePU(g, l, k, f):
-    """  Discretize the second order elliptic equation using hybrid-dual virtual
-    element method.
+def computeUP(g, l, k, f):
+    """
+    Return the velocity and pressure computed from the hybrid variables.
 
-    Args:
-        g (grid): Grid, or a subclass, with geometry fields computed.
-        k (second_order_tensor): Permeability. Cell-wise.
-        bc (): Boundary conditions (optional)
+    Parameters
+    ----------
+    g : grid
+        Grid, or a subclass, with geometry fields computed.
+    l : array (g.num_faces)
+        Hybrid solution of the system.
+    k : second_order_tensor)
+        Permeability. Cell-wise.
+    f : array (g.num_cells)
+        Scalar source term.
+
+    Return
+    ------
+    u : array (g.num_faces)
+        Velocity at each face.
+    p : array (g.num_cells)
+        Pressure at each cell.
+
+    matrix: sparse csr (g.num_faces, g.num_faces)
+        Spd matrix obtained from the discretization.
+    rhs: array (g.num_faces)
+        Right-hand side which contains the boundary conditions and the scalar
+        source term.
+
+    Examples
+    --------
+    H, rhs = hybrid.matrix_rhs(g, perm, f, bc)
+    l = sps.linalg.spsolve(H, rhs)
+    u, p = hybrid.computeUP(g, l, perm, f)
+    P0u = dual.projectU(g, perm, u)
+
     """
     faces, cells, sgn = sps.find(g.cell_faces)
     c_centers, f_normals, f_centers, _ = cg.map_grid(g)
@@ -123,5 +173,6 @@ def computePU(g, l, k, f):
         u[faces_loc] = -np.multiply(sgn[loc], solve(A, np.dot(B, p[c]) +
                                                        np.dot(C, l[faces_loc])))
 
-    return p, u
+    return u, p
 
+#------------------------------------------------------------------------------#
