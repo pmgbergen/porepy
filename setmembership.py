@@ -12,10 +12,14 @@ def unique_rows(data):
     """
     Function similar to Matlab's unique(...,'rows')
 
+    See also function unique_columns in this module; this is likely slower, but
+    is understandable, documented, and has a tolerance option.
+    
     Copied from
     http://stackoverflow.com/questions/16970982/find-unique-rows-in-numpy-array/
     (summary pretty far down on the page)
     Note: I have no idea what happens here
+
     """
     b = np.ascontiguousarray(data).view(np.dtype((np.void,
                                         data.dtype.itemsize * data.shape[1])))
@@ -102,3 +106,78 @@ def ismember_rows(a, b, sort=True):
 
     ind_of_a_in_b = find_occ(occ_a, occ_b)
     return ismem_a, ind_of_a_in_b
+
+#---------------------------------------------------------
+
+def unique_columns_tol(mat, tol=1e-8, exponent=2):
+    """
+    Remove duplicates from a point set, for a given distance traveling.
+
+    Resembles Matlab's uniquetol function, as applied to columns. To rather
+    work at rows, use a transpose. 
+
+
+    Parameters:
+        mat (np.ndarray, nd x n_pts): Columns to be uniquified
+        tol (double, optional): Tolerance for when columns are considered equal.
+            Should be seen in connection with distance between the points in
+            the points (due to rounding errors). Defaults to 1e-8.
+        exponent (double, optional): Exponnet in norm used in distance
+            calculation. Defaults to 2.
+    
+    Returns:
+        np.ndarray: Unique columns.
+        new_2_old: Index of which points that are preserved
+        old_2_new: Index of the representation of old points in the reduced
+            list.
+        
+    Example (won't work as doctest):
+        >>> p_un, n2o, o2n = unique_columns(np.array([[1, 0, 1], [1, 0, 1]]))
+        >>> p_un
+        array([[1, 0], [1, 0]])
+        >>> n2o
+        array([0, 1])
+        >>> o2n
+        array([0, 1, 0])
+
+    """
+
+    def dist(p, pset):
+        " Helper function to compute distance "
+        if p.ndim == 1:
+            pt = p.reshape((-1, 1))
+        else:
+            pt = p
+        
+        return np.power(np.sum(np.power(np.abs(pt - pset), exponent),
+                               axis=0), 1/exponent)
+
+    (nd, l) = mat.shape
+    
+    # By default, no columns are kept
+    keep = np.zeros(l, dtype=np.bool)
+    
+    # We will however keep the first point
+    keep[0] = True
+    keep_counter = 1
+
+    # Map from old points to the unique subspace. Defaults to map to itself.
+    old_2_new = np.arange(l)
+   
+    # Loop over all points, check if it is already represented in the kept list
+    for i in range(1, l):
+        proximate = np.argwhere(dist(mat[:, i], mat[:, keep]) < tol * np.sqrt(nd))
+
+        if proximate.size > 0:
+            # We will not keep this point
+            old_2_new[i] = proximate[0]
+        else:
+            # We have found a new point
+            keep[i] = True
+            old_2_new[i] = keep_counter
+            keep_counter += 1
+    # Finally find which elements we kept
+    new_2_old = np.argwhere(keep).ravel()
+    
+    return mat[:, keep], new_2_old, old_2_new
+

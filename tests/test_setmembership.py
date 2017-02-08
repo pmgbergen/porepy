@@ -55,3 +55,31 @@ class TestIsmember(unittest.TestCase):
         unittest.main()
 
 
+class TestUniqueColumns(unittest.TestCase):
+
+    def test_no_common_points(self):
+        p = np.array([[0, 1, 2], [0, 0, 0]])
+        p_unique, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
+
+        assert np.allclose(p, p_unique)
+        assert np.alltrue(old_2_new == np.arange(3))
+        assert np.alltrue(old_2_new == new_2_old)
+        
+    def test_remove_one_point(self):
+        p = np.ones((2, 2))
+        p_unique, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
+
+        assert np.allclose(p, np.ones((2, 1)))
+        assert np.alltrue(old_2_new == np.zeros(2))
+        assert np.alltrue(new_2_old == np.zeros(1))
+        
+    def test_remove_one_of_tree(self):
+        p = np.array([[1, 1, 0], [1, 1, 0]])
+        p_unique, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
+
+        assert np.allclose(p_unique, np.array([[1, 0], [1, 0]]))
+        assert np.alltrue(old_2_new == np.array([0, 0, 1]))
+        assert np.alltrue(new_2_old == np.array([0, 2]))    
+
+    if __name__ == '__main__':
+        unittest.main()
