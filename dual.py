@@ -137,7 +137,7 @@ def projectU(g, k, u):
 
 #------------------------------------------------------------------------------#
 
-def massHdiv(K, c_center, c_volume, f_centers, normals, sgn_loc, diam, weight=0):
+def massHdiv(K, c_center, c_volume, f_centers, normals, sgn, diam, weight=0):
 
     dim = K.shape[0]
     mono = np.array([lambda pt,i=i: (pt[i] - c_center[i])/diam \
@@ -152,12 +152,12 @@ def massHdiv(K, c_center, c_volume, f_centers, normals, sgn_loc, diam, weight=0)
 
     # local matrix F
     F = np.array([ s*m(f) for m in mono \
-                    for s,f in zip(sgn_loc,f_centers.T)] ).reshape((dim,-1))
+                    for s,f in zip(sgn,f_centers.T)] ).reshape((dim,-1))
 
     assert np.allclose(G, np.dot(F,D))
 
     # local matrix Pi
-    Pi_s = np.dot(np.linalg.inv(G), F)
+    Pi_s = np.linalg.solve(G, F)
     I_Pi = np.eye(f_centers.shape[1]) - np.dot(D, Pi_s)
 
     # local Hdiv-Mass matrix
