@@ -203,6 +203,32 @@ def add_point(vertices, pt, precision=1e-3, **kwargs):
         ind = vertices.shape[1] - 1
         return vertices, ind, pt
 
+#-----------------------------------------------------------
+
+def dist_point_pointset(p, pset, exponent=2):
+    """
+    Compute distance between a point and a set of points.
+    
+    Parameters:
+        p (np.ndarray): Point from which distances will be computed
+        pset (nd.array): Point cloud to which we compute distances
+        exponent (double, optional): Exponent of the norm used. Defaults to 2.
+        
+    Return:
+        np.ndarray: Array of distances.
+        
+    """
+    
+    # If p is 1D, do a reshape to facilitate broadcasting, but on a copy
+    if p.ndim == 1:
+        pt = p.reshape((-1, 1))
+    else:
+        pt = p
+    
+    return np.power(np.sum(np.power(np.abs(pt - pset), exponent),
+                           axis=0), 1/exponent)
+
+
 #------------------------------------------------------------------------------#
 
 def lines_intersect(start_1, end_1, start_2, end_2):
