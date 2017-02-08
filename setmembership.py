@@ -29,7 +29,7 @@ def unique_rows(data):
     return data[ia], ia, ic
 
 
-def asvoid(arr):
+def _asvoid(arr):
     """
 
     Taken from
@@ -48,7 +48,7 @@ def asvoid(arr):
     return arr.view(np.dtype((np.void, arr.dtype.itemsize * arr.shape[-1])))
 
 
-def find_occ(a, b):
+def _find_occ(a, b):
     """
 
 
@@ -73,16 +73,34 @@ def find_occ(a, b):
 
 def ismember_rows(a, b, sort=True):
     """
-    Examples
-    >>> a = np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]])
-    >>> b = np.array([[3, 1, 3, 5, 3], [3, 3, 2, 1, 2]])
-    >>> ismember_rows(a, b)
-    (array([ True,  True,  True,  True, False], dtype=bool), [1, 0, 2, 1])
+    Find *columns* of a that are also members of *columns* of b.
 
-    >>> a = np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]])
-    >>> b = np.array([[3, 1, 2, 5, 1], [3, 3, 3, 1, 2]])
-    >>> ismember_rows(a, b, sort=False)
-    (array([ True,  True, False,  True, False], dtype=bool), [1, 0, 1])
+    The function mimics Matlab's function ismember(..., 'rows').
+
+    TODO: Rename function, this is confusing!
+
+    Parameters:
+        a (np.array): Each column in a will search for an equal in b.
+        b (np.array): Array in which we will look for a twin
+        sort (boolean, optional): If true, the arrays will be sorted before
+            seraching, increasing the chances for a match. Defaults to True.
+
+    Returns:
+        np.array (boolean): For each column in a, true if there is a
+            corresponding column in b.
+        np.array (int): Indexes so that b[:, ind] is also found in a.
+
+    Examples:
+        >>> a = np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]])
+        >>> b = np.array([[3, 1, 3, 5, 3], [3, 3, 2, 1, 2]])
+        >>> ismember_rows(a, b)
+        (array([ True,  True,  True,  True, False], dtype=bool), [1, 0, 2, 1])
+
+        >>> a = np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]])
+        >>> b = np.array([[3, 1, 2, 5, 1], [3, 3, 3, 1, 2]])
+        >>> ismember_rows(a, b, sort=False)
+        (array([ True,  True, False,  True, False], dtype=bool), [1, 0, 1])
+
     """
     if sort:
         sa = np.sort(a, axis=0)
@@ -91,8 +109,8 @@ def ismember_rows(a, b, sort=True):
         sa = a
         sb = b
 
-    voida = asvoid(sa.transpose())
-    voidb = asvoid(sb.transpose())
+    voida = _asvoid(sa.transpose())
+    voidb = _asvoid(sb.transpose())
     unq, j, k, count = np.unique(np.vstack((voida, voidb)), return_index=True,
                                  return_inverse=True, return_counts=True)
 
@@ -104,7 +122,7 @@ def ismember_rows(a, b, sort=True):
     occ_a = k[ind_a[ismem_a]]
     occ_b = k[ind_b]
 
-    ind_of_a_in_b = find_occ(occ_a, occ_b)
+    ind_of_a_in_b = _find_occ(occ_a, occ_b)
     return ismem_a, ind_of_a_in_b
 
 #---------------------------------------------------------
