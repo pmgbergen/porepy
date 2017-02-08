@@ -5,7 +5,10 @@
 """
 
 import numpy as np
+from numpy.linalg import solve
+
 import scipy.sparse as sps
+
 from compgeom import basics as cg
 from vem import dual
 
@@ -40,29 +43,23 @@ def matrix_rhs(g, k, f, bc=None):
         ndof = faces_loc.size
 
         K = k.perm[0:g.dim, 0:g.dim, c]
-        sgn_loc = sgn[loc]
-        normals = np.multiply(np.tile(sgn_loc, (g.dim,1)),
+        normals = np.multiply(np.tile(sgn[loc], (g.dim,1)),
                               f_normals[:, faces_loc])
 
-        print( "cellId " + str( c ) )
-        print( "face " + str( faces_loc ) )
-        print( "sgn " + str( sgn_loc ) )
-        print( "normals " + str( f_normals[:, faces_loc] ) )
-
-        A, _ = dual.massHdiv(K, c_centers[:,c], g.cell_volumes[c],
-                             f_centers[:,faces_loc], normals, np.ones(ndof),
+        A, _ = dual.massHdiv(K, c_centers[:, c], g.cell_volumes[c],
+                             f_centers[:, faces_loc], normals, np.ones(ndof),
                              diams[c], weight[c])
-        B = -np.ones(ndof)
-        C = np.eye(ndof)
+        B = -np.ones((ndof,1))
+        C = np.eye(ndof,ndof)
 
         invA = np.linalg.inv(A)
-
         S = 1/np.dot(B.T, np.dot(invA, B))
         L = np.dot(np.dot(invA, np.dot(B, np.dot(S, B.T))), invA)
         L = np.dot(np.dot(C.T, L - invA), C)
 
         f_loc = f[c]*g.cell_volumes[c]
-        rhs[faces_loc] += np.dot(C.T, np.dot(invA, np.dot(B, np.dot(S, f_loc))))
+        rhs[faces_loc] += np.dot(C.T, np.dot(invA, np.dot(B, np.dot(S,
+                                                                  f_loc))))[:,0]
 
         # save values for hybrid matrix
         cols = np.tile(faces_loc, (faces_loc.size,1))
@@ -79,7 +76,8 @@ def matrix_rhs(g, k, f, bc=None):
     faces_bd = g.get_boundary_faces()
     H[faces_bd, :] *= 0
     H[faces_bd, faces_bd] = 1
-    rhs[faces_bd] = -(f_centers[0,faces_bd]) ############### anche perche' devo mettere il meno
+    rhs[faces_bd] = np.sin(2*np.pi*f_centers[0,faces_bd])*\
+                    np.sin(2*np.pi*f_centers[1,faces_bd])
 
     return H, rhs
 
@@ -101,6 +99,7 @@ def computePU(g, l, k, f):
     diams = g.cell_diameters()
 
     p = np.zeros(g.num_cells)
+    u = np.zeros(g.num_faces)
 
     for c in np.arange(g.num_cells):
         loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
@@ -108,21 +107,21 @@ def computePU(g, l, k, f):
         ndof = faces_loc.size
 
         K = k.perm[0:g.dim, 0:g.dim, c]
-        sgn_loc = sgn[loc]
-        normals = np.multiply(np.tile(sgn_loc, (g.dim,1)),
+        normals = np.multiply(np.tile(sgn[loc], (g.dim,1)),
                               f_normals[:, faces_loc])
 
-        A, _ = dual.massHdiv(K, c_centers[:,c], g.cell_volumes[c],
-                             f_centers[:,faces_loc], normals, np.ones(ndof),
+        A, _ = dual.massHdiv(K, c_centers[:, c], g.cell_volumes[c],
+                             f_centers[:, faces_loc], normals, np.ones(ndof),
                              diams[c], weight[c])
-        B = np.ones(ndof)
-        C = np.eye(ndof)
+        B = -np.ones((ndof,1))
+        C = np.eye(ndof,ndof)
 
-        invA = np.linalg.inv(A)
-        S = 1/np.dot(B.T, np.dot(invA, B))
+        S = 1/np.dot(B.T, solve(A, B))
         f_loc = f[c]*g.cell_volumes[c]
-        p[c] = np.dot(S, f_loc-np.dot(B.T, np.dot(invA, np.dot(C, l[faces_loc]))))
 
-    return p
+        p[c] = np.dot(S, f_loc-np.dot(B.T, solve(A, np.dot(C, l[faces_loc]))))
+        u[faces_loc] = -np.multiply(sgn[loc], solve(A, np.dot(B, p[c]) +
+                                                       np.dot(C, l[faces_loc])))
 
-#------------------------------------------------------------------------------#
+    return p, u
+
