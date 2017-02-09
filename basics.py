@@ -632,7 +632,7 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
         # Roling indexing
         ind = np.append(np.arange(num_p2), np.zeros(1)).astype('int')
 
-        isect = []
+        isect = np.empty((3, 0))
 
         for i in range(num_p2):
             # Indices of points of this segment
@@ -655,13 +655,14 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
                 # Check if the first polygon encloses the point. If the intersection is on the border, this will not be detected.
                 if poly_1_sp.encloses_point(p_00):
                     # Back to physical coordinates by 1) converting to numpy format, 2) expand to 3D, 3) inverse rotation, 4) translate to original coordinate
-                    isect.append(irot.dot(_to3D(_p2np(p_00))) + center_1)
+                    isect = np.hstack((isect, 
+                                       irot.dot(_to3D(_p2np(p_00))) +
+                                       center_1))
 
-        if len(isect) == 0:
+        if isect.shape[1] == 0:
             isect = None
+        
         return isect
-
-
 
 
 #-----------------------------------------------------------------------------#
