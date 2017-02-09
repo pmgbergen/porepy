@@ -80,3 +80,4 @@ class BasicsTest( unittest.TestCase ):
         for f in np.arange( g.num_faces ):
             assert np.array_equal( sps.find( g.face_nodes[:,f] )[0], known[f,:] )
 
+#------------------------------------------------------------------------------#
