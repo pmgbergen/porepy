@@ -364,10 +364,10 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     mask_1 = np.ma.greater(np.abs(deltas_1), tol)
     mask_2 = np.ma.greater(np.abs(deltas_2), tol)
 
-    if mask_1.sum() > 1:
-        in_discr = np.argwhere(mask_1)[:2]
-    elif mask_2.sum() > 1:
-        in_discr = np.argwhere(mask_2)[:2]
+    # Check for two dimensions that are not parallel with at least one line
+    mask_sum = mask_1 + mask_2
+    if mask_sum.sum() > 1:
+        in_discr = np.argwhere(mask_sum)[:2]
     else:
         # We're going to have a zero discreminant anyhow, just pick some dimensions.
         in_discr = np.arange(2)
@@ -389,14 +389,13 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
 #    discr = dx_1 * (-dy_2) - dy_1 *(-dx_2)
 
     
+    # Either the lines are parallel in two directions
     if np.abs(discr) < tol:
         # If the lines are (almost) parallel, there is no single intersection,
         # but it may be a segment
 
         # First check if the third dimension is also parallel, if not, no
         # intersection
-
-
 
         # A first, simple test
         if np.any(mask_1 != mask_2):
@@ -453,7 +452,7 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         # Our segment consists of the second and third column. We're done!
         return lines_full[:, target]
 
-
+    # or we are looking for a point intersection
     else:
         # Solve 2x2 system by Cramer's rule
 

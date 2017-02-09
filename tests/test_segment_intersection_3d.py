@@ -81,7 +81,19 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         
         p_int = basics.segments_intersect_3d(p_1, p_2, p_3, p_4)
         assert p_int is None
+
+
+    def test_both_aligned_with_axis(self):
+        # Both lines are aligned an axis,
+        p_1 = np.array([-1, -1, 0])
+        p_2 = np.array([-1, 1, 0])
+        p_3 = np.array([-1, 0, -1])
+        p_4 = np.array([-1, 0, 1])
         
+        p_int = basics.segments_intersect_3d(p_1, p_2, p_3, p_4)
+        p_known = np.array([-1, 0, 0]).reshape((-1, 1))
+        assert np.allclose(p_int, p_known)
+
 
     def test_segment_fully_overlapped(self):
         # One line is fully covered by another
