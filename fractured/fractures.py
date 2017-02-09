@@ -362,10 +362,45 @@ class Intersection(object):
 
 class FractureSet(object):
     
-    def __init__(self, fractures):
+    def __init__(self, fractures=None):
         
-        self.fractures = fractures
-      
+        if fractures is None:
+            self._fractures = fractures
+        else:
+            self._fractures = fractures
+
+        for i, f in enumerate(self._fractures):
+            f.set_index(i)
+    
+        self.intersections = []
+
+        self._has_checked_intersections = False
+
+
+    def add(self, f):
+        f.set_index(len(self._fractures))
+        self._fractures.append(f)
+
+    def __getitem__(self, position):
+        return self._fractures[position]
+
+
+    def get_intersections(self, frac):
+        if frac is None:
+            frac = np.arange(len(self._fractures))
+        if isinstance(frac, np.ndarray):
+            frac = list(frac)
+        elif isinstance(frac, int):
+            frac = [frac]
+        isect = []
+        for fi in frac:
+            f = self[fi]
+            isect_loc = []
+            for i in self.intersections:
+                if i.first.index == f.index or i.second.index == f.index:
+                    isect_loc.append(i)
+            isect.append(isect_loc)
+        return isect
         
     def find_intersections(self):
         isect_list = []
@@ -381,7 +416,7 @@ class FractureSet(object):
         self.intersections = isect_list
     
     def __repr__(self):
-        s = 'Fracture set with ' + str(len(self.fractures)) + ' fractures'
+        s = 'Fracture set with ' + str(len(self._fractures)) + ' fractures'
         return s
     
     def plot_fractures(self, ind=None):
@@ -389,7 +424,7 @@ class FractureSet(object):
             ind = np.arange(len(self.fractures))
         fig = plt.figure()
         ax = fig.gca(projection='3d')
-        for f in self.fractures:
+        for f in self._fractures:
             f.plot_frame(ax)
         return fig
                     
