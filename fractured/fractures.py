@@ -218,11 +218,11 @@ class Fracture(object):
             raise NotImplemented()
         
         # By now, there should be a single member of bound_pt
-        assert bound_pt_self.shape[1] == 1
-        assert bound_pt_other.shape[1] == 1
-        bound_pt = np.vstack((int_pt, bound_pt_self))
-        on_boundary_self.append(True)
-        on_boundary_other.append(True)
+        assert bound_pt_self.shape[1] == 1 or bound_pt_self.shape[1] == 2
+        assert bound_pt_other.shape[1] == 1 or bound_pt_other.shape[1] == 2
+        bound_pt = np.hstack((int_points, bound_pt_self))
+        on_boundary_self += [False for i in range(bound_pt_self.shape[1])]
+        on_boundary_other += [True for i in range(bound_pt_self.shape[1])]
         
         return bound_pt, on_boundary_self, on_boundary_other
 
