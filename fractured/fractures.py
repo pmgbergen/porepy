@@ -11,6 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import sympy
 
 from compgeom import basics as cg
+from utils import setmembership
 
 
 class Fracture(object):
@@ -227,7 +228,7 @@ class Fracture(object):
         return bound_pt, on_boundary_self, on_boundary_other
 
 
-    def _process_segment_isect(isect_bound, poly):
+    def _process_segment_isect(self, isect_bound, poly):
         """
         Helper function to interpret result from polygon_boundaries_intersect
 
@@ -262,7 +263,7 @@ class Fracture(object):
             # No intersections should have more than two poitns
             assert ip.shape[1] < 3
 
-            ip_unique, *rest = unique_points(ip)
+            ip_unique, *rest = setmembership.unique_columns_tol(ip)
             if ip_unique.shape[1] == 2:
                 # The polygons share a segment, or a 
                 bound_pt.append(ip_unique)
@@ -271,15 +272,15 @@ class Fracture(object):
                 non_vertex = None
             elif ip_unique.shape[1] == 1:
                 # Either a vertex or single intersection
-                poly_ext, *rest = unique_points(np.hstack((self.p, ip_unique)))
+                poly_ext, *rest = setmembership.unique_columns_tol(np.hstack((self.p, ip_unique)))
                 if poly_ext.shape[1] == self.p.shape[1]:
                     # This is a vertex, 
                     # For L-intersections, we may get a bunch of these, but they will be disgarded elsewhere
-                    np.hstack((bound_pt, ip_unique))
+                    bound_pt = np.hstack((bound_pt, ip_unique))
                     non_vertex.append(False)
                 else:
                     # New point contact
-                    np.hstack((bound_pt, ip_unique))
+                    bound_pt = np.hstack((bound_pt, ip_unique))
                     non_vertex.append(True)
             else:
                 # This should never happen for convex polygons
@@ -427,7 +428,6 @@ class FractureSet(object):
                 if len(isect) > 0:
                     self.intersections.append(Intersection(first, second,
                     isect))
-
                     first.add_points(isect[:, np.where(bound_first)[0]])
                     second.add_points(isect[:, np.where(bound_second)[0]])
 
