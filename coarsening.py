@@ -110,7 +110,22 @@ def generate_coarse_grid( g, subdiv ):
 
 #------------------------------------------------------------------------------#
 
-def tpfa_matrix( g, perm = None ):
+def tpfa_matrix(g, perm=None):
+    """
+    Compute a two-point flux approximation matrix useful related to a call of
+    create_partition.
+
+    Parameters
+    ----------
+    g: the grid
+    perm: (optional) permeability, the it is not given unitary tensor is assumed
+
+    Returns
+    -------
+    out: sparse matrix
+        Two-point flux approximation matrix
+
+    """
     if perm is None:
         perm = second_order_tensor.SecondOrderTensor(g.dim,np.ones(g.num_cells))
     bound = bc.BoundaryCondition(g, np.empty(0), '')
