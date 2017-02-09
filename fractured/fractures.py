@@ -173,8 +173,15 @@ class Fracture(object):
             return int_points, on_boundary_self, on_boundary_other
         
         # Else, we have boundary intersection, and need to process them
-        bound_pt_self, self_segment, self_non_vertex, self_cuts_through = self._process_segment_isect(bound_sect_self_other, self.p)
-        bound_pt_other, other_segment, other_non_vertex, other_cuts_through = self._process_segment_isect(bound_sect_other_self, other.p)
+        bound_pt_self, \
+            self_segment, \
+            self_non_vertex, \
+            self_cuts_through = self._process_segment_isect(bound_sect_self_other, self.p)
+
+        bound_pt_other, \
+            other_segment, \
+            other_non_vertex, \
+            other_cuts_through = self._process_segment_isect(bound_sect_other_self, other.p)
         
         # Run some sanity checks        
         
