@@ -91,27 +91,53 @@ class Fracture(object):
             return np.array(list(p.args), dtype='float').reshape((-1, 1))
 
     def intersects(self, other):
-        op = other.p
+        """
+        Find intersections between self and another polygon.
+
+        The function checks for both intersection between the interior of one
+        polygon with the boundary of the other, and pure boundary
+        intersections. Intersection types supported so far are
+            X (full intersection, possibly involving boundaries)
+            L (Two fractures intersect at a boundary)
+
+        Not yet supported is T (one fracture ends with a segment, or possibly a
+        point in the plane of another). Patterns involving more than two
+        fractures need to be delt with by someone else (see FractureSet)
+
+
+        """
         
-        # Find intersections between self and other. Note that the algorithms for intersections are not fully commutative in terms of argument order, so we need to do two tests
+        # Find intersections between self and other. Note that the algorithms
+        # for intersections are not fully reflexive in terms of argument
+        # order, so we need to do two tests.
 
         ####
-        # First, check for intersection between interior of one polygon with segment of the other
-        isect_self_other = cg.polygon_segment_intersect(self.p, other.p)
-        isect_other_self = cg.polygon_segment_intersect(other.p, self.p)
+        # First, check for intersection between interior of one polygon with
+        # segment of the other.
         
+        # Array for intersections with the interior of one polygon (as opposed
+        # to full boundary intersection, below)
         int_points = np.empty((3, 0))
         
-        # Keep track of whether the intersection points are on the boundary of the polygons
+        # Keep track of whether the intersection points are on the boundary of
+        # the polygons.
         on_boundary_self = []
         on_boundary_other = []
 
-        # 
+        # Compute intersections, with both polygons as first argument
+        isect_self_other = cg.polygon_segment_intersect(self.p, other.p)
+        isect_other_self = cg.polygon_segment_intersect(other.p, self.p)
+        
+        # Process data
         if isect_self_other is not None:
             int_points = np.hstack((int_points, isect_self_other))
-            # We know self is intersected by the boundary of other
+
+            # An intersection between self and other (in that order) is defined
+            # as being between interior of self and boundary of other. See
+            # polygon_segment_intersect for details.
             on_boundary_self += [False for i in range(isect_self_other.shape[1])]
             on_boundary_other += [True for i in range(isect_self_other.shape[1])]
+
         if isect_other_self is not None:
             int_points = np.hstack((int_points, isect_self_other))
 
@@ -122,9 +148,11 @@ class Fracture(object):
 
         # There should be at most two of these points
         assert int_points.shape[1] <= 2
-        
             
-        # If int_points.shape[1] == 2, we can simply cut it short here, but we do not implement this before the method has been tested
+        # Note: If int_points.shape[1] == 2, we can simply cut it short here,
+        # as there should be no more than two intersection points for a convex
+        # polygen. However, we do not implement this before the method has been
+        # thoroughly tested.
         
         ####
         # Next, check for intersections between the polygon boundaries
@@ -141,32 +169,37 @@ class Fracture(object):
         bound_pt_other, other_segment, other_non_vertex, other_cuts_through = self._process_segment_isect(bound_sect_other_self, other.p)
         
         # Run some sanity checks        
+        
         # Convex polygons can intersect each other in at most two points (and a line inbetween)
         if int_points.shape[1] > 1:
             assert bound_pt_self.shape[1] == 0 and bound_pt_other.shape[1] == 0
         elif int_points.shape[1] == 1:
             assert (bound_pt_self.shape[1] + bound_pt_other.shape[1]) == 1
+        
         # If a segment runs through the polygon, there should be no interior points.
         # This may be sensitive to tolerances, should be a useful test to gauge that.
         if self_cuts_through or other_cuts_through:
             assert int_points.shape[1] == 0
             assert not self_segment
             assert not other_segment
-                
+        
+        # Storage for intersection points located on the boundary
         bound_pt = []
         
-        # Cover the case of a segment - essentially a Y- or L-intersection
+        # Cover the case of a segment - essentially an L-intersection
         if self_segment:
             assert other_segment  # This should be reflexive
             assert bound_pt.shape[1] == 2
             assert np.allclose(bound_pt_self, bound_pt_other)
             on_boundary_self == [True, True]
-            on_boundary_other = [False, False]
+            on_boundary_other = [True, True]
             return bound_pt_self, on_boundary_self, on_boundary_other
         
         # Case of cutting
         if self_cuts_through or other_cuts_through:
-            # Do not expect this yet, corresponds to a T-intersection
+            # Do not expect this yet, corresponds to one kind of a a
+            # T-intersection (vertexes embedded in plane, but not fully cutting
+            # is another possibility).
             raise NotImplemented()
         
         # By now, there should be a single member of bound_pt
