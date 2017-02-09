@@ -19,8 +19,8 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         
         # First intersection of 1 by edges of 2. It should be two of these
         p_1_2 = basics.polygon_segment_intersect(p_1, p_2)
-        p_i_known_1 = np.array([0, 0, -0.7])
-        p_i_known_2 = np.array([0, 0, 0.8])
+        p_i_known_1 = np.array([0, 0, -0.7]).reshape((-1, 1))
+        p_i_known_2 = np.array([0, 0, 0.8]).reshape((-1, 1))
         assert np.min(np.sum(np.abs(p_1_2 - p_i_known_1), axis=0)) < 1e-5
         assert np.min(np.sum(np.abs(p_1_2 - p_i_known_2), axis=0)) < 1e-5
         
@@ -33,13 +33,13 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         
         # First intersection of 1 by edges of 3
         p_1_3 = basics.polygon_segment_intersect(p1, p3)
-        p_i_known_1 = np.array([0, 0, 0.5])
-        p_i_known_2 = np.array([0, 0, 1.0])
+        p_i_known_1 = np.array([0, 0, 0.5]).reshape((-1, 1))
+        p_i_known_2 = np.array([0, 0, 1.0]).reshape((-1, 1))
         assert np.min(np.sum(np.abs(p_1_3 - p_i_known_1), axis=0)) < 1e-5
         
         # Then intersection of plane of 3 by edges of 1. 
         p_3_1 = basics.polygon_segment_intersect(p3, p1)
-        p_i_known_2 = np.array([0, 0, 1.0])
+        p_i_known_2 = np.array([0, 0, 1.0]).reshape((-1, 1))
         
         assert np.min(np.sum(np.abs(p_3_1 - p_i_known_1), axis=0)) < 1e-5
         
@@ -52,12 +52,12 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         
         # First intersection of 1 by edges of 3
         p_1_3 = basics.polygon_segment_intersect(p1, p3)
-        p_i_known_1 = np.array([0, 0, 0.5]) + incr
+        p_i_known_1 = np.array([0, 0, 0.5]).reshape((-1, 1)) + incr
         assert np.min(np.sum(np.abs(p_1_3 - p_i_known_1), axis=0)) < 1e-5
         
         # Then intersection of plane of 3 by edges of 1. 
         p_3_1 = basics.polygon_segment_intersect(p3, p1)
-        p_i_known_2 = np.array([0, 0, 1.0]) + incr
+        p_i_known_2 = np.array([0, 0, 1.0]).reshape((-1, 1)) + incr
         
         assert np.min(np.sum(np.abs(p_3_1 - p_i_known_1), axis=0)) < 1e-5
         
