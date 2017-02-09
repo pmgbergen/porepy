@@ -402,18 +402,28 @@ class FractureSet(object):
             isect.append(isect_loc)
         return isect
         
-    def find_intersections(self):
-        isect_list = []
-        for i, first in enumerate(self.fractures):
-            for j in range(i+1, len(self.fractures)):
-                second = self.fractures[j]
+    def find_intersections(self, use_orig_points=True):
+
+        # Before searching for intersections, reset the fracture polygons to
+        # their original state. If this is not done, multiple seacrhes for
+        # intersections will find points that are already vertexes (from the
+        # previous call). A more robust implementation of the intersection
+        # finder may take care of this, but for the moment, we go for this.
+        if use_orig_points:
+            for f in self._fractures:
+                f.p = f.orig_p
+
+        for i, first in enumerate(self._fractures):
+            for j in range(i+1, len(self._fractures)):
+                second = self._fractures[j]
                 isect, bound_first, bound_second = first.intersects(second)
                 if len(isect) > 0:
-                    isect_list.append(Intersection(first, second, isect))
+                    self.intersections.append(Intersection(first, second,
+                    isect))
+
                     first.add_points(isect[:, np.where(bound_first)[0]])
                     second.add_points(isect[:, np.where(bound_second)[0]])
 
-        self.intersections = isect_list
     
     def __repr__(self):
         s = 'Fracture set with ' + str(len(self._fractures)) + ' fractures'
