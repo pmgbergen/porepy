@@ -339,7 +339,26 @@ class EllipticFracture(Fracture):
 
 #-------------------------------------------------------------------------------
 
-Intersection = namedtuple('Intersection', ['first', 'second', 'isect'])
+
+class Intersection(object):
+    
+    def __init__(self, first, second, coord):
+        self.first = first
+        self.second = second
+        self.coord = coord
+
+
+    def __repr__(self):
+        s = 'Intersection between fractures ' + str(self.first.index) + ' and ' + \
+            str(self.second.index) + '\n'
+        s += 'Intersection points: \n'
+        for i in range(self.coord.shape[1]):
+            s += '(' + str(self.coord[0, i]) + ', ' + str(self.coord[1, i]) + ', ' + \
+                 str(self.coord[2, i]) + ') \n'
+        return s
+
+    
+
 
 class FractureSet(object):
     
