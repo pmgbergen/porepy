@@ -15,11 +15,19 @@ from compgeom import basics as cg
 
 class Fracture(object):
     
-    def __init__(self, points):
+    def __init__(self, points, index=None):
         self.p = points
         self.center = np.mean(self.p, axis=1).reshape((-1, 1))
+
+        self.orig_p = self.p.copy()
+
+        self.index = index
 #         self.rot = cg.project_plane_matrix(p)
     
+    def set_index(self, i):
+        self.index = i
+
+
     def points_2_ccw(self):
         """
         Ensure that the points are sorted in a counter-cyclical order .
