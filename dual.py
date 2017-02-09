@@ -10,7 +10,7 @@ from compgeom import basics as cg
 
 #------------------------------------------------------------------------------#
 
-def matrix_rhs(g, k, f, bc=None):
+def matrix_rhs(g, k, f, bc=None, bc_val=None):
     """
     Return the matrix and righ-hand side for a discretization of a second order
     elliptic equation using dual virtual element method.
@@ -25,6 +25,10 @@ def matrix_rhs(g, k, f, bc=None):
         Scalar source term.
     bc :
         Boundary conditions (optional)
+    bc_val : dictionary (optional)
+        Values of the boundary conditions. The dictionary has at most the
+        following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
+        conditions, respectively.
 
     Return
     ------
@@ -36,17 +40,27 @@ def matrix_rhs(g, k, f, bc=None):
 
     Examples
     --------
-    D, rhs = dual.matrix_rhs(g, perm, f, bc)
+    b_faces_neu = ... # id of the Neumann faces
+    b_faces_dir = ... # id of the Dirichlet faces
+    bnd = bc.BoundaryCondition(g, np.hstack((b_faces_dir, b_faces_neu)),
+                            ['dir']*b_faces_dir.size + ['neu']*b_faces_neu.size)
+    bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
+               'neu': fun_neu(f.face_centers[:, b_faces_neu])}
+
+    D, rhs = dual.matrix_rhs(g, perm, f, bnd, bnd_val)
     up = sps.linalg.spsolve(D, rhs)
     u, p = dual.extract(g, up)
     P0u = dual.projectU(g, perm, u)
 
     """
-    return matrix(g, k, bc), rhs(g, f, bc)
+    assert not( bool(bc is None) != bool(bc_val is None) )
+
+    M, bc_weight = matrix(g, k, bc, bc_weight=True)
+    return M, rhs(g, f, bc, bc_val, bc_weight)
 
 #------------------------------------------------------------------------------#
 
-def matrix(g, k, bc=None):
+def matrix(g, k, bc=None, bc_weight=False):
     """
     Return the matrix for a discretization of a second order elliptic equation
     using dual virtual element method.
@@ -59,16 +73,31 @@ def matrix(g, k, bc=None):
         Permeability. Cell-wise.
     bc :
         Boundary conditions (optional)
+    bc_weight: bool
+        Decide if the diagonal entries associated to Neumann boundary conditions
+        should be weighted by the infinity norm of the mass-Hdiv or not.
+        If bc_weight is True than the weight is returned to be used in the
+        construction of the right-hand side.
 
     Return
     ------
     matrix: sparse csr (g.num_faces+g_num_cells, g.num_faces+g_num_cells)
         Saddle point matrix obtained from the discretization.
+    weight: scalar (optional)
+        Returned only if bc_weight is True. It represents the infinity norm
+        of the mass-Hdiv block of the globla matrix.
 
     Examples
     --------
-    D = dual.matrix(g, perm, bc)
-    rhs = dual.rhs(g, f, bc)
+    b_faces_neu = ... # id of the Neumann faces
+    b_faces_dir = ... # id of the Dirichlet faces
+    bnd = bc.BoundaryCondition(g, np.hstack((b_faces_dir, b_faces_neu)),
+                            ['dir']*b_faces_dir.size + ['neu']*b_faces_neu.size)
+    bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
+               'neu': fun_neu(f.face_centers[:, b_faces_neu])}
+
+    D, weight = dual.matrix(g, perm, bnd, bc_weight=True)
+    rhs = dual.rhs(g, f, bnd, bnd_val, weight)
     up = sps.linalg.spsolve(D, rhs)
     u, p = dual.extract(g, up)
     P0u = dual.projectU(g, perm, u)
@@ -109,12 +138,22 @@ def matrix(g, k, bc=None):
     # construct the global matrices
     mass = sps.coo_matrix((data,(I,J)))
     div = -g.cell_faces.T
+    M = sps.bmat([[mass, div.T], [div,None]], format='csr')
 
-    return sps.bmat([[mass, div.T], [div,None]], format='csr')
+    norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
+
+    # assign the Neumann boundary conditions
+    if bc is not None and np.any(bc.is_neu):
+        is_neu = np.hstack((bc.is_neu, np.zeros(g.num_cells,dtype=np.bool)))
+        M[is_neu, :] *= 0
+        M[is_neu, is_neu] = norm
+
+    if bc_weight: return M, norm
+    else:         return M
 
 #------------------------------------------------------------------------------#
 
-def rhs(g, f, bc=None):
+def rhs(g, f, bc=None, bc_val=None, bc_weight=1):
     """
     Return the righ-hand side for a discretization of a second order elliptic
     equation using dual virtual element method.
@@ -127,6 +166,12 @@ def rhs(g, f, bc=None):
         Scalar source term.
     bc :
         Boundary conditions (optional)
+    bc_val : dictionary (optional)
+        Values of the boundary conditions. The dictionary has at most the
+        following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
+        conditions, respectively.
+    bc_weight: scalar (optional)
+        Weight for the entries associated to Neumann boundary conditions.
 
     Return
     ------
@@ -136,16 +181,44 @@ def rhs(g, f, bc=None):
 
     Examples
     --------
-    D = dual.matrix(g, perm, bc)
-    rhs = dual.rhs(g, f, bc)
+    b_faces_neu = ... # id of the Neumann faces
+    b_faces_dir = ... # id of the Dirichlet faces
+    bnd = bc.BoundaryCondition(g, np.hstack((b_faces_dir, b_faces_neu)),
+                            ['dir']*b_faces_dir.size + ['neu']*b_faces_neu.size)
+    bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
+               'neu': fun_neu(f.face_centers[:, b_faces_neu])}
+
+    D, weight = dual.matrix(g, perm, bnd, bc_weight=True)
+    rhs = dual.rhs(g, f, bnd, bnd_val, weight)
     up = sps.linalg.spsolve(D, rhs)
     u, p = dual.extract(g, up)
     P0u = dual.projectU(g, perm, u)
 
     """
-    size = g.num_faces + g.num_cells
-    rhs = np.zeros(size)
-    rhs[size-g.num_cells:] = -np.multiply(g.cell_volumes, f)
+    assert not( bool(bc is None) != bool(bc_val is None) )
+
+    rhs = np.zeros(g.num_faces + g.num_cells)
+    is_p = np.hstack((np.zeros(g.num_faces,dtype=np.bool),
+                      np.ones(g.num_cells,dtype=np.bool)))
+
+    rhs[is_p] = -f*g.cell_volumes
+    if bc is None: return rhs
+
+    # remap the dictionary such that the key is lowercase
+    keys = [k for k in bc_val.keys()]
+    bc_val = {k.lower(): bc_val[k] for k in keys}
+    keys = [k.lower() for k in keys]
+
+    if 'dir' in keys:
+        is_dir = np.hstack((bc.is_dir, np.zeros(g.num_cells,dtype=np.bool)))
+        faces, _, sgn = sps.find(g.cell_faces)
+        sgn = sgn[np.unique(faces, return_index=True)[1]]
+        rhs[is_dir] = -sgn[bc.is_dir]*bc_val['dir']
+
+    if 'neu' in keys:
+        is_neu = np.hstack((bc.is_neu, np.zeros(g.num_cells,dtype=np.bool)))
+        rhs[is_neu] = bc_weight*bc_val['neu']*g.face_areas[bc.is_neu]
+
     return rhs
 
 #------------------------------------------------------------------------------#
