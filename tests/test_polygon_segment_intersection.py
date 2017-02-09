@@ -41,7 +41,7 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         p_3_1 = basics.polygon_segment_intersect(p3, p1)
         p_i_known_2 = np.array([0, 0, 1.0]).reshape((-1, 1))
         
-        assert np.min(np.sum(np.abs(p_3_1 - p_i_known_1), axis=0)) < 1e-5
+        assert np.min(np.sum(np.abs(p_3_1 - p_i_known_2), axis=0)) < 1e-5
         
     def test_mutual_intersection_not_at_origin(self):
         p1, _, p3, *rest = self.setup_polygons()
@@ -59,7 +59,7 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         p_3_1 = basics.polygon_segment_intersect(p3, p1)
         p_i_known_2 = np.array([0, 0, 1.0]).reshape((-1, 1)) + incr
         
-        assert np.min(np.sum(np.abs(p_3_1 - p_i_known_1), axis=0)) < 1e-5
+        assert np.min(np.sum(np.abs(p_3_1 - p_i_known_2), axis=0)) < 1e-5
         
     def test_parallel_planes(self):
         p_1, *rest = self.setup_polygons()
@@ -105,4 +105,5 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
 
     if __name__ == '__main__':
         unittest.main()
+
 
