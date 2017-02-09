@@ -253,11 +253,15 @@ def extract_subgrid(g, c, sort=True):
         c (np.array, dtype=int): Indices of cells to be extracted
 
     Returns:
-        core.grids.Grid: Extracted subgrid
+        core.grids.Grid: Extracted subgrid. Will share (note, *not* copy)
+	    geometric fileds with the parent grid. Also has an additional
+	    field parent_cell_ind giving correspondance between parent and
+	    child cells.
         np.ndarray, dtype=int: Index of the extracted faces, ordered so that
             element i is the global index of face i in the subgrid.
         np.ndarray, dtype=int: Index of the extracted nodes, ordered so that
             element i is the global index of node i in the subgrid.
+
     """
     if sort:
         c = np.sort(c)
@@ -284,6 +288,8 @@ def extract_subgrid(g, c, sort=True):
         h.face_normals = g.face_normals[:, unique_faces]
     if hasattr(g, 'face_areas'):
         h.face_areas = g.face_areas[unique_faces]
+
+    h.parent_cell_ind = c
 
     return h, unique_faces, unique_nodes
 
