@@ -14,7 +14,7 @@ from vem import dual
 
 #------------------------------------------------------------------------------#
 
-def matrix_rhs(g, k, f, bc=None):
+def matrix_rhs(g, k, f, bc=None, bc_val=None):
     """
     Return the matrix and righ-hand side for a discretization of a second order
     elliptic equation using hybdrid dual virtual element method.
@@ -29,6 +29,10 @@ def matrix_rhs(g, k, f, bc=None):
         Scalar source term.
     bc :
         Boundary conditions (optional)
+    bc_val : dictionary
+        Values of the boundary conditions. The dictionary has at most the
+        following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
+        conditions, respectively.
 
     Return
     ------
@@ -40,12 +44,21 @@ def matrix_rhs(g, k, f, bc=None):
 
     Examples
     --------
-    H, rhs = hybrid.matrix_rhs(g, perm, f, bc)
+    b_faces_neu = ... # id of the Neumann faces
+    b_faces_dir = ... # id of the Dirichlet faces
+    bnd = bc.BoundaryCondition(g, np.hstack((b_faces_dir, b_faces_neu)),
+                            ['dir']*b_faces_dir.size + ['neu']*b_faces_neu.size)
+    bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
+               'neu': fun_neu(f.face_centers[:, b_faces_neu])}
+
+    H, rhs = hybrid.matrix_rhs(g, perm, f, bnd, bnd_val)
     l = sps.linalg.spsolve(H, rhs)
     u, p = hybrid.computeUP(g, l, perm, f)
     P0u = dual.projectU(g, perm, u)
 
     """
+    assert not( bool(bc is None) != bool(bc_val is None) )
+
     faces, cells, sgn = sps.find(g.cell_faces)
     c_centers, f_normals, f_centers, _ = cg.map_grid(g)
 
@@ -96,11 +109,23 @@ def matrix_rhs(g, k, f, bc=None):
     H = sps.coo_matrix((data,(I,J))).tocsr()
 
     # Apply the boundary conditions
-    faces_bd = g.get_boundary_faces()
-    H[faces_bd, :] *= 0
-    H[faces_bd, faces_bd] = 1
-    rhs[faces_bd] = np.sin(2*np.pi*f_centers[0,faces_bd])*\
-                    np.sin(2*np.pi*f_centers[1,faces_bd])
+    if bc is not None:
+        # remap the dictionary such that the key is lowercase
+        keys = [k for k in bc_val.keys()]
+        bc_val = {k.lower(): bc_val[k] for k in keys}
+        keys = [k.lower() for k in keys]
+
+        if np.any(bc.is_dir):
+            norm = sps.linalg.norm(H, np.inf)
+            H[bc.is_dir, :] *= 0
+            H[bc.is_dir, bc.is_dir] = norm
+            rhs[bc.is_dir] = norm*bc_val['dir']
+
+        if np.any(bc.is_neu):
+            faces, _, sgn = sps.find(g.cell_faces)
+            sgn = sgn[np.unique(faces, return_index=True)[1]]
+            rhs[bc.is_neu] += sgn[bc.is_neu]*bc_val['neu']*\
+                              g.face_areas[bc.is_neu]
 
     return H, rhs
 
@@ -170,8 +195,8 @@ def computeUP(g, l, k, f):
         f_loc = f[c]*g.cell_volumes[c]
 
         p[c] = np.dot(S, f_loc-np.dot(B.T, solve(A, np.dot(C, l[faces_loc]))))
-        u[faces_loc] = -np.multiply(sgn[loc], solve(A, np.dot(B, p[c]) +
-                                                       np.dot(C, l[faces_loc])))
+        u[faces_loc] = -sgn[loc]*solve(A, np.dot(B, p[c]) +
+                                                        np.dot(C, l[faces_loc]))
 
     return u, p
 
