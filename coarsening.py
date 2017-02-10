@@ -7,7 +7,7 @@ from core.grids.grid import Grid
 from core.constit import second_order_tensor
 from core.bc import bc
 
-from utils import matrix_compression
+from utils import matrix_compression, mcolon, accumarray, unique
 
 from fvdiscr import tpfa
 
@@ -110,10 +110,203 @@ def generate_coarse_grid( g, subdiv ):
 
 #------------------------------------------------------------------------------#
 
-def tpfa_matrix( g, perm = None ):
+def tpfa_matrix(g, perm=None):
+    """
+    Compute a two-point flux approximation matrix useful related to a call of
+    create_partition.
+
+    Parameters
+    ----------
+    g: the grid
+    perm: (optional) permeability, the it is not given unitary tensor is assumed
+
+    Returns
+    -------
+    out: sparse matrix
+        Two-point flux approximation matrix
+
+    """
     if perm is None:
         perm = second_order_tensor.SecondOrderTensor(g.dim,np.ones(g.num_cells))
     bound = bc.BoundaryCondition(g, np.empty(0), '')
     trm = tpfa.tpfa(g, perm, bound)
     div = g.cell_faces.T
     return div * trm
+
+#------------------------------------------------------------------------------#
+
+def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
+    """
+    Create the partition based on an input matrix using the algebraic multigrid
+    method coarse/fine-splittings based on direct couplings. The standard values
+    for cdepth and epsilon are taken from the following reference.
+
+    For more information see: U. Trottenberg, C. W. Oosterlee, and A. Schuller.
+    Multigrid. Academic press, 2000.
+
+    Parameters
+    ----------
+    A: sparse matrix used for the agglomeration
+    cdepth: the greather is the more intense the aggregation will be, e.g. less
+        cells if it is used combined with generate_coarse_grid
+    epsilon: weight for the off-diagonal entries to define the "strong
+        negatively cupling"
+    seeds: (optional) to define a-priori coarse cells
+
+    Returns
+    -------
+    out: agglomeration indices
+
+    How to use
+    ----------
+    part = create_partition(tpfa_matrix(g))
+    g = generate_coarse_grid(g, part)
+
+    """
+
+    if A.size == 0: return np.zeros(1)
+    Nc = A.shape[0]
+
+    # For each node, which other nodes are strongly connected to it
+    ST = sps.lil_matrix((Nc,Nc),dtype=np.bool)
+
+    # In the first instance, all cells are strongly connected to each other
+    At = A.T
+
+    for i in np.arange(Nc):
+        ci, _, vals = sps.find(At[:,i])
+        neg = vals < 0.
+        nvals = vals[neg]
+        nci = ci[neg]
+        minId = np.argmin(nvals)
+        ind = -nvals >= epsilon * np.abs(nvals[minId])
+        ST[nci[ind], i] = True
+
+    # Temporary field, will store connections of depth 1
+    STold = ST.copy()
+    for _ in np.arange(2, cdepth+1):
+        for j in np.arange(Nc):
+            rowj = np.array(STold.rows[j])
+            row = np.hstack([STold.rows[r] for r in rowj])
+            ST[j, np.concatenate((rowj, row))] = True
+        STold = ST.copy()
+
+    del STold
+
+    ST.setdiag(False)
+    lmbda = np.array([len(s) for s in ST.rows])
+
+    # Define coarse nodes
+    candidate = np.ones(Nc, dtype=np.bool)
+    is_fine = np.zeros(Nc, dtype=np.bool)
+    is_coarse = np.zeros(Nc, dtype=np.bool)
+
+    # cells that are not important for any other cells are on the fine scale.
+    for row_id, row in enumerate(ST.rows):
+        if not row:
+            is_fine[row_id] = True
+            candidate[row_id] = False
+
+    ST = ST.tocsr()
+    it = 0
+    while np.any(candidate):
+        i = np.argmax(lmbda)
+        is_coarse[i] = True
+        j = ST.indices[ST.indptr[i]:ST.indptr[i+1]]
+        jf = j[candidate[j]]
+        is_fine[jf] = True
+        candidate[np.r_[i, jf]] = False
+        loop = ST.indices[ mcolon.mcolon(ST.indptr[jf], ST.indptr[jf+1]-1) ]
+        for row in np.unique(loop):
+            s = ST.indices[ST.indptr[row]:ST.indptr[row+1]]
+            lmbda[row] = s[candidate[s]].size + 2*s[is_fine[s]].size
+        lmbda[np.logical_not(candidate)]= -1
+        it = it + 1
+
+        # Something went wrong during aggregation
+        assert it <= Nc
+
+    del lmbda, ST
+
+    if seeds is not None:
+        is_coarse[seeds] = True
+        is_fine[seeds] = False
+
+    # If two neighbors are coarse, eliminate one of them
+    c2c = np.abs(A) > 0
+    c2c_rows, _, _ = sps.find(c2c)
+
+    pairs = np.empty((2,0), dtype=np.int)
+    for idx, it in enumerate(np.where(is_coarse)[0]):
+        loc = slice(c2c.indptr[it], c2c.indptr[it+1])
+        ind = np.setdiff1d(c2c_rows[loc], it)
+        cind = ind[is_coarse[ind]]
+        new_pair = np.stack((np.repeat(it, cind.size), cind))
+        pairs = np.append(pairs, new_pair, axis=1)
+
+    if pairs.size:
+        pairs = unique.unique_np113(np.sort(pairs, axis=0), axis=1)
+        for ij in pairs.T:
+            mi = np.argmin(A[ij, ij])
+            is_coarse[ij[mi]] = False
+            is_fine[ij[mi]] = True
+
+    coarse = np.where(is_coarse)[0]
+
+    # Primal grid
+    NC = coarse.size
+    primal = sps.lil_matrix((NC,Nc),dtype=np.bool)
+    for i in np.arange(NC):
+        primal[i, coarse[i]] = True
+
+    connection = sps.lil_matrix((Nc,Nc),dtype=np.double)
+    for it in np.arange(Nc):
+        n = np.setdiff1d(c2c_rows[c2c.indptr[it]:c2c.indptr[it+1]], it)
+        connection[it, n] = np.abs(A[it, n] / At[it, it])
+
+    connection = connection.tocsr()
+
+    candidates_rep = np.ediff1d(connection.indptr)
+    candidates_idx = np.repeat(is_coarse, candidates_rep)
+    candidates = np.stack((connection.indices[candidates_idx],
+                           np.repeat(np.arange(NC), candidates_rep[is_coarse])),
+                           axis=-1)
+
+    connection_idx = mcolon.mcolon(connection.indptr[coarse],
+                                   connection.indptr[coarse+1]-1)
+    vals = accumarray.accum(candidates, connection.data[connection_idx],
+                            size=[Nc,NC])
+    del candidates_rep, candidates_idx, connection_idx
+
+    mcind = np.argmax(vals, axis=0)
+    mcval = [ vals[r,c] for c,r in enumerate(mcind) ]
+
+    it = NC
+    not_found = np.logical_not(is_coarse)
+    # Process the strongest connection globally
+    while np.any(not_found):
+        mi = np.argmax(mcval)
+        nadd = mcind[mi]
+
+        primal[mi, nadd] = True
+        not_found[nadd] = False
+        vals[nadd, :] *= 0
+
+        nc = connection.indices[connection.indptr[nadd]:connection.indptr[nadd+1]]
+        af = not_found[nc]
+        nc = nc[af]
+        nv = mcval[mi] * connection[nadd, :]
+        nv = nv.data[af]
+        if len(nc) > 0:
+            vals += sps.csr_matrix((nv,(nc, np.repeat(mi,len(nc)))),
+                                          shape=(Nc,NC)).todense()
+        mcind = np.argmax(vals, axis=0)
+        mcval = [ vals[r,c] for c,r in enumerate(mcind) ]
+
+        it = it + 1
+        if it > Nc + 5: break
+
+    coarse, fine = primal.tocsr().nonzero()
+    return coarse[np.argsort(fine)]
+
+#------------------------------------------------------------------------------#
