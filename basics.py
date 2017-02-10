@@ -216,6 +216,10 @@ def is_ccw(p1, p2, p3):
     The function is intended for 2D points; higher-dimensional coordinates will
     be ignored.
 
+    TODO:
+        Include the option of a tolerance, and a default value (if within the
+        tolerance).
+
     Parameters:
         p1 (np.ndarray, length 2): Point on dividing line
         p2 (np.ndarray, length 2): Point on dividing line
@@ -235,6 +239,10 @@ def is_ccw(p1, p2, p3):
 def is_inside_polygon(poly, p):
     """
     Check if a set of points are inside a polygon.
+
+    TODO:
+        Include the option of a tolerance, and a default value (if within the
+        tolerance).
 
     Paremeters:
         poly (np.ndarray, 2 x n): vertexes of polygon. The segments are formed by
