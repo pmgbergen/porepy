@@ -45,8 +45,8 @@ def test_intersecting_fracture():
                                           g.face_centers[1,:]>n/4),
                            g.face_centers[1,:]<3*n/4)
     f = split_grid.Fracture(g)
-    f.add_tag(frac_tag1)
-    f.add_tag(frac_tag2)
+    f.add_tag(g,frac_tag1)
+    f.add_tag(g,frac_tag2)
     f.set_tips(g)
     h = g.copy()
     h = split_grid.split_grid(h,f)
@@ -66,6 +66,8 @@ def test_intersecting_fracture():
     bndr_g = g.get_boundary_faces()
     bndr_h = h.get_boundary_faces()
     assert bndr_g.size ==  bndr_h.size - 2*np.sum(f.tag)
-    
+
+
 if __name__ == '__main__':
     test_split_fracture()
+    test_intersecting_fracture()
