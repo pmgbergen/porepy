@@ -205,6 +205,34 @@ def add_point(vertices, pt, precision=1e-3, **kwargs):
 
 #-----------------------------------------------------------
 
+def is_ccw(p1, p2, p3):
+    """
+    Check if the line segments formed by three points is part of a
+    conuter-clockwise circle.
+
+    The test is positiv if p3 lies to left of the line running through p1 and
+    p2.
+
+    The function is intended for 2D points; higher-dimensional coordinates will
+    be ignored.
+
+    Parameters:
+        p1 (np.ndarray, length 2): Point on dividing line
+        p2 (np.ndarray, length 2): Point on dividing line
+        p3 (np.ndarray, length 2): Point to be tested
+
+    Returns:
+        boolean, true if the points form a ccw polyline.
+    """
+
+    # Compute cross product between p1-p2 and p1-p3. Right hand rule gives that
+    # p3 is to the left if the cross product is positive.
+    return (p2[0] - p1[0]) * (p3[1] - p1[1]) \
+         > (p2[1] - p1[1]) * (p3[0] - p1[0])
+
+#-----------------------------------------------------------------------------
+
+
 def dist_point_pointset(p, pset, exponent=2):
     """
     Compute distance between a point and a set of points.
