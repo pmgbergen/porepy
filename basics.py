@@ -266,6 +266,8 @@ def is_inside_polygon(poly, p):
         for j in range(poly.shape[1]):
             if not is_ccw(poly[:, j], poly[:, (j+1) % poly_size], pt[:, i]):
                 inside[i] = False
+                # No need to check the remaining segments of the polygon.
+                break
     return inside
 
 
