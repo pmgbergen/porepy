@@ -205,7 +205,7 @@ def add_point(vertices, pt, precision=1e-3, **kwargs):
 
 #-----------------------------------------------------------
 
-def is_ccw(p1, p2, p3):
+def is_ccw(p1, p2, p3, tol=0, default=False):
     """
     Check if the line segments formed by three points is part of a
     conuter-clockwise circle.
@@ -216,14 +216,15 @@ def is_ccw(p1, p2, p3):
     The function is intended for 2D points; higher-dimensional coordinates will
     be ignored.
 
-    TODO:
-        Include the option of a tolerance, and a default value (if within the
-        tolerance).
-
     Parameters:
         p1 (np.ndarray, length 2): Point on dividing line
         p2 (np.ndarray, length 2): Point on dividing line
         p3 (np.ndarray, length 2): Point to be tested
+        tol (double, optional): Tolerance used in the comparison, can be used
+            to account for rounding errors. Defaults to zero.
+        default (boolean, optional): Mode returned if the point is within the
+            tolerance. Should be set according to what is desired behavior of
+            the function (will vary with application). Defaults to False.
 
     Returns:
         boolean, true if the points form a ccw polyline.
@@ -231,8 +232,16 @@ def is_ccw(p1, p2, p3):
 
     # Compute cross product between p1-p2 and p1-p3. Right hand rule gives that
     # p3 is to the left if the cross product is positive.
-    return (p2[0] - p1[0]) * (p3[1] - p1[1]) \
-         > (p2[1] - p1[1]) * (p3[0] - p1[0])
+    cross_product = (p2[0] - p1[0]) * (p3[1] - p1[1])\
+                   -(p2[1] - p1[1]) * (p3[0] - p1[0])
+    
+    # Should there be a scaling of the tolerance relative to the distance
+    # between the points?
+
+    if np.abs(cross_product) <= tol:
+        return default
+    else:
+        return cross_product > 0
 
 #-----------------------------------------------------------------------------
 
