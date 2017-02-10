@@ -245,18 +245,18 @@ def is_ccw(p1, p2, p3, tol=0, default=False):
 
 #-----------------------------------------------------------------------------
 
-def is_inside_polygon(poly, p):
+def is_inside_polygon(poly, p, tol=0, default=False):
     """
     Check if a set of points are inside a polygon.
-
-    TODO:
-        Include the option of a tolerance, and a default value (if within the
-        tolerance).
 
     Paremeters:
         poly (np.ndarray, 2 x n): vertexes of polygon. The segments are formed by
             connecting subsequent columns of poly
         p (np.ndarray, 2 x n2): Points to be tested.
+        tol (double, optional): Tolerance for rounding errors. Defaults to
+            zero.
+        default (boolean, optional): Default behavior if the point is close to
+            the boundary of the polygon. Defaults to False.
 
     Returns:
         np.ndarray, boolean: Length equal to p, true if the point is inside the
@@ -273,7 +273,8 @@ def is_inside_polygon(poly, p):
     inside = np.ones(pt.shape[1], dtype=np.bool)
     for i in range(pt.shape[1]):
         for j in range(poly.shape[1]):
-            if not is_ccw(poly[:, j], poly[:, (j+1) % poly_size], pt[:, i]):
+            if not is_ccw(poly[:, j], poly[:, (j+1) % poly_size], pt[:, i],
+                          tol=tol, default=default):
                 inside[i] = False
                 # No need to check the remaining segments of the polygon.
                 break
