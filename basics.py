@@ -498,7 +498,7 @@ def compute_normal(pts):
 
     assert pts.shape[1] > 2
     normal = np.cross( pts[:,0] - pts[:,1], compute_tangent(pts) )
-    assert not np.allclose( normal, np.zeros(3) )
+    if np.allclose( normal, np.zeros(3) ): return compute_normal(pts[:, 1:])
     return normal / np.linalg.norm( normal )
 
 #------------------------------------------------------------------------------#
