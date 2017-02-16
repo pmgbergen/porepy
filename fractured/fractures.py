@@ -392,8 +392,13 @@ class Intersection(object):
                  str(self.coord[2, i]) + ') \n'
         return s
 
-    
+    def get_other(self, i):
+        if self.first == i:
+            return self.second
+        else:
+            return self.first
 
+#----------------------------------------------------------------------------
 
 class FractureSet(object):
     
