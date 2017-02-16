@@ -1,14 +1,17 @@
+import sys
 import numpy as np
 import scipy.sparse as sps
 
 import vtk
 import vtk.util.numpy_support as ns
 
+from core.grids import grid
+from gridding import grid_bucket
 from compgeom import sort_points
 
 #------------------------------------------------------------------------------#
 
-def export_vtk( g, name, data = None, binary = True ):
+def export_vtk( g, name, data=None, binary=True ):
     """ export in VTK the grid and additional data.
 
     In 2d the cells are represented as polygon, while in 3d as polyhedra.
@@ -20,15 +23,47 @@ def export_vtk( g, name, data = None, binary = True ):
 
     Parameters:
     g: the grid
-    name: the file name with extension ".vtu".
+    name: the file name without extension ".vtu".
     data: optional data, it is a dictionary: key the name of the field.
     binary: export in binary format, default is True.
 
     How to use:
-    export_vtk( g, "polyhedron.vtu", { "cell": np.arange( g.num_cells ) } )
+    export_vtk( g, "polyhedron", { "cell": np.arange( g.num_cells ) } )
 
     """
 
+    if isinstance(g, grid.Grid):
+        export_vtk_grid(g, name+".vtu", data, binary)
+
+    if isinstance(g, grid_bucket.Grid_Bucket):
+        files = g.g_prop([ name + "_" + str(int(v)) + ".vtu" for _, v in g])
+        data = g.g_prop([dict() for _ in np.arange(g.size)]) if data is None \
+                                                             else data
+        for gr, v in g:
+            data[v]['dim'] = np.tile(gr.dim, gr.num_cells)
+
+        [ export_vtk_grid(gr, files[v], data[v], binary) for gr, v in g ]
+        export_pvd(name+".pvd", files)
+
+#------------------------------------------------------------------------------#
+
+def export_pvd(filename, files):
+    o_file = open(filename,'w')
+    b = 'LittleEndian' if sys.byteorder == 'little' else 'BigEndian'
+    c = ' compressor="vtkZLibDataCompressor"'
+    header = '<?xml version="1.0"?>\n'+ \
+             '<VTKFile type="Collection" version="0.1" ' + \
+                                              'byte_order="%s"%s>\n' % (b,c) + \
+             '<Collection>\n'
+    o_file.write(header)
+    fm = '\t<DataSet group="" part="" file="%s"/>\n'
+    [o_file.write( fm % f ) for f in files]
+    o_file.write('</Collection>\n'+'</VTKFile>')
+    o_file.close()
+
+#------------------------------------------------------------------------------#
+
+def export_vtk_grid(g, name, data, binary):
     if g.dim == 1: gVTK = export_vtk_1d( g )
     if g.dim == 2: gVTK = export_vtk_2d( g )
     if g.dim == 3: gVTK = export_vtk_3d( g )
