@@ -475,35 +475,56 @@ class Grid(object):
     def num_cell_nodes(self):
         return self.cell_nodes().sum(axis=0).A.ravel(1)
 
+
     def get_internal_nodes(self):
         """
-        Return the internal nodes id of the grid
+        Get internal nodes id of the grid.
+
+        Returns:
+            np.ndarray (1D), index of internal nodes.
+
         """
         return np.setdiff1d(np.arange(self.num_nodes), self.get_boundary_nodes(),
                             assume_unique=True)
 
+
     def get_internal_faces(self):
         """
-        Return the internal faces id of the grid
+        Get internal faces id of the grid
+
+        Returns:
+            np.ndarray (1d), index of internal faces.
+
         """
         return np.setdiff1d(np.arange(self.num_faces), self.get_boundary_faces(),
                             assume_unique=True)
 
+
     def get_boundary_faces(self):
         """
-        Return the boundary faces id of the grid
+        Get boundary faces id of the grid
+
+        Returns:
+            np.ndarray (1d), index of boundary faces
+
         """
         return np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel(1)
                            == 1).ravel(1)
 
+
     def get_boundary_nodes(self):
         """
-        Return the boundary nodes id of the grid
+        Get nodes on the boundary
+
+        Returns:
+            np.ndarray (1d), index of nodes on the boundary
+
         """
         b_faces = self.get_boundary_faces()
         first = self.face_nodes.indptr[b_faces]
         second = self.face_nodes.indptr[b_faces+1]-1
         return np.unique(self.face_nodes.indices[mcolon.mcolon(first, second)])
+
 
     def cell_diameters(self, cn = None):
         """
