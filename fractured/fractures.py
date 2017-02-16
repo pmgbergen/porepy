@@ -471,7 +471,36 @@ class FractureSet(object):
         for f in self._fractures:
             f.plot_frame(ax)
         return fig
-                    
+                   
+    def compute_distances(self):
+        nf = len(self._fractures)
+
+        # Distance between vertexes
+        p_2_p = np.zeros((nf, nf))
+        # Distance between segments
+        s_2_s = np.zeros((nf, nf))
+
+        for i, f_1 in enumerate(self._fractures):
+            for j, f_2 in enumerate(self._fractures[i+1:]):
+                d = np.Inf
+                for p_1 in f_1.points():
+                    for p_2 in f_2.points():
+                        d = np.minimum(d, cg.dist_point_pointset(p_1, p_2)[0])
+                p_2_p[i, i+j+1] = d
+
+                d = np.Inf
+                for s_1 in f_1.segments():
+                    for s_2 in f_2.segments():
+                        d = np.minimum(d, 
+                                       cg.distance_segment_segment(s_1[:, 0],
+                                                                   s_1[:, 1],
+                                                                   s_2[:, 0],
+                                                                   s_2[:, 1]))
+                s_2_s[i, i+j+1] = d
+
+
+        return p_2_p, s_2_s
+
         
     def close_points():
         for p1, p2 in zip(proximate_fractures):
