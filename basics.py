@@ -565,6 +565,7 @@ def map_grid(g):
     face_normals: (g.dim x g.num_faces) the mapped normals of the faces.
     face_centers: (g.dim x g.num_faces) the mapped centers of the faces.
     R: (3 x 3) the rotation matrix used.
+    dim: indicates which are the dimensions active
 
     """
 
@@ -584,7 +585,7 @@ def map_grid(g):
         cell_centers = np.dot(R, cell_centers)[dim,:]
         face_normals = np.dot(R, face_normals)[dim,:]
 
-    return cell_centers, face_normals, face_centers, R
+    return cell_centers, face_normals, face_centers, R, dim
 
 #------------------------------------------------------------------------------#
 
