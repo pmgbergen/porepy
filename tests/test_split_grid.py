@@ -112,7 +112,39 @@ def test_simple_case():
     cn_dat = np.array([True]*cn_col.size)
     cell_nodes = sps.csc_matrix((cn_dat,(cn_row,cn_col)),(26,16))
     assert((h.cell_nodes()!= cell_nodes).nnz==0)
-    
+
+
+def test_1D_grid():
+    n = 6
+    g = structured.CartGrid([n,n])
+    g.compute_geometry()
+    frac_tag1 = np.logical_and(np.logical_and(g.face_centers[1,:]==n/2,
+                                              g.face_centers[0,:]>1),
+                               g.face_centers[0,:]<n-1)
+    frac_tag2 = np.logical_and(np.logical_and(g.face_centers[0,:]==n/2,
+                                              g.face_centers[1,:]>n/2),
+                               g.face_centers[1,:]<n-1)
+    h = g.copy()
+
+    f = split_grid.Fracture(h)
+    f.add_tag(h,frac_tag1)
+    f.add_tag(h,frac_tag2)
+    h,h_list = split_grid.split_fractures(h,f,offset=.25)
+
+    nodes1 = np.array([[1,2,3,4,5],[3,3,3,3,3],[0,0,0,0,0]])
+    nodes2 = np.array([[3,3,3],[3,4,5],[0,0,0]])
+    assert np.all(h_list[0].nodes==nodes1)
+    assert np.all(h_list[1].nodes==nodes2)
+
+
+    bdr_node = np.array([[0,4],[0,2]])
+    for i,k in enumerate(h_list):
+        bdr = np.ravel(np.argwhere(k.face_nodes[:,k.get_boundary_faces()])[:,0])
+        print(bdr)
+        assert np.all(bdr == bdr_node[i])
+
+
+
 if __name__ == '__main__':
     test_split_fracture()
     test_intersecting_fracture()
