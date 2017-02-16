@@ -17,8 +17,15 @@ def tpfa(g, k, bc, faces=None):
         k (second_order_tensor): Permeability. Cell-wise.
         bc (): Boundary conditions
         faces (np.array, int): Index of faces where TPFA should be applied.
-            Currently unused, and defaults to all faces in the grid.
+            Defaults all faces in the grid.
     """
+    if faces is None:
+        is_not_active = np.zeros(g.num_faces, dtype=np.bool)
+    else:
+        is_active = np.zeros(g.num_faces, dtype=np.bool)
+        is_active[faces] = True
+        is_not_active = np.logical_not(is_active)
+
     fi, ci, sgn = sps.find(g.cell_faces)
 
     # Normal vectors and permeability for each face (here and there side)
@@ -37,12 +44,12 @@ def tpfa(g, k, bc, faces=None):
     t_face = nk.sum(axis=0)
 
     dist_face_cell = np.power(fc_cc, 2).sum(axis=0)
-    
+
     t_face = np.divide(t_face, dist_face_cell)
 
     # Return horamonic average
     t = 1 / np.bincount(fi, weights=1/t_face)
-    t[bc.is_neu] = 0
+    t[np.logical_or(bc.is_neu, is_not_active)] = 0
     flux = sps.coo_matrix((t[fi] * sgn, (fi, ci)))
-    
+
     return flux
