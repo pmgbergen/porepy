@@ -15,7 +15,7 @@ from utils import setmembership
 
 
 class Fracture(object):
-    
+
     def __init__(self, points, index=None):
         self.p = points
         self.center = np.mean(self.p, axis=1).reshape((-1, 1))
@@ -24,9 +24,36 @@ class Fracture(object):
 
         self.index = index
 #         self.rot = cg.project_plane_matrix(p)
-    
+
     def set_index(self, i):
         self.index = i
+
+
+    def __eq__(self, other):
+        return self.index == other.index
+
+    def points(self):
+        """
+        Iterator over the vexrtexes of the bounding polygon
+
+        Yields:
+            np.array (3 x 1): polygon vertexes
+
+        """
+        for i in range(self.p.shape[1]):
+            yield self.p[:, i].reshape((-1, 1))
+
+    def segments(self):
+        """
+        Iterator over the segments of the bounding polygon.
+
+        Yields:
+            np.array (3 x 2): polygon segment
+        """
+
+        sz = self.p.shape[1]
+        for i in range(sz):
+            yield self.p[:, np.array([i, i+1]) % sz]
 
 
     def points_2_ccw(self):
