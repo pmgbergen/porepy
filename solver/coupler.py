@@ -28,8 +28,8 @@ class Coupler(object):
             v_h, v_l = gb.v_of_e(e)
             g_h, g_l = gb.grids[v_h], gb.grids[v_l]
             idx = np.ix_([int(v_h), int(v_l)], [int(v_h), int(v_l)])
-
-            matrix[idx] += self.coupling.matrix_rhs(g_h, g_l, data[1][e])
+            fc = gb.face_cells[e]
+            matrix[idx] += self.coupling.matrix_rhs(g_h, g_l, fc, data[1][e])
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
