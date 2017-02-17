@@ -129,7 +129,7 @@ def split_faces(g,h_list, f):
                                              child_frac))
                 print(h.child_parent)
             else:
-                emty = sps.csc_matrix(child_frac.shape)
+                emty = sps.csc_matrix(h.child_parent[:,frac].shape)
                 h.child_parent = sps.hstack((h.child_parent,
                                              emty))
 
