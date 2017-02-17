@@ -19,7 +19,9 @@ class BasicsTest( unittest.TestCase ):
 
         kxx = np.ones(g.num_cells)
         perm = sot.SecondOrderTensor(g.dim, kxx)
-        M = dual.matrix(g, perm).todense()
+
+        solver = dual.DualVEM()
+        M = solver.matrix(g, {'k': perm}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = np.array( [[ 0.625, -0.375,      0, 0, 0,  0,  0,  1,  0],
@@ -47,7 +49,9 @@ class BasicsTest( unittest.TestCase ):
         kyy = np.square(g.cell_centers[0,:])+1
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
         perm = sot.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
-        M = dual.matrix(g, perm).todense()
+
+        solver = dual.DualVEM()
+        M = solver.matrix(g, {'k': perm}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = np.array([[0.625000000000000, -0.422619047619048, 0,
@@ -82,7 +86,9 @@ class BasicsTest( unittest.TestCase ):
 
         kxx = np.ones(g.num_cells)
         perm = sot.SecondOrderTensor(g.dim, kxx)
-        M = dual.matrix(g, perm).todense()
+
+        solver = dual.DualVEM()
+        M = solver.matrix(g, {'k': perm}).todense()
 
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
@@ -118,7 +124,9 @@ class BasicsTest( unittest.TestCase ):
         kyy = np.square(g.cell_centers[0,:])+1
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
         perm = sot.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
-        M = dual.matrix(g, perm).todense()
+
+        solver = dual.DualVEM()
+        M = solver.matrix(g, {'k': perm}).todense()
 
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
@@ -154,7 +162,9 @@ class BasicsTest( unittest.TestCase ):
 
         kxx = np.ones(g.num_cells)
         perm = sot.SecondOrderTensor(g.dim, kxx)
-        M = dual.matrix(g, perm).todense()
+
+        solver = dual.DualVEM()
+        M = solver.matrix(g, {'k': perm}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = np.array( [[ 0.625, -0.375,      0, 0, 0,  0,  0,  1,  0],
@@ -182,7 +192,9 @@ class BasicsTest( unittest.TestCase ):
 
         kxx = np.ones(g.num_cells)
         perm = sot.SecondOrderTensor(g.dim, kxx)
-        M = dual.matrix(g, perm).todense()
+
+        solver = dual.DualVEM()
+        M = solver.matrix(g, {'k': perm}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = 1e-2 * np.array( [[ 25, -(8+1/3.), 0, 0, 1e2, 0, 0],
