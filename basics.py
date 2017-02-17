@@ -568,13 +568,15 @@ def map_grid(g):
     dim: indicates which are the dimensions active
 
     """
-
     cell_centers = g.cell_centers
     face_normals = g.face_normals
     face_centers = g.face_centers
     R = np.eye(3)
 
-    if g.dim != 3:
+    if g.dim == 0:
+        return cell_centers, face_normals, face_centers, R, np.ones(3,dtype=bool)
+
+    if g.dim == 1 or g.dim == 2:
         v = compute_normal(g.nodes) if g.dim==2 else compute_tangent(g.nodes)
         R = project_plane_matrix(g.nodes, v)
         face_centers = np.dot(R, face_centers)
