@@ -55,6 +55,8 @@ def plot_grid(g, cell_value=None, info=None, alpha=1, rgb=[1,0,0]):
 
     if isinstance(g, grid.Grid):
         plot_grid_single(g, ax, cell_value, info, alpha, rgb)
+        if cell_value is not None and g.dim !=3:
+            fig.colorbar(color_map(cell_value))
 
     if isinstance(g, grid_bucket.Grid_Bucket):
         plot_grid_bucket(g, ax, cell_value, info, alpha, rgb)
@@ -72,13 +74,13 @@ def plot_grid_single(g, ax, cell_value, info, alpha, rgb):
     if not np.isclose(z[0], z[1]): ax.set_zlim3d( z )
 
     if info is not None: add_info( g, info, ax )
-    if cell_value is not None and g.dim !=3:
-        fig.colorbar(color_map(cell_value))
 
 #------------------------------------------------------------------------------#
 
 def plot_grid_bucket(gb, ax, cell_value, info, alpha, rgb):
 
+    if cell_value is None:
+        cell_value = gb.g_prop(np.empty(gb.size,dtype=object))
     [plot_grid_xd(g, cell_value[v], ax, alpha, np.divide(rgb, int(v)+1)) \
                                                                  for g, v in gb]
 
@@ -100,7 +102,8 @@ def plot_grid_bucket(gb, ax, cell_value, info, alpha, rgb):
 #------------------------------------------------------------------------------#
 
 def plot_grid_xd(g, cell_value, ax, alpha, rgb):
-    if g.dim == 1:   plot_grid_1d(g, cell_value, ax, alpha, rgb)
+    if g.dim == 0:   plot_grid_0d(g, ax)
+    elif g.dim == 1: plot_grid_1d(g, cell_value, ax, alpha, rgb)
     elif g.dim == 2: plot_grid_2d(g, cell_value, ax, alpha, rgb)
     else:            plot_grid_3d(g, ax, alpha, rgb)
 
@@ -139,6 +142,11 @@ def add_info( g, info, ax ):
         normals = np.array( [ n/np.linalg.norm(n) \
                                   for n in g.face_normals.T ] ).T
         ax.quiver( *g.face_centers, *normals, color = 'k', length=0.25 )
+
+#------------------------------------------------------------------------------#
+
+def plot_grid_0d(g, ax):
+    ax.scatter(*g.nodes, color='k', marker='o')
 
 #------------------------------------------------------------------------------#
 
