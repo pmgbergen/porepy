@@ -109,6 +109,11 @@ class DualVEM(Solver):
         P0u = dual.projectU(g, perm, u)
 
         """
+        if g.dim == 0:
+            M = sps.identity(2, format="csr")
+            if bc_weight: return M, 1
+            else:         return M
+
         k, bc = data['k'], data.get('bc')
         faces, cells, sgn = sps.find(g.cell_faces)
 
@@ -205,6 +210,8 @@ class DualVEM(Solver):
         P0u = dual.projectU(g, perm, u)
 
         """
+        if g.dim == 0: return np.hstack(([0], data['f']))
+
         f, bc, bc_val = data['f'], data.get('bc'), data.get('bc_val')
         assert not( bool(bc is None) != bool(bc_val is None) )
 
@@ -322,6 +329,8 @@ class DualVEM(Solver):
         P0u = dual.projectU(g, perm, u)
 
         """
+        if g.dim == 0: return np.zeros(3).reshape((3,1))
+
         k = data['k']
         faces, cells, sgn = sps.find(g.cell_faces)
         c_centers, f_normals, f_centers, R, dim = cg.map_grid(g)
