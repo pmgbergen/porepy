@@ -578,8 +578,8 @@ def map_grid(g):
         v = compute_normal(g.nodes) if g.dim==2 else compute_tangent(g.nodes)
         R = project_plane_matrix(g.nodes, v)
         face_centers = np.dot(R, face_centers)
-        dim = np.logical_not(np.isclose(np.sum(np.abs(face_centers).T-
-                                          np.abs(face_centers[:,0]), axis=0),0))
+        dim = np.logical_not(np.isclose(np.sum(np.abs(face_centers.T-
+                                                face_centers[:,0]), axis=0),0))
         assert g.dim == np.sum(dim)
         face_centers = face_centers[dim,:]
         cell_centers = np.dot(R, cell_centers)[dim,:]
