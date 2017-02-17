@@ -6,12 +6,12 @@ class DualCoupling(object):
     def __init__(self, solver):
         self.solver = solver
 
-    def matrix_rhs(self, g_h, g_l, data):
+    def matrix_rhs(self, g_h, g_l, face_cells, data):
 
         k = data['kn']
         dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
 
-        cells_l, faces_h, _ = sps.find(g_l.child_parent)
+        cells_l, faces_h, _ = sps.find(face_cells)
         faces, _, sgn = sps.find(g_h.cell_faces)
         sgn = sgn[np.unique(faces, return_index=True)[1]]
         sgn = sgn[faces_h]
