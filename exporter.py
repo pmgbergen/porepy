@@ -43,11 +43,11 @@ def export_vtk( g, name, data=None, binary=True ):
             data[v]['dim'] = np.tile(gr.dim, gr.num_cells)
 
         [ export_vtk_grid(gr, files[v], data[v], binary) for gr, v in g ]
-        export_pvd(name+".pvd", files)
+        export_pvd(name+".pvd", files, g)
 
 #------------------------------------------------------------------------------#
 
-def export_pvd(filename, files):
+def export_pvd(filename, files, gb):
     o_file = open(filename,'w')
     b = 'LittleEndian' if sys.byteorder == 'little' else 'BigEndian'
     c = ' compressor="vtkZLibDataCompressor"'
@@ -57,13 +57,14 @@ def export_pvd(filename, files):
              '<Collection>\n'
     o_file.write(header)
     fm = '\t<DataSet group="" part="" file="%s"/>\n'
-    [o_file.write( fm % f ) for f in files]
+    [o_file.write( fm % files[v] ) for g, v in gb if g.dim!=0]
     o_file.write('</Collection>\n'+'</VTKFile>')
     o_file.close()
 
 #------------------------------------------------------------------------------#
 
 def export_vtk_grid(g, name, data, binary):
+    if g.dim == 0: return
     if g.dim == 1: gVTK = export_vtk_1d( g )
     if g.dim == 2: gVTK = export_vtk_2d( g )
     if g.dim == 3: gVTK = export_vtk_3d( g )
