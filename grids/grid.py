@@ -29,7 +29,7 @@ class Grid(object):
         Comes in two classes. Topologogical information, defined at
         construction time:
 
-        dim (int): dimension. Should be 1 or 2 or 3
+        dim (int): dimension. Should be 0 or 1 or 2 or 3
         nodes (np.ndarray): node coordinates. size: dim x num_nodes
         face_nodes (sps.csc-matrix): Face-node relationships. Matrix size:
             num_faces x num_cells. To use compute_geometry() later, he field
@@ -71,6 +71,7 @@ class Grid(object):
         cell_faces (sps.csc_matrix): Cell-face relations
         name (str): Name of grid
         """
+        assert dim>=0 and dim<=3
         self.dim = dim
         self.nodes = nodes
         self.cell_faces = cell_faces
@@ -136,12 +137,23 @@ class Grid(object):
 
         self.name.append('Compute geometry')
 
-        if self.dim == 1:
+        if self.dim == 0:
+            self.__compute_geometry_0d()
+        elif self.dim == 1:
             self.__compute_geometry_1d()
         elif self.dim == 2:
             self.__compute_geometry_2d(is_embedded, is_starshaped)
         else:
             self.__compute_geometry_3d()
+
+    def __compute_geometry_0d(self):
+        "Compute 0D geometry"
+        self.face_areas = np.ones(1)
+        self.face_centers = self.nodes
+        self.face_normals = np.zeros(3) # not well-defined
+
+        self.cell_volumes = np.ones(1)
+        self.cell_centers = self.nodes
 
     def __compute_geometry_1d(self):
         "Compute 1D geometry"
