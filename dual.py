@@ -110,7 +110,7 @@ class DualVEM(Solver):
 
         """
         if g.dim == 0:
-            M = sps.identity(2, format="csr")
+            M = sps.identity(self.ndof(g), format="csr")
             if bc_weight: return M, 1
             else:         return M
 
