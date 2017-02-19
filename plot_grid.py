@@ -5,6 +5,7 @@ Created on Fri Feb 26 19:37:05 2016
 @author: keile
 """
 
+import string
 import numpy as np
 import scipy.sparse as sps
 
@@ -28,7 +29,8 @@ def plot_grid(g, cell_value=None, info=None, alpha=1, rgb=[1,0,0]):
 
     It is possible to add the cell ids at the cells centers (info option 'c'),
     the face ids at the face centers (info option 'f'), the node ids at the node
-    (info option 'n'), and the normal at the face (info option 'o').
+    (info option 'n'), and the normal at the face (info option 'o'). If info is
+    set to 'all' all the informations are displayed.
 
     Parameters:
     g: the grid
@@ -133,6 +135,7 @@ def add_info( g, info, ax ):
     def disp_loop( v, c, m ): [disp( i, ic, c, m ) for i, ic in enumerate(v.T)]
 
     info = info.upper()
+    info = string.ascii_uppercase if info == "ALL" else info
 
     if "C" in info: disp_loop( g.cell_centers, 'r', 'o' )
     if "N" in info: disp_loop( g.nodes, 'b', 's' )
