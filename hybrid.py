@@ -65,7 +65,7 @@ class HybridDualVEM(Solver):
 
         """
         if g.dim == 0:
-            return sps.identity(1, format="csr"), np.zeros(1)
+            return sps.identity(self.ndof(g), format="csr"), np.zeros(1)
 
         k, f = data['k'], data['f']
         bc, bc_val = data.get('bc'), data.get('bc_val')
@@ -195,10 +195,11 @@ class HybridDualVEM(Solver):
         for c in np.arange(g.num_cells):
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
             faces_loc = faces[loc]
+            sgn_loc = sgn[loc].reshape((-1,1))
             ndof = faces_loc.size
 
             K = k.perm[0:g.dim, 0:g.dim, c]
-            normals = np.multiply(np.tile(sgn[loc], (g.dim,1)),
+            normals = np.multiply(np.tile(sgn_loc.T, (g.dim,1)),
                                   f_normals[:, faces_loc])
 
             A, _ = massHdiv(K, c_centers[:, c], g.cell_volumes[c],
@@ -209,11 +210,11 @@ class HybridDualVEM(Solver):
 
             S = 1/np.dot(B.T, solve(A, B))
             f_loc = f[c]*g.cell_volumes[c]
+            l_loc = l[faces_loc].reshape((-1,1))
 
-            p[c] = np.dot(S, f_loc - np.dot(B.T, solve(A,
-                                                      np.dot(C, l[faces_loc]))))
-            u[faces_loc] = -sgn[loc]*solve(A, np.dot(B, p[c]) +
-                                                        np.dot(C, l[faces_loc]))
+            p[c] = np.dot(S, f_loc - np.dot(B.T, solve(A, np.dot(C, l_loc))))
+            u[faces_loc] = -np.multiply(sgn_loc, solve(A, np.dot(B, p[c]) + \
+                                                            np.dot(C, l_loc)))
 
         return u, p
 
