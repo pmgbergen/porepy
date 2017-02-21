@@ -727,7 +727,11 @@ class FractureSet(object):
         for p1, p2 in zip(proximate_fractures):
             pass
             # Check both point-point proximity and point-fracture-plane
-            
+    def impose_external_boundary(self):
+        # Insert boundary in the form of a box, and kick out (parts of)
+        # fractures outside the box
+        pass
+
     def distance_point_segment():
         pass
     
@@ -738,4 +742,11 @@ class FractureSet(object):
     def proximate_fractures(self):
         # Find fractures with center distance less than the sum of their major axis + 2 * force length
         return fracture_pairs
-    
+   
+
+    def to_vtk(self):
+        pass
+
+    def to_gmsh(self):
+        pass
+
