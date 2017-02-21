@@ -463,6 +463,222 @@ class FractureSet(object):
                     first.add_points(isect[:, np.where(bound_first)[0]])
                     second.add_points(isect[:, np.where(bound_second)[0]])
 
+
+    def split_intersections(self, tol=1e-8):
+
+
+        # Field for all points in the fracture description
+        all_p = np.empty((3, 0))
+        # All edges, either as fracture boundary, or fracture intersection
+        edges = np.empty((2, 0))
+        # For each edge, a list of all fractures pointing to the edge.
+        edges_2_frac = []
+
+        # Field to know if an edge is on the boundary of a fracture.
+        # Not sure what to do with a T-type intersection here
+        is_boundary_edge = []
+
+        # First loop over all fractures. All edges are assumed to be new; we
+        # will deal with coinciding points later.
+        for fi, frac in enumerate(self._fractures):
+            num_p = all_p.shape[1]
+            num_p_loc = frac.orig_p.shape[1]
+            all_p = np.hstack((all_p, frac.orig_p))
+
+            loc_e = num_p + np.vstack((np.arange(num_p_loc),
+                                       (np.arange(num_p_loc)+1) % num_p_loc))
+            edges = np.hstack((edges, loc_e))
+            for i in range(num_p_loc):
+                edges_2_frac.append([fi])
+                is_boundary_edge.append(True)
+
+        # Next, loop over all intersections, and define new points and edges
+        for i in self.intersections:
+            num_p = all_p.shape[1]
+            all_p = np.hstack((all_p, i.coord))
+
+            edges = np.hstack((edges, num_p + np.arange(2).reshape((-1, 1))))
+            edges_2_frac.append([i.first.index, i.second.index])
+            is_boundary_edge.append(False)
+
+        # Ensure that edges are integers
+        edges = edges.astype('int')
+
+
+        # Snap the points to an underlying Cartesian grid. This is the basis
+        # for declearing two points equal
+        # NOTE: We need to account for dimensions in the tolerance; 
+        all_p = cg.snap_to_grid(all_p, tol)
+
+        # We now need to find points that occur in multiple places
+        p_unique, \
+            unique_ind_p, \
+                all_2_unique_p = setmembership.unique_columns_tol(all_p, tol)
+
+
+        # Update edges to work with unique points
+        edges = all_2_unique_p[edges]
+
+        # Look for edges that share both nodes. These will be identical, and
+        # will form either a L/Y-type intersection (shared boundary segment),
+        # or a three fractures meeting in a line.
+        # Do a sort of edges before looking for duplicates.
+        e_unique, \
+            unique_ind_e, \
+                all_2_unique_e = \
+                setmembership.unique_columns_tol(np.sort(edges, axis=0))
+
+        # Edges that were merged should also be merged in edges_2_frac
+        removed_edge = np.setdiff1d(np.arange(edges.shape[1]), unique_ind_e)
+        # First expand the relevant members of edge_2_frac
+        for ri in removed_edge:
+            new_ind = all_2_unique_e[ri]
+            edges_2_frac[new_ind].append(edges_2_frac[ri])
+        # Then remove the redundant fields
+        for ri in removed_edge:
+            edges_2_frac.remove(ri)
+
+        # Represent edges by unique values
+        edges = e_unique
+
+        # Also update boundary information
+        is_boundary_edge = [is_boundary_edge[i] for i in unique_ind_e]  # Hope this is right
+
+        # Utility step: Convert the edge to fracture map to a list of numpy
+        # arrays
+        edges_2_frac = [np.array(edges_2_frac[i]) for i in
+                                                    range(len(edges_2_frac))]
+
+        # QUESTION: How do we differ between a boundary segment shared by two
+        # fractures and an interior fracture (needed in gmsh filter later). For
+        # now, we try to use is_boundary_edge.
+
+        # By now, all segments in the grid are defined by a unique set of
+        # points and edges. The next task is to identify intersecting edges,
+        # and split them.
+        # The algorithm loops over all fractures, pulls out edges associated
+        # with the fracture, project to the local 2D plane, and look for
+        # intersections there (direct search in 3D may also work, but this was
+        # a simple option). When intersections are found, the global lists of
+        # points and edges are updated.
+        for fi, frac in enumerate(self._fractures):
+
+            # Identify the edges associated with this fracture
+            # It would have been more convenient to use an inverse
+            # relationship frac_2_edge here, but that would have made the
+            # update for new edges (towards the end of this loop) more
+            # cumbersome.
+            edges_loc_ind = []
+            for ei, e in enumerate(edges_2_frac):
+                if np.any(e == fi):
+                    edges_loc_ind.append(ei)
+
+            edges_loc = np.vstack((edges[:, edges_loc_ind],
+                                   np.array(edges_loc_ind)))
+            p_ind_loc = np.unique(edges_loc[:2])
+            p_loc = all_p[:, p_ind_loc]
+
+            # Center point cloud around the origin
+            p_loc_c = np.mean(p_loc, axis=1).reshape((-1, 1))
+            p_loc -= p_loc_c
+
+            # Project the points onto the local plane defined by the fracture
+            rot = cg.project_plane_matrix(p_loc)
+            p_2d = rot.dot(p_loc)
+            assert np.max(p_2d[2]) < tol
+            # Dump third coordinate
+            p_2d = p_2d[:2]
+
+            # The edges must also be redefined to account for the (implicit)
+            # local numbering of points
+            edges_2d = np.empty_like(edges_loc)
+            for ei in range(edges_loc.shape[1]):
+                edges_2d[0, ei] = np.argwhere(p_ind_loc == edges_loc[0, ei])
+                edges_2d[1, ei] = np.argwhere(p_ind_loc == edges_loc[1, ei])
+
+            # Add a tag to trace the edges during splitting
+            edges_2d[2] = edges_loc[2]
+
+            # Obtain new points and edges, so that no edges on this fracture
+            # are intersecting.
+            p_new, edges_new = cg.remove_edge_crossings(p_2d, edges_2d,
+                                                       precision=tol)
+
+            # Then, patch things up by converting new points to 3D, 
+
+            # From the design of the functions in cg, we know that new points
+            # are attached to the end of the array. A more robust alternative
+            # is to find unique points on a combined array of p_loc and p_new.
+            p_add = p_new[:, p_ind_loc.size:]
+            num_p_add = p_add.shape[1]
+
+            # Add third coordinate, and map back to 3D
+            p_add = np.vstack((p_add, np.zeros(num_p_add)))
+
+            # Inverse of rotation matrix is the transpose, add cloud center
+            # correction
+            p_add_3d = rot.transpose().dot(p_add) + p_loc_c
+
+
+            # The new points will be added at the end of the global point array
+            # (if not, we would need to renumber all global edges).
+            # Global index of added points
+            ind_p_add = all_p.shape[1] + np.arange(num_p_add)
+            # Global index of local points (new and added)
+            p_ind_exp = np.hstack((p_ind_loc, ind_p_add))
+
+            # Add the new points towards the end of the list.
+            all_p = np.hstack((all_p, p_add_3d))
+
+            # The ordering of the global edge list bears no significance. We
+            # therefore plan to delete all edges (new and old), and add new
+            # ones.
+
+            # First add the new ones
+            # All local edges in terms of global point indices
+            edges_new_glob = p_ind_exp[edges_new[:2]]
+            edges = np.hstack((edges, edges_new_glob))
+
+#            import pdb
+#            pdb.set_trace()
+            # Append fields for edge-fracture map and boundary tags
+            for ei in range(edges_new.shape[1]):
+                glob_ei = edges_new[2, ei]
+                edges_2_frac.append(edges_2_frac[glob_ei])
+                is_boundary_edge.append(is_boundary_edge[glob_ei])
+
+#            import pdb
+#            pdb.set_trace()
+            # Finally, purge the old edges    
+            edges = np.delete(edges, edges_loc_ind, axis=1)
+
+            # We cannot delete more than one list element at a time. Delete by
+            # index in decreasing order, so that we do not disturb the index
+            # map.
+            edges_loc_ind.sort()
+            for ei in edges_loc_ind[::-1]:
+                del edges_2_frac[ei]
+                del is_boundary_edge[ei]
+
+            # And we are done with this fracture. On to the next one.
+
+
+        return all_p, edges
+
+        # With all edges being non-intersecting, the next step is to split the
+        # fractures into polygons formed of boundary edges, intersection edges
+        # and auxiliary edges that connect the boundary and intersections. To
+        # define the auxiliary edges, we create a triangulation of the
+        # fractures. We then grow polygons forming part of the fracture in a
+        # way that ensures that no polygon lies on both sides of an
+        # intersection edge.
+        
+
+    def change_tolerance(self, new_tol):
+        """
+        Redo the whole configuration based on the new tolerance
+        """
+        pass
     
     def __repr__(self):
         s = 'Fracture set with ' + str(len(self._fractures)) + ' fractures'
