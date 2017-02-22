@@ -1,6 +1,9 @@
 import numpy as np
 
-from graph_tool.all import *
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    from graph_tool.all import *
 # https://graph-tool.skewed.de/
 # conda install -c ostrokach graph-tool=2.19
 
