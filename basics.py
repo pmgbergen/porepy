@@ -205,6 +205,46 @@ def add_point(vertices, pt, precision=1e-3, **kwargs):
 
 #-----------------------------------------------------------
 
+def is_polygon_ccw(poly):
+    """
+    Determine if the vertices of a polygon are sorted counter clockwise.
+
+    The method computes the winding number of the polygon, see
+        http://stackoverflow.com/questions/1165647/how-to-determine-if-a-list-of-polygon-points-are-in-clockwise-order
+    and
+        http://blog.element84.com/polygon-winding.html
+
+    for descriptions of the algorithm.
+
+    The algorithm should work for non-convex polygons. If the polygon is
+    self-intersecting (shaped like the number 8), the number returned will
+    reflect whether the method is 'mostly' cw or ccw.
+
+    Parameters:
+        poly (np.ndarray, 2xn): Polygon vertices.
+
+    Returns:
+        boolean, True if the polygon is ccw.
+
+    Examples:
+    >>> is_polygon_ccw(np.array([[0, 1, 0], [0, 0, 1]]))
+    True
+
+    >>> is_polygon_ccw(np.array([[0, 0, 1], [0, 1, 0]]))
+    False
+
+    """
+    p_0 = np.append(poly[0], poly[0, 0])
+    p_1 = np.append(poly[1], poly[1, 0])
+
+    num_p = poly.shape[1]
+    value = 0
+    for i in range(num_p):
+        value += (p_1[i+1] + p_1[i]) * (p_0[i+1] - p_0[i])
+    return value < 0
+
+#----------------------------------------------------------
+
 def is_ccw(p1, p2, p3, tol=0, default=False):
     """
     Check if the line segments formed by three points is part of a
