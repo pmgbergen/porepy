@@ -3,8 +3,12 @@ import scipy.sparse as sps
 
 class DualCoupling(object):
 
+#------------------------------------------------------------------------------#
+
     def __init__(self, solver):
         self.solver = solver
+
+#------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g_h, g_l, face_cells, data):
 
@@ -28,3 +32,5 @@ class DualCoupling(object):
         cc[0,0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
 
         return cc
+
+#------------------------------------------------------------------------------#
