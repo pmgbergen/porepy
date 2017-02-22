@@ -26,7 +26,7 @@ from gridding import grid_bucket
 
 #------------------------------------------------------------------------------#
 
-def plot_grid(g, cell_value=None, info=None, alpha=1, rgb=[1,0,0]):
+def plot_grid(g, cell_value=None, vector_value=None, info=None, **kwargs):
     """ plot the grid in a 3d framework.
 
     It is possible to add the cell ids at the cells centers (info option 'c'),
@@ -58,20 +58,66 @@ def plot_grid(g, cell_value=None, info=None, alpha=1, rgb=[1,0,0]):
     ax.set_zlabel('z')
 
     if isinstance(g, grid.Grid):
-        plot_grid_single(g, ax, cell_value, info, alpha, rgb)
         if cell_value is not None and g.dim !=3:
-            fig.colorbar(color_map(cell_value))
+            extr_value = np.array([np.amin(cell_value), np.amax(cell_value)])
+            kwargs['color_map'] = color_map(extr_value)
+
+        plot_grid_single(g, ax, cell_value, vector_value, info, **kwargs)
 
     if isinstance(g, grid_bucket.Grid_Bucket):
-        plot_grid_bucket(g, ax, cell_value, info, alpha, rgb)
+        if cell_value is not None and g.dim_max() !=3:
+            extr_value = np.array([np.inf, -np.inf])
+            for _, v in g:
+                extr_value[0] = min(np.amin(cell_value[v]), extr_value[0])
+                extr_value[1] = max(np.amax(cell_value[v]), extr_value[1])
+            kwargs['color_map'] = color_map(extr_value)
 
+        plot_grid_bucket(g, ax, cell_value, vector_value, info, **kwargs)
+
+    if kwargs.get('color_map'): fig.colorbar(kwargs['color_map'])
+
+    plt.draw()
     plt.show()
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_single(g, ax, cell_value, info, alpha, rgb):
+def save_img(name, g, cell_value=None, vector_value=None, info=None, **kwargs):
 
-    plot_grid_xd(g, cell_value, ax, alpha, rgb)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    if kwargs.get('title', True): ax.set_title( " ".join( g.name ) )
+
+    if kwargs.get('axis', True):
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_zlabel('z')
+    else:
+        ax.set_axis_off()
+
+    if isinstance(g, grid.Grid):
+        if cell_value is not None and g.dim !=3:
+            extr_value = np.array([np.amin(cell_value), np.amax(cell_value)])
+            kwargs['color_map'] = color_map(extr_value)
+
+        plot_grid_single(g, ax, cell_value, vector_value, info, **kwargs)
+
+    if isinstance(g, grid_bucket.Grid_Bucket):
+        if cell_value is not None and g.dim_max() !=3:
+            extr_value = np.array([np.inf, -np.inf])
+            for _, v in g:
+                extr_value[0] = min(np.amin(cell_value[v]), extr_value[0])
+                extr_value[1] = max(np.amax(cell_value[v]), extr_value[1])
+            kwargs['color_map'] = color_map(extr_value)
+
+        plot_grid_bucket(g, ax, cell_value, vector_value, info, **kwargs)
+
+    if kwargs.get('colorbar', True) and kwargs.get('color_map'):
+        fig.colorbar(kwargs['color_map'])
+
+    plt.draw()
+    fig.savefig(name, bbox_inches='tight', pad_inches = 0)
+
 #------------------------------------------------------------------------------#
 
 class Arrow3D(FancyArrowPatch):
@@ -106,21 +152,31 @@ def quiver(vector_value, ax, g, **kwargs):
                     arrowstyle="-|>", color="k", zorder=np.inf)
         ax.add_artist(a)
 
+#------------------------------------------------------------------------------#
+
+def plot_grid_single(g, ax, cell_value, vector_value, info, **kwargs):
+
+    plot_grid_xd(g, cell_value, vector_value, ax, **kwargs)
     x, y, z = lim(ax, g.nodes)
     if not np.isclose(x[0], x[1]): ax.set_xlim3d( x )
     if not np.isclose(y[0], y[1]): ax.set_ylim3d( y )
     if not np.isclose(z[0], z[1]): ax.set_zlim3d( z )
 
-    if info is not None: add_info( g, info, ax )
+    if info is not None: add_info(g, info, ax)
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_bucket(gb, ax, cell_value, info, alpha, rgb):
+def plot_grid_bucket(gb, ax, cell_value, vector_value, info, **kwargs):
 
     if cell_value is None:
         cell_value = gb.g_prop(np.empty(gb.size,dtype=object))
-    [plot_grid_xd(g, cell_value[v], ax, alpha, np.divide(rgb, int(v)+1)) \
-                                                                 for g, v in gb]
+
+    if vector_value is None:
+        vector_value = gb.g_prop(np.empty(gb.size,dtype=object))
+
+    for g, v in gb:
+        kwargs['rgb'] = np.divide(kwargs.get('rgb', [1,0,0]), int(v)+1)
+        plot_grid_xd(g, cell_value[v], vector_value[v], ax, **kwargs)
 
     val = np.array([lim(ax, g.nodes) for g, _ in gb])
 
@@ -139,11 +195,13 @@ def plot_grid_bucket(gb, ax, cell_value, info, alpha, rgb):
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_xd(g, cell_value, ax, alpha, rgb):
-    if g.dim == 0:   plot_grid_0d(g, ax)
-    elif g.dim == 1: plot_grid_1d(g, cell_value, ax, alpha, rgb)
-    elif g.dim == 2: plot_grid_2d(g, cell_value, ax, alpha, rgb)
-    else:            plot_grid_3d(g, ax, alpha, rgb)
+def plot_grid_xd(g, cell_value, vector_value, ax, **kwargs):
+    if g.dim == 0:   plot_grid_0d(g, ax, **kwargs)
+    elif g.dim == 1: plot_grid_1d(g, cell_value, ax, **kwargs)
+    elif g.dim == 2: plot_grid_2d(g, cell_value, ax, **kwargs)
+    else:            plot_grid_3d(g, ax, **kwargs)
+
+    if vector_value is not None: quiver(vector_value, ax, g, **kwargs)
 
 #------------------------------------------------------------------------------#
 
@@ -155,9 +213,8 @@ def lim(ax, nodes):
 
 #------------------------------------------------------------------------------#
 
-def color_map(cell_value, cmap_type='jet'):
+def color_map(extr_value, cmap_type='jet'):
     cmap = plt.get_cmap(cmap_type)
-    extr_value = np.array([np.amin(cell_value), np.amax(cell_value)])
     scalar_map = mpl.cm.ScalarMappable(cmap=cmap)
     scalar_map.set_array(extr_value)
     scalar_map.set_clim(vmin=extr_value[0], vmax=extr_value[1])
@@ -179,22 +236,23 @@ def add_info( g, info, ax ):
 
     if "O" in info.upper():
         normals = np.array( [ n/np.linalg.norm(n) \
-                                  for n in g.face_normals.T ] ).T
-        ax.quiver( *g.face_centers, *normals, color = 'k', length=0.25 )
+                                      for n in g.face_normals.T ] ).T
+        quiver(normals, ax, g, **kwargs)
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_0d(g, ax):
-    ax.scatter(*g.nodes, color='k', marker='o')
+def plot_grid_0d(g, ax, **kwargs):
+    ax.scatter(*g.nodes, color='k', marker='o', s=kwargs.get('pointsize', 1))
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_1d(g, cell_value, ax, alpha, rgb):
+def plot_grid_1d(g, cell_value, ax, **kwargs):
     cell_nodes = g.cell_nodes()
     nodes, cells, _  = sps.find( cell_nodes )
 
-    if cell_value is not None:
-        scalar_map = color_map(cell_value)
+    if kwargs.get('color_map'):
+        scalar_map = kwargs['color_map']
+        alpha = kwargs.get('alpha', 1)
         def color_edge(value): return scalar_map.to_rgba(value, alpha)
     else:
         cell_value = np.zeros(g.num_cells)
@@ -210,15 +268,17 @@ def plot_grid_1d(g, cell_value, ax, alpha, rgb):
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_2d( g, cell_value, ax, alpha, rgb):
+def plot_grid_2d(g, cell_value, ax, **kwargs):
     cell_nodes = g.cell_nodes()
     nodes, cells, _  = sps.find( cell_nodes )
 
-    if cell_value is not None:
-        scalar_map = color_map(cell_value)
+    alpha = kwargs.get('alpha', 1)
+    if kwargs.get('color_map'):
+        scalar_map = kwargs['color_map']
         def color_face(value): return scalar_map.to_rgba(value, alpha)
     else:
         cell_value = np.zeros(g.num_cells)
+        rgb = kwargs.get('rgb', [1,0,0])
         def color_face(value): return np.r_[rgb, alpha]
 
     for c in np.arange( g.num_cells ):
@@ -228,7 +288,8 @@ def plot_grid_2d( g, cell_value, ax, alpha, rgb):
                                              g.cell_centers[:, c] )
 
         pts = g.nodes[:, ptsId[mask]]
-        poly = Poly3DCollection( [pts.T] )
+        linewidth = kwargs.get('linewidth', 1)
+        poly = Poly3DCollection([pts.T], linewidth = linewidth)
         poly.set_edgecolor('k')
         poly.set_facecolors(color_face(cell_value[c]))
         ax.add_collection3d(poly)
@@ -237,7 +298,7 @@ def plot_grid_2d( g, cell_value, ax, alpha, rgb):
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_3d(g, ax, alpha, rgb):
+def plot_grid_3d(g, ax, alpha, **kwargs):
     faces_cells, cells, _ = sps.find( g.cell_faces )
     nodes_faces, faces, _ = sps.find( g.face_nodes )
     for c in np.arange(g.num_cells):
@@ -250,7 +311,8 @@ def plot_grid_3d(g, ax, alpha, rgb):
                                                  g.face_centers[:, f], \
                                                  g.face_normals[:, f] )
             pts = g.nodes[:, ptsId[mask]]
-            poly = Poly3DCollection( [pts.T] )
+            linewidth = kwargs.get('linewidth', 1)
+            poly = Poly3DCollection([pts.T], linewidth=linewidth)
             poly.set_edgecolor('k')
             poly.set_facecolors(np.r_[rgb, alpha])
             ax.add_collection3d(poly)
