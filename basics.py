@@ -248,7 +248,7 @@ def is_ccw_polygon(poly):
 
 #----------------------------------------------------------
 
-def is_ccw(p1, p2, p3, tol=0, default=False):
+def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
     """
     Check if the line segments formed by three points is part of a
     conuter-clockwise circle.
@@ -258,6 +258,9 @@ def is_ccw(p1, p2, p3, tol=0, default=False):
 
     The function is intended for 2D points; higher-dimensional coordinates will
     be ignored.
+
+    Extensions to lines with more than three points should be straightforward,
+    the input points should be merged into a 2d array.
 
     Parameters:
         p1 (np.ndarray, length 2): Point on dividing line
@@ -271,13 +274,17 @@ def is_ccw(p1, p2, p3, tol=0, default=False):
 
     Returns:
         boolean, true if the points form a ccw polyline.
+
+    See also:
+        is_ccw_polygon
+
     """
 
     # Compute cross product between p1-p2 and p1-p3. Right hand rule gives that
     # p3 is to the left if the cross product is positive.
     cross_product = (p2[0] - p1[0]) * (p3[1] - p1[1])\
                    -(p2[1] - p1[1]) * (p3[0] - p1[0])
-    
+
     # Should there be a scaling of the tolerance relative to the distance
     # between the points?
 
@@ -316,8 +323,8 @@ def is_inside_polygon(poly, p, tol=0, default=False):
     inside = np.ones(pt.shape[1], dtype=np.bool)
     for i in range(pt.shape[1]):
         for j in range(poly.shape[1]):
-            if not is_ccw(poly[:, j], poly[:, (j+1) % poly_size], pt[:, i],
-                          tol=tol, default=default):
+            if not is_ccw_polyline(poly[:, j], poly[:, (j+1) % poly_size],
+                                   pt[:, i], tol=tol, default=default):
                 inside[i] = False
                 # No need to check the remaining segments of the polygon.
                 break
