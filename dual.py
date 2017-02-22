@@ -232,7 +232,7 @@ class DualVEM(Solver):
                                 np.zeros(g.num_cells,dtype=np.bool)))
             faces, _, sgn = sps.find(g.cell_faces)
             sgn = sgn[np.unique(faces, return_index=True)[1]]
-            rhs[is_dir] = -sgn[bc.is_dir]*bc_val['dir']
+            rhs[is_dir] += -sgn[bc.is_dir]*bc_val['dir']
 
         if 'neu' in keys:
             is_neu = np.hstack((bc.is_neu,
