@@ -7,19 +7,19 @@ class Graph:
 
     The graph class stores the nodes and edges of the graph in a sparse
     array (equivalently to face_nodes in the Grid class).
-    
+
     Attributes:
         node_connections (sps.csc-matrix): Should be given at construction.
-            node_node connections. Matrix size: num_nodes x num_nodes. 
-            node_connections[i,j] should be true if there is an edge 
+            node_node connections. Matrix size: num_nodes x num_nodes.
+            node_connections[i,j] should be true if there is an edge
             connecting node i and j.
-        regions (int) the number of regions. A region is a set of nodes 
-            that can be reached by traversing the graph. Two nodes are 
+        regions (int) the number of regions. A region is a set of nodes
+            that can be reached by traversing the graph. Two nodes are
             int different regions if they can not be reached by traversing
             the graph.
-        color (int) the color of each region. Initialized as (NaN). By 
+        color (int) the color of each region. Initialized as (NaN). By
             calling color_nodes() all nodes in a region are given the
-            same colors and nodes in different regions are given different 
+            same colors and nodes in different regions are given different
             colors.
     """
     def __init__(self,node_connections):
