@@ -1236,3 +1236,6 @@ def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
     dist = d_starts + sc * d1 - tc * d2
     return np.sqrt(dist.dot(dist))
 
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
