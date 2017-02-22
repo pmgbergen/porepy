@@ -9,10 +9,12 @@ from collections import namedtuple
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import sympy
+import triangle
 
 from compgeom import basics as cg
+from compgeom import sort_points
 from utils import setmembership
-
+from core.grids import simplex
 
 class Fracture(object):
 
@@ -578,23 +580,9 @@ class FractureSet(object):
             p_ind_loc = np.unique(edges_loc[:2])
             p_loc = all_p[:, p_ind_loc]
 
-            # Center point cloud around the origin
-            p_loc_c = np.mean(p_loc, axis=1).reshape((-1, 1))
-            p_loc -= p_loc_c
-
-            # Project the points onto the local plane defined by the fracture
-            rot = cg.project_plane_matrix(p_loc)
-            p_2d = rot.dot(p_loc)
-            assert np.max(p_2d[2]) < tol
-            # Dump third coordinate
-            p_2d = p_2d[:2]
-
-            # The edges must also be redefined to account for the (implicit)
-            # local numbering of points
-            edges_2d = np.empty_like(edges_loc)
-            for ei in range(edges_loc.shape[1]):
-                edges_2d[0, ei] = np.argwhere(p_ind_loc == edges_loc[0, ei])
-                edges_2d[1, ei] = np.argwhere(p_ind_loc == edges_loc[1, ei])
+            p_2d, edges_2d, p_loc_c, rot = self._points_2_plane(p_loc,
+                                                                edges_loc,
+                                                                p_ind_loc)
 
             # Add a tag to trace the edges during splitting
             edges_2d[2] = edges_loc[2]
@@ -662,9 +650,6 @@ class FractureSet(object):
 
             # And we are done with this fracture. On to the next one.
 
-
-        return all_p, edges
-
         # With all edges being non-intersecting, the next step is to split the
         # fractures into polygons formed of boundary edges, intersection edges
         # and auxiliary edges that connect the boundary and intersections. To
@@ -672,7 +657,207 @@ class FractureSet(object):
         # fractures. We then grow polygons forming part of the fracture in a
         # way that ensures that no polygon lies on both sides of an
         # intersection edge.
-        
+
+        # For each polygon, list of segments that make up the polygon
+        poly_segments = []
+        # Which fracture is the polygon part of
+        poly_2_frac = []
+        # Extra edges formed by connecting boundary and intersection segments
+        artificial_edges = []
+
+
+        for fi, frac in enumerate(self._fractures):
+
+            # Identify the edges associated with this fracture
+            # It would have been more convenient to use an inverse
+            # relationship frac_2_edge here, but that would have made the
+            # update for new edges (towards the end of this loop) more
+            # cumbersome.
+            edges_loc_ind = []
+            for ei, e in enumerate(edges_2_frac):
+                if np.any(e == fi):
+                    edges_loc_ind.append(ei)
+
+            edges_loc = np.vstack((edges[:, edges_loc_ind],
+                                   np.array(edges_loc_ind)))
+            p_ind_loc = np.unique(edges_loc[:2])
+            p_loc = all_p[:, p_ind_loc]
+
+            p_2d, edges_2d, p_loc_c, rot = self._points_2_plane(p_loc,
+                                                                edges_loc,
+                                                                p_ind_loc)
+
+            # Add a tag to trace the edges during splitting
+            edges_2d[2] = edges_loc[2]
+
+            # Flag of whether the constraint is an internal boundary (as
+            # opposed to boundary of the polygon)
+            internal_boundary = np.where([not is_boundary_edge[i]
+                                            for i in edges_2d[2]])[0]
+
+            # Create a dictionary of input information to triangle
+            triangle_opts = {'vertices': p_2d.transpose(),
+                             'segments': edges_2d[:2].transpose(),
+                             'segment_markers':
+                             edges_2d[2].transpose().astype('int32')
+                            }
+            # Run a constrained Delaunay triangulation.
+            t = triangle.triangulate(triangle_opts, 'p')
+
+            # Pull out information on the triangulation
+            segment_markers = \
+                np.squeeze(np.asarray(t['segment_markers']).transpose())
+            tri = np.sort(np.asarray(t['triangles']).transpose(), axis=0)
+            p = np.asarray(t['vertices']).transpose()
+            segments = np.sort(np.asarray(t['segments']).transpose(), axis=0)
+
+            # We need a connection map between cells. The simplest option was
+            # to construct a simplex grid, and use the associated function.
+            # While we were at it, we could have used this to find cell
+            # centers, cell-face (segment) mappings etc, but for reason, that
+            # did not happen.
+            g = simplex.TriangleGrid(p, tri)
+            g.compute_geometry()
+            c2c = g.cell_connection_map()
+
+            def cells_of_segments(cells, s):
+                # Find the cells neighboring 
+                hit_0 = np.logical_or(cells[0] == s[0], cells[0] ==
+                                      s[1]).astype('int')
+                hit_1 = np.logical_or(cells[1] == s[0], cells[1] == s[1]).astype('int')
+                hit_2 = np.logical_or(cells[2] == s[0], cells[2] == s[1]).astype('int')
+                hit =  np.squeeze(np.where(hit_0 + hit_1 + hit_2 == 2))
+                return hit
+
+            px = p[0]
+            py = p[1]
+            cell_c = np.vstack((np.mean(px[tri], axis=0),
+                                np.mean(py[tri], axis=0)))
+
+            # 
+            cw_cells = []
+            ccw_cells = []
+            # For each internal boundary, find the cells on each side of the
+            # boundary; these will be assigned to different polygons. For the
+            # moment, there should be a single cell along each side of the
+            # boundary, but this may change in the future.
+            for ib in internal_boundary:
+                segment_match = np.squeeze(np.where(segment_markers ==
+                                                    edges_2d[2, ib]))
+                loc_segments = segments[:, segment_match]
+                loc_cells = cells_of_segments(tri, loc_segments)
+
+                p_0 = p_2d[:, edges_2d[0, ib]]
+                p_1 = p_2d[:, edges_2d[1, ib]]
+
+                cw_loc = []
+                ccw_loc = []
+
+                for ci in loc_cells:
+                    if cg.is_ccw_polyline(p_0, p_1, cell_c[:, ci]):
+                        ccw_loc.append(ci)
+                    else:
+                        cw_loc.append(ci)
+                cw_cells.append(cw_loc)
+                ccw_cells.append(ccw_loc)
+
+
+            polygon = np.zeros(tri.shape[1], dtype='int')
+            counter = 1
+            for c in cw_cells + ccw_cells:
+                polygon[c] = counter
+                counter += 1
+
+            # A cell in the partitioning may border more than one internal
+            # constraint, and thus be assigned two values (one overwritten) in
+            # the above loop. This should be fine; the corresponding index
+            # will have no cells assigned to it, but that is taken care of
+            # below.
+
+            num_iter = 0
+
+            # From the seeds, assign a polygon index to all triangles
+            while np.any(polygon == 0):
+
+                num_occurences = np.bincount(polygon)
+                # Disregard the 0 (which we know is there, since the while loop
+                # took another round).
+                order = np.argsort(num_occurences[1:])
+                for pi in order:
+                    vec = 0 * polygon
+                    # We know that the values in polygon are mapped to 
+                    vec[np.where(polygon == pi+1)] = 1
+                    new_val = c2c * vec
+                    not_found = np.where(np.logical_and(polygon == 0,
+                                                        new_val > 0))
+                    polygon[not_found] = pi+1
+
+                num_iter += 1
+                if num_iter >= tri.shape[1]:
+                    # Sanity check, since we're in a while loop. The code
+                    # should terminate long before this, but I have not
+                    # tried to find an exact maximum number of iterations.
+                    raise ValueError('This must be too many iterations')
+
+            # For each cell, find its boundary
+            for poly in np.unique(polygon):
+                tri_loc = tri[:, np.squeeze(np.where(polygon == poly))]
+                # Special case of a single triangle
+                if tri_loc.size == 3:
+                    tri_loc = tri_loc.reshape((-1, 1))
+
+
+                seg_loc = np.sort(np.hstack((tri_loc[:2],
+                                             tri_loc[1:],
+                                             tri_loc[::2])), axis=0)
+                # Really need something like accumarray here..
+                unique_s, _, all_2_unique = setmembership.unique_columns_tol(seg_loc)
+                bound_segment_ind = np.squeeze(np.where(np.bincount(all_2_unique)
+                                                    == 1))
+                bound_segment = unique_s[:, bound_segment_ind]
+                boundary = sort_points.sort_point_pairs(bound_segment)
+
+                # Ensure that the boundary is stored ccw
+                b_points = p_2d[:, boundary[:, 0]]
+                if not cg.is_ccw_polygon(b_points):
+                    boundary = boundary[::-1]
+
+                # The boundary is expressed in terms of the local point
+                # numbering. Convert to global numbering.
+                boundary_glob = p_ind_loc[boundary]
+                poly_segments.append(boundary_glob)
+                
+                poly_2_frac.append(fi)
+                # We have also implicitly defined a set of new edges
+                # (connecting intersections and fracture boundaries). For the
+                # moment, we rely on identifying these as the ones not located
+                # in the 
+
+        return all_p, edges, is_boundary_edge, poly_segments, poly_2_frac
+
+
+    def _points_2_plane(self, p_loc, edges_loc, p_ind_loc):
+
+        # Center point cloud around the origin
+        p_loc_c = np.mean(p_loc, axis=1).reshape((-1, 1))
+        p_loc -= p_loc_c
+
+        # Project the points onto the local plane defined by the fracture
+        rot = cg.project_plane_matrix(p_loc)
+        p_2d = rot.dot(p_loc)
+        assert np.max(p_2d[2]) < 1e-8
+        # Dump third coordinate
+        p_2d = p_2d[:2]
+
+        # The edges must also be redefined to account for the (implicit)
+        # local numbering of points
+        edges_2d = np.empty_like(edges_loc)
+        for ei in range(edges_loc.shape[1]):
+            edges_2d[0, ei] = np.argwhere(p_ind_loc == edges_loc[0, ei])
+            edges_2d[1, ei] = np.argwhere(p_ind_loc == edges_loc[1, ei])
+
+        return p_2d, edges_2d, p_loc_c, rot
+
 
     def change_tolerance(self, new_tol):
         """
