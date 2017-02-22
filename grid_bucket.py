@@ -16,6 +16,7 @@ class Grid_Bucket(object):
         self.grids = self.g_prop()
         self.face_cells = self.e_prop()
         self.size = 0
+        self.name = "Grid Bucket"
 
 #------------------------------------------------------------------------------#
 
@@ -26,13 +27,21 @@ class Grid_Bucket(object):
 #------------------------------------------------------------------------------#
 
     def __next__(self):
-        if self.i < self.graph.num_vertices():
+        if self.i < self.size:
             v = self.graph.vertex(self.i)
             self.i += 1
             return self.grids[v], v
         else:
             self.i = 0
             raise StopIteration()
+
+#------------------------------------------------------------------------------#
+
+    def dim_max(self): return np.amax([g.dim for g,_ in self])
+
+#------------------------------------------------------------------------------#
+
+    def dim_min(self): return np.amin([g.dim for g,_ in self])
 
 #------------------------------------------------------------------------------#
 
@@ -84,7 +93,7 @@ class Grid_Bucket(object):
         assert np.asarray(grids).size == 2
         assert grids[0].dim == grids[1].dim-1 or grids[1].dim == grids[0].dim-1
 
-        v = [ self.find(g) for g in grids ]
+        v = [self.find(g) for g in grids]
         assert not self.graph.edge(*v)
         self.face_cells[self.graph.add_edge(*v)] = face_cells
 
