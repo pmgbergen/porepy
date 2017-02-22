@@ -12,11 +12,13 @@ import scipy.sparse as sps
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.tri
-from matplotlib.patches import Polygon
+from matplotlib.patches import Polygon, FancyArrowPatch
 from matplotlib.collections import PatchCollection
 
 import mpl_toolkits.mplot3d as a3
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+from mpl_toolkits.mplot3d import Axes3D, proj3d
 
 from core.grids import grid
 from compgeom import sort_points
@@ -70,6 +72,40 @@ def plot_grid(g, cell_value=None, info=None, alpha=1, rgb=[1,0,0]):
 def plot_grid_single(g, ax, cell_value, info, alpha, rgb):
 
     plot_grid_xd(g, cell_value, ax, alpha, rgb)
+#------------------------------------------------------------------------------#
+
+class Arrow3D(FancyArrowPatch):
+    def __init__(self, xs, ys, zs, *args, **kwargs):
+        FancyArrowPatch.__init__(self, (0,0), (0,0), *args, **kwargs)
+        self._verts3d = xs, ys, zs
+
+    def draw(self, renderer):
+        xs3d, ys3d, zs3d = self._verts3d
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
+        self.set_positions((xs[0],ys[0]),(xs[1],ys[1]))
+        FancyArrowPatch.draw(self, renderer)
+
+#------------------------------------------------------------------------------#
+
+def quiver(vector_value, ax, g, **kwargs):
+
+    if vector_value.shape[1] == g.num_faces:
+        where = g.face_centers
+    elif vector_value.shape[1] == g.num_cells:
+        where = g.cell_centers
+    else:
+        raise ValueError
+
+    scale = kwargs.get('vector_scale', 0.02)
+    for v in np.arange(vector_value.shape[1]):
+        x = [where[0, v], where[0, v] + scale * vector_value[0, v]]
+        y = [where[1, v], where[1, v] + scale * vector_value[1, v]]
+        z = [where[2, v], where[2, v] + scale * vector_value[2, v]]
+        linewidth = kwargs.get('linewidth', 1)
+        a = Arrow3D(x, y, z, mutation_scale=5, linewidth=linewidth,
+                    arrowstyle="-|>", color="k", zorder=np.inf)
+        ax.add_artist(a)
+
     x, y, z = lim(ax, g.nodes)
     if not np.isclose(x[0], x[1]): ax.set_xlim3d( x )
     if not np.isclose(y[0], y[1]): ax.set_ylim3d( y )
