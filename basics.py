@@ -205,7 +205,7 @@ def add_point(vertices, pt, precision=1e-3, **kwargs):
 
 #-----------------------------------------------------------
 
-def is_polygon_ccw(poly):
+def is_ccw_polygon(poly):
     """
     Determine if the vertices of a polygon are sorted counter clockwise.
 
@@ -226,12 +226,15 @@ def is_polygon_ccw(poly):
     Returns:
         boolean, True if the polygon is ccw.
 
-    Examples:
-    >>> is_polygon_ccw(np.array([[0, 1, 0], [0, 0, 1]]))
-    True
+    See also:
+        is_ccw_polyline
 
-    >>> is_polygon_ccw(np.array([[0, 0, 1], [0, 1, 0]]))
-    False
+    Examples:
+        >>> is_ccw_polygon(np.array([[0, 1, 0], [0, 0, 1]]))
+        True
+
+        >>> is_ccw_polygon(np.array([[0, 0, 1], [0, 1, 0]]))
+        False
 
     """
     p_0 = np.append(poly[0], poly[0, 0])
