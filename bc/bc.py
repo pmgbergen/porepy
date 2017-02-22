@@ -30,25 +30,22 @@ class BoundaryCondition(object):
         self.dim = g.dim - 1
 
         # Find boundary faces
-        fi, ci = g.cell_faces.nonzero()
-        fcnt = accumarray.accum(fi, np.ones(fi.size))
-        bf = np.argwhere(fcnt == 1).ravel()
+        bf = g.get_boundary_faces()
 
-        self.is_bnd = np.zeros(self.num_faces, dtype=bool)
+        self.is_neu = np.zeros(self.num_faces, dtype=bool)
         self.is_dir = np.zeros(self.num_faces, dtype=bool)
 
-        self.is_bnd[bf] = True
-        self.is_neu = self.is_bnd
+        self.is_neu[bf] = True
 
         if faces is not None:
             # Validate arguments
             assert cond is not None
-            if not np.all(np.in1d(faces,bf)):
+            if not np.all(np.in1d(faces, bf)):
                 raise ValueError('Give boundary condition only on the boundary')
             if faces.size != len(cond):
                 raise ValueError('One BC per face')
 
-            for l in range(len(cond)):
+            for l in np.arange(faces.size):
                 s = cond[l]
                 if s.lower() == 'neu':
                     pass  # Neumann is already default
