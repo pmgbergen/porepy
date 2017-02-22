@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import sparse as sps
 from utils.half_space import half_space_int
-from core.grids.grid import Grid
+from core.grids.grid import Grid, FaceTag
 from utils.graph import Graph
 from gridding.utils import remove_nodes
 
@@ -139,6 +139,8 @@ def split_faces(g,h_list, f):
         g.face_normals = np.hstack((g.face_normals, -g.face_normals[:,frac]))
         g.face_areas   = np.append(g.face_areas, g.face_areas[frac])
         g.face_centers = np.hstack((g.face_centers, g.face_centers[:,frac]))
+        g.add_face_tag(frac, FaceTag.FRACTURE | FaceTag.BOUNDARY)
+        g.face_tags = np.append(g.face_tags, g.face_tags[frac])
 
         # Set new cell conectivity
         # Cells on right side does not change. We first add the new left-faces
