@@ -2,7 +2,7 @@ class Solver(object):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data)
+    def matrix_rhs(self, g, data):
         raise NotImplementedError("Method not implemented")
 
 #------------------------------------------------------------------------------#
