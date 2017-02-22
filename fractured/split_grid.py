@@ -303,6 +303,7 @@ def split_fractures(g,f,offset=0):
     graph.color_nodes()
     # Split the nodes along fractures
     split_nodes(g,f,graph,offset=offset)
+    g.cell_faces.eliminate_zeros()
     return g, h_list
 
 def extract_subgrid(g, c, sort=True):
