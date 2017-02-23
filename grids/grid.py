@@ -383,12 +383,12 @@ class Grid(object):
         # cell center as the final node
 
         # Mapping from edges to cells. Take absolute value of cell_faces,
-        # since the elementsn are signed (contains the divergence)
-        # Note that edge_2_cell will cotain more elements than edge_2_face,
+        # since the elements are signed (contains the divergence).
+        # Note that edge_2_cell will contain more elements than edge_2_face,
         # since the former will count internal faces twice (one for each
         # adjacent cell)
         edge_2_cell = edge_2_face * np.abs(self.cell_faces)
-        # Sort indices to avoid messing up the mappingsn later
+        # Sort indices to avoid messing up the mappings later
         edge_2_cell.sort_indices()
 
         # Obtain relations between edges, faces and cells, in the form of
