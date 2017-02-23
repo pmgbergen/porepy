@@ -912,10 +912,27 @@ class FractureSet(object):
         for p1, p2 in zip(proximate_fractures):
             pass
             # Check both point-point proximity and point-fracture-plane
-    def impose_external_boundary(self):
+
+
+    def impose_external_boundary(self, box, truncate_fractures=False):
+        """
+        Set an external boundary for the fracture set.
+
+        The boundary takes the form of a 3D box, described by its minimum and
+        maximum coordinates.
+
+        Parameters:
+            box (dictionary): Has fields 'xmin', 'xmax', and similar for y and
+                z.
+            truncate_fractures (boolean): If True, fractures outside the
+                bounding box will be disregarded, while fractures crossing the
+                boundary will be truncated. NOTE: Currently not in use.
+
+        """
         # Insert boundary in the form of a box, and kick out (parts of)
         # fractures outside the box
-        pass
+        self.domain = box
+       
 
     def distance_point_segment():
         pass
