@@ -178,13 +178,26 @@ def read_gmsh(out_file):
     return points, cells, phys_names, cell_info
 
 
-def run_gmsh(in_file, out_file, dims=2):
-    # Manually enter the path to gmsh; better options must surely exist
-    if sys.platform == 'windows' or sys.platform == 'win32':
-        path_to_gmsh = 'C:\Users\Eirik\Dropbox\workspace\python\'' \
-                       'gridding\gmsh\gmsh_win_214'
-    else:
-        path_to_gmsh = '/home/eke001/Dropbox/workspace/lib/gmsh/run/linux/gmsh'
+def run_gmsh(path_to_gmsh, in_file, out_file, dims):
+    """
+    Convenience function to run gmsh.
+
+    TODO: Add possibility of including options for gmsh.
+
+    Parameters:
+        path_to_gmsh (str): Path to the location of the gmsh binary
+        in_file (str): Name of gmsh configuration file (.geo)
+        out_file (str): Name of output file for gmsh (.msh)
+        dims (int): Number of dimensions gmsh should grid. If dims is less than
+            the geometry dimensions, gmsh will grid all lower-dimensional
+            objcets described in in_file (e.g. all surfaces embeded in a 3D
+            geometry).
+
+    Returns:
+        double: Status of the generation, as returned by os.system. 0 means the
+            simulation completed successfully, >0 signifies problems.
+
+    """
 
     if dims == 2:
         cmd = path_to_gmsh + ' -2 ' + in_file + ' -o ' + out_file
@@ -193,3 +206,4 @@ def run_gmsh(in_file, out_file, dims=2):
     status = os.system(cmd)
 
     return status
+
