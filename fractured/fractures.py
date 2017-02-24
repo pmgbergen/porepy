@@ -15,6 +15,8 @@ from compgeom import basics as cg
 from compgeom import sort_points
 from utils import setmembership
 from core.grids import simplex
+from gridding.gmsh.gmsh_interface import GmshWriter
+from gridding.constants import GmshConstants
 
 class Fracture(object):
 
@@ -1002,11 +1004,18 @@ class FractureSet(object):
     def proximate_fractures(self):
         # Find fractures with center distance less than the sum of their major axis + 2 * force length
         return fracture_pairs
-   
+ 
 
     def to_vtk(self):
         pass
 
-    def to_gmsh(self):
-        pass
+    def to_gmsh(self, file_name):
+        p = self.decomposition['points']
+        edges = self.decomposition['edges']
+        edges = np.vstack((self.decomposition['edges'],
+                           self._classify_edges()))
+
+        poly = self._poly_2_segment()
+        writer = GmshWriter(p, edges, polygons=poly, domain=self.domain)
+        writer.write_geo(file_name)
 
