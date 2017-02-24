@@ -14,8 +14,8 @@ class GmshWriter(object):
      compartments
     """
 
-    def __init__(self, pts, lines, domain=None, nd=None, lchar=None,
-                 lchar_bound=None, line_type=None):
+    def __init__(self, pts, lines, polygons=None, domain=None, nd=None, lchar=None,
+                 lchar_bound=None, line_type=None, intersection_points=None):
         """
 
         :param pts: np.ndarary, Points
@@ -24,6 +24,7 @@ class GmshWriter(object):
         """
         self.pts = pts
         self.lines = lines
+        self.polygons = polygons
         if nd is None:
             if pts.shape[0] == 2:
                 self.nd = 2
@@ -54,6 +55,7 @@ class GmshWriter(object):
         elif self.nd == 3:
             s += self.__write_boundary_3d()
             s += self.__write_lines()
+            s += self.__write_polygons()
 
         with open(file_name, 'w') as f:
             f.write(s)
@@ -207,6 +209,45 @@ class GmshWriter(object):
             s += ls
         s += '// End of line specification ' + ls + ls
         return s
+
+    def __write_polygons(self):
+
+        constants = gridding_constants.GmshConstants()
+        ls = '\n'
+        s = '// Start fracture specification' + ls
+        import pdb
+        pdb.set_trace()
+        for pi in range(len(self.polygons[0])):
+            p = self.polygons[0][pi].astype('int')
+            reverse = self.polygons[1][pi]
+            # First define line loop
+            s += 'frac_loop_' + str(pi) + ' = newll; '
+            s += 'Line Loop(frac_loop_' + str(pi) + ') = { '
+            for i, li in enumerate(p):
+                if reverse[i]:
+                    s += '-'
+                s += 'frac_line_' + str(li)
+                if i < p.size - 1:
+                    s += ', '
+
+            s +='};' + ls
+
+            # Then the surface
+            s += 'fracture_' + str(pi) + ' = news; '
+            s += 'Plane Surface(fracture_' + str(pi) + ') = {frac_loop_' \
+                + str(pi) + '};' + ls
+            s += 'Physical Surface(\"' + constants.PHYSICAL_NAME_FRACTURES \
+                 + str(pi) + '\") = {fracture_' + str(pi) + '};' + ls
+            s += 'Surface{fracture_' + str(pi) + '} In Volume{1};' + ls + ls
+
+        s += '// End of fracture specification' + ls + ls
+                
+        return s
+            
+
+
+    def __write_physical_points(self):
+       pass 
 
 
 
