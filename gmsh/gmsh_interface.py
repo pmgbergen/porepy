@@ -15,7 +15,7 @@ class GmshWriter(object):
     """
 
     def __init__(self, pts, lines, domain=None, nd=None, lchar=None,
-                 lchar_bound=None):
+                 lchar_bound=None, line_type=None):
         """
 
         :param pts: np.ndarary, Points
@@ -44,6 +44,7 @@ class GmshWriter(object):
             self.lchar_bound = 1
 
 
+
     def write_geo(self, file_name):
         s = self.__write_points()
 
@@ -52,6 +53,7 @@ class GmshWriter(object):
             s += self.__write_fractures_compartments_2d()
         elif self.nd == 3:
             s += self.__write_boundary_3d()
+            s += self.__write_lines()
 
         with open(file_name, 'w') as f:
             f.write(s)
@@ -169,6 +171,41 @@ class GmshWriter(object):
             s += '{' + str(p[0, i]) + ', ' + str(p[1, i]) + ', '\
                  + str(p[2, i]) + ', ' + str(self.lchar[i]) + ' };\n'
         s += '// End of point specification \n \n'
+        return s
+
+    def __write_lines(self, embed_in=None):
+        l = self.lines
+        num_lines = l.shape[1]
+        ls = '\n'
+        s = '// Define lines ' + ls
+        constants = gridding_constants.GmshConstants()
+        if l.shape[0] > 2:
+            lt = l[2]
+            has_tags = True
+        else:
+            has_tags = False
+        import pdb
+        pdb.set_trace()
+
+        for i in range(num_lines):
+            si = str(i)
+            s += 'frac_line_' + si + '= newl; Line(frac_line_' + si \
+                    + ') = {p' + str(l[0, i]) + ', p' + str(l[1, i]) \
+                    + '};' + ls
+            if has_tags:
+                s += 'Physical Line(\"'
+                if l[2, i] == constants.FRACTURE_TIP_TAG:
+                    s += constants.PHYSICAL_NAME_FRACTURE_TIP
+                elif l[2, i] == constants.FRACTURE_INTERSECTION_LINE_TAG:
+                    s += constants.PHYSICAL_NAME_FRACTURE_LINE
+                else:
+                    # This is a line that need not be physical (recognized by
+                    # the parser of output from gmsh).
+                    pass
+
+                s += si + '\") = {frac_line_' + si + '};' + ls
+            s += ls
+        s += '// End of line specification ' + ls + ls
         return s
 
 
