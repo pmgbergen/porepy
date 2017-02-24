@@ -140,6 +140,9 @@ def read(filename):
     for key in cell_info:
         cell_info[key] = numpy.vstack(cell_info[key])
 
+    if not 'physnames' in locals():
+        physnames = None
+
     return points, cells, physnames, cell_info
 
 def write(
