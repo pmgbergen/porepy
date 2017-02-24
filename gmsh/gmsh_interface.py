@@ -142,22 +142,23 @@ class GmshWriter(object):
         s += ls
 
         # Lines connecting points
-        s += 'bound_line_1 = newl; Line(bound_line_1) = { p_bound_000, \
-            p_bound_100};' + ls
-        s += 'bound_line_2 = newl; Line(bound_line_2) = { p_bound_100, \
-            p_bound_110};' + ls
-        s += 'bound_line_3 = newl; Line(bound_line_3) = { p_bound_110, \
-            p_bound_010};' + ls
-        s += 'bound_line_4 = newl; Line(bound_line_4) = { p_bound_010, \
-            p_bound_000};' +ls
+        s += 'bound_line_1 = newl; Line(bound_line_1) = { p_bound_000,' \
+            + 'p_bound_100};' + ls
+        s += 'bound_line_2 = newl; Line(bound_line_2) = { p_bound_100,' \
+            + 'p_bound_110};' + ls
+        s += 'bound_line_3 = newl; Line(bound_line_3) = { p_bound_110,' \
+            + 'p_bound_010};' + ls
+        s += 'bound_line_4 = newl; Line(bound_line_4) = { p_bound_010,' \
+            + 'p_bound_000};' +ls
         s += 'bottom_loop = newll;' + ls
-        s += 'Line Loop(bottom_loop) = {bound_line_1, bound_line_2, \
-                bound_line_3, bound_line_4};' + ls
+        s += 'Line Loop(bottom_loop) = {bound_line_1, bound_line_2, ' \
+               + 'bound_line_3, bound_line_4};' + ls
         s += 'bottom_surf = news;' + ls
         s += 'Plane Surface(bottom_surf) = {bottom_loop};' + ls
 
         dz = self.domain['zmax'] - self.domain['zmin']
         s += 'Extrude {0, 0, ' + str(dz) + '} {Surface{bottom_surf}; }' + ls
+        s += 'Physical Volume(\"' + constants.PHYSICAL_NAME_DOMAIN + '\") = {1};' + ls
         s += '// End of domain specification ' + ls + ls
 
         return s
