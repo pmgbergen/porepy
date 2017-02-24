@@ -824,16 +824,33 @@ class FractureSet(object):
 
                 # The boundary is expressed in terms of the local point
                 # numbering. Convert to global numbering.
-                boundary_glob = p_ind_loc[boundary]
+                boundary_glob = p_ind_loc[boundary].astype('int')
                 poly_segments.append(boundary_glob)
                 
                 poly_2_frac.append(fi)
                 # We have also implicitly defined a set of new edges
                 # (connecting intersections and fracture boundaries). For the
                 # moment, we rely on identifying these as the ones not located
-                # in the 
+                # in the
+        
+        # Add implicitly defined adges (between intersections and boundary)
+        # to the global edge list.
+        all_edges = np.empty((2, 0), dtype='int')
+        for p in poly_segments:
+            all_edges = np.hstack((all_edges, p))
 
-        return all_p, edges, is_boundary_edge, poly_segments, poly_2_frac
+        edge_exist, map_ind = setmembership.ismember_rows(all_edges, edges)
+        new_edge_ind = np.where([~i for i in edge_exist])[0]
+        new_edges = all_edges[:, new_edge_ind]
+        unique_new_edges, *rest = setmembership.unique_columns_tol(new_edges)
+        edges = np.hstack((edges, unique_new_edges))
+
+        self.decomposition = {'points': all_p,
+                      'edges': edges.astype('int'),
+                      'is_bound': is_boundary_edge,
+                      'polygons': poly_segments,
+                      'polygon_frac': poly_2_frac}
+
 
 
     def _points_2_plane(self, p_loc, edges_loc, p_ind_loc):
