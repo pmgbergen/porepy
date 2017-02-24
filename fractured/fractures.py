@@ -949,7 +949,48 @@ class FractureSet(object):
         # Insert boundary in the form of a box, and kick out (parts of)
         # fractures outside the box
         self.domain = box
-       
+
+    def _classify_edges(self):
+        edges = self.decomposition['edges']
+        is_bound = self.decomposition['is_bound']
+        num_edges = edges.shape[1]
+        num_constraints = len(is_bound)
+        constants = GmshConstants()
+
+        tag = np.zeros(num_edges, dtype='int')
+        bound_ind = np.where(is_bound)[0]
+        intersection_ind = np.setdiff1d(np.arange(num_constraints), bound_ind)
+        tag[bound_ind] = constants.FRACTURE_TIP_TAG
+        tag[intersection_ind] = constants.FRACTURE_INTERSECTION_LINE_TAG
+
+        return tag
+
+    def _poly_2_segment(self):
+        edges = self.decomposition['edges']
+        poly = self.decomposition['polygons']
+        
+        import pdb
+        pdb.set_trace()
+        poly_2_line = []
+        line_reverse = []
+        for p in poly:
+            hit, ind = setmembership.ismember_rows(p, edges[:2], sort=False)
+            hit_reverse, ind_reverse = setmembership.ismember_rows(p[::-1], edges[:2], sort=False)
+
+            assert np.all(hit + hit_reverse == 1)
+
+            line_ind = np.zeros(p.shape[1])
+
+            hit_ind = np.where(hit)[0]
+            hit_reverse_ind = np.where(hit_reverse)[0]
+            line_ind[hit_ind] = ind
+            line_ind[hit_reverse_ind] = ind_reverse
+
+            poly_2_line.append(line_ind)
+            line_reverse.append(hit_reverse)
+
+        return poly_2_line, line_reverse
+
 
     def distance_point_segment():
         pass
