@@ -47,8 +47,44 @@ def create_grid(fracs, box, **kwargs):
 
     pts, cells, phys_names, cell_info = gmsh_interface.read_gmsh(out_file)
 
-    tets = cells['tetra']
-    g_3d = simplex.TetrahedralGrid(pts, tets)
+    tet_cells = cells['tetra']
+    g_3d = simplex.TetrahedralGrid(pts.transpose(), tet_cells.transpose())
 
+    # Recover cells on fracture surfaces, and create grids
+    tri_cells = cells['triangle']
     
+    # Map from split polygons and fractures, as defined by the network
+    # decomposition
+    poly_2_frac = network.decomposition['polygon_frac']
+
+    num_tri = len(phys_names['triangle'])
+    gmsh_num = np.zeros(num_tri)
+    frac_num = np.zeros(num_tri)
+
+    for i, pn in enumerate(phys_names['triangle']):
+        offset = pn[2].rfind('_')
+        frac_num[i] = poly_2_frac[int(pn[2][offset+1:])]
+        gmsh_num[i] = pn[1]
+
+    # List of 2D grids, one for each surface
+    g_2d = []
+
+    for fi in np.unique(frac_num):
+        loc_num = np.where(frac_num == fi)[0]
+        loc_gmsh_num = gmsh_num[loc_num]
+
+        loc_tri_glob_ind = np.empty((0, 3))
+        for ti in loc_gmsh_num:
+            # It seems the gmsh numbering corresponding to the physical tags
+            # (as found in physnames) is stored in the first column of info
+            gmsh_ind = np.where(cell_info['triangle'][:, 0] == ti)[0]
+            loc_tri_glob_ind = np.vstack((loc_tri_glob_ind,
+                                          tri_cells[gmsh_ind, :]))
+
+        loc_tri_glob_ind = loc_tri_glob_ind.astype('int')
+        pind_loc, p_map = np.unique(loc_tri_glob_ind, return_inverse=True)
+        loc_tri_loc_ind = pind_loc[p_map].reshape((-1, 3))
+        g = simplex.TriangleGrid(pts[pind_loc, :].transpose(),
+                                         loc_tri_loc_ind.transpose())
+        g_2d.append(g)
 
