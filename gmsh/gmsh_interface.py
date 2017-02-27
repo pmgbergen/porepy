@@ -204,7 +204,7 @@ class GmshWriter(object):
                 else:
                     # This is a line that need not be physical (recognized by
                     # the parser of output from gmsh).
-                    pass
+                    s += constants.AUXILIARY_LINE
 
                 s += si + '\") = {frac_line_' + si + '};' + ls
             s += ls

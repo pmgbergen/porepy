@@ -24,5 +24,6 @@ class GmshConstants(object):
         # Physical name for fracture tips
         self.PHYSICAL_NAME_FRACTURE_TIP ='FRACTURE_TIP_'
         self.PHYSICAL_NAME_FRACTURE_LINE = 'FRACTURE_LINE_'
+        self.PHYSICAL_NAME_AUXILIARY_LINE = 'AUXILIARY_LINE_'
         self.PHYSICAL_NAME_FRACTURE_POINT = 'FRACTURE_POINT_'
 
