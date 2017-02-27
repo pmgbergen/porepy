@@ -9,7 +9,7 @@ generators etc.
 """
 import numpy as np
 
-import grid_2d, grid_3d
+from gridding.fractured import grid_2d, grid_3d
 
 
 def create_grid(fracs, domain, **kwargs):
@@ -25,7 +25,7 @@ def create_grid(fracs, domain, **kwargs):
 
     """
 
-    ndim = fracs.shape[0]
+    ndim = fracs[0].shape[0]
 
     # Call relevant method, depending on grid dimensions
     # Note: If we ever develop interfaces to grid generators other than gmsh,
@@ -35,7 +35,7 @@ def create_grid(fracs, domain, **kwargs):
         # This will fail, either change method parameters, or process data.
         grid_2d.create_grid(fracs)
     elif ndim == 3:
-        grid_3d.create_grid(fracs, domain)
+        grid_3d.create_grid(fracs, domain, **kwargs)
 
     # Somehow take care of the output, and return appropriate values.
 
