@@ -3,21 +3,21 @@ import numpy as np
 import gridding.constants
 from core.grids import simplex
 from gridding.gmsh import gmsh_interface, mesh_io
-from gridding.fractures import fractures
+from gridding.fractured import fractures
 
 def create_grid(fracs, box, **kwargs):
 
     # Verbosity level
-    verbose = kwargs.get('verbose', default=1)
+    verbose = kwargs.get('verbose', 1)
 
     # File name for communication with gmsh
-    file_name = kwargs.get('file_name', default='gmsh_frac_file')
+    file_name = kwargs.get('file_name', 'gmsh_frac_file')
 
     # Convert the fractures from numpy representation to our 3D fracture data
     # structure.
     frac_list = []
     for f in fracs:
-        frac_list.add(fractures.Fracture(f))
+        frac_list.append(fractures.Fracture(f))
 
     # Combine the fractures into a network
     network = fractures.FractureSet(frac_list)
@@ -31,11 +31,12 @@ def create_grid(fracs, box, **kwargs):
     network.find_intersections()
     network.split_intersections()
 
-    network.to_gmsh()
-    gmsh_path = gmsh_opts['path']
-
     in_file = file_name + '.geo'
     out_file = file_name + '.msh'
+
+    network.to_gmsh(in_file)
+    gmsh_path = kwargs.get('gmsh_path')
+
 
     gmsh_status = gmsh_interface.run_gmsh(gmsh_path, in_file, out_file, dims=3)
     
