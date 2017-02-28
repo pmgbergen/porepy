@@ -52,7 +52,7 @@ def create_grid(fracs, box, **kwargs):
     pts, cells, phys_names, cell_info = gmsh_interface.read_gmsh(out_file)
 
     tet_cells = cells['tetra']
-    g_3d = simplex.TetrahedralGrid(pts.transpose(), tet_cells.transpose())
+    g_3d = [simplex.TetrahedralGrid(pts.transpose(), tet_cells.transpose())]
 
     # Recover cells on fracture surfaces, and create grids
     tri_cells = cells['triangle']
