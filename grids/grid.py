@@ -15,6 +15,13 @@ from utils import matrix_compression, half_space, mcolon
 from compgeom import basics as cg
 from compgeom.sort_points import sort_point_pairs
 
+class FaceTag(np.uint8, Enum):
+    NONE = 0
+    BOUNDARY = 1
+    FRACTURE = 2
+#   NEXT = 4
+    WHOLE = np.iinfo(type(NONE)).max
+
 class Grid(object):
     """
     Parent class for all grids.
@@ -29,7 +36,7 @@ class Grid(object):
         Comes in two classes. Topologogical information, defined at
         construction time:
 
-        dim (int): dimension. Should be 1 or 2 or 3
+        dim (int): dimension. Should be 0 or 1 or 2 or 3
         nodes (np.ndarray): node coordinates. size: dim x num_nodes
         face_nodes (sps.csc-matrix): Face-node relationships. Matrix size:
             num_faces x num_cells. To use compute_geometry() later, he field
@@ -71,6 +78,7 @@ class Grid(object):
         cell_faces (sps.csc_matrix): Cell-face relations
         name (str): Name of grid
         """
+        assert dim>=0 and dim<=3
         self.dim = dim
         self.nodes = nodes
         self.cell_faces = cell_faces
@@ -85,6 +93,10 @@ class Grid(object):
         self.num_nodes = nodes.shape[1]
         self.num_faces = face_nodes.shape[1]
         self.num_cells = cell_faces.shape[1]
+
+        # Add tag for the boundary faces
+        self.face_tags = np.tile(FaceTag.NONE, self.num_faces)
+        self.update_boundary_face_tag()
 
     def copy(self):
         """
@@ -106,6 +118,8 @@ class Grid(object):
             h.face_normals = self.face_normals.copy()
         if hasattr(self, 'face_areas'):
             h.face_areas = self.face_areas.copy()
+        if hasattr(self, 'face_tags'):
+            h.face_tags = self.face_tags.copy()
         return h
 
     def __repr__(self):
@@ -136,12 +150,23 @@ class Grid(object):
 
         self.name.append('Compute geometry')
 
-        if self.dim == 1:
+        if self.dim == 0:
+            self.__compute_geometry_0d()
+        elif self.dim == 1:
             self.__compute_geometry_1d()
         elif self.dim == 2:
             self.__compute_geometry_2d(is_embedded, is_starshaped)
         else:
             self.__compute_geometry_3d()
+
+    def __compute_geometry_0d(self):
+        "Compute 0D geometry"
+        self.face_areas = np.ones(1)
+        self.face_centers = self.nodes
+        self.face_normals = np.zeros(3) # not well-defined
+
+        self.cell_volumes = np.ones(1)
+        self.cell_centers = self.nodes
 
     def __compute_geometry_1d(self):
         "Compute 1D geometry"
@@ -496,9 +521,7 @@ class Grid(object):
             np.ndarray (1d), index of internal faces.
 
         """
-        return np.setdiff1d(np.arange(self.num_faces), self.get_boundary_faces(),
-                            assume_unique=True)
-
+        return self.indices(self.has_not_face_tag(FaceTag.BOUNDARY))
 
     def get_boundary_faces(self):
         """
@@ -508,9 +531,7 @@ class Grid(object):
             np.ndarray (1d), index of boundary faces
 
         """
-        return np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel(1)
-                           == 1).ravel(1)
-
+        return self.indices(self.has_face_tag(FaceTag.BOUNDARY))
 
     def get_boundary_nodes(self):
         """
@@ -525,6 +546,10 @@ class Grid(object):
         second = self.face_nodes.indptr[b_faces+1]-1
         return np.unique(self.face_nodes.indices[mcolon.mcolon(first, second)])
 
+    def update_boundary_face_tag(self):
+        bd_faces = np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel(1)
+                                                                  == 1).ravel(1)
+        self.add_face_tag(bd_faces, FaceTag.BOUNDARY)
 
     def cell_diameters(self, cn = None):
         """
@@ -603,3 +628,20 @@ class Grid(object):
 
         return c2c
 
+    def add_face_tag(self, f, tag):
+        self.face_tags[f] = np.bitwise_or(self.face_tags[f], tag)
+
+    def remove_face_tag(self, f, tag):
+        self.face_tags[f] = np.bitwise_and(self.face_tags[f], np.bitwise_not(tag))
+
+    def has_face_tag(self, tag):
+        return np.bitwise_and(self.face_tags, tag).astype(np.bool)
+
+    def has_not_face_tag(self, tag):
+        return self.has_face_tag(np.bitwise_not(tag))
+
+    def has_only_face_tag(self, tag):
+        return self.face_tags == tag
+
+    def indices(self, true_false):
+        return np.argwhere(true_false).ravel(1)
