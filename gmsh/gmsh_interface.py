@@ -56,6 +56,8 @@ class GmshWriter(object):
             s += self.__write_boundary_3d()
             s += self.__write_lines()
             s += self.__write_polygons()
+            s += self.__write_physical_points()
+            
 
         with open(file_name, 'w') as f:
             f.write(s)
@@ -248,7 +250,16 @@ class GmshWriter(object):
 
 
     def __write_physical_points(self):
-       pass 
+        ls = '\n'
+        s = '// Start physical point specification' + ls
+
+        constants = gridding_constants.GmshConstants()
+
+        for i, p in enumerate(self.intersection_points):
+            s += 'Physical Point(\"' + constants.PHYSICAL_NAME_FRACTURE_POINT \
+                    + str(i) + '\") = p' + str(p) + '};' + ls
+        s += '// End of physical point specification ' + ls + ls
+        return s
 
 
 
