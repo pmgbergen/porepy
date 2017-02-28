@@ -90,7 +90,13 @@ def create_grid(fracs, box, **kwargs):
         loc_tri_loc_ind = pind_loc[p_map].reshape((-1, 3))
         g = simplex.TriangleGrid(pts[pind_loc, :].transpose(),
                                          loc_tri_loc_ind.transpose())
+
+        # Add mapping to global point numbers
+        g.global_point_numbers = pind_loc
+
+        # Append to list of 2d grids
         g_2d.append(g)
+
 
 
     # Recover lines
@@ -153,12 +159,18 @@ def create_grid(fracs, box, **kwargs):
             assert np.sum(active_dimension) == 1
             
             # Sort nodes, and create grid
-            sorted_coord = np.sort(loc_coord[active_dimension])
+            coord_1d = loc_coord[active_dimension][0]
+            sort_ind = np.argsort(coord_1d)[0]
+            sorted_coord = coord_1d[sort_ind]
             g = structured.TensorGrid(sorted_coord)
 
             # Project back again to 3d coordinates
             irot = rot.transpose()
             g.nodes = irot.dot(g.nodes) + loc_coord
+
+            # Add mapping to global point numbers
+            g.global_point_numbers = loc_pts_1d[sort_ind]
+
             g_1d.append(g)
 
         else:  # Auxiliary line
@@ -171,6 +183,7 @@ def create_grid(fracs, box, **kwargs):
     g_0d = []
     for pi in point_cells:
         g = point_grid.PointGrid(pts[pi])
+        g.global_point_numbers = np.asarray(pi)
         g_0d.append(g)
 
 
