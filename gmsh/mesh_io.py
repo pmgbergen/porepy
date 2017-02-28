@@ -112,6 +112,7 @@ def read(filename):
                                          'Physical name')}
                 gmsh_to_meshio_type = {
                     15: ('vertex', 1),
+                    0: ('point', 1),
                     1: ('line', 2),
                     2: ('triangle', 3),
                     3: ('quad', 4),
