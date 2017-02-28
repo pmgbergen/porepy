@@ -44,6 +44,9 @@ class GmshWriter(object):
         if lchar_bound is None:
             self.lchar_bound = 1
 
+        # Points that should be decleared physical (intersections between 3
+        # fractures)
+        self.intersection_points = intersection_points
 
 
     def write_geo(self, file_name):
@@ -130,6 +133,7 @@ class GmshWriter(object):
         h = str(self.lchar_bound) + '};'
         ls = '\n'
 
+        constants = gridding_constants.GmshConstants()
         s = '// Define bounding box \n'
 
         # Points in bottom of box
@@ -257,7 +261,7 @@ class GmshWriter(object):
 
         for i, p in enumerate(self.intersection_points):
             s += 'Physical Point(\"' + constants.PHYSICAL_NAME_FRACTURE_POINT \
-                    + str(i) + '\") = p' + str(p) + '};' + ls
+                    + str(i) + '\") = {p' + str(p) + '};' + ls
         s += '// End of physical point specification ' + ls + ls
         return s
 
