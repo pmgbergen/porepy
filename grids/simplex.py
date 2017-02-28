@@ -40,9 +40,9 @@ class TriangleGrid(Grid):
         # requires this format)
         pdims = p.shape
 
-        if p.shape[0] != 2:
-            raise NotImplementedError("Have not yet implemented triangle grids "
-                                      "embeded in 2D")
+#        if p.shape[0] != 2:
+#            raise NotImplementedError("Have not yet implemented triangle grids "
+#                                      "embeded in 2D")
         if tri is None:
             tri = scipy.spatial.Delaunay(p.transpose())
             tri = tri.simplices
@@ -51,7 +51,11 @@ class TriangleGrid(Grid):
         num_nodes = p.shape[1]
 
         # Add a zero z-coordinate
-        nodes = np.vstack( (p, np.zeros(num_nodes)) )
+        if p.shape[0] == 2:
+            nodes = np.vstack( (p, np.zeros(num_nodes)) )
+        else:
+            nodes = p
+
         assert num_nodes > 2   # Check of transposes of point array
 
         # Face node relations
