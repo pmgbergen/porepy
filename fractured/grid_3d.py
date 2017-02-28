@@ -1,7 +1,7 @@
 import numpy as np
 
 import gridding.constants
-from core.grids import simplex, structured
+from core.grids import simplex, structured, point_grid
 from gridding.gmsh import gmsh_interface, mesh_io
 from gridding.fractured import fractures
 import compgeom.sort_points
@@ -161,11 +161,17 @@ def create_grid(fracs, box, **kwargs):
             g.nodes = irot.dot(g.nodes) + loc_coord
             g_1d.append(g)
 
-            import pdb
-            pdb.set_trace()
-
         else:  # Auxiliary line
             pass
+
+
+    # Find 0-d grids (points)
+    # We know the points are 1d, so squeeze the superflous dimension
+    point_cells = cells['vertex'].ravel()
+    g_0d = []
+    for pi in point_cells:
+        g = point_grid.PointGrid(pts[pi])
+        g_0d.append(g)
 
 
 
@@ -173,4 +179,4 @@ def create_grid(fracs, box, **kwargs):
     import pdb
     pdb.set_trace()
 
-    return g_3d, g_2d, g_1d
+    return g_3d, g_2d, g_1d, g_0d
