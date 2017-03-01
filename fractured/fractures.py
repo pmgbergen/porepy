@@ -396,7 +396,8 @@ class Intersection(object):
                  str(self.coord[2, i]) + ') \n'
         return s
 
-    def get_other(self, i):
+
+    def get_other_fracture(self, i):
         if self.first == i:
             return self.second
         else:
@@ -419,9 +420,11 @@ class FractureNetwork(object):
         self.intersections = []
 
         self._has_checked_intersections = False
-
+        self.tol = 1e-8
 
     def add(self, f):
+        # Careful here, if we remove one fracture and then add, we'll have
+        # identical indices.
         f.set_index(len(self._fractures))
         self._fractures.append(f)
 
@@ -430,6 +433,9 @@ class FractureNetwork(object):
 
 
     def get_intersections(self, frac):
+        """
+        Get all intersections in the plane of a given fracture.
+        """
         if frac is None:
             frac = np.arange(len(self._fractures))
         if isinstance(frac, np.ndarray):
@@ -445,11 +451,11 @@ class FractureNetwork(object):
                     isect_loc.append(i)
             isect.append(isect_loc)
         return isect
-        
+
     def find_intersections(self, use_orig_points=True):
 
         # Before searching for intersections, reset the fracture polygons to
-        # their original state. If this is not done, multiple seacrhes for
+        # their original state. If this is not done, multiple searches for
         # intersections will find points that are already vertexes (from the
         # previous call). A more robust implementation of the intersection
         # finder may take care of this, but for the moment, we go for this.
@@ -970,9 +976,7 @@ class FractureNetwork(object):
     def _poly_2_segment(self):
         edges = self.decomposition['edges']
         poly = self.decomposition['polygons']
-        
-        import pdb
-        pdb.set_trace()
+
         poly_2_line = []
         line_reverse = []
         for p in poly:
