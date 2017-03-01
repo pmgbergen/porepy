@@ -112,6 +112,7 @@ def read(filename):
                                          'Physical name')}
                 gmsh_to_meshio_type = {
                     15: ('vertex', 1),
+                    0: ('point', 1),
                     1: ('line', 2),
                     2: ('triangle', 3),
                     3: ('quad', 4),
@@ -139,6 +140,9 @@ def read(filename):
         cells[key] = numpy.vstack(cells[key])
     for key in cell_info:
         cell_info[key] = numpy.vstack(cell_info[key])
+
+    if not 'physnames' in locals():
+        physnames = None
 
     return points, cells, physnames, cell_info
 

@@ -2,3 +2,6 @@
 *.msh
 *.geo
 *.exe
+*.swp
+*.py~
+*.un~

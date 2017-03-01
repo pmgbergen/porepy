@@ -3,7 +3,7 @@ from scipy import sparse as sps
 from utils.half_space import half_space_int
 from core.grids.grid import Grid, FaceTag
 from utils.graph import Graph
-from gridding.utils import remove_nodes
+
 
 
 class Fracture:
@@ -306,6 +306,19 @@ def split_fractures(g,f,offset=0):
     g.cell_faces.eliminate_zeros()
     return g, h_list
 
+def remove_nodes(g, rem):
+    """
+    Remove nodes from grid.
+    g - a valid grid definition
+    rem - a ndarray of indecies of nodes to be removed
+    """
+    all_rows = np.arange(g.face_nodes.shape[0])
+    rows_to_keep = np.where(np.logical_not(np.in1d(all_rows, rem)))[0]
+    g.face_nodes = g.face_nodes[rows_to_keep,:]
+    g.nodes = g.nodes[:,rows_to_keep]
+    return g
+
+
 def extract_subgrid(g, c, sort=True):
     """
     Extract a subgrid based on cell indices.
@@ -379,3 +392,5 @@ def __extract_submatrix(mat, ind):
     unique_rows, rows_sub = np.unique(sub_mat.indices,
                                       return_inverse=True)
     return sps.csc_matrix((data, rows_sub, cols)), unique_rows
+
+
