@@ -475,8 +475,20 @@ class FractureNetwork(object):
 
 
     def split_intersections(self):
+        """
+        Based on the fracture network, and their known intersections, decompose
+        the fractures into non-intersecting sub-polygons. These can
+        subsequently be exported to gmsh.
+
+        The method will add an atribute decomposition to self.
+
+        """
+
+        # First, collate all points and edges used to describe fracture
+        # boundaries and intersections.
         all_p, edges,\
                 edges_2_frac, is_boundary_edge = self._point_and_edge_lists()
+
         # By now, all segments in the grid are defined by a unique set of
         # points and edges. The next task is to identify intersecting edges,
         # and split them.
@@ -484,6 +496,7 @@ class FractureNetwork(object):
                 edges_2_frac, is_boundary_edge = \
                 self._remove_edge_intersections(all_p, edges, edges_2_frac,
                                                 is_boundary_edge)
+
         # With all edges being non-intersecting, the next step is to split the
         # fractures into polygons formed of boundary edges, intersection edges
         # and auxiliary edges that connect the boundary and intersections.
@@ -494,6 +507,7 @@ class FractureNetwork(object):
             poly_2_frac = self._split_into_polygons(all_p, edges, edges_2_frac,
                                                     is_boundary_edge)
 
+        # Store the full decomposition.
         self.decomposition = {'points': all_p,
                       'edges': edges.astype('int'),
                       'is_bound': is_boundary_edge,
@@ -501,6 +515,23 @@ class FractureNetwork(object):
                       'polygon_frac': poly_2_frac}
 
     def _point_and_edge_lists(self):
+        """
+        Obtain lists of all points and connections necessary to describe
+        fractures and their intersections.
+
+        Returns:
+            np.ndarray, 3xn: Unique coordinates of all points used to describe
+            the fracture polygons, and their intersections.
+
+            np.ndarray, 2xn_edge: Connections between points, formed either
+                by a fracture boundary, or a fracture intersection.
+            list: For each edge, index of all fractures that point to the
+                edge.
+            np.ndarray of bool (size=num_edges): A flag telling whether the
+                edge is on the boundary of a fracture.
+
+        """
+
         # Field for all points in the fracture description
         all_p = np.empty((3, 0))
         # All edges, either as fracture boundary, or fracture intersection
@@ -586,19 +617,36 @@ class FractureNetwork(object):
         return all_p, edges, edges_2_frac, is_boundary_edge
 
 
+    def _remove_edge_intersections(self, all_p, edges, edges_2_frac,
+                                   is_boundary_edge):
+        """
+        Remove crossings from the set of fracture intersections.
 
-        # QUESTION: How do we differ between a boundary segment shared by two
-        # fractures and an interior fracture (needed in gmsh filter later). For
-        # now, we try to use is_boundary_edge.
+        Intersecting intersections (yes) are split, and new points are
+        introduced.
+
+        Parameters:
+            all_p (np.ndarray, 3xn): Coordinates of all points used to describe
+                the fracture polygons, and their intersections. Should be
+                unique.
+            edges (np.ndarray, 2xn): Connections between points, formed either
+                by a fracture boundary, or a fracture intersection.
+            edges_2_frac (list): For each edge, index of all fractures that
+                point to the edge.
+            is_boundary_edge (np.ndarray of bool, size=num_edges): A flag
+                telling whether the edge is on the boundary of a fracture.
+
+        Returns:
+            The same fields, but updated so that all edges are
+            non-intersecting.
+
+        """
 
         # The algorithm loops over all fractures, pulls out edges associated
         # with the fracture, project to the local 2D plane, and look for
         # intersections there (direct search in 3D may also work, but this was
         # a simple option). When intersections are found, the global lists of
         # points and edges are updated.
-
-    def _remove_edge_intersections(self, all_p, edges, edges_2_frac,
-                                   is_boundary_edge):
         for fi, frac in enumerate(self._fractures):
 
             # Identify the edges associated with this fracture
@@ -690,6 +738,62 @@ class FractureNetwork(object):
         # intersection edge.
 
     def _split_into_polygons(self, all_p, edges, edges_2_frac, is_boundary_edge):
+        """
+        Split the fracture surfaces into non-intersecting polygons.
+
+        Starting from a description of the fracture polygons and their
+        intersection lines (which should be non-intersecting), the fractures
+        are split into sub-polygons which they may share a boundary, but no
+        sub-polygon intersect the surface of another. This step is necessary
+        for the fracture network to be ammenable to gmsh.
+
+        The sub-polygons are defined by drawing auxiliary lines between
+        fracture points. This expands the global set of edges, but not the
+        points. The auxiliary lines will be sent to gmsh as constraints on the
+        gridding algorithm.
+
+        TODO: The restriction that the auxiliary lines can only be drawn
+        between existing lines can create unfortunate constraints in the
+        gridding, in terms of sharp angles etc. This can be alleviated by
+        adding additional points to the global description. However, if a point
+        is added to an intersection edge, this will require an update of all
+        fractures sharing that intersection. Not sure what the right thing to
+        do here is.
+
+        Parameters:
+            all_p (np.ndarray, 3xn): Coordinates of all points used to describe
+                the fracture polygons, and their intersections. Should be
+                unique.
+            edges (np.ndarray, 2xn): Connections between points, formed either
+                by a fracture boundary, or a fracture intersection.
+            edges_2_frac (list): For each edge, index of all fractures that
+                point to the edge.
+            is_boundary_edge (np.ndarray of bool, size=num_edges): A flag
+                telling whether the edge is on the boundary of a fracture.
+
+        Returns:
+            np.ndarray (3xn_pt): Coordinates of all points used to describe the
+                fractures.
+            np.ndarray (3xn_edges): Connections between points, formed by
+                fracture boundaries, fracture intersections, or auxiliary lines
+                needed to form sub-polygons. The auxiliary lines will be added
+                towards the end of the array.
+            np.ndarray (boolean, 3xn_edges_orig): Flag telling if an edge is on
+                the boundary of a fracture. NOTE: The list is *not* expanded as
+                auxiliary lines are added; these are known to not be on the
+                boundary. The legth of this output, relative to the second, can
+                thus be used to flag auxiliary lines.
+            list of np.ndarray: Each item contains a sub-polygon, specified by
+                the global indices of its vertices.
+            list of int: For each sub-polygon, index of the fracture it forms a
+                part of.
+
+            Note that for the moment, the first and third outputs are not
+            modified compared to respective input. This will change if the
+            splitting is allowed to introduce new additional points.
+
+        """
+
         # For each polygon, list of segments that make up the polygon
         poly_segments = []
         # Which fracture is the polygon part of
