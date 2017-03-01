@@ -166,11 +166,11 @@ def create_grid(fracs, box, **kwargs):
             active_dimension = np.logical_not(np.isclose(sum_coord, 0))
             # Check that we are indeed in 1d
             assert np.sum(active_dimension) == 1
-            
+
             # Sort nodes, and create grid
-            coord_1d = loc_coord[active_dimension][0]
+            coord_1d = loc_coord[active_dimension]
             sort_ind = np.argsort(coord_1d)[0]
-            sorted_coord = coord_1d[sort_ind]
+            sorted_coord = coord_1d[0, sort_ind]
             g = structured.TensorGrid(sorted_coord)
 
             # Project back again to 3d coordinates
