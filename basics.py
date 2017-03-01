@@ -299,6 +299,8 @@ def is_inside_polygon(poly, p, tol=0, default=False):
     """
     Check if a set of points are inside a polygon.
 
+    The method assumes that the polygon is convex.
+
     Paremeters:
         poly (np.ndarray, 2 x n): vertexes of polygon. The segments are formed by
             connecting subsequent columns of poly
