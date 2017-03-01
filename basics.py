@@ -614,7 +614,6 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
             return None
 
 #----------------------------------------------------------------------------#
-from compgeom import basics
 
 # Represent the polygon as a sympy polygon
 def _np2p(p):
@@ -708,8 +707,6 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
 
     TODO:
         1) Also cover case where the one polygon ends in the plane of the other.
-        2) Replace sympy.in_polygon with self-implemented check, should be
-        simple using ccw.
 
     Parameters:
         poly_1 (np.ndarray, 3xn1): Vertexes of polygon, assumed ordered as cw or
@@ -737,7 +734,7 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     poly_2 = poly_2 - center_1
 
     # Obtain the rotation matrix that projects p1 to the xy-plane
-    rot = basics.project_plane_matrix(poly_1)
+    rot = project_plane_matrix(poly_1)
     irot = rot.transpose()
     poly_1_xy = rot.dot(poly_1)
 
