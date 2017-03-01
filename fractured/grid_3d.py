@@ -76,6 +76,23 @@ def create_grid(fracs, box, **kwargs):
 
     pts, cells, phys_names, cell_info = gmsh_interface.read_gmsh(out_file)
 
+    # Call upon helper functions to create grids in various dimensions. 
+    # The constructors require somewhat different information, reflecting the
+    # different nature of the grids.
+    g_3d = _create_3d_grids(pts, cells)
+    g_2d = _create_2d_grids(pts, cells, phys_names, cell_info, network)
+    g_1d, tip_pts = _create_1d_grids(pts, cells, phys_names, cell_info)
+    g_0d = _create_0d_grids(pts, cells)
+
+    grids = [g_3d, g_2d, g_1d, g_0d]
+
+    _obtain_interdim_mappings(grids)
+
+    # We should also return the result of interdim_mappings, and possibly
+    # tip_pts?
+    return grids
+
+def _create_3d_grids(pts, cells):
     tet_cells = cells['tetra']
     g_3d = simplex.TetrahedralGrid(pts.transpose(), tet_cells.transpose())
 
@@ -87,10 +104,13 @@ def create_grid(fracs, box, **kwargs):
     # This may also become useful in the future if we ever implement domain
     # decomposition approaches based on gmsh.
     g_3d = [g_3d]
+    return g_3d
 
+
+def _create_2d_grids(pts, cells, phys_names, cell_info, network):
     # Recover cells on fracture surfaces, and create grids
     tri_cells = cells['triangle']
-    
+
     # Map from split polygons and fractures, as defined by the network
     # decomposition
     poly_2_frac = network.decomposition['polygon_frac']
@@ -129,8 +149,10 @@ def create_grid(fracs, box, **kwargs):
 
         # Append to list of 2d grids
         g_2d.append(g)
+    return g_2d
 
 
+def _create_1d_grids(pts, cells, phys_names, cell_info):
     # Recover lines
     # There will be up to three types of physical lines: intersections (between
     # fractures), fracture tips, and auxiliary lines (to be disregarded)
@@ -165,9 +187,6 @@ def create_grid(fracs, box, **kwargs):
             tip_pts = np.append(tip_pts, np.unique(loc_line_pts))
 
         elif line_type == gmsh_const.PHYSICAL_NAME_FRACTURE_LINE[:-1]:
-
-
-
             loc_pts_1d = np.unique(loc_line_pts)#.flatten()
 
             loc_coord = pts[loc_pts_1d, :].transpose()
@@ -208,7 +227,10 @@ def create_grid(fracs, box, **kwargs):
         else:  # Auxiliary line
             pass
 
+    return g_1d, tip_pts
 
+
+def _create_0d_grids(pts, cells):
     # Find 0-d grids (points)
     # We know the points are 1d, so squeeze the superflous dimension
     g_0d = []
@@ -218,12 +240,12 @@ def create_grid(fracs, box, **kwargs):
             g = point_grid.PointGrid(pts[pi])
             g.global_point_ind = np.asarray(pi)
             g_0d.append(g)
+    return g_0d
 
 
+def _obtain_interdim_mappings(grids):
     # Next, find mappings between faces in one dimension and cells in the lower
     # dimension
-    # Collect all grids in a list
-    grids = [g_3d, g_2d, g_1d, g_0d]
     for dim in range(len(grids)-1):
         for g in grids[dim]:
             # Sort the face nodes for simple comparison. np.sort returns a copy
@@ -250,4 +272,3 @@ def create_grid(fracs, box, **kwargs):
                 # lower-dimensional grid, the index of the corresponding face
                 # in the higher-dimensional structure.
 
-    return g_3d, g_2d, g_1d, g_0d
