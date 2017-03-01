@@ -274,11 +274,14 @@ def _obtain_interdim_mappings(grids):
                     cn = lg.global_point_ind[cn_loc]
                     cn = np.sort(cn, axis=0)
                 else:
-                    cn = g.global_point_inds
+                    cn = np.array([lg.global_point_ind])
+                    # We also know that the higher-dimensional grid has faces
+                    # of a single node. This sometimes fails, so enforce it.
+                    fn = fn.ravel()
 
-                is_mem, cell_map = setmembership.ismember_rows(cn, fn)
-                assert np.all(is_mem)
-                # An element in cell_map gives, for all cells in the
+                is_mem, cell_2_face = setmembership.ismember_rows(cn, fn)
+
+                # An element in cell_2_face gives, for all cells in the
                 # lower-dimensional grid, the index of the corresponding face
                 # in the higher-dimensional structure.
-
+                low_dim_cell = np.where(is_mem)[0]
