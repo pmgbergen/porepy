@@ -6,7 +6,7 @@ from gridding.gmsh import gmsh_interface, mesh_io
 from gridding.fractured import fractures
 import compgeom.sort_points
 import compgeom.basics as cg
-
+from utils import setmembership
 
 def create_grid(fracs, box, **kwargs):
 
@@ -106,7 +106,6 @@ def create_grid(fracs, box, **kwargs):
         g_2d.append(g)
 
 
-
     # Recover lines
     # There will be up to three types of physical lines: intersections (between
     # fractures), fracture tips, and auxiliary lines (to be disregarded)
@@ -187,14 +186,46 @@ def create_grid(fracs, box, **kwargs):
 
     # Find 0-d grids (points)
     # We know the points are 1d, so squeeze the superflous dimension
-    point_cells = cells['vertex'].ravel()
     g_0d = []
-    for pi in point_cells:
-        g = point_grid.PointGrid(pts[pi])
-        g.global_point_numbers = np.asarray(pi)
-        g_0d.append(g)
+    if 'vertex' in cells:
+        point_cells = cells['vertex'].ravel()
+        for pi in point_cells:
+            g = point_grid.PointGrid(pts[pi])
+            g.global_point_numbers = np.asarray(pi)
+            g_0d.append(g)
 
 
+    # Next, find mappings between faces in one dimension and cells in the lower
+    # dimension
+    # Collect all grids in a list
+    grids = [g_3d, g_2d, g_1d, g_0d]
+    for dim in range(len(grids)-1):
+        for g in grids[dim]:
+            # Sort the face nodes for simple comparison. np.sort returns a copy
+            # of the list, 
+            fn_loc = g.face_nodes.indices.reshape((g.dim, g.num_faces),
+                                                  order='F')
+            # Convert to global numbering
+            fn = g.global_point_numbers[fn_loc]
+            fn = np.sort(fn, axis=0)
+
+            for lg in grids[dim+1]:
+                if lg.dim > 0:
+                    cn_loc = lg.cell_nodes().indices.reshape((lg.dim+1,
+                                                              lg.num_cells),
+                                                             order='F')
+                    cn = lg.global_point_numbers[cn_loc]
+                    cn = np.sort(cn, axis=0)
+                else:
+                    cn = g.global_point_numbers
+
+                is_mem, cell_map = setmembership.ismember_rows(cn, fn)
+                assert np.all(is_mem)
+                # An element in cell_map gives, for all cells in the
+                # lower-dimensional grid, the index of the corresponding face
+                # in the higher-dimensional structure.
+                import pdb
+                pdb.set_trace()
 
 
     import pdb
