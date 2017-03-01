@@ -361,7 +361,7 @@ def dist_point_pointset(p, pset, exponent=2):
 
 #------------------------------------------------------------------------------#
 
-def lines_intersect(start_1, end_1, start_2, end_2):
+def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
     """
     Check if two line segments defined by their start end endpoints, intersect.
 
@@ -400,31 +400,48 @@ def lines_intersect(start_1, end_1, start_2, end_2):
             not intersect.
 
     """
-
-
-    # It seems that if sympy is provided point coordinates as integers, it may
-    # do calculations in integers also, with an unknown approach to rounding.
-    # Cast the values to floats to avoid this. It is not the most pythonic
-    # style, but tracking down such a bug would have been a nightmare.
     start_1 = np.asarray(start_1).astype(np.float)
     end_1 = np.asarray(end_1).astype(np.float)
     start_2 = np.asarray(start_2).astype(np.float)
     end_2 = np.asarray(end_2).astype(np.float)
 
-    p1 = sympy.Point(start_1[0], start_1[1])
-    p2 = sympy.Point(end_1[0], end_1[1])
-    p3 = sympy.Point(start_2[0], start_2[1])
-    p4 = sympy.Point(end_2[0], end_2[1])
+    d_1 = end_1 - start_1
+    d_2 = end_2 - start_2
 
-    l1 = sympy.Segment(p1, p2)
-    l2 = sympy.Segment(p3, p4)
+    d_s = start_2 - start_1
 
-    isect = l1.intersection(l2)
-    if isect is None or len(isect) == 0:
-        return None
+    discr = d_1[0] * d_2[1] - d_1[1] * d_2[0]
+
+    if np.abs(discr) < tol:
+        start_cross_line = d_s[0] * d_1[1] - d_s[1] * d_1[0]
+        if np.abs(start_cross_line) < tol:
+            # Lines are co-linear
+            # This can be treated by straightforward algebra, but for the
+            # moment, we call upon sympy to solve this.
+            p1 = sympy.Point(start_1[0], start_1[1])
+            p2 = sympy.Point(end_1[0], end_1[1])
+            p3 = sympy.Point(start_2[0], start_2[1])
+            p4 = sympy.Point(end_2[0], end_2[1])
+
+            l1 = sympy.Segment(p1, p2)
+            l2 = sympy.Segment(p3, p4)
+
+            isect = l1.intersection(l2)
+            if isect is None or len(isect) == 0:
+                return None
+            else:
+                p = isect[0]
+                return np.array([[p.x], [p.y]], dtype='float')
+        else:
+            # Lines are parallel, but not colinear
+            return None
     else:
-        p = isect[0]
-        return np.array([[p.x], [p.y]], dtype='float')
+        t = (d_s[0] * d_2[1] - d_s[1] * d_2[0]) / discr
+        isect = start_1 + t * d_1
+        if t >= 0 and t <= 1:
+            return np.array([[isect[0]], [isect[1]]])
+        else:
+            return None
 
 #------------------------------------------------------------------------------#
 
@@ -821,7 +838,6 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
 
 
 #-----------------------------------------------------------------------------#
-
 def remove_edge_crossings(vertices, edges, **kwargs):
     """
     Process a set of points and connections between them so that the result
