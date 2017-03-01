@@ -474,9 +474,33 @@ class FractureNetwork(object):
                     second.add_points(isect[:, np.where(bound_second)[0]])
 
 
-    def split_intersections(self, tol=1e-8):
+    def split_intersections(self):
+        all_p, edges,\
+                edges_2_frac, is_boundary_edge = self._point_and_edge_lists()
+        # By now, all segments in the grid are defined by a unique set of
+        # points and edges. The next task is to identify intersecting edges,
+        # and split them.
+        all_p, edges,\
+                edges_2_frac, is_boundary_edge = \
+                self._remove_edge_intersections(all_p, edges, edges_2_frac,
+                                                is_boundary_edge)
+        # With all edges being non-intersecting, the next step is to split the
+        # fractures into polygons formed of boundary edges, intersection edges
+        # and auxiliary edges that connect the boundary and intersections.
+        all_p, \
+            edges,\
+            is_boundary_edge,\
+            poly_segments,\
+            poly_2_frac = self._split_into_polygons(all_p, edges, edges_2_frac,
+                                                    is_boundary_edge)
 
+        self.decomposition = {'points': all_p,
+                      'edges': edges.astype('int'),
+                      'is_bound': is_boundary_edge,
+                      'polygons': poly_segments,
+                      'polygon_frac': poly_2_frac}
 
+    def _point_and_edge_lists(self):
         # Field for all points in the fracture description
         all_p = np.empty((3, 0))
         # All edges, either as fracture boundary, or fracture intersection
@@ -518,12 +542,12 @@ class FractureNetwork(object):
         # Snap the points to an underlying Cartesian grid. This is the basis
         # for declearing two points equal
         # NOTE: We need to account for dimensions in the tolerance; 
-        all_p = cg.snap_to_grid(all_p, tol)
+        all_p = cg.snap_to_grid(all_p, self.tol)
 
         # We now need to find points that occur in multiple places
         p_unique, \
             unique_ind_p, \
-                all_2_unique_p = setmembership.unique_columns_tol(all_p, tol)
+                all_2_unique_p = setmembership.unique_columns_tol(all_p, self.tol)
 
 
         # Update edges to work with unique points
@@ -559,18 +583,22 @@ class FractureNetwork(object):
         edges_2_frac = [np.array(edges_2_frac[i]) for i in
                                                     range(len(edges_2_frac))]
 
+        return all_p, edges, edges_2_frac, is_boundary_edge
+
+
+
         # QUESTION: How do we differ between a boundary segment shared by two
         # fractures and an interior fracture (needed in gmsh filter later). For
         # now, we try to use is_boundary_edge.
 
-        # By now, all segments in the grid are defined by a unique set of
-        # points and edges. The next task is to identify intersecting edges,
-        # and split them.
         # The algorithm loops over all fractures, pulls out edges associated
         # with the fracture, project to the local 2D plane, and look for
         # intersections there (direct search in 3D may also work, but this was
         # a simple option). When intersections are found, the global lists of
         # points and edges are updated.
+
+    def _remove_edge_intersections(self, all_p, edges, edges_2_frac,
+                                   is_boundary_edge):
         for fi, frac in enumerate(self._fractures):
 
             # Identify the edges associated with this fracture
@@ -598,7 +626,7 @@ class FractureNetwork(object):
             # Obtain new points and edges, so that no edges on this fracture
             # are intersecting.
             p_new, edges_new = cg.remove_edge_crossings(p_2d, edges_2d,
-                                                       precision=tol)
+                                                       precision=self.tol)
 
             # Then, patch things up by converting new points to 3D, 
 
@@ -635,16 +663,12 @@ class FractureNetwork(object):
             edges_new_glob = p_ind_exp[edges_new[:2]]
             edges = np.hstack((edges, edges_new_glob))
 
-#            import pdb
-#            pdb.set_trace()
             # Append fields for edge-fracture map and boundary tags
             for ei in range(edges_new.shape[1]):
                 glob_ei = edges_new[2, ei]
                 edges_2_frac.append(edges_2_frac[glob_ei])
                 is_boundary_edge.append(is_boundary_edge[glob_ei])
 
-#            import pdb
-#            pdb.set_trace()
             # Finally, purge the old edges    
             edges = np.delete(edges, edges_loc_ind, axis=1)
 
@@ -655,24 +679,23 @@ class FractureNetwork(object):
             for ei in edges_loc_ind[::-1]:
                 del edges_2_frac[ei]
                 del is_boundary_edge[ei]
-
             # And we are done with this fracture. On to the next one.
 
-        # With all edges being non-intersecting, the next step is to split the
-        # fractures into polygons formed of boundary edges, intersection edges
-        # and auxiliary edges that connect the boundary and intersections. To
+        return all_p, edges, edges_2_frac, is_boundary_edge
+
+        #To
         # define the auxiliary edges, we create a triangulation of the
         # fractures. We then grow polygons forming part of the fracture in a
         # way that ensures that no polygon lies on both sides of an
         # intersection edge.
 
+    def _split_into_polygons(self, all_p, edges, edges_2_frac, is_boundary_edge):
         # For each polygon, list of segments that make up the polygon
         poly_segments = []
         # Which fracture is the polygon part of
         poly_2_frac = []
         # Extra edges formed by connecting boundary and intersection segments
         artificial_edges = []
-
 
         for fi, frac in enumerate(self._fractures):
 
@@ -853,11 +876,8 @@ class FractureNetwork(object):
         unique_new_edges, *rest = setmembership.unique_columns_tol(new_edges)
         edges = np.hstack((edges, unique_new_edges))
 
-        self.decomposition = {'points': all_p,
-                      'edges': edges.astype('int'),
-                      'is_bound': is_boundary_edge,
-                      'polygons': poly_segments,
-                      'polygon_frac': poly_2_frac}
+        return all_p, edges, is_boundary_edge, poly_segments, poly_2_frac
+
 
 
 
