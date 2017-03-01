@@ -851,6 +851,7 @@ class FractureNetwork(object):
             # While we were at it, we could have used this to find cell
             # centers, cell-face (segment) mappings etc, but for reason, that
             # did not happen.
+            # TODO: Remove dependency on core.grids.simplex
             g = simplex.TriangleGrid(p, tri)
             g.compute_geometry()
             c2c = g.cell_connection_map()
@@ -866,35 +867,45 @@ class FractureNetwork(object):
 
             px = p[0]
             py = p[1]
+            # Cell centers (in 2d coordinates)
             cell_c = np.vstack((np.mean(px[tri], axis=0),
                                 np.mean(py[tri], axis=0)))
 
-            # 
+            # The target sub-polygons should have intersections as an external
+            # boundary. The sub-polygons are grown from triangles on each side of
+            # the intersection, denoted cw and ccw.
             cw_cells = []
             ccw_cells = []
+
             # For each internal boundary, find the cells on each side of the
             # boundary; these will be assigned to different polygons. For the
             # moment, there should be a single cell along each side of the
             # boundary, but this may change in the future.
-            for ib in internal_boundary:
-                segment_match = np.squeeze(np.where(segment_markers ==
-                                                    edges_2d[2, ib]))
-                loc_segments = segments[:, segment_match]
-                loc_cells = cells_of_segments(tri, loc_segments)
 
-                p_0 = p_2d[:, edges_2d[0, ib]]
-                p_1 = p_2d[:, edges_2d[1, ib]]
+            if internal_boundary.size == 0:
+                # For non-intersecting fractures, we just need a single seed
+                cw_cells = [0]
+            else:
+                # Full treatment
+                for ib in internal_boundary:
+                    segment_match = np.squeeze(np.where(segment_markers ==
+                                                        edges_2d[2, ib]))
+                    loc_segments = segments[:, segment_match]
+                    loc_cells = cells_of_segments(tri, loc_segments)
 
-                cw_loc = []
-                ccw_loc = []
+                    p_0 = p_2d[:, edges_2d[0, ib]]
+                    p_1 = p_2d[:, edges_2d[1, ib]]
 
-                for ci in loc_cells:
-                    if cg.is_ccw_polyline(p_0, p_1, cell_c[:, ci]):
-                        ccw_loc.append(ci)
-                    else:
-                        cw_loc.append(ci)
-                cw_cells.append(cw_loc)
-                ccw_cells.append(ccw_loc)
+                    cw_loc = []
+                    ccw_loc = []
+
+                    for ci in loc_cells:
+                        if cg.is_ccw_polyline(p_0, p_1, cell_c[:, ci]):
+                            ccw_loc.append(ci)
+                        else:
+                            cw_loc.append(ci)
+                    cw_cells.append(cw_loc)
+                    ccw_cells.append(ccw_loc)
 
 
             polygon = np.zeros(tri.shape[1], dtype='int')
@@ -977,8 +988,13 @@ class FractureNetwork(object):
         edge_exist, map_ind = setmembership.ismember_rows(all_edges, edges)
         new_edge_ind = np.where([~i for i in edge_exist])[0]
         new_edges = all_edges[:, new_edge_ind]
-        unique_new_edges, *rest = setmembership.unique_columns_tol(new_edges)
-        edges = np.hstack((edges, unique_new_edges))
+
+        # If we have found new edges (will most likely happen if there are
+        # intersecting fractures in the network), these should be added to the
+        # edge list, in a unique representation.
+        if new_edges.size > 0:
+            unique_new_edges, *rest = setmembership.unique_columns_tol(new_edges)
+            edges = np.hstack((edges, unique_new_edges))
 
         return all_p, edges, is_boundary_edge, poly_segments, poly_2_frac
 
