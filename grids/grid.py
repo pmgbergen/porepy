@@ -493,8 +493,20 @@ class Grid(object):
         self.cell_volumes = cell_volumes
 
     def cell_nodes(self):
-        mat = (self.face_nodes * np.abs(self.cell_faces) *
-               sps.eye(self.num_cells)) > 0
+        """
+        Obtain mapping between cells and nodes.
+
+        Returns:
+            sps.csc_matrix, size num_nodes x num_cells: Value 1 indicates a
+                connection between cell and node.
+
+        """
+        # Local version of cell-face map, using absolute value to avoid
+        # artifacts from +- in the original version.
+        cf_loc = sps.csc_matrix((np.abs(self.cell_faces.data),
+                                 self.cell_faces.indices,
+                                 self.cell_faces.indptr))
+        mat = (self.face_nodes * cf_loc) > 0
         return mat
 
     def num_cell_nodes(self):
