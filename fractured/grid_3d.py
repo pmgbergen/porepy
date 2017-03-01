@@ -249,11 +249,5 @@ def create_grid(fracs, box, **kwargs):
                 # An element in cell_map gives, for all cells in the
                 # lower-dimensional grid, the index of the corresponding face
                 # in the higher-dimensional structure.
-                import pdb
-                pdb.set_trace()
-
-
-    import pdb
-    pdb.set_trace()
 
     return g_3d, g_2d, g_1d, g_0d
