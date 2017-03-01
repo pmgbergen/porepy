@@ -108,6 +108,13 @@ def _create_3d_grids(pts, cells):
 
 
 def _create_2d_grids(pts, cells, phys_names, cell_info, network):
+    # List of 2D grids, one for each surface
+    g_2d = []
+
+    # Special treatment of the case with no fractures
+    if not 'triangle' in cells:
+        return g_2d
+
     # Recover cells on fracture surfaces, and create grids
     tri_cells = cells['triangle']
 
@@ -124,8 +131,6 @@ def _create_2d_grids(pts, cells, phys_names, cell_info, network):
         frac_num[i] = poly_2_frac[int(pn[2][offset+1:])]
         gmsh_num[i] = pn[1]
 
-    # List of 2D grids, one for each surface
-    g_2d = []
 
     for fi in np.unique(frac_num):
         loc_num = np.where(frac_num == fi)[0]
@@ -157,6 +162,12 @@ def _create_1d_grids(pts, cells, phys_names, cell_info):
     # There will be up to three types of physical lines: intersections (between
     # fractures), fracture tips, and auxiliary lines (to be disregarded)
 
+    g_1d = []
+
+    # If there are no fracture intersections, we return empty lists
+    if not 'line' in cells:
+        return g_1d, np.empty(0)
+
     gmsh_const = gridding.constants.GmshConstants()
 
     line_tags = cell_info['line'][:, 0]
@@ -166,7 +177,6 @@ def _create_1d_grids(pts, cells, phys_names, cell_info):
     gmsh_tip_num = []
     tip_pts = np.empty(0)
 
-    g_1d = []
     for i, pn in enumerate(phys_names['line']):
 
         # Index of the final underscore in the physical name. Chars before this
