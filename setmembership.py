@@ -132,7 +132,7 @@ def ismember_rows(a, b, sort=True):
     ind_of_a_in_b = _find_occ(occ_a, occ_b)
     """
     ismem_a = np.zeros(num_a, dtype=np.bool)
-    ind_of_a_in_b = []
+    ind_of_a_in_b = np.empty(0)
     for i in range(num_a):
         if sa.ndim == 1:
             diff = np.abs(sb - sa[i])
@@ -140,13 +140,12 @@ def ismember_rows(a, b, sort=True):
             diff = np.sum(np.abs(sb - sa[:, i].reshape((-1, 1))), axis=0)
         if np.any(diff == 0):
             ismem_a[i] = True
-            ind_of_a_in_b.append(np.where(diff == 0)[0])
+            hit = np.where(diff==0)[0]
+            if hit.size > 1:
+                hit = hit[0]
+            ind_of_a_in_b = np.append(ind_of_a_in_b, hit)
 
-
-    # Remove None-types from output indices
-#    ind_of_a_in_b = [i for i in ind_of_a_in_b if i is not None]
-
-    return ismem_a, np.squeeze(np.array(ind_of_a_in_b, dtype='int'))
+    return ismem_a, ind_of_a_in_b.astype('int')
 
 #---------------------------------------------------------
 
