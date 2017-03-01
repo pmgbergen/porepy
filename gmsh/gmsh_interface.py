@@ -2,7 +2,6 @@
 
 import numpy as np
 from compgeom import sort_points
-# from ..fractured import grid_2d
 from gridding.gmsh import mesh_io
 import sys
 import os
@@ -60,7 +59,6 @@ class GmshWriter(object):
             s += self.__write_lines()
             s += self.__write_polygons()
             s += self.__write_physical_points()
-            
 
         with open(file_name, 'w') as f:
             f.write(s)
@@ -193,8 +191,6 @@ class GmshWriter(object):
             has_tags = True
         else:
             has_tags = False
-        import pdb
-        pdb.set_trace()
 
         for i in range(num_lines):
             si = str(i)
@@ -222,8 +218,6 @@ class GmshWriter(object):
         constants = gridding_constants.GmshConstants()
         ls = '\n'
         s = '// Start fracture specification' + ls
-        import pdb
-        pdb.set_trace()
         for pi in range(len(self.polygons[0])):
             p = self.polygons[0][pi].astype('int')
             reverse = self.polygons[1][pi]
@@ -248,10 +242,8 @@ class GmshWriter(object):
             s += 'Surface{fracture_' + str(pi) + '} In Volume{1};' + ls + ls
 
         s += '// End of fracture specification' + ls + ls
-                
-        return s
-            
 
+        return s
 
     def __write_physical_points(self):
         ls = '\n'
@@ -265,7 +257,7 @@ class GmshWriter(object):
         s += '// End of physical point specification ' + ls + ls
         return s
 
-
+# ----------- end of GmshWriter -----------------------------
 
 def read_gmsh(out_file):
     points, cells, phys_names, cell_info = mesh_io.read(out_file)
