@@ -1090,14 +1090,15 @@ def compute_tangent(pts):
 
 #------------------------------------------------------------------------------#
 
-def is_collinear(pts):
+def is_collinear(pts, tol=1e-5):
     """ Check if the points lie on a line.
 
     Parameters:
-    pts (np.ndarray, 3xn): the points.
+        pts (np.ndarray, 3xn): the points.
+        tol (double, optional): Tolerance used in comparison. Defaults to 1e-5.
 
     Returns:
-    check, bool, if the points lie on a line or not.
+        boolean, True if the points lie on a line.
 
     """
 
@@ -1109,7 +1110,7 @@ def is_collinear(pts):
 
     coll = np.array( [ np.linalg.norm( np.cross( p - pt0, pt1 - pt0 ) ) \
              for p in pts[:,1:-1].T ] )
-    return np.allclose(coll, np.zeros(coll.size))
+    return np.allclose(coll, np.zeros(coll.size), tol)
 
 #------------------------------------------------------------------------------#
 
