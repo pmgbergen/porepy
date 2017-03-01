@@ -338,23 +338,23 @@ def is_inside_polygon(poly, p, tol=0, default=False):
 def dist_point_pointset(p, pset, exponent=2):
     """
     Compute distance between a point and a set of points.
-    
+
     Parameters:
         p (np.ndarray): Point from which distances will be computed
         pset (nd.array): Point cloud to which we compute distances
         exponent (double, optional): Exponent of the norm used. Defaults to 2.
-        
+
     Return:
         np.ndarray: Array of distances.
-        
+
     """
-    
+
     # If p is 1D, do a reshape to facilitate broadcasting, but on a copy
     if p.ndim == 1:
         pt = p.reshape((-1, 1))
     else:
         pt = p
-    
+
     return np.power(np.sum(np.power(np.abs(pt - pset), exponent),
                            axis=0), 1/exponent)
 
@@ -483,8 +483,6 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     dy_2 = ye_2 - ys_2
     dz_2 = ze_2 - zs_2
 
-
-
     # The lines are parallel in the x-y plane, but we don't know about the
     # z-direction. CHeck this
     deltas_1 = np.array([dx_1, dy_1, dz_1])
@@ -504,7 +502,6 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
 
     not_in_discr = np.setdiff1d(np.arange(3), in_discr)[0]
     discr = deltas_1[in_discr[0]] * deltas_2[in_discr[1]] - deltas_1[in_discr[1]] * deltas_2[in_discr[0]]
-        
 
     # An intersection will be a solution of the linear system
     #   xs_1 + dx_1 * t_1 = xs_2 + dx_2 * t_2 (1)
@@ -515,10 +512,6 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     #
     # The intersection is on the line segments if 0 <= (t_1, t_2) <= 1
 
-    # Minus in front of _2 after reorganizing (1)-(2)
-#    discr = dx_1 * (-dy_2) - dy_1 *(-dx_2)
-
-    
     # Either the lines are parallel in two directions
     if np.abs(discr) < tol:
         # If the lines are (almost) parallel, there is no single intersection,
@@ -537,20 +530,21 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         if not np.allclose(t, t.mean(), tol):
             return None
 
-            # If we have made it this far, the lines are indeed parallel. Next,
+        # If we have made it this far, the lines are indeed parallel. Next,
         # check if they overlap, and if so, test if the segments are overlapping
 
-        # For dimensions with an incline, the vector between segment start points should be parallel to the segments
-        # Since the masks are equal, we can use any of them
+        # For dimensions with an incline, the vector between segment start
+        # points should be parallel to the segments.
+        # Since the masks are equal, we can use any of them.
         t_1_2 = (start_1[mask_1] - start_2[mask_1]) / deltas_1[mask_1]
         if (not np.allclose(t_1_2, t_1_2, tol)):
-            return None 
+            return None
         # For dimensions with no incline, the start cooordinates should be the same
         if not np.allclose(start_1[~mask_1], start_2[~mask_1], tol):
             return None
 
         # We have overlapping lines! finally check if segments are overlapping.
-            
+
         # Since everything is parallel, it suffices to work with a single coordinate
         s_1 = start_1[mask_1][0]
         e_1 = end_1[mask_1][0]
@@ -586,15 +580,17 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     else:
         # Solve 2x2 system by Cramer's rule
 
-        discr = deltas_1[in_discr[0]] * (-deltas_2[in_discr[1]]) - deltas_1[in_discr[1]] * (-deltas_2[in_discr[0]])
-        t_1 = ((start_2[in_discr[0]] - start_1[in_discr[0]]) * (-deltas_2[in_discr[1]]) - \
-               (start_2[in_discr[1]] - start_1[in_discr[1]]) * (-deltas_2[in_discr[0]]))/discr
+        discr = deltas_1[in_discr[0]] * (-deltas_2[in_discr[1]]) -\
+                deltas_1[in_discr[1]] * (-deltas_2[in_discr[0]])
+        t_1 = ((start_2[in_discr[0]] - start_1[in_discr[0]]) \
+               * (-deltas_2[in_discr[1]]) - \
+               (start_2[in_discr[1]] - start_1[in_discr[1]]) \
+               * (-deltas_2[in_discr[0]]))/discr
 
-        t_2 = (deltas_1[in_discr[0]] * (start_2[in_discr[1]] - start_1[in_discr[1]]) - \
-               deltas_1[in_discr[1]] * (start_2[in_discr[0]] - start_1[in_discr[0]])) / discr
-
-#        t_1 = ((xs_2 - xs_1) * (-dy_2) - (ys_2 - ys_1) * (-dx_2)) / discr
-#        t_2 = (dx_1 * (ys_2 - ys_1) - dy_1 * (xs_2 - xs_1)) / discr
+        t_2 = (deltas_1[in_discr[0]] * (start_2[in_discr[1]] -
+                                        start_1[in_discr[1]]) - \
+               deltas_1[in_discr[1]] * (start_2[in_discr[0]] -
+                                        start_1[in_discr[0]])) / discr
 
         # Check that we are on line segment
         if t_1 < 0 or t_1 > 1 or t_2 < 0 or t_2 > 1:
@@ -609,7 +605,6 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
             vec[in_discr] = start_1[in_discr] + t_1 * deltas_1[in_discr]
             vec[not_in_discr] = z_1_isect
             return vec.reshape((-1, 1))
-#            return np.array([xs_1 + t_1 * dx_1, ys_1 + t_1 * dy_1, z_1_isect])
         else:
             return None
 
@@ -640,27 +635,27 @@ def _to3D(p):
 def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
     """
     Test for intersection between the bounding segments of two 3D polygons.
-    
+
     No tests are done for intersections with polygons interiors. The code has
     only been tested for convex polygons, status for non-convex polygons is
     unknown.
-    
-    A segment can either be intersected by segments of the other polygon as 
+
+    A segment can either be intersected by segments of the other polygon as
      i) a single point
      ii) two points, hit by different segments (cannot be more than 2 for
          convex polygons)
      iii) along a line, if the segments are parallel.
-     
+
     Note that if the polygons share a vertex, this point will be found multiple
     times (depending on the configuration of the polygons).
-    
+
     Each intersection is represented as a list of three items. The first two
     are the segment index (numbered according to start point) of the
     intersecting segments. The third is the coordinates of the intersection
     point, this can either be a single point (3x1 nd.array), or a 3x2 array
     with columns representing the same (shared vertex) or different (shared
     segment) points.
-    
+
     Paremeters:
         poly_1 (np.array, 3 x n_pt): First polygon, assumed to be
         non-intersecting. The closing segment is defined by the last and first
@@ -669,20 +664,20 @@ def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
         non-intersecting. The closing segment is defined by the last and first
             column.
         tol (float, optional): Tolerance used for equality.
-    
+
     Returns:
         list: of intersections. See above for description of data format. If no
         intersections are found, an empty list is returned.
-        
+
     """
-    
+
     l_1 = poly_1.shape[1]
     ind_1 = np.append(np.arange(l_1), 0)
     l_2 = poly_2.shape[1]
     ind_2 = np.append(np.arange(l_2), 0)
-    
+
     isect = []
-    
+
     for i in range(l_1):
         p_1_1 = poly_1[:, ind_1[i]]
         p_1_2 = poly_1[:, ind_1[i+1]]
@@ -693,15 +688,15 @@ def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
             isect_loc = segments_intersect_3d(p_1_1, p_1_2, p_2_1, p_2_2)
             if isect_loc is not None:
                 isect.append([i, j, isect_loc])
-   
+
     return isect
 
 #----------------------------------------------------------
 
 def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     """
-    Find intersections between polygons embeded in 3D. 
-    
+    Find intersections between polygons embeded in 3D.
+
     The intersections are defined as between the interior of the first polygon
     and the boundary of the second.
 
@@ -725,9 +720,9 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
         NotImplementedError if the two polygons overlap in a 2D area. An
         extension should not be difficult, but the function is not intended for
         this use.
-    
+
     """
-    
+
     # First translate the points so that the first plane is located at the origin
     center_1 = np.mean(poly_1, axis=1).reshape((-1, 1))
     poly_1 = poly_1 - center_1
@@ -1246,3 +1241,4 @@ def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
+
