@@ -56,7 +56,7 @@ def create_grid(fracs, box, **kwargs):
 
     # Create mapping to global numbering (will be a unit mapping, but is
     # crucial for consistency with lower dimensions)
-    g_3d.global_point_numbers = np.arange(pts.shape[0])
+    g_3d.global_point_ind = np.arange(pts.shape[0])
 
     # Convert to list to be consistent with lower dimensions
     # This may also become useful in the future if we ever implement domain
@@ -100,7 +100,7 @@ def create_grid(fracs, box, **kwargs):
         g = simplex.TriangleGrid(pts[pind_loc, :].transpose(),
                                          loc_tri_ind.transpose())
         # Add mapping to global point numbers
-        g.global_point_numbers = pind_loc
+        g.global_point_ind = pind_loc
 
         # Append to list of 2d grids
         g_2d.append(g)
@@ -176,7 +176,7 @@ def create_grid(fracs, box, **kwargs):
             g.nodes = irot.dot(g.nodes) + loc_coord
 
             # Add mapping to global point numbers
-            g.global_point_numbers = loc_pts_1d[sort_ind]
+            g.global_point_ind = loc_pts_1d[sort_ind]
 
             g_1d.append(g)
 
@@ -191,7 +191,7 @@ def create_grid(fracs, box, **kwargs):
         point_cells = cells['vertex'].ravel()
         for pi in point_cells:
             g = point_grid.PointGrid(pts[pi])
-            g.global_point_numbers = np.asarray(pi)
+            g.global_point_ind = np.asarray(pi)
             g_0d.append(g)
 
 
@@ -206,7 +206,7 @@ def create_grid(fracs, box, **kwargs):
             fn_loc = g.face_nodes.indices.reshape((g.dim, g.num_faces),
                                                   order='F')
             # Convert to global numbering
-            fn = g.global_point_numbers[fn_loc]
+            fn = g.global_point_ind[fn_loc]
             fn = np.sort(fn, axis=0)
 
             for lg in grids[dim+1]:
@@ -214,10 +214,10 @@ def create_grid(fracs, box, **kwargs):
                     cn_loc = lg.cell_nodes().indices.reshape((lg.dim+1,
                                                               lg.num_cells),
                                                              order='F')
-                    cn = lg.global_point_numbers[cn_loc]
+                    cn = lg.global_point_ind[cn_loc]
                     cn = np.sort(cn, axis=0)
                 else:
-                    cn = g.global_point_numbers
+                    cn = g.global_point_inds
 
                 is_mem, cell_map = setmembership.ismember_rows(cn, fn)
                 assert np.all(is_mem)
