@@ -1020,10 +1020,13 @@ class FractureNetwork(object):
     def to_gmsh(self, file_name):
         p = self.decomposition['points']
         edges = self.decomposition['edges']
-        edges = np.vstack((self.decomposition['edges'],
-                           self._classify_edges()))
+        edge_tags, intersection_points = self._classify_edges()
+        edges = np.vstack((self.decomposition['edges'], edge_tags))
+
+        self.zero_d_pt = intersection_points
 
         poly = self._poly_2_segment()
-        writer = GmshWriter(p, edges, polygons=poly, domain=self.domain)
+        writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
+                            intersection_points=intersection_points)
         writer.write_geo(file_name)
 
