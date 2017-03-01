@@ -9,6 +9,31 @@ import compgeom.basics as cg
 from utils import setmembership
 
 def create_grid(fracs, box, **kwargs):
+    """
+    Create grids for a domain with possibly intersecting fractures in 3d.
+
+    Based on polygons describing the individual fractures, the method computes
+    fracture intersections, creates a gmsh input file, runs gmsh and reads the
+    result, and then constructs grids in 3d (the whole domain), 2d (one for
+    each individual fracture), 1d (along fracture intersections), and 0d
+    (meeting between intersections).
+
+    TODO: The method finds the mapping between faces in one dimension and cells
+        in a lower dimension, but the information is not used. Should be
+        returned in a sensible format.
+
+    Parameters:
+        fracs (list of np.ndarray, each 3xn): Vertexes in the polygons for each
+            fracture.
+        box (dictionary). Domain specification. Should have keywords xmin,
+            xmax, ymin, ymax, zmin, zmax.
+        **kwargs: To be explored. Should contain the key 'gmsh_path'.
+
+    Returns:
+        list (length 4): For each dimension (3 -> 0), a list of all grids in
+            that dimension.
+
+    """
 
     # Verbosity level
     verbose = kwargs.get('verbose', 1)
