@@ -96,10 +96,9 @@ def create_grid(fracs, box, **kwargs):
 
         loc_tri_glob_ind = loc_tri_glob_ind.astype('int')
         pind_loc, p_map = np.unique(loc_tri_glob_ind, return_inverse=True)
-        loc_tri_loc_ind = pind_loc[p_map].reshape((-1, 3))
+        loc_tri_ind = p_map.reshape((-1, 3))
         g = simplex.TriangleGrid(pts[pind_loc, :].transpose(),
-                                         loc_tri_loc_ind.transpose())
-
+                                         loc_tri_ind.transpose())
         # Add mapping to global point numbers
         g.global_point_numbers = pind_loc
 
