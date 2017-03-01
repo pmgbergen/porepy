@@ -52,7 +52,16 @@ def create_grid(fracs, box, **kwargs):
     pts, cells, phys_names, cell_info = gmsh_interface.read_gmsh(out_file)
 
     tet_cells = cells['tetra']
-    g_3d = [simplex.TetrahedralGrid(pts.transpose(), tet_cells.transpose())]
+    g_3d = simplex.TetrahedralGrid(pts.transpose(), tet_cells.transpose())
+
+    # Create mapping to global numbering (will be a unit mapping, but is
+    # crucial for consistency with lower dimensions)
+    g_3d.global_point_numbers = np.arange(pts.shape[0])
+
+    # Convert to list to be consistent with lower dimensions
+    # This may also become useful in the future if we ever implement domain
+    # decomposition approaches based on gmsh.
+    g_3d = [g_3d]
 
     # Recover cells on fracture surfaces, and create grids
     tri_cells = cells['triangle']
