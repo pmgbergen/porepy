@@ -971,7 +971,11 @@ class FractureNetwork(object):
         tag[bound_ind] = constants.FRACTURE_TIP_TAG
         tag[intersection_ind] = constants.FRACTURE_INTERSECTION_LINE_TAG
 
-        return tag
+        isect_p = edges[:, intersection_ind].ravel()
+        num_occ_pt = np.bincount(isect_p)
+        is_0d_grid = np.where(num_occ_pt > 1)[0]
+
+        return tag, is_0d_grid
 
     def _poly_2_segment(self):
         edges = self.decomposition['edges']
