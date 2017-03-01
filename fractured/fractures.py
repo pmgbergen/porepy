@@ -142,7 +142,7 @@ class Fracture(object):
 
         Not yet supported is T (one fracture ends with a segment, or possibly a
         point in the plane of another). Patterns involving more than two
-        fractures need to be delt with by someone else (see FractureSet)
+        fractures need to be delt with by someone else (see FractureNetwork)
 
 
         """
@@ -404,7 +404,7 @@ class Intersection(object):
 
 #----------------------------------------------------------------------------
 
-class FractureSet(object):
+class FractureNetwork(object):
     
     def __init__(self, fractures=None):
         

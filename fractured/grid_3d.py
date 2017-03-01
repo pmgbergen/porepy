@@ -48,7 +48,7 @@ def create_grid(fracs, box, **kwargs):
         frac_list.append(fractures.Fracture(f))
 
     # Combine the fractures into a network
-    network = fractures.FractureSet(frac_list)
+    network = fractures.FractureNetwork(frac_list)
 
     # Impose domain boundary. For the moment, the network should be immersed in
     # the domain, or else gmsh will complain.
