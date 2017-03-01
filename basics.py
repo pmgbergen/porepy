@@ -810,24 +810,21 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
                 # x and y-coordinate for z=0
                 x0 = pt_1[0] + dx * t
                 y0 = pt_1[1] + dy * t
-                # Sympy representation
-                p_00 = geom.Point2D(x0, y0)
+                # Representation as point
+                p_00 = np.array([x0, y0]).reshape((-1, 1))
+
                 # Check if the first polygon encloses the point. If the
-                # intersection is on the border, this will not be detected, see
-                # documentation is sympy. 
-                # TODO: Replace this with a self-written test to improve
-                # performance
-                if poly_1_sp.encloses_point(p_00):
-                    # Back to physical coordinates by 1) converting to numpy
-                    # format, 2) expand to 3D, 3) inverse rotation, 4)
-                    # translate to original coordinate.
-                    isect = np.hstack((isect, 
-                                       irot.dot(_to3D(_p2np(p_00))) +
+                # intersection is on the border, this will not be detected.
+
+                if is_inside_polygon(poly_1_xy, p_00, tol=tol):
+                    # Back to physical coordinates by 1) expand to 3D, 2)
+                    # inverse rotation, 3) translate to original coordinate.
+                    isect = np.hstack((isect, irot.dot(_to3D(p_00)) +
                                        center_1))
 
         if isect.shape[1] == 0:
             isect = None
-        
+
         return isect
 
 
