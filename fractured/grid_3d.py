@@ -65,9 +65,11 @@ def create_grid(fracs, box, **kwargs):
     network.to_gmsh(in_file)
     gmsh_path = kwargs.get('gmsh_path')
 
+    gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
+    gmsh_opts = {'-v': gmsh_verbose}
+    gmsh_status = gmsh_interface.run_gmsh(gmsh_path, in_file, out_file, dims=3,
+                                         **gmsh_opts)
 
-    gmsh_status = gmsh_interface.run_gmsh(gmsh_path, in_file, out_file, dims=3)
-    
     if verbose > 0:
         if gmsh_status == 0:
             print('Gmsh processed file successfully')
