@@ -353,7 +353,7 @@ class Grid(object):
         face_2_node = tmp_face_center.transpose() - xn[:, face_nodes]
 
         # Assign a normal vector with this edge, by taking the cross product
-        # between face_2_node and along_edge
+        # between along_edge and face_2_node
         # Divide by two to ensure that the normal vector has length equal to
         # the area of the face triangle (by properties of cross product)
         sub_normals = np.vstack((along_edge[1] * face_2_node[2] -
