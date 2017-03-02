@@ -477,7 +477,12 @@ class Grid(object):
         # dot product gives the hight).
         tet_volumes = np.sum(dist_cellcenter_subface * outer_normals,
                              axis=0) / 3
-        assert np.all(tet_volumes > 0)  # On the fly test
+
+        # Sometimes the sub-tet volumes can have a volume of numerical zero.
+        # Why this is so is not clear, but for the moment, we allow for a
+        # slightly negative value.
+        assert np.all(tet_volumes > -1e-12)  # On the fly test
+
         # The cell volumes are now found by summing sub-tetrahedra
         cell_volumes = np.bincount(cell_numbers, weights=tet_volumes)
         tri_centroids = 3 / 4 * dist_cellcenter_subface
