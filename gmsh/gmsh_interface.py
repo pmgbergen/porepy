@@ -264,11 +264,9 @@ def read_gmsh(out_file):
     return points, cells, phys_names, cell_info
 
 
-def run_gmsh(path_to_gmsh, in_file, out_file, dims):
+def run_gmsh(path_to_gmsh, in_file, out_file, dims, **kwargs):
     """
     Convenience function to run gmsh.
-
-    TODO: Add possibility of including options for gmsh.
 
     Parameters:
         path_to_gmsh (str): Path to the location of the gmsh binary
@@ -278,17 +276,25 @@ def run_gmsh(path_to_gmsh, in_file, out_file, dims):
             the geometry dimensions, gmsh will grid all lower-dimensional
             objcets described in in_file (e.g. all surfaces embeded in a 3D
             geometry).
+        **kwargs: Options passed on to gmsh. See gmsh documentation for
+            possible values.
 
     Returns:
         double: Status of the generation, as returned by os.system. 0 means the
             simulation completed successfully, >0 signifies problems.
 
     """
+    opts = ' '
+    for key, val in kwargs.items():
+        # Gmsh keywords are specified with prefix '-'
+        if key[0] != '-':
+            key = '-' + key
+        opts += key + ' ' + str(val) + ' '
 
     if dims == 2:
-        cmd = path_to_gmsh + ' -2 ' + in_file + ' -o ' + out_file
+        cmd = path_to_gmsh + ' -2 ' + in_file + ' -o ' + out_file + opts
     else:
-        cmd = path_to_gmsh + ' -3 ' + in_file + ' -o ' + out_file
+        cmd = path_to_gmsh + ' -3 ' + in_file + ' -o ' + out_file + opts
     status = os.system(cmd)
 
     return status
