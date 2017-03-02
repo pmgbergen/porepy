@@ -170,6 +170,19 @@ class StructuredTriangleGrid(TriangleGrid):
 class TetrahedralGrid(Grid):
 
     def __init__(self, p, tet=None):
+        """
+        Create a tetrahedral grid from a set of point and cells.
+
+        If the cells are not provided a Delaunay tessalation will be
+        constructed.
+
+        Parameters:
+            p (np.array, 3xn_pt): Coordinates of vertices
+            tet (np.array, 4xn_tet, optional): Cell vertices. If none is
+                provided, a Delaunay triangulation will be performed.
+
+        """
+        # The method below is to a large degree translated from MRST.
 
         self.dim = 3
 
@@ -187,22 +200,27 @@ class TetrahedralGrid(Grid):
         nodes = p
         assert num_nodes > 3   # Check of transposes of point array
 
+        num_cells = tet.shape[1]
         tet = self.__permute_nodes(p, tet)
 
-        # Face node relations
-        face_nodes = np.hstack((tet[[1, 0, 2]],
+        # Define face-nodes so that the first column contains fn of cell 0,
+        # etc.
+        face_nodes = np.vstack((tet[[1, 0, 2]],
                                 tet[[0, 1, 3]],
                                 tet[[2, 0, 3]],
-                                tet[[1, 2, 3]])).transpose()
-        sort_ind = np.squeeze(np.argsort(face_nodes, axis=1))
-        face_nodes.sort(axis=1)
-        face_nodes, tmp, cell_faces = setmembership.unique_rows(face_nodes)
+                                tet[[1, 2, 3]]))
+        # Reshape face-nodes into a 3x 4*num_cells-matrix, with the four first
+        # columns belonging to cell 0.
+        face_nodes = face_nodes.reshape((3, 4*num_cells), order='F')
+        sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
+        face_nodes_sorted = np.sort(face_nodes, axis=0)
+        face_nodes, tmp, cell_faces = \
+            setmembership.unique_columns_tol(face_nodes_sorted)
 
-        num_faces = face_nodes.shape[0]
-        num_cells = tet.shape[1]
+        num_faces = face_nodes.shape[1]
 
         num_nodes_per_face = 3
-        face_nodes = face_nodes.ravel(0)
+        face_nodes = face_nodes.ravel(order='F')
         indptr = np.hstack((np.arange(0, num_nodes_per_face * num_faces,
                                       num_nodes_per_face),
                             num_nodes_per_face * num_faces))
@@ -212,12 +230,11 @@ class TetrahedralGrid(Grid):
 
         # Cell face relation
         num_faces_per_cell = 4
-        cell_faces = cell_faces.reshape(num_faces_per_cell, num_cells).ravel(1)
         indptr = np.hstack((np.arange(0, num_faces_per_cell*num_cells,
                                       num_faces_per_cell),
                             num_faces_per_cell * num_cells))
         data = np.ones(cell_faces.shape)
-        sgn_change = np.where(np.any(np.diff(sort_ind) == 1, axis=1))[0]
+        sgn_change = np.where(np.any(np.diff(sort_ind, axis=0) == 1, axis=0))[0]
         data[sgn_change] = -1
         cell_faces = sps.csc_matrix((data, cell_faces, indptr),
                                     shape=(num_faces, num_cells))
@@ -228,7 +245,11 @@ class TetrahedralGrid(Grid):
     def __permute_nodes(self, p, t):
         v = self.__triple_product(p, t)
         permute = np.where(v > 0)[0]
-        t[:2, permute] = t[1::-1, permute]
+        if t.ndim == 1:
+            if permute[0]:
+                t[:2] = t[1::-1]
+        else:
+            t[:2, permute] = t[1::-1, permute]
         v2 = self.__triple_product(p, t)
         return t
 
