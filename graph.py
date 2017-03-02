@@ -34,7 +34,6 @@ class Graph:
         color = 0
         while self.regions<self.node_connections.shape[1]:
             start = np.ravel(np.argwhere(np.isnan(self.color)))
-            print(start)
             if start.size!=0:
                 self.bfs(start[0],color)
                 color+=1
