@@ -60,8 +60,13 @@ def three_intersecting_fractures(**kwargs):
     f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
     f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-.7, -.7, .8, .8]])
     f_3 = np.array([[-1, 1, 1, -1], [-1, -1, 1, 1], [0, 0, 0, 0]])
+
+    # Add some parameters for grid size
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
               2}
+    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
+
+    kwargs['mesh_size'] = mesh_size
     grids = meshing.create_grid([f_1, f_2, f_3], domain, **kwargs)
 
     return grids
