@@ -62,7 +62,7 @@ def create_grid(fracs, box, **kwargs):
     in_file = file_name + '.geo'
     out_file = file_name + '.msh'
 
-    network.to_gmsh(in_file)
+    network.to_gmsh(in_file, **kwargs)
     gmsh_path = kwargs.get('gmsh_path')
 
     gmsh_verbose = kwargs.get('gmsh_verbose', verbose)

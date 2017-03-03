@@ -1157,7 +1157,7 @@ class FractureNetwork(object):
     def to_vtk(self):
         pass
 
-    def to_gmsh(self, file_name):
+    def to_gmsh(self, file_name, **kwargs):
         p = self.decomposition['points']
         edges = self.decomposition['edges']
         edge_tags, intersection_points = self._classify_edges()
