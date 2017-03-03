@@ -29,12 +29,30 @@ def single_isolated_fracture(**kwargs):
 
 
 def two_intersecting_fractures(**kwargs):
+    """
+    Two fractures intersecting along a line.
+    """
 
     f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
     f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-.7, -.7, .8, .8]])
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
               2}
     grids = meshing.create_grid([f_1, f_2], domain, **kwargs)
+
+    return grids
+
+
+def three_intersecting_fractures(**kwargs):
+    """
+    Three fractures intersecting, with intersecting intersections (point)
+    """
+
+    f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
+    f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-.7, -.7, .8, .8]])
+    f_3 = np.array([[-1, 1, 1, -1], [-1, -1, 1, 1], [0, 0, 0, 0]])
+    domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
+              2}
+    grids = meshing.create_grid([f_1, f_2, f_3], domain, **kwargs)
 
     return grids
 
@@ -82,6 +100,8 @@ if __name__ == '__main__':
         print('Elapsed time ' + str(time.time() - time_loc))
         success_counter += 1
     except Exception:
+        print('\n')
+        print(' ***** FAILURE ****')
         print('Gridding of single isolated fracture failed')
         failure_counter += 1
 
@@ -99,13 +119,37 @@ if __name__ == '__main__':
         assert len(g[1]) == 2
         assert len(g[2]) == 1
         assert len(g[3]) == 0
-        print('Single fracture example completed successfully')
+        print('Two fractures example completed successfully')
         print('Elapsed time ' + str(time.time() - time_loc))
         success_counter += 1
     except Exception:
+        print('\n')
+        print(' ***** FAILURE ****')
         print('Gridding of two intersecting fractures failed')
         failure_counter += 1
 
+    ##########################
+    # Three fractures, three intersection lines
+    #
+    if verbose > 0:
+        print('Run three intersecting fractures example')
+    try:
+        time_loc = time.time()
+        g = three_intersecting_fractures(gmsh_path=gmsh_path, verbose=verbose,
+                                     gmsh_verbose=0)
+        assert len(g) == 4
+        assert len(g[0]) == 1
+        assert len(g[1]) == 3
+        assert len(g[2]) == 6
+        assert len(g[3]) == 1
+        print('Three fractures example completed successfully')
+        print('Elapsed time ' + str(time.time() - time_loc))
+        success_counter += 1
+    except Exception:
+        print('\n')
+        print(' ***** FAILURE ****')
+        print('Gridding of three intersecting fractures failed')
+        failure_counter += 1
     print('\n')
     print(' --- ')
     print('Ran in total ' + str(success_counter + failure_counter) + ' tests,' \
