@@ -10,6 +10,8 @@ import getopt
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import traceback
+import logging
 
 
 from gridding.fractured import meshing
@@ -99,10 +101,12 @@ if __name__ == '__main__':
         print('Single fracture example completed successfully')
         print('Elapsed time ' + str(time.time() - time_loc))
         success_counter += 1
-    except Exception:
+    except Exception as exp:
         print('\n')
         print(' ***** FAILURE ****')
         print('Gridding of single isolated fracture failed')
+        print(exp)
+        logging.error(traceback.format_exc())
         failure_counter += 1
 
     ##########################
@@ -122,10 +126,12 @@ if __name__ == '__main__':
         print('Two fractures example completed successfully')
         print('Elapsed time ' + str(time.time() - time_loc))
         success_counter += 1
-    except Exception:
+    except Exception as exp:
         print('\n')
         print(' ***** FAILURE ****')
         print('Gridding of two intersecting fractures failed')
+        print(exp)
+        logging.error(traceback.format_exc())
         failure_counter += 1
 
     ##########################
@@ -145,11 +151,14 @@ if __name__ == '__main__':
         print('Three fractures example completed successfully')
         print('Elapsed time ' + str(time.time() - time_loc))
         success_counter += 1
-    except Exception:
+    except Exception as exp:
         print('\n')
         print(' ***** FAILURE ****')
         print('Gridding of three intersecting fractures failed')
+        print(exp)
+        logging.error(traceback.format_exc())
         failure_counter += 1
+
     print('\n')
     print(' --- ')
     print('Ran in total ' + str(success_counter + failure_counter) + ' tests,' \
