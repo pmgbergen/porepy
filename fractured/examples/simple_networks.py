@@ -70,7 +70,6 @@ def three_intersecting_fractures(**kwargs):
 if __name__ == '__main__':
     # If invoked as main, run all tests
     try:
-        print(sys.argv[1:])
         opts, args = getopt.getopt(sys.argv[1:], 'v:', ['gmsh_path=',
                                                        'verbose=',
                                                         'visualize='])
@@ -79,14 +78,13 @@ if __name__ == '__main__':
         sys.exit(2)
 
     gmsh_path = None
-    verbose = 1
-    visualize=0
+    verbose = 0
     # process options
     for o, a in opts:
         if o == '--gmsh_path':
             gmsh_path = a
-        elif v in ('-v', '--verbose'):
-            verbose = a
+        elif o in ('-v', '--verbose'):
+            verbose = int(a)
 
     success_counter = 0
     failure_counter = 0
@@ -106,8 +104,9 @@ if __name__ == '__main__':
         assert len(g[1]) == 1
         assert len(g[2]) == 0
         assert len(g[3]) == 0
-        print('Single fracture example completed successfully')
-        print('Elapsed time ' + str(time.time() - time_loc))
+        if verbose > 0:
+            print('Single fracture example completed successfully')
+            print('Elapsed time ' + str(time.time() - time_loc))
         success_counter += 1
     except Exception as exp:
         print('\n')
@@ -131,8 +130,9 @@ if __name__ == '__main__':
         assert len(g[1]) == 2
         assert len(g[2]) == 1
         assert len(g[3]) == 0
-        print('Two fractures example completed successfully')
-        print('Elapsed time ' + str(time.time() - time_loc))
+        if verbose > 0:
+            print('Two fractures example completed successfully')
+            print('Elapsed time ' + str(time.time() - time_loc))
         success_counter += 1
     except Exception as exp:
         print('\n')
@@ -156,8 +156,9 @@ if __name__ == '__main__':
         assert len(g[1]) == 3
         assert len(g[2]) == 6
         assert len(g[3]) == 1
-        print('Three fractures example completed successfully')
-        print('Elapsed time ' + str(time.time() - time_loc))
+        if verbose > 0:
+            print('Three fractures example completed successfully')
+            print('Elapsed time ' + str(time.time() - time_loc))
         success_counter += 1
     except Exception as exp:
         print('\n')
