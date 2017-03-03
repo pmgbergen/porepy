@@ -33,12 +33,20 @@ def single_isolated_fracture(**kwargs):
 def two_intersecting_fractures(**kwargs):
     """
     Two fractures intersecting along a line.
+
+    The example also sets different characteristic mesh lengths on the boundary
+    and at the fractures.
+
     """
 
     f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
     f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-.7, -.7, .8, .8]])
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
               2}
+
+    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
+    kwargs['mesh_size'] = mesh_size
+
     grids = meshing.create_grid([f_1, f_2], domain, **kwargs)
 
     return grids
