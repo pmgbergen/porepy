@@ -1141,6 +1141,36 @@ class FractureNetwork(object):
 
         return poly_2_line, line_reverse
 
+    def _determine_mesh_size(self, **kwargs):
+        """
+        Set the preferred mesh size for geometrical points as specified by
+        gmsh.
+
+        Currently, the only option supported is to specify a single value for
+        all fracture points, and one value for the boundary.
+
+        See the gmsh manual for further details.
+
+        """
+        mode = kwargs.get('mode', 'constant')
+
+        num_pts = self.decomposition['points'].shape[1]
+
+        if mode == 'constant':
+            val = kwargs.get('value', None)
+            bound_val = kwargs.get('bound_value', None)
+            if val is not None:
+                mesh_size = val * np.ones(num_pts)
+            else:
+                mesh_size = None
+            if bound_val is not None:
+                mesh_size_bound = bound_val
+            else:
+                mesh_size_bound = None
+            return mesh_size, mesh_size_bound
+        else:
+            raise ValueError('Unknown mesh size mode ' + mode)
+
 
     def distance_point_segment():
         pass
@@ -1165,8 +1195,16 @@ class FractureNetwork(object):
 
         self.zero_d_pt = intersection_points
 
+        if 'mesh_size' in kwargs.keys():
+            mesh_size, mesh_size_bound = \
+                        self._determine_mesh_size(**kwargs['mesh_size'])
+        else:
+            mesh_size = None
+            mesh_size_bound = None
+
         poly = self._poly_2_segment()
         writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
-                            intersection_points=intersection_points)
+                            intersection_points=intersection_points,
+                           mesh_size_bound=mesh_size_bound, mesh_size=mesh_size)
         writer.write_geo(file_name)
 
