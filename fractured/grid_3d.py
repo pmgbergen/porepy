@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 import gridding.constants
 from core.grids import simplex, structured, point_grid
@@ -71,6 +72,7 @@ def create_grid(fracs, box, **kwargs):
                                          **gmsh_opts)
 
     if verbose > 0:
+        start_time = time.time()
         if gmsh_status == 0:
             print('Gmsh processed file successfully')
         else:
@@ -89,6 +91,22 @@ def create_grid(fracs, box, **kwargs):
     grids = [g_3d, g_2d, g_1d, g_0d]
 
     _obtain_interdim_mappings(grids)
+
+    if verbose > 0:
+        print('\n')
+        print('Grid creation completed. Elapsed time ' + str(time.time() -
+                                                             start_time))
+        print('\n')
+        for g_set in grids:
+            if len(g_set) > 0:
+                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
+                        '-d grids with '
+                num = 0
+                for g in g_set:
+                    num += g.num_cells
+                s += str(num) + ' cells'
+                print(s)
+        print('\n')
 
     # We should also return the result of interdim_mappings, and possibly
     # tip_pts?
