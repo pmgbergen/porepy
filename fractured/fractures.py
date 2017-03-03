@@ -985,7 +985,16 @@ class FractureNetwork(object):
         for p in poly_segments:
             all_edges = np.hstack((all_edges, p))
 
+        # Find edges of the polygons that can be found in the list of existing
+        # edges
         edge_exist, map_ind = setmembership.ismember_rows(all_edges, edges)
+        # Also check with the reverse ordering of edge points
+        edge_exist_reverse,\
+                map_ind_reverse = setmembership.ismember_rows(all_edges[::-1],
+                                                              edges)
+        # The edge exists if it is found of the orderings
+        edge_exist = np.logical_or(edge_exist, edge_exist_reverse)
+        # Where in the list of all edges are the new ones located
         new_edge_ind = np.where([~i for i in edge_exist])[0]
         new_edges = all_edges[:, new_edge_ind]
 
@@ -993,6 +1002,10 @@ class FractureNetwork(object):
         # intersecting fractures in the network), these should be added to the
         # edge list, in a unique representation.
         if new_edges.size > 0:
+            # Sort the new edges to root out the same edge being found twice
+            # from different directions
+            new_edges = np.sort(new_edges, axis=0)
+            # Find unique representation
             unique_new_edges, *rest = setmembership.unique_columns_tol(new_edges)
             edges = np.hstack((edges, unique_new_edges))
 
