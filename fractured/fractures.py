@@ -972,15 +972,15 @@ class FractureNetwork(object):
                 # numbering. Convert to global numbering.
                 boundary_glob = p_ind_loc[boundary].astype('int')
                 poly_segments.append(boundary_glob)
-                
                 poly_2_frac.append(fi)
-                # We have also implicitly defined a set of new edges
-                # (connecting intersections and fracture boundaries). For the
-                # moment, we rely on identifying these as the ones not located
-                # in the
-        
-        # Add implicitly defined adges (between intersections and boundary)
-        # to the global edge list.
+                # End of processing this sub-polygon
+
+           # End of processing this fracture.
+
+        # We have now split all fractures into non-intersecting polygons. The
+        # polygon boundary consists of fracture boundaries, fracture
+        # intersections and auxiliary edges. The latter must be identified, and
+        # added to the global edge list.
         all_edges = np.empty((2, 0), dtype='int')
         for p in poly_segments:
             all_edges = np.hstack((all_edges, p))
@@ -994,7 +994,7 @@ class FractureNetwork(object):
                                                               edges)
         # The edge exists if it is found of the orderings
         edge_exist = np.logical_or(edge_exist, edge_exist_reverse)
-        # Where in the list of all edges are the new ones located
+        # Where in the list of all edges are the new ones located?
         new_edge_ind = np.where([~i for i in edge_exist])[0]
         new_edges = all_edges[:, new_edge_ind]
 
@@ -1015,6 +1015,9 @@ class FractureNetwork(object):
 
 
     def _points_2_plane(self, p_loc, edges_loc, p_ind_loc):
+        """
+        Convenience method for rotating a point cloud into its own 2d-plane.
+        """
 
         # Center point cloud around the origin
         p_loc_c = np.mean(p_loc, axis=1).reshape((-1, 1))
@@ -1112,6 +1115,19 @@ class FractureNetwork(object):
         self.domain = box
 
     def _classify_edges(self):
+        """
+        Classify the edges into fracture boundary, intersection, or auxiliary. 
+        Also identify points on intersections between interesctions (fractures
+        of co-dimension 3)
+
+        Returns:
+            tag: Tag of the fracture, using the values in GmshConstants. Note
+                that auxiliary points will not be tagged (these are also
+                ignored in gmsh_interface.GmshWriter).
+            is_2d_grid: boolean, one for each point. True if the point is
+                shared by two or more intersection lines.
+
+        """
         edges = self.decomposition['edges']
         is_bound = self.decomposition['is_bound']
         num_edges = edges.shape[1]
@@ -1131,6 +1147,11 @@ class FractureNetwork(object):
         return tag, is_0d_grid
 
     def _poly_2_segment(self):
+        """
+        Represent the polygons by the global edges, and determine if the lines
+        must be reversed (locally) for the polygon to form a closed loop.
+
+        """
         edges = self.decomposition['edges']
         poly = self.decomposition['polygons']
 
