@@ -353,7 +353,7 @@ class Grid(object):
         face_2_node = tmp_face_center.transpose() - xn[:, face_nodes]
 
         # Assign a normal vector with this edge, by taking the cross product
-        # between face_2_node and along_edge
+        # between along_edge and face_2_node
         # Divide by two to ensure that the normal vector has length equal to
         # the area of the face triangle (by properties of cross product)
         sub_normals = np.vstack((along_edge[1] * face_2_node[2] -
@@ -408,12 +408,12 @@ class Grid(object):
         # cell center as the final node
 
         # Mapping from edges to cells. Take absolute value of cell_faces,
-        # since the elementsn are signed (contains the divergence)
-        # Note that edge_2_cell will cotain more elements than edge_2_face,
+        # since the elements are signed (contains the divergence).
+        # Note that edge_2_cell will contain more elements than edge_2_face,
         # since the former will count internal faces twice (one for each
         # adjacent cell)
         edge_2_cell = edge_2_face * np.abs(self.cell_faces)
-        # Sort indices to avoid messing up the mappingsn later
+        # Sort indices to avoid messing up the mappings later
         edge_2_cell.sort_indices()
 
         # Obtain relations between edges, faces and cells, in the form of
@@ -477,7 +477,12 @@ class Grid(object):
         # dot product gives the hight).
         tet_volumes = np.sum(dist_cellcenter_subface * outer_normals,
                              axis=0) / 3
-        assert np.all(tet_volumes > 0)  # On the fly test
+
+        # Sometimes the sub-tet volumes can have a volume of numerical zero.
+        # Why this is so is not clear, but for the moment, we allow for a
+        # slightly negative value.
+        assert np.all(tet_volumes > -1e-12)  # On the fly test
+
         # The cell volumes are now found by summing sub-tetrahedra
         cell_volumes = np.bincount(cell_numbers, weights=tet_volumes)
         tri_centroids = 3 / 4 * dist_cellcenter_subface
@@ -493,8 +498,20 @@ class Grid(object):
         self.cell_volumes = cell_volumes
 
     def cell_nodes(self):
-        mat = (self.face_nodes * np.abs(self.cell_faces) *
-               sps.eye(self.num_cells)) > 0
+        """
+        Obtain mapping between cells and nodes.
+
+        Returns:
+            sps.csc_matrix, size num_nodes x num_cells: Value 1 indicates a
+                connection between cell and node.
+
+        """
+        # Local version of cell-face map, using absolute value to avoid
+        # artifacts from +- in the original version.
+        cf_loc = sps.csc_matrix((np.abs(self.cell_faces.data),
+                                 self.cell_faces.indices,
+                                 self.cell_faces.indptr))
+        mat = (self.face_nodes * cf_loc) > 0
         return mat
 
     def num_cell_nodes(self):
