@@ -13,7 +13,7 @@ def split_faces(grids, network):
     """
     Split faces of the grid along each fractures. This function will
     add an extra face to each fracture face. Note that the original
-    and new fracture face will share the same nodes. However, the 
+    and new fracture face will share the same nodes. However, the
     cell_faces connectivity is updated such that the fractures are
     be internal boundaries (cells on left side of fractures are not
     connected to cells on right side of fracture and vise versa).
@@ -26,50 +26,13 @@ def split_faces(grids, network):
         assert all(np.diff(f.cell_2_face_pos) == 1)
         # Create convenientmappings
         frac_id = f.cell_2_face
-        frac_nodes = g.face_nodes[:, frac_id]
-        cell_frac = g.cell_faces[frac_id, :]
 
         # duplicate faces along tagged faces.
-        g.face_nodes = sps.hstack((g.face_nodes, frac_nodes))
-        new_map = g.num_faces + np.arange(frac_id.size)
-        f.cell_2_face = np.insert(new_map, np.arange(
-            f.cell_2_face.size), f.cell_2_face)
-        f.cell_2_face_pos = np.arange(0, f.cell_2_face.size + 1, 2)
-
-        # update face info
-        g.num_faces += frac_id.size
-        g.face_normals = np.hstack(
-            (g.face_normals, g.face_normals[:, frac_id]))
-        g.face_areas = np.append(g.face_areas, g.face_areas[frac_id])
-        g.face_centers = np.hstack(
-            (g.face_centers, g.face_centers[:, frac_id]))
-        # shoudl fix tag's later
-        #g.add_face_tag(frac, FaceTag.FRACTURE | FaceTag.BOUNDARY)
-        #g.face_tags = np.append(g.face_tags, g.face_tags[frac])
+        duplicate_faces(g, frac_id, f)
 
         # Set new cell conectivity
-        # Cells on right side does not change. We first add the new left-faces
-        # to the left cells
-        cell_frac_id = np.argwhere(cell_frac)
-        left_cell = half_space_int(network.get_normal(i),
-                                   network.get_center(i),
-                                   g.cell_centers[:, cell_frac_id[:, 1]])
-        col = cell_frac_id[left_cell, 1]
-        row = cell_frac_id[left_cell, 0]
-        data = np.ravel(g.cell_faces[np.ravel(frac_id[row]), col])
-        cell_frac_left = sps.csc_matrix((data, (row, col)),
-                                        (frac_id.size, g.cell_faces.shape[1]))
-
-        # We remove the right faces of the left cells.
-        col = cell_frac_id[~left_cell, 1]
-        row = cell_frac_id[~left_cell, 0]
-        data = np.ravel(g.cell_faces[np.ravel(frac_id[row]), col])
-
-        cell_frac_right = sps.csc_matrix((data, (row, col)),
-                                         (frac_id.size, g.cell_faces.shape[1]))
-
-        g.cell_faces[frac_id, :] = cell_frac_right
-        g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
+        update_cell_connectivity(
+            g, frac_id, network.get_normal(i), network.get_center(i))
 
         #        if i<f.num:
         #            new_faces = np.zeros((f.tag.shape[0],sum(f.tag[i,:])),dtype='bool')
@@ -216,6 +179,77 @@ def split_fractures(grids, network, offset=0):
     split_nodes(grids, network, offset=offset)
     grids[0][0].cell_faces.eliminate_zeros()
     return grids
+
+
+def duplicate_faces(g, frac_id, frac):
+    """
+    Duplicate faces along fracture.
+
+    Parameters
+    ----------
+    g       - The grid for which the faces are dublicated
+    frac    - The lower dimensional grid representing the fractures
+    frac_id - The indices of the faces that should be duplicated
+    """
+    frac_nodes = g.face_nodes[:, frac_id]
+    g.face_nodes = sps.hstack((g.face_nodes, frac_nodes))
+    new_map = g.num_faces + np.arange(frac_id.size)
+    frac.cell_2_face = np.insert(new_map, np.arange(
+        frac.cell_2_face.size), frac.cell_2_face)
+    frac.cell_2_face_pos = np.arange(0, frac.cell_2_face.size + 1, 2)
+
+    # update face info
+    g.num_faces += frac_id.size
+    g.face_normals = np.hstack(
+        (g.face_normals, g.face_normals[:, frac_id]))
+    g.face_areas = np.append(g.face_areas, g.face_areas[frac_id])
+    g.face_centers = np.hstack(
+        (g.face_centers, g.face_centers[:, frac_id]))
+    # shoudl fix tag's later
+    #g.add_face_tag(frac, FaceTag.FRACTURE | FaceTag.BOUNDARY)
+    #g.face_tags = np.append(g.face_tags, g.face_tags[frac])
+
+
+def update_cell_connectivity(g, frac_id, normal, x0):
+    """
+    After the faces in a grid is duplicated, we update the cell connectivity list
+    Cells on the right side of the fracture does not change, but the cells
+    on the left side are attached to the face duplicates. We assume that all
+    faces that have been duplicated lie in the same plane. This plane is
+    described by a normal and a point, x0. We attach cell on the left side of the
+    plane to the duplicate of frac_id. The cells on the right side is attached
+    to the face frac_id
+
+    Parameters:
+    ----------
+    g         - The grid for wich the cell_face mapping is uppdated
+    frac_id   - Indices of the faces that have been duplicated
+    normal    - Normal of faces that have been duplicated. Note that we assume
+                that all faces have the same normal
+    x0        - A point in the plane where the faces lie
+    """
+    # Cells on right side does not change. We first add the new left-faces
+    # to the left cells
+    cell_frac = g.cell_faces[frac_id, :]
+    cell_frac_id = np.argwhere(cell_frac)
+    left_cell = half_space_int(normal, x0,
+                               g.cell_centers[:, cell_frac_id[:, 1]])
+    col = cell_frac_id[left_cell, 1]
+    row = cell_frac_id[left_cell, 0]
+    data = np.ravel(g.cell_faces[np.ravel(frac_id[row]), col])
+    cell_frac_left = sps.csc_matrix((data, (row, col)),
+                                    (frac_id.size, g.cell_faces.shape[1]))
+
+    # We remove the right faces of the left cells.
+    col = cell_frac_id[~left_cell, 1]
+    row = cell_frac_id[~left_cell, 0]
+    data = np.ravel(g.cell_faces[np.ravel(frac_id[row]), col])
+
+    cell_frac_right = sps.csc_matrix((data, (row, col)),
+                                     (frac_id.size, g.cell_faces.shape[1]))
+
+    g.cell_faces[frac_id, :] = cell_frac_right
+    g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
 
 
 def remove_nodes(g, rem):
