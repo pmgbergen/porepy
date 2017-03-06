@@ -90,7 +90,7 @@ def create_grid(fracs, box, **kwargs):
 
     # We should also return the result of interdim_mappings, and possibly
     # tip_pts?
-    return grids
+    return grids, network
 
 def _create_3d_grids(pts, cells):
     tet_cells = cells['tetra']
@@ -285,3 +285,5 @@ def _obtain_interdim_mappings(grids):
                 # lower-dimensional grid, the index of the corresponding face
                 # in the higher-dimensional structure.
                 low_dim_cell = np.where(is_mem)[0]
+                lg.cell_2_face = cell_2_face
+                lg.cell_2_face_pos = np.arange(cell_2_face.size+1)

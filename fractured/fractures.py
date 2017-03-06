@@ -23,6 +23,7 @@ class Fracture(object):
     def __init__(self, points, index=None):
         self.p = points
         self.center = np.mean(self.p, axis=1).reshape((-1, 1))
+        self.normal = cg.compute_normal(points)[:,None]
 
         self.orig_p = self.p.copy()
 
@@ -431,7 +432,12 @@ class FractureNetwork(object):
     def __getitem__(self, position):
         return self._fractures[position]
 
+    def get_normal(self, frac):
+        return self._fractures[frac].normal
 
+    def get_center(self, frac):
+        return self._fractures[frac].center
+    
     def get_intersections(self, frac):
         """
         Get all intersections in the plane of a given fracture.
@@ -1126,7 +1132,6 @@ class FractureNetwork(object):
         for p in poly:
             hit, ind = setmembership.ismember_rows(p, edges[:2], sort=False)
             hit_reverse, ind_reverse = setmembership.ismember_rows(p[::-1], edges[:2], sort=False)
-
             assert np.all(hit + hit_reverse == 1)
 
             line_ind = np.zeros(p.shape[1])
