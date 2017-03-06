@@ -50,24 +50,25 @@ def _asvoid(arr):
 
 def _find_occ(a, b):
     """
+    Find index of occurences of a in b.
 
+    The function has only been tested on np.arrays, but it should be fairly
+    general (only require iterables?)
 
     Code snippet found at
     http://stackoverflow.com/questions/15864082/python-equivalent-of-matlabs-ismember-function?rq=1
 
-    Parameters
-    ----------
-    a
-    b
-
-    Returns
-    -------
-
     """
+    # Base search on a dictionary
     bind = {}
+    # Invert dictionary to create a map from an item in b to the *first*
+    # occurence of the item.
+    # NOTE: If we ever need to give the option of returning last index, it
+    # should require no more than bypassing the if statement.
     for i, elt in enumerate(b):
         if elt not in bind:
             bind[elt] = i
+    # Use inverse mapping to obtain 
     return [bind.get(itm, None) for itm in a]
 
 
