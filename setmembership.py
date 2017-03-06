@@ -60,6 +60,7 @@ def _find_occ(a, b):
 
     """
     # Base search on a dictionary
+
     bind = {}
     # Invert dictionary to create a map from an item in b to the *first*
     # occurence of the item.
@@ -106,17 +107,16 @@ def ismember_rows(a, b, sort=True, simple_version=False):
         (array([ True,  True, False,  True, False], dtype=bool), [1, 0, 1])
 
     """
-    if sort:
+
+    # Sort if required, but not if the input is 1d
+    if sort and a.ndim > 1:
         sa = np.sort(a, axis=0)
         sb = np.sort(b, axis=0)
     else:
         sa = a
         sb = b
 
-    if a.ndim == 1:
-        num_a = 1
-    else:
-        num_a = a.shape[1]
+    num_a = a.shape[-1]
 
     if simple_version:
         # Use straightforward search, based on a for loop. This is slow for
@@ -140,21 +140,31 @@ def ismember_rows(a, b, sort=True, simple_version=False):
         return ismem_a, ind_of_a_in_b.astype('int')
 
     else:
+        if a.ndim == 1:
+            # Special treatment of 1d, vstack of voids (below) ran into trouble
+            # here.
+            unq, k, count = np.unique(np.hstack((a, b)), return_inverse=True,
+                                      return_counts=True)
+            _, k_a, count_a = np.unique(a, return_inverse=True,
+                                           return_counts=True)
+        else:
+            # Represent the arrays as voids to facilitate quick comparison
+            voida = _asvoid(sa.transpose())
+            voidb = _asvoid(sb.transpose())
 
-        # Represent the arrays as voids to facilitate quick comparison
-        voida = _asvoid(sa.transpose())
-        voidb = _asvoid(sb.transpose())
-
-        # Use unique to count the number of occurences in a
-        unq, j, k, count = np.unique(np.vstack((voida, voidb)), return_index=True,
-                                     return_inverse=True, return_counts=True)
-        # Also count the number of occurences in voida
-        _, j_a, k_a, count_a = np.unique(voida, return_index=True,
-                                         return_inverse=True, return_counts=True)
+            # Use unique to count the number of occurences in a
+            unq, j, k, count = np.unique(np.vstack((voida, voidb)),
+                                         return_index=True,
+                                         return_inverse=True,
+                                         return_counts=True)
+            # Also count the number of occurences in voida
+            _, j_a, k_a, count_a = np.unique(voida, return_index=True,
+                                             return_inverse=True,
+                                             return_counts=True)
 
         # Index of a and b elements in the combined array
         ind_a = np.arange(num_a)
-        ind_b = num_a + np.arange(b.shape[1])
+        ind_b = num_a + np.arange(b.shape[-1])
 
         # Count number of occurences in combine array, and in a only
         num_occ_a_and_b = count[k[ind_a]]

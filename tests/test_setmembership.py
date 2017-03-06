@@ -111,6 +111,29 @@ class TestIsmember(unittest.TestCase):
         assert np.allclose(ma, ma_known)
         assert np.allclose(ia, ia_known)
 
+    def test_ismember_rows_1d(self):
+        a = np.array([0, 2, 1, 3, 0])
+        b = np.array([2, 4, 3])
+
+        ma, ia = setmembership.ismember_rows(a, b)
+
+        ma_known = np.array([0, 1, 0, 1, 0], dtype=bool)
+        ia_known = np.array([0, 2])
+
+        assert np.allclose(ma, ma_known)
+        assert np.allclose(ia, ia_known)
+
+    def test_ismember_rows_1d(self):
+        a = np.array([0, 2, 1, 13, 0])
+        b = np.array([2, 4, 13, 0])
+
+        ma, ia = setmembership.ismember_rows(a, b)
+
+        ma_known = np.array([1, 1, 0, 1, 1], dtype=bool)
+        ia_known = np.array([3, 0, 2, 3])
+
+        assert np.allclose(ma, ma_known)
+        assert np.allclose(ia, ia_known)
 
     if __name__ == '__main__':
         unittest.main()
