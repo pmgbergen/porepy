@@ -29,8 +29,10 @@ class TestUniqueRows(unittest.TestCase):
 class TestIsmember(unittest.TestCase):
 
     def test_ismember_rows_with_sort(self):
-        a = np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]])
-        b = np.array([[3, 1, 3, 5, 3], [3, 3, 2, 1, 2]])
+        a = np.array([[1, 3, 3, 1, 7],
+                      [3, 3, 2, 3, 0]])
+        b = np.array([[3, 1, 3, 5, 3],
+                      [3, 3, 2, 1, 2]])
         ma, ia = setmembership.ismember_rows(a, b)
 
         ma_known = np.array([1, 1, 1, 1, 0], dtype=bool)
@@ -41,8 +43,10 @@ class TestIsmember(unittest.TestCase):
 
 
     def test_ismember_rows_no_sort(self):
-        a = np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]])
-        b = np.array([[3, 1, 2, 5, 3], [3, 3, 3, 1, 1]])
+        a = np.array([[1, 3, 3, 1, 7],
+                      [3, 3, 2, 3, 0]])
+        b = np.array([[3, 1, 2, 5, 3],
+                      [3, 3, 3, 1, 1]])
         ma, ia = setmembership.ismember_rows(a, b, sort=False)
 
         ma_known = np.array([1, 1, 0, 1, 0], dtype=bool)
@@ -50,7 +54,64 @@ class TestIsmember(unittest.TestCase):
 
         assert np.allclose(ma, ma_known)
         assert np.allclose(ia, ia_known)
-        
+
+    def test_ismember_rows_unqual_sizes_1(self):
+        # a larger than b
+        a = np.array([[1, 3, 3, 1, 7],
+                      [3, 3, 2, 3, 0]])
+        b = np.array([[3, 1, 2, 5],
+                      [3, 3, 3, 1]])
+        ma, ia = setmembership.ismember_rows(a, b)
+
+        ma_known = np.array([1, 1, 1, 1, 0], dtype=bool)
+        ia_known = np.array([1, 0, 2, 1])
+
+        assert np.allclose(ma, ma_known)
+        assert np.allclose(ia, ia_known)
+
+    def test_ismember_rows_unqual_sizes_1(self):
+        # b larger than b
+        a = np.array([[1, 3, 3, 1, 7],
+                      [3, 3, 2, 3, 0]])
+        b = np.array([[3, 1, 2, 5, 3, 4, 7],
+                      [3, 3, 3, 1, 9, 9, 9]])
+        ma, ia = setmembership.ismember_rows(a, b)
+
+        ma_known = np.array([1, 1, 1, 1, 0], dtype=bool)
+        ia_known = np.array([1, 0, 2, 1])
+
+        assert np.allclose(ma, ma_known)
+        assert np.allclose(ia, ia_known)
+
+    def test_ismember_rows_double_occurence_a_no_b(self):
+        # There are duplicate occurences in a that are not found in b
+        a = np.array([[1, 3, 3, 1, 7],
+                      [3, 3, 2, 3, 0]])
+        b = np.array([[3, 2, 5],
+                      [3, 3, 1]])
+        ma, ia = setmembership.ismember_rows(a, b)
+
+        ma_known = np.array([0, 1, 1, 0, 0], dtype=bool)
+        ia_known = np.array([0, 1])
+
+        assert np.allclose(ma, ma_known)
+        assert np.allclose(ia, ia_known)
+
+    def test_ismember_rows_double_occurence_a_and_b(self):
+        # There are duplicate occurences in a, and the same item is found in b
+        a = np.array([[1, 3, 3, 1, 7],
+                      [3, 3, 2, 3, 0]])
+        b = np.array([[3, 1, 2, 5, 3],
+                      [3, 3, 3, 1, 1]])
+        ma, ia = setmembership.ismember_rows(a, b)
+
+        ma_known = np.array([1, 1, 1, 1, 0], dtype=bool)
+        ia_known = np.array([1, 0, 2, 1])
+
+        assert np.allclose(ma, ma_known)
+        assert np.allclose(ia, ia_known)
+
+
     if __name__ == '__main__':
         unittest.main()
 
