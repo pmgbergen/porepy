@@ -1,68 +1,78 @@
+"""
+Module for splitting a grid at the fractures.
+"""
+
 import numpy as np
 from scipy import sparse as sps
 from utils.half_space import half_space_int
-from core.grids.grid import Grid, FaceTag
 from utils.graph import Graph
+from core.grids.grid import Grid, FaceTag
 
 
 class Fracture:
-    """ 
+    """
     Fracture class. Contains the information about the fractures
     that is needed to split the grid. This class is so far created
-    as a convenience during the implementation of the splitting, 
+    as a convenience during the implementation of the splitting,
     but this is probably not the best way to do this.
     """
-    def __init__(self,g):
-        self.num  = 0
-        self.tag  = np.zeros((0,g.num_faces),dtype='bool')
-        self.tips = np.zeros((0,2),dtype=np.int8)
-        self.n    = np.zeros((3,0))
-        self.x0   = np.zeros((3,0))
 
-    def add_tag(self,g,tag):
-        self.tag = np.vstack((self.tag,tag))
-        self.n   = np.hstack((self.n, g.face_normals[:,tag][:,0,None]))
-        self.x0  = np.hstack((self.x0,g.face_centers[:,tag][:,0,None]))
-        self.num+=1
+    def __init__(self, g):
+        self.num = 0
+        self.tag = np.zeros((0, g.num_faces), dtype='bool')
+        self.tips = np.zeros((0, 2), dtype=np.int8)
+        self.n = np.zeros((3, 0))
+        self.x0 = np.zeros((3, 0))
+
+    def add_tag(self, g, tag):
+        self.tag = np.vstack((self.tag, tag))
+        self.n = np.hstack((self.n, g.face_normals[:, tag][:, 0, None]))
+        self.x0 = np.hstack((self.x0, g.face_centers[:, tag][:, 0, None]))
+        self.num += 1
         self.set_tips(g)
-        
-    def set_tips(self, g):
-        self.tips = np.zeros((self.num,2),dtype=np.int8)
-        for i in range(self.num):
-            node_mult = np.ravel(np.sum(g.face_nodes[:,self.tag[i,:]],axis=1))
-            self.tips[i,:] = np.ravel(np.argwhere(node_mult==1)) # tip
 
-def create_fracture_grid(g,f):
+    def set_tips(self, g):
+        self.tips = np.zeros((self.num, 2), dtype=np.int8)
+        for i in range(self.num):
+            node_mult = np.ravel(
+                np.sum(g.face_nodes[:, self.tag[i, :]], axis=1))
+            self.tips[i, :] = np.ravel(np.argwhere(node_mult == 1))  # tip
+
+
+def create_fracture_grid(g, f):
     """
     Create a lower dimensional grid of the fractures. The main purpose
     of this function is to be able to call the g.get_boundary_faces()
     function. Only works for 1D fractures in 2D
     """
-    assert g.dim == 2,'only support for 2D'
+    assert g.dim == 2, 'only support for 2D'
     h_list = []
     for i in range(f.num):
-        nodes = np.ravel(np.sum(g.face_nodes[:,f.tag[i,:]],axis=1))>0
-        node_coords = g.nodes[:,nodes]
-        cell_nodes  = g.face_nodes[nodes,:]
-        cell_nodes  = cell_nodes[:,f.tag[i,:]]
-        num_nodes   = cell_nodes.shape[0]
-        face_nodes  = sps.csc_matrix(([True]*num_nodes,
-                                      (np.arange(num_nodes),np.arange(num_nodes))),
-                                     (num_nodes,num_nodes),dtype='bool')
+        nodes = np.ravel(np.sum(g.face_nodes[:, f.tag[i, :]], axis=1)) > 0
+        node_coords = g.nodes[:, nodes]
+        cell_nodes = g.face_nodes[nodes, :]
+        cell_nodes = cell_nodes[:, f.tag[i, :]]
+        num_nodes = cell_nodes.shape[0]
+        face_nodes = sps.csc_matrix(([True] * num_nodes,
+                                     (np.arange(num_nodes), np.arange(num_nodes))),
+                                    (num_nodes, num_nodes), dtype='bool')
         [fi, ci, val] = sps.find(cell_nodes)
         data = val.astype(int)
-        data[::2] = data[::2]*-1
-        cell_faces = sps.csc_matrix((data,(fi,ci)),(face_nodes.shape[1],cell_nodes.shape[1]))
+        data[::2] = data[::2] * -1
+        cell_faces = sps.csc_matrix(
+            (data, (fi, ci)), (face_nodes.shape[1], cell_nodes.shape[1]))
         dim = g.dim - 1
-        h = Grid(dim, node_coords, face_nodes, cell_faces,'Lower_dim_grid')
+        h = Grid(dim, node_coords, face_nodes, cell_faces, 'Lower_dim_grid')
         h.nodes_nodes = np.ravel(np.argwhere(nodes))
         # Add mapping from parent to lower dim grids
-        col = np.ravel(np.argwhere(f.tag[i,:]))
+        col = np.ravel(np.argwhere(f.tag[i, :]))
         row = np.arange(col.size)
-        dat = np.array([True]*col.size)
-        h.child_parent = sps.csc_matrix((dat,(row,col)),(h.num_cells,g.num_faces))
+        dat = np.array([True] * col.size)
+        h.child_parent = sps.csc_matrix(
+            (dat, (row, col)), (h.num_cells, g.num_faces))
         h_list.append(h)
     return h_list
+
 
 def tag_nodes(grids):
     """
@@ -76,34 +86,35 @@ def tag_nodes(grids):
     g.frac_nodes is a sparse matrix that tells which fracture each
         node lies on.
     """
-    node_info = np.zeros((0,3),dtype='int32')
+    node_info = np.zeros((0, 3), dtype='int32')
     # find tips and nodes of each fracture
     h_list = grids[1]
-    
-    for i, h in enumerate(h_list):
-        tip_nodes = np.argwhere(h.face_nodes[:,h.get_boundary_faces()])[:,0]
-        node_type = np.ones(h.num_nodes,dtype='int32')
-        node_type[tip_nodes] = 0
-        new_info = np.vstack((h.nodes_nodes,node_type,[i]*h.num_nodes)).T
-        node_info = np.vstack((node_info,new_info))
-        
 
-    # Find shared nodes 
-    nodes,ix, iv, node_mult = np.unique(node_info[:,0],return_index=True,
-                                        return_inverse=True, return_counts=True)
-    node_info[:,1] += (node_mult[iv] - 1).astype('int32')
-    node_short_info = node_info[ix,:] 
+    for i, h in enumerate(h_list):
+        tip_nodes = np.argwhere(h.face_nodes[:, h.get_boundary_faces()])[:, 0]
+        node_type = np.ones(h.num_nodes, dtype='int32')
+        node_type[tip_nodes] = 0
+        new_info = np.vstack((h.nodes_nodes, node_type, [i] * h.num_nodes)).T
+        node_info = np.vstack((node_info, new_info))
+
+    # Find shared nodes
+    nodes, ix, iv, node_mult = np.unique(node_info[:, 0], return_index=True,
+                                         return_inverse=True, return_counts=True)
+    node_info[:, 1] += (node_mult[iv] - 1).astype('int32')
+    node_short_info = node_info[ix, :]
     # row0:node number row1: number of nodes that should be added
-    g.node_info = node_short_info[node_short_info[:,1]>0,:2]
-    row = node_info[:,0]
-    col = node_info[:,2]
-    data = [True]*row.size
+    g.node_info = node_short_info[node_short_info[:, 1] > 0, :2]
+    row = node_info[:, 0]
+    col = node_info[:, 2]
+    data = [True] * row.size
     # create mapping from nodes to the fracture numbers.
-    g.frac_nodes = sps.csc_matrix((data,(row,col)),(g.nodes.shape[1],f.num))
+    g.frac_nodes = sps.csc_matrix(
+        (data, (row, col)), (g.nodes.shape[1], f.num))
 
     return h_list
-    
-def split_faces(grids,network):
+
+
+def split_faces(grids, network):
     """
     Split faces of the grid along each fractures. This function will
     add an extra face to each fracture face. Note that the original
@@ -115,25 +126,28 @@ def split_faces(grids,network):
 
     frac_grids = grids[1]
     g = grids[0][0]
-    for i,f in enumerate(frac_grids):
+    for i, f in enumerate(frac_grids):
         # Each lower dim grid should only belong to one higher dim face
-        assert all(np.diff(f.cell_2_face_pos)==1)
+        assert all(np.diff(f.cell_2_face_pos) == 1)
         # Create convenientmappings
-        frac_id    = f.cell_2_face
-        frac_nodes = g.face_nodes[:,frac_id]
-        cell_frac  = g.cell_faces[frac_id,:]
+        frac_id = f.cell_2_face
+        frac_nodes = g.face_nodes[:, frac_id]
+        cell_frac = g.cell_faces[frac_id, :]
 
         # duplicate faces along tagged faces.
-        g.face_nodes  = sps.hstack((g.face_nodes,frac_nodes))
-        new_map       = g.num_faces + np.arange(frac_id.size)
-        f.cell_2_face = np.insert(new_map,np.arange(f.cell_2_face.size),f.cell_2_face)
-        f.cell_2_face_pos = np.arange(0,f.cell_2_face.size+1,2)
+        g.face_nodes = sps.hstack((g.face_nodes, frac_nodes))
+        new_map = g.num_faces + np.arange(frac_id.size)
+        f.cell_2_face = np.insert(new_map, np.arange(
+            f.cell_2_face.size), f.cell_2_face)
+        f.cell_2_face_pos = np.arange(0, f.cell_2_face.size + 1, 2)
 
         # update face info
-        g.num_faces   += frac_id.size
-        g.face_normals = np.hstack((g.face_normals, g.face_normals[:,frac_id]))
-        g.face_areas   = np.append(g.face_areas, g.face_areas[frac_id])
-        g.face_centers = np.hstack((g.face_centers, g.face_centers[:,frac_id]))
+        g.num_faces += frac_id.size
+        g.face_normals = np.hstack(
+            (g.face_normals, g.face_normals[:, frac_id]))
+        g.face_areas = np.append(g.face_areas, g.face_areas[frac_id])
+        g.face_centers = np.hstack(
+            (g.face_centers, g.face_centers[:, frac_id]))
         # shoudl fix tag's later
         #g.add_face_tag(frac, FaceTag.FRACTURE | FaceTag.BOUNDARY)
         #g.face_tags = np.append(g.face_tags, g.face_tags[frac])
@@ -141,27 +155,27 @@ def split_faces(grids,network):
         # Set new cell conectivity
         # Cells on right side does not change. We first add the new left-faces
         # to the left cells
-        cell_frac_id   = np.argwhere(cell_frac)
-        left_cell      = half_space_int(network.get_normal(i),
-                                        network.get_center(i),
-                                        g.cell_centers[:,cell_frac_id[:,1]])
-        col            = cell_frac_id[left_cell,1]
-        row            = cell_frac_id[left_cell,0]
-        data           = np.ravel(g.cell_faces[np.ravel(frac_id[row]), col])
-        cell_frac_left = sps.csc_matrix((data,(row,col)),
-                                        (frac_id.size,g.cell_faces.shape[1]))
+        cell_frac_id = np.argwhere(cell_frac)
+        left_cell = half_space_int(network.get_normal(i),
+                                   network.get_center(i),
+                                   g.cell_centers[:, cell_frac_id[:, 1]])
+        col = cell_frac_id[left_cell, 1]
+        row = cell_frac_id[left_cell, 0]
+        data = np.ravel(g.cell_faces[np.ravel(frac_id[row]), col])
+        cell_frac_left = sps.csc_matrix((data, (row, col)),
+                                        (frac_id.size, g.cell_faces.shape[1]))
 
         # We remove the right faces of the left cells.
-        col  = cell_frac_id[~left_cell,1]
-        row  = cell_frac_id[~left_cell,0]
+        col = cell_frac_id[~left_cell, 1]
+        row = cell_frac_id[~left_cell, 0]
         data = np.ravel(g.cell_faces[np.ravel(frac_id[row]), col])
 
-        cell_frac_right = sps.csc_matrix((data,(row,col)),
-                                         (frac_id.size,g.cell_faces.shape[1]))
+        cell_frac_right = sps.csc_matrix((data, (row, col)),
+                                         (frac_id.size, g.cell_faces.shape[1]))
 
-        g.cell_faces[frac_id,:] = cell_frac_right
-        g.cell_faces    = sps.vstack((g.cell_faces,cell_frac_left),format='csc')
-        
+        g.cell_faces[frac_id, :] = cell_frac_right
+        g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
+
         #        if i<f.num:
         #            new_faces = np.zeros((f.tag.shape[0],sum(f.tag[i,:])),dtype='bool')
         #            new_faces[i,:] = True
@@ -169,30 +183,31 @@ def split_faces(grids,network):
     return g
 
 
-def split_nodes(grids,network,offset=0):
+def split_nodes(grids, network, offset=0):
     """
-    splits the nodes of a grid given a fracture and a colored graph. 
+    splits the nodes of a grid given a fracture and a colored graph.
     Parameters
     ----------
     g - A grid. All fracture faces should first be duplicated
-    f - a Fracture object. 
+    f - a Fracture object.
     graph - a Graph object. All the nodes in the graph should be colored
             acording to the fracture regions (Graph.color_nodes())
     offset - float
-             Optional, defaults to 0. This gives the offset from the 
+             Optional, defaults to 0. This gives the offset from the
              fracture to the new nodes. Note that this is only for
-             visualization, e.g., g.face_centers is not updated. 
+             visualization, e.g., g.face_centers is not updated.
     """
     # Create convenient mappings
     int_nodes = []
     for g in grids[1]:
         bdr = g.get_boundary_faces()
-        bdr_nodes = np.ravel(np.sum(g.face_nodes[:,bdr],axis=1)).astype('bool')
-        int_nodes = np.append(int_nodes,g.global_point_ind[~bdr_nodes])
+        bdr_nodes = np.ravel(
+            np.sum(g.face_nodes[:, bdr], axis=1)).astype('bool')
+        int_nodes = np.append(int_nodes, g.global_point_ind[~bdr_nodes])
     int_nodes = np.unique(int_nodes)
 
-    row = np.array([],dtype=np.int32)
-    col = np.array([],dtype=np.int32)
+    row = np.array([], dtype=np.int32)
+    col = np.array([], dtype=np.int32)
     node_count = 0
     # Iterate over each internal node and split it according to the graph.
     # For each cell attached to the node, we check wich color the cell has.
@@ -201,51 +216,55 @@ def split_nodes(grids,network,offset=0):
     h = grids[0][0]
     for i, node in enumerate(int_nodes):
         # Find cells connected to node
-        (_,cells,_) = sps.find(h.cell_nodes()[node,:])
+        (_, cells, _) = sps.find(h.cell_nodes()[node, :])
         #cells = np.unique(cells)
         (h_frac, unique_faces, unique_nodes) = extract_subgrid(h, cells, sort=True)
-        h.child_cell_ind = np.array([-1]*h.num_cells,dtype=np.int)
+        h.child_cell_ind = np.array([-1] * h.num_cells, dtype=np.int)
         h.child_cell_ind[h_frac.parent_cell_ind] = np.arange(h_frac.num_cells)
         graph = Graph(h_frac.cell_connection_map())
         graph.color_nodes()
         colors = graph.color[h.child_cell_ind[cells]]
-        colors,ix,_ = np.unique(colors,return_inverse=True,return_counts=True)
-        new_nodes = np.repeat(h.nodes[:,node,None],colors.size,axis=1)
+        colors, ix, _ = np.unique(
+            colors, return_inverse=True, return_counts=True)
+        new_nodes = np.repeat(h.nodes[:, node, None], colors.size, axis=1)
         for j in range(colors.size):
             # Find faces of each cell that are attached to node
-            faces,_,_ = sps.find(h.cell_faces[:,cells[ix==j]])
+            faces, _, _ = sps.find(h.cell_faces[:, cells[ix == j]])
             faces = np.unique(faces)
-            con_to_node = np.ravel(h.face_nodes[node,faces].todense())
+            con_to_node = np.ravel(h.face_nodes[node, faces].todense())
             faces = faces[con_to_node]
-            col = np.append(col,faces)
-            row = np.append(row,[node_count + j]*faces.size)
+            col = np.append(col, faces)
+            row = np.append(row, [node_count + j] * faces.size)
             # Change position of nodes
-            if offset>0:
-                frac_face = np.ravel(np.sum(np.abs(h.cell_faces[faces,:]),axis=1)==1)
-                f,_,sign = sps.find(h.cell_faces[faces[frac_face],:])
-                n = h.face_normals[:,faces[frac_face]]
-                n = n[:,f]*sign
+            if offset > 0:
+                frac_face = np.ravel(
+                    np.sum(np.abs(h.cell_faces[faces, :]), axis=1) == 1)
+                f, _, sign = sps.find(h.cell_faces[faces[frac_face], :])
+                n = h.face_normals[:, faces[frac_face]]
+                n = n[:, f] * sign
                 n = np.mean(n, axis=1)
-                n = n/np.linalg.norm(n)
-                new_nodes[:,j] -= n*offset
-            
+                n = n / np.linalg.norm(n)
+                new_nodes[:, j] -= n * offset
+
         h.nodes = np.hstack((h.nodes, new_nodes))
         node_count += colors.size
 
     # Add new nodes to face-node map
-    new_face_nodes = sps.csc_matrix(([True]*row.size,(row,col)),(node_count,h.num_faces))
-    h.face_nodes = sps.vstack((h.face_nodes, new_face_nodes),format='csc')
+    new_face_nodes = sps.csc_matrix(
+        ([True] * row.size, (row, col)), (node_count, h.num_faces))
+    h.face_nodes = sps.vstack((h.face_nodes, new_face_nodes), format='csc')
     # Remove old nodes
     h = remove_nodes(h, int_nodes)
     # Update the number of nodes
     h.num_nodes = h.num_nodes + node_count - int_nodes.size
     return True
 
-def split_fractures(grids,network,offset=0):
+
+def split_fractures(grids, network, offset=0):
     """
     Wrapper function to split all fractures. Will split faces and nodes
     to create an internal boundary.
-    
+
     The tagged faces are split in two along with connected nodes (except
     tips).
 
@@ -262,7 +281,7 @@ def split_fractures(grids,network,offset=0):
         Defaults to None. If None, it tries to locate the fracture tips
         based on the number of tagged faces connecting each node. Fracture
         tips are then tagged as nodes only connected to one tagged face.
-        If None, tip_nodes_id should be the indices of the tip nodes of 
+        If None, tip_nodes_id should be the indices of the tip nodes of
         the fractures. The nodes in the tip_nodes_id will not be split.
     offset - float
         Defaults to 0. The fracture nodes are moved a distance 0.5*offest
@@ -270,7 +289,7 @@ def split_fractures(grids,network,offset=0):
         purposes only. E.g, the face centers are not moved.
     Returns
     -------
-    g - A valid grid deformation where with internal boundaries. 
+    g - A valid grid deformation where with internal boundaries.
 
 
     Examples
@@ -284,7 +303,7 @@ def split_fractures(grids,network,offset=0):
     >>> g = structured.CartGrid([n, n])
     >>> g.compute_geometry()
     >>> # Define fracture
-    >>> frac_tag1 = np.logical_and(np.logical_and(g.face_centers[1,:]==n/2, 
+    >>> frac_tag1 = np.logical_and(np.logical_and(g.face_centers[1,:]==n/2,
     >>>            g.face_centers[0,:]>n/4), g.face_centers[0,:]<3*n/4)
     >>> frac_tag2 = np.logical_and(np.logical_and(g.face_centers[0,:]==n/2,
     >>>                            g.face_centers[1,:]>=n/4),
@@ -296,12 +315,13 @@ def split_fractures(grids,network,offset=0):
     >>> plot_grid.plot_grid(g)
     >>> plt.show()
     """
-    #h_list = tag_nodes(g,f )   
-    split_faces(grids,network)
+    #h_list = tag_nodes(g,f )
+    split_faces(grids, network)
     # Split the nodes along fractures
-    split_nodes(grids,network,offset=offset)
+    split_nodes(grids, network, offset=offset)
     grids[0][0].cell_faces.eliminate_zeros()
     return grids
+
 
 def remove_nodes(g, rem):
     """
@@ -311,8 +331,8 @@ def remove_nodes(g, rem):
     """
     all_rows = np.arange(g.face_nodes.shape[0])
     rows_to_keep = np.where(np.logical_not(np.in1d(all_rows, rem)))[0]
-    g.face_nodes = g.face_nodes[rows_to_keep,:]
-    g.nodes = g.nodes[:,rows_to_keep]
+    g.face_nodes = g.face_nodes[rows_to_keep, :]
+    g.nodes = g.nodes[:, rows_to_keep]
     return g
 
 
@@ -337,9 +357,9 @@ def extract_subgrid(g, c, sort=True):
 
     Returns:
         core.grids.Grid: Extracted subgrid. Will share (note, *not* copy)
-	    geometric fileds with the parent grid. Also has an additional
-	    field parent_cell_ind giving correspondance between parent and
-	    child cells.
+            geometric fileds with the parent grid. Also has an additional
+            field parent_cell_ind giving correspondance between parent and
+            child cells.
         np.ndarray, dtype=int: Index of the extracted faces, ordered so that
             element i is the global index of face i in the subgrid.
         np.ndarray, dtype=int: Index of the extracted nodes, ordered so that
@@ -389,5 +409,3 @@ def __extract_submatrix(mat, ind):
     unique_rows, rows_sub = np.unique(sub_mat.indices,
                                       return_inverse=True)
     return sps.csc_matrix((data, rows_sub, cols)), unique_rows
-
-
