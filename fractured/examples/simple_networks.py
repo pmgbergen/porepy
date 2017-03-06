@@ -72,6 +72,25 @@ def three_intersecting_fractures(**kwargs):
     return grids
 
 
+def one_fracture_intersected_by_two(**kwargs):
+    """
+    One fracture, intersected by two other (but no point intersections)
+    """
+
+    f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
+    f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-.7, -.7, .8, .8]])
+    f_3 = f_2 + np.array([0.5, 0, 0]).reshape((-1, 1))
+
+    # Add some parameters for grid size
+    domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
+              2}
+    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
+
+    kwargs['mesh_size'] = mesh_size
+    grids = meshing.create_grid([f_1, f_2, f_3], domain, **kwargs)
+
+    return grids
+
 if __name__ == '__main__':
     # If invoked as main, run all tests
     try:
@@ -169,6 +188,32 @@ if __name__ == '__main__':
         print('\n')
         print(' ***** FAILURE ****')
         print('Gridding of three intersecting fractures failed')
+        print(exp)
+        logging.error(traceback.format_exc())
+        failure_counter += 1
+
+    ##########################
+    # Three fractures, two separate intersection lines
+    #
+    if verbose > 0:
+        print('Run one fracture intersected by two')
+    try:
+        time_loc = time.time()
+        g = one_fracture_intersected_by_two(gmsh_path=gmsh_path,
+                                            verbose=verbose, gmsh_verbose=0)
+        assert len(g) == 4
+        assert len(g[0]) == 1
+        assert len(g[1]) == 3
+        assert len(g[2]) == 2
+        assert len(g[3]) == 0
+        if verbose > 0:
+            print('One by two completed successfully')
+            print('Elapsed time ' + str(time.time() - time_loc))
+        success_counter += 1
+    except Exception as exp:
+        print('\n')
+        print(' ***** FAILURE ****')
+        print('Gridding of one by two failed')
         print(exp)
         logging.error(traceback.format_exc())
         failure_counter += 1
