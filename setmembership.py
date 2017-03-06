@@ -72,7 +72,7 @@ def _find_occ(a, b):
     return [bind.get(itm, None) for itm in a]
 
 
-def ismember_rows(a, b, sort=True):
+def ismember_rows(a, b, sort=True, simple_version=False):
     """
     Find *columns* of a that are also members of *columns* of b.
 
@@ -85,6 +85,9 @@ def ismember_rows(a, b, sort=True):
         b (np.array): Array in which we will look for a twin
         sort (boolean, optional): If true, the arrays will be sorted before
             seraching, increasing the chances for a match. Defaults to True.
+        simple_verion (boolean, optional): Use an alternative implementation
+            based on a global for loop. The code is slow for large arrays, but
+            easy to understand. Defaults to False.
 
     Returns:
         np.array (boolean): For each column in a, true if there is a
@@ -115,38 +118,62 @@ def ismember_rows(a, b, sort=True):
     else:
         num_a = a.shape[1]
 
-    """
-    Old code, found on the internet. Not sure about the reliability, so we kick
-    it out for the moment.
-    voida = _asvoid(sa.transpose())
-    voidb = _asvoid(sb.transpose())
-    unq, j, k, count = np.unique(np.vstack((voida, voidb)), return_index=True,
-                                 return_inverse=True, return_counts=True)
+    if simple_version:
+        # Use straightforward search, based on a for loop. This is slow for
+        # large arrays, but as the alternative implementation is opaque, and
+        # there has been some doubts on its reliability, this version is kept
+        # as a safeguard. 
+        ismem_a = np.zeros(num_a, dtype=np.bool)
+        ind_of_a_in_b = np.empty(0)
+        for i in range(num_a):
+            if sa.ndim == 1:
+                diff = np.abs(sb - sa[i])
+            else:
+                diff = np.sum(np.abs(sb - sa[:, i].reshape((-1, 1))), axis=0)
+            if np.any(diff == 0):
+                ismem_a[i] = True
+                hit = np.where(diff==0)[0]
+                if hit.size > 1:
+                    hit = hit[0]
+                ind_of_a_in_b = np.append(ind_of_a_in_b, hit)
 
-    ind_a = np.arange(num_a)
-    ind_b = num_a + np.arange(b.shape[1])
-    num_occ_a = count[k[ind_a]]
-    ismem_a = (num_occ_a > 1)
-    occ_a = k[ind_a[ismem_a]]
-    occ_b = k[ind_b]
+        return ismem_a, ind_of_a_in_b.astype('int')
 
-    ind_of_a_in_b = _find_occ(occ_a, occ_b)
-    """
-    ismem_a = np.zeros(num_a, dtype=np.bool)
-    ind_of_a_in_b = np.empty(0)
-    for i in range(num_a):
-        if sa.ndim == 1:
-            diff = np.abs(sb - sa[i])
-        else:
-            diff = np.sum(np.abs(sb - sa[:, i].reshape((-1, 1))), axis=0)
-        if np.any(diff == 0):
-            ismem_a[i] = True
-            hit = np.where(diff==0)[0]
-            if hit.size > 1:
-                hit = hit[0]
-            ind_of_a_in_b = np.append(ind_of_a_in_b, hit)
+    else:
 
-    return ismem_a, ind_of_a_in_b.astype('int')
+        # Represent the arrays as voids to facilitate quick comparison
+        voida = _asvoid(sa.transpose())
+        voidb = _asvoid(sb.transpose())
+
+        # Use unique to count the number of occurences in a
+        unq, j, k, count = np.unique(np.vstack((voida, voidb)), return_index=True,
+                                     return_inverse=True, return_counts=True)
+        # Also count the number of occurences in voida
+        _, j_a, k_a, count_a = np.unique(voida, return_index=True,
+                                         return_inverse=True, return_counts=True)
+
+        # Index of a and b elements in the combined array
+        ind_a = np.arange(num_a)
+        ind_b = num_a + np.arange(b.shape[1])
+
+        # Count number of occurences in combine array, and in a only
+        num_occ_a_and_b = count[k[ind_a]]
+        num_occ_a = count_a[k_a[ind_a]]
+
+        # Subtraction gives number of a in b
+        num_occ_a_in_b = num_occ_a_and_b - num_occ_a
+        ismem_a = (num_occ_a_in_b > 0)
+
+        # To get the indices of common elements in a and b, compare the
+        # elements in k (pointers to elements in the unique combined arary)
+        occ_a = k[ind_a[ismem_a]]
+        occ_b = k[ind_b]
+
+        ind_of_a_in_b = _find_occ(occ_a, occ_b)
+        # Remove None types when no hit was found
+        ind_of_a_in_b = [i for i in ind_of_a_in_b if i is not None]
+
+        return ismem_a, np.array(ind_of_a_in_b, dtype='int')
 
 #---------------------------------------------------------
 
