@@ -9,111 +9,6 @@ from utils.graph import Graph
 from core.grids.grid import Grid, FaceTag
 
 
-class Fracture:
-    """
-    Fracture class. Contains the information about the fractures
-    that is needed to split the grid. This class is so far created
-    as a convenience during the implementation of the splitting,
-    but this is probably not the best way to do this.
-    """
-
-    def __init__(self, g):
-        self.num = 0
-        self.tag = np.zeros((0, g.num_faces), dtype='bool')
-        self.tips = np.zeros((0, 2), dtype=np.int8)
-        self.n = np.zeros((3, 0))
-        self.x0 = np.zeros((3, 0))
-
-    def add_tag(self, g, tag):
-        self.tag = np.vstack((self.tag, tag))
-        self.n = np.hstack((self.n, g.face_normals[:, tag][:, 0, None]))
-        self.x0 = np.hstack((self.x0, g.face_centers[:, tag][:, 0, None]))
-        self.num += 1
-        self.set_tips(g)
-
-    def set_tips(self, g):
-        self.tips = np.zeros((self.num, 2), dtype=np.int8)
-        for i in range(self.num):
-            node_mult = np.ravel(
-                np.sum(g.face_nodes[:, self.tag[i, :]], axis=1))
-            self.tips[i, :] = np.ravel(np.argwhere(node_mult == 1))  # tip
-
-
-def create_fracture_grid(g, f):
-    """
-    Create a lower dimensional grid of the fractures. The main purpose
-    of this function is to be able to call the g.get_boundary_faces()
-    function. Only works for 1D fractures in 2D
-    """
-    assert g.dim == 2, 'only support for 2D'
-    h_list = []
-    for i in range(f.num):
-        nodes = np.ravel(np.sum(g.face_nodes[:, f.tag[i, :]], axis=1)) > 0
-        node_coords = g.nodes[:, nodes]
-        cell_nodes = g.face_nodes[nodes, :]
-        cell_nodes = cell_nodes[:, f.tag[i, :]]
-        num_nodes = cell_nodes.shape[0]
-        face_nodes = sps.csc_matrix(([True] * num_nodes,
-                                     (np.arange(num_nodes), np.arange(num_nodes))),
-                                    (num_nodes, num_nodes), dtype='bool')
-        [fi, ci, val] = sps.find(cell_nodes)
-        data = val.astype(int)
-        data[::2] = data[::2] * -1
-        cell_faces = sps.csc_matrix(
-            (data, (fi, ci)), (face_nodes.shape[1], cell_nodes.shape[1]))
-        dim = g.dim - 1
-        h = Grid(dim, node_coords, face_nodes, cell_faces, 'Lower_dim_grid')
-        h.nodes_nodes = np.ravel(np.argwhere(nodes))
-        # Add mapping from parent to lower dim grids
-        col = np.ravel(np.argwhere(f.tag[i, :]))
-        row = np.arange(col.size)
-        dat = np.array([True] * col.size)
-        h.child_parent = sps.csc_matrix(
-            (dat, (row, col)), (h.num_cells, g.num_faces))
-        h_list.append(h)
-    return h_list
-
-
-def tag_nodes(grids):
-    """
-    Add fields g.node_info and g.frac_nodes to the grid. The g.node_info
-    contains information about the fracture nodes. 
-    g.node_info: 
-        g.node_info[:,0] is an index map to the nodes that lie on the 
-            fracutres (excluding free tips).
-        g.node_info[:,1] is the number of nodes that should be 
-            added to split the grid.
-    g.frac_nodes is a sparse matrix that tells which fracture each
-        node lies on.
-    """
-    node_info = np.zeros((0, 3), dtype='int32')
-    # find tips and nodes of each fracture
-    h_list = grids[1]
-
-    for i, h in enumerate(h_list):
-        tip_nodes = np.argwhere(h.face_nodes[:, h.get_boundary_faces()])[:, 0]
-        node_type = np.ones(h.num_nodes, dtype='int32')
-        node_type[tip_nodes] = 0
-        new_info = np.vstack((h.nodes_nodes, node_type, [i] * h.num_nodes)).T
-        node_info = np.vstack((node_info, new_info))
-
-    # Find shared nodes
-    nodes, ix, iv, node_mult = np.unique(node_info[:, 0], return_index=True,
-                                         return_inverse=True, return_counts=True)
-    node_info[:, 1] += (node_mult[iv] - 1).astype('int32')
-    node_short_info = node_info[ix, :]
-    # row0:node number row1: number of nodes that should be added
-    g.node_info = node_short_info[node_short_info[:, 1] > 0, :2]
-    row = node_info[:, 0]
-    col = node_info[:, 2]
-    data = [True] * row.size
-    # create mapping from nodes to the fracture numbers.
-    g.frac_nodes = sps.csc_matrix(
-        (data, (row, col)), (g.nodes.shape[1], f.num))
-
-    return h_list
-
-
 def split_faces(grids, network):
     """
     Split faces of the grid along each fractures. This function will
@@ -315,7 +210,7 @@ def split_fractures(grids, network, offset=0):
     >>> plot_grid.plot_grid(g)
     >>> plt.show()
     """
-    #h_list = tag_nodes(g,f )
+    # Doubplicate all fracture faces
     split_faces(grids, network)
     # Split the nodes along fractures
     split_nodes(grids, network, offset=offset)
