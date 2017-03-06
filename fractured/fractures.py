@@ -559,12 +559,15 @@ class FractureNetwork(object):
 
         # Next, loop over all intersections, and define new points and edges
         for i in self.intersections:
-            num_p = all_p.shape[1]
-            all_p = np.hstack((all_p, i.coord))
+            # Only add information if the intersection exists, that is, it has
+            # a coordinate.
+            if i.coord.size > 0:
+                num_p = all_p.shape[1]
+                all_p = np.hstack((all_p, i.coord))
 
-            edges = np.hstack((edges, num_p + np.arange(2).reshape((-1, 1))))
-            edges_2_frac.append([i.first.index, i.second.index])
-            is_boundary_edge.append(False)
+                edges = np.hstack((edges, num_p + np.arange(2).reshape((-1, 1))))
+                edges_2_frac.append([i.first.index, i.second.index])
+                is_boundary_edge.append(False)
 
         # Ensure that edges are integers
         edges = edges.astype('int')
