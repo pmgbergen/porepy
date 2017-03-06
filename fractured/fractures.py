@@ -603,10 +603,10 @@ class FractureNetwork(object):
         # First expand the relevant members of edge_2_frac
         for ri in removed_edge:
             new_ind = all_2_unique_e[ri]
-            edges_2_frac[new_ind].append(edges_2_frac[ri])
+            edges_2_frac[new_ind] += edges_2_frac[ri]
         # Then remove the redundant fields
-        for ri in removed_edge:
-            edges_2_frac.remove(ri)
+        for ri in removed_edge[::-1]:
+            del edges_2_frac[ri]
 
         # Represent edges by unique values
         edges = e_unique
@@ -614,9 +614,9 @@ class FractureNetwork(object):
         # Also update boundary information
         is_boundary_edge = [is_boundary_edge[i] for i in unique_ind_e]  # Hope this is right
 
-        # Utility step: Convert the edge to fracture map to a list of numpy
-        # arrays
-        edges_2_frac = [np.array(edges_2_frac[i]) for i in
+        # Convert the edge to fracture map to a list of numpy arrays.
+        # Use unique so that the same edge only refers to an edge once.
+        edges_2_frac = [np.unique(np.array(edges_2_frac[i])) for i in
                                                     range(len(edges_2_frac))]
 
         return all_p, edges, edges_2_frac, is_boundary_edge
