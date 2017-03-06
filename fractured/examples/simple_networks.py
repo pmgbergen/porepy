@@ -91,6 +91,33 @@ def one_fracture_intersected_by_two(**kwargs):
 
     return grids
 
+def split_into_octants(**kwargs):
+    f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
+    f_2 = np.array([[-1, -1, 1, 1 ], [-1, 1, 1, -1], [0, 0, 0, 0]])
+    f_3 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-1, -1, 1, 1]])
+    domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
+              2}
+    grids = meshing.create_grid([f_1, f_2, f_3], domain, **kwargs)
+
+    return grids
+
+
+def three_fractures_sharing_line_same_segment(**kwargs):
+    """
+    Three fractures that all share an intersection. This can be considered as
+    three intersection lines that coincide.
+    """
+    f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
+    f_2 = np.array([[-1, 1, 1, -1 ], [-1, 1, 1, -1], [-1, -1, 1, 1]])
+    f_3 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-1, -1, 1, 1]])
+    domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
+              2}
+    grids = meshing.create_grid([f_1, f_2, f_3], domain, **kwargs)
+
+    return grids
+
+
+
 if __name__ == '__main__':
     # If invoked as main, run all tests
     try:
@@ -218,6 +245,62 @@ if __name__ == '__main__':
         logging.error(traceback.format_exc())
         failure_counter += 1
 
+    ##########################
+    # Three fractures, splits the domain into octants
+    #
+    if verbose > 0:
+        print('Run one fracture intersected by two')
+    try:
+        time_loc = time.time()
+        g = split_into_octants(gmsh_path=gmsh_path,
+                                            verbose=verbose, gmsh_verbose=0)
+        assert len(g) == 4
+        assert len(g[0]) == 1
+        assert len(g[1]) == 3
+        assert len(g[2]) == 6
+        assert len(g[3]) == 1
+        if verbose > 0:
+            print('Into octants completed successfully')
+            print('Elapsed time ' + str(time.time() - time_loc))
+        success_counter += 1
+    except Exception as exp:
+        print('\n')
+        print(' ***** FAILURE ****')
+        print('Gridding of into octants failed')
+        print(exp)
+        logging.error(traceback.format_exc())
+        failure_counter += 1
+
+    ###############################
+    # Three fractures meeting along a line
+    #
+    if verbose > 0:
+        print('Run three fractures intersecting along a line')
+    try:
+        time_loc = time.time()
+        g = three_fractures_sharing_line_same_segment(gmsh_path=gmsh_path,
+                                            verbose=verbose, gmsh_verbose=0)
+        assert len(g) == 4
+        assert len(g[0]) == 1
+        assert len(g[1]) == 3
+        assert len(g[2]) == 1
+        assert len(g[3]) == 0
+        if verbose > 0:
+            print('One by two completed successfully')
+            print('Elapsed time ' + str(time.time() - time_loc))
+        success_counter += 1
+    except Exception as exp:
+        print('\n')
+        print(' ***** FAILURE ****')
+        print('Gridding of one by two failed')
+        print(exp)
+        logging.error(traceback.format_exc())
+        failure_counter += 1
+
+
+    #################################
+    # Summary
+    #
     print('\n')
     print(' --- ')
     print('Ran in total ' + str(success_counter + failure_counter) + ' tests,' \
