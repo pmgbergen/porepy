@@ -474,8 +474,6 @@ class FractureNetwork(object):
                 if len(isect) > 0:
                     self.intersections.append(Intersection(first, second,
                     isect))
-                    first.add_points(isect[:, np.where(bound_first)[0]])
-                    second.add_points(isect[:, np.where(bound_second)[0]])
 
 
     def split_intersections(self):
