@@ -347,6 +347,155 @@ def _add_point(vertices, pt, precision=1e-3, **kwargs):
     return vertices, ind, new_pt
 
 
+#-----------------------------------------------------------------------------#
+def remove_edge_crossings(vertices, edges, **kwargs):
+    """
+    Process a set of points and connections between them so that the result
+    is an extended point set and new connections that do not intersect.
+
+    The function is written for gridding of fractured domains, but may be
+    of use in other cases as well. The geometry is assumed to be 2D, (the
+    corresponding operation in 3D requires intersection between planes, and
+    is a rather complex, although doable, task).
+
+    The connections are defined by their start and endpoints, and can also
+    have tags assigned. If so, the tags are preserved as connections are split.
+
+    Parameters:
+    vertices (np.ndarray, 2 x n_pt): Coordinates of points to be processed
+    edges (np.ndarray, n x n_con): Connections between lines. n >= 2, row
+            0 and 1 are index of start and endpoints, additional rows are tags
+        **kwargs: Arguments passed to snap_to_grid
+
+    Returns:
+    np.ndarray, (2 x n_pt), array of points, possibly expanded.
+    np.ndarray, (n x n_edges), array of new edges. Non-intersecting.
+
+    Raises:
+    NotImplementedError if a 3D point array is provided.
+
+    """
+    num_edges = edges.shape[1]
+    nd = vertices.shape[0]
+
+    # Only 2D is considered. 3D should not be too dificult, but it is not
+    # clear how relevant it is
+    if nd != 2:
+        raise NotImplementedError('Only 2D so far')
+
+    edge_counter = 0
+
+    vertices = snap_to_grid(vertices, **kwargs)
+
+
+    # Loop over all edges, search for intersections. The number of edges can
+    #  change due to splitting.
+    while edge_counter < edges.shape[1]:
+        # The direct test of whether two edges intersect is somewhat
+        # expensive, and it is hard to vectorize this part. Therefore,
+        # we first identify edges which crosses the extention of this edge (
+        # intersection of line and line segment). We then go on to test for
+        # real intersections.
+
+
+        # Find start and stop coordinates for all edges
+        start_x = vertices[0, edges[0]]
+        start_y = vertices[1, edges[0]]
+        end_x = vertices[0, edges[1]]
+        end_y = vertices[1, edges[1]]
+
+        a = end_y - start_y
+        b = -(end_x - start_x)
+        xm = (start_x[edge_counter] + end_x[edge_counter]) / 2
+        ym = (start_y[edge_counter] + end_y[edge_counter]) / 2
+
+        # For all lines, find which side of line i it's two endpoints are.
+        # If c1 and c2 have different signs, they will be on different sides
+        # of line i. See
+        #
+        # http://stackoverflow.com/questions/385305/efficient-maths-algorithm-to-calculate-intersections
+        #
+        # for more information.
+        c1 = a[edge_counter] * (start_x - xm) \
+             + b[edge_counter] * (start_y - ym)
+        c2 = a[edge_counter] * (end_x - xm) + b[edge_counter] * (end_y - ym)
+        line_intersections = np.logical_or(np.sign(c1) != np.sign(c2),
+                                           np.logical_and(c1 == 0, c2 == 0))
+
+        # Find elements which may intersect.
+        intersections = np.argwhere(line_intersections)
+        # np.argwhere returns an array of dimensions (1, dim), so we reduce
+        # this to truly 1D, or simply continue with the next edge if there
+        # are no candidate edges
+        if intersections.size > 0:
+            intersections = intersections.ravel(0)
+        else:
+            # There are no candidates for intersection
+            edge_counter += 1
+            continue
+
+        int_counter = 1
+        while intersections.size > 0 and int_counter < intersections.size:
+            # Line intersect (inner loop) is an intersection if it crosses
+            # the extension of line edge_counter (outer loop) (ie intsect it
+            #  crosses the infinite line that goes through the endpoints of
+            # edge_counter), but we don't know if it actually crosses the
+            # line segment edge_counter. Now we do a more refined search to
+            # find if the line segments intersects. Note that there is no
+            # help in vectorizing lines_intersect and computing intersection
+            #  points for all lines in intersections, since line i may be
+            # split, and the intersection points must recalculated. It may
+            # be possible to reorganize this while-loop by computing all
+            # intersection points(vectorized), and only recompuing if line
+            # edge_counter is split, but we keep things simple for now.
+            intsect = intersections[int_counter]
+            if intsect == edge_counter:
+                int_counter += 1
+                continue
+
+            # Check if this point intersects
+            new_pt = lines_intersect(vertices[:, edges[0, edge_counter]],
+                                       vertices[:, edges[1, edge_counter]],
+                                       vertices[:, edges[0, intsect]],
+                                       vertices[:, edges[1, intsect]])
+            if new_pt is not None:
+                # The case of segment intersections need special treatment.
+                if new_pt.shape[-1] == 1:
+                    # Split edge edge_counter (outer loop), unless the
+                    # intersection hits an existing point (in practices this
+                    # means the intersection runs through an endpoint of the
+                    # edge in an L-type configuration, in which case no new point
+                    # is needed)
+                    vertices, edges, split_outer_edge = _split_edge(vertices, edges,
+                                                                   edge_counter,
+                                                                   new_pt,
+                                                                   **kwargs)
+                    # If the outer edge (represented by edge_counter) was split,
+                    # e.g. inserted into the list of edges we need to increase the
+                    # index of the inner edge
+                    intsect += split_outer_edge
+                    # Possibly split the inner edge
+                    vertices, edges, split_inner_edge = _split_edge(vertices, edges,
+                                                                   intsect,
+                                                                   new_pt,
+                                                                   **kwargs)
+                    intersections += split_outer_edge + split_inner_edge
+                else:
+                    vertices, edges, splits = _split_edge(vertices, edges,
+                                                         [edge_counter,
+                                                          intsect],
+                                                         new_pt, **kwargs)
+                    intersections += splits[0]
+                    intersections[intsect:] += splits[1]
+                # Update index of possible intersections
+
+            # We're done with this candidate edge. Increase index of inner loop
+            int_counter += 1
+        # We're done with all intersections of this loop. increase index of
+        # outer loop
+        edge_counter += 1
+    return vertices, edges
+
 #-----------------------------------------------------------
 
 def is_ccw_polygon(poly):
@@ -998,157 +1147,6 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
 
         return isect
 
-
-#-----------------------------------------------------------------------------#
-def remove_edge_crossings(vertices, edges, **kwargs):
-    """
-    Process a set of points and connections between them so that the result
-    is an extended point set and new connections that do not intersect.
-
-    The function is written for gridding of fractured domains, but may be
-    of use in other cases as well. The geometry is assumed to be 2D, (the
-    corresponding operation in 3D requires intersection between planes, and
-    is a rather complex, although doable, task).
-
-    The connections are defined by their start and endpoints, and can also
-    have tags assigned. If so, the tags are preserved as connections are split.
-
-    Parameters:
-    vertices (np.ndarray, 2 x n_pt): Coordinates of points to be processed
-    edges (np.ndarray, n x n_con): Connections between lines. n >= 2, row
-            0 and 1 are index of start and endpoints, additional rows are tags
-        **kwargs: Arguments passed to snap_to_grid
-
-    Returns:
-    np.ndarray, (2 x n_pt), array of points, possibly expanded.
-    np.ndarray, (n x n_edges), array of new edges. Non-intersecting.
-
-    Raises:
-    NotImplementedError if a 3D point array is provided.
-
-    """
-    num_edges = edges.shape[1]
-    nd = vertices.shape[0]
-
-    # Only 2D is considered. 3D should not be too dificult, but it is not
-    # clear how relevant it is
-    if nd != 2:
-        raise NotImplementedError('Only 2D so far')
-
-    edge_counter = 0
-
-    vertices = snap_to_grid(vertices, **kwargs)
-
-
-    # Loop over all edges, search for intersections. The number of edges can
-    #  change due to splitting.
-    while edge_counter < edges.shape[1]:
-        # The direct test of whether two edges intersect is somewhat
-        # expensive, and it is hard to vectorize this part. Therefore,
-        # we first identify edges which crosses the extention of this edge (
-        # intersection of line and line segment). We then go on to test for
-        # real intersections.
-
-
-        # Find start and stop coordinates for all edges
-        start_x = vertices[0, edges[0]]
-        start_y = vertices[1, edges[0]]
-        end_x = vertices[0, edges[1]]
-        end_y = vertices[1, edges[1]]
-
-        a = end_y - start_y
-        b = -(end_x - start_x)
-        xm = (start_x[edge_counter] + end_x[edge_counter]) / 2
-        ym = (start_y[edge_counter] + end_y[edge_counter]) / 2
-
-        # For all lines, find which side of line i it's two endpoints are.
-        # If c1 and c2 have different signs, they will be on different sides
-        # of line i. See
-        #
-        # http://stackoverflow.com/questions/385305/efficient-maths-algorithm-to-calculate-intersections
-        #
-        # for more information.
-        c1 = a[edge_counter] * (start_x - xm) \
-             + b[edge_counter] * (start_y - ym)
-        c2 = a[edge_counter] * (end_x - xm) + b[edge_counter] * (end_y - ym)
-        line_intersections = np.logical_or(np.sign(c1) != np.sign(c2),
-                                           np.logical_and(c1 == 0, c2 == 0))
-
-        # Find elements which may intersect.
-        intersections = np.argwhere(line_intersections)
-        # np.argwhere returns an array of dimensions (1, dim), so we reduce
-        # this to truly 1D, or simply continue with the next edge if there
-        # are no candidate edges
-        if intersections.size > 0:
-            intersections = intersections.ravel(0)
-        else:
-            # There are no candidates for intersection
-            edge_counter += 1
-            continue
-
-        int_counter = 1
-        while intersections.size > 0 and int_counter < intersections.size:
-            # Line intersect (inner loop) is an intersection if it crosses
-            # the extension of line edge_counter (outer loop) (ie intsect it
-            #  crosses the infinite line that goes through the endpoints of
-            # edge_counter), but we don't know if it actually crosses the
-            # line segment edge_counter. Now we do a more refined search to
-            # find if the line segments intersects. Note that there is no
-            # help in vectorizing lines_intersect and computing intersection
-            #  points for all lines in intersections, since line i may be
-            # split, and the intersection points must recalculated. It may
-            # be possible to reorganize this while-loop by computing all
-            # intersection points(vectorized), and only recompuing if line
-            # edge_counter is split, but we keep things simple for now.
-            intsect = intersections[int_counter]
-            if intsect == edge_counter:
-                int_counter += 1
-                continue
-
-            # Check if this point intersects
-            new_pt = lines_intersect(vertices[:, edges[0, edge_counter]],
-                                       vertices[:, edges[1, edge_counter]],
-                                       vertices[:, edges[0, intsect]],
-                                       vertices[:, edges[1, intsect]])
-            if new_pt is not None:
-                # The case of segment intersections need special treatment.
-                if new_pt.shape[-1] == 1:
-                    # Split edge edge_counter (outer loop), unless the
-                    # intersection hits an existing point (in practices this
-                    # means the intersection runs through an endpoint of the
-                    # edge in an L-type configuration, in which case no new point
-                    # is needed)
-                    vertices, edges, split_outer_edge = _split_edge(vertices, edges,
-                                                                   edge_counter,
-                                                                   new_pt,
-                                                                   **kwargs)
-                    # If the outer edge (represented by edge_counter) was split,
-                    # e.g. inserted into the list of edges we need to increase the
-                    # index of the inner edge
-                    intsect += split_outer_edge
-                    # Possibly split the inner edge
-                    vertices, edges, split_inner_edge = _split_edge(vertices, edges,
-                                                                   intsect,
-                                                                   new_pt,
-                                                                   **kwargs)
-                    intersections += split_outer_edge + split_inner_edge
-                else:
-                    vertices, edges, splits = _split_edge(vertices, edges,
-                                                         [edge_counter,
-                                                          intsect],
-                                                         new_pt, **kwargs)
-                    intersections += splits[0]
-                    intersections[intsect:] += splits[1]
-                # Update index of possible intersections
-
-            # We're done with this candidate edge. Increase index of inner loop
-            int_counter += 1
-        # We're done with all intersections of this loop. increase index of
-        # outer loop
-        edge_counter += 1
-    return vertices, edges
-
-#------------------------------------------------------------------------------#
 
 def is_planar( pts, normal = None ):
     """ Check if the points lie on a plane.
