@@ -179,7 +179,7 @@ class Fracture(object):
             on_boundary_other += [True for i in range(isect_self_other.shape[1])]
 
         if isect_other_self is not None:
-            int_points = np.hstack((int_points, isect_self_other))
+            int_points = np.hstack((int_points, isect_other_self))
 
             # Interior of other intersected by boundary of self
             on_boundary_self += [True for i in range(isect_other_self.shape[1])]
