@@ -807,15 +807,15 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
             # Coordinates of this segment
             pt_1 = poly_2_rot[:, ind[i]]
             pt_2 = poly_2_rot[:, ind[i+1]]
-            dx = pt_1[0] - pt_2[0]
-            dy = pt_1[1] - pt_2[1]
-            dz = pt_1[2] - pt_2[2]
+            dx = pt_2[0] - pt_1[0]
+            dy = pt_2[1] - pt_1[1]
+            dz = pt_2[2] - pt_1[2]
             if np.abs(dz) > tol:
                 # We are on a plane, and we know that dz_2 is non-zero, so all
                 # individiual segments must have an incline.
                 # Parametrize the line, find parameter value for intersection
                 # with z=0.
-                t = (pt_1[2] - 0) / dz
+                t = (-pt_1[2] - 0) / dz
                 # x and y-coordinate for z=0
                 x0 = pt_1[0] + dx * t
                 y0 = pt_1[1] + dy * t
