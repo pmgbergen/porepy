@@ -170,7 +170,7 @@ class LinesIntersectTest(unittest.TestCase):
         e1 = np.array([2, 0])
 
         pi = basics.lines_intersect(s0, e0, s1, e1)
-        assert pi[0, 0] == 1 and pi[1, 0] == 1
+        assert pi[0, 0] == 1 and pi[1, 0] == 0
 
     if __name__ == '__main__':
         unittest.main()
