@@ -574,7 +574,11 @@ class FractureNetwork(object):
         # Ensure that edges are integers
         edges = edges.astype('int')
 
+        return self._uniquify_points_and_edges(all_p, edges, edges_2_frac,
+                                               is_boundary_edge)
 
+    def _uniquify_points_and_edges(self, all_p, edges, edges_2_frac,
+                                  is_boundary_edge):
         # Snap the points to an underlying Cartesian grid. This is the basis
         # for declearing two points equal
         # NOTE: We need to account for dimensions in the tolerance; 
@@ -619,7 +623,7 @@ class FractureNetwork(object):
         edges_2_frac = [np.unique(np.array(edges_2_frac[i])) for i in
                                                     range(len(edges_2_frac))]
 
-        return all_p, edges, edges_2_frac, is_boundary_edge
+        return p_unique, edges, edges_2_frac, is_boundary_edge
 
 
     def _remove_edge_intersections(self, all_p, edges, edges_2_frac,
@@ -734,7 +738,8 @@ class FractureNetwork(object):
                 del is_boundary_edge[ei]
             # And we are done with this fracture. On to the next one.
 
-        return all_p, edges, edges_2_frac, is_boundary_edge
+        return self._uniquify_points_and_edges(all_p, edges, edges_2_frac,
+                                               is_boundary_edge)
 
         #To
         # define the auxiliary edges, we create a triangulation of the
