@@ -87,7 +87,7 @@ def __points_equal(p1, p2, box, precesion=1e-3):
 
 #------------------------------------------------------------------------------#
 
-def split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
+def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
     """
     Split a line into two by introcuding a new point.
     Function is used e.g. for gridding purposes.
@@ -104,7 +104,7 @@ def split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         >>> p = np.array([[0, 0], [0, 1]])
         >>> edges = np.array([[0], [1]])
         >>> new_pt = np.array([[0], [0.5]])
-        >>> v, e, nl = split_edge(p, edges, 0, new_pt)
+        >>> v, e, nl = _split_edge(p, edges, 0, new_pt)
         >>> e
         array([[0, 2],
                [2, 1]])
@@ -150,7 +150,7 @@ def split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
     tags = edges[2:, edge_ind_first]
 
     # Try to add new points
-    vertices, pt_ind, _ = add_point(vertices, new_pt, **kwargs)
+    vertices, pt_ind, _ = _add_point(vertices, new_pt, **kwargs)
 
     # Sanity check
     assert len(pt_ind) <= 2
@@ -292,7 +292,7 @@ def split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
 #------------------------------------------------------------------------------#
 
-def add_point(vertices, pt, precision=1e-3, **kwargs):
+def _add_point(vertices, pt, precision=1e-3, **kwargs):
     """
     Add a point to a point set, unless the point already exist in the set.
 
@@ -1118,7 +1118,7 @@ def remove_edge_crossings(vertices, edges, **kwargs):
                     # means the intersection runs through an endpoint of the
                     # edge in an L-type configuration, in which case no new point
                     # is needed)
-                    vertices, edges, split_outer_edge = split_edge(vertices, edges,
+                    vertices, edges, split_outer_edge = _split_edge(vertices, edges,
                                                                    edge_counter,
                                                                    new_pt,
                                                                    **kwargs)
@@ -1127,13 +1127,13 @@ def remove_edge_crossings(vertices, edges, **kwargs):
                     # index of the inner edge
                     intsect += split_outer_edge
                     # Possibly split the inner edge
-                    vertices, edges, split_inner_edge = split_edge(vertices, edges,
+                    vertices, edges, split_inner_edge = _split_edge(vertices, edges,
                                                                    intsect,
                                                                    new_pt,
                                                                    **kwargs)
                     intersections += split_outer_edge + split_inner_edge
                 else:
-                    vertices, edges, splits = split_edge(vertices, edges,
+                    vertices, edges, splits = _split_edge(vertices, edges,
                                                          [edge_counter,
                                                           intsect],
                                                          new_pt, **kwargs)
