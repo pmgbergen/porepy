@@ -439,7 +439,12 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
             t_min = max(min(t_start_2, t_end_2), 0)
             t_max = min(max(t_start_2, t_end_2), 1)
 
-            assert t_max - t_min > tol
+            if t_max - t_min < tol:
+                # It seems this can only happen if they are also equal to 0 or
+                # 1, that is, the lines share a single point
+                p_1 = start_1 + d_1 * t_min
+                return p_1.reshape((-1, 1))
+
             p_1 = start_1 + d_1 * t_min
             p_2 = start_1 + d_1 * t_max
             return np.array([[p_1[0], p_2[0]], [p_1[1], p_2[1]]])
