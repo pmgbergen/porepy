@@ -104,8 +104,8 @@ def split_into_octants(**kwargs):
 
 def three_fractures_sharing_line_same_segment(**kwargs):
     """
-    Three fractures that all share an intersection. This can be considered as
-    three intersection lines that coincide.
+    Three fractures that all share an intersection line. This can be considered
+    as three intersection lines that coincide.
     """
     f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
     f_2 = np.array([[-1, 1, 1, -1 ], [-1, 1, 1, -1], [-1, -1, 1, 1]])
@@ -117,6 +117,20 @@ def three_fractures_sharing_line_same_segment(**kwargs):
     return grids
 
 
+def three_fractures_split_segments(**kwargs):
+    """
+    Three fractures that all intersect along the same line, but with the
+    intersection between two of them forming an extension of the intersection
+    of all three.
+    """
+    f_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
+    f_2 = np.array([[-1, 1, 1, -1 ], [-1, 1, 1, -1], [-.5, -.5, .5, .5]])
+    f_3 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-1, -1, 1, 1]])
+    domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
+              2}
+    grids = meshing.create_grid([f_1, f_2, f_3], domain, **kwargs)
+
+    return grids
 
 if __name__ == '__main__':
     # If invoked as main, run all tests
@@ -285,6 +299,32 @@ if __name__ == '__main__':
         assert len(g[1]) == 3
         assert len(g[2]) == 1
         assert len(g[3]) == 0
+        if verbose > 0:
+            print('One by two completed successfully')
+            print('Elapsed time ' + str(time.time() - time_loc))
+        success_counter += 1
+    except Exception as exp:
+        print('\n')
+        print(' ***** FAILURE ****')
+        print('Gridding of three sharing a line failed')
+        print(exp)
+        logging.error(traceback.format_exc())
+        failure_counter += 1
+
+    ###############################
+    # Three fractures meeting along a line
+    #
+    if verbose > 0:
+        print('Run three fractures partly sharing segments')
+    try:
+        time_loc = time.time()
+        g = three_fractures_split_segments(gmsh_path=gmsh_path,
+                                            verbose=verbose, gmsh_verbose=0)
+        assert len(g) == 4
+        assert len(g[0]) == 1
+        assert len(g[1]) == 3
+        assert len(g[2]) == 3
+        assert len(g[3]) == 2
         if verbose > 0:
             print('One by two completed successfully')
             print('Elapsed time ' + str(time.time() - time_loc))
