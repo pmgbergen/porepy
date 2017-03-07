@@ -72,6 +72,68 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         assert np.allclose(new_pts, p_known)
         assert np.allclose(new_lines, lines_known)
 
+    def test_split_segment_partly_overlapping(self):
+        p = np.array([[0, 1, 2, 3],
+                      [0, 0, 0, 0]])
+        lines = np.array([[0, 2], [1, 3]]).T
+        box = np.array([[1], [1]])
+
+        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box=box)
+
+        p_known = basics.snap_to_grid(p, box=box)
+        lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
+
+        assert np.allclose(new_pts, p_known)
+        assert np.allclose(new_lines, lines_known)
+
+    def test_split_segment_partly_overlapping_switched_order(self):
+        # Same partly overlapping test, but switch order of edge-point
+        # connection. Should make no difference
+        p = np.array([[0, 1, 2, 3],
+                      [0, 0, 0, 0]])
+        lines = np.array([[0, 2], [3, 1]]).T
+        box = np.array([[1], [1]])
+
+        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box=box)
+
+        new_lines = np.sort(new_lines, axis=0)
+        p_known = basics.snap_to_grid(p, box=box)
+        lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
+
+        assert np.allclose(new_pts, p_known)
+        assert np.allclose(new_lines, lines_known)
+
+    def test_split_segment_fully_overlapping(self):
+        p = np.array([[0, 1, 2, 3],
+                      [0, 0, 0, 0]])
+        lines = np.array([[0, 3], [1, 2]]).T
+        box = np.array([[1], [1]])
+
+        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box=box)
+
+        new_lines = np.sort(new_lines, axis=0)
+        p_known = basics.snap_to_grid(p, box=box)
+        lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
+
+        assert np.allclose(new_pts, p_known)
+        assert np.allclose(new_lines, lines_known)
+
+
+    def test_split_segment_fully_overlapping_switched_order(self):
+        p = np.array([[0, 1, 2, 3],
+                      [0, 0, 0, 0]])
+        lines = np.array([[0, 3], [2, 1]]).T
+        box = np.array([[1], [1]])
+
+        new_pts, new_lines = basics.remove_edge_crossings(p, lines, box=box)
+        new_lines = np.sort(new_lines, axis=0)
+
+        p_known = basics.snap_to_grid(p, box=box)
+        lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
+
+        assert np.allclose(new_pts, p_known)
+        assert np.allclose(new_lines, lines_known)
+
 
 
     if __name__ == '__main__':

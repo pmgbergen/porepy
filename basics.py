@@ -95,7 +95,7 @@ def split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
     The input can be a set of points, and lines between them, of which one is
     to be split.
 
-    A new line will be inserted, unless the new point coincides with the
+    New lines will be inserted, unless the new points coincide with the
     start or endpoint of the edge (under the given precision).
 
     The code is intended for 2D, in 3D use with caution.
@@ -114,9 +114,12 @@ def split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         edges (np.ndarray, n x num_edges): Connections between lines. If n>2,
             the additional rows are treated as tags, that are preserved under
             splitting.
-        edge_ind (int): index of edge to be split, refering to edges.
-        new_pt (np.ndarray, nd x 1): new point to be inserted. Assumed to be
-            on the edge to be split.
+        edge_ind (int): index of edges to be split.
+        new_pt (np.ndarray, nd x n): new points to be inserted. Assumed to be
+            on the edge to be split. If more than one point is inserted
+            (segment intersection), it is assumed that new_pt[:, 0] is the one
+            closest to edges[0, edge_ind] (conforming with the output of
+            lines_intersect).
         **kwargs: Arguments passed to snap_to_grid
 
     Returns:
@@ -125,32 +128,167 @@ def split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         boolean: True if a new line is created, otherwise false.
 
     """
-    start = edges[0, edge_ind]
-    end = edges[1, edge_ind]
-    # Save tags associated with the edge.
-    tags = edges[2:, edge_ind]
 
-    # Add a new point
-    vertices, pt_ind, _ = add_point(vertices, new_pt, **kwargs)
-    # If the new point coincide with the start point, nothing happens
-    if start == pt_ind or end == pt_ind:
-        new_line = False
-        return vertices, edges, new_line
-
-    # If we get here, we know that a new point has been created.
-
-    # Add any tags to the new edge.
-    if tags.size > 0:
-        new_edges = np.vstack((np.array([[start, pt_ind],
-                                         [pt_ind, end]]),
-                               np.tile(tags[:, np.newaxis], 2)))
+    # Some back and forth with the index of the edges to be split, depending on
+    # whether it is one or two
+    edge_ind = np.asarray(edge_ind)
+    if edge_ind.size > 1:
+        edge_ind_first = edge_ind[0]
     else:
-        new_edges = np.array([[start, pt_ind],
-                              [pt_ind, end]])
-    # Insert the new edge in the midle of the set of edges.
-    edges = np.hstack((edges[:, :edge_ind], new_edges, edges[:, edge_ind+1:]))
-    new_line = True
-    return vertices, edges, new_line
+        edge_ind_first = edge_ind
+
+    # Start and end of the first (possibly only) edge
+    start = edges[0, edge_ind_first]
+    end = edges[1, edge_ind_first]
+
+    # Number of points before edges is modified. Used for sanity check below.
+    orig_num_pts = edges[:2].max()
+
+    # Save tags associated with the edge.
+    # NOTE: For segment intersetions where the edges have different tags, one
+    # of the values will be overridden now. Fix later.
+    tags = edges[2:, edge_ind_first]
+
+    # Try to add new points
+    vertices, pt_ind, _ = add_point(vertices, new_pt, **kwargs)
+
+    # Sanity check
+    assert len(pt_ind) <= 2
+
+    # Check for a single intersection point
+    if len(pt_ind) < 2:
+        pi = pt_ind[0]
+        # Intersection at a point.
+        if start == pi or end == pi:
+            # Nothing happens
+            new_line = 0
+            return vertices, edges, new_line
+        else:
+            new_edges = np.array([[start, pi],
+                                  [pi, end]])
+        # Add any tags to the new edge.
+        if tags.size > 0:
+            new_edges = np.vstack((new_edges,
+                                   np.tile(tags[:, np.newaxis], 2)))
+        # Insert the new edge in the midle of the set of edges.
+        edges = np.hstack((edges[:, :edge_ind_first], new_edges,
+                           edges[:, edge_ind_first+1:]))
+        # We have added a single new line
+        new_line = 1
+        return vertices, edges, new_line
+    else:
+        # Without this, we will delete something we should not further below.
+        assert edge_ind[0] < edge_ind[1]
+
+        # Intersection along a segment.
+        # No new points should have been made
+        assert pt_ind[0] <= orig_num_pts and pt_ind[1] <= orig_num_pts
+
+        # There are three (four) possible configurations
+        # a) The intersection is contained within (start, end). edge_ind[0]
+        # should be split into three segments, and edge_ind[1] should be
+        # deleted (it will be identical to the middle of the new segments).
+        # b) The intersection is identical with (start, end). edge_ind[1]
+        # should be split into three segments, and edge_ind[0] is deleted.
+        # c) and d) The intersection consists of one of (start, end), and another
+        # point. Both edge_ind[0] and edge_ind[1] should be split into two
+        # segments.
+
+        i0 = pt_ind[0]
+        i1 = pt_ind[1]
+        if i0 != start and i1 != end:
+            # Delete the second segment
+            edges = np.delete(edges, edge_ind[1], axis=1)
+            if edges.shape[0] == 1:
+                edges = edges.reshape((-1, 1))
+            # We know that i0 will be closest to start, thus (start, i0) is a
+            # pair.
+            # New segments (i0, i1) is identical to the old edge_ind[1]
+            new_edges = np.array([[start, i0, i1],
+                                  [i0, i1, end]])
+            if tags.size > 0:
+                new_edges = np.vstack((new_edges,
+                                       np.tile(tags[:, np.newaxis],
+                                               new_edges.shape[1])))
+            # Combine everything.
+            edges = np.hstack((edges[:, :edge_ind[0]],
+                               new_edges,
+                               edges[:, edge_ind[0]+1:]))
+            new_line = [2, 0]
+        elif i0 == start and i1 == end:
+            # We don't know if i0 is closest to the start or end of edges[:,
+            # edges_ind[1]]. Find the nearest.
+            if __dist(vertices[:, i0], vertices[:, edges[0, edge_ind[1]]]) < \
+               __dist(vertices[:, i1], vertices[:, edges[0, edge_ind[1]]]):
+                other_start = edges[0, edge_ind[1]]
+                other_end = edges[1, edge_ind[1]]
+            else:
+                other_start = edges[1, edge_ind[1]]
+                other_end = edges[0, edge_ind[1]]
+
+            # New segments (i0, i1) is identical to the old edge_ind[0]
+            new_edges = np.array([[other_start, i0, i1],
+                                  [i0, i1, other_end]])
+            if tags.size > 0:
+                new_edges = np.vstack((new_edges,
+                                       np.tile(tags[:, np.newaxis],
+                                               new_edges.shape[1])))
+            # Combine everything.
+            edges = np.hstack((edges[:, :edge_ind[1]],
+                               new_edges,
+                               edges[:, (edge_ind[1]+1):]))
+            # Delete the second segment. This is most easily handled after
+            # edges is expanded.
+            edges = np.delete(edges, edge_ind[0], axis=1)
+            new_line = [0, 2]
+
+        # Note that we know that i0 is closest to start, thus no need to test
+        # for i1 == start
+        elif i0 == start and i1 != end:
+            # Modify edge_ind[1] to end in start 
+            if edges[0, edge_ind[1]] == i1:
+                edges[0, edge_ind[1]] = start
+            elif edges[1, edge_ind[1]] == i1:
+                edges[1, edge_ind[1]] = start
+            else:
+                raise ValueError('This should not happen')
+
+            new_edges = np.array([[start, i1],
+                                  [i1, end]])
+            if tags.size > 0:
+                new_edges = np.vstack((new_edges,
+                                       np.tile(tags[:, np.newaxis],
+                                               new_edges.shape[1])))
+
+            edges = np.hstack((edges[:, :edge_ind[1]],
+                               new_edges,
+                               edges[:, (edge_ind[1]+1):]))
+            new_line = [1, 0]
+
+        elif i0 != start and i1 == end:
+            # Modify edge_ind[1] to end in start 
+            if edges[0, edge_ind[1]] == i0:
+                edges[0, edge_ind[1]] = end
+            elif edges[1, edge_ind[1]] == i0:
+                edges[1, edge_ind[1]] = end
+            else:
+                raise ValueError('This should not happen')
+            new_edges = np.array([[start, i0],
+                                  [i0, end]])
+            if tags.size > 0:
+                new_edges = np.vstack((new_edges,
+                                       np.tile(tags[:, np.newaxis],
+                                               new_edges.shape[1])))
+
+            edges = np.hstack((edges[:, :edge_ind[0]],
+                               new_edges,
+                               edges[:, (edge_ind[0]+1):]))
+            new_line = [1, 0]
+        else:
+            raise ValueError('How did it come to this')
+
+
+        return vertices, edges, new_line
 
 #------------------------------------------------------------------------------#
 
@@ -187,21 +325,27 @@ def add_point(vertices, pt, precision=1e-3, **kwargs):
     vertices = snap_to_grid(vertices, **kwargs)
     pt = snap_to_grid(pt, **kwargs)
 
+    new_pt = np.empty((nd, 0))
+    ind = []
     # Distance
-    dist = __dist(pt, vertices)
-    min_dist = np.min(dist)
+    for i in range(pt.shape[-1]):
+        dist = __dist(pt[:, i].reshape((-1, 1)), vertices)
+        min_dist = np.min(dist)
 
-    if min_dist < precision * np.sqrt(nd):
-        # No new point is needed
-        ind = np.argmin(dist)
-        new_point = None
-        return vertices, ind, new_point
-    else:
-        ind = vertices.shape[1]-1
-        # Append the new point at the end of the point list
-        vertices = np.append(vertices, pt, axis=1)
-        ind = vertices.shape[1] - 1
-        return vertices, ind, pt
+        if min_dist < precision * np.sqrt(nd):
+            # No new point is needed
+            ind.append(np.argmin(dist))
+#            return vertices, ind, new_point
+        else:
+            # Append the new point at the end of the point list
+            ind.append(vertices.shape[1])
+            vertices = np.append(vertices, pt, axis=1)
+            new_pt = np.hstack((new_pt, pt[:, i].reshape((-1, 1))))
+#            return vertices, ind, pt
+    if new_pt.shape[1] == 0:
+        new_pt = None
+    return vertices, ind, new_pt
+
 
 #-----------------------------------------------------------
 
@@ -392,8 +536,9 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
 
     Returns:
         np.ndarray (2 x num_pts): coordinates of intersection point, or the
-            endpoints of the intersection segments if relevant. If the lines do
-            not intersect, None is returned.
+            endpoints of the intersection segments if relevant. In the case of
+            a segment, the first point (column) will be closest to start_1.  If
+            the lines do not intersect, None is returned.
 
     Raises:
         ValueError if the start and endpoints of a line are the same.
@@ -894,6 +1039,7 @@ def remove_edge_crossings(vertices, edges, **kwargs):
 
     vertices = snap_to_grid(vertices, **kwargs)
 
+
     # Loop over all edges, search for intersections. The number of edges can
     #  change due to splitting.
     while edge_counter < edges.shape[1]:
@@ -925,7 +1071,8 @@ def remove_edge_crossings(vertices, edges, **kwargs):
         c1 = a[edge_counter] * (start_x - xm) \
              + b[edge_counter] * (start_y - ym)
         c2 = a[edge_counter] * (end_x - xm) + b[edge_counter] * (end_y - ym)
-        line_intersections = np.sign(c1) != np.sign(c2)
+        line_intersections = np.logical_or(np.sign(c1) != np.sign(c2),
+                                           np.logical_and(c1 == 0, c2 == 0))
 
         # Find elements which may intersect.
         intersections = np.argwhere(line_intersections)
@@ -939,7 +1086,7 @@ def remove_edge_crossings(vertices, edges, **kwargs):
             edge_counter += 1
             continue
 
-        int_counter = 0
+        int_counter = 1
         while intersections.size > 0 and int_counter < intersections.size:
             # Line intersect (inner loop) is an intersection if it crosses
             # the extension of line edge_counter (outer loop) (ie intsect it
@@ -954,34 +1101,45 @@ def remove_edge_crossings(vertices, edges, **kwargs):
             # intersection points(vectorized), and only recompuing if line
             # edge_counter is split, but we keep things simple for now.
             intsect = intersections[int_counter]
+            if intsect == edge_counter:
+                int_counter += 1
+                continue
 
             # Check if this point intersects
             new_pt = lines_intersect(vertices[:, edges[0, edge_counter]],
                                        vertices[:, edges[1, edge_counter]],
                                        vertices[:, edges[0, intsect]],
                                        vertices[:, edges[1, intsect]])
-
             if new_pt is not None:
-                # Split edge edge_counter (outer loop), unless the
-                # intersection hits an existing point (in practices this
-                # means the intersection runs through an endpoint of the
-                # edge in an L-type configuration, in which case no new point
-                # is needed)
-                vertices, edges, split_outer_edge = split_edge(vertices, edges,
-                                                               edge_counter,
-                                                               new_pt,
-                                                               **kwargs)
-                # If the outer edge (represented by edge_counter) was split,
-                # e.g. inserted into the list of edges we need to increase the
-                # index of the inner edge
-                intsect += split_outer_edge
-                # Possibly split the inner edge
-                vertices, edges, split_inner_edge = split_edge(vertices, edges,
-                                                               intsect,
-                                                               new_pt,
-                                                               **kwargs)
+                # The case of segment intersections need special treatment.
+                if new_pt.shape[-1] == 1:
+                    # Split edge edge_counter (outer loop), unless the
+                    # intersection hits an existing point (in practices this
+                    # means the intersection runs through an endpoint of the
+                    # edge in an L-type configuration, in which case no new point
+                    # is needed)
+                    vertices, edges, split_outer_edge = split_edge(vertices, edges,
+                                                                   edge_counter,
+                                                                   new_pt,
+                                                                   **kwargs)
+                    # If the outer edge (represented by edge_counter) was split,
+                    # e.g. inserted into the list of edges we need to increase the
+                    # index of the inner edge
+                    intsect += split_outer_edge
+                    # Possibly split the inner edge
+                    vertices, edges, split_inner_edge = split_edge(vertices, edges,
+                                                                   intsect,
+                                                                   new_pt,
+                                                                   **kwargs)
+                    intersections += split_outer_edge + split_inner_edge
+                else:
+                    vertices, edges, splits = split_edge(vertices, edges,
+                                                         [edge_counter,
+                                                          intsect],
+                                                         new_pt, **kwargs)
+                    intersections += splits[0]
+                    intersections[intsect:] += splits[1]
                 # Update index of possible intersections
-                intersections += split_outer_edge + split_inner_edge
 
             # We're done with this candidate edge. Increase index of inner loop
             int_counter += 1
