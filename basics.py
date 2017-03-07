@@ -367,11 +367,6 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
 
     The lines are assumed to be in 2D.
 
-    The function uses sympy to find intersections. At the moment (Jan 2017),
-    sympy is not very effective, so this may become a bottleneck if the method
-    is called repeatedly. An purely algebraic implementation is simple, but
-    somewhat cumbersome.
-
     Note that, oposed to other functions related to grid generation such as
     remove_edge_crossings, this function does not use the concept of
     snap_to_grid. This may cause problems at some point, although no issues
@@ -396,8 +391,12 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
         end_2 (np.ndarray or list): coordinates of end point for first line.
 
     Returns:
-        np.ndarray: coordinates of intersection point, or None if the lines do
-            not intersect.
+        np.ndarray (2 x num_pts): coordinates of intersection point, or the
+            endpoints of the intersection segments if relevant. If the lines do
+            not intersect, None is returned.
+
+    Raises:
+        ValueError if the start and endpoints of a line are the same.
 
     """
     start_1 = np.asarray(start_1).astype(np.float)
@@ -413,25 +412,38 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
     discr = d_1[0] * d_2[1] - d_1[1] * d_2[0]
 
     if np.abs(discr) < tol:
+        # The lines are parallel, and will only cross if they are also colinear
+
+        # Cross product between line 1 and line between start points on line
         start_cross_line = d_s[0] * d_1[1] - d_s[1] * d_1[0]
         if np.abs(start_cross_line) < tol:
-            # Lines are co-linear
-            # This can be treated by straightforward algebra, but for the
-            # moment, we call upon sympy to solve this.
-            p1 = sympy.Point(start_1[0], start_1[1])
-            p2 = sympy.Point(end_1[0], end_1[1])
-            p3 = sympy.Point(start_2[0], start_2[1])
-            p4 = sympy.Point(end_2[0], end_2[1])
+            # The lines are co-linear
 
-            l1 = sympy.Segment(p1, p2)
-            l2 = sympy.Segment(p3, p4)
-
-            isect = l1.intersection(l2)
-            if isect is None or len(isect) == 0:
-                return None
+            # Write l1 on the form start_1 + t * d_1, find the parameter value
+            # needed for equality with start_2 and end_2
+            if np.abs(d_1[0]) > tol:
+                t_start_2 = (start_2[0] - start_1[0])/d_1[0]
+                t_end_2 = (end_2[0] - start_1[0])/d_1[0]
+            elif np.abs(d_1[1]) > tol:
+                t_start_2 = (start_2[1] - start_1[1])/d_1[1]
+                t_end_2 = (end_2[1] - start_1[1])/d_1[1]
             else:
-                p = isect[0]
-                return np.array([[p.x], [p.y]], dtype='float')
+                # d_1 is zero
+                raise ValueError('Start and endpoint of line should be\
+                                 different')
+            if t_start_2 < 0 and t_end_2 < 0:
+                return None
+            elif t_start_2 > 1 and t_end_2 > 1:
+                return None
+            # We have an overlap, find its parameter values
+            t_min = max(min(t_start_2, t_end_2), 0)
+            t_max = min(max(t_start_2, t_end_2), 1)
+
+            assert t_max - t_min > tol
+            p_1 = start_1 + d_1 * t_min
+            p_2 = start_1 + d_1 * t_max
+            return np.array([[p_1[0], p_2[0]], [p_1[1], p_2[1]]])
+
         else:
             # Lines are parallel, but not colinear
             return None

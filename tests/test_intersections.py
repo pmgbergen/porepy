@@ -107,5 +107,70 @@ class LinesIntersectTest(unittest.TestCase):
         pi = basics.lines_intersect(s0, e0, s1, e1)
         assert(pi is None or len(pi)==0)
 
+    def test_parallel_not_colinear(self):
+        s0 = np.array([0, 0])
+        e0 = np.array([1, 0])
+        s1 = np.array([0, 1])
+        e1 = np.array([1, 1])
+
+        pi = basics.lines_intersect(s0, e0, s1, e1)
+        assert pi is None
+
+    def test_colinear_not_intersecting(self):
+        s0 = np.array([0, 0])
+        e0 = np.array([1, 0])
+        s1 = np.array([2, 0])
+        e1 = np.array([3, 0])
+
+        pi = basics.lines_intersect(s0, e0, s1, e1)
+        assert pi is None
+
+    def test_partly_overlapping_segments(self):
+        s0 = np.array([0, 0])
+        e0 = np.array([2, 0])
+        s1 = np.array([1, 0])
+        e1 = np.array([3, 0])
+
+        pi = basics.lines_intersect(s0, e0, s1, e1)
+        assert (pi[0, 0] == 1 and pi[0, 1] == 2) or \
+               (pi[0, 0] == 2 and pi[0, 1] == 1)
+        assert np.allclose(pi[1], 0)
+
+        # Then test order of arguments
+        pi = basics.lines_intersect(e0, s0, s1, e1)
+        assert (pi[0, 0] == 1 and pi[0, 1] == 2) or \
+               (pi[0, 0] == 2 and pi[0, 1] == 1)
+        assert np.allclose(pi[1], 0)
+
+        pi = basics.lines_intersect(s0, e0, e1, s1)
+        assert (pi[0, 0] == 1 and pi[0, 1] == 2) or \
+               (pi[0, 0] == 2 and pi[0, 1] == 1)
+        assert np.allclose(pi[1], 0)
+
+        pi = basics.lines_intersect(e0, s0, e1, s1)
+        assert (pi[0, 0] == 1 and pi[0, 1] == 2) or \
+               (pi[0, 0] == 2 and pi[0, 1] == 1)
+        assert np.allclose(pi[1], 0)
+
+    def test_fully_overlapping_segments(self):
+        s0 = np.array([0, 0])
+        e0 = np.array([3, 0])
+        s1 = np.array([1, 0])
+        e1 = np.array([2, 0])
+
+        pi = basics.lines_intersect(s0, e0, s1, e1)
+        assert (pi[0, 0] == 1 and pi[0, 1] == 2) or \
+               (pi[0, 0] == 2 and pi[0, 1] == 1)
+        assert np.allclose(pi[1], 0)
+
+    def test_meeting_in_point(self):
+        s0 = np.array([0, 0])
+        e0 = np.array([1, 0])
+        s1 = np.array([1, 0])
+        e1 = np.array([2, 0])
+
+        pi = basics.lines_intersect(s0, e0, s1, e1)
+        assert pi[0, 0] == 1 and pi[1, 0] == 1
+
     if __name__ == '__main__':
         unittest.main()
