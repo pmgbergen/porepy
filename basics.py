@@ -754,8 +754,6 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     assert np.all(np.abs(poly_1_xy[2]) < tol)
     # Drop the z-coordinate
     poly_1_xy = poly_1_xy[:2]
-    # Convert the first polygon to sympy format
-    poly_1_sp = geom.Polygon(*_np2p(poly_1_xy))
 
     # Rotate the second polygon with the same rotation matrix
     poly_2_rot = rot.dot(poly_2)
@@ -774,6 +772,8 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
             # The polygons are parallel, and in the same plane
             # Represent second polygon by sympy, and use sympy function to
             # detect intersection.
+            # Convert the first polygon to sympy format
+            poly_1_sp = geom.Polygon(*_np2p(poly_1_xy))
             poly_2_sp = geom.Polygon(*_np2p(poly_2_rot[:2]))
 
             isect = poly_1_sp.intersection(poly_2_sp)
