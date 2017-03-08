@@ -13,8 +13,9 @@ class GmshWriter(object):
      compartments
     """
 
-    def __init__(self, pts, lines, polygons=None, domain=None, nd=None, lchar=None,
-                 lchar_bound=None, line_type=None, intersection_points=None):
+    def __init__(self, pts, lines, polygons=None, domain=None, nd=None,
+                 mesh_size=None, mesh_size_bound=None, line_type=None,
+                 intersection_points=None):
         """
 
         :param pts: np.ndarary, Points
@@ -32,16 +33,12 @@ class GmshWriter(object):
         else:
             self.nd = nd
 
-        if lchar is None:
-            self.lchar = 1 * np.ones(self.pts.shape[1])
-        else:
-            self.lchar = lchar
+        self.lchar = mesh_size
+        self.lchar_bound = mesh_size_bound
 
         if domain is not None:
             self.domain = domain
-
-        if lchar_bound is None:
-            self.lchar_bound = 1
+        self.lchar_bound = 1
 
         # Points that should be decleared physical (intersections between 3
         # fractures)
@@ -125,10 +122,16 @@ class GmshWriter(object):
         xmax = str(self.domain['xmax']) + ', '
         ymin = str(self.domain['ymin']) + ', '
         ymax = str(self.domain['ymax']) + ', '
-        zmin = str(self.domain['zmin']) + ', '
-        zmax = str(self.domain['zmax']) + ', '
+        zmin = str(self.domain['zmin'])# + ', '
+        zmax = str(self.domain['zmax'])# + ', '
 
-        h = str(self.lchar_bound) + '};'
+        # Add mesh size on boundary points if these are provided
+        if self.lchar_bound is not None:
+            zmin += ', '
+            zmax += ', '
+            h = str(self.lchar_bound) + '};'
+        else:
+            h = '};'
         ls = '\n'
 
         constants = gridding_constants.GmshConstants()
@@ -176,7 +179,12 @@ class GmshWriter(object):
         for i in range(self.pts.shape[1]):
             s += 'p' + str(i) + ' = newp; Point(p' + str(i) + ') = '
             s += '{' + str(p[0, i]) + ', ' + str(p[1, i]) + ', '\
-                 + str(p[2, i]) + ', ' + str(self.lchar[i]) + ' };\n'
+                 + str(p[2, i])
+            if self.lchar is not None:
+                s += ', ' + str(self.lchar[i]) + ' };\n'
+            else:
+                s += '};\n'
+
         s += '// End of point specification \n \n'
         return s
 
@@ -264,11 +272,9 @@ def read_gmsh(out_file):
     return points, cells, phys_names, cell_info
 
 
-def run_gmsh(path_to_gmsh, in_file, out_file, dims):
+def run_gmsh(path_to_gmsh, in_file, out_file, dims, **kwargs):
     """
     Convenience function to run gmsh.
-
-    TODO: Add possibility of including options for gmsh.
 
     Parameters:
         path_to_gmsh (str): Path to the location of the gmsh binary
@@ -278,17 +284,25 @@ def run_gmsh(path_to_gmsh, in_file, out_file, dims):
             the geometry dimensions, gmsh will grid all lower-dimensional
             objcets described in in_file (e.g. all surfaces embeded in a 3D
             geometry).
+        **kwargs: Options passed on to gmsh. See gmsh documentation for
+            possible values.
 
     Returns:
         double: Status of the generation, as returned by os.system. 0 means the
             simulation completed successfully, >0 signifies problems.
 
     """
+    opts = ' '
+    for key, val in kwargs.items():
+        # Gmsh keywords are specified with prefix '-'
+        if key[0] != '-':
+            key = '-' + key
+        opts += key + ' ' + str(val) + ' '
 
     if dims == 2:
-        cmd = path_to_gmsh + ' -2 ' + in_file + ' -o ' + out_file
+        cmd = path_to_gmsh + ' -2 ' + in_file + ' -o ' + out_file + opts
     else:
-        cmd = path_to_gmsh + ' -3 ' + in_file + ' -o ' + out_file
+        cmd = path_to_gmsh + ' -3 ' + in_file + ' -o ' + out_file + opts
     status = os.system(cmd)
 
     return status
