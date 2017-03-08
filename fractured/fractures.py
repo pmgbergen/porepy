@@ -1124,32 +1124,68 @@ class FractureNetwork(object):
         # fractures outside the box
         self.domain = box
 
-    def _classify_edges(self):
+    def _classify_edges(self, polygon_edges):
         """
-        Classify the edges into fracture boundary, intersection, or auxiliary. 
+        Classify the edges into fracture boundary, intersection, or auxiliary.
         Also identify points on intersections between interesctions (fractures
         of co-dimension 3)
+
+        Parameters:
+            polygon_edges (list of lists): For each polygon the global edge
+                indices that forms the polygon boundary.
 
         Returns:
             tag: Tag of the fracture, using the values in GmshConstants. Note
                 that auxiliary points will not be tagged (these are also
                 ignored in gmsh_interface.GmshWriter).
-            is_2d_grid: boolean, one for each point. True if the point is
+            is_0d_grid: boolean, one for each point. True if the point is
                 shared by two or more intersection lines.
 
         """
         edges = self.decomposition['edges']
         is_bound = self.decomposition['is_bound']
         num_edges = edges.shape[1]
+
+        poly_2_frac = self.decomposition['polygon_frac']
+
+        # Construct a map from edges to polygons
+        edge_2_poly = [[] for i in range(num_edges)]
+        for pi, poly in enumerate(polygon_edges[0]):
+            for ei in np.unique(poly):
+                edge_2_poly[ei].append(poly_2_frac[pi])
+
+        # Count the number of referals to the edge from polygons belonging to
+        # different fractures (not polygons)
+        num_referals = np.zeros(num_edges)
+        for ei, ep in enumerate(edge_2_poly):
+            num_referals[ei] = np.unique(np.array(ep)).size
+
+        # A 1-d grid is inserted where there is more than one fracture
+        # referring.
+        has_1d_grid = np.where(num_referals > 1)[0]
+
         num_constraints = len(is_bound)
         constants = GmshConstants()
-
         tag = np.zeros(num_edges, dtype='int')
+
+        # Find fractures that are tagged as a boundary
         bound_ind = np.where(is_bound)[0]
+        # Remove those that are referred to by more than fracture - this takes
+        # care of L-type intersections
+        bound_ind = np.setdiff1d(bound_ind, has_1d_grid)
+
+        # Index of lines that should have a 1-d grid. This are all of the first
+        # num-constraints, minus those on the boundary.
+        # Note that edges with index > num_constraints are known to be of the
+        # auxiliary type. These will have tag zero; and treated in a special
+        # manner by the interface to gmsh.
         intersection_ind = np.setdiff1d(np.arange(num_constraints), bound_ind)
         tag[bound_ind] = constants.FRACTURE_TIP_TAG
         tag[intersection_ind] = constants.FRACTURE_INTERSECTION_LINE_TAG
 
+        # Count the number of times a point is referred to by an intersection
+        # between two fractures. If this is more than one, the point should
+        # have a 0-d grid assigned to it.
         isect_p = edges[:, intersection_ind].ravel()
         num_occ_pt = np.bincount(isect_p)
         is_0d_grid = np.where(num_occ_pt > 1)[0]
@@ -1180,7 +1216,7 @@ class FractureNetwork(object):
             line_ind[hit_ind] = ind
             line_ind[hit_reverse_ind] = ind_reverse
 
-            poly_2_line.append(line_ind)
+            poly_2_line.append(line_ind.astype('int'))
             line_reverse.append(hit_reverse)
 
         return poly_2_line, line_reverse
@@ -1234,7 +1270,10 @@ class FractureNetwork(object):
     def to_gmsh(self, file_name, **kwargs):
         p = self.decomposition['points']
         edges = self.decomposition['edges']
-        edge_tags, intersection_points = self._classify_edges()
+
+        poly = self._poly_2_segment()
+
+        edge_tags, intersection_points = self._classify_edges(poly)
         edges = np.vstack((self.decomposition['edges'], edge_tags))
 
         self.zero_d_pt = intersection_points
@@ -1246,7 +1285,6 @@ class FractureNetwork(object):
             mesh_size = None
             mesh_size_bound = None
 
-        poly = self._poly_2_segment()
         writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
                             intersection_points=intersection_points,
                            mesh_size_bound=mesh_size_bound, mesh_size=mesh_size)
