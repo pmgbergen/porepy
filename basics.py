@@ -767,7 +767,7 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
 
 def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     """
-    Check if two line segments defined in 3D intersect.
+    Find intersection points (or segments) of two 3d lines.
 
     Note that, oposed to other functions related to grid generation such as
     remove_edge_crossings, this function does not use the concept of
@@ -783,8 +783,10 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         end_2 (np.ndarray or list): coordinates of end point for first line.
 
     Returns:
-        np.ndarray: coordinates of intersection point, or None if the lines do
-            not intersect.
+        np.ndarray, dimension 3xn_pts): coordinates of intersection points
+            (number of columns will be either 1 for a point intersection, or 2
+            for a segment intersection). If the lines do not intersect, None is
+            returned.
 
     """
 
