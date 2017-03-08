@@ -168,6 +168,7 @@ class Fracture(object):
         isect_self_other = cg.polygon_segment_intersect(self.p, other.p)
         isect_other_self = cg.polygon_segment_intersect(other.p, self.p)
 
+
         # Process data
         if isect_self_other is not None:
             int_points = np.hstack((int_points, isect_self_other))
@@ -227,8 +228,6 @@ class Fracture(object):
         # This may be sensitive to tolerances, should be a useful test to gauge that.
         if self_cuts_through or other_cuts_through:
             assert int_points.shape[1] == 0
-            assert not self_segment
-            assert not other_segment
 
         # Storage for intersection points located on the boundary
         bound_pt = []
@@ -236,7 +235,7 @@ class Fracture(object):
         # Cover the case of a segment - essentially an L-intersection
         if self_segment:
             assert other_segment  # This should be reflexive
-            assert bound_pt.shape[1] == 2
+            assert bound_pt_self.shape[1] == 2
             assert np.allclose(bound_pt_self, bound_pt_other)
             on_boundary_self == [True, True]
             on_boundary_other = [True, True]
@@ -263,8 +262,10 @@ class Fracture(object):
         """
         Helper function to interpret result from polygon_boundaries_intersect
 
-        Classify an intersection between segments, from the perspective of a polygon, as
+        Classify an intersection between segments, from the perspective of a
+        polygon, as:
         i) Sharing a segment
+        ii) Sharing part of a segment
         ii) Sharing a point, which coincides with a polygon vertex
         iii) Sharing a point that splits a segment of the polygn
 
@@ -297,21 +298,17 @@ class Fracture(object):
             ip_unique, *rest = setmembership.unique_columns_tol(ip)
             if ip_unique.shape[1] == 2:
                 # The polygons share a segment, or a 
-                bound_pt.append(ip_unique)
+                bound_pt = np.hstack((bound_pt, ip_unique))
                 has_segment = True
                 # No need to deal with non_vertex here, there should be no more
                 # intersections (convex, non-overlapping polygons).
-                non_vertex = None
             elif ip_unique.shape[1] == 1:
-                # Either a vertex or single intersection
+                # Either a vertex or single intersection point.
                 poly_ext, *rest = setmembership.unique_columns_tol(
                                                 np.hstack((self.p, ip_unique)))
                 if poly_ext.shape[1] == self.p.shape[1]:
-                    # This is a vertex, 
-                    # For L-intersections, we may get a bunch of these, but
-                    # they will be disgarded elsewhere.
-                    bound_pt = np.hstack((bound_pt, ip_unique))
-                    non_vertex.append(False)
+                    # This is a vertex, we skip it
+                    pass
                 else:
                     # New point contact
                     bound_pt = np.hstack((bound_pt, ip_unique))
@@ -323,9 +320,6 @@ class Fracture(object):
         # Now, if any segment has been found more than once, it cuts two
         # segments of the other polygon.
         cuts_two = np.any(num_occ > 1)
-
-        # Sanity check
-        assert num_occ.max() < 3
 
         return bound_pt, has_segment, non_vertex, cuts_two
 
