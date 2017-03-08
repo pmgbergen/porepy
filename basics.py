@@ -12,6 +12,11 @@ from math import sqrt
 import sympy
 from sympy import geometry as geom
 
+
+#-----------------------------------------------------------------------------
+#
+# START OF FUNCTIONS RELATED TO SPLITTING OF INTERSECTING LINES IN 2D
+#
 #------------------------------------------------------------------------------#
 
 def snap_to_grid(pts, precision=1e-3, box=None):
@@ -496,6 +501,10 @@ def remove_edge_crossings(vertices, edges, **kwargs):
         edge_counter += 1
     return vertices, edges
 
+#----------------------------------------------------------
+#
+# END OF FUNCTIONS RELATED TO SPLITTING OF INTERSECTING LINES IN 2D
+#
 #-----------------------------------------------------------
 
 def is_ccw_polygon(poly):
