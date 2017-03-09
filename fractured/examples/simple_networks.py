@@ -132,6 +132,35 @@ def three_fractures_split_segments(**kwargs):
 
     return grids
 
+
+def two_fractures_L_intersection(**kwargs):
+    """
+    Two fractures sharing a segment in an L-intersection.
+    """
+    f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+    f_2 = np.array([[0, 0, 0, 0], [0, 1, 1, 0 ], [0, 0, 1, 1]])
+    domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
+              2}
+    grids = meshing.create_grid([f_1, f_2], domain, **kwargs)
+
+    return grids
+
+
+def two_fractures_L_intersection_part_of_segment(**kwargs):
+    """
+    Two fractures sharing what is a full segment for one, an part of a segment
+    for the other.
+    """
+    f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+    f_2 = np.array([[0, 0, 0, 0], [0.3, 0.7, 0.7, 0.3 ], [0, 0, 1, 1]])
+    domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
+              2}
+    grids = meshing.create_grid([f_1, f_2], domain, **kwargs)
+
+    return grids
+
+
+
 if __name__ == '__main__':
     # If invoked as main, run all tests
     try:
@@ -333,6 +362,62 @@ if __name__ == '__main__':
         print('\n')
         print(' ***** FAILURE ****')
         print('Gridding of one by two failed')
+        print(exp)
+        logging.error(traceback.format_exc())
+        failure_counter += 1
+
+
+    ###############################
+    # Two fractures meeting along a boundary, forming a 3d-version on an
+    # L-intersection
+    #
+    if verbose > 0:
+        print('Run two fractures L intersection')
+    try:
+        time_loc = time.time()
+        g = two_fractures_L_intersection(gmsh_path=gmsh_path,
+                                            verbose=verbose, gmsh_verbose=0)
+        assert len(g) == 4
+        assert len(g[0]) == 1
+        assert len(g[1]) == 2
+        assert len(g[2]) == 1
+        assert len(g[3]) == 0
+        if verbose > 0:
+            print('One by two completed successfully')
+            print('Elapsed time ' + str(time.time() - time_loc))
+        success_counter += 1
+    except Exception as exp:
+        print('\n')
+        print(' ***** FAILURE ****')
+        print('Two fractures L intersection failed.')
+        print(exp)
+        logging.error(traceback.format_exc())
+        failure_counter += 1
+
+
+    ###############################
+    # Two fractures meeting along a boundary, forming a 3d-version on an
+    # L-intersection
+    #
+    if verbose > 0:
+        print('Run two fractures L intersection')
+    try:
+        time_loc = time.time()
+        g = two_fractures_L_intersection_part_of_segment(gmsh_path=gmsh_path,
+                                            verbose=verbose, gmsh_verbose=0)
+        assert len(g) == 4
+        assert len(g[0]) == 1
+        assert len(g[1]) == 2
+        assert len(g[2]) == 1
+        assert len(g[3]) == 0
+        if verbose > 0:
+            print('One by two completed successfully')
+            print('Elapsed time ' + str(time.time() - time_loc))
+        success_counter += 1
+    except Exception as exp:
+        print('\n')
+        print(' ***** FAILURE ****')
+        print('Two fractures L intersection failed.')
         print(exp)
         logging.error(traceback.format_exc())
         failure_counter += 1

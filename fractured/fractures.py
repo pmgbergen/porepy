@@ -169,6 +169,7 @@ class Fracture(object):
         isect_self_other = cg.polygon_segment_intersect(self.p, other.p)
         isect_other_self = cg.polygon_segment_intersect(other.p, self.p)
 
+
         # Process data
         if isect_self_other is not None:
             int_points = np.hstack((int_points, isect_self_other))
@@ -228,8 +229,6 @@ class Fracture(object):
         # This may be sensitive to tolerances, should be a useful test to gauge that.
         if self_cuts_through or other_cuts_through:
             assert int_points.shape[1] == 0
-            assert not self_segment
-            assert not other_segment
 
         # Storage for intersection points located on the boundary
         bound_pt = []
@@ -237,7 +236,7 @@ class Fracture(object):
         # Cover the case of a segment - essentially an L-intersection
         if self_segment:
             assert other_segment  # This should be reflexive
-            assert bound_pt.shape[1] == 2
+            assert bound_pt_self.shape[1] == 2
             assert np.allclose(bound_pt_self, bound_pt_other)
             on_boundary_self == [True, True]
             on_boundary_other = [True, True]
@@ -264,8 +263,10 @@ class Fracture(object):
         """
         Helper function to interpret result from polygon_boundaries_intersect
 
-        Classify an intersection between segments, from the perspective of a polygon, as
+        Classify an intersection between segments, from the perspective of a
+        polygon, as:
         i) Sharing a segment
+        ii) Sharing part of a segment
         ii) Sharing a point, which coincides with a polygon vertex
         iii) Sharing a point that splits a segment of the polygn
 
@@ -298,21 +299,17 @@ class Fracture(object):
             ip_unique, *rest = setmembership.unique_columns_tol(ip)
             if ip_unique.shape[1] == 2:
                 # The polygons share a segment, or a 
-                bound_pt.append(ip_unique)
+                bound_pt = np.hstack((bound_pt, ip_unique))
                 has_segment = True
                 # No need to deal with non_vertex here, there should be no more
                 # intersections (convex, non-overlapping polygons).
-                non_vertex = None
             elif ip_unique.shape[1] == 1:
-                # Either a vertex or single intersection
+                # Either a vertex or single intersection point.
                 poly_ext, *rest = setmembership.unique_columns_tol(
                                                 np.hstack((self.p, ip_unique)))
                 if poly_ext.shape[1] == self.p.shape[1]:
-                    # This is a vertex, 
-                    # For L-intersections, we may get a bunch of these, but
-                    # they will be disgarded elsewhere.
-                    bound_pt = np.hstack((bound_pt, ip_unique))
-                    non_vertex.append(False)
+                    # This is a vertex, we skip it
+                    pass
                 else:
                     # New point contact
                     bound_pt = np.hstack((bound_pt, ip_unique))
@@ -325,8 +322,8 @@ class Fracture(object):
         # segments of the other polygon.
         cuts_two = np.any(num_occ > 1)
 
-        # Sanity check
-        assert num_occ.max() < 3
+        # Return a unique version of bound_pt
+        bound_pt, *rest = setmembership.unique_columns_tol(bound_pt)
 
         return bound_pt, has_segment, non_vertex, cuts_two
 
@@ -491,7 +488,6 @@ class FractureNetwork(object):
         The method will add an atribute decomposition to self.
 
         """
-
         # First, collate all points and edges used to describe fracture
         # boundaries and intersections.
         all_p, edges,\
@@ -721,14 +717,34 @@ class FractureNetwork(object):
             # therefore plan to delete all edges (new and old), and add new
             # ones.
 
-            # First add the new ones
+            # First add new edges.
             # All local edges in terms of global point indices
             edges_new_glob = p_ind_exp[edges_new[:2]]
             edges = np.hstack((edges, edges_new_glob))
 
+            # Global indices of the local edges
+            edges_loc_ind = np.unique(edges_loc_ind)
+
             # Append fields for edge-fracture map and boundary tags
             for ei in range(edges_new.shape[1]):
-                glob_ei = edges_new[2, ei]
+                # Find the global edge index. For most edges, this will be
+                # correctly identified by edegs_new[2], which tracks the
+                # original edges under splitting. However, in cases of
+                # overlapping segments, in which case the index of the one edge
+                # may completely override the index of the other (this is
+                # caused by the implementation of remove_edge_crossings).
+                # We therefore compare the new edge to the old ones (before
+                # splitting). If found, use the old information; if not, use
+                # index as tracked by splitting.
+                is_old, old_loc_ind =\
+                        setmembership.ismember_rows(edges_new_glob[:, ei]\
+                                                    .reshape((-1, 1)),
+                                                    edges[:2, edges_loc_ind])
+                if is_old[0]:
+                    glob_ei = edges_loc_ind[old_loc_ind[0]]
+                else:
+                    glob_ei = edges_new[2, ei]
+                # Update edge_2_frac and boundary information.
                 edges_2_frac.append(edges_2_frac[glob_ei])
                 is_boundary_edge.append(is_boundary_edge[glob_ei])
 
@@ -1130,32 +1146,68 @@ class FractureNetwork(object):
         # fractures outside the box
         self.domain = box
 
-    def _classify_edges(self):
+    def _classify_edges(self, polygon_edges):
         """
-        Classify the edges into fracture boundary, intersection, or auxiliary. 
+        Classify the edges into fracture boundary, intersection, or auxiliary.
         Also identify points on intersections between interesctions (fractures
         of co-dimension 3)
+
+        Parameters:
+            polygon_edges (list of lists): For each polygon the global edge
+                indices that forms the polygon boundary.
 
         Returns:
             tag: Tag of the fracture, using the values in GmshConstants. Note
                 that auxiliary points will not be tagged (these are also
                 ignored in gmsh_interface.GmshWriter).
-            is_2d_grid: boolean, one for each point. True if the point is
+            is_0d_grid: boolean, one for each point. True if the point is
                 shared by two or more intersection lines.
 
         """
         edges = self.decomposition['edges']
         is_bound = self.decomposition['is_bound']
         num_edges = edges.shape[1]
+
+        poly_2_frac = self.decomposition['polygon_frac']
+
+        # Construct a map from edges to polygons
+        edge_2_poly = [[] for i in range(num_edges)]
+        for pi, poly in enumerate(polygon_edges[0]):
+            for ei in np.unique(poly):
+                edge_2_poly[ei].append(poly_2_frac[pi])
+
+        # Count the number of referals to the edge from polygons belonging to
+        # different fractures (not polygons)
+        num_referals = np.zeros(num_edges)
+        for ei, ep in enumerate(edge_2_poly):
+            num_referals[ei] = np.unique(np.array(ep)).size
+
+        # A 1-d grid is inserted where there is more than one fracture
+        # referring.
+        has_1d_grid = np.where(num_referals > 1)[0]
+
         num_constraints = len(is_bound)
         constants = GmshConstants()
-
         tag = np.zeros(num_edges, dtype='int')
+
+        # Find fractures that are tagged as a boundary
         bound_ind = np.where(is_bound)[0]
+        # Remove those that are referred to by more than fracture - this takes
+        # care of L-type intersections
+        bound_ind = np.setdiff1d(bound_ind, has_1d_grid)
+
+        # Index of lines that should have a 1-d grid. This are all of the first
+        # num-constraints, minus those on the boundary.
+        # Note that edges with index > num_constraints are known to be of the
+        # auxiliary type. These will have tag zero; and treated in a special
+        # manner by the interface to gmsh.
         intersection_ind = np.setdiff1d(np.arange(num_constraints), bound_ind)
         tag[bound_ind] = constants.FRACTURE_TIP_TAG
         tag[intersection_ind] = constants.FRACTURE_INTERSECTION_LINE_TAG
 
+        # Count the number of times a point is referred to by an intersection
+        # between two fractures. If this is more than one, the point should
+        # have a 0-d grid assigned to it.
         isect_p = edges[:, intersection_ind].ravel()
         num_occ_pt = np.bincount(isect_p)
         is_0d_grid = np.where(num_occ_pt > 1)[0]
@@ -1185,7 +1237,7 @@ class FractureNetwork(object):
             line_ind[hit_ind] = ind
             line_ind[hit_reverse_ind] = ind_reverse
 
-            poly_2_line.append(line_ind)
+            poly_2_line.append(line_ind.astype('int'))
             line_reverse.append(hit_reverse)
 
         return poly_2_line, line_reverse
@@ -1239,7 +1291,10 @@ class FractureNetwork(object):
     def to_gmsh(self, file_name, **kwargs):
         p = self.decomposition['points']
         edges = self.decomposition['edges']
-        edge_tags, intersection_points = self._classify_edges()
+
+        poly = self._poly_2_segment()
+
+        edge_tags, intersection_points = self._classify_edges(poly)
         edges = np.vstack((self.decomposition['edges'], edge_tags))
 
         self.zero_d_pt = intersection_points
@@ -1251,7 +1306,6 @@ class FractureNetwork(object):
             mesh_size = None
             mesh_size_bound = None
 
-        poly = self._poly_2_segment()
         writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
                             intersection_points=intersection_points,
                            mesh_size_bound=mesh_size_bound, mesh_size=mesh_size)
