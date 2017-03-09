@@ -238,7 +238,6 @@ if __name__ == '__main__':
             assert len(g) == 4
             for gl, e in zip(g, expected):
                 assert len(gl) == e
-            success_counter += 1
         except Exception as exp:
             print('\n')
             print(' ************** FAILURE **********')
@@ -246,7 +245,26 @@ if __name__ == '__main__':
             print(exp)
             logging.error(traceback.format_exc())
             failure_counter += 1
+            continue
 
+        if compute_geometry:
+            try:
+                for i, gl in enumerate(g):
+                    for grid in gl:
+                        if i == 0:
+                            grid.compute_geometry()
+                        else:
+                            grid.compute_geometry(is_embedded=True)
+            except Exception as exp:
+                print('************ FAILURE **********')
+                print('Geometry computation failed on level ' + str(i))
+                print(exp)
+                logging.error(traceback.format_exc())
+                failure_counter += 1
+                continue
+
+        # If we have made it this far, this is a success
+        success_counter += 1
     #################################
     # Summary
     #
