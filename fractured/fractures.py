@@ -482,7 +482,6 @@ class FractureNetwork(object):
         The method will add an atribute decomposition to self.
 
         """
-
         # First, collate all points and edges used to describe fracture
         # boundaries and intersections.
         all_p, edges,\
@@ -712,14 +711,34 @@ class FractureNetwork(object):
             # therefore plan to delete all edges (new and old), and add new
             # ones.
 
-            # First add the new ones
+            # First add new edges.
             # All local edges in terms of global point indices
             edges_new_glob = p_ind_exp[edges_new[:2]]
             edges = np.hstack((edges, edges_new_glob))
 
+            # Global indices of the local edges
+            edges_loc_ind = np.unique(edges_loc_ind)
+
             # Append fields for edge-fracture map and boundary tags
             for ei in range(edges_new.shape[1]):
-                glob_ei = edges_new[2, ei]
+                # Find the global edge index. For most edges, this will be
+                # correctly identified by edegs_new[2], which tracks the
+                # original edges under splitting. However, in cases of
+                # overlapping segments, in which case the index of the one edge
+                # may completely override the index of the other (this is
+                # caused by the implementation of remove_edge_crossings).
+                # We therefore compare the new edge to the old ones (before
+                # splitting). If found, use the old information; if not, use
+                # index as tracked by splitting.
+                is_old, old_loc_ind =\
+                        setmembership.ismember_rows(edges_new_glob[:, ei]\
+                                                    .reshape((-1, 1)),
+                                                    edges[:2, edges_loc_ind])
+                if is_old[0]:
+                    glob_ei = edges_loc_ind[old_loc_ind[0]]
+                else:
+                    glob_ei = edges_new[2, ei]
+                # Update edge_2_frac and boundary information.
                 edges_2_frac.append(edges_2_frac[glob_ei])
                 is_boundary_edge.append(is_boundary_edge[glob_ei])
 
