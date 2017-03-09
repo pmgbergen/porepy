@@ -321,6 +321,9 @@ class Fracture(object):
         # segments of the other polygon.
         cuts_two = np.any(num_occ > 1)
 
+        # Return a unique version of bound_pt
+        bound_pt, *rest = setmembership.unique_columns_tol(bound_pt)
+
         return bound_pt, has_segment, non_vertex, cuts_two
 
 
