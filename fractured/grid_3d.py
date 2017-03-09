@@ -93,7 +93,7 @@ def create_grid(fracs, box, **kwargs):
     g_0d = _create_0d_grids(pts, cells)
 
     grids = [g_3d, g_2d, g_1d, g_0d]
-
+    print(g_1d[0].nodes)
     bucket = assemble_in_bucket(grids)
 
     if verbose > 0:
@@ -192,7 +192,7 @@ def _create_1d_grids(pts, cells, phys_names, cell_info):
     if not 'line' in cells:
         return g_1d, np.empty(0)
 
-    gmsh_const = gridding.constants.GmshConstants()
+    gmsh_const = constants.GmshConstants()
 
     line_tags = cell_info['line'][:, 0]
     line_cells = cells['line']
@@ -279,7 +279,7 @@ def _create_0d_grids(pts, cells):
 
 def assemble_in_bucket(grids):
     bucket = Grid_Bucket()
-    bucket.add_grids(grids)
+    [bucket.add_grids(g_d) for g_d in grids]
     for dim in range(len(grids) - 1):
         for hg in grids[dim]:
             # Sort the face nodes for simple comparison. np.sort returns a copy
@@ -289,12 +289,16 @@ def assemble_in_bucket(grids):
             # Convert to global numbering
             fn = hg.global_point_ind[fn_loc]
             fn = np.sort(fn, axis=0)
-            fn = fn.ravel()
+            
             for lg in grids[dim + 1]:
                 cell_2_face, cell = obtain_interdim_mappings(lg, fn)
+                print(np.max(cell))
+                print(np.max(cell_2_face))
+                print(hg.num_faces)
+                print(lg.num_cells)
                 face_cells = sps.csc_matrix(
-                    ((np.array([True] * cell.size)), cell, cell_2_face),
-                    (hg.num_faces, lg.num_cells))
+                    (np.array([True] * cell.size), (cell, cell_2_face)),
+                    (lg.num_cells,hg.num_faces))
                 bucket.add_relation([hg, lg], face_cells)
     return bucket
 
@@ -312,6 +316,7 @@ def obtain_interdim_mappings(lg, fn):
         cn = np.array([lg.global_point_ind])
         # We also know that the higher-dimensional grid has faces
         # of a single node. This sometimes fails, so enforce it.
+        fn = fn.ravel()
 
     is_mem, cell_2_face = setmembership.ismember_rows(cn, fn)
 
