@@ -93,7 +93,6 @@ def create_grid(fracs, box, **kwargs):
     g_0d = _create_0d_grids(pts, cells)
 
     grids = [g_3d, g_2d, g_1d, g_0d]
-    print(g_1d[0].nodes)
     bucket = assemble_in_bucket(grids)
 
     if verbose > 0:
@@ -222,11 +221,9 @@ def _create_1d_grids(pts, cells, phys_names, cell_info):
 
         elif line_type == gmsh_const.PHYSICAL_NAME_FRACTURE_LINE[:-1]:
             loc_pts_1d = np.unique(loc_line_pts)  # .flatten()
-
             loc_coord = pts[loc_pts_1d, :].transpose()
             loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
             loc_coord -= loc_center
-
             # Check that the points indeed form a line
             assert cg.is_collinear(loc_coord)
             # Find the tangent of the line
@@ -234,7 +231,6 @@ def _create_1d_grids(pts, cells, phys_names, cell_info):
             # Projection matrix
             rot = cg.project_plane_matrix(loc_coord, tangent)
             loc_coord_1d = rot.dot(loc_coord)
-
             # The points are now 1d along one of the coordinate axis, but we
             # don't know which yet. Find this.
 
@@ -242,16 +238,22 @@ def _create_1d_grids(pts, cells, phys_names, cell_info):
             active_dimension = np.logical_not(np.isclose(sum_coord, 0))
             # Check that we are indeed in 1d
             assert np.sum(active_dimension) == 1
-
             # Sort nodes, and create grid
             coord_1d = loc_coord[active_dimension]
             sort_ind = np.argsort(coord_1d)[0]
             sorted_coord = coord_1d[0, sort_ind]
             g = structured.TensorGrid(sorted_coord)
 
+            # Project back to active dimension
+            nodes = np.zeros(g.nodes.shape)
+            nodes[active_dimension] = g.nodes[0]
+            g.nodes = nodes
+            
             # Project back again to 3d coordinates
+
             irot = rot.transpose()
-            g.nodes = irot.dot(g.nodes) + loc_coord
+            g.nodes = irot.dot(g.nodes)
+            g.nodes += loc_center
 
             # Add mapping to global point numbers
             g.global_point_ind = loc_pts_1d[sort_ind]
@@ -292,10 +294,6 @@ def assemble_in_bucket(grids):
             
             for lg in grids[dim + 1]:
                 cell_2_face, cell = obtain_interdim_mappings(lg, fn)
-                print(np.max(cell))
-                print(np.max(cell_2_face))
-                print(hg.num_faces)
-                print(lg.num_cells)
                 face_cells = sps.csc_matrix(
                     (np.array([True] * cell.size), (cell, cell_2_face)),
                     (lg.num_cells,hg.num_faces))
