@@ -1,13 +1,17 @@
 import numpy as np
+import scipy.sparse as sps
 import time
 
-import gridding.constants
+
 from core.grids import simplex, structured, point_grid
+from gridding import constants
+from gridding.grid_bucket import Grid_Bucket
 from gridding.gmsh import gmsh_interface, mesh_io
 from gridding.fractured import fractures
 import compgeom.sort_points
 import compgeom.basics as cg
 from utils import setmembership
+
 
 def create_grid(fracs, box, **kwargs):
     """
@@ -69,7 +73,7 @@ def create_grid(fracs, box, **kwargs):
     gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
     gmsh_opts = {'-v': gmsh_verbose}
     gmsh_status = gmsh_interface.run_gmsh(gmsh_path, in_file, out_file, dims=3,
-                                         **gmsh_opts)
+                                          **gmsh_opts)
 
     if verbose > 0:
         start_time = time.time()
@@ -80,7 +84,7 @@ def create_grid(fracs, box, **kwargs):
 
     pts, cells, phys_names, cell_info = gmsh_interface.read_gmsh(out_file)
 
-    # Call upon helper functions to create grids in various dimensions. 
+    # Call upon helper functions to create grids in various dimensions.
     # The constructors require somewhat different information, reflecting the
     # different nature of the grids.
     g_3d = _create_3d_grids(pts, cells)
@@ -89,8 +93,7 @@ def create_grid(fracs, box, **kwargs):
     g_0d = _create_0d_grids(pts, cells)
 
     grids = [g_3d, g_2d, g_1d, g_0d]
-
-    _obtain_interdim_mappings(grids)
+    bucket = assemble_in_bucket(grids)
 
     if verbose > 0:
         print('\n')
@@ -100,7 +103,7 @@ def create_grid(fracs, box, **kwargs):
         for g_set in grids:
             if len(g_set) > 0:
                 s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
-                        '-d grids with '
+                    '-d grids with '
                 num = 0
                 for g in g_set:
                     num += g.num_cells
@@ -110,7 +113,8 @@ def create_grid(fracs, box, **kwargs):
 
     # We should also return the result of interdim_mappings, and possibly
     # tip_pts?
-    return grids
+    return bucket
+
 
 def _create_3d_grids(pts, cells):
     tet_cells = cells['tetra']
@@ -148,9 +152,8 @@ def _create_2d_grids(pts, cells, phys_names, cell_info, network):
 
     for i, pn in enumerate(phys_names['triangle']):
         offset = pn[2].rfind('_')
-        frac_num[i] = poly_2_frac[int(pn[2][offset+1:])]
+        frac_num[i] = poly_2_frac[int(pn[2][offset + 1:])]
         gmsh_num[i] = pn[1]
-
 
     for fi in np.unique(frac_num):
         loc_num = np.where(frac_num == fi)[0]
@@ -168,7 +171,7 @@ def _create_2d_grids(pts, cells, phys_names, cell_info, network):
         pind_loc, p_map = np.unique(loc_tri_glob_ind, return_inverse=True)
         loc_tri_ind = p_map.reshape((-1, 3))
         g = simplex.TriangleGrid(pts[pind_loc, :].transpose(),
-                                         loc_tri_ind.transpose())
+                                 loc_tri_ind.transpose())
         # Add mapping to global point numbers
         g.global_point_ind = pind_loc
 
@@ -188,7 +191,7 @@ def _create_1d_grids(pts, cells, phys_names, cell_info):
     if not 'line' in cells:
         return g_1d, np.empty(0)
 
-    gmsh_const = gridding.constants.GmshConstants()
+    gmsh_const = constants.GmshConstants()
 
     line_tags = cell_info['line'][:, 0]
     line_cells = cells['line']
@@ -202,7 +205,7 @@ def _create_1d_grids(pts, cells, phys_names, cell_info):
         # Index of the final underscore in the physical name. Chars before this
         # will identify the line type, the one after will give index
         offset_index = pn[2].rfind('_')
-        line_num = int(pn[2][offset_index+1:])
+        line_num = int(pn[2][offset_index + 1:])
         loc_line_cell_num = np.where(line_tags == pn[1])[0]
         loc_line_pts = line_cells[loc_line_cell_num, :]
 
@@ -217,20 +220,17 @@ def _create_1d_grids(pts, cells, phys_names, cell_info):
             tip_pts = np.append(tip_pts, np.unique(loc_line_pts))
 
         elif line_type == gmsh_const.PHYSICAL_NAME_FRACTURE_LINE[:-1]:
-            loc_pts_1d = np.unique(loc_line_pts)#.flatten()
-
+            loc_pts_1d = np.unique(loc_line_pts)  # .flatten()
             loc_coord = pts[loc_pts_1d, :].transpose()
             loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
             loc_coord -= loc_center
-
             # Check that the points indeed form a line
             assert cg.is_collinear(loc_coord)
             # Find the tangent of the line
             tangent = cg.compute_tangent(loc_coord)
-            # Projection matrix 
+            # Projection matrix
             rot = cg.project_plane_matrix(loc_coord, tangent)
             loc_coord_1d = rot.dot(loc_coord)
-
             # The points are now 1d along one of the coordinate axis, but we
             # don't know which yet. Find this.
 
@@ -238,16 +238,22 @@ def _create_1d_grids(pts, cells, phys_names, cell_info):
             active_dimension = np.logical_not(np.isclose(sum_coord, 0))
             # Check that we are indeed in 1d
             assert np.sum(active_dimension) == 1
-
             # Sort nodes, and create grid
             coord_1d = loc_coord[active_dimension]
             sort_ind = np.argsort(coord_1d)[0]
             sorted_coord = coord_1d[0, sort_ind]
             g = structured.TensorGrid(sorted_coord)
 
+            # Project back to active dimension
+            nodes = np.zeros(g.nodes.shape)
+            nodes[active_dimension] = g.nodes[0]
+            g.nodes = nodes
+            
             # Project back again to 3d coordinates
+
             irot = rot.transpose()
-            g.nodes = irot.dot(g.nodes) + loc_coord
+            g.nodes = irot.dot(g.nodes)
+            g.nodes += loc_center
 
             # Add mapping to global point numbers
             g.global_point_ind = loc_pts_1d[sort_ind]
@@ -273,35 +279,48 @@ def _create_0d_grids(pts, cells):
     return g_0d
 
 
-def _obtain_interdim_mappings(grids):
+def assemble_in_bucket(grids):
+    bucket = Grid_Bucket()
+    [bucket.add_grids(g_d) for g_d in grids]
+    for dim in range(len(grids) - 1):
+        for hg in grids[dim]:
+            # Sort the face nodes for simple comparison. np.sort returns a copy
+            # of the list,
+            fn_loc = hg.face_nodes.indices.reshape((hg.dim, hg.num_faces),
+                                                   order='F')
+            # Convert to global numbering
+            fn = hg.global_point_ind[fn_loc]
+            fn = np.sort(fn, axis=0)
+            
+            for lg in grids[dim + 1]:
+                cell_2_face, cell = obtain_interdim_mappings(lg, fn)
+                face_cells = sps.csc_matrix(
+                    (np.array([True] * cell.size), (cell, cell_2_face)),
+                    (lg.num_cells,hg.num_faces))
+                bucket.add_relation([hg, lg], face_cells)
+    return bucket
+
+
+def obtain_interdim_mappings(lg, fn):
     # Next, find mappings between faces in one dimension and cells in the lower
     # dimension
-    for dim in range(len(grids)-1):
-        for g in grids[dim]:
-            # Sort the face nodes for simple comparison. np.sort returns a copy
-            # of the list, 
-            fn_loc = g.face_nodes.indices.reshape((g.dim, g.num_faces),
-                                                  order='F')
-            # Convert to global numbering
-            fn = g.global_point_ind[fn_loc]
-            fn = np.sort(fn, axis=0)
+    if lg.dim > 0:
+        cn_loc = lg.cell_nodes().indices.reshape((lg.dim + 1,
+                                                  lg.num_cells),
+                                                 order='F')
+        cn = lg.global_point_ind[cn_loc]
+        cn = np.sort(cn, axis=0)
+    else:
+        cn = np.array([lg.global_point_ind])
+        # We also know that the higher-dimensional grid has faces
+        # of a single node. This sometimes fails, so enforce it.
+        fn = fn.ravel()
 
-            for lg in grids[dim+1]:
-                if lg.dim > 0:
-                    cn_loc = lg.cell_nodes().indices.reshape((lg.dim+1,
-                                                              lg.num_cells),
-                                                             order='F')
-                    cn = lg.global_point_ind[cn_loc]
-                    cn = np.sort(cn, axis=0)
-                else:
-                    cn = np.array([lg.global_point_ind])
-                    # We also know that the higher-dimensional grid has faces
-                    # of a single node. This sometimes fails, so enforce it.
-                    fn = fn.ravel()
+    is_mem, cell_2_face = setmembership.ismember_rows(cn, fn)
 
-                is_mem, cell_2_face = setmembership.ismember_rows(cn, fn)
+    # An element in cell_2_face gives, for all cells in the
+    # lower-dimensional grid, the index of the corresponding face
+    # in the higher-dimensional structure.
 
-                # An element in cell_2_face gives, for all cells in the
-                # lower-dimensional grid, the index of the corresponding face
-                # in the higher-dimensional structure.
-                low_dim_cell = np.where(is_mem)[0]
+    low_dim_cell = np.where(is_mem)[0]
+    return cell_2_face, low_dim_cell

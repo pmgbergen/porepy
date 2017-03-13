@@ -34,9 +34,10 @@ def create_grid(fracs, domain, **kwargs):
     if ndim == 2:
         # This will fail, either change method parameters, or process data.
         grids = grid_2d.create_grid(fracs)
+        return grids
     elif ndim == 3:
-        grids = grid_3d.create_grid(fracs, domain, **kwargs)
-
+        bucket = grid_3d.create_grid(fracs, domain, **kwargs)
+        return bucket
     # Somehow take care of the output, and return appropriate values.
-    return grids
+
 
