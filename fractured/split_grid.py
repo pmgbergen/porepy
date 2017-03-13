@@ -72,6 +72,7 @@ def split_fractures(bucket, offset=0):
         is_low_dim_grid = np.where([(bucket.get_grid(w)).dim<gh.dim for w in neigh])
         gl = [bucket.get_grid(w) for w in neigh[is_low_dim_grid]]
         face_cells = [bucket.get_e_prop(e) for e in edges[is_low_dim_grid]]
+
         # Doubplicate all fracture faces
         split_faces(gh, gl, face_cells)
         # Split the nodes along fractures
