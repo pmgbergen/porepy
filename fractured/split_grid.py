@@ -65,18 +65,18 @@ def split_fractures(bucket, offset=0):
     >>> plt.show()
     """
     for gh,v in bucket:
-        if gh.dim!=3:
+        if gh.dim<2:
             continue
         neigh = np.array(bucket.neigh_of_v(v))
         edges = np.array(bucket.e_of_v(v))
         is_low_dim_grid = np.where([(bucket.get_grid(w)).dim<gh.dim for w in neigh])
         gl = [bucket.get_grid(w) for w in neigh[is_low_dim_grid]]
         face_cells = [bucket.get_e_prop(e) for e in edges[is_low_dim_grid]]
-
         # Doubplicate all fracture faces
         split_faces(gh, gl, face_cells)
         # Split the nodes along fractures
-        split_nodes(gh,gl, offset)
+        gl_2_gh_nodes = [bucket.target_2_source_nodes(g, gh) for g in gl]
+        split_nodes(gh,gl, gl_2_gh_nodes, offset)
         # Remove zeros from cell_faces
                           
     [g.cell_faces.eliminate_zeros() for g,_ in bucket]
@@ -92,7 +92,6 @@ def split_faces(gh, gl, face_cells):
     be internal boundaries (cells on left side of fractures are not
     connected to cells on right side of fracture and vise versa).
     """
-
     for i, f in enumerate(gl):
         # Create convenientmappings
         # duplicate faces along tagged faces.
@@ -100,9 +99,9 @@ def split_faces(gh, gl, face_cells):
         update_face_cells(face_cells, face_id, i)
 
         # Set new cell conectivity
-        n = np.reshape(f.face_normals[:,0],(3,1))
+        n = np.reshape(gh.face_normals[:,face_id[0]],(3,1))
         n = n/np.linalg.norm(n)
-        x0 = np.reshape(f.face_centers[:,0], (3,1))
+        x0 = np.reshape(gh.face_centers[:,face_id[0]], (3,1))
         update_cell_connectivity(gh, face_id, n,x0)
 
         #        if i<f.num:
@@ -112,7 +111,7 @@ def split_faces(gh, gl, face_cells):
     return gh
 
 
-def split_nodes(gh, gl, offset=0):
+def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
     """
     splits the nodes of a grid given a fracture and a colored graph.
     Parameters
@@ -128,11 +127,12 @@ def split_nodes(gh, gl, offset=0):
     """
     # find all nodes that lie on a fracture, and are interior nodes.
     int_nodes = np.array([])
-    for g in gl:
+    for i, g in enumerate(gl):
         bdr = g.get_boundary_faces()
         bdr_nodes = np.ravel(
             np.sum(g.face_nodes[:, bdr], axis=1)).astype('bool')
-        int_nodes = np.append(int_nodes, g.global_point_ind[~bdr_nodes])
+        int_nodes = np.append(int_nodes, gh_2_gl_nodes[i][~bdr_nodes])
+
     int_nodes = np.unique(int_nodes)
 
     # duplicate fracture nodes
@@ -209,6 +209,7 @@ def update_cell_connectivity(g, face_id, normal, x0):
     # to the left cells
     cell_frac = g.cell_faces[face_id, :]
     cell_face_id = np.argwhere(cell_frac)
+
     left_cell = half_space_int(normal, x0,
                                g.cell_centers[:, cell_face_id[:, 1]])
     col = cell_face_id[left_cell, 1]
@@ -216,7 +217,6 @@ def update_cell_connectivity(g, face_id, normal, x0):
     data = np.ravel(g.cell_faces[np.ravel(face_id[row]), col])
     cell_frac_left = sps.csc_matrix((data, (row, col)),
                                     (face_id.size, g.cell_faces.shape[1]))
-
     # We remove the right faces of the left cells.
     col = cell_face_id[~left_cell, 1]
     row = cell_face_id[~left_cell, 0]

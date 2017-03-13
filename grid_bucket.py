@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import sparse as sps
 
 import warnings
 with warnings.catch_warnings():
@@ -6,6 +7,8 @@ with warnings.catch_warnings():
     from graph_tool.all import *
 # https://graph-tool.skewed.de/
 # conda install -c ostrokach graph-tool=2.19
+
+from utils import setmembership
 
 class Grid_Bucket(object):
 
@@ -124,3 +127,12 @@ class Grid_Bucket(object):
         return self.graph.vertex(vertex_id)
 
 #------------------------------------------------------------------------------#
+
+    def target_2_source_nodes(self, g_src, g_trg):
+        node_source = g_src.global_point_ind
+        node_target = g_trg.global_point_ind
+        node_source = node_source[None,:]
+        node_target = node_target[None,:]
+        _, trg_2_src_nodes = setmembership.ismember_rows(node_source, node_target)
+        return trg_2_src_nodes
+
