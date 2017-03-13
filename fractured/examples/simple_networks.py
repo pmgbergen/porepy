@@ -188,6 +188,19 @@ def two_fractures_L_intersection_part_of_segment(**kwargs):
     else:
         return grids
 
+def two_fractures_L_intersection_one_displaced(**kwargs):
+    """
+    Two fractures sharing what is a part of segments for both.
+    """
+    f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+    f_2 = np.array([[0, 0, 0, 0], [0.5, 1.5, 1.5, 0.5 ], [0, 0, 1, 1]])
+    domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
+              2}
+    grids = meshing.create_grid([f_2, f_1], domain, **kwargs)
+    if kwargs.get('return_expected', False):
+        return grids, [1, 2, 1, 0]
+    else:
+        return grids
 
 if __name__ == '__main__':
 
