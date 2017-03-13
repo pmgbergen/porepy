@@ -80,3 +80,46 @@ class BasicsTest( unittest.TestCase ):
         for f in np.arange( g.num_faces ):
             assert np.array_equal( sps.find( g.face_nodes[:,f] )[0], known[f,:] )
 
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_2d_cart(self):
+        g = structured.CartGrid([5, 5])
+        g.compute_geometry()
+        part = create_partition(tpfa_matrix(g))
+        known = np.array([0,0,0,1,1,0,0,2,1,1,3,2,2,2,1,3,3,2,4,4,3,3,4,4,4])
+        assert np.array_equal(part, known)
+
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_2d_tri(self):
+        g = simplex.StructuredTriangleGrid([3,2])
+        g.compute_geometry()
+        part = create_partition(tpfa_matrix(g))
+        known = np.array([1,1,1,0,0,1,0,2,2,0,2,2])
+        known_map = np.array([4,3,7,5,11,8,1,2,10,6,12,9])-1
+        assert np.array_equal(part, known[known_map])
+
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_2d_cart_cdepth4(self):
+        g = structured.CartGrid([10, 10])
+        g.compute_geometry()
+        part = create_partition(tpfa_matrix(g), cdepth=4)
+        known = np.array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+                          1,1,2,1,1,1,1,1,1,1,1,2,2,3,1,1,1,1,1,1,1,2,2,3,3,1,1,
+                          1,1,1,2,2,2,3,3,3,1,1,1,1,2,2,2,3,3,3,3,1,1,2,2,2,2,3,
+                          3,3,3,3,2,2,2,2,2,3,3,3,3,3,2,2,2,2,2])-1
+        assert np.array_equal(part, known)
+
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_3d_cart(self):
+        g = structured.CartGrid([4,4,4])
+        g.compute_geometry()
+        part = create_partition(tpfa_matrix(g))
+        known = np.array([1,1,1,1,2,4,1,3,2,2,3,3,2,2,3,3,5,4,1,6,4,4,4,3,2,4,7,
+                          3,8,8,3,3,5,5,6,6,5,4,7,6,8,7,7,7,8,8,7,9,5,5,6,6,5,5,
+                          6,6,8,8,7,9,8,8,9,9])-1
+        assert np.array_equal(part, known)
+
+#------------------------------------------------------------------------------#
