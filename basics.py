@@ -12,7 +12,6 @@ from math import sqrt
 import sympy
 from sympy import geometry as geom
 
-
 #-----------------------------------------------------------------------------
 #
 # START OF FUNCTIONS RELATED TO SPLITTING OF INTERSECTING LINES IN 2D
@@ -182,7 +181,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         new_line = 1
         return vertices, edges, new_line
     else:
-        # Without this, we will delete something we should not further below.
+        # Without this, we will delete something we should not delete below.
         assert edge_ind[0] < edge_ind[1]
 
         # Intersection along a segment.
@@ -247,14 +246,34 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             edges = np.delete(edges, edge_ind[0], axis=1)
             new_line = [0, 2]
 
+
         # Note that we know that i0 is closest to start, thus no need to test
         # for i1 == start
         elif i0 == start and i1 != end:
-            # Modify edge_ind[1] to end in start 
+            # The intersection starts in start of edge_ind[0], and end before
+            # the end of edge_ind[0] (if not we would have i1==end).
+            # The intersection should be split into intervals (start, i1), (i1,
+            # end) and possibly (edge_ind[1][0 or 1], start); with the latter
+            # representing the part of edge_ind[1] laying on the other side of
+            # start compared than i1. The latter part will should not be
+            # included if start is also a node of edge_ind[1].
+            #
+            # Examples in 1d (really needed to make this concrete right now):
+            #  edge_ind[0] = (0, 2), edge_ind[1] = (-1, 1) is split into
+            #   (0, 1), (1, 2) and (-1, 1) (listed in the same order as above).
+            #
+            # edge_ind[0] = (0, 2), edge_ind[1] = (0, 1) is split into
+            #   (0, 1), (1, 2)
             if edges[0, edge_ind[1]] == i1:
-                edges[0, edge_ind[1]] = start
+                if edges[1, edge_ind[1]] == start:
+                    edges = np.delete(edges, edge_ind[1], axis=1)
+                else:
+                    edges[0, edge_ind[1]] = start
             elif edges[1, edge_ind[1]] == i1:
-                edges[1, edge_ind[1]] = start
+                if edges[0, edge_ind[1]] == start:
+                    edges = np.delete(edges, edge_ind[1], axis=1)
+                else:
+                    edges[1, edge_ind[1]] = start
             else:
                 raise ValueError('This should not happen')
 
@@ -265,17 +284,24 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
                                        np.tile(tags[:, np.newaxis],
                                                new_edges.shape[1])))
 
-            edges = np.hstack((edges[:, :edge_ind[1]],
+            edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
-                               edges[:, (edge_ind[1]+1):]))
+                               edges[:, (edge_ind[0]+1):]))
             new_line = [1, 0]
 
         elif i0 != start and i1 == end:
-            # Modify edge_ind[1] to end in start 
+            # Analogous configuration as the one above, but with i0 replaced by
+            # i1 and start by end.
             if edges[0, edge_ind[1]] == i0:
-                edges[0, edge_ind[1]] = end
+                if edges[1, edge_ind[1]] == end:
+                    edges = np.delete(edges, edge_ind[1], axis=1)
+                else:
+                    edges[0, edge_ind[1]] = end
             elif edges[1, edge_ind[1]] == i0:
-                edges[1, edge_ind[1]] = end
+                if edges[0, edge_ind[1]] == end:
+                    edges = np.delete(edges, edge_ind[1], axis=1)
+                else:
+                    edges[1, edge_ind[1]] = end
             else:
                 raise ValueError('This should not happen')
             new_edges = np.array([[start, i0],
