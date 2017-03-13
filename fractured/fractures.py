@@ -722,7 +722,7 @@ class FractureNetwork(object):
             # Append fields for edge-fracture map and boundary tags
             for ei in range(edges_new.shape[1]):
                 # Find the global edge index. For most edges, this will be
-                # correctly identified by edegs_new[2], which tracks the
+                # correctly identified by edges_new[2], which tracks the
                 # original edges under splitting. However, in cases of
                 # overlapping segments, in which case the index of the one edge
                 # may completely override the index of the other (this is
@@ -925,7 +925,7 @@ class FractureNetwork(object):
                     cw_loc = []
                     ccw_loc = []
 
-                    for ci in loc_cells:
+                    for ci in np.atleast_1d(loc_cells):
                         if cg.is_ccw_polyline(p_0, p_1, cell_c[:, ci]):
                             ccw_loc.append(ci)
                         else:
