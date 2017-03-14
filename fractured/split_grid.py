@@ -127,22 +127,19 @@ def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
              visualization, e.g., g.face_centers is not updated.
     """
     # find all nodes that lie on a fracture, and are interior nodes.
-    int_nodes = np.array([])
+    nodes = np.array([])
     for i, g in enumerate(gl):
-        bdr = g.get_boundary_faces()
-        bdr_nodes = np.ravel(
-            np.sum(g.face_nodes[:, bdr], axis=1)).astype('bool')
-        int_nodes = np.append(int_nodes, gh_2_gl_nodes[i][~bdr_nodes])
+        nodes = np.append(nodes, gh_2_gl_nodes[i])
 
-    int_nodes = np.unique(int_nodes)
+    nodes = np.unique(nodes)
 
     # duplicate fracture nodes
-    node_count = duplicate_nodes(gh, int_nodes, offset)
+    node_count = duplicate_nodes(gh, nodes, offset)
 
     # Remove old nodes
-    gh = remove_nodes(gh, int_nodes)
+    gh = remove_nodes(gh, nodes)
     # Update the number of nodes
-    gh.num_nodes = gh.num_nodes + node_count - int_nodes.size
+    gh.num_nodes = gh.num_nodes + node_count - nodes.size
     return True
 
 
@@ -231,7 +228,7 @@ def update_cell_connectivity(g, face_id, normal, x0):
     g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
 
 
-def duplicate_nodes(g, int_nodes, offset):
+def duplicate_nodes(g, nodes, offset):
     """
     Duplicate nodes on a fracture. The number of duplication will depend on
     the cell topology around the node. If the node is not on a fracture 1
@@ -243,7 +240,7 @@ def duplicate_nodes(g, int_nodes, offset):
     Parameters:
     ----------
     g         - The grid for which the nodes are duplicated
-    int_nodes - The nodes to be duplicated
+    nodes - The nodes to be duplicated
     offset    - How far from the original node the duplications should be
                 placed.
     """
@@ -254,7 +251,7 @@ def duplicate_nodes(g, int_nodes, offset):
     # For each cell attached to the node, we check wich color the cell has.
     # All cells with the same color is then attached to a new copy of the
     # node.
-    for node in int_nodes:
+    for node in nodes:
         # Find cells connected to node
         (_, cells, _) = sps.find(g.cell_nodes()[node, :])
         #cells = np.unique(cells)
@@ -285,7 +282,7 @@ def duplicate_nodes(g, int_nodes, offset):
 
             # If an offset is given, we will change the position of the nodes.
             # We move the nodes a length of offset away from the fracture(s).
-            if offset > 0:
+            if offset > 0 and colors.size>1 and g.dim==2:
                 new_nodes[:, j] -= avg_normal(g, faces) * offset
 
         g.nodes = np.hstack((g.nodes, new_nodes))
