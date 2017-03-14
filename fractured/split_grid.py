@@ -64,8 +64,9 @@ def split_fractures(bucket, offset=0):
     >>> plot_grid.plot_grid(g)
     >>> plt.show()
     """
-    for gh,v in bucket:
-        if gh.dim<2:
+    for gh, v in bucket:
+        if gh.dim <= 1:
+            # Nothing to do. We have already split 1D grids in gmsh.
             continue
         neigh = np.array(bucket.neigh_of_v(v))
         edges = np.array(bucket.e_of_v(v))
@@ -127,7 +128,7 @@ def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
              visualization, e.g., g.face_centers is not updated.
     """
     # find all nodes that lie on a fracture, and are interior nodes.
-    nodes = np.array([])
+    nodes = np.array([], dtype=int)
     for i, g in enumerate(gl):
         nodes = np.append(nodes, gh_2_gl_nodes[i])
 
@@ -153,14 +154,12 @@ def duplicate_faces(gh, face_cells):
     frac    - The lower dimensional grid representing the fractures
     frac_id - The indices of the faces that should be duplicated
     """
-    _,frac_id,_ = sps.find(face_cells)
+    _, frac_id, _ = sps.find(face_cells)
     frac_id = np.unique(frac_id)
     frac_nodes = gh.face_nodes[:, frac_id]
     gh.face_nodes = sps.hstack((gh.face_nodes, frac_nodes))
-    new_map = gh.num_faces + np.arange(frac_id.size)
-    #    face_cells = np.insert(new_map, np.arange(
-    #       frac.cell_2_face.size), frac.cell_2_face)
-
+    #cell_fracs = gh.cell_faces[frac_id, :]
+    #gh.cell_faces = sps.vstack((gh.cell_faces, cell_fracs))
 
     # update face info
     gh.num_faces += frac_id.size
@@ -177,13 +176,13 @@ def duplicate_faces(gh, face_cells):
 
 def update_face_cells(face_cells, face_id, i):
     for  j, f_c in enumerate(face_cells):
-        if j==i:
-            f_c = sps.hstack((f_c, f_c[:,face_id]))
+        if j == i:
+            f_c = sps.hstack((f_c, f_c[:, face_id]))
         else:
-            empty = sps.csc_matrix(f_c[:,face_id].shape)
-            f_c = sps.hstack((f_c,empty))
+            empty = sps.csc_matrix(f_c[:, face_id].shape)
+            f_c = sps.hstack((f_c, empty))
 
-            
+
 def update_cell_connectivity(g, face_id, normal, x0):
     """
     After the faces in a grid is duplicated, we update the cell connectivity list
@@ -210,23 +209,58 @@ def update_cell_connectivity(g, face_id, normal, x0):
 
     left_cell = half_space_int(normal, x0,
                                g.cell_centers[:, cell_face_id[:, 1]])
+    if np.all(left_cell) or not np.any(left_cell):
+        # Fracture is on boundary of domain. There is nothing to do.
+        # Remove the extra faces. We have not yet updated cell_faces,
+        # so we should not delete anything from this matrix.
+        rem = np.arange(g.cell_faces.shape[0], g.num_faces)
+        remove_faces(g, rem, rem_cell_faces=False)
+        return
+
     col = cell_face_id[left_cell, 1]
     row = cell_face_id[left_cell, 0]
     data = np.ravel(g.cell_faces[np.ravel(face_id[row]), col])
+    assert data.size == face_id.size
     cell_frac_left = sps.csc_matrix((data, (row, col)),
                                     (face_id.size, g.cell_faces.shape[1]))
+
     # We remove the right faces of the left cells.
     col = cell_face_id[~left_cell, 1]
     row = cell_face_id[~left_cell, 0]
     data = np.ravel(g.cell_faces[np.ravel(face_id[row]), col])
-
     cell_frac_right = sps.csc_matrix((data, (row, col)),
                                      (face_id.size, g.cell_faces.shape[1]))
-
     g.cell_faces[face_id, :] = cell_frac_right
+
     # And then we add the new left-faces to the cell_face map.
     g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
 
+
+def remove_faces(g, face_id, rem_cell_faces=True):
+    """
+    Remove faces from grid.
+
+    PARAMETERS:
+    -----------
+    g              - A grid
+    face_id        - Indices of faces to remove
+    rem_cell_faces - Defaults to True. If set to false, the g.cell_faces matrix
+                     is not changed.
+    """
+    # update face info
+    keep = np.array([True]*g.num_faces)
+    keep[face_id] = False
+    g.face_nodes = g.face_nodes[:, keep]
+    g.num_faces -= face_id.size
+    g.face_normals = g.face_normals[:, keep]
+    g.face_areas = g.face_areas[keep]
+    g.face_centers = g.face_centers[:, keep]
+    # Not sure if still works
+    g.face_tags = g.face_tags[keep]
+
+    if rem_cell_faces:
+        g.cell_faces = g.cell_faces[keep, :]
+    
 
 def duplicate_nodes(g, nodes, offset):
     """
@@ -282,7 +316,7 @@ def duplicate_nodes(g, nodes, offset):
 
             # If an offset is given, we will change the position of the nodes.
             # We move the nodes a length of offset away from the fracture(s).
-            if offset > 0 and colors.size>1 and g.dim==2:
+            if offset > 0 and colors.size>1:
                 new_nodes[:, j] -= avg_normal(g, faces) * offset
 
         g.nodes = np.hstack((g.nodes, new_nodes))
