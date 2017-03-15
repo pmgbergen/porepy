@@ -19,13 +19,21 @@ try:
 except ImportError:
     warnings.warn('The triangle module is not available. Gridding of fracture'\
     ' networks will not work')
+try:
+    import vtk
+    import vtk.util.numpy_support as vtk_np
+except ImportError:
+    warnings.warn('VTK module is not available. Export of fracture network to\
+    vtk will not work.')
 
+# Import of internally developed packages.
 from compgeom import basics as cg
 from compgeom import sort_points
 from utils import setmembership
 from core.grids import simplex
 from gridding.gmsh.gmsh_interface import GmshWriter
 from gridding.constants import GmshConstants
+
 
 class Fracture(object):
 
@@ -1294,8 +1302,74 @@ class FractureNetwork(object):
         return fracture_pairs
  
 
-    def to_vtk(self):
-        pass
+    def to_vtk(self, file_name, data=None, binary=True):
+        """
+        Export the fracture network to vtk.
+
+        The fractures are treated as polygonal cells, with no special treatment
+        of intersections.
+
+        Fracture numbers are always exported (1-offset). In addition, it is
+        possible to export additional data, as specified by the
+        keyword-argument data.
+
+        Parameters:
+            file_name (str): Name of the target file.
+            data (dictionary, optional): Data associated with the fractures.
+                The values in the dictionary should be numpy arrays. 1d and 3d
+                data is supported. Fracture numbers are always exported.
+            binary (boolean, optional): Use binary export format. Defaults to
+                True.
+
+        """
+        network_vtk = vtk.vtkUnstructuredGrid()
+
+        point_counter = 0
+        pts_vtk = vtk.vtkPoints()
+        for f in self._fractures:
+            # Add local points
+            [ pts_vtk.InsertNextPoint(*p) for p in f.p.T ]
+
+            # Indices of local points
+            loc_pt_id = point_counter + np.arange(f.p.shape[1],
+                                                  dtype='int')
+            # Update offset
+            point_counter += f.p.shape[1]
+
+            # Add bounding polygon
+            frac_vtk = vtk.vtkIdList()
+            [frac_vtk.InsertNextId(p) for p in loc_pt_id]
+            # Close polygon
+            frac_vtk.InsertNextId(loc_pt_id[0])
+
+            network_vtk.InsertNextCell(vtk.VTK_POLYGON, frac_vtk)
+
+        # Add the points
+        network_vtk.SetPoints(pts_vtk)
+
+        writer = vtk.vtkXMLUnstructuredGridWriter()
+        writer.SetInputData(network_vtk)
+        writer.SetFileName(file_name)
+
+        if not binary:
+            writer.SetDataModeToAscii()
+
+        # Cell-data to be exported is at least the fracture numbers
+        if data is None:
+            data = {}
+        # Use offset 1 for fracture numbers (should we rather do 0?)
+        frac_num = {'Fracture Number': 1 + np.arange(len(self._fractures))}
+        data = {**data, **frac_num}
+
+        for name, data in data.items():
+            data_vtk = vtk_np.numpy_to_vtk(data.ravel(order='F'), deep=True,
+                                           array_type=vtk.VTK_DOUBLE)
+            data_vtk.SetName(name)
+            data_vtk.SetNumberOfComponents(1 if data.ndim==1 else 3)
+            network_vtk.GetCellData().AddArray(data_vtk)
+
+        writer.Update()
+
 
     def to_gmsh(self, file_name, **kwargs):
         p = self.decomposition['points']
