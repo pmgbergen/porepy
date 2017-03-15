@@ -9,7 +9,13 @@ from collections import namedtuple
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import sympy
-import triangle
+import warnings
+
+try:
+    import triangle
+except ImportError:
+    warnings.warn('The triangle module is not available. Gridding of fracture'\
+    ' networks will not work')
 
 from compgeom import basics as cg
 from compgeom import sort_points
