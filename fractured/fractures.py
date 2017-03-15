@@ -4,6 +4,7 @@ A module for representation and manipulations of fractures and fracture sets.
 The model relies heavily on functions in the computational geometry library.
 
 """
+# Import of 'standard' external packages
 import numpy as np
 from collections import namedtuple
 import matplotlib.pyplot as plt
@@ -11,6 +12,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import sympy
 import warnings
 
+# Imports of external packages that may not be present at the system. The
+# module will work without any of these, but with limited functionalbility.
 try:
     import triangle
 except ImportError:
