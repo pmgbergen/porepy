@@ -3,9 +3,11 @@ Module for splitting a grid at the fractures.
 """
 
 import numpy as np
+import matplotlib.pylab as plt
 from scipy import sparse as sps
 from utils.half_space import half_space_int
 from utils.graph import Graph
+from utils.mcolon import mcolon
 from core.grids.grid import Grid, FaceTag
 
 
@@ -61,19 +63,22 @@ def split_fractures(bucket, offset=0):
         is_low_dim_grid = np.where([(bucket.get_grid(w)).dim < gh.dim for w in neigh])
         gl = [bucket.get_grid(w) for w in neigh[is_low_dim_grid]]
         face_cells = [bucket.get_e_prop(e) for e in edges[is_low_dim_grid]]
-
         # We split all the faces that are connected to a lower-dim grid.
         # The new faces will share the same nodes and properties (normals, etc.)
-        split_faces(gh, face_cells)
 
+        _, face_id = split_faces(gh, face_cells)
         # We now find which lower-dim nodes correspond to which higher-
         # dim nodes. We split these nodes according to the topology of
         # the connected higher-dim cells. At a X-intersection we split
         # the node into four, while at the fracture boundary it is not split.
         gl_2_gh_nodes = [bucket.target_2_source_nodes(g, gh) for g in gl]
+
         split_nodes(gh, gl, gl_2_gh_nodes, offset)
 
+        
+
     # Remove zeros from cell_faces
+
     [g.cell_faces.eliminate_zeros() for g, _ in bucket]
     return bucket
 
@@ -96,7 +101,7 @@ def split_faces(gh, face_cells):
         # (to save computation).
         face_id = duplicate_faces(gh, face_cells[i])
         update_face_cells(face_cells, face_id, i)
-
+        
         # We now set the cell_faces map based on which side of the
         # fractures the cells lie. We assume that all fractures are
         # flat surfaces and pick the normal of the first face as
@@ -105,7 +110,9 @@ def split_faces(gh, face_cells):
         n = n/np.linalg.norm(n)
         x0 = np.reshape(gh.face_centers[:, face_id[0]], (3, 1))
         update_cell_connectivity(gh, face_id, n, x0)
-    return gh
+
+
+    return gh, face_id
 
 
 def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
@@ -130,7 +137,6 @@ def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
     nodes = np.array([], dtype=int)
     for i in range(len(gl)):
         nodes = np.append(nodes, gh_2_gl_nodes[i])
-
     nodes = np.unique(nodes)
 
     # Each of these nodes are duplicated dependig on the cell-
@@ -141,10 +147,10 @@ def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
     node_count = duplicate_nodes(gh, nodes, offset)
 
     # We remove the old nodes. 
-    gh = remove_nodes(gh, nodes)
+    #gh = remove_nodes(gh, nodes)
     
     # Update the number of nodes
-    gh.num_nodes = gh.num_nodes + node_count - nodes.size
+    gh.num_nodes = gh.num_nodes + node_count # - nodes.size
 
     return True
 
@@ -167,9 +173,25 @@ def duplicate_faces(gh, face_cells):
     # anyway.
     _, frac_id, _ = sps.find(face_cells)
     frac_id = np.unique(frac_id)
-    frac_nodes = gh.face_nodes[:, frac_id]
-    gh.face_nodes = sps.hstack((gh.face_nodes, frac_nodes))
+    node_start = gh.face_nodes.indptr[frac_id]
+    node_end = gh.face_nodes.indptr[frac_id+1]
+    nodes = gh.face_nodes.indices[mcolon(node_start,node_end - 1)]
+    added_node_pos = np.cumsum(node_end - node_start) + gh.face_nodes.indptr[-1]
+    assert(added_node_pos.size == frac_id.size)
+    assert(added_node_pos[-1] - gh.face_nodes.indptr[-1]  == nodes.size)
+    gh.face_nodes.indices = np.hstack((gh.face_nodes.indices,nodes))
+    gh.face_nodes.indptr = np.hstack((gh.face_nodes.indptr,added_node_pos))
+    gh.face_nodes.data = np.hstack((gh.face_nodes.data,
+                                    np.ones(nodes.size,dtype=bool)))
+    gh.face_nodes._shape = (gh.num_nodes, gh.face_nodes.shape[1] + frac_id.size)
+    assert(gh.face_nodes.indices.size == gh.face_nodes.indptr[-1])
 
+    node_start = gh.face_nodes.indptr[frac_id]
+    node_end = gh.face_nodes.indptr[frac_id+1]
+
+    #frac_nodes = gh.face_nodes[:, frac_id]
+
+    #gh.face_nodes = sps.hstack((gh.face_nodes, frac_nodes))
     # We also copy the attributes of the original faces.
     gh.num_faces += frac_id.size
     gh.face_normals = np.hstack(
@@ -184,6 +206,7 @@ def duplicate_faces(gh, face_cells):
     gh.face_tags = np.append(gh.face_tags, gh.face_tags[frac_id])
 
     return frac_id
+
 
 def update_face_cells(face_cells, face_id, i):
     """
@@ -253,6 +276,7 @@ def update_cell_connectivity(g, face_id, normal, x0):
     cell_frac_left = sps.csc_matrix((data, (row, col)),
                                     (face_id.size, g.cell_faces.shape[1]))
 
+
     # We now update the cell_faces map of the faces on the right side of
     # the fracture. These faces should only be attached to the right cells.
     # We therefore remove their connection to the cells on the left side of
@@ -264,7 +288,10 @@ def update_cell_connectivity(g, face_id, normal, x0):
                                      (face_id.size, g.cell_faces.shape[1]))
     g.cell_faces[face_id, :] = cell_frac_right
 
-    # And then we add the new left-faces to the cell_face map.
+    # And then we add the new left-faces to the cell_face map. We do not
+    # change the sign of the matrix since we did not flip the normals.
+    # This means that the normals of right and left cells point in the same
+    # direction, but their cell_faces values have oposite signs. 
     g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
 
 
@@ -310,16 +337,16 @@ def duplicate_nodes(g, nodes, offset):
     offset    - How far from the original node the duplications should be
                 placed.
     """
-    row = np.array([], dtype=np.int32)
-    col = np.array([], dtype=np.int32)
     node_count = 0
+    g.face_nodes = g.face_nodes.tocsr() # For fast row operation
     # Iterate over each internal node and split it according to the graph.
     # For each cell attached to the node, we check wich color the cell has.
     # All cells with the same color is then attached to a new copy of the
     # node.
     for node in nodes:
+        t_node = node + node_count
         # Find cells connected to node
-        (_, cells, _) = sps.find(g.cell_nodes()[node, :])
+        (_, cells, _) = sps.find(g.cell_nodes()[t_node, :])
         #cells = np.unique(cells)
         # Find the color of each cell. A group of cells is given the same color
         # if they are connected by faces. This means that all cells on one side
@@ -327,37 +354,47 @@ def duplicate_nodes(g, nodes, offset):
         # the cells on the other side of the fracture. Equivalently, the cells
         # at a X-intersection will be given four different colors
         colors = find_cell_color(g, cells)
-
         # Find which cells share the same color
         colors, ix = np.unique(colors, return_inverse=True)
-        new_nodes = np.repeat(g.nodes[:, node, None], colors.size, axis=1)
+        new_nodes = np.repeat(g.nodes[:, t_node, None], colors.size, axis=1)
+        # insert new nodes
+        faces = np.array([],dtype=int)
+        face_pos = np.array([g.face_nodes.indptr[t_node]])
         for j in range(colors.size):
             # For each color we wish to add one node. First we find all faces that
             # are connected to the fracture node, and have the correct cell
             # color
-            faces, _, _ = sps.find(g.cell_faces[:, cells[ix == j]])
-            faces = np.unique(faces)
-            con_to_node = np.ravel(g.face_nodes[node, faces].todense())
-            faces = faces[con_to_node]
+            local_faces, _, _ = sps.find(g.cell_faces[:, cells[ix == j]])
+            local_faces = np.unique(local_faces)
+            con_to_node = np.ravel(g.face_nodes[t_node, local_faces].todense())
+            faces = np.append(faces, local_faces[con_to_node])
 
             # We add these faces to our face_node matrix (first we add them to
             # a list. When we have iterated through all nodes, we will add this
             # list to g.face_nodes as a sparse matrix)
-            col = np.append(col, faces)
-            row = np.append(row, [node_count + j] * faces.size)
-
+            #row = np.append(row, [node_count + j] * local_faces.size)
+            face_pos = np.append(face_pos, face_pos[-1] + np.sum(con_to_node))
             # If an offset is given, we will change the position of the nodes.
             # We move the nodes a length of offset away from the fracture(s).
-            if offset > 0 and colors.size>1:
-                new_nodes[:, j] -= avg_normal(g, faces) * offset
+            if offset > 0 and colors.size > 1:
+                new_nodes[:, j] -= avg_normal(g, local_faces[con_to_node]) * offset
 
-        g.nodes = np.hstack((g.nodes, new_nodes))
-        node_count += colors.size
+        g.face_nodes.indices[face_pos[0]:face_pos[-1]] = faces
+        node_count += colors.size - 1
+        g.face_nodes.indptr = np.insert(g.face_nodes.indptr,
+                                        t_node + 1, face_pos[1:-1])
+        g.face_nodes._shape = (g.face_nodes.shape[0]+colors.size - 1,
+                               g.face_nodes._shape[1])
+        g.nodes = np.delete(g.nodes, t_node, axis=1)
+        g.nodes = np.insert(g.nodes, [t_node]*new_nodes.shape[1],
+                            new_nodes, axis=1)
+    
 
     # Add new nodes to face-node map
-    new_face_nodes = sps.csc_matrix(
-        ([True] * row.size, (row, col)), (node_count, g.num_faces))
-    g.face_nodes = sps.vstack((g.face_nodes, new_face_nodes), format='csc')
+    #new_face_nodes = sps.csc_matrix(
+    #    ([True] * row.size, (row, col)), (node_count, g.num_faces))
+    #g.face_nodes = sps.vstack((g.face_nodes, new_face_nodes), format='csc')
+    g.face_nodes = g.face_nodes.tocsc() # For fast row operation
 
     return node_count
 
