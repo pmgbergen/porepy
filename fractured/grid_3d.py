@@ -239,7 +239,7 @@ def _create_1d_grids(pts, cells, phys_names, cell_info):
             # Check that we are indeed in 1d
             assert np.sum(active_dimension) == 1
             # Sort nodes, and create grid
-            coord_1d = loc_coord[active_dimension]
+            coord_1d = loc_coord_1d[active_dimension]
             sort_ind = np.argsort(coord_1d)[0]
             sorted_coord = coord_1d[0, sort_ind]
             g = structured.TensorGrid(sorted_coord)
@@ -297,7 +297,11 @@ def assemble_in_bucket(grids):
                 face_cells = sps.csc_matrix(
                     (np.array([True] * cell.size), (cell, cell_2_face)),
                     (lg.num_cells,hg.num_faces))
-                bucket.add_edge([hg, lg], face_cells)
+
+                # This if may be unnecessary, but better safe than sorry.
+                if face_cells.size>0:
+                    bucket.add_edge([hg, lg], face_cells)
+
     return bucket
 
 

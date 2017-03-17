@@ -3,9 +3,12 @@ Module to store the grid hiearchy formed by a set of fractures and their
 intersections in the form of a GridBucket.
 
 """
+from scipy import sparse as sps
 import numpy as np
 import networkx
 import warnings
+
+from utils import setmembership
 
 
 class GridBucket(object):
@@ -113,6 +116,16 @@ class GridBucket(object):
         """
         return e[0], e[1]
 
+
+#------------------------------------------------------------------------------#
+
+    def node_neighbors(self, n):
+        """
+        Return:
+            list of networkx.node: Neighbors of node n
+
+        """
+        return self.graph.neighbors(n)
 
 #------------------------------------------------------------------------------#
 
@@ -237,6 +250,7 @@ class GridBucket(object):
             KeyError if the two grids do not form an edge.
 
         """
+        for gp in grid_pairs:
         if tuple(gp) in self.graph.edges():
             return self.graph.edge[gp[0]][gp[1]][key]
         elif tuple(gp[::-1]) in self.graph.edges():
@@ -355,4 +369,16 @@ class GridBucket(object):
                 # Assign new value
                 n['node_number'] = counter
                 counter += 1
+
+    def target_2_source_nodes(self, g_src, g_trg):
+        """
+        Runar did this.
+
+        """
+        node_source = g_src.global_point_ind
+        node_target = g_trg.global_point_ind
+        node_source = node_source[None,:]
+        node_target = node_target[None,:]
+        _, trg_2_src_nodes = setmembership.ismember_rows(node_source, node_target)
+        return trg_2_src_nodes
 
