@@ -150,7 +150,15 @@ class GridBucket(object):
                 Should be either a list with the same length as g, or a single
                 item which is assigned to all nodes. Defaults to None.
 
+        Raises:
+            ValueError if the key is 'node_number', this is reserved for other
+                purposes. See self.assign_node_ordering() for details.
+
         """
+
+        # Check that the key is not 'node_number' - this is reserved
+        if key == 'node_number':
+            raise ValueError('Node number is a reserved key, stay away')
 
         # Do some checks of parameters first
         if g is None:
