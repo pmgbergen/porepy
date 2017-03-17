@@ -234,7 +234,7 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def get_edge_prop(self, grid_pair, key):
+    def get_edge_prop(self, grid_pairs, key):
         """
         Getter for an edge property of the bucket.
 
