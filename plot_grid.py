@@ -162,7 +162,7 @@ def plot_grid_single(g, ax, cell_value, vector_value, info, **kwargs):
     if not np.isclose(y[0], y[1]): ax.set_ylim3d( y )
     if not np.isclose(z[0], z[1]): ax.set_zlim3d( z )
 
-    if info is not None: add_info(g, info, ax)
+    if info is not None: add_info(g, info, ax, **kwargs)
 
 #------------------------------------------------------------------------------#
 
@@ -222,7 +222,7 @@ def color_map(extr_value, cmap_type='jet'):
 
 #------------------------------------------------------------------------------#
 
-def add_info( g, info, ax ):
+def add_info( g, info, ax, **kwargs ):
 
     def disp( i, p, c, m ): ax.scatter( *p, c=c, marker=m ); ax.text( *p, i )
     def disp_loop( v, c, m ): [disp( i, ic, c, m ) for i, ic in enumerate(v.T)]
