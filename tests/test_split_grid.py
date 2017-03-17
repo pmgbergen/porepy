@@ -25,7 +25,8 @@ def test_split_fracture():
 
     split_grid.split_fractures(bucket, offset=0)
     [g.compute_geometry(is_embedded=True) for g,_ in bucket]
-    
+
+
 if __name__ == '__main__':
     test_split_fracture()
 
