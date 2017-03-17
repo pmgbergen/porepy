@@ -63,10 +63,13 @@ def split_fractures(bucket, offset=0):
         is_low_dim_grid = np.where([(bucket.get_grid(w)).dim < gh.dim for w in neigh])
         gl = [bucket.get_grid(w) for w in neigh[is_low_dim_grid]]
         face_cells = [bucket.get_e_prop(e) for e in edges[is_low_dim_grid]]
+        if len(face_cells)==0:
+            # No lower dim grid. Nothing to do.
+            continue
         # We split all the faces that are connected to a lower-dim grid.
         # The new faces will share the same nodes and properties (normals, etc.)
 
-        _, face_id = split_faces(gh, face_cells)
+        split_faces(gh, face_cells)
         # We now find which lower-dim nodes correspond to which higher-
         # dim nodes. We split these nodes according to the topology of
         # the connected higher-dim cells. At a X-intersection we split
@@ -112,7 +115,7 @@ def split_faces(gh, face_cells):
         update_cell_connectivity(gh, face_id, n, x0)
 
 
-    return gh, face_id
+    return gh
 
 
 def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
