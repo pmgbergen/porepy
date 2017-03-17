@@ -294,7 +294,8 @@ def update_cell_connectivity(g, face_id, normal, x0):
     # direction, but their cell_faces values have oposite signs. 
     g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
 
-
+    
+    
 def remove_faces(g, face_id, rem_cell_faces=True):
     """
     Remove faces from grid.
@@ -338,12 +339,23 @@ def duplicate_nodes(g, nodes, offset):
                 placed.
     """
     node_count = 0
-    g.face_nodes = g.face_nodes.tocsr() # For fast row operation
+
+    # We wish to convert the sparse csc matrix to a sparse
+    # csr matrix to easily add rows. However, the convertion sorts the
+    # indices, which will change the node order when we convert back. We
+    # therefore find the inverse sorting of the nodes of each face.
+    # After we have performed the row operations we will map the nodes
+    # back to their original position.
+
+    _, iv = sort_sub_list(g.face_nodes.indices, g.face_nodes.indptr)
+    g.face_nodes = g.face_nodes.tocsr()
+    
     # Iterate over each internal node and split it according to the graph.
     # For each cell attached to the node, we check wich color the cell has.
     # All cells with the same color is then attached to a new copy of the
     # node.
     for node in nodes:
+        # t_node takes into account the added nodes.
         t_node = node + node_count
         # Find cells connected to node
         (_, cells, _) = sps.find(g.cell_nodes()[t_node, :])
@@ -356,8 +368,8 @@ def duplicate_nodes(g, nodes, offset):
         colors = find_cell_color(g, cells)
         # Find which cells share the same color
         colors, ix = np.unique(colors, return_inverse=True)
+        # copy coordinate of old node
         new_nodes = np.repeat(g.nodes[:, t_node, None], colors.size, axis=1)
-        # insert new nodes
         faces = np.array([],dtype=int)
         face_pos = np.array([g.face_nodes.indptr[t_node]])
         for j in range(colors.size):
@@ -368,35 +380,44 @@ def duplicate_nodes(g, nodes, offset):
             local_faces = np.unique(local_faces)
             con_to_node = np.ravel(g.face_nodes[t_node, local_faces].todense())
             faces = np.append(faces, local_faces[con_to_node])
-
-            # We add these faces to our face_node matrix (first we add them to
-            # a list. When we have iterated through all nodes, we will add this
-            # list to g.face_nodes as a sparse matrix)
-            #row = np.append(row, [node_count + j] * local_faces.size)
+            # These faces is then attached to new node number j.
             face_pos = np.append(face_pos, face_pos[-1] + np.sum(con_to_node))
             # If an offset is given, we will change the position of the nodes.
             # We move the nodes a length of offset away from the fracture(s).
             if offset > 0 and colors.size > 1:
                 new_nodes[:, j] -= avg_normal(g, local_faces[con_to_node]) * offset
-
+        # The total number of faces should not have changed, only their
+        # connection to nodes. We can therefore just update the indices and
+        # indptr map.
         g.face_nodes.indices[face_pos[0]:face_pos[-1]] = faces
         node_count += colors.size - 1
         g.face_nodes.indptr = np.insert(g.face_nodes.indptr,
                                         t_node + 1, face_pos[1:-1])
         g.face_nodes._shape = (g.face_nodes.shape[0]+colors.size - 1,
                                g.face_nodes._shape[1])
+        # We delete the old node because of the offset. If we do not
+        # have an offset we could keep it and add one less node.
         g.nodes = np.delete(g.nodes, t_node, axis=1)
         g.nodes = np.insert(g.nodes, [t_node]*new_nodes.shape[1],
                             new_nodes, axis=1)
-    
 
-    # Add new nodes to face-node map
-    #new_face_nodes = sps.csc_matrix(
-    #    ([True] * row.size, (row, col)), (node_count, g.num_faces))
-    #g.face_nodes = sps.vstack((g.face_nodes, new_face_nodes), format='csc')
-    g.face_nodes = g.face_nodes.tocsc() # For fast row operation
+    # Transform back to csc format and fix node ordering.
+    g.face_nodes = g.face_nodes.tocsc()
+    g.face_nodes.indices = g.face_nodes.indices[iv] # For fast row operation
 
     return node_count
+
+
+def  sort_sub_list(indices, indptr):
+    ix = np.zeros(indices.size,dtype=int)
+    for i in range(indptr.size - 1):
+        sub_ind = mcolon(indptr[i], indptr[i + 1] - 1)
+        loc_ix = np.argsort(indices[sub_ind])
+        ix[sub_ind] = loc_ix + indptr[i]
+    indices = indices[ix]
+    iv = np.zeros(indices.size,dtype=int)
+    iv[ix] = np.arange(indices.size)
+    return indices, iv
 
 
 def find_cell_color(g, cells):
