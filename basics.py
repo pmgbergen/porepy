@@ -366,19 +366,18 @@ def _add_point(vertices, pt, precision=1e-3, **kwargs):
         if min_dist < precision * np.sqrt(nd):
             # No new point is needed
             ind.append(np.argmin(dist))
-#            return vertices, ind, new_point
         else:
             # Append the new point at the end of the point list
             ind.append(vertices.shape[1])
             vertices = np.append(vertices, pt, axis=1)
             new_pt = np.hstack((new_pt, pt[:, i].reshape((-1, 1))))
-#            return vertices, ind, pt
     if new_pt.shape[1] == 0:
         new_pt = None
     return vertices, ind, new_pt
 
 
 #-----------------------------------------------------------------------------#
+
 def remove_edge_crossings(vertices, edges, **kwargs):
     """
     Process a set of points and connections between them so that the result
@@ -1277,7 +1276,7 @@ def compute_normal(pts):
 
     assert pts.shape[1] > 2
     normal = np.cross( pts[:,0] - pts[:,1], compute_tangent(pts) )
-    assert not np.allclose( normal, np.zeros(3) )
+    if np.allclose( normal, np.zeros(3) ): return compute_normal(pts[:, 1:])
     return normal / np.linalg.norm( normal )
 
 #------------------------------------------------------------------------------#
@@ -1345,25 +1344,29 @@ def map_grid(g):
     face_normals: (g.dim x g.num_faces) the mapped normals of the faces.
     face_centers: (g.dim x g.num_faces) the mapped centers of the faces.
     R: (3 x 3) the rotation matrix used.
+    dim: indicates which are the dimensions active
 
     """
-
     cell_centers = g.cell_centers
     face_normals = g.face_normals
     face_centers = g.face_centers
     R = np.eye(3)
 
-    if g.dim != 3:
+    if g.dim == 0:
+        return cell_centers, face_normals, face_centers, R, np.ones(3,dtype=bool)
+
+    if g.dim == 1 or g.dim == 2:
         v = compute_normal(g.nodes) if g.dim==2 else compute_tangent(g.nodes)
         R = project_plane_matrix(g.nodes, v)
         face_centers = np.dot(R, face_centers)
-        dim = np.logical_not(np.isclose(np.sum(np.abs(face_centers),axis=1),0))
+        dim = np.logical_not(np.isclose(np.sum(np.abs(face_centers.T-
+                                                face_centers[:,0]), axis=0),0))
         assert g.dim == np.sum(dim)
         face_centers = face_centers[dim,:]
         cell_centers = np.dot(R, cell_centers)[dim,:]
         face_normals = np.dot(R, face_normals)[dim,:]
 
-    return cell_centers, face_normals, face_centers, R
+    return cell_centers, face_normals, face_centers, R, dim
 
 #------------------------------------------------------------------------------#
 
