@@ -244,13 +244,17 @@ if __name__ == '__main__':
 
         time_loc = time.time()
         try:
-            g, expected = func[1](gmsh_path=gmsh_path,
+            gb, expected = func[1](gmsh_path=gmsh_path,
                                                verbose=verbose,
                                                gmsh_verbose=0,
                                                return_expected=True)
-            assert len(g) == 4
-            for gl, e in zip(g, expected):
-                assert len(gl) == e
+
+            # Check that the bucket has the expected number of grids in each
+            # dimension.
+            for dim, exp_l in zip(range(3, -1, -1), expected):
+                g_loc = gb.grids_of_dimension(dim)
+                assert len(g_loc) == exp_l
+
         except Exception as exp:
             print('\n')
             print(' ************** FAILURE **********')
@@ -262,15 +266,14 @@ if __name__ == '__main__':
 
         if compute_geometry:
             try:
-                for i, gl in enumerate(g):
-                    for grid in gl:
-                        if i == 0:
-                            grid.compute_geometry()
-                        else:
-                            grid.compute_geometry(is_embedded=True)
+                for g, _ in gb:
+                    if g.dim == 3:
+                        g.compute_geometry()
+                    else:
+                        g.compute_geometry(is_embedded=True)
             except Exception as exp:
                 print('************ FAILURE **********')
-                print('Geometry computation failed on level ' + str(i))
+                print('Geometry computation failed for grid ' + str(g))
                 print(exp)
                 logging.error(traceback.format_exc())
                 failure_counter += 1
