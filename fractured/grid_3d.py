@@ -5,7 +5,7 @@ import time
 
 from core.grids import simplex, structured, point_grid
 from gridding import constants
-from gridding.grid_bucket import Grid_Bucket
+from gridding.grid_bucket import GridBucket
 from gridding.gmsh import gmsh_interface, mesh_io
 from gridding.fractured import fractures
 import compgeom.sort_points
@@ -280,8 +280,8 @@ def _create_0d_grids(pts, cells):
 
 
 def assemble_in_bucket(grids):
-    bucket = Grid_Bucket()
-    [bucket.add_grids(g_d) for g_d in grids]
+    bucket = GridBucket()
+    [bucket.add_nodes(g_d) for g_d in grids]
     for dim in range(len(grids) - 1):
         for hg in grids[dim]:
             # Sort the face nodes for simple comparison. np.sort returns a copy
@@ -291,13 +291,13 @@ def assemble_in_bucket(grids):
             # Convert to global numbering
             fn = hg.global_point_ind[fn_loc]
             fn = np.sort(fn, axis=0)
-            
+
             for lg in grids[dim + 1]:
                 cell_2_face, cell = obtain_interdim_mappings(lg, fn)
                 face_cells = sps.csc_matrix(
                     (np.array([True] * cell.size), (cell, cell_2_face)),
                     (lg.num_cells,hg.num_faces))
-                bucket.add_relation([hg, lg], face_cells)
+                bucket.add_edge([hg, lg], face_cells)
     return bucket
 
 
