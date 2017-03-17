@@ -655,7 +655,7 @@ class Grid(object):
         return np.bitwise_and(self.face_tags, tag).astype(np.bool)
 
     def has_not_face_tag(self, tag):
-        return self.has_face_tag(np.bitwise_not(tag))
+        return np.bitwise_not(self.has_face_tag(tag))
 
     def has_only_face_tag(self, tag):
         return self.face_tags == tag
