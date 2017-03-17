@@ -239,7 +239,7 @@ class GridBucket(object):
         Getter for an edge property of the bucket.
 
         Parameters:
-            grid_pair (list of core.grids.grid): The two grids making up the
+            grid_pairs (list of core.grids.grid): The two grids making up the
                 edge.
             key (object): Key for the property to be retrieved.
 
@@ -251,12 +251,12 @@ class GridBucket(object):
 
         """
         for gp in grid_pairs:
-        if tuple(gp) in self.graph.edges():
-            return self.graph.edge[gp[0]][gp[1]][key]
-        elif tuple(gp[::-1]) in self.graph.edges():
-            return self.graph.edge[gp[1]][gp[0]][key]
-        else:
-            raise KeyError('Unknown edge')
+            if tuple(gp) in self.graph.edges():
+                return self.graph.edge[gp[0]][gp[1]][key]
+            elif tuple(gp[::-1]) in self.graph.edges():
+                return self.graph.edge[gp[1]][gp[0]][key]
+            else:
+                raise KeyError('Unknown edge')
 
 #------------------------------------------------------------------------------#
 
