@@ -895,14 +895,26 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
             return None
 
         # If we have made it this far, the lines are indeed parallel. Next,
-        # check if they overlap, and if so, test if the segments are overlapping
+        # check that they lay along the same line.
+        diff_start = start_2 - start_1
+
+        dstart_x_delta_x = diff_start[1] * deltas_1[2] -\
+                           diff_start[2] * deltas_1[1]
+        if np.abs(dstart_x_delta_x) > tol:
+            return None
+        dstart_x_delta_y = diff_start[2] * deltas_1[0] -\
+                           diff_start[0] * deltas_1[2]
+        if np.abs(dstart_x_delta_y) > tol:
+            return None
+        dstart_x_delta_z = diff_start[0] * deltas_1[1] -\
+                           diff_start[1] * deltas_1[0]
+        if np.abs(dstart_x_delta_z) > tol:
+            return None
 
         # For dimensions with an incline, the vector between segment start
         # points should be parallel to the segments.
         # Since the masks are equal, we can use any of them.
         t_1_2 = (start_1[mask_1] - start_2[mask_1]) / deltas_1[mask_1]
-        if (not np.allclose(t_1_2, t_1_2, tol)):
-            return None
         # For dimensions with no incline, the start cooordinates should be the same
         if not np.allclose(start_1[~mask_1], start_2[~mask_1], tol):
             return None
