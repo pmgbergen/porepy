@@ -19,7 +19,8 @@ class FaceTag(np.uint8, Enum):
     NONE = 0
     BOUNDARY = 1
     FRACTURE = 2
-#   NEXT = 4
+    TIP = 4
+#   NEXT = 8
     WHOLE = np.iinfo(type(NONE)).max
 
 class Grid(object):
