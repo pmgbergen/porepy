@@ -36,87 +36,65 @@ def plot_grid(g, cell_value=None, vector_value=None, info=None, **kwargs):
 
     Parameters:
     g: the grid
-    cell_value: (optional) cell scalar field to be represented (only 1d and 2d)
+    cell_value: (optional) if g is a single grid then cell scalar field to be
+        represented (only 1d and 2d). If g is a grid bucket the name (key) of the
+        scalar field.
+    vector_value: (optional) if g is a single grid then vector scalar field to be
+        represented (only 1d and 2d). If g is a grid bucket the name (key) of the
+        vector field.
     info: (optional) add extra information to the plot
     alpha: (optonal) transparency of cells (2d) and faces (3d)
 
-    Return:
-    fig.number: the id of the plot
-
     How to use:
+    if g is a single grid:
     cell_id = np.arange(g.num_cells)
     plot_grid(g, cell_value=cell_id, info="ncfo", alpha=0.75)
 
+    if g is a grid bucket
+    plot_grid(g, cell_value="cell_id", info="ncfo", alpha=0.75)
+
     """
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    ax.set_title( " ".join( g.name ) )
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('z')
-
     if isinstance(g, grid.Grid):
-        if cell_value is not None and g.dim !=3:
-            extr_value = np.array([np.amin(cell_value), np.amax(cell_value)])
-            kwargs['color_map'] = color_map(extr_value)
+        plot_single(g, cell_value, vector_value, info, **kwargs)
 
-        plot_grid_single(g, ax, cell_value, vector_value, info, **kwargs)
-
-    if isinstance(g, grid_bucket.Grid_Bucket):
-        if cell_value is not None and g.dim_max() !=3:
-            extr_value = np.array([np.inf, -np.inf])
-            for _, v in g:
-                extr_value[0] = min(np.amin(cell_value[v]), extr_value[0])
-                extr_value[1] = max(np.amax(cell_value[v]), extr_value[1])
-            kwargs['color_map'] = color_map(extr_value)
-
-        plot_grid_bucket(g, ax, cell_value, vector_value, info, **kwargs)
-
-    if kwargs.get('color_map'): fig.colorbar(kwargs['color_map'])
-
-    plt.draw()
-    plt.show()
+    if isinstance(g, grid_bucket.GridBucket):
+        plot_gb(g, cell_value, vector_value, info, **kwargs)
 
 #------------------------------------------------------------------------------#
 
 def save_img(name, g, cell_value=None, vector_value=None, info=None, **kwargs):
+    """ save the grid in a 3d framework.
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    It is possible to add the cell ids at the cells centers (info option 'c'),
+    the face ids at the face centers (info option 'f'), the node ids at the node
+    (info option 'n'), and the normal at the face (info option 'o'). If info is
+    set to 'all' all the informations are displayed.
 
-    if kwargs.get('title', True): ax.set_title( " ".join( g.name ) )
+    Parameters:
+    name: the name of the file
+    g: the grid
+    cell_value: (optional) if g is a single grid then cell scalar field to be
+        represented (only 1d and 2d). If g is a grid bucket the name (key) of the
+        scalar field.
+    vector_value: (optional) if g is a single grid then vector scalar field to be
+        represented (only 1d and 2d). If g is a grid bucket the name (key) of the
+        vector field.
+    info: (optional) add extra information to the plot
+    alpha: (optonal) transparency of cells (2d) and faces (3d)
 
-    if kwargs.get('axis', True):
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-        ax.set_zlabel('z')
-    else:
-        ax.set_axis_off()
+    How to use:
+    if g is a single grid:
+    cell_id = np.arange(g.num_cells)
+    save_img(g, cell_value=cell_id, info="ncfo", alpha=0.75)
 
-    if isinstance(g, grid.Grid):
-        if cell_value is not None and g.dim !=3:
-            extr_value = np.array([np.amin(cell_value), np.amax(cell_value)])
-            kwargs['color_map'] = color_map(extr_value)
+    if g is a grid bucket
+    save_img(g, cell_value="cell_id", info="ncfo", alpha=0.75)
 
-        plot_grid_single(g, ax, cell_value, vector_value, info, **kwargs)
+    """
 
-    if isinstance(g, grid_bucket.Grid_Bucket):
-        if cell_value is not None and g.dim_max() !=3:
-            extr_value = np.array([np.inf, -np.inf])
-            for _, v in g:
-                extr_value[0] = min(np.amin(cell_value[v]), extr_value[0])
-                extr_value[1] = max(np.amax(cell_value[v]), extr_value[1])
-            kwargs['color_map'] = color_map(extr_value)
-
-        plot_grid_bucket(g, ax, cell_value, vector_value, info, **kwargs)
-
-    if kwargs.get('colorbar', True) and kwargs.get('color_map'):
-        fig.colorbar(kwargs['color_map'])
-
-    plt.draw()
-    fig.savefig(name, bbox_inches='tight', pad_inches = 0)
+    plot_grid(g, cell_value, vector_value, info, **dict(kwargs, if_plot=False))
+    plt.savefig(name, bbox_inches='tight', pad_inches = 0)
 
 #------------------------------------------------------------------------------#
 
@@ -154,7 +132,19 @@ def quiver(vector_value, ax, g, **kwargs):
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_single(g, ax, cell_value, vector_value, info, **kwargs):
+def plot_grid_single(g, cell_value, vector_value, info, **kwargs):
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.set_title( " ".join( g.name ) )
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
+
+    if cell_value is not None and g.dim !=3:
+        extr_value = np.array([np.amin(cell_value), np.amax(cell_value)])
+        kwargs['color_map'] = color_map(extr_value)
 
     plot_grid_xd(g, cell_value, vector_value, ax, **kwargs)
     x, y, z = lim(ax, g.nodes)
@@ -164,19 +154,35 @@ def plot_grid_single(g, ax, cell_value, vector_value, info, **kwargs):
 
     if info is not None: add_info(g, info, ax, **kwargs)
 
+    if kwargs.get('color_map'): fig.colorbar(kwargs['color_map'])
+
+    plt.draw()
+    if kwargs.get('if_plot', True):
+        plt.show()
+
 #------------------------------------------------------------------------------#
 
-def plot_grid_bucket(gb, ax, cell_value, vector_value, info, **kwargs):
+def plot_gb(gb, cell_value, vector_value, info, **kwargs):
 
-    if cell_value is None:
-        cell_value = gb.g_prop(np.empty(gb.size,dtype=object))
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
 
-    if vector_value is None:
-        vector_value = gb.g_prop(np.empty(gb.size,dtype=object))
+    ax.set_title( " ".join( gb.name ) )
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
 
-    for g, v in gb:
-        kwargs['rgb'] = np.divide(kwargs.get('rgb', [1,0,0]), int(v)+1)
-        plot_grid_xd(g, cell_value[v], vector_value[v], ax, **kwargs)
+    if cell_value is not None and gb.dim_max() !=3:
+        extr_value = np.array([np.inf, -np.inf])
+        for _, d in gb:
+            extr_value[0] = min(np.amin(d[cell_value]), extr_value[0])
+            extr_value[1] = max(np.amax(d[cell_value]), extr_value[1])
+        kwargs['color_map'] = color_map(extr_value)
+
+    gb.assign_node_ordering()
+    for g, d in gb:
+        kwargs['rgb'] = np.divide(kwargs.get('rgb', [1,0,0]), d['node_number']+1)
+        plot_grid_xd(g, d.get(cell_value), d.get(vector_value), ax, **kwargs)
 
     val = np.array([lim(ax, g.nodes) for g, _ in gb])
 
@@ -189,6 +195,12 @@ def plot_grid_bucket(gb, ax, cell_value, vector_value, info, **kwargs):
     if not np.isclose(z[0], z[1]): ax.set_zlim3d( z )
 
     if info is not None: [add_info( g, info, ax ) for g, _ in gb]
+
+    if kwargs.get('color_map'): fig.colorbar(kwargs['color_map'])
+
+    plt.draw()
+    if kwargs.get('if_plot', True):
+        plt.show()
 
 #    if cell_value is not None and gb.dim_max() !=3:
 #        fig.colorbar(color_map(cell_value))
@@ -298,9 +310,15 @@ def plot_grid_2d(g, cell_value, ax, **kwargs):
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_3d(g, ax, alpha, **kwargs):
+def plot_grid_3d(g, ax, **kwargs):
     faces_cells, cells, _ = sps.find( g.cell_faces )
     nodes_faces, faces, _ = sps.find( g.face_nodes )
+
+    cell_value = np.zeros(g.num_cells)
+    rgb = kwargs.get('rgb', [1,0,0])
+    alpha = kwargs.get('alpha', 1)
+    def color_face(value): return np.r_[rgb, alpha]
+
     for c in np.arange(g.num_cells):
         loc_c = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
         fs = faces_cells[loc_c]
@@ -314,7 +332,7 @@ def plot_grid_3d(g, ax, alpha, **kwargs):
             linewidth = kwargs.get('linewidth', 1)
             poly = Poly3DCollection([pts.T], linewidth=linewidth)
             poly.set_edgecolor('k')
-            poly.set_facecolors(np.r_[rgb, alpha])
+            poly.set_facecolors(color_face(cell_value[c]))
             ax.add_collection3d(poly)
 
 #------------------------------------------------------------------------------#
