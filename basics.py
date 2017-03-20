@@ -1154,6 +1154,11 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
             # Coordinates of this segment
             pt_1 = poly_2_rot[:, ind[i]]
             pt_2 = poly_2_rot[:, ind[i+1]]
+
+            # Check if segment crosses z=0 in the rotated coordinates
+            if max(pt_1[2], pt_2[2]) < 0 or min(pt_1[2], pt_2[2]) > 0:
+                continue
+
             dx = pt_2[0] - pt_1[0]
             dy = pt_2[1] - pt_1[1]
             dz = pt_2[2] - pt_1[2]
@@ -1163,6 +1168,11 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
                 # Parametrize the line, find parameter value for intersection
                 # with z=0.
                 t = (-pt_1[2] - 0) / dz
+
+                # Sanity check. We have ruled out segments not crossing the
+                # origin above.
+                assert t >= 0 and t <= 1
+
                 # x and y-coordinate for z=0
                 x0 = pt_1[0] + dx * t
                 y0 = pt_1[1] + dy * t
