@@ -11,8 +11,8 @@ from compgeom import sort_points
 
 #------------------------------------------------------------------------------#
 
-def export_vtk( g, name, data=None, binary=True ):
-    """ export in VTK the grid and additional data.
+def export_vtk(g, name, data=None, binary=True):
+    """ Interface function to export in VTK the grid and additional data.
 
     In 2d the cells are represented as polygon, while in 3d as polyhedra.
     VTK module need to be installed.
@@ -22,32 +22,58 @@ def export_vtk( g, name, data=None, binary=True ):
     higher.
 
     Parameters:
-    g: the grid
+    gb: the grid bucket
     name: the file name without extension ".vtu".
-    data: optional data, it is a dictionary: key the name of the field.
+    data: if g is a single grid then data is a dictionary (see example below)
+          if g is a grid bucket then list of names for optional data,
+          they are the keys in the grid bucket (see example below).
     binary: export in binary format, default is True.
 
     How to use:
-    export_vtk( g, "polyhedron", { "cell": np.arange( g.num_cells ) } )
+    if you need to export a single grid:
+    export_vtk(g, "polyhedron", { "cell": np.arange( g.num_cells ) })
+
+    if you need to export the grid bucket
+    export_vtk_gb(gb, "grid_bucket", ["cell", "pressure"])
 
     """
 
     if isinstance(g, grid.Grid):
-        export_vtk_grid(g, name+".vtu", data, binary)
+        export_vtk_single(g, name, data, binary)
 
-    if isinstance(g, grid_bucket.Grid_Bucket):
-        files = g.g_prop([ name + "_" + str(int(v)) + ".vtu" for _, v in g])
-        data = g.g_prop([dict() for _ in np.arange(g.size)]) if data is None \
-                                                             else data
-        for gr, v in g:
-            data[v]['dim'] = np.tile(gr.dim, gr.num_cells)
-
-        [ export_vtk_grid(gr, files[v], data[v], binary) for gr, v in g ]
-        export_pvd(name+".pvd", files, g)
+    if isinstance(g, grid_bucket.GridBucket):
+        export_vtk_gb(g, name, data, binary)
 
 #------------------------------------------------------------------------------#
 
-def export_pvd(filename, files, gb):
+def export_vtk_single(g, name, data, binary):
+    assert isinstance(g, grid.Grid)
+    export_vtk_grid(g, name+".vtu", data, binary)
+
+#------------------------------------------------------------------------------#
+
+def export_vtk_gb(gb, name, data, binary):
+    assert isinstance(gb, grid_bucket.GridBucket)
+    assert isinstance(data, list) or data is None
+    gb.assign_node_ordering()
+
+    gb.add_node_prop('file_name')
+    gb.add_node_prop('grid_dim')
+
+    data = list() if data is None else data
+    data.append('grid_dim')
+
+    for g, d in gb:
+        d['file_name'] = name + str(d['node_number']) + ".vtu"
+        d['grid_dim'] = np.tile(g.dim, g.num_cells)
+
+    [export_vtk_grid(g, d['file_name'], gb.node_props(g, data), binary) \
+                                                                 for g, d in gb]
+    export_pvd(name+".pvd", gb)
+
+#------------------------------------------------------------------------------#
+
+def export_pvd(filename, gb):
     o_file = open(filename,'w')
     b = 'LittleEndian' if sys.byteorder == 'little' else 'BigEndian'
     c = ' compressor="vtkZLibDataCompressor"'
@@ -57,7 +83,7 @@ def export_pvd(filename, files, gb):
              '<Collection>\n'
     o_file.write(header)
     fm = '\t<DataSet group="" part="" file="%s"/>\n'
-    [o_file.write( fm % files[v] ) for g, v in gb if g.dim!=0]
+    [o_file.write( fm % d['file_name'] ) for g, d in gb if g.dim!=0]
     o_file.write('</Collection>\n'+'</VTKFile>')
     o_file.close()
 
