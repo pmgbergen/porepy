@@ -38,7 +38,6 @@ class GmshWriter(object):
 
         if domain is not None:
             self.domain = domain
-        self.lchar_bound = 1
 
         # Points that should be decleared physical (intersections between 3
         # fractures)
