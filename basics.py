@@ -470,7 +470,7 @@ def remove_edge_crossings(vertices, edges, **kwargs):
             edge_counter += 1
             continue
 
-        int_counter = 1
+        int_counter = 0 
         while intersections.size > 0 and int_counter < intersections.size:
             # Line intersect (inner loop) is an intersection if it crosses
             # the extension of line edge_counter (outer loop) (ie intsect it
@@ -485,7 +485,7 @@ def remove_edge_crossings(vertices, edges, **kwargs):
             # intersection points(vectorized), and only recompuing if line
             # edge_counter is split, but we keep things simple for now.
             intsect = intersections[int_counter]
-            if intsect == edge_counter:
+            if intsect <= edge_counter:
                 int_counter += 1
                 continue
 
@@ -521,8 +521,7 @@ def remove_edge_crossings(vertices, edges, **kwargs):
                                                          [edge_counter,
                                                           intsect],
                                                          new_pt, **kwargs)
-                    intersections += splits[0]
-                    intersections[intsect:] += splits[1]
+                    intersections += splits[0] + splits[1]
                 # Update index of possible intersections
 
             # We're done with this candidate edge. Increase index of inner loop
