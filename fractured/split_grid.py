@@ -62,7 +62,7 @@ def split_fractures(bucket, offset=0):
         is_low_dim_grid = np.where([w.dim < gh.dim
                                     for w in neigh])
         gl = [w for w in neigh[is_low_dim_grid]]
-        face_cells = [bucket.get_edge_prop([(gh,n)], 'face_cells')
+        face_cells = [bucket.edge_prop([(gh,n)], 'face_cells')
                       for n in neigh[is_low_dim_grid]]
         if len(face_cells)==0:
             # No lower dim grid. Nothing to do.
