@@ -1374,7 +1374,7 @@ def map_grid(g):
     face_centers = g.face_centers
     R = np.eye(3)
 
-    if g.dim == 0:
+    if g.dim == 0 or g.dim == 3:
         return cell_centers, face_normals, face_centers, R, np.ones(3,dtype=bool)
 
     if g.dim == 1 or g.dim == 2:
