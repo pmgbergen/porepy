@@ -185,7 +185,7 @@ class GridBucket(object):
         else:
             assert len(g) == len(prop)
 
-        # Set default value. 
+        # Set default value.
         networkx.set_node_attributes(self.graph, key, None)
 
         if prop is not None:
@@ -332,7 +332,7 @@ class GridBucket(object):
             KeyError if the two grids do not form an edge.
 
         """
-        for gp in grid_pairs:
+        for gp in np.atleast_2d(grid_pairs):
             if tuple(gp) in self.graph.edges():
                 return self.graph.edge[gp[0]][gp[1]][key]
             elif tuple(gp[::-1]) in self.graph.edges():
