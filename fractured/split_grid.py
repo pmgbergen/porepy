@@ -51,18 +51,19 @@ def split_fractures(bucket, offset=0):
     """
     # For each vertex in the bucket we find the corresponding lower-
     # dimensional grids.
-    for gh, v in bucket:
+    for gh, _ in bucket:
         if gh.dim <= 1:
             # Nothing to do. We have already split 1D grids in gmsh.
             continue
         # Find connected vertices and corresponding edges. 
-        neigh = np.array(bucket.neigh_of_v(v))
-        edges = np.array(bucket.e_of_v(v))
+        neigh = np.array(bucket.node_neighbors(gh))
         
         # Find the neighbours that are lower dimensional
-        is_low_dim_grid = np.where([(bucket.get_grid(w)).dim < gh.dim for w in neigh])
-        gl = [bucket.get_grid(w) for w in neigh[is_low_dim_grid]]
-        face_cells = [bucket.get_e_prop(e) for e in edges[is_low_dim_grid]]
+        is_low_dim_grid = np.where([w.dim < gh.dim
+                                    for w in neigh])
+        gl = [w for w in neigh[is_low_dim_grid]]
+        face_cells = [bucket.get_edge_prop([(gh,n)], 'face_cells')
+                      for n in neigh[is_low_dim_grid]]
         if len(face_cells)==0:
             # No lower dim grid. Nothing to do.
             continue
