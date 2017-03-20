@@ -218,7 +218,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
                                edges[:, edge_ind[0]+1:]))
-            new_line = [2, 0]
+            new_line = [2, -1]
         elif i0 == start and i1 == end:
             # We don't know if i0 is closest to the start or end of edges[:,
             # edges_ind[1]]. Find the nearest.
@@ -242,9 +242,9 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
                                new_edges,
                                edges[:, (edge_ind[1]+1):]))
             # Delete the second segment. This is most easily handled after
-            # edges is expanded.
+            # edges is expanded, to avoid accounting for changing edge indices.
             edges = np.delete(edges, edge_ind[0], axis=1)
-            new_line = [0, 2]
+            new_line = [-1, 2]
 
 
         # Note that we know that i0 is closest to start, thus no need to test
@@ -264,14 +264,17 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             #
             # edge_ind[0] = (0, 2), edge_ind[1] = (0, 1) is split into
             #   (0, 1), (1, 2)
+            did_delete = 0
             if edges[0, edge_ind[1]] == i1:
                 if edges[1, edge_ind[1]] == start:
                     edges = np.delete(edges, edge_ind[1], axis=1)
+                    did_delete = 1
                 else:
                     edges[0, edge_ind[1]] = start
             elif edges[1, edge_ind[1]] == i1:
                 if edges[0, edge_ind[1]] == start:
                     edges = np.delete(edges, edge_ind[1], axis=1)
+                    did_delete = 1
                 else:
                     edges[1, edge_ind[1]] = start
             else:
@@ -287,19 +290,22 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
                                edges[:, (edge_ind[0]+1):]))
-            new_line = [1, 0]
+            new_line = [1, -did_delete]
 
         elif i0 != start and i1 == end:
             # Analogous configuration as the one above, but with i0 replaced by
             # i1 and start by end.
+            did_delete = 0
             if edges[0, edge_ind[1]] == i0:
                 if edges[1, edge_ind[1]] == end:
                     edges = np.delete(edges, edge_ind[1], axis=1)
+                    did_delete = 1
                 else:
                     edges[0, edge_ind[1]] = end
             elif edges[1, edge_ind[1]] == i0:
                 if edges[0, edge_ind[1]] == end:
                     edges = np.delete(edges, edge_ind[1], axis=1)
+                    did_delete = -1
                 else:
                     edges[1, edge_ind[1]] = end
             else:
@@ -314,7 +320,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
                                edges[:, (edge_ind[0]+1):]))
-            new_line = [1, 0]
+            new_line = [1, -did_delete]
         else:
             raise ValueError('How did it come to this')
 
