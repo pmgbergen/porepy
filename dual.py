@@ -5,9 +5,11 @@
 """
 
 import numpy as np
+import warnings
 import scipy.sparse as sps
 from compgeom import basics as cg
 
+from core.constit import second_order_tensor
 from core.solver.solver import *
 
 class DualVEM(Solver):
@@ -22,21 +24,23 @@ class DualVEM(Solver):
         """
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using dual virtual element method.
-
-        Parameters
-        ----------
-        g : grid
-            Grid, or a subclass, with geometry fields computed.
-        k : second_order_tensor)
-            Permeability. Cell-wise.
+        The name of data in the input dictionary (data) are:
+        k : second_order_tensor
+            Permeability defined cell-wise. If not given a identity permeability
+            is assumed and a warning arised.
         f : array (self.g.num_cells)
-            Scalar source term.
-        bc :
-            Boundary conditions (optional)
+            Scalar source term defined cell-wise. If not given a zero source
+            term is assumed and a warning arised.
+        bc : boundary conditions (optional)
         bc_val : dictionary (optional)
             Values of the boundary conditions. The dictionary has at most the
             following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
             conditions, respectively.
+
+        Parameters
+        ----------
+        g : grid, or a subclass, with geometry fields computed.
+        data: dictionary to store the data.
 
         Return
         ------
@@ -55,10 +59,13 @@ class DualVEM(Solver):
         bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
                    'neu': fun_neu(f.face_centers[:, b_faces_neu])}
 
-        D, rhs = dual.matrix_rhs(g, perm, f, bnd, bnd_val)
+        data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
+
+        D, rhs = dual.matrix_rhs(g, data)
         up = sps.linalg.spsolve(D, rhs)
-        u, p = dual.extract(g, up)
-        P0u = dual.projectU(g, perm, u)
+        u = dual.extractU(g, up)
+        p = dual.extractP(g, up)
+        P0u = dual.projectU(g, u, perm)
 
         """
         M, bc_weight = self.matrix(g, data, bc_weight=True)
@@ -69,59 +76,43 @@ class DualVEM(Solver):
     def matrix(self, g, data, bc_weight=False):
         """
         Return the matrix for a discretization of a second order elliptic equation
-        using dual virtual element method.
+        using dual virtual element method. See self.matrix_rhs for a detaild
+        description.
 
-        Parameters
-        ----------
-        g : grid
-            Grid, or a subclass, with geometry fields computed.
-        k : second_order_tensor)
-            Permeability. Cell-wise.
-        bc :
-            Boundary conditions (optional)
-        bc_weight: bool
-            Decide if the diagonal entries associated to Neumann boundary conditions
-            should be weighted by the infinity norm of the mass-Hdiv or not.
-            If bc_weight is True than the weight is returned to be used in the
-            construction of the right-hand side.
+        Additional parameter:
+        --------------------
+        bc_weight: to compute the infinity norm of the matrix and use it as a
+            weight to impose the boundary conditions. Default True.
 
-        Return
-        ------
-        matrix: sparse csr (g.num_faces+g_num_cells, g.num_faces+g_num_cells)
-            Saddle point matrix obtained from the discretization.
-        weight: scalar (optional)
-            Returned only if bc_weight is True. It represents the infinity norm
-            of the mass-Hdiv block of the globla matrix.
-
-        Examples
-        --------
-        b_faces_neu = ... # id of the Neumann faces
-        b_faces_dir = ... # id of the Dirichlet faces
-        bnd = bc.BoundaryCondition(g, np.hstack((b_faces_dir, b_faces_neu)),
-                                ['dir']*b_faces_dir.size + ['neu']*b_faces_neu.size)
-        bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
-                   'neu': fun_neu(f.face_centers[:, b_faces_neu])}
-
-        D, weight = dual.matrix(g, perm, bnd, bc_weight=True)
-        rhs = dual.rhs(g, f, bnd, bnd_val, weight)
-        up = sps.linalg.spsolve(D, rhs)
-        u, p = dual.extract(g, up)
-        P0u = dual.projectU(g, perm, u)
+        Additional return:
+        weight: if bc_weight is True return the weight computed.
 
         """
+        # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             M = sps.identity(self.ndof(g), format="csr")
             if bc_weight: return M, 1
             else:         return M
 
-        k, bc = data['k'], data.get('bc')
+        k, bc = data.get('k'), data.get('bc')
+
+        if k is None:
+            kxx = np.ones(g.num_cells)
+            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+            warnings.warn('Permeability not assigned, assumed identity')
+
         faces, cells, sgn = sps.find(g.cell_faces)
 
+        # Map the domain to a reference geometry (i.e. equivalent to compute
+        # surface coordinates in 1d and 2d)
         c_centers, f_normals, f_centers, _, _ = cg.map_grid(g)
 
+        # Weight for the stabilization term
         weight = np.ones(g.num_cells) if g.dim != 1 else g.cell_volumes
         diams = g.cell_diameters()
 
+        # Allocate the data to store matrix entries, that's the most efficient
+        # way to create a sparse matrix.
         size = np.sum(np.square(g.cell_faces.indptr[1:]-\
                                 g.cell_faces.indptr[:-1]))
         I = np.empty(size,dtype=np.int)
@@ -130,18 +121,21 @@ class DualVEM(Solver):
         idx = 0
 
         for c in np.arange(g.num_cells):
+            # For the current cell retrieve its faces
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
             faces_loc = faces[loc]
 
+            # Retrieve permeability, sign of the normals, and normals
             K = k.perm[0:g.dim, 0:g.dim, c]
             sgn_loc = sgn[loc]
             normals = f_normals[:, faces_loc]
 
+            # Compute the H_div-mass local matrix
             A, _ = self.massHdiv(K, c_centers[:,c], g.cell_volumes[c],
                                  f_centers[:,faces_loc], normals, sgn_loc,
                                  diams[c], weight[c])
 
-            # save values for Hdiv-Stiffness matrix
+            # Save values for Hdiv-mass local matrix in the global structure
             cols = np.tile(faces_loc, (faces_loc.size,1))
             loc_idx = slice(idx, idx+cols.size)
             I[loc_idx] = cols.T.ravel()
@@ -149,7 +143,7 @@ class DualVEM(Solver):
             dataIJ[loc_idx] = A.ravel()
             idx += cols.size
 
-        # construct the global matrices
+        # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
         M = sps.bmat([[mass, div.T], [div,None]], format='csr')
@@ -171,49 +165,23 @@ class DualVEM(Solver):
     def rhs(self, g, data, bc_weight=1):
         """
         Return the righ-hand side for a discretization of a second order elliptic
-        equation using dual virtual element method.
+        equation using dual virtual element method. See self.matrix_rhs for a detaild
+        description.
 
-        Parameters
-        ----------
-        g : grid
-            Grid, or a subclass, with geometry fields computed.
-        f : array (g.num_cells)
-            Scalar source term.
-        bc :
-            Boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
-        bc_weight: scalar (optional)
-            Weight for the entries associated to Neumann boundary conditions.
-
-        Return
-        ------
-        rhs: array (g.num_faces+g_num_cells)
-            Right-hand side which contains the boundary conditions and the scalar
-            source term.
-
-        Examples
-        --------
-        b_faces_neu = ... # id of the Neumann faces
-        b_faces_dir = ... # id of the Dirichlet faces
-        bnd = bc.BoundaryCondition(g, np.hstack((b_faces_dir, b_faces_neu)),
-                                ['dir']*b_faces_dir.size + ['neu']*b_faces_neu.size)
-        bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
-                   'neu': fun_neu(f.face_centers[:, b_faces_neu])}
-
-        D, weight = dual.matrix(g, perm, bnd, bc_weight=True)
-        rhs = dual.rhs(g, f, bnd, bnd_val, weight)
-        up = sps.linalg.spsolve(D, rhs)
-        u, p = dual.extract(g, up)
-        P0u = dual.projectU(g, perm, u)
+        Additional parameter:
+        --------------------
+        bc_weight: to use the infinity norm of the matrix to impose the
+            boundary conditions. Default 1.
 
         """
         if g.dim == 0: return np.hstack(([0], data['f']))
 
-        f, bc, bc_val = data['f'], data.get('bc'), data.get('bc_val')
+        f, bc, bc_val = data.get('f'), data.get('bc'), data.get('bc_val')
         assert not( bool(bc is None) != bool(bc_val is None) )
+
+        if f is None: # mettere un warning
+            f = np.zeros(g.num_cells)
+            warnings.warn('Scalar source not assigned, assumed null')
 
         rhs = np.zeros(self.ndof(g))
         is_p = np.hstack((np.zeros(g.num_faces,dtype=np.bool),
@@ -244,13 +212,11 @@ class DualVEM(Solver):
 #------------------------------------------------------------------------------#
 
     def extractU(self, g, up):
-        """  Extract the velocity and the pressure from a dual virtual element
-        solution.
+        """  Extract the velocity from a dual virtual element solution.
 
         Parameters
         ----------
-        g : grid
-            Grid, or a subclass, with geometry fields computed.
+        g : grid, or a subclass, with geometry fields computed.
         up : array (g.num_faces+g.num_cells)
             Solution, stored as [velocity,pressure]
 
@@ -258,15 +224,6 @@ class DualVEM(Solver):
         ------
         u : array (g.num_faces)
             Velocity at each face.
-        p : array (g.num_cells)
-            Pressure at each cell.
-
-        Examples
-        --------
-        D, rhs = dual.matrix_rhs(g, perm, f, bc)
-        up = sps.linalg.spsolve(D, rhs)
-        u, p = dual.extract(g, up)
-        P0u = dual.projectU(g, perm, u)
 
         """
         return up[:g.num_faces]
@@ -274,29 +231,18 @@ class DualVEM(Solver):
 #------------------------------------------------------------------------------#
 
     def extractP(self, g, up):
-        """  Extract the velocity and the pressure from a dual virtual element
-        solution.
+        """  Extract the pressure from a dual virtual element solution.
 
         Parameters
         ----------
-        g : grid
-            Grid, or a subclass, with geometry fields computed.
+        g : grid, or a subclass, with geometry fields computed.
         up : array (g.num_faces+g.num_cells)
             Solution, stored as [velocity,pressure]
 
         Return
         ------
-        u : array (g.num_faces)
-            Velocity at each face.
         p : array (g.num_cells)
             Pressure at each cell.
-
-        Examples
-        --------
-        D, rhs = dual.matrix_rhs(g, perm, f, bc)
-        up = sps.linalg.spsolve(D, rhs)
-        u, p = dual.extract(g, up)
-        P0u = dual.projectU(g, perm, u)
 
         """
         return up[g.num_faces:]
@@ -309,29 +255,23 @@ class DualVEM(Solver):
 
         Parameters
         ----------
-        g : grid
-            Grid, or a subclass, with geometry fields computed.
-        k : second_order_tensor)
-            Permeability. Cell-wise.
-        u : array (g.num_faces)
-            Velocity at each face.
+        g : grid, or a subclass, with geometry fields computed.
+        data: dictionary to store the data, with permeability (key 'k')
+        u : array (g.num_faces) Velocity at each face.
 
         Return
         ------
-        P0u : ndarray (3, g.num_faces)
-            Velocity at each cell.
-
-        Examples
-        --------
-        D, rhs = dual.matrix_rhs(g, perm, f, bc)
-        up = sps.linalg.spsolve(D, rhs)
-        u, p = dual.extract(g, up)
-        P0u = dual.projectU(g, perm, u)
+        P0u : ndarray (3, g.num_faces) Velocity at each cell.
 
         """
         if g.dim == 0: return np.zeros(3).reshape((3,1))
 
-        k = data['k']
+        k = data.get('k')
+
+        if k is None: # create a warning
+            kxx = np.ones(g.num_cells)
+            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+
         faces, cells, sgn = sps.find(g.cell_faces)
         c_centers, f_normals, f_centers, R, dim = cg.map_grid(g)
 
@@ -406,11 +346,11 @@ class DualVEM(Solver):
 
         assert np.allclose(G, np.dot(F,D))
 
-        # local matrix Pi
+        # local matrix Pi_s
         Pi_s = np.linalg.solve(G, F)
         I_Pi = np.eye(f_centers.shape[1]) - np.dot(D, Pi_s)
 
-        # local Hdiv-Mass matrix
+        # local Hdiv-mass matrix
         w = weight * np.linalg.norm(np.linalg.inv(K),np.inf)
         A = np.dot(Pi_s.T, np.dot(G, Pi_s)) + w * np.dot(I_Pi.T, I_Pi)
 
