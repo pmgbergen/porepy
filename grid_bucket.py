@@ -344,7 +344,7 @@ class GridBucket(object):
         return prop_list
 #------------------------------------------------------------------------------#
 
-    def edge_props(self, gp, keys=None):
+    def edge_props(self, gp):
         """
         Getter for an edge properties of the bucket.
 
@@ -360,15 +360,26 @@ class GridBucket(object):
             KeyError if the two grids do not form an edge.
 
         """
-        if keys is None:
-            if tuple(gp) in self.graph.edges():
-                return self.edge_props(gp, self.graph.edge[gp[0]][gp[1]].keys())
-            elif tuple(gp[::-1]) in self.graph.edges():
-                return self.edge_props(gp, self.graph.edge[gp[1]][gp[0]].keys())
-            else:
-                raise KeyError('Unknown edge')
+        if tuple(gp) in self.graph.edges():
+            return self.graph.edge[gp[0]][gp[1]]
+        elif tuple(gp[::-1]) in self.graph.edges():
+            return self.graph.edge[gp[1]][gp[0]]
+        else:
+            raise KeyError('Unknown edge')
 
-        return {key: self.edge_prop(gp, key) for key in keys}
+#------------------------------------------------------------------------------#
+
+    def edges_props(self):
+        """
+        Iterator over the edges of the grid bucket.
+
+        Yields:
+            core.grid.edges: The edge (pair of grids) associated with an edge.
+            data: The dictionary storing all information in this edge.
+
+        """
+        for e in self.graph.edges():
+            yield e, self.edge_props(e)
 
 #------------------------------------------------------------------------------#
 

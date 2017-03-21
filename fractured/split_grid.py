@@ -334,8 +334,8 @@ def duplicate_nodes(g, nodes, offset):
     """
     Duplicate nodes on a fracture. The number of duplication will depend on
     the cell topology around the node. If the node is not on a fracture 1
-    duplicate will be added. If the node is on a single fracture 2 duplicates 
-    will be added. If the node is on a T-intersection 3 duplicates will be 
+    duplicate will be added. If the node is on a single fracture 2 duplicates
+    will be added. If the node is on a T-intersection 3 duplicates will be
     added. If the node is on a X-intersection 4 duplicates will be added.
     Equivalently for other types of intersections.
 
@@ -435,11 +435,11 @@ def find_cell_color(g, cells):
     that are connected (either directly by a shared face or through a series
     of shared faces of many cells) is are given different colors.
            c_1-c_3     c_4
-         / 
+         /
        c_7  |           |
-         \ 
+         \
            c_2         c_5
-    In this case, cells c_1, c_2, c_3 and c_7 will be given color 0, while 
+    In this case, cells c_1, c_2, c_3 and c_7 will be given color 0, while
     cells c_4 and c_5 will be given color 1.
 
     Parameters:
@@ -458,7 +458,7 @@ def find_cell_color(g, cells):
 def avg_normal(g, faces):
     """
     Calculates the average face normal of a set of faces. The average normal
-    is only constructed from the boundary faces, that is, a face thatbelongs 
+    is only constructed from the boundary faces, that is, a face thatbelongs
     to exactly one cell. If a face is not a boundary face, it will be ignored.
     The faces normals are fliped such that they point out of the cells.
 
