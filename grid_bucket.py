@@ -318,21 +318,33 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def node_props(self, g, keys=None):
+    def node_props(self, g):
         """
         Getter for a node property of the bucket.
 
         Parameters:
             grid (core.grids.grid): The grid associated with the node.
-            keys (object): Key for the property to be retrieved. If it is None
-                all properties are returned.
+
+        Returns:
+            object: A dictionary with keys and properties.
+
+        """
+        return self.graph.node[g]
+
+#------------------------------------------------------------------------------#
+
+    def node_props_of_keys(self, g, keys):
+        """
+        Getter for a node property of the bucket.
+
+        Parameters:
+            grid (core.grids.grid): The grid associated with the node.
+            keys (object): Key for the property to be retrieved.
 
         Returns:
             object: A dictionary with key and property.
 
         """
-        if keys is None:
-            return self.node_props(g, self.graph.node[g].keys())
         return {key: self.graph.node[g][key] for key in keys}
 
 #------------------------------------------------------------------------------#
