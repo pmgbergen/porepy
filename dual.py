@@ -179,7 +179,7 @@ class DualVEM(Solver):
         f, bc, bc_val = data.get('f'), data.get('bc'), data.get('bc_val')
         assert not( bool(bc is None) != bool(bc_val is None) )
 
-        if f is None: # mettere un warning
+        if f is None:
             f = np.zeros(g.num_cells)
             warnings.warn('Scalar source not assigned, assumed null')
 

@@ -18,7 +18,10 @@ class DualCoupling(object):
         Parameters:
             g_h: grid of higher dimension
             g_l: grid of lower dimension
-            face_cells: face_cells mapping between the two grids
+            data_h: dictionary which stores the data for the higher dimensional
+                grid
+            data_l: dictionary which stores the data for the lower dimensional
+                grid
             data: dictionary which stores the data for the edges of the grid
                 bucket
 
