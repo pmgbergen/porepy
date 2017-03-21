@@ -18,25 +18,28 @@ class Coupler(object):
         for g, d in gb:
             d['dof'] = self.solver.ndof(g)
 
+        # Initialize the global matrix and rhs to store the local problems
         matrix = np.empty((gb.size(), gb.size()), dtype=np.object)
+        rhs = np.empty(gb.size(), dtype=np.object)
         for g_i, d_i in gb:
+            pos_i = d_i['node_number']
+            rhs[pos_i] = np.empty(d_i['dof'])
             for g_j, d_j in gb:
-                pos_i, pos_j = gb.nodes_prop([g_i, g_j], 'node_number')
+                pos_j = d_j['node_number']
                 matrix[pos_i, pos_j] = sps.coo_matrix((d_i['dof'], d_j['dof']))
 
-        rhs = np.array([np.empty(d['dof']) for _, d in gb])
-
-        for g, d in gb:
-            pos = d['node_number']
-            data = gb.node_props(g)
+        # Loop over the grids and compute the problem matrix
+        for g, data in gb:
+            pos = data['node_number']
             matrix[pos, pos], rhs[pos] = self.solver.matrix_rhs(g, data)
 
-        for e in gb.edges():
+        # Loop over the edges of the graph (pair of connected grids) to compute
+        # the coupling conditions
+        for e, data in gb.edges_props():
             g_l, g_h = gb.sorted_nodes_of_edge(e)
             pos_l, pos_h = gb.nodes_prop([g_l, g_h], 'node_number')
             idx = np.ix_([pos_h, pos_l], [pos_h, pos_l])
 
-            data = gb.edge_props(e)
             fc = data['face_cells']
             matrix[idx] += self.coupling.matrix_rhs(g_h, g_l, fc, data)
 
