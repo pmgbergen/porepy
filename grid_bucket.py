@@ -208,14 +208,14 @@ class GridBucket(object):
         overwritten.
 
         Parameters:
-            keys (object): Keys to the property to be handled.
+            keys (object): Keys to the properties to be handled.
 
         Raises:
             ValueError if the key is 'node_number', this is reserved for other
                 purposes. See self.assign_node_ordering() for details.
 
         """
-        [self.add_node_prop(key) for key in keys]
+        [self.add_node_prop(key) for key in np.atleast_1d(keys)]
 
 #------------------------------------------------------------------------------#
 
@@ -263,6 +263,26 @@ class GridBucket(object):
                 else:
                     raise KeyError('Cannot assign property to undefined\
                                      edge')
+
+#------------------------------------------------------------------------------#
+
+    def add_edge_props(self, keys):
+        """
+        Add new propertiy to existing edges in the graph.
+
+        Properties can be added either to all edges.
+
+        No tests are done on whether the key already exist, values are simply
+        overwritten.
+
+        Parameters:
+            keys (object): Keys to the properties to be handled.
+
+        Raises:
+            KeyError if a grid pair is not an existing edge in the grid.
+
+        """
+        [self.add_edge_prop(key) for key in np.atleast_1d(keys)]
 
 #------------------------------------------------------------------------------#
 
