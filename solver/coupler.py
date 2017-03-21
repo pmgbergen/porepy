@@ -40,8 +40,8 @@ class Coupler(object):
             pos_l, pos_h = gb.nodes_prop([g_l, g_h], 'node_number')
             idx = np.ix_([pos_h, pos_l], [pos_h, pos_l])
 
-            fc = data['face_cells']
-            matrix[idx] += self.coupling.matrix_rhs(g_h, g_l, fc, data)
+            data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
+            matrix[idx] += self.coupling.matrix_rhs(g_h, g_l, data_h, data_l, data)
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
