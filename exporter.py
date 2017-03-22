@@ -46,6 +46,22 @@ def export_vtk(g, name, data=None, binary=True):
 
 #------------------------------------------------------------------------------#
 
+def export_pvd(file_name, file_names, time_step):
+    o_file = open(file_name+".pvd",'w')
+    b = 'LittleEndian' if sys.byteorder == 'little' else 'BigEndian'
+    c = ' compressor="vtkZLibDataCompressor"'
+    header = '<?xml version="1.0"?>\n'+ \
+             '<VTKFile type="Collection" version="0.1" ' + \
+                                              'byte_order="%s"%s>\n' % (b,c) + \
+             '<Collection>\n'
+    o_file.write(header)
+    fm = '\t<DataSet group="" part="" timestep="%f" file="%s.vtu"/>\n'
+    [o_file.write( fm % (time_step[i], f) ) for i, f in enumerate(file_names)]
+    o_file.write('</Collection>\n'+'</VTKFile>')
+    o_file.close()
+
+#------------------------------------------------------------------------------#
+
 def export_vtk_single(g, name, data, binary):
     assert isinstance(g, grid.Grid)
     export_vtk_grid(g, name+".vtu", data, binary)
@@ -67,13 +83,13 @@ def export_vtk_gb(gb, name, data, binary):
         d['file_name'] = name + str(d['node_number']) + ".vtu"
         d['grid_dim'] = np.tile(g.dim, g.num_cells)
 
-    [export_vtk_grid(g, d['file_name'], gb.node_props(g, data), binary) \
+    [export_vtk_grid(g, d['file_name'], gb.node_props_of_keys(g, data), binary)\
                                                                  for g, d in gb]
-    export_pvd(name+".pvd", gb)
+    export_pvd_gb(name+".pvd", gb)
 
 #------------------------------------------------------------------------------#
 
-def export_pvd(filename, gb):
+def export_pvd_gb(filename, gb):
     o_file = open(filename,'w')
     b = 'LittleEndian' if sys.byteorder == 'little' else 'BigEndian'
     c = ' compressor="vtkZLibDataCompressor"'
