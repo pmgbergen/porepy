@@ -682,7 +682,15 @@ class FractureNetwork(object):
         # Represent edges by unique values
         edges = e_unique
 
-        # Also update boundary information
+        # The uniquification of points may lead to edges with identical start
+        # and endpoint. Find and remove these.
+        point_edges = np.where(np.squeeze(np.diff(edges, axis=0)) == 0)[0]
+        edges = np.delete(edges, point_edges, axis=1)
+        unique_ind_e = np.delete(unique_ind_e, point_edges)
+        for ri in point_edges[::-1]:
+            del edges_2_frac[ri]
+
+        # Update boundary information
         is_boundary_edge = [is_boundary_edge[i] for i in unique_ind_e]  # Hope this is right
 
         # Convert the edge to fracture map to a list of numpy arrays.
