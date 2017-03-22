@@ -132,7 +132,7 @@ def quiver(vector_value, ax, g, **kwargs):
 
 #------------------------------------------------------------------------------#
 
-def plot_grid_single(g, cell_value, vector_value, info, **kwargs):
+def plot_single(g, cell_value, vector_value, info, **kwargs):
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
