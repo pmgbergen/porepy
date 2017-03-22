@@ -372,24 +372,72 @@ class Fracture(object):
 #--------------------------------------------------------------------        
 
 class EllipticFracture(Fracture):
+    """
+    Subclass of Fractures, representing an elliptic fracture.
 
-    def __init__(self, major_axis, minor_axis, center, angles, num_points=8):
+    """
+
+    def __init__(self, center, major_axis, minor_axis, major_axis_angle,
+                 strike_angle, dip_angle, num_points=16):
+        """
+        Initialize an elliptic shaped fracture, approximated by a polygon.
+
+
+        The rotation of the plane is calculated using three angles. First, the
+        rotation of the major axis from the x-axis. Next, the fracture is
+        inclined by specifying the strike angle (which gives the rotation
+        axis) measured from the x-axis, and the dip angle. All angles are
+        measured in radians.
+
+        Parameters:
+            center (np.ndarray, size 3x1): Center coordinates of fracture.
+            major_axis (double): Length of major axis (radius-like, not
+                diameter).
+            minor_axis (double): Length of minor axis. There are no checks on
+                whether the minor axis is less or equal the major.
+            major_axis_angle (double, radians): Rotation of the major axis from
+                the x-axis. Measured before strike-dip rotation, see above.
+            strike_angle (double, radians): Line of rotation for the dip.
+                Given as angle from the x-direction.
+            dip_angle (double, radians): Dip angle, i.e. rotation around the
+                strike direction.
+            num_points (int, optional): Number of points used to approximate
+                the ellipsis. Defaults to 16.
+
+        Example:
+            Fracture centered at [0, 1, 0], with a ratio of lengths of 2,
+            rotation in xy-plane of 45 degrees, and an incline of 30 degrees
+            rotated around the x-axis.
+            >>> frac = EllipticFracture(np.array([0, 1, 0]), 10, 5, np.pi/4, 0,
+                                        np.pi/6)
+
+        """
         self.center = center
-        self.major_axis = major_axis
-        self.minor_axis = minor_axis
-        # 
-        self.angles = angles
 
-        self.num_pt = num_points
-        self.p = self.center.transpose()[:, np.newaxis] + self.rot.dot(self._populate())
-        self.grid_size = 1
-
-    def _populate(self):
-        angs = np.linspace(0, 2*pi, self.num_pt+1, endpoint=True)[:-1]
-        x = self.major_axis * np.cos(angs)
-        y = self.minor_axis * np.sin(angs)
+        # First, populate polygon in the xy-plane
+        angs = np.linspace(0, 2*np.pi, num_points+1, endpoint=True)[:-1]
+        x = major_axis * np.cos(angs)
+        y = minor_axis * np.sin(angs)
         z = np.zeros_like(angs)
-        return np.vstack((x, y, z))
+        ref_pts = np.vstack((x, y, z))
+
+        # Rotate reference points so that the major axis has the right
+        # orientation
+        major_axis_rot = cg.rot(major_axis_angle, [0, 0, 1])
+        rot_ref_pts = major_axis_rot.dot(ref_pts)
+
+        # Then the dip
+        # Rotation matrix of the strike angle
+        strike_rot = cg.rot(strike_angle, np.array([0, 0, 1]))
+        # Compute strike direction
+        strike_dir = strike_rot.dot(np.array([1, 0, 0]))
+        dip_rot = cg.rot(dip_angle, strike_dir)
+
+        dip_pts = dip_rot.dot(rot_ref_pts)
+
+        # Set the points, and store them in a backup.
+        self.p = center[:, np.newaxis] + dip_pts
+        self.orig_p = self.p.copy()
 
     def segments(self):
         return utils.sort_point_lines()
