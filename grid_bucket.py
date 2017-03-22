@@ -33,6 +33,7 @@ class GridBucket(object):
 
     def __init__(self):
         self.graph = networkx.Graph(directed=False)
+        self.name = "grid bucket"
 
 #------------------------------------------------------------------------------#
 
@@ -48,7 +49,6 @@ class GridBucket(object):
         for g in self.graph:
             data = self.graph.node[g]
             yield g, data
-
 
 #------------------------------------------------------------------------------#
 
@@ -68,7 +68,7 @@ class GridBucket(object):
             int: Maximum dimension of the grids present in the hierarchy.
 
         """
-        return np.amax([g.dim for g,_ in self])
+        return np.amax([g.dim for g, _ in self])
 
 #------------------------------------------------------------------------------#
 
@@ -78,7 +78,7 @@ class GridBucket(object):
             int: Minimum dimension of the grids present in the hierarchy.
 
         """
-        return np.amin([g.dim for g,_ in self])
+        return np.amin([g.dim for g, _ in self])
 
 #------------------------------------------------------------------------------#
 
@@ -102,6 +102,26 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
+    def sorted_nodes_of_edge(self, e):
+        """
+        Obtain the vertices of an edge, in ascending order with respect their
+        dimension.
+
+        Parameters:
+            e: An edge in the graph.
+
+        Returns:
+            dictionary: The first vertex of the edge.
+            dictionary: The second vertex of the edge.
+
+        """
+        if e[0].dim < e[1].dim:
+            return e[0], e[1]
+        else:
+            return e[1], e[0]
+
+#------------------------------------------------------------------------------#
+
     def nodes_of_edge(self, e):
         """
         Obtain the vertices of an edge.
@@ -115,7 +135,6 @@ class GridBucket(object):
 
         """
         return e[0], e[1]
-
 
 #------------------------------------------------------------------------------#
 
@@ -166,7 +185,7 @@ class GridBucket(object):
         else:
             assert len(g) == len(prop)
 
-        # Set default value. 
+        # Set default value.
         networkx.set_node_attributes(self.graph, key, None)
 
         if prop is not None:
@@ -179,7 +198,28 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def add_edge_prop(self, key, grid_pairs, prop):
+    def add_node_props(self, keys):
+        """
+        Add new properties to existing nodes in the graph.
+
+        Properties are be added to all nodes.
+
+        No tests are done on whether the key already exist, values are simply
+        overwritten.
+
+        Parameters:
+            keys (object): Keys to the properties to be handled.
+
+        Raises:
+            ValueError if the key is 'node_number', this is reserved for other
+                purposes. See self.assign_node_ordering() for details.
+
+        """
+        [self.add_node_prop(key) for key in np.atleast_1d(keys)]
+
+#------------------------------------------------------------------------------#
+
+    def add_edge_prop(self, key, grid_pairs=None, prop=None):
         """
         Associate a property with an edge.
 
@@ -212,7 +252,7 @@ class GridBucket(object):
         else:
             assert len(grid_pairs) == len(prop)
 
-        networkx.set_edge_attributes(self.graph, key, None)
+        #networkx.set_edge_attributes(self.graph, key, None)
 
         if prop is not None:
             for gp, p in zip(grid_pairs, prop):
@@ -226,7 +266,27 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def get_node_prop(self, grid, key):
+    def add_edge_props(self, keys):
+        """
+        Add new propertiy to existing edges in the graph.
+
+        Properties can be added either to all edges.
+
+        No tests are done on whether the key already exist, values are simply
+        overwritten.
+
+        Parameters:
+            keys (object): Keys to the properties to be handled.
+
+        Raises:
+            KeyError if a grid pair is not an existing edge in the grid.
+
+        """
+        [self.add_edge_prop(key) for key in np.atleast_1d(keys)]
+
+#------------------------------------------------------------------------------#
+
+    def node_prop(self, g, key):
         """
         Getter for a node property of the bucket.
 
@@ -242,7 +302,54 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def get_edge_prop(self, grid_pairs, key):
+    def nodes_prop(self, gs, key):
+        """
+        Getter for a node property of the bucket, for several nodes.
+
+        Parameters:
+            grids (core.grids.grid): The grids associated with the nodes.
+            key (object): Key for the property to be retrieved.
+
+        Returns:
+            object: The property.
+
+        """
+        return tuple([self.graph.node[g][key] for g in gs])
+
+#------------------------------------------------------------------------------#
+
+    def node_props(self, g):
+        """
+        Getter for a node property of the bucket.
+
+        Parameters:
+            grid (core.grids.grid): The grid associated with the node.
+
+        Returns:
+            object: A dictionary with keys and properties.
+
+        """
+        return self.graph.node[g]
+
+#------------------------------------------------------------------------------#
+
+    def node_props_of_keys(self, g, keys):
+        """
+        Getter for a node property of the bucket.
+
+        Parameters:
+            grid (core.grids.grid): The grid associated with the node.
+            keys (object): Key for the property to be retrieved.
+
+        Returns:
+            object: A dictionary with key and property.
+
+        """
+        return {key: self.graph.node[g][key] for key in keys}
+
+#------------------------------------------------------------------------------#
+
+    def edge_prop(self, grid_pairs, key):
         """
         Getter for an edge property of the bucket.
 
@@ -258,13 +365,53 @@ class GridBucket(object):
             KeyError if the two grids do not form an edge.
 
         """
-        for gp in grid_pairs:
+        prop_list = []
+        for gp in np.atleast_2d(grid_pairs):
             if tuple(gp) in self.graph.edges():
-                return self.graph.edge[gp[0]][gp[1]][key]
+                prop_list.append(self.graph.edge[gp[0]][gp[1]][key])
             elif tuple(gp[::-1]) in self.graph.edges():
-                return self.graph.edge[gp[1]][gp[0]][key]
+                prop_list.append(self.graph.edge[gp[1]][gp[0]][key])
             else:
                 raise KeyError('Unknown edge')
+        return prop_list
+#------------------------------------------------------------------------------#
+
+    def edge_props(self, gp):
+        """
+        Getter for an edge properties of the bucket.
+
+        Parameters:
+            grids_pair (list of core.grids.grid): The two grids making up the
+                edge.
+            key (object): Keys for the properties to be retrieved.
+
+        Returns:
+            object: The properties.
+
+        Raises:
+            KeyError if the two grids do not form an edge.
+
+        """
+        if tuple(gp) in self.graph.edges():
+            return self.graph.edge[gp[0]][gp[1]]
+        elif tuple(gp[::-1]) in self.graph.edges():
+            return self.graph.edge[gp[1]][gp[0]]
+        else:
+            raise KeyError('Unknown edge')
+
+#------------------------------------------------------------------------------#
+
+    def edges_props(self):
+        """
+        Iterator over the edges of the grid bucket.
+
+        Yields:
+            core.grid.edges: The edge (pair of grids) associated with an edge.
+            data: The dictionary storing all information in this edge.
+
+        """
+        for e in self.graph.edges():
+            yield e, self.edge_props(e)
 
 #------------------------------------------------------------------------------#
 
@@ -283,7 +430,7 @@ class GridBucket(object):
                 identified with the grid hierarchy. Same order as input grid.
 
         """
-        assert not np.any([ i is j for i in new_grids for j in self.graph])
+        assert not np.any([i is j for i in new_grids for j in self.graph])
 
         for g in new_grids:
             self.graph.add_node(g)
@@ -320,16 +467,16 @@ class GridBucket(object):
                     or tuple(grids[::-1]) in self.graph.edges())
 
         # The higher-dimensional grid is the first node of the edge.
-        if grids[0].dim-1 == grids[1].dim:
+        if grids[0].dim - 1 == grids[1].dim:
             self.graph.add_edge(*grids, face_cells=face_cells)
-        elif grids[0].dim == grids[1].dim-1:
+        elif grids[0].dim == grids[1].dim - 1:
 
             self.graph.add_edge(*grids[::-1], face_cells=face_cells)
         else:
             raise ValueError('Grid dimension mismatch')
 
-
 #------------------------------------------------------------------------------#
+
     def grids_of_dimension(self, dim):
         """
         Get all grids in the bucket of a specific dimension.
@@ -367,7 +514,7 @@ class GridBucket(object):
 
         counter = 0
         # Loop over grids in decreasing dimensions
-        for dim in range(self.dim_max(), self.dim_min()-1, -1):
+        for dim in range(self.dim_max(), self.dim_min() - 1, -1):
             for g in self.grids_of_dimension(dim):
                 n = self.graph.node[g]
                 # Get old value, issue warning if not equal to the new one.
@@ -378,6 +525,8 @@ class GridBucket(object):
                 n['node_number'] = counter
                 counter += 1
 
+#------------------------------------------------------------------------------#
+
     def target_2_source_nodes(self, g_src, g_trg):
         """
         Runar did this.
@@ -385,8 +534,21 @@ class GridBucket(object):
         """
         node_source = g_src.global_point_ind
         node_target = g_trg.global_point_ind
-        node_source = node_source[None,:]
-        node_target = node_target[None,:]
-        _, trg_2_src_nodes = setmembership.ismember_rows(node_source, node_target)
+        node_source = node_source[None, :]
+        node_target = node_target[None, :]
+        _, trg_2_src_nodes = setmembership.ismember_rows(
+            node_source, node_target)
         return trg_2_src_nodes
 
+#------------------------------------------------------------------------------#
+
+    def compute_geometry(self, is_embedded=True, is_starshaped=False):
+        """Compute geometric quantities for the grids.
+
+        Note: the flag "is_embedded" is True by default.
+        """
+
+        [g.compute_geometry(is_embedded=is_embedded,
+                            is_starshaped=is_starshaped) for g, _ in self]
+
+#------------------------------------------------------------------------------#

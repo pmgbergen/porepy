@@ -55,31 +55,34 @@ def split_fractures(bucket, offset=0):
         if gh.dim <= 1:
             # Nothing to do. We have already split 1D grids in gmsh.
             continue
-        # Find connected vertices and corresponding edges. 
+        # Find connected vertices and corresponding edges.
         neigh = np.array(bucket.node_neighbors(gh))
-        
+
         # Find the neighbours that are lower dimensional
         is_low_dim_grid = np.where([w.dim < gh.dim
                                     for w in neigh])
-        gl = [w for w in neigh[is_low_dim_grid]]
-        face_cells = [bucket.get_edge_prop([(gh,n)], 'face_cells')
-                      for n in neigh[is_low_dim_grid]]
-        if len(face_cells)==0:
+        edges = [(gh, w) for w in neigh[is_low_dim_grid]]
+        face_cells = bucket.edge_prop(edges, 'face_cells')
+        if len(face_cells) == 0:
             # No lower dim grid. Nothing to do.
             continue
         # We split all the faces that are connected to a lower-dim grid.
-        # The new faces will share the same nodes and properties (normals, etc.)
+        # The new faces will share the same nodes and properties (normals,
+        # etc.)
 
-        split_faces(gh, face_cells)
+        face_cells = split_faces(gh, face_cells)
+        bucket.add_edge_prop('face_cells', edges, face_cells)
+
         # We now find which lower-dim nodes correspond to which higher-
         # dim nodes. We split these nodes according to the topology of
         # the connected higher-dim cells. At a X-intersection we split
         # the node into four, while at the fracture boundary it is not split.
-        gl_2_gh_nodes = [bucket.target_2_source_nodes(g, gh) for g in gl]
+
+        gl = [e[1] for e in edges]
+        gl_2_gh_nodes = [bucket.target_2_source_nodes(
+            g, gh) for g in gl]
 
         split_nodes(gh, gl, gl_2_gh_nodes, offset)
-
-        
 
     # Remove zeros from cell_faces
 
@@ -104,19 +107,18 @@ def split_faces(gh, face_cells):
         # however, the new faces are not yet added to the cell_faces map
         # (to save computation).
         face_id = duplicate_faces(gh, face_cells[i])
-        update_face_cells(face_cells, face_id, i)
-        
+        face_cells = update_face_cells(face_cells, face_id, i)
+
         # We now set the cell_faces map based on which side of the
         # fractures the cells lie. We assume that all fractures are
         # flat surfaces and pick the normal of the first face as
         # a normal for the whole fracture.
         n = np.reshape(gh.face_normals[:, face_id[0]], (3, 1))
-        n = n/np.linalg.norm(n)
+        n = n / np.linalg.norm(n)
         x0 = np.reshape(gh.face_centers[:, face_id[0]], (3, 1))
         update_cell_connectivity(gh, face_id, n, x0)
 
-
-    return gh
+    return face_cells
 
 
 def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
@@ -137,7 +139,7 @@ def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
              fracture to the new nodes. Note that this is only for
              visualization, e.g., g.face_centers is not updated.
     """
-    # We find the higher-dim node indices of all lower-dim nodes 
+    # We find the higher-dim node indices of all lower-dim nodes
     nodes = np.array([], dtype=int)
     for i in range(len(gl)):
         nodes = np.append(nodes, gh_2_gl_nodes[i])
@@ -150,11 +152,11 @@ def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
     # to the cells on one side of the fractures.
     node_count = duplicate_nodes(gh, nodes, offset)
 
-    # We remove the old nodes. 
+    # We remove the old nodes.
     #gh = remove_nodes(gh, nodes)
-    
+
     # Update the number of nodes
-    gh.num_nodes = gh.num_nodes + node_count # - nodes.size
+    gh.num_nodes = gh.num_nodes + node_count  # - nodes.size
 
     return True
 
@@ -178,20 +180,22 @@ def duplicate_faces(gh, face_cells):
     _, frac_id, _ = sps.find(face_cells)
     frac_id = np.unique(frac_id)
     node_start = gh.face_nodes.indptr[frac_id]
-    node_end = gh.face_nodes.indptr[frac_id+1]
-    nodes = gh.face_nodes.indices[mcolon(node_start,node_end - 1)]
-    added_node_pos = np.cumsum(node_end - node_start) + gh.face_nodes.indptr[-1]
+    node_end = gh.face_nodes.indptr[frac_id + 1]
+    nodes = gh.face_nodes.indices[mcolon(node_start, node_end - 1)]
+    added_node_pos = np.cumsum(node_end - node_start) + \
+        gh.face_nodes.indptr[-1]
     assert(added_node_pos.size == frac_id.size)
-    assert(added_node_pos[-1] - gh.face_nodes.indptr[-1]  == nodes.size)
-    gh.face_nodes.indices = np.hstack((gh.face_nodes.indices,nodes))
-    gh.face_nodes.indptr = np.hstack((gh.face_nodes.indptr,added_node_pos))
+    assert(added_node_pos[-1] - gh.face_nodes.indptr[-1] == nodes.size)
+    gh.face_nodes.indices = np.hstack((gh.face_nodes.indices, nodes))
+    gh.face_nodes.indptr = np.hstack((gh.face_nodes.indptr, added_node_pos))
     gh.face_nodes.data = np.hstack((gh.face_nodes.data,
-                                    np.ones(nodes.size,dtype=bool)))
-    gh.face_nodes._shape = (gh.num_nodes, gh.face_nodes.shape[1] + frac_id.size)
+                                    np.ones(nodes.size, dtype=bool)))
+    gh.face_nodes._shape = (
+        gh.num_nodes, gh.face_nodes.shape[1] + frac_id.size)
     assert(gh.face_nodes.indices.size == gh.face_nodes.indptr[-1])
 
     node_start = gh.face_nodes.indptr[frac_id]
-    node_end = gh.face_nodes.indptr[frac_id+1]
+    node_end = gh.face_nodes.indptr[frac_id + 1]
 
     #frac_nodes = gh.face_nodes[:, frac_id]
 
@@ -221,12 +225,14 @@ def update_face_cells(face_cells, face_id, i):
     # The duplications should also be associated with grid i.
     # For the other lower-dim grids we just add zeros to conserve
     # the right matrix dimensions.
-    for  j, f_c in enumerate(face_cells):
+    for j, f_c in enumerate(face_cells):
         if j == i:
             f_c = sps.hstack((f_c, f_c[:, face_id]))
         else:
             empty = sps.csc_matrix(f_c[:, face_id].shape)
             f_c = sps.hstack((f_c, empty))
+        face_cells[j] = f_c
+    return face_cells
 
 
 def update_cell_connectivity(g, face_id, normal, x0):
@@ -267,7 +273,7 @@ def update_cell_connectivity(g, face_id, normal, x0):
 
     # Assume that fracture is either on boundary (above case) or completely
     # innside domain. Check that each face added two cells:
-    assert sum(left_cell)*2 == left_cell.size, 'Fractures must either be' \
+    assert sum(left_cell) * 2 == left_cell.size, 'Fractures must either be' \
         'on boundary or completely innside domain'
 
     # We create a cell_faces mapping for the new faces. This will be added
@@ -279,7 +285,6 @@ def update_cell_connectivity(g, face_id, normal, x0):
     assert data.size == face_id.size
     cell_frac_left = sps.csc_matrix((data, (row, col)),
                                     (face_id.size, g.cell_faces.shape[1]))
-
 
     # We now update the cell_faces map of the faces on the right side of
     # the fracture. These faces should only be attached to the right cells.
@@ -295,11 +300,10 @@ def update_cell_connectivity(g, face_id, normal, x0):
     # And then we add the new left-faces to the cell_face map. We do not
     # change the sign of the matrix since we did not flip the normals.
     # This means that the normals of right and left cells point in the same
-    # direction, but their cell_faces values have oposite signs. 
+    # direction, but their cell_faces values have oposite signs.
     g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
 
-    
-    
+
 def remove_faces(g, face_id, rem_cell_faces=True):
     """
     Remove faces from grid.
@@ -312,7 +316,7 @@ def remove_faces(g, face_id, rem_cell_faces=True):
                      is not changed.
     """
     # update face info
-    keep = np.array([True]*g.num_faces)
+    keep = np.array([True] * g.num_faces)
     keep[face_id] = False
     g.face_nodes = g.face_nodes[:, keep]
     g.num_faces -= face_id.size
@@ -324,14 +328,14 @@ def remove_faces(g, face_id, rem_cell_faces=True):
 
     if rem_cell_faces:
         g.cell_faces = g.cell_faces[keep, :]
-    
+
 
 def duplicate_nodes(g, nodes, offset):
     """
     Duplicate nodes on a fracture. The number of duplication will depend on
     the cell topology around the node. If the node is not on a fracture 1
-    duplicate will be added. If the node is on a single fracture 2 duplicates 
-    will be added. If the node is on a T-intersection 3 duplicates will be 
+    duplicate will be added. If the node is on a single fracture 2 duplicates
+    will be added. If the node is on a T-intersection 3 duplicates will be
     added. If the node is on a X-intersection 4 duplicates will be added.
     Equivalently for other types of intersections.
 
@@ -353,7 +357,7 @@ def duplicate_nodes(g, nodes, offset):
 
     _, iv = sort_sub_list(g.face_nodes.indices, g.face_nodes.indptr)
     g.face_nodes = g.face_nodes.tocsr()
-    
+
     # Iterate over each internal node and split it according to the graph.
     # For each cell attached to the node, we check wich color the cell has.
     # All cells with the same color is then attached to a new copy of the
@@ -374,7 +378,7 @@ def duplicate_nodes(g, nodes, offset):
         colors, ix = np.unique(colors, return_inverse=True)
         # copy coordinate of old node
         new_nodes = np.repeat(g.nodes[:, t_node, None], colors.size, axis=1)
-        faces = np.array([],dtype=int)
+        faces = np.array([], dtype=int)
         face_pos = np.array([g.face_nodes.indptr[t_node]])
         for j in range(colors.size):
             # For each color we wish to add one node. First we find all faces that
@@ -389,7 +393,8 @@ def duplicate_nodes(g, nodes, offset):
             # If an offset is given, we will change the position of the nodes.
             # We move the nodes a length of offset away from the fracture(s).
             if offset > 0 and colors.size > 1:
-                new_nodes[:, j] -= avg_normal(g, local_faces[con_to_node]) * offset
+                new_nodes[:, j] -= avg_normal(g,
+                                              local_faces[con_to_node]) * offset
         # The total number of faces should not have changed, only their
         # connection to nodes. We can therefore just update the indices and
         # indptr map.
@@ -397,29 +402,29 @@ def duplicate_nodes(g, nodes, offset):
         node_count += colors.size - 1
         g.face_nodes.indptr = np.insert(g.face_nodes.indptr,
                                         t_node + 1, face_pos[1:-1])
-        g.face_nodes._shape = (g.face_nodes.shape[0]+colors.size - 1,
+        g.face_nodes._shape = (g.face_nodes.shape[0] + colors.size - 1,
                                g.face_nodes._shape[1])
         # We delete the old node because of the offset. If we do not
         # have an offset we could keep it and add one less node.
         g.nodes = np.delete(g.nodes, t_node, axis=1)
-        g.nodes = np.insert(g.nodes, [t_node]*new_nodes.shape[1],
+        g.nodes = np.insert(g.nodes, [t_node] * new_nodes.shape[1],
                             new_nodes, axis=1)
 
     # Transform back to csc format and fix node ordering.
     g.face_nodes = g.face_nodes.tocsc()
-    g.face_nodes.indices = g.face_nodes.indices[iv] # For fast row operation
+    g.face_nodes.indices = g.face_nodes.indices[iv]  # For fast row operation
 
     return node_count
 
 
-def  sort_sub_list(indices, indptr):
-    ix = np.zeros(indices.size,dtype=int)
+def sort_sub_list(indices, indptr):
+    ix = np.zeros(indices.size, dtype=int)
     for i in range(indptr.size - 1):
         sub_ind = mcolon(indptr[i], indptr[i + 1] - 1)
         loc_ix = np.argsort(indices[sub_ind])
         ix[sub_ind] = loc_ix + indptr[i]
     indices = indices[ix]
-    iv = np.zeros(indices.size,dtype=int)
+    iv = np.zeros(indices.size, dtype=int)
     iv[ix] = np.arange(indices.size)
     return indices, iv
 
@@ -430,11 +435,11 @@ def find_cell_color(g, cells):
     that are connected (either directly by a shared face or through a series
     of shared faces of many cells) is are given different colors.
            c_1-c_3     c_4
-         / 
+         /
        c_7  |           |
-         \ 
+         \
            c_2         c_5
-    In this case, cells c_1, c_2, c_3 and c_7 will be given color 0, while 
+    In this case, cells c_1, c_2, c_3 and c_7 will be given color 0, while
     cells c_4 and c_5 will be given color 1.
 
     Parameters:
@@ -453,7 +458,7 @@ def find_cell_color(g, cells):
 def avg_normal(g, faces):
     """
     Calculates the average face normal of a set of faces. The average normal
-    is only constructed from the boundary faces, that is, a face thatbelongs 
+    is only constructed from the boundary faces, that is, a face thatbelongs
     to exactly one cell. If a face is not a boundary face, it will be ignored.
     The faces normals are fliped such that they point out of the cells.
 
