@@ -17,7 +17,21 @@ class HybridDualVEM(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def ndof(self, g): return g.num_faces
+    def ndof(self, g):
+        """
+        Return the number of degrees of freedom associated to the method.
+        In this case number of faces (hybrid dofs).
+
+        Parameter
+        ---------
+        g: grid, or a subclass.
+
+        Return
+        ------
+        dof: the number of degrees of freedom.
+
+        """
+        return g.num_faces
 
 #------------------------------------------------------------------------------#
 
