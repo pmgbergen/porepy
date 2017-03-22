@@ -384,7 +384,7 @@ def _add_point(vertices, pt, precision=1e-3, **kwargs):
 
 #-----------------------------------------------------------------------------#
 
-def remove_edge_crossings(vertices, edges, **kwargs):
+def remove_edge_crossings(vertices, edges, tol=1e-8, **kwargs):
     """
     Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
@@ -398,10 +398,12 @@ def remove_edge_crossings(vertices, edges, **kwargs):
     have tags assigned. If so, the tags are preserved as connections are split.
 
     Parameters:
-    vertices (np.ndarray, 2 x n_pt): Coordinates of points to be processed
-    edges (np.ndarray, n x n_con): Connections between lines. n >= 2, row
+        vertices (np.ndarray, 2 x n_pt): Coordinates of points to be processed
+        edges (np.ndarray, n x n_con): Connections between lines. n >= 2, row
             0 and 1 are index of start and endpoints, additional rows are tags
-        **kwargs: Arguments passed to snap_to_grid
+        tol (double, optional, default=1e-8): Tolerance used for comparing
+            equal points.
+        **kwargs: Arguments passed to snap_to_grid.
 
     Returns:
     np.ndarray, (2 x n_pt), array of points, possibly expanded.
@@ -420,6 +422,10 @@ def remove_edge_crossings(vertices, edges, **kwargs):
         raise NotImplementedError('Only 2D so far')
 
     edge_counter = 0
+
+    # Add tolerance to kwargs, this is later passed to split_edges, and further
+    # on.
+    kwargs['precision'] = tol
 
     vertices = snap_to_grid(vertices, **kwargs)
 
