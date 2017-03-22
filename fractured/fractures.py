@@ -1134,6 +1134,8 @@ class FractureNetwork(object):
             edges_2d[0, ei] = np.argwhere(p_ind_loc == edges_loc[0, ei])
             edges_2d[1, ei] = np.argwhere(p_ind_loc == edges_loc[1, ei])
 
+        assert edges_2d[:2].max() < p_loc.shape[1]
+
         return p_2d, edges_2d, p_loc_c, rot
 
 
