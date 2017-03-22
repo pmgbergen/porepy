@@ -33,11 +33,15 @@ def create_grid(fracs, domain, **kwargs):
     # nd.create_grid methods.
     if ndim == 2:
         # This will fail, either change method parameters, or process data.
-        grids = grid_2d.create_grid(fracs)
+        f_lines = np.reshape(np.arange(2 * len(fracs)), (2, -1), order='F')
+        f_pts = np.hstack(fracs)
+        frac_dic = {'points': f_pts, 'edges': f_lines}
+        print(f_pts, 'fpte')
+        print(f_lines, 'f_lines')
+        grids = grid_2d.create_grid(frac_dic, domain, **kwargs)
+        print(grids, 'grids')
         return grids
     elif ndim == 3:
         bucket = grid_3d.create_grid(fracs, domain, **kwargs)
         return bucket
     # Somehow take care of the output, and return appropriate values.
-
-
