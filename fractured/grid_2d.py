@@ -25,29 +25,23 @@ def create_grid(fracs, domain, **kwargs):
     >>> lines = np.array([[0, 2], [1, 3]])
     >>> char_h = 0.5 * np.ones(p.shape[1])
     >>> tags = np.array([1, 3])
-    >>> fracs = {'points': p, 'edges': lines, 'lchar': char_h, 'tags': tags}
-    >>> box = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'lcar': 0.7}
-    >>> g = generate_grid(fracs, box, 'gmsh_test')
-    >>> plot_grid.plot_grid_fractures(g)
+    >>> fracs = {'points': p, 'edges': lines}
+    >>> box = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2}
+    >>> path_to_gmsh = '~/gmsh/bin/gmsh'
+    >>> g = create_grid(fracs, box, gmsh_path=path_to_gmsh)
+    >>> plot_grid.plot_grid(g)
 
     Parameters
     ----------
     fracs: (dictionary) Two fields: points (2 x num_points) np.ndarray,
         lines (2 x num_lines) connections between points, defines fractures.
     box: (dictionary) keys xmin, xmax, ymin, ymax, [together bounding box
-        for the domain], lcar - characteristic cell size for the domain (see
-        gmsh documentation)
-    compartments:
-    file_name: Name for where to put the in and outfile for gmsh. Defaults to a
-        temporary file
-
+        for the domain]
+    **kwargs: To be explored. Must contain the key 'gmsh_path'
     Returns
     -------
-    g - triangular grid that conforms to the fratures. In addition to the
-        standard fields, g has a variable face_info (dictionary),
-        with elements tagcols (an explanation of the tags), and tags,
-        telling which faces lies on the fractures (numbering corresponding
-        to the columns in fracs['edges'])
+    list (length 3): For each dimension (2 -> 0), a list of all grids in 
+        that dimension.
     """
     # Verbosity level
     verbose = kwargs.get('verbose', 1)
@@ -64,15 +58,19 @@ def create_grid(fracs, domain, **kwargs):
 
     # Unified description of points and lines for domain, and fractures
     pts_all, lines = __merge_domain_fracs_2d(domain, frac_pts, frac_con)
+
+    # We split all fracture intersections so that the new lines do not
+    # intersect, except possible at the end points
     dx = np.array(
         [[domain['xmax'] - domain['xmin']], [domain['ymax'] - domain['ymin']]])
     pts_split, lines_split = cg.remove_edge_crossings(
         pts_all, lines, box=dx)
+    # We find the end points that is shared by more than one intersection
     intersections = __find_intersection_points(lines_split)
+
     # Constants used in the gmsh.geo-file
     const = constants.GmshConstants()
-
-    # Replace this at some point with a more
+    # Gridding size
     lchar_dom = kwargs.get('lchar_dom', None)
     lchar_frac = kwargs.get('lchar_frac', lchar_dom)
 
@@ -87,6 +85,8 @@ def create_grid(fracs, domain, **kwargs):
         pts_split, lines_split, domain=domain, mesh_size=lchar_dom,
         mesh_size_bound=lchar_frac, intersection_points=intersections)
     gw.write_geo(in_file)
+
+    # Run gmsh
     gmsh_status = gmsh_interface.run_gmsh(gmsh_path, in_file, out_file, dims=2,
                                           **gmsh_opts)
 
@@ -99,7 +99,7 @@ def create_grid(fracs, domain, **kwargs):
 
     pts, cells, phys_names, cell_info = mesh_io.read(out_file)
 
-    # gmsh works with 3D points, whereas we only need 2D
+    # Create grids from gmsh mesh.
     g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False)
     g_1d, _ = mesh_2_grid.create_1d_grids(
         pts, cells, phys_names, cell_info, line_tag=const.PHYSICAL_NAME_FRACTURES)

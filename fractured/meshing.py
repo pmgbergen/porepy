@@ -10,7 +10,7 @@ generators etc.
 import numpy as np
 import scipy.sparse as sps
 
-from gridding.fractured import grid_2d, grid_3d
+from gridding.fractured import grid_2d, grid_3d, split_grid
 from gridding.grid_bucket import GridBucket
 from utils import setmembership
 
@@ -23,9 +23,13 @@ def create_grid(fracs, domain, **kwargs):
         fracs (list of np.ndarray): One list item for each fracture. Each item
             consist of a (nd x n) array describing fracture vertices. The
             fractures may be intersecting.
-        domain (dict): Domain specification, determined by
+        domain (dict): Domain specification, determined by xmin, xmax, ...
         **kwargs: May contain fracture tags, options for gridding, etc.
-
+    Returns:
+        GridBucket: A complete bucket where all fractures are represented as 
+            lower dim grids. The higher dim faces are split in two, and on the
+            edges of the GridBucket graph the mapping from lower dim cells to 
+            higher dim faces are stored as 'face_cells'
     """
 
     ndim = fracs[0].shape[0]
@@ -43,7 +47,10 @@ def create_grid(fracs, domain, **kwargs):
     elif ndim == 3:
         grids = grid_3d.create_grid(fracs, domain, **kwargs)
 
-    return assemble_in_bucket(grids)
+    gb = assemble_in_bucket(grids)
+    gb.compute_geometry()
+    split_grid.split_fractures(gb)
+    return gb
 
 
 def assemble_in_bucket(grids):
