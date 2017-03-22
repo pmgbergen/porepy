@@ -461,8 +461,18 @@ def remove_edge_crossings(vertices, edges, tol=1e-8, **kwargs):
         c1 = a[edge_counter] * (start_x - xm) \
              + b[edge_counter] * (start_y - ym)
         c2 = a[edge_counter] * (end_x - xm) + b[edge_counter] * (end_y - ym)
-        line_intersections = np.logical_or(np.sign(c1) != np.sign(c2),
-                                           np.logical_and(c1 == 0, c2 == 0))
+
+        # We check for three cases
+        # 1) Lines crossing
+        lines_cross = np.sign(c1) != np.sign(c2)
+        # 2) Lines parallel
+        parallel_lines = np.logical_and(np.abs(c1) < tol, np.abs(c2) < tol)
+        # 3) One line look to end on the other
+        lines_almost_cross = np.logical_or(np.abs(c1) < tol, np.abs(c2) < tol)
+        # Any of the three above deserves a closer look
+        line_intersections = np.logical_or(np.logical_or(parallel_lines,
+                                                         lines_cross),
+                                           lines_almost_cross)
 
         # Find elements which may intersect.
         intersections = np.argwhere(line_intersections)
@@ -500,6 +510,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-8, **kwargs):
                                        vertices[:, edges[1, edge_counter]],
                                        vertices[:, edges[0, intsect]],
                                        vertices[:, edges[1, intsect]])
+
             if new_pt is not None:
                 # The case of segment intersections need special treatment.
                 if new_pt.shape[-1] == 1:
