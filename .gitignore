@@ -5,3 +5,7 @@
 *.swp
 *.py~
 *.un~
+*.pos 
+*.vtu
+*.vrml
+

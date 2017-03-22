@@ -208,14 +208,14 @@ class GridBucket(object):
         overwritten.
 
         Parameters:
-            keys (object): Keys to the property to be handled.
+            keys (object): Keys to the properties to be handled.
 
         Raises:
             ValueError if the key is 'node_number', this is reserved for other
                 purposes. See self.assign_node_ordering() for details.
 
         """
-        [self.add_node_prop(key) for key in keys]
+        [self.add_node_prop(key) for key in np.atleast_1d(keys)]
 
 #------------------------------------------------------------------------------#
 
@@ -266,6 +266,26 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
+    def add_edge_props(self, keys):
+        """
+        Add new propertiy to existing edges in the graph.
+
+        Properties can be added either to all edges.
+
+        No tests are done on whether the key already exist, values are simply
+        overwritten.
+
+        Parameters:
+            keys (object): Keys to the properties to be handled.
+
+        Raises:
+            KeyError if a grid pair is not an existing edge in the grid.
+
+        """
+        [self.add_edge_prop(key) for key in np.atleast_1d(keys)]
+
+#------------------------------------------------------------------------------#
+
     def node_prop(self, g, key):
         """
         Getter for a node property of the bucket.
@@ -298,21 +318,33 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def node_props(self, g, keys=None):
+    def node_props(self, g):
         """
         Getter for a node property of the bucket.
 
         Parameters:
             grid (core.grids.grid): The grid associated with the node.
-            keys (object): Key for the property to be retrieved. If it is None
-                all properties are returned.
+
+        Returns:
+            object: A dictionary with keys and properties.
+
+        """
+        return self.graph.node[g]
+
+#------------------------------------------------------------------------------#
+
+    def node_props_of_keys(self, g, keys):
+        """
+        Getter for a node property of the bucket.
+
+        Parameters:
+            grid (core.grids.grid): The grid associated with the node.
+            keys (object): Key for the property to be retrieved.
 
         Returns:
             object: A dictionary with key and property.
 
         """
-        if keys is None:
-            return self.node_props(g, self.graph.node[g].keys())
         return {key: self.graph.node[g][key] for key in keys}
 
 #------------------------------------------------------------------------------#
@@ -344,7 +376,7 @@ class GridBucket(object):
         return prop_list
 #------------------------------------------------------------------------------#
 
-    def edge_props(self, gp, keys=None):
+    def edge_props(self, gp):
         """
         Getter for an edge properties of the bucket.
 
@@ -360,15 +392,26 @@ class GridBucket(object):
             KeyError if the two grids do not form an edge.
 
         """
-        if keys is None:
-            if tuple(gp) in self.graph.edges():
-                return self.edge_props(gp, self.graph.edge[gp[0]][gp[1]].keys())
-            elif tuple(gp[::-1]) in self.graph.edges():
-                return self.edge_props(gp, self.graph.edge[gp[1]][gp[0]].keys())
-            else:
-                raise KeyError('Unknown edge')
+        if tuple(gp) in self.graph.edges():
+            return self.graph.edge[gp[0]][gp[1]]
+        elif tuple(gp[::-1]) in self.graph.edges():
+            return self.graph.edge[gp[1]][gp[0]]
+        else:
+            raise KeyError('Unknown edge')
 
-        return {key: self.edge_prop(gp, key) for key in keys}
+#------------------------------------------------------------------------------#
+
+    def edges_props(self):
+        """
+        Iterator over the edges of the grid bucket.
+
+        Yields:
+            core.grid.edges: The edge (pair of grids) associated with an edge.
+            data: The dictionary storing all information in this edge.
+
+        """
+        for e in self.graph.edges():
+            yield e, self.edge_props(e)
 
 #------------------------------------------------------------------------------#
 
