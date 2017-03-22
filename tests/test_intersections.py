@@ -148,11 +148,11 @@ class SnapToGridTest(unittest.TestCase):
         self.p = np.array([0.6, 0.6])
 
     def test_snapping(self):
-        p_snapped = basics.snap_to_grid(self.p, box=self.box, precision=1)
+        p_snapped = basics.snap_to_grid(self.p, box=self.box, tol=1)
         assert np.allclose(p_snapped, np.array([1, 1]))
 
     def test_aniso_snapping(self):
-        p_snapped = basics.snap_to_grid(self.p, box=self.anisobox, precision=1)
+        p_snapped = basics.snap_to_grid(self.p, box=self.anisobox, tol=1)
         assert np.allclose(p_snapped, np.array([0, 1]))
 
     if __name__ == '__main__':

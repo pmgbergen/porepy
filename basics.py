@@ -18,7 +18,7 @@ from sympy import geometry as geom
 #
 #------------------------------------------------------------------------------#
 
-def snap_to_grid(pts, precision=1e-3, box=None):
+def snap_to_grid(pts, tol=1e-3, box=None):
     """
     Snap points to an underlying Cartesian grid.
     Used e.g. for avoiding rounding issues when testing for equality between
@@ -34,7 +34,7 @@ def snap_to_grid(pts, precision=1e-3, box=None):
     array([[ 0.24 ],
            [ 0.501]])
 
-    >>> snap_to_grid([[0.2443], [0.501]], precision=0.01)
+    >>> snap_to_grid([[0.2443], [0.501]], tol=0.01)
     array([[ 0.24],
            [ 0.5 ]])
 
@@ -59,7 +59,7 @@ def snap_to_grid(pts, precision=1e-3, box=None):
         box = np.asarray(box)
 
     # Precission in each direction
-    delta = box * precision
+    delta = box * tol
     pts = np.rint(pts.astype(np.float64) / delta) * delta
     return pts
 
@@ -329,7 +329,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
 #------------------------------------------------------------------------------#
 
-def _add_point(vertices, pt, precision=1e-3, **kwargs):
+def _add_point(vertices, pt, tol=1e-3, **kwargs):
     """
     Add a point to a point set, unless the point already exist in the set.
 
@@ -353,8 +353,8 @@ def _add_point(vertices, pt, precision=1e-3, **kwargs):
         np.ndarray, nd x 1: The new point, or None if no new point was needed.
 
     """
-    if not 'precision' in kwargs:
-        kwargs['precision'] = precision
+    if not 'tol' in kwargs:
+        kwargs['tol'] = tol
 
     nd = vertices.shape[0]
     # Before comparing coordinates, snap both existing and new point to the
@@ -369,7 +369,7 @@ def _add_point(vertices, pt, precision=1e-3, **kwargs):
         dist = __dist(pt[:, i].reshape((-1, 1)), vertices)
         min_dist = np.min(dist)
 
-        if min_dist < precision * np.sqrt(nd):
+        if min_dist < tol * np.sqrt(nd):
             # No new point is needed
             ind.append(np.argmin(dist))
         else:
@@ -384,7 +384,7 @@ def _add_point(vertices, pt, precision=1e-3, **kwargs):
 
 #-----------------------------------------------------------------------------#
 
-def remove_edge_crossings(vertices, edges, tol=1e-8, **kwargs):
+def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
     """
     Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
@@ -425,7 +425,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-8, **kwargs):
 
     # Add tolerance to kwargs, this is later passed to split_edges, and further
     # on.
-    kwargs['precision'] = tol
+    kwargs['tol'] = tol
 
     vertices = snap_to_grid(vertices, **kwargs)
 
