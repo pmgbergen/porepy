@@ -7,6 +7,7 @@ import sys
 import os
 import gridding.constants as gridding_constants
 
+
 class GmshWriter(object):
     """
      Write a gmsh.geo file for a fractured 2D domains, possibly including
@@ -43,13 +44,13 @@ class GmshWriter(object):
         # fractures)
         self.intersection_points = intersection_points
 
-
     def write_geo(self, file_name):
         s = self.__write_points()
 
         if self.nd == 2:
             s += self.__write_boundary_2d()
             s += self.__write_fractures_compartments_2d()
+            s += self.__write_physical_points()
         elif self.nd == 3:
             s += self.__write_boundary_3d()
             s += self.__write_lines()
@@ -121,8 +122,8 @@ class GmshWriter(object):
         xmax = str(self.domain['xmax']) + ', '
         ymin = str(self.domain['ymin']) + ', '
         ymax = str(self.domain['ymax']) + ', '
-        zmin = str(self.domain['zmin'])# + ', '
-        zmax = str(self.domain['zmax'])# + ', '
+        zmin = str(self.domain['zmin'])  # + ', '
+        zmax = str(self.domain['zmax'])  # + ', '
 
         # Add mesh size on boundary points if these are provided
         if self.lchar_bound is not None:
@@ -140,7 +141,7 @@ class GmshWriter(object):
         s += 'p_bound_000 = newp; Point(p_bound_000) = {'
         s += xmin + ymin + zmin + h + ls
         s += 'p_bound_100 = newp; Point(p_bound_100) = {'
-        s += xmax+ ymin + zmin + h + ls
+        s += xmax + ymin + zmin + h + ls
         s += 'p_bound_110 = newp; Point(p_bound_110) = {'
         s += xmax + ymax + zmin + h + ls
         s += 'p_bound_010 = newp; Point(p_bound_010) = {'
@@ -155,16 +156,17 @@ class GmshWriter(object):
         s += 'bound_line_3 = newl; Line(bound_line_3) = { p_bound_110,' \
             + 'p_bound_010};' + ls
         s += 'bound_line_4 = newl; Line(bound_line_4) = { p_bound_010,' \
-            + 'p_bound_000};' +ls
+            + 'p_bound_000};' + ls
         s += 'bottom_loop = newll;' + ls
         s += 'Line Loop(bottom_loop) = {bound_line_1, bound_line_2, ' \
-               + 'bound_line_3, bound_line_4};' + ls
+            + 'bound_line_3, bound_line_4};' + ls
         s += 'bottom_surf = news;' + ls
         s += 'Plane Surface(bottom_surf) = {bottom_loop};' + ls
 
         dz = self.domain['zmax'] - self.domain['zmin']
         s += 'Extrude {0, 0, ' + str(dz) + '} {Surface{bottom_surf}; }' + ls
-        s += 'Physical Volume(\"' + constants.PHYSICAL_NAME_DOMAIN + '\") = {1};' + ls
+        s += 'Physical Volume(\"' + \
+            constants.PHYSICAL_NAME_DOMAIN + '\") = {1};' + ls
         s += '// End of domain specification ' + ls + ls
 
         return s
@@ -202,8 +204,8 @@ class GmshWriter(object):
         for i in range(num_lines):
             si = str(i)
             s += 'frac_line_' + si + '= newl; Line(frac_line_' + si \
-                    + ') = {p' + str(l[0, i]) + ', p' + str(l[1, i]) \
-                    + '};' + ls
+                + ') = {p' + str(l[0, i]) + ', p' + str(l[1, i]) \
+                + '};' + ls
             if has_tags:
                 s += 'Physical Line(\"'
                 if l[2, i] == constants.FRACTURE_TIP_TAG:
@@ -238,7 +240,7 @@ class GmshWriter(object):
                 if i < p.size - 1:
                     s += ', '
 
-            s +='};' + ls
+            s += '};' + ls
 
             # Then the surface
             s += 'fracture_' + str(pi) + ' = news; '
@@ -260,11 +262,12 @@ class GmshWriter(object):
 
         for i, p in enumerate(self.intersection_points):
             s += 'Physical Point(\"' + constants.PHYSICAL_NAME_FRACTURE_POINT \
-                    + str(i) + '\") = {p' + str(p) + '};' + ls
+                + str(i) + '\") = {p' + str(p) + '};' + ls
         s += '// End of physical point specification ' + ls + ls
         return s
 
 # ----------- end of GmshWriter -----------------------------
+
 
 def read_gmsh(out_file):
     points, cells, phys_names, cell_info = mesh_io.read(out_file)
@@ -305,4 +308,3 @@ def run_gmsh(path_to_gmsh, in_file, out_file, dims, **kwargs):
     status = os.system(cmd)
 
     return status
-
