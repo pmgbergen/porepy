@@ -1,14 +1,16 @@
 import numpy as np
 import tempfile
-from compgeom import basics as geom_basics
-from ..gmsh import gmsh_interface
-from ..gmsh import mesh_io
-from core.grids import simplex
+import time
+
+import compgeom.basics as cg
+from ..gmsh import gmsh_interface, mesh_io, mesh_2_grid
+from core.grids import simplex, structured
 from utils import setmembership
-import gridding.constants
+from gridding import constants
+from gridding.fractured import grid_3d
 
 
-def create_grid(fracs, box, compartments=None, file_name='fractures_gmsh'):
+def create_grid(fracs, domain, **kwargs):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -23,30 +25,29 @@ def create_grid(fracs, box, compartments=None, file_name='fractures_gmsh'):
     >>> lines = np.array([[0, 2], [1, 3]])
     >>> char_h = 0.5 * np.ones(p.shape[1])
     >>> tags = np.array([1, 3])
-    >>> fracs = {'points': p, 'edges': lines, 'lchar': char_h, 'tags': tags}
-    >>> box = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'lcar': 0.7}
-    >>> g = generate_grid(fracs, box, 'gmsh_test')
-    >>> plot_grid.plot_grid_fractures(g)
+    >>> fracs = {'points': p, 'edges': lines}
+    >>> box = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2}
+    >>> path_to_gmsh = '~/gmsh/bin/gmsh'
+    >>> g = create_grid(fracs, box, gmsh_path=path_to_gmsh)
+    >>> plot_grid.plot_grid(g)
 
     Parameters
     ----------
     fracs: (dictionary) Two fields: points (2 x num_points) np.ndarray,
         lines (2 x num_lines) connections between points, defines fractures.
     box: (dictionary) keys xmin, xmax, ymin, ymax, [together bounding box
-        for the domain], lcar - characteristic cell size for the domain (see
-        gmsh documentation)
-    compartments:
-    file_name: Name for where to put the in and outfile for gmsh. Defaults to a
-        temporary file
-
+        for the domain]
+    **kwargs: To be explored. Must contain the key 'gmsh_path'
     Returns
     -------
-    g - triangular grid that conforms to the fratures. In addition to the
-        standard fields, g has a variable face_info (dictionary),
-        with elements tagcols (an explanation of the tags), and tags,
-        telling which faces lies on the fractures (numbering corresponding
-        to the columns in fracs['edges'])
+    list (length 3): For each dimension (2 -> 0), a list of all grids in 
+        that dimension.
     """
+    # Verbosity level
+    verbose = kwargs.get('verbose', 1)
+
+    # File name for communication with gmsh
+    file_name = kwargs.get('file_name', 'gmsh_frac_file')
 
     in_file = file_name + '.geo'
     out_file = file_name + '.msh'
@@ -55,117 +56,76 @@ def create_grid(fracs, box, compartments=None, file_name='fractures_gmsh'):
     frac_pts = fracs['points']
     frac_con = fracs['edges']
 
-    # If no tags are provided for the fractures, we assign increasing value
-    # for each column
-    # if frac_con.shape[0] == 2:
-    #     frac_con = np.vstack((frac_con, np.arange(frac_con.shape[1])))
+    # Unified description of points and lines for domain, and fractures
+    pts_all, lines = __merge_domain_fracs_2d(domain, frac_pts, frac_con)
 
-    domain = box['domain']
-
-    # Unified description of points and lines for domain, fractures and
-    # internal compartments
-    pts, lines, line_tag_description = \
-        __merge_fracs_compartments_domain_2d(domain, frac_pts, frac_con,
-                                             compartments)
+    # We split all fracture intersections so that the new lines do not
+    # intersect, except possible at the end points
     dx = np.array(
         [[domain['xmax'] - domain['xmin']], [domain['ymax'] - domain['ymin']]])
-
-    pts_split, lines_split = geom_basics.remove_edge_crossings(pts, lines, dx)
-
-    # Create a writer of gmsh .geo-files
-    gw = gmsh_interface.GmshWriter(pts_split, lines_split)
+    pts_split, lines_split = cg.remove_edge_crossings(
+        pts_all, lines, box=dx)
+    # We find the end points that is shared by more than one intersection
+    intersections = __find_intersection_points(lines_split)
 
     # Constants used in the gmsh.geo-file
-    const = gridding.constants.GmshConstants()
+    const = constants.GmshConstants()
+    # Gridding size
+    lchar_dom = kwargs.get('lchar_dom', None)
+    lchar_frac = kwargs.get('lchar_frac', lchar_dom)
 
-    # Replace this at some point with a more
-    lchar_frac = fracs['lchar']
-    lchar_dom = box['lchar']
-    lchar_p =  lchar_dom * np.ones(pts_split.shape[1])
+    # gmsh options
+    gmsh_path = kwargs.get('gmsh_path')
 
-    frac_pts = np.ravel(lines_split[:2, np.argwhere(lines_split[2] ==
-                                              const.FRACTURE_TAG)])
+    gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
+    gmsh_opts = {'-v': gmsh_verbose}
 
-    lchar_p[frac_pts] = lchar_frac
-    gw.lchar = lchar_p
-
+    # Create a writer of gmsh .geo-files
+    gw = gmsh_interface.GmshWriter(
+        pts_split, lines_split, domain=domain, mesh_size=lchar_dom,
+        mesh_size_bound=lchar_frac, intersection_points=intersections)
     gw.write_geo(in_file)
 
-    gmsh_interface.run_gmsh(in_file, out_file, 2)
+    # Run gmsh
+    gmsh_status = gmsh_interface.run_gmsh(gmsh_path, in_file, out_file, dims=2,
+                                          **gmsh_opts)
 
-    points, cells, phys_names, cell_info = mesh_io.read(out_file)
+    if verbose > 0:
+        start_time = time.time()
+        if gmsh_status == 0:
+            print('Gmsh processed file successfully')
+        else:
+            print('Gmsh failed with status ' + str(gmsh_status))
 
-    # gmsh works with 3D points, whereas we only need 2D
-    points = points[:, :2].transpose()
+    pts, cells, phys_names, cell_info = mesh_io.read(out_file)
 
-    # Recover triangles
-    triangles = cells['triangle'].transpose()
-    # Construct grid
-    g = simplex.TriangleGrid(points, triangles)
+    # Create grids from gmsh mesh.
+    g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False)
+    g_1d, _ = mesh_2_grid.create_1d_grids(
+        pts, cells, phys_names, cell_info, line_tag=const.PHYSICAL_NAME_FRACTURES)
+    g_0d = mesh_2_grid.create_0d_grids(pts, cells)
+    grids = [g_2d, g_1d, g_0d]
 
-    # Next, recover faces that coincides with fractures, and assign the
-    # appropriate tags to the nodes
+    if verbose > 0:
+        print('\n')
+        print('Grid creation completed. Elapsed time ' + str(time.time() -
+                                                             start_time))
+        print('\n')
+        for g_set in grids:
+            if len(g_set) > 0:
+                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
+                    '-d grids with '
+                num = 0
+                for g in g_set:
+                    num += g.num_cells
+                s += str(num) + ' cells'
+                print(s)
+        print('\n')
 
-    # Nodes that define 1D physical entities, that is compartment lines
-    # or fractures, as computed by gmsh.
-    frac_face_nodes = cells['line'].transpose()
-    # Nodes of faces in the grid
-    face_nodes = g.face_nodes.indices.reshape((2, g.num_faces),
-                                              order='F').astype('int')
-    # Match faces in the grid with the 1D lines in gmsh. frac_ind gives a
-    # mapping from faces laying on Physical Lines to all faces in the grid
-    _, frac_ind = setmembership.ismember_rows(np.sort(frac_face_nodes, axis=0),
-                                              np.sort(face_nodes, axis=0))
-    frac_ind = np.array(frac_ind)
-
-    # Find tags (in gmsh sense) of the line elements as specified as cell_info.
-    # The 1-1 correspondence between line elements in cells and cell_info means
-    # the tags will correspond to the indices in frac_ind
-    frac_face_tags = __match_face_fractures(cell_info,
-                                            phys_names).astype('int')
-
-    # Having the pieces necessary for the connection between physical lines and
-    # fracture faces, we also need to identify the correct 'unsplit' lines,
-    # that is fractures as they were passed to this function
-
-    # Lines that are not compartment or fracture were not passed to gmsh
-    line_is_constraint = np.ravel(np.argwhere(
-        np.logical_or(lines_split[2] == const.COMPARTMENT_BOUNDARY_TAG,
-                      lines_split[2] == const.FRACTURE_TAG)))
-    constraints = lines_split[:, line_is_constraint]
-
-    # Among the constraints, we are only interested in the ones that are tagged
-    # as fractures.
-    # NOTE: If we ever need to identify faces laying on compartments, this is
-    # the place to do it. However, a more reasonable approach probably is to
-    # ignore compartments altogether, and instead pass the lines as extra
-    # fractures.
-    lines_types = constraints[2:, frac_face_tags]
-    # Faces corresponding to real fractures - not compartments or boundaries
-    real_frac_ind = np.ravel(np.argwhere(lines_types[0] ==
-                                         const.FRACTURE_TAG))
-    # Counting measure of the real fractures
-    real_frac_num = lines_types[1, real_frac_ind]
-    # Remove contribution from domain and compartments
-    real_frac_num = real_frac_num - np.min(real_frac_num)
-
-    # Assign tags according to fracture faces
-    face_tags = np.zeros(g.num_faces)
-    # The default value is set to nan. Not sure if this is the optimal option
-    face_tags[:] = np.nan
-
-    key = 'tags'
-    if key in fracs:
-        face_tags[frac_ind[real_frac_ind]] = fracs.g[real_frac_num]
-    else:
-        face_tags[frac_ind[real_frac_ind]] = real_frac_num
-
-    g.face_info = {'tagcols': ['Fracture_faces'], 'tags': face_tags}
-
-    return g
+    return grids
 
 
-def __merge_fracs_compartments_domain_2d(dom, frac_p, frac_l, comp):
+def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     """
     Merge fractures, domain boundaries and lines for compartments.
     The unified description is ready for feeding into meshing tools such as
@@ -175,7 +135,6 @@ def __merge_fracs_compartments_domain_2d(dom, frac_p, frac_l, comp):
     dom: dictionary defining domain. fields xmin, xmax, ymin, ymax
     frac_p: np.ndarray. Points used in fracture definition. 2 x num_points.
     frac_l: np.ndarray. Connection between fracture points. 2 x num_fracs
-    comp: Compartment lines
 
     returns:
     p: np.ndarary. Merged list of points for fractures, compartments and domain
@@ -183,11 +142,10 @@ def __merge_fracs_compartments_domain_2d(dom, frac_p, frac_l, comp):
     l: np.ndarray. Merged list of line connections (first two rows), tag
         identifying which type of line this is (third row), and a running index
         for all lines (fourth row)
-    tag_description: list describing the tags, that is, row 3 and 4 in l
     """
 
     # Use constants set outside. If we ever
-    constants = gridding.constants.GmshConstants()
+    const = constants.GmshConstants()
 
     # First create lines that define the domain
     x_min = dom['xmin']
@@ -200,85 +158,32 @@ def __merge_fracs_compartments_domain_2d(dom, frac_p, frac_l, comp):
 
     num_dom_lines = dom_lines.shape[1]  # Should be 4
 
-    # Then the compartments
-    # First ignore compartment lines that have no y-component
-    comp = np.squeeze(comp[:, np.argwhere(np.abs(comp[1]) > 1e-5)])
-
-    num_comps = comp.shape[1]
-    # Assume that the compartments are not intersecting at the boundary.
-    # This may need revisiting when we allow for general lines
-    # (not only y=const)
-    comp_p = np.zeros((2, num_comps * 2))
-
-    for i in range(num_comps):
-        # The line is defined as by=1, thus y = 1/b
-        comp_p[:, 2 * i: 2 * (i + 1)] = np.array([[x_min, x_max],
-                                                  [1. / comp[1, i],
-                                                   1. / comp[1, i]]])
-
-    # Define compartment lines
-    comp_lines = np.arange(2 * num_comps, dtype='int').reshape((2, -1),
-                                                               order='F')
-
     # The  lines will have all fracture-related tags set to zero.
     # The plan is to ignore these tags for the boundary and compartments,
     # so it should not matter
-    dom_tags = constants.DOMAIN_BOUNDARY_TAG * np.ones((1, num_dom_lines))
+    dom_tags = const.DOMAIN_BOUNDARY_TAG * np.ones((1, num_dom_lines))
     dom_l = np.vstack((dom_lines, dom_tags))
-    comp_tags = constants.COMPARTMENT_BOUNDARY_TAG * np.ones((1, num_comps))
-    comp_l = np.vstack((comp_lines, comp_tags))
 
     # Also add a tag to the fractures, signifying that these are fractures
     frac_l = np.vstack((frac_l,
-                        constants.FRACTURE_TAG * np.ones(frac_l.shape[1])))
+                        const.FRACTURE_TAG * np.ones(frac_l.shape[1])))
 
     # Merge the point arrays, compartment points first
-    p = np.hstack((dom_p, comp_p, frac_p))
-
-    # Adjust index of compartment points to account for domain points coming
-    # before them in the list
-    comp_l[:2] += dom_p.shape[1]
+    p = np.hstack((dom_p, frac_p))
 
     # Adjust index of fracture points to account for the compart points
-    frac_l[:2] += dom_p.shape[1] + comp_p.shape[1]
+    frac_l[:2] += dom_p.shape[1]
 
-    l = np.hstack((dom_l, comp_l, frac_l)).astype('int')
+    l = np.hstack((dom_l, frac_l)).astype('int')
 
     # Add a second tag as an identifier of each line.
     l = np.vstack((l, np.arange(l.shape[1])))
 
-    tag_description = ['Line type', 'Line number']
-
-    return p, l, tag_description
+    return p, l
 
 
-def __match_face_fractures(cell_info, phys_names):
-    # Match generated line cells (1D elements) with pre-defined fractures
-    # via physical names.
-    # Note that fracs and phys_names are both representation of the
-    # fractures (after splitting due to intersections); fracs is the
-    # information that goes into the gmsh algorithm (in the form of physical
-    #  lines), while phys_names are those physical names generated in the
-    # .msh file
-    line_names = phys_names['line']
-
-    # Tags of the cells, corresponding to the physical entities (gmsh
-    # terminology) are known to be in the first column
-    cell_tags = cell_info['line'][:, 0]
-
-    # Prepare array for tags. Assign nan values for faces an a starting
-    # point, these should be overwritten later
-    cell_2_frac = np.zeros(cell_tags.size)
-    cell_2_frac[:] = np.nan
-
-    # Loop over all physical lines, compare the tag of the cell with the tag
-    # of the physical line.
-    for iter1, name in enumerate(line_names):
-        line_tag = name[1]
-        frac_name = name[2]
-        ind = frac_name.find('_')
-        cell_2_frac[np.argwhere(cell_tags == line_tag)] = frac_name[ind + 1:]
-
-    # Sanity check, we should have assigned tags to all fracture faces by now
-    assert np.all(np.isfinite(cell_2_frac))
-    return cell_2_frac
+def __find_intersection_points(lines):
+    const = constants.GmshConstants()
+    frac_id = np.ravel(lines[:2, lines[2] == const.FRACTURE_TAG])
+    _, ia, count = np.unique(frac_id, True, False, True)
+    return frac_id[ia[count > 1]]
