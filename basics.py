@@ -448,6 +448,8 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
 
         a = end_y - start_y
         b = -(end_x - start_x)
+
+        # Midpoint of this edge
         xm = (start_x[edge_counter] + end_x[edge_counter]) / 2
         ym = (start_y[edge_counter] + end_y[edge_counter]) / 2
 
@@ -457,18 +459,22 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
         #
         # http://stackoverflow.com/questions/385305/efficient-maths-algorithm-to-calculate-intersections
         #
-        # for more information.
+        # answer by PolyThinker and comments by Jason S, for more information.
         c1 = a[edge_counter] * (start_x - xm) \
              + b[edge_counter] * (start_y - ym)
         c2 = a[edge_counter] * (end_x - xm) + b[edge_counter] * (end_y - ym)
+
+        tol_scaled = tol * np.max([np.sqrt(np.abs(c1)), np.sqrt(np.abs(c2))])
 
         # We check for three cases
         # 1) Lines crossing
         lines_cross = np.sign(c1) != np.sign(c2)
         # 2) Lines parallel
-        parallel_lines = np.logical_and(np.abs(c1) < tol, np.abs(c2) < tol)
+        parallel_lines = np.logical_and(np.abs(c1) < tol_scaled,
+                                        np.abs(c2) < tol_scaled)
         # 3) One line look to end on the other
-        lines_almost_cross = np.logical_or(np.abs(c1) < tol, np.abs(c2) < tol)
+        lines_almost_cross = np.logical_or(np.abs(c1) < tol_scaled,
+                                           np.abs(c2) < tol_scaled)
         # Any of the three above deserves a closer look
         line_intersections = np.logical_or(np.logical_or(parallel_lines,
                                                          lines_cross),
