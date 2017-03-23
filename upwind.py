@@ -5,6 +5,12 @@ from core.solver.solver import *
 from core.grids import grid
 
 class Upwind(Solver):
+    """
+    Discretize a hyperbolic transport equation using a single point upstream
+    weighting scheme.
+
+
+    """
 
 #------------------------------------------------------------------------------#
 
