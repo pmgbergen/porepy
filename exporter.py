@@ -215,6 +215,14 @@ def write_vtk( gVTK, name, data = None, binary = True ):
     writer.Update()
 
 #------------------------------------------------------------------------------#
+
+def make_folder(folder, name=None):
+    if folder is None: return name
+
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    return os.path.join(folder, name)
+
 #------------------------------------------------------------------------------#
 
 def make_file_name(name, time_step=None, node_number=None):
