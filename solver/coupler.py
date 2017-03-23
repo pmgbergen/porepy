@@ -23,8 +23,6 @@ class Coupler(object):
 
         """
 
-        assert not np.all(gb.has_nodes_prop(gb.nodes(), 'dof'))
-
         gb.add_node_prop('dof')
         for g, d in gb:
             d['dof'] = self.solver.ndof(g)
