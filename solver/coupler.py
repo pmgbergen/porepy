@@ -5,7 +5,7 @@ class Coupler(object):
 
 #------------------------------------------------------------------------------#
 
-    def __init__(self, solver, coupling):
+    def __init__(self, solver, coupling=None):
         self.solver = solver
         self.coupling = coupling
 
@@ -53,6 +53,10 @@ class Coupler(object):
         for g, data in gb:
             pos = data['node_number']
             matrix[pos, pos], rhs[pos] = self.solver.matrix_rhs(g, data)
+
+        # if the coupling conditions are not given fill only the diagonal part
+        if self.coupling is None:
+            return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
         # Loop over the edges of the graph (pair of connected grids) to compute
         # the coupling conditions
