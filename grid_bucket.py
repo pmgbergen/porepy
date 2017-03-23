@@ -302,6 +302,24 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
+    def has_nodes_prop(self, gs, key):
+        """
+        Test if a key exists for a node property of the bucket, for several nodes.
+        Note: the property may contain None but the outcome of the test is
+        still true.
+
+        Parameters:
+            grids (core.grids.grid): The grids associated with the nodes.
+            key (object): Key for the property to be tested.
+
+        Returns:
+            object: The tested property.
+
+        """
+        return tuple([key in self.graph.node[g] for g in gs])
+
+#------------------------------------------------------------------------------#
+
     def nodes_prop(self, gs, key):
         """
         Getter for a node property of the bucket, for several nodes.
