@@ -41,6 +41,8 @@ class Grid(object):
         face_nodes (sps.csc-matrix): Face-node relationships. Matrix size:
             num_faces x num_cells. To use compute_geometry() later, he field
             face_nodes.indices should store the nodes of each face sorted.
+            For more information, see information on compute_geometry()
+            below.
         cell_faces (sps.csc-matrix): Cell-face relationships. Matrix size:
             num_faces x num_cells. Matrix elements have value +-1, where +
             corresponds to the face normal vector being outwards.
@@ -51,6 +53,16 @@ class Grid(object):
         num_cells (int): Number of cells in the grid
 
         ---
+        compute_geometry():
+        Assumes the nodes of each face is ordered according to the right
+        hand rule.
+        face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]
+        are the nodes of face i, which should be ordered counter-clockwise.
+        By counter-clockwise we mean as seen from cell cell_faces[i,:]==1.
+        Equivalently the nodes will be clockwise as seen from cell
+        cell_faces[i,:] == -1. Note that operations on the face_nodes matrix
+        (such as converting it to a csr-matrix) may change the ordering of
+        the nodes (face_nodes.indices), which will break compute_geometry().
         Geometric information, available after compute_geometry() has been
         called on the object:
 
