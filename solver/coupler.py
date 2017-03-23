@@ -11,13 +11,27 @@ class Coupler(object):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, gb, matrix_format="csr"):
+    def ndof(self, gb):
+        """
+        Store in the grid bucket the number of degrees of freedom associated to
+        the method.
+        It requires the key "dof" in the grid bucket as reserved.
 
-        gb.assign_node_ordering()
+        Parameter
+        ---------
+        gb: grid bucket.
+
+        """
+
+        assert not np.all(gb.has_nodes_prop(gb.nodes(), 'dof'))
+
         gb.add_node_prop('dof')
         for g, d in gb:
             d['dof'] = self.solver.ndof(g)
 
+#------------------------------------------------------------------------------#
+
+    def matrix_rhs(self, gb, matrix_format="csr"):
         """
         Return the matrix and righ-hand side for a suitable discretization, where
         a hierarchy of grids are considered. The matrices are stored in the
