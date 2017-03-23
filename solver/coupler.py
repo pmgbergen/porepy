@@ -18,6 +18,27 @@ class Coupler(object):
         for g, d in gb:
             d['dof'] = self.solver.ndof(g)
 
+        """
+        Return the matrix and righ-hand side for a suitable discretization, where
+        a hierarchy of grids are considered. The matrices are stored in the
+        global matrix and right-hand side according to the numeration given by
+        "node_number".
+        It requires the key "dof" in the grid bucket as reserved.
+        It requires the key "node_number" be present in the grid bucket, see
+        GridBucket.assign_node_ordering().
+
+        Parameters
+        ----------
+        gb : grid bucket with geometry fields computed.
+        matrix_format: (optional, default is csr) format of the sparse matrix.
+
+        Return
+        ------
+        matrix: sparse matrix from the discretization.
+        rhs: array right-hand side of the problem.
+        """
+        self.ndof(gb)
+
         # Initialize the global matrix and rhs to store the local problems
         matrix = np.empty((gb.size(), gb.size()), dtype=np.object)
         rhs = np.empty(gb.size(), dtype=np.object)
@@ -48,7 +69,18 @@ class Coupler(object):
 #------------------------------------------------------------------------------#
 
     def split(self, gb, key, values):
+        """
+        Store in the grid bucket the vector, split in the function, solution of
+        the problem. The values are extracted from the global solution vector
+        according to the numeration given by "node_number".
 
+        Parameters
+        ----------
+        gb : grid bucket with geometry fields computed.
+        key: new name of the solution to be stored in the grid bucket.
+        values: array, global solution.
+
+        """
         dofs = np.empty(gb.size(), dtype=int)
         for _, d in gb:
             dofs[d['node_number']] = d['dof']
