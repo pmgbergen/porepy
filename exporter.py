@@ -215,3 +215,24 @@ def write_vtk( gVTK, name, data = None, binary = True ):
     writer.Update()
 
 #------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+
+def make_file_name(name, time_step=None, node_number=None):
+
+    extension = ".vtu"
+    padding = 6
+    if node_number is None: # normal grid
+        if time_step is None:
+            return name + extension
+        else:
+            time = str(time_step).zfill(padding)
+            return name + "_" + time + extension
+    else: # part of a grid bucket
+        grid = str(node_number).zfill(padding)
+        if time_step is None:
+            return name + "_" + grid + extension
+        else:
+            time = str(time_step).zfill(padding)
+            return name + "_" + grid + "_" + time + extension
+
+#------------------------------------------------------------------------------#
