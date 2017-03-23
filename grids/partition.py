@@ -4,10 +4,16 @@ Module for partitioning of grids based on various methods.
 Intended support is by Cartesian indexing, and METIS-based.
 
 """
-import pymetis
 import numpy as np
 import scipy.sparse as sps
 import networkx
+import warnings
+
+try:
+    import pymetis
+except ImportError:
+    warnings.warn('Could not import pymetis. Some functions will not work as\
+    intended')
 
 from core.grids.grid import Grid
 from core.grids import structured
