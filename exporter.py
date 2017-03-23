@@ -1,4 +1,4 @@
-import sys
+import sys, os
 import numpy as np
 import scipy.sparse as sps
 
@@ -11,7 +11,7 @@ from compgeom import sort_points
 
 #------------------------------------------------------------------------------#
 
-def export_vtk(g, name, data=None, binary=True):
+def export_vtk(g, name, data=None, binary=True, time_step=None, folder=None):
     """ Interface function to export in VTK the grid and additional data.
 
     In 2d the cells are represented as polygon, while in 3d as polyhedra.
@@ -23,26 +23,33 @@ def export_vtk(g, name, data=None, binary=True):
 
     Parameters:
     gb: the grid bucket
-    name: the file name without extension ".vtu".
+    name: the file name without extension.
     data: if g is a single grid then data is a dictionary (see example below)
           if g is a grid bucket then list of names for optional data,
           they are the keys in the grid bucket (see example below).
     binary: export in binary format, default is True.
+    time_step: (optional) in a time dependent problem defines the full name of
+        the file.
+    folder: (optional) the folder to save the file. If the folder does not exist
+        it will be created.
 
     How to use:
     if you need to export a single grid:
     export_vtk(g, "polyhedron", { "cell": np.arange( g.num_cells ) })
+    export_vtk(g, "conc", {"conc": conc}, time_step=i)
 
     if you need to export the grid bucket
-    export_vtk_gb(gb, "grid_bucket", ["cell", "pressure"])
+    export_vtk(gb, "grid_bucket", ["cell", "pressure"])
+    export_vtk(gb, file_name, ["conc"], time_step=i_export, folder="simu")
 
     """
+    name = make_folder(folder, name)
 
     if isinstance(g, grid.Grid):
-        export_vtk_single(g, name, data, binary)
+        export_vtk_single(g, name, data, binary, time_step)
 
     if isinstance(g, grid_bucket.GridBucket):
-        export_vtk_gb(g, name, data, binary)
+        export_vtk_gb(g, name, data, binary, time_step)
 
 #------------------------------------------------------------------------------#
 
@@ -61,14 +68,16 @@ def export_pvd(file_name, file_names, time_step):
     o_file.close()
 
 #------------------------------------------------------------------------------#
+#                            SUPPORT FUNCTIONALITY
+#------------------------------------------------------------------------------#
 
-def export_vtk_single(g, name, data, binary):
+def export_vtk_single(g, name, data, binary, time_step):
     assert isinstance(g, grid.Grid)
-    export_vtk_grid(g, name+".vtu", data, binary)
+    export_vtk_grid(g, make_file_name(name, time_step), data, binary)
 
 #------------------------------------------------------------------------------#
 
-def export_vtk_gb(gb, name, data, binary):
+def export_vtk_gb(gb, name, data, binary, time_step):
     assert isinstance(gb, grid_bucket.GridBucket)
     assert isinstance(data, list) or data is None
     gb.assign_node_ordering()
