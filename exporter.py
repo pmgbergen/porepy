@@ -53,8 +53,28 @@ def export_vtk(g, name, data=None, binary=True, time_step=None, folder=None):
 
 #------------------------------------------------------------------------------#
 
-def export_pvd(file_name, file_names, time_step):
-    o_file = open(file_name+".pvd",'w')
+def export_pvd(g, name, time, folder=None):
+    """ Interface function to export in PVD file the time loop informations.
+    The user should open only this file in paraview.
+
+    Parameters:
+    gb: the grid or grid bucket
+    name: the file name without extension. We assume that the VTU associated
+        files have the same name.
+    time: vector of time.
+    folder: (optional) the folder to save the file. We assume that the VTU
+        associated files are in the same folder. If the folder does not exist
+        it will be created.
+
+    How to use:
+    if you need to export a single grid:
+    export_pvd(g, "conc", time, folder="simu")
+
+    if you need to export the grid bucket
+    export_pvd(gb, file_name, step_to_export*deltaT, folder="simu")
+
+    """
+    o_file = open( make_folder(folder, name) + ".pvd",'w')
     b = 'LittleEndian' if sys.byteorder == 'little' else 'BigEndian'
     c = ' compressor="vtkZLibDataCompressor"'
     header = '<?xml version="1.0"?>\n'+ \
@@ -62,8 +82,18 @@ def export_pvd(file_name, file_names, time_step):
                                               'byte_order="%s"%s>\n' % (b,c) + \
              '<Collection>\n'
     o_file.write(header)
-    fm = '\t<DataSet group="" part="" timestep="%f" file="%s.vtu"/>\n'
-    [o_file.write( fm % (time_step[i], f) ) for i, f in enumerate(file_names)]
+    fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
+
+    time_step = np.arange(time.size)
+
+    if isinstance(g, grid.Grid):
+        [o_file.write( fm % (time[t], make_file_name(name, t))) \
+                                                             for t in time_step]
+
+    if isinstance(g, grid_bucket.GridBucket):
+        [o_file.write( fm % (time[t], make_file_name(name, t, d['node_number'])) ) \
+                                               for t in time_step for _, d in g]
+
     o_file.write('</Collection>\n'+'</VTKFile>')
     o_file.close()
 
