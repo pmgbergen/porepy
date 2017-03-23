@@ -80,7 +80,7 @@ def export_vtk_gb(gb, name, data, binary):
     data.append('grid_dim')
 
     for g, d in gb:
-        d['file_name'] = name + str(d['node_number']) + ".vtu"
+        d['file_name'] = make_file_name(name, time_step, d['node_number'])
         d['grid_dim'] = np.tile(g.dim, g.num_cells)
 
     [export_vtk_grid(g, d['file_name'], gb.node_props_of_keys(g, data), binary)\
