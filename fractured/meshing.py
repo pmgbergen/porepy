@@ -92,8 +92,9 @@ def obtain_interdim_mappings(lg, fn):
         cn = np.array([lg.global_point_ind])
         # We also know that the higher-dimensional grid has faces
         # of a single node. This sometimes fails, so enforce it.
-        fn = fn.ravel()
-    is_mem, cell_2_face = setmembership.ismember_rows(cn, fn, sort=False)
+        #fn = fn.ravel()
+    is_mem, cell_2_face = setmembership.ismember_rows(
+        cn.astype(np.int32), fn.astype(np.int32), sort=False)
     # An element in cell_2_face gives, for all cells in the
     # lower-dimensional grid, the index of the corresponding face
     # in the higher-dimensional structure.

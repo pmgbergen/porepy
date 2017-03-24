@@ -343,7 +343,7 @@ def duplicate_nodes(g, nodes, offset):
     Parameters:
     ----------
     g         - The grid for which the nodes are duplicated
-    nodes - The nodes to be duplicated
+    nodes     - The nodes to be duplicated
     offset    - How far from the original node the duplications should be
                 placed.
     """

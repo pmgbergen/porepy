@@ -555,7 +555,7 @@ class GridBucket(object):
         node_source = node_source[None, :]
         node_target = node_target[None, :]
         _, trg_2_src_nodes = setmembership.ismember_rows(
-            node_source, node_target)
+            node_source.astype(np.int32), node_target.astype(np.int32))
         return trg_2_src_nodes
 
 #------------------------------------------------------------------------------#
