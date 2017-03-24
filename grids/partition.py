@@ -137,6 +137,107 @@ def partition_structured(g, coarse_dims=None, num_part=None):
     return glob_dims.astype('int')
 
 
+def partition_coordinates(g, num_coarse, check_connectivity=True):
+    """"
+    Brute force partitioning of a grid based on cell center coordinates.
+
+    The intention at the time of implementation is to provide a partitioning
+    for general grids that does not rely on METIS being available. However, if
+    METIS is available, partition_metis should be prefered. 
+
+    The idea is to divide the domain into a coarse Cartesian grid, and then
+    assign a coarse partitioning based on the cell center coordinates.
+
+    It is not clear that this will create a connected coarse partitioning for
+    all grid cells (it may be possible to construct pathological examples,
+    probably involving non-convex cells). We optionally check for connectivity
+    and raise an error if this is not fulfilled.
+
+    The method assumes that the cells have a center, that is,
+    g.compute_geometry() has been called. If g does not have a field
+    cell_centers, compute_geometry() will be called.
+
+    Parameters:
+        g (core.grids.grid): Grid to be partitioned.
+        num_coarse (int): Target number of coarse cells. The real number of
+            coarse cells will be close, but not necessarily equal.
+        check_connectivity (boolean, optional): Check if the partitioning form
+            connected coarse grids. Defaults to True.
+
+    Returns:
+        np.array, size g.num_cells: Partition vector.
+
+    Raises:
+        ValueError if the partitioning is found to not form connected subgrids.
+
+    """
+
+    # Compute geometry if necessary
+    if not hasattr(g, 'cell_centers'):
+        g.compute_geometry()
+
+    # Rough computation of the size of the Cartesian coarse grid: Determine the
+    # extension of the domain in each direction, transform into integer sizes,
+    # and use function to determine coarse dimensions.
+
+    # Use node coordinates to define the boxes
+    min_coord = np.min(g.nodes, axis=1)
+    max_coord = np.max(g.nodes, axis=1)
+
+    # Drop unused dimensions for 2d (and 1d) grids
+    min_coord = min_coord[:g.dim]
+    max_coord = max_coord[:g.dim]
+    # Cell centers, with the right number of dimensions
+    cc = g.cell_centers[:g.dim]
+
+    delta = max_coord - min_coord
+
+    # Estimate of the number of coarse Cartesian cells in each dimensions:
+    # Distribute the target number over all dimensions. Then multiply with
+    # relative distances.
+    # Use ceil to round up, and thus avoid zeros. This may not be perfect, but
+    # it should be robust.
+    delta_int = np.ceil(np.power(num_coarse, 1/g.dim) * delta\
+                        / np.min(delta)).astype('int')
+
+    coarse_dims = determine_coarse_dimensions(num_coarse, delta_int)
+
+    # Effective number of coarse cells, should be close to num_coarse
+    nc = coarse_dims.prod()
+
+    # Initialize partition vector
+    partition = -np.ones(g.num_cells)
+
+    # Grid resolution of coarse grid (roughly)
+    dx = delta / coarse_dims
+
+    #  Loop over all coarse cells, pick out cells that lies within the coarse
+    #  box
+    for i in range(nc):
+        ind = np.array(np.unravel_index(i, coarse_dims))
+        # Bounding coordinates
+        lower_coord = min_coord + dx * ind
+        upper_coord = min_coord + dx * (ind+1)
+        # Find cell centers within the box
+        hit = np.logical_and(cc >= lower_coord.reshape((-1, 1)),
+                             cc < upper_coord.reshape((-1, 1)))
+        # We have a hit if all coordinates are within the box
+        hit_ind = np.argwhere(np.all(hit, axis=0)).ravel(order='C')
+        partition[hit_ind] = i
+
+    # Sanity check, all cells should have received a coarse index
+    assert partition.min() >= 0
+
+    if check_connectivity:
+        for p in np.unique(partition):
+            p_ind = np.squeeze(np.argwhere(p == partition))
+            if not grid_is_connected(g, p_ind):
+                raise ValueError('Partitioning led to unconnected subgrids')
+
+    return partition
+
+
+
 def determine_coarse_dimensions(target, fine_size):
     """
     For a logically Cartesian grid determine a coarse partitioning based on a
@@ -152,7 +253,7 @@ def determine_coarse_dimensions(target, fine_size):
 
     Parameters:
         target (int): Target number of coarse cells.
-        fine_size (np.ndarray): Number of fine-scale cell in eac dimension
+        fine_size (np.ndarray): Number of fine-scale cell in each dimension
 
     Returns:
         np.ndarray: Coarse dimension sizes.
@@ -236,7 +337,7 @@ def determine_coarse_dimensions(target, fine_size):
         raise ValueError('Maximum number of iterations exceeded. There is a \
                          bug somewhere.')
 
-    return optimum
+    return optimum.astype('int')
 
 
 def extract_subgrid(g, c, sort=True):
