@@ -43,13 +43,11 @@ def export_vtk(g, name, data=None, binary=True, time_step=None, folder=None):
     export_vtk(gb, file_name, ["conc"], time_step=i_export, folder="simu")
 
     """
-    name = make_folder(folder, name)
-
     if isinstance(g, grid.Grid):
-        export_vtk_single(g, name, data, binary, time_step)
+        export_vtk_single(g, make_folder(folder, name), data, binary, time_step)
 
     if isinstance(g, grid_bucket.GridBucket):
-        export_vtk_gb(g, name, data, binary, time_step)
+        export_vtk_gb(g, name, data, binary, time_step, folder)
 
 #------------------------------------------------------------------------------#
 
@@ -107,7 +105,7 @@ def export_vtk_single(g, name, data, binary, time_step):
 
 #------------------------------------------------------------------------------#
 
-def export_vtk_gb(gb, name, data, binary, time_step):
+def export_vtk_gb(gb, name, data, binary, time_step, folder):
     assert isinstance(gb, grid_bucket.GridBucket)
     assert isinstance(data, list) or data is None
     gb.assign_node_ordering()
@@ -122,9 +120,10 @@ def export_vtk_gb(gb, name, data, binary, time_step):
         d['file_name'] = make_file_name(name, time_step, d['node_number'])
         d['grid_dim'] = np.tile(g.dim, g.num_cells)
 
-    [export_vtk_grid(g, d['file_name'], gb.node_props_of_keys(g, data), binary)\
+    [export_vtk_grid(g, make_folder(folder, d['file_name']),
+                                        gb.node_props_of_keys(g, data), binary)\
                                                                  for g, d in gb]
-    export_pvd_gb(name+".pvd", gb)
+    export_pvd_gb(make_folder(folder, name)+".pvd", gb)
 
 #------------------------------------------------------------------------------#
 
