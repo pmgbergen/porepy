@@ -56,8 +56,7 @@ class Mass(Solver):
 
         """
         ndof = self.ndof(g)
-        coeff = g.cell_volumes * data.get('phi', np.ones(ndof)) / \
-                data.get('deltaT', np.ones(ndof))
+        coeff = g.cell_volumes * data.get('phi', 1) / data.get('deltaT', 1)
 
         return sps.dia_matrix((coeff, 0), shape=(ndof, ndof)), np.zeros(ndof)
 
