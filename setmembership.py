@@ -14,7 +14,7 @@ def unique_rows(data):
 
     See also function unique_columns in this module; this is likely slower, but
     is understandable, documented, and has a tolerance option.
-    
+
     Copied from
     http://stackoverflow.com/questions/16970982/find-unique-rows-in-numpy-array/
     (summary pretty far down on the page)
@@ -22,7 +22,7 @@ def unique_rows(data):
 
     """
     b = np.ascontiguousarray(data).view(np.dtype((np.void,
-                                        data.dtype.itemsize * data.shape[1])))
+                                                  data.dtype.itemsize * data.shape[1])))
     _, ia = np.unique(b, return_index=True)
     _, ic = np.unique(b, return_inverse=True)
 #    return np.unique(b).view(data.dtype).reshape(-1, data.shape[1]), ia, ic
@@ -140,7 +140,7 @@ def ismember_rows(a, b, sort=True):
             diff = np.sum(np.abs(sb - sa[:, i].reshape((-1, 1))), axis=0)
         if np.any(diff == 0):
             ismem_a[i] = True
-            hit = np.where(diff==0)[0]
+            hit = np.where(diff == 0)[0]
             if hit.size > 1:
                 hit = hit[0]
             ind_of_a_in_b = np.append(ind_of_a_in_b, hit)
@@ -148,6 +148,7 @@ def ismember_rows(a, b, sort=True):
     return ismem_a, ind_of_a_in_b.astype('int')
 
 #---------------------------------------------------------
+
 
 def unique_columns_tol(mat, tol=1e-8, exponent=2):
     """
@@ -164,13 +165,13 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
             the points (due to rounding errors). Defaults to 1e-8.
         exponent (double, optional): Exponnet in norm used in distance
             calculation. Defaults to 2.
-    
+
     Returns:
         np.ndarray: Unique columns.
         new_2_old: Index of which points that are preserved
         old_2_new: Index of the representation of old points in the reduced
             list.
-        
+
     Example (won't work as doctest):
         >>> p_un, n2o, o2n = unique_columns(np.array([[1, 0, 1], [1, 0, 1]]))
         >>> p_un
@@ -188,25 +189,26 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
             pt = p.reshape((-1, 1))
         else:
             pt = p
-        
+
         return np.power(np.sum(np.power(np.abs(pt - pset), exponent),
-                               axis=0), 1/exponent)
+                               axis=0), 1 / exponent)
 
     (nd, l) = mat.shape
-    
+
     # By default, no columns are kept
     keep = np.zeros(l, dtype=np.bool)
-    
+
     # We will however keep the first point
     keep[0] = True
     keep_counter = 1
 
     # Map from old points to the unique subspace. Defaults to map to itself.
     old_2_new = np.arange(l)
-   
+
     # Loop over all points, check if it is already represented in the kept list
     for i in range(1, l):
-        proximate = np.argwhere(dist(mat[:, i], mat[:, keep]) < tol * np.sqrt(nd))
+        proximate = np.argwhere(
+            dist(mat[:, i], mat[:, keep]) < tol * np.sqrt(nd))
 
         if proximate.size > 0:
             # We will not keep this point
@@ -218,6 +220,5 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
             keep_counter += 1
     # Finally find which elements we kept
     new_2_old = np.argwhere(keep).ravel()
-    
-    return mat[:, keep], new_2_old, old_2_new
 
+    return mat[:, keep], new_2_old, old_2_new
