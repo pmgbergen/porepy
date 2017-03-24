@@ -50,28 +50,30 @@ def _asvoid(arr):
 
 def _find_occ(a, b):
     """
+    Find index of occurences of a in b.
 
+    The function has only been tested on np.arrays, but it should be fairly
+    general (only require iterables?)
 
     Code snippet found at
     http://stackoverflow.com/questions/15864082/python-equivalent-of-matlabs-ismember-function?rq=1
 
-    Parameters
-    ----------
-    a
-    b
-
-    Returns
-    -------
-
     """
+    # Base search on a dictionary
+
     bind = {}
+    # Invert dictionary to create a map from an item in b to the *first*
+    # occurence of the item.
+    # NOTE: If we ever need to give the option of returning last index, it
+    # should require no more than bypassing the if statement.
     for i, elt in enumerate(b):
         if elt not in bind:
             bind[elt] = i
+    # Use inverse mapping to obtain
     return [bind.get(itm, None) for itm in a]
 
 
-def ismember_rows(a, b, sort=True):
+def ismember_rows(a, b, sort=True, simple_version=False):
     """
     Find *columns* of a that are also members of *columns* of b.
 
@@ -84,6 +86,9 @@ def ismember_rows(a, b, sort=True):
         b (np.array): Array in which we will look for a twin
         sort (boolean, optional): If true, the arrays will be sorted before
             seraching, increasing the chances for a match. Defaults to True.
+        simple_verion (boolean, optional): Use an alternative implementation
+            based on a global for loop. The code is slow for large arrays, but
+            easy to understand. Defaults to False.
 
     Returns:
         np.array (boolean): For each column in a, true if there is a
@@ -102,50 +107,83 @@ def ismember_rows(a, b, sort=True):
         (array([ True,  True, False,  True, False], dtype=bool), [1, 0, 1])
 
     """
-    if sort:
+
+    # Sort if required, but not if the input is 1d
+    if sort and a.ndim > 1:
         sa = np.sort(a, axis=0)
         sb = np.sort(b, axis=0)
     else:
         sa = a
         sb = b
 
-    if a.ndim == 1:
-        num_a = 1
+    num_a = a.shape[-1]
+
+    if simple_version:
+        # Use straightforward search, based on a for loop. This is slow for
+        # large arrays, but as the alternative implementation is opaque, and
+        # there has been some doubts on its reliability, this version is kept
+        # as a safeguard.
+        ismem_a = np.zeros(num_a, dtype=np.bool)
+        ind_of_a_in_b = np.empty(0)
+        for i in range(num_a):
+            if sa.ndim == 1:
+                diff = np.abs(sb - sa[i])
+            else:
+                diff = np.sum(np.abs(sb - sa[:, i].reshape((-1, 1))), axis=0)
+            if np.any(diff == 0):
+                ismem_a[i] = True
+                hit = np.where(diff == 0)[0]
+                if hit.size > 1:
+                    hit = hit[0]
+                ind_of_a_in_b = np.append(ind_of_a_in_b, hit)
+
+        return ismem_a, ind_of_a_in_b.astype('int')
+
     else:
-        num_a = a.shape[1]
-
-    """
-    Old code, found on the internet. Not sure about the reliability, so we kick
-    it out for the moment.
-    voida = _asvoid(sa.transpose())
-    voidb = _asvoid(sb.transpose())
-    unq, j, k, count = np.unique(np.vstack((voida, voidb)), return_index=True,
-                                 return_inverse=True, return_counts=True)
-
-    ind_a = np.arange(num_a)
-    ind_b = num_a + np.arange(b.shape[1])
-    num_occ_a = count[k[ind_a]]
-    ismem_a = (num_occ_a > 1)
-    occ_a = k[ind_a[ismem_a]]
-    occ_b = k[ind_b]
-
-    ind_of_a_in_b = _find_occ(occ_a, occ_b)
-    """
-    ismem_a = np.zeros(num_a, dtype=np.bool)
-    ind_of_a_in_b = np.empty(0)
-    for i in range(num_a):
-        if sa.ndim == 1:
-            diff = np.abs(sb - sa[i])
+        if a.ndim == 1:
+            # Special treatment of 1d, vstack of voids (below) ran into trouble
+            # here.
+            unq, k, count = np.unique(np.hstack((a, b)), return_inverse=True,
+                                      return_counts=True)
+            _, k_a, count_a = np.unique(a, return_inverse=True,
+                                        return_counts=True)
         else:
-            diff = np.sum(np.abs(sb - sa[:, i].reshape((-1, 1))), axis=0)
-        if np.any(diff == 0):
-            ismem_a[i] = True
-            hit = np.where(diff == 0)[0]
-            if hit.size > 1:
-                hit = hit[0]
-            ind_of_a_in_b = np.append(ind_of_a_in_b, hit)
+            # Represent the arrays as voids to facilitate quick comparison
+            voida = _asvoid(sa.transpose())
+            voidb = _asvoid(sb.transpose())
 
-    return ismem_a, ind_of_a_in_b.astype('int')
+            # Use unique to count the number of occurences in a
+            unq, j, k, count = np.unique(np.vstack((voida, voidb)),
+                                         return_index=True,
+                                         return_inverse=True,
+                                         return_counts=True)
+            # Also count the number of occurences in voida
+            _, j_a, k_a, count_a = np.unique(voida, return_index=True,
+                                             return_inverse=True,
+                                             return_counts=True)
+
+        # Index of a and b elements in the combined array
+        ind_a = np.arange(num_a)
+        ind_b = num_a + np.arange(b.shape[-1])
+
+        # Count number of occurences in combine array, and in a only
+        num_occ_a_and_b = count[k[ind_a]]
+        num_occ_a = count_a[k_a[ind_a]]
+
+        # Subtraction gives number of a in b
+        num_occ_a_in_b = num_occ_a_and_b - num_occ_a
+        ismem_a = (num_occ_a_in_b > 0)
+
+        # To get the indices of common elements in a and b, compare the
+        # elements in k (pointers to elements in the unique combined arary)
+        occ_a = k[ind_a[ismem_a]]
+        occ_b = k[ind_b]
+
+        ind_of_a_in_b = _find_occ(occ_a, occ_b)
+        # Remove None types when no hit was found
+        ind_of_a_in_b = [i for i in ind_of_a_in_b if i is not None]
+
+        return ismem_a, np.array(ind_of_a_in_b, dtype='int')
 
 #---------------------------------------------------------
 
