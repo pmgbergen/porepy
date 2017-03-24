@@ -758,7 +758,7 @@ class FractureNetwork(object):
             # Obtain new points and edges, so that no edges on this fracture
             # are intersecting.
             p_new, edges_new = cg.remove_edge_crossings(p_2d, edges_2d,
-                                                        tol=self.tol*np.sqrt(3))
+                                                        precision=self.tol*np.sqrt(3))
 
             # Then, patch things up by converting new points to 3D, 
 
