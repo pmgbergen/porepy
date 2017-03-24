@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
 
-from core.solver.solver import *
+from core.solver.solver import Solver
 from core.grids import grid
 
 class Upwind(Solver):
