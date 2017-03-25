@@ -8,6 +8,7 @@ import numpy as np
 import scipy.sparse as sps
 import networkx
 import warnings
+import sys
 
 try:
     import pymetis
@@ -236,6 +237,38 @@ def partition_coordinates(g, num_coarse, check_connectivity=True):
 
     return partition
 
+
+def partition(g, num_coarse):
+    """
+    Wrapper for partition methods, tries to apply best possible algorithm.
+
+    The method will first try to use METIS; if this is not available (or fails
+    otherwise), the partition_structured will be applied if the grid is
+    Cartesian. The last resort is partitioning based on coordinates.
+
+    See the methods partition_metis(), partition_structured() and
+    partition_coordinates() for further details.
+
+    Parameters:
+        g (core.grids.grid): Grid to be partitioned.
+        num_coarse (int): Target number of coarse cells.
+
+    Returns:
+        np.ndarray (int), size g.num_cells: Partition vector.
+
+    """
+    try:
+        # Apparently, this will throw a KeyError unless pymetis has been
+        # successfully imported. This is does not look elegant, but it should
+        # work.
+        sys.modules['pymetis']
+        # If we have made it this far, we can run pymetis.
+        return partition_metis(g, num_coarse)
+    except KeyError:
+        if isinstance(g, structured.TensorGrid):
+            return partition_structured(g, num_part=num_coarse)
+        else:
+            return partition_coordinates(g, num_coarse)
 
 
 def determine_coarse_dimensions(target, fine_size):
