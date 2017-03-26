@@ -421,6 +421,7 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     # Why minus?
     rhs_normals = -sps.vstack([rhs_normals, rhs_normals_displ_var])
+    del rhs_normals_displ_var
 
     # Call core part of MPSA
     hook, igrad, rhs_cells, \
@@ -440,6 +441,8 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
     # Discretization of boundary values
     bound_stress = hf2f * hook * igrad * rhs_bound
 
+    del hook, rhs_bound
+
     # Face-wise gradient operator. Used for the term grad_p in Biot's
     # equations.
     rows = __expand_indices_nd(subcell_topology.cno, nd)
@@ -448,6 +451,9 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
     div_gradp = sps.coo_matrix((vals, (rows, cols)),
                                shape=(subcell_topology.num_cno * nd,
                                       num_subhfno * nd)).tocsr()
+
+    del rows, cols, vals
+
     # Normal vectors, used for computing pressure gradient terms in
     # Biot's equations. These are mappings from cells to their faces,
     # and are most easily computed prior to elimination of subfaces (below)
@@ -458,6 +464,8 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     grad_p = div_gradp * hook_normal * igrad * rhs_normals
     # assert np.allclose(grad_p.sum(axis=0), np.zeros(g.num_cells))
+
+    del hook_normal, div_gradp
 
     num_cell_nodes = g.num_cell_nodes()
     cell_vol = g.cell_volumes / num_cell_nodes
@@ -473,12 +481,16 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
     vector_2_scalar = sps.coo_matrix((val.ravel('F'),
                                       (row.ravel('F'),
                                        col.ravel('F')))).tocsr()
+    del row, col, val
     div_op = sps.coo_matrix((np.ones(cell_node_blocks.shape[1]),
                              (cell_node_blocks[0], np.arange(
                                  cell_node_blocks.shape[1])))).tocsr()
     div = div_op * vector_2_scalar
+    del div_op, vector_2_scalar
 
     div_d = div * igrad * rhs_cells
+    del rhs_cells
+
     stabilization = div * igrad * rhs_normals
 
     return stress, bound_stress, grad_p, div_d, stabilization
