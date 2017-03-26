@@ -188,6 +188,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
                              shape=(subcell_topology.num_subfno,
                                     subcell_topology.num_cno)
                              ).tocsr()
+    del sgn
 
     # Mapping from sub-faces to faces
     hf2f = sps.coo_matrix((np.ones(subcell_topology.unique_subfno.size),
@@ -219,29 +220,36 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
         sub_cell_index, cell_node_blocks, subcell_topology.nno_unique,
         bound_exclusion)
 
+    del cell_node_blocks, sub_cell_index
+
     # System of equations for the subcell gradient variables. On block diagonal
     # form.
     grad_eqs = sps.vstack([nk_grad, pr_cont_grad])
+
+    num_nk_cell = nk_cell.shape[0]
+    num_pr_cont_grad = pr_cont_grad.shape[0]
+    del nk_grad, pr_cont_grad
+
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
 
-    # 
-    igrad = cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
+    del grad_eqs
+    darcy_igrad = darcy * cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
                                                            size_of_blocks,
                                                            method=inverter) \
                           * rows2blk_diag
 
-    rhs_cells = -sps.vstack([nk_cell, pr_cont_cell])
+    del grad, cols2blk_diag, rows2blk_diag, darcy
 
-    flux = hf2f * darcy * igrad * rhs_cells
+    flux = hf2f * darcy_igrad * (-sps.vstack([nk_cell, pr_cont_cell])) 
 
+    del nk_cell, pr_cont_cell
     ####
     # Boundary conditions
     rhs_bound = _create_bound_rhs(bnd, bound_exclusion,
                                   subcell_topology, sgn_unique, g,
-                                  nk_cell.shape[0],
-                                  pr_cont_grad.shape[0])
+                                  num_nk_cell, num_pr_cont_grad)
     # Discretization of boundary values
-    bound_flux = hf2f * darcy * igrad * rhs_bound
+    bound_flux = hf2f * darcy_igrad * rhs_bound
 
     return flux, bound_flux
 
