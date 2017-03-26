@@ -177,17 +177,20 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
                                                   bound_exclusion, eta,
                                                   inverter)
 
+    hook_igrad = hook * igrad
+    del hook, igrad
+
     # Output should be on face-level (not sub-face)
     hf2f = _map_hf_2_f(subcell_topology.fno_unique,
                        subcell_topology.subfno_unique, nd)
 
     # Stress discretization
-    stress = hf2f * hook * igrad * rhs_cells
+    stress = hf2f * hook_igrad * rhs_cells
 
     # Right hand side for boundary discretization
     rhs_bound = _create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
     # Discretization of boundary values
-    bound_stress = hf2f * hook * igrad * rhs_bound
+    bound_stress = hf2f * hook_igrad * rhs_bound
 
     return stress, bound_stress
 
@@ -240,11 +243,14 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
                                  shape=(ind_f.size, ind_f.size)) * (ncsym
                                                                     + ncasym)
 
+    del ind_f
     # The final expression of Hook's law will involve deformation gradients
     # on one side of the faces only; eliminate the other one.
     # Note that this must be done before we can pair forces from the two
     # sides of the faces.
     hook = __unique_hooks_law(ncsym, ncasym, subcell_topology, nd)
+
+    del ncasym
 
     # Pair the forces from eahc side
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym)
@@ -266,6 +272,8 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
                                                               bound_exclusion)
 
     grad_eqs = sps.vstack([ncsym, d_cont_grad])
+
+    del ncsym, d_cont_grad
 
     igrad = _inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
                              subcell_topology.nno_unique, bound_exclusion,
