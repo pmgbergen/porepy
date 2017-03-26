@@ -30,37 +30,6 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
     Keilegavlen, Nordbotten: Finite volume methods for elasticity with weak
         symmetry, arxiv: 1512.01042
 
-    The displacement is discretized as a linear function on sub-cells (see
-    reference paper). In this implementation, the displacement is represented by
-    its cell center value and the sub-cell gradients.
-
-    The method will give continuous stresses over the faces, and displacement
-    continuity for certain points (controlled by the parameter eta). This can
-    be expressed as a linear system on the form
-
-        (i)   A * grad_u            = 0
-        (ii)  B * grad_u + C * u_cc = 0
-        (iii) 0            D * u_cc = I
-
-    Here, the first equation represents stress continuity, and involves only
-    the displacement gradients (grad_u). The second equation gives displacement
-    continuity over cell faces, thus B will contain distances between cell
-    centers and the face continuity points, while C consists of +- 1 (depending
-    on which side the cell is relative to the face normal vector). The third
-    equation enforces the displacement to be unity in one cell at a time. Thus
-    (i)-(iii) can be inverted to express the displacement gradients as in terms
-    of the cell center variables, that is, we can compute the basis functions
-    on the sub-cells. Because of the method construction (again see reference
-    paper), the basis function of a cell c will be non-zero on all sub-cells
-    sharing a vertex with c. Finally, the fluxes as functions of cell center
-    values are computed by insertion into Hook's law (which is essentially half
-    of A from (i), that is, only consider contribution from one side of the
-    face.
-
-    Boundary values can be incorporated with appropriate modifications -
-    Neumann conditions will have a non-zero right hand side for (i), while
-    Dirichlet gives a right hand side for (ii).
-
     Implementation needs:
         1) The local linear systems should be scaled with the elastic moduli
         and the local grid size, so that we avoid rounding errors accumulating
@@ -135,6 +104,43 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
         s = stress * x - bound_stress * bound_vals
 
     """
+
+    """
+    Implementation details:
+    
+    The displacement is discretized as a linear function on sub-cells (see
+    reference paper). In this implementation, the displacement is represented by
+    its cell center value and the sub-cell gradients.
+
+    The method will give continuous stresses over the faces, and displacement
+    continuity for certain points (controlled by the parameter eta). This can
+    be expressed as a linear system on the form
+
+        (i)   A * grad_u            = 0
+        (ii)  B * grad_u + C * u_cc = 0
+        (iii) 0            D * u_cc = I
+
+    Here, the first equation represents stress continuity, and involves only
+    the displacement gradients (grad_u). The second equation gives displacement
+    continuity over cell faces, thus B will contain distances between cell
+    centers and the face continuity points, while C consists of +- 1 (depending
+    on which side the cell is relative to the face normal vector). The third
+    equation enforces the displacement to be unity in one cell at a time. Thus
+    (i)-(iii) can be inverted to express the displacement gradients as in terms
+    of the cell center variables, that is, we can compute the basis functions
+    on the sub-cells. Because of the method construction (again see reference
+    paper), the basis function of a cell c will be non-zero on all sub-cells
+    sharing a vertex with c. Finally, the fluxes as functions of cell center
+    values are computed by insertion into Hook's law (which is essentially half
+    of A from (i), that is, only consider contribution from one side of the
+    face.
+
+    Boundary values can be incorporated with appropriate modifications -
+    Neumann conditions will have a non-zero right hand side for (i), while
+    Dirichlet gives a right hand side for (ii).
+
+    """
+
 
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number

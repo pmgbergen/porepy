@@ -25,37 +25,6 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
     Aavatsmark (2002): An introduction to the MPFA-O method on
             quadrilateral grids, Comp. Geosci. for details.
 
-    The pressure is discretized as a linear function on sub-cells (see
-    reference paper). In this implementation, the pressure is represented by
-    its cell center value and the sub-cell gradients (this is in contrast to
-    most papers, which use auxiliary pressures on the faces; the current
-    formulation is equivalent, but somewhat easier to implement).
-
-    The method will give continuous fluxes over the faces, and pressure
-    continuity for certain points (controlled by the parameter eta). This can
-    be expressed as a linear system on the form
-
-        (i)   A * grad_p            = 0
-        (ii)  B * grad_p + C * p_cc = 0
-        (iii) 0            D * p_cc = I
-
-    Here, the first equation represents flux continuity, and involves only the
-    pressure gradients (grad_p). The second equation gives pressure continuity
-    over cell faces, thus B will contain distances between cell centers and the
-    face continuity points, while C consists of +- 1 (depending on which side
-    the cell is relative to the face normal vector). The third equation
-    enforces the pressure to be unity in one cell at a time. Thus (i)-(iii) can
-    be inverted to express the pressure gradients as in terms of the cell
-    center variables, that is, we can compute the basis functions on the
-    sub-cells. Because of the method construction (again see reference paper),
-    the basis function of a cell c will be non-zero on all sub-cells sharing
-    a vertex with c. Finally, the fluxes as functions of cell center values are
-    computed by insertion into Darcy's law (which is essentially half of A from
-    (i), that is, only consider contribution from one side of the face.
-
-    Boundary values can be incorporated with appropriate modifications -
-    Neumann conditions will have a non-zero right hand side for (i), while
-    Dirichlet gives a right hand side for (ii).
 
     Implementation needs:
         1) The local linear systems should be scaled with the permeability and
@@ -127,6 +96,42 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
         x = sps.linalg.spsolve(A, rhs)
         f = flux * x - bound_flux * bound_vals
 
+    """
+
+    """
+    Method properties and implementation details.
+
+    The pressure is discretized as a linear function on sub-cells (see
+    reference paper). In this implementation, the pressure is represented by
+    its cell center value and the sub-cell gradients (this is in contrast to
+    most papers, which use auxiliary pressures on the faces; the current
+    formulation is equivalent, but somewhat easier to implement).
+
+    The method will give continuous fluxes over the faces, and pressure
+    continuity for certain points (controlled by the parameter eta). This can
+    be expressed as a linear system on the form
+
+        (i)   A * grad_p            = 0
+        (ii)  B * grad_p + C * p_cc = 0
+        (iii) 0            D * p_cc = I
+
+    Here, the first equation represents flux continuity, and involves only the
+    pressure gradients (grad_p). The second equation gives pressure continuity
+    over cell faces, thus B will contain distances between cell centers and the
+    face continuity points, while C consists of +- 1 (depending on which side
+    the cell is relative to the face normal vector). The third equation
+    enforces the pressure to be unity in one cell at a time. Thus (i)-(iii) can
+    be inverted to express the pressure gradients as in terms of the cell
+    center variables, that is, we can compute the basis functions on the
+    sub-cells. Because of the method construction (again see reference paper),
+    the basis function of a cell c will be non-zero on all sub-cells sharing
+    a vertex with c. Finally, the fluxes as functions of cell center values are
+    computed by insertion into Darcy's law (which is essentially half of A from
+    (i), that is, only consider contribution from one side of the face.
+
+    Boundary values can be incorporated with appropriate modifications -
+    Neumann conditions will have a non-zero right hand side for (i), while
+    Dirichlet gives a right hand side for (ii).
     """
 
     # The grid coordinates are always three-dimensional, even if the grid is
