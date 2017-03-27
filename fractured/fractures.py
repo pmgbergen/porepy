@@ -242,7 +242,10 @@ class Fracture(object):
         if int_points.shape[1] > 1:
             assert bound_pt_self.shape[1] == 0 and bound_pt_other.shape[1] == 0
         elif int_points.shape[1] == 1:
-            assert (bound_pt_self.shape[1] + bound_pt_other.shape[1]) == 1
+            # There should be exactly one unique boundary point.
+            bp = np.hstack((bound_pt_self, bound_pt_other))
+            u_bound_pt, *rest = setmembership.unique_columns_tol(bp, tol)
+            assert u_bound_pt.shape[1] == 1
 
         # If a segment runs through the polygon, there should be no interior points.
         # This may be sensitive to tolerances, should be a useful test to gauge that.
