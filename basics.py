@@ -502,7 +502,8 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
              + b[edge_counter] * (start_y - ym)
         c2 = a[edge_counter] * (end_x - xm) + b[edge_counter] * (end_y - ym)
 
-        tol_scaled = tol * np.max([np.sqrt(np.abs(c1)), np.sqrt(np.abs(c2))])
+        tol_scaled = tol * max(1, np.max([np.sqrt(np.abs(c1)),
+                                          np.sqrt(np.abs(c2))]))
 
         # We check for three cases
         # 1) Lines crossing
