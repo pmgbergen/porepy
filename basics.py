@@ -179,6 +179,15 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
                            edges[:, edge_ind_first+1:]))
         # We have added a single new line
         new_line = 1
+
+        # Sanity check of new edge
+        if np.any(np.diff(edges[:2], axis=0) == 0):
+            raise ValueError('Have created a point edge')
+        edge_copy = np.sort(edges[:2], axis=0)
+        edge_unique, *new_2_old = setmembership.unique_columns_tol(edge_copy)
+        if edge_unique.shape[1] < edges.shape[1]:
+            raise ValueError('Have created the same edge twice')
+
         return vertices, edges, new_line
     else:
         # Without this, we will delete something we should not delete below.
@@ -324,6 +333,13 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         else:
             raise ValueError('How did it come to this')
 
+        # Check validity of the new edge configuration
+        if np.any(np.diff(edges[:2], axis=0) == 0):
+            raise ValueError('Have created a point edge')
+        edge_copy = np.sort(edges[:2], axis=0)
+        edge_unique, *new_2_old = setmembership.unique_columns_tol(edge_copy)
+        if edge_unique.shape[1] < edges.shape[1]:
+            raise ValueError('Have created the same edge twice')
 
         return vertices, edges, new_line
 
@@ -546,6 +562,10 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
                                                          new_pt, **kwargs)
                     intersections += splits[0] + splits[1]
                 # Update index of possible intersections
+
+            # Sanity check - turned out to be useful for debugging.
+            if np.any(np.diff(edges[:2], axis=0) == 0):
+                raise ValueError('Have somehow created a point edge')
 
             # We're done with this candidate edge. Increase index of inner loop
             int_counter += 1
