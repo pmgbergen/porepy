@@ -252,14 +252,15 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         elif i0 == start and i1 == end:
             # We don't know if i0 is closest to the start or end of edges[:,
             # edges_ind[1]]. Find the nearest.
-            if __dist(vertices[:, i0], vertices[:, edges[0, edge_ind[1]]]) < \
-               __dist(vertices[:, i1], vertices[:, edges[0, edge_ind[1]]]):
+            if __dist(np.squeeze(vertices[:, i0]),
+                      vertices[:, edges[0, edge_ind[1]]]) < \
+               __dist(np.squeeze(vertices[:, i1]),
+                      vertices[:, edges[0, edge_ind[1]]]):
                 other_start = edges[0, edge_ind[1]]
                 other_end = edges[1, edge_ind[1]]
             else:
                 other_start = edges[1, edge_ind[1]]
                 other_end = edges[0, edge_ind[1]]
-
             # New segments (i0, i1) is identical to the old edge_ind[0]
             new_edges = np.array([[other_start, i0, i1],
                                   [i0, i1, other_end]])
