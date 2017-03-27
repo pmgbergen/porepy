@@ -148,7 +148,7 @@ class Fracture(object):
         else:
             return np.array(list(p.args), dtype='float').reshape((-1, 1))
 
-    def intersects(self, other):
+    def intersects(self, other, tol):
         """
         Find intersections between self and another polygon.
 
@@ -183,8 +183,8 @@ class Fracture(object):
         on_boundary_other = []
 
         # Compute intersections, with both polygons as first argument
-        isect_self_other = cg.polygon_segment_intersect(self.p, other.p)
-        isect_other_self = cg.polygon_segment_intersect(other.p, self.p)
+        isect_self_other = cg.polygon_segment_intersect(self.p, other.p, tol)
+        isect_other_self = cg.polygon_segment_intersect(other.p, self.p, tol)
 
 
         # Process data
@@ -215,8 +215,10 @@ class Fracture(object):
 
         ####
         # Next, check for intersections between the polygon boundaries
-        bound_sect_self_other = cg.polygon_boundaries_intersect(self.p, other.p)
-        bound_sect_other_self = cg.polygon_boundaries_intersect(other.p, self.p)
+        bound_sect_self_other = cg.polygon_boundaries_intersect(self.p,
+                                                                other.p, tol)
+        bound_sect_other_self = cg.polygon_boundaries_intersect(other.p,
+                                                                self.p, tol)
 
         # Short cut: If no boundary intersections, we return the interior points
         if len(bound_sect_self_other) == 0 and len(bound_sect_other_self) == 0:
@@ -538,7 +540,8 @@ class FractureNetwork(object):
         for i, first in enumerate(self._fractures):
             for j in range(i+1, len(self._fractures)):
                 second = self._fractures[j]
-                isect, bound_first, bound_second = first.intersects(second)
+                isect, bound_first, bound_second = first.intersects(second,
+                                                                    self.tol)
                 if len(isect) > 0:
                     self.intersections.append(Intersection(first, second,
                     isect))
