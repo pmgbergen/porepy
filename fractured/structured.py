@@ -19,6 +19,28 @@ from compgeom import basics as cg
 
 
 def tensor_grid_3d(fracs, nx, physdims):
+    """
+    Create grids for a domain with possibly intersecting fractures in 3d.
+
+    Based on rectangles describing the individual fractures, the method
+    constructs grids in 3d (the whole domain), 2d (one for each individual
+    fracture), 1d (along fracture intersections), and 0d (meeting between
+    intersections).
+
+    Parameters:
+        fracs (list of np.ndarray, each 3x4): Vertexes in the rectangle for each
+            fracture. The vertices must be sorted and aligned to the axis.
+            The fractures will snap to the closest grid faces.
+        nx (np.ndarray): Number of cells in each direction. Should be 3D.
+        physdims (np.ndarray): Physical dimensions in each direction.
+            Defaults to same as nx, that is, cells of unit size.
+
+    Returns:
+        list (length 4): For each dimension (3 -> 0), a list of all grids in
+            that dimension.
+
+    """
+    # We create a 3D cartesian grid. The global node mapping is trivial.
     g_3d = structured.CartGrid(nx, physdims=physdims)
     g_3d.global_point_ind = np.arange(g_3d.num_nodes)
     g_3d.compute_geometry()
@@ -26,27 +48,10 @@ def tensor_grid_3d(fracs, nx, physdims):
     g_1d = []
     g_0d = []
 
+    # We set the tolerance for finding points in a plane. This can be any
+    # small number, that is smaller than .25 of the cell sizes.
     tol = .1 * np.asarray(physdims) / np.asarray(nx)
-    shared_nodes = np.zeros(g_3d.num_nodes)
 
-    # Create Fracture
-    frac_list = []
-    for f in fracs:
-        frac_list.append(fractures.Fracture(f))
-
-    # Combine the fractures into a network
-    network = fractures.FractureNetwork(frac_list)
-
-    # Impose domain boundary. For the moment, the network should be immersed in
-    # the domain, or else gmsh will complain.
-    box = {'xmin': 0, 'ymin': 0, 'zmin': 0,
-           'xmax': physdims[0], 'ymax': physdims[1], 'zmax': physdims[2]}
-    network.impose_external_boundary(box)
-
-    # Find intersections and split them, preparing the way for dumping the
-    # network to gmsh
-    network.find_intersections()
-    network.split_intersections()
     # Create 2D grids
     for f in fracs:
         is_xy_frac = np.allclose(f[2, 0], f[2])
@@ -66,7 +71,9 @@ def tensor_grid_3d(fracs, nx, physdims):
         else:
             flat_dim = [0]
             active_dim = [1, 2]
-        # construct normal vectors
+        # construct normal vectors. If the rectangle is ordered
+        # clockwise we need to flip the normals so they point
+        # outwards.
         sign = 2 * cg.is_ccw_polygon(f_s[active_dim]) - 1
         tangent = f_s.take(
             np.arange(f_s.shape[1]) + 1, axis=1, mode='wrap') - f_s
@@ -74,6 +81,9 @@ def tensor_grid_3d(fracs, nx, physdims):
         normal[active_dim] = tangent[active_dim[1::-1]]
         normal[active_dim[1]] = -normal[active_dim[1]]
         normal = sign * normal
+        # We find all the faces inside the convex hull defined by the
+        # rectangle. To find the faces on the fracture plane, we remove any
+        # faces that are further than tol from the snapped fracture plane.
         in_hull = half_space.half_space_int(
             normal, f_s, g_3d.face_centers)
         f_tag = np.logical_and(
@@ -88,9 +98,27 @@ def tensor_grid_3d(fracs, nx, physdims):
         loc_coord = g_3d.nodes[:, nodes]
         g = _create_embedded_2d_grid(loc_coord, nodes)
         g_2d.append(g)
-        shared_nodes[nodes] += 1
 
     # Create 1D grids:
+    # Here we make use of the network class to find the intersection of
+    # fracture planes. We could maybe avoid this by doing something similar
+    # as for the 2D-case, and count the number of faces belonging to each edge,
+    # but we use the FractureNetwork class for now.
+    frac_list = []
+    for f in fracs:
+        frac_list.append(fractures.Fracture(f))
+    # Combine the fractures into a network
+    network = fractures.FractureNetwork(frac_list)
+    # Impose domain boundary. For the moment, the network should be immersed in
+    # the domain, or else gmsh will complain.
+    box = {'xmin': 0, 'ymin': 0, 'zmin': 0,
+           'xmax': physdims[0], 'ymax': physdims[1], 'zmax': physdims[2]}
+    network.impose_external_boundary(box)
+
+    # Find intersections and split them
+    network.find_intersections()
+    network.split_intersections()
+
     pts = network.decomposition['points']
     edges = network.decomposition['edges']
     poly = network._poly_2_segment()
@@ -99,40 +127,18 @@ def tensor_grid_3d(fracs, nx, physdims):
     const = constants.GmshConstants()
 
     for e in np.ravel(np.where(edges[2] == const.FRACTURE_INTERSECTION_LINE_TAG)):
+        # We find the start and end point of each fracture intersection (1D
+        # grid) and then the corresponding global node index.
         s_pt = pts[:, edges[0, e]]
         e_pt = pts[:, edges[1, e]]
-        s_node = np.argmin(cg.dist_point_pointset(s_pt, g_3d.nodes))
-        e_node = np.argmin(cg.dist_point_pointset(e_pt, g_3d.nodes))
-        if s_node > e_node:
-            tmp = s_node
-            s_node = e_node
-            e_node = tmp
-
-        if np.all(np.isclose(s_pt[1:], e_pt[1:])):
-            # x-intersection:
-            nodes = np.arange(s_node, e_node + 1)
-
-        elif np.all(np.isclose(s_pt[[0, 2]], e_pt[[0, 2]])):
-            # y-intersection
-            nodes = np.arange(s_node, e_node, np.power(
-                g_3d.num_nodes, 1 / 3), dtype=int)
-
-        elif np.all(np.isclose(s_pt[0:2], e_pt[0:2])):
-            # is z-intersection
-            nodes = np.arange(s_node, e_node, np.power(
-                g_3d.num_nodes, 2 / 3), dtype=int)
-
-        else:
-            raise RuntimeError(
-                'Something went wrong. Found a diagonal intersection')
-
+        nodes = _find_nodes_on_line(g_3d, s_pt, e_pt)
         loc_coord = g_3d.nodes[:, nodes]
-
         g = mesh_2_grid.create_embedded_line_grid(loc_coord, nodes)
         g_1d.append(g)
 
     # Create 0D grids
-
+    # Here we also use the intersection information from the FractureNetwork
+    # class.
     for p in intersection_points:
         node = np.argmin(cg.dist_point_pointset(p, g_3d.nodes))
         g = point_grid.PointGrid(g_3d.nodes[:, node])
@@ -144,35 +150,45 @@ def tensor_grid_3d(fracs, nx, physdims):
 
 
 def tensor_grid_2d(fracs, nx, physdims):
+    """
+    Create grids for a domain with possibly intersecting fractures in 2d.
+
+    Based on lines describing the individual fractures, the method
+    constructs grids in 2d (whole domain), 1d (individual fracture), and 0d
+    (fracture intersections).
+
+    Parameters:
+        fracs (list of np.ndarray, each 2x2): Vertexes of the line for each
+            fracture. The fracture lines must align to the coordinat axis.
+            The fractures will snap to the closest grid nodes.
+        nx (np.ndarray): Number of cells in each direction. Should be 2D.
+        physdims (np.ndarray): Physical dimensions in each direction.
+            Defaults to same as nx, that is, cells of unit size.
+
+    Returns:
+        list (length 3): For each dimension (2 -> 0), a list of all grids in
+            that dimension.
+
+    """
     g_2d = structured.CartGrid(nx, physdims=physdims)
     g_2d.global_point_ind = np.arange(g_2d.num_nodes)
     g_2d.compute_geometry()
     g_1d = []
     g_0d = []
-    # Create grids of fracture:
+
+    # 1D grids:
+    # We set the tolerance for finding points in a plane. This can be any
+    # small number that is smaller than .25 of the cell sizes.
     tol = .1 * np.asarray(physdims) / np.asarray(nx)
     shared_nodes = np.zeros(g_2d.num_nodes)
     for f in fracs:
         is_x_frac = f[1, 0] == f[1, 1]
         is_y_frac = f[0, 0] == f[0, 1]
         assert is_x_frac != is_y_frac, 'Fracture must align to x- or y-axis'
-
-        if is_x_frac:
-            f_y = np.round(f[1] * nx[1] / physdims[1]) * physdims[1] / nx[1]
-            f_tag = np.logical_and(
-                np.logical_and(f[0, 0] <= g_2d.face_centers[0],
-                               g_2d.face_centers[0] <= f[0, 1]),
-                np.logical_and(f_y[1] - tol[1] <= g_2d.face_centers[1],
-                               g_2d.face_centers[1] < f_y[1] + tol[1]))
-        else:
-            f_x = np.round(f[0] * nx[0] / physdims[0]) * physdims[0] / nx[0]
-            f_tag = np.logical_and(
-                np.logical_and(f_x[0] - tol[0] <= g_2d.face_centers[0],
-                               g_2d.face_centers[0] < f_x[1] + tol[0]),
-                np.logical_and(f[1, 0] <= g_2d.face_centers[1],
-                               g_2d.face_centers[1] <= f[1, 1]))
-        nodes = sps.find(g_2d.face_nodes[:, f_tag])[0]
-        nodes = np.unique(nodes)
+        if f.shape[0] == 2:
+            f = np.vstack((f, np.zeros(f.shape[1])))
+        nodes = _find_nodes_on_line(g_2d, f[:, 0], f[:, 1])
+        #nodes = np.unique(nodes)
         loc_coord = g_2d.nodes[:, nodes]
         g = mesh_2_grid.create_embedded_line_grid(loc_coord, nodes)
         g_1d.append(g)
@@ -227,3 +243,38 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     # Add mapping to global point numbers
     g.global_point_ind = glob_id[sort_ind]
     return g
+
+
+def _find_nodes_on_line(g, s_pt, e_pt):
+    s_node = np.argmin(cg.dist_point_pointset(s_pt, g.nodes))
+    e_node = np.argmin(cg.dist_point_pointset(e_pt, g.nodes))
+
+    # We make sure the nodes are ordered from low to high.
+    if s_node > e_node:
+        tmp = s_node
+        s_node = e_node
+        e_node = tmp
+    # We now find the other grid nodes. We here use the node ordering of
+    # meshgrid (which is used by the TensorGrid class).
+
+    # We find the number of nodes along each dimension. From this we find the
+    # jump in node number between two consecutive nodes.
+    if g.dim == 2:
+        nodes_per_dim = round(np.power(g.num_nodes, 1 / 2))
+    else:
+        nodes_per_dim = round(np.power(g.num_nodes, 1 / 3))
+
+    if np.all(np.isclose(s_pt[1:], e_pt[1:])):
+        # x-line:
+        nodes = np.arange(s_node, e_node + 1)
+    elif np.all(np.isclose(s_pt[[0, 2]], e_pt[[0, 2]])):
+        # y-line
+        nodes = np.arange(s_node, e_node + 1, nodes_per_dim, dtype=int)
+
+    elif g.dim == 3 and np.all(np.isclose(s_pt[0:2], e_pt[0:2])):
+        # is z-line
+        nodes = np.arange(s_node, e_node + 1, nodes_per_dim**2, dtype=int)
+    else:
+        raise RuntimeError(
+            'Something went wrong. Found a diagonal intersection')
+    return nodes
