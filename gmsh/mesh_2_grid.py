@@ -141,42 +141,7 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
         elif line_type == line_tag[:-1]:
             loc_pts_1d = np.unique(loc_line_pts)  # .flatten()
             loc_coord = pts[loc_pts_1d, :].transpose()
-            loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
-            loc_coord -= loc_center
-            # Check that the points indeed form a line
-            assert cg.is_collinear(loc_coord)
-            # Find the tangent of the line
-            tangent = cg.compute_tangent(loc_coord)
-            # Projection matrix
-            rot = cg.project_plane_matrix(loc_coord, tangent)
-            loc_coord_1d = rot.dot(loc_coord)
-            # The points are now 1d along one of the coordinate axis, but we
-            # don't know which yet. Find this.
-
-            sum_coord = np.sum(np.abs(loc_coord_1d), axis=1)
-            active_dimension = np.logical_not(np.isclose(sum_coord, 0))
-            # Check that we are indeed in 1d
-            assert np.sum(active_dimension) == 1
-            # Sort nodes, and create grid
-            coord_1d = loc_coord_1d[active_dimension]
-            sort_ind = np.argsort(coord_1d)[0]
-            sorted_coord = coord_1d[0, sort_ind]
-            g = structured.TensorGrid(sorted_coord)
-
-            # Project back to active dimension
-            nodes = np.zeros(g.nodes.shape)
-            nodes[active_dimension] = g.nodes[0]
-            g.nodes = nodes
-
-            # Project back again to 3d coordinates
-
-            irot = rot.transpose()
-            g.nodes = irot.dot(g.nodes)
-            g.nodes += loc_center
-
-            # Add mapping to global point numbers
-            g.global_point_ind = loc_pts_1d[sort_ind]
-
+            g = create_embedded_line_grid(loc_coord, loc_pts_1d)
             g_1d.append(g)
 
         else:  # Auxiliary line
@@ -195,3 +160,42 @@ def create_0d_grids(pts, cells):
             g.global_point_ind = np.asarray(pi)
             g_0d.append(g)
     return g_0d
+
+
+def create_embedded_line_grid(loc_coord, glob_id):
+    loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
+    loc_coord -= loc_center
+    # Check that the points indeed form a line
+    assert cg.is_collinear(loc_coord)
+    # Find the tangent of the line
+    tangent = cg.compute_tangent(loc_coord)
+    # Projection matrix
+    rot = cg.project_plane_matrix(loc_coord, tangent)
+    loc_coord_1d = rot.dot(loc_coord)
+    # The points are now 1d along one of the coordinate axis, but we
+    # don't know which yet. Find this.
+
+    sum_coord = np.sum(np.abs(loc_coord_1d), axis=1)
+    active_dimension = np.logical_not(np.isclose(sum_coord, 0))
+    # Check that we are indeed in 1d
+    assert np.sum(active_dimension) == 1
+    # Sort nodes, and create grid
+    coord_1d = loc_coord_1d[active_dimension]
+    sort_ind = np.argsort(coord_1d)[0]
+    sorted_coord = coord_1d[0, sort_ind]
+    g = structured.TensorGrid(sorted_coord)
+
+    # Project back to active dimension
+    nodes = np.zeros(g.nodes.shape)
+    nodes[active_dimension] = g.nodes[0]
+    g.nodes = nodes
+
+    # Project back again to 3d coordinates
+
+    irot = rot.transpose()
+    g.nodes = irot.dot(g.nodes)
+    g.nodes += loc_center
+
+    # Add mapping to global point numbers
+    g.global_point_ind = glob_id[sort_ind]
+    return g
