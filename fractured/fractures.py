@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import sympy
 import warnings
+import time
 
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
@@ -532,6 +533,10 @@ class FractureNetwork(object):
 
     def find_intersections(self, use_orig_points=True):
 
+        if self.verbose > 0:
+            print('Find intersections between fractures')
+            start_time = time.time()
+
         # Before searching for intersections, reset the fracture polygons to
         # their original state. If this is not done, multiple searches for
         # intersections will find points that are already vertexes (from the
@@ -550,6 +555,9 @@ class FractureNetwork(object):
                     self.intersections.append(Intersection(first, second,
                     isect))
 
+        if self.verbose > 0:
+            print('Done. Elapsed time ' + str(time.time() - start_time))
+
 
     def split_intersections(self):
         """
@@ -560,6 +568,11 @@ class FractureNetwork(object):
         The method will add an atribute decomposition to self.
 
         """
+
+        if self.verbose > 0:
+            start_time = time.time()
+            print('Split fracture intersections')
+
         # First, collate all points and edges used to describe fracture
         # boundaries and intersections.
         all_p, edges,\
@@ -590,6 +603,10 @@ class FractureNetwork(object):
                       'polygons': poly_segments,
                       'polygon_frac': poly_2_frac}
 
+        if self.verbose > 0:
+            print('Fracture splitting done. Elapsed time ' + str(time.time() -
+                                                                 start_time))
+
     def _point_and_edge_lists(self):
         """
         Obtain lists of all points and connections necessary to describe
@@ -607,6 +624,9 @@ class FractureNetwork(object):
                 edge is on the boundary of a fracture.
 
         """
+        if self.verbose > 1:
+            print('  Create lists of points and edges')
+            start_time = time.time()
 
         # Field for all points in the fracture description
         all_p = np.empty((3, 0))
@@ -648,6 +668,12 @@ class FractureNetwork(object):
         # Ensure that edges are integers
         edges = edges.astype('int')
 
+        if self.verbose > 1:
+            print('  Done creating lists. Elapsed time ' + str(time.time() -
+                                                               start_time))
+            if self.verbose > 2:
+                print('    Uniquify next')
+
         return self._uniquify_points_and_edges(all_p, edges, edges_2_frac,
                                                is_boundary_edge)
 
@@ -656,6 +682,12 @@ class FractureNetwork(object):
         # Snap the points to an underlying Cartesian grid. This is the basis
         # for declearing two points equal
         # NOTE: We need to account for dimensions in the tolerance; 
+
+        if self.verbose > 2:
+            print('    Uniquify points and edges. Starting with:')
+            print('    ' + str(all_p.shape[1]) + ' points, ' +\
+                  str(edges.shape[1]) + ' edges')
+
         all_p = cg.snap_to_grid(all_p, self.tol)
 
         # We now need to find points that occur in multiple places
@@ -705,6 +737,11 @@ class FractureNetwork(object):
         edges_2_frac = [np.unique(np.array(edges_2_frac[i])) for i in
                                                     range(len(edges_2_frac))]
 
+        if self.verbose > 2:
+            print('    Uniquify complete:')
+            print('    ' + str(p_unique.shape[1]) + ' points, ' +\
+                  str(edges.shape[1]) + ' edges')
+
         return p_unique, edges, edges_2_frac, is_boundary_edge
 
 
@@ -732,6 +769,9 @@ class FractureNetwork(object):
             non-intersecting.
 
         """
+        if self.verbose > 0:
+            print('Remove edge intersections')
+            start_time = time.time()
 
         # The algorithm loops over all fractures, pulls out edges associated
         # with the fracture, project to the local 2D plane, and look for
@@ -739,6 +779,9 @@ class FractureNetwork(object):
         # a simple option). When intersections are found, the global lists of
         # points and edges are updated.
         for fi, frac in enumerate(self._fractures):
+
+            if self.verbose > 1:
+                print('  Remove intersections from fracture ' + str(fi))
 
             # Identify the edges associated with this fracture
             # It would have been more convenient to use an inverse
@@ -765,7 +808,8 @@ class FractureNetwork(object):
             # Obtain new points and edges, so that no edges on this fracture
             # are intersecting.
             p_new, edges_new = cg.remove_edge_crossings(p_2d, edges_2d,
-                                                        tol=self.tol*np.sqrt(3))
+                                                        tol=self.tol*np.sqrt(3),
+                                                        verbose=self.verbose)
 
             # Then, patch things up by converting new points to 3D, 
 
@@ -840,6 +884,10 @@ class FractureNetwork(object):
                 del is_boundary_edge[ei]
             # And we are done with this fracture. On to the next one.
 
+        if self.verbose > 0:
+            print('Done with intersection removal. Elapsed time ' +
+                  str(time.time() - start_time))
+
         return self._uniquify_points_and_edges(all_p, edges, edges_2_frac,
                                                is_boundary_edge)
 
@@ -906,6 +954,10 @@ class FractureNetwork(object):
 
         """
 
+        if self.verbose > 0:
+            print('Split fractures into polygon')
+            start_time = time.time()
+
         # For each polygon, list of segments that make up the polygon
         poly_segments = []
         # Which fracture is the polygon part of
@@ -914,6 +966,9 @@ class FractureNetwork(object):
         artificial_edges = []
 
         for fi, frac in enumerate(self._fractures):
+
+            if self.verbose > 1:
+                print('  Split fracture no ' + str(fi))
 
             # Identify the edges associated with this fracture
             # It would have been more convenient to use an inverse
@@ -1057,6 +1112,10 @@ class FractureNetwork(object):
                     # tried to find an exact maximum number of iterations.
                     raise ValueError('This must be too many iterations')
 
+            if self.verbose > 2:
+                print('    Split fracture into ' + str(np.unique(polygon).size)
+                      + ' polygons')
+
             # For each cell, find its boundary
             for poly in np.unique(polygon):
                 tri_loc = tri[:, np.squeeze(np.where(polygon == poly))]
@@ -1121,10 +1180,11 @@ class FractureNetwork(object):
             unique_new_edges, *rest = setmembership.unique_columns_tol(new_edges)
             edges = np.hstack((edges, unique_new_edges))
 
+        if self.verbose > 0:
+            print('Done with splitting into polygons. Elapsed time ' +
+                  str(time.time() - start_time))
+
         return all_p, edges, is_boundary_edge, poly_segments, poly_2_frac
-
-
-
 
     def _points_2_plane(self, p_loc, edges_loc, p_ind_loc):
         """
