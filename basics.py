@@ -131,6 +131,8 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         np.ndarray, nd x n_pt: new point set, possibly with new point inserted.
         np.ndarray, n x n_con: new edge set, possibly with new lines defined.
         boolean: True if a new line is created, otherwise false.
+        int: Splitting type, indicating which splitting strategy was used.
+            Intended for debugging.
 
     """
 
@@ -168,7 +170,8 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             # Nothing happens, the intersection between the edges coincides
             # with a shared vertex for the edges
             new_line = 0
-            return vertices, edges, new_line
+            split_type = 0
+            return vertices, edges, new_line, split_type
         else:
             # We may need to split the edge (start, end) into two
             new_edges = np.array([[start, pi],
@@ -188,7 +191,8 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
         if new_edges.size == 0:
             new_line = 0
-            return vertices, edges, new_line
+            split_type = 1
+            return vertices, edges, new_line, split_type
 
         # Add any tags to the new edge.
         if tags.size > 0:
@@ -209,7 +213,8 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         if edge_unique.shape[1] < edges.shape[1]:
             raise ValueError('Have created the same edge twice')
 
-        return vertices, edges, new_line
+        split_type = 2
+        return vertices, edges, new_line, split_type
     else:
         # Without this, we will delete something we should not delete below.
         assert edge_ind[0] < edge_ind[1]
@@ -217,6 +222,15 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         # Intersection along a segment.
         # No new points should have been made
         assert pt_ind[0] <= orig_num_pts and pt_ind[1] <= orig_num_pts
+
+        pt_ind = np.reshape(np.array(pt_ind), (-1, 1))
+        edge_exists, _ = setmembership.ismember_rows(pt_ind, edges[:2])
+        if np.any(edge_exists):
+            import pdb
+            pdb.set_trace()
+            new_line = np.zeros(2, dtype='int')
+            split_type = 3
+            return vertices, edges, new_line, split_type
 
         # There are three (four) possible configurations
         # a) The intersection is contained within (start, end). edge_ind[0]
@@ -249,6 +263,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
                                new_edges,
                                edges[:, edge_ind[0]+1:]))
             new_line = [2, -1]
+            split_type = 4
         elif i0 == start and i1 == end:
             # We don't know if i0 is closest to the start or end of edges[:,
             # edges_ind[1]]. Find the nearest.
@@ -277,6 +292,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             edges = np.delete(edges, edge_ind[0], axis=1)
             new_line = [-1, 2]
 
+            split_type = 5
 
         # Note that we know that i0 is closest to start, thus no need to test
         # for i1 == start
@@ -322,6 +338,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
                                new_edges,
                                edges[:, (edge_ind[0]+1):]))
             new_line = [1, -did_delete]
+            split_type = 5
 
         elif i0 != start and i1 == end:
             # Analogous configuration as the one above, but with i0 replaced by
@@ -352,6 +369,8 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
                                new_edges,
                                edges[:, (edge_ind[0]+1):]))
             new_line = [1, -did_delete]
+            split_type = 6
+
         else:
             raise ValueError('How did it come to this')
 
@@ -363,7 +382,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         if edge_unique.shape[1] < edges.shape[1]:
             raise ValueError('Have created the same edge twice')
 
-        return vertices, edges, new_line
+        return vertices, edges, new_line, split_type
 
 #------------------------------------------------------------------------------#
 
@@ -467,6 +486,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
 
     vertices = snap_to_grid(vertices, **kwargs)
 
+    split_type = []
 
     # Loop over all edges, search for intersections. The number of edges can
     #  change due to splitting.
@@ -564,25 +584,34 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
                     # means the intersection runs through an endpoint of the
                     # edge in an L-type configuration, in which case no new point
                     # is needed)
-                    vertices, edges, split_outer_edge = _split_edge(vertices, edges,
-                                                                   edge_counter,
-                                                                   new_pt,
-                                                                   **kwargs)
+                    vertices, edges, split_outer_edge,\
+                            split = _split_edge(vertices, edges,
+                                                     edge_counter, new_pt,
+                                                     **kwargs)
+                    split_type.append(split)
+
                     # If the outer edge (represented by edge_counter) was split,
                     # e.g. inserted into the list of edges we need to increase the
                     # index of the inner edge
                     intsect += split_outer_edge
                     # Possibly split the inner edge
-                    vertices, edges, split_inner_edge = _split_edge(vertices, edges,
-                                                                   intsect,
-                                                                   new_pt,
-                                                                   **kwargs)
+                    vertices, edges, split_inner_edge, \
+                            split = _split_edge(vertices, edges, intsect,
+                                                new_pt, **kwargs)
+                    split_type.append(split)
+
                     intersections += split_outer_edge + split_inner_edge
                 else:
-                    vertices, edges, splits = _split_edge(vertices, edges,
-                                                         [edge_counter,
-                                                          intsect],
-                                                         new_pt, **kwargs)
+                    if verbose > 2:
+                        print('    Found two intersections: ('
+                              + str(new_pt[0, 0]) + ', '  + str(new_pt[1, 0]) +
+                              'and ' + str(new_pt[0, 1]) + ', '  +
+                              str(new_pt[1, 1]))
+                    vertices, edges, splits,\
+                            s_type = _split_edge(vertices, edges,
+                                                 [edge_counter, intsect],
+                                                 new_pt, **kwargs)
+                    split_type.append(s_type)
                     intersections += splits[0] + splits[1]
                 # Update index of possible intersections
 
