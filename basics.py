@@ -11,6 +11,7 @@ import numpy as np
 from math import sqrt
 import sympy
 from sympy import geometry as geom
+from utils import setmembership
 
 #-----------------------------------------------------------------------------
 #
@@ -164,16 +165,36 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         pi = pt_ind[0]
         # Intersection at a point.
         if start == pi or end == pi:
-            # Nothing happens
+            # Nothing happens, the intersection between the edges coincides
+            # with a shared vertex for the edges
             new_line = 0
             return vertices, edges, new_line
         else:
+            # We may need to split the edge (start, end) into two
             new_edges = np.array([[start, pi],
                                   [pi, end]])
+            # ... however, the new edges may already exist in the set (this
+            # apparently can happen for complex networks with several fractures
+            # sharing a line).
+            # Check if the new candidate edges already are defined in the set
+            # of edges
+            ismem, _ = setmembership.ismember_rows(new_edges, edges[:2])
+            if any(ismem):
+                new_edges = np.delete(new_edges,
+                                      np.squeeze(np.argwhere(ismem)),
+                                      axis=0)
+            if new_edges.shape[0] == 1:
+                new_edges = new_edges.reshape((-1, 1))
+
+        if new_edges.size == 0:
+            new_line = 0
+            return vertices, edges, new_line
+
         # Add any tags to the new edge.
         if tags.size > 0:
             new_edges = np.vstack((new_edges,
-                                   np.tile(tags[:, np.newaxis], 2)))
+                                   np.tile(tags[:, np.newaxis],
+                                           new_edges.shape[1])))
         # Insert the new edge in the midle of the set of edges.
         edges = np.hstack((edges[:, :edge_ind_first], new_edges,
                            edges[:, edge_ind_first+1:]))
