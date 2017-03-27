@@ -112,6 +112,7 @@ def _cart_grid_3d(fracs, nx, physdims):
         nodes = np.unique(nodes)
         loc_coord = g_3d.nodes[:, nodes]
         g = _create_embedded_2d_grid(loc_coord, nodes)
+        print(g_3d.nodes[:, g.global_point_ind] - g.nodes, 'should be 0')
         g_2d.append(g)
         shared_nodes[nodes] += 1
 
@@ -173,7 +174,7 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     # Projection matrix
     rot = cg.project_plane_matrix(loc_coord)
     loc_coord_2d = rot.dot(loc_coord)
-    # The points are now 2d along one of the coordinate axis, but we
+    # The points are now 2d along two of the coordinate axis, but we
     # don't know which yet. Find this.
     sum_coord = np.sum(np.abs(loc_coord_2d), axis=1)
     active_dimension = np.logical_not(np.isclose(sum_coord, 0))
@@ -181,20 +182,22 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     assert np.sum(active_dimension) == 2
     # Sort nodes, and create grid
     coord_2d = loc_coord_2d[active_dimension]
-    print(coord_2d.shape, 'coord2d')
-    sort_ind = np.argsort(coord_2d)[0]
+    sort_ind = np.lexsort((coord_2d[0], coord_2d[1]))
     sorted_coord = coord_2d[:, sort_ind]
     sorted_coord = np.round(sorted_coord * 1e10) / 1e10
+    print(sorted_coord, 'sorted_coord')
     unique_x = np.unique(sorted_coord[0])
     unique_y = np.unique(sorted_coord[1])
-    assert unique_x.size == unique_y.size
+    print(unique_x, 'uniqeu_coord')
+    print(unique_y, 'uniqeu_coord-y')
+    #assert unique_x.size == unique_y.size
     g = structured.TensorGrid(unique_x, unique_y)
+    assert np.all(g.nodes[0:2] - sorted_coord == 0)
 
     # Project back to active dimension
     nodes = np.zeros(g.nodes.shape)
     nodes[active_dimension] = g.nodes[0:2]
     g.nodes = nodes
-    print(g.nodes.shape)
     # Project back again to 3d coordinates
 
     irot = rot.transpose()
@@ -202,6 +205,5 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     g.nodes += loc_center
 
     # Add mapping to global point numbers
-    print(sort_ind, 'sort_id')
     g.global_point_ind = glob_id[sort_ind]
     return g
