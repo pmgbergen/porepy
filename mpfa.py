@@ -401,14 +401,16 @@ def _create_bound_rhs(bnd, bound_exclusion,
 
     fno = subcell_topology.fno_unique
 
-    num_neu = sum(bnd.is_neu[fno])
-    num_dir = sum(bnd.is_dir[fno])
+    num_neu = np.sum(bnd.is_neu[fno])
+    num_dir = np.sum(bnd.is_dir[fno])
     num_bound = num_neu + num_dir
 
     # Neumann boundary conditions
+    # Find Neumann faces, exclude Dirichlet faces (since these are excluded
+    # from the right hand side linear system), and do necessary formating.
     neu_ind = np.argwhere(bound_exclusion.exclude_dirichlet(
                           bnd.is_neu[fno].astype('int64'))).ravel('F')
-    num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(1)
+    num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order='F')
     # sgn is already defined according to fno, while g.faceAreas is raw data,
     # and therefore needs a combined mapping
     signed_bound_areas = sgn[neu_ind] * g.face_areas[fno[neu_ind]]\
@@ -434,12 +436,20 @@ def _create_bound_rhs(bnd, bound_exclusion,
         # necessary, or if it is me being stupid
         dir_cell = sps.coo_matrix((num_pr, num_bound))
 
+    # We also need to map the respective Neumann and Dirichlet half-faces to
+    # the global half-face numbering (also interior faces). The latter should
+    # not have Dirichlet and Neumann excluded (respectively), and thus we need
+    # new fields
+    neu_ind_all = np.argwhere(bnd.is_neu[fno].astype('int')).ravel('F')
+    dir_ind_all = np.argwhere(bnd.is_dir[fno].astype('int')).ravel('F')
+    # Number of elements in neu_ind and neu_ind_all are equal, we can test with
+    # any of them. Same with dir.
     if neu_ind.size > 0 and dir_ind.size > 0:
-        neu_dir_ind = sps.hstack([neu_ind, dir_ind]).A.ravel('F')
+        neu_dir_ind = sps.hstack([neu_ind_all, dir_ind_all]).A.ravel('F')
     elif neu_ind.size > 0:
-        neu_dir_ind = neu_ind
+        neu_dir_ind = neu_ind_all
     elif dir_ind.size > 0:
-        neu_dir_ind = dir_ind
+        neu_dir_ind = dir_ind_all
     else:
         raise ValueError("Boundary values should be either Dirichlet or "
                          "Neumann")
@@ -457,7 +467,6 @@ def _create_bound_rhs(bnd, bound_exclusion,
                              (subcell_topology.subfno_unique,
                               subcell_topology.fno_unique)),
                             shape=(num_subfno, g.num_faces))
-
     rhs_bound = -sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
     return rhs_bound
 

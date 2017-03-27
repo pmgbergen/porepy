@@ -856,7 +856,14 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
     # Map these to all half-face indices
-    is_bnd = np.hstack((neu_ind_single, dir_ind_single))
+    # Here, we need to account for all half faces, that is, do not exclude
+    # Dirichlet and Neumann boundaries.
+    neu_ind_single_all = np.argwhere(bound.is_neu[fno].astype('int'))\
+                            .ravel('F')
+    dir_ind_single_all = np.argwhere(bound.is_dir[fno].astype('int'))\
+                            .ravel('F')
+
+    is_bnd = np.hstack((neu_ind_single_all, dir_ind_single_all))
     bnd_ind = __expand_indices_nd(is_bnd, nd)
     bnd_2_all_hf = sps.coo_matrix((np.ones(num_bound),
                                    (np.arange(num_bound), bnd_ind)),
