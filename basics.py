@@ -11,6 +11,8 @@ import numpy as np
 from math import sqrt
 import sympy
 from sympy import geometry as geom
+import time
+
 from utils import setmembership
 
 #-----------------------------------------------------------------------------
@@ -161,7 +163,6 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
     # Sanity check
     assert len(pt_ind) <= 2
-
     # Check for a single intersection point
     if len(pt_ind) < 2:
         pi = pt_ind[0]
@@ -441,7 +442,7 @@ def _add_point(vertices, pt, tol=1e-3, **kwargs):
 
 #-----------------------------------------------------------------------------#
 
-def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
+def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
     """
     Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
@@ -470,6 +471,11 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
     NotImplementedError if a 3D point array is provided.
 
     """
+    if verbose > 1:
+        start_time = time.time()
+        num_edges_orig = edges.shape[1]
+        print('  Find intersections between ' + str(num_edges_orig) + ' edges')
+
     num_edges = edges.shape[1]
     nd = vertices.shape[0]
 
@@ -496,7 +502,6 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
         # we first identify edges which crosses the extention of this edge (
         # intersection of line and line segment). We then go on to test for
         # real intersections.
-
 
         # Find start and stop coordinates for all edges
         start_x = vertices[0, edges[0]]
@@ -551,7 +556,13 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
             edge_counter += 1
             continue
 
-        int_counter = 0 
+        if verbose > 2:
+            print('    ------')
+            print('    Splitting edge no ' + str(edge_counter) + '. Vertices:')
+            print('    ' + str(vertices[:, edges[0, edge_counter]]))
+            print('    ' + str(vertices[:, edges[1, edge_counter]]))
+
+        int_counter = 0
         while intersections.size > 0 and int_counter < intersections.size:
             # Line intersect (inner loop) is an intersection if it crosses
             # the extension of line edge_counter (outer loop) (ie intsect it
@@ -570,6 +581,12 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
                 int_counter += 1
                 continue
 
+            if verbose > 2:
+                print('    Intersection with edge ' + str(intsect)
+                      + '. Vertices:')
+                print('    ' + str(vertices[:, edges[0, intsect]]))
+                print('    ' + str(vertices[:, edges[1, intsect]]))
+
             # Check if this point intersects
             new_pt = lines_intersect(vertices[:, edges[0, edge_counter]],
                                        vertices[:, edges[1, edge_counter]],
@@ -579,6 +596,10 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
             if new_pt is not None:
                 # The case of segment intersections need special treatment.
                 if new_pt.shape[-1] == 1:
+                    if verbose > 2:
+                        print('    Found intersection: (' + str(new_pt[0]) +
+                              ', '  + str(new_pt[1]))
+
                     # Split edge edge_counter (outer loop), unless the
                     # intersection hits an existing point (in practices this
                     # means the intersection runs through an endpoint of the
@@ -624,6 +645,13 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, **kwargs):
         # We're done with all intersections of this loop. increase index of
         # outer loop
         edge_counter += 1
+
+    if verbose > 1:
+        print('  Edge intersection removal complete. Elapsed time ' +\
+              str(time.time() - start_time))
+        print('  Introduced ' + str(edges.shape[1] - num_edges_orig) + \
+              ' new edges')
+
     return vertices, edges
 
 #----------------------------------------------------------
