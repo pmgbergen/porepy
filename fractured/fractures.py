@@ -479,7 +479,7 @@ class Intersection(object):
 
 class FractureNetwork(object):
 
-    def __init__(self, fractures=None):
+    def __init__(self, fractures=None, verbose=0, tol=1e-4):
 
         if fractures is None:
             self._fractures = fractures
@@ -492,7 +492,8 @@ class FractureNetwork(object):
         self.intersections = []
 
         self._has_checked_intersections = False
-        self.tol = 1e-8
+        self.tol = tol
+        self.verbose = verbose
 
     def add(self, f):
         # Careful here, if we remove one fracture and then add, we'll have
