@@ -61,7 +61,6 @@ def assemble_in_bucket(grids):
             # Sort the face nodes for simple comparison. np.sort returns a copy
             # of the list,
             if 'TensorGrid'in hg.name and hg.dim == 3:
-                print('hei')
                 nodes_per_face = 4
             elif 'TetrahedralGrid' in hg.name:
                 nodes_per_face = 3
@@ -75,11 +74,6 @@ def assemble_in_bucket(grids):
                 raise ValueError(
                     "assemble_in_bucket not implemented for grid: " + str(hg.name))
 
-            print(hg)
-            print(nodes_per_face)
-            print(hg.num_faces)
-            print(hg.face_nodes.shape)
-            print(hg.face_nodes.indices.shape)
             fn_loc = hg.face_nodes.indices.reshape((nodes_per_face, hg.num_faces),
                                                    order='F')
             # Convert to global numbering
@@ -104,21 +98,17 @@ def obtain_interdim_mappings(lg, fn, nodes_per_face):
     # Next, find mappings between faces in one dimension and cells in the lower
     # dimension
     if lg.dim > 0:
-        print(lg.dim, 'lg')
-        print(lg.num_cells, 'num_cells')
-        print(lg)
         cn_loc = lg.cell_nodes().indices.reshape((nodes_per_face,
                                                   lg.num_cells),
                                                  order='F')
-        print(cn_loc, 'cn_loc')
-        print(lg.global_point_ind, 'glob_id')
         cn = lg.global_point_ind[cn_loc]
         cn = np.sort(cn, axis=0)
     else:
         cn = np.array([lg.global_point_ind])
         # We also know that the higher-dimensional grid has faces
         # of a single node. This sometimes fails, so enforce it.
-        #fn = fn.ravel()
+        if cn.ndim == 1:
+            fn = fn.ravel()
     is_mem, cell_2_face = setmembership.ismember_rows(
         cn.astype(np.int32), fn.astype(np.int32), sort=False)
     # An element in cell_2_face gives, for all cells in the
