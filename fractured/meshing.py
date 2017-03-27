@@ -10,12 +10,12 @@ generators etc.
 import numpy as np
 import scipy.sparse as sps
 
-from gridding.fractured import grid_2d, grid_3d, split_grid
+from gridding.fractured import structured, simplex, split_grid
 from gridding.grid_bucket import GridBucket
 from utils import setmembership
 
 
-def create_grid(fracs, domain, **kwargs):
+def simplex_grid(fracs, domain, **kwargs):
     """
     Main function for grid generation.
 
@@ -43,13 +43,55 @@ def create_grid(fracs, domain, **kwargs):
         f_lines = np.reshape(np.arange(2 * len(fracs)), (2, -1), order='F')
         f_pts = np.hstack(fracs)
         frac_dic = {'points': f_pts, 'edges': f_lines}
-        grids = grid_2d.create_grid(frac_dic, domain, **kwargs)
+        grids = simplex.triangle_grid(frac_dic, domain, **kwargs)
     elif ndim == 3:
-        grids = grid_3d.create_grid(fracs, domain, **kwargs)
-
+        grids = simplex.tetrahedral_grid(fracs, domain, **kwargs)
+    else:
+        raise ValueError('Only support for 2 and 3 dimensions')
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
     split_grid.split_fractures(gb)
+    return gb
+
+
+def tensor_grid(fracs, nx, physdims=None, **kwargs):
+    """
+    Creates a tensor fractured GridBucket.
+
+    Parameters:
+        fracs (list of np.ndarray): One list item for each fracture. Each item
+            consist of a (nd x nd) array describing fracture vertices. The
+            fractures has to be rectangles(3D) or straight lines(2D) that
+            alignes with one of the axis. The fractures may be intersecting.
+            The fractures will snap to closest grid face.
+        nx (np.ndarray): An array of size 2 (2D) or 3(3D) giving the number of
+            cells in each dimension.
+        physdims (np.ndarray): Physical dimensions in each direction.
+            Defaults to same as nx, that is, cells of unit size.
+    Returns:
+        GridBucket: A complete bucket where all fractures are represented as
+            lower dim grids. The higher dim faces are split in two, and on the
+            edges of the GridBucket graph the mapping from lower dim cells to
+            higher dim faces are stored as 'face_cells'
+    """
+    ndim = np.asarray(nx).size
+    if physdims is None:
+        physdims = nx
+    elif np.asarray(physdims).size != ndim:
+        raise ValueError('Physical dimension must equal grid dimension')
+    # Call relevant method, depending on grid dimensions
+    # Note: If we ever develop interfaces to grid generators other than gmsh,
+    # this should not be visible here, but rather in the respective
+    # nd.create_grid methods.
+    if ndim == 2:
+        grids = structured.tensor_grid_2d(fracs, nx, physdims)
+    elif ndim == 3:
+        grids = structured.tensor_grid_3d(fracs, nx, physdims)
+    else:
+        raise ValueError('Only support for 2 and 3 dimensions')
+    gb = assemble_in_bucket(grids)
+    gb.compute_geometry()
+    split_grid.split_fractures(gb, offset=0.2)
     return gb
 
 

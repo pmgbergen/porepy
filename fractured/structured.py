@@ -9,60 +9,16 @@ generators etc.
 """
 import numpy as np
 import scipy.sparse as sps
-import matplotlib.pyplot as plt
 
-from gridding.fractured import fractures, grid_2d, grid_3d, meshing, split_grid
-from gridding.grid_bucket import GridBucket
 from gridding.gmsh import mesh_2_grid
 from gridding import constants
-from utils import setmembership, half_space
+from gridding.fractured import fractures
+from utils import half_space
 from core.grids import structured, point_grid
 from compgeom import basics as cg
-from viz import plot_grid
 
 
-def cart_grid(fracs, nx, physdims=None, **kwargs):
-    """
-    Creates a cartesian fractured GridBucket.
-
-    Parameters:
-        fracs (list of np.ndarray): One list item for each fracture. Each item
-            consist of a (nd x nd) array describing fracture vertices. The
-            fractures has to be rectangles(3D) or straight lines(2D) that
-            alignes with one of the axis. The fractures may be intersecting.
-            The fractures will snap to closest grid face.
-        nx (np.ndarray): An array of size 2 (2D) or 3(3D) giving the number of
-            cells in each dimension.
-        physdims (np.ndarray): Physical dimensions in each direction.
-            Defaults to same as nx, that is, cells of unit size.
-    Returns:
-        GridBucket: A complete bucket where all fractures are represented as
-            lower dim grids. The higher dim faces are split in two, and on the
-            edges of the GridBucket graph the mapping from lower dim cells to
-            higher dim faces are stored as 'face_cells'
-    """
-    ndim = np.asarray(nx).size
-    if physdims is None:
-        physdims = nx
-    elif np.asarray(physdims).size != ndim:
-        raise ValueError('Physical dimension must equal grid dimension')
-    # Call relevant method, depending on grid dimensions
-    # Note: If we ever develop interfaces to grid generators other than gmsh,
-    # this should not be visible here, but rather in the respective
-    # nd.create_grid methods.
-    if ndim == 2:
-        grids = _cart_grid_2d(fracs, nx, physdims)
-    elif ndim == 3:
-        grids = _cart_grid_3d(fracs, nx, physdims)
-    else:
-        raise ValueError('Only support for 2 and 3 dimensions')
-    gb = meshing.assemble_in_bucket(grids)
-    gb.compute_geometry()
-    split_grid.split_fractures(gb, offset=0.2)
-    return gb
-
-
-def _cart_grid_3d(fracs, nx, physdims):
+def tensor_grid_3d(fracs, nx, physdims):
     g_3d = structured.CartGrid(nx, physdims=physdims)
     g_3d.global_point_ind = np.arange(g_3d.num_nodes)
     g_3d.compute_geometry()
@@ -187,7 +143,7 @@ def _cart_grid_3d(fracs, nx, physdims):
     return grids
 
 
-def _cart_grid_2d(fracs, nx, physdims):
+def tensor_grid_2d(fracs, nx, physdims):
     g_2d = structured.CartGrid(nx, physdims=physdims)
     g_2d.global_point_ind = np.arange(g_2d.num_nodes)
     g_2d.compute_geometry()
