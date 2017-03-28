@@ -187,8 +187,9 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         # Insert the new edge in the midle of the set of edges.
         edges = np.hstack((edges[:, :edge_ind_first], new_edges,
                            edges[:, edge_ind_first+1:]))
-        # We have added a single new line
-        new_line = 1
+        # We have added as many new edges as there are columns in new_edges,
+        # minus 1 (which was removed / ignored).
+        new_line = new_edges.shape[1] - 1
 
         # Sanity check of new edge
         if np.any(np.diff(edges[:2], axis=0) == 0):
