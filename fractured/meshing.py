@@ -46,7 +46,7 @@ def simplex_grid(fracs, domain, **kwargs):
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
     # Tag tip faces
-    tag_tip_faces(grids)
+    tag_tip_faces(grids, ndim)
     # Assemble grids in a bucket
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
@@ -88,7 +88,7 @@ def tensor_grid(fracs, nx, physdims=None, **kwargs):
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
     # Tag tip faces.
-    tag_tip_faces(grids)
+    tag_tip_faces(grids, ndim)
 
     # Asemble in bucket
     gb = assemble_in_bucket(grids)
@@ -99,10 +99,11 @@ def tensor_grid(fracs, nx, physdims=None, **kwargs):
     return gb
 
 
-def tag_tip_faces(grids):
+def tag_tip_faces(grids, ndim):
     for g_dim in grids:
         for g in g_dim:
-            g.add_face_tag(g.get_boundary_faces(), FaceTag.TIP)
+            if g.dim != ndim:
+                g.add_face_tag(g.get_boundary_faces(), FaceTag.TIP)
 
 
 def assemble_in_bucket(grids):
