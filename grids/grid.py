@@ -331,7 +331,6 @@ class Grid(object):
         parts (face and cell computations are an obvious solution).
 
         """
-        print('Not finished yet. Use with caution')
         xn = self.nodes
         num_face_nodes = self.face_nodes.nnz
         face_node_ptr = self.face_nodes.indptr
