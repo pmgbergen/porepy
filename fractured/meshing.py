@@ -12,6 +12,7 @@ import scipy.sparse as sps
 from gridding.fractured import structured, simplex, split_grid
 from gridding.grid_bucket import GridBucket
 from utils import setmembership
+from core.grids.grid import FaceTag
 
 
 def simplex_grid(fracs, domain, **kwargs):
@@ -44,6 +45,8 @@ def simplex_grid(fracs, domain, **kwargs):
         grids = simplex.tetrahedral_grid(fracs, domain, **kwargs)
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
+    # Tag tip faces
+    tag_tip_faces(grids)
     # Assemble grids in a bucket
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
@@ -84,12 +87,22 @@ def tensor_grid(fracs, nx, physdims=None, **kwargs):
         grids = structured.tensor_grid_3d(fracs, nx, physdims)
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
+    # Tag tip faces.
+    tag_tip_faces(grids)
+
     # Asemble in bucket
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
+
     # Split grid.
     split_grid.split_fractures(gb, offset=0.2)
     return gb
+
+
+def tag_tip_faces(grids):
+    for g_dim in grids:
+        for g in g_dim:
+            g.add_face_tag(g.get_boundary_faces(), FaceTag.TIP)
 
 
 def assemble_in_bucket(grids):
