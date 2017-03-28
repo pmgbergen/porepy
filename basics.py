@@ -77,22 +77,6 @@ def __dist(p1, p2):
     return __nrm(p1 - p2)
 
 #------------------------------------------------------------------------------#
-#
-# def is_unique_vert_array(pts, box=None, precision=1e-3):
-#     nd = pts.shape[0]
-#     num_pts = pts.shape[1]
-#     pts = snap_to_grid(pts, box, precision)
-#     for iter in range(num_pts):
-#
-
-#------------------------------------------------------------------------------#
-
-def __points_equal(p1, p2, box, precesion=1e-3):
-    d = __dist(p1, p2)
-    nd = p1.shape[0]
-    return d < precesion * sqrt(nd)
-
-#------------------------------------------------------------------------------#
 
 def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
     """
