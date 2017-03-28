@@ -18,7 +18,7 @@ from sympy import geometry as geom
 #
 #------------------------------------------------------------------------------#
 
-def snap_to_grid(pts, tol=1e-3, box=None):
+def snap_to_grid(pts, tol=1e-3, box=None, **kwargs):
     """
     Snap points to an underlying Cartesian grid.
     Used e.g. for avoiding rounding issues when testing for equality between
@@ -327,7 +327,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
         return vertices, edges, new_line
 
-#------------------------------------------------------------------------------#
+#------------------------------------------------------**kwargs------------------------#
 
 def _add_point(vertices, pt, tol=1e-3, **kwargs):
     """
