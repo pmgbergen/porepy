@@ -845,12 +845,25 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
     start_2 = np.asarray(start_2).astype(np.float)
     end_2 = np.asarray(end_2).astype(np.float)
 
+    # Vectors along first and second line
     d_1 = end_1 - start_1
     d_2 = end_2 - start_2
 
+    # Vector between the start points
     d_s = start_2 - start_1
 
-    discr = d_1[0] * d_2[1] - d_1[1] * d_2[0]
+    # An intersection point is characterized by
+    #   start_1 + d_1 * t_1 = start_2 + d_2 * t_2
+    #
+    # which on component form becomes
+    #
+    #   d_1[0] * t_1 - d_2[0] * t_2 = d_s[0]
+    #   d_1[1] * t_1 - d_2[1] * t_2 = d_s[1]
+    #
+    # First check for solvability of the system (e.g. parallel lines) by the
+    # determinant of the matrix.
+
+    discr = d_1[0] *(-d_2[1]) - d_1[1] * (-d_2[0])
 
     if np.abs(discr) < tol:
         # The lines are parallel, and will only cross if they are also colinear
@@ -894,10 +907,19 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
             # Lines are parallel, but not colinear
             return None
     else:
-        t = (d_s[0] * d_2[1] - d_s[1] * d_2[0]) / discr
-        isect = start_1 + t * d_1
-        if t >= 0 and t <= 1:
-            return np.array([[isect[0]], [isect[1]]])
+        # Solve linear system using Cramer's rule
+        t_1 = (d_s[0] * (-d_2[1]) - d_s[1] * (-d_2[0])) / discr
+        t_2 = (d_1[0] * d_s[1] - d_1[1] * d_s[0]) / discr
+
+        isect_1 = start_1 + t_1 * d_1
+        isect_2 = start_2 + t_2 * d_2
+        # Safeguarding
+        assert np.allclose(isect_1, isect_2, tol)
+
+        # The intersection lies on both segments if both t_1 and t_2 are on the
+        # unit interval
+        if t_1 >= 0 and t_1 <= 1 and t_2 >= 0 and t_2 <=1:
+            return np.array([[isect_1[0]], [isect_1[1]]])
         else:
             return None
 
