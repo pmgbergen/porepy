@@ -95,7 +95,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         >>> p = np.array([[0, 0], [0, 1]])
         >>> edges = np.array([[0], [1]])
         >>> new_pt = np.array([[0], [0.5]])
-        >>> v, e, nl = _split_edge(p, edges, 0, new_pt)
+        >>> v, e, nl, _ = _split_edge(p, edges, 0, new_pt)
         >>> e
         array([[0, 2],
                [2, 1]])
