@@ -1,7 +1,9 @@
 import numpy as np
 import scipy.sparse as sps
 
-class DualCoupling(object):
+from core.solver.abstract_coupling import *
+
+class DualCoupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
@@ -51,17 +53,14 @@ class DualCoupling(object):
         assert kn is not None
 
         # Retrieve the number of degrees of both grids
-        dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
+        # Create the block matrix for the contributions
+        dof, cc = self.create_block_matrix(g_h, g_l)
 
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
         faces, _, sgn = sps.find(g_h.cell_faces)
         sgn = sgn[np.unique(faces, return_index=True)[1]]
         sgn = sgn[faces_h]
-
-        # Create the block matrix for the contributions
-        cc = np.array([sps.coo_matrix((i,j)) for i in dof for j in dof]\
-                     ).reshape((2, 2))
 
         # Compute the off-diagonal terms
         dataIJ, I, J = sgn, g_l.num_faces+cells_l, faces_h
