@@ -210,13 +210,6 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         assert pt_ind[0] <= orig_num_pts and pt_ind[1] <= orig_num_pts
 
         pt_ind = np.reshape(np.array(pt_ind), (-1, 1))
-        edge_exists, _ = setmembership.ismember_rows(pt_ind, edges[:2])
-        if np.any(edge_exists):
-            import pdb
-            pdb.set_trace()
-            new_line = np.zeros(2, dtype='int')
-            split_type = 3
-            return vertices, edges, new_line, split_type
 
         # There are three (four) possible configurations
         # a) The intersection is contained within (start, end). edge_ind[0]
