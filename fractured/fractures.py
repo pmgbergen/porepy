@@ -693,9 +693,10 @@ class FractureNetwork(object):
         all_p = cg.snap_to_grid(all_p, tol=self.tol)
 
         # We now need to find points that occur in multiple places
-        p_unique, \
-            unique_ind_p, \
-            all_2_unique_p = setmembership.unique_columns_tol(all_p, self.tol)
+        p_unique, unique_ind_p, \
+            all_2_unique_p = setmembership.unique_columns_tol(all_p, tol=
+                                                              self.tol *
+                                                              np.sqrt(3))
 
         # Update edges to work with unique points
         edges = all_2_unique_p[edges]
@@ -810,7 +811,7 @@ class FractureNetwork(object):
             # Obtain new points and edges, so that no edges on this fracture
             # are intersecting.
             p_new, edges_new = cg.remove_edge_crossings(p_2d, edges_2d,
-                                                        tol=self.tol*np.sqrt(3),
+                                                        tol=self.tol,
                                                         verbose=self.verbose)
 
             # Then, patch things up by converting new points to 3D,
@@ -1238,7 +1239,9 @@ class FractureNetwork(object):
         # Project the points onto the local plane defined by the fracture
         rot = cg.project_plane_matrix(p_loc)
         p_2d = rot.dot(p_loc)
-        assert np.max(p_2d[2]) < 1e-8
+
+        scaling = max(p_loc.max(axis=1) - p_loc.min(axis=1))
+        assert np.max(p_2d[2]) < self.tol * np.sqrt(2)# * scaling
         # Dump third coordinate
         p_2d = p_2d[:2]
 
