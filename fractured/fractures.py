@@ -1014,6 +1014,43 @@ class FractureNetwork(object):
             p = np.asarray(t['vertices']).transpose()
             segments = np.sort(np.asarray(t['segments']).transpose(), axis=0)
 
+            pl = p
+            p = cg.snap_to_grid(p, tol=self.tol)
+            pl, new_2_old,\
+                old2new = setmembership.unique_columns_tol(p,
+                                                           tol=np.sqrt(self.tol))
+            triangle_unique = False
+            if p.shape[1] > p_2d.shape[1]:
+                triangle_unique = True
+                p = pl
+                segments = old2new[segments]
+                tri = old2new[tri]
+
+                # Remove segments with the same start and endpoint
+                segments_remove = np.argwhere(np.diff(segments, axis=0)[0] == 0)
+                segments = np.delete(segments, segments_remove, axis=1)
+                segment_markers = np.delete(segment_markers, segments_remove)
+
+                # Remove segments that exist in duplicates (a, b) and (b, a)
+                segments.sort(axis=0)
+                segments, new_2_old_seg, old_2_new_seg = \
+                        setmembership.unique_columns_tol(segments)
+                segment_markers = segment_markers[new_2_old_seg]
+
+                # Look for degenerate triangles, where the same point occurs
+                # twice
+                tri.sort(axis=0)
+                degenerate_tri = np.any(np.diff(tri, axis=0) == 0, axis=0)
+                tri = tri[:, np.logical_not(degenerate_tri)]
+
+                # Remove duplicate triangles, if any
+                tri, *rest = setmembership.unique_columns_tol(tri)
+
+                import pdb
+#                pdb.set_trace()
+
+
+
             # We need a connection map between cells. The simplest option was
             # to construct a simplex grid, and use the associated function.
             # While we were at it, we could have used this to find cell
