@@ -179,8 +179,8 @@ class Fracture(object):
         on_boundary_other = []
 
         # Compute intersections, with both polygons as first argument
-        isect_self_other = cg.polygon_segment_intersect(self.p, other.p, tol)
-        isect_other_self = cg.polygon_segment_intersect(other.p, self.p, tol)
+        isect_self_other = cg.polygon_segment_intersect(self.p, other.p, tol=tol)
+        isect_other_self = cg.polygon_segment_intersect(other.p, self.p, tol=tol)
 
         # Process data
         if isect_self_other is not None:
@@ -214,9 +214,11 @@ class Fracture(object):
         ####
         # Next, check for intersections between the polygon boundaries
         bound_sect_self_other = cg.polygon_boundaries_intersect(self.p,
-                                                                other.p, tol)
+                                                                other.p,
+                                                                tol=tol)
         bound_sect_other_self = cg.polygon_boundaries_intersect(other.p,
-                                                                self.p, tol)
+                                                                self.p,
+                                                                tol=tol)
 
         # Short cut: If no boundary intersections, we return the interior
         # points
@@ -229,13 +231,13 @@ class Fracture(object):
             self_segment, \
             self_non_vertex, \
             self_cuts_through = self._process_segment_isect(
-                bound_sect_self_other, self.p)
+                bound_sect_self_other, self.p, tol)
 
         bound_pt_other, \
             other_segment, \
             other_non_vertex, \
             other_cuts_through = self._process_segment_isect(
-                bound_sect_other_self, other.p)
+                bound_sect_other_self, other.p, tol)
 
         # Run some sanity checks
 
@@ -246,7 +248,7 @@ class Fracture(object):
         elif int_points.shape[1] == 1:
             # There should be exactly one unique boundary point.
             bp = np.hstack((bound_pt_self, bound_pt_other))
-            u_bound_pt, *rest = setmembership.unique_columns_tol(bp, tol)
+            u_bound_pt, *rest = setmembership.unique_columns_tol(bp, tol=tol)
             assert u_bound_pt.shape[1] == 1
 
         # If a segment runs through the polygon, there should be no interior points.
@@ -283,7 +285,7 @@ class Fracture(object):
 
         return bound_pt, on_boundary_self, on_boundary_other
 
-    def _process_segment_isect(self, isect_bound, poly):
+    def _process_segment_isect(self, isect_bound, poly, tol):
         """
         Helper function to interpret result from polygon_boundaries_intersect
 
@@ -320,7 +322,7 @@ class Fracture(object):
             # No intersections should have more than two poitns
             assert ip.shape[1] < 3
 
-            ip_unique, *rest = setmembership.unique_columns_tol(ip)
+            ip_unique, *rest = setmembership.unique_columns_tol(ip, tol=tol)
             if ip_unique.shape[1] == 2:
                 # The polygons share a segment, or a
                 bound_pt = np.hstack((bound_pt, ip_unique))
@@ -330,7 +332,7 @@ class Fracture(object):
             elif ip_unique.shape[1] == 1:
                 # Either a vertex or single intersection point.
                 poly_ext, *rest = setmembership.unique_columns_tol(
-                    np.hstack((self.p, ip_unique)))
+                    np.hstack((self.p, ip_unique)), tol=tol)
                 if poly_ext.shape[1] == self.p.shape[1]:
                     # This is a vertex, we skip it
                     pass
@@ -348,7 +350,7 @@ class Fracture(object):
         cuts_two = np.any(num_occ > 1)
 
         # Return a unique version of bound_pt
-        bound_pt, *rest = setmembership.unique_columns_tol(bound_pt)
+        bound_pt, *rest = setmembership.unique_columns_tol(bound_pt, tol=tol)
 
         return bound_pt, has_segment, non_vertex, cuts_two
 
@@ -688,7 +690,7 @@ class FractureNetwork(object):
             print('    ' + str(all_p.shape[1]) + ' points, ' +\
                   str(edges.shape[1]) + ' edges')
 
-        all_p = cg.snap_to_grid(all_p, self.tol)
+        all_p = cg.snap_to_grid(all_p, tol=self.tol)
 
         # We now need to find points that occur in multiple places
         p_unique, \
