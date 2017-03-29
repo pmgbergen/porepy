@@ -12,6 +12,7 @@ import scipy.sparse as sps
 from gridding.fractured import structured, simplex, split_grid
 from gridding.grid_bucket import GridBucket
 from utils import setmembership
+from core.grids.grid import FaceTag
 
 
 def simplex_grid(fracs, domain, **kwargs):
@@ -44,6 +45,8 @@ def simplex_grid(fracs, domain, **kwargs):
         grids = simplex.tetrahedral_grid(fracs, domain, **kwargs)
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
+    # Tag tip faces
+    tag_tip_faces(grids, ndim)
     # Assemble grids in a bucket
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
@@ -52,7 +55,7 @@ def simplex_grid(fracs, domain, **kwargs):
     return gb
 
 
-def tensor_grid(fracs, nx, physdims=None, **kwargs):
+def cart_grid(fracs, nx, **kwargs):
     """
     Creates a tensor fractured GridBucket.
 
@@ -62,10 +65,13 @@ def tensor_grid(fracs, nx, physdims=None, **kwargs):
             fractures has to be rectangles(3D) or straight lines(2D) that
             alignes with the axis. The fractures may be intersecting.
             The fractures will snap to closest grid faces.
-        nx (np.ndarray): An array of size 2 (2D) or 3(3D) giving the number of
-            cells in each dimension.
-        physdims (np.ndarray): Physical dimensions in each direction.
-            Defaults to same as nx, that is, cells of unit size.
+        nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
+        kwargs:
+            physdims (np.ndarray): Physical dimensions in each direction.
+                Defaults to same as nx, that is, cells of unit size.
+            offset (float):  defaults to 0. Will perturb the nodes around the
+                faces that are split. NOTE: this is only for visualization.
+                E.g., the face centers are not perturbed.
     Returns:
         GridBucket: A complete bucket where all fractures are represented as
             lower dim grids. The higher dim faces are split in two, and on the
@@ -73,23 +79,40 @@ def tensor_grid(fracs, nx, physdims=None, **kwargs):
             higher dim faces are stored as 'face_cells'
     """
     ndim = np.asarray(nx).size
+    offset = kwargs.get('offset', 0)
+    physdims = kwargs.get('physdims', None)
+
     if physdims is None:
         physdims = nx
     elif np.asarray(physdims).size != ndim:
         raise ValueError('Physical dimension must equal grid dimension')
+
     # Call relevant method, depending on grid dimensions
     if ndim == 2:
-        grids = structured.tensor_grid_2d(fracs, nx, physdims)
+        grids = structured.cart_grid_2d(fracs, nx, physdims=physdims)
     elif ndim == 3:
-        grids = structured.tensor_grid_3d(fracs, nx, physdims)
+        grids = structured.cart_grid_3d(fracs, nx, physdims=physdims)
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
+    # Tag tip faces.
+    tag_tip_faces(grids, ndim)
+
     # Asemble in bucket
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
+
     # Split grid.
-    split_grid.split_fractures(gb, offset=0.2)
+    split_grid.split_fractures(gb, **kwargs)
     return gb
+
+
+def tag_tip_faces(grids, ndim):
+    print('Fracture TIP TAGGING NOT IMPLEMENTED')
+    return
+    for g_dim in grids:
+        for g in g_dim:
+            if g.dim != ndim:
+                g.add_face_tag(g.get_boundary_faces(), FaceTag.TIP)
 
 
 def assemble_in_bucket(grids):

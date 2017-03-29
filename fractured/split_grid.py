@@ -11,7 +11,7 @@ from utils.mcolon import mcolon
 from core.grids.grid import Grid, FaceTag
 
 
-def split_fractures(bucket, offset=0):
+def split_fractures(bucket, **kwargs):
     """
     Wrapper function to split all fractures. For each grid in the bucket,
     we locate the corresponding lower-dimensional grids. The faces and
@@ -21,9 +21,10 @@ def split_fractures(bucket, offset=0):
     Parameters
     ----------
     bucket    - A grid bucket
-    offset    - INT, defaults to 0. Will perturb the nodes around the
-                faces that are split. NOTE: this is only for visualization.
-                E.g., the face centers are not perturbed.
+    **kwargs:
+        offset    - FLOAT, defaults to 0. Will perturb the nodes around the
+                    faces that are split. NOTE: this is only for visualization.
+                    E.g., the face centers are not perturbed.
 
     Returns
     -------
@@ -49,6 +50,9 @@ def split_fractures(bucket, offset=0):
     >>> split_grid.split_fractures(bucket, offset=0.1)
     >>> export_vtk(bucket, "grid")
     """
+
+    offset = kwargs.get('offset', 0)
+
     # For each vertex in the bucket we find the corresponding lower-
     # dimensional grids.
     for gh, _ in bucket:
