@@ -13,6 +13,54 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
+    def test_dual_hybrid_vem_1d_iso(self):
+        g = structured.CartGrid(3, 1)
+        g.compute_geometry()
+
+        kxx = np.ones(g.num_cells)
+        perm = sot.SecondOrderTensor(g.dim, kxx)
+
+        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        solver = hybrid.HybridDualVEM()
+        M = solver.matrix_rhs(g, data)[0].todense()
+
+        M_known = 3 * np.array([[-1, 1, 0, 0],
+                                [ 1,-2, 1, 0],
+                                [ 0, 1,-2, 1],
+                                [ 0, 0, 1,-1]])
+
+        rtol = 1e-15
+        atol = rtol
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
+
+#------------------------------------------------------------------------------#
+
+    def test_dual_hybrid_vem_1d_ani(self):
+        g = structured.CartGrid(3, 1)
+        g.compute_geometry()
+
+        kxx = np.sin(g.cell_centers[0,:])+1
+        perm = sot.SecondOrderTensor(g.dim, kxx)
+
+        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        solver = hybrid.HybridDualVEM()
+        M = solver.matrix_rhs(g, data)[0].todense()
+
+        M_known = np.array([[-3.4976883980802449, 3.4976883980802453, 0, 0],
+                            [ 3.4976883980802453, -7.9359650138928544,
+                              4.4382766158126081, 0],
+                            [ 0, 4.4382766158126081, -9.6588071754007174,
+                              5.2205305595881093],
+                            [ 0, 0, 5.2205305595881093, -5.2205305595881093]])
+
+        rtol = 1e-15
+        atol = rtol
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
+
+#------------------------------------------------------------------------------#
+
     def test_dual_hybrid_vem_2d_iso_cart(self):
         g = structured.CartGrid([2, 1], [1, 1])
         g.compute_geometry()
@@ -93,21 +141,17 @@ class BasicsTest( unittest.TestCase ):
         data = {'k': perm, 'f': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
-        M_known = np.array([[ -2.0000000000000000e+00,   0.0000000000000000e+00,
-                               2.0000000000000000e+00,   0.0000000000000000e+00,
-                               0.0000000000000000e+00],
-                            [  0.0000000000000000e+00,  -1.9999999999999996e+00,
-                               1.9999999999999991e+00,   0.0000000000000000e+00,
+        M_known = np.array([[ -2, 0, 2, 0, 0],
+                            [  0,  -1.9999999999999996e+00,
+                               1.9999999999999991e+00, 0,
                                4.9960036108132044e-16],
-                            [  2.0000000000000000e+00,  1.9999999999999993e+00,
-                              -7.9999999999999982e+00,   2.0000000000000000e+00,
-                               1.9999999999999993e+00],
+                            [  2,  1.9999999999999993e+00,
+                              -7.9999999999999982e+00, 2, 1.9999999999999993e+00],
                             [ -1.1102230246251565e-16,   0.0000000000000000e+00,
                                2.0000000000000004e+00,  -2.0000000000000000e+00,
-                               0.0000000000000000e+00],
-                            [  0.0000000000000000e+00,   2.2204460492503131e-16,
-                               1.9999999999999996e+00,   0.0000000000000000e+00,
-                              -1.9999999999999998e+00]])
+                               0],
+                            [  0, 2.2204460492503131e-16,
+                               1.9999999999999996e+00, 0, -1.9999999999999998e+00]])
 
         rtol = 1e-15
         atol = rtol
@@ -117,7 +161,7 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_dual_hybrid_vem_2d_iso_simplex(self):
+    def test_dual_hybrid_vem_2d_ani_simplex(self):
         g = simplex.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
@@ -150,6 +194,52 @@ class BasicsTest( unittest.TestCase ):
         assert np.allclose(M, M_known, rtol, atol)
 
 #------------------------------------------------------------------------------#
+
+    def test_dual_hybrid_vem_3d_iso_cart(self):
+        g = structured.CartGrid([2, 2, 2], [1, 1, 1])
+        g.compute_geometry()
+
+        kxx = np.ones(g.num_cells)
+        perm = sot.SecondOrderTensor(g.dim, kxx)
+
+        solver = hybrid.HybridDualVEM()
+        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        M = solver.matrix_rhs(g, data)[0].todense()
+
+        #np.savetxt('matrix_test_dual_hybrid_vem_3d_iso_cart.txt', M)
+        M_known = np.loadtxt('matrix_test_dual_hybrid_vem_3d_iso_cart.txt')
+
+        rtol = 1e-14
+        atol = rtol
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
+
+#------------------------------------------------------------------------------#
+
+    def test_dual_hybrid_vem_3d_ani_cart(self):
+        g = structured.CartGrid([2, 2, 2], [1, 1, 1])
+        g.compute_geometry()
+
+        kxx = np.square(g.cell_centers[1,:])+1
+        kyy = np.square(g.cell_centers[0,:])+1
+        kzz = g.cell_centers[2,:]+1
+        kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
+        perm = sot.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
+
+        solver = hybrid.HybridDualVEM()
+        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        M = solver.matrix_rhs(g, data)[0].todense()
+
+        #np.savetxt('matrix_test_dual_hybrid_vem_3d_ani_cart.txt', M)
+        M_known = np.loadtxt('matrix_test_dual_hybrid_vem_3d_ani_cart.txt')
+
+        rtol = 1e-15
+        atol = rtol
+        assert np.allclose(M, M.T, rtol, atol)
+        assert np.allclose(M, M_known, rtol, atol)
+
+#------------------------------------------------------------------------------#
+
 
     def test_dual_vem_2d_iso_cart_surf(self):
         g = structured.CartGrid([2, 1], [1, 1])
@@ -192,7 +282,6 @@ class BasicsTest( unittest.TestCase ):
         data = {'k': perm, 'f': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
-        # Matrix computed with an already validated code (MRST)
         M_known = np.array([[-3.,  3.,  0.,  0.],
                             [ 3., -6.,  3.,  0.],
                             [ 0.,  3., -6.,  3.],
@@ -204,3 +293,4 @@ class BasicsTest( unittest.TestCase ):
         assert np.allclose(M, M_known, rtol, atol)
 
 #------------------------------------------------------------------------------#
+BasicsTest().test_dual_hybrid_vem_3d_ani_cart()
