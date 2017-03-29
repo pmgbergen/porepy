@@ -207,10 +207,11 @@ def cart_grid_2d(fracs, nx, physdims=None):
         shared_nodes[nodes] += 1
 
     # Create 0-D grids
-    for global_node in np.where(shared_nodes > 1):
-        g = point_grid.PointGrid(g_2d.nodes[:, global_node])
-        g.global_point_ind = np.asarray(global_node)
-        g_0d.append(g)
+    if np.any(shared_nodes > 1):
+        for global_node in np.where(shared_nodes > 1):
+            g = point_grid.PointGrid(g_2d.nodes[:, global_node])
+            g.global_point_ind = np.asarray(global_node)
+            g_0d.append(g)
 
     grids = [[g_2d], g_1d, g_0d]
     return grids
