@@ -714,7 +714,8 @@ class FractureNetwork(object):
         # First expand the relevant members of edge_2_frac
         for ri in removed_edge:
             new_ind = all_2_unique_e[ri]
-            edges_2_frac[new_ind] += edges_2_frac[ri]
+            edges_2_frac[new_ind] = np.unique(np.hstack((edges_2_frac[new_ind],
+                                                         edges_2_frac[ri])))
         # Then remove the redundant fields
         for ri in removed_edge[::-1]:
             del edges_2_frac[ri]
