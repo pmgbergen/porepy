@@ -219,8 +219,8 @@ class BasicsTest( unittest.TestCase ):
         solver = dual.DualVEM()
         M = solver.matrix(g, {'k': perm}).todense()
 
-        #np.savetxt('matrix_test_dual_vem_3d_iso_cart.txt', M)
-        M_known = np.loadtxt('matrix_test_dual_vem_3d_iso_cart.txt')
+        #np.savetxt('vem/tests/matrix_test_dual_vem_3d_iso_cart.txt', M)
+        M_known = np.loadtxt('vem/tests/matrix_test_dual_vem_3d_iso_cart.txt')
 
         rtol = 1e-14
         atol = rtol
@@ -242,8 +242,8 @@ class BasicsTest( unittest.TestCase ):
         solver = dual.DualVEM()
         M = solver.matrix(g, {'k': perm}).todense()
 
-        #np.savetxt('matrix_test_dual_vem_3d_ani_cart.txt', M)
-        M_known = np.loadtxt('matrix_test_dual_vem_3d_ani_cart.txt')
+        #np.savetxt('vem/tests/matrix_test_dual_vem_3d_ani_cart.txt', M)
+        M_known = np.loadtxt('vem/tests/matrix_test_dual_vem_3d_ani_cart.txt')
 
         rtol = 1e-15
         atol = rtol

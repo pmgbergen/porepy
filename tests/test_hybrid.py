@@ -206,8 +206,8 @@ class BasicsTest( unittest.TestCase ):
         data = {'k': perm, 'f': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
-        #np.savetxt('matrix_test_dual_hybrid_vem_3d_iso_cart.txt', M)
-        M_known = np.loadtxt('matrix_test_dual_hybrid_vem_3d_iso_cart.txt')
+        #np.savetxt('vem/tests/matrix_test_dual_hybrid_vem_3d_iso_cart.txt', M)
+        M_known = np.loadtxt('vem/tests/matrix_test_dual_hybrid_vem_3d_iso_cart.txt')
 
         rtol = 1e-14
         atol = rtol
@@ -230,8 +230,8 @@ class BasicsTest( unittest.TestCase ):
         data = {'k': perm, 'f': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
-        #np.savetxt('matrix_test_dual_hybrid_vem_3d_ani_cart.txt', M)
-        M_known = np.loadtxt('matrix_test_dual_hybrid_vem_3d_ani_cart.txt')
+        #np.savetxt('vem/tests/matrix_test_dual_hybrid_vem_3d_ani_cart.txt', M)
+        M_known = np.loadtxt('vem/tests/matrix_test_dual_hybrid_vem_3d_ani_cart.txt')
 
         rtol = 1e-15
         atol = rtol
