@@ -18,7 +18,7 @@ from core.grids import structured, point_grid
 from compgeom import basics as cg
 
 
-def tensor_grid_3d(fracs, nx, physdims):
+def cart_grid_3d(fracs, nx, physdims=None):
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
 
@@ -40,6 +40,14 @@ def tensor_grid_3d(fracs, nx, physdims):
             that dimension.
 
     """
+    nx = np.asarray(nx)
+    if physdims is None:
+        physdims = nx
+    elif np.asarray(physdims).size != nx.size:
+        raise ValueError('Physical dimension must equal grid dimension')
+    else:
+        physdims = np.asarray(physdims)
+
     # We create a 3D cartesian grid. The global node mapping is trivial.
     g_3d = structured.CartGrid(nx, physdims=physdims)
     g_3d.global_point_ind = np.arange(g_3d.num_nodes)
@@ -47,10 +55,9 @@ def tensor_grid_3d(fracs, nx, physdims):
     g_2d = []
     g_1d = []
     g_0d = []
-
     # We set the tolerance for finding points in a plane. This can be any
     # small number, that is smaller than .25 of the cell sizes.
-    tol = .1 * np.asarray(physdims) / np.asarray(nx)
+    tol = .1 * physdims / nx
 
     # Create 2D grids
     for f in fracs:
@@ -131,7 +138,7 @@ def tensor_grid_3d(fracs, nx, physdims):
         # grid) and then the corresponding global node index.
         s_pt = pts[:, edges[0, e]]
         e_pt = pts[:, edges[1, e]]
-        nodes = _find_nodes_on_line(g_3d, s_pt, e_pt)
+        nodes = _find_nodes_on_line(g_3d, nx, s_pt, e_pt)
         loc_coord = g_3d.nodes[:, nodes]
         g = mesh_2_grid.create_embedded_line_grid(loc_coord, nodes)
         g_1d.append(g)
@@ -149,7 +156,7 @@ def tensor_grid_3d(fracs, nx, physdims):
     return grids
 
 
-def tensor_grid_2d(fracs, nx, physdims):
+def cart_grid_2d(fracs, nx, physdims=None):
     """
     Create grids for a domain with possibly intersecting fractures in 2d.
 
@@ -170,6 +177,14 @@ def tensor_grid_2d(fracs, nx, physdims):
             that dimension.
 
     """
+    nx = np.asarray(nx)
+    if physdims is None:
+        physdims = nx
+    elif np.asarray(physdims).size != nx.size:
+        raise ValueError('Physical dimension must equal grid dimension')
+    else:
+        physdims = np.asarray(physdims)
+
     g_2d = structured.CartGrid(nx, physdims=physdims)
     g_2d.global_point_ind = np.arange(g_2d.num_nodes)
     g_2d.compute_geometry()
@@ -177,9 +192,6 @@ def tensor_grid_2d(fracs, nx, physdims):
     g_0d = []
 
     # 1D grids:
-    # We set the tolerance for finding points in a plane. This can be any
-    # small number that is smaller than .25 of the cell sizes.
-    tol = .1 * np.asarray(physdims) / np.asarray(nx)
     shared_nodes = np.zeros(g_2d.num_nodes)
     for f in fracs:
         is_x_frac = f[1, 0] == f[1, 1]
@@ -187,7 +199,7 @@ def tensor_grid_2d(fracs, nx, physdims):
         assert is_x_frac != is_y_frac, 'Fracture must align to x- or y-axis'
         if f.shape[0] == 2:
             f = np.vstack((f, np.zeros(f.shape[1])))
-        nodes = _find_nodes_on_line(g_2d, f[:, 0], f[:, 1])
+        nodes = _find_nodes_on_line(g_2d, nx, f[:, 0], f[:, 1])
         #nodes = np.unique(nodes)
         loc_coord = g_2d.nodes[:, nodes]
         g = mesh_2_grid.create_embedded_line_grid(loc_coord, nodes)
@@ -245,7 +257,7 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
     return g
 
 
-def _find_nodes_on_line(g, s_pt, e_pt):
+def _find_nodes_on_line(g, nx, s_pt, e_pt):
     s_node = np.argmin(cg.dist_point_pointset(s_pt, g.nodes))
     e_node = np.argmin(cg.dist_point_pointset(e_pt, g.nodes))
 
@@ -259,21 +271,18 @@ def _find_nodes_on_line(g, s_pt, e_pt):
 
     # We find the number of nodes along each dimension. From this we find the
     # jump in node number between two consecutive nodes.
-    if g.dim == 2:
-        nodes_per_dim = round(np.power(g.num_nodes, 1 / 2))
-    else:
-        nodes_per_dim = round(np.power(g.num_nodes, 1 / 3))
 
     if np.all(np.isclose(s_pt[1:], e_pt[1:])):
         # x-line:
         nodes = np.arange(s_node, e_node + 1)
     elif np.all(np.isclose(s_pt[[0, 2]], e_pt[[0, 2]])):
         # y-line
-        nodes = np.arange(s_node, e_node + 1, nodes_per_dim, dtype=int)
+        nodes = np.arange(s_node, e_node + 1, nx[0] + 1, dtype=int)
 
-    elif g.dim == 3 and np.all(np.isclose(s_pt[0:2], e_pt[0:2])):
+    elif nx.size == 3 and np.all(np.isclose(s_pt[0:2], e_pt[0:2])):
         # is z-line
-        nodes = np.arange(s_node, e_node + 1, nodes_per_dim**2, dtype=int)
+        nodes = np.arange(s_node, e_node + 1,
+                          (nx[0] + 1) * (nx[1] + 1), dtype=int)
     else:
         raise RuntimeError(
             'Something went wrong. Found a diagonal intersection')

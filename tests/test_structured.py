@@ -16,7 +16,7 @@ class TestStructured(unittest.TestCase):
         f_set = [f_1, f_2]
         nx = [3, 3]
 
-        grids = structured.tensor_grid_2d(f_set, nx, nx)
+        grids = structured.cart_grid_2d(f_set, nx, physdims=nx)
 
         num_grids = [1, 2, 1]
         for i, g in enumerate(grids):
@@ -48,7 +48,7 @@ class TestStructured(unittest.TestCase):
         f_set = [f_1, f_2, f_3]
         nx = np.array([6, 6, 6])
 
-        grids = structured.tensor_grid_3d(f_set, nx, nx)
+        grids = structured.cart_grid_3d(f_set, nx, physdims=nx)
 
         num_grids = [1, 3, 6, 1]
         print(grids)

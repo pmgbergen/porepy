@@ -52,6 +52,7 @@ def split_fractures(bucket, **kwargs):
     """
 
     offset = kwargs.get('offset', 0)
+
     # For each vertex in the bucket we find the corresponding lower-
     # dimensional grids.
     for gh, _ in bucket:
