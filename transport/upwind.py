@@ -137,3 +137,25 @@ class Upwind(Solver):
         return np.amin(np.divide(volumes, beta_n))/g.dim
 
 #------------------------------------------------------------------------------#
+
+    def beta_n(self, g, beta):
+        """
+        Return the normal component of the velocity, for each face, weighted by
+        the face area.
+
+        Parameters
+        ----------
+        g : grid, or a subclass, with geometry fields computed.
+        beta: (3x1) array which represents the constant velocity.
+
+        Return
+        ------
+        beta_n : array (g.num_faces)
+            Normal velocity at each face, weighted by the face area.
+
+        """
+        beta = np.asarray(beta)
+        assert beta.size == 3
+        return np.array([np.dot(n, beta) for n in g.face_normals.T])
+
+#------------------------------------------------------------------------------#
