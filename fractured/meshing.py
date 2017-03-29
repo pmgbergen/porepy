@@ -95,7 +95,7 @@ def tensor_grid(fracs, nx, physdims=None, **kwargs):
     gb.compute_geometry()
 
     # Split grid.
-    split_grid.split_fractures(gb, offset=0.2)
+    split_grid.split_fractures(gb, **kwargs)
     return gb
 
 
