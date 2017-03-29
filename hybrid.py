@@ -105,8 +105,8 @@ class HybridDualVEM(Solver):
         c_centers, f_normals, f_centers, _, _ = cg.map_grid(g)
 
         # Weight for the stabilization term
-        weight = np.ones(g.num_cells) if g.dim != 1 else g.cell_volumes
         diams = g.cell_diameters()
+        weight = np.power(diams, 2-g.dim)
 
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
