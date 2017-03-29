@@ -40,7 +40,7 @@ class Upwind(Solver):
         weighted with the face area, at each face.
 
         The name of data in the input dictionary (data) are:
-        beta_n : array (self.g.num_faces)
+        beta_n : array (g.num_faces)
             Normal velocity at each face, weighted by the face area.
         bc : boundary conditions (optional)
         bc_val : dictionary (optional)
@@ -114,7 +114,7 @@ class Upwind(Solver):
         weighted with the face area, at each face.
 
         The name of data in the input dictionary (data) are:
-        beta_n : array (self.g.num_faces)
+        beta_n : array (g.num_faces)
             Normal velocity at each face, weighted by the face area.
 
         Parameters
