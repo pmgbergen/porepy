@@ -1339,24 +1339,106 @@ class FractureNetwork(object):
             pass
             # Check both point-point proximity and point-fracture-plane
 
-    def impose_external_boundary(self, box, truncate_fractures=False):
+
+    def impose_external_boundary(self, box, truncate_fractures=True):
         """
         Set an external boundary for the fracture set.
 
         The boundary takes the form of a 3D box, described by its minimum and
         maximum coordinates.
 
+        If desired, the fratures will be truncated to lay within the bounding
+        box; that is, Fracture.p will be modified. The orginal coordinates of
+        the fracture boundary can still be recovered from the attribute
+        Fracture.orig_points.
+
+        Fractures that are completely outside the bounding box will be deleted
+        from the fracture set.
+
         Parameters:
             box (dictionary): Has fields 'xmin', 'xmax', and similar for y and
                 z.
-            truncate_fractures (boolean): If True, fractures outside the
-                bounding box will be disregarded, while fractures crossing the
-                boundary will be truncated. NOTE: Currently not in use.
+            truncate_fractures (boolean, optional): If True, fractures outside
+            the bounding box will be disregarded, while fractures crossing the
+            boundary will be truncated.
 
         """
         # Insert boundary in the form of a box, and kick out (parts of)
         # fractures outside the box
         self.domain = box
+
+        if truncate_fractures:
+            # Short hand for coordinates of bounding box
+            x0 = box['xmin']
+            x1 = box['xmax']
+            y0 = box['ymin']
+            y1 = box['ymax']
+            z0 = box['zmin']
+            z1 = box['zmax']
+
+            def outside_box(p):
+                p = cg.snap_to_grid(p, tol=self.tol)
+                # snap_to_grid will impose a grid of size self.tol, thus points
+                # that are more than half that distance away from the boundary
+                # are deemed outside.
+                west_of = p[0] < x0 - self.tol / 2
+                east_of = p[0] > x1 + self.tol / 2
+                south_of = p[1] < y0 - self.tol / 2
+                north_of = p[1] > y1 + self.tol / 2
+                beneath = p[2] < z0 - self.tol / 2
+                above = p[2] > z1 + self.tol / 2
+                outside = np.vstack((west_of, east_of, south_of, north_of,
+                                     beneath, above))
+                return np.any(outside, axis=0)
+
+
+            # Represent the planes of the bounding box as fractures, to allow
+            # us to use the fracture intersection methods.
+            west = Fracture(np.array([[x0, x0, x0, x0], [y0, y1, y1, y0],
+                                      [z0, z0, z1, z1]]))
+            east = Fracture(np.array([[x1, x1, x1, x1], [y0, y1, y1, y0],
+                                      [z0, z0, z1, z1]]))
+            south = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y0, y0],
+                                      [z0, z0, z1, z1]]))
+            north = Fracture(np.array([[x0, x1, x1, x0], [y1, y1, y1, y1],
+                                      [z0, z0, z1, z1]]))
+            bottom = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+                                      [z0, z0, z0, z0]]))
+            top = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+                                      [z1, z1, z1, z1]]))
+            bound_planes = [west, east, south, north, bottom, top]
+
+            delete_frac = []
+
+            for i, frac in enumerate(self._fractures):
+                for bf in bound_planes:
+                    isect, _, _ = frac.intersects(bf, self.tol)
+                    if len(isect) > 0 and isect.shape[1] > 0:
+                        frac.p = np.hstack((frac.p, isect))
+                        frac.points_2_ccw()
+                        # Check if the points are outside on any side
+                        inside = np.logical_not(outside_box(frac.p))
+                        # Dump points that are outside.
+                        # Note that the points should still be ccw
+                        frac.p = frac.p[:, inside]
+                        if not np.any(inside):
+                            delete_frac.append(i)
+                    else:
+                        outside = outside_box(frac.p)
+                        if np.all(outside):
+                            delete_frac.append(i)
+
+            # Delete fractures that have all points outside the bounding box
+            # There may be some uncovered cases here, with a fracture barely
+            # touching the box from the outside, but we leave that for now.
+            for i in np.unique(delete_frac)[::-1]:
+                del self._fractures[i]
+
+            # Final sanity check: All fractures should have at least three
+            # points at the end of the manipulations
+            for f in self._fractures:
+                assert f.p.shape[1] >= 3
+
 
     def _classify_edges(self, polygon_edges):
         """
