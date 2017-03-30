@@ -21,7 +21,8 @@ class FaceTag(np.uint8, Enum):
     BOUNDARY = 1
     FRACTURE = 2
     TIP = 4
-#   NEXT = 6
+    DOMAIN_BOUNDARY = 8
+#    NEXT = 16
     WHOLE = np.iinfo(type(NONE)).max
 
 
