@@ -484,7 +484,7 @@ def partition_grid(g, ind):
     return sub_grid, face_map_list, node_map_list
 
 
-def overlap(g, cell_ind, num_layers):
+def overlap(g, cell_ind, num_layers, criterion='node'):
     """
     From a set of cell indices, find an extended set of cells that form an
     overlap (in the domain decomposition sense).
@@ -493,14 +493,18 @@ def overlap(g, cell_ind, num_layers):
     node with the existing set. When multiple layers are asked for, this
     process is repeated.
 
-    It should be possible to define other rules for overlap, such as based on
-    cell-face mappings by changing the connection matrix cn below.
+    The definition of neighborship is specified by criterion. Possible options
+    are 'face' (each layer will add cells that share a face with the active
+    face set), or 'node' (each layer will add cells sharing a vertex with the
+    active set).
 
     Parameters:
         g (core.grids.grid): The grid; the cell-node relation will be used to
             extend the cell set.
         cell_ind (np.array): Cell indices, the initial cell set.
         num_layers (int): Number of overlap layers.
+        criterion (str, optional): Which definition of neighborship to apply.
+            Should be either 'face' or 'node'. Default is 'node'.
 
     Returns:
         np.array: Indices of the extended cell set.
@@ -513,25 +517,51 @@ def overlap(g, cell_ind, num_layers):
 
     """
 
-    # Construct cell-node map, its transpose will be a node-cell map
-    cn = g.cell_nodes()
-
-    # Boolean storage of cells and nodes in the active set
+    # Boolean storage of cells in the active set; these are the ones that will
+    # be in the overlap
     active_cells = np.zeros(g.num_cells, dtype=np.bool)
-    active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
+    # Initialize by the specified cells
     active_cells[cell_ind] = 1
 
-    # Gradually increase the size of the cell set
-    for i in range(num_layers):
-        # Nodes are found via the mapping 
-        active_nodes[np.squeeze(np.where((cn * active_cells) > 0))] = 1
-        # Map back to new cells
-        ci_new = np.squeeze(np.where((cn.transpose() * active_nodes) > 0))
-        # Activate new cells.
-        active_cells[ci_new] = 1
+    if criterion.lower().strip() == 'node':
+        # Construct cell-node map, its transpose will be a node-cell map
+        cn = g.cell_nodes()
+
+        # Also introduce active nodes
+        active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
+
+        # Gradually increase the size of the cell set
+        for i in range(num_layers):
+            # Nodes are found via the mapping
+            active_nodes[np.squeeze(np.where((cn * active_cells) > 0))] = 1
+            # Map back to new cells
+            ci_new = np.squeeze(np.where((cn.transpose() * active_nodes) > 0))
+            # Activate new cells.
+            active_cells[ci_new] = 1
+
+    elif criterion().lower().strip() == 'face':
+        # Create a version of g.cell_faces with only positive values for
+        # connections, e.g. let go of the divergence property
+        cf = g.cell_faces
+        # This avoids overwriting data in cell_faces.
+        data = np.ones_like(cf.data)
+        cf = sps.csc_matrix((data, cf.indices, cf.indptr))
+
+        active_faces = np.zeros(g.num_faces, dtype=np.bool)
+
+        # Gradually increase the size of the cell set
+        for i in range(num_layers):
+            # All faces adjacent to an active cell
+            active_faces[np.squeeze(np.where((fn * active_cells)>0))] = 1
+            # Map back to active cells, including that on the other side of the
+            # newly found faces
+            ci_new = np.squeeze(np.where((fn.transpose() * active_faces) > 0))
+            # Activate new cells
+            active_cells[ci_new] = 1
 
     # Sort the output, this should not be a disadvantage
     return np.sort(np.squeeze(np.argwhere(active_cells > 0)))
+
 
 #----------------------------------------------------------------------------#
 
