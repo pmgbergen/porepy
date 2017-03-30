@@ -1417,6 +1417,53 @@ def rot( a, vect ):
 
 #------------------------------------------------------------------------------#
 
+def normal_matrix(pts=None, normal=None):
+    """ Compute the normal projection matrix of a plane.
+
+    The algorithm assume that the points lie on a plane.
+    Three non-aligned points are required.
+
+    Either points or normal are mandatory.
+
+    Parameters:
+    pts (optional): np.ndarray, 3xn, the points. Need n > 2.
+    normal (optional): np.array, 1x3, the normal.
+
+    Returns:
+    normal matrix: np.array, 3x3, the normal matrix.
+
+    """
+    if normal is not None:
+        normal = normal / np.linalg.norm( normal )
+    elif pts is not None:
+        normal = compute_normal( pts )
+    else:
+        assert False, "Points or normal are mandatory"
+
+    return np.tensordot(normal, normal, axes=0)
+
+#------------------------------------------------------------------------------#
+
+def tangent_matrix(pts=None, normal=None):
+    """ Compute the tangential projection matrix of a plane.
+
+    The algorithm assume that the points lie on a plane.
+    Three non-aligned points are required.
+
+    Either points or normal are mandatory.
+
+    Parameters:
+    pts (optional): np.ndarray, 3xn, the points. Need n > 2.
+    normal (optional): np.array, 1x3, the normal.
+
+    Returns:
+    tangential matrix: np.array, 3x3, the tangential matrix.
+
+    """
+    return np.eye(3) - normal_matrix(pts, normal)
+
+#------------------------------------------------------------------------------#
+
 def compute_normal(pts):
     """ Compute the normal of a set of points.
 
