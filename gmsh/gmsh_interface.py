@@ -266,8 +266,144 @@ class GmshWriter(object):
         s += '// End of physical point specification ' + ls + ls
         return s
 
-# ----------- end of GmshWriter -----------------------------
+# ----------- end of GmshWriter ----------------------------------------------
 
+class GmshGridBucketWriter(object):
+    """
+    Dump a grid bucket to a gmsh .msh file, to be read by other software.
+
+    The function assumes that the grid consists of simplices, and error
+    messages will be raised if otherwise. The extension should not be
+    difficult, but the need has not been there yet.
+
+    All grids in all dimensions will have a separate physical name (in the gmsh
+    sense), on the format GRID_#ID_DIM_#DIMENSION. Here #ID is the index of
+    the corresponding node in the grid bucket, as defined by
+    gb.assign_node_ordering. #DIMENSION is the dimension of the grid.
+
+    """
+
+    def __init__(self, gb):
+        """
+        Parameters:
+            gb (gridding.grid_bucket): Grid bucket to be dumped.
+
+        """
+        self.gb = gb
+
+        # Assign ordering of the nodes in gb - used for unique identification
+        # of each grid
+        gb.assign_node_ordering()
+
+        # Compute number of grids in each dimension of the gb
+        self._num_grids()
+
+    def write(self, file_name):
+        """
+        Write the whole bucket to a .msh file.
+
+        Parameters:
+            file_name (str): Name of dump file.
+
+        """
+        s = self._preamble()
+        s += self._physical_names()
+        s += self._points()
+        s += self._elements()
+
+        with open(file_name, 'w') as f:
+            f.write(s)
+
+    def _preamble(self):
+        # Write the preamble (mesh Format) section
+        s_preamble = '$MeshFormat\n'
+        s_preamble += '2.2 0 8\n'
+        s_preamble += '$EndMeshFormat\n'
+        return s_preamble
+
+    def _num_grids(self):
+        # Find number of grids in each dimension
+        max_dim = 3
+        num_grids = np.zeros(max_dim + 1, dtype='int')
+        for dim in range(max_dim + 1):
+            num_grids[dim] = len(self.gb.grids_of_dimension(dim))
+
+            # Identify the highest dimension    
+        while num_grids[-1] == 0:
+            num_grids = num_grids[:-1]
+
+            # We will pick the global point set from the highest dimensional
+            # grid. The current implementation assumes there is a single grid
+            # in that dimension. Taking care of multiple grids should not be
+            # difficult, but it has not been necessary up to know. 
+            if num_grids[-1] != 1:
+                raise NotImplementedError('Have not considered several grids\
+                                          in the highest dimension')
+        self.num_grids = num_grids
+
+    def _points(self):
+        # The global point set
+        p = self.gb.grids_of_dimension(len(self.num_grids)-1)[0].nodes
+
+        ls = '\n'
+        s = '$Nodes' + ls
+        s += str(p.shape[1]) + ls
+        for i in range(p.shape[1]):
+            s += str(i+1) + ' ' + str(p[0, i]) + ' ' + str(p[1, i]) + \
+                    ' ' + str(p[2, i]) + ls
+        s += '$EndNodes' + ls
+        return s
+
+    def _physical_names(self):
+        ls = '\n'
+        s = '$PhysicalNames' + ls
+
+        # Use one physical name for each grid (including highest dimensional
+        # one)
+        s += str(self.gb.size()) + ls
+        for i, g in enumerate(self.gb):
+            dim = g[0].dim
+            s += str(dim) + ' ' + str(i+1) + ' ' + 'GRID_' + \
+                    str(g[1]['node_number']) + '_DIM_' + str(dim) + ls
+        s += '$EndPhysicalNames' + ls
+        return s
+
+    def _elements(self):
+        ls = '\n'
+        s = '$Elements' + ls
+
+        num_cells = 0
+        for g, _ in self.gb:
+            num_cells += g.num_cells
+        s += str(num_cells) + ls
+
+        # Element types (as specified by the gmsh .msh format), index by
+        # dimensions. This assumes all cells are simplices.
+        elem_type = [15, 1, 2, 4]
+        for i, gr in enumerate(self.gb):
+            g = gr[0]
+            gn = str(gr[1]['node_number'])
+
+            # Sanity check - all cells should be simplices
+            assert np.all(np.diff(g.cell_nodes().indptr) == g.dim+1)
+
+            # Write the cell-node relation as an num_cells x dim+1 array
+            cn = g.cell_nodes().indices.reshape((g.num_cells, g.dim+1))
+
+            et = str(elem_type[g.dim])
+            for ci in range(g.num_cells):
+                s += str(ci+1) + ' ' + et + ' ' + str(1) + ' ' + gn + ' '
+                # There may be underlaying assumptions in gmsh on the ordering
+                # of nodes.
+                for d in range(g.dim+1):
+                    # Increase vertex offset by 1
+                    s += str(cn[ci, d] + 1) + ' '
+                s += ls
+
+        s += '$EndElements' + ls
+        return s
+
+#------------------ End of GmshGridBucketWriter------------------------------
 
 def read_gmsh(out_file):
     points, cells, phys_names, cell_info = mesh_io.read(out_file)
