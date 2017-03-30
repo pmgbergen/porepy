@@ -224,8 +224,8 @@ class HybridDualVEM(Solver):
         c_centers, f_normals, f_centers, _, _ = cg.map_grid(g)
 
         # Weight for the stabilization term
-        weight = np.ones(g.num_cells) if g.dim != 1 else g.cell_volumes
         diams = g.cell_diameters()
+        weight = np.power(diams, 2-g.dim)
 
         # Allocation of the pressure and velocity vectors
         p = np.zeros(g.num_cells)
