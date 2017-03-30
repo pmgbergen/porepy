@@ -43,7 +43,7 @@ def darcy_dual_hybridVEM_example0(**kwargs):
     bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
     bnd_val = {'dir': np.zeros(b_faces.size)}
 
-    solver = dual.HybridDualVEM()
+    solver = hybrid.HybridDualVEM()
     data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
     H, rhs = solver.matrix_rhs(g, data)
 
@@ -84,7 +84,7 @@ def darcy_dual_hybridVEM_example1(**kwargs):
     bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
     bnd_val = {'dir': funP_ex(g.face_centers[:, b_faces])}
 
-    solver = dual.HybridDualVEM()
+    solver = hybrid.HybridDualVEM()
     data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
     H, rhs = solver.matrix_rhs(g, data)
 
@@ -128,7 +128,7 @@ def darcy_dual_hybridVEM_example2(**kwargs):
     bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
     bnd_val = {'dir': funP_ex(g.face_centers[:, b_faces])}
 
-    solver = dual.HybridDualVEM()
+    solver = hybrid.HybridDualVEM()
     data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
     H, rhs = solver.matrix_rhs(g, data)
 
@@ -174,7 +174,7 @@ def darcy_dual_hybridVEM_example3(**kwargs):
     bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
     bnd_val = {'dir': funP_ex(g.face_centers[:, b_faces])}
 
-    solver = dual.HybridDualVEM()
+    solver = hybrid.HybridDualVEM()
     data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
     H, rhs = solver.matrix_rhs(g, data)
 
@@ -253,3 +253,5 @@ if __name__ == '__main__':
           + ' out of which ' + str(failure_counter) + ' failed.')
     print('Total elapsed time is ' + str(time.time() - time_tot) + ' seconds')
     print('\n')
+
+#------------------------------------------------------------------------------#
