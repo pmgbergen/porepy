@@ -31,15 +31,24 @@ def simplex_grid(fracs, domain, **kwargs):
             edges of the GridBucket graph the mapping from lower dim cells to 
             higher dim faces are stored as 'face_cells'
     """
-
-    ndim = fracs[0].shape[0]
+    if 'zmax' in domain:
+        ndim = 3
+    elif 'ymax' in domain:
+        ndim = 2
+    else:
+        raise ValueError('simplex_grid only supported for 2 or 3 dimensions')
 
     # Call relevant method, depending on grid dimensions.
     if ndim == 2:
         # Convert the fracture to a fracture dictionary.
-        f_lines = np.reshape(np.arange(2 * len(fracs)), (2, -1), order='F')
-        f_pts = np.hstack(fracs)
+        if len(fracs) == 0:
+            f_lines = np.zeros((2, 0))
+            f_pts = np.zeros((2, 0))
+        else:
+            f_lines = np.reshape(np.arange(2 * len(fracs)), (2, -1), order='F')
+            f_pts = np.hstack(fracs)
         frac_dic = {'points': f_pts, 'edges': f_lines}
+        print(frac_dic)
         grids = simplex.triangle_grid(frac_dic, domain, **kwargs)
     elif ndim == 3:
         grids = simplex.tetrahedral_grid(fracs, domain, **kwargs)
