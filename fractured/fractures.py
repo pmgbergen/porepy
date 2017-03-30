@@ -533,17 +533,38 @@ class FractureNetwork(object):
             isect.append(isect_loc)
         return isect
 
-    def find_intersections(self, use_orig_points=True):
+    def find_intersections(self, use_orig_points=False):
+        """
+        Find intersections between fractures in terms of coordinates.
+
+        The intersections are stored in the attribute self.Intersections.
+
+        Handling of the intersections (splitting into non-intersecting
+        polygons, paving the way for gridding) is taken care of by the function
+        split_intersections().
+
+        Note that find_intersections() should be invoked after external
+        boundaries are imposed. If the reverse order is applied, intersections
+        outside the domain may be identified, with unknown consequences for the
+        reliability of the methods. If intersections outside the bounding box
+        are of interest, these can be found by setting the parameter
+        use_orig_points to True.
+
+        Parameters:
+            use_orig_points (boolean, optional): Whether to use the original
+                fracture description in the search for intersections. Defaults
+                to False. If True, all fractures will have their attribute p
+                reset to their original value.
+
+        """
 
         if self.verbose > 0:
             print('Find intersections between fractures')
             start_time = time.time()
 
-        # Before searching for intersections, reset the fracture polygons to
-        # their original state. If this is not done, multiple searches for
-        # intersections will find points that are already vertexes (from the
-        # previous call). A more robust implementation of the intersection
-        # finder may take care of this, but for the moment, we go for this.
+        # If desired, use the original points in the fracture intersection.
+        # This will reset the field self._fractures.p, and thus revoke
+        # modifications due to boundaries etc.
         if use_orig_points:
             for f in self._fractures:
                 f.p = f.orig_p
