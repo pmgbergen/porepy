@@ -17,11 +17,24 @@ from compgeom.sort_points import sort_point_pairs
 
 
 class FaceTag(np.uint8, Enum):
+    """
+    FaceTag contains the following types:
+        NONE: None of the below (i.e. an internal face)
+        DOMAIN: Any boundary face. Should be equivalent with
+            g.get_boundary_faces()
+        FRACTURE: All faces that are split (i.e. has a connection to a
+            lower dim grid).
+        TIP: A boundary face that is not on the domain boundary, nor
+            coupled to a lower domentional domain.
+        DOMAIN_BOUNDARY: All faces that lie on the domain boundary
+            (i.e. should be given a boundary condition).
+    """
     NONE = 0
     BOUNDARY = 1
     FRACTURE = 2
     TIP = 4
-#   NEXT = 8
+    DOMAIN_BOUNDARY = 8
+#    NEXT = 16
     WHOLE = np.iinfo(type(NONE)).max
 
 
