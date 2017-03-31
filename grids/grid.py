@@ -607,7 +607,7 @@ class Grid(object):
 
         def comb(n): return np.fromiter(itertools.chain.from_iterable(
             itertools.combinations(n, 2)),
-            n            n.dtype).reshape((2, -1), order='F')
+            n.dtype).reshape((2, -1), order='F')
 
         def diam(n): return np.amax(np.linalg.norm(self.nodes[:, n[0, :]] -
                                                    self.nodes[:, n[1, :]],
