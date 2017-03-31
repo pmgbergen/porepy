@@ -29,23 +29,8 @@ class DualCoupling(AbstractCoupling):
 
         Returns:
             cc: block matrix which store the contribution of the coupling
-                condition in the following order:
-                [ cc_hh  cc_hl ]
-                [ cc_lh  cc_ll ]
-                where:
-                - cc_hh is the contribution to be added to the global block
-                  matrix in related to the grid of higher dimension (g_h).
-                - cc_ll is the contribution to be added to the global block
-                  matrix in related to the grid of lower dimension (g_l).
-                  In this case the term is null.
-                - cc_hl is the contribution to be added to the global block
-                  matrix in related to the coupling between grid of higher
-                  dimension (g_h) and the grid of lower dimension (g_l).
-                - cc_lh is the contribution to be added to the global block
-                  matrix in related to the coupling between grid of lower
-                  dimension (g_l) and the grid of higher dimension (g_h).
-                  In this case cc_lh is the transpose of cc_hl.
-
+                condition. See the abstract coupling class for a more detailed
+                description.
         """
 
         # Normal permeability of the intersection
