@@ -48,7 +48,7 @@ class TestStructured(unittest.TestCase):
         f_set = [f_1, f_2, f_3]
         nx = np.array([6, 6, 6])
 
-        grids = structured.cart_grid_3d(f_set, nx, physdims=nx)
+        Grids = structured.cart_grid_3d(f_set, nx, physdims=nx)
 
         num_grids = [1, 3, 6, 1]
         print(grids)

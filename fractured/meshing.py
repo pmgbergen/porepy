@@ -134,7 +134,7 @@ def tag_faces(grids):
     g_h.add_face_tag(bnd_faces, FaceTag.DOMAIN_BOUNDARY)
     bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
     bnd_nodes = np.unique(bnd_nodes)
-    for g_dim in grids[1:]:
+    for g_dim in grids[1:-1]:
         for g in g_dim:
             # We find the global nodes of all boundary faces
             bnd_faces_l = g.get_boundary_faces()
@@ -154,6 +154,10 @@ def tag_faces(grids):
             is_tip = np.any(is_tip.reshape(
                 (nodes_per_face, bnd_faces_l.size), order='F'), axis=0)
             g.add_face_tag(bnd_faces_l[is_tip], FaceTag.TIP)
+            g.add_face_tag(bnd_faces_l[is_tip == False],
+                           FaceTag.DOMAIN_BOUNDARY)
+            print(g.dim, 'dim')
+            print(g.face_tags)
 
 
 def find_nodes_per_face(g):
@@ -169,7 +173,7 @@ def find_nodes_per_face(g):
         nodes_per_face = 1
     else:
         raise ValueError(
-            "Can not find number of nodes per face for grid: " + str(h.name))
+            "Can not find number of nodes per face for grid: " + str(g.name))
     return nodes_per_face
 
 
