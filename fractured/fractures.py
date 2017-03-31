@@ -1036,17 +1036,23 @@ class FractureNetwork(object):
             p = np.asarray(t['vertices']).transpose()
             segments = np.sort(np.asarray(t['segments']).transpose(), axis=0)
 
-            pl = p
             p = cg.snap_to_grid(p, tol=self.tol)
-            pl, new_2_old,\
-                old2new = setmembership.unique_columns_tol(p,
-                                                           tol=np.sqrt(self.tol))
-            triangle_unique = False
+
+            # It turns out that Triangle sometime creates (almost) duplicate
+            # points. Our algorithm are based on the points staying, thus these
+            # need to go. 
+            # The problem is characterized by output from Triangle having more
+            # points than the input.
             if p.shape[1] > p_2d.shape[1]:
-                triangle_unique = True
-                p = pl
-                segments = old2new[segments]
-                tri = old2new[tri]
+
+                # Identify duplicate points
+                # Not sure about tolerance used here
+                p, new_2_old, old_2_new = \
+                    setmembership.unique_columns_tol(p, tol=np.sqrt(self.tol))
+                # Update segment and triangle coordinates to refer to unique
+                # points
+                segments = old_2_new[segments]
+                tri = old_2_new[tri]
 
                 # Remove segments with the same start and endpoint
                 segments_remove = np.argwhere(np.diff(segments, axis=0)[0] == 0)
@@ -1067,10 +1073,6 @@ class FractureNetwork(object):
 
                 # Remove duplicate triangles, if any
                 tri, *rest = setmembership.unique_columns_tol(tri)
-
-                import pdb
-#                pdb.set_trace()
-
 
 
             # We need a connection map between cells. The simplest option was
