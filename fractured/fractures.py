@@ -179,8 +179,8 @@ class Fracture(object):
         on_boundary_other = []
 
         # Compute intersections, with both polygons as first argument
-        isect_self_other = cg.polygon_segment_intersect(self.p, other.p, tol)
-        isect_other_self = cg.polygon_segment_intersect(other.p, self.p, tol)
+        isect_self_other = cg.polygon_segment_intersect(self.p, other.p, tol=tol)
+        isect_other_self = cg.polygon_segment_intersect(other.p, self.p, tol=tol)
 
         # Process data
         if isect_self_other is not None:
@@ -214,9 +214,11 @@ class Fracture(object):
         ####
         # Next, check for intersections between the polygon boundaries
         bound_sect_self_other = cg.polygon_boundaries_intersect(self.p,
-                                                                other.p, tol)
+                                                                other.p,
+                                                                tol=tol)
         bound_sect_other_self = cg.polygon_boundaries_intersect(other.p,
-                                                                self.p, tol)
+                                                                self.p,
+                                                                tol=tol)
 
         # Short cut: If no boundary intersections, we return the interior
         # points
@@ -229,13 +231,13 @@ class Fracture(object):
             self_segment, \
             self_non_vertex, \
             self_cuts_through = self._process_segment_isect(
-                bound_sect_self_other, self.p)
+                bound_sect_self_other, self.p, tol)
 
         bound_pt_other, \
             other_segment, \
             other_non_vertex, \
             other_cuts_through = self._process_segment_isect(
-                bound_sect_other_self, other.p)
+                bound_sect_other_self, other.p, tol)
 
         # Run some sanity checks
 
@@ -246,7 +248,7 @@ class Fracture(object):
         elif int_points.shape[1] == 1:
             # There should be exactly one unique boundary point.
             bp = np.hstack((bound_pt_self, bound_pt_other))
-            u_bound_pt, *rest = setmembership.unique_columns_tol(bp, tol)
+            u_bound_pt, *rest = setmembership.unique_columns_tol(bp, tol=tol)
             assert u_bound_pt.shape[1] == 1
 
         # If a segment runs through the polygon, there should be no interior points.
@@ -283,7 +285,7 @@ class Fracture(object):
 
         return bound_pt, on_boundary_self, on_boundary_other
 
-    def _process_segment_isect(self, isect_bound, poly):
+    def _process_segment_isect(self, isect_bound, poly, tol):
         """
         Helper function to interpret result from polygon_boundaries_intersect
 
@@ -320,7 +322,7 @@ class Fracture(object):
             # No intersections should have more than two poitns
             assert ip.shape[1] < 3
 
-            ip_unique, *rest = setmembership.unique_columns_tol(ip)
+            ip_unique, *rest = setmembership.unique_columns_tol(ip, tol=tol)
             if ip_unique.shape[1] == 2:
                 # The polygons share a segment, or a
                 bound_pt = np.hstack((bound_pt, ip_unique))
@@ -330,7 +332,7 @@ class Fracture(object):
             elif ip_unique.shape[1] == 1:
                 # Either a vertex or single intersection point.
                 poly_ext, *rest = setmembership.unique_columns_tol(
-                    np.hstack((self.p, ip_unique)))
+                    np.hstack((self.p, ip_unique)), tol=tol)
                 if poly_ext.shape[1] == self.p.shape[1]:
                     # This is a vertex, we skip it
                     pass
@@ -348,7 +350,7 @@ class Fracture(object):
         cuts_two = np.any(num_occ > 1)
 
         # Return a unique version of bound_pt
-        bound_pt, *rest = setmembership.unique_columns_tol(bound_pt)
+        bound_pt, *rest = setmembership.unique_columns_tol(bound_pt, tol=tol)
 
         return bound_pt, has_segment, non_vertex, cuts_two
 
@@ -531,17 +533,38 @@ class FractureNetwork(object):
             isect.append(isect_loc)
         return isect
 
-    def find_intersections(self, use_orig_points=True):
+    def find_intersections(self, use_orig_points=False):
+        """
+        Find intersections between fractures in terms of coordinates.
+
+        The intersections are stored in the attribute self.Intersections.
+
+        Handling of the intersections (splitting into non-intersecting
+        polygons, paving the way for gridding) is taken care of by the function
+        split_intersections().
+
+        Note that find_intersections() should be invoked after external
+        boundaries are imposed. If the reverse order is applied, intersections
+        outside the domain may be identified, with unknown consequences for the
+        reliability of the methods. If intersections outside the bounding box
+        are of interest, these can be found by setting the parameter
+        use_orig_points to True.
+
+        Parameters:
+            use_orig_points (boolean, optional): Whether to use the original
+                fracture description in the search for intersections. Defaults
+                to False. If True, all fractures will have their attribute p
+                reset to their original value.
+
+        """
 
         if self.verbose > 0:
             print('Find intersections between fractures')
             start_time = time.time()
 
-        # Before searching for intersections, reset the fracture polygons to
-        # their original state. If this is not done, multiple searches for
-        # intersections will find points that are already vertexes (from the
-        # previous call). A more robust implementation of the intersection
-        # finder may take care of this, but for the moment, we go for this.
+        # If desired, use the original points in the fracture intersection.
+        # This will reset the field self._fractures.p, and thus revoke
+        # modifications due to boundaries etc.
         if use_orig_points:
             for f in self._fractures:
                 f.p = f.orig_p
@@ -577,6 +600,9 @@ class FractureNetwork(object):
         all_p, edges,\
             edges_2_frac, is_boundary_edge = self._point_and_edge_lists()
 
+        if self.verbose > 1:
+            self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
+
         # By now, all segments in the grid are defined by a unique set of
         # points and edges. The next task is to identify intersecting edges,
         # and split them.
@@ -584,6 +610,9 @@ class FractureNetwork(object):
             edges_2_frac, is_boundary_edge = \
             self._remove_edge_intersections(all_p, edges, edges_2_frac,
                                             is_boundary_edge)
+
+        if self.verbose > 1:
+            self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
 
         # With all edges being non-intersecting, the next step is to split the
         # fractures into polygons formed of boundary edges, intersection edges
@@ -688,12 +717,13 @@ class FractureNetwork(object):
             print('    ' + str(all_p.shape[1]) + ' points, ' +\
                   str(edges.shape[1]) + ' edges')
 
-        all_p = cg.snap_to_grid(all_p, self.tol)
+        all_p = cg.snap_to_grid(all_p, tol=self.tol)
 
         # We now need to find points that occur in multiple places
-        p_unique, \
-            unique_ind_p, \
-            all_2_unique_p = setmembership.unique_columns_tol(all_p, self.tol)
+        p_unique, unique_ind_p, \
+            all_2_unique_p = setmembership.unique_columns_tol(all_p, tol=
+                                                              self.tol *
+                                                              np.sqrt(3))
 
         # Update edges to work with unique points
         edges = all_2_unique_p[edges]
@@ -702,20 +732,16 @@ class FractureNetwork(object):
         # will form either a L/Y-type intersection (shared boundary segment),
         # or a three fractures meeting in a line.
         # Do a sort of edges before looking for duplicates.
-        e_unique, \
-            unique_ind_e, \
-            all_2_unique_e = \
+        e_unique, unique_ind_e, all_2_unique_e = \
             setmembership.unique_columns_tol(np.sort(edges, axis=0))
 
-        # Edges that were merged should also be merged in edges_2_frac
-        removed_edge = np.setdiff1d(np.arange(edges.shape[1]), unique_ind_e)
-        # First expand the relevant members of edge_2_frac
-        for ri in removed_edge:
-            new_ind = all_2_unique_e[ri]
-            edges_2_frac[new_ind] += edges_2_frac[ri]
-        # Then remove the redundant fields
-        for ri in removed_edge[::-1]:
-            del edges_2_frac[ri]
+        # Update the edges_2_frac map to refer to the new edges
+        edges_2_frac_new = e_unique.shape[1] * [np.empty(0)]
+        for old_i, new_i in enumerate(all_2_unique_e):
+            edges_2_frac_new[new_i] =\
+                np.unique(np.hstack((edges_2_frac_new[new_i],
+                                     edges_2_frac[old_i])))
+        edges_2_frac = edges_2_frac_new
 
         # Represent edges by unique values
         edges = e_unique
@@ -732,10 +758,14 @@ class FractureNetwork(object):
         is_boundary_edge = [is_boundary_edge[i]
                             for i in unique_ind_e]  # Hope this is right
 
-        # Convert the edge to fracture map to a list of numpy arrays.
+        # Ensure that the edge to fracture map to a list of numpy arrays.
         # Use unique so that the same edge only refers to an edge once.
         edges_2_frac = [np.unique(np.array(edges_2_frac[i])) for i in
                         range(len(edges_2_frac))]
+
+        # Sanity check, the fractures should still be defined by points in a
+        # plane.
+        self._verify_fractures_in_plane(p_unique, edges, edges_2_frac)
 
         if self.verbose > 2:
             print('    Uniquify complete:')
@@ -807,7 +837,7 @@ class FractureNetwork(object):
             # Obtain new points and edges, so that no edges on this fracture
             # are intersecting.
             p_new, edges_new = cg.remove_edge_crossings(p_2d, edges_2d,
-                                                        tol=self.tol*np.sqrt(3),
+                                                        tol=self.tol,
                                                         verbose=self.verbose)
 
             # Then, patch things up by converting new points to 3D,
@@ -885,6 +915,8 @@ class FractureNetwork(object):
         if self.verbose > 0:
             print('Done with intersection removal. Elapsed time ' +
                   str(time.time() - start_time))
+
+        self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
 
         return self._uniquify_points_and_edges(all_p, edges, edges_2_frac,
                                                is_boundary_edge)
@@ -1010,6 +1042,45 @@ class FractureNetwork(object):
             tri = np.sort(np.asarray(t['triangles']).transpose(), axis=0)
             p = np.asarray(t['vertices']).transpose()
             segments = np.sort(np.asarray(t['segments']).transpose(), axis=0)
+
+            p = cg.snap_to_grid(p, tol=self.tol)
+
+            # It turns out that Triangle sometime creates (almost) duplicate
+            # points. Our algorithm are based on the points staying, thus these
+            # need to go. 
+            # The problem is characterized by output from Triangle having more
+            # points than the input.
+            if p.shape[1] > p_2d.shape[1]:
+
+                # Identify duplicate points
+                # Not sure about tolerance used here
+                p, new_2_old, old_2_new = \
+                    setmembership.unique_columns_tol(p, tol=np.sqrt(self.tol))
+                # Update segment and triangle coordinates to refer to unique
+                # points
+                segments = old_2_new[segments]
+                tri = old_2_new[tri]
+
+                # Remove segments with the same start and endpoint
+                segments_remove = np.argwhere(np.diff(segments, axis=0)[0] == 0)
+                segments = np.delete(segments, segments_remove, axis=1)
+                segment_markers = np.delete(segment_markers, segments_remove)
+
+                # Remove segments that exist in duplicates (a, b) and (b, a)
+                segments.sort(axis=0)
+                segments, new_2_old_seg, old_2_new_seg = \
+                        setmembership.unique_columns_tol(segments)
+                segment_markers = segment_markers[new_2_old_seg]
+
+                # Look for degenerate triangles, where the same point occurs
+                # twice
+                tri.sort(axis=0)
+                degenerate_tri = np.any(np.diff(tri, axis=0) == 0, axis=0)
+                tri = tri[:, np.logical_not(degenerate_tri)]
+
+                # Remove duplicate triangles, if any
+                tri, *rest = setmembership.unique_columns_tol(tri)
+
 
             # We need a connection map between cells. The simplest option was
             # to construct a simplex grid, and use the associated function.
@@ -1186,6 +1257,31 @@ class FractureNetwork(object):
 
         return all_p, edges, is_boundary_edge, poly_segments, poly_2_frac
 
+
+    def _verify_fractures_in_plane(self, p, edges, edges_2_frac):
+        """
+        Essentially a debugging method that verify that the given set of
+        points, edges and edge connections indeed form planes.
+
+        This has turned out to be a common symptom of trouble.
+
+        """
+        for fi, frac in enumerate(self._fractures):
+
+            # Identify the edges associated with this fracture
+            edges_loc_ind = []
+            for ei, e in enumerate(edges_2_frac):
+                if np.any(e == fi):
+                    edges_loc_ind.append(ei)
+
+            edges_loc = edges[:, edges_loc_ind]
+            p_ind_loc = np.unique(edges_loc)
+            p_loc = p[:, p_ind_loc]
+
+            p_2d, edges_2d, p_loc_c, rot \
+                    = self._points_2_plane(p_loc, edges_loc, p_ind_loc)
+
+
     def _points_2_plane(self, p_loc, edges_loc, p_ind_loc):
         """
         Convenience method for rotating a point cloud into its own 2d-plane.
@@ -1198,7 +1294,9 @@ class FractureNetwork(object):
         # Project the points onto the local plane defined by the fracture
         rot = cg.project_plane_matrix(p_loc)
         p_2d = rot.dot(p_loc)
-        assert np.max(p_2d[2]) < 1e-8
+
+        scaling = max(p_loc.max(axis=1) - p_loc.min(axis=1))
+        assert np.max(p_2d[2]) < self.tol * np.sqrt(2)# * scaling
         # Dump third coordinate
         p_2d = p_2d[:2]
 
@@ -1265,24 +1363,106 @@ class FractureNetwork(object):
             pass
             # Check both point-point proximity and point-fracture-plane
 
-    def impose_external_boundary(self, box, truncate_fractures=False):
+
+    def impose_external_boundary(self, box, truncate_fractures=True):
         """
         Set an external boundary for the fracture set.
 
         The boundary takes the form of a 3D box, described by its minimum and
         maximum coordinates.
 
+        If desired, the fratures will be truncated to lay within the bounding
+        box; that is, Fracture.p will be modified. The orginal coordinates of
+        the fracture boundary can still be recovered from the attribute
+        Fracture.orig_points.
+
+        Fractures that are completely outside the bounding box will be deleted
+        from the fracture set.
+
         Parameters:
             box (dictionary): Has fields 'xmin', 'xmax', and similar for y and
                 z.
-            truncate_fractures (boolean): If True, fractures outside the
-                bounding box will be disregarded, while fractures crossing the
-                boundary will be truncated. NOTE: Currently not in use.
+            truncate_fractures (boolean, optional): If True, fractures outside
+            the bounding box will be disregarded, while fractures crossing the
+            boundary will be truncated.
 
         """
         # Insert boundary in the form of a box, and kick out (parts of)
         # fractures outside the box
         self.domain = box
+
+        if truncate_fractures:
+            # Short hand for coordinates of bounding box
+            x0 = box['xmin']
+            x1 = box['xmax']
+            y0 = box['ymin']
+            y1 = box['ymax']
+            z0 = box['zmin']
+            z1 = box['zmax']
+
+            def outside_box(p):
+                p = cg.snap_to_grid(p, tol=self.tol)
+                # snap_to_grid will impose a grid of size self.tol, thus points
+                # that are more than half that distance away from the boundary
+                # are deemed outside.
+                west_of = p[0] < x0 - self.tol / 2
+                east_of = p[0] > x1 + self.tol / 2
+                south_of = p[1] < y0 - self.tol / 2
+                north_of = p[1] > y1 + self.tol / 2
+                beneath = p[2] < z0 - self.tol / 2
+                above = p[2] > z1 + self.tol / 2
+                outside = np.vstack((west_of, east_of, south_of, north_of,
+                                     beneath, above))
+                return np.any(outside, axis=0)
+
+
+            # Represent the planes of the bounding box as fractures, to allow
+            # us to use the fracture intersection methods.
+            west = Fracture(np.array([[x0, x0, x0, x0], [y0, y1, y1, y0],
+                                      [z0, z0, z1, z1]]))
+            east = Fracture(np.array([[x1, x1, x1, x1], [y0, y1, y1, y0],
+                                      [z0, z0, z1, z1]]))
+            south = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y0, y0],
+                                      [z0, z0, z1, z1]]))
+            north = Fracture(np.array([[x0, x1, x1, x0], [y1, y1, y1, y1],
+                                      [z0, z0, z1, z1]]))
+            bottom = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+                                      [z0, z0, z0, z0]]))
+            top = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+                                      [z1, z1, z1, z1]]))
+            bound_planes = [west, east, south, north, bottom, top]
+
+            delete_frac = []
+
+            for i, frac in enumerate(self._fractures):
+                for bf in bound_planes:
+                    isect, _, _ = frac.intersects(bf, self.tol)
+                    if len(isect) > 0 and isect.shape[1] > 0:
+                        frac.p = np.hstack((frac.p, isect))
+                        frac.points_2_ccw()
+                        # Check if the points are outside on any side
+                        inside = np.logical_not(outside_box(frac.p))
+                        # Dump points that are outside.
+                        # Note that the points should still be ccw
+                        frac.p = frac.p[:, inside]
+                        if not np.any(inside):
+                            delete_frac.append(i)
+                    else:
+                        outside = outside_box(frac.p)
+                        if np.all(outside):
+                            delete_frac.append(i)
+
+            # Delete fractures that have all points outside the bounding box
+            # There may be some uncovered cases here, with a fracture barely
+            # touching the box from the outside, but we leave that for now.
+            for i in np.unique(delete_frac)[::-1]:
+                del self._fractures[i]
+
+            # Final sanity check: All fractures should have at least three
+            # points at the end of the manipulations
+            for f in self._fractures:
+                assert f.p.shape[1] >= 3
+
 
     def _classify_edges(self, polygon_edges):
         """
