@@ -56,8 +56,8 @@ def split_fractures(bucket, **kwargs):
     # For each vertex in the bucket we find the corresponding lower-
     # dimensional grids.
     for gh, _ in bucket:
-        if gh.dim <= 1:
-            # Nothing to do. We have already split 1D grids in gmsh.
+        if gh.dim < 1:
+            # Nothing to do. We can not split 0D grids.
             continue
         # Find connected vertices and corresponding edges.
         neigh = np.array(bucket.node_neighbors(gh))
@@ -452,10 +452,24 @@ def find_cell_color(g, cells):
     g        - Grid for which the cells belong
     cells    - indecies of cells (=np.array([1,2,3,4,5,7]) for case above)
     """
-    (g_frac, _, _) = extract_subgrid(g, cells, sort=True)
+    c = np.sort(cells)
+    # Local cell-face and face-node maps.
+    cf_sub, _ = __extract_submatrix(g.cell_faces, c)
     child_cell_ind = np.array([-1] * g.num_cells, dtype=np.int)
-    child_cell_ind[g_frac.parent_cell_ind] = np.arange(g_frac.num_cells)
-    graph = Graph(g_frac.cell_connection_map())
+    child_cell_ind[c] = np.arange(cf_sub.shape[1])
+
+    # Create a copy of the cell-face relation, so that we can modify it at
+    # will
+    cell_faces = cf_sub.copy()
+    # Direction of normal vector does not matter here, only 0s and 1s
+    cell_faces.data = np.abs(cell_faces.data)
+
+    # Find connection between cells via the cell-face map
+    c2c = cell_faces.transpose() * cell_faces
+    # Only care about absolute values
+    c2c.data = np.clip(c2c.data, 0, 1).astype('bool')
+
+    graph = Graph(c2c)
     graph.color_nodes()
     return graph.color[child_cell_ind[cells]]
 
@@ -493,67 +507,6 @@ def remove_nodes(g, rem):
     g.face_nodes = g.face_nodes[rows_to_keep, :]
     g.nodes = g.nodes[:, rows_to_keep]
     return g
-
-
-def extract_subgrid(g, c, sort=True):
-    """
-    Extract a subgrid based on cell indices.
-
-    For simplicity the cell indices will be sorted before the subgrid is
-    extracted.
-
-    If the parent grid has geometry attributes (cell centers etc.) these are
-    copied to the child.
-
-    No checks are done on whether the cells form a connected area. The method
-    should work in theory for non-connected cells, the user will then have to
-    decide what to do with the resulting grid. This option has however not been
-    tested.
-
-    Parameters:
-        g (core.grids.Grid): Grid object, parent
-        c (np.array, dtype=int): Indices of cells to be extracted
-
-    Returns:
-        core.grids.Grid: Extracted subgrid. Will share (note, *not* copy)
-            geometric fileds with the parent grid. Also has an additional
-            field parent_cell_ind giving correspondance between parent and
-            child cells.
-        np.ndarray, dtype=int: Index of the extracted faces, ordered so that
-            element i is the global index of face i in the subgrid.
-        np.ndarray, dtype=int: Index of the extracted nodes, ordered so that
-            element i is the global index of node i in the subgrid.
-
-    """
-    if sort:
-        c = np.sort(c)
-
-    # Local cell-face and face-node maps.
-    cf_sub, unique_faces = __extract_submatrix(g.cell_faces, c)
-    fn_sub, unique_nodes = __extract_submatrix(g.face_nodes, unique_faces)
-
-    # Append information on subgrid extraction to the new grid's history
-    name = list(g.name)
-    name.append('Extract subgrid')
-
-    # Construct new grid.
-    h = Grid(g.dim, g.nodes[:, unique_nodes], fn_sub, cf_sub, name)
-
-    # Copy geometric information if any
-    if hasattr(g, 'cell_centers'):
-        h.cell_centers = g.cell_centers[:, c]
-    if hasattr(g, 'cell_volumes'):
-        h.cell_volumes = g.cell_volumes[c]
-    if hasattr(g, 'face_centers'):
-        h.face_centers = g.face_centers[:, unique_faces]
-    if hasattr(g, 'face_normals'):
-        h.face_normals = g.face_normals[:, unique_faces]
-    if hasattr(g, 'face_areas'):
-        h.face_areas = g.face_areas[unique_faces]
-
-    h.parent_cell_ind = c
-
-    return h, unique_faces, unique_nodes
 
 
 def __extract_submatrix(mat, ind):

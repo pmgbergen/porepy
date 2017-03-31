@@ -11,7 +11,7 @@ import scipy.sparse as sps
 
 from gridding.fractured import structured, simplex, split_grid
 from gridding.grid_bucket import GridBucket
-from utils import setmembership
+from utils import setmembership, mcolon
 from core.grids.grid import FaceTag
 
 
@@ -22,31 +22,49 @@ def simplex_grid(fracs, domain, **kwargs):
     Parameters:
         fracs (list of np.ndarray): One list item for each fracture. Each item
             consist of a (nd x n) array describing fracture vertices. The
-            fractures may be intersecting. 
+            fractures may be intersecting.
         domain (dict): Domain specification, determined by xmin, xmax, ...
         **kwargs: May contain fracture tags, options for gridding, etc.
     Returns:
-        GridBucket: A complete bucket where all fractures are represented as 
+        GridBucket: A complete bucket where all fractures are represented as
             lower dim grids. The higher dim faces are split in two, and on the
-            edges of the GridBucket graph the mapping from lower dim cells to 
-            higher dim faces are stored as 'face_cells'
+            edges of the GridBucket graph the mapping from lower dim cells to
+            higher dim faces are stored as 'face_cells'. Each face is given a
+            FaceTag depending on the type:
+               NONE: None of the below (i.e. an internal face)
+               DOMAIN_BOUNDARY: All faces that lie on the domain boundary
+                   (i.e. should be given a boundary condition).
+               FRACTURE: All faces that are split (i.e. has a connection to a 
+                   lower dim grid).
+               TIP: A boundary face that is not on the domain boundary, nor  
+                   coupled to a lower domentional domain.
     """
-
-    ndim = fracs[0].shape[0]
+    if 'zmax' in domain:
+        ndim = 3
+    elif 'ymax' in domain:
+        ndim = 2
+    else:
+        raise ValueError('simplex_grid only supported for 2 or 3 dimensions')
 
     # Call relevant method, depending on grid dimensions.
     if ndim == 2:
         # Convert the fracture to a fracture dictionary.
-        f_lines = np.reshape(np.arange(2 * len(fracs)), (2, -1), order='F')
-        f_pts = np.hstack(fracs)
+        if len(fracs) == 0:
+            f_lines = np.zeros((2, 0))
+            f_pts = np.zeros((2, 0))
+        else:
+            f_lines = np.reshape(np.arange(2 * len(fracs)), (2, -1), order='F')
+            f_pts = np.hstack(fracs)
         frac_dic = {'points': f_pts, 'edges': f_lines}
+        print(frac_dic)
         grids = simplex.triangle_grid(frac_dic, domain, **kwargs)
     elif ndim == 3:
         grids = simplex.tetrahedral_grid(fracs, domain, **kwargs)
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
     # Tag tip faces
-    tag_tip_faces(grids, ndim)
+    tag_faces(grids)
+
     # Assemble grids in a bucket
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
@@ -94,8 +112,9 @@ def cart_grid(fracs, nx, **kwargs):
         grids = structured.cart_grid_3d(fracs, nx, physdims=physdims)
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
+
     # Tag tip faces.
-    tag_tip_faces(grids, ndim)
+    tag_faces(grids)
 
     # Asemble in bucket
     gb = assemble_in_bucket(grids)
@@ -106,13 +125,56 @@ def cart_grid(fracs, nx, **kwargs):
     return gb
 
 
-def tag_tip_faces(grids, ndim):
-    print('Fracture TIP TAGGING NOT IMPLEMENTED')
-    return
-    for g_dim in grids:
+def tag_faces(grids):
+    # Assume only one grid of highest dimension
+    assert len(grids[0]) == 1, 'Must be exactly'\
+        '1 grid of dim: ' + str(len(grids))
+    g_h = grids[0][0]
+    bnd_faces = g_h.get_boundary_faces()
+    g_h.add_face_tag(bnd_faces, FaceTag.DOMAIN_BOUNDARY)
+    bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
+    bnd_nodes = np.unique(bnd_nodes)
+    for g_dim in grids[1:-1]:
         for g in g_dim:
-            if g.dim != ndim:
-                g.add_face_tag(g.get_boundary_faces(), FaceTag.TIP)
+            # We find the global nodes of all boundary faces
+            bnd_faces_l = g.get_boundary_faces()
+            indptr = g.face_nodes.indptr
+            fn_loc = mcolon.mcolon(
+                indptr[bnd_faces_l], indptr[bnd_faces_l + 1] - 1)
+            nodes_loc = g.face_nodes.indices[fn_loc]
+            # Convert to global numbering
+            nodes_glb = g.global_point_ind[nodes_loc]
+            # We then tag each node as a tip node if it is not a global
+            # boundary node
+            is_tip = np.in1d(nodes_glb, bnd_nodes, invert=True)
+            # We reshape the nodes such that each column equals the nodes of
+            # one face. If a face only contains global boundary nodes, the
+            # local face is also a boundary face. Otherwise, we add a TIP tag.
+            nodes_per_face = find_nodes_per_face(g)
+            is_tip = np.any(is_tip.reshape(
+                (nodes_per_face, bnd_faces_l.size), order='F'), axis=0)
+            g.add_face_tag(bnd_faces_l[is_tip], FaceTag.TIP)
+            g.add_face_tag(bnd_faces_l[is_tip == False],
+                           FaceTag.DOMAIN_BOUNDARY)
+            print(g.dim, 'dim')
+            print(g.face_tags)
+
+
+def find_nodes_per_face(g):
+    if 'TensorGrid'in g.name and g.dim == 3:
+        nodes_per_face = 4
+    elif 'TetrahedralGrid' in g.name:
+        nodes_per_face = 3
+    elif 'TensorGrid'in g.name and g.dim == 2:
+        nodes_per_face = 2
+    elif 'TriangleGrid'in g.name:
+        nodes_per_face = 2
+    elif 'TensorGrid' in g.name and g.dim == 1:
+        nodes_per_face = 1
+    else:
+        raise ValueError(
+            "Can not find number of nodes per face for grid: " + str(g.name))
+    return nodes_per_face
 
 
 def assemble_in_bucket(grids):
@@ -139,20 +201,7 @@ def assemble_in_bucket(grids):
         for hg in grids[dim]:
             # We have to specify the number of nodes per face to generate a
             # matrix of the nodes of each face.
-            if 'TensorGrid'in hg.name and hg.dim == 3:
-                nodes_per_face = 4
-            elif 'TetrahedralGrid' in hg.name:
-                nodes_per_face = 3
-            elif 'TensorGrid'in hg.name and hg.dim == 2:
-                nodes_per_face = 2
-            elif 'TriangleGrid'in hg.name:
-                nodes_per_face = 2
-            elif 'TensorGrid' in hg.name and hg.dim == 1:
-                nodes_per_face = 1
-            else:
-                raise ValueError(
-                    "assemble_in_bucket not implemented for grid: " + str(hg.name))
-
+            nodes_per_face = find_nodes_per_face(hg)
             fn_loc = hg.face_nodes.indices.reshape((nodes_per_face, hg.num_faces),
                                                    order='F')
             # Convert to global numbering

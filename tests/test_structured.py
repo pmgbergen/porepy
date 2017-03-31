@@ -51,12 +51,11 @@ class TestStructured(unittest.TestCase):
         grids = structured.cart_grid_3d(f_set, nx, physdims=nx)
 
         num_grids = [1, 3, 6, 1]
-        print(grids)
+
         for i, g in enumerate(grids):
-            print(len(g))
             assert len(g) == num_grids[i]
 
         g_3d = grids[0][0]
         for g_loc in grids[1:]:
             for g in g_loc:
-                assert np.allclose(g.node, g_3d.nodes[:, g.global_point_ind])
+                assert np.allclose(g.nodes, g_3d.nodes[:, g.global_point_ind])
