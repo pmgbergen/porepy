@@ -130,6 +130,7 @@ class Upwind(Solver):
         beta_n = data['beta_n']
         faces, cell, _ = sps.find(g.cell_faces)
         not_zero = ~np.isclose(np.zeros(faces.size), beta_n[faces], atol=0)
+        if not np.any(not_zero): return np.inf
 
         beta_n = np.abs(beta_n[faces[not_zero]])
         volumes = g.cell_volumes[cell[not_zero]]
