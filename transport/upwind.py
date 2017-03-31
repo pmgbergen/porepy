@@ -38,6 +38,8 @@ class Upwind(Solver):
         linear transport problem using the upwind scheme.
         Note: the vector field is assumed to be given as the normal velocity,
         weighted with the face area, at each face.
+        Note: if not specified the inflow boundary conditions are no-flow, while
+        the outflow boundary conditions are open.
 
         The name of data in the input dictionary (data) are:
         beta_n : array (g.num_faces)
@@ -78,25 +80,47 @@ class Upwind(Solver):
 
         """
         beta_n, bc, bc_val = data['beta_n'], data.get('bc'), data.get('bc_val')
-        indices = g.cell_faces.indices
+        assert beta_n is not None
 
+        has_bc = not( bc is None or bc_val is None )
+
+        # Compute the face flux respect to the real direction of the normals
+        indices = g.cell_faces.indices
         flow_faces = g.cell_faces.copy()
         flow_faces.data *= beta_n[indices]
 
+        # Retrieve the faces boundary and their numeration in the flow_faces
+        # We need to impose no-flow for the inflow faces without boundary
+        # condition
+        mask = np.unique(indices, return_index=True)[1]
+        b_faces = g.get_boundary_faces()
+
+        if has_bc:
+            # If boundary conditions are imposed remove the faces from this
+            # procedure.
+            bc_dir = np.where(bc.is_dir)[0]
+            b_faces = np.setdiff1d(b_faces, bc_dir, assume_unique=True)
+
+        # Remove the inflow faces without specified boundary conditions.
+        b_faces = mask[b_faces]
+        flow_faces.data[b_faces] = flow_faces.data[b_faces].clip(min=0)
+
+        # Determine the inflow faces
         if_inflow_faces = flow_faces.copy()
         if_inflow_faces.data = np.sign(if_inflow_faces.data.clip(max=0))
 
+        # Compute the inflow/outflow related to the cells of the problem
         flow_cells = if_inflow_faces.transpose() * flow_faces
         flow_cells.tocsr()
 
-        if bc is None or bc_val is None:
-            return flow_cells, np.zeros(g.num_cells)
+        if not has_bc: return flow_cells, np.zeros(g.num_cells)
 
         # Dirichlet boundary condition
         flow_faces.data = np.multiply(flow_faces.data,
                                       bc.is_dir[indices]).clip(max=0)
         flow_faces.eliminate_zeros()
 
+        # Impose the boundary conditions
         bc_val_dir = np.zeros(g.num_faces)
         bc_val_dir[bc.is_dir] = bc_val['dir']
 
