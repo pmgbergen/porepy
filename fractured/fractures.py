@@ -726,21 +726,16 @@ class FractureNetwork(object):
         # will form either a L/Y-type intersection (shared boundary segment),
         # or a three fractures meeting in a line.
         # Do a sort of edges before looking for duplicates.
-        e_unique, \
-            unique_ind_e, \
-            all_2_unique_e = \
+        e_unique, unique_ind_e, all_2_unique_e = \
             setmembership.unique_columns_tol(np.sort(edges, axis=0))
 
-        # Edges that were merged should also be merged in edges_2_frac
-        removed_edge = np.setdiff1d(np.arange(edges.shape[1]), unique_ind_e)
-        # First expand the relevant members of edge_2_frac
-        for ri in removed_edge:
-            new_ind = all_2_unique_e[ri]
-            edges_2_frac[new_ind] = np.unique(np.hstack((edges_2_frac[new_ind],
-                                                         edges_2_frac[ri])))
-        # Then remove the redundant fields
-        for ri in removed_edge[::-1]:
-            del edges_2_frac[ri]
+        # Update the edges_2_frac map to refer to the new edges
+        edges_2_frac_new = e_unique.shape[1] * [np.empty(0)]
+        for old_i, new_i in enumerate(all_2_unique_e):
+            edges_2_frac_new[new_i] =\
+                np.unique(np.hstack((edges_2_frac_new[new_i],
+                                     edges_2_frac[old_i])))
+        edges_2_frac = edges_2_frac_new
 
         # Represent edges by unique values
         edges = e_unique
@@ -757,10 +752,14 @@ class FractureNetwork(object):
         is_boundary_edge = [is_boundary_edge[i]
                             for i in unique_ind_e]  # Hope this is right
 
-        # Convert the edge to fracture map to a list of numpy arrays.
+        # Ensure that the edge to fracture map to a list of numpy arrays.
         # Use unique so that the same edge only refers to an edge once.
         edges_2_frac = [np.unique(np.array(edges_2_frac[i])) for i in
                         range(len(edges_2_frac))]
+
+        # Sanity check, the fractures should still be defined by points in a
+        # plane.
+        self._verify_fractures_in_plane(p_unique, edges, edges_2_frac)
 
         if self.verbose > 2:
             print('    Uniquify complete:')
