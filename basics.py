@@ -122,6 +122,8 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
     """
 
+    tol = kwargs['tol']
+
     # Some back and forth with the index of the edges to be split, depending on
     # whether it is one or two
     edge_ind = np.asarray(edge_ind)
@@ -195,7 +197,8 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         if np.any(np.diff(edges[:2], axis=0) == 0):
             raise ValueError('Have created a point edge')
         edge_copy = np.sort(edges[:2], axis=0)
-        edge_unique, *new_2_old = setmembership.unique_columns_tol(edge_copy)
+        edge_unique, *new_2_old = setmembership.unique_columns_tol(edge_copy,
+                                                                   tol=tol)
         if edge_unique.shape[1] < edges.shape[1]:
             raise ValueError('Have created the same edge twice')
 
@@ -361,7 +364,8 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         # this by uniquifying the edges.
         # Hopefully, we do not mess up the edges here.
         edges_copy = np.sort(edges[:2], axis=0)
-        edges_unique, *new_2_old = setmembership.unique_columns_tol(edges_copy)
+        edges_unique, *new_2_old = setmembership.unique_columns_tol(edges_copy,
+                                                                    tol=tol)
         if edges_unique.shape[1] < edges.shape[1]:
             new_line[0] -= edges.shape[1] - edges_unique.shape[1]
             edges = edges_unique
@@ -385,7 +389,7 @@ def _add_point(vertices, pt, tol=1e-3, **kwargs):
     Parameters:
         vertices (np.ndarray, nd x num_pts): existing point set
         pt (np.ndarray, nd x 1): Point to be added
-        precesion (double): Precision of underlying Cartesian grid
+        tol (double): Precision of underlying Cartesian grid
         **kwargs: Arguments passed to snap_to_grid
 
     Returns:
@@ -412,7 +416,10 @@ def _add_point(vertices, pt, tol=1e-3, **kwargs):
         dist = __dist(pt[:, i].reshape((-1, 1)), vertices)
         min_dist = np.min(dist)
 
-        if min_dist < tol * np.sqrt(nd):
+        # The tolerance parameter here turns out to be critical in an edge
+        # intersection removal procedure. The scaling factor is somewhat
+        # arbitrary, and should be looked into.
+        if min_dist < tol * np.sqrt(3):
             # No new point is needed
             ind.append(np.argmin(dist))
         else:
