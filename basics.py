@@ -484,6 +484,8 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
 
     vertices = snap_to_grid(vertices, **kwargs)
 
+    # Field used for debugging of edge splits. To see the meaning of the values
+    # of each split, look in the source code of split_edges.
     split_type = []
 
     # Loop over all edges, search for intersections. The number of edges can
@@ -583,9 +585,22 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
             new_pt = lines_intersect(vertices[:, edges[0, edge_counter]],
                                        vertices[:, edges[1, edge_counter]],
                                        vertices[:, edges[0, intsect]],
-                                       vertices[:, edges[1, intsect]])
+                                       vertices[:, edges[1, intsect]],
+                                    tol=tol)
+
+            def __min_dist(p):
+                md = np.inf
+                for pi in [edges[0, edge_counter],
+                           edges[1, edge_counter],
+                           edges[0, intsect], edges[1, intsect]]:
+                    md = min(md, __dist(np.squeeze(p), vertices[:, pi]))
+                return md
+
+            orig_vertex_num = vertices.shape[1]
+            orig_edge_num = edges.shape[1]
 
             if new_pt is not None:
+                new_pt = snap_to_grid(new_pt, tol=tol)
                 # The case of segment intersections need special treatment.
                 if new_pt.shape[-1] == 1:
                     if verbose > 2:
@@ -597,43 +612,76 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                     # means the intersection runs through an endpoint of the
                     # edge in an L-type configuration, in which case no new point
                     # is needed)
+                    md = __min_dist(new_pt)
                     vertices, edges, split_outer_edge,\
                             split = _split_edge(vertices, edges,
                                                      edge_counter, new_pt,
                                                      **kwargs)
                     split_type.append(split)
+                    if verbose > 2 and split_outer_edge > 0 and \
+                       vertices.shape[1] > orig_vertex_num:
+                        print('      Introduced new point. Min length of edges:'
+                               + str(md))
+                        if md < tol:
+                            import pdb
+                            pdb.set_trace()
 
+                    if edges.shape[1] > orig_edge_num + split_outer_edge:
+                        raise ValueError('Have created edge without bookkeeping')
                     # If the outer edge (represented by edge_counter) was split,
                     # e.g. inserted into the list of edges we need to increase the
                     # index of the inner edge
                     intsect += split_outer_edge
+
                     # Possibly split the inner edge
                     vertices, edges, split_inner_edge, \
                             split = _split_edge(vertices, edges, intsect,
                                                 new_pt, **kwargs)
-                    split_type.append(split)
+                    if edges.shape[1] > \
+                       orig_edge_num + split_inner_edge + split_outer_edge:
+                        raise ValueError('Have created edge without bookkeeping')
 
+                    split_type.append(split)
+                    if verbose > 2 and split_inner_edge > 0 and \
+                        vertices.shape[1] > orig_vertex_num:
+                        print('      Introduced new point. Min length of edges:'
+                              + str(md))
+                        if md < tol:
+                            import pdb
+                            pdb.set_trace()
                     intersections += split_outer_edge + split_inner_edge
                 else:
+                    # We have found an intersection along a line segment
                     if verbose > 2:
                         print('    Found two intersections: ('
                               + str(new_pt[0, 0]) + ', '  + str(new_pt[1, 0]) +
                               'and ' + str(new_pt[0, 1]) + ', '  +
                               str(new_pt[1, 1]))
+
                     vertices, edges, splits,\
                             s_type = _split_edge(vertices, edges,
                                                  [edge_counter, intsect],
                                                  new_pt, **kwargs)
                     split_type.append(s_type)
                     intersections += splits[0] + splits[1]
-                # Update index of possible intersections
+                    if verbose > 2 and (splits[0] > 0 or splits[1] > 0):
+                        print('    Introduced new point')
 
-            # Sanity check - turned out to be useful for debugging.
+            # Sanity checks - turned out to be useful for debugging.
             if np.any(np.diff(edges[:2], axis=0) == 0):
+                if verbose > 3:
+                    import pdb
+                    pdb.set_trace()
                 raise ValueError('Have somehow created a point edge')
+            if intersections.max() > edges.shape[1]:
+                raise ValueError('Intersection pointer outside edge array')
+                if verbose > 3:
+                    import pdb
+                    pdb.set_trace()
 
             # We're done with this candidate edge. Increase index of inner loop
             int_counter += 1
+
         # We're done with all intersections of this loop. increase index of
         # outer loop
         edge_counter += 1
