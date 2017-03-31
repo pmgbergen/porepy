@@ -600,6 +600,9 @@ class FractureNetwork(object):
         all_p, edges,\
             edges_2_frac, is_boundary_edge = self._point_and_edge_lists()
 
+        if self.verbose > 1:
+            self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
+
         # By now, all segments in the grid are defined by a unique set of
         # points and edges. The next task is to identify intersecting edges,
         # and split them.
@@ -607,6 +610,9 @@ class FractureNetwork(object):
             edges_2_frac, is_boundary_edge = \
             self._remove_edge_intersections(all_p, edges, edges_2_frac,
                                             is_boundary_edge)
+
+        if self.verbose > 1:
+            self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
 
         # With all edges being non-intersecting, the next step is to split the
         # fractures into polygons formed of boundary edges, intersection edges
@@ -909,6 +915,8 @@ class FractureNetwork(object):
         if self.verbose > 0:
             print('Done with intersection removal. Elapsed time ' +
                   str(time.time() - start_time))
+
+        self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
 
         return self._uniquify_points_and_edges(all_p, edges, edges_2_frac,
                                                is_boundary_edge)
