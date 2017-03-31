@@ -1261,23 +1261,17 @@ class FractureNetwork(object):
         for fi, frac in enumerate(self._fractures):
 
             # Identify the edges associated with this fracture
-            # It would have been more convenient to use an inverse
-            # relationship frac_2_edge here, but that would have made the
-            # update for new edges (towards the end of this loop) more
-            # cumbersome.
             edges_loc_ind = []
             for ei, e in enumerate(edges_2_frac):
                 if np.any(e == fi):
                     edges_loc_ind.append(ei)
 
-            edges_loc = np.vstack((edges[:, edges_loc_ind],
-                                   np.array(edges_loc_ind)))
-            p_ind_loc = np.unique(edges_loc[:2])
+            edges_loc = edges[:, edges_loc_ind]
+            p_ind_loc = np.unique(edges_loc)
             p_loc = p[:, p_ind_loc]
 
-            p_2d, edges_2d, p_loc_c, rot = self._points_2_plane(p_loc,
-                                                                edges_loc,
-                                                                p_ind_loc)
+            p_2d, edges_2d, p_loc_c, rot \
+                    = self._points_2_plane(p_loc, edges_loc, p_ind_loc)
 
 
     def _points_2_plane(self, p_loc, edges_loc, p_ind_loc):
