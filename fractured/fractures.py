@@ -580,6 +580,36 @@ class FractureNetwork(object):
 
         if self.verbose > 0:
             print('Done. Elapsed time ' + str(time.time() - start_time))
+            self.intersection_info()
+
+    def intersection_info(self, frac_num=None):
+        # Number of fractures with some intersection
+        num_intersecting_fracs = 0
+        # Number of intersections in total
+        num_intersections = 0
+
+        if frac_num is None:
+            frac_num = np.arange(len(self._fractures))
+        for f in frac_num:
+            isects = []
+            for i in self.intersections:
+                if i.first.index == f and i.coord.shape[1] > 0:
+                    isects.append(i.second.index)
+                elif i.second.index == f and i.coord.shape[1] > 0:
+                    isects.append(i.first.index)
+            if len(isects) > 0:
+                num_intersecting_fracs += 1
+                num_intersections += len(isects)
+
+                if self.verbose > 1:
+                    print('  Fracture ' + str(f) + ' intersects with'\
+                          ' fractuer(s) ' + str(isects))
+        # Print aggregate numbers. Note that all intersections are counted
+        # twice (from first and second), thus divide by two.
+        print('In total ' + str(num_intersecting_fracs) + ' fractures '
+              + 'intersect in ' + str(int(num_intersections/2)) \
+              + ' intersections')
+
 
     def split_intersections(self):
         """
