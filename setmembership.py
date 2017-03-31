@@ -149,8 +149,11 @@ def ismember_rows(a, b, sort=True, simple_version=False):
                                         return_counts=True)
         else:
             # Represent the arrays as voids to facilitate quick comparison
-            voida = _asvoid(sa.transpose())
-            voidb = _asvoid(sb.transpose())
+            # Take void type of int64s, or else spurious error messages may
+            # arise. We do this after the transpose (which copies sa and sb) to
+            # avoid disturbing the original fields.
+            voida = _asvoid(sa.transpose().astype('int64'))
+            voidb = _asvoid(sb.transpose().astype('int64'))
 
             # Use unique to count the number of occurences in a
             unq, j, k, count = np.unique(np.vstack((voida, voidb)),
