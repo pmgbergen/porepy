@@ -29,23 +29,8 @@ class UpwindCoupling(AbstractCoupling):
 
         Returns:
             cc: block matrix which store the contribution of the coupling
-                condition in the following order:
-                [ cc_hh  cc_hl ]
-                [ cc_lh  cc_ll ]
-                where:
-                - cc_hh is the contribution to be added to the global block
-                  matrix in related to the grid of higher dimension (g_h).
-                - cc_ll is the contribution to be added to the global block
-                  matrix in related to the grid of lower dimension (g_l).
-                  In this case the term is null.
-                - cc_hl is the contribution to be added to the global block
-                  matrix in related to the coupling between grid of higher
-                  dimension (g_h) and the grid of lower dimension (g_l).
-                - cc_lh is the contribution to be added to the global block
-                  matrix in related to the coupling between grid of lower
-                  dimension (g_l) and the grid of higher dimension (g_h).
-                  In this case cc_lh is the transpose of cc_hl.
-
+                condition. See the abstract coupling class for a more detailed
+                description.
         """
 
         # Normal component of the velocity from the higher dimensional grid
@@ -59,33 +44,26 @@ class UpwindCoupling(AbstractCoupling):
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
 
-        print( "cells_l", cells_l )
-        print( "faces_h", faces_h )
-
+        # Recover the correct sign for the velocity
         faces, _, sgn = sps.find(g_h.cell_faces)
         sgn = sgn[np.unique(faces, return_index=True)[1]]
+        beta_n = sgn[faces_h] * beta_n[faces_h]
 
-        print( "beta_n", beta_n[faces_h] )
+        # Determine which are the corresponding cells of the faces_h
+        cell_faces_h = g_h.cell_faces.tocsr()[faces_h, :]
+        cells_h = cell_faces_h.nonzero()[1]
 
-        flow_faces = g_h.cell_faces.copy()
-        flow_faces.data *= 0
-        flow_faces.data[faces_h] = sgn[faces_h] * beta_n[faces_h]
-        flow_faces.data = flow_faces.data[flow_faces.indices]
+        diag_cc11 = np.zeros(g_l.num_cells)
+        np.add.at(diag_cc11, cells_l, np.sign(beta_n.clip(max=0))*beta_n)
+        cc[1,1] = sps.dia_matrix((diag_cc11, 0), shape=(dof[1], dof[1]))
 
-        if_inflow_faces = flow_faces.copy()
-        if_inflow_faces.data = np.sign(if_inflow_faces.data.clip(max=0))
+        # Compute the outflow from the higher to the lower dimensional grid
+        cc[1,0] = sps.coo_matrix((-beta_n.clip(min=0), (cells_l, cells_h)),
+                                 shape=(dof[1], dof[0]))
 
-        cc[0,0] = if_inflow_faces.transpose() * flow_faces
-
-        print( sps.find(cc[0,0] ) )
-
-        # Compute the diagonal terms
-##        dataIJ = 1./np.multiply(g_h.face_areas[faces_h], kn[cells_l])
-##        I, J = faces_h, faces_h
-##        cc[0,0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
-
-#        cc[1,1] = ...
-
+        # Compute the inflow from the higher to the lower dimensional grid
+        cc[0,1] = sps.coo_matrix((beta_n.clip(max=0), (cells_h, cells_l)),
+                                 shape=(dof[0], dof[1]))
 
         return cc
 
