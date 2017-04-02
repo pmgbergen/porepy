@@ -223,6 +223,10 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
 
     """
 
+    # Special treatment of the case with an empty array
+    if mat.shape[1] == 0:
+         return mat	
+
     def dist(p, pset):
         " Helper function to compute distance "
         if p.ndim == 1:
