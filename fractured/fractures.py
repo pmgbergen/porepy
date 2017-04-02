@@ -350,7 +350,9 @@ class Fracture(object):
         cuts_two = np.any(num_occ > 1)
 
         # Return a unique version of bound_pt
-        bound_pt, *rest = setmembership.unique_columns_tol(bound_pt, tol=tol)
+	# No need to uniquify unless there is more than one point.
+        if bound_pt.shape[1] > 1:
+            bound_pt, *rest = setmembership.unique_columns_tol(bound_pt, tol=tol)
 
         return bound_pt, has_segment, non_vertex, cuts_two
 
