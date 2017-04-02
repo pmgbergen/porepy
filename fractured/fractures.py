@@ -86,6 +86,9 @@ class Fracture(object):
             This will not be robust for general point clouds, but we expect the
             fractures to be regularly shaped in this sense.
 
+        Returns:
+            np.array (int): The indices corresponding to the sorting.
+
         """
         # First rotate coordinates to the plane
         rotation = cg.project_plane_matrix(self.p - self.center)
@@ -96,6 +99,8 @@ class Fracture(object):
         sort_ind = np.argsort(theta)
 
         self.p = self.p[:, sort_ind]
+
+        return sort_ind
 
     def add_points(self, p, check_convexity=True):
         """
