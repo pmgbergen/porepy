@@ -39,6 +39,7 @@ def half_space_int(n,x0, pts):
     assert x0.shape[0] == 3, ' only 3D supported'
     assert pts.shape[0] == 3, ' only 3D supported'
     assert n.shape[1] == x0.shape[1], 'ther must be the same number of normal vectors as points'
+
     n_pts   = pts.shape[1]
     in_hull = np.zeros(n_pts)
     x0      = np.repeat(x0[:,:,np.newaxis], n_pts,axis=2)
