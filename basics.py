@@ -972,8 +972,10 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
         assert np.allclose(isect_1, isect_2, tol)
 
         # The intersection lies on both segments if both t_1 and t_2 are on the
-        # unit interval
-        if t_1 >= 0 and t_1 <= 1 and t_2 >= 0 and t_2 <=1:
+        # unit interval.
+        # Use tol to allow some approximations
+        if t_1 >= -tol and t_1 <= (1 + tol) and \
+           t_2 >= -tol and t_2 <= (1 + tol):
             return np.array([[isect_1[0]], [isect_1[1]]])
         else:
             return None
