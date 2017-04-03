@@ -208,6 +208,9 @@ class Fracture(object):
             on_boundary_other += [False for i in
                                   range(isect_other_self.shape[1])]
 
+        if int_points.shape[1] > 1:
+            int_points, *rest \
+                = setmembership.unique_columns_tol(int_points, tol=tol)
         # There should be at most two of these points
         assert int_points.shape[1] <= 2
 
