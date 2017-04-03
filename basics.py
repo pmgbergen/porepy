@@ -261,6 +261,10 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             # New segments (i0, i1) is identical to the old edge_ind[0]
             new_edges = np.array([[other_start, i0, i1],
                                   [i0, i1, other_end]])
+            # For some reason we sometimes create point-edges here (start and
+            # end are identical). Delete these if necessary
+            del_ind = np.squeeze(np.where(np.diff(new_edges, axis=0)[0] == 0))
+            new_edges = np.delete(new_edges, del_ind, axis=1)
             if tags.size > 0:
                 new_edges = np.vstack((new_edges,
                                        np.tile(tags[:, np.newaxis],
@@ -272,8 +276,8 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             # Delete the second segment. This is most easily handled after
             # edges is expanded, to avoid accounting for changing edge indices.
             edges = np.delete(edges, edge_ind[0], axis=1)
-            new_line = [-1, 2]
-
+            # Number of new lines. Should account for deletion of edges.
+            new_line = [-1, 2 - del_ind.size]
             split_type = 5
 
         # Note that we know that i0 is closest to start, thus no need to test
