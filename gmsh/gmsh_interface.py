@@ -16,7 +16,7 @@ class GmshWriter(object):
 
     def __init__(self, pts, lines, polygons=None, domain=None, nd=None,
                  mesh_size=None, mesh_size_bound=None, line_type=None,
-                 intersection_points=None):
+                 intersection_points=None, tolerance=None):
         """
 
         :param pts: np.ndarary, Points
@@ -43,9 +43,15 @@ class GmshWriter(object):
         # Points that should be decleared physical (intersections between 3
         # fractures)
         self.intersection_points = intersection_points
+        self.tolerance = tolerance
 
     def write_geo(self, file_name):
-        s = self.__write_points()
+
+        if self.tolerance is not None:
+            s = 'Geometry.Tolerance = ' + str(self.tolerance) + ';\n'
+        else:
+            s = '\n'
+        s += self.__write_points()
 
         if self.nd == 2:
             s += self.__write_boundary_2d()
