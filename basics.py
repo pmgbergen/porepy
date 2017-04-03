@@ -368,11 +368,13 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         # this by uniquifying the edges.
         # Hopefully, we do not mess up the edges here.
         edges_copy = np.sort(edges[:2], axis=0)
-        edges_unique, *new_2_old = setmembership.unique_columns_tol(edges_copy,
-                                                                    tol=tol)
+        edges_unique, new_2_old, _ \
+                = setmembership.unique_columns_tol(edges_copy, tol=tol)
+        # Refer to unique edges if necessary
         if edges_unique.shape[1] < edges.shape[1]:
             new_line[0] -= edges.shape[1] - edges_unique.shape[1]
-            edges = edges_unique
+            # Also copy tags
+            edges = np.vstack((edges_unique, edges[2, new_2_old]))
             # Also signify that we have carried out this operation.
             split_type = [split_type, 8]
 
