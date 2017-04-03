@@ -1726,7 +1726,19 @@ class FractureNetwork(object):
             mesh_size = None
             mesh_size_bound = None
 
+        # The tolerance applied in gmsh should be consistent with the tolerance
+        # used in the splitting of the fracture network. The documentation of
+        # gmsh is not clear, but it seems gmsh scales a given tolerance with
+        # the size of the domain - presumably by the largest dimension. To
+        # counteract this, we divide our (absolute) tolerance self.tol with the
+        # domain size.
+        dx = np.array([[self.domain['xmax'] - self.domain['xmin']],
+                       [self.domain['ymax'] - self.domain['ymin']],
+                       [self.domain['zmax'] - self.domain['zmin']]])
+        gmsh_tolerance = self.tol / dx.max()
+
         writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
                             intersection_points=intersection_points,
-                            mesh_size_bound=mesh_size_bound, mesh_size=mesh_size)
+                            mesh_size_bound=mesh_size_bound,
+                            mesh_size=mesh_size, tolerance=gmsh_tolerance)
         writer.write_geo(file_name)
