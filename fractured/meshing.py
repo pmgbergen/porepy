@@ -156,8 +156,6 @@ def tag_faces(grids):
             g.add_face_tag(bnd_faces_l[is_tip], FaceTag.TIP)
             g.add_face_tag(bnd_faces_l[is_tip == False],
                            FaceTag.DOMAIN_BOUNDARY)
-            print(g.dim, 'dim')
-            print(g.face_tags)
 
 
 def find_nodes_per_face(g):
