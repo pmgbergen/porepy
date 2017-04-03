@@ -93,7 +93,7 @@ class Fracture(object):
         # First rotate coordinates to the plane
         rotation = cg.project_plane_matrix(self.p - self.center)
 
-        points_2d = rotation.dot(self.p)
+        points_2d = rotation.dot(self.p - self.center)
 
         theta = np.arctan2(points_2d[1], points_2d[0])
         sort_ind = np.argsort(theta)
