@@ -320,7 +320,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
                                new_edges,
                                edges[:, (edge_ind[0]+1):]))
             new_line = [1, -did_delete]
-            split_type = 5
+            split_type = 6
 
         elif i0 != start and i1 == end:
             # Analogous configuration as the one above, but with i0 replaced by
@@ -351,7 +351,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
                                new_edges,
                                edges[:, (edge_ind[0]+1):]))
             new_line = [1, -did_delete]
-            split_type = 6
+            split_type = 7
 
         else:
             raise ValueError('How did it come to this')
@@ -370,7 +370,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             new_line[0] -= edges.shape[1] - edges_unique.shape[1]
             edges = edges_unique
             # Also signify that we have carried out this operation.
-            split_type = [split_type, 7]
+            split_type = [split_type, 8]
 
         return vertices, edges, new_line, split_type
 
