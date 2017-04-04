@@ -590,10 +590,10 @@ class Fracture(object):
                         # Modify coordinates if necessary. This dimension is
                         # simply set to the boundary, while the other should
                         # slide along the tangent vector
-                        if upper_diff < 0:
+                        if upper_diff > 0:
                             p_isect[dim, pi] = box_array[dim, 1]
                             t = tangent[dim] / upper_diff
-                            p_isect[other_dim, pi] += t * tangent[other_dim]
+                            p_isect[other_dim, pi] -= t * tangent[other_dim]
 
                 # Finally, identify points that are outside the face bf
                 inside = np.logical_not(outside_box(self.p, bi))
