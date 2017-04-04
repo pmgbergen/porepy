@@ -1600,6 +1600,61 @@ class FractureNetwork(object):
 
         return s
 
+    def fractures_of_points(self, pts):
+        """
+        For a given point, find all fractures that refer to it, either as
+        vertex or as internal.
+
+        Returns:
+            list of np.int: indices of fractures, one list item per point.
+        """
+        fracs_of_points = []
+        pts = np.atleast_1d(np.asarray(pts))
+        for i in pts:
+            fracs_loc = []
+
+            # First identify edges that refers to the point
+            edge_ind = np.argwhere(np.any(self.decomposition['edges'][:2]\
+                                          == i, axis=0)).ravel('F')
+            edges_loc = self.decomposition['edges'][:, edge_ind]
+            # Loop over all polygons. If their edges are found in edges_loc,
+            # store the corresponding fracture index
+            for poly_ind, poly in enumerate(self.decomposition['polygons']):
+                ismem, _ = setmembership.ismember_rows(edges_loc, poly)
+                if any(ismem):
+                    fracs_loc.append(self.decomposition['polygon_frac']\
+                                     [poly_ind])
+            fracs_of_points.append(list(np.unique(fracs_loc)))
+        return fracs_of_points
+
+    def close_points(self, dist):
+        """
+        In the set of points used to describe the fractures (after
+        decomposition), find pairs that are closer than a certain distance.
+
+        Parameters:
+            dist (double): Threshold distance, all points closer than this will
+                be reported.
+
+        Returns:
+            List of tuples: Each tuple contain indices of a set of close
+                points, and the distance between the points. The list is not
+                symmetric; if (a, b) is a member, (b, a) will not be.
+
+        """
+        c_points = []
+
+        pt = self.decomposition['points']
+        for pi in range(pt.shape[1]):
+            d = cg.dist_point_pointset(pt[:, pi], pt[:, pi+1:])
+            ind = np.argwhere(d < dist).ravel('F')
+            for i in ind:
+                # Indices of close points, with an offset to compensate for
+                # slicing of the point cloud.
+                c_points.append((pi, i + pi + 1, d[i]))
+
+        return c_points
+
     def _verify_fractures_in_plane(self, p, edges, edges_2_frac):
         """
         Essentially a debugging method that verify that the given set of
@@ -1699,11 +1754,6 @@ class FractureNetwork(object):
                 s_2_s[i, i + j + 1] = d
 
         return p_2_p, s_2_s
-
-    def close_points():
-        for p1, p2 in zip(proximate_fractures):
-            pass
-            # Check both point-point proximity and point-fracture-plane
 
 
     def impose_external_boundary(self, box, truncate_fractures=True):
