@@ -120,6 +120,28 @@ class Fracture(object):
 
         return self.check_convexity()
 
+    def plane_coordinates(self):
+        """
+        Represent the vertex coordinates in its natural 2d plane.
+
+        Returns:
+            np.array (2xn): The 2d coordinates of the vertexes.
+
+        Raises:
+            ValueError if the vertexes do not lay on a plane.
+
+        """
+        rotation = cg.project_plane_matrix(self.p)
+        points_2d = rotation.dot(self.p - self.p[:, 0].reshape((-1, 1)))
+
+        # Tolerance used here is somewhat arbitrary. Should be revised, or
+        # better, seen in connection with the tolerance of an accompanying
+        # FractureNetwork.
+        if np.max(np.abs(points_2d[2])) > 1e-8:
+            raise ValueError('Fracture vertexes are not on a plane')
+
+        return points_2d[:2]
+
     def check_convexity(self):
         """
         Check if the polygon is convex.
