@@ -79,21 +79,22 @@ class Fracture(object):
 
     def points_2_ccw(self):
         """
-        Ensure that the points are sorted in a counter-cyclical order .
+        Ensure that the points are sorted in a counter-clockwise order.
 
         Implementation note:
             For now, the ordering of nodes in based on a simple angle argument.
             This will not be robust for general point clouds, but we expect the
-            fractures to be regularly shaped in this sense.
+            fractures to be regularly shaped in this sense. In particular, we
+            will be safe if the cell is convex.
 
         Returns:
             np.array (int): The indices corresponding to the sorting.
 
         """
         # First rotate coordinates to the plane
-        rotation = cg.project_plane_matrix(self.p - self.center)
-
-        points_2d = rotation.dot(self.p - self.center)
+        points_2d = self.plane_coordinates()
+        # Center around the 2d origin
+        points_2d -= np.mean(points_2d).reshape((-1, 1))
 
         theta = np.arctan2(points_2d[1], points_2d[0])
         sort_ind = np.argsort(theta)
