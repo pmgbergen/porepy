@@ -1693,7 +1693,7 @@ class FractureNetwork(object):
         p_2d = rot.dot(p_loc)
 
         scaling = max(p_loc.max(axis=1) - p_loc.min(axis=1))
-        assert np.max(np.abs(p_2d[2])) < self.tol * np.sqrt(3)# * scaling
+        assert np.max(np.abs(p_2d[2])) < 2*self.tol * np.sqrt(3)# * scaling
         # Dump third coordinate
         p_2d = p_2d[:2]
 
