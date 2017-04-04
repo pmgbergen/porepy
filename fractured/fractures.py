@@ -160,31 +160,27 @@ class Fracture(object):
         Compute, and redefine, center of the fracture in the form of the
         centroid.
 
-        The algorithm is rewritten from
-            https://fotino.me/calculating-centroids/
+        The method assumes the polygon is convex.
 
         """
-        area_tot = 0
-        centroid_tot = np.zeros(2)
-        p = self.plane_coordinates()
-
-        for i in range(p.shape[1] - 2):
-            p0 = p[:, i]
-            p1 = p[:, i+1]
-            p2 = p[:, i+2]
-            area = np.abs(  p0[0] * (p1[1] - p2[1])\
-                          + p1[0] * (p2[1] - p0[1])\
-                          + p2[1] * (p0[1] - p1[1])) / 2
-
-            if area == 0:
-                continue
-            centroid = (p0 + p1 + p2) / 3
-            centroid_tot = (area_tot * centroid_tot + area * centroid)\
-                         / (area + area_tot)
-            area_tot += area
-        centroid = np.append(centroid, 0)
+        # Rotate to 2d coordinates
         rot = cg.project_plane_matrix(self.p)
-        self.center = rot.transpose().dot(centroid)
+        p = rot.dot(self.p)[:2]
+
+        # Vectors from the first point to all other points. Subsequent pairs of
+        # these will span triangles which, assuming convexity, will cover the
+        # polygon.
+        v = p[:, 1:] - p[:, 0].reshape((-1, 1))
+        # The cell center of the triangles spanned by the subsequent vectors
+        cc = (p[:, 0] + p[:, 1:-1] + p[:, 2:])/3
+        # Area of triangles
+        area = 0.5 * np.abs(v[0, :-1] * v[1, 1:] - v[1, :-1] * v[0, 1:])
+
+        # The center is found as the area weighted center
+        center = np.sum(cc * area, axis=1) 
+
+        # Project back again.
+        self.center = rot.transpose().dot(np.append(center, 0))
 
 
     def as_sp_polygon(self):
