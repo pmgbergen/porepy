@@ -7,25 +7,39 @@ from gridding.fractured import fractures
 import compgeom.basics as cg
 
 
-def tetrahedral_grid(fracs, box, **kwargs):
+def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
 
-    Based on polygons describing the individual fractures, the method computes
-    fracture intersections, creates a gmsh input file, runs gmsh and reads the
-    result, and then constructs grids in 3d (the whole domain), 2d (one for
+    Based on the specified fractures, the method computes fracture
+    intersections if necessary, creates a gmsh input file, runs gmsh and reads
+    the result, and then constructs grids in 3d (the whole domain), 2d (one for
     each individual fracture), 1d (along fracture intersections), and 0d
     (meeting between intersections).
+
+    The fractures can be specified is terms of the keyword 'fracs' (either as
+    numpy arrays or Fractures, see below), or as a ready-made FractureNetwork
+    by the keyword 'network'. For fracs, the boundary of the domain must be
+    specified as well, by 'box'. For a ready network, the boundary will be
+    imposed if provided. For a network will use pre-computed intersection and
+    decomposition if these are available (attributes 'intersections' and
+    'decomposition').
 
     TODO: The method finds the mapping between faces in one dimension and cells
         in a lower dimension, but the information is not used. Should be
         returned in a sensible format.
 
     Parameters:
-        fracs (list of np.ndarray, each 3xn): Vertexes in the polygons for each
-            fracture.
-        box (dictionary). Domain specification. Should have keywords xmin,
-            xmax, ymin, ymax, zmin, zmax.
+        fracs (list, optional): List of either pre-defined fractures, or
+            np.ndarrays, (each 3xn) of fracture vertexes.
+        box (dictionary, optional). Domain specification. Should have keywords
+            xmin, xmax, ymin, ymax, zmin, zmax.
+        network (fractures.FractureNetwork, optional): A FractureNetwork
+            containing fractures.
+
+        The fractures should be specified either by a combination of fracs and
+        box, or by network (possibly combined with box). See above.
+
         **kwargs: To be explored. Should contain the key 'gmsh_path'.
 
     Returns:
@@ -38,25 +52,38 @@ def tetrahedral_grid(fracs, box, **kwargs):
     verbose = kwargs.get('verbose', 1)
 
     # File name for communication with gmsh
-    file_name = kwargs.get('file_name', 'gmsh_frac_file')
+    file_name = kwargs.pop('file_name', 'gmsh_frac_file')
 
-    # Convert the fractures from numpy representation to our 3D fracture data
-    # structure.
-    frac_list = []
-    for f in fracs:
-        frac_list.append(fractures.Fracture(f))
+    if network is None:
 
-    # Combine the fractures into a network
-    network = fractures.FractureNetwork(frac_list)
+        frac_list = []
+        for f in fracs:
+            if isinstance(f, fractures.Fracture):
+                frac_list.append(f)
+            else:
+                # Convert the fractures from numpy representation to our 3D
+                # fracture data structure..
+                frac_list.append(fractures.Fracture(f))
 
-    # Impose domain boundary. For the moment, the network should be immersed in
-    # the domain, or else gmsh will complain.
-    network.impose_external_boundary(box)
+        # Combine the fractures into a network
+        network = fractures.FractureNetwork(frac_list, verbose=verbose,
+                                            tol=kwargs.get('tol', 1e-4))
+
+    # Impose domain boundary.
+    if box is not None:
+        network.impose_external_boundary(box)
 
     # Find intersections and split them, preparing the way for dumping the
     # network to gmsh
-    network.find_intersections()
-    network.split_intersections()
+    if not hasattr(network, 'intersections'):
+        network.find_intersections()
+    else:
+        print('Use existing intersections')
+    if not hasattr(network, 'decomposition'):
+        network.split_intersections()
+    else:
+        print('Use existing decomposition')
+
 
     in_file = file_name + '.geo'
     out_file = file_name + '.msh'
@@ -64,8 +91,9 @@ def tetrahedral_grid(fracs, box, **kwargs):
     network.to_gmsh(in_file, **kwargs)
     gmsh_path = kwargs.get('gmsh_path')
 
+    gmsh_opts = kwargs.get('gmsh_opts', {})
     gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
-    gmsh_opts = {'-v': gmsh_verbose}
+    gmsh_opts['-v'] = gmsh_verbose
     gmsh_status = gmsh_interface.run_gmsh(gmsh_path, in_file, out_file, dims=3,
                                           **gmsh_opts)
 
