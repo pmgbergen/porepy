@@ -40,7 +40,7 @@ class Fracture(object):
 
     def __init__(self, points, index=None):
         self.p = points
-        self.center = np.mean(self.p, axis=1).reshape((-1, 1))
+        self.compute_centroid()
         self.normal = cg.compute_normal(points)[:, None]
 
         self.orig_p = self.p.copy()
@@ -135,6 +135,38 @@ class Fracture(object):
 
         """
         return self.as_sp_polygon().is_convex()
+
+    def compute_centroid(self):
+        """
+        Compute, and redefine, center of the fracture in the form of the
+        centroid.
+
+        The algorithm is rewritten from
+            https://fotino.me/calculating-centroids/
+
+        """
+        area_tot = 0
+        centroid_tot = np.zeros(2)
+        p = self.plane_coordinates()
+
+        for i in range(p.shape[1] - 2):
+            p0 = p[:, i]
+            p1 = p[:, i+1]
+            p2 = p[:, i+2]
+            area = np.abs(  p0[0] * (p1[1] - p2[1])\
+                          + p1[0] * (p2[1] - p0[1])\
+                          + p2[1] * (p0[1] - p1[1])) / 2
+
+            if area == 0:
+                continue
+            centroid = (p0 + p1 + p2) / 3
+            centroid_tot = (area_tot * centroid_tot + area * centroid)\
+                         / (area + area_tot)
+            area_tot += area
+        centroid = np.append(centroid, 0)
+        rot = cg.project_plane_matrix(self.p)
+        self.center = rot.transpose().dot(centroid)
+
 
     def as_sp_polygon(self):
         sp = [sympy.geometry.Point(self.p[:, i])
