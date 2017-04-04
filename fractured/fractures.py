@@ -419,6 +419,209 @@ class Fracture(object):
 
         return bound_pt, has_segment, non_vertex, cuts_two
 
+
+    def impose_boundary(self, box, tol):
+        """
+        Impose a boundary on a fracture, defined by a bounding box.
+
+        If the fracture extends outside the box, it will be truncated, and new
+        points are inserted on the intersection with the boundary. It is
+        assumed that the points defining the fracture defines a convex set (in
+        its natural plane) to begin with.
+
+        The attribute self.p will be changed if intersections are found. The
+        original vertexes can still be recovered from self.orig_p.
+
+        The box is specified by its extension in Cartesian coordinates.
+
+        Parameters:
+            box (dicitionary): The bounding box, specified by keywords xmin,
+                xmax, ymin, ymax, zmin, zmax.
+            tol (double): Tolerance, defines when two points are considered
+                equal.
+
+        """
+
+        # Maximal extent of the fracture
+        min_coord = self.p.min(axis=1)
+        max_coord = self.p.max(axis=1)
+
+        # Coordinates of the bounding box
+        x0_box = box['xmin']
+        x1_box = box['xmax']
+        y0_box = box['ymin']
+        y1_box = box['ymax']
+        z0_box = box['zmin']
+        z1_box = box['zmax']
+
+        # Gather the box coordinates in an array
+        box_array = np.array([[x0_box, x1_box],
+                              [y0_box, y1_box],
+                              [z0_box, z1_box]])
+
+        # We need to be a bit careful if the fracture extends outside the
+        # bounding box on two (non-oposite) sides. In addition to the insertion
+        # of points along the segments defined by self.p, this will also
+        # require the insertion of points at the meeting of the two sides. To
+        # capture this, we first look for the intersection between the fracture
+        # and planes that extends further than the plane, and then later
+        # move the intersection points to lay at the real bounding box
+        x0 = np.minimum(x0_box, min_coord[0] - 10 * tol)
+        x1 = np.maximum(x1_box, max_coord[0] + 10 * tol)
+        y0 = np.minimum(y0_box, min_coord[1] - 10 * tol)
+        y1 = np.maximum(y1_box, max_coord[1] + 10 * tol)
+        z0 = np.minimum(z0_box, min_coord[2] - 10 * tol)
+        z1 = np.maximum(z1_box, max_coord[2] + 10 * tol)
+
+        def outside_box(p, bound_i):
+            # Helper function to test if points are outside the bounding box
+            p = cg.snap_to_grid(p, tol=tol)
+            # snap_to_grid will impose a grid of size self.tol, thus points
+            # that are more than half that distance away from the boundary
+            # are deemed outside.
+            # To reduce if-else on the boundary index, we compute all bounds,
+            # and then return the relevant one, as specified by bound_i
+            west_of = p[0] < x0_box - tol / 2
+            east_of = p[0] > x1_box + tol / 2
+            south_of = p[1] < y0_box - tol / 2
+            north_of = p[1] > y1_box + tol / 2
+            beneath = p[2] < z0_box - tol / 2
+            above = p[2] > z1_box + tol / 2
+            outside = np.vstack((west_of, east_of, south_of, north_of,
+                                 beneath, above))
+            return outside[bound_i]
+
+
+        # Represent the planes of the bounding box as fractures, to allow
+        # us to use the fracture intersection methods.
+        # For each plane, we keep the fixed coordinate to the value specified
+        # by the box, and extend the two others to cover segments that run
+        # through the extension of the plane only.
+        west = Fracture(np.array([[x0_box, x0_box, x0_box, x0_box],
+                                  [y0, y1, y1, y0], [z0, z0, z1, z1]]))
+        east = Fracture(np.array([[x1_box, x1_box, x1_box, x1_box],
+                                  [y0, y1, y1, y0],
+                                  [z0, z0, z1, z1]]))
+        south = Fracture(np.array([[x0, x1, x1, x0],
+                                   [y0_box, y0_box, y0_box, y0_box],
+                                   [z0, z0, z1, z1]]))
+        north = Fracture(np.array([[x0, x1, x1, x0],
+                                   [y1_box, y1_box, y1_box, y1_box],
+                                   [z0, z0, z1, z1]]))
+        bottom = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+                                  [z0_box, z0_box, z0_box, z0_box]]))
+        top = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+                                  [z1_box, z1_box, z1_box, z1_box]]))
+        # Collect in a list to allow iteration
+        bound_planes = [west, east, south, north, bottom, top]
+
+        # Loop over all boundary sides and look for intersections
+        for bi, bf in enumerate(bound_planes):
+            # Dimensions that are not fixed by bf
+            active_dims = np.ones(3, dtype=np.bool)
+            active_dims[np.floor(bi/2).astype('int')] = 0
+            # Convert to indices
+            active_dims = np.squeeze(np.argwhere(active_dims))
+
+            # Find intersection points
+            isect, _, _ = self.intersects(bf, tol)
+            num_isect = isect.shape[1]
+            if len(isect) > 0 and num_isect > 0:
+                num_pts_orig = self.p.shape[1]
+                # Add extra points at the end of the point list.
+                self.p, *rest \
+                    = setmembership.unique_columns_tol(np.hstack((self.p,
+                                                                  isect)))
+                num_isect = self.p.shape[1] - num_pts_orig
+                if num_isect == 0:
+                    continue
+
+                # Sort fracture points in a ccw order.
+                # This must be done before sliding the intersection points
+                # (below), since the latter may break convexity of the
+                # fracture, thus violate the (current) implementation of
+                # points_2_ccw()
+                sort_ind = self.points_2_ccw()
+
+                # The next step is to decide whether and how to move the
+                # intersection points.
+
+                # If all intersection points are outside, and on the same side
+                # of the box for all of the active dimensions, convexity of the
+                # polygon implies that the whole fracture is outside the
+                # bounding box. We signify this by setting self.p empty.
+                if np.any(np.all(isect[active_dims] < \
+                          box_array[active_dims, 0], axis=1), axis=0):
+                    self.p = np.empty((3, 0))
+                    # No need to consider other boundary planes
+                    break
+                if np.any(np.all(isect[active_dims] > \
+                          box_array[active_dims, 1], axis=1), axis=0):
+                    self.p = np.empty((3, 0))
+                    # No need to consider other boundary planes
+                    break
+
+                # The intersection points will lay on the bounding box on one
+                # of the dimensions (that of bf, specified by xyz_01_box), but
+                # may be outside the box for the other sides (xyz_01). We thus
+                # need to move the intersection points in the plane of bf and
+                # the fracture plane.
+                # The relevant tangent vector is perpendicular to both the
+                # fracture and bf
+                normal_self = cg.compute_normal(self.p)
+                normal_bf = cg.compute_normal(bf.p)
+                tangent = np.cross(normal_self, normal_bf)
+                # Unit vector
+                tangent *= 1./ np.linalg.norm(tangent)
+
+                isect_ind = np.argwhere(sort_ind >= num_pts_orig).ravel('F')
+                p_isect = self.p[:, isect_ind]
+
+                # Loop over all intersection points and active dimensions. If
+                # the point is outside the bounding box, move it.
+                for pi in range(num_isect):
+                    for dim, other_dim in zip(active_dims, active_dims[::-1]):
+                        # Test against lower boundary
+                        lower_diff = p_isect[dim, pi] - box_array[dim, 0]
+                        # Modify coordinates if necessary. This dimension is
+                        # simply set to the boundary, while the other should
+                        # slide along the tangent vector
+                        if lower_diff < 0:
+                            p_isect[dim, pi] = box_array[dim, 0]
+                            # We know lower_diff != 0, no division by zero. 
+                            # We may need some tolerances, though.
+                            t = tangent[dim] / lower_diff
+                            p_isect[other_dim, pi] += t * tangent[other_dim]
+
+                        # Same treatment of the upper boundary
+                        upper_diff = p_isect[dim, pi] - box_array[dim, 1]
+                        # Modify coordinates if necessary. This dimension is
+                        # simply set to the boundary, while the other should
+                        # slide along the tangent vector
+                        if upper_diff < 0:
+                            p_isect[dim, pi] = box_array[dim, 1]
+                            t = tangent[dim] / upper_diff
+                            p_isect[other_dim, pi] += t * tangent[other_dim]
+
+                # Finally, identify points that are outside the face bf
+                inside = np.logical_not(outside_box(self.p, bi))
+                # Dump points that are outside.
+                self.p = self.p[:, inside]
+                self.p, *rest = setmembership.unique_columns_tol(self.p,
+                                                                 tol=tol)
+                # We have modified the fractures, so re-calculate the centroid
+                self.compute_centroid()
+            else:
+                # No points exists, but the whole point set can still be
+                # outside the relevant boundary face.
+                outside = outside_box(self.p, bi)
+                if np.all(outside):
+                    self.p = np.empty((3, 0))
+            # There should be at least three points in a fracture.
+            if self.p.shape[1] < 3:
+                break
+
+
     def segments(self):
         return self.as_sp_polygon().sides
 
@@ -1487,65 +1690,16 @@ class FractureNetwork(object):
         self.domain = box
 
         if truncate_fractures:
-            # Short hand for coordinates of bounding box
-            x0 = box['xmin']
-            x1 = box['xmax']
-            y0 = box['ymin']
-            y1 = box['ymax']
-            z0 = box['zmin']
-            z1 = box['zmax']
-
-            def outside_box(p):
-                p = cg.snap_to_grid(p, tol=self.tol)
-                # snap_to_grid will impose a grid of size self.tol, thus points
-                # that are more than half that distance away from the boundary
-                # are deemed outside.
-                west_of = p[0] < x0 - self.tol / 2
-                east_of = p[0] > x1 + self.tol / 2
-                south_of = p[1] < y0 - self.tol / 2
-                north_of = p[1] > y1 + self.tol / 2
-                beneath = p[2] < z0 - self.tol / 2
-                above = p[2] > z1 + self.tol / 2
-                outside = np.vstack((west_of, east_of, south_of, north_of,
-                                     beneath, above))
-                return np.any(outside, axis=0)
-
-
-            # Represent the planes of the bounding box as fractures, to allow
-            # us to use the fracture intersection methods.
-            west = Fracture(np.array([[x0, x0, x0, x0], [y0, y1, y1, y0],
-                                      [z0, z0, z1, z1]]))
-            east = Fracture(np.array([[x1, x1, x1, x1], [y0, y1, y1, y0],
-                                      [z0, z0, z1, z1]]))
-            south = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y0, y0],
-                                      [z0, z0, z1, z1]]))
-            north = Fracture(np.array([[x0, x1, x1, x0], [y1, y1, y1, y1],
-                                      [z0, z0, z1, z1]]))
-            bottom = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
-                                      [z0, z0, z0, z0]]))
-            top = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
-                                      [z1, z1, z1, z1]]))
-            bound_planes = [west, east, south, north, bottom, top]
-
+            # Keep track of fractures that are completely outside the domain.
+            # These will be deleted.
             delete_frac = []
 
+            # Loop over all fractures, use method in fractures to truncate if
+            # necessary.
             for i, frac in enumerate(self._fractures):
-                for bf in bound_planes:
-                    isect, _, _ = frac.intersects(bf, self.tol)
-                    if len(isect) > 0 and isect.shape[1] > 0:
-                        frac.p = np.hstack((frac.p, isect))
-                        frac.points_2_ccw()
-                        # Check if the points are outside on any side
-                        inside = np.logical_not(outside_box(frac.p))
-                        # Dump points that are outside.
-                        # Note that the points should still be ccw
-                        frac.p = frac.p[:, inside]
-                        if not np.any(inside):
-                            delete_frac.append(i)
-                    else:
-                        outside = outside_box(frac.p)
-                        if np.all(outside):
-                            delete_frac.append(i)
+                frac.impose_boundary(box, self.tol)
+                if frac.p.shape[1] == 0:
+                    delete_frac.append(i)
 
             # Delete fractures that have all points outside the bounding box
             # There may be some uncovered cases here, with a fracture barely
