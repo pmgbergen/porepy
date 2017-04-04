@@ -40,6 +40,8 @@ class Fracture(object):
 
     def __init__(self, points, index=None):
         self.p = points
+        # Ensure the points are ccw
+        self.points_2_ccw()
         self.compute_centroid()
         self.normal = cg.compute_normal(points)[:, None]
 
