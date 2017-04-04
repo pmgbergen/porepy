@@ -127,21 +127,15 @@ class Fracture(object):
         """
         Represent the vertex coordinates in its natural 2d plane.
 
+        The plane does not necessarily have the third coordinate as zero (no
+        translation to the origin is made) 
+
         Returns:
             np.array (2xn): The 2d coordinates of the vertexes.
 
-        Raises:
-            ValueError if the vertexes do not lay on a plane.
-
         """
         rotation = cg.project_plane_matrix(self.p)
-        points_2d = rotation.dot(self.p - self.p[:, 0].reshape((-1, 1)))
-
-        # Tolerance used here is somewhat arbitrary. Should be revised, or
-        # better, seen in connection with the tolerance of an accompanying
-        # FractureNetwork.
-        if np.max(np.abs(points_2d[2])) > 1e-8:
-            raise ValueError('Fracture vertexes are not on a plane')
+        points_2d = rotation.dot(self.p)
 
         return points_2d[:2]
 
