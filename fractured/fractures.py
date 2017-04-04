@@ -1556,6 +1556,50 @@ class FractureNetwork(object):
         return all_p, edges, is_boundary_edge, poly_segments, poly_2_frac
 
 
+    def report_on_decomposition(self, do_print=True, verbose=None):
+        """
+        Compute various statistics on the decomposition.
+
+        The coverage is rudimentary for now, will be expanded when needed.
+
+        Parameters:
+            do_print (boolean, optional): Print information. Defaults to True.
+            verbose (int, optional): Override the verbosity level of the
+                network itself. If not provided, the network value will be
+                used.
+
+        Returns:
+            str: String representation of the statistics
+
+        """
+        if verbose is None:
+            verbose = self.verbose
+        d = self.decomposition
+
+        s = str(len(self._fractures)) + ' fractures are split into '
+        s += str(len(d['polygons'])) + ' polygons \n'
+
+        s += 'Number of points: ' + str(d['points'].shape[1]) + '\n'
+        s += 'Number of edges: ' + str(d['edges'].shape[1]) + '\n'
+
+        if verbose > 1:
+            # Compute minimum distance between points in point set
+            dist = np.inf
+            p = d['points']
+            num_points = p.shape[1]
+            hit = np.ones(num_points, dtype=np.bool)
+            for i in range(num_points):
+                hit[i] = False
+                dist_loc = cg.dist_point_pointset(p[:, i], p[:, hit])
+                dist = np.minimum(dist, dist_loc.min())
+                hit[i] = True
+            s += 'Minimal disance between points ' + str(dist) + '\n'
+
+        if do_print:
+            print(s)
+
+        return s
+
     def _verify_fractures_in_plane(self, p, edges, edges_2_frac):
         """
         Essentially a debugging method that verify that the given set of
