@@ -138,6 +138,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
     # Number of points before edges is modified. Used for sanity check below.
     orig_num_pts = edges[:2].max()
+    orig_num_edges = edges.shape[1]
 
     # Save tags associated with the edge.
     # NOTE: For segment intersetions where the edges have different tags, one
@@ -244,7 +245,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
                                edges[:, edge_ind[0]+1:]))
-            new_line = [2, -1]
+
             split_type = 4
         elif i0 == start and i1 == end:
             # We don't know if i0 is closest to the start or end of edges[:,
@@ -276,8 +277,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             # Delete the second segment. This is most easily handled after
             # edges is expanded, to avoid accounting for changing edge indices.
             edges = np.delete(edges, edge_ind[0], axis=1)
-            # Number of new lines. Should account for deletion of edges.
-            new_line = [-1, 2 - del_ind.size]
+
             split_type = 5
 
         # Note that we know that i0 is closest to start, thus no need to test
@@ -297,17 +297,14 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             #
             # edge_ind[0] = (0, 2), edge_ind[1] = (0, 1) is split into
             #   (0, 1), (1, 2)
-            did_delete = 0
             if edges[0, edge_ind[1]] == i1:
                 if edges[1, edge_ind[1]] == start:
                     edges = np.delete(edges, edge_ind[1], axis=1)
-                    did_delete = 1
                 else:
                     edges[0, edge_ind[1]] = start
             elif edges[1, edge_ind[1]] == i1:
                 if edges[0, edge_ind[1]] == start:
                     edges = np.delete(edges, edge_ind[1], axis=1)
-                    did_delete = 1
                 else:
                     edges[1, edge_ind[1]] = start
             else:
@@ -323,7 +320,6 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
                                edges[:, (edge_ind[0]+1):]))
-            new_line = [1, -did_delete]
             split_type = 6
 
         elif i0 != start and i1 == end:
@@ -333,13 +329,11 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             if edges[0, edge_ind[1]] == i0:
                 if edges[1, edge_ind[1]] == end:
                     edges = np.delete(edges, edge_ind[1], axis=1)
-                    did_delete = 1
                 else:
                     edges[0, edge_ind[1]] = end
             elif edges[1, edge_ind[1]] == i0:
                 if edges[0, edge_ind[1]] == end:
                     edges = np.delete(edges, edge_ind[1], axis=1)
-                    did_delete = -1
                 else:
                     edges[1, edge_ind[1]] = end
             else:
@@ -354,7 +348,6 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
                                edges[:, (edge_ind[0]+1):]))
-            new_line = [1, -did_delete]
             split_type = 7
 
         else:
@@ -372,11 +365,13 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
                 = setmembership.unique_columns_tol(edges_copy, tol=tol)
         # Refer to unique edges if necessary
         if edges_unique.shape[1] < edges.shape[1]:
-            new_line[0] -= edges.shape[1] - edges_unique.shape[1]
-            # Also copy tags
+            # Copy tags
             edges = np.vstack((edges_unique, edges[2, new_2_old]))
             # Also signify that we have carried out this operation.
             split_type = [split_type, 8]
+
+        # Number of new lines created
+        new_line = edges.shape[1] - orig_num_edges
 
         return vertices, edges, new_line, split_type
 
@@ -669,7 +664,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                                                  [edge_counter, intsect],
                                                  new_pt, **kwargs)
                     split_type.append(s_type)
-                    intersections += splits[0] + splits[1]
+                    intersections += splits
                     if verbose > 2 and (splits[0] > 0 or splits[1] > 0):
                         print('    Introduced new point')
 
