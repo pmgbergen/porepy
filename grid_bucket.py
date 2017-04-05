@@ -550,10 +550,8 @@ class GridBucket(object):
         Runar did this.
 
         """
-        node_source = g_src.global_point_ind
-        node_target = g_trg.global_point_ind
-        node_source = node_source[None, :]
-        node_target = node_target[None, :]
+        node_source = np.atleast_2d(g_src.global_point_ind)
+        node_target = np.atleast_2d(g_trg.global_point_ind)
         _, trg_2_src_nodes = setmembership.ismember_rows(
             node_source.astype(np.int32), node_target.astype(np.int32))
         return trg_2_src_nodes
