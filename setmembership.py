@@ -7,6 +7,7 @@ Created on Thu Feb 25 20:16:42 2016
 
 import numpy as np
 
+import utils.unique as np_unique
 
 def unique_rows(data):
     """
@@ -226,7 +227,15 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
 
     # Special treatment of the case with an empty array
     if mat.shape[1] == 0:
-         return mat	
+         return mat
+
+    # If the matrix is integers, and the tolerance less than 1/2, we can use
+    # the new unique function that ships with numpy 1.13.
+    if issubclass(mat.dtype.type, np.integer) and tol < 0.5:
+        un_ar, new_2_old, old_2_new \
+            = np_unique.unique_np1130(mat, return_index=True,
+                                      return_inverse=True, axis=1)
+        return un_ar, new_2_old, old_2_new
 
     def dist(p, pset):
         " Helper function to compute distance "
