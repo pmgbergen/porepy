@@ -197,10 +197,10 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
 
     # Update signs
     sgn_unique = g.cell_faces[subcell_topology.fno_unique,
-                             subcell_topology.cno_unique].A.ravel('F')
+                              subcell_topology.cno_unique].A.ravel('F')
 
     # The boundary faces will have either a Dirichlet or Neumann condition, but
-    # not both (Robin is not implemented). 
+    # not both (Robin is not implemented).
     # Obtain mappings to exclude boundary faces.
     bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
 
@@ -234,13 +234,13 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
 
     del grad_eqs
     darcy_igrad = darcy * cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
-                                                           size_of_blocks,
-                                                           method=inverter) \
-                          * rows2blk_diag
+                                                                         size_of_blocks,
+                                                                         method=inverter) \
+        * rows2blk_diag
 
     del grad, cols2blk_diag, rows2blk_diag, darcy
 
-    flux = hf2f * darcy_igrad * (-sps.vstack([nk_cell, pr_cont_cell])) 
+    flux = hf2f * darcy_igrad * (-sps.vstack([nk_cell, pr_cont_cell]))
 
     del nk_cell, pr_cont_cell
     ####
@@ -249,7 +249,9 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
                                   subcell_topology, sgn_unique, g,
                                   num_nk_cell, num_pr_cont_grad)
     # Discretization of boundary values
-    bound_flux = hf2f * darcy_igrad * rhs_bound
+    sgn_mat = _neu_face_sign_mat(g, bnd)
+    assert(np.all((np.abs(rhs_bound * sgn_mat) - np.abs(rhs_bound)).data == 0))
+    bound_flux = hf2f * darcy_igrad * rhs_bound * sgn_mat
 
     return flux, bound_flux
 
@@ -319,7 +321,7 @@ def _tensor_vector_prod(g, k, subcell_topology):
 
     # Represent normals and permeability on matrix form
     normals_mat = sps.coo_matrix((normals.ravel('F'), (i.ravel('F'),
-                                                     j.ravel('F')))).tocsr()
+                                                       j.ravel('F')))).tocsr()
     k_mat = sps.coo_matrix((k.perm[::, ::, cell_node_blocks[0]].ravel('F'),
                             (i.ravel('F'), j.ravel('F')))).tocsr()
 
@@ -414,7 +416,7 @@ def _create_bound_rhs(bnd, bound_exclusion,
     # sgn is already defined according to fno, while g.faceAreas is raw data,
     # and therefore needs a combined mapping
     signed_bound_areas = sgn[neu_ind] * g.face_areas[fno[neu_ind]]\
-                        / num_face_nodes[fno[neu_ind]]
+        / num_face_nodes[fno[neu_ind]]
     if neu_ind.size > 0:
         neu_cell = sps.coo_matrix((signed_bound_areas.ravel('F'),
                                    (neu_ind, np.arange(neu_ind.size))),
@@ -470,3 +472,13 @@ def _create_bound_rhs(bnd, bound_exclusion,
     rhs_bound = -sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
     return rhs_bound
 
+
+def _neu_face_sign_mat(g, bnd):
+    neu_ind = np.ravel(np.argwhere(bnd.is_neu))
+    neu_sgn = (g.cell_faces[neu_ind, :]).data
+    sort_id = np.argsort(g.cell_faces[neu_ind, :].indices)
+    neu_sgn = neu_sgn[sort_id]
+    sgn_diag = np.zeros(g.num_faces)
+    sgn_diag[neu_ind] = neu_sgn
+    sgn_diag[bnd.is_dir] = 1
+    return sps.diags(sgn_diag)
