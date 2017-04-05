@@ -2,3 +2,10 @@
 *.msh
 *.geo
 *.exe
+*.swp
+*.py~
+*.un~
+*.pos 
+*.vtu
+*.vrml
+

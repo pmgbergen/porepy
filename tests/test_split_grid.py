@@ -1,33 +1,22 @@
+import unittest
 import numpy as np
 
-from gridding.fractured import split_grid
-from core.grids import structured
+from gridding.fractured import meshing
 
-def test_split_grid():
-    """ Check that no error messages are created in the process of creating a
-    split_grid.
-    """
-    n = 10
-    g = structured.CartGrid([n,n])
-    g.compute_geometry()
-    frac_tag = np.logical_and(np.logical_and(g.face_centers[1,:]==n/2,
-                                             g.face_centers[0,:]>n/4),
-                              g.face_centers[0,:]<3*n/4)
-    h = g.copy()
-    h = split_grid.split_grid(h,frac_tag)
-    # Check that correct number of faces are added
-    print(g.num_faces)
-    assert h.num_faces == g.num_faces + sum(frac_tag)
-    assert h.num_faces == h.face_nodes.shape[1]
-    assert h.cell_faces.shape[0] == h.num_faces
-    assert h.cell_faces.shape[1] == g.num_cells
-    assert h.num_cells == g.num_cells
-    # Check that correct number of nodes are added
-    assert h.num_nodes == g.num_nodes + sum(frac_tag)-1
-    assert h.num_nodes == h.face_nodes.shape[0]
-    # check that no faces are hanging
-    b = np.abs(h.cell_faces).sum(axis=1).A.ravel(1)==0
-    assert np.any(b) == False
-    
-if __name__ == '__main__':
-    test_split_grid()
+
+class TestMeshing(unittest.TestCase):
+    def test_x_intersection_3d(self):
+        """ Check that no error messages are created in the process of creating a
+        split_fracture.
+        """
+
+        f_1 = np.array([[-.8, .8, .8, -.8], [0, 0, 0, 0], [-.8, -.8, .8, .8]])
+        f_2 = np.array([[0, 0, 0, 0], [-.8, .8, .8, -.8], [-.8, -.8, .8, .8]])
+
+        f_set = [f_1, f_2]
+        domain = {'xmin': -1, 'xmax': 1,
+                  'ymin': -1, 'ymax': 1, 'zmin': -1, 'zmax': 1}
+        # ENDRE DENNE
+        path_to_gmsh = '~/gmsh/bin/gmsh'
+        bucket = meshing.simplex_grid(f_set, domain, gmsh_path=path_to_gmsh)
+        bucket.compute_geometry()
