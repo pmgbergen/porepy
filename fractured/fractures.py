@@ -272,10 +272,11 @@ class Fracture(object):
         # There should be at most two of these points
         assert int_points.shape[1] <= 2
 
-        # Note: If int_points.shape[1] == 2, we can simply cut it short here,
-        # as there should be no more than two intersection points for a convex
-        # polygen. However, we do not implement this before the method has been
-        # thoroughly tested.
+        # There at at the most two intersection points between the fractures
+        # (assuming convexity). If two interior points are found, we can simply
+        # cut it short here.
+        if int_points.shape[1] == 2:
+            return int_points, on_boundary_self, on_boundary_other
 
         ####
         # Next, check for intersections between the polygon boundaries
