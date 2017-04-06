@@ -141,7 +141,6 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     """
 
-
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
     # of coordinates of a point / vector and the real dimension. This again
@@ -162,7 +161,6 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
         constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=0)
         constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=1)
 
-
     nd = g.dim
 
     # Define subcell topology
@@ -173,9 +171,9 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
     # Most of the work is done by submethod for elasticity (which is common for
     # elasticity and poro-elasticity).
     hook, igrad, rhs_cells, _, _ = __mpsa_elasticity(g, constit,
-                                                   subcell_topology,
-                                                  bound_exclusion, eta,
-                                                  inverter)
+                                                     subcell_topology,
+                                                     bound_exclusion, eta,
+                                                     inverter)
 
     hook_igrad = hook * igrad
     del hook, igrad
@@ -193,6 +191,7 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
     bound_stress = hf2f * hook_igrad * rhs_bound
 
     return stress, bound_stress
+
 
 def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
                       inverter):
@@ -276,8 +275,8 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
     del ncsym, d_cont_grad
 
     igrad = _inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
-                             subcell_topology.nno_unique, bound_exclusion,
-                             nd, inverter)
+                              subcell_topology.nno_unique, bound_exclusion,
+                              nd, inverter)
 
     # Right hand side for cell center variables
     rhs_cells = -sps.vstack([hook_cell, d_cont_cell])
@@ -399,7 +398,7 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     def build_rhs_normals_single_dimension(dim):
         val = g.face_normals[dim, subcell_topology.fno] \
-              * sgn / num_nodes[subcell_topology.fno]
+            * sgn / num_nodes[subcell_topology.fno]
         mat = sps.coo_matrix((val.squeeze(), (subcell_topology.subfno,
                                               subcell_topology.cno)),
                              shape=(subcell_topology.num_subfno,
@@ -426,8 +425,8 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
     # Call core part of MPSA
     hook, igrad, rhs_cells, \
         cell_node_blocks, hook_normal = __mpsa_elasticity(g, constit,
-                                                   subcell_topology,
-                                             bound_exclusion, eta, inverter)
+                                                          subcell_topology,
+                                                          bound_exclusion, eta, inverter)
 
     # Output should be on face-level (not sub-face)
     hf2f = _map_hf_2_f(subcell_topology.fno_unique,
@@ -460,7 +459,7 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
     # ind_face = np.argsort(np.tile(subcell_topology.subhfno, nd))
     # hook_normal = sps.coo_matrix((np.ones(num_subhfno * nd),
     #                               (np.arange(num_subhfno*nd), ind_face)),
-    #                              shape=(nd*num_subhfno, ind_face.size)).tocsr()
+    # shape=(nd*num_subhfno, ind_face.size)).tocsr()
 
     grad_p = div_gradp * hook_normal * igrad * rhs_normals
     # assert np.allclose(grad_p.sum(axis=0), np.zeros(g.num_cells))
@@ -652,7 +651,7 @@ def _tensor_vector_prod(g, constit, subcell_topology):
 
     num_elem = cell_node_blocks.shape[1]
     map_mat = sps.coo_matrix((np.ones(num_elem),
-                             (np.arange(num_elem), cell_node_blocks[1])))
+                              (np.arange(num_elem), cell_node_blocks[1])))
     weight_mat = sps.coo_matrix((cell_vol[cell_node_blocks[0]] / node_vol[
         cell_node_blocks[1]], (cell_node_blocks[1], np.arange(num_elem))))
     # Operator for carying out the average
@@ -676,7 +675,7 @@ def _tensor_vector_prod(g, constit, subcell_topology):
         csym_mat = sps.coo_matrix((sym_vals.ravel('C'),
                                    (rc.ravel('F'), cc.ravel('F')))).tocsr()
         casym_mat = sps.coo_matrix((asym_vals.ravel(0),
-                                   (rc.ravel('F'), cc.ravel('F')))).tocsr()
+                                    (rc.ravel('F'), cc.ravel('F')))).tocsr()
 
         # Compute average around vertexes
         casym_mat = average * casym_mat
@@ -696,7 +695,7 @@ def _tensor_vector_prod(g, constit, subcell_topology):
 
 
 def _inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
-                     nno_unique, bound_exclusion, nd, inverter):
+                      nno_unique, bound_exclusion, nd, inverter):
 
     # Mappings to convert linear system to block diagonal form
     rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
@@ -708,7 +707,7 @@ def _inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
     igrad = cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
                                                            size_of_blocks,
                                                            method=inverter) \
-            * rows2blk_diag
+        * rows2blk_diag
     return igrad
 
 
@@ -806,9 +805,18 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     is_neu = bound_exclusion.exclude_dirichlet(bound.is_neu[fno].astype(
         'int64'))
     neu_ind_single = np.argwhere(is_neu).ravel('F')
+
     # There are is_neu.size Neumann conditions per dimension
     neu_ind = expand_ind(neu_ind_single, nd, is_neu.size)
 
+    # We also need to account for all half faces, that is, do not exclude
+    # Dirichlet and Neumann boundaries.
+    neu_ind_single_all = np.argwhere(bound.is_neu[fno].astype('int'))\
+        .ravel('F')
+    dir_ind_single_all = np.argwhere(bound.is_dir[fno].astype('int'))\
+        .ravel('F')
+
+    neu_ind_all = np.tile(neu_ind_single_all, nd)
     # Some care is needed to compute coefficients in Neumann matrix: sgn is
     # already defined according to the subcell topology [fno], while areas
     # must be drawn from the grid structure, and thus go through fno
@@ -816,13 +824,11 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # The signs of the faces should be expanded exactly the same way as the
     # row indices, but with zero increment
     neu_sgn = expand_ind(sgn[neu_ind_single], nd, 0)
+
     fno_ext = np.tile(fno, nd)
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel('F')
-    # No need to expand areas, this is done implicitly via neu_ind
-    neu_area = g.face_areas[fno_ext[neu_ind]] / num_face_nodes[fno_ext[
-        neu_ind]]
     # Coefficients in the matrix
-    neu_val = neu_sgn * neu_area
+    neu_val = neu_sgn / num_face_nodes[fno_ext[neu_ind_all]]
 
     # The columns will be 0:neu_ind.size
     if neu_ind.size > 0:
@@ -856,12 +862,6 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
     # Map these to all half-face indices
-    # Here, we need to account for all half faces, that is, do not exclude
-    # Dirichlet and Neumann boundaries.
-    neu_ind_single_all = np.argwhere(bound.is_neu[fno].astype('int'))\
-                            .ravel('F')
-    dir_ind_single_all = np.argwhere(bound.is_dir[fno].astype('int'))\
-                            .ravel('F')
 
     is_bnd = np.hstack((neu_ind_single_all, dir_ind_single_all))
     bnd_ind = __expand_indices_nd(is_bnd, nd)
@@ -1037,4 +1037,3 @@ def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell,
                                  kind='mergesort')
     d_cont_cell = d_cont_cell[:, d_cont_cell_map]
     return d_cont_grad, d_cont_cell
-
