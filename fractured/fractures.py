@@ -165,23 +165,24 @@ class Fracture(object):
         """
         # Rotate to 2d coordinates
         rot = cg.project_plane_matrix(self.p)
-        p = rot.dot(self.p)[:2]
+        p = rot.dot(self.p)
+        z = p[2, 0]
+        p = p[:2]
 
         # Vectors from the first point to all other points. Subsequent pairs of
         # these will span triangles which, assuming convexity, will cover the
         # polygon.
         v = p[:, 1:] - p[:, 0].reshape((-1, 1))
         # The cell center of the triangles spanned by the subsequent vectors
-        cc = (p[:, 0] + p[:, 1:-1] + p[:, 2:])/3
+        cc = (p[:, 0].reshape((-1, 1)) + p[:, 1:-1] + p[:, 2:])/3
         # Area of triangles
         area = 0.5 * np.abs(v[0, :-1] * v[1, 1:] - v[1, :-1] * v[0, 1:])
 
         # The center is found as the area weighted center
-        center = np.sum(cc * area, axis=1) 
+        center = np.sum(cc * area, axis=1) / np.sum(area)
 
         # Project back again.
-        self.center = rot.transpose().dot(np.append(center, 0))
-
+        self.center = rot.transpose().dot(np.append(center, z))
 
     def as_sp_polygon(self):
         sp = [sympy.geometry.Point(self.p[:, i])
