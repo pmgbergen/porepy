@@ -408,13 +408,18 @@ def _create_bound_rhs(bnd, bound_exclusion,
     # Find Neumann faces, exclude Dirichlet faces (since these are excluded
     # from the right hand side linear system), and do necessary formating.
     neu_ind = np.argwhere(bound_exclusion.exclude_dirichlet(
-                          bnd.is_neu[fno].astype('int64'))).ravel('F')
-    assert(np.all(bnd.is_neu[fno[neu_ind]]))
+        bnd.is_neu[fno].astype('int64'))).ravel('F')
+    # We also need to map the respective Neumann and Dirichlet half-faces to
+    # the global half-face numbering (also interior faces). The latter should
+    # not have Dirichlet and Neumann excluded (respectively), and thus we need
+    # new fields
+    neu_ind_all = np.argwhere(bnd.is_neu[fno].astype('int')).ravel('F')
+    dir_ind_all = np.argwhere(bnd.is_dir[fno].astype('int')).ravel('F')
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order='F')
     # sgn is already defined according to fno, while g.faceAreas is raw data,
     # and therefore needs a combined mapping
-    bndr_neu_sgn = _neu_face_sgn(g, fno[neu_ind])
-    scaled_sgn = bndr_neu_sgn * sgn[neu_ind] / num_face_nodes[fno[neu_ind]]
+    bndr_neu_sgn = _neu_face_sgn(g, fno[neu_ind_all])
+    scaled_sgn = bndr_neu_sgn * sgn[neu_ind] / num_face_nodes[fno[neu_ind_all]]
     if neu_ind.size > 0:
         neu_cell = sps.coo_matrix((scaled_sgn,
                                    (neu_ind, np.arange(neu_ind.size))),
@@ -436,12 +441,6 @@ def _create_bound_rhs(bnd, bound_exclusion,
         # necessary, or if it is me being stupid
         dir_cell = sps.coo_matrix((num_pr, num_bound))
 
-    # We also need to map the respective Neumann and Dirichlet half-faces to
-    # the global half-face numbering (also interior faces). The latter should
-    # not have Dirichlet and Neumann excluded (respectively), and thus we need
-    # new fields
-    neu_ind_all = np.argwhere(bnd.is_neu[fno].astype('int')).ravel('F')
-    dir_ind_all = np.argwhere(bnd.is_dir[fno].astype('int')).ravel('F')
     # Number of elements in neu_ind and neu_ind_all are equal, we can test with
     # any of them. Same with dir.
     if neu_ind.size > 0 and dir_ind.size > 0:
@@ -473,5 +472,7 @@ def _create_bound_rhs(bnd, bound_exclusion,
 
 def _neu_face_sgn(g, neu_ind):
     neu_sgn = (g.cell_faces[neu_ind, :]).data
+    assert neu_sgn.size == neu_ind.size, \
+        'A normal sign is only well defined for a boundary face'
     sort_id = np.argsort(g.cell_faces[neu_ind, :].indices)
     return neu_sgn[sort_id]
