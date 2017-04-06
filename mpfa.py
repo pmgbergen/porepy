@@ -249,9 +249,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
                                   subcell_topology, sgn_unique, g,
                                   num_nk_cell, num_pr_cont_grad)
     # Discretization of boundary values
-    sgn_mat = _neu_face_sign_mat(g, bnd)
-    assert(np.all((np.abs(rhs_bound * sgn_mat) - np.abs(rhs_bound)).data == 0))
-    bound_flux = hf2f * darcy_igrad * rhs_bound * sgn_mat
+    bound_flux = hf2f * darcy_igrad * rhs_bound
 
     return flux, bound_flux
 
@@ -402,7 +400,6 @@ def _create_bound_rhs(bnd, bound_exclusion,
     """
 
     fno = subcell_topology.fno_unique
-
     num_neu = np.sum(bnd.is_neu[fno])
     num_dir = np.sum(bnd.is_dir[fno])
     num_bound = num_neu + num_dir
@@ -412,13 +409,14 @@ def _create_bound_rhs(bnd, bound_exclusion,
     # from the right hand side linear system), and do necessary formating.
     neu_ind = np.argwhere(bound_exclusion.exclude_dirichlet(
                           bnd.is_neu[fno].astype('int64'))).ravel('F')
+    assert(np.all(bnd.is_neu[fno[neu_ind]]))
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order='F')
     # sgn is already defined according to fno, while g.faceAreas is raw data,
     # and therefore needs a combined mapping
-    signed_bound_areas = sgn[neu_ind] * g.face_areas[fno[neu_ind]]\
-        / num_face_nodes[fno[neu_ind]]
+    bndr_neu_sgn = _neu_face_sgn(g, fno[neu_ind])
+    scaled_sgn = bndr_neu_sgn * sgn[neu_ind] / num_face_nodes[fno[neu_ind]]
     if neu_ind.size > 0:
-        neu_cell = sps.coo_matrix((signed_bound_areas.ravel('F'),
+        neu_cell = sps.coo_matrix((scaled_sgn,
                                    (neu_ind, np.arange(neu_ind.size))),
                                   shape=(num_flux, num_bound))
     else:
@@ -473,12 +471,7 @@ def _create_bound_rhs(bnd, bound_exclusion,
     return rhs_bound
 
 
-def _neu_face_sign_mat(g, bnd):
-    neu_ind = np.ravel(np.argwhere(bnd.is_neu))
+def _neu_face_sgn(g, neu_ind):
     neu_sgn = (g.cell_faces[neu_ind, :]).data
     sort_id = np.argsort(g.cell_faces[neu_ind, :].indices)
-    neu_sgn = neu_sgn[sort_id]
-    sgn_diag = np.zeros(g.num_faces)
-    sgn_diag[neu_ind] = neu_sgn
-    sgn_diag[bnd.is_dir] = 1
-    return sps.diags(sgn_diag)
+    return neu_sgn[sort_id]
