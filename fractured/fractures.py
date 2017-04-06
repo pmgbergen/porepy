@@ -720,6 +720,10 @@ class EllipticFracture(Fracture):
         self.p = center[:, np.newaxis] + dip_pts
         self.orig_p = self.p.copy()
 
+        # Compute normal vector
+        self.normal = cg.compute_normal(self.p)[:, None]
+
+
     def segments(self):
         return utils.sort_point_lines()
 
