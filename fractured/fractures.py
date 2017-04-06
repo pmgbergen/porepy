@@ -771,7 +771,7 @@ class FractureNetwork(object):
 
         self.intersections = []
 
-        self._has_checked_intersections = False
+        self.has_checked_intersections = False
         self.tol = tol
         self.verbose = verbose
 
@@ -834,7 +834,7 @@ class FractureNetwork(object):
                 reset to their original value.
 
         """
-
+        self.has_checked_intersections = True
         if self.verbose > 0:
             print('Find intersections between fractures')
             start_time = time.time()

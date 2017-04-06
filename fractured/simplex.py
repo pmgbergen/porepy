@@ -75,7 +75,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
 
     # Find intersections and split them, preparing the way for dumping the
     # network to gmsh
-    if not hasattr(network, 'intersections'):
+    if not network.has_checked_intersections:
         network.find_intersections()
     else:
         print('Use existing intersections')
