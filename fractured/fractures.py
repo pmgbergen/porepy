@@ -217,10 +217,6 @@ class Fracture(object):
         # for intersections are not fully reflexive in terms of argument
         # order, so we need to do two tests.
 
-        ####
-        # First, check for intersection between interior of one polygon with
-        # segment of the other.
-
         # Array for intersections with the interior of one polygon (as opposed
         # to full boundary intersection, below)
         int_points = np.empty((3, 0))
@@ -229,6 +225,21 @@ class Fracture(object):
         # the polygons.
         on_boundary_self = []
         on_boundary_other = []
+
+        ####
+        # First compare max/min coordinates. If the bounding boxes of the
+        # fractures do not intersect, there is nothing to do.
+        min_self = self.p.min(axis=1)
+        max_self = self.p.max(axis=1)
+        min_other = other.p.min(axis=1)
+        max_other = other.p.max(axis=1)
+
+        if np.any(max_self < min_other) or np.any(min_self > max_other):
+            return int_points, on_boundary_self, on_boundary_other
+
+        ####
+        # Check for intersection between interior of one polygon with
+        # segment of the other.
 
         # Compute intersections, with both polygons as first argument
         isect_self_other = cg.polygon_segment_intersect(self.p, other.p, tol=tol)
