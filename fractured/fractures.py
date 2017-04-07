@@ -238,6 +238,41 @@ class Fracture(object):
         if np.any(max_self < min_other) or np.any(min_self > max_other):
             return int_points, on_boundary_self, on_boundary_other
 
+        #####
+        # Next screening: To intersect, both fractures must have vertexes
+        # either on both sides of each others plane, or close to the plane (T,
+        # L, Y)-type intersections.
+
+        # Vectors from centers of the fractures to the vertexes of the other
+        # fratures.
+        s_2_o = other.p - self.center.reshape((-1, 1))
+        o_2_s = self.p - other.center.reshape((-1, 1))
+
+        # Take the dot product of distance and normal vectors. Different signs
+        # for different vertexes signifies fractures that potentially cross.
+        other_from_self = np.sum(s_2_o * self.normal, axis=0)
+        self_from_other = np.sum(o_2_s * other.normal, axis=0)
+
+        # To avoid ruling out vertexes that lie on the plane of another
+        # fracture, we introduce a threshold for almost-zero values.
+        # The scaling factor is somewhat arbitrary here, and probably
+        # safeguards too much, but better safe than sorry. False positives will
+        # be corrected by the more accurate, but costly, computations below.
+        scaled_tol = tol * max(1, max(np.max(np.abs(s_2_o)),
+                                      np.max(np.abs(o_2_s))))
+
+        # We can terminate only if no vertexes are close to the plane of the
+        # other fractures.
+        if (np.min(np.abs(other_from_self)) > scaled_tol and \
+            np.min(np.abs(self_from_other)) > scaled_tol):
+            # If one of the fractures has all of its points on a single side of
+            # the other, there can be no intersections.
+            if (np.all(np.sign(other_from_self) == 1) or \
+                np.all(np.sign(other_from_self) == -1) or \
+                np.all(np.sign(self_from_other) == 1) or \
+                np.all(np.sign(self_from_other) == -1)):
+                return int_points, on_boundary_self, on_boundary_other
+
         ####
         # Check for intersection between interior of one polygon with
         # segment of the other.
