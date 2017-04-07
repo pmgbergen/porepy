@@ -96,7 +96,7 @@ class Fracture(object):
         # First rotate coordinates to the plane
         points_2d = self.plane_coordinates()
         # Center around the 2d origin
-        points_2d -= np.mean(points_2d).reshape((-1, 1))
+        points_2d -= np.mean(points_2d, axis=1).reshape((-1, 1))
 
         theta = np.arctan2(points_2d[1], points_2d[0])
         sort_ind = np.argsort(theta)
