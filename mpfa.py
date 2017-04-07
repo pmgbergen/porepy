@@ -25,37 +25,6 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
     Aavatsmark (2002): An introduction to the MPFA-O method on
             quadrilateral grids, Comp. Geosci. for details.
 
-    The pressure is discretized as a linear function on sub-cells (see
-    reference paper). In this implementation, the pressure is represented by
-    its cell center value and the sub-cell gradients (this is in contrast to
-    most papers, which use auxiliary pressures on the faces; the current
-    formulation is equivalent, but somewhat easier to implement).
-
-    The method will give continuous fluxes over the faces, and pressure
-    continuity for certain points (controlled by the parameter eta). This can
-    be expressed as a linear system on the form
-
-        (i)   A * grad_p            = 0
-        (ii)  B * grad_p + C * p_cc = 0
-        (iii) 0            D * p_cc = I
-
-    Here, the first equation represents flux continuity, and involves only the
-    pressure gradients (grad_p). The second equation gives pressure continuity
-    over cell faces, thus B will contain distances between cell centers and the
-    face continuity points, while C consists of +- 1 (depending on which side
-    the cell is relative to the face normal vector). The third equation
-    enforces the pressure to be unity in one cell at a time. Thus (i)-(iii) can
-    be inverted to express the pressure gradients as in terms of the cell
-    center variables, that is, we can compute the basis functions on the
-    sub-cells. Because of the method construction (again see reference paper),
-    the basis function of a cell c will be non-zero on all sub-cells sharing
-    a vertex with c. Finally, the fluxes as functions of cell center values are
-    computed by insertion into Darcy's law (which is essentially half of A from
-    (i), that is, only consider contribution from one side of the face.
-
-    Boundary values can be incorporated with appropriate modifications -
-    Neumann conditions will have a non-zero right hand side for (i), while
-    Dirichlet gives a right hand side for (ii).
 
     Implementation needs:
         1) The local linear systems should be scaled with the permeability and
@@ -129,6 +98,42 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
 
     """
 
+    """
+    Method properties and implementation details.
+
+    The pressure is discretized as a linear function on sub-cells (see
+    reference paper). In this implementation, the pressure is represented by
+    its cell center value and the sub-cell gradients (this is in contrast to
+    most papers, which use auxiliary pressures on the faces; the current
+    formulation is equivalent, but somewhat easier to implement).
+
+    The method will give continuous fluxes over the faces, and pressure
+    continuity for certain points (controlled by the parameter eta). This can
+    be expressed as a linear system on the form
+
+        (i)   A * grad_p            = 0
+        (ii)  B * grad_p + C * p_cc = 0
+        (iii) 0            D * p_cc = I
+
+    Here, the first equation represents flux continuity, and involves only the
+    pressure gradients (grad_p). The second equation gives pressure continuity
+    over cell faces, thus B will contain distances between cell centers and the
+    face continuity points, while C consists of +- 1 (depending on which side
+    the cell is relative to the face normal vector). The third equation
+    enforces the pressure to be unity in one cell at a time. Thus (i)-(iii) can
+    be inverted to express the pressure gradients as in terms of the cell
+    center variables, that is, we can compute the basis functions on the
+    sub-cells. Because of the method construction (again see reference paper),
+    the basis function of a cell c will be non-zero on all sub-cells sharing
+    a vertex with c. Finally, the fluxes as functions of cell center values are
+    computed by insertion into Darcy's law (which is essentially half of A from
+    (i), that is, only consider contribution from one side of the face.
+
+    Boundary values can be incorporated with appropriate modifications -
+    Neumann conditions will have a non-zero right hand side for (i), while
+    Dirichlet gives a right hand side for (ii).
+    """
+
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
     # of coordinates of a point / vector and the real dimension. This again
@@ -183,6 +188,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
                              shape=(subcell_topology.num_subfno,
                                     subcell_topology.num_cno)
                              ).tocsr()
+    del sgn
 
     # Mapping from sub-faces to faces
     hf2f = sps.coo_matrix((np.ones(subcell_topology.unique_subfno.size),
@@ -191,10 +197,10 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
 
     # Update signs
     sgn_unique = g.cell_faces[subcell_topology.fno_unique,
-                             subcell_topology.cno_unique].A.ravel('F')
+                              subcell_topology.cno_unique].A.ravel('F')
 
     # The boundary faces will have either a Dirichlet or Neumann condition, but
-    # not both (Robin is not implemented). 
+    # not both (Robin is not implemented).
     # Obtain mappings to exclude boundary faces.
     bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
 
@@ -214,29 +220,38 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
         sub_cell_index, cell_node_blocks, subcell_topology.nno_unique,
         bound_exclusion)
 
+    del cell_node_blocks, sub_cell_index
+
     # System of equations for the subcell gradient variables. On block diagonal
     # form.
     grad_eqs = sps.vstack([nk_grad, pr_cont_grad])
+
+    num_nk_cell = nk_cell.shape[0]
+    num_pr_cont_grad = pr_cont_grad.shape[0]
+    del nk_grad, pr_cont_grad
+
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
 
-    # 
-    igrad = cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
-                                                           size_of_blocks,
-                                                           method=inverter) \
-                          * rows2blk_diag
+    del grad_eqs
+    darcy_igrad = darcy * cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
+                                                                         size_of_blocks,
+                                                                         method=inverter) \
+        * rows2blk_diag
 
-    rhs_cells = -sps.vstack([nk_cell, pr_cont_cell])
+    del grad, cols2blk_diag, rows2blk_diag, darcy
 
-    flux = hf2f * darcy * igrad * rhs_cells
+    flux = hf2f * darcy_igrad * (-sps.vstack([nk_cell, pr_cont_cell]))
 
+    del nk_cell, pr_cont_cell
     ####
     # Boundary conditions
     rhs_bound = _create_bound_rhs(bnd, bound_exclusion,
                                   subcell_topology, sgn_unique, g,
-                                  nk_cell.shape[0],
-                                  pr_cont_grad.shape[0])
+                                  num_nk_cell, num_pr_cont_grad)
     # Discretization of boundary values
-    bound_flux = hf2f * darcy * igrad * rhs_bound
+    sgn_mat = _neu_face_sign_mat(g, bnd)
+    assert(np.all((np.abs(rhs_bound * sgn_mat) - np.abs(rhs_bound)).data == 0))
+    bound_flux = hf2f * darcy_igrad * rhs_bound * sgn_mat
 
     return flux, bound_flux
 
@@ -306,7 +321,7 @@ def _tensor_vector_prod(g, k, subcell_topology):
 
     # Represent normals and permeability on matrix form
     normals_mat = sps.coo_matrix((normals.ravel('F'), (i.ravel('F'),
-                                                     j.ravel('F')))).tocsr()
+                                                       j.ravel('F')))).tocsr()
     k_mat = sps.coo_matrix((k.perm[::, ::, cell_node_blocks[0]].ravel('F'),
                             (i.ravel('F'), j.ravel('F')))).tocsr()
 
@@ -388,18 +403,20 @@ def _create_bound_rhs(bnd, bound_exclusion,
 
     fno = subcell_topology.fno_unique
 
-    num_neu = sum(bnd.is_neu[fno])
-    num_dir = sum(bnd.is_dir[fno])
+    num_neu = np.sum(bnd.is_neu[fno])
+    num_dir = np.sum(bnd.is_dir[fno])
     num_bound = num_neu + num_dir
 
     # Neumann boundary conditions
+    # Find Neumann faces, exclude Dirichlet faces (since these are excluded
+    # from the right hand side linear system), and do necessary formating.
     neu_ind = np.argwhere(bound_exclusion.exclude_dirichlet(
                           bnd.is_neu[fno].astype('int64'))).ravel('F')
-    num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(1)
+    num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order='F')
     # sgn is already defined according to fno, while g.faceAreas is raw data,
     # and therefore needs a combined mapping
     signed_bound_areas = sgn[neu_ind] * g.face_areas[fno[neu_ind]]\
-                        / num_face_nodes[fno[neu_ind]]
+        / num_face_nodes[fno[neu_ind]]
     if neu_ind.size > 0:
         neu_cell = sps.coo_matrix((signed_bound_areas.ravel('F'),
                                    (neu_ind, np.arange(neu_ind.size))),
@@ -421,12 +438,20 @@ def _create_bound_rhs(bnd, bound_exclusion,
         # necessary, or if it is me being stupid
         dir_cell = sps.coo_matrix((num_pr, num_bound))
 
+    # We also need to map the respective Neumann and Dirichlet half-faces to
+    # the global half-face numbering (also interior faces). The latter should
+    # not have Dirichlet and Neumann excluded (respectively), and thus we need
+    # new fields
+    neu_ind_all = np.argwhere(bnd.is_neu[fno].astype('int')).ravel('F')
+    dir_ind_all = np.argwhere(bnd.is_dir[fno].astype('int')).ravel('F')
+    # Number of elements in neu_ind and neu_ind_all are equal, we can test with
+    # any of them. Same with dir.
     if neu_ind.size > 0 and dir_ind.size > 0:
-        neu_dir_ind = sps.hstack([neu_ind, dir_ind]).A.ravel('F')
+        neu_dir_ind = sps.hstack([neu_ind_all, dir_ind_all]).A.ravel('F')
     elif neu_ind.size > 0:
-        neu_dir_ind = neu_ind
+        neu_dir_ind = neu_ind_all
     elif dir_ind.size > 0:
-        neu_dir_ind = dir_ind
+        neu_dir_ind = dir_ind_all
     else:
         raise ValueError("Boundary values should be either Dirichlet or "
                          "Neumann")
@@ -444,7 +469,16 @@ def _create_bound_rhs(bnd, bound_exclusion,
                              (subcell_topology.subfno_unique,
                               subcell_topology.fno_unique)),
                             shape=(num_subfno, g.num_faces))
-
     rhs_bound = -sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
     return rhs_bound
 
+
+def _neu_face_sign_mat(g, bnd):
+    neu_ind = np.ravel(np.argwhere(bnd.is_neu))
+    neu_sgn = (g.cell_faces[neu_ind, :]).data
+    sort_id = np.argsort(g.cell_faces[neu_ind, :].indices)
+    neu_sgn = neu_sgn[sort_id]
+    sgn_diag = np.zeros(g.num_faces)
+    sgn_diag[neu_ind] = neu_sgn
+    sgn_diag[bnd.is_dir] = 1
+    return sps.diags(sgn_diag)

@@ -30,37 +30,6 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
     Keilegavlen, Nordbotten: Finite volume methods for elasticity with weak
         symmetry, arxiv: 1512.01042
 
-    The displacement is discretized as a linear function on sub-cells (see
-    reference paper). In this implementation, the displacement is represented by
-    its cell center value and the sub-cell gradients.
-
-    The method will give continuous stresses over the faces, and displacement
-    continuity for certain points (controlled by the parameter eta). This can
-    be expressed as a linear system on the form
-
-        (i)   A * grad_u            = 0
-        (ii)  B * grad_u + C * u_cc = 0
-        (iii) 0            D * u_cc = I
-
-    Here, the first equation represents stress continuity, and involves only
-    the displacement gradients (grad_u). The second equation gives displacement
-    continuity over cell faces, thus B will contain distances between cell
-    centers and the face continuity points, while C consists of +- 1 (depending
-    on which side the cell is relative to the face normal vector). The third
-    equation enforces the displacement to be unity in one cell at a time. Thus
-    (i)-(iii) can be inverted to express the displacement gradients as in terms
-    of the cell center variables, that is, we can compute the basis functions
-    on the sub-cells. Because of the method construction (again see reference
-    paper), the basis function of a cell c will be non-zero on all sub-cells
-    sharing a vertex with c. Finally, the fluxes as functions of cell center
-    values are computed by insertion into Hook's law (which is essentially half
-    of A from (i), that is, only consider contribution from one side of the
-    face.
-
-    Boundary values can be incorporated with appropriate modifications -
-    Neumann conditions will have a non-zero right hand side for (i), while
-    Dirichlet gives a right hand side for (ii).
-
     Implementation needs:
         1) The local linear systems should be scaled with the elastic moduli
         and the local grid size, so that we avoid rounding errors accumulating
@@ -136,6 +105,43 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     """
 
+    """
+    Implementation details:
+    
+    The displacement is discretized as a linear function on sub-cells (see
+    reference paper). In this implementation, the displacement is represented by
+    its cell center value and the sub-cell gradients.
+
+    The method will give continuous stresses over the faces, and displacement
+    continuity for certain points (controlled by the parameter eta). This can
+    be expressed as a linear system on the form
+
+        (i)   A * grad_u            = 0
+        (ii)  B * grad_u + C * u_cc = 0
+        (iii) 0            D * u_cc = I
+
+    Here, the first equation represents stress continuity, and involves only
+    the displacement gradients (grad_u). The second equation gives displacement
+    continuity over cell faces, thus B will contain distances between cell
+    centers and the face continuity points, while C consists of +- 1 (depending
+    on which side the cell is relative to the face normal vector). The third
+    equation enforces the displacement to be unity in one cell at a time. Thus
+    (i)-(iii) can be inverted to express the displacement gradients as in terms
+    of the cell center variables, that is, we can compute the basis functions
+    on the sub-cells. Because of the method construction (again see reference
+    paper), the basis function of a cell c will be non-zero on all sub-cells
+    sharing a vertex with c. Finally, the fluxes as functions of cell center
+    values are computed by insertion into Hook's law (which is essentially half
+    of A from (i), that is, only consider contribution from one side of the
+    face.
+
+    Boundary values can be incorporated with appropriate modifications -
+    Neumann conditions will have a non-zero right hand side for (i), while
+    Dirichlet gives a right hand side for (ii).
+
+    """
+
+
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
     # of coordinates of a point / vector and the real dimension. This again
@@ -171,17 +177,20 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
                                                   bound_exclusion, eta,
                                                   inverter)
 
+    hook_igrad = hook * igrad
+    del hook, igrad
+
     # Output should be on face-level (not sub-face)
     hf2f = _map_hf_2_f(subcell_topology.fno_unique,
                        subcell_topology.subfno_unique, nd)
 
     # Stress discretization
-    stress = hf2f * hook * igrad * rhs_cells
+    stress = hf2f * hook_igrad * rhs_cells
 
     # Right hand side for boundary discretization
     rhs_bound = _create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
     # Discretization of boundary values
-    bound_stress = hf2f * hook * igrad * rhs_bound
+    bound_stress = hf2f * hook_igrad * rhs_bound
 
     return stress, bound_stress
 
@@ -234,11 +243,14 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
                                  shape=(ind_f.size, ind_f.size)) * (ncsym
                                                                     + ncasym)
 
+    del ind_f
     # The final expression of Hook's law will involve deformation gradients
     # on one side of the faces only; eliminate the other one.
     # Note that this must be done before we can pair forces from the two
     # sides of the faces.
     hook = __unique_hooks_law(ncsym, ncasym, subcell_topology, nd)
+
+    del ncasym
 
     # Pair the forces from eahc side
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym)
@@ -260,6 +272,8 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
                                                               bound_exclusion)
 
     grad_eqs = sps.vstack([ncsym, d_cont_grad])
+
+    del ncsym, d_cont_grad
 
     igrad = _inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
                              subcell_topology.nno_unique, bound_exclusion,
@@ -407,6 +421,7 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     # Why minus?
     rhs_normals = -sps.vstack([rhs_normals, rhs_normals_displ_var])
+    del rhs_normals_displ_var
 
     # Call core part of MPSA
     hook, igrad, rhs_cells, \
@@ -426,6 +441,8 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
     # Discretization of boundary values
     bound_stress = hf2f * hook * igrad * rhs_bound
 
+    del hook, rhs_bound
+
     # Face-wise gradient operator. Used for the term grad_p in Biot's
     # equations.
     rows = __expand_indices_nd(subcell_topology.cno, nd)
@@ -434,6 +451,9 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
     div_gradp = sps.coo_matrix((vals, (rows, cols)),
                                shape=(subcell_topology.num_cno * nd,
                                       num_subhfno * nd)).tocsr()
+
+    del rows, cols, vals
+
     # Normal vectors, used for computing pressure gradient terms in
     # Biot's equations. These are mappings from cells to their faces,
     # and are most easily computed prior to elimination of subfaces (below)
@@ -444,6 +464,8 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     grad_p = div_gradp * hook_normal * igrad * rhs_normals
     # assert np.allclose(grad_p.sum(axis=0), np.zeros(g.num_cells))
+
+    del hook_normal, div_gradp
 
     num_cell_nodes = g.num_cell_nodes()
     cell_vol = g.cell_volumes / num_cell_nodes
@@ -459,12 +481,16 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
     vector_2_scalar = sps.coo_matrix((val.ravel('F'),
                                       (row.ravel('F'),
                                        col.ravel('F')))).tocsr()
+    del row, col, val
     div_op = sps.coo_matrix((np.ones(cell_node_blocks.shape[1]),
                              (cell_node_blocks[0], np.arange(
                                  cell_node_blocks.shape[1])))).tocsr()
     div = div_op * vector_2_scalar
+    del div_op, vector_2_scalar
 
     div_d = div * igrad * rhs_cells
+    del rhs_cells
+
     stabilization = div * igrad * rhs_normals
 
     return stress, bound_stress, grad_p, div_d, stabilization
@@ -830,7 +856,14 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
     # Map these to all half-face indices
-    is_bnd = np.hstack((neu_ind_single, dir_ind_single))
+    # Here, we need to account for all half faces, that is, do not exclude
+    # Dirichlet and Neumann boundaries.
+    neu_ind_single_all = np.argwhere(bound.is_neu[fno].astype('int'))\
+                            .ravel('F')
+    dir_ind_single_all = np.argwhere(bound.is_dir[fno].astype('int'))\
+                            .ravel('F')
+
+    is_bnd = np.hstack((neu_ind_single_all, dir_ind_single_all))
     bnd_ind = __expand_indices_nd(is_bnd, nd)
     bnd_2_all_hf = sps.coo_matrix((np.ones(num_bound),
                                    (np.arange(num_bound), bnd_ind)),
