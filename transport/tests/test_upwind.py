@@ -21,7 +21,7 @@ class BasicsTest( unittest.TestCase ):
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = np.array([[ 1, 0, 0],
+        M_known = np.array([[ 0, 0, 0],
                             [-1, 1, 0],
                             [ 0,-1, 1]])
         deltaT_known = 1/3
@@ -44,7 +44,7 @@ class BasicsTest( unittest.TestCase ):
 
         M_known = np.array([[1,-1, 0],
                             [0, 1,-1],
-                            [0, 0, 1]])
+                            [0, 0, 0]])
         deltaT_known = 1/3
 
         rtol = 1e-15
@@ -63,10 +63,10 @@ class BasicsTest( unittest.TestCase ):
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = 0.5 * np.array([[ 1, 0, 0, 0, 0, 0],
+        M_known = 0.5 * np.array([[ 0, 0, 0, 0, 0, 0],
                                   [-1, 1, 0, 0, 0, 0],
                                   [ 0,-1, 1, 0, 0, 0],
-                                  [ 0, 0, 0, 1, 0, 0],
+                                  [ 0, 0, 0, 0, 0, 0],
                                   [ 0, 0, 0,-1, 1, 0],
                                   [ 0, 0, 0, 0,-1, 1]])
         deltaT_known = 1/6
@@ -89,10 +89,10 @@ class BasicsTest( unittest.TestCase ):
 
         M_known = 0.5 * np.array([[ 1,-1, 0, 0, 0, 0],
                                   [ 0, 1,-1, 0, 0, 0],
-                                  [ 0, 0, 1, 0, 0, 0],
+                                  [ 0, 0, 0, 0, 0, 0],
                                   [ 0, 0, 0, 1,-1, 0],
                                   [ 0, 0, 0, 0, 1,-1],
-                                  [ 0, 0, 0, 0, 0, 1]])
+                                  [ 0, 0, 0, 0, 0, 0]])
         deltaT_known = 1/6
 
         rtol = 1e-15
@@ -112,7 +112,7 @@ class BasicsTest( unittest.TestCase ):
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[ 1,-1, 0, 0],
-                            [ 0, 1, 0, 0],
+                            [ 0, 0, 0, 0],
                             [ 0, 0, 1,-1],
                             [-1, 0, 0, 1]])
         deltaT_known = 1/8
@@ -135,7 +135,7 @@ class BasicsTest( unittest.TestCase ):
 
         M_known = np.array([[ 1, 0, 0,-1],
                             [-1, 1, 0, 0],
-                            [ 0, 0, 1, 0],
+                            [ 0, 0, 0, 0],
                             [ 0, 0,-1, 1]])
         deltaT_known = 1/8
 
@@ -156,13 +156,13 @@ class BasicsTest( unittest.TestCase ):
         deltaT = solver.cfl(g, data)
 
         M_known = 0.25 * np.array([[ 1,-1, 0, 0, 0, 0, 0, 0],
-                                   [ 0, 1, 0, 0, 0, 0, 0, 0],
+                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
                                    [ 0, 0, 1,-1, 0, 0, 0, 0],
-                                   [ 0, 0, 0, 1, 0, 0, 0, 0],
+                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
                                    [ 0, 0, 0, 0, 1,-1, 0, 0],
-                                   [ 0, 0, 0, 0, 0, 1, 0, 0],
+                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
                                    [ 0, 0, 0, 0, 0, 0, 1,-1],
-                                   [ 0, 0, 0, 0, 0, 0, 0, 1]])
+                                   [ 0, 0, 0, 0, 0, 0, 0, 0]])
 
 
         deltaT_known = 1/6
@@ -183,13 +183,13 @@ class BasicsTest( unittest.TestCase ):
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = 0.25 * np.array([[ 1, 0, 0, 0, 0, 0, 0, 0],
+        M_known = 0.25 * np.array([[ 0, 0, 0, 0, 0, 0, 0, 0],
                                    [-1, 1, 0, 0, 0, 0, 0, 0],
-                                   [ 0, 0, 1, 0, 0, 0, 0, 0],
+                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
                                    [ 0, 0,-1, 1, 0, 0, 0, 0],
-                                   [ 0, 0, 0, 0, 1, 0, 0, 0],
+                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
                                    [ 0, 0, 0, 0,-1, 1, 0, 0],
-                                   [ 0, 0, 0, 0, 0, 0, 1, 0],
+                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
                                    [ 0, 0, 0, 0, 0, 0,-1, 1]])
 
 
@@ -213,7 +213,7 @@ class BasicsTest( unittest.TestCase ):
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = np.array([[ 1, 0, 0],
+        M_known = np.array([[ 0, 0, 0],
                             [-1, 1, 0],
                             [ 0,-1, 1]])
         deltaT_known = 1/3
@@ -238,7 +238,7 @@ class BasicsTest( unittest.TestCase ):
 
         M_known = np.array([[1,-1, 0],
                             [0, 1,-1],
-                            [0, 0, 1]])
+                            [0, 0, 0]])
         deltaT_known = 1/3
 
         rtol = 1e-15
@@ -259,10 +259,10 @@ class BasicsTest( unittest.TestCase ):
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = 0.5 * np.array([[ 1, 0, 0, 0, 0, 0],
+        M_known = 0.5 * np.array([[ 0, 0, 0, 0, 0, 0],
                                   [-1, 1, 0, 0, 0, 0],
                                   [ 0,-1, 1, 0, 0, 0],
-                                  [ 0, 0, 0, 1, 0, 0],
+                                  [ 0, 0, 0, 0, 0, 0],
                                   [ 0, 0, 0,-1, 1, 0],
                                   [ 0, 0, 0, 0,-1, 1]])
 
@@ -288,10 +288,10 @@ class BasicsTest( unittest.TestCase ):
 
         M_known = 0.5 * np.array([[ 1,-1, 0, 0, 0, 0],
                                   [ 0, 1,-1, 0, 0, 0],
-                                  [ 0, 0, 1, 0, 0, 0],
+                                  [ 0, 0, 0, 0, 0, 0],
                                   [ 0, 0, 0, 1,-1, 0],
                                   [ 0, 0, 0, 0, 1,-1],
-                                  [ 0, 0, 0, 0, 0, 1]])
+                                  [ 0, 0, 0, 0, 0, 0]])
 
         deltaT_known = 1/6
 
@@ -314,7 +314,7 @@ class BasicsTest( unittest.TestCase ):
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[ 1,-1, 0, 0],
-                            [ 0, 1, 0, 0],
+                            [ 0, 0, 0, 0],
                             [ 0, 0, 1,-1],
                             [-1, 0, 0, 1]])
         deltaT_known = 1/8
@@ -339,7 +339,7 @@ class BasicsTest( unittest.TestCase ):
 
         M_known = np.array([[ 1, 0, 0,-1],
                             [-1, 1, 0, 0],
-                            [ 0, 0, 1, 0],
+                            [ 0, 0, 0, 0],
                             [ 0, 0,-1, 1]])
         deltaT_known = 1/8
 
