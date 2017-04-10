@@ -107,7 +107,7 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
 
     """
     Implementation details:
-    
+
     The displacement is discretized as a linear function on sub-cells (see
     reference paper). In this implementation, the displacement is represented by
     its cell center value and the sub-cell gradients.
@@ -167,7 +167,6 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
     subcell_topology = fvutils.SubcellTopology(g)
     # Obtain mappings to exclude boundary faces
     bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
-
     # Most of the work is done by submethod for elasticity (which is common for
     # elasticity and poro-elasticity).
     hook, igrad, rhs_cells, _, _ = __mpsa_elasticity(g, constit,
@@ -188,7 +187,9 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
     # Right hand side for boundary discretization
     rhs_bound = _create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
     # Discretization of boundary values
+    rhs_bound_temp = rhs_bound.copy()
     bound_stress = hf2f * hook_igrad * rhs_bound
+    stress, bound_stress = _zero_neu_rows(stress, bound_stress, bound)
 
     return stress, bound_stress
 
@@ -271,7 +272,6 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
                                                               bound_exclusion)
 
     grad_eqs = sps.vstack([ncsym, d_cont_grad])
-
     del ncsym, d_cont_grad
 
     igrad = _inverse_gradient(grad_eqs, sub_cell_index, cell_node_blocks,
@@ -827,9 +827,9 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     fno_ext = np.tile(fno, nd)
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel('F')
+
     # Coefficients in the matrix
     neu_val = neu_sgn / num_face_nodes[fno_ext[neu_ind_all]]
-
     # The columns will be 0:neu_ind.size
     if neu_ind.size > 0:
         neu_cell = sps.coo_matrix((neu_val.ravel('F'),
@@ -1037,3 +1037,21 @@ def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell,
                                  kind='mergesort')
     d_cont_cell = d_cont_cell[:, d_cont_cell_map]
     return d_cont_grad, d_cont_cell
+
+
+def _zero_neu_rows(stress, bound_stress, bnd):
+    neu_faces_x = 2 * np.ravel(np.argwhere(bnd.is_neu))
+    neu_faces_y = neu_faces_x + 1
+    neu_faces_ind = np.ravel((neu_faces_x, neu_faces_y), 'F')
+    num_neu = neu_faces_x.size
+    if not num_neu:
+        return stress, bound_stress
+    sgn = np.ravel(bound_stress[neu_faces_ind, neu_faces_ind])
+    rows = np.arange(2 * num_neu)
+    #assert np.allclose(np.abs(sgn), 1)
+    neu_rows = sps.csr_matrix((sgn, (rows, neu_faces_ind)),
+                              (2 * num_neu, bound_stress.shape[1]))
+    bound_stress[neu_faces_ind, :] = neu_rows
+
+    stress[neu_faces_ind, :] = sps.csr_matrix((2 * num_neu, stress.shape[1]))
+    return stress, bound_stress
