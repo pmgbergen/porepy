@@ -81,7 +81,7 @@ def test_uniform_flow_cart_2d():
     # Structured Cartesian grid
     g, perm = setup_cart_2d(np.array([10, 10]))
     bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel(1) == 1)
-    bound = bc.BoundaryCondition(g, bound_faces.ravel(1), ['dir'] * bound_faces.size)
+    bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), ['dir'] * bound_faces.size)
 
     # Python inverter is most efficient for small problems
     flux, bound_flux = mpfa.mpfa(g, perm, bound, inverter='python')
@@ -104,7 +104,7 @@ def test_uniform_flow_cart_2d_structured_pert():
     g.compute_geometry()
 
     bound_faces = g.get_boundary_faces()
-    bound = bc.BoundaryCondition(g, bound_faces.ravel(1), ['dir'] * bound_faces.size)
+    bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), ['dir'] * bound_faces.size)
 
     # Python inverter is most efficient for small problems
     flux, bound_flux = mpfa.mpfa(g, perm, bound, inverter='python')

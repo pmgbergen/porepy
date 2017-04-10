@@ -75,7 +75,7 @@ def test_uniform_flow_cart_2d():
 
     kxx = np.ones(g.num_cells)
     perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-    bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel(1) == 1)
+    bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
     bound = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
 
     flux = tpfa.tpfa(g, perm, bound)
