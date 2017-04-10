@@ -76,7 +76,7 @@ def tpfa(g, k, bc, faces=None):
     bndr_ind = g.get_boundary_faces()
     t_b = np.zeros(g.num_faces)
     t_b[bc.is_dir] = t[bc.is_dir]
-    t_b[bc.is_neu] = g.face_areas[bc.is_neu]
+    t_b[bc.is_neu] = 1
     t_b = t_b[bndr_ind]
     t[np.logical_or(bc.is_neu, is_not_active)] = 0
 
