@@ -132,7 +132,7 @@ def tpfa_matrix(g, perm=None, faces=None):
         perm = second_order_tensor.SecondOrderTensor(g.dim,np.ones(g.num_cells))
 
     bound = bc.BoundaryCondition(g, np.empty(0), '')
-    trm = tpfa.tpfa(g, perm, bound, faces)
+    trm, _ = tpfa.tpfa(g, perm, bound, faces)
     div = g.cell_faces.T
     return div * trm
 
