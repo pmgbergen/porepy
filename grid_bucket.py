@@ -455,6 +455,20 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
+    def remove_nodes(self, cond):
+        """
+        Remove nodes, and related edges, from the grid bucket subject to a
+        conditions. The latter takes as input a grid.
+
+        Parameters:
+            cond: predicate to select the grids to remove.
+
+        """
+
+        self.graph.remove_nodes_from([g for g in self.graph if cond(g)])
+
+#------------------------------------------------------------------------------#
+
     def add_edge(self, grids, face_cells):
         """
         Add an edge in the graph, based on the higher and lower-dimensional
