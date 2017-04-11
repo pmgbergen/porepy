@@ -105,7 +105,7 @@ class DualVEM(Solver):
         """
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
-            M = sps.identity(self.ndof(g), format="csr")
+            M = sps.dia_matrix(([1, 0], 0), (self.ndof(g), self.ndof(g)))
             if bc_weight: return M, 1
             else:         return M
 
