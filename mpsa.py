@@ -187,7 +187,6 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
     # Right hand side for boundary discretization
     rhs_bound = _create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
     # Discretization of boundary values
-    rhs_bound_temp = rhs_bound.copy()
     bound_stress = hf2f * hook_igrad * rhs_bound
     stress, bound_stress = _zero_neu_rows(stress, bound_stress, bound)
 
@@ -785,7 +784,6 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     subfno = subcell_topology.subfno_unique
     sgn = g.cell_faces[subcell_topology.fno_unique,
                        subcell_topology.cno_unique].A.ravel(1)
-
     num_neu = sum(bound.is_neu[fno]) * nd
     num_dir = sum(bound.is_dir[fno]) * nd
     num_bound = num_neu + num_dir
@@ -823,12 +821,17 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     # The signs of the faces should be expanded exactly the same way as the
     # row indices, but with zero increment
-    neu_sgn = expand_ind(sgn[neu_ind_single], nd, 0)
+    # sgn[neu_ind_all]  # expand_ind(sgn[neu_ind_all], nd, 0)
+    neu_sgn = expand_ind(sgn[neu_ind_single_all], nd, 0)
 
     fno_ext = np.tile(fno, nd)
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel('F')
 
-    # Coefficients in the matrix
+    # We need to flip the neumann boundary signs if the normals point outwards
+    bndr_neu_sgn = _neu_face_sgn(g, fno_ext[neu_ind_all])
+
+    # Coefficients in the matrix #
+#    assert np.all(bndr_neu_sgn == neu_sgn)
     neu_val = neu_sgn / num_face_nodes[fno_ext[neu_ind_all]]
     # The columns will be 0:neu_ind.size
     if neu_ind.size > 0:
@@ -844,10 +847,13 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     is_dir = bound_exclusion.exclude_neumann(bound.is_dir[fno].astype(
         'int64'))
     dir_ind_single = np.argwhere(is_dir).ravel('F')
+    dir_ind_all = np.tile(dir_ind_single_all, nd)
     dir_ind = expand_ind(dir_ind_single, nd, is_dir.size)
     # The coefficients in the matrix should be duplicated the same way as
     # the row indices, but with no increment
-    dir_val = expand_ind(sgn[dir_ind_single], nd, 0)
+    # expand_ind(sgn[dir_ind_single], nd, 0)  #
+
+    dir_val = expand_ind(sgn[dir_ind_single_all], nd, 0)
     # Column numbering starts right after the last Neumann column
     if dir_ind.size > 0:
         dir_cell = sps.coo_matrix((dir_val, (dir_ind, num_neu +
@@ -1039,6 +1045,14 @@ def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell,
     return d_cont_grad, d_cont_cell
 
 
+def _neu_face_sgn(g, neu_ind):
+    neu_sgn = (g.cell_faces[neu_ind, :]).data
+    assert neu_sgn.size == neu_ind.size, \
+        'A normal sign is only well defined for a boundary face'
+    sort_id = np.argsort(g.cell_faces[neu_ind, :].indices)
+    return neu_sgn[sort_id]
+
+
 def _zero_neu_rows(stress, bound_stress, bnd):
     neu_faces_x = 2 * np.ravel(np.argwhere(bnd.is_neu))
     neu_faces_y = neu_faces_x + 1
@@ -1048,7 +1062,7 @@ def _zero_neu_rows(stress, bound_stress, bnd):
         return stress, bound_stress
     sgn = np.ravel(bound_stress[neu_faces_ind, neu_faces_ind])
     rows = np.arange(2 * num_neu)
-    #assert np.allclose(np.abs(sgn), 1)
+    # assert np.allclose(np.abs(sgn), 1)
     neu_rows = sps.csr_matrix((sgn, (rows, neu_faces_ind)),
                               (2 * num_neu, bound_stress.shape[1]))
     bound_stress[neu_faces_ind, :] = neu_rows
