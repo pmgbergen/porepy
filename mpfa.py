@@ -416,10 +416,13 @@ def _create_bound_rhs(bnd, bound_exclusion,
     neu_ind_all = np.argwhere(bnd.is_neu[fno].astype('int')).ravel('F')
     dir_ind_all = np.argwhere(bnd.is_dir[fno].astype('int')).ravel('F')
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order='F')
-    # sgn is already defined according to fno, while g.faceAreas is raw data,
-    # and therefore needs a combined mapping
-    bndr_neu_sgn = _neu_face_sgn(g, fno[neu_ind_all])
-    scaled_sgn = bndr_neu_sgn * sgn[neu_ind] / num_face_nodes[fno[neu_ind_all]]
+
+    # For the Neumann boundary conditions, we define the value as seen from
+    # the outside fo the domain. E.g. innflow is defined to be positive. We
+    # therefore set the matrix indices to 1. We also have to scale it with
+    # the number of nodes per face because the flux of face is the sum of its
+    # half-faces.
+    scaled_sgn = 1 / num_face_nodes[fno[neu_ind_all]]
     if neu_ind.size > 0:
         neu_cell = sps.coo_matrix((scaled_sgn,
                                    (neu_ind, np.arange(neu_ind.size))),
@@ -444,7 +447,7 @@ def _create_bound_rhs(bnd, bound_exclusion,
     # Number of elements in neu_ind and neu_ind_all are equal, we can test with
     # any of them. Same with dir.
     if neu_ind.size > 0 and dir_ind.size > 0:
-        neu_dir_ind = sps.hstack([neu_ind_all, dir_ind_all]).A.ravel('F')
+        neu_dir_ind = np.hstack([neu_ind_all, dir_ind_all]).ravel('F')
     elif neu_ind.size > 0:
         neu_dir_ind = neu_ind_all
     elif dir_ind.size > 0:
