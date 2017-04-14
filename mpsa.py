@@ -821,7 +821,7 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     fno_ext = np.tile(fno, nd)
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel('F')
-
+    print('hei')
     # Coefficients in the matrix. For the Neumann boundary faces we set the
     # value as seen from the outside of the domain. Note that they do not
     # have to do
