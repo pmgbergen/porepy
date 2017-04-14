@@ -822,10 +822,11 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     fno_ext = np.tile(fno, nd)
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel('F')
 
-    # Coefficients in the matrix. For the boundary faces we set the value as
-    # if the normals were pointing outwards. Note that they do not have to do
+    # Coefficients in the matrix. For the Neumann boundary faces we set the
+    # value as seen from the outside of the domain. Note that they do not
+    # have to do
     # so, and we will flip the sign later. This means that a stress [1,1] on a
-    # boundary face pushes(or drags) the face to the top right corner.
+    # boundary face pushes(or pulls) the face to the top right corner.
     neu_val = 1 / num_face_nodes[fno_ext[neu_ind_all]]
     # The columns will be 0:neu_ind.size
     if neu_ind.size > 0:
