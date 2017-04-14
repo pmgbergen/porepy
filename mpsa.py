@@ -819,20 +819,14 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # already defined according to the subcell topology [fno], while areas
     # must be drawn from the grid structure, and thus go through fno
 
-    # The signs of the faces should be expanded exactly the same way as the
-    # row indices, but with zero increment
-    # sgn[neu_ind_all]  # expand_ind(sgn[neu_ind_all], nd, 0)
-    neu_sgn = expand_ind(sgn[neu_ind_single_all], nd, 0)
-
     fno_ext = np.tile(fno, nd)
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel('F')
 
-    # We need to flip the neumann boundary signs if the normals point outwards
-    bndr_neu_sgn = _neu_face_sgn(g, fno_ext[neu_ind_all])
-
-    # Coefficients in the matrix #
-#    assert np.all(bndr_neu_sgn == neu_sgn)
-    neu_val = neu_sgn / num_face_nodes[fno_ext[neu_ind_all]]
+    # Coefficients in the matrix. For the boundary faces we set the value as
+    # if the normals were pointing outwards. Note that they do not have to do
+    # so, and we will flip the sign later. This means that a stress [1,1] on a
+    # boundary face pushes(or drags) the face to the top right corner.
+    neu_val = 1 / num_face_nodes[fno_ext[neu_ind_all]]
     # The columns will be 0:neu_ind.size
     if neu_ind.size > 0:
         neu_cell = sps.coo_matrix((neu_val.ravel('F'),
@@ -847,14 +841,14 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     is_dir = bound_exclusion.exclude_neumann(bound.is_dir[fno].astype(
         'int64'))
     dir_ind_single = np.argwhere(is_dir).ravel('F')
-    dir_ind_all = np.tile(dir_ind_single_all, nd)
     dir_ind = expand_ind(dir_ind_single, nd, is_dir.size)
     # The coefficients in the matrix should be duplicated the same way as
     # the row indices, but with no increment
-    # expand_ind(sgn[dir_ind_single], nd, 0)  #
-
     dir_val = expand_ind(sgn[dir_ind_single_all], nd, 0)
-    # Column numbering starts right after the last Neumann column
+    # Column numbering starts right after the last Neumann column. dir_val
+    # is ordered [u_x_1, u_y_1, u_x_2, u_y_2, ...], and dir_ind shuffles this
+    # ordering. The final matrix will first have the x-coponent of the displacement
+    # for each face, then the y-component, etc.
     if dir_ind.size > 0:
         dir_cell = sps.coo_matrix((dir_val, (dir_ind, num_neu +
                                              np.arange(dir_ind.size))),
@@ -877,8 +871,12 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # The user of the discretization should now nothing about half faces,
     # thus map from half face to face indices.
     hf_2_f = _map_hf_2_f(fno, subfno, nd).transpose()
-
+    # the rows of rhs_bound will be ordered with first the x-component of all
+    # neumann faces, then the y-component of all neumann faces, then the
+    # z-component of all neumann faces. Then we will have the equivalent for
+    # the dirichlet faces.
     rhs_bound = -sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
+
     return rhs_bound
 
 
@@ -1054,18 +1052,28 @@ def _neu_face_sgn(g, neu_ind):
 
 
 def _zero_neu_rows(stress, bound_stress, bnd):
+    """
+    We zero out all none-diagonal elements for the neumann boundary faces.
+    """
     neu_faces_x = 2 * np.ravel(np.argwhere(bnd.is_neu))
     neu_faces_y = neu_faces_x + 1
     neu_faces_ind = np.ravel((neu_faces_x, neu_faces_y), 'F')
     num_neu = neu_faces_x.size
     if not num_neu:
         return stress, bound_stress
-    sgn = np.ravel(bound_stress[neu_faces_ind, neu_faces_ind])
+    # Frist we zero out the boundary stress. We keep the sign of the diagonal
+    # element, however we discard its value (e.g. set it to +-1). The sign
+    # should be negative if the nomral vector points outwards and positive if
+    # the normal vector points inwards. I'm not sure if this is correct (that
+    # is, zeroing out none-diagonal elements and putting the diagonal elements
+    # to +-1), but it seems to give satisfactory results.
+    sgn = np.sign(np.ravel(bound_stress[neu_faces_ind, neu_faces_ind]))
     rows = np.arange(2 * num_neu)
     # assert np.allclose(np.abs(sgn), 1)
     neu_rows = sps.csr_matrix((sgn, (rows, neu_faces_ind)),
                               (2 * num_neu, bound_stress.shape[1]))
     bound_stress[neu_faces_ind, :] = neu_rows
-
+    # For the stress matrix we zero out any rows corresponding to the Neumann
+    # boundary faces (these have been moved over to the bound_stress matrix).
     stress[neu_faces_ind, :] = sps.csr_matrix((2 * num_neu, stress.shape[1]))
     return stress, bound_stress
