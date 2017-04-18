@@ -368,8 +368,11 @@ def block_diag_matrix(vals, sz):
     sps.csr matrix
     """
     row, col = block_diag_index(sz)
-    # TODO: Removed a bug by changing col and row here. Check this..
-    return sps.coo_matrix((vals, (col, row))).tocsr()
+    # This line recovers starting indices of the rows.
+    indptr = np.hstack((np.zeros(1),
+                        np.cumsum(matrix_compression\
+                                  .rldecode(sz, sz)))).astype('int32')
+    return sps.csr_matrix((vals, row, indptr))
 
 
 def block_diag_index(m, n=None):
