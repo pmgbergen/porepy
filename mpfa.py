@@ -69,6 +69,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
         # Set up a Cartesian grid
         g = structured.CartGrid([5, 5])
         k = second_order_tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+        g.compute_geometry()
 
         # Dirirchlet boundary conditions
         bound_faces = g.get_boundary_faces().ravel()
