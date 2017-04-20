@@ -601,23 +601,25 @@ def _tensor_vector_prod(g, constit, subcell_topology):
     # Rows are based on sub-face numbers.
     # Columns have nd elements for each sub-cell (to store a vector) and
     # is adjusted according to block sizes
-    rn, cn = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
+    _, cn = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
     sum_blocksz = np.cumsum(blocksz)
     cn += matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
+    ind_ptr_n = np.hstack((np.arange(0, cn.size, nd), cn.size))
 
     # Distribute faces equally on the sub-faces, and store in a matrix
     num_nodes = np.diff(g.face_nodes.indptr)
     normals = g.face_normals[:, subcell_topology.fno] / num_nodes[
         subcell_topology.fno]
-    normals_mat = sps.coo_matrix((normals.ravel(1), (rn.ravel('F'),
-                                                     cn.ravel('F')))).tocsr()
+    normals_mat = sps.csr_matrix((normals.ravel('F'), cn.ravel('F'),
+                                  ind_ptr_n))
 
     # Then row and columns for stiffness matrix. There are nd^2 elements in
     # the gradient operator, and so the structure is somewhat different from
     # the normal vectors
-    rc, cc = np.meshgrid(subcell_topology.subhfno, np.arange(nd**2))
+    _, cc = np.meshgrid(subcell_topology.subhfno, np.arange(nd**2))
     sum_blocksz = np.cumsum(blocksz**2)
     cc += matrix_compression.rldecode(sum_blocksz - blocksz[0]**2, blocksz)
+    ind_ptr_c = np.hstack((np.arange(0, cc.size, nd**2), cc.size))
 
     # Splitt stiffness matrix into symmetric and anti-symmatric part
     sym_tensor, asym_tensor = _split_stiffness_matrix(constit)
@@ -671,10 +673,10 @@ def _tensor_vector_prod(g, constit, subcell_topology):
         asym_vals = asym_dim[sub_cell_ind]
 
         # Represent this part of the stiffness matrix in matrix form
-        csym_mat = sps.coo_matrix((sym_vals.ravel('C'),
-                                   (rc.ravel('F'), cc.ravel('F')))).tocsr()
-        casym_mat = sps.coo_matrix((asym_vals.ravel(0),
-                                    (rc.ravel('F'), cc.ravel('F')))).tocsr()
+        csym_mat = sps.csr_matrix((sym_vals.ravel('C'),
+                                   cc.ravel('F'), ind_ptr_c))
+        casym_mat = sps.csr_matrix((asym_vals.ravel('C'),
+                                    cc.ravel('F'), ind_ptr_c))
 
         # Compute average around vertexes
         casym_mat = average * casym_mat
