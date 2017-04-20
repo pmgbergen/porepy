@@ -309,7 +309,7 @@ def _tensor_vector_prod(g, k, subcell_topology):
     # Rows are based on sub-face numbers.
     # Columns have nd elements for each sub-cell (to store a gradient) and
     # is adjusted according to block sizes
-    i, j = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
+    _, j = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
     sum_blocksz = np.cumsum(blocksz)
     j += matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
 
@@ -319,10 +319,10 @@ def _tensor_vector_prod(g, k, subcell_topology):
         subcell_topology.fno]
 
     # Represent normals and permeability on matrix form
-    normals_mat = sps.coo_matrix((normals.ravel('F'), (i.ravel('F'),
-                                                       j.ravel('F')))).tocsr()
-    k_mat = sps.coo_matrix((k.perm[::, ::, cell_node_blocks[0]].ravel('F'),
-                            (i.ravel('F'), j.ravel('F')))).tocsr()
+    ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))
+    normals_mat = sps.csr_matrix((normals.ravel('F'), j.ravel('F'), ind_ptr))
+    k_mat = sps.csr_matrix((k.perm[::, ::, cell_node_blocks[0]].ravel('F'),
+                            j.ravel('F'), ind_ptr))
 
     nk = normals_mat * k_mat
 

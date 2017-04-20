@@ -171,9 +171,8 @@ def compute_dist_face_cell(g, subcell_topology, eta):
         subcell_topology.cno, subcell_topology.nno)))
     dims = g.dim
 
-    rows, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
+    _, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
     cols += matrix_compression.rldecode(np.cumsum(blocksz)-blocksz[0], blocksz)
-
     eta_vec = eta*np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
     bnd = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.squeeze()
@@ -183,7 +182,9 @@ def compute_dist_face_cell(g, subcell_topology, eta):
         + eta_vec * (g.nodes[:, subcell_topology.nno] -
                       g.face_centers[:, subcell_topology.fno])
     dist = cp - g.cell_centers[:, subcell_topology.cno]
-    mat = sps.coo_matrix((dist.ravel(), (rows.ravel(), cols.ravel()))).tocsr()
+
+    ind_ptr = np.hstack((np.arange(0, cols.size, dims), cols.size))
+    mat = sps.csr_matrix((dist.ravel('F'), cols.ravel('F'), ind_ptr))
     return subcell_topology.pair_over_subfaces(mat)
 
 
