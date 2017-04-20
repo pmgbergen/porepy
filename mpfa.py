@@ -437,8 +437,8 @@ def _create_bound_rhs(bnd, bound_exclusion,
     dir_ind = np.argwhere(bound_exclusion.exclude_neumann(
                           bnd.is_dir[fno].astype('int64'))).ravel('F')
     if dir_ind.size > 0:
-        dir_cell = sps.coo_matrix((sgn[dir_ind], (dir_ind, num_neu +
-                                                  np.arange(dir_ind.size))),
+        dir_cell = sps.coo_matrix((sgn[dir_ind_all], (dir_ind, num_neu +
+                                                      np.arange(dir_ind.size))),
                                   shape=(num_pr, num_bound))
     else:
         # Special handling when no elements are found. Not sure if this is
