@@ -299,7 +299,8 @@ if __name__ == '__main__':
         if func[0] == 'isfunction' or func[0] == 'getmembers' or \
            func[0] == 'spsolve' or func[0] == 'plot_grid' or \
            func[0] == 'generate_coarse_grid' or func[0] == 'tpfa_matrix' or \
-           func[0] == 'create_partition':
+           func[0] == 'create_partition' or \
+           func[0] == 'export_vtk':
             continue
         if verbose:
             print('Running ' + func[0])
