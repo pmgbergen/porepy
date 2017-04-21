@@ -191,13 +191,23 @@ def darcy_dualVEM_coupling_example2(**kwargs):
               2}
 
 #    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
-#    mesh_size = {'mode': 'constant', 'value': 5, 'bound_value': 10}
+    mesh_size = {'mode': 'constant', 'value': 5, 'bound_value': 10}
     mesh_size = {'mode': 'constant', 'value': 0.25, 'bound_value': 10}
     kwargs['mesh_size'] = mesh_size
     kwargs['gmsh_path'] = '~/gmsh/bin/gmsh'
 
     gb = meshing.simplex_grid([f_1, f_2], domain, **kwargs)
     gb.remove_nodes(lambda g: g.dim == gb.dim_max())
+
+# It's not really working now the coarsening part with the gb
+#    for g, _ in gb:
+#        if g.dim != 1:
+#            part = create_partition(tpfa_matrix(g))
+#            gb.change_nodes({g: generate_coarse_grid(g, part)})
+#
+#    gb.compute_geometry(is_starshaped=True)
+
+    print([g.num_faces for g, _ in gb])
     gb.assign_node_ordering()
 
     # Need to remove the boundary flag explicity from the fracture face,
@@ -206,7 +216,7 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) \
                                         for g, _ in gb if g.dim == gb.dim_max()]
 
-    if kwargs['visualize']: plot_grid(gb, info="cfo", alpha=0)
+    if kwargs['visualize']: plot_grid(gb, info="f", alpha=0)
 
     gb.add_node_props(['k', 'f', 'bc', 'bc_val'])
     for g, d in gb:
