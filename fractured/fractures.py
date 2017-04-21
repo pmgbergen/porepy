@@ -893,7 +893,8 @@ class FractureNetwork(object):
 
         if self.verbose > 0:
             print('Done. Elapsed time ' + str(time.time() - start_time))
-            self.intersection_info()
+            if self.verbose > 1:
+                self.intersection_info()
 
     def intersection_info(self, frac_num=None):
         # Number of fractures with some intersection
@@ -1043,7 +1044,7 @@ class FractureNetwork(object):
         if self.verbose > 1:
             print('  Done creating lists. Elapsed time ' + str(time.time() -
                                                                start_time))
-            if self.verbose > 2:
+            if self.verbose > 1:
                 print('    Uniquify next')
 
         return self._uniquify_points_and_edges(all_p, edges, edges_2_frac,
@@ -1055,7 +1056,8 @@ class FractureNetwork(object):
         # for declearing two points equal
         # NOTE: We need to account for dimensions in the tolerance; 
 
-        if self.verbose > 2:
+        if self.verbose > 1:
+            start_time = time.time()
             print('    Uniquify points and edges. Starting with:')
             print('    ' + str(all_p.shape[1]) + ' points, ' +\
                   str(edges.shape[1]) + ' edges')
@@ -1110,10 +1112,11 @@ class FractureNetwork(object):
         # plane.
         self._verify_fractures_in_plane(p_unique, edges, edges_2_frac)
 
-        if self.verbose > 2:
-            print('    Uniquify complete:')
+        if self.verbose > 1:
+            print('  Uniquify complete:')
             print('    ' + str(p_unique.shape[1]) + ' points, ' +\
                   str(edges.shape[1]) + ' edges')
+            print('  Elapsed time ' + str(time.time() - start_time))
 
         return p_unique, edges, edges_2_frac, is_boundary_edge
 
