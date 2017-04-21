@@ -3,7 +3,7 @@ import time
 
 from gridding.gmsh import gmsh_interface, mesh_io, mesh_2_grid
 from gridding import constants
-from gridding.fractured import fractures
+from gridding.fractured import fractures, utils
 import compgeom.basics as cg
 
 
@@ -83,7 +83,6 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
         network.split_intersections()
     else:
         print('Use existing decomposition')
-
 
     in_file = file_name + '.geo'
     out_file = file_name + '.msh'
@@ -198,8 +197,13 @@ def triangle_grid(fracs, domain, **kwargs):
     # Constants used in the gmsh.geo-file
     const = constants.GmshConstants()
     # Gridding size
-    lchar_dom = kwargs.get('lchar_dom', None)
-    lchar_frac = kwargs.get('lchar_frac', lchar_dom)
+    if 'mesh_size' in kwargs.keys():
+        mesh_size, mesh_size_bound = \
+            utils.determine_mesh_size(
+                pts_split.shape[1], **kwargs['mesh_size'])
+    else:
+        mesh_size = None
+        mesh_size_bound = None
 
     # gmsh options
     gmsh_path = kwargs.get('gmsh_path')
@@ -209,8 +213,8 @@ def triangle_grid(fracs, domain, **kwargs):
 
     # Create a writer of gmsh .geo-files
     gw = gmsh_interface.GmshWriter(
-        pts_split, lines_split, domain=domain, mesh_size=lchar_dom,
-        mesh_size_bound=lchar_frac, intersection_points=intersections)
+        pts_split, lines_split, domain=domain, mesh_size=mesh_size,
+        mesh_size_bound=mesh_size_bound, intersection_points=intersections)
     gw.write_geo(in_file)
 
     # Run gmsh
