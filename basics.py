@@ -1638,7 +1638,7 @@ def map_grid(g):
     face_normals: (g.dim x g.num_faces) the mapped normals of the faces.
     face_centers: (g.dim x g.num_faces) the mapped centers of the faces.
     R: (3 x 3) the rotation matrix used.
-    dim: indicates which are the dimensions active.
+    dim: indicates which are the dimensions active
     nodes: (g.dim x g.num_nodes) the mapped nodes.
 
     """
@@ -1665,8 +1665,8 @@ def map_grid(g):
 
     return cell_centers, face_normals, face_centers, R, dim, nodes
 
-#------------------------------------------------------------------------------#
 
+#------------------------------------------------------------------------------#
 
 def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
     """
