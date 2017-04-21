@@ -246,7 +246,7 @@ def add_info( g, info, ax, **kwargs ):
     if "N" in info: disp_loop( g.nodes, 'b', 's' )
     if "F" in info: disp_loop( g.face_centers, 'y', 'd' )
 
-    if "O" in info.upper():
+    if "O" in info.upper() and g.dim != 0:
         normals = np.array( [ n/np.linalg.norm(n) \
                                       for n in g.face_normals.T ] ).T
         quiver(normals, ax, g, **kwargs)
