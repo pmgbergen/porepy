@@ -1,8 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Feb 25 12:31:31 2016
+""" Module containing classes for simplex grids.
 
-@author: keile
+Acknowledgements:
+    The implementation of simplex grids is to a large degree a translation
+    of the corresponding functions found in the Matlab Reservoir Simulation
+    Toolbox (MRST) developed by SINTEF ICT, see www.sintef.no/projectweb/mrst/
+
 """
 
 import numpy as np
@@ -15,7 +17,12 @@ from utils import accumarray
 
 
 class TriangleGrid(Grid):
+    """ Class representation of a general triangular grid.
 
+    For information on attributes and methods, see the documentation of the
+    parent Grid class.
+
+    """
     def __init__(self, p, tri=None):
         """
         Create triangular grid from point cloud.
@@ -40,9 +47,6 @@ class TriangleGrid(Grid):
         # requires this format)
         pdims = p.shape
 
-#        if p.shape[0] != 2:
-#            raise NotImplementedError("Have not yet implemented triangle grids "
-#                                      "embeded in 2D")
         if tri is None:
             tri = scipy.spatial.Delaunay(p.transpose())
             tri = tri.simplices
@@ -111,6 +115,13 @@ class TriangleGrid(Grid):
 
 
 class StructuredTriangleGrid(TriangleGrid):
+    """ Class for a structured triangular grids, composed of squares divided
+    into two.
+
+    For information on attributes and methods, see the documentation of the
+    parent Grid class.
+
+    """
 
     def __init__(self, nx, physdims=None):
         """
@@ -168,6 +179,12 @@ class StructuredTriangleGrid(TriangleGrid):
 
 
 class TetrahedralGrid(Grid):
+    """ Class for Tetrahedral grids.
+
+    For information on attributes and methods, see the documentation of the
+    parent Grid class.
+
+    """
 
     def __init__(self, p, tet=None):
         """

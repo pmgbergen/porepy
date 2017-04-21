@@ -1,8 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Feb 17 21:23:30 2016
+""" Module containing classes for structured grids.
 
-@author: keile
+Acknowledgements:
+    The implementation of structured grids is in practice a translation of the
+    corresponding functions found in the Matlab Reservoir Simulation Toolbox
+    (MRST) developed by SINTEF ICT, see www.sintef.no/projectweb/mrst/
+
 """
 import numpy as np
 import scipy as sp
@@ -15,7 +17,9 @@ class TensorGrid(Grid):
     """Representation of grid formed by a tensor product of line point
     distributions.
 
-    See documentation of Grid for further details
+    For information on attributes and methods, see the documentation of the
+    parent Grid class.
+
     """
 
     def __init__(self, x, y=None, z=None, name=None):
@@ -257,7 +261,9 @@ class TensorGrid(Grid):
 class CartGrid(TensorGrid):
     """Representation of a 2D or 3D Cartesian grid.
 
-    See main Grid class for further explanation.
+    For information on attributes and methods, see the documentation of the
+    parent Grid class.
+
     """
 
     def __init__(self, nx, physdims=None):

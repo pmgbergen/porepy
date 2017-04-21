@@ -1,8 +1,14 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Feb 17 20:55:43 2016
+""" Module containing the parent class for all grids.
 
-@author: keile
+See documentation of the Grid class for further details.
+
+Acknowledgements:
+    The data structure for the grid is inspired by that used in the Matlab
+    Reservoir Simulation Toolbox (MRST) developed by SINTEF ICT, see
+    www.sintef.no/projectweb/mrst/ . Some of the methods, in particular
+    compute_geometry() and its subfunctions is to a large degree translations
+    of the corresponding functions in MRST.
+
 """
 from __future__ import division
 import numpy as np
