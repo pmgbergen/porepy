@@ -1613,6 +1613,7 @@ def map_grid(g):
     cell_centers = g.cell_centers
     face_normals = g.face_normals
     face_centers = g.face_centers
+    nodes = g.nodes
     R = np.eye(3)
 
     if g.dim == 0 or g.dim == 3:
