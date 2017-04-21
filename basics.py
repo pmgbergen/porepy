@@ -21,6 +21,7 @@ from utils import setmembership
 #
 #------------------------------------------------------------------------------#
 
+
 def snap_to_grid(pts, tol=1e-3, box=None, **kwargs):
     """
     Snap points to an underlying Cartesian grid.
@@ -68,15 +69,18 @@ def snap_to_grid(pts, tol=1e-3, box=None, **kwargs):
 
 #------------------------------------------------------------------------------#
 
+
 def __nrm(v):
     return np.sqrt(np.sum(v * v, axis=0))
 
 #------------------------------------------------------------------------------#
 
+
 def __dist(p1, p2):
     return __nrm(p1 - p2)
 
 #------------------------------------------------------------------------------#
+
 
 def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
     """
@@ -189,7 +193,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
                                            new_edges.shape[1])))
         # Insert the new edge in the midle of the set of edges.
         edges = np.hstack((edges[:, :edge_ind_first], new_edges,
-                           edges[:, edge_ind_first+1:]))
+                           edges[:, edge_ind_first + 1:]))
         # We have added as many new edges as there are columns in new_edges,
         # minus 1 (which was removed / ignored).
         new_line = new_edges.shape[1] - 1
@@ -244,7 +248,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             # Combine everything.
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
-                               edges[:, edge_ind[0]+1:]))
+                               edges[:, edge_ind[0] + 1:]))
 
             split_type = 4
         elif i0 == start and i1 == end:
@@ -273,7 +277,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             # Combine everything.
             edges = np.hstack((edges[:, :edge_ind[1]],
                                new_edges,
-                               edges[:, (edge_ind[1]+1):]))
+                               edges[:, (edge_ind[1] + 1):]))
             # Delete the second segment. This is most easily handled after
             # edges is expanded, to avoid accounting for changing edge indices.
             edges = np.delete(edges, edge_ind[0], axis=1)
@@ -319,7 +323,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
-                               edges[:, (edge_ind[0]+1):]))
+                               edges[:, (edge_ind[0] + 1):]))
             split_type = 6
 
         elif i0 != start and i1 == end:
@@ -347,7 +351,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
-                               edges[:, (edge_ind[0]+1):]))
+                               edges[:, (edge_ind[0] + 1):]))
             split_type = 7
 
         else:
@@ -362,7 +366,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         # Hopefully, we do not mess up the edges here.
         edges_copy = np.sort(edges[:2], axis=0)
         edges_unique, new_2_old, _ \
-                = setmembership.unique_columns_tol(edges_copy, tol=tol)
+            = setmembership.unique_columns_tol(edges_copy, tol=tol)
         # Refer to unique edges if necessary
         if edges_unique.shape[1] < edges.shape[1]:
             # Copy tags
@@ -376,6 +380,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         return vertices, edges, new_line, split_type
 
 #------------------------------------------------------**kwargs------------------------#
+
 
 def _add_point(vertices, pt, tol=1e-3, **kwargs):
     """
@@ -519,7 +524,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
         #
         # answer by PolyThinker and comments by Jason S, for more information.
         c1 = a[edge_counter] * (start_x - xm) \
-             + b[edge_counter] * (start_y - ym)
+            + b[edge_counter] * (start_y - ym)
         c2 = a[edge_counter] * (end_x - xm) + b[edge_counter] * (end_y - ym)
 
         tol_scaled = tol * max(1, np.max([np.sqrt(np.abs(c1)),
@@ -584,10 +589,10 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
 
             # Check if this point intersects
             new_pt = lines_intersect(vertices[:, edges[0, edge_counter]],
-                                       vertices[:, edges[1, edge_counter]],
-                                       vertices[:, edges[0, intsect]],
-                                       vertices[:, edges[1, intsect]],
-                                    tol=tol)
+                                     vertices[:, edges[1, edge_counter]],
+                                     vertices[:, edges[0, intsect]],
+                                     vertices[:, edges[1, intsect]],
+                                     tol=tol)
 
             def __min_dist(p):
                 md = np.inf
@@ -606,7 +611,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                 if new_pt.shape[-1] == 1:
                     if verbose > 2:
                         print('    Found intersection: (' + str(new_pt[0]) +
-                              ', '  + str(new_pt[1]))
+                              ', ' + str(new_pt[1]))
 
                     # Split edge edge_counter (outer loop), unless the
                     # intersection hits an existing point (in practices this
@@ -615,20 +620,21 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                     # is needed)
                     md = __min_dist(new_pt)
                     vertices, edges, split_outer_edge,\
-                            split = _split_edge(vertices, edges,
-                                                     edge_counter, new_pt,
-                                                     **kwargs)
+                        split = _split_edge(vertices, edges,
+                                            edge_counter, new_pt,
+                                            **kwargs)
                     split_type.append(split)
                     if verbose > 2 and split_outer_edge > 0 and \
                        vertices.shape[1] > orig_vertex_num:
                         print('      Introduced new point. Min length of edges:'
-                               + str(md))
+                              + str(md))
                         if md < tol:
                             import pdb
                             pdb.set_trace()
 
                     if edges.shape[1] > orig_edge_num + split_outer_edge:
-                        raise ValueError('Have created edge without bookkeeping')
+                        raise ValueError(
+                            'Have created edge without bookkeeping')
                     # If the outer edge (represented by edge_counter) was split,
                     # e.g. inserted into the list of edges we need to increase the
                     # index of the inner edge
@@ -636,15 +642,16 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
 
                     # Possibly split the inner edge
                     vertices, edges, split_inner_edge, \
-                            split = _split_edge(vertices, edges, intsect,
-                                                new_pt, **kwargs)
+                        split = _split_edge(vertices, edges, intsect,
+                                            new_pt, **kwargs)
                     if edges.shape[1] > \
                        orig_edge_num + split_inner_edge + split_outer_edge:
-                        raise ValueError('Have created edge without bookkeeping')
+                        raise ValueError(
+                            'Have created edge without bookkeeping')
 
                     split_type.append(split)
                     if verbose > 2 and split_inner_edge > 0 and \
-                        vertices.shape[1] > orig_vertex_num:
+                            vertices.shape[1] > orig_vertex_num:
                         print('      Introduced new point. Min length of edges:'
                               + str(md))
                         if md < tol:
@@ -655,14 +662,14 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                     # We have found an intersection along a line segment
                     if verbose > 2:
                         print('    Found two intersections: ('
-                              + str(new_pt[0, 0]) + ', '  + str(new_pt[1, 0]) +
-                              'and ' + str(new_pt[0, 1]) + ', '  +
+                              + str(new_pt[0, 0]) + ', ' + str(new_pt[1, 0]) +
+                              'and ' + str(new_pt[0, 1]) + ', ' +
                               str(new_pt[1, 1]))
 
                     vertices, edges, splits,\
-                            s_type = _split_edge(vertices, edges,
-                                                 [edge_counter, intsect],
-                                                 new_pt, **kwargs)
+                        s_type = _split_edge(vertices, edges,
+                                             [edge_counter, intsect],
+                                             new_pt, **kwargs)
                     split_type.append(s_type)
                     intersections += splits
                     if verbose > 2 and (splits[0] > 0 or splits[1] > 0):
@@ -688,9 +695,9 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
         edge_counter += 1
 
     if verbose > 1:
-        print('  Edge intersection removal complete. Elapsed time ' +\
+        print('  Edge intersection removal complete. Elapsed time ' +
               str(time.time() - start_time))
-        print('  Introduced ' + str(edges.shape[1] - num_edges_orig) + \
+        print('  Introduced ' + str(edges.shape[1] - num_edges_orig) +
               ' new edges')
 
     return vertices, edges
@@ -700,6 +707,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
 # END OF FUNCTIONS RELATED TO SPLITTING OF INTERSECTING LINES IN 2D
 #
 #-----------------------------------------------------------
+
 
 def is_ccw_polygon(poly):
     """
@@ -739,10 +747,11 @@ def is_ccw_polygon(poly):
     num_p = poly.shape[1]
     value = 0
     for i in range(num_p):
-        value += (p_1[i+1] + p_1[i]) * (p_0[i+1] - p_0[i])
+        value += (p_1[i + 1] + p_1[i]) * (p_0[i + 1] - p_0[i])
     return value < 0
 
 #----------------------------------------------------------
+
 
 def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
     """
@@ -779,7 +788,7 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
     # Compute cross product between p1-p2 and p1-p3. Right hand rule gives that
     # p3 is to the left if the cross product is positive.
     cross_product = (p2[0] - p1[0]) * (p3[1] - p1[1])\
-                   -(p2[1] - p1[1]) * (p3[0] - p1[0])
+        - (p2[1] - p1[1]) * (p3[0] - p1[0])
 
     # Should there be a scaling of the tolerance relative to the distance
     # between the points?
@@ -790,6 +799,7 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
         return cross_product > 0
 
 #-----------------------------------------------------------------------------
+
 
 def is_inside_polygon(poly, p, tol=0, default=False):
     """
@@ -821,7 +831,7 @@ def is_inside_polygon(poly, p, tol=0, default=False):
     inside = np.ones(pt.shape[1], dtype=np.bool)
     for i in range(pt.shape[1]):
         for j in range(poly.shape[1]):
-            if not is_ccw_polyline(poly[:, j], poly[:, (j+1) % poly_size],
+            if not is_ccw_polyline(poly[:, j], poly[:, (j + 1) % poly_size],
                                    pt[:, i], tol=tol, default=default):
                 inside[i] = False
                 # No need to check the remaining segments of the polygon.
@@ -852,7 +862,7 @@ def dist_point_pointset(p, pset, exponent=2):
         pt = p
 
     return np.power(np.sum(np.power(np.abs(pt - pset), exponent),
-                           axis=0), 1/exponent)
+                           axis=0), 1 / exponent)
 
 
 #------------------------------------------------------------------------------#
@@ -874,7 +884,7 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
     Example:
         >>> lines_intersect([0, 0], [1, 1], [0, 1], [1, 0])
         array([[ 0.5],
-	       [ 0.5]])
+               [ 0.5]])
 
         >>> lines_intersect([0, 0], [1, 0], [0, 1], [1, 1])
 
@@ -919,7 +929,7 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
     # First check for solvability of the system (e.g. parallel lines) by the
     # determinant of the matrix.
 
-    discr = d_1[0] *(-d_2[1]) - d_1[1] * (-d_2[0])
+    discr = d_1[0] * (-d_2[1]) - d_1[1] * (-d_2[0])
 
     if np.abs(discr) < tol:
         # The lines are parallel, and will only cross if they are also colinear
@@ -932,11 +942,11 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
             # Write l1 on the form start_1 + t * d_1, find the parameter value
             # needed for equality with start_2 and end_2
             if np.abs(d_1[0]) > tol:
-                t_start_2 = (start_2[0] - start_1[0])/d_1[0]
-                t_end_2 = (end_2[0] - start_1[0])/d_1[0]
+                t_start_2 = (start_2[0] - start_1[0]) / d_1[0]
+                t_end_2 = (end_2[0] - start_1[0]) / d_1[0]
             elif np.abs(d_1[1]) > tol:
-                t_start_2 = (start_2[1] - start_1[1])/d_1[1]
-                t_end_2 = (end_2[1] - start_1[1])/d_1[1]
+                t_start_2 = (start_2[1] - start_1[1]) / d_1[1]
+                t_end_2 = (end_2[1] - start_1[1]) / d_1[1]
             else:
                 # d_1 is zero
                 raise ValueError('Start and endpoint of line should be\
@@ -982,6 +992,7 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
             return None
 
 #------------------------------------------------------------------------------#
+
 
 def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     """
@@ -1054,11 +1065,13 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     if mask_sum.sum() > 1:
         in_discr = np.argwhere(mask_sum)[:2]
     else:
-        # We're going to have a zero discreminant anyhow, just pick some dimensions.
+        # We're going to have a zero discreminant anyhow, just pick some
+        # dimensions.
         in_discr = np.arange(2)
 
     not_in_discr = np.setdiff1d(np.arange(3), in_discr)[0]
-    discr = deltas_1[in_discr[0]] * deltas_2[in_discr[1]] - deltas_1[in_discr[1]] * deltas_2[in_discr[0]]
+    discr = deltas_1[in_discr[0]] * deltas_2[in_discr[1]] - \
+        deltas_1[in_discr[1]] * deltas_2[in_discr[0]]
 
     # An intersection will be a solution of the linear system
     #   xs_1 + dx_1 * t_1 = xs_2 + dx_2 * t_2 (1)
@@ -1092,15 +1105,15 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         diff_start = start_2 - start_1
 
         dstart_x_delta_x = diff_start[1] * deltas_1[2] -\
-                           diff_start[2] * deltas_1[1]
+            diff_start[2] * deltas_1[1]
         if np.abs(dstart_x_delta_x) > tol:
             return None
         dstart_x_delta_y = diff_start[2] * deltas_1[0] -\
-                           diff_start[0] * deltas_1[2]
+            diff_start[0] * deltas_1[2]
         if np.abs(dstart_x_delta_y) > tol:
             return None
         dstart_x_delta_z = diff_start[0] * deltas_1[1] -\
-                           diff_start[1] * deltas_1[0]
+            diff_start[1] * deltas_1[0]
         if np.abs(dstart_x_delta_z) > tol:
             return None
 
@@ -1108,13 +1121,15 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         # points should be parallel to the segments.
         # Since the masks are equal, we can use any of them.
         t_1_2 = (start_1[mask_1] - start_2[mask_1]) / deltas_1[mask_1]
-        # For dimensions with no incline, the start cooordinates should be the same
+        # For dimensions with no incline, the start cooordinates should be the
+        # same
         if not np.allclose(start_1[~mask_1], start_2[~mask_1], tol):
             return None
 
         # We have overlapping lines! finally check if segments are overlapping.
 
-        # Since everything is parallel, it suffices to work with a single coordinate
+        # Since everything is parallel, it suffices to work with a single
+        # coordinate
         s_1 = start_1[mask_1][0]
         e_1 = end_1[mask_1][0]
         s_2 = start_2[mask_1][0]
@@ -1131,7 +1146,6 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
             return None
         elif max_2 < min_1:
             return None
-
 
         # The lines are overlapping, we need to find their common line
         lines = np.array([s_1, e_1, s_2, e_2])
@@ -1150,14 +1164,14 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         # Solve 2x2 system by Cramer's rule
 
         discr = deltas_1[in_discr[0]] * (-deltas_2[in_discr[1]]) -\
-                deltas_1[in_discr[1]] * (-deltas_2[in_discr[0]])
-        t_1 = ((start_2[in_discr[0]] - start_1[in_discr[0]]) \
-               * (-deltas_2[in_discr[1]]) - \
-               (start_2[in_discr[1]] - start_1[in_discr[1]]) \
-               * (-deltas_2[in_discr[0]]))/discr
+            deltas_1[in_discr[1]] * (-deltas_2[in_discr[0]])
+        t_1 = ((start_2[in_discr[0]] - start_1[in_discr[0]])
+               * (-deltas_2[in_discr[1]]) -
+               (start_2[in_discr[1]] - start_1[in_discr[1]])
+               * (-deltas_2[in_discr[0]])) / discr
 
         t_2 = (deltas_1[in_discr[0]] * (start_2[in_discr[1]] -
-                                        start_1[in_discr[1]]) - \
+                                        start_1[in_discr[1]]) -
                deltas_1[in_discr[1]] * (start_2[in_discr[0]] -
                                         start_1[in_discr[0]])) / discr
 
@@ -1180,6 +1194,8 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
 #----------------------------------------------------------------------------#
 
 # Represent the polygon as a sympy polygon
+
+
 def _np2p(p):
     # Convert a numpy point array (3xn) to sympy points
     if p.ndim == 1:
@@ -1187,12 +1203,15 @@ def _np2p(p):
     else:
         return [geom.Point(p[:, i]) for i in range(p.shape[1])]
 
+
 def _p2np(p):
-    # Convert sympy points to numpy format. If more than one point, these should be sent as a list
+    # Convert sympy points to numpy format. If more than one point, these
+    # should be sent as a list
     if isinstance(p, list):
         return np.array(list([i.args for i in p]), dtype='float').transpose()
     else:
         return np.array(list(p.args), dtype='float').reshape((-1, 1))
+
 
 def _to3D(p):
     # Add a third dimension
@@ -1249,11 +1268,11 @@ def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
 
     for i in range(l_1):
         p_1_1 = poly_1[:, ind_1[i]]
-        p_1_2 = poly_1[:, ind_1[i+1]]
+        p_1_2 = poly_1[:, ind_1[i + 1]]
 
         for j in range(l_2):
             p_2_1 = poly_2[:, ind_2[j]]
-            p_2_2 = poly_2[:, ind_2[j+1]]
+            p_2_2 = poly_2[:, ind_2[j + 1]]
             isect_loc = segments_intersect_3d(p_1_1, p_1_2, p_2_1, p_2_2)
             if isect_loc is not None:
                 isect.append([i, j, isect_loc])
@@ -1261,6 +1280,7 @@ def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
     return isect
 
 #----------------------------------------------------------
+
 
 def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     """
@@ -1292,7 +1312,8 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
 
     """
 
-    # First translate the points so that the first plane is located at the origin
+    # First translate the points so that the first plane is located at the
+    # origin
     center_1 = np.mean(poly_1, axis=1).reshape((-1, 1))
     poly_1 = poly_1 - center_1
     poly_2 = poly_2 - center_1
@@ -1354,11 +1375,11 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
         for i in range(num_p2):
             # Indices of points of this segment
             i1 = ind[i]
-            i2 = ind[i+1]
+            i2 = ind[i + 1]
 
             # Coordinates of this segment
             pt_1 = poly_2_rot[:, ind[i]]
-            pt_2 = poly_2_rot[:, ind[i+1]]
+            pt_2 = poly_2_rot[:, ind[i + 1]]
 
             # Check if segment crosses z=0 in the rotated coordinates
             if max(pt_1[2], pt_2[2]) < 0 or min(pt_1[2], pt_2[2]) > 0:
@@ -1399,7 +1420,7 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
         return isect
 
 
-def is_planar( pts, normal = None ):
+def is_planar(pts, normal=None):
     """ Check if the points lie on a plane.
 
     Parameters:
@@ -1413,17 +1434,18 @@ def is_planar( pts, normal = None ):
     """
 
     if normal is None:
-        normal = compute_normal( pts )
+        normal = compute_normal(pts)
     else:
-        normal = normal / np.linalg.norm( normal )
+        normal = normal / np.linalg.norm(normal)
 
-    check = np.array( [ np.isclose( np.dot( normal, pts[:,0] - p ), 0. ) \
-                      for p in pts[:,1:].T ], dtype=np.bool )
-    return np.all( check )
+    check = np.array([np.isclose(np.dot(normal, pts[:, 0] - p), 0.)
+                      for p in pts[:, 1:].T], dtype=np.bool)
+    return np.all(check)
 
 #------------------------------------------------------------------------------#
 
-def project_plane_matrix( pts, normal = None ):
+
+def project_plane_matrix(pts, normal=None):
     """ Project the points on a plane using local coordinates.
 
     The projected points are computed by a dot product.
@@ -1440,18 +1462,19 @@ def project_plane_matrix( pts, normal = None ):
     """
 
     if normal is None:
-        normal = compute_normal( pts )
+        normal = compute_normal(pts)
     else:
-        normal = normal / np.linalg.norm( normal )
+        normal = normal / np.linalg.norm(normal)
 
-    reference = np.array( [0., 0., 1.] )
-    angle = np.arccos( np.dot( normal, reference ) )
-    vect = np.cross( normal, reference )
-    return rot( angle, vect )
+    reference = np.array([0., 0., 1.])
+    angle = np.arccos(np.dot(normal, reference))
+    vect = np.cross(normal, reference)
+    return rot(angle, vect)
 
 #------------------------------------------------------------------------------#
 
-def rot( a, vect ):
+
+def rot(a, vect):
     """ Compute the rotation matrix about a vector by an angle using the matrix
     form of Rodrigues formula.
 
@@ -1464,16 +1487,17 @@ def rot( a, vect ):
 
     """
 
-    if np.allclose( vect, [0.,0.,0.] ):
+    if np.allclose(vect, [0., 0., 0.]):
         return np.identity(3)
     vect = vect / np.linalg.norm(vect)
-    W = np.array( [ [       0., -vect[2],  vect[1] ],
-                    [  vect[2],       0., -vect[0] ],
-                    [ -vect[1],  vect[0],       0. ] ] )
-    return np.identity(3) + np.sin(a)*W + \
-           (1.-np.cos(a))*np.linalg.matrix_power(W,2)
+    W = np.array([[0., -vect[2],  vect[1]],
+                  [vect[2],       0., -vect[0]],
+                  [-vect[1],  vect[0],       0.]])
+    return np.identity(3) + np.sin(a) * W + \
+        (1. - np.cos(a)) * np.linalg.matrix_power(W, 2)
 
 #------------------------------------------------------------------------------#
+
 
 def normal_matrix(pts=None, normal=None):
     """ Compute the normal projection matrix of a plane.
@@ -1492,15 +1516,16 @@ def normal_matrix(pts=None, normal=None):
 
     """
     if normal is not None:
-        normal = normal / np.linalg.norm( normal )
+        normal = normal / np.linalg.norm(normal)
     elif pts is not None:
-        normal = compute_normal( pts )
+        normal = compute_normal(pts)
     else:
         assert False, "Points or normal are mandatory"
 
     return np.tensordot(normal, normal, axes=0)
 
 #------------------------------------------------------------------------------#
+
 
 def tangent_matrix(pts=None, normal=None):
     """ Compute the tangential projection matrix of a plane.
@@ -1522,6 +1547,7 @@ def tangent_matrix(pts=None, normal=None):
 
 #------------------------------------------------------------------------------#
 
+
 def compute_normal(pts):
     """ Compute the normal of a set of points.
 
@@ -1537,18 +1563,21 @@ def compute_normal(pts):
     """
 
     assert pts.shape[1] > 2
-    normal = np.cross( pts[:,0] - pts[:,1], compute_tangent(pts) )
-    if np.allclose( normal, np.zeros(3) ): return compute_normal(pts[:, 1:])
-    return normal / np.linalg.norm( normal )
+    normal = np.cross(pts[:, 0] - pts[:, 1], compute_tangent(pts))
+    if np.allclose(normal, np.zeros(3)):
+        return compute_normal(pts[:, 1:])
+    return normal / np.linalg.norm(normal)
 
 #------------------------------------------------------------------------------#
+
 
 def compute_normals_1d(pts):
     t = compute_tangent(pts)
-    n = np.array([t[1], -t[0], 0]) / np.sqrt(t[0]**2+t[1]**2)
-    return np.r_['1,2,0', n, np.dot(rot(np.pi/2., t), n)]
+    n = np.array([t[1], -t[0], 0]) / np.sqrt(t[0]**2 + t[1]**2)
+    return np.r_['1,2,0', n, np.dot(rot(np.pi / 2., t), n)]
 
 #------------------------------------------------------------------------------#
+
 
 def compute_tangent(pts):
     """ Compute a tangent of a set of points.
@@ -1563,11 +1592,12 @@ def compute_tangent(pts):
 
     """
 
-    tangent = pts[:,0] - np.mean( pts, axis = 1 )
-    assert not np.allclose( tangent, np.zeros(3) )
+    tangent = pts[:, 0] - np.mean(pts, axis=1)
+    assert not np.allclose(tangent, np.zeros(3))
     return tangent / np.linalg.norm(tangent)
 
 #------------------------------------------------------------------------------#
+
 
 def is_collinear(pts, tol=1e-5):
     """ Check if the points lie on a line.
@@ -1582,16 +1612,18 @@ def is_collinear(pts, tol=1e-5):
     """
 
     assert pts.shape[1] > 1
-    if pts.shape[1] == 2: return True
+    if pts.shape[1] == 2:
+        return True
 
-    pt0 = pts[:,0]
-    pt1 = pts[:,1]
+    pt0 = pts[:, 0]
+    pt1 = pts[:, 1]
 
-    coll = np.array( [ np.linalg.norm( np.cross( p - pt0, pt1 - pt0 ) ) \
-             for p in pts[:,1:-1].T ] )
+    coll = np.array([np.linalg.norm(np.cross(p - pt0, pt1 - pt0))
+                     for p in pts[:, 1:-1].T])
     return np.allclose(coll, np.zeros(coll.size), tol)
 
 #------------------------------------------------------------------------------#
+
 
 def map_grid(g):
     """ If a 2d or a 1d grid is passed, the function return the cell_centers,
@@ -1606,31 +1638,35 @@ def map_grid(g):
     face_normals: (g.dim x g.num_faces) the mapped normals of the faces.
     face_centers: (g.dim x g.num_faces) the mapped centers of the faces.
     R: (3 x 3) the rotation matrix used.
-    dim: indicates which are the dimensions active
+    dim: indicates which are the dimensions active.
+    nodes: (g.dim x g.num_nodes) the mapped nodes.
 
     """
     cell_centers = g.cell_centers
     face_normals = g.face_normals
     face_centers = g.face_centers
+    nodes = g.nodes
     R = np.eye(3)
 
     if g.dim == 0 or g.dim == 3:
-        return cell_centers, face_normals, face_centers, R, np.ones(3,dtype=bool)
+        return cell_centers, face_normals, face_centers, R, np.ones(3, dtype=bool), nodes
 
     if g.dim == 1 or g.dim == 2:
-        v = compute_normal(g.nodes) if g.dim==2 else compute_tangent(g.nodes)
+        v = compute_normal(g.nodes) if g.dim == 2 else compute_tangent(g.nodes)
         R = project_plane_matrix(g.nodes, v)
         face_centers = np.dot(R, face_centers)
-        dim = np.logical_not(np.isclose(np.sum(np.abs(face_centers.T-
-                                                face_centers[:,0]), axis=0),0))
+        dim = np.logical_not(np.isclose(np.sum(np.abs(face_centers.T -
+                                                      face_centers[:, 0]), axis=0), 0))
         assert g.dim == np.sum(dim)
-        face_centers = face_centers[dim,:]
-        cell_centers = np.dot(R, cell_centers)[dim,:]
-        face_normals = np.dot(R, face_normals)[dim,:]
+        face_centers = face_centers[dim, :]
+        cell_centers = np.dot(R, cell_centers)[dim, :]
+        face_normals = np.dot(R, face_normals)[dim, :]
+        nodes = np.dot(R, nodes)[dim, :]
 
-    return cell_centers, face_normals, face_centers, R, dim
+    return cell_centers, face_normals, face_centers, R, dim, nodes
 
 #------------------------------------------------------------------------------#
+
 
 def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
     """
@@ -1656,10 +1692,12 @@ def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
 
     """
 
-    # Variable used to fine almost parallel lines. Sensitivity to this value has not been tested.
+    # Variable used to fine almost parallel lines. Sensitivity to this value
+    # has not been tested.
     SMALL_TOLERANCE = 1e-6
 
-    # For the rest of the algorithm, see the webpage referred to above for details.
+    # For the rest of the algorithm, see the webpage referred to above for
+    # details.
     d1 = s1_end - s1_start
     d2 = s2_end - s2_start
     d_starts = s1_start - s2_start
@@ -1709,7 +1747,7 @@ def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
         # recompute sc for this edge
         if (-dot_1_starts + dot_1_2) < 0.0:
             sN = 0
-        elif (-dot_1_starts+ dot_1_2) > dot_1_1:
+        elif (-dot_1_starts + dot_1_2) > dot_1_1:
             sN = sD
         else:
             sN = (-dot_1_starts + dot_1_2)
@@ -1729,7 +1767,7 @@ def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
     dist = d_starts + sc * d1 - tc * d2
     return np.sqrt(dist.dot(dist))
 
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
-
