@@ -1,11 +1,14 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar  1 08:36:47 2016
+""" Functions for compressing matrices to compact format, and recover them.
 
-@author: keile
+Acknowledgements:
+    The functions are a python translation of the corresponding matlab
+    functions found in the Matlab Reservoir Simulation Toolbox (MRST) developed
+    by SINTEF ICT, see www.sintef.no/projectweb/mrst/ . 
+    
 """
 
 import numpy as np
+
 
 def rldecode(A,n):
     """ Decode compressed information. 
@@ -42,7 +45,6 @@ def rlencode(A):
     
     return A[::, i], num
     
-    
 if __name__ == '__main__':
-    A = np.array([[1, 2, 2, 3],[2, 2, 2, 3]])
-    rlencode(A)
+    import doctest
+    doctest.testmod()
