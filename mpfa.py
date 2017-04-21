@@ -6,11 +6,12 @@ from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 
-from fvdiscr import fvutils
+from fvdiscr import fvutils, tpfa
 from utils import matrix_compression
 from core.grids import structured
 from core.constit import second_order_tensor
 from core.bc import bc
+from compgeom import basics
 
 
 def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
@@ -135,6 +136,14 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
     Dirichlet gives a right hand side for (ii).
     """
 
+    # The method reduces to the more efficient TPFA in one dimension, so that
+    # method may be called. In 0D, there is no internal discretization to be
+    # done.
+    if g.dim == 1:
+        return tpfa.tpfa(g, k, bnd)
+    elif g.dim == 0:
+        return [0], [0]
+
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
     # of coordinates of a point / vector and the real dimension. This again
@@ -144,16 +153,20 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
     # index of local variables in the discretization). These issues should be
     # possible to overcome, but for the moment, we simply force 2D grids to be
     # proper 2D.
+
     if g.dim == 2:
-        # Make a copy before modifying the grid.
+        # Rotate the grid into the xy plane and delete third dimension. First
+        # make a copy to avoid alterations to the input grid
         g = g.copy()
-        g.cell_centers = np.delete(g.cell_centers, (2), axis=0)
-        g.face_centers = np.delete(g.face_centers, (2), axis=0)
-        g.face_normals = np.delete(g.face_normals, (2), axis=0)
-        g.nodes = np.delete(g.nodes, (2), axis=0)
-        # Same treatment for the permeability tensor
+        cell_centers, face_normals, face_centers, R, _, nodes = basics.map_grid(
+            g)
+        g.cell_centers, g.face_normals, g.face_centers, g.nodes = cell_centers, face_normals, face_centers, nodes
+
+        # Rotate the permeability tensor and delete last dimension
         k = k.copy()
+        k.perm = np.tensordot(R.T, np.tensordot(R, k.perm, (1, 0)), (0, 1))
         k.perm = np.delete(k.perm, (2), axis=0)
+        # k.perm[0:2, 0:2, :]  # , R.T)
         k.perm = np.delete(k.perm, (2), axis=1)
 
     # Define subcell topology, that is, the local numbering of faces, subfaces,
