@@ -131,6 +131,8 @@ def test_uniform_flow_cart_2d_pert():
     dx = 1
     pert = .4
     g.nodes = g.nodes + dx * pert * (0.5 - np.random.rand(g.nodes.shape[0], g.num_nodes))
+    # Cancel perturbations in z-coordinate.
+    g.nodes[2, :] = 0
     g.compute_geometry()
 
     bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel(1) == 1)

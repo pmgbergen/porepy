@@ -29,6 +29,8 @@ def setup_2d():
                        np.repeat( 0., g_cart_rpert.num_nodes) ) )
     g_cart_rpert.nodes = g_cart_rpert.nodes + dx * pert * \
                                               (0.5 - rand)
+    # No perturbations of the z-coordinate (which is not active in this case)
+    g_cart_rpert.nodes[2, :] = 0
     g_cart_rpert.compute_geometry()
     grid_list.append(g_cart_rpert)
 
@@ -39,6 +41,9 @@ def perturb(g, rate, dx):
     rand = np.vstack( (np.random.rand(g.dim, g.num_nodes),
                        np.repeat( 0., g.num_nodes) ) )
     g.nodes += rate * dx * (rand - 0.5)
+    # Ensure there are no perturbations in the z-coordinate
+    if g.dim == 2:
+        g.nodes[2, :] = 0
     return g
 
 
