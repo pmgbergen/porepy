@@ -1,10 +1,9 @@
 import numpy as np
 import unittest
 
-from core.grids import structured, simplex
-import compgeom.basics as cg
-
-from fvdiscr.transport import upwind
+from porepy_new.src.porepy.grids import structured, simplex
+import porepy_new.src.porepy.utils.comp_geom as cg
+from porepy_new.src.porepy.numerics.fv.transport import upwind
 
 #------------------------------------------------------------------------------#
 

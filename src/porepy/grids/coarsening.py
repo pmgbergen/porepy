@@ -3,13 +3,12 @@
 import numpy as np
 import scipy.sparse as sps
 
-from core.grids.grid import Grid
-from core.constit import second_order_tensor
-from core.bc import bc
+from porepy_new.src.porepy.grids.grid import Grid
+from porepy_new.src.porepy.params import second_order_tensor, bc
 
-from utils import matrix_compression, mcolon, accumarray, unique
+from porepy_new.src.porepy.utils import matrix_compression, mcolon, accumarray, unique
 
-from fvdiscr import tpfa
+from porepy_new.src.porepy.numerics.fv import tpfa
 
 #------------------------------------------------------------------------------#
 

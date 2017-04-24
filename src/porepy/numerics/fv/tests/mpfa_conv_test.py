@@ -20,12 +20,11 @@ import scipy.sparse.linalg
 import unittest
 from math import pi
 
-from core.grids import structured, simplex
-from core.constit import second_order_tensor, fourth_order_tensor
-from core.bc import bc
-from fvdiscr import mpfa, fvutils, mpsa
-from fvdiscr.tests import setup_grids
-from utils.mcolon import mcolon
+from porepy_new.src.porepy.grids import structured, simplex
+from porepy_new.src.porepy.params import second_order_tensor, fourth_order_tensor, bc
+from porepy_new.src.porepy.numerics.fv import mpfa, fvutils, mpsa
+from porepy_new.src.porepy.numerics.fv.tests import setup_grids
+from porepy_new.src.porepy.utils.mcolon import mcolon
 
 
 class _SolutionHomogeneousDomainFlow(object):

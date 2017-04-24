@@ -14,8 +14,8 @@ import traceback
 import logging
 from inspect import isfunction, getmembers
 
-from gridding.fractured import meshing
-from viz import plot_grid
+from porepy_new.src.porepy.fracs import meshing
+from porepy_new.src.porepy.viz import plot_grid
 
 
 def single_isolated_fracture(**kwargs):

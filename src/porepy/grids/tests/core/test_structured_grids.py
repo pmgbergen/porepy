@@ -2,7 +2,7 @@
 import numpy as np
 import unittest
 
-from core.grids import structured
+from porepy_new.src.porepy.grids import structured
 
 
 def set_tol():

@@ -1,9 +1,8 @@
 import unittest
 import numpy as np
 
-from gridding.fractured import structured
-from gridding.fractured import meshing
-from core.grids.grid import FaceTag
+from porepy_new.src.porepy.fracs import structured, meshing
+from porepy_new.src.porepy.grids.grid import FaceTag
 
 
 class TestFaceTags(unittest.TestCase):

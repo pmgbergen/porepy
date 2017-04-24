@@ -3,13 +3,9 @@ from scipy.sparse.linalg import spsolve
 import time
 import numpy as np
 
-from fvdiscr import mpfa
-from fvdiscr import mpsa
-from fvdiscr import fvutils
-from fvdiscr import time_of_flight
-from core.constit import second_order_tensor, fourth_order_tensor
-from core.bc import bc
-from core.grids import structured
+from porepy_new.src.porepy.numerics.fv import mpfa, mpsa, fvutils, time_of_flight
+from porepy_new.src.porepy.params import second_order_tensor, fourth_order_tensor, bc
+from porepy_new.src.porepy.grids import structured
 
 
 class BiotDiscr(object):

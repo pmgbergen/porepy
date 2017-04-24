@@ -7,7 +7,7 @@ Created on Thu Feb 25 20:16:42 2016
 
 import numpy as np
 
-import utils.unique as np_unique
+import porepy_new.src.porepy.utils.unique as np_unique
 
 def unique_rows(data):
     """

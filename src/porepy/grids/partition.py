@@ -16,9 +16,9 @@ except ImportError:
     warnings.warn('Could not import pymetis. Some functions will not work as\
     intended')
 
-from core.grids.grid import Grid
-from core.grids import structured
-from utils import permutations
+from porepy_new.src.porepy.grids.grid import Grid
+from porepy_new.src.porepy.grids import structured
+from porepy_new.src.porepy.utils import permutations
 
 
 def partition_metis(g, num_part):

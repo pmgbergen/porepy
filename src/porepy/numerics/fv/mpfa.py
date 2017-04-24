@@ -6,12 +6,11 @@ from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 
-from fvdiscr import fvutils, tpfa
-from utils import matrix_compression
-from core.grids import structured
-from core.constit import second_order_tensor
-from core.bc import bc
-from compgeom import basics
+from porepy_new.src.porepy.numerics.fv import fvutils, tpfa
+from porepy_new.src.porepy.grids import structured
+from porepy_new.src.porepy.params import second_order_tensor, bc
+from porepy_new.src.porepy.utils import matrix_compression
+from porepy_new.src.porepy.utils import comp_geom as cg
 
 
 def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
@@ -158,7 +157,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
         # Rotate the grid into the xy plane and delete third dimension. First
         # make a copy to avoid alterations to the input grid
         g = g.copy()
-        cell_centers, face_normals, face_centers, R, _, nodes = basics.map_grid(
+        cell_centers, face_normals, face_centers, R, _, nodes = cg.map_grid(
             g)
         g.cell_centers, g.face_normals, g.face_centers, g.nodes = cell_centers, face_normals, face_centers, nodes
 

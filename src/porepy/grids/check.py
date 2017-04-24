@@ -6,7 +6,7 @@
 import numpy as np
 import scipy.sparse as sps
 
-import compgeom.basics as cg
+import porepy_new.src.porepy.utils.comp_geom as cg
 
 #------------------------------------------------------------------------------#
 

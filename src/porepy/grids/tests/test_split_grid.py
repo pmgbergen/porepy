@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from gridding.fractured import meshing
+from porepy_new.src.porepy.fracs import meshing
 
 
 class TestMeshing(unittest.TestCase):

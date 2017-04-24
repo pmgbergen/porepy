@@ -11,9 +11,8 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.spatial
 
-from core.grids.grid import Grid
-from utils import setmembership
-from utils import accumarray
+from porepy_new.src.porepy.grids.grid import Grid
+from porepy_new.src.porepy.utils import setmembership, accumarray
 
 
 class TriangleGrid(Grid):

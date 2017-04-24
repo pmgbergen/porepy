@@ -3,10 +3,9 @@ import numpy as np
 import numpy.linalg
 import unittest
 
-from fvdiscr import mpfa, mpsa, fvutils
-from core.bc import bc
-from fvdiscr.tests import setup_grids
-from core.constit import second_order_tensor, fourth_order_tensor
+from porepy_new.src.porepy.numerics.fv import mpfa, mpsa, fvutils
+from porepy_new.src.porepy.numerics.fv.tests import setup_grids
+from porepy_new.src.porepy.params import second_order_tensor, fourth_order_tensor, bc
 
 
 class BiotTest():

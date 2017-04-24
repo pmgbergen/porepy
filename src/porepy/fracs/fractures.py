@@ -28,13 +28,12 @@ except ImportError:
     vtk will not work.')
 
 # Import of internally developed packages.
-from compgeom import basics as cg
-from compgeom import sort_points
-from utils import setmembership
-from core.grids import simplex
-from gridding.gmsh.gmsh_interface import GmshWriter
-from gridding.constants import GmshConstants
-from gridding.fractured.utils import determine_mesh_size
+from porepy_new.src.porepy.utils import comp_geom as cg
+from porepy_new.src.porepy.utils import setmembership, sort_points
+from porepy_new.src.porepy.grids import simplex
+from porepy_new.src.porepy.grids.gmsh.gmsh_interface import GmshWriter
+from porepy_new.src.porepy.grids.constants import GmshConstants
+from porepy_new.src.porepy.fracs.utils import determine_mesh_size
 
 
 class Fracture(object):

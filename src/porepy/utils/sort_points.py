@@ -1,5 +1,7 @@
 import numpy as np
-from compgeom.basics import project_plane_matrix
+
+from porepy_new.src.porepy.utils.comp_geom import project_plane_matrix
+
 
 #------------------------------------------------------------------------------#
 

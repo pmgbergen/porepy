@@ -1,11 +1,12 @@
 # Methods to work directly with the gmsh format
 
 import numpy as np
-from compgeom import sort_points
-from gridding.gmsh import mesh_io
 import sys
 import os
-import gridding.constants as gridding_constants
+
+from porepy_new.src.porepy.utils import sort_points
+from porepy_new.src.porepy.grids.gmsh import mesh_io
+import porepy_new.src.porepy.grids.constants as gridding_constants
 
 
 class GmshWriter(object):

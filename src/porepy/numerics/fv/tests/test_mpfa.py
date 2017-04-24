@@ -8,10 +8,9 @@ from __future__ import division
 import numpy as np
 import random
 
-from core.grids import structured
-from core.constit import second_order_tensor
-from core.bc import bc
-from fvdiscr import mpfa
+from porepy_new.src.porepy.grids import structured
+from porepy_new.src.porepy.params import second_order_tensor, bc
+from porepy_new.src.porepy.numerics.fv import mpfa
 
 
 def setup_cart_2d(nx):

@@ -7,7 +7,6 @@ Created on Mon Feb 29 14:30:22 2016
 
 import numpy as np
 
-from utils import accumarray
 
 class BoundaryCondition(object):
     """ Class to store information on boundary conditions.

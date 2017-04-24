@@ -5,13 +5,12 @@
 """
 
 import numpy as np
+import scipy.sparse as sps
 from numpy.linalg import solve
 
-import scipy.sparse as sps
-
-from core.solver.solver import *
-from compgeom import basics as cg
-from vem import dual
+from porepy_new.src.porepy.numerics.mixed_dim.solver import *
+from porepy_new.src.porepy.utils import comp_geom as cg
+from porepy_new.src.porepy.numerics.vem import dual
 
 class HybridDualVEM(Solver):
 

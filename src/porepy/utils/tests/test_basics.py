@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from compgeom import basics
+from porepy_new.src.porepy.utils import comp_geom as cg
 
 #------------------------------------------------------------------------------#
 
@@ -13,7 +13,7 @@ class BasicsTest( unittest.TestCase ):
         pts = np.array( [ [ 0., 2., -1. ],
                           [ 0., 4.,  2. ],
                           [ 0., 0.,  0. ] ] )
-        normal = basics.compute_normal( pts )
+        normal = cg.compute_normal( pts )
         normal_test = np.array([0.,0.,1.])
         pt = pts[:,0]
 
@@ -31,7 +31,7 @@ class BasicsTest( unittest.TestCase ):
                           [ -1.,  0.,  2., -8. ] ] )
         normal_test = np.array( [7., -5., -1.] )
         normal_test = normal_test / np.linalg.norm( normal_test )
-        normal = basics.compute_normal( pts )
+        normal = cg.compute_normal( pts )
         pt = pts[:,0]
 
         assert np.allclose( np.linalg.norm( normal ), 1. )
@@ -47,7 +47,7 @@ class BasicsTest( unittest.TestCase ):
         pts = np.array( [ [ 0., 2., -1. ],
                           [ 0., 4.,  2. ],
                           [ 2., 2.,  2. ] ] )
-        assert basics.is_planar( pts )
+        assert cg.is_planar( pts )
 
 #------------------------------------------------------------------------------#
 
@@ -55,7 +55,7 @@ class BasicsTest( unittest.TestCase ):
         pts = np.array( [ [    0.,    1.,    0., 4./7. ],
                           [    0.,    1.,    1.,    0. ],
                           [ 5./8., 7./8., 7./4., 1./8. ] ] )
-        assert basics.is_planar( pts )
+        assert cg.is_planar( pts )
 
 #------------------------------------------------------------------------------#
 
@@ -63,7 +63,7 @@ class BasicsTest( unittest.TestCase ):
         pts = np.array( [ [  2.,  0.,  1.,  1. ],
                           [  1., -2., -1.,  1. ],
                           [ -1.,  0.,  2., -8. ] ] )
-        R = basics.project_plane_matrix( pts )
+        R = cg.project_plane_matrix( pts )
         P_pts = np.dot( R, pts )
 
         assert np.allclose( P_pts[2,:], 1.15470054 * np.ones(4) )

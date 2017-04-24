@@ -1,12 +1,10 @@
 import numpy as np
 import scipy.sparse as sps
 
-from core.constit import fourth_order_tensor
-from core.bc import bc
-from core.grids import structured, simplex
-from fvdiscr import mpsa
-from fvdiscr import fvutils
-from fvdiscr.tests import setup_grids
+from porepy_new.src.porepy.params import fourth_order_tensor, bc
+from porepy_new.src.porepy.grids import structured, simplex
+from porepy_new.src.porepy.numerics.fv import mpsa, fvutils
+from porepy_new.src.porepy.numerics.fv.tests import setup_grids
 
 
 def setup_stiffness(g, mu=1, l=1):

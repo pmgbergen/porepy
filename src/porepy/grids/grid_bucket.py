@@ -8,7 +8,7 @@ import numpy as np
 import networkx
 import warnings
 
-from utils import setmembership
+from porepy_new.src.porepy.utils import setmembership
 
 
 class GridBucket(object):

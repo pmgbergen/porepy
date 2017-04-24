@@ -5,10 +5,11 @@ Module for splitting a grid at the fractures.
 import numpy as np
 import matplotlib.pylab as plt
 from scipy import sparse as sps
-from utils.half_space import half_space_int
-from utils.graph import Graph
-from utils.mcolon import mcolon
-from core.grids.grid import Grid, FaceTag
+
+from porepy_new.src.porepy.utils.half_space import half_space_int
+from porepy_new.src.porepy.utils.graph import Graph
+from porepy_new.src.porepy.utils.mcolon import mcolon
+from porepy_new.src.porepy.grids.grid import Grid, FaceTag
 
 
 def split_fractures(bucket, **kwargs):

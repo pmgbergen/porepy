@@ -1,7 +1,8 @@
 import unittest
 import numpy as np
 
-from gridding.fractured.fractures import Fracture
+from porepy_new.src.porepy.fracs.fractures import Fracture
+
 
 class TestFractureCenters(unittest.TestCase):
 

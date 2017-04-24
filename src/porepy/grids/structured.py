@@ -10,7 +10,7 @@ import numpy as np
 import scipy as sp
 import scipy.sparse as sps
 
-from core.grids.grid import Grid
+from porepy_new.src.porepy.grids.grid import Grid
 
 
 class TensorGrid(Grid):

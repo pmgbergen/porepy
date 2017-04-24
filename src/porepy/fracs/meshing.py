@@ -9,10 +9,10 @@ generators etc.
 import numpy as np
 import scipy.sparse as sps
 
-from gridding.fractured import structured, simplex, split_grid
-from gridding.grid_bucket import GridBucket
-from utils import setmembership, mcolon
-from core.grids.grid import FaceTag
+from porepy_new.src.porepy.fracs import structured, simplex, split_grid
+from porepy_new.src.porepy.grids.grid_bucket import GridBucket
+from porepy_new.src.porepy.grids.grid import FaceTag
+from porepy_new.src.porepy.utils import setmembership, mcolon
 
 
 def simplex_grid(fracs, domain, **kwargs):

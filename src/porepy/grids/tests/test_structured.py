@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from gridding.fractured import structured
+from porepy_new.src.porepy.fracs import structured
 
 
 class TestStructured(unittest.TestCase):

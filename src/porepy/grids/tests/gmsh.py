@@ -1,7 +1,8 @@
 import numpy as np
 import os
 
-from gridding.gmsh import fractured_domain_2d, mesh_io
+from porepy_new.src.porepy.grids.gmsh import fractured_domain_2d, mesh_io
+
 
 def test_gmsh_2d_crossing_fractures():
     """ Check that no error messages are created in the process of creating a

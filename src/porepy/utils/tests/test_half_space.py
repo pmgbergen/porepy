@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from utils import half_space
+from porepy_new.src.porepy.utils import half_space
 
 #------------------------------------------------------------------------------#
 

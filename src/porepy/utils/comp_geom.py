@@ -13,7 +13,7 @@ import sympy
 from sympy import geometry as geom
 import time
 
-from utils import setmembership
+from porepy_new.src.porepy.utils import setmembership
 
 #-----------------------------------------------------------------------------
 #

@@ -7,7 +7,7 @@ Created on Thu Feb 25 20:43:38 2016
 import numpy as np
 import unittest
 
-from utils import setmembership
+from porepy_new.src.porepy.utils import setmembership
 
 
 class TestUniqueRows(unittest.TestCase):

@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
 
-from core.solver.abstract_coupling import *
+from porepy_new.src.porepy.numerics.mixed_dim.abstract_coupling import *
 
 class DualCoupling(AbstractCoupling):
 

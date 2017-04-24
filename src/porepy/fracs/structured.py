@@ -10,12 +10,12 @@ generators etc.
 import numpy as np
 import scipy.sparse as sps
 
-from gridding.gmsh import mesh_2_grid
-from gridding import constants
-from gridding.fractured import fractures
-from utils import half_space
-from core.grids import structured, point_grid
-from compgeom import basics as cg
+from porepy_new.src.porepy.grids.gmsh import mesh_2_grid
+from porepy_new.src.porepy.grids import constants
+from porepy_new.src.porepy.fracs import fractures
+from porepy_new.src.porepy.utils import half_space
+from porepy_new.src.porepy.grids import structured, point_grid, constants
+from porepy_new.src.porepy.utils import comp_geom as cg
 
 
 def cart_grid_3d(fracs, nx, physdims=None):

@@ -15,24 +15,25 @@ import traceback
 import logging
 from inspect import isfunction, getmembers
 
-from core.grids import structured, simplex
-from core.grids.grid import FaceTag
-from core.bc import bc
-from core.constit import second_order_tensor
-from utils.errors import error
 
-from gridding.coarsening import *
-from gridding import grid_bucket
-from gridding.fractured import meshing, split_grid
+from porepy_new.src.porepy.grids import structured, simplex
+from porepy_new.src.porepy.params import second_order_tensor, bc
+from porepy_new.src.porepy.utils.errors import error
+from porepy_new.src.porepy.numerics.vem import dual, dual_coupling
+from porepy_new.src.porepy.viz.plot_grid import plot_grid
+from porepy_new.src.porepy.viz.exporter import export_vtk
+import porepy_new.src.porepy.utils.comp_geom as cg
 
-from core.solver import coupler
+from porepy_new.src.porepy.grids.grid import FaceTag
 
-from vem import dual, dual_coupling
+from porepy_new.src.porepy.grids.coarsening import *
+from porepy_new.src.porepy.grids import grid_bucket
+from porepy_new.src.porepy.fracs import meshing, split_grid
 
-from viz.plot_grid import plot_grid
+from porepy_new.src.porepy.numerics.mixed_dim import coupler
+
 
 #------------------------------------------------------------------------------#
-from viz.exporter import export_vtk
 
 #def darcy_dualVEM_coupling_example0(**kwargs):
 #    #######################

@@ -8,11 +8,7 @@ Created on Sat Feb 27 21:09:29 2016
 import numpy as np
 import scipy.sparse as sps
 
-from core.grids import simplex, structured
-from core.bc import bc
-from core.constit import second_order_tensor
-from gridding.fractured import meshing
-from viz import plot_grid
+from porepy_new.src.porepy.params import bc, second_order_tensor
 
 
 def tpfa(g, k, bc, faces=None):

@@ -15,14 +15,13 @@ import traceback
 import logging
 from inspect import isfunction, getmembers
 
-from core.grids import structured, simplex
-from core.bc import bc
-from core.constit import second_order_tensor
-from utils.errors import error
-from vem import dual, hybrid
-import compgeom.basics as cg
+from porepy_new.src.porepy.grids import structured, simplex
+from porepy_new.src.porepy.params import second_order_tensor, bc
+from porepy_new.src.porepy.utils.errors import error
+from porepy_new.src.porepy.numerics.vem import dual, hybrid
+from porepy_new.src.porepy.viz.plot_grid import plot_grid
+import porepy_new.src.porepy.utils.comp_geom as cg
 
-from viz.plot_grid import plot_grid
 
 #------------------------------------------------------------------------------#
 

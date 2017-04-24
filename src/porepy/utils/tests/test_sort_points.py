@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from compgeom import sort_points
+from porepy_new.src.porepy.utils import sort_points
 
 class SortLinePairTest(unittest.TestCase):
 

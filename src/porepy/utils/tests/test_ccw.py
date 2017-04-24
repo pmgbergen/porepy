@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from compgeom import basics as cg
+from porepy_new.src.porepy.utils import comp_geom as cg
 
 
 class TestCCW(unittest.TestCase):

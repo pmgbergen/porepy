@@ -7,10 +7,10 @@
 import numpy as np
 import warnings
 import scipy.sparse as sps
-from compgeom import basics as cg
 
-from core.constit import second_order_tensor
-from core.solver.solver import *
+from porepy_new.src.porepy.params import second_order_tensor
+from porepy_new.src.porepy.numerics.mixed_dim.solver import *
+import porepy_new.src.porepy.utils.comp_geom as cg
 
 class DualVEM(Solver):
 
