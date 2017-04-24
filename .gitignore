@@ -1,5 +1,11 @@
 *.pyc
-*~
-*.py~
-*.swp
 *.py#
+*.msh
+*.geo
+*.exe
+*.swp
+*.py~
+*.un~
+*.pos 
+*.vtu
+*.vrml
