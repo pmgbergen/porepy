@@ -5,8 +5,8 @@ import scipy.sparse as sps
 import vtk
 import vtk.util.numpy_support as ns
 
-from porepy_new.src.porepy.grids import grid, grid_bucket
-from porepy_new.src.porepy.utils import sort_points
+from porepy.grids import grid, grid_bucket
+from porepy.utils import sort_points
 
 #------------------------------------------------------------------------------#
 

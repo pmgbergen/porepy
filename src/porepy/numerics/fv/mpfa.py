@@ -6,11 +6,11 @@ from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 
-from porepy_new.src.porepy.numerics.fv import fvutils, tpfa
-from porepy_new.src.porepy.grids import structured
-from porepy_new.src.porepy.params import second_order_tensor, bc
-from porepy_new.src.porepy.utils import matrix_compression
-from porepy_new.src.porepy.utils import comp_geom as cg
+from porepy.numerics.fv import fvutils, tpfa
+from porepy.grids import structured
+from porepy.params import second_order_tensor, bc
+from porepy.utils import matrix_compression
+from porepy.utils import comp_geom as cg
 
 
 def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):

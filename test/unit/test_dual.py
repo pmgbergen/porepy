@@ -1,10 +1,10 @@
 import numpy as np
 import unittest
 
-from porepy_new.src.porepy.grids import structured, simplex
-from porepy_new.src.porepy.params import second_order_tensor as sot
-from porepy_new.src.porepy.numerics.vem import dual
-import porepy_new.src.porepy.utils.comp_geom as cg
+from porepy.grids import structured, simplex
+from porepy.params import second_order_tensor as sot
+from porepy.numerics.vem import dual
+import porepy.utils.comp_geom as cg
 
 #------------------------------------------------------------------------------#
 

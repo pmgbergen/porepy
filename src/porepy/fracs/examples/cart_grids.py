@@ -14,8 +14,8 @@ import traceback
 import logging
 from inspect import isfunction, getmembers
 
-from porepy_new.src.porepy.fracs import meshing
-from porepy_new.src.porepy.viz import plot_grid
+from porepy.fracs import meshing
+from porepy.viz import plot_grid
 
 
 def x_intersection_2d(**kwargs):

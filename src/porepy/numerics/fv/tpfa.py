@@ -8,7 +8,7 @@ Created on Sat Feb 27 21:09:29 2016
 import numpy as np
 import scipy.sparse as sps
 
-from porepy_new.src.porepy.params import bc, second_order_tensor
+from porepy.params import bc, second_order_tensor
 
 
 def tpfa(g, k, bc, faces=None):

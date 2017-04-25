@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy_new.src.porepy.grids import structured
+from porepy.grids import structured
 
 #------------------------------------------------------------------------------#
 

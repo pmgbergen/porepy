@@ -1,7 +1,7 @@
 import numpy as np
 
-from porepy_new.src.porepy.grids import structured, simplex
-from porepy_new.src.porepy.utils import mcolon
+from porepy.grids import structured, simplex
+from porepy.utils import mcolon
 
 
 def setup_2d():

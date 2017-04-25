@@ -1,10 +1,10 @@
 import numpy as np
 import time
 
-from porepy_new.src.porepy.grids import constants
-from porepy_new.src.porepy.grids.gmsh import gmsh_interface, mesh_io, mesh_2_grid
-from porepy_new.src.porepy.fracs import fractures, utils
-import porepy_new.src.porepy.utils.comp_geom as cg
+from porepy.grids import constants
+from porepy.grids.gmsh import gmsh_interface, mesh_io, mesh_2_grid
+from porepy.fracs import fractures, utils
+import porepy.utils.comp_geom as cg
 
 
 def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):

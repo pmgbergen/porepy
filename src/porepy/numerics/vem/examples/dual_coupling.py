@@ -16,21 +16,21 @@ import logging
 from inspect import isfunction, getmembers
 
 
-from porepy_new.src.porepy.grids import structured, simplex
-from porepy_new.src.porepy.params import second_order_tensor, bc
-from porepy_new.src.porepy.utils.errors import error
-from porepy_new.src.porepy.numerics.vem import dual, dual_coupling
-from porepy_new.src.porepy.viz.plot_grid import plot_grid
-from porepy_new.src.porepy.viz.exporter import export_vtk
-import porepy_new.src.porepy.utils.comp_geom as cg
+from porepy.grids import structured, simplex
+from porepy.params import second_order_tensor, bc
+from porepy.utils.errors import error
+from porepy.numerics.vem import dual, dual_coupling
+from porepy.viz.plot_grid import plot_grid
+from porepy.viz.exporter import export_vtk
+import porepy.utils.comp_geom as cg
 
-from porepy_new.src.porepy.grids.grid import FaceTag
+from porepy.grids.grid import FaceTag
 
-from porepy_new.src.porepy.grids.coarsening import *
-from porepy_new.src.porepy.grids import grid_bucket
-from porepy_new.src.porepy.fracs import meshing, split_grid
+from porepy.grids.coarsening import *
+from porepy.grids import grid_bucket
+from porepy.fracs import meshing, split_grid
 
-from porepy_new.src.porepy.numerics.mixed_dim import coupler
+from porepy.numerics.mixed_dim import coupler
 
 
 #------------------------------------------------------------------------------#

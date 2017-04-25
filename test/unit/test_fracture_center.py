@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from porepy_new.src.porepy.fracs.fractures import Fracture
+from porepy.fracs.fractures import Fracture
 
 
 class TestFractureCenters(unittest.TestCase):

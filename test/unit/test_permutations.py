@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from porepy_new.src.porepy.utils import permutations
+from porepy.utils import permutations
 
 class TestPermutations(unittest.TestCase):
 

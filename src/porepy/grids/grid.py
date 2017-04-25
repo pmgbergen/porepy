@@ -16,10 +16,10 @@ import itertools
 from enum import Enum
 from scipy import sparse as sps
 
-from porepy_new.src.porepy.utils import matrix_compression, half_space, mcolon
+from porepy.utils import matrix_compression, half_space, mcolon
 
-from porepy_new.src.porepy.utils import comp_geom as cg
-from porepy_new.src.porepy.utils.sort_points import sort_point_pairs
+from porepy.utils import comp_geom as cg
+from porepy.utils.sort_points import sort_point_pairs
 
 
 class FaceTag(np.uint8, Enum):

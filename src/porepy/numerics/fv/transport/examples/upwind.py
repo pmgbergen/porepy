@@ -15,14 +15,14 @@ import traceback
 import logging
 from inspect import isfunction, getmembers
 
-from porepy_new.src.porepy.grids import structured, simplex
-from porepy_new.src.porepy.params import bc, second_order_tensor
-from porepy_new.src.porepy.utils.errors import error
-from porepy_new.src.porepy.utils import comp_geom as cg
-from porepy_new.src.porepy.numerics.vem import dual
-from porepy_new.src.porepy.numerics.fv.transport import upwind
-from porepy_new.src.porepy.numerics.fv import mass_matrix
-from porepy_new.src.porepy.viz.exporter import export_vtk, export_pvd
+from porepy.grids import structured, simplex
+from porepy.params import bc, second_order_tensor
+from porepy.utils.errors import error
+from porepy.utils import comp_geom as cg
+from porepy.numerics.vem import dual
+from porepy.numerics.fv.transport import upwind
+from porepy.numerics.fv import mass_matrix
+from porepy.viz.exporter import export_vtk, export_pvd
 
 #------------------------------------------------------------------------------#
 

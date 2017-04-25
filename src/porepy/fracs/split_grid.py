@@ -6,10 +6,10 @@ import numpy as np
 import matplotlib.pylab as plt
 from scipy import sparse as sps
 
-from porepy_new.src.porepy.utils.half_space import half_space_int
-from porepy_new.src.porepy.utils.graph import Graph
-from porepy_new.src.porepy.utils.mcolon import mcolon
-from porepy_new.src.porepy.grids.grid import Grid, FaceTag
+from porepy.utils.half_space import half_space_int
+from porepy.utils.graph import Graph
+from porepy.utils.mcolon import mcolon
+from porepy.grids.grid import Grid, FaceTag
 
 
 def split_fractures(bucket, **kwargs):

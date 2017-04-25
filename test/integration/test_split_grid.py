@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from porepy_new.src.porepy.fracs import meshing
+from porepy.fracs import meshing
 
 
 class TestMeshing(unittest.TestCase):

@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from scipy import sparse as sps
 
-from porepy_new.src.porepy.utils import graph
+from porepy.utils import graph
 
 #------------------------------------------------------------------------------#
 

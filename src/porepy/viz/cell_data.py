@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.tri
 from matplotlib import cm
 
-from porepy_new.src.porepy.grids import structured, simplex
+from porepy.grids import structured, simplex
 
 
 def plot_cell_data(g, data):

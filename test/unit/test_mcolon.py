@@ -7,7 +7,7 @@ Created on Thu Apr 14 13:51:05 2016
 
 import numpy as np
 
-from porepy_new.src.porepy.utils import mcolon
+from porepy.utils import mcolon
 
 
 def test_mcolon_simple():

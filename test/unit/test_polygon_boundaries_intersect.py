@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from porepy_new.src.porepy.utils import comp_geom as cg
+from porepy.utils import comp_geom as cg
 
 class TestPolygonBoundariesIntersect(unittest.TestCase):
 

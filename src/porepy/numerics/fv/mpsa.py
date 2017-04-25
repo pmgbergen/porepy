@@ -11,10 +11,10 @@ that module as well.
 import numpy as np
 import scipy.sparse as sps
 
-from porepy_new.src.porepy.numerics.fv import fvutils
-from porepy_new.src.porepy.utils import matrix_compression
-from porepy_new.src.porepy.grids import structured
-from porepy_new.src.porepy.params import fourth_order_tensor, bc
+from porepy.numerics.fv import fvutils
+from porepy.utils import matrix_compression
+from porepy.grids import structured
+from porepy.params import fourth_order_tensor, bc
 
 
 def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):

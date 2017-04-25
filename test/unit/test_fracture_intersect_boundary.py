@@ -9,7 +9,7 @@ of the latter are too time consuming to fit into a unit test.
 import unittest
 import numpy as np
 
-from porepy_new.src.porepy.fracs.fractures import Fracture, FractureNetwork
+from porepy.fracs.fractures import Fracture, FractureNetwork
 
 class TestFractureBoundaryIntersection():
 

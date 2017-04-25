@@ -20,8 +20,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from mpl_toolkits.mplot3d import Axes3D, proj3d
 
-from porepy_new.src.porepy.grids import grid, grid_bucket
-from porepy_new.src.porepy.utils import sort_points
+from porepy.grids import grid, grid_bucket
+from porepy.utils import sort_points
 
 #------------------------------------------------------------------------------#
 

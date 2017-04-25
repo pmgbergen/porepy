@@ -7,9 +7,9 @@ Created on Sun Feb 28 20:55:56 2016
 
 import numpy as np
 
-from porepy_new.src.porepy.grids import structured
-from porepy_new.src.porepy.params import second_order_tensor, bc
-from porepy_new.src.porepy.numerics.fv import tpfa
+from porepy.grids import structured
+from porepy.params import second_order_tensor, bc
+from porepy.numerics.fv import tpfa
 
 
 def test_tpfa_cart_2d():

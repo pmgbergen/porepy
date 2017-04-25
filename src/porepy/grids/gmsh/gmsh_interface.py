@@ -4,9 +4,9 @@ import numpy as np
 import sys
 import os
 
-from porepy_new.src.porepy.utils import sort_points
-from porepy_new.src.porepy.grids.gmsh import mesh_io
-import porepy_new.src.porepy.grids.constants as gridding_constants
+from porepy.utils import sort_points
+from porepy.grids.gmsh import mesh_io
+import porepy.grids.constants as gridding_constants
 
 
 class GmshWriter(object):

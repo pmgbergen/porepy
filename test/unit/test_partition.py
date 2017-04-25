@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from porepy_new.src.porepy.grids import structured, simplex, partition
+from porepy.grids import structured, simplex, partition
 
 
 class TestCartGrids(unittest.TestCase):

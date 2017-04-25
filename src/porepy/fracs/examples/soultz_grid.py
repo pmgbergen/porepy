@@ -3,8 +3,8 @@ Create a grid based on the Soultz data set.
 """
 import numpy as np
 
-from porepy_new.src.porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
-from porepy_new.src.porepy.fracs import meshing, simplex, split_grid
+from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
+from porepy.fracs import meshing, simplex, split_grid
 
 
 def create_grid(gmsh_path):

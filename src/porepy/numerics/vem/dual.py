@@ -8,9 +8,9 @@ import numpy as np
 import warnings
 import scipy.sparse as sps
 
-from porepy_new.src.porepy.params import second_order_tensor
-from porepy_new.src.porepy.numerics.mixed_dim.solver import *
-import porepy_new.src.porepy.utils.comp_geom as cg
+from porepy.params import second_order_tensor
+from porepy.numerics.mixed_dim.solver import *
+import porepy.utils.comp_geom as cg
 
 class DualVEM(Solver):
 

@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
 
-from porepy_new.src.porepy.fracs import structured, meshing
-from porepy_new.src.porepy.grids.grid import FaceTag
+from porepy.fracs import structured, meshing
+from porepy.grids.grid import FaceTag
 
 
 class TestFaceTags(unittest.TestCase):

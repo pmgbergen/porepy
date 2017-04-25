@@ -10,7 +10,7 @@ import scipy.sparse as sps
 import numba
 import sys
 
-from porepy_new.src.porepy.utils import matrix_compression, mcolon
+from porepy.utils import matrix_compression, mcolon
 
 
 class SubcellTopology(object):

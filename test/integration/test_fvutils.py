@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy_new.src.porepy.numerics.fv import fvutils
-from porepy_new.src.porepy.grids import structured, simplex
+from porepy.numerics.fv import fvutils
+from porepy.grids import structured, simplex
 
 
 def test_block_matrix_inverters_full_blocks():

@@ -1,9 +1,9 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy_new.src.porepy.params import fourth_order_tensor, bc
-from porepy_new.src.porepy.grids import structured, simplex
-from porepy_new.src.porepy.numerics.fv import mpsa, fvutils
+from porepy.params import fourth_order_tensor, bc
+from porepy.grids import structured, simplex
+from porepy.numerics.fv import mpsa, fvutils
 import setup_grids_mpfa_mpsa_tests as setup_grids
 
 

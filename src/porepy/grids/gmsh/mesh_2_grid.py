@@ -4,9 +4,9 @@ Maybe we will add the reverse mapping.
 """
 import numpy as np
 
-from porepy_new.src.porepy.grids import simplex, structured, point_grid
-from porepy_new.src.porepy.grids import constants
-import porepy_new.src.porepy.utils.comp_geom as cg
+from porepy.grids import simplex, structured, point_grid
+from porepy.grids import constants
+import porepy.utils.comp_geom as cg
 
 
 def create_3d_grids(pts, cells):

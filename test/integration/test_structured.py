@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from porepy_new.src.porepy.fracs import structured
+from porepy.fracs import structured
 
 
 class TestStructured(unittest.TestCase):

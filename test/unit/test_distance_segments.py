@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from porepy_new.src.porepy.utils import comp_geom as cg
+from porepy.utils import comp_geom as cg
 
 class TestSegmentDistance(unittest.TestCase):
     def setup_2d_unit_square(self):

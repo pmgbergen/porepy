@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy_new.src.porepy.grids.grid import Grid
+from porepy.grids.grid import Grid
 
 class PointGrid(Grid):
 

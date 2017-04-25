@@ -28,12 +28,12 @@ except ImportError:
     vtk will not work.')
 
 # Import of internally developed packages.
-from porepy_new.src.porepy.utils import comp_geom as cg
-from porepy_new.src.porepy.utils import setmembership, sort_points
-from porepy_new.src.porepy.grids import simplex
-from porepy_new.src.porepy.grids.gmsh.gmsh_interface import GmshWriter
-from porepy_new.src.porepy.grids.constants import GmshConstants
-from porepy_new.src.porepy.fracs.utils import determine_mesh_size
+from porepy.utils import comp_geom as cg
+from porepy.utils import setmembership, sort_points
+from porepy.grids import simplex
+from porepy.grids.gmsh.gmsh_interface import GmshWriter
+from porepy.grids.constants import GmshConstants
+from porepy.fracs.utils import determine_mesh_size
 
 
 class Fracture(object):

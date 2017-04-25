@@ -2,8 +2,8 @@ import numpy as np
 import scipy as sps
 import unittest
 
-from porepy_new.src.porepy.grids import structured, simplex
-from porepy_new.src.porepy.grids.coarsening import *
+from porepy.grids import structured, simplex
+from porepy.grids.coarsening import *
 
 #------------------------------------------------------------------------------#
 

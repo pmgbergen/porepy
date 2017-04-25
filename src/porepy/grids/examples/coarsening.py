@@ -14,11 +14,11 @@ import traceback
 import logging
 from inspect import isfunction, getmembers
 
-from porepy_new.src.porepy.grids import structured, simplex
-from porepy_new.src.porepy.params import second_order_tensor
+from porepy.grids import structured, simplex
+from porepy.params import second_order_tensor
 
-from porepy_new.src.porepy.viz.plot_grid import plot_grid
-from porepy_new.src.porepy.grids.coarsening import *
+from porepy.viz.plot_grid import plot_grid
+from porepy.grids.coarsening import *
 
 #------------------------------------------------------------------------------#
 
