@@ -84,26 +84,6 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         isect = cg.polygon_segment_intersect(p_4, p_1)
         assert isect is None
 
-    def test_segments_same_plane_no_isect(self):
-        # Polygons in the same plane, but no intersection
-        p_1, *rest = self.setup_polygons()
-        p_2 = p_1 + np.array([3, 0, 0]).reshape((-1, 1))
-        isect = cg.polygon_segment_intersect(p_1, p_2)
-        assert isect is None
-        isect = cg.polygon_segment_intersect(p_2, p_1)
-        assert isect is None
-
-    def test_segments_same_plane_isect(self):
-        # Polygons in the same plane, and intersection. Should raise an
-        # exception.
-        p_1, *rest = self.setup_polygons()
-        p_2 = p_1 + np.array([1, 0, 0]).reshape((-1, 1))
-        caught_exp = False
-        try:
-            isect = cg.polygon_segment_intersect(p_1, p_2)
-        except NotImplementedError:
-            caught_exp = True
-        assert caught_exp
 
     if __name__ == '__main__':
         unittest.main()

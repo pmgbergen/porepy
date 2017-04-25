@@ -23,9 +23,8 @@ from math import pi
 from porepy_new.src.porepy.grids import structured, simplex
 from porepy_new.src.porepy.params import second_order_tensor, fourth_order_tensor, bc
 from porepy_new.src.porepy.numerics.fv import mpfa, fvutils, mpsa
-from porepy_new.src.porepy.numerics.fv.tests import setup_grids
 from porepy_new.src.porepy.utils.mcolon import mcolon
-
+import setup_grids_mpfa_mpsa_tests as setup_grids
 
 class _SolutionHomogeneousDomainFlow(object):
     """Convenience class for representing an analytical solution, and its
