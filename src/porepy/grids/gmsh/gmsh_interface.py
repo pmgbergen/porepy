@@ -3,9 +3,9 @@
 import numpy as np
 import sys
 import os
+from meshio import msh_io
 
 from porepy.utils import sort_points
-from porepy.grids.gmsh import mesh_io
 import porepy.grids.constants as gridding_constants
 
 
@@ -411,11 +411,6 @@ class GmshGridBucketWriter(object):
         return s
 
 #------------------ End of GmshGridBucketWriter------------------------------
-
-def read_gmsh(out_file):
-    points, cells, phys_names, cell_info = mesh_io.read(out_file)
-    return points, cells, phys_names, cell_info
-
 
 def run_gmsh(path_to_gmsh, in_file, out_file, dims, **kwargs):
     """

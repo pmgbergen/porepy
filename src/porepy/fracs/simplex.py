@@ -1,10 +1,13 @@
 import numpy as np
 import time
+from meshio import msh_io
+import warnings
 
 from porepy.grids import constants
-from porepy.grids.gmsh import gmsh_interface, mesh_io, mesh_2_grid
+from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
 from porepy.fracs import fractures, utils
 import porepy.utils.comp_geom as cg
+
 
 
 def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
@@ -103,7 +106,11 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
         else:
             print('Gmsh failed with status ' + str(gmsh_status))
 
-    pts, cells, phys_names, cell_info = gmsh_interface.read_gmsh(out_file)
+    pts, cells, _, cell_info, phys_names = msh_io.read(out_file)
+
+    # Invert phys_names dictionary to map from physical tags to corresponding
+    # physical names
+    phys_names = {v: k for k, v in phys_names.items()}
 
     # Call upon helper functions to create grids in various dimensions.
     # The constructors require somewhat different information, reflecting the
@@ -228,7 +235,13 @@ def triangle_grid(fracs, domain, **kwargs):
         else:
             print('Gmsh failed with status ' + str(gmsh_status))
 
-    pts, cells, phys_names, cell_info = mesh_io.read(out_file)
+    pts, cells, _, cell_info, phys_names = msh_io.read(out_file)
+    warning.warn('The 2d gridder has not been validated for the new meshio'
+                 + 'format. Use with care')
+
+    # Invert phys_names dictionary to map from physical tags to corresponding
+    # physical names
+    phys_names = {v: k for k, v in phys_names.items()}
 
     # Create grids from gmsh mesh.
     g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False)

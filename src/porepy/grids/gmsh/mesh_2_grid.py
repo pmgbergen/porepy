@@ -52,14 +52,21 @@ def create_2d_grids(pts, cells, **kwargs):
         # decomposition
         poly_2_frac = network.decomposition['polygon_frac']
 
-        num_tri = len(phys_names['triangle'])
-        gmsh_num = np.zeros(num_tri)
-        frac_num = np.zeros(num_tri)
+        num_tri = tri_cells.shape[0]
 
-        for i, pn in enumerate(phys_names['triangle']):
-            offset = pn[2].rfind('_')
-            frac_num[i] = poly_2_frac[int(pn[2][offset + 1:])]
-            gmsh_num[i] = pn[1]
+        phys_name_ind_tri = np.unique(cell_info['triangle']['physical'])
+
+        # Index of the physical name tag assigned by gmsh to each fracture
+        gmsh_num = np.zeros(phys_name_ind_tri.size, dtype='int')
+        # Index of the corresponding name used in the input to gmsh (on the
+        # from FRACTURE_{0, 1} etc.
+        frac_num = np.zeros(phys_name_ind_tri.size, dtype='int')
+
+        for i, pn_ind in enumerate(phys_name_ind_tri):
+            pn = phys_names[pn_ind]
+            offset = pn.rfind('_')
+            frac_num[i] = poly_2_frac[int(pn[offset + 1:])]
+            gmsh_num[i] = pn_ind
 
         for fi in np.unique(frac_num):
             loc_num = np.where(frac_num == fi)[0]
@@ -69,7 +76,7 @@ def create_2d_grids(pts, cells, **kwargs):
             for ti in loc_gmsh_num:
                 # It seems the gmsh numbering corresponding to the physical tags
                 # (as found in physnames) is stored in the first column of info
-                gmsh_ind = np.where(cell_info['triangle'][:, 0] == ti)[0]
+                gmsh_ind = np.where(cell_info['triangle']['physical'] == ti)[0]
                 loc_tri_glob_ind = np.vstack((loc_tri_glob_ind,
                                               tri_cells[gmsh_ind, :]))
 
@@ -114,22 +121,23 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
 
     gmsh_const = constants.GmshConstants()
 
-    line_tags = cell_info['line'][:, 0]
+    line_tags = cell_info['line']['physical']
     line_cells = cells['line']
 
     gmsh_tip_num = []
     tip_pts = np.empty(0)
 
-    for i, pn in enumerate(phys_names['line']):
+    for i, pn_ind in enumerate(np.unique(line_tags)):
         # Index of the final underscore in the physical name. Chars before this
         # will identify the line type, the one after will give index
-        offset_index = pn[2].rfind('_')
-        loc_line_cell_num = np.where(line_tags == pn[1])[0]
+        pn = phys_names[pn_ind]
+        offset_index = pn.rfind('_')
+        loc_line_cell_num = np.where(line_tags == pn_ind)[0]
         loc_line_pts = line_cells[loc_line_cell_num, :]
 
         assert loc_line_pts.size > 1
 
-        line_type = pn[2][:offset_index]
+        line_type = pn[:offset_index]
 
         if line_type == gmsh_const.PHYSICAL_NAME_FRACTURE_TIP[:-1]:
             gmsh_tip_num.append(i)

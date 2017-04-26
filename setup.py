@@ -21,7 +21,8 @@ setup(
                       'networkx>=1.10',
                       'sympy>=1.0',
                       'numba>=0.26',
-                      'pytriangle>=1.0.0;platform_system=="Linux"',
+                      'meshio>=1.7.7',
+                      'triangle>=1.0.0;platform_system=="Linux"',
                       'pymetis>=2016.2;platform_system=="Linux"'
                      ],
     maintainer='Eirik Keilegavlen',
