@@ -5,7 +5,7 @@ import unittest
 
 from porepy.numerics.fv import mpfa, mpsa, fvutils
 from porepy.params import second_order_tensor, fourth_order_tensor, bc
-import setup_grids_mpfa_mpsa_tests as setup_grids
+from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
 class BiotTest():
