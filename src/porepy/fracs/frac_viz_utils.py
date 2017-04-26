@@ -3,18 +3,30 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_fractures(d, p, c, colortag=None):
+def plot_fractures(d, p, c, colortag=None, **kwargs):
     """
-    Plot fractures as lines in a domain
+    Plot 2d fractures as lines in a domain.
 
-    d: domain size in the form of a dictionary
-    p - points
-    c - connection between fractures
-    colortag - indicate that fractures should have different colors
+    The function is primarily intended for data exploration.
+
+    Parameters:
+        d (dictionary): Domain size. Should contain fields xmin, xmax, ymin,
+            ymax.
+        p (np.ndarray, dims 2 x npt): Coordinates of the fracture endpoints.
+        c (np.ndarray, dims 2 x n_edges): Indices of fracture start and
+            endpoints.
+        colortag (np.ndarray, dim n_edges, optional): Colorcoding for fractures
+            (e.g. by fracture family). If provided, different colors will be
+            asign to the different families. Defaults to all fractures being
+            black.
+        kwargs: Keyword arguments passed on to matplotlib.
+
     """
-    
-    # Assign a color to each tag. We define these by RBG-values (simplest option in pyplot).
-    # For the moment, some RBG values are hard coded, do something more intelligent if necessary.
+
+    # Assign a color to each tag. We define these by RBG-values (simplest
+    # option in pyplot).
+    # For the moment, some RBG values are hard coded, do something more
+    # intelligent if necessary.
     if colortag is None:
         tagmap = np.zeros(c.shape[1], dtype='int')
         col = [(0, 0, 0)];
@@ -28,14 +40,17 @@ def plot_fractures(d, p, c, colortag=None):
                    (1, 1, 0), (1, 0, 1), (0, 0, 1)]
         else:
             raise NotImplementedError('Have not thought of more than six colors')
-    
-    
-    plt.figure()
-    # Simple for-loop to draw one fracture after another. Not fancy, but it serves its purpose.
-    for i in range(c.shape[1]):
-        plt.plot([p[0, c[0, i]], p[0, c[1, i]]], [p[1, c[0, i]], p[1, c[1, i]]], 'o-',color=col[tagmap[i]])
+
+    plt.figure(**kwargs)
     plt.axis([d['xmin'], d['xmax'], d['ymin'], d['ymax']])
+    # Simple for-loop to draw one fracture after another. Not fancy, but it
+    # serves its purpose.
+    for i in range(c.shape[1]):
+        plt.plot([p[0, c[0, i]], p[0, c[1, i]]],
+                 [p[1, c[0, i]], p[1, c[1, i]]], 'o-', color=col[tagmap[i]])
+    # Finally set axis
     plt.show()
+
 
 def remove_nodes(g, rem):
     """
@@ -48,3 +63,4 @@ def remove_nodes(g, rem):
     g.face_nodes = g.face_nodes[rows_to_keep,:]
     g.nodes = g.nodes[:,rows_to_keep]
     return g
+
