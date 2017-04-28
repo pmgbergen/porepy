@@ -264,7 +264,7 @@ class DualVEM(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def projectU(self, g, u, data):
+    def projectU(self, g, u, data={}):
         """  Project the velocity computed with a dual vem solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
@@ -281,7 +281,7 @@ class DualVEM(Solver):
         """
         if g.dim == 0: return np.zeros(3).reshape((3,1))
 
-        k = data.get('k')
+        k = data.get('k', None)
 
         if k is None: # create a warning
             kxx = np.ones(g.num_cells)
