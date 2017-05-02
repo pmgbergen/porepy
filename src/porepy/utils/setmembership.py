@@ -249,8 +249,9 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
             try:
                 import numpy_113_unique
                 un_ar, new_2_old, old_2_new \
-                    = numpy_113_unique(mat, return_index=True, return_inverse=True,
-                                axis=1)
+                    = numpy_113_unique.unique_np1130(mat, return_index=True,
+                                                     return_inverse=True,
+                                                     axis=1)
                 return un_ar, new_2_old, old_2_new
             except:
                 pass
