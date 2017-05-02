@@ -1,4 +1,4 @@
-https://travis-ci.org/pmgbergen/porepy.svg?branch=master
+[![Build Status](https://travis-ci.org/pmgbergen/porepy.svg?branch=master)](https://travis-ci.org/pmgbergen/porepy)
 
 # PorePy: A Simulation Tool for Fractured and Deformable Porous Media written in python.
 
