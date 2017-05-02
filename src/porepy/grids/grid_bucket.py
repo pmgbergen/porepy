@@ -88,7 +88,7 @@ class GridBucket(object):
             An iterator over the graph nodes.
 
         """
-        return self.graph.nodes()
+        return self.graph.nodes_iter()
 
 #------------------------------------------------------------------------------#
 
@@ -98,7 +98,7 @@ class GridBucket(object):
             An iterator over the graph edges.
 
         """
-        return self.graph.edges()
+        return self.graph.edges_iter()
 
 #------------------------------------------------------------------------------#
 
