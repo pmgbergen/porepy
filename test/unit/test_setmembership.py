@@ -161,9 +161,23 @@ class TestUniqueColumns(unittest.TestCase):
         p = np.array([[1, 1, 0], [1, 1, 0]])
         p_unique, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
 
-        assert np.allclose(p_unique, np.array([[0, 1], [0, 1]]))
-        assert np.alltrue(old_2_new == np.array([1, 1, 0]))
-        assert np.alltrue(new_2_old == np.array([2, 0]))
+        # The sorting of the output depends on how the unique array is computed
+        # (see unique_columns_tol for the various options that may be applied). 
+        # Do a simple sort to ensure we're safe.
+        if p_unique[0, 0] == 0:
+            assert np.alltrue(np.sort(old_2_new) == np.array([0, 1, 1]))
+            assert np.alltrue(np.sort(new_2_old) == np.array([0, 2]))
+        else:
+            assert np.alltrue(np.sort(old_2_new) == np.array([0, 0, 1]))
+            assert np.alltrue(np.sort(new_2_old) == np.array([0, 2]))
+
+
+        p_known = np.array([[0, 1], [0, 1]])
+
+        for i in range(p_unique.shape[1]):
+            assert np.min(np.sum(np.abs(p_known - p_unique[:, i]), axis=0))== 0
+        for i in range(p_known.shape[1]):
+            assert np.min(np.sum(np.abs(p_known[:, i] - p_unique), axis=0))== 0
 
     if __name__ == '__main__':
         unittest.main()

@@ -6,7 +6,7 @@ import scipy.sparse as sps
 from porepy.grids.grid import Grid
 from porepy.params import second_order_tensor, bc
 
-from porepy.utils import matrix_compression, mcolon, accumarray, unique
+from porepy.utils import matrix_compression, mcolon, accumarray
 
 from porepy.numerics.fv import tpfa
 
@@ -247,7 +247,8 @@ def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
         pairs = np.append(pairs, new_pair, axis=1)
 
     if pairs.size:
-        pairs = unique.unique_np113(np.sort(pairs, axis=0), axis=1)
+        pairs = setmembership.unique_columns_tol(np.sort(pairs, axis=0),
+                                                 axis=1)
         for ij in pairs.T:
             mi = np.argmin(A[ij, ij])
             is_coarse[ij[mi]] = False
