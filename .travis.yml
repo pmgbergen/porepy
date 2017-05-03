@@ -26,6 +26,6 @@ install:
   - source activate test-environment
   - pip install six packaging appdirs
   - pip install triangle meshio pymetis
-  - python setup.py install
+  - pip install .
 
 script: pytest
