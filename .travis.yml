@@ -4,10 +4,6 @@ python:
   - "3.5"
   - "3.6"
 
-before_install:
-  - pip install pytest pytest_cov
-  - pip install coveralls
-
 install:
   - sudo apt-get update
   # We do this conditionally because it saves us some downloading if the
@@ -29,6 +25,8 @@ install:
   - source activate test-environment
   - pip install six packaging appdirs
   - pip install triangle meshio pymetis
+  - pip install pytest pytest_cov 
+  - pip install coveralls
   - pip install .
 
 script: pytest
