@@ -106,5 +106,5 @@ class TestFractureBoundaryIntersection():
         p_comp = network._fractures[0].p
         assert self._arrays_equal(p_known, p_comp)
 
-if __name__ == '__main__':
-    unittest.main()
+    if __name__ == '__main__':
+        unittest.main()
