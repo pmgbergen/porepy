@@ -24,7 +24,7 @@ install:
   # Replace dep1 dep2 ... with your dependencies
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION scipy numpy numba networkx pytest sympy cython
   - source activate test-environment
-  - pip install six
+  - pip install six packaging
   - pip install triangle meshio pymetis
   - python setup.py install
 
