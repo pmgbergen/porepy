@@ -11,17 +11,16 @@ import numpy as np
 
 from porepy.fracs.fractures import Fracture, FractureNetwork
 
-class TestFractureBoundaryIntersection():
-
-    def __init__(self):
-        self.domain = {'xmin': 0, 'xmax': 1,
-                       'ymin': 0, 'ymax': 1,
-                       'zmin': 0, 'zmax': 1}
+class TestFractureBoundaryIntersection(unittest.TestCase):
 
     def setup(self):
         self.f_1 = Fracture(np.array([[0, 1, 1, 0],
                                       [.5, .5, .5, .5],
                                       [0, 0, 1, 1]]))
+        self.domain = {'xmin': 0, 'xmax': 1,
+                       'ymin': 0, 'ymax': 1,
+                       'zmin': 0, 'zmax': 1}
+
 
     def _a_in_b(self, a, b, tol=1e-5):
         for i in range(a.shape[1]):
@@ -93,6 +92,7 @@ class TestFractureBoundaryIntersection():
         assert self._arrays_equal(p_known, p_comp)
 
     def test_full_incline(self):
+        self.setup()
         p = np.array([[-0.5, 0.5, 0.5, -0.5],
                       [0.5, 0.5, 1.5, 1.5],
                       [-0.5, -0.5, 1, 1]])
@@ -108,3 +108,4 @@ class TestFractureBoundaryIntersection():
 
     if __name__ == '__main__':
         unittest.main()
+
