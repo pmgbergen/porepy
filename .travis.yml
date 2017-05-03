@@ -29,7 +29,8 @@ install:
   - pip install coveralls
   - pip install .
 
-script: pytest
+script: 
+  - pytest test --cov coveralls --cov-report term-missing
 
 after_success:
   - coveralls
