@@ -4,6 +4,10 @@ python:
   - "3.5"
   - "3.6"
 
+before_install:
+  - pip install pytest pytest_cov
+  - pip install coveralls
+
 install:
   - sudo apt-get update
   # We do this conditionally because it saves us some downloading if the
@@ -21,11 +25,13 @@ install:
   # Useful for debugging any issues with conda
   - conda info -a
 
-  # Replace dep1 dep2 ... with your dependencies
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION scipy numpy numba networkx pytest sympy cython matplotlib
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION scipy numpy numba networkx sympy cython matplotlib
   - source activate test-environment
   - pip install six packaging appdirs
   - pip install triangle meshio pymetis
   - pip install .
 
 script: pytest
+
+after_success:
+  - coveralls
