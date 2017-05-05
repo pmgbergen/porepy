@@ -587,3 +587,191 @@ class ExcludeBoundaries(object):
         exclude_neumann_nd = sps.kron(sps.eye(self.nd), self.exclude_neu)
         return exclude_neumann_nd * other
 
+#-----------------End of class ExcludeBoundaries-----------------------------
+
+def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
+
+    """ Obtain indices of cells and faces needed for a partial update of the
+    discretization stencil.
+
+    Implementation note: This function should really be split into three parts,
+    one for each of the modes (cell, face, node). It may or may not be useful
+    to keep a single mother-function to 
+
+
+    The subgrid can be specified in terms of cells, faces and nodes to be
+    updated. The method will then define a sufficiently large subgrid to
+    account for changes in the flux discretization. The idea is that cells are
+    used to account for updates in material parameters (or geometry), faces
+    when faces are split (fracture growth), while the parameter nodes is mainly
+    aimed at a gradual build of the discretization of the entire grid (for
+    memory conservation, see comments in mpfa.mpfa()). For more details, see
+    the implementations and comments below.
+
+    Cautionary note: The option to combine cells, faces and nodes in one go has
+    not been tested. Problems may arise for grid configurations where separate
+    regions are close to touching. This is however speculation at the time of
+    writing.
+
+    Parameters:
+        g (core.grids.grid): grid to be discretized
+        cells (np.array, int, optional): Index of cells on which to base the
+            subgrid computation. Defaults to None.
+        faces (np.array, int, optional): Index of faces on which to base the
+            subgrid computation. Defaults to None.
+        nodes (np.array, int, optional): Index of faces on which to base the
+            subgrid computation. Defaults to None.
+
+    Returns:
+        np.array, int: Cell indexes of the subgrid. No guarantee that they form
+            a connected grid.
+        np.array, int: Indexes of faces to have their discretization updated.
+
+    """
+
+    # Faces that are active, and should have their discretization stencil
+    # updated / returned.
+    active_faces = np.zeros(g.num_faces, dtype=np.bool)
+
+    # Index of cells to include in the subgrid.
+    cell_ind = np.empty(0)
+
+    if cells is not None:
+        # To understand the update stencil for a cell-based update, consider
+        # the Cartesian 2d configuration below.
+        #
+        #    _ s s s _
+        #    s o o o s
+        #    s o x o s
+        #    s o o o s
+        #    - s s s -
+        #
+        # The central cell (x) is to be updated. The support of MPFA basis
+        # functions dictates that the stencil between the central cell and its
+        # primary neighbors (o) must be updated, as must the stencil for the
+        # sub-faces between o-cells that shares a vertex with x. Since the
+        # flux information is stored face-wise (not sub-face), the whole o-o
+        # faces must be recomputed, and this involves the secondary neighbors
+        # of x (denoted s). This is most easily realized by defining an overlap
+        # of 2. This will also involve some cells and nodes not needed;
+        # specifically those marked by -. This requires quite a song and dance,
+        # see below; but most of this is necessary to get hold of the active
+        # faces anyhow.
+        #
+        # Note that a simpler option, with a somewhat higher computational cost,
+        # would be to define
+        #   cell_overlap = partition.overlap(g, cells, num_layers=2)
+        # This would however include more cells (all marked - in the
+        # illustration, and potentially significantly many more in 3d, in
+        # particular for unstructured grids).
+
+        cn = g.cell_nodes()
+
+        # The active faces (to be updated; (o-x and o-o above) are those that
+        # share at least one vertex with cells in ind.
+        prim_cells = np.zeros(g.num_cells, dtype=np.bool)
+        prim_cells[cells] = 1
+        # Vertexes of the cells
+        active_vertexes = np.zeros(g.num_nodes, dtype=np.bool)
+        active_vertexes[np.squeeze(np.where(cn * prim_cells > 0))] = 1
+
+        # Faces of the vertexes, these will be the active faces.
+        active_face_ind = np.squeeze(np.where(g.face_nodes.transpose()\
+                                           * active_vertexes > 0))
+        active_faces[active_face_ind] = 1
+
+        # Secondary vertexes, involved in at least one of the active faces,
+        # that is, the faces to be updated. Corresponds to vertexes between o-o
+        # above.
+        active_vertexes[np.squeeze(np.where(g.face_nodes\
+                                            * active_faces > 0))]=1
+
+        # Finally, get hold of all cells that shares one of the secondary
+        # vertexes.
+        cells_overlap = np.squeeze(np.where((cn.transpose()\
+                                            * active_vertexes) > 0))
+        # And we have our overlap!
+        cell_ind = np.hstack((cell_ind, cells_overlap))
+
+    if faces is not None:
+        # The faces argument is intended used when the configuration of the
+        # specified faces has changed, e.g. due to the introduction of an
+        # external boundary. This requires the recomputation of all faces that
+        # share nodes with the specified faces. Since data is not stored on
+        # sub-faces. This further requires the inclusion of all cells that
+        # share a node with a secondary face.
+        #
+        #      o o o
+        #    o o x o o
+        #    o o x o o
+        #      o o o
+        #
+        # To illustrate for the Cartesian configuration above: The face
+        # between the two x-cells are specified, and this requires the
+        # inclusion of all o-cells.
+        #
+
+        cf = g.cell_faces
+        # This avoids overwriting data in cell_faces.
+        data = np.ones_like(cf.data)
+        cf = sps.csc_matrix((data, cf.indices, cf.indptr))
+
+        primary_faces = np.zeros(g.num_faces, dtype=np.bool)
+        primary_faces[faces] = 1
+
+        # The active faces are those sharing a vertex with the primary faces
+        primary_vertex = np.zeros(g.num_nodes, dtype=np.bool)
+        primary_vertex[np.squeeze(np.where((g.face_nodes \
+                                            * primary_faces) > 0))] = 1
+        active_face_ind = np.squeeze(np.where((g.face_nodes.transpose()\
+                                               * primary_vertex) > 0))
+        active_faces[active_face_ind] = 1
+
+        # Find vertexes of the active faces
+        active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
+        active_nodes[np.squeeze(np.where((g.face_nodes\
+                                          * active_faces) > 0))] = 1
+
+        active_cells = np.zeros(g.num_cells, dtype=np.bool)
+        # Primary cells, those that have the faces as a boundary
+        cells_overlap = np.squeeze(np.where((g.cell_nodes().transpose()
+                                             * active_nodes) > 0))
+        cell_ind = np.hstack((cell_ind, cells_overlap))
+
+    if nodes is not None:
+        # Pick out all cells that have the specified nodes as a vertex.
+        # The active faces will be those that have all their vertexes included
+        # in nodes.
+        cn = g.cell_nodes()
+        # Introduce active nodes, and make the input nodes active
+        # The data type of active_vertex is int (in contrast to similar cases
+        # in other parts of this function), since we will use it to count the
+        # number of active face_nodes below.
+        active_vertexes = np.zeros(g.num_nodes, dtype=np.int)
+        active_vertexes[nodes] = 1
+
+        # Find cells that share these nodes
+        active_cells = np.squeeze(np.where((cn.transpose() \
+                                            * active_vertexes) > 0))
+        # Append the newly found active cells
+        cell_ind = np.hstack((cell_ind, active_cells))
+
+        # Multiply face_nodes.transpose() (e.g. node-faces) with the active
+        # vertexes to get the number of active nodes perm face
+        num_active_face_nodes = np.array(g.face_nodes.transpose()\
+                                          * active_vertexes)
+        # Total number of nodes per face
+        num_face_nodes = np.array(g.face_nodes.sum(axis=0))
+        # Active faces are those where all nodes are active.
+        active_face_ind = np.squeeze(np.argwhere((num_active_face_nodes ==
+                                              num_face_nodes).ravel('F')))
+        active_faces[active_face_ind] = 1
+
+    face_ind = np.squeeze(np.where(active_faces))
+
+    # Do a sort of the indexes to be returned.
+    cell_ind.sort()
+    face_ind.sort()
+    # Return, with data type int
+    return cell_ind.astype('int'), face_ind.astype('int')
+
