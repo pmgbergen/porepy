@@ -98,7 +98,8 @@ class Mpfa(Solver):
 #------------------------------------------------------------------------------#
 
 
-def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None):
+def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba', apertures=None,
+         max_memory=None):
     """
     Discretize the scalar elliptic equation by the multi-point flux
     approximation method.
@@ -178,7 +179,149 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None):
 
     """
 
+    if max_memory is None:
+        # Nothing to do here 
+        flux, bound_flux = _mpfa_local(g, k, bnd, eta=eta, inverter=inverter)
+    else:
+    	# Implementation is not finished
+        # Estimate number of partitions necessary based on prescribed memory
+        # usage
+	    # TODO: Need to implement this method.
+        num_part = _estimate_num_part(g, max_memory)
+        # Let partitioning module apply the best available method
+        part = partition.partition(g, num_part)
+
+        # Boundary faces on the main grid
+        glob_bound_face = g.get_boundary_faces()
+
+        # Empty fields for flux and bound_flux. Will be expanded as we go.
+        flux = sps.csr_matrix(g.num_faces, g.num_cells)
+        bound_flux = sps.csr_matrix(g.num_faces, g.num_faces)
+
+        cn = g.cell_nodes()
+
+        for p in range(part.max()):
+            # Cells in this partitioning
+            cell_ind = np.argwhere(part == p).ravel('F')
+            # To discretize with as little overlap as possible, we use the
+            # keyword nodes to specify the update stencil. Find nodes of the
+            # local cells.
+            active_cells = np.zeros(g.num_cells, dtype=np.bool)
+            active_cells[cell_ind] = 1
+            active_nodes = np.squeeze(np.where((cn * active_cells) > 0))
+
+            # Perform local discretization.
+            loc_flux, loc_bound_flux = mpfa_partial(g, k, bnd, eta=eta,
+                                                    inverter=inverter,
+                                                    nodes=active_nodes)
+            # Faces on the boundary between subgrids will be covered twice (so
+            # will some close to the boundary). We need some way of ignoring
+            # the second pass; potentially by using the active faces from
+            # mpfa_partial. This must be done before adding to flux and
+            # bound_flux
+
+            flux += loc_flux
+            bound_flux += loc_bound_flux
+
+    return flux, bound_flux
+
+
+def mpfa_partial(g, k, bnd, eta=0, inverter=0, cells=None, faces=None,
+                 nodes=None):
     """
+    Run an MPFA discretization on subgrid, and return discretization in terms
+    of global variable numbers.
+
+    Scenarios where the method will be used include updates of permeability,
+    and the introduction of an internal boundary (e.g. fracture growth).
+
+    The subgrid can be specified in terms of cells, faces and nodes to be
+    updated. For details on the implementation, see
+    fv_utils.cell_ind_for_partial_update()
+
+    Parameters:
+        g (core.grids.grid): grid to be discretized
+        k (core.constit.second_order_tensor) permeability tensor
+        bnd (core.bc.bc) class for boundary values
+        faces (np.ndarray) faces to be considered. Intended for partial
+            discretization, may change in the future
+        eta Location of pressure continuity point. Should be 1/3 for simplex
+            grids, 0 otherwise. On boundary faces with Dirichlet conditions,
+            eta=0 will be enforced.
+        inverter (string) Block inverter to be used, either numba (default),
+            cython or python. See fvutils.invert_diagonal_blocks for details.
+        cells (np.array, int, optional): Index of cells on which to base the
+            subgrid computation. Defaults to None.
+        faces (np.array, int, optional): Index of faces on which to base the
+            subgrid computation. Defaults to None.
+        nodes (np.array, int, optional): Index of faces on which to base the
+            subgrid computation. Defaults to None.
+
+        Note that if all of {cells, faces, nodes} are None, empty matrices will
+        be returned.
+
+    Returns:
+        sps.csr_matrix (g.num_faces x g.num_cells): Flux discretization,
+            computed on a subgrid.
+        sps.csr_matrix (g,num_faces x g.num_faces): Boundary flux
+            discretization, computed on a subgrid
+        np.array (int): Global of the faces where the flux discretization is
+            computed.
+
+    """
+    ind, active_face = fv_utils.cell_ind_for_partial_update(g, cells=cells,
+                                                            faces=faces,
+                                                            nodes=nodes)
+    
+    # Extract subgrid, together with mappings between local and global
+    # cells
+    sub_g, l2g_faces, l2g_cells = partition.extract_subgrid(g, ind)
+
+    ## Local parameter fields
+    # Copy permeability field, and restrict to local cells
+    loc_k = k.copy()
+    loc_k.perm = k_loc.perm[::, l2g_cells]
+
+    # Boundary conditions are slightly more complex. Find local faces
+    # that are on the global boundary.
+    loc_bound_ind = np.argwhere(np.ismember(l2g_faces,
+                                            glob_bound_face)).ravel('F')
+    # Then pick boundary condition on those faces.
+    # We could have avoided to explicitly define Neumann conditions,
+    # since these are default
+    is_dir = bnd.is_dir[l2g_faces[loc_bound_ind]]
+    is_neu = bnd.is_neu[l2g_faces[loc_bound_ind]]
+
+    loc_cond = loc_bound_ind.size * ['neu']
+    loc_cond[loc_bound_ind] = 'dir'
+    loc_bnd = bc.BoundaryCondition(g, faces=loc_bound_ind, cond=loc_cond)
+    flux_loc, bound_flux_loc = _mpfa_local(sub_g, loc_k, loc_bnd,
+                                           eta=eta, inverter=inverter)
+
+    num_faces_loc = l2g_faces.size
+    num_cells_loc = l2g_cells.size
+    # TODO: Need to exclude almost-boundary faces and cells. Cells
+    # should be simple (consider ind vs ind_overlap). For faces, we
+    # should go through sub_g.face_cells.
+    face_map = sps.csr_matrix((np.ones(num_faces_loc),
+                               (np.arange(num_faces_loc), l2g_faces)),
+                              shape=(num_faces_loc, g.num_faces))
+    cell_map = sps.csr_matrix((np.ones(num_cells_loc),
+                               (np.arange(num_cells_loc), l2g_cells)),
+                              shape=(num_cells_loc, g.num_cells))
+    # Update global face fields.
+    flux_glob = face_map.transpose() * flux_loc * cell_map
+    bound_flux_glob = face_map.transpose() * bound_flux_loc * face_map
+
+    return flux_glob, bound_flux_glob, active_faces
+
+
+def _mpfa_local(g, k, bnd, eta=0, inverter='numba'):
+    """
+    Actual implementation of the MPFA O-method. To calculate MPFA on a grid
+    directly, either call this method, or, to respect the privacy of this
+    method, the main mpfa method with no memory constraints.
+
     Method properties and implementation details.
     The pressure is discretized as a linear function on sub-cells (see
     reference paper). In this implementation, the pressure is represented by
@@ -350,6 +493,40 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None):
 # documented.
 #
 #----------------------------------------------------------------------------#
+
+def _estimate_memory_consumption(g):
+    """
+    Rough estimate of peak memory need
+    """
+    nd = g.dim
+    num_cell_nodes = g.cell_nodes().toarray().sum(axis=1)
+    
+    # Number of unknowns around a vertex: nd per cell that share the vertex for
+    # pressure gradients, and one per cell (cell center pressure)
+    num_grad_unknowns = nd * num_cell_nodes
+
+    # The most expensive field is the storage of igrad, which is block diagonal
+    # with num_grad_unknowns sized blocks
+    igrad_size = num_grad_unknowns.sum()
+    
+    # The discretization of Darcy's law will require nd (that is, a gradient)
+    # per sub-face.
+    num_sub_face = g.face_nodes.toarray().sum()
+    darcy_size = nd * num_sub_face
+
+    # Balancing of fluxes will require 2*nd (gradient on both sides) fields per
+    # sub-face
+    nk_grad_size = 2 * nd * num_sub_face
+    # Similarly, pressure continuity requires 2 * (nd+1) (gradient on both
+    # sides, and cell center pressures) numbers
+    pr_cont_size = 2 * (nd + 1) * num_sub_face
+
+    total_size = igrad_size + darcy_size + nk_grad_size + pr_cont_size
+
+    # Not covered yet is various fields on subcell topology, mapping matrices
+    # between local and block ordering etc.
+    return total_size
+
 
 def _tensor_vector_prod(g, k, subcell_topology, apertures=None):
     """
