@@ -106,6 +106,8 @@ class GridBucket(object):
         """
         Obtain the vertices of an edge, in ascending order with respect their
         dimension.
+        In the equal-dimensional case, a sorting index 'node_number' is required
+        as the edges cannot be sorted according to dimension.
 
         Parameters:
             e: An edge in the graph.
@@ -115,7 +117,15 @@ class GridBucket(object):
             dictionary: The second vertex of the edge.
 
         """
-        if e[0].dim < e[1].dim:
+        if e[0].dim == e[1].dim:
+            have_index = self.has_nodes_prop(e, 'node_number')
+            assert all(have_index)
+            node_indexes = self.nodes_prop(e, 'node_number')
+            if node_indexes[0] < node_indexes[1]:
+                return e[0], e[1]
+            else:
+                return e[1], e[0]
+        elif e[0].dim < e[1].dim:
             return e[0], e[1]
         else:
             return e[1], e[0]
@@ -480,14 +490,16 @@ class GridBucket(object):
         NOTE: If we are interested in couplings between grids of the same
         dimension (e.g. in a domain-decomposition setting), we would need to
         loosen assertions in this function. We would also need to reinterpret
-        face_cells.
+        face_cells. This has now been done. For now, a warning is printed to 
+        notify the user that grids of equal dimension have been paired.
 
         Parameters:
             grids (list, len==2). Grids to be connected. Order is arbitrary.
             face_cells (object): Identity mapping between cells in the
                 higher-dimensional grid and faces in the lower-dimensional
                 grid. No assumptions are made on the type of the object at this
-                stage.
+                stage. In the grids[0].dim = grids[1].dim case, the mapping is
+                from faces of the first grid to faces of the second one.
 
         Raises:
             ValueError if the two grids are not one dimension apart
@@ -504,6 +516,9 @@ class GridBucket(object):
         elif grids[0].dim == grids[1].dim - 1:
 
             self.graph.add_edge(*grids[::-1], face_cells=face_cells)
+        elif grids[0].dim == grids[1].dim:
+            self.graph.add_edge(*grids, face_cells=face_cells)
+            print('added face_faces to field face_cells for equal-dimensional edge')
         else:
             raise ValueError('Grid dimension mismatch')
 
@@ -580,5 +595,15 @@ class GridBucket(object):
 
         [g.compute_geometry(is_embedded=is_embedded,
                             is_starshaped=is_starshaped) for g, _ in self]
+
+#------------------------------------------------------------------------------#
+
+    def copy(self):
+        """Make a copy of the grid bucket utilizing their
+        built-in copy function of networkx.
+        """
+        gb_copy = GridBucket()
+        gb_copy.graph = self.graph.copy()
+        return gb_copy
 
 #------------------------------------------------------------------------------#
