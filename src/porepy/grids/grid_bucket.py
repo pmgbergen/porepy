@@ -262,7 +262,7 @@ class GridBucket(object):
         else:
             assert len(grid_pairs) == len(prop)
 
-        #networkx.set_edge_attributes(self.graph, key, None)
+        # networkx.set_edge_attributes(self.graph, key, None)
 
         if prop is not None:
             for gp, p in zip(grid_pairs, prop):
@@ -490,7 +490,7 @@ class GridBucket(object):
         NOTE: If we are interested in couplings between grids of the same
         dimension (e.g. in a domain-decomposition setting), we would need to
         loosen assertions in this function. We would also need to reinterpret
-        face_cells. This has now been done. For now, a warning is printed to 
+        face_cells. This has now been done. For now, a warning is printed to
         notify the user that grids of equal dimension have been paired.
 
         Parameters:
@@ -571,6 +571,31 @@ class GridBucket(object):
                 # Assign new value
                 n['node_number'] = counter
                 counter += 1
+#------------------------------------------------------------------------------#
+
+    def update_node_ordering(self, removed_number):
+        """
+        Uppdate an existing ordering of the nodes in the graph, stored as the attribute
+        'node_number'.
+        Intended for keeping the node ordering after removing a node from the bucket. In
+        this way, the edge sorting will not be disturbed by the removal.
+
+        Parameter:
+            removed_number: node_number of the removed grid.
+
+        """
+
+        # Loop over grids in decreasing dimensions
+        for dim in range(self.dim_max(), self.dim_min() - 1, -1):
+            for g in self.grids_of_dimension(dim):
+                if not self.has_nodes_prop([g], 'node_number')
+                    warnings.warn('Node ordering missing')
+
+                old_number = n.get(['node_number'])
+
+                if old_number > removed_number:
+                    n['node_number'] = old_number - 1
+
 
 #------------------------------------------------------------------------------#
 
@@ -599,7 +624,7 @@ class GridBucket(object):
 #------------------------------------------------------------------------------#
 
     def copy(self):
-        """Make a copy of the grid bucket utilizing their
+        """Make a copy of the grid bucket utilizing the
         built-in copy function of networkx.
         """
         gb_copy = GridBucket()
