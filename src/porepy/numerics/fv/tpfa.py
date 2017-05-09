@@ -94,7 +94,7 @@ class Tpfa(Solver):
 
 #------------------------------------------------------------------------------#
 
-def tpfa(g, k, bc, faces=None):
+def tpfa(g, k, bnd, faces=None, apertures=None):
     """  Discretize the second order elliptic equation using two-point flux
 
     The method computes fluxes over faces in terms of pressures in adjacent
@@ -105,7 +105,9 @@ def tpfa(g, k, bc, faces=None):
         k (core.constit.second_order_tensor): permeability tensor.
         bc (core.bc.bc): class for boundary values
         faces (np.ndarray) faces to be considered. Intended for partial
-            discretization, may change in the future
+            discretization, may change in the future 
+        apertures (np.ndarray) apertures of the cells for scaling of the face
+        normals.
     Returns:
         scipy.sparse.csr_matrix (shape num_faces, num_cells): flux
             discretization, in the form of mapping from cell pressures to face
@@ -120,17 +122,22 @@ def tpfa(g, k, bc, faces=None):
             divergence operator.
 
     """
+
     if faces is None:
         is_not_active = np.zeros(g.num_faces, dtype=np.bool)
     else:
         is_active = np.zeros(g.num_faces, dtype=np.bool)
         is_active[faces] = True
+
         is_not_active = np.logical_not(is_active)
 
     fi, ci, sgn = sps.find(g.cell_faces)
 
     # Normal vectors and permeability for each face (here and there side)
-    n = g.face_normals[:, fi]
+    if apertures is None:
+        n = g.face_normals[:, fi]
+    else:
+        n = g.face_normals[:, fi] * np.power(apertures[ci], 3 - g.dim)
     n *= sgn
     perm = k.perm[::, ::, ci]
 
@@ -154,10 +161,10 @@ def tpfa(g, k, bc, faces=None):
     # Move Neumann faces to Neumann transmissibility
     bndr_ind = g.get_boundary_faces()
     t_b = np.zeros(g.num_faces)
-    t_b[bc.is_dir] = t[bc.is_dir]
-    t_b[bc.is_neu] = 1
+    t_b[bnd.is_dir] = t[bnd.is_dir]
+    t_b[bnd.is_neu] = 1
     t_b = t_b[bndr_ind]
-    t[np.logical_or(bc.is_neu, is_not_active)] = 0
+    t[np.logical_or(bnd.is_neu, is_not_active)] = 0
 
     # Create flux matrix
     flux = sps.coo_matrix((t[fi] * sgn, (fi, ci)))

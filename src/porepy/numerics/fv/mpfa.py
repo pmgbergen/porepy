@@ -182,7 +182,6 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba', apertures=None):
         k = k.copy()
         k.perm = np.tensordot(R.T, np.tensordot(R, k.perm, (1, 0)), (0, 1))
         k.perm = np.delete(k.perm, (2), axis=0)
-        # k.perm[0:2, 0:2, :]  # , R.T)
         k.perm = np.delete(k.perm, (2), axis=1)
 
     # Define subcell topology, that is, the local numbering of faces, subfaces,
@@ -193,7 +192,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba', apertures=None):
     # Obtain normal_vector * k, pairings of cells and nodes (which together
     # uniquely define sub-cells, and thus index for gradients.
     nk_grad, cell_node_blocks, \
-        sub_cell_index = _tensor_vector_prod(g, k, subcell_topology)
+        sub_cell_index = _tensor_vector_prod(g, k, subcell_topology, apertures)
 
     # Distance from cell centers to face centers, this will be the
     # contribution from gradient unknown to equations for pressure continuity
@@ -292,7 +291,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba', apertures=None):
 #
 #----------------------------------------------------------------------------#
 
-def _tensor_vector_prod(g, k, subcell_topology):
+def _tensor_vector_prod(g, k, subcell_topology, apertures=None):
     """
     Compute product of normal vectors and tensors on a sub-cell level.
 
@@ -346,6 +345,8 @@ def _tensor_vector_prod(g, k, subcell_topology):
     num_nodes = np.diff(g.face_nodes.indptr)
     normals = g.face_normals[:, subcell_topology.fno] / num_nodes[
         subcell_topology.fno]
+    if apertures is not None:
+        normals = normals / apertures[subcell_topology.cno]
 
     # Represent normals and permeability on matrix form
     ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))
