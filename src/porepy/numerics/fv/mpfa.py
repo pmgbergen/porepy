@@ -5,15 +5,99 @@ Implementation of the multi-point flux approximation O-method.
 from __future__ import division
 import numpy as np
 import scipy.sparse as sps
+import warnings
 
 from porepy.numerics.fv import fvutils, tpfa
 from porepy.grids import structured
 from porepy.params import second_order_tensor, bc
 from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
+from porepy.numerics.mixed_dim.solver import *
 
 
-def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
+class Mpfa(Solver):
+
+    def ndof(self, g):
+        """
+        Return the number of degrees of freedom associated to the method.
+        In this case number of cells (pressure dof).
+
+        Parameter
+        ---------
+        g: grid, or a subclass.
+
+        Return
+        ------
+        dof: the number of degrees of freedom.
+
+        """
+        return g.num_cells
+
+#------------------------------------------------------------------------------#
+
+    def matrix_rhs(self, g, data):
+        """
+        Return the matrix and right-hand side for a discretization of a second
+        order elliptic equation using a FV method with a multi-point flux 
+        approximation.
+        The name of data in the input dictionary (data) are:
+        k : second_order_tensor
+            Permeability defined cell-wise. If not given a identity permeability
+            is assumed and a warning arised.
+        f : array (self.g.num_cells)
+            Scalar source term defined cell-wise. Given as flux density, i.e. later
+            multiplied with the cell sizes.  If not given a zero source
+            term is assumed and a warning arised.
+        bc : boundary conditions (optional)
+        bc_val : dictionary (optional)
+            Values of the boundary conditions. The dictionary has at most the
+            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
+            conditions, respectively.
+
+        Parameters
+        ----------
+        g : grid, or a subclass, with geometry fields computed.
+        data: dictionary to store the data.
+
+        Return
+        ------
+        matrix: sparse csr (g_num_cells, g_num_cells)
+            Discretization matrix.
+        rhs: array (g_num_cells)
+            Right-hand side which contains the boundary conditions and the scalar
+            source term.
+        """
+        k, bnd, bc_val, a, f = data.get('k'), data.get(
+            'bc'), data.get('bc_val'), data.get('apertures'), data.get('f')
+        if k is None:
+            kxx = np.ones(g.num_cells)
+            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+            warnings.warn('Permeability not assigned, assumed identity')
+
+        trm, bound_flux = mpfa(g, k, bnd, data, apertures=a)
+        div = g.cell_faces.T
+        M = div * trm
+
+        return M, self.rhs(g, bound_flux, bc_val, f)
+
+#------------------------------------------------------------------------------#
+
+    def rhs(self, g, bound_flux, bc_val, f):
+        """
+        Return the righ-hand side for a discretization of a second order elliptic
+        equation using the MPFA method. See self.matrix_rhs for a detaild
+        description.
+        """
+        if f is None:
+            f = np.zeros(g.num_cells)
+            warnings.warn('Scalar source not assigned, assumed null')
+        div = g.cell_faces.T
+        return div * bound_flux * bc_val - f * g.cell_volumes
+
+#------------------------------------------------------------------------------#
+
+
+def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba', apertures=None):
     """
     Discretize the scalar elliptic equation by the multi-point flux
     approximation method.
@@ -51,7 +135,8 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
             eta=0 will be enforced.
         inverter (string) Block inverter to be used, either numba (default),
             cython or python. See fvutils.invert_diagonal_blocks for details.
-
+        apertures (np.ndarray) apertures of the cells for scaling of the face
+            normals.
     Returns:
         scipy.sparse.csr_matrix (shape num_faces, num_cells): flux
             discretization, in the form of mapping from cell pressures to face
@@ -64,84 +149,16 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba'):
             will be fluxes induced by the prescribed pressure. Incorporation as
             a right hand side in linear system by multiplication with
             divergence operator.
-
-    Example:
-        # Set up a Cartesian grid
-        g = structured.CartGrid([5, 5])
-        k = second_order_tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
-        g.compute_geometry()
-
-        # Dirirchlet boundary conditions
-        bound_faces = g.get_boundary_faces().ravel()
-        bnd = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
-
-        # Discretization
-        flux, bound_flux = mpfa(g, k, bnd)
-
-        # Source in the middle of the domain
-        q = np.zeros(g.num_cells)
-        q[12] = 1
-
-        # Divergence operator for the grid
-        div = fvutils.scalar_divergence(g)
-
-        # Discretization matrix
-        A = div * flux
-
-        # Assign boundary values to all faces on the bounary
-        bound_vals = np.zeros(g.num_faces)
-        bound_vals[bound_faces] = np.arange(bound_faces.size)
-
-        # Assemble the right hand side and solve
-        rhs = q + div * bound_flux * bound_vals
-        x = sps.linalg.spsolve(A, rhs)
-        f = flux * x - bound_flux * bound_vals
-
-    """
-
-    """
-    Method properties and implementation details.
-
-    The pressure is discretized as a linear function on sub-cells (see
-    reference paper). In this implementation, the pressure is represented by
-    its cell center value and the sub-cell gradients (this is in contrast to
-    most papers, which use auxiliary pressures on the faces; the current
-    formulation is equivalent, but somewhat easier to implement).
-
-    The method will give continuous fluxes over the faces, and pressure
-    continuity for certain points (controlled by the parameter eta). This can
-    be expressed as a linear system on the form
-
-        (i)   A * grad_p            = 0
-        (ii)  B * grad_p + C * p_cc = 0
-        (iii) 0            D * p_cc = I
-
-    Here, the first equation represents flux continuity, and involves only the
-    pressure gradients (grad_p). The second equation gives pressure continuity
-    over cell faces, thus B will contain distances between cell centers and the
-    face continuity points, while C consists of +- 1 (depending on which side
-    the cell is relative to the face normal vector). The third equation
-    enforces the pressure to be unity in one cell at a time. Thus (i)-(iii) can
-    be inverted to express the pressure gradients as in terms of the cell
-    center variables, that is, we can compute the basis functions on the
-    sub-cells. Because of the method construction (again see reference paper),
-    the basis function of a cell c will be non-zero on all sub-cells sharing
-    a vertex with c. Finally, the fluxes as functions of cell center values are
-    computed by insertion into Darcy's law (which is essentially half of A from
-    (i), that is, only consider contribution from one side of the face.
-
-    Boundary values can be incorporated with appropriate modifications -
-    Neumann conditions will have a non-zero right hand side for (i), while
-    Dirichlet gives a right hand side for (ii).
-    """
+            """
 
     # The method reduces to the more efficient TPFA in one dimension, so that
     # method may be called. In 0D, there is no internal discretization to be
     # done.
     if g.dim == 1:
-        return tpfa.tpfa(g, k, bnd)
+        return tpfa.tpfa(g, k, bnd, apertures)
     elif g.dim == 0:
-        return [0], [0]
+        print('div', g.cell_faces.T)
+        return sps.csr_matrix([0]), 0
 
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
