@@ -42,7 +42,7 @@ def test_laplacian_stencil_cart_2d():
     g, perm = setup_cart_2d(np.array([3, 3]))
 
     bnd_faces = np.array([0, 3, 12])
-    bound = bc.BoundaryCondition(g, bnd_faces, ['dir']*bnd_faces.size)
+    bound = bc.BoundaryCondition(g, bnd_faces, ['dir'] * bnd_faces.size)
 
     # Python inverter is most efficient for small problems
     flux, bound_flux = mpfa.mpfa(g, perm, bound, inverter='python')
@@ -52,10 +52,10 @@ def test_laplacian_stencil_cart_2d():
     # Checks on interior cell
     mid = 4
     assert A[mid, mid] == 4
-    assert A[mid-1, mid] == -1
-    assert A[mid+1, mid] == -1
-    assert A[mid-3, mid] == -1
-    assert A[mid+3, mid] == -1
+    assert A[mid - 1, mid] == -1
+    assert A[mid + 1, mid] == -1
+    assert A[mid - 3, mid] == -1
+    assert A[mid + 3, mid] == -1
 
     # The first cell should have two Dirichlet bnds
     assert A[0, 0] == 6
@@ -80,7 +80,8 @@ def test_uniform_flow_cart_2d():
     # Structured Cartesian grid
     g, perm = setup_cart_2d(np.array([10, 10]))
     bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel(1) == 1)
-    bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), ['dir'] * bound_faces.size)
+    bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), [
+                                 'dir'] * bound_faces.size)
 
     # Python inverter is most efficient for small problems
     flux, bound_flux = mpfa.mpfa(g, perm, bound, inverter='python')
@@ -91,7 +92,7 @@ def test_uniform_flow_cart_2d():
     pr_bound, pr_cell, gx, gy = setup_random_pressure_field(g)
 
     rhs = div * bound_flux * pr_bound
-    pr = np.linalg.solve(a.todense(), rhs)
+    pr = np.linalg.solve(a.todense(), -rhs)
 
     p_diff = pr - pr_cell
     assert np.max(np.abs(p_diff)) < 1e-8
@@ -103,7 +104,8 @@ def test_uniform_flow_cart_2d_structured_pert():
     g.compute_geometry()
 
     bound_faces = g.get_boundary_faces()
-    bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), ['dir'] * bound_faces.size)
+    bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), [
+                                 'dir'] * bound_faces.size)
 
     # Python inverter is most efficient for small problems
     flux, bound_flux = mpfa.mpfa(g, perm, bound, inverter='python')
@@ -118,7 +120,7 @@ def test_uniform_flow_cart_2d_structured_pert():
     pr_cell = xc.sum(axis=0)
 
     rhs = div * bound_flux * pr_bound
-    pr = np.linalg.solve(a.todense(), rhs)
+    pr = np.linalg.solve(a.todense(), -rhs)
 
     p_diff = pr - pr_cell
     assert np.max(np.abs(p_diff)) < 1e-8
@@ -129,13 +131,15 @@ def test_uniform_flow_cart_2d_pert():
     g, perm = setup_cart_2d(np.array([10, 10]))
     dx = 1
     pert = .4
-    g.nodes = g.nodes + dx * pert * (0.5 - np.random.rand(g.nodes.shape[0], g.num_nodes))
+    g.nodes = g.nodes + dx * pert * \
+        (0.5 - np.random.rand(g.nodes.shape[0], g.num_nodes))
     # Cancel perturbations in z-coordinate.
     g.nodes[2, :] = 0
     g.compute_geometry()
 
     bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel(1) == 1)
-    bound = bc.BoundaryCondition(g, bound_faces.ravel(1), ['dir'] * bound_faces.size)
+    bound = bc.BoundaryCondition(g, bound_faces.ravel(1), [
+                                 'dir'] * bound_faces.size)
 
     # Python inverter is most efficient for small problems
     flux, bound_flux = mpfa.mpfa(g, perm, bound, inverter='python')
@@ -146,10 +150,11 @@ def test_uniform_flow_cart_2d_pert():
     pr_bound, pr_cell, gx, gy = setup_random_pressure_field(g)
 
     rhs = div * bound_flux * pr_bound
-    pr = np.linalg.solve(a.todense(), rhs)
+    pr = np.linalg.solve(a.todense(), -rhs)
 
     p_diff = pr - pr_cell
     assert np.max(np.abs(p_diff)) < 1e-8
+
 
 if __name__ == '__main__':
     test_uniform_flow_cart_2d_structured_pert()

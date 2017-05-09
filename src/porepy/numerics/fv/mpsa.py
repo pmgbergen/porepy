@@ -877,7 +877,7 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # neumann faces, then the y-component of all neumann faces, then the
     # z-component of all neumann faces. Then we will have the equivalent for
     # the dirichlet faces.
-    rhs_bound = -sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
+    rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
 
     return rhs_bound
 
