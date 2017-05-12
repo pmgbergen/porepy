@@ -54,3 +54,58 @@ class BoundaryCondition(object):
                 else:
                     raise ValueError('Boundary should be Dirichlet or Neumann')
 
+
+def face_on_side(g, side, tol=1e-8):
+    """ Find faces on specified sides of a grid.
+
+    It is assumed that the grid forms a box in 2d or 3d.
+
+    The faces are specified by one of two type of keywords: (xmin / left),
+    (xmax / right), (ymin / south), (ymax / north), (zmin, bottom),
+    (zmax / top).
+
+    Parameters:
+        g (grid): For which we want to find faces.
+        side (str, or list of str): Sides for which we want to find the
+            boundary faces.
+        tol (double, optional): Geometric tolerance for deciding whether a face
+            lays on the boundary. Defaults to 1e-8.
+
+    Returns:
+        list of lists: Outer list has one element per element in side (same
+            ordering). Inner list contains global indices of faces laying on
+            that side.
+
+    """
+    if isinstance(side, str):
+        side = [side]
+
+    faces = []
+    for s in side:
+        s = s.lower().strip()
+        if s == 'west' or s == 'xmin':
+            xm = g.nodes[0].min()
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) <
+                                              tol)))
+        if s == 'east' or s == 'xmax':
+            xm = g.nodes[0].max()
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) <
+                                              tol)))
+        if s == 'south' or s == 'ymin':
+            xm = g.nodes[1].min()
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) <
+                                              tol)))
+        if s == 'north' or s == 'ymax':
+            xm = g.nodes[1].max()
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) <
+                                              tol)))
+        if s == 'bottom' or s == 'zmin':
+            xm = g.nodes[2].min()
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) <
+                                              tol)))
+        if s == 'top' or s == 'zmax':
+            xm = g.nodes[2].max()
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) <
+                                              tol)))
+    return faces
+
