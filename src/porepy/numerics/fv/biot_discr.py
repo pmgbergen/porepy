@@ -6,173 +6,240 @@ import numpy as np
 from porepy.numerics.fv import mpfa, mpsa, fvutils, time_of_flight
 from porepy.params import second_order_tensor, fourth_order_tensor, bc
 from porepy.grids import structured
+from porepy.numerics.mixed_dim.solver import Solver
+
+class BiotDiscr(Solver):
+
+    def ndof(self, g):
+        """ Return the number of degrees of freedom associated wiht the method.
+
+        In this case, each cell has nd displacement variables, as well as a
+        pressure variable.
+
+        Parameters:
+            g: grid, or a subclass.
+
+        Returns:
+            int: Number of degrees of freedom in the grid.
+
+        """
+        return g.num_cells * (1 + g.dim)
 
 
-class BiotDiscr(object):
+    def matrix_rhs(self, g, data, discretize=True):
+        if discretize:
+            self.discretize(g, data)
+        A_biot = self.assemble_matrix(g, data)
+        rhs_bound = self.rhs_bound(g, data)
+        return A_biot, rhs_bound
 
-    def __init__(self, grid, perm, stiffness, poro, bound_flow=None,
-                 bound_mech=None, water_compr=1, water_viscosity=1, verbose=0,
-                inverter='cython', eta=0):
+#--------------------------- Helper methods for discretization ----------
 
-        self.g = grid
-        self.perm = perm
-        self.stiffness = stiffness
-        self.poro = poro
+    def rhs_bound(self, g, data):
+        """ Boundary component of the right hand side (dependency on previous
+        time step).
 
+        TODO: Boundary effects of coupling terms.
 
-        # Boundaries and boundary conditions
-        bound_faces = grid.get_boundary_faces()
+        Parameters:
+            g: grid, or subclass, with geometry fields computed.
+            data: dictionary to store the data terms. Must have been through a
+                call to discretize() to discretization of right hand side.
+            state: np.ndarray, solution vector from previous time step.
 
-        if bound_flow is None:
-            self.bound_flow = bc.BoundaryCondition(grid, bound_faces.ravel('F'),
-                                          ['neu'] * bound_faces.size)
-        elif isinstance(bound_flow, str) \
-                and (bound_flow.lower().strip() == 'dir'
-                     or bound_flow.lower().strip() == 'dirichlet'):
-            self.bound_flow = bc.BoundaryCondition(grid, bound_faces.ravel('F'),
-                                          ['dir'] * bound_faces.size)
-        elif isinstance(bound_flow, str) \
-                and (bound_flow.lower().strip() == 'neu'
-                     or bound_flow.lower().strip() == 'neumann'):
-            self.bound_flow = bc.BoundaryCondition(grid, bound_faces.ravel('F'),
-                                          ['neu'] * bound_faces.size)
-        else:
-            self.bound_flow = bound_flow
+        Returns:
+            np.ndarray: Contribution to right hand side given the current
+            state.
 
-        if bound_mech is None:
-            self.bound_mech = bc.BoundaryCondition(grid, bound_faces.ravel('F'),
-                                          ['neu'] * bound_faces.size)
-        elif isinstance(bound_mech, str) \
-                and (bound_mech.lower().strip() == 'dir'
-                     or bound_mech.lower().strip() == 'dirichlet'):
-            self.bound_mech = bc.BoundaryCondition(grid, bound_faces.ravel('F'),
-                                          ['dir'] * bound_faces.size)
-        elif isinstance(bound_mech, str) \
-                and (bound_mech.lower().strip() == 'neu'
-                     or bound_mech.lower().strip() == 'neumann'):
-            self.bound_mech = bc.BoundaryCondition(grid, bound_faces.ravel('F'),
-                                          ['neu'] * bound_faces.size)
-        else:
-            self.bound_mech = bound_mech
+        """
+        d = data['bound_mech_val']
+        p = data['bound_flow_val']
 
-        self.water_compr = water_compr
-        self.water_viscosity = water_viscosity
-        self.inverter = inverter
-        self.eta = eta
-        self.verbose = verbose
-        self.biot_alpha = 1
+        div_flow = fvutils.scalar_divergence(g)
+        div_mech = fvutils.vector_divergence(g)
 
-    def discretize(self):
-        self.discretize_flow()
-        self.discretize_mech()
-        self.discretize_compr()
-        self.form_matrix()
+        p_bound = div_flow * data['bound_flux'] * p
+        s_bound = div_mech * data['bound_stress'] * d
+        return np.hstack((s_bound, p_bound))
 
+    def rhs_time(self, g, data, state):
+        """ Time component of the right hand side (dependency on previous time
+        step).
 
-    def discretize_flow(self):
-        # Discretiztaion of MPFA
-        tm = time.time()
-        flux, bound_flux = mpfa.mpfa(self.g, self.perm, self.bound_flow,
-                                     eta=self.eta, inverter=self.inverter)
-        if self.verbose > 0:
-            print('Time spent on mpfa discretization ' + str(time.time() - tm))
-        self.flux = flux
-        self.bound_flux = bound_flux
+        TODO: 1) Generalize this to allow other methods than Euler backwards?
+              2) How about time dependent boundary conditions.
+
+        Parameters:
+            g: grid, or subclass, with geometry fields computed.
+            data: dictionary to store the data terms. Must have been through a
+                call to discretize() to discretization of right hand side.
+            state: np.ndarray, solution vector from previous time step.
+
+        Returns:
+            np.ndarray: Contribution to right hand side given the current
+            state.
+
+        """
+        d = self.extractD(g, state, as_vector=True)
+        p = self.extractP(g, state)
+
+        div_d = np.squeeze(data['biot_alpha'] * data['div_d'] * d)
+        p_cmpr = data['compr_discr'] * p
+
+        mech_rhs = np.zeros(g.dim * g.num_cells)
+
+        return np.hstack((mech_rhs, div_d + p_cmpr))
 
 
-    def discretize_mech(self):
+    def discretize(self, g, data):
+        """ Discretize flow and mechanics equations using FV methods.
+
+        """
         # Discretization of elasticity / poro-mechanics
-        tm = time.time()
-        stress, bound_stress, grad_p, div_d, \
-            stabilization = mpsa.biot(self.g, self.stiffness, self.bound_mech,
-                                      eta=self.eta, inverter=self.inverter)
-        if self.verbose > 0:
-            print('Time spent on mpsa discretization ' + str(time.time() - tm))
+        self._discretize_flow(g, data)
+        self._discretize_mech(g, data)
+        self._discretize_compr(g, data)
 
-        self.stress = stress
-        self.bound_stress = bound_stress
-        self.grad_p = grad_p
-        self.div_d = div_d
-        self.stabilization = stabilization
 
-    def discretize_compr(self):
-        self.compr = sps.dia_matrix((self.g.cell_volumes * self.water_compr,
-                                     0),
-                                    shape=(self.g.num_cells, self.g.num_cells))
-
-    def form_matrix(self):
-
-        div_flow = fvutils.scalar_divergence(self.g)
-
-        # Discretization of elasticity / poro-mechanics
-
-        div_mech = fvutils.vector_divergence(self.g)
+    def assemble_matrix(self, g, data):
+        div_flow = fvutils.scalar_divergence(g)
+        div_mech = fvutils.vector_divergence(g)
 
         # Put together linear system
-        A_flow = div_flow * self.flux / self.water_viscosity
-        A_mech = div_mech * self.stress
+        A_flow = div_flow * data['flux'] / data['water_viscosity']
+        A_mech = div_mech * data['stress']
+
+        # Time step size
+        dt = data['dt']
 
         # Matrix for left hand side
-        self.A_biot = sps.bmat([[A_mech, self.grad_p * self.biot_alpha],
-                                [self.div_d * self.biot_alpha,
-                                 self.compr + A_flow + self.stabilization]]).tocsr()
+        A_biot = sps.bmat([[A_mech,
+                            data['grad_p'] * data['biot_alpha']],
+                            [data['div_d'] * data['biot_alpha'],
+                             data['compr_discr'] \
+                             + dt * A_flow + data['stabilization']]]).tocsr()
+
+        return A_biot
 
 
-        # Matrix for right hand side (for time derivative)
-        zr = np.zeros(1)
-        nd = self.g.dim
-        nc = self.g.num_cells
-        rhs_mat_mech = sps.coo_matrix((zr, (zr, zr)),
-                                      shape=(nd * nc, (nd + 1) * nc))
-        rhs_mat_flow = sps.hstack([self.biot_alpha * self.div_d,
-                                   self.compr + self.stabilization])
-        self.rhs_mat = sps.vstack([rhs_mat_mech, rhs_mat_flow])
+    def _discretize_flow(self, g, data):
+
+        perm = data.get('perm')
+        bound_flow = data.get('bound_flow')
+        # Discretiztaion of MPFA
+        flux, bound_flux = mpfa.mpfa(g, perm, bound_flow, **data)
+        data['flux'] = flux
+        data['bound_flux'] = bound_flux
 
 
-    def time_step(self, dt, rhs, prev_state):
+    def _discretize_mech(self, g, data):
+        # Discretization of elasticity / poro-mechanics
+        stress, bound_stress, grad_p, div_d, \
+            stabilization = mpsa.biot(g, data['stiffness'], data['bound_mech'],
+                                      **data)
+
+        data['stress'] = stress
+        data['bound_stress'] = bound_stress
+        data['grad_p'] = grad_p
+        data['div_d'] = div_d
+        data['stabilization'] = stabilization
+
+    def _discretize_compr(self, g, data):
+        compr = data.get('fluid_compr', 0)
+        poro = data['poro']
+        data['compr_discr'] = sps.dia_matrix((g.cell_volumes * compr * poro, 0),
+                                             shape=(g.num_cells, g.num_cells))
+
+
+#----------------------- Methods for post processing -------------------------
+    def extractD(self, g, u, dims=None, as_vector=False):
+        """ Extract displacement field from solution.
+
+        Parameters:
+            g: grid, or a subclass.
+            u (np.ndarray): Solution variable, representing displacements and
+                pressure.
+            dim (list of int, optional): Which dimension to extract. If None,
+                all dimensions are returned.
+        Returns:
+            list of np.ndarray: Displacement variables in the specified
+                dimensions.
+
         """
-        Take a simple time step
+        if dims is None:
+            dims = np.arange(g.dim)
+        vals = []
+
+        inds = np.arange(0, g.num_cells * g.dim, g.dim)
+
+        for d in dims:
+            vals.append(u[d + inds])
+        if as_vector:
+            vals = np.asarray(vals).reshape((-1, 1), order='C')
+            return vals
+        else:
+            return vals
+
+
+    def extractP(self, g, u):
+        """ Extract pressure field from solution.
+
+        Parameters:
+            g: grid, or a subclass.
+            u (np.ndarray): Solution variable, representing displacements and
+                pressure.
+
+        Returns:
+            np.ndarray: Pressure part of solution vector.
+
         """
-        b = self.rhs_mat * prev_state + dt * rhs
-
-        # For the moment, we only use a sparse linear solver here. In the
-        # future, more fance solvers and splitting methods should be included.
-        du = spsolve(self.A_biot, b)
-
-        return du
-
-    def split_vars(self, u):
-        nc = self.g.num_cells
-        nd = self.g.dim
-        if nd == 2:
-            u_x = u[ : nd*nc : nd]
-            u_y = u[1: nd*nc : nd]
-            p = u[nd*nc:]
-            return u_x, u_y, p
-        elif nd == 3:
-            u_x = u[ : nd*nc : nd]
-            u_y = u[1: nd*nc : nd]
-            u_z = u[2: nd*nc : nd]
-            p = u[nd*nc:]
-            return u_x, u_y, u_z, p
-            
+        return u[g.dim * g.num_cells:]
 
 
-    def solve_time_problem(self, end_time, dt, rhs, init_state):
+    def compute_flux(self, g, u, data):
+        """ Compute flux field corresponding to a solution.
 
-        def adjust_timestep(tm):
-            return min(dt, end_time - tm)
+        Parameters:
+            g: grid, or a subclass.
+            u (np.ndarray): Solution variable, representing displacements and
+                pressure.
+            bc_flow (np.ndarray): Flux boundary values.
+            data (dictionary): Dictionary related to grid and problem. Should
+                contain boundary discretization.
 
-        t = 0
-        state = init_state
-        while t < end_time:
-            dt = adjust_timestep(t)
-            state += self.time_step(dt, rhs, state)
-            t += dt
-        return state
+        Returns:
+            np.ndarray: Flux over all faces
+
+        """
+        flux_discr = data['flux']
+        bound_flux = data['bound_flux']
+        bound_val = data['bound_flow_val']
+        p = self.extractP(g, u)
+        flux = flux_discr * p + bound_flux * bound_val
+        return flux
+
+    def compute_stress(self, g, u, data):
+        """ Compute stress field corresponding to a solution.
+
+        Parameters:
+            g: grid, or a subclass.
+            u (np.ndarray): Solution variable, representing displacements and
+                pressure.
+            bc_flow (np.ndarray): Flux boundary values.
+            data (dictionary): Dictionary related to grid and problem. Should
+                contain boundary discretization.
+
+        Returns:
+            np.ndarray, g.dim * g.num_faces: Stress over all faces. Stored as
+                all stress values on the first face, then the second etc.
+
+        """
+        stress_discr = data['stress']
+        bound_stress = data['bound_stress']
+        bound_val = data['bound_mech_val']
+        d = self.extractD(g, u, as_vector=True)
+        stress = stress_discr * d + (bound_stress * bound_val)[:, np.newaxis]
+        return stress
 
 
-    def stress_and_flux(self, displ, pr):
-        fl = self.flux * pr
-        stress = self.stress * displ
-        return stress, fl
+
