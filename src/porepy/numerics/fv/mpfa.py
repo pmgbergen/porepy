@@ -1,4 +1,4 @@
-"""
+"
 Implementation of the multi-point flux approximation O-method.
 
 """
@@ -98,8 +98,8 @@ class Mpfa(Solver):
 #------------------------------------------------------------------------------#
 
 
-def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba', apertures=None,
-         max_memory=None):
+def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None,
+         max_memory=None, **kwargs):
     """
     Discretize the scalar elliptic equation by the multi-point flux
     approximation method.

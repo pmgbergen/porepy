@@ -102,7 +102,7 @@ class Mpsa(Solver):
 #------------------------------------------------------------------------------#
 
 
-def mpsa(g, constit, bound, faces=None, eta=0, inverter=None):
+def mpsa(g, constit, bound, faces=None, eta=0, inverter=None, **kwargs):
     """
     Discretize the vector elliptic equation by the multi-point flux
     approximation method, specifically the weakly symmetric MPSA-W method.
@@ -366,7 +366,11 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
     return hook, igrad, rhs_cells, cell_node_blocks, hook_normal
 
 
+<<<<<<< d602c4bef9d6325b55d8e0d42f0f8328c2d09827
 def biot(g, constit, bound, faces=None, eta=0, inverter=None):
+=======
+def biot(g, constit, bound, faces=None, eta=0, inverter='numba', **kwargs):
+>>>>>>> mpfa and mpsa accepts kwargs.
     """
     Discretization of poro-elasticity by the MPSA-W method.
 
