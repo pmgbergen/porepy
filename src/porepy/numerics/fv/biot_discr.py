@@ -1,5 +1,5 @@
 import scipy.sparse as sps
-from scipy.sparse.linalg import spsolve
+import scipy.sparse.linalg as la
 import time
 import numpy as np
 
@@ -7,6 +7,7 @@ from porepy.numerics.fv import mpfa, mpsa, fvutils, time_of_flight
 from porepy.params import second_order_tensor, fourth_order_tensor, bc
 from porepy.grids import structured
 from porepy.numerics.mixed_dim.solver import Solver
+
 
 class BiotDiscr(Solver):
 
@@ -149,6 +150,24 @@ class BiotDiscr(Solver):
         poro = data['poro']
         data['compr_discr'] = sps.dia_matrix((g.cell_volumes * compr * poro, 0),
                                              shape=(g.num_cells, g.num_cells))
+
+
+#----------------------- Linear solvers -------------------------------------
+
+    def solve(self, A, solver='direct', **kwargs):
+
+        solver = solver.strip().lower()
+        if solver == 'direct':
+            def slv(b):
+                x = la.spsolve(A, b)
+                return x
+        elif solver == 'factorized':
+            slv = la.factorized(A)
+
+        else:
+            raise ValueError('Unknown solver ' + solver)
+
+        return slv
 
 
 #----------------------- Methods for post processing -------------------------
