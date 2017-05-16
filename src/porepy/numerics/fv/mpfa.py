@@ -8,6 +8,7 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.numerics.fv import fvutils, tpfa
+from porepy.grids import partition
 from porepy.params import second_order_tensor, bc
 from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
@@ -98,8 +99,8 @@ class Mpfa(Solver):
 #------------------------------------------------------------------------------#
 
 
-def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None,
-         max_memory=None, **kwargs):
+def mpfa(g, k, bnd, eta=0, inverter=None, apertures=None, max_memory=None,
+         **kwargs):
     """
     Discretize the scalar elliptic equation by the multi-point flux
     approximation method.
@@ -116,22 +117,14 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None,
         1) The local linear systems should be scaled with the permeability and
         the local grid size, so that we avoid rounding errors accumulating
         under grid refinement / convergence tests.
-        2) It should be possible to do a partial update of the discretization
-        stensil (say, if we introduce an internal boundary, or modify the
-        permeability field).
-        3) For large grids, the current implementation will run into memory
-        issues, due to the construction of a block diagonal matrix. This can be
-        overcome by splitting the discretization into several partial updates.
-        4) It probably makes sense to create a wrapper class to store the
+        2) It probably makes sense to create a wrapper class to store the
         discretization, interface to linear solvers etc.
-    Right now, there are concrete plans for 2) - 4).
+    Right now, there are concrete plans for 2).
 
     Parameters:
         g (core.grids.grid): grid to be discretized
         k (core.constit.second_order_tensor) permeability tensor
         bnd (core.bc.bc) class for boundary values
-        faces (np.ndarray) faces to be considered. Intended for partial
-            discretization, may change in the future
         eta Location of pressure continuity point. Should be 1/3 for simplex
             grids, 0 otherwise. On boundary faces with Dirichlet conditions,
             eta=0 will be enforced.
@@ -139,6 +132,11 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None,
             cython or python. See fvutils.invert_diagonal_blocks for details.
         apertures (np.ndarray) apertures of the cells for scaling of the face
             normals.
+        max_memory (double): Threshold for peak memory during discretization.
+            If the **estimated** memory need is larger than the provided
+            threshold, the discretization will be split into an appropriate
+            number of sub-calculations, using mpfa_partial().
+
     Returns:
         scipy.sparse.csr_matrix (shape num_faces, num_cells): flux
             discretization, in the form of mapping from cell pressures to face
@@ -180,14 +178,17 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None,
     """
 
     if max_memory is None:
-        # Nothing to do here 
+        # For the moment nothing to do here, just call main mpfa method for the
+        # entire grid.
+        # TODO: We may want to estimate the memory need, and give a warning if
+        # this seems excessive 
         flux, bound_flux = _mpfa_local(g, k, bnd, eta=eta, inverter=inverter)
     else:
-    	# Implementation is not finished
         # Estimate number of partitions necessary based on prescribed memory
         # usage
-	    # TODO: Need to implement this method.
-        num_part = _estimate_num_part(g, max_memory)
+        peak_mem = _estimate_peak_memory(g)
+        num_part = np.ceil(peak_mem / max_memory)
+
         # Let partitioning module apply the best available method
         part = partition.partition(g, num_part)
 
@@ -195,10 +196,15 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None,
         glob_bound_face = g.get_boundary_faces()
 
         # Empty fields for flux and bound_flux. Will be expanded as we go.
+        # Implementation note: It should be relatively straightforward to
+        # estimate the memory need of flux (face_nodes -> node_cells ->
+        # unique). 
         flux = sps.csr_matrix(g.num_faces, g.num_cells)
         bound_flux = sps.csr_matrix(g.num_faces, g.num_faces)
 
         cn = g.cell_nodes()
+
+        face_covered = np.zeros(g.num_faces, dtype=np.bool)
 
         for p in range(part.max()):
             # Cells in this partitioning
@@ -211,14 +217,15 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None,
             active_nodes = np.squeeze(np.where((cn * active_cells) > 0))
 
             # Perform local discretization.
-            loc_flux, loc_bound_flux = mpfa_partial(g, k, bnd, eta=eta,
-                                                    inverter=inverter,
-                                                    nodes=active_nodes)
-            # Faces on the boundary between subgrids will be covered twice (so
-            # will some close to the boundary). We need some way of ignoring
-            # the second pass; potentially by using the active faces from
-            # mpfa_partial. This must be done before adding to flux and
-            # bound_flux
+            loc_flux, loc_bound_flux, loc_faces \
+                = mpfa_partial(g, k, bnd, eta=eta, inverter=inverter,
+                               nodes=active_nodes)
+
+            # Eliminate contribution from faces already covered
+            loc_flux[face_covered, :] *= 0
+            loc_bound_flux[face_covered, :] *= 0
+
+            face_covered[loc_faces] = 1
 
             flux += loc_flux
             bound_flux += loc_bound_flux
@@ -226,7 +233,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None,
     return flux, bound_flux
 
 
-def mpfa_partial(g, k, bnd, eta=0, inverter=0, cells=None, faces=None,
+def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
                  nodes=None):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
@@ -254,7 +261,7 @@ def mpfa_partial(g, k, bnd, eta=0, inverter=0, cells=None, faces=None,
             subgrid computation. Defaults to None.
         faces (np.array, int, optional): Index of faces on which to base the
             subgrid computation. Defaults to None.
-        nodes (np.array, int, optional): Index of faces on which to base the
+        nodes (np.array, int, optional): Index of nodes on which to base the
             subgrid computation. Defaults to None.
 
         Note that if all of {cells, faces, nodes} are None, empty matrices will
@@ -269,32 +276,43 @@ def mpfa_partial(g, k, bnd, eta=0, inverter=0, cells=None, faces=None,
             computed.
 
     """
-    ind, active_face = fv_utils.cell_ind_for_partial_update(g, cells=cells,
+    if cells is not None:
+        warnings.warn('Cells keyword for partial mpfa has not been tested')
+    if faces is not None:
+        warnings.warn('Faces keyword for partial mpfa has not been tested')
+
+    # Find computational stencil, based on specified cells, faces and nodes.
+    ind, active_faces = fvutils.cell_ind_for_partial_update(g, cells=cells,
                                                             faces=faces,
                                                             nodes=nodes)
-    
+
     # Extract subgrid, together with mappings between local and global
     # cells
-    sub_g, l2g_faces, l2g_cells = partition.extract_subgrid(g, ind)
+    sub_g, l2g_faces, _ = partition.extract_subgrid(g, ind)
+    l2g_cells = sub_g.parent_cell_ind
 
     ## Local parameter fields
     # Copy permeability field, and restrict to local cells
     loc_k = k.copy()
-    loc_k.perm = k_loc.perm[::, l2g_cells]
+    loc_k.perm = loc_k.perm[::, ::, l2g_cells]
+
+    glob_bound_face = g.get_boundary_faces()
 
     # Boundary conditions are slightly more complex. Find local faces
     # that are on the global boundary.
-    loc_bound_ind = np.argwhere(np.ismember(l2g_faces,
-                                            glob_bound_face)).ravel('F')
+    loc_bound_ind = np.argwhere(np.in1d(l2g_faces, glob_bound_face)).ravel('F')
+    loc_cond = np.array(loc_bound_ind.size * ['neu'])
     # Then pick boundary condition on those faces.
-    # We could have avoided to explicitly define Neumann conditions,
-    # since these are default
-    is_dir = bnd.is_dir[l2g_faces[loc_bound_ind]]
-    is_neu = bnd.is_neu[l2g_faces[loc_bound_ind]]
+    if loc_bound_ind.size > 0:
+        # We could have avoided to explicitly define Neumann conditions,
+        # since these are default
+        is_dir = bnd.is_dir[l2g_faces[loc_bound_ind]]
+        is_neu = bnd.is_neu[l2g_faces[loc_bound_ind]]
 
-    loc_cond = loc_bound_ind.size * ['neu']
-    loc_cond[loc_bound_ind] = 'dir'
-    loc_bnd = bc.BoundaryCondition(g, faces=loc_bound_ind, cond=loc_cond)
+        loc_cond[is_dir] = 'dir'
+    loc_bnd = bc.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
+
+    # Discretization of sub-problem
     flux_loc, bound_flux_loc = _mpfa_local(sub_g, loc_k, loc_bnd,
                                            eta=eta, inverter=inverter)
 
@@ -309,9 +327,18 @@ def mpfa_partial(g, k, bnd, eta=0, inverter=0, cells=None, faces=None,
     cell_map = sps.csr_matrix((np.ones(num_cells_loc),
                                (np.arange(num_cells_loc), l2g_cells)),
                               shape=(num_cells_loc, g.num_cells))
+
     # Update global face fields.
     flux_glob = face_map.transpose() * flux_loc * cell_map
     bound_flux_glob = face_map.transpose() * bound_flux_loc * face_map
+
+
+    # By design of mpfa, and the subgrids, the discretization will update faces
+    # outside the active faces. Kill these.
+    outside = np.setdiff1d(np.arange(g.num_faces), active_faces,
+                           assume_unique=True)
+    flux_glob[outside, :] = 0
+    bound_flux_glob[outside, :] = 0
 
     return flux_glob, bound_flux_glob, active_faces
 
@@ -494,13 +521,13 @@ def _mpfa_local(g, k, bnd, eta=0, inverter='numba'):
 #
 #----------------------------------------------------------------------------#
 
-def _estimate_memory_consumption(g):
+def _estimate_peak_memory(g):
     """
     Rough estimate of peak memory need
     """
     nd = g.dim
     num_cell_nodes = g.cell_nodes().toarray().sum(axis=1)
-    
+
     # Number of unknowns around a vertex: nd per cell that share the vertex for
     # pressure gradients, and one per cell (cell center pressure)
     num_grad_unknowns = nd * num_cell_nodes
@@ -508,7 +535,7 @@ def _estimate_memory_consumption(g):
     # The most expensive field is the storage of igrad, which is block diagonal
     # with num_grad_unknowns sized blocks
     igrad_size = num_grad_unknowns.sum()
-    
+
     # The discretization of Darcy's law will require nd (that is, a gradient)
     # per sub-face.
     num_sub_face = g.face_nodes.toarray().sum()
