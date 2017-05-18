@@ -3,8 +3,13 @@ Module for splitting a grid at the fractures.
 """
 
 import numpy as np
-import matplotlib.pylab as plt
 from scipy import sparse as sps
+import warnings
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    warnings.warn('Matplotlib is not available. Simple plotting will not work')
 
 from porepy.utils.half_space import half_space_int
 from porepy.utils.graph import Graph

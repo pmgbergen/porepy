@@ -9,7 +9,7 @@ import warnings
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-#from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D
 import sympy
 
 # Imports of external packages that may not be present at the system. The
@@ -25,6 +25,12 @@ try:
 except ImportError:
     warnings.warn('VTK module is not available. Export of fracture network to\
     vtk will not work.')
+
+try:
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+except ImportError:
+    warnings.warn('Matplotlib is not available. Simple plotting will not work')
 
 # Import of internally developed packages.
 from porepy.utils import comp_geom as cg
