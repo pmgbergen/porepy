@@ -495,17 +495,11 @@ class GridBucket(object):
 
     def add_edge(self, grids, face_cells):
         """
-        Add an edge in the graph, based on the higher and lower-dimensional
-        grid.
+        Add an edge in the graph.
 
-        The coupling will be added with the higher-dimensional grid as the
-        first node.
-
-        NOTE: If we are interested in couplings between grids of the same
-        dimension (e.g. in a domain-decomposition setting), we would need to
-        loosen assertions in this function. We would also need to reinterpret
-        face_cells. This has now been done. For now, a warning is printed to
-        notify the user that grids of equal dimension have been paired.
+        If the grids have different dimensions, the coupling will be added with
+        the higher-dimensional grid as the first node. For equal dimensions,
+        the ordering of the nodes is the same as in input grids.
 
         Parameters:
             grids (list, len==2). Grids to be connected. Order is arbitrary.
@@ -532,7 +526,6 @@ class GridBucket(object):
             self.graph.add_edge(*grids[::-1], face_cells=face_cells)
         elif grids[0].dim == grids[1].dim:
             self.graph.add_edge(*grids, face_cells=face_cells)
-            print('added face_faces to field face_cells for equal-dimensional edge')
         else:
             raise ValueError('Grid dimension mismatch')
 
@@ -638,8 +631,9 @@ class GridBucket(object):
 #------------------------------------------------------------------------------#
 
     def copy(self):
-        """Make a copy of the grid bucket utilizing the
-        built-in copy function of networkx.
+        """Make a copy of the grid bucket utilizing the built-in copy function
+        of networkx.
+
         """
         gb_copy = GridBucket()
         gb_copy.graph = self.graph.copy()
