@@ -13,7 +13,7 @@ import scipy.sparse as sps
 
 from porepy.numerics.fv import fvutils
 from porepy.utils import matrix_compression, mcolon
-from porepy.grids import structured
+from porepy.grids import structured, partition
 from porepy.params import fourth_order_tensor, bc
 from porepy.numerics.mixed_dim.solver import Solver
 
@@ -102,9 +102,10 @@ class Mpsa(Solver):
 #------------------------------------------------------------------------------#
 
 
-def mpsa(g, constit, bound, faces=None, eta=0, inverter=None, **kwargs):
+def mpsa(g, constit, bound, eta=0, inverter=None, max_memory=None,
+         **kwargs):
     """
-    Discretize the vector elliptic equation by the multi-point flux
+    Discretize the vector elliptic equation by the multi-point stress
     approximation method, specifically the weakly symmetric MPSA-W method.
 
     The method computes stresses over faces in terms of displacments in
@@ -112,7 +113,7 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter=None, **kwargs):
     face).  This corresponds to the MPSA-W method, see
 
     Keilegavlen, Nordbotten: Finite volume methods for elasticity with weak
-        symmetry, arxiv: 1512.01042
+        symmetry. Int J Num. Meth. Eng. doi: 10.1002/nme.5538.
 
     Implementation needs:
         1) The local linear systems should be scaled with the elastic moduli
@@ -130,15 +131,16 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter=None, **kwargs):
 
     Parameters:
         g (core.grids.grid): grid to be discretized
-        k (core.constit.second_order_tensor) permeability tensor
         constit (core.bc.bc) class for boundary values
-        faces (np.ndarray) faces to be considered. Intended for partial
-            discretization, may change in the future
         eta Location of pressure continuity point. Should be 1/3 for simplex
             grids, 0 otherwise. On boundary faces with Dirichlet conditions,
             eta=0 will be enforced.
         inverter (string) Block inverter to be used, either numba (default),
             cython or python. See fvutils.invert_diagonal_blocks for details.
+        max_memory (double): Threshold for peak memory during discretization.
+            If the **estimated** memory need is larger than the provided
+            threshold, the discretization will be split into an appropriate
+            number of sub-calculations, using mpsa_partial().
 
     Returns:
         scipy.sparse.csr_matrix (shape num_faces, num_cells): stress
@@ -189,7 +191,183 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter=None, **kwargs):
 
     """
 
+    if max_memory is None:
+        # For the moment nothing to do here, just call main mpfa method for the
+        # entire grid.
+        # TODO: We may want to estimate the memory need, and give a warning if
+        # this seems excessive 
+        stress, bound_stress = _mpsa_local(g, constit, bound, eta=eta, inverter=inverter)
+    else:
+        # Estimate number of partitions necessary based on prescribed memory
+        # usage
+        peak_mem = _estimate_peak_memory_mpsa(g)
+        num_part = np.ceil(peak_mem / max_memory)
+
+        # Let partitioning module apply the best available method
+        part = partition.partition(g, num_part)
+
+        # Empty fields for stress and bound_stress. Will be expanded as we go.
+        # Implementation note: It should be relatively straightforward to
+        # estimate the memory need of stress (face_nodes -> node_cells ->
+        # unique). 
+        stress = sps.csr_matrix(g.num_faces * g.dim, g.num_cells * g.dim)
+        bound_stress = sps.csr_matrix(g.num_faces * g.dim, g.num_faces * g.dim)
+
+        cn = g.cell_nodes()
+
+        face_covered = np.zeros(g.num_faces, dtype=np.bool)
+
+        for p in range(part.max()):
+            # Cells in this partitioning
+            cell_ind = np.argwhere(part == p).ravel('F')
+            # To discretize with as little overlap as possible, we use the
+            # keyword nodes to specify the update stencil. Find nodes of the
+            # local cells.
+            active_cells = np.zeros(g.num_cells, dtype=np.bool)
+            active_cells[cell_ind] = 1
+            active_nodes = np.squeeze(np.where((cn * active_cells) > 0))
+
+            # Perform local discretization.
+            loc_stress, loc_bound_stress, loc_faces \
+                = mpsa_partial(g, constit, bound, eta=eta, inverter=inverter, 
+                               nodes=active_nodes)
+
+            # Eliminate contribution from faces already covered
+            eliminate_ind = __expand_indices(face_covered, g.dim)
+            loc_stress[eliminate_ind, :] *= 0
+            loc_bound_stress[eliminate_ind, :] *= 0
+
+            face_covered[loc_faces] = 1
+
+            stress += loc_stress
+            bound_stress += loc_bound_stress
+
+    return stress, bound_stress
+
+
+def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None, 
+                 faces=None, nodes=None):
     """
+    Run an MPFA discretization on subgrid, and return discretization in terms
+    of global variable numbers.
+
+    Scenarios where the method will be used include updates of permeability,
+    and the introduction of an internal boundary (e.g. fracture growth).
+
+    The subgrid can be specified in terms of cells, faces and nodes to be
+    updated. For details on the implementation, see
+    fv_utils.cell_ind_for_partial_update()
+
+    Parameters:
+        g (core.grids.grid): grid to be discretized
+        constit (core.constit.second_order_tensor) permeability tensor
+        bnd (core.bc.bc) class for boundary values
+        faces (np.ndarray) faces to be considered. Intended for partial
+            discretization, may change in the future
+        eta Location of pressure continuity point. Should be 1/3 for simplex
+            grids, 0 otherwise. On boundary faces with Dirichlet conditions,
+            eta=0 will be enforced.
+        inverter (string) Block inverter to be used, either numba (default),
+            cython or python. See fvutils.invert_diagonal_blocks for details.
+        cells (np.array, int, optional): Index of cells on which to base the
+            subgrid computation. Defaults to None.
+        faces (np.array, int, optional): Index of faces on which to base the
+            subgrid computation. Defaults to None.
+        nodes (np.array, int, optional): Index of nodes on which to base the
+            subgrid computation. Defaults to None.
+
+        Note that if all of {cells, faces, nodes} are None, empty matrices will
+        be returned.
+
+    Returns:
+        sps.csr_matrix (g.num_faces x g.num_cells): Stress discretization,
+            computed on a subgrid.
+        sps.csr_matrix (g,num_faces x g.num_faces): Boundary stress
+            discretization, computed on a subgrid
+        np.array (int): Global of the faces where the stress discretization is
+            computed.
+
+    """
+    if cells is not None:
+        warnings.warn('Cells keyword for partial mpfa has not been tested')
+    if faces is not None:
+        warnings.warn('Faces keyword for partial mpfa has not been tested')
+
+    # Find computational stencil, based on specified cells, faces and nodes.
+    ind, active_faces = fvutils.cell_ind_for_partial_update(g, cells=cells,
+                                                            faces=faces,
+                                                            nodes=nodes)
+
+    # Extract subgrid, together with mappings between local and global
+    # cells
+    sub_g, l2g_faces, _ = partition.extract_subgrid(g, ind)
+    l2g_cells = sub_g.parent_cell_ind
+
+    # Copy stiffness tensor, and restrict to local cells
+    loc_c = constit.copy()
+    loc_c.c = loc_c.c[::, ::, l2g_cells]
+    # Also restrict the lambda and mu fields; we will copy the stiffness
+    # tensors later.
+    loc_c.lmbda = loc_c.lmbda[l2g_cells]
+    loc_c.mu = loc_c.mu[l2g_cells]
+
+    glob_bound_face = g.get_boundary_faces()
+
+    # Boundary conditions are slightly more complex. Find local faces
+    # that are on the global boundary.
+    loc_bound_ind = np.argwhere(np.in1d(l2g_faces, glob_bound_face)).ravel('F')
+
+    # Then transfer boundary condition on those faces.
+    loc_cond = np.array(loc_bound_ind.size * ['neu'])
+    if loc_bound_ind.size > 0:
+        # Neumann condition is default, so only Dirichlet needs to be set
+        is_dir = bound.is_dir[l2g_faces[loc_bound_ind]]
+        loc_cond[is_dir] = 'dir'
+
+    loc_bnd = bc.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
+
+    # Discretization of sub-problem
+    stress_loc, bound_stress_loc = _mpsa_local(sub_g, loc_c, loc_bnd,
+                                           eta=eta, inverter=inverter)
+
+    num_faces_loc = l2g_faces.size
+    num_cells_loc = l2g_cells.size
+    # TODO: Need to exclude almost-boundary faces and cells. Cells
+    # should be simple (consider ind vs ind_overlap). For faces, we
+    # should go through sub_g.face_cells.
+    face_map = sps.csr_matrix((np.ones(num_faces_loc * g.dim),
+                               (__expand_indices_nd(l2g_faces, g.dim),
+                                np.arange(num_faces_loc * g.dim))),
+                              shape=(g.num_faces * g.dim,
+                                     num_faces_loc * g.dim))
+
+    cell_map = sps.csr_matrix((np.ones(num_cells_loc * g.dim),
+                               (np.arange(num_cells_loc* g.dim),
+                                __expand_indices_nd(l2g_cells, g.dim))),
+                              shape=(num_cells_loc * g.dim,
+                                     g.num_cells * g.dim))
+
+    # Update global face fields.
+    stress_glob = face_map * stress_loc * cell_map
+    bound_stress_glob = face_map * bound_stress_loc * face_map.transpose()
+
+    # By design of mpfa, and the subgrids, the discretization will update faces
+    # outside the active faces. Kill these.
+    outside = np.setdiff1d(np.arange(g.num_faces), active_faces,
+                           assume_unique=True)
+    eliminate_ind = __expand_indices_nd(outside, g.dim)
+    stress_glob[eliminate_ind, :] = 0
+    bound_stress_glob[eliminate_ind, :] = 0
+
+    return stress_glob, bound_stress_glob, active_faces
+
+def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
+    """
+    Actual implementation of the MPSA W-method. To calculate the MPSA
+    discretization on a grid, either call this method, or, to respect the
+    privacy of this method, call the main mpsa method with no memory
+    constraints.
+
     Implementation details:
 
     The displacement is discretized as a linear function on sub-cells (see
@@ -259,6 +437,7 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter=None, **kwargs):
                                                      inverter)
 
     hook_igrad = hook * igrad
+    # NOTE: This is the point where we expect to reach peak memory need.
     del hook, igrad
 
     # Output should be on face-level (not sub-face)
@@ -335,7 +514,7 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
 
     del ncasym
 
-    # Pair the forces from eahc side
+    # Pair the forces from each side
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym)
     ncsym = bound_exclusion.exclude_dirichlet_nd(ncsym)
     num_subfno = subcell_topology.subfno.max() + 1
@@ -588,6 +767,39 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba', **kwargs):
 #
 #-----------------------------------------------------------------------------
 
+def _estimate_peak_memory_mpsa(g):
+    """ Rough estimate of peak memory need for mpsa discretization.
+    """
+    nd = g.dim
+    num_cell_nodes = g.cell_nodes().toarray().sum(axis=1)
+
+    # Number of unknowns around a vertex: nd^2 per cell that share the vertex 
+    # for pressure gradients, and one per cell (cell center pressure)
+    num_grad_unknowns = nd**2 * num_cell_nodes
+
+    # The most expensive field is the storage of igrad, which is block diagonal
+    # with num_grad_unknowns sized blocks
+    igrad_size = num_grad_unknowns.sum()
+
+    # The discretization of Hook's law will require nd^2 (that is, a gradient)
+    # per sub-face per dimension
+    num_sub_face = g.face_nodes.toarray().sum()
+    hook_size = nd * num_sub_face * nd**2
+
+    # Balancing of stresses will require 2*nd**2 (gradient on both sides)
+    # fields per sub-face per dimension
+    nk_grad_size = 2 * nd * num_sub_face * nd**2
+    # Similarly, pressure continuity requires 2 * (nd+1) (gradient on both
+    # sides, and cell center pressures) numbers
+    pr_cont_size = 2 * (nd**2 + 1) * num_sub_face * nd
+
+    total_size = igrad_size + hook_size + nk_grad_size + pr_cont_size
+
+    # Not covered yet is various fields on subcell topology, mapping matrices
+    # between local and block ordering etc.
+    return total_size
+
+
 def __get_displacement_submatrices(g, subcell_topology, eta, num_sub_cells,
                                    bound_exclusion):
     nd = g.dim
@@ -640,7 +852,7 @@ def _split_stiffness_matrix(constit):
     
     # The copy constructor for the stiffness matrix will represent all
     # dimensions as 3d. If dim==2, delete the redundant rows and columns
-    if dim == 2:
+    if dim == 2 and csym.shape[0] == 9:
         csym = np.delete(csym, (2, 5, 6, 7, 8), axis=0)
         csym = np.delete(csym, (2, 5, 6, 7, 8), axis=1)
         casym = np.delete(casym, (2, 5, 6, 7, 8), axis=0)
@@ -822,8 +1034,8 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     sub_cell_index
     cell_node_blocks: pairs of cell and node pairs, which defines sub-cells
     nno node numbers associated with balance equations
-    exclude_dirichlet mapping to remove rows associated with flux boundary
-    exclude_neumann mapping to remove rows associated with pressure boundary
+    exclude_dirichlet mapping to remove rows associated with stress boundary
+    exclude_neumann mapping to remove rows associated with displacement boundary
 
     Returns
     -------
