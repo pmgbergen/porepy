@@ -105,9 +105,9 @@ class GridBucket(object):
     def sorted_nodes_of_edge(self, e):
         """
         Obtain the vertices of an edge, in ascending order with respect their
-        dimension.
-        In the equal-dimensional case, a sorting index 'node_number' is required
-        as the edges cannot be sorted according to dimension.
+        dimension. If the edge is between grids of the same dimension, the node
+        ordering (as defined by assign_node_ordering()) is used. If no ordering
+        of nodes exists, assign_node_ordering() will be called by this method.
 
         Parameters:
             e: An edge in the graph.
@@ -117,9 +117,11 @@ class GridBucket(object):
             dictionary: The second vertex of the edge.
 
         """
+
         if e[0].dim == e[1].dim:
-            have_index = self.has_nodes_prop(e, 'node_number')
-            assert all(have_index)
+            if not self.has_nodes_prop(e, 'node_number'):
+                self.assign_node_ordering()
+
             node_indexes = self.nodes_prop(e, 'node_number')
             if node_indexes[0] < node_indexes[1]:
                 return e[0], e[1]
