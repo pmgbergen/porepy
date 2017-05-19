@@ -9,7 +9,9 @@ class FourthOrderTensor(object):
     is not clear to me a the moment, but in pratcise there is sufficient
     symmetry in the tensors for the question to be irrelevant).
 
-    The tensor is thus stored in a (dim^2,dim^2,nc) matrix, named c.
+    Since all coordinates are three-dimensional, the tensor is stored as a 3^2
+    x 3^2 x num_cells arrays. If a 2d problem is solved, the third dimension
+    will automatically be disregarded by the numerical method.
 
     The only constructor available for the moment is based on the lame parameters,
     e.g. using two degrees of freedom. A third parameter phi is also present,
@@ -19,9 +21,15 @@ class FourthOrderTensor(object):
     have not been tested.
 
     Attributes:
-        c - numpy.ndarray, dimensions (dim^2,dim^2,nc), cell-wise representation of
+        c - numpy.ndarray, dimensions (dim^2,dim^2,nc), cell-wise
+            representation of the stiffness matrix.
+        dim (int): Real dimension of the tensor (as oposed to the 3d
+            representation of the data)
+        lmbda (np.ndarray, size: num_cells): First Lame parameter
+        mu (np.ndarray, size: num_cells): Second Lame parameter
 
     """
+
     def __init__(self, dim, mu, lmbda, phi=None):
         """ Constructor for fourth order tensor on Lame-parameter form
 
@@ -57,6 +65,11 @@ class FourthOrderTensor(object):
             raise ValueError("Phi should be 1-D")
         elif phi.size != lmbda.size:
             raise ValueError("Phi and Lmbda should have the same length")
+
+        # Save lmbda and mu, can be useful to have in some cases
+        self.lmbda = lmbda
+        self.mu = mu
+        self.dim = dim
 
         # Basis for the contributions of mu, lmbda and phi is hard-coded
         if dim == 2:
@@ -129,4 +142,5 @@ class FourthOrderTensor(object):
         self.c = c
 
     def copy(self):
-        return np.copy(self.c)
+        return FourthOrderTensor(self.dim, mu=self.mu, lmbda=self.lmbda)
+
