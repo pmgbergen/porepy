@@ -595,8 +595,13 @@ class GridBucket(object):
         # Loop over grids in decreasing dimensions
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
             for g in self.grids_of_dimension(dim):
-                if not self.has_nodes_prop([g], 'node_number'):
-                    warnings.warn('Node ordering missing')
+                if not self.has_nodes_prop(g, 'node_number'):
+	                # It is not clear how sereve this case is. For the moment,
+                    # we give a warning, and hope the user knows what to do
+                    warnings.warn('Tried to update node ordering where none exists')
+                    # No point in continuing with this node.
+		            continue
+
                 n = self.graph.node[g]
                 old_number = n.get('node_number', -1)
 
