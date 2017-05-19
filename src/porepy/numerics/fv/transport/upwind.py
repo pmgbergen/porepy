@@ -117,8 +117,10 @@ class Upwind(Solver):
         flow_cells = if_inflow_faces.transpose() * flow_faces
         flow_cells.tocsr()
 
+        f = data.get('f', np.zeros(g.num_cells)) * g.cell_volumes
+
         if not has_bc:
-            return flow_cells, np.zeros(g.num_cells)
+            return flow_cells, f
 
         # Dirichlet boundary condition
         flow_faces.data = np.multiply(flow_faces.data,
@@ -126,12 +128,14 @@ class Upwind(Solver):
         flow_faces.eliminate_zeros()
 
         # Impose the boundary conditions
+        # TODO: Think about Neumann conditions
         bc_val_dir = np.zeros(g.num_faces)
-        bc_val_dir[bc.is_dir] = bc_val['dir']
+        if 'dir' in bc_val.keys():
+            bc_val_dir[bc.is_dir] = bc_val['dir']
 
         flow_faces.data = -flow_faces.data * bc_val_dir[flow_faces.indices]
 
-        return flow_cells, np.squeeze(np.asarray(flow_faces.sum(axis=0)))
+        return flow_cells, f + np.squeeze(np.asarray(flow_faces.sum(axis=0)))
 
 #------------------------------------------------------------------------------#
 

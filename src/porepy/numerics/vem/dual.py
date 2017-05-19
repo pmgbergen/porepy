@@ -281,11 +281,10 @@ class DualVEM(Solver):
         """
         if g.dim == 0: return np.zeros(3).reshape((3,1))
 
-        k = data.get('k', None)
-
-        if k is None: # create a warning
-            kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+        # The velocity field already has permeability effects incorporated,
+        # thus we assign a unit permeability to be passed to self.massHdiv 
+        kxx = np.ones(g.num_cells)
+        k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
 
         faces, cells, sgn = sps.find(g.cell_faces)
         c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)

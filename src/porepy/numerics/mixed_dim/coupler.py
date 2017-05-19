@@ -66,6 +66,9 @@ class Coupler(object):
             pos = data['node_number']
             matrix[pos, pos], rhs[pos] = self.solver.matrix_rhs(g, data)
 
+        # Handle special case of 1-element grids, that give 0-d arrays
+        rhs = [np.atleast_1d(a) for a in tuple(rhs)]
+
         # if the coupling conditions are not given fill only the diagonal part
         if self.coupling is None:
             return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
