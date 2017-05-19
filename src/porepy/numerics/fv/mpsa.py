@@ -645,6 +645,10 @@ def _split_stiffness_matrix(constit):
         csym = np.delete(csym, (2, 5, 6, 7, 8), axis=1)
         casym = np.delete(casym, (2, 5, 6, 7, 8), axis=0)
         casym = np.delete(casym, (2, 5, 6, 7, 8), axis=1)
+<<<<<<< HEAD
+=======
+
+>>>>>>> MPSA uses correct version of tensor copy.
 
     # The splitting is hard coded based on the ordering of elements in the
     # stiffness matrix
