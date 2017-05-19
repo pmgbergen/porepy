@@ -465,6 +465,18 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
+    def remove_node(self, node):
+        """
+        Remove node, and related edges, from the grid bucket.
+        Parameters:
+           node : the node to be removed
+
+        """
+
+        self.graph.remove_node(node)
+
+#------------------------------------------------------------------------------#
+
     def remove_nodes(self, cond):
         """
         Remove nodes, and related edges, from the grid bucket subject to a
@@ -588,10 +600,10 @@ class GridBucket(object):
         # Loop over grids in decreasing dimensions
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
             for g in self.grids_of_dimension(dim):
-                if not self.has_nodes_prop([g], 'node_number')
+                if not self.has_nodes_prop([g], 'node_number'):
                     warnings.warn('Node ordering missing')
-
-                old_number = n.get(['node_number'])
+                n = self.graph.node[g]
+                old_number = n.get('node_number', -1)
 
                 if old_number > removed_number:
                     n['node_number'] = old_number - 1
