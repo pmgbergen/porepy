@@ -161,16 +161,19 @@ class Upwind(Solver):
 
         """
         beta_n = data['beta_n']
-        apertures = data['a']
+        try:
+            apertures = data['a']
+        except KeyError:
+            apertures = np.ones(g.num_cells)
+
         faces, cell, _ = sps.find(g.cell_faces)
         not_zero = ~np.isclose(np.zeros(faces.size), beta_n[faces], atol=0)
         if not np.any(not_zero):
             return np.inf
 
         beta_n = np.abs(beta_n[faces[not_zero]])
-        volumes = g.cell_volumes[cell[not_zero]]
-        if apertures is not None:
-            volumes = volumes * np.power(apertures[cell[not_zero]], 3 - g.dim)
+        volumes = g.cell_volumes[cell[not_zero]] * \
+            np.power(apertures[cell[not_zero]], 3 - g.dim)
 
         return np.amin(np.divide(volumes, beta_n)) / g.dim
 
