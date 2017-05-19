@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.sparse as sps
-from compgeom.basics import map_grid
+from porepy.utils.comp_geom import map_grid
 
 
 class TpfaCoupling(object):
@@ -31,7 +31,7 @@ class TpfaCoupling(object):
 
         k_l = data_l['k']
         k_h = data_h['k']
-        a = data_l['a']
+        a_l = data_l['a']
         a_h = data_h['a']
         dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
 
@@ -82,10 +82,10 @@ class TpfaCoupling(object):
         normal_perm = np.divide(normal_perm, g_h.face_areas[faces_h])
 
         # Account for aperture contribution to face area
-        t_face_l = np.power(a_h[cells_h], 3 - g_h.dim) * normal_perm
+        t_face_l = np.power(a_l[cells_l], 3 - g_h.dim) * normal_perm
 
         # And use it for face-center cell-center distance
-        t_face_l = np.divide(t_face_l, 0.5 * a[cells_l])
+        t_face_l = np.divide(t_face_l, 0.5 * a_l[cells_l])
 
         # Assemble face transmissibilities for the two dimensions and compute
         # harmonic average

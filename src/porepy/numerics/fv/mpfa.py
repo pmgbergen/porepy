@@ -92,6 +92,7 @@ class Mpfa(Solver):
             f = np.zeros(g.num_cells)
             warnings.warn('Scalar source not assigned, assumed null')
         div = g.cell_faces.T
+
         return div * bound_flux * bc_val - f * g.cell_volumes
 
 #------------------------------------------------------------------------------#
@@ -157,7 +158,6 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba', apertures=None):
     if g.dim == 1:
         return tpfa.tpfa(g, k, bnd, apertures)
     elif g.dim == 0:
-        print('div', g.cell_faces.T)
         return sps.csr_matrix([0]), 0
 
     # The grid coordinates are always three-dimensional, even if the grid is
