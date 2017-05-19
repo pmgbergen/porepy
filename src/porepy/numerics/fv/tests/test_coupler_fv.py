@@ -1,0 +1,133 @@
+import numpy as np
+import time
+import scipy.sparse as sps
+import scipy.spatial as spat
+from scipy.sparse.linalg import spsolve
+import matplotlib.pyplot as plt
+
+from porepy.grids import structured, simplex, point_grid
+from porepy.grids.grid import FaceTag
+from porepy.params import bc, second_order_tensor
+
+
+# from viz.plot_grid import plot_grid, save_img
+from viz.exporter import export_vtk
+
+from porepy.grids.coarsening import *
+from porepy.grids import grid_bucket, remove_grids
+from porepy.fracs import meshing  # split_grid
+
+from porepy.numerics.mixed_dim import coupler
+import copy
+from porepy.numerics.fv import mpfa, tpfa_coupling, tpfa
+from porepy.numerics.mixed_dim import condensation
+
+#------------------------------------------------------------------------------#
+
+
+def add_data(gb):
+    """
+    Define the permeability, apertures, boundary conditions
+    """
+    gb.add_node_props(['k', 'f', 'bc', 'bc_val', 'a'])
+    for g, d in gb:
+        kxx = np.ones(g.num_cells)
+
+        if all(g.cell_centers[0, :] < 0.0001):
+            perm = second_order_tensor.SecondOrderTensor(3,
+                                                         kxx / 100, kxx, kxx)
+        else:
+            perm = second_order_tensor.SecondOrderTensor(3,
+                                                         kxx * np.power(100, g.dim < 3))
+
+        d['k'] = perm
+        # Source term
+        d['f'] = np.zeros(g.num_cells)
+
+        # Boundaries
+        bound_faces = g.get_boundary_faces()
+        top = np.argwhere(g.face_centers[1, :] > 1 - 1e-3)
+        bot = np.argwhere(g.face_centers[1, :] < -1 + 1e-3)
+        left = np.argwhere(g.face_centers[0, :] < -1 + 1e-3)
+
+        dir_bound = np.concatenate((top, bot))
+
+        bound = bc.BoundaryCondition(g, dir_bound.ravel(),
+                                     ['dir'] * dir_bound.size)
+        d_bound = np.zeros(g.num_faces)
+        d_bound[dir_bound] = g.face_centers[1, dir_bound]
+
+        # Set neumann boundary 1 on left side 0 on right
+        d_bound[left] = - 1 * g.face_centers[0, left]
+        d['bc'] = bound
+
+        d['bc_val'] = d_bound.ravel('F')
+        # Assign apertures
+        d['a'] = np.ones(g.num_cells) * np.power(0.001, g.dim < 3)
+
+#------------------------------------------------------------------------------#
+
+
+if __name__ == '__main__':
+    """
+    Example illustrating the FV coupling and the condensation elimination of the
+    intersection cells. The coupling is with TPFA, but for internal discretization of
+    the individual domains, one can choose between MPFA and TPFA.
+    """
+    np.set_printoptions(linewidth=999999, threshold=np.nan)
+    np.set_printoptions(precision=3)
+
+    # Set up and mesh the domain and collect meshes in a grid bucket
+    f_1 = np.array([[-.8, .8, .8, -.8], [0, 0, 0, 0], [-.8, -.8, .8, .8]])
+    f_2 = np.array([[0, 0, 0, 0], [-.8, .8, .8, -.8], [-.8, -.8, .8, .8]])
+    f_3 = np.array([[-.8, .8, .8, -.8], [-.8, -.8, .8, .8], [0, 0, 0, 0]])
+
+    f_set = [f_1, f_2, f_3]
+
+    domain = {'xmin': -1, 'xmax': 1,
+              'ymin': -1, 'ymax': 1, 'zmin': -1, 'zmax': 1}
+    # ENDRE DENNE
+    path_to_gmsh = '~/gmsh-2.16.0-Linux/bin/gmsh'
+    gb = meshing.simplex_grid(f_set, domain, gmsh_path=path_to_gmsh)
+    gb.assign_node_ordering()
+
+    # Assign parameters
+    add_data(gb)
+
+    # Choose and define the solvers and coupler
+    solver = mpfa.Mpfa()
+    # solver = tpfa.Tpfa()
+    coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
+    solver_coupler = coupler.Coupler(solver, coupling_conditions)
+    A, b = solver_coupler.matrix_rhs(gb)
+    p = sps.linalg.spsolve(A.copy(), b)
+
+    # Solve the problem without 0d grids.
+    eliminate_dim = 0
+    p_full_condensation, p_reduced, _, _ = condensation.solve_static_condensation(
+        A, b, gb, eliminate_dim)
+
+    # The p_reduced only has pressures for the cells of grids of dim>0, so
+    # should be plotted on a grid where the 0d has been removed:
+    gb_r = remove_grids.duplicate_without_dimension(gb, 0)
+
+    # Add the solutions to data fields in the grid buckets
+    gb.add_node_props(["p", "p_condensation"])
+    gb_r.add_node_props(["p_reduced"])
+
+    solver_coupler.split(gb, "p_condensation", p_full_condensation)
+    solver_coupler.split(gb_r, "p_reduced", p_reduced)
+    solver_coupler.split(gb, "p", p)
+
+    max_p, min_p, normalization, error_norm = np.zeros(1), np.zeros(1), 0, 0
+    for g, d in gb:
+        p1, p2 = d["p"], d["p_condensation"]
+        error_norm += sum(np.power(p1 - p2, 2) * g.cell_volumes * d['a'])
+        normalization += sum(g.cell_volumes)
+        max_p = np.array(np.amax(np.concatenate((max_p, p1)), axis=0), ndmin=1)
+        min_p = np.array(np.amin(np.concatenate((min_p, p1)), axis=0), ndmin=1)
+
+    error_norm = np.power(error_norm / normalization, .5) / (max_p - min_p)
+    print('The error of the condensation compared to the full method is ', error_norm)
+    export_vtk(gb, "grid_mpfa", ["p", "p_condensation"], folder="simu")
+    export_vtk(gb_r, "grid_mpfa_r", ["p_reduced"], folder="simu")
