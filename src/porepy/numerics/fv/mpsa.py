@@ -241,7 +241,7 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter=None):
         g.face_normals = np.delete(g.face_normals, (2), axis=0)
         g.nodes = np.delete(g.nodes, (2), axis=0)
 
-        # TODO: Need to copy constit here, but first implement a deep copy.
+        constit = constit.copy()
         constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=0)
         constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=1)
 
@@ -630,9 +630,17 @@ def _split_stiffness_matrix(constit):
 
     # We do not know how constit is used outside the discretization,
     # so create deep copies to avoid overwriting. Not really sure if this is
-    #  necessary
-    csym = 0 * constit.copy()
-    casym = constit.copy()
+    # necessary
+    csym = 0 * constit.copy().c
+    casym = constit.copy().c
+    
+    # The copy constructor for the stiffness matrix will represent all
+    # dimensions as 3d. If dim==2, delete the redundant rows and columns
+    if dim == 2:
+        csym = np.delete(csym, (2, 5, 6, 7, 8), axis=0)
+        csym = np.delete(csym, (2, 5, 6, 7, 8), axis=1)
+        casym = np.delete(casym, (2, 5, 6, 7, 8), axis=0)
+        casym = np.delete(casym, (2, 5, 6, 7, 8), axis=1)
 
     # The splitting is hard coded based on the ordering of elements in the
     # stiffness matrix
