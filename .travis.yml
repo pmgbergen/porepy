@@ -29,6 +29,9 @@ install:
   - pip install pytest pytest_cov 
   - pip install coveralls
   - pip install .
+  
+  # Show all packages, for debugging
+  - conda list
 
 script: 
   - pytest test --cov test --cov-report term-missing
