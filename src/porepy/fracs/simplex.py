@@ -1,6 +1,6 @@
 import numpy as np
 import time
-from meshio import msh_io
+from meshio import gmsh_io
 import warnings
 
 from porepy.grids import constants
