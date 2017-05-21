@@ -37,11 +37,10 @@ def dofs_of_dimension(gb, A, dim=0):
     to_be_eliminated = np.zeros(original_ndof, dtype=bool)
 
     for g, d in gb:
-
         i = d['node_number']
         if g.dim == dim:
-            to_be_eliminated[slice(dofs[i], dofs[i + 1])
-                             ] = np.ones(d['dof'], dtype=bool)
+            to_be_eliminated[slice(dofs[i], dofs[i + 1]) ] = \
+                np.ones(d['dof'], dtype=bool)
 
     return to_be_eliminated
 
@@ -57,15 +56,17 @@ def eliminate_dofs(A, rhs, to_be_eliminated, inverter=sps.linalg.inv):
     Input:
     A, rhs: original matrix and right hand side of the problem to be
         solved.
-    to_be_eliminated: boolean mask specifying which degrees of freedom 
+        to_be_eliminated: boolean mask specifying which degrees of freedom 
         should be eliminated from the system.
+
     Returns:
-    A_reduced: The system matrix for the reduced system, i.e., corresponding 
-        to the master dofs only.
-    rhs_reduced: The right hand side for the reduced system.
-    Condensation_matrix: The matrix used for back-computation of the 
-        unknowns of the slaves once the reduced system has been solved.
-    to_be_kept: Indices of the masters.
+        A_reduced: The system matrix for the reduced system, i.e.,
+            corresponding to the master dofs only.
+        rhs_reduced: The right hand side for the reduced system.
+        Condensation_matrix: The matrix used for back-computation of the
+            unknowns of the slaves once the reduced system has been solved.
+        to_be_kept: Indices of the masters.
+
     """
     to_be_kept = np.invert(to_be_eliminated)
     # Get indexes of the masters:
@@ -76,19 +77,20 @@ def eliminate_dofs(A, rhs, to_be_eliminated, inverter=sps.linalg.inv):
     # Masters and slaves:
     A_mm = A[to_be_kept, :]
     A_mm = A_mm[:, to_be_kept]
-    A_ms = A[:, to_be_eliminated]
 
+    A_ms = A[:, to_be_eliminated]
     A_ms = A_ms[to_be_kept, :]
 
     A_sm = A[:, to_be_kept]
-
     A_sm = A_sm[to_be_eliminated, :]
+
     A_ss = A[:, to_be_eliminated]
     A_ss = A_ss[to_be_eliminated, :]
+    
     A_ss_inv = inverter(A_ss)
-
     A_ms_A_ss_inv = A_ms * A_ss_inv
-    # Needed for broadcasting (?):
+
+    # Needed for broadcasting
     if A_ss.size == 1:
         A_ms_A_ss_inv = A_ms_A_ss_inv[:, np.newaxis]
 
