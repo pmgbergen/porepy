@@ -316,21 +316,11 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
     flux_loc, bound_flux_loc = _mpfa_local(sub_g, loc_k, loc_bnd,
                                            eta=eta, inverter=inverter)
 
-    num_faces_loc = l2g_faces.size
-    num_cells_loc = l2g_cells.size
-    # TODO: Need to exclude almost-boundary faces and cells. Cells
-    # should be simple (consider ind vs ind_overlap). For faces, we
-    # should go through sub_g.face_cells.
-    face_map = sps.csr_matrix((np.ones(num_faces_loc),
-                               (np.arange(num_faces_loc), l2g_faces)),
-                              shape=(num_faces_loc, g.num_faces))
-    cell_map = sps.csr_matrix((np.ones(num_cells_loc),
-                               (np.arange(num_cells_loc), l2g_cells)),
-                              shape=(num_cells_loc, g.num_cells))
-
-    # Update global face fields.
-    flux_glob = face_map.transpose() * flux_loc * cell_map
-    bound_flux_glob = face_map.transpose() * bound_flux_loc * face_map
+    # Map to global indices
+    face_map, cell_map = fvutils.map_subgrid_to_grid(g, l2g_faces, l2g_cells,
+                                                      is_vector=False)
+    flux_glob = face_map * flux_loc * cell_map
+    bound_flux_glob = face_map * bound_flux_loc * face_map.transpose()
 
 
     # By design of mpfa, and the subgrids, the discretization will update faces

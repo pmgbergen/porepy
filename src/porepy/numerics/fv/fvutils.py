@@ -441,6 +441,33 @@ def block_diag_index(m, n=None):
     j = matrix_compression.rldecode(sumn, m_n_full)
     return i, j
 
+def expand_indices_nd(ind, nd, direction=1):
+    """
+    Expand indices from scalar to vector form.
+
+    Examples:
+    >>> i = np.array([0, 1, 3])
+    >>> __expand_indices_nd(i, 2)
+    (array([0, 1, 2, 3, 6, 7]))
+
+    >>> __expand_indices_nd(i, 3, 0)
+    (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
+
+    Parameters
+    ----------
+    ind
+    nd
+    direction
+
+    Returns
+    -------
+
+    """
+    dim_inds = np.arange(nd)
+    dim_inds = dim_inds[:, np.newaxis]  # Prepare for broadcasting
+    new_ind = nd * ind + dim_inds
+    new_ind = new_ind.ravel(direction)
+    return new_ind
 
 def scalar_divergence(g):
     """
@@ -595,9 +622,7 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
     discretization stencil.
 
     Implementation note: This function should really be split into three parts,
-    one for each of the modes (cell, face, node). It may or may not be useful
-    to keep a single mother-function to 
-
+    one for each of the modes (cell, face, node).
 
     The subgrid can be specified in terms of cells, faces and nodes to be
     updated. The method will then define a sufficiently large subgrid to
@@ -774,4 +799,31 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
     face_ind.sort()
     # Return, with data type int
     return cell_ind.astype('int'), face_ind.astype('int')
+
+def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
+
+    num_faces_loc = loc_faces.size
+    num_cells_loc = loc_cells.size
+
+    nd = g.dim
+    if is_vector:
+        face_map = sps.csr_matrix((np.ones(num_faces_loc * nd),
+                                   (expand_indices_nd(loc_faces, nd),
+                                    np.arange(num_faces_loc * nd))),
+                                  shape=(g.num_faces * nd,
+                                         num_faces_loc * nd))
+
+        cell_map = sps.csr_matrix((np.ones(num_cells_loc * nd),
+                                   (np.arange(num_cells_loc* nd),
+                                    expand_indices_nd(loc_cells, nd))),
+                                  shape=(num_cells_loc * nd,
+                                         g.num_cells * nd))
+    else:
+        face_map = sps.csr_matrix((np.ones(num_faces_loc),
+                                   (loc_faces, np.arange(num_faces_loc))),
+                                  shape=(g.num_faces, num_faces_loc))
+        cell_map = sps.csr_matrix((np.ones(num_cells_loc),
+                                   (np.arange(num_cells_loc), loc_cells)),
+                                  shape=(num_cells_loc, g.num_cells))
+    return face_map, cell_map
 

@@ -233,7 +233,7 @@ def mpsa(g, constit, bound, eta=0, inverter=None, max_memory=None,
                                nodes=active_nodes)
 
             # Eliminate contribution from faces already covered
-            eliminate_ind = __expand_indices(face_covered, g.dim)
+            eliminate_ind = fvutils.expand_indices(face_covered, g.dim)
             loc_stress[eliminate_ind, :] *= 0
             loc_bound_stress[eliminate_ind, :] *= 0
 
@@ -330,22 +330,8 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
     stress_loc, bound_stress_loc = _mpsa_local(sub_g, loc_c, loc_bnd,
                                            eta=eta, inverter=inverter)
 
-    num_faces_loc = l2g_faces.size
-    num_cells_loc = l2g_cells.size
-    # TODO: Need to exclude almost-boundary faces and cells. Cells
-    # should be simple (consider ind vs ind_overlap). For faces, we
-    # should go through sub_g.face_cells.
-    face_map = sps.csr_matrix((np.ones(num_faces_loc * g.dim),
-                               (__expand_indices_nd(l2g_faces, g.dim),
-                                np.arange(num_faces_loc * g.dim))),
-                              shape=(g.num_faces * g.dim,
-                                     num_faces_loc * g.dim))
-
-    cell_map = sps.csr_matrix((np.ones(num_cells_loc * g.dim),
-                               (np.arange(num_cells_loc* g.dim),
-                                __expand_indices_nd(l2g_cells, g.dim))),
-                              shape=(num_cells_loc * g.dim,
-                                     g.num_cells * g.dim))
+    face_map, cell_map = fvutils.map_subgrid_to_grid(g, l2g_faces, l2g_cells,
+                                                     is_vector=True)
 
     # Update global face fields.
     stress_glob = face_map * stress_loc * cell_map
@@ -355,7 +341,7 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
     # outside the active faces. Kill these.
     outside = np.setdiff1d(np.arange(g.num_faces), active_faces,
                            assume_unique=True)
-    eliminate_ind = __expand_indices_nd(outside, g.dim)
+    eliminate_ind = fvutils.expand_indices_nd(outside, g.dim)
     stress_glob[eliminate_ind, :] = 0
     bound_stress_glob[eliminate_ind, :] = 0
 
@@ -545,11 +531,7 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
     return hook, igrad, rhs_cells, cell_node_blocks, hook_normal
 
 
-<<<<<<< d602c4bef9d6325b55d8e0d42f0f8328c2d09827
-def biot(g, constit, bound, faces=None, eta=0, inverter=None):
-=======
-def biot(g, constit, bound, faces=None, eta=0, inverter='numba', **kwargs):
->>>>>>> mpfa and mpsa accepts kwargs.
+def biot(g, constit, bound, faces=None, eta=0, inverter=None, **kwargs):
     """
     Discretization of poro-elasticity by the MPSA-W method.
 
@@ -710,7 +692,7 @@ def biot(g, constit, bound, faces=None, eta=0, inverter='numba', **kwargs):
 
     # Face-wise gradient operator. Used for the term grad_p in Biot's
     # equations.
-    rows = __expand_indices_nd(subcell_topology.cno, nd)
+    rows = fvutils.expand_indices_nd(subcell_topology.cno, nd)
     cols = np.arange(num_subhfno * nd)
     vals = np.tile(sgn, (nd, 1)).ravel('F')
     div_gradp = sps.coo_matrix((vals, (rows, cols)),
@@ -980,7 +962,7 @@ def _tensor_vector_prod(g, constit, subcell_topology):
         # Distribute (relevant parts of) Hook's law on subcells
         # This will be nd rows, thus cell ci is associated with indices
         # ci*nd+np.arange(nd)
-        sub_cell_ind = __expand_indices_nd(cell_node_blocks[0], nd)
+        sub_cell_ind = fvutils.expand_indices_nd(cell_node_blocks[0], nd)
         sym_vals = sym_dim[sub_cell_ind]
         asym_vals = asym_dim[sub_cell_ind]
 
@@ -1178,7 +1160,7 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # Map these to all half-face indices
 
     is_bnd = np.hstack((neu_ind_single_all, dir_ind_single_all))
-    bnd_ind = __expand_indices_nd(is_bnd, nd)
+    bnd_ind = fvutils.expand_indices_nd(is_bnd, nd)
     bnd_2_all_hf = sps.coo_matrix((np.ones(num_bound),
                                    (np.arange(num_bound), bnd_ind)),
                                   shape=(num_bound, num_subfno * nd))
@@ -1208,12 +1190,13 @@ def _map_hf_2_f(fno, subfno, nd):
 
     """
 
-    hfi = __expand_indices_nd(subfno, nd)
-    hf = __expand_indices_nd(fno, nd)
+    hfi = fvutils.expand_indices_nd(subfno, nd)
+    hf = fvutils.expand_indices_nd(fno, nd)
     hf2f = sps.coo_matrix((np.ones(hf.size), (hf, hfi)),
                           shape=(hf.max() + 1, hfi.max() + 1)).tocsr()
     return hf2f
 
+<<<<<<< 62eaa57cb5727e87a95ba9ac0ba53dde1eb1a8cf
 
 def __expand_indices_nd(ind, nd, direction='F'):
     """
@@ -1244,6 +1227,8 @@ def __expand_indices_nd(ind, nd, direction='F'):
     return new_ind
 
 
+=======
+>>>>>>> Moved functions between fv discretizations
 def __unique_hooks_law(csym, casym, subcell_topology, nd):
     """
     Go from products of normal vectors with stiffness matrices (symmetric
