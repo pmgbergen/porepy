@@ -218,7 +218,7 @@ def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
         jf = j[candidate[j]]
         is_fine[jf] = True
         candidate[np.r_[i, jf]] = False
-        loop = ST.indices[ mcolon.mcolon(ST.indptr[jf], ST.indptr[jf+1]-1) ]
+        loop = ST.indices[ mcolon.mcolon(ST.indptr[jf], ST.indptr[jf+1]) ]
         for row in np.unique(loop):
             s = ST.indices[ST.indptr[row]:ST.indptr[row+1]]
             lmbda[row] = s[candidate[s]].size + 2*s[is_fine[s]].size
@@ -276,7 +276,7 @@ def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
                            axis=-1)
 
     connection_idx = mcolon.mcolon(connection.indptr[coarse],
-                                   connection.indptr[coarse+1]-1)
+                                   connection.indptr[coarse+1])
     vals = accumarray.accum(candidates, connection.data[connection_idx],
                             size=[Nc,NC])
     del candidates_rep, candidates_idx, connection_idx

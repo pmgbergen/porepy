@@ -12,13 +12,13 @@ from porepy.utils import mcolon
 
 def test_mcolon_simple():
     a = np.array([1, 2])
-    b = np.array([2, 3])
+    b = np.array([3, 4])
     c = mcolon.mcolon(a, b)
     assert np.all((c - np.array([1, 2, 2, 3])) == 0)
 
 
 def test_mcolon_one_missing():
     a = np.array([1, 2])
-    b = np.array([2, 1])
+    b = np.array([3, 1])
     c = mcolon.mcolon(a, b)
     assert np.all((c - np.array([1, 2])) == 0)

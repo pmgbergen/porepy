@@ -273,7 +273,7 @@ class CartGrid2D(MainTester):
         node_ind = g.face_nodes.indices
         # Nodes of faces on the boundary
         bnd_nodes = node_ind[mcolon(node_ptr[bnd_face],
-                                    node_ptr[bnd_face + 1] - 1)]
+                                    node_ptr[bnd_face + 1])]
         g.nodes[:, bnd_nodes] = old_nodes[:, bnd_nodes]
         g.compute_geometry()
         self.g_lines = g
@@ -688,7 +688,7 @@ class TriangleGrid2D(MainTester):
         node_ind = g.face_nodes.indices
         # Nodes of faces on the boundary
         bnd_nodes = node_ind[mcolon(node_ptr[bnd_face],
-                                    node_ptr[bnd_face + 1] - 1)]
+                                    node_ptr[bnd_face + 1])]
         g.nodes[:, bnd_nodes] = old_nodes[:, bnd_nodes]
         g.compute_geometry()
         self.g_lines = g
