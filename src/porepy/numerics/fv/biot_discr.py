@@ -84,7 +84,9 @@ class BiotDiscr(Solver):
         d = self.extractD(g, state, as_vector=True)
         p = self.extractP(g, state)
 
-        div_d = np.squeeze(data['biot_alpha'] * data['div_d'] * d)
+        d_scaling = data.get('displacement_scaling', 1)
+
+        div_d = np.squeeze(data['biot_alpha'] * data['div_d'] * d * d_scaling)
         p_cmpr = data['compr_discr'] * p
 
         mech_rhs = np.zeros(g.dim * g.num_cells)
@@ -113,10 +115,11 @@ class BiotDiscr(Solver):
         # Time step size
         dt = data['dt']
 
+        d_scaling = data.get('displacement_scaling', 1)
         # Matrix for left hand side
         A_biot = sps.bmat([[A_mech,
                             data['grad_p'] * data['biot_alpha']],
-                            [data['div_d'] * data['biot_alpha'],
+                            [data['div_d'] * data['biot_alpha'] * d_scaling,
                              data['compr_discr'] \
                              + dt * A_flow + data['stabilization']]]).tocsr()
 
