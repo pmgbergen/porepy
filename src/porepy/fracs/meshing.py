@@ -140,7 +140,7 @@ def tag_faces(grids):
             bnd_faces_l = g.get_boundary_faces()
             indptr = g.face_nodes.indptr
             fn_loc = mcolon.mcolon(
-                indptr[bnd_faces_l], indptr[bnd_faces_l + 1] - 1)
+                indptr[bnd_faces_l], indptr[bnd_faces_l + 1])
             nodes_loc = g.face_nodes.indices[fn_loc]
             # Convert to global numbering
             nodes_glb = g.global_point_ind[nodes_loc]
