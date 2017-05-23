@@ -482,7 +482,7 @@ def _create_bound_rhs(bnd, bound_exclusion,
                              (subcell_topology.subfno_unique,
                               subcell_topology.fno_unique)),
                             shape=(num_subfno, g.num_faces))
-    rhs_bound = -sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
+    rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
     return rhs_bound
 
 

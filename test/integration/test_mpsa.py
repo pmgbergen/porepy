@@ -48,9 +48,9 @@ def test_uniform_strain():
 
         rhs = div * bound_stress * d_bound.ravel('F')
 
-        d = np.linalg.solve(a.todense(), rhs)
+        d = np.linalg.solve(a.todense(), -rhs)
 
-        traction = stress * d - bound_stress * d_bound.ravel('F')
+        traction = stress * d + bound_stress * d_bound.ravel('F')
 
         s_xx = (2 * mu + l) * gx + l * gy
         s_xy = mu * (gx + gy)
@@ -92,9 +92,9 @@ def test_uniform_displacement():
 
         rhs = div * bound_stress * d_bound.ravel('F')
 
-        d = np.linalg.solve(a.todense(), rhs)
+        d = np.linalg.solve(a.todense(), -rhs)
 
-        traction = stress * d - bound_stress * d_bound.ravel('F')
+        traction = stress * d + bound_stress * d_bound.ravel('F')
 
         assert np.max(np.abs(d[::2] - d_x)) < 1e-8
         assert np.max(np.abs(d[1::2] - d_y)) < 1e-8
@@ -129,9 +129,9 @@ def test_uniform_displacement_neumann():
 
         rhs = div * bound_stress * d_bound.ravel('F')
 
-        d = np.linalg.solve(a.todense(), rhs)
+        d = np.linalg.solve(a.todense(), -rhs)
 
-        traction = stress * d - bound_stress * d_bound.ravel('F')
+        traction = stress * d + bound_stress * d_bound.ravel('F')
         assert np.max(np.abs(d[::2] - d_x)) < 1e-8
         assert np.max(np.abs(d[1::2] - d_y)) < 1e-8
         assert np.max(np.abs(traction)) < 1e-8
@@ -171,9 +171,9 @@ def test_conservation_of_momentum():
 
         rhs = div * bound_stress * d_bound.ravel('F')
 
-        d = np.linalg.solve(a.todense(), rhs)
+        d = np.linalg.solve(a.todense(), -rhs)
 
-        traction = stress * d - bound_stress * d_bound.ravel('F')
+        traction = stress * d + bound_stress * d_bound.ravel('F')
         traction_2d = traction.reshape((g.dim, -1), order='F')
         for cell in range(g.num_cells):
             fid, _, sgn = sps.find(g.cell_faces[:, cell])
