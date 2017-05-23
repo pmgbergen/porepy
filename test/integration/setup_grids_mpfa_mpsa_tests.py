@@ -97,7 +97,7 @@ def grid_sequence_fixed_lines(basedim, num_levels, grid_type, pert=0,
                 node_ptr = g.face_nodes.indptr
                 node_ind = g.face_nodes.indices
                 bnd_nodes = node_ind[mcolon.mcolon(node_ptr[bnd_face],
-                                                   node_ptr[bnd_face+1] - 1)]
+                                                   node_ptr[bnd_face+1])]
                 g.nodes[:, bnd_nodes] = old_nodes[:, bnd_nodes]
 
         g.compute_geometry()

@@ -187,7 +187,7 @@ def duplicate_faces(gh, face_cells):
     frac_id = np.unique(frac_id)
     node_start = gh.face_nodes.indptr[frac_id]
     node_end = gh.face_nodes.indptr[frac_id + 1]
-    nodes = gh.face_nodes.indices[mcolon(node_start, node_end - 1)]
+    nodes = gh.face_nodes.indices[mcolon(node_start, node_end)]
     added_node_pos = np.cumsum(node_end - node_start) + \
         gh.face_nodes.indptr[-1]
     assert(added_node_pos.size == frac_id.size)
@@ -426,7 +426,7 @@ def duplicate_nodes(g, nodes, offset):
 def sort_sub_list(indices, indptr):
     ix = np.zeros(indices.size, dtype=int)
     for i in range(indptr.size - 1):
-        sub_ind = mcolon(indptr[i], indptr[i + 1] - 1)
+        sub_ind = mcolon(indptr[i], indptr[i + 1])
         loc_ix = np.argsort(indices[sub_ind])
         ix[sub_ind] = loc_ix + indptr[i]
     indices = indices[ix]

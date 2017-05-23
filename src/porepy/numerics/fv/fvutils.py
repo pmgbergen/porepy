@@ -407,7 +407,7 @@ def block_diag_index(m, n=None):
     p1_full = matrix_compression.rldecode(p1, n)
     p2_full = matrix_compression.rldecode(p2, n)
 
-    i = mcolon.mcolon(p1_full, p2_full)
+    i = mcolon.mcolon(p1_full, p2_full + 1)
     sumn = np.arange(np.sum(n))
     m_n_full = matrix_compression.rldecode(m, n)
     j = matrix_compression.rldecode(sumn, m_n_full)

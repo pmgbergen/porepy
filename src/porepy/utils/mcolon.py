@@ -16,25 +16,25 @@ def mcolon(lo, hi):
     The code is equivalent to the following (less efficient) loop:
     arr = np.empty(0)
     for l, h in zip(lo, hi):
-        arr = np.hstack((arr, np.arange(l, h+1, 1)))
+        arr = np.hstack((arr, np.arange(l, h, 1)))
 
     Parameters:
         lo (np.ndarray, int): Lower bounds of the arrays to be created.
         hi (np.ndarray, int): Upper bounds of the arrays to be created. The
-            elements in hi will be included in the resulting array.
+            elements in hi will *not* be included in the resulting array.
 
         lo and hi should either have 1 or n elements. If their size are both
         larger than one, they should have the same length.
 
     Examples:
-        >>> mcolon(np.array([0, 0, 0]), np.array([1, 3, 2]))
-        array([0, 1, 0, 1, 2, 3, 0, 1, 2], dtype=int64)
+        >>> mcolon(np.array([0, 0, 0]), np.array([2, 4, 3]))
+        array([0, 1, 0, 1, 2, 3, 0, 1, 2])
 
         >>> mcolon(np.array([0, 1]), np.array([2]))
-        array([0, 1, 2, 1, 2], dtype=int64)
+        array([0, 1, 1])
 
-        >>> mcolon(np.array([0, 1, 1, 1]), np.array([0, 3, 3, 3]))
-        array([0, 1, 2, 3, 1, 2, 3, 1, 2, 3], dtype=int64)
+        >>> mcolon(np.array([0, 1, 1, 1]), np.array([1, 3, 3, 3]))
+        array([0, 1, 2, 1, 2, 1, 2])
 
     """
     if lo.size == 1:
@@ -50,14 +50,14 @@ def mcolon(lo, hi):
         return None
 
     lo = lo[i]
-    hi = hi[i]
+    hi = hi[i] - 1
     d = hi - lo + 1
     n = np.sum(d)
 
     x = np.ones(n, dtype='int64')
     x[0] = lo[0]
     x[np.cumsum(d[0:-1]).astype('int64')] = lo[1:] - hi[0:-1]
-    return np.cumsum(x)
+    return np.cumsum(x).astype('int64')
 
 
 if __name__ == '__main__':

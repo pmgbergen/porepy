@@ -591,7 +591,7 @@ class Grid(object):
         """
         b_faces = self.get_boundary_faces()
         first = self.face_nodes.indptr[b_faces]
-        second = self.face_nodes.indptr[b_faces + 1] - 1
+        second = self.face_nodes.indptr[b_faces + 1]
         return np.unique(self.face_nodes.indices[mcolon.mcolon(first, second)])
 
     def update_boundary_face_tag(self):
