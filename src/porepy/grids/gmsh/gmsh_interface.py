@@ -3,7 +3,7 @@
 import numpy as np
 import sys
 import os
-from meshio import msh_io
+from meshio import gmsh_io
 
 from porepy.utils import sort_points
 import porepy.grids.constants as gridding_constants

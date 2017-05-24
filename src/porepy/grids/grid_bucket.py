@@ -105,9 +105,9 @@ class GridBucket(object):
     def sorted_nodes_of_edge(self, e):
         """
         Obtain the vertices of an edge, in ascending order with respect their
-        dimension.
-        In the equal-dimensional case, a sorting index 'node_number' is required
-        as the edges cannot be sorted according to dimension.
+        dimension. If the edge is between grids of the same dimension, the node
+        ordering (as defined by assign_node_ordering()) is used. If no ordering
+        of nodes exists, assign_node_ordering() will be called by this method.
 
         Parameters:
             e: An edge in the graph.
@@ -117,9 +117,11 @@ class GridBucket(object):
             dictionary: The second vertex of the edge.
 
         """
+
         if e[0].dim == e[1].dim:
-            have_index = self.has_nodes_prop(e, 'node_number')
-            assert all(have_index)
+            if not self.has_nodes_prop(e, 'node_number'):
+                self.assign_node_ordering()
+
             node_indexes = self.nodes_prop(e, 'node_number')
             if node_indexes[0] < node_indexes[1]:
                 return e[0], e[1]
@@ -492,17 +494,11 @@ class GridBucket(object):
 
     def add_edge(self, grids, face_cells):
         """
-        Add an edge in the graph, based on the higher and lower-dimensional
-        grid.
+        Add an edge in the graph.
 
-        The coupling will be added with the higher-dimensional grid as the
-        first node.
-
-        NOTE: If we are interested in couplings between grids of the same
-        dimension (e.g. in a domain-decomposition setting), we would need to
-        loosen assertions in this function. We would also need to reinterpret
-        face_cells. This has now been done. For now, a warning is printed to
-        notify the user that grids of equal dimension have been paired.
+        If the grids have different dimensions, the coupling will be added with
+        the higher-dimensional grid as the first node. For equal dimensions,
+        the ordering of the nodes is the same as in input grids.
 
         Parameters:
             grids (list, len==2). Grids to be connected. Order is arbitrary.
@@ -528,7 +524,6 @@ class GridBucket(object):
             self.graph.add_edge(*grids[::-1], face_cells=face_cells)
         elif grids[0].dim == grids[1].dim:
             self.graph.add_edge(*grids, face_cells=face_cells)
-            print('added face_faces to field face_cells for equal-dimensional edge')
         else:
             raise ValueError('Grid dimension mismatch')
 
@@ -598,8 +593,13 @@ class GridBucket(object):
         # Loop over grids in decreasing dimensions
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
             for g in self.grids_of_dimension(dim):
-                if not self.has_nodes_prop([g], 'node_number'):
-                    warnings.warn('Node ordering missing')
+                if not self.has_nodes_prop(g, 'node_number'):
+	            # It is not clear how sereve this case is. For the moment,
+                    # we give a warning, and hope the user knows what to do
+                    warnings.warn('Tried to update node ordering where none exists')
+                    # No point in continuing with this node.
+                    continue
+
                 n = self.graph.node[g]
                 old_number = n.get('node_number', -1)
 
@@ -634,8 +634,9 @@ class GridBucket(object):
 #------------------------------------------------------------------------------#
 
     def copy(self):
-        """Make a copy of the grid bucket utilizing the
-        built-in copy function of networkx.
+        """Make a copy of the grid bucket utilizing the built-in copy function
+        of networkx.
+
         """
         gb_copy = GridBucket()
         gb_copy.graph = self.graph.copy()
