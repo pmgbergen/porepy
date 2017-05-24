@@ -1,9 +1,10 @@
 import numpy as np
 import scipy.sparse as sps
 from porepy.utils.comp_geom import map_grid
+from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 
-class TpfaCoupling(object):
+class TpfaCoupling(AbstractCoupling):
 
     #------------------------------------------------------------------------------#
 
@@ -33,11 +34,11 @@ class TpfaCoupling(object):
         k_h = data_h['k']
         a_l = data_l['a']
         a_h = data_h['a']
+
         dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
 
-        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
-
         # Obtain the cells and face signs of the higher dimensional grid
+        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
         faces, cells_h, sgn_h = sps.find(g_h.cell_faces)
         ind = np.unique(faces, return_index=True)[1]
         sgn_h = sgn_h[ind]
@@ -60,8 +61,7 @@ class TpfaCoupling(object):
         t_face_h = nk_h.sum(axis=0)
 
         # Account for the apertures
-        t_face_h = t_face_h * np.power(a_h[cells_h], 3 - g_h.dim)
-
+        t_face_h = t_face_h * a_h[cells_h]
         dist_face_cell_h = np.power(fc_cc_h, 2).sum(axis=0)
         t_face_h = np.divide(t_face_h, dist_face_cell_h)
 
@@ -82,10 +82,11 @@ class TpfaCoupling(object):
         normal_perm = np.divide(normal_perm, g_h.face_areas[faces_h])
 
         # Account for aperture contribution to face area
-        t_face_l = np.power(a_l[cells_l], 3 - g_h.dim) * normal_perm
+        t_face_l = a_h[cells_h] * normal_perm
 
         # And use it for face-center cell-center distance
-        t_face_l = np.divide(t_face_l, 0.5 * a_l[cells_l])
+        t_face_l = np.divide(
+            t_face_l, 0.5 * np.divide(a_l[cells_l], a_h[cells_h]))
 
         # Assemble face transmissibilities for the two dimensions and compute
         # harmonic average

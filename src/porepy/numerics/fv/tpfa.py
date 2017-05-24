@@ -82,12 +82,13 @@ class Tpfa(Solver):
     def rhs(self, g, bound_flux, bc_val, f):
         """
         Return the righ-hand side for a discretization of a second order elliptic
-        equation using the TPFA method. See self.matrix_rhs for a detaild
+        equation using the TPFA method. See self.matrix_rhs for a detailed
         description.
         """
         if f is None:
             f = np.zeros(g.num_cells)
             warnings.warn('Scalar source not assigned, assumed null')
+
         div = g.cell_faces.T
         return div * bound_flux * bc_val - f * g.cell_volumes
 
@@ -122,7 +123,8 @@ def tpfa(g, k, bnd, faces=None, apertures=None):
             divergence operator.
 
     """
-
+    if g.dim == 0:
+        return sps.csr_matrix([0]), 0
     if faces is None:
         is_not_active = np.zeros(g.num_faces, dtype=np.bool)
     else:
@@ -137,7 +139,7 @@ def tpfa(g, k, bnd, faces=None, apertures=None):
     if apertures is None:
         n = g.face_normals[:, fi]
     else:
-        n = g.face_normals[:, fi] * np.power(apertures[ci], 3 - g.dim)
+        n = g.face_normals[:, fi] * apertures[ci]
     n *= sgn
     perm = k.perm[::, ::, ci]
 

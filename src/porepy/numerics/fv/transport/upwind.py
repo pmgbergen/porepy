@@ -172,8 +172,7 @@ class Upwind(Solver):
             return np.inf
 
         beta_n = np.abs(beta_n[faces[not_zero]])
-        volumes = g.cell_volumes[cell[not_zero]] * \
-            np.power(apertures[cell[not_zero]], 3 - g.dim)
+        volumes = g.cell_volumes[cell[not_zero]] * apertures[cell[not_zero]]
 
         return np.amin(np.divide(volumes, beta_n)) / g.dim
 
@@ -199,8 +198,7 @@ class Upwind(Solver):
         if cell_apertures is None:
             face_apertures = np.ones(g.num_faces)
         else:
-            face_apertures = abs(g.cell_faces) * \
-                np.power(cell_apertures, 3 - g.dim)
+            face_apertures = abs(g.cell_faces) * cell_apertures
             r, _, _ = sps.find(g.cell_faces)
             face_apertures = face_apertures / np.bincount(r)
 

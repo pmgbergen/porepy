@@ -60,7 +60,7 @@ class Mass(Solver):
         coeff = g.cell_volumes * data.get('phi', 1) / data.get('deltaT', 1)
         apertures = data.get('a')
         if apertures is not None:
-            coeff = coeff * np.power(apertures, 3 - g.dim)
+            coeff = coeff * apertures
 
         return sps.dia_matrix((coeff, 0), shape=(ndof, ndof)), np.zeros(ndof)
 
