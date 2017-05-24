@@ -583,7 +583,8 @@ class GridBucket(object):
         Uppdate an existing ordering of the nodes in the graph, stored as the attribute
         'node_number'.
         Intended for keeping the node ordering after removing a node from the bucket. In
-        this way, the edge sorting will not be disturbed by the removal.
+        this way, the edge sorting will not be disturbed by the removal, but no gaps in are
+        created.
 
         Parameter:
             removed_number: node_number of the removed grid.
@@ -601,9 +602,10 @@ class GridBucket(object):
                     # No point in continuing with this node.
                     continue
 
+                # Obtain the old node number
                 n = self.graph.node[g]
                 old_number = n.get('node_number', -1)
-
+                # And replace it if it is higher than the removed one
                 if old_number > removed_number:
                     n['node_number'] = old_number - 1
 
@@ -702,8 +704,10 @@ class GridBucket(object):
         with n_neighbors gives rise to 1 + 2 + ... + n_neighbors-1 new edges.
 
         """
+        # Identify neighbors
         neighbors = self.node_neighbors(node)
         n_neighbors = len(neighbors)
+        # Add an edge between each neighbor pair
         for i in range(n_neighbors - 1):
             n1 = neighbors[i]
             for j in range(i + 1, n_neighbors):
