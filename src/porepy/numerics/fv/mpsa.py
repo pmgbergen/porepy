@@ -12,7 +12,7 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.numerics.fv import fvutils
-from porepy.utils import matrix_compression
+from porepy.utils import matrix_compression, mcolon
 from porepy.grids import structured
 from porepy.params import fourth_order_tensor, bc
 
@@ -187,7 +187,7 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
     rhs_bound = _create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
     # Discretization of boundary values
     bound_stress = hf2f * hook_igrad * rhs_bound
-    stress, bound_stress = _zero_neu_rows(stress, bound_stress, bound)
+    stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
 
     return stress, bound_stress
 
@@ -822,7 +822,7 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     fno_ext = np.tile(fno, nd)
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel('F')
-    print('hei')
+
     # Coefficients in the matrix. For the Neumann boundary faces we set the
     # value as seen from the outside of the domain. Note that they do not
     # have to do
@@ -1053,14 +1053,24 @@ def _neu_face_sgn(g, neu_ind):
     return neu_sgn[sort_id]
 
 
-def _zero_neu_rows(stress, bound_stress, bnd):
+def _zero_neu_rows(g, stress, bound_stress, bnd):
     """
     We zero out all none-diagonal elements for the neumann boundary faces.
     """
-    neu_faces_x = 2 * np.ravel(np.argwhere(bnd.is_neu))
-    neu_faces_y = neu_faces_x + 1
-    neu_faces_ind = np.ravel((neu_faces_x, neu_faces_y), 'F')
-    num_neu = neu_faces_x.size
+    neu_face_x = g.dim * np.ravel(np.argwhere(bnd.is_neu))
+    if g.dim == 1:
+        neu_face_ind = neu_face_x
+    elif g.dim == 2:
+        neu_face_y = neu_face_x + 1
+        neu_face_ind = np.ravel((neu_face_x, neu_face_y), 'F')
+    elif g.dim == 3:
+        neu_face_y = neu_face_x + 1
+        neu_face_z = neu_face_x + 2
+        neu_face_ind = np.ravel((neu_face_x, neu_face_y, neu_face_z), 'F')
+    else:
+        raise ValueError('Only support for dimension 1, 2, or 3')
+    num_neu = neu_face_ind.size
+
     if not num_neu:
         return stress, bound_stress
     # Frist we zero out the boundary stress. We keep the sign of the diagonal
@@ -1069,13 +1079,38 @@ def _zero_neu_rows(stress, bound_stress, bnd):
     # the normal vector points inwards. I'm not sure if this is correct (that
     # is, zeroing out none-diagonal elements and putting the diagonal elements
     # to +-1), but it seems to give satisfactory results.
-    sgn = np.sign(np.ravel(bound_stress[neu_faces_ind, neu_faces_ind]))
-    rows = np.arange(2 * num_neu)
-    # assert np.allclose(np.abs(sgn), 1)
-    neu_rows = sps.csr_matrix((sgn, (rows, neu_faces_ind)),
-                              (2 * num_neu, bound_stress.shape[1]))
-    bound_stress[neu_faces_ind, :] = neu_rows
+    sgn = np.sign(np.ravel(bound_stress[neu_face_ind, neu_face_ind]))
+    # Set all neumann rows to zero
+    bound_stress = _zero_out_sparse_rows(bound_stress, neu_face_ind, sgn)
     # For the stress matrix we zero out any rows corresponding to the Neumann
     # boundary faces (these have been moved over to the bound_stress matrix).
-    stress[neu_faces_ind, :] = sps.csr_matrix((2 * num_neu, stress.shape[1]))
+    stress = _zero_out_sparse_rows(stress, neu_face_ind)
+
     return stress, bound_stress
+
+
+def _zero_out_sparse_rows(A, rows, diag=None):
+    """
+    zeros out given rows from sparse csr matrix. If matrix is not csr, it will be
+    converted to csr, then the rows will be zeroed, and the matrix converted back
+    """
+    flag = False
+    if not A.getformat() == 'csr':
+        mat_format = A.getformat()
+        A = A.tocsr()
+        flag = True
+
+    ip = A.indptr
+    row_indices = mcolon.mcolon(ip[rows], ip[rows + 1])
+    A.data[row_indices] = 0
+    if diag is not None:
+        # now we set the diagonal
+        diag_vals = np.zeros(A.shape[1])
+        diag_vals[rows] = diag
+        A += sps.dia_matrix((diag_vals, 0), shape=A.shape)
+
+    if flag:
+        # Convert matrix back
+        A = A.astype(mat_format)
+
+    return A
