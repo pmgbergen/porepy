@@ -45,7 +45,7 @@ def mcolon(lo, hi):
         raise ValueError('Low and high should have same number of elements, '
                          'or a single item ')
 
-    i = hi >= lo
+    i = hi >= lo + 1
     if not any(i):
         return None
 
