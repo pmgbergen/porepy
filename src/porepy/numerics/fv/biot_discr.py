@@ -165,7 +165,7 @@ class BiotDiscr(Solver):
                 x = la.spsolve(A, b)
                 return x
         elif solver == 'factorized':
-            slv = la.factorized(A)
+            slv = la.factorized(A.to_csc())
 
         else:
             raise ValueError('Unknown solver ' + solver)
