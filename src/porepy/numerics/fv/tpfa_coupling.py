@@ -47,7 +47,7 @@ class TpfaCoupling(AbstractCoupling):
         cells_h, sgn_h = cells_h[faces_h], sgn_h[faces_h]
 
         # The procedure for obtaining the face transmissibilities of the higher
-        # grid is analougous to the one used in fvdiscr.tpfa.py, see that file
+        # grid is analougous to the one used in numerics.fv.tpfa.py, see that file
         # for explanations
         n = g_h.face_normals[:, faces_h]
         n *= sgn_h

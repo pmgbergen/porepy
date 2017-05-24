@@ -1,3 +1,11 @@
+"""
+Example illustrating the elimination of intersection cells for transport problem. 
+Note that with the current parameters and time steps, the non-eliminated version
+is unstable. This happens because the CFL method of upwind.py does not take 0d grids
+into account, but illustrates the power of the elimination neatly.
+
+The example is based on the test_coupler.py from transport/examples.
+"""
 import numpy as np
 import time
 import scipy.sparse as sps
@@ -46,14 +54,6 @@ def add_data_transport(gb):
 
 
 if __name__ == '__main__':
-    """
-    Example illustrating the elimination of intersection cells for transport problem. 
-    Note that with the current parameters and time steps, the non-eliminated version
-    is unstable. This happens because the CFL method of upwind.py does not take 0d grids
-    into account, but illustrates the power of the elimination neatly.
-
-    The example is based on the test_coupler.py from transport/examples.
-    """
     np.set_printoptions(linewidth=999999)
     np.set_printoptions(precision=7)
 

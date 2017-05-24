@@ -1,20 +1,21 @@
+"""
+Example illustrating the FV coupling and the condensation elimination of the
+intersection cells. The coupling is with TPFA, but for internal discretization of
+the individual domains, one can choose between MPFA and TPFA.
+"""
 import numpy as np
 import time
 import scipy.sparse as sps
-import scipy.spatial as spat
 from scipy.sparse.linalg import spsolve
-import matplotlib.pyplot as plt
 
-from porepy.grids import structured, simplex, point_grid
-from porepy.grids.grid import FaceTag
+from porepy.grids import structured, simplex
 from porepy.params import bc, second_order_tensor
 
 
-# from viz.plot_grid import plot_grid, save_img
-from viz.exporter import export_vtk
+from porepy.viz.exporter import export_vtk
 
 from porepy.grids.coarsening import *
-from porepy.grids import grid_bucket, remove_grids
+from porepy.grids import grid_bucket
 from porepy.fracs import meshing  # split_grid
 
 from porepy.numerics.mixed_dim import coupler
@@ -27,12 +28,12 @@ from porepy.numerics.mixed_dim import condensation
 
 def add_data(gb):
     """
-    Define the permeability, apertures, boundary conditions
+    Define the permeability, apertures, boundary conditions, source term
     """
     gb.add_node_props(['k', 'f', 'bc', 'bc_val', 'a'])
     for g, d in gb:
+        # Permeability
         kxx = np.ones(g.num_cells)
-
         if all(g.cell_centers[0, :] < 0.0001):
             perm = second_order_tensor.SecondOrderTensor(3,
                                                          kxx / 100, kxx, kxx)
@@ -41,14 +42,15 @@ def add_data(gb):
                                                          kxx * np.power(100, g.dim < 3))
 
         d['k'] = perm
+
         # Source term
         d['f'] = np.zeros(g.num_cells)
 
         # Boundaries
         bound_faces = g.get_boundary_faces()
-        top = np.argwhere(g.face_centers[1, :] > 1 - 1e-3)
-        bot = np.argwhere(g.face_centers[1, :] < -1 + 1e-3)
-        left = np.argwhere(g.face_centers[0, :] < -1 + 1e-3)
+        top = np.argwhere(g.face_centers[1, :] > 1 - 1e-5)
+        bot = np.argwhere(g.face_centers[1, :] < -1 + 1e-5)
+        left = np.argwhere(g.face_centers[0, :] < -1 + 1e-5)
 
         dir_bound = np.concatenate((top, bot))
 
@@ -57,23 +59,18 @@ def add_data(gb):
         d_bound = np.zeros(g.num_faces)
         d_bound[dir_bound] = g.face_centers[1, dir_bound]
 
-        # Set neumann boundary 1 on left side 0 on right
         d_bound[left] = - 1 * g.face_centers[0, left]
         d['bc'] = bound
-
         d['bc_val'] = d_bound.ravel('F')
+
         # Assign apertures
-        d['a'] = np.ones(g.num_cells) * np.power(0.001, g.dim < 3)
+        d['a'] = np.ones(g.num_cells) * np.power(1e-2, 3 - g.dim)
 
 #------------------------------------------------------------------------------#
 
 
 if __name__ == '__main__':
-    """
-    Example illustrating the FV coupling and the condensation elimination of the
-    intersection cells. The coupling is with TPFA, but for internal discretization of
-    the individual domains, one can choose between MPFA and TPFA.
-    """
+
     np.set_printoptions(linewidth=999999, threshold=np.nan)
     np.set_printoptions(precision=3)
 
@@ -109,7 +106,7 @@ if __name__ == '__main__':
 
     # The p_reduced only has pressures for the cells of grids of dim>0, so
     # should be plotted on a grid where the 0d has been removed:
-    gb_r = remove_grids.duplicate_without_dimension(gb, 0)
+    gb_r = gb.duplicate_without_dimension(0)
 
     # Add the solutions to data fields in the grid buckets
     gb.add_node_props(["p", "p_condensation"])
@@ -128,6 +125,9 @@ if __name__ == '__main__':
         min_p = np.array(np.amin(np.concatenate((min_p, p1)), axis=0), ndmin=1)
 
     error_norm = np.power(error_norm / normalization, .5) / (max_p - min_p)
+
     print('The error of the condensation compared to the full method is ', error_norm)
+    assert error_norm < 1e-3
+
     export_vtk(gb, "grid_mpfa", ["p", "p_condensation"], folder="simu")
     export_vtk(gb_r, "grid_mpfa_r", ["p_reduced"], folder="simu")
