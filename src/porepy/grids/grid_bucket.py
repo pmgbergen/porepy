@@ -593,10 +593,11 @@ class GridBucket(object):
         # Loop over grids in decreasing dimensions
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
             for g in self.grids_of_dimension(dim):
-                if not self.has_nodes_prop(g, 'node_number'):
-	            # It is not clear how sereve this case is. For the moment,
+                if not self.has_nodes_prop([g], 'node_number'):
+                    # It is not clear how severe this case is. For the moment,
                     # we give a warning, and hope the user knows what to do
-                    warnings.warn('Tried to update node ordering where none exists')
+                    warnings.warn(
+                        'Tried to update node ordering where none exists')
                     # No point in continuing with this node.
                     continue
 
@@ -641,5 +642,78 @@ class GridBucket(object):
         gb_copy = GridBucket()
         gb_copy.graph = self.graph.copy()
         return gb_copy
+
+#------------------------------------------------------------------------------#
+
+    def duplicate_without_dimension(self, dim):
+        """
+        Remove all the nodes of dimension dim and add new edges between their
+        neighbors by calls to remove_node.
+
+        """
+        gb_copy = self.copy()
+        for g in gb_copy.grids_of_dimension(dim):
+            gb_copy.eliminate_node(g)
+
+        return gb_copy
+
+#------------------------------------------------------------------------------#
+
+    def find_shared_face(self, n1, n2, zero_d_node):
+        """
+        Given two 1d grids meeting at a 0d node (to be removed), find which two
+        faces meet at the intersection (one from each grid) and build the connection
+        matrix face_faces. 
+        The lower dimensional node (corresponding to the first dimension, cells, 
+        in face_cells) is first in gb.sorted_nodes_of_edge. To be consistent with
+        this, the grid corresponding to the first dimension of face_faces should 
+        be the first grid of the node sorting.
+
+        Parameters: 
+            n1 and n2: The two 1d grids.
+            zero_d_node: The 0d grid to be removed.
+        Returns: The sparse matrix face_faces (n1.num_faces x n2.num_faces, with n1
+            and n2 sorted), the 1d-1d equivalent of the face_cells matrix.
+        """
+        # Sort nodes according to node_number
+        n1, n2 = self.sorted_nodes_of_edge([n1, n2])
+
+        # Identify the faces connecting the neighbors to the grid to be removed
+        fc1 = self.edge_props([n1, zero_d_node])
+        fc2 = self.edge_props([n2, zero_d_node])
+        _, face_number_1, _ = sps.find(fc1['face_cells'])
+        _, face_number_2, _ = sps.find(fc2['face_cells'])
+
+        # Connect the two remaining grids grids through the face_faces matrix,
+        # to be placed as a face_cells
+        # substitute.
+        face_faces = sps.csc_matrix(
+            (np.array([True]), (face_number_1, face_number_2)),
+            (n1.num_faces, n2.num_faces))
+
+        return face_faces
+
+#------------------------------------------------------------------------------#
+
+    def eliminate_node(self, node):
+        """
+        Remove the node (and the edges it partakes in) and add new direct
+        connections (gb edges) between each of the neighbor pairs. A 0d node
+        with n_neighbors gives rise to 1 + 2 + ... + n_neighbors-1 new edges.
+
+        """
+        neighbors = self.node_neighbors(node)
+        n_neighbors = len(neighbors)
+        for i in range(n_neighbors - 1):
+            n1 = neighbors[i]
+            for j in range(i + 1, n_neighbors):
+                n2 = neighbors[j]
+                face_faces = self.find_shared_face(n1, n2, node)
+                self.add_edge([n1, n2], face_faces)
+
+        # Remove the node and update the ordering of the remaining nodes
+        node_number = self.node_prop(node, 'node_number')
+        self.remove_node(node)
+        self.update_node_ordering(node_number)
 
 #------------------------------------------------------------------------------#
