@@ -96,7 +96,6 @@ def eliminate_dofs(A, rhs, to_be_eliminated, inverter=sps.linalg.inv):
 
     A_reduced = A_mm - sparse_product
     rhs_reduced = rhs[to_be_kept][:, np.newaxis] - \
-        A_ms_A_ss_inv * rhs[to_be_eliminated]
+        A_ms_A_ss_inv * rhs[to_be_eliminated, np.newaxis]
     Condensation_matrix = sps.csr_matrix(- A_ss_inv * A_sm)
-
     return A_reduced, rhs_reduced, Condensation_matrix, to_be_kept

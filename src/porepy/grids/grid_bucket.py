@@ -306,7 +306,6 @@ class GridBucket(object):
 
         Returns:
             object: The property.
-
         """
         return self.graph.node[g][key]
 
@@ -526,7 +525,6 @@ class GridBucket(object):
         if grids[0].dim - 1 == grids[1].dim:
             self.graph.add_edge(*grids, face_cells=face_cells)
         elif grids[0].dim == grids[1].dim - 1:
-
             self.graph.add_edge(*grids[::-1], face_cells=face_cells)
         elif grids[0].dim == grids[1].dim:
             self.graph.add_edge(*grids, face_cells=face_cells)
