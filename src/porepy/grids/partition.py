@@ -50,7 +50,7 @@ def partition_metis(g, num_part):
     # Convert the cells into the format required by pymetis
     adjacency_list = [c2c.getrow(i).indices for i in range(c2c.shape[0])]
     # Call pymetis
-    part = pymetis.part_graph(10, adjacency=adjacency_list)
+    part = pymetis.part_graph(num_part, adjacency=adjacency_list)
 
     # The meaning of the first number returned by pymetis is not clear (poor
     # documentation), only return the partitioning.
