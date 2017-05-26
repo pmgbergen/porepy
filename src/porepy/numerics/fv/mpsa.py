@@ -1378,36 +1378,12 @@ def _zero_neu_rows(g, stress, bound_stress, bnd):
     # to +-1), but it seems to give satisfactory results.
     sgn = np.sign(np.ravel(bound_stress[neu_face_ind, neu_face_ind]))
     # Set all neumann rows to zero
-    bound_stress = _zero_out_sparse_rows(bound_stress, neu_face_ind, sgn)
+    bound_stress = fvutils.zero_out_sparse_rows(bound_stress, neu_face_ind,
+                                                sgn)
     # For the stress matrix we zero out any rows corresponding to the Neumann
     # boundary faces (these have been moved over to the bound_stress matrix).
-    stress = _zero_out_sparse_rows(stress, neu_face_ind)
+    stress = fvutils.zero_out_sparse_rows(stress, neu_face_ind)
 
     return stress, bound_stress
 
 
-def _zero_out_sparse_rows(A, rows, diag=None):
-    """
-    zeros out given rows from sparse csr matrix. If matrix is not csr, it will be
-    converted to csr, then the rows will be zeroed, and the matrix converted back
-    """
-    flag = False
-    if not A.getformat() == 'csr':
-        mat_format = A.getformat()
-        A = A.tocsr()
-        flag = True
-
-    ip = A.indptr
-    row_indices = mcolon.mcolon(ip[rows], ip[rows + 1])
-    A.data[row_indices] = 0
-    if diag is not None:
-        # now we set the diagonal
-        diag_vals = np.zeros(A.shape[1])
-        diag_vals[rows] = diag
-        A += sps.dia_matrix((diag_vals, 0), shape=A.shape)
-
-    if flag:
-        # Convert matrix back
-        A = A.astype(mat_format)
-
-    return A
