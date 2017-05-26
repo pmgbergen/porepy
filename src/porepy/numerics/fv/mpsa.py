@@ -203,6 +203,8 @@ def mpsa(g, constit, bound, eta=0, inverter=None, max_memory=None,
         peak_mem = _estimate_peak_memory_mpsa(g)
         num_part = np.ceil(peak_mem / max_memory)
 
+        print('Split MPSA discretization into ' + str(num_part) + ' parts')
+
         # Let partitioning module apply the best available method
         part = partition.partition(g, num_part)
 
@@ -210,14 +212,15 @@ def mpsa(g, constit, bound, eta=0, inverter=None, max_memory=None,
         # Implementation note: It should be relatively straightforward to
         # estimate the memory need of stress (face_nodes -> node_cells ->
         # unique). 
-        stress = sps.csr_matrix(g.num_faces * g.dim, g.num_cells * g.dim)
-        bound_stress = sps.csr_matrix(g.num_faces * g.dim, g.num_faces * g.dim)
+        stress = sps.csr_matrix((g.num_faces * g.dim, g.num_cells * g.dim))
+        bound_stress = sps.csr_matrix((g.num_faces * g.dim,
+                                       g.num_faces * g.dim))
 
         cn = g.cell_nodes()
 
         face_covered = np.zeros(g.num_faces, dtype=np.bool)
 
-        for p in range(part.max()):
+        for p in np.unique(part):
             # Cells in this partitioning
             cell_ind = np.argwhere(part == p).ravel('F')
             # To discretize with as little overlap as possible, we use the
@@ -233,9 +236,9 @@ def mpsa(g, constit, bound, eta=0, inverter=None, max_memory=None,
                                nodes=active_nodes)
 
             # Eliminate contribution from faces already covered
-            eliminate_ind = fvutils.expand_indices(face_covered, g.dim)
-            loc_stress[eliminate_ind, :] *= 0
-            loc_bound_stress[eliminate_ind, :] *= 0
+            eliminate_ind = fvutils.expand_indices_nd(face_covered, g.dim)
+            fvutils.zero_out_sparse_rows(loc_stress, eliminate_ind)
+            fvutils.zero_out_sparse_rows(loc_bound_stress, eliminate_ind)
 
             face_covered[loc_faces] = 1
 
@@ -342,8 +345,8 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
     outside = np.setdiff1d(np.arange(g.num_faces), active_faces,
                            assume_unique=True)
     eliminate_ind = fvutils.expand_indices_nd(outside, g.dim)
-    stress_glob[eliminate_ind, :] = 0
-    bound_stress_glob[eliminate_ind, :] = 0
+    fvutils.zero_out_sparse_rows(stress_glob, eliminate_ind)
+    fvutils.zero_out_sparse_rows(bound_stress_glob, eliminate_ind)
 
     return stress_glob, bound_stress_glob, active_faces
 
@@ -753,19 +756,22 @@ def _estimate_peak_memory_mpsa(g):
     """ Rough estimate of peak memory need for mpsa discretization.
     """
     nd = g.dim
-    num_cell_nodes = g.cell_nodes().toarray().sum(axis=1)
+    num_cell_nodes = g.cell_nodes().sum(axis=1).A
 
     # Number of unknowns around a vertex: nd^2 per cell that share the vertex 
     # for pressure gradients, and one per cell (cell center pressure)
     num_grad_unknowns = nd**2 * num_cell_nodes
 
     # The most expensive field is the storage of igrad, which is block diagonal
-    # with num_grad_unknowns sized blocks
-    igrad_size = num_grad_unknowns.sum()
+    # with num_grad_unknowns sized blocks. The number of elements is the square
+    # of the local system size. The factor 2 accounts for matrix storage in
+    # sparse format (rows and data; ignore columns since this is in compressed
+    # format)
+    igrad_size = np.power(num_grad_unknowns, 2).sum() * 2
 
     # The discretization of Hook's law will require nd^2 (that is, a gradient)
     # per sub-face per dimension
-    num_sub_face = g.face_nodes.toarray().sum()
+    num_sub_face = g.face_nodes.sum()
     hook_size = nd * num_sub_face * nd**2
 
     # Balancing of stresses will require 2*nd**2 (gradient on both sides)
