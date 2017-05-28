@@ -237,13 +237,13 @@ def invert_diagonal_blocks(mat, s, method='numba'):
         return v
 
     def invert_diagonal_blocks_cython(a, size):
-        import fvdiscr.cythoninvert
+        import porepy.numerics.fv.cythoninvert as cythoninvert
         a.sorted_indices()
         ptr = a.indptr
         indices = a.indices
         dat = a.data
 
-        v = fvdiscr.cythoninvert.inv_python(ptr, indices, dat, size)
+        v = cythoninvert.inv_python(ptr, indices, dat, size)
         return v
 
     def invert_diagonal_blocks_numba(a, size):
