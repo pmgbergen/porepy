@@ -234,7 +234,7 @@ def triangle_grid(fracs, domain, **kwargs):
         else:
             print('Gmsh failed with status ' + str(gmsh_status))
 
-    pts, cells, _, cell_info, phys_names = msh_io.read(out_file)
+    pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
     warnings.warn('The 2d gridder has not been validated for the new meshio'
                   + 'format. Use with care')
 

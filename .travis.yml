@@ -22,12 +22,16 @@ install:
   - conda info -a
 
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION scipy numpy numba networkx sympy cython matplotlib
+  - conda install -c clinicalgraphics vtk=7.1.0
   - source activate test-environment
   - pip install six packaging appdirs
   - pip install triangle meshio pymetis
   - pip install pytest pytest_cov 
   - pip install coveralls
   - pip install .
+  
+  # Show all packages, for debugging
+  - conda list
 
 script: 
   - pytest test --cov test --cov-report term-missing

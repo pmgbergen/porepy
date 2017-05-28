@@ -4,6 +4,7 @@ import scipy.sparse as sps
 from porepy.numerics.mixed_dim.solver import Solver
 from porepy.grids import grid
 
+
 class Upwind(Solver):
     """
     Discretize a hyperbolic transport equation using a single point upstream
@@ -79,10 +80,13 @@ class Upwind(Solver):
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
 
         """
+        if g.dim == 0:
+            return sps.csr_matrix([0]), [0]
+
         beta_n, bc, bc_val = data['beta_n'], data.get('bc'), data.get('bc_val')
         assert beta_n is not None
 
-        has_bc = not( bc is None or bc_val is None )
+        has_bc = not(bc is None or bc_val is None)
 
         # Compute the face flux respect to the real direction of the normals
         indices = g.cell_faces.indices
@@ -157,26 +161,33 @@ class Upwind(Solver):
 
         """
         beta_n = data['beta_n']
+        try:
+            apertures = data['a']
+        except KeyError:
+            apertures = np.ones(g.num_cells)
+
         faces, cell, _ = sps.find(g.cell_faces)
         not_zero = ~np.isclose(np.zeros(faces.size), beta_n[faces], atol=0)
-        if not np.any(not_zero): return np.inf
+        if not np.any(not_zero):
+            return np.inf
 
         beta_n = np.abs(beta_n[faces[not_zero]])
-        volumes = g.cell_volumes[cell[not_zero]]
+        volumes = g.cell_volumes[cell[not_zero]] * apertures[cell[not_zero]]
 
-        return np.amin(np.divide(volumes, beta_n))/g.dim
+        return np.amin(np.divide(volumes, beta_n)) / g.dim
 
 #------------------------------------------------------------------------------#
 
-    def beta_n(self, g, beta):
+    def beta_n(self, g, beta, cell_apertures=None):
         """
         Return the normal component of the velocity, for each face, weighted by
-        the face area.
+        the face area and aperture.
 
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
         beta: (3x1) array which represents the constant velocity.
+        cell_apertures: (g.num_faces) array of apertures
 
         Return
         ------
@@ -184,8 +195,15 @@ class Upwind(Solver):
             Normal velocity at each face, weighted by the face area.
 
         """
+        if cell_apertures is None:
+            face_apertures = np.ones(g.num_faces)
+        else:
+            face_apertures = abs(g.cell_faces) * cell_apertures
+            r, _, _ = sps.find(g.cell_faces)
+            face_apertures = face_apertures / np.bincount(r)
+
         beta = np.asarray(beta)
         assert beta.size == 3
-        return np.array([np.dot(n, beta) for n in g.face_normals.T])
+        return np.array([np.dot(n, a * beta) for n, a in zip(g.face_normals.T, face_apertures)])
 
 #------------------------------------------------------------------------------#

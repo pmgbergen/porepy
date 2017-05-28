@@ -56,7 +56,6 @@ def simplex_grid(fracs, domain, **kwargs):
             f_lines = np.reshape(np.arange(2 * len(fracs)), (2, -1), order='F')
             f_pts = np.hstack(fracs)
         frac_dic = {'points': f_pts, 'edges': f_lines}
-        print(frac_dic)
         grids = simplex.triangle_grid(frac_dic, domain, **kwargs)
     elif ndim == 3:
         grids = simplex.tetrahedral_grid(fracs, domain, **kwargs)

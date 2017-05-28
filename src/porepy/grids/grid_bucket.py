@@ -105,7 +105,9 @@ class GridBucket(object):
     def sorted_nodes_of_edge(self, e):
         """
         Obtain the vertices of an edge, in ascending order with respect their
-        dimension.
+        dimension. If the edge is between grids of the same dimension, the node
+        ordering (as defined by assign_node_ordering()) is used. If no ordering
+        of nodes exists, assign_node_ordering() will be called by this method.
 
         Parameters:
             e: An edge in the graph.
@@ -115,7 +117,17 @@ class GridBucket(object):
             dictionary: The second vertex of the edge.
 
         """
-        if e[0].dim < e[1].dim:
+
+        if e[0].dim == e[1].dim:
+            if not self.has_nodes_prop(e, 'node_number'):
+                self.assign_node_ordering()
+
+            node_indexes = self.nodes_prop(e, 'node_number')
+            if node_indexes[0] < node_indexes[1]:
+                return e[0], e[1]
+            else:
+                return e[1], e[0]
+        elif e[0].dim < e[1].dim:
             return e[0], e[1]
         else:
             return e[1], e[0]
@@ -252,7 +264,7 @@ class GridBucket(object):
         else:
             assert len(grid_pairs) == len(prop)
 
-        #networkx.set_edge_attributes(self.graph, key, None)
+        # networkx.set_edge_attributes(self.graph, key, None)
 
         if prop is not None:
             for gp, p in zip(grid_pairs, prop):
@@ -296,7 +308,6 @@ class GridBucket(object):
 
         Returns:
             object: The property.
-
         """
         return self.graph.node[g][key]
 
@@ -455,6 +466,18 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
+    def remove_node(self, node):
+        """
+        Remove node, and related edges, from the grid bucket.
+        Parameters:
+           node : the node to be removed
+
+        """
+
+        self.graph.remove_node(node)
+
+#------------------------------------------------------------------------------#
+
     def remove_nodes(self, cond):
         """
         Remove nodes, and related edges, from the grid bucket subject to a
@@ -471,23 +494,19 @@ class GridBucket(object):
 
     def add_edge(self, grids, face_cells):
         """
-        Add an edge in the graph, based on the higher and lower-dimensional
-        grid.
+        Add an edge in the graph.
 
-        The coupling will be added with the higher-dimensional grid as the
-        first node.
-
-        NOTE: If we are interested in couplings between grids of the same
-        dimension (e.g. in a domain-decomposition setting), we would need to
-        loosen assertions in this function. We would also need to reinterpret
-        face_cells.
+        If the grids have different dimensions, the coupling will be added with
+        the higher-dimensional grid as the first node. For equal dimensions,
+        the ordering of the nodes is the same as in input grids.
 
         Parameters:
             grids (list, len==2). Grids to be connected. Order is arbitrary.
             face_cells (object): Identity mapping between cells in the
                 higher-dimensional grid and faces in the lower-dimensional
                 grid. No assumptions are made on the type of the object at this
-                stage.
+                stage. In the grids[0].dim = grids[1].dim case, the mapping is
+                from faces of the first grid to faces of the second one.
 
         Raises:
             ValueError if the two grids are not one dimension apart
@@ -502,8 +521,9 @@ class GridBucket(object):
         if grids[0].dim - 1 == grids[1].dim:
             self.graph.add_edge(*grids, face_cells=face_cells)
         elif grids[0].dim == grids[1].dim - 1:
-
             self.graph.add_edge(*grids[::-1], face_cells=face_cells)
+        elif grids[0].dim == grids[1].dim:
+            self.graph.add_edge(*grids, face_cells=face_cells)
         else:
             raise ValueError('Grid dimension mismatch')
 
@@ -556,6 +576,39 @@ class GridBucket(object):
                 # Assign new value
                 n['node_number'] = counter
                 counter += 1
+#------------------------------------------------------------------------------#
+
+    def update_node_ordering(self, removed_number):
+        """
+        Uppdate an existing ordering of the nodes in the graph, stored as the attribute
+        'node_number'.
+        Intended for keeping the node ordering after removing a node from the bucket. In
+        this way, the edge sorting will not be disturbed by the removal, but no gaps in are
+        created.
+
+        Parameter:
+            removed_number: node_number of the removed grid.
+
+        """
+
+        # Loop over grids in decreasing dimensions
+        for dim in range(self.dim_max(), self.dim_min() - 1, -1):
+            for g in self.grids_of_dimension(dim):
+                if not self.has_nodes_prop([g], 'node_number'):
+                    # It is not clear how severe this case is. For the moment,
+                    # we give a warning, and hope the user knows what to do
+                    warnings.warn(
+                        'Tried to update node ordering where none exists')
+                    # No point in continuing with this node.
+                    continue
+
+                # Obtain the old node number
+                n = self.graph.node[g]
+                old_number = n.get('node_number', -1)
+                # And replace it if it is higher than the removed one
+                if old_number > removed_number:
+                    n['node_number'] = old_number - 1
+
 
 #------------------------------------------------------------------------------#
 
@@ -580,5 +633,91 @@ class GridBucket(object):
 
         [g.compute_geometry(is_embedded=is_embedded,
                             is_starshaped=is_starshaped) for g, _ in self]
+
+#------------------------------------------------------------------------------#
+
+    def copy(self):
+        """Make a copy of the grid bucket utilizing the built-in copy function
+        of networkx.
+
+        """
+        gb_copy = GridBucket()
+        gb_copy.graph = self.graph.copy()
+        return gb_copy
+
+#------------------------------------------------------------------------------#
+
+    def duplicate_without_dimension(self, dim):
+        """
+        Remove all the nodes of dimension dim and add new edges between their
+        neighbors by calls to remove_node.
+
+        """
+        gb_copy = self.copy()
+        for g in gb_copy.grids_of_dimension(dim):
+            gb_copy.eliminate_node(g)
+
+        return gb_copy
+
+#------------------------------------------------------------------------------#
+
+    def find_shared_face(self, n1, n2, zero_d_node):
+        """
+        Given two 1d grids meeting at a 0d node (to be removed), find which two
+        faces meet at the intersection (one from each grid) and build the connection
+        matrix face_faces. 
+        The lower dimensional node (corresponding to the first dimension, cells, 
+        in face_cells) is first in gb.sorted_nodes_of_edge. To be consistent with
+        this, the grid corresponding to the first dimension of face_faces should 
+        be the first grid of the node sorting.
+
+        Parameters: 
+            n1 and n2: The two 1d grids.
+            zero_d_node: The 0d grid to be removed.
+        Returns: The sparse matrix face_faces (n1.num_faces x n2.num_faces, with n1
+            and n2 sorted), the 1d-1d equivalent of the face_cells matrix.
+        """
+        # Sort nodes according to node_number
+        n1, n2 = self.sorted_nodes_of_edge([n1, n2])
+
+        # Identify the faces connecting the neighbors to the grid to be removed
+        fc1 = self.edge_props([n1, zero_d_node])
+        fc2 = self.edge_props([n2, zero_d_node])
+        _, face_number_1, _ = sps.find(fc1['face_cells'])
+        _, face_number_2, _ = sps.find(fc2['face_cells'])
+
+        # Connect the two remaining grids grids through the face_faces matrix,
+        # to be placed as a face_cells
+        # substitute.
+        face_faces = sps.csc_matrix(
+            (np.array([True]), (face_number_1, face_number_2)),
+            (n1.num_faces, n2.num_faces))
+
+        return face_faces
+
+#------------------------------------------------------------------------------#
+
+    def eliminate_node(self, node):
+        """
+        Remove the node (and the edges it partakes in) and add new direct
+        connections (gb edges) between each of the neighbor pairs. A 0d node
+        with n_neighbors gives rise to 1 + 2 + ... + n_neighbors-1 new edges.
+
+        """
+        # Identify neighbors
+        neighbors = self.node_neighbors(node)
+        n_neighbors = len(neighbors)
+        # Add an edge between each neighbor pair
+        for i in range(n_neighbors - 1):
+            n1 = neighbors[i]
+            for j in range(i + 1, n_neighbors):
+                n2 = neighbors[j]
+                face_faces = self.find_shared_face(n1, n2, node)
+                self.add_edge([n1, n2], face_faces)
+
+        # Remove the node and update the ordering of the remaining nodes
+        node_number = self.node_prop(node, 'node_number')
+        self.remove_node(node)
+        self.update_node_ordering(node_number)
 
 #------------------------------------------------------------------------------#
