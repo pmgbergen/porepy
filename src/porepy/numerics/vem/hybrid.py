@@ -3,7 +3,6 @@
 
 @author: fumagalli, alessio
 """
-
 import warnings
 import numpy as np
 from numpy.linalg import solve
@@ -13,6 +12,7 @@ from porepy.numerics.mixed_dim.solver import Solver
 from porepy.utils import comp_geom as cg
 from porepy.numerics.vem import dual
 from porepy.params import second_order_tensor
+
 
 class HybridDualVEM(Solver):
 
@@ -83,6 +83,8 @@ class HybridDualVEM(Solver):
         P0u = dual.projectU(g, perm, u)
 
         """
+        # pylint: disable=invalid-name
+
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             return sps.identity(self.ndof(g), format="csr"), np.zeros(1)
@@ -150,9 +152,9 @@ class HybridDualVEM(Solver):
 
             # Compute the local hybrid right using the static condensation
             f_loc = f[c]*g.cell_volumes[c]
-            rhs[faces_loc] += np.dot(C.T, np.dot(invA,
-                                                 np.dot(B, np.dot(S, f_loc))\
-                              ))[:, 0]
+            rhs[faces_loc] += np.dot(C.T,
+                                     np.dot(invA,
+                                            np.dot(B, np.dot(S, f_loc))))[:, 0]
 
             # Save values for hybrid matrix
             cols = np.tile(faces_loc, (faces_loc.size, 1))
@@ -205,6 +207,8 @@ class HybridDualVEM(Solver):
         p : array (g.num_cells) Pressure at each cell.
 
         """
+        # pylint: disable=invalid-name
+
         if g.dim == 0:
             return 0, l[0]
 
@@ -262,7 +266,7 @@ class HybridDualVEM(Solver):
 
             p[c] = np.dot(S, f_loc - np.dot(B.T, solve(A, np.dot(C, l_loc))))
             u[faces_loc] = -np.multiply(sgn_loc, solve(A, np.dot(B, p[c]) + \
-                                                            np.dot(C, l_loc)))
+                                                       np.dot(C, l_loc)))
 
         return u, p
 

@@ -12,6 +12,7 @@ from porepy.params import second_order_tensor
 from porepy.numerics.mixed_dim.solver import Solver
 import porepy.utils.comp_geom as cg
 
+
 class DualVEM(Solver):
 
 #------------------------------------------------------------------------------#
@@ -103,6 +104,9 @@ class DualVEM(Solver):
         weight: if bc_weight is True return the weight computed.
 
         """
+        # Allow short variable names in backend function
+        # pylint: disable=invalid-name
+
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             M = sps.dia_matrix(([1, 0], 0), (self.ndof(g), self.ndof(g)))
@@ -191,6 +195,9 @@ class DualVEM(Solver):
             boundary conditions. Default 1.
 
         """
+        # Allow short variable names in backend function
+        # pylint: disable=invalid-name
+
         if g.dim == 0:
             return np.hstack(([0], data['f']))
 
@@ -219,12 +226,12 @@ class DualVEM(Solver):
                                 np.zeros(g.num_cells, dtype=np.bool)))
             faces, _, sgn = sps.find(g.cell_faces)
             sgn = sgn[np.unique(faces, return_index=True)[1]]
-            rhs[is_dir] += -sgn[bc.is_dir]*bc_val['dir']
+            rhs[is_dir] += -sgn[bc.is_dir] * bc_val['dir']
 
         if 'neu' in keys:
             is_neu = np.hstack((bc.is_neu,
                                 np.zeros(g.num_cells, dtype=np.bool)))
-            rhs[is_neu] = bc_weight*bc_val['neu']*g.face_areas[bc.is_neu]
+            rhs[is_neu] = bc_weight*bc_val['neu'] * g.face_areas[bc.is_neu]
 
         return rhs
 
@@ -245,6 +252,7 @@ class DualVEM(Solver):
             Velocity at each face.
 
         """
+        # pylint: disable=invalid-name
         return up[:g.num_faces]
 
 #------------------------------------------------------------------------------#
@@ -264,6 +272,7 @@ class DualVEM(Solver):
             Pressure at each cell.
 
         """
+        # pylint: disable=invalid-name
         return up[g.num_faces:]
 
 #------------------------------------------------------------------------------#
@@ -275,7 +284,6 @@ class DualVEM(Solver):
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data, with permeability (key 'k')
         u : array (g.num_faces) Velocity at each face.
 
         Return
@@ -283,6 +291,9 @@ class DualVEM(Solver):
         P0u : ndarray (3, g.num_faces) Velocity at each cell.
 
         """
+        # Allow short variable names in backend function
+        # pylint: disable=invalid-name
+
         if g.dim == 0:
             return np.zeros(3).reshape((3, 1))
 
@@ -346,6 +357,8 @@ class DualVEM(Solver):
         out: ndarray (num_faces_of_cell, num_faces_of_cell)
             Local mass Hdiv matrix.
         """
+        # Allow short variable names in this function
+        # pylint: disable=invalid-name
 
         dim = K.shape[0]
         mono = np.array([lambda pt, i=i: (pt[i] - c_center[i])/diam \

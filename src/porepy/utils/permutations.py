@@ -1,3 +1,5 @@
+""" Utility function for permutation of numbers.
+"""
 
 def multinary_permutations(base, length):
     """
@@ -43,4 +45,3 @@ def multinary_permutations(base, length):
             v = v // base
         # Yield the next value
         yield bit_val
-

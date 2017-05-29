@@ -40,7 +40,6 @@ class FaceTag(np.uint8, Enum):
     FRACTURE = 2
     TIP = 4
     DOMAIN_BOUNDARY = 8
-#    NEXT = 16
     WHOLE = np.iinfo(type(NONE)).max
 
 
@@ -132,12 +131,13 @@ class Grid(object):
         self.face_tags = np.tile(FaceTag.NONE, self.num_faces)
         self.update_boundary_face_tag()
 
+
     def copy(self):
         """
         Create a deep copy of the grid.
 
         Returns:
-            grid: A deep copy of self
+            grid: A deep copy of self. All attributes will also be copied.
 
         """
         h = Grid(self.dim, self.nodes.copy(), self.face_nodes.copy(),
@@ -300,7 +300,8 @@ class Grid(object):
                 faces_loc = faces[loc]
                 loc_n = self.face_nodes.indptr[faces_loc]
                 ordering = sort_point_pairs(np.array([nodes[loc_n],
-                                                      nodes[loc_n + 1]]), ordering=True)[1].astype(np.float)
+                                                      nodes[loc_n + 1]]),
+                                            ordering=True)[1].astype(np.float)
                 normal = np.multiply(1 - 2. * ordering, np.divide(
                     self.face_normals[:, faces_loc], self.face_areas[faces_loc]))
 
@@ -394,8 +395,7 @@ class Grid(object):
                                  along_edge[2] * face_2_node[0] -
                                  along_edge[0] * face_2_node[2],
                                  along_edge[0] * face_2_node[1] -
-                                 along_edge[1] * face_2_node[0],
-                                 )) / 2
+                                 along_edge[1] * face_2_node[0])) / 2
 
         def nrm(v):
             return np.sqrt(np.sum(v * v, axis=0))
@@ -548,7 +548,13 @@ class Grid(object):
         return mat
 
     def num_cell_nodes(self):
-        return self.cell_nodes().sum(axis=0).A.ravel(1)
+        """ Number of nodes per cell.
+
+        Returns:
+            np.ndarray, size num_cells: Number of nodes per cell.
+
+        """
+        return self.cell_nodes().sum(axis=0).A.ravel('F')
 
     def get_internal_nodes(self):
         """
@@ -569,7 +575,7 @@ class Grid(object):
             np.ndarray (1d), index of internal faces.
 
         """
-        return self.indices(self.has_not_face_tag(FaceTag.BOUNDARY))
+        return self.__indices(self.has_not_face_tag(FaceTag.BOUNDARY))
 
     def get_boundary_faces(self):
         """
@@ -579,7 +585,7 @@ class Grid(object):
             np.ndarray (1d), index of boundary faces
 
         """
-        return self.indices(self.has_face_tag(FaceTag.BOUNDARY))
+        return self.__indices(self.has_face_tag(FaceTag.BOUNDARY))
 
     def get_boundary_nodes(self):
         """
@@ -595,8 +601,11 @@ class Grid(object):
         return np.unique(self.face_nodes.indices[mcolon.mcolon(first, second)])
 
     def update_boundary_face_tag(self):
-        bd_faces = np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel(1)
-                               == 1).ravel(1)
+        """ Tag faces on the boundary of the grid with boundary tag.
+
+        """
+        bd_faces = np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel('F')
+                               == 1).ravel('F')
         self.add_face_tag(bd_faces, FaceTag.BOUNDARY)
 
     def cell_diameters(self, cn=None):
@@ -609,11 +618,12 @@ class Grid(object):
 
         Returns:
             np.array, num_cells: values of the cell diameter for each cell
+
         """
 
         def comb(n): return np.fromiter(itertools.chain.from_iterable(
-            itertools.combinations(n, 2)),
-            n.dtype).reshape((2, -1), order='F')
+            itertools.combinations(n, 2)), n.dtype).reshape((2, -1),
+                                                            order='F')
 
         def diam(n): return np.amax(np.linalg.norm(self.nodes[:, n[0, :]] -
                                                    self.nodes[:, n[1, :]],
@@ -698,5 +708,7 @@ class Grid(object):
     def has_only_face_tag(self, tag):
         return self.face_tags == tag
 
-    def indices(self, true_false):
-        return np.argwhere(true_false).ravel(1)
+    def __indices(self, true_false):
+        """ Shorthand for np.argwhere.
+        """
+        return np.argwhere(true_false).ravel('F')

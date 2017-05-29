@@ -5,10 +5,10 @@ Created on Fri Mar  4 09:04:16 2016
 @author: eke001
 """
 from __future__ import division
+import sys
 import numpy as np
 import scipy.sparse as sps
 import numba
-import sys
 
 from porepy.utils import matrix_compression, mcolon
 
@@ -175,11 +175,11 @@ def compute_dist_face_cell(g, subcell_topology, eta):
     eta_vec = eta*np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
     bnd = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.squeeze()
-                            == 1).squeeze()
+                      == 1).squeeze()
     eta_vec[bnd] = 0
     cp = g.face_centers[:, subcell_topology.fno] \
         + eta_vec * (g.nodes[:, subcell_topology.nno] -
-                      g.face_centers[:, subcell_topology.fno])
+                     g.face_centers[:, subcell_topology.fno])
     dist = cp - g.cell_centers[:, subcell_topology.cno]
 
     ind_ptr = np.hstack((np.arange(0, cols.size, dims), cols.size))
@@ -199,7 +199,7 @@ def invert_diagonal_blocks(mat, s, method='numba'):
     ----------
     mat: sps.csr matrix to be inverted.
     s: block size. Must be int64 for the numba acceleration to work
-    method: Choice of method. Either numba (default), cython or 'python'. 
+    method: Choice of method. Either numba (default), cython or 'python'.
         If another option is passed, numba is used.
 
     Returns
@@ -237,6 +237,8 @@ def invert_diagonal_blocks(mat, s, method='numba'):
         return v
 
     def invert_diagonal_blocks_cython(a, size):
+        """ Invert block diagonal matrix using code wrapped with cython.
+        """
         import porepy.numerics.fv.cythoninvert as cythoninvert
         a.sorted_indices()
         ptr = a.indptr
@@ -321,8 +323,8 @@ def invert_diagonal_blocks(mat, s, method='numba'):
 
                     # Loop over local columns. Getting the number of columns
                     #  for each row is a bit involved
-                    for iter3 in range(num_cols_per_row[iter2 +
-                            block_row_starts_ind[iter1]]):
+                    for _ in range(num_cols_per_row[iter2 +
+                                                    block_row_starts_ind[iter1]]):
                         loc_col = ind[data_counter] \
                                   - block_row_starts_ind[iter1]
                         loc_mat[iter2, loc_col] = data[data_counter]
@@ -332,7 +334,7 @@ def invert_diagonal_blocks(mat, s, method='numba'):
                 # 2016), it is not clear if this is the best option. To be
                 # revised
                 inv_mat = np.ravel(np.linalg.inv(loc_mat))
-              
+
                 loc_ind = np.arange(full_block_starts_ind[iter1],
                                     full_block_starts_ind[iter1 + 1])
                 inv_vals[loc_ind] = inv_mat
@@ -344,7 +346,7 @@ def invert_diagonal_blocks(mat, s, method='numba'):
 
     if method == 'python':
         inv_vals = invert_diagonal_blocks_python(mat, s)
-    elif method == 'cython' and (sys.platform == 'linux' 
+    elif method == 'cython' and (sys.platform == 'linux'
                                  or sys.platform == 'linux2'):
         inv_vals = invert_diagonal_blocks_cython(mat, s)
     else:
@@ -367,7 +369,7 @@ def block_diag_matrix(vals, sz):
     -------
     sps.csr matrix
     """
-    row, col = block_diag_index(sz)
+    row, _ = block_diag_index(sz)
     # This line recovers starting indices of the rows.
     indptr = np.hstack((np.zeros(1),
                         np.cumsum(matrix_compression\
@@ -463,6 +465,16 @@ def vector_divergence(g):
 
 
 class ExcludeBoundaries(object):
+    """ Wrapper class to store mapping for exclusion of equations that are
+    redundant due to the presence of boundary conditions.
+
+    The systems being set up in mpfa (and mpsa) describe continuity of flux and
+    potential (respectively stress and displacement) on all sub-faces. For
+    boundary faces, one of the two should be excluded (e.g. for a Dirichlet
+    boundary condition, there is no concept of continuity of flux/stresses).
+    The class contains mappings to eliminate the necessary fields.
+
+    """
 
     def __init__(self, subcell_topology, bound, nd):
 
@@ -494,26 +506,58 @@ class ExcludeBoundaries(object):
         self.exclude_neu = sps.coo_matrix((np.ones(row_neu.size),
                                            (row_neu, col_neu.ravel(0))),
                                           shape=(row_neu.size,
-                                                num_subfno)).tocsr()
+                                                 num_subfno)).tocsr()
         col_dir = np.argwhere([not it for it in bound.is_dir[fno]])
         row_dir = np.arange(col_dir.size)
         self.exclude_dir = sps.coo_matrix((np.ones(row_dir.size),
-                                            (row_dir, col_dir.ravel(0))),
-                                           shape=(row_dir.size,
-                                                  num_subfno)).tocsr()
+                                           (row_dir, col_dir.ravel(0))),
+                                          shape=(row_dir.size,
+                                                 num_subfno)).tocsr()
 
     def exclude_dirichlet(self, other):
+        """ Mapping to exclude faces with Dirichlet boundary conditions from
+        local systems.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with rows corresponding to faces with
+                Dirichlet conditions eliminated.
+
+        """
         return self.exclude_dir * other
 
     def exclude_neumann(self, other):
+        """ Mapping to exclude faces with Neumann boundary conditions from
+        local systems.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with rows corresponding to faces with
+                Neumann conditions eliminated.
+
+        """
         return self.exclude_neu * other
 
-    def exclude_neumann_nd(self, other):
-        exclude_neumann_nd = sps.kron(sps.eye(self.nd), self.exclude_neu)
-        return exclude_neumann_nd * other
-
     def exclude_dirichlet_nd(self, other):
+        """ Exclusion of Dirichlet conditions for vector equations (elasticity).
+        See above method without _nd suffix for description.
+
+        """
         exclude_dirichlet_nd = sps.kron(sps.eye(self.nd),
                                         self.exclude_dir)
         return exclude_dirichlet_nd * other
+
+    def exclude_neumann_nd(self, other):
+        """ Exclusion of Neumann conditions for vector equations (elasticity).
+        See above method without _nd suffix for description.
+
+        """
+        exclude_neumann_nd = sps.kron(sps.eye(self.nd), self.exclude_neu)
+        return exclude_neumann_nd * other
 

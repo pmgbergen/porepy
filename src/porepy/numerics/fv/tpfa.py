@@ -4,13 +4,12 @@ Created on Sat Feb 27 21:09:29 2016
 
 @author: keile
 """
-
+import warnings
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.params import bc, second_order_tensor
-from porepy.numerics.mixed_dim.solver import *
-from porepy.utils.comp_geom import map_grid
+from porepy.params import second_order_tensor
+from porepy.numerics.mixed_dim.solver import Solver
 
 
 class Tpfa(Solver):
@@ -33,7 +32,7 @@ class Tpfa(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data, faces=None):
+    def matrix_rhs(self, g, data, faces):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a two-point flux approximation.
@@ -106,7 +105,7 @@ def tpfa(g, k, bnd, faces=None, apertures=None):
         k (core.constit.second_order_tensor): permeability tensor.
         bc (core.bc.bc): class for boundary values
         faces (np.ndarray) faces to be considered. Intended for partial
-            discretization, may change in the future 
+            discretization, may change in the future
         apertures (np.ndarray) apertures of the cells for scaling of the face
         normals.
     Returns:

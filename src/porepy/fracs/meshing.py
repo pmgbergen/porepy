@@ -34,9 +34,9 @@ def simplex_grid(fracs, domain, **kwargs):
                NONE: None of the below (i.e. an internal face)
                DOMAIN_BOUNDARY: All faces that lie on the domain boundary
                    (i.e. should be given a boundary condition).
-               FRACTURE: All faces that are split (i.e. has a connection to a 
+               FRACTURE: All faces that are split (i.e. has a connection to a
                    lower dim grid).
-               TIP: A boundary face that is not on the domain boundary, nor  
+               TIP: A boundary face that is not on the domain boundary, nor
                    coupled to a lower domentional domain.
     """
     if 'zmax' in domain:
@@ -96,7 +96,6 @@ def cart_grid(fracs, nx, **kwargs):
             higher dim faces are stored as 'face_cells'
     """
     ndim = np.asarray(nx).size
-    offset = kwargs.get('offset', 0)
     physdims = kwargs.get('physdims', None)
 
     if physdims is None:
