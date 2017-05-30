@@ -17,7 +17,7 @@ from porepy.grids import structured
 from porepy.params import fourth_order_tensor, bc
 
 
-def mpsa(g, constit, bound, faces=None, eta=0, inverter='numba'):
+def mpsa(g, constit, bound, faces=None, eta=0, inverter=None):
     """
     Discretize the vector elliptic equation by the multi-point flux
     approximation method, specifically the weakly symmetric MPSA-W method.
@@ -281,7 +281,7 @@ def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
     return hook, igrad, rhs_cells, cell_node_blocks, hook_normal
 
 
-def biot(g, constit, bound, faces=None, eta=0, inverter='numba'):
+def biot(g, constit, bound, faces=None, eta=0, inverter=None):
     """
     Discretization of poro-elasticity by the MPSA-W method.
 

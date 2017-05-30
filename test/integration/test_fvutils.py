@@ -17,13 +17,52 @@ def test_block_matrix_inverters_full_blocks():
     block = sps.csr_matrix(np.hstack((a, b)))
 
     sz = np.array([2, 3], dtype='i8')
-    iblock_python = fvutils.invert_diagonal_blocks(block, sz, 'python')
-    iblock_numba = fvutils.invert_diagonal_blocks(block, sz)
+    iblock_python = fvutils.invert_diagonal_blocks(block, sz, method='python')
     iblock_ex = np.linalg.inv(block.toarray())
 
     assert np.allclose(iblock_ex, iblock_python.toarray())
-    assert np.allclose(iblock_ex, iblock_numba.toarray())
 
+    # Numba may or may not be available on the system, so surround test with
+    # try. This may not be the most pythonic approach, but it works.
+    try:
+        iblock_numba = fvutils.invert_diagonal_blocks(block, sz,
+                                                      method='numba')
+        assert np.allclose(iblock_ex, iblock_numba.toarray())
+    except:
+        # Try to import numba to see if it is installed
+        try:
+            import numba
+            # If this works, something went wrong with the usage of numba.
+            # Raise an error
+            raise Exception('Numba installed, but block invert failed')
+
+        # Pass; the user may purposefully not have installed numba
+        except:
+            # Numba is not installed; probably by choice of the user. For now
+            # we consider this okay, and do not fail the test. This behavior
+            # may change in the future.
+            pass
+
+    # Cython may or may not be available on the system, so surround test with
+    # try. This may not be the most pythonic approach, but it works.
+    try:
+        iblock_cython = fvutils.invert_diagonal_blocks(block, sz,
+                                                       method='cython')
+        assert np.allclose(iblock_ex, iblock_cython.toarray())
+    except:
+        # Try to import Cython to see if it is installed
+        try:
+            import Cython
+            # If this works, something went wrong with the usage of cython
+            # Raise an error
+            raise Exception('Cython installed, but block invert failed')
+
+        # Pass; the user may purposefully not have installed numba
+        except:
+            # Cython is not installed; probably by choice of the user. For now
+            # we consider this okay, and do not fail the test. This behavior
+            # may change in the future.
+            pass
 
 def test_block_matrix_invertes_sparse_blocks():
     """
@@ -45,10 +84,49 @@ def test_block_matrix_invertes_sparse_blocks():
     block = sps.coo_matrix((data, (rows, cols))).tocsr()
     sz = np.array([2, 3], dtype='i8')
 
-    iblock_python = fvutils.invert_diagonal_blocks(block, sz, 'python')
-    iblock_numba = fvutils.invert_diagonal_blocks(block, sz)
+    iblock_python = fvutils.invert_diagonal_blocks(block, sz, method='python')
     iblock_ex = np.linalg.inv(block.toarray())
 
     assert np.allclose(iblock_ex, iblock_python.toarray())
-    assert np.allclose(iblock_ex, iblock_numba.toarray())
 
+    # Numba may or may not be available on the system, so surround test with
+    # try. This may not be the most pythonic approach, but it works.
+    try:
+        iblock_numba = fvutils.invert_diagonal_blocks(block, sz,
+                                                      method='numba')
+        assert np.allclose(iblock_ex, iblock_numba.toarray())
+    except:
+        # Try to import numba to see if it is installed
+        try:
+            import numba
+            # If this works, something went wrong with the usage of numba.
+            # Raise an error
+            raise Exception('Numba installed, but block invert failed')
+
+        # Pass; the user may purposefully not have installed numba
+        except:
+            # Numba is not installed; probably by choice of the user. For now
+            # we consider this okay, and do not fail the test. This behavior
+            # may change in the future.
+            pass
+
+    # Cython may or may not be available on the system, so surround test with
+    # try. This may not be the most pythonic approach, but it works.
+    try:
+        iblock_cython = fvutils.invert_diagonal_blocks(block, sz,
+                                                       method='cython')
+        assert np.allclose(iblock_ex, iblock_cython.toarray())
+    except:
+        # Try to import Cython to see if it is installed
+        try:
+            import Cython
+            # If this works, something went wrong with the usage of cython
+            # Raise an error
+            raise Exception('Cython installed, but block invert failed')
+
+        # Pass; the user may purposefully not have installed numba
+        except:
+            # Cython is not installed; probably by choice of the user. For now
+            # we consider this okay, and do not fail the test. This behavior
+            # may change in the future.
+            pass

@@ -8,7 +8,6 @@ from __future__ import division
 import sys
 import numpy as np
 import scipy.sparse as sps
-import numba
 
 from porepy.utils import matrix_compression, mcolon
 
@@ -188,23 +187,31 @@ def compute_dist_face_cell(g, subcell_topology, eta):
 
 
 # @profile
-def invert_diagonal_blocks(mat, s, method='numba'):
+def invert_diagonal_blocks(mat, s, method=None):
     """
     Invert block diagonal matrix.
 
-    Two implementations are available, either pure numpy, or a speedup using
-    numba. The latter is default.
+    Three implementations are available, either pure numpy, or a speedup using
+    numba or cython. If none is specified, the function will try to use numba,
+    then cython. The python option will only be invoked if explicitly asked
+    for; it will be very slow for general problems.
 
     Parameters
     ----------
     mat: sps.csr matrix to be inverted.
     s: block size. Must be int64 for the numba acceleration to work
     method: Choice of method. Either numba (default), cython or 'python'.
-        If another option is passed, numba is used.
+        Defaults to None, in which case first numba, then cython is tried.
 
     Returns
     -------
     imat: Inverse matrix
+
+    Raises
+    -------
+    ImportError: If numba or cython implementation is invoked without numba or
+        cython being available on the system.
+
     """
 
     def invert_diagonal_blocks_python(a, sz):
@@ -239,7 +246,12 @@ def invert_diagonal_blocks(mat, s, method='numba'):
     def invert_diagonal_blocks_cython(a, size):
         """ Invert block diagonal matrix using code wrapped with cython.
         """
-        import porepy.numerics.fv.cythoninvert as cythoninvert
+        try:
+            import porepy.numerics.fv.cythoninvert as cythoninvert
+        except:
+            ImportError('Compiled Cython module not available. Is cython\
+            installed?')
+
         a.sorted_indices()
         ptr = a.indptr
         indices = a.indices
@@ -265,6 +277,10 @@ def invert_diagonal_blocks(mat, s, method='numba'):
         -------
         ia: inverse of a
         """
+        try:
+            import numba
+        except:
+            raise ImportError('Numba not available on the system')
 
         # Sort matrix storage before pulling indices and data
         a.sorted_indices()
@@ -344,13 +360,22 @@ def invert_diagonal_blocks(mat, s, method='numba'):
         v = inv_python(ptr, indices, dat, size)
         return v
 
-    if method == 'python':
+    # Variable to check if we have tried and failed with numba
+    try_cython = False
+    if method == 'numba' or method is None:
+        try:
+            inv_vals = invert_diagonal_blocks_numba(mat, s)
+        except:
+            # This went wrong, fall back on cython
+            try_cython = True
+    # Variable to check if we should fall back on python
+    if method == 'cython' or try_cython:
+        try:
+            inv_vals = invert_diagonal_blocks_cython(mat, s)
+        except ImportError as e:
+            raise e
+    elif method == 'python':
         inv_vals = invert_diagonal_blocks_python(mat, s)
-    elif method == 'cython' and (sys.platform == 'linux'
-                                 or sys.platform == 'linux2'):
-        inv_vals = invert_diagonal_blocks_cython(mat, s)
-    else:
-        inv_vals = invert_diagonal_blocks_numba(mat, s)
 
     ia = block_diag_matrix(inv_vals, s)
     return ia
