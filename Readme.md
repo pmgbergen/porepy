@@ -3,6 +3,8 @@
 # PorePy: A Simulation Tool for Fractured and Deformable Porous Media written in python.
 PorePy is developed by the Porous Media Group at the University of Bergen, Norway. The software is developed under projects funded by the Reserach Council of Norway and Statoil.
 
+[//]: # (toc generated with https://github.com/ekalinin/github-markdown-toc)
+
 Table of Contents
 =================
 
