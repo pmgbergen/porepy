@@ -2,8 +2,6 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.numerics.mixed_dim.solver import Solver
-from porepy.grids import grid
-
 
 class Upwind(Solver):
     """
