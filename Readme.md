@@ -6,7 +6,6 @@ PorePy is developed by the Porous Media Group at the University of Bergen, Norwa
 Table of Contents
 =================
 
-   * [PorePy: A Simulation Tool for Fractured and Deformable Porous Media written in python.](#porepy-a-simulation-tool-for-fractured-and-deformable-porous-media-written-in-python)
    * [Installation](#installation)
    * [PorePy features](#porepy-features)
 
