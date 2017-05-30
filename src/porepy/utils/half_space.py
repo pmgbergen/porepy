@@ -2,7 +2,7 @@ import numpy as np
 import scipy.optimize as opt
 
 
-def half_space_int(n,x0, pts):
+def half_space_int(n, x0, pts):
     """
     Find the points that lie in the intersection of half spaces (3D)
 
@@ -40,14 +40,14 @@ def half_space_int(n,x0, pts):
     assert pts.shape[0] == 3, ' only 3D supported'
     assert n.shape[1] == x0.shape[1], 'ther must be the same number of normal vectors as points'
 
-    n_pts   = pts.shape[1]
+    n_pts = pts.shape[1]
     in_hull = np.zeros(n_pts)
-    x0      = np.repeat(x0[:,:,np.newaxis], n_pts,axis=2)
-    n       = np.repeat( n[:,:,np.newaxis], n_pts,axis=2)
+    x0 = np.repeat(x0[:, :, np.newaxis], n_pts, axis=2)
+    n = np.repeat(n[:, :, np.newaxis], n_pts, axis=2)
     for i in range(x0.shape[1]):
-        in_hull += np.sum((pts - x0[:,i,:])*n[:,i,:],axis=0)<=0
+        in_hull += np.sum((pts - x0[:, i, :])*n[:, i, :], axis=0) <= 0
 
-    return in_hull==x0.shape[1]
+    return in_hull == x0.shape[1]
 
 #------------------------------------------------------------------------------#
 
@@ -87,18 +87,18 @@ def half_space_pt(n, x0, pts, recompute=True):
     http://www.qhull.org/html/qhalf.htm#notes
 
     """
-    dim = (1,n.shape[1])
-    c = np.array([0,0,0,0,-1])
-    A_ub = np.concatenate( (n, [np.sum(-n*x0, axis=0)], np.ones(dim)) ).T
-    bounds = ( (np.amin(pts[0,:]), np.amax(pts[0,:]) ),
-               (np.amin(pts[1,:]), np.amax(pts[1,:]) ),
-               (np.amin(pts[2,:]), np.amax(pts[2,:]) ),
-               (None, None), (None, None) )
+    dim = (1, n.shape[1])
+    c = np.array([0, 0, 0, 0, -1])
+    A_ub = np.concatenate((n, [np.sum(-n*x0, axis=0)], np.ones(dim))).T
+    bounds = ((np.amin(pts[0, :]), np.amax(pts[0, :])),
+              (np.amin(pts[1, :]), np.amax(pts[1, :])),
+              (np.amin(pts[2, :]), np.amax(pts[2, :])),
+              (None, None), (None, None))
     res = opt.linprog(c, A_ub, np.zeros(dim).T, bounds=bounds)
-    if recompute and (res.status != 0 or res.x[3] <=0 or res.x[4] <= 0):
+    if recompute and (res.status != 0 or res.x[3] <= 0 or res.x[4] <= 0):
         return half_space_pt(-n, x0, pts, False)
-    else:
-        assert res.status == 0 and res.x[3] > 0 and res.x[4] > 0
-        return np.array(res.x[0:3]) / res.x[3]
+
+    assert res.status == 0 and res.x[3] > 0 and res.x[4] > 0
+    return np.array(res.x[0:3]) / res.x[3]
 
 #------------------------------------------------------------------------------#

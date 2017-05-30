@@ -3,10 +3,11 @@ Module to store the grid hiearchy formed by a set of fractures and their
 intersections in the form of a GridBucket.
 
 """
+
+import warnings
 from scipy import sparse as sps
 import numpy as np
 import networkx
-import warnings
 
 from porepy.utils import setmembership
 
@@ -125,8 +126,8 @@ class GridBucket(object):
             node_indexes = self.nodes_prop(e, 'node_number')
             if node_indexes[0] < node_indexes[1]:
                 return e[0], e[1]
-            else:
-                return e[1], e[0]
+            return e[1], e[0]
+
         elif e[0].dim < e[1].dim:
             return e[0], e[1]
         else:
@@ -202,7 +203,7 @@ class GridBucket(object):
 
         if prop is not None:
             if g is None:
-                for grid, n in self:
+                for _, n in self:
                     n[key] = prop
             else:
                 for v, p in zip(g, prop):
@@ -665,13 +666,13 @@ class GridBucket(object):
         """
         Given two 1d grids meeting at a 0d node (to be removed), find which two
         faces meet at the intersection (one from each grid) and build the connection
-        matrix face_faces. 
-        The lower dimensional node (corresponding to the first dimension, cells, 
+        matrix face_faces.
+        The lower dimensional node (corresponding to the first dimension, cells,
         in face_cells) is first in gb.sorted_nodes_of_edge. To be consistent with
-        this, the grid corresponding to the first dimension of face_faces should 
+        this, the grid corresponding to the first dimension of face_faces should
         be the first grid of the node sorting.
 
-        Parameters: 
+        Parameters:
             n1 and n2: The two 1d grids.
             zero_d_node: The 0d grid to be removed.
         Returns: The sparse matrix face_faces (n1.num_faces x n2.num_faces, with n1

@@ -61,8 +61,7 @@ def norm_L2(g, val):
     norm_sq = lambda v: np.sum(np.multiply(np.square(v), g.cell_volumes))
     if val.ndim == 1:
         return np.sqrt(norm_sq(val))
-    else:
-        return np.sqrt(np.sum([norm_sq(v) for v in val]))
+    return np.sqrt(np.sum([norm_sq(v) for v in val]))
 
 #------------------------------------------------------------------------------#
 

@@ -7,11 +7,9 @@ be moved to a separate module.
 
 """
 
-import numpy as np
-from math import sqrt
-import sympy
-from sympy import geometry as geom
 import time
+import numpy as np
+from sympy import geometry as geom
 
 from porepy.utils import setmembership
 
@@ -325,7 +323,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         elif i0 != start and i1 == end:
             # Analogous configuration as the one above, but with i0 replaced by
             # i1 and start by end.
-            did_delete = 0
+            # did_delete = 0
             if edges[0, edge_ind[1]] == i0:
                 if edges[1, edge_ind[1]] == end:
                     edges = np.delete(edges, edge_ind[1], axis=1)
@@ -401,7 +399,7 @@ def _add_point(vertices, pt, tol=1e-3, **kwargs):
         np.ndarray, nd x 1: The new point, or None if no new point was needed.
 
     """
-    if not 'tol' in kwargs:
+    if 'tol' not in kwargs:
         kwargs['tol'] = tol
 
     nd = vertices.shape[0]
@@ -469,7 +467,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
         num_edges_orig = edges.shape[1]
         print('  Find intersections between ' + str(num_edges_orig) + ' edges')
 
-    num_edges = edges.shape[1]
+    #num_edges = edges.shape[1]
     nd = vertices.shape[0]
 
     # Only 2D is considered. 3D should not be too dificult, but it is not
@@ -584,10 +582,10 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
 
             # Check if this point intersects
             new_pt = lines_intersect(vertices[:, edges[0, edge_counter]],
-                                       vertices[:, edges[1, edge_counter]],
-                                       vertices[:, edges[0, intsect]],
-                                       vertices[:, edges[1, intsect]],
-                                    tol=tol)
+                                     vertices[:, edges[1, edge_counter]],
+                                     vertices[:, edges[0, intsect]],
+                                     vertices[:, edges[1, intsect]],
+                                     tol=tol)
 
             def __min_dist(p):
                 md = np.inf
@@ -616,13 +614,13 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                     md = __min_dist(new_pt)
                     vertices, edges, split_outer_edge,\
                             split = _split_edge(vertices, edges,
-                                                     edge_counter, new_pt,
-                                                     **kwargs)
+                                                edge_counter, new_pt,
+                                                **kwargs)
                     split_type.append(split)
                     if verbose > 2 and split_outer_edge > 0 and \
                        vertices.shape[1] > orig_vertex_num:
                         print('      Introduced new point. Min length of edges:'
-                               + str(md))
+                              + str(md))
                         if md < tol:
                             import pdb
                             pdb.set_trace()
@@ -786,8 +784,8 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
 
     if np.abs(cross_product) <= tol:
         return default
-    else:
-        return cross_product > 0
+
+    return cross_product > 0
 
 #-----------------------------------------------------------------------------
 
@@ -874,7 +872,7 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
     Example:
         >>> lines_intersect([0, 0], [1, 1], [0, 1], [1, 0])
         array([[ 0.5],
-	       [ 0.5]])
+           [ 0.5]])
 
         >>> lines_intersect([0, 0], [1, 0], [0, 1], [1, 1])
 
@@ -978,8 +976,8 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
         if t_1 >= -tol and t_1 <= (1 + tol) and \
            t_2 >= -tol and t_2 <= (1 + tol):
             return np.array([[isect_1[0]], [isect_1[1]]])
-        else:
-            return None
+
+        return None
 
 #------------------------------------------------------------------------------#
 
@@ -1058,7 +1056,8 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         in_discr = np.arange(2)
 
     not_in_discr = np.setdiff1d(np.arange(3), in_discr)[0]
-    discr = deltas_1[in_discr[0]] * deltas_2[in_discr[1]] - deltas_1[in_discr[1]] * deltas_2[in_discr[0]]
+    discr = deltas_1[in_discr[0]] * deltas_2[in_discr[1]] - \
+            deltas_1[in_discr[1]] * deltas_2[in_discr[0]]
 
     # An intersection will be a solution of the linear system
     #   xs_1 + dx_1 * t_1 = xs_2 + dx_2 * t_2 (1)
@@ -1399,7 +1398,7 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
         return isect
 
 
-def is_planar( pts, normal = None ):
+def is_planar(pts, normal=None):
     """ Check if the points lie on a plane.
 
     Parameters:
@@ -1413,17 +1412,17 @@ def is_planar( pts, normal = None ):
     """
 
     if normal is None:
-        normal = compute_normal( pts )
+        normal = compute_normal(pts)
     else:
-        normal = normal / np.linalg.norm( normal )
+        normal = normal / np.linalg.norm(normal)
 
-    check = np.array( [ np.isclose( np.dot( normal, pts[:,0] - p ), 0. ) \
-                      for p in pts[:,1:].T ], dtype=np.bool )
-    return np.all( check )
+    check = np.array([np.isclose(np.dot(normal, pts[:, 0] - p), 0) \
+                     for p in pts[:, 1:].T], dtype=np.bool)
+    return np.all(check)
 
 #------------------------------------------------------------------------------#
 
-def project_plane_matrix( pts, normal = None ):
+def project_plane_matrix(pts, normal=None):
     """ Project the points on a plane using local coordinates.
 
     The projected points are computed by a dot product.
@@ -1440,18 +1439,18 @@ def project_plane_matrix( pts, normal = None ):
     """
 
     if normal is None:
-        normal = compute_normal( pts )
+        normal = compute_normal(pts)
     else:
-        normal = normal / np.linalg.norm( normal )
+        normal = normal / np.linalg.norm(normal)
 
-    reference = np.array( [0., 0., 1.] )
-    angle = np.arccos( np.dot( normal, reference ) )
-    vect = np.cross( normal, reference )
-    return rot( angle, vect )
+    reference = np.array([0., 0., 1.])
+    angle = np.arccos(np.dot(normal, reference))
+    vect = np.cross(normal, reference)
+    return rot(angle, vect)
 
 #------------------------------------------------------------------------------#
 
-def rot( a, vect ):
+def rot(a, vect):
     """ Compute the rotation matrix about a vector by an angle using the matrix
     form of Rodrigues formula.
 
@@ -1464,14 +1463,14 @@ def rot( a, vect ):
 
     """
 
-    if np.allclose( vect, [0.,0.,0.] ):
+    if np.allclose(vect, [0., 0., 0.]):
         return np.identity(3)
     vect = vect / np.linalg.norm(vect)
-    W = np.array( [ [       0., -vect[2],  vect[1] ],
-                    [  vect[2],       0., -vect[0] ],
-                    [ -vect[1],  vect[0],       0. ] ] )
+    W = np.array([[       0., -vect[2],  vect[1]],
+                  [  vect[2],       0., -vect[0]],
+                  [ -vect[1],  vect[0],       0.]])
     return np.identity(3) + np.sin(a)*W + \
-           (1.-np.cos(a))*np.linalg.matrix_power(W,2)
+           (1. - np.cos(a))*np.linalg.matrix_power(W, 2)
 
 #------------------------------------------------------------------------------#
 
@@ -1492,9 +1491,9 @@ def normal_matrix(pts=None, normal=None):
 
     """
     if normal is not None:
-        normal = normal / np.linalg.norm( normal )
+        normal = normal / np.linalg.norm(normal)
     elif pts is not None:
-        normal = compute_normal( pts )
+        normal = compute_normal(pts)
     else:
         assert False, "Points or normal are mandatory"
 
@@ -1537,9 +1536,9 @@ def compute_normal(pts):
     """
 
     assert pts.shape[1] > 2
-    normal = np.cross( pts[:,0] - pts[:,1], compute_tangent(pts) )
-    if np.allclose( normal, np.zeros(3) ): return compute_normal(pts[:, 1:])
-    return normal / np.linalg.norm( normal )
+    normal = np.cross(pts[:, 0] - pts[:, 1], compute_tangent(pts))
+    if np.allclose(normal, np.zeros(3)): return compute_normal(pts[:, 1:])
+    return normal / np.linalg.norm(normal)
 
 #------------------------------------------------------------------------------#
 
@@ -1563,8 +1562,8 @@ def compute_tangent(pts):
 
     """
 
-    tangent = pts[:,0] - np.mean( pts, axis = 1 )
-    assert not np.allclose( tangent, np.zeros(3) )
+    tangent = pts[:, 0] - np.mean(pts, axis=1)
+    assert not np.allclose(tangent, np.zeros(3))
     return tangent / np.linalg.norm(tangent)
 
 #------------------------------------------------------------------------------#
@@ -1584,11 +1583,11 @@ def is_collinear(pts, tol=1e-5):
     assert pts.shape[1] > 1
     if pts.shape[1] == 2: return True
 
-    pt0 = pts[:,0]
-    pt1 = pts[:,1]
+    pt0 = pts[:, 0]
+    pt1 = pts[:, 1]
 
-    coll = np.array( [ np.linalg.norm( np.cross( p - pt0, pt1 - pt0 ) ) \
-             for p in pts[:,1:-1].T ] )
+    coll = np.array([np.linalg.norm(np.cross(p - pt0, pt1 - pt0)) \
+             for p in pts[:, 1:-1].T])
     return np.allclose(coll, np.zeros(coll.size), tol)
 
 #------------------------------------------------------------------------------#
@@ -1617,18 +1616,20 @@ def map_grid(g):
     R = np.eye(3)
 
     if g.dim == 0 or g.dim == 3:
-        return cell_centers, face_normals, face_centers, R, np.ones(3,dtype=bool), nodes
+        return cell_centers, face_normals, face_centers, R,\
+               np.ones(3, dtype=bool), nodes
 
     if g.dim == 1 or g.dim == 2:
-        v = compute_normal(g.nodes) if g.dim==2 else compute_tangent(g.nodes)
+        v = compute_normal(g.nodes) if g.dim == 2 else compute_tangent(g.nodes)
         R = project_plane_matrix(g.nodes, v)
         face_centers = np.dot(R, face_centers)
         dim = np.logical_not(np.isclose(np.sum(np.abs(face_centers.T-
-                                                face_centers[:,0]), axis=0),0))
+                                                      face_centers[:, 0]),
+                                               axis=0), 0))
         assert g.dim == np.sum(dim)
-        face_centers = face_centers[dim,:]
-        cell_centers = np.dot(R, cell_centers)[dim,:]
-        face_normals = np.dot(R, face_normals)[dim,:]
+        face_centers = face_centers[dim, :]
+        cell_centers = np.dot(R, cell_centers)[dim, :]
+        face_normals = np.dot(R, face_normals)[dim, :]
         nodes = np.dot(R, nodes)[dim, :]
 
     return cell_centers, face_normals, face_centers, R, dim, nodes
@@ -1702,7 +1703,7 @@ def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
         # recompute sc for this edge
         if -dot_1_starts < 0.0:
             sN = 0.0
-        elif (-dot_1_starts > dot_1_1):
+        elif -dot_1_starts > dot_1_1:
             sN = sD
         else:
             sN = -dot_1_starts
@@ -1735,5 +1736,3 @@ def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
-
-

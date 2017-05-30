@@ -26,7 +26,7 @@ def sort_point_pairs(lines, check_circular=True, ordering=False):
     """
 
     num_lines = lines.shape[1]
-    sorted_lines = -np.ones( (2, num_lines), dtype = lines.dtype )
+    sorted_lines = -np.ones((2, num_lines), dtype=lines.dtype)
 
     # Start with the first line in input
     sorted_lines[:, 0] = lines[:, 0]
@@ -61,15 +61,16 @@ def sort_point_pairs(lines, check_circular=True, ordering=False):
                 prev = lines[0, j]
                 break
     # By now, we should have used all lines
-    assert(np.all(found))
+    assert np.all(found)
     if check_circular:
         assert sorted_lines[0, 0] == sorted_lines[1, -1]
-    if ordering: return sorted_lines, is_ordered
-    else:        return sorted_lines
+    if ordering:
+        return sorted_lines, is_ordered
+    return sorted_lines
 
 #------------------------------------------------------------------------------#
 
-def sort_point_plane( pts, centre, normal = None ):
+def sort_point_plane(pts, centre, normal=None):
     """ Sort the points which lie on a plane.
 
     The algorithm assumes a star-shaped disposition of the points with respect
@@ -85,11 +86,11 @@ def sort_point_plane( pts, centre, normal = None ):
     map_pts: np.array, 1xn, sorted point ids.
 
     """
-    R = project_plane_matrix( pts, normal )
-    pts = np.array( [ np.dot(R, p) for p in pts.T ] ).T
+    R = project_plane_matrix(pts, normal)
+    pts = np.array([np.dot(R, p) for p in pts.T]).T
     centre = np.dot(R, centre)
-    delta = np.array( [ p - centre for p in pts.T] ).T[0:2,:]
-    delta = np.array( [ d / np.linalg.norm(d) for d in delta.T] ).T
-    return np.argsort( np.arctan2( *delta ) )
+    delta = np.array([p - centre for p in pts.T]).T[0:2, :]
+    delta = np.array([d / np.linalg.norm(d) for d in delta.T]).T
+    return np.argsort(np.arctan2(*delta))
 
 #------------------------------------------------------------------------------#

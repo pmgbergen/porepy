@@ -12,7 +12,7 @@ from porepy.numerics.fv import tpfa
 
 #------------------------------------------------------------------------------#
 
-def generate_coarse_grid( g, subdiv ):
+def generate_coarse_grid(g, subdiv):
     """ Generate a coarse grid clustering the cells according to the flags
     given by subdiv. Subdiv should be long as the number of cells in the
     original grid, it contains integers (possibly not continuous) which
@@ -33,8 +33,8 @@ def generate_coarse_grid( g, subdiv ):
 
     """
 
-    subdiv = np.asarray( subdiv )
-    assert( subdiv.size == g.num_cells )
+    subdiv = np.asarray(subdiv)
+    assert subdiv.size == g.num_cells
 
     # declare the storage array to build the cell_faces map
     cell_faces = np.empty(0, dtype=g.cell_faces.indptr.dtype)
@@ -51,15 +51,15 @@ def generate_coarse_grid( g, subdiv ):
     face_node_ind = matrix_compression.rldecode(np.arange(g.num_faces), \
                                                 num_nodes_per_face)
 
-    cells_list = np.unique( subdiv )
-    for cellId, cell in enumerate( cells_list ):
+    cells_list = np.unique(subdiv)
+    for cellId, cell in enumerate(cells_list):
         # extract the cells of the original mesh associated to a specific label
-        cells_old = np.where( subdiv == cell )[0]
+        cells_old = np.where(subdiv == cell)[0]
 
         # reconstruct the cell_faces mapping
-        faces_old, _, orient_old = sps.find( g.cell_faces[:, cells_old] )
-        mask = np.ones( faces_old.size, dtype=np.bool )
-        mask[ np.unique( faces_old, return_index=True )[1] ] = False
+        faces_old, _, orient_old = sps.find(g.cell_faces[:, cells_old])
+        mask = np.ones(faces_old.size, dtype=np.bool)
+        mask[ np.unique(faces_old, return_index=True )[1]] = False
         # extract the indexes of the internal edges, to be discared
         index = np.array([ np.where( faces_old == f )[0] \
                                               for f in faces_old[mask]]).ravel()
