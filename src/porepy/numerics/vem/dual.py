@@ -4,12 +4,12 @@
 @author: fumagalli, alessio
 """
 
-import numpy as np
 import warnings
+import numpy as np
 import scipy.sparse as sps
 
 from porepy.params import second_order_tensor
-from porepy.numerics.mixed_dim.solver import *
+from porepy.numerics.mixed_dim.solver import Solver
 import porepy.utils.comp_geom as cg
 
 class DualVEM(Solver):
@@ -106,8 +106,9 @@ class DualVEM(Solver):
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             M = sps.dia_matrix(([1, 0], 0), (self.ndof(g), self.ndof(g)))
-            if bc_weight: return M, 1
-            else:         return M
+            if bc_weight:
+                return M, 1
+            return M
 
         k, bc = data.get('k'), data.get('bc')
 
@@ -116,7 +117,7 @@ class DualVEM(Solver):
             k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
             warnings.warn('Permeability not assigned, assumed identity')
 
-        faces, cells, sgn = sps.find(g.cell_faces)
+        faces, _, sgn = sps.find(g.cell_faces)
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
@@ -130,8 +131,8 @@ class DualVEM(Solver):
         # way to create a sparse matrix.
         size = np.sum(np.square(g.cell_faces.indptr[1:]-\
                                 g.cell_faces.indptr[:-1]))
-        I = np.empty(size,dtype=np.int)
-        J = np.empty(size,dtype=np.int)
+        I = np.empty(size, dtype=np.int)
+        J = np.empty(size, dtype=np.int)
         dataIJ = np.empty(size)
         idx = 0
 
@@ -146,12 +147,12 @@ class DualVEM(Solver):
             normals = f_normals[:, faces_loc]
 
             # Compute the H_div-mass local matrix
-            A, _ = self.massHdiv(K, c_centers[:,c], g.cell_volumes[c],
-                                 f_centers[:,faces_loc], normals, sgn_loc,
+            A, _ = self.massHdiv(K, c_centers[:, c], g.cell_volumes[c],
+                                 f_centers[:, faces_loc], normals, sgn_loc,
                                  diams[c], weight[c])
 
             # Save values for Hdiv-mass local matrix in the global structure
-            cols = np.tile(faces_loc, (faces_loc.size,1))
+            cols = np.tile(faces_loc, (faces_loc.size, 1))
             loc_idx = slice(idx, idx+cols.size)
             I[loc_idx] = cols.T.ravel()
             J[loc_idx] = cols.ravel()
@@ -161,19 +162,20 @@ class DualVEM(Solver):
         # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
-        M = sps.bmat([[mass, div.T], [div,None]], format='csr')
+        M = sps.bmat([[mass, div.T], [div, None]], format='csr')
 
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
         # assign the Neumann boundary conditions
         if bc and np.any(bc.is_neu):
             is_neu = np.hstack((bc.is_neu,
-                                np.zeros(g.num_cells,dtype=np.bool)))
+                                np.zeros(g.num_cells, dtype=np.bool)))
             M[is_neu, :] *= 0
             M[is_neu, is_neu] = norm
 
-        if bc_weight: return M, norm
-        else:         return M
+        if bc_weight:
+            return M, norm
+        return M
 
 #------------------------------------------------------------------------------#
 
@@ -189,21 +191,23 @@ class DualVEM(Solver):
             boundary conditions. Default 1.
 
         """
-        if g.dim == 0: return np.hstack(([0], data['f']))
+        if g.dim == 0:
+            return np.hstack(([0], data['f']))
 
         f, bc, bc_val = data.get('f'), data.get('bc'), data.get('bc_val')
-        assert not( bool(bc is None) != bool(bc_val is None) )
+        assert not bool(bc is None) != bool(bc_val is None)
 
         if f is None:
             f = np.zeros(g.num_cells)
             warnings.warn('Scalar source not assigned, assumed null')
 
         rhs = np.zeros(self.ndof(g))
-        is_p = np.hstack((np.zeros(g.num_faces,dtype=np.bool),
-                          np.ones(g.num_cells,dtype=np.bool)))
+        is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
+                          np.ones(g.num_cells, dtype=np.bool)))
 
         rhs[is_p] = -f*g.cell_volumes
-        if bc is None: return rhs
+        if bc is None:
+            return rhs
 
         # remap the dictionary such that the key is lowercase
         keys = [k for k in bc_val.keys()]
@@ -212,21 +216,21 @@ class DualVEM(Solver):
 
         if 'dir' in keys:
             is_dir = np.hstack((bc.is_dir,
-                                np.zeros(g.num_cells,dtype=np.bool)))
+                                np.zeros(g.num_cells, dtype=np.bool)))
             faces, _, sgn = sps.find(g.cell_faces)
             sgn = sgn[np.unique(faces, return_index=True)[1]]
             rhs[is_dir] += -sgn[bc.is_dir]*bc_val['dir']
 
         if 'neu' in keys:
             is_neu = np.hstack((bc.is_neu,
-                                np.zeros(g.num_cells,dtype=np.bool)))
+                                np.zeros(g.num_cells, dtype=np.bool)))
             rhs[is_neu] = bc_weight*bc_val['neu']*g.face_areas[bc.is_neu]
 
         return rhs
 
 #------------------------------------------------------------------------------#
 
-    def extractU(self, g, up):
+    def extract_u(self, g, up):
         """  Extract the velocity from a dual virtual element solution.
 
         Parameters
@@ -245,7 +249,7 @@ class DualVEM(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def extractP(self, g, up):
+    def extract_p(self, g, up):
         """  Extract the pressure from a dual virtual element solution.
 
         Parameters
@@ -264,7 +268,7 @@ class DualVEM(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def projectU(self, g, u, data={}):
+    def project_u(self, g, u):
         """  Project the velocity computed with a dual vem solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
@@ -279,20 +283,20 @@ class DualVEM(Solver):
         P0u : ndarray (3, g.num_faces) Velocity at each cell.
 
         """
-        if g.dim == 0: return np.zeros(3).reshape((3,1))
+        if g.dim == 0:
+            return np.zeros(3).reshape((3, 1))
 
         # The velocity field already has permeability effects incorporated,
-        # thus we assign a unit permeability to be passed to self.massHdiv 
+        # thus we assign a unit permeability to be passed to self.massHdiv
         kxx = np.ones(g.num_cells)
         k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
 
-        faces, cells, sgn = sps.find(g.cell_faces)
+        faces, _, sgn = sps.find(g.cell_faces)
         c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
 
         diams = g.cell_diameters()
 
         P0u = np.zeros((3, g.num_cells))
-        idx = 0
 
         for c in np.arange(g.num_cells):
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
@@ -302,8 +306,8 @@ class DualVEM(Solver):
             sgn_loc = sgn[loc]
             normals = f_normals[:, faces_loc]
 
-            _, Pi_s = self.massHdiv(K, c_centers[:,c], g.cell_volumes[c],
-                                    f_centers[:,faces_loc], normals, sgn_loc,
+            _, Pi_s = self.massHdiv(K, c_centers[:, c], g.cell_volumes[c],
+                                    f_centers[:, faces_loc], normals, sgn_loc,
                                     diams[c])
 
             # extract the velocity for the current cell
@@ -344,7 +348,7 @@ class DualVEM(Solver):
         """
 
         dim = K.shape[0]
-        mono = np.array([lambda pt,i=i: (pt[i] - c_center[i])/diam \
+        mono = np.array([lambda pt, i=i: (pt[i] - c_center[i])/diam \
                                                        for i in np.arange(dim)])
         grad = np.eye(dim)/diam
 
@@ -355,17 +359,17 @@ class DualVEM(Solver):
         G = np.dot(grad, np.dot(K, grad.T))*c_volume
 
         # local matrix F
-        F = np.array([ s*m(f) for m in mono \
-                            for s,f in zip(sgn,f_centers.T)] ).reshape((dim,-1))
+        F = np.array([s*m(f) for m in mono \
+                      for s, f in zip(sgn, f_centers.T)]).reshape((dim, -1))
 
-        assert np.allclose(G, np.dot(F,D))
+        assert np.allclose(G, np.dot(F, D))
 
         # local matrix Pi_s
         Pi_s = np.linalg.solve(G, F)
         I_Pi = np.eye(f_centers.shape[1]) - np.dot(D, Pi_s)
 
         # local Hdiv-mass matrix
-        w = weight * np.linalg.norm(np.linalg.inv(K),np.inf)
+        w = weight * np.linalg.norm(np.linalg.inv(K), np.inf)
         A = np.dot(Pi_s.T, np.dot(G, Pi_s)) + w * np.dot(I_Pi.T, I_Pi)
 
         return A, Pi_s

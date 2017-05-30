@@ -1,14 +1,14 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.mixed_dim.abstract_coupling import *
+from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 class DualCoupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
     def __init__(self, solver):
-        self.solver = solver
+        super().__init__(...)
 
 #------------------------------------------------------------------------------#
 
@@ -49,13 +49,13 @@ class DualCoupling(AbstractCoupling):
 
         # Compute the off-diagonal terms
         dataIJ, I, J = sgn, g_l.num_faces+cells_l, faces_h
-        cc[1,0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
-        cc[0,1] = cc[1,0].T
+        cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
+        cc[0, 1] = cc[1, 0].T
 
         # Compute the diagonal terms
         dataIJ = 1./np.multiply(g_h.face_areas[faces_h], kn[cells_l])
         I, J = faces_h, faces_h
-        cc[0,0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
+        cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
 
         return cc
 
