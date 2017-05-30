@@ -42,10 +42,6 @@ class TriangleGrid(Grid):
 
         self.dim = 2
 
-        # Transform points to column vector if necessary (scipy.Delaunay
-        # requires this format)
-        pdims = p.shape
-
         if tri is None:
             tri = scipy.spatial.Delaunay(p.transpose())
             tri = tri.simplices
@@ -55,7 +51,7 @@ class TriangleGrid(Grid):
 
         # Add a zero z-coordinate
         if p.shape[0] == 2:
-            nodes = np.vstack( (p, np.zeros(num_nodes)) )
+            nodes = np.vstack((p, np.zeros(num_nodes)))
         else:
             nodes = p
 
@@ -66,7 +62,7 @@ class TriangleGrid(Grid):
                                 tri[[1, 2]],
                                 tri[[2, 0]])).transpose()
         face_nodes.sort(axis=1)
-        face_nodes, tmp, cell_faces = setmembership.unique_rows(face_nodes)
+        face_nodes, _, cell_faces = setmembership.unique_rows(face_nodes)
 
         num_faces = face_nodes.shape[0]
         num_cells = tri.shape[1]
@@ -87,7 +83,7 @@ class TriangleGrid(Grid):
                                       num_faces_per_cell),
                             num_faces_per_cell * num_cells))
         data = -np.ones(cell_faces.shape)
-        tmp, sgns = np.unique(cell_faces, return_index=True)
+        _, sgns = np.unique(cell_faces, return_index=True)
         data[sgns] = 1
         cell_faces = sps.csc_matrix((data, cell_faces, indptr),
                                     shape=(num_faces, num_cells))
@@ -154,16 +150,16 @@ class StructuredTriangleGrid(TriangleGrid):
 
         # Define nodes of the first row of cells.
         tmp_ind = np.arange(0, nx[0])
-        i1 = tmp_ind  # Lower left node in quad
-        i2 = tmp_ind + 1  # Lower right node
-        i3 = nx[0] + 2 + tmp_ind  # Upper left node
-        i4 = nx[0] + 1 + tmp_ind  # Upper right node
+        ind_1 = tmp_ind  # Lower left node in quad
+        ind_2 = tmp_ind + 1  # Lower right node
+        ind_3 = nx[0] + 2 + tmp_ind  # Upper left node
+        ind_4 = nx[0] + 1 + tmp_ind  # Upper right node
 
         # The first triangle is defined by (i1, i2, i3), the next by
         # (i1, i3, i4). Stack these vertically, and reshape so that the
         # first quad is split into cells 0 and 1 and so on
-        tri_base = np.vstack((i1, i2, i3, i1, i3, i4)).reshape((3, -1),
-                                                               order='F')
+        tri_base = np.vstack((ind_1, ind_2, ind_3, ind_1, ind_3,
+                              ind_4)).reshape((3, -1), order='F')
         # Initialize array of triangles. For the moment, we will append the
         # cells here, but we do know how many cells there are in advance,
         # so pre-allocation is possible if this turns out to be a bottleneck
@@ -204,8 +200,6 @@ class TetrahedralGrid(Grid):
 
         # Transform points to column vector if necessary (scipy.Delaunay
         # requires this format)
-        pdims = p.shape
-
         if tet is None:
             tet = scipy.spatial.Delaunay(p.transpose())
             tet = tet.simplices
@@ -230,7 +224,7 @@ class TetrahedralGrid(Grid):
         face_nodes = face_nodes.reshape((3, 4*num_cells), order='F')
         sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
         face_nodes_sorted = np.sort(face_nodes, axis=0)
-        face_nodes, tmp, cell_faces = \
+        face_nodes, _, cell_faces = \
             setmembership.unique_columns_tol(face_nodes_sorted)
 
         num_faces = face_nodes.shape[1]
@@ -256,7 +250,7 @@ class TetrahedralGrid(Grid):
                                     shape=(num_faces, num_cells))
 
         super(TetrahedralGrid, self).__init__(3, nodes, face_nodes, cell_faces,
-                                           'TetrahedralGrid')
+                                              'TetrahedralGrid')
 
     def __permute_nodes(self, p, t):
         v = self.__triple_product(p, t)
@@ -266,7 +260,6 @@ class TetrahedralGrid(Grid):
                 t[:2] = t[1::-1]
         else:
             t[:2, permute] = t[1::-1, permute]
-        v2 = self.__triple_product(p, t)
         return t
 
     def __triple_product(self, p, t):

@@ -753,8 +753,7 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel(1)
     cols2blk_diag = sps.coo_matrix((np.ones(sub_cell_index.size),
                                     (subcind_nodes,
-                                     np.arange(sub_cell_index.size))
-                                    )).tocsr()
+                                     np.arange(sub_cell_index.size)))).tocsr()
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 

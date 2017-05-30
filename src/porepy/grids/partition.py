@@ -4,11 +4,11 @@ Module for partitioning of grids based on various methods.
 Intended support is by Cartesian indexing, and METIS-based.
 
 """
-import numpy as np
-import scipy.sparse as sps
-import networkx
 import warnings
 import sys
+import networkx
+import numpy as np
+import scipy.sparse as sps
 
 try:
     import pymetis
@@ -114,7 +114,7 @@ def partition_structured(g, coarse_dims=None, num_part=None):
         loc_ind = np.zeros(fine_dims[i])
         # The index will increase by one
         loc_ind[incr_ind] += 1
-        # A cumulative sum now gives the index, but subtract by one to be 
+        # A cumulative sum now gives the index, but subtract by one to be
         # 0-offset
         ind.append(np.cumsum(loc_ind) - 1)
 
@@ -128,8 +128,7 @@ def partition_structured(g, coarse_dims=None, num_part=None):
     elif nd == 3:
         xi, yi, zi = np.meshgrid(ind[0], ind[1], ind[2])
         # Combine indices, with appropriate jumps in y and z counting
-        glob_dims = (xi + yi * coarse_dims[0]
-                   + zi * np.prod(coarse_dims[:2]))
+        glob_dims = (xi + yi * coarse_dims[0] + zi * np.prod(coarse_dims[:2]))
         # This just happened to work, may be logical, but the documentanion of
         # np.meshgrid was hard to comprehend.
         glob_dims = np.swapaxes(np.swapaxes(glob_dims, 1, 2), 0, 1).ravel('C')
@@ -144,7 +143,7 @@ def partition_coordinates(g, num_coarse, check_connectivity=True):
 
     The intention at the time of implementation is to provide a partitioning
     for general grids that does not rely on METIS being available. However, if
-    METIS is available, partition_metis should be prefered. 
+    METIS is available, partition_metis should be prefered.
 
     The idea is to divide the domain into a coarse Cartesian grid, and then
     assign a coarse partitioning based on the cell center coordinates.
@@ -394,9 +393,9 @@ def extract_subgrid(g, c, sort=True):
 
     Returns:
         core.grids.Grid: Extracted subgrid. Will share (note, *not* copy)
-	    geometric fileds with the parent grid. Also has an additional
-	    field parent_cell_ind giving correspondance between parent and
-	    child cells.
+            geometric fileds with the parent grid. Also has an additional
+            field parent_cell_ind giving correspondance between parent and
+            child cells.
         np.ndarray, dtype=int: Index of the extracted faces, ordered so that
             element i is the global index of face i in the subgrid.
         np.ndarray, dtype=int: Index of the extracted nodes, ordered so that
@@ -441,7 +440,6 @@ def __extract_submatrix(mat, ind):
     """
     sub_mat = mat[:, ind]
     cols = sub_mat.indptr
-    rows = sub_mat.indices
     data = sub_mat.data
     unique_rows, rows_sub = np.unique(sub_mat.indices,
                                       return_inverse=True)
@@ -531,7 +529,7 @@ def overlap(g, cell_ind, num_layers, criterion='node'):
         active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
 
         # Gradually increase the size of the cell set
-        for i in range(num_layers):
+        for _ in range(num_layers):
             # Nodes are found via the mapping
             active_nodes[np.squeeze(np.where((cn * active_cells) > 0))] = 1
             # Map back to new cells
@@ -550,12 +548,12 @@ def overlap(g, cell_ind, num_layers, criterion='node'):
         active_faces = np.zeros(g.num_faces, dtype=np.bool)
 
         # Gradually increase the size of the cell set
-        for i in range(num_layers):
+        for _ in range(num_layers):
             # All faces adjacent to an active cell
-            active_faces[np.squeeze(np.where((fn * active_cells)>0))] = 1
+            active_faces[np.squeeze(np.where((cf * active_cells) > 0))] = 1
             # Map back to active cells, including that on the other side of the
             # newly found faces
-            ci_new = np.squeeze(np.where((fn.transpose() * active_faces) > 0))
+            ci_new = np.squeeze(np.where((cf.transpose() * active_faces) > 0))
             # Activate new cells
             active_cells[ci_new] = 1
 
@@ -591,7 +589,7 @@ def grid_is_connected(g, cell_ind=None):
         >>> p = np.array([0, 1])
         >>> is_con, l = grid_is_connected(g, p)
         >>> is_con
-        True    
+        True
 
         >>> g = structured.CartGrid(np.array([2, 2]))
         >>> p = np.array([0, 3])
@@ -608,7 +606,7 @@ def grid_is_connected(g, cell_ind=None):
     # Get connection map for the full grid
     c2c = g.cell_connection_map()
 
-    # Extract submatrix of the active cell set. 
+    # Extract submatrix of the active cell set.
     # To slice the sparse matrix, we first convert to row storage, slice rows,
     # and then convert to columns and slice those as well.
     c2c = c2c.tocsr()[cell_ind, :].tocsc()[:, cell_ind]
@@ -624,4 +622,3 @@ def grid_is_connected(g, cell_ind=None):
     components = [np.array(list(i)) for i in component_generator]
 
     return is_connected, components
-

@@ -5,15 +5,15 @@ The module doubles as a test framework (though not unittest), and will report
 on any problems if ran as a main method.
 
 """
+# pylint: disable=invalid-name
 import sys
 import getopt
-import numpy as np
-import scipy.sparse as sps
-from scipy.sparse.linalg import spsolve
-import time
 import traceback
 import logging
+import time
 from inspect import isfunction, getmembers
+import numpy as np
+import scipy.sparse as sps
 
 from porepy.grids import structured, simplex
 from porepy.params import second_order_tensor, bc
@@ -30,7 +30,7 @@ def darcy_dualVEM_example0(**kwargs):
     # Simple 2d Darcy problem with known exact solution
     #######################
     Nx = Ny = 25
-    g = structured.CartGrid( [Nx, Ny], [1,1] )
+    g = structured.CartGrid([Nx, Ny], [1, 1])
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
@@ -63,19 +63,20 @@ def darcy_dualVEM_example1(**kwargs):
     # Simple 2d Darcy problem with known exact solution
     #######################
     Nx = Ny = 25
-    g = structured.CartGrid( [Nx, Ny], [1,1] )
+    g = structured.CartGrid([Nx, Ny], [1, 1])
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
     perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
 
-    def funP_ex(pt): return np.sin(2*np.pi*pt[0]) * \
-                            np.sin(2*np.pi*pt[1])
-    def funU_ex(pt): return [\
-                          -2*np.pi*np.cos(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1]),
-                          -2*np.pi*np.sin(2*np.pi*pt[0])*np.cos(2*np.pi*pt[1]),
-                           0]
-    def fun(pt): return 8*np.pi**2 * funP_ex(pt)
+    def funP_ex(pt):
+        return np.sin(2*np.pi*pt[0]) * np.sin(2*np.pi*pt[1])
+    def funU_ex(pt):
+        return [-2*np.pi*np.cos(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1]),
+                -2*np.pi*np.sin(2*np.pi*pt[0])*np.cos(2*np.pi*pt[1]),
+                0]
+    def fun(pt):
+        return 8*np.pi**2 * funP_ex(pt)
 
     f = np.array([fun(pt) for pt in g.cell_centers.T])
 
@@ -91,7 +92,8 @@ def darcy_dualVEM_example1(**kwargs):
     u, p = solver.extractU(g, up), solver.extractP(g, up)
     P0u = solver.projectU(g, u, data)
 
-    if kwargs['visualize']: plot_grid(g, p, P0u)
+    if kwargs['visualize']:
+        plot_grid(g, p, P0u)
 
     p_ex = error.interpolate(g, funP_ex)
     u_ex = error.interpolate(g, funU_ex)
@@ -107,9 +109,9 @@ def darcy_dualVEM_example2(**kwargs):
     # Simple 2d Darcy problem on a surface with known exact solution
     #######################
     Nx = Ny = 25
-    g = simplex.StructuredTriangleGrid( [Nx, Ny], [1,1] )
-    R = cg.rot( np.pi/6., [0,1,1] )
-    g.nodes = np.dot( R, g.nodes )
+    g = simplex.StructuredTriangleGrid([Nx, Ny], [1, 1])
+    R = cg.rot(np.pi/6., [0, 1, 1])
+    g.nodes = np.dot(R, g.nodes)
     g.compute_geometry(is_embedded=True)
 
     T = cg.tangent_matrix(g.nodes)
@@ -117,9 +119,12 @@ def darcy_dualVEM_example2(**kwargs):
     kxx = np.ones(g.num_cells)
     perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
 
-    def funP_ex(pt): return np.pi*pt[0] - 6*pt[1] + np.exp(1)*pt[2] - 4
-    def funU_ex(pt): return np.dot(T, [-np.pi, 6, -np.exp(1)])
-    def fun(pt): return 0
+    def funP_ex(pt):
+        return np.pi*pt[0] - 6*pt[1] + np.exp(1)*pt[2] - 4
+    def funU_ex(pt):
+        return np.dot(T, [-np.pi, 6, -np.exp(1)])
+    def fun(pt):
+        return 0
 
     f = np.array([fun(pt) for pt in g.cell_centers.T])
 
@@ -135,7 +140,8 @@ def darcy_dualVEM_example2(**kwargs):
     u, p = solver.extractU(g, up), solver.extractP(g, up)
     P0u = solver.projectU(g, u, data)
 
-    if kwargs['visualize']: plot_grid(g, p, P0u)
+    if kwargs['visualize']:
+        plot_grid(g, p, P0u)
 
     p_ex = error.interpolate(g, funP_ex)
     u_ex = error.interpolate(g, funU_ex)
@@ -151,21 +157,25 @@ def darcy_dualVEM_example3(**kwargs):
     # Simple 3d Darcy problem with known exact solution
     #######################
     Nx = Ny = Nz = 7
-    g = structured.CartGrid( [Nx, Ny, Nz], [1, 1, 1] )
+    g = structured.CartGrid([Nx, Ny, Nz], [1, 1, 1])
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
     perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
 
-    def funP_ex(pt): return np.sin(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1]) * \
-                            np.sin(2*np.pi*pt[2])
-    def funU_ex(pt): return [-2*np.pi*np.cos(2*np.pi*pt[0])*\
-                                np.sin(2*np.pi*pt[1])*np.sin(2*np.pi*pt[2]),
-                             -2*np.pi*np.sin(2*np.pi*pt[0])*\
-                                np.cos(2*np.pi*pt[1])*np.sin(2*np.pi*pt[2]),
-                             -2*np.pi*np.sin(2*np.pi*pt[0])*\
-                                np.sin(2*np.pi*pt[1])*np.cos(2*np.pi*pt[2])]
-    def fun(pt): return 12*np.pi**2 * funP_ex(pt)
+    def funP_ex(pt):
+        return np.sin(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1])\
+            * np.sin(2*np.pi*pt[2])
+    def funU_ex(pt):
+        return [-2*np.pi*np.cos(2*np.pi*pt[0])\
+                * np.sin(2*np.pi*pt[1])*np.sin(2*np.pi*pt[2]),
+                -2*np.pi*np.sin(2*np.pi*pt[0])\
+                * np.cos(2*np.pi*pt[1])*np.sin(2*np.pi*pt[2]),
+                -2*np.pi*np.sin(2*np.pi*pt[0])\
+                * np.sin(2*np.pi*pt[1])*np.cos(2*np.pi*pt[2])]
+
+    def fun(pt):
+        return 12*np.pi**2 * funP_ex(pt)
 
     f = np.array([fun(pt) for pt in g.cell_centers.T])
 
@@ -181,7 +191,8 @@ def darcy_dualVEM_example3(**kwargs):
     u, p = solver.extractU(g, up), solver.extractP(g, up)
     P0u = solver.projectU(g, u, data)
 
-    if kwargs['visualize']: plot_grid(g, p, P0u)
+    if kwargs['visualize']:
+        plot_grid(g, p, P0u)
 
     p_ex = error.interpolate(g, funP_ex)
     u_ex = error.interpolate(g, funU_ex)
@@ -194,8 +205,10 @@ def darcy_dualVEM_example3(**kwargs):
 
 if __name__ == '__main__':
     # If invoked as main, run all tests
+
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'v:',['verbose=', 'visualize='])
+        opts, args = getopt.getopt(sys.argv[1:], 'v:', ['verbose=',
+                                                        'visualize='])
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)

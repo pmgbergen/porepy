@@ -1,7 +1,7 @@
-import numpy as np
-import time
-from meshio import gmsh_io
 import warnings
+import time
+import numpy as np
+from meshio import gmsh_io
 
 from porepy.grids import constants
 from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
@@ -172,7 +172,7 @@ def triangle_grid(fracs, domain, **kwargs):
     **kwargs: To be explored. Must contain the key 'gmsh_path'
     Returns
     -------
-    list (length 3): For each dimension (2 -> 0), a list of all grids in 
+    list (length 3): For each dimension (2 -> 0), a list of all grids in
         that dimension.
     """
     # Verbosity level

@@ -6,7 +6,6 @@ intersection between lines, with grid generation in mind, and should perhaps
 be moved to a separate module.
 
 """
-
 import time
 import numpy as np
 from sympy import geometry as geom
@@ -323,7 +322,6 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         elif i0 != start and i1 == end:
             # Analogous configuration as the one above, but with i0 replaced by
             # i1 and start by end.
-            # did_delete = 0
             if edges[0, edge_ind[1]] == i0:
                 if edges[1, edge_ind[1]] == end:
                     edges = np.delete(edges, edge_ind[1], axis=1)
@@ -467,7 +465,6 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
         num_edges_orig = edges.shape[1]
         print('  Find intersections between ' + str(num_edges_orig) + ' edges')
 
-    #num_edges = edges.shape[1]
     nd = vertices.shape[0]
 
     # Only 2D is considered. 3D should not be too dificult, but it is not
@@ -613,9 +610,8 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                     # is needed)
                     md = __min_dist(new_pt)
                     vertices, edges, split_outer_edge,\
-                            split = _split_edge(vertices, edges,
-                                                edge_counter, new_pt,
-                                                **kwargs)
+                            split = _split_edge(vertices, edges, edge_counter,
+                                                new_pt, **kwargs)
                     split_type.append(split)
                     if verbose > 2 and split_outer_edge > 0 and \
                        vertices.shape[1] > orig_vertex_num:
@@ -674,9 +670,6 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                 raise ValueError('Have somehow created a point edge')
             if intersections.max() > edges.shape[1]:
                 raise ValueError('Intersection pointer outside edge array')
-                if verbose > 3:
-                    import pdb
-                    pdb.set_trace()
 
             # We're done with this candidate edge. Increase index of inner loop
             int_counter += 1
@@ -1056,8 +1049,8 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         in_discr = np.arange(2)
 
     not_in_discr = np.setdiff1d(np.arange(3), in_discr)[0]
-    discr = deltas_1[in_discr[0]] * deltas_2[in_discr[1]] - \
-            deltas_1[in_discr[1]] * deltas_2[in_discr[0]]
+    discr = deltas_1[in_discr[0]] * deltas_2[in_discr[1]]\
+            - deltas_1[in_discr[1]] * deltas_2[in_discr[0]]
 
     # An intersection will be a solution of the linear system
     #   xs_1 + dx_1 * t_1 = xs_2 + dx_2 * t_2 (1)
@@ -1106,7 +1099,6 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         # For dimensions with an incline, the vector between segment start
         # points should be parallel to the segments.
         # Since the masks are equal, we can use any of them.
-        t_1_2 = (start_1[mask_1] - start_2[mask_1]) / deltas_1[mask_1]
         # For dimensions with no incline, the start cooordinates should be the same
         if not np.allclose(start_1[~mask_1], start_2[~mask_1], tol):
             return None
@@ -1119,7 +1111,6 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
         s_2 = start_2[mask_1][0]
         e_2 = end_2[mask_1][0]
 
-        d = deltas_1[mask_1][0]
         max_1 = max(s_1, e_1)
         min_1 = min(s_1, e_1)
         max_2 = max(s_2, e_2)
@@ -1297,9 +1288,9 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     poly_2 = poly_2 - center_1
 
     # Obtain the rotation matrix that projects p1 to the xy-plane
-    rot = project_plane_matrix(poly_1)
-    irot = rot.transpose()
-    poly_1_xy = rot.dot(poly_1)
+    rot_p_1 = project_plane_matrix(poly_1)
+    irot = rot_p_1.transpose()
+    poly_1_xy = rot_p_1.dot(poly_1)
 
     # Sanity check: The points should lay on a plane
     assert np.all(np.abs(poly_1_xy[2]) < tol)
@@ -1307,7 +1298,7 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     poly_1_xy = poly_1_xy[:2]
 
     # Rotate the second polygon with the same rotation matrix
-    poly_2_rot = rot.dot(poly_2)
+    poly_2_rot = rot_p_1.dot(poly_2)
 
     # If the rotation of whole second point cloud lies on the same side of z=0,
     # there are no intersections.
@@ -1328,7 +1319,7 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
             poly_2_sp = geom.Polygon(*_np2p(poly_2_rot[:2]))
 
             isect = poly_1_sp.intersection(poly_2_sp)
-            if (isinstance(isect, list) and len(isect) > 0):
+            if isinstance(isect, list) and len(isect) > 0:
                 # It would have been possible to return the intersecting area,
                 # but this is not the intended behavior of the function.
                 # Instead raise an error, and leave it to the user to deal with
@@ -1351,9 +1342,6 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
         isect = np.empty((3, 0))
 
         for i in range(num_p2):
-            # Indices of points of this segment
-            i1 = ind[i]
-            i2 = ind[i+1]
 
             # Coordinates of this segment
             pt_1 = poly_2_rot[:, ind[i]]
@@ -1417,7 +1405,7 @@ def is_planar(pts, normal=None):
         normal = normal / np.linalg.norm(normal)
 
     check = np.array([np.isclose(np.dot(normal, pts[:, 0] - p), 0) \
-                     for p in pts[:, 1:].T], dtype=np.bool)
+                      for p in pts[:, 1:].T], dtype=np.bool)
     return np.all(check)
 
 #------------------------------------------------------------------------------#
@@ -1462,15 +1450,17 @@ def rot(a, vect):
     matrix: np.ndarray, 3x3, the rotation matrix.
 
     """
-
     if np.allclose(vect, [0., 0., 0.]):
         return np.identity(3)
     vect = vect / np.linalg.norm(vect)
-    W = np.array([[       0., -vect[2],  vect[1]],
-                  [  vect[2],       0., -vect[0]],
-                  [ -vect[1],  vect[0],       0.]])
+
+    # Prioritize readability over PEP0008 whitespaces.
+    # pylint: disable=bad-whitespace
+    W = np.array( [[       0., -vect[2],  vect[1]],
+                   [  vect[2],       0., -vect[0]],
+                   [ -vect[1],  vect[0],       0. ]])
     return np.identity(3) + np.sin(a)*W + \
-           (1. - np.cos(a))*np.linalg.matrix_power(W, 2)
+           (1.-np.cos(a)) * np.linalg.matrix_power(W, 2)
 
 #------------------------------------------------------------------------------#
 
@@ -1537,7 +1527,8 @@ def compute_normal(pts):
 
     assert pts.shape[1] > 2
     normal = np.cross(pts[:, 0] - pts[:, 1], compute_tangent(pts))
-    if np.allclose(normal, np.zeros(3)): return compute_normal(pts[:, 1:])
+    if np.allclose(normal, np.zeros(3)):
+        return compute_normal(pts[:, 1:])
     return normal / np.linalg.norm(normal)
 
 #------------------------------------------------------------------------------#
@@ -1581,7 +1572,8 @@ def is_collinear(pts, tol=1e-5):
     """
 
     assert pts.shape[1] > 1
-    if pts.shape[1] == 2: return True
+    if pts.shape[1] == 2:
+        return True
 
     pt0 = pts[:, 0]
     pt1 = pts[:, 1]

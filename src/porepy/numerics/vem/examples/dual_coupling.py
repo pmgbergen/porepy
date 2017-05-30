@@ -5,30 +5,30 @@ The module doubles as a test framework (though not unittest), and will report
 on any problems if ran as a main method.
 
 """
+# pylint: disable=invalid-name
+
 import sys
 import getopt
-import numpy as np
-import scipy.sparse as sps
-from scipy.sparse.linalg import spsolve
 import time
 import traceback
 import logging
 from inspect import isfunction, getmembers
+import numpy as np
+import scipy.sparse as sps
+from scipy.sparse.linalg import spsolve
 
 
-from porepy.grids import structured, simplex
+from porepy.grids import structured
 from porepy.params import second_order_tensor, bc
 from porepy.utils.errors import error
 from porepy.numerics.vem import dual, dual_coupling
 from porepy.viz.plot_grid import plot_grid
 from porepy.viz.exporter import export_vtk
-import porepy.utils.comp_geom as cg
 
 from porepy.grids.grid import FaceTag
 
 from porepy.grids.coarsening import *
-from porepy.grids import grid_bucket
-from porepy.fracs import meshing, split_grid
+from porepy.fracs import meshing
 
 from porepy.numerics.mixed_dim import coupler
 
@@ -184,7 +184,7 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     #######################
     # Simple 2d Darcy problem with known exact solution
     #######################
-    np.set_printoptions( linewidth = 999999, threshold=np.nan, precision = 16 )
+    np.set_printoptions(linewidth=999999, threshold=np.nan, precision=16)
 
     f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
     f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1.5, -1.5, .8, .8]])
@@ -217,7 +217,8 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) \
                                         for g, _ in gb if g.dim == gb.dim_max()]
 
-    if kwargs['visualize']: plot_grid(gb, info="f", alpha=0)
+    if kwargs['visualize']:
+        plot_grid(gb, info="f", alpha=0)
 
     gb.add_node_props(['k', 'f', 'bc', 'bc_val'])
     for g, d in gb:
@@ -242,7 +243,7 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     gb.add_edge_prop('kn')
     for e, d in gb.edges_props():
         g_l = gb.sorted_nodes_of_edge(e)[0]
-        c = g_l.cell_centers[2,:]>-0.5
+        c = g_l.cell_centers[2, :] > -0.5
         d['kn'] = (np.ones(g_l.num_cells) + c.astype('float')*(-1+1e-2))
 
     solver = dual.DualVEM()
@@ -259,7 +260,8 @@ def darcy_dualVEM_coupling_example2(**kwargs):
         d["p"] = solver.extractP(g, d["up"])
         d["P0u"] = solver.projectU(g, d["u"], d)
 
-    if kwargs['visualize']: plot_grid(gb, "p", "P0u")
+    if kwargs['visualize']:
+        plot_grid(gb, "p", "P0u")
 
     export_vtk(gb, "grid", ["p", "P0u"])
 
@@ -273,7 +275,8 @@ def darcy_dualVEM_coupling_example2(**kwargs):
 if __name__ == '__main__':
     # If invoked as main, run all tests
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'v:',['verbose=', 'visualize='])
+        opts, args = getopt.getopt(sys.argv[1:], 'v:', ['verbose=',
+                                                        'visualize='])
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)

@@ -3,16 +3,15 @@ Implementation of the multi-point flux approximation O-method.
 
 """
 from __future__ import division
+import warnings
 import numpy as np
 import scipy.sparse as sps
-import warnings
 
 from porepy.numerics.fv import fvutils, tpfa
-from porepy.grids import structured
 from porepy.params import second_order_tensor, bc
 from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
-from porepy.numerics.mixed_dim.solver import *
+from porepy.numerics.mixed_dim.solver import Solver
 
 
 class Mpfa(Solver):
@@ -38,7 +37,7 @@ class Mpfa(Solver):
     def matrix_rhs(self, g, data):
         """
         Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method with a multi-point flux 
+        order elliptic equation using a FV method with a multi-point flux
         approximation.
         The name of data in the input dictionary (data) are:
         k : second_order_tensor
@@ -207,6 +206,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba', apertures=None):
     Boundary values can be incorporated with appropriate modifications -
     Neumann conditions will have a non-zero right hand side for (i), while
     Dirichlet gives a right hand side for (ii).
+
     """
 
     # The method reduces to the more efficient TPFA in one dimension, so that
@@ -233,7 +233,10 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba', apertures=None):
         g = g.copy()
         cell_centers, face_normals, face_centers, R, _, nodes = cg.map_grid(
             g)
-        g.cell_centers, g.face_normals, g.face_centers, g.nodes = cell_centers, face_normals, face_centers, nodes
+        g.cell_centers = cell_centers
+        g.face_normals = face_normals
+        g.face_centers = face_centers
+        g.nodes = nodes
 
         # Rotate the permeability tensor and delete last dimension
         k = k.copy()
@@ -272,8 +275,7 @@ def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba', apertures=None):
     # The cell centers give zero contribution to flux continuity
     nk_cell = sps.coo_matrix((np.zeros(1), (np.zeros(1), np.zeros(1))),
                              shape=(subcell_topology.num_subfno,
-                                    subcell_topology.num_cno)
-                             ).tocsr()
+                                    subcell_topology.num_cno)).tocsr()
     del sgn
 
     # Mapping from sub-faces to faces
@@ -459,8 +461,7 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel('F')
     cols2blk_diag = sps.coo_matrix((np.ones(sub_cell_index.size),
                                     (subcind_nodes,
-                                     np.arange(sub_cell_index.size))
-                                    )).tocsr()
+                                     np.arange(sub_cell_index.size)))).tocsr()
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
@@ -522,7 +523,7 @@ def _create_bound_rhs(bnd, bound_exclusion,
 
     # Dirichlet boundary conditions
     dir_ind = np.argwhere(bound_exclusion.exclude_neumann(
-                          bnd.is_dir[fno].astype('int64'))).ravel('F')
+        bnd.is_dir[fno].astype('int64'))).ravel('F')
     if dir_ind.size > 0:
         dir_cell = sps.coo_matrix((sgn[dir_ind_all], (dir_ind, num_neu +
                                                       np.arange(dir_ind.size))),
@@ -559,11 +560,3 @@ def _create_bound_rhs(bnd, bound_exclusion,
                             shape=(num_subfno, g.num_faces))
     rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
     return rhs_bound
-
-
-def _neu_face_sgn(g, neu_ind):
-    neu_sgn = (g.cell_faces[neu_ind, :]).data
-    assert neu_sgn.size == neu_ind.size, \
-        'A normal sign is only well defined for a boundary face'
-    sort_id = np.argsort(g.cell_faces[neu_ind, :].indices)
-    return neu_sgn[sort_id]

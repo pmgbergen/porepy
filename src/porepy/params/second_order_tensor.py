@@ -4,9 +4,8 @@ Created on Sat Feb 27 20:22:25 2016
 
 @author: keile
 """
-
-import numpy as np
 import copy
+import numpy as np
 
 
 class SecondOrderTensor(object):

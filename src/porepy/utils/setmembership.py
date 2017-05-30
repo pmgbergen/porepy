@@ -143,8 +143,8 @@ def ismember_rows(a, b, sort=True, simple_version=False):
         if a.ndim == 1:
             # Special treatment of 1d, vstack of voids (below) ran into trouble
             # here.
-            unq, k, count = np.unique(np.hstack((a, b)), return_inverse=True,
-                                      return_counts=True)
+            _, k, count = np.unique(np.hstack((a, b)), return_inverse=True,
+                                    return_counts=True)
             _, k_a, count_a = np.unique(a, return_inverse=True,
                                         return_counts=True)
         else:
@@ -156,14 +156,14 @@ def ismember_rows(a, b, sort=True, simple_version=False):
             voidb = _asvoid(sb.transpose().astype('int64'))
 
             # Use unique to count the number of occurences in a
-            unq, j, k, count = np.unique(np.vstack((voida, voidb)),
-                                         return_index=True,
-                                         return_inverse=True,
-                                         return_counts=True)
+            _, _, k, count = np.unique(np.vstack((voida, voidb)),
+                                       return_index=True,
+                                       return_inverse=True,
+                                       return_counts=True)
             # Also count the number of occurences in voida
-            _, j_a, k_a, count_a = np.unique(voida, return_index=True,
-                                             return_inverse=True,
-                                             return_counts=True)
+            _, _, k_a, count_a = np.unique(voida, return_index=True,
+                                           return_inverse=True,
+                                           return_counts=True)
 
         # Index of a and b elements in the combined array
         ind_a = np.arange(num_a)
@@ -226,7 +226,7 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
 
     # Special treatment of the case with an empty array
     if mat.shape[1] == 0:
-         return mat
+        return mat
 
     # If the matrix is integers, and the tolerance less than 1/2, we can use
     # the new unique function that ships with numpy 1.13. This comes with a

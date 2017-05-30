@@ -32,6 +32,7 @@ class DualCoupling(AbstractCoupling):
                 condition. See the abstract coupling class for a more detailed
                 description.
         """
+        # pylint: disable=invalid-name
 
         # Normal permeability of the intersection
         kn = data_edge['kn']

@@ -29,16 +29,16 @@ def half_space_int(n, x0, pts):
     Examples
     --------
     >>> import numpy as np
-    >>> n = np.array([[0,1],[1,0],[0,0]])
-    >>> x0 = np.array([[0,-1],[0,0],[0,0]])
-    >>> pts = np.array([[-1,-1,4],[2,-2,-2],[0,0,0]])
+    >>> n = np.array([[0, 1], [1, 0], [0, 0]])
+    >>> x0 = np.array([[0, -1], [0, 0], [0, 0]])
+    >>> pts = np.array([[-1 ,-1 ,4], [2, -2, -2], [0, 0, 0]])
     >>> half_space_int(n,x0,pts)
     array([False,  True, False], dtype=bool)
     """
     assert n.shape[0] == 3, ' only 3D supported'
     assert x0.shape[0] == 3, ' only 3D supported'
     assert pts.shape[0] == 3, ' only 3D supported'
-    assert n.shape[1] == x0.shape[1], 'ther must be the same number of normal vectors as points'
+    assert n.shape[1] == x0.shape[1], 'there must be the same number of normal vectors as points'
 
     n_pts = pts.shape[1]
     in_hull = np.zeros(n_pts)
