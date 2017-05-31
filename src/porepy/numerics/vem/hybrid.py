@@ -169,22 +169,21 @@ class HybridDualVEM(Solver):
 
         # Apply the boundary conditions
         if bc is not None:
-            # remap the dictionary such that the key is lowercase
-            keys = [k for k in bc_val.keys()]
-            bc_val = {k.lower(): bc_val[k] for k in keys}
-            keys = [k.lower() for k in keys]
 
             if np.any(bc.is_dir):
                 norm = sps.linalg.norm(H, np.inf)
-                H[bc.is_dir, :] *= 0
-                H[bc.is_dir, bc.is_dir] = norm
-                rhs[bc.is_dir] = norm*bc_val['dir']
+                is_dir = np.where(bc.is_dir)[0]
+
+                H[is_dir, :] *= 0
+                H[is_dir, is_dir] = norm
+                rhs[is_dir] = norm*bc_val[is_dir]
 
             if np.any(bc.is_neu):
                 faces, _, sgn = sps.find(g.cell_faces)
                 sgn = sgn[np.unique(faces, return_index=True)[1]]
-                rhs[bc.is_neu] += sgn[bc.is_neu]*bc_val['neu']*\
-                                  g.face_areas[bc.is_neu]
+
+                is_neu = np.where(bc.is_neu)[0]
+                rhs[is_neu] += sgn[is_neu]*bc_val[is_neu]*g.face_areas[is_neu]
 
         return H, rhs
 

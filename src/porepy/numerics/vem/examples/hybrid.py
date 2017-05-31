@@ -41,7 +41,7 @@ def darcy_dual_hybridVEM_example0(**kwargs):
 
     b_faces = g.get_boundary_faces()
     bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
-    bnd_val = {'dir': np.zeros(b_faces.size)}
+    bnd_val = np.zeros(g.num_faces)
 
     solver = hybrid.HybridDualVEM()
     data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
@@ -85,7 +85,8 @@ def darcy_dual_hybridVEM_example1(**kwargs):
 
     b_faces = g.get_boundary_faces()
     bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
-    bnd_val = {'dir': funP_ex(g.face_centers[:, b_faces])}
+    bnd_val = np.zeros(g.num_faces)
+    bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
     solver = hybrid.HybridDualVEM()
     data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
@@ -133,7 +134,8 @@ def darcy_dual_hybridVEM_example2(**kwargs):
 
     b_faces = g.get_boundary_faces()
     bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
-    bnd_val = {'dir': funP_ex(g.face_centers[:, b_faces])}
+    bnd_val = np.zeros(g.num_faces)
+    bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
     solver = hybrid.HybridDualVEM()
     data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
@@ -183,7 +185,8 @@ def darcy_dual_hybridVEM_example3(**kwargs):
 
     b_faces = g.get_boundary_faces()
     bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
-    bnd_val = {'dir': funP_ex(g.face_centers[:, b_faces])}
+    bnd_val = np.zeros(g.num_faces)
+    bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
     solver = hybrid.HybridDualVEM()
     data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
