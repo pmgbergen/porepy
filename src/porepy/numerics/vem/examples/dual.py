@@ -47,8 +47,8 @@ def darcy_dualVEM_example0(**kwargs):
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
-    u, p = solver.extractU(g, up), solver.extractP(g, up)
-    P0u = solver.projectU(g, u, data)
+    u, p = solver.extract_u(g, up), solver.extract_p(g, up)
+    P0u = solver.project_u(g, u)
 
     if kwargs['visualize']: plot_grid(g, p, P0u)
 
@@ -89,8 +89,8 @@ def darcy_dualVEM_example1(**kwargs):
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
-    u, p = solver.extractU(g, up), solver.extractP(g, up)
-    P0u = solver.projectU(g, u, data)
+    u, p = solver.extract_u(g, up), solver.extract_p(g, up)
+    P0u = solver.project_u(g, u)
 
     if kwargs['visualize']:
         plot_grid(g, p, P0u)
@@ -137,8 +137,8 @@ def darcy_dualVEM_example2(**kwargs):
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
-    u, p = solver.extractU(g, up), solver.extractP(g, up)
-    P0u = solver.projectU(g, u, data)
+    u, p = solver.extract_u(g, up), solver.extract_p(g, up)
+    P0u = solver.project_u(g, u)
 
     if kwargs['visualize']:
         plot_grid(g, p, P0u)
@@ -188,8 +188,8 @@ def darcy_dualVEM_example3(**kwargs):
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
-    u, p = solver.extractU(g, up), solver.extractP(g, up)
-    P0u = solver.projectU(g, u, data)
+    u, p = solver.extract_u(g, up), solver.extract_p(g, up)
+    P0u = solver.project_u(g, u)
 
     if kwargs['visualize']:
         plot_grid(g, p, P0u)

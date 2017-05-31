@@ -48,8 +48,8 @@ def darcy_dual_hybridVEM_example0(**kwargs):
     H, rhs = solver.matrix_rhs(g, data)
 
     l = sps.linalg.spsolve(H, rhs)
-    u, p = solver.computeUP(g, l, data)
-    P0u = dual.DualVEM().projectU(g, u, data)
+    u, p = solver.compute_up(g, l, data)
+    P0u = dual.DualVEM().project_u(g, u)
 
     if kwargs['visualize']:
         plot_grid(g, p, P0u)
@@ -92,8 +92,8 @@ def darcy_dual_hybridVEM_example1(**kwargs):
     H, rhs = solver.matrix_rhs(g, data)
 
     l = sps.linalg.spsolve(H, rhs)
-    u, p = solver.computeUP(g, l, data)
-    P0u = dual.DualVEM().projectU(g, u, data)
+    u, p = solver.compute_up(g, l, data)
+    P0u = dual.DualVEM().project_u(g, u)
 
     if kwargs['visualize']:
         plot_grid(g, p, P0u)
@@ -140,8 +140,8 @@ def darcy_dual_hybridVEM_example2(**kwargs):
     H, rhs = solver.matrix_rhs(g, data)
 
     l = sps.linalg.spsolve(H, rhs)
-    u, p = solver.computeUP(g, l, data)
-    P0u = dual.DualVEM().projectU(g, u, data)
+    u, p = solver.compute_up(g, l, data)
+    P0u = dual.DualVEM().project_u(g, u)
 
     if kwargs['visualize']:
         plot_grid(g, p, P0u)
@@ -190,8 +190,8 @@ def darcy_dual_hybridVEM_example3(**kwargs):
     H, rhs = solver.matrix_rhs(g, data)
 
     l = sps.linalg.spsolve(H, rhs)
-    u, p = solver.computeUP(g, l, data)
-    P0u = dual.DualVEM().projectU(g, u, data)
+    u, p = solver.compute_up(g, l, data)
+    P0u = dual.DualVEM().project_u(g, u)
 
     if kwargs['visualize']:
         plot_grid(g, p, P0u)
