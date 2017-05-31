@@ -97,7 +97,7 @@ class Mpfa(Solver):
 #------------------------------------------------------------------------------#
 
 
-def mpfa(g, k, bnd, faces=None, eta=0, inverter='numba', apertures=None):
+def mpfa(g, k, bnd, faces=None, eta=0, inverter=None, apertures=None):
     """
     Discretize the scalar elliptic equation by the multi-point flux
     approximation method.
