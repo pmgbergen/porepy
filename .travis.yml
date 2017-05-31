@@ -6,32 +6,12 @@ python:
 
 install:
   - sudo apt-get update
-  # We do this conditionally because it saves us some downloading if the
-  # version is the same.
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
-    else
-      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-    fi
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  # Useful for debugging any issues with conda
-  - conda info -a
-
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION scipy numpy numba networkx sympy cython matplotlib
-  - conda install -c clinicalgraphics vtk=7.1.0
-  - source activate test-environment
-  - pip install six packaging appdirs
-  - pip install triangle meshio pymetis
+  - pip install -r requirements.txt
   - pip install pytest pytest_cov 
   - pip install coveralls
   - pip install .
   
   # Show all packages, for debugging
-  - conda list
 
 script: 
   - pytest test --cov test --cov-report term-missing
