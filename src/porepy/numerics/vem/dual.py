@@ -79,9 +79,9 @@ class DualVEM(Solver):
 
         D, rhs = dual.matrix_rhs(g, data)
         up = sps.linalg.spsolve(D, rhs)
-        u = dual.extractU(g, up)
-        p = dual.extractP(g, up)
-        P0u = dual.projectU(g, u, perm)
+        u = dual.extract_u(g, up)
+        p = dual.extract_p(g, up)
+        P0u = dual.project_u(g, u, perm)
 
         """
         M, bc_weight = self.matrix(g, data, bc_weight=True)

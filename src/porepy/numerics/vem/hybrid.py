@@ -79,8 +79,8 @@ class HybridDualVEM(Solver):
 
         H, rhs = hybrid.matrix_rhs(g, data)
         l = sps.linalg.spsolve(H, rhs)
-        u, p = hybrid.computeUP(g, l, data)
-        P0u = dual.projectU(g, perm, u)
+        u, p = hybrid.compute_up(g, l, data)
+        P0u = dual.project_u(g, perm, u)
 
         """
         # pylint: disable=invalid-name
