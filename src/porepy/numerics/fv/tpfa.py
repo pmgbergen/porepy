@@ -32,7 +32,7 @@ class Tpfa(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data, faces):
+    def matrix_rhs(self, g, data, faces=None):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a two-point flux approximation.
