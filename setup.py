@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-
+import os.path
 from glob import glob
 from os.path import basename, splitext
 
@@ -44,19 +44,24 @@ def read(fname):
 with open('requirements.txt') as f:
         required = f.read().splitlines()
 
+
+long_description=read('Readme.rst')
+
 setup(
     name='porepy',
-    version='0.0.1',
+    version='0.0.9',
     licence='GPL',
     keywords=['porous media simulation fractures deformable'],
     author='Runar Berge, Alessio Fumagalli, Eirik Keilegavlen and Ivar Stefansson',
     install_requires=required,
+    description='Simulation tool for fractured and deformable porous media',
+    long_description=long_description,
     maintainer='Eirik Keilegavlen',
     maintainer_email='Eirik.Keilegavlen@uib.no',
     platforms=['Linux', 'Windows'],
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
+    py_modules=[os.path.splitext(os.path.basename(path))[0] for path in glob('src/*.py')],
 	cmdclass=cmdclass,
 	ext_modules=ext_modules
 )
