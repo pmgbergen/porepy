@@ -92,7 +92,7 @@ class Mpfa(Solver):
             warnings.warn('Scalar source not assigned, assumed null')
         div = g.cell_faces.T
 
-        return div * bound_flux * bc_val - f * g.cell_volumes
+        return div * bound_flux * bc_val + f * g.cell_volumes
 
 #------------------------------------------------------------------------------#
 
