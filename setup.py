@@ -41,21 +41,16 @@ if USE_CYTHON:
 def read(fname):
         return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+with open('requirements.txt') as f:
+        required = f.read().splitlines()
+
 setup(
     name='porepy',
     version='0.0.1',
     licence='GPL',
     keywords=['porous media simulation fractures deformable'],
     author='Runar Berge, Alessio Fumagalli, Eirik Keilegavlen and Ivar Stefansson',
-    install_requires=['numpy>=1.10',
-                      'scipy>=0.17',
-                      'networkx>=1.10',
-                      'sympy>=1.0',
-                      'numba>=0.26',
-                      'meshio>=1.8',
-                      'triangle>=1.0.0;platform_system=="Linux"',
-                      'pymetis>=2016.2;platform_system=="Linux"'
-                     ],
+    install_requires=required,
     maintainer='Eirik Keilegavlen',
     maintainer_email='Eirik.Keilegavlen@uib.no',
     platforms=['Linux', 'Windows'],
