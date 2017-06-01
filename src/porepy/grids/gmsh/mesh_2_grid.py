@@ -88,6 +88,11 @@ def create_2d_grids(pts, cells, **kwargs):
             # Add mapping to global point numbers
             g.global_point_ind = pind_loc
 
+            # Associate a fracture id (corresponding to the ordering of the
+            # frature planes in the original fracture list provided by the
+            # user)
+            g.frac_num = fi
+
             # Append to list of 2d grids
             g_2d.append(g)
 
