@@ -17,27 +17,42 @@ from porepy.utils import setmembership, mcolon
 
 def simplex_grid(fracs, domain, **kwargs):
     """
-    Main function for grid generation.
+    Main function for grid generation. Creates a fractured simiplex grid in 2 
+    or 3 dimensions.
 
-    Parameters:
-        fracs (list of np.ndarray): One list item for each fracture. Each item
-            consist of a (nd x n) array describing fracture vertices. The
-            fractures may be intersecting.
-        domain (dict): Domain specification, determined by xmin, xmax, ...
-        **kwargs: May contain fracture tags, options for gridding, etc.
-    Returns:
-        GridBucket: A complete bucket where all fractures are represented as
-            lower dim grids. The higher dim faces are split in two, and on the
-            edges of the GridBucket graph the mapping from lower dim cells to
-            higher dim faces are stored as 'face_cells'. Each face is given a
-            FaceTag depending on the type:
-               NONE: None of the below (i.e. an internal face)
-               DOMAIN_BOUNDARY: All faces that lie on the domain boundary
-                   (i.e. should be given a boundary condition).
-               FRACTURE: All faces that are split (i.e. has a connection to a
-                   lower dim grid).
-               TIP: A boundary face that is not on the domain boundary, nor
-                   coupled to a lower domentional domain.
+    Parameters
+    ----------
+    fracs (list of np.ndarray): One list item for each fracture. Each item
+        consist of a (nd x n) array describing fracture vertices. The
+        fractures may be intersecting.
+    domain (dict): Domain specification, determined by xmin, xmax, ...
+    **kwargs: Has to contain key-argument "gmsh_path". May contain fracture
+    tags, options for gridding, etc.
+
+    Returns
+    -------
+    GridBucket: A complete bucket where all fractures are represented as
+        lower dim grids. The higher dim fracture faces are split in two,
+        and on the edges of the GridBucket graph the mapping from lower dim
+        cells to higher dim faces are stored as 'face_cells'. Each face is
+        given a FaceTag depending on the type:
+           NONE: None of the below (i.e. an internal face)
+           DOMAIN_BOUNDARY: All faces that lie on the domain boundary
+               (i.e. should be given a boundary condition).
+           FRACTURE: All faces that are split (i.e. has a connection to a
+               lower dim grid).
+           TIP: A boundary face that is not on the domain boundary, nor
+               coupled to a lower domentional domain.
+
+    Examples
+    --------
+    frac1 = np.array([[1,4],[1,4]])
+    frac2 = np.array([[1,4],[4,1]])
+    fracs = [frac1, frac2]
+    domain = {'xmin': 0, 'ymin': 0, 'xmax':5, 'ymax':5}
+    path_to_gmsh = .... # Set the sytem path to gmsh
+    gb = simplex_grid(fracs, domain,gmsh_path = path_to_gmsh)
+
     """
     if 'zmax' in domain:
         ndim = 3
@@ -74,26 +89,42 @@ def simplex_grid(fracs, domain, **kwargs):
 
 def cart_grid(fracs, nx, **kwargs):
     """
-    Creates a tensor fractured GridBucket.
+    Creates a cartesian fractured GridBucket in 2- or 3-dimensions.
 
-    Parameters:
-        fracs (list of np.ndarray): One list item for each fracture. Each item
-            consist of a (nd x 3) array describing fracture vertices. The
-            fractures has to be rectangles(3D) or straight lines(2D) that
-            alignes with the axis. The fractures may be intersecting.
-            The fractures will snap to closest grid faces.
-        nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
-        kwargs:
-            physdims (np.ndarray): Physical dimensions in each direction.
-                Defaults to same as nx, that is, cells of unit size.
-            offset (float):  defaults to 0. Will perturb the nodes around the
-                faces that are split. NOTE: this is only for visualization.
-                E.g., the face centers are not perturbed.
+    Parameters
+    ----------
+    fracs (list of np.ndarray): One list item for each fracture. Each item
+        consist of a (nd x 3) array describing fracture vertices. The
+        fractures has to be rectangles(3D) or straight lines(2D) that
+        alignes with the axis. The fractures may be intersecting.
+        The fractures will snap to closest grid faces.
+    nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
+    **kwargs:
+        physdims (np.ndarray): Physical dimensions in each direction.
+            Defaults to same as nx, that is, cells of unit size.
+        May also contain fracture tags, options for gridding, etc.
+
     Returns:
-        GridBucket: A complete bucket where all fractures are represented as
-            lower dim grids. The higher dim faces are split in two, and on the
-            edges of the GridBucket graph the mapping from lower dim cells to
-            higher dim faces are stored as 'face_cells'
+    -------
+    GridBucket: A complete bucket where all fractures are represented as
+        lower dim grids. The higher dim fracture faces are split in two,
+        and on the edges of the GridBucket graph the mapping from lower dim
+        cells to higher dim faces are stored as 'face_cells'. Each face is
+        given a FaceTag depending on the type:
+           NONE: None of the below (i.e. an internal face)
+           DOMAIN_BOUNDARY: All faces that lie on the domain boundary
+               (i.e. should be given a boundary condition).
+           FRACTURE: All faces that are split (i.e. has a connection to a
+               lower dim grid).
+           TIP: A boundary face that is not on the domain boundary, nor
+               coupled to a lower domentional domain.
+
+    Examples
+    --------
+    frac1 = np.array([[1,4],[2,2]])
+    frac2 = np.array([[2,2],[4,1]])
+    fracs = [frac1, frac2]
+    gb = cart_grid(fracs, [5,5])
     """
     ndim = np.asarray(nx).size
     physdims = kwargs.get('physdims', None)
@@ -124,6 +155,18 @@ def cart_grid(fracs, nx, **kwargs):
 
 
 def tag_faces(grids):
+    """
+    Tag faces of grids. Three different tags are given to different types of
+    faces:
+        NONE: None of the below (i.e. an internal face)
+        DOMAIN_BOUNDARY: All faces that lie on the domain boundary
+            (i.e. should be given a boundary condition).
+        FRACTURE: All faces that are split (i.e. has a connection to a
+            lower dim grid).
+        TIP: A boundary face that is not on the domain boundary, nor
+            coupled to a lower domentional domain.
+    """
+
     # Assume only one grid of highest dimension
     assert len(grids[0]) == 1, 'Must be exactly'\
         '1 grid of dim: ' + str(len(grids))
@@ -148,44 +191,50 @@ def tag_faces(grids):
             # We reshape the nodes such that each column equals the nodes of
             # one face. If a face only contains global boundary nodes, the
             # local face is also a boundary face. Otherwise, we add a TIP tag.
-            nodes_per_face = find_nodes_per_face(g)
+            n_per_face = nodes_per_face(g)
             is_tip = np.any(is_tip.reshape(
-                (nodes_per_face, bnd_faces_l.size), order='F'), axis=0)
+                (n_per_face, bnd_faces_l.size), order='F'), axis=0)
             g.add_face_tag(bnd_faces_l[is_tip], FaceTag.TIP)
             g.add_face_tag(bnd_faces_l[is_tip == False],
                            FaceTag.DOMAIN_BOUNDARY)
 
 
-def find_nodes_per_face(g):
+def nodes_per_face(g):
+    """
+    Returns the number of nodes per face for a given grid
+    """
     if 'TensorGrid'in g.name and g.dim == 3:
-        nodes_per_face = 4
+        n_per_face = 4
     elif 'TetrahedralGrid' in g.name:
-        nodes_per_face = 3
+        n_per_face = 3
     elif 'TensorGrid'in g.name and g.dim == 2:
-        nodes_per_face = 2
+        n_per_face = 2
     elif 'TriangleGrid'in g.name:
-        nodes_per_face = 2
+        n_per_face = 2
     elif 'TensorGrid' in g.name and g.dim == 1:
-        nodes_per_face = 1
+        n_per_face = 1
     else:
         raise ValueError(
             "Can not find number of nodes per face for grid: " + str(g.name))
-    return nodes_per_face
+    return n_per_face
 
 
 def assemble_in_bucket(grids):
     """
     Create a GridBucket from a list of grids.
-    Parameters:
-        grids: A list of lists of grids. Each element in the list is a list
-            of all grids of a the same dimension. It is assumed that the
-            grids are sorted from high dimensional grids to low dimensional grids.
-            All grids must also have the mapping g.global_point_ind which maps
-            the local nodes of the grid to the nodes of the highest dimensional
-            grid.
-    Returns:
-        GridBucket: A GridBucket class where the mapping face_cells are given to
-            each edge. face_cells maps from lower-dim cells to higher-dim faces.
+    Parameters
+    ----------
+    grids: A list of lists of grids. Each element in the list is a list
+        of all grids of a the same dimension. It is assumed that the
+        grids are sorted from high dimensional grids to low dimensional grids.
+        All grids must also have the mapping g.global_point_ind which maps
+        the local nodes of the grid to the nodes of the highest dimensional
+        grid.
+
+    Returns
+    -------
+    GridBucket: A GridBucket class where the mapping face_cells are given to
+        each edge. face_cells maps from lower-dim cells to higher-dim faces.
     """
 
     # Create bucket
@@ -197,8 +246,8 @@ def assemble_in_bucket(grids):
         for hg in grids[dim]:
             # We have to specify the number of nodes per face to generate a
             # matrix of the nodes of each face.
-            nodes_per_face = find_nodes_per_face(hg)
-            fn_loc = hg.face_nodes.indices.reshape((nodes_per_face, hg.num_faces),
+            n_per_face = nodes_per_face(hg)
+            fn_loc = hg.face_nodes.indices.reshape((n_per_face, hg.num_faces),
                                                    order='F')
             # Convert to global numbering
             fn = hg.global_point_ind[fn_loc]
@@ -206,7 +255,7 @@ def assemble_in_bucket(grids):
 
             for lg in grids[dim + 1]:
                 cell_2_face, cell = obtain_interdim_mappings(
-                    lg, fn, nodes_per_face)
+                    lg, fn, n_per_face)
                 face_cells = sps.csc_matrix(
                     (np.array([True] * cell.size), (cell, cell_2_face)),
                     (lg.num_cells, hg.num_faces))
@@ -218,11 +267,13 @@ def assemble_in_bucket(grids):
     return bucket
 
 
-def obtain_interdim_mappings(lg, fn, nodes_per_face):
-    # Next, find mappings between faces in one dimension and cells in the lower
-    # dimension
+def obtain_interdim_mappings(lg, fn, n_per_face):
+    """
+    Find mappings between faces in higher dimension and cells in the lower
+    dimension
+    """
     if lg.dim > 0:
-        cn_loc = lg.cell_nodes().indices.reshape((nodes_per_face,
+        cn_loc = lg.cell_nodes().indices.reshape((n_per_face,
                                                   lg.num_cells),
                                                  order='F')
         cn = lg.global_point_ind[cn_loc]
