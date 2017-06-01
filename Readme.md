@@ -31,6 +31,11 @@ To get the most current version, install from github:
 * Visualization by either matplotlib or (preferrable for larger problems) vtk/paraview. To dump data to paraview, a vtk filter must be available; the only solution we have found is from the 'conda' repositories, e.g. 'conda install -c clinicalgraphics vtk=7.1.0' (note that vtk should be version 7.0.0 or later, hence not the official channel)
 * Meshing currently by [gmsh](http://gmsh.info/doc/texinfo/gmsh.html) .`triangle` and `tetgen` should be added in the not too distant future.
 
+# Testing
+To test build locally
+
+	pip install -r requirements-dev.txt
+
 # Getting started
 Confer the [tutorials](https://github.com/pmgbergen/porepy/tree/develop/tutorials)
 
