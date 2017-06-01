@@ -750,7 +750,7 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     # sub-cell gradient (and so column of the local linear systems). A sort
     # of these will give a block-diagonal structure
     sorted_nodes_cols = np.argsort(cell_node_blocks[1], kind='mergesort')
-    subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel(1)
+    subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel('F')
     cols2blk_diag = sps.coo_matrix((np.ones(sub_cell_index.size),
                                     (subcind_nodes,
                                      np.arange(sub_cell_index.size)))).tocsr()
@@ -783,7 +783,7 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     fno = subcell_topology.fno_unique
     subfno = subcell_topology.subfno_unique
     sgn = g.cell_faces[subcell_topology.fno_unique,
-                       subcell_topology.cno_unique].A.ravel(1)
+                       subcell_topology.cno_unique].A.ravel('F')
     num_neu = sum(bound.is_neu[fno]) * nd
     num_dir = sum(bound.is_dir[fno]) * nd
     num_bound = num_neu + num_dir
@@ -902,7 +902,7 @@ def _map_hf_2_f(fno, subfno, nd):
     return hf2f
 
 
-def __expand_indices_nd(ind, nd, direction=1):
+def __expand_indices_nd(ind, nd, direction='F'):
     """
     Expand indices from scalar to vector form.
 

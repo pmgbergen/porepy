@@ -540,7 +540,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
         # this to truly 1D, or simply continue with the next edge if there
         # are no candidate edges
         if intersections.size > 0:
-            intersections = intersections.ravel(0)
+            intersections = intersections.ravel('C')
         else:
             # There are no candidates for intersection
             edge_counter += 1

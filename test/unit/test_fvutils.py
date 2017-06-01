@@ -5,7 +5,7 @@ from porepy.numerics.fv import fvutils
 from porepy.grids import structured, simplex
 
 def test_subcell_topology_2d_cart_1():
-    x = np.ones(2)
+    x = np.ones(2, dtype=np.int)
     g = structured.CartGrid(x)
 
     subcell_topology = fvutils.SubcellTopology(g)

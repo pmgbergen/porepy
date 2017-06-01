@@ -74,7 +74,7 @@ def test_uniform_displacement():
     for g in g_list:
         bound_faces = np.argwhere(np.abs(g.cell_faces)
                                   .sum(axis=1).A.ravel('F') == 1)
-        bound = bc.BoundaryCondition(g, bound_faces.ravel(1),
+        bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
                                      ['dir'] * bound_faces.size)
         constit = setup_stiffness(g)
 
@@ -111,7 +111,7 @@ def test_uniform_displacement_neumann():
         bot = np.ravel(np.argwhere(g.face_centers[1, :] < 1e-10))
         left = np.ravel(np.argwhere(g.face_centers[0, :] < 1e-10))
         dir_faces = np.hstack((left, bot))
-        bound = bc.BoundaryCondition(g, dir_faces.ravel(1),
+        bound = bc.BoundaryCondition(g, dir_faces.ravel('F'),
                                      ['dir'] * dir_faces.size)
         constit = setup_stiffness(g)
 
@@ -152,7 +152,7 @@ def test_conservation_of_momentum():
         bot = np.ravel(np.argwhere(g.face_centers[1, :] < 1e-10))
         left = np.ravel(np.argwhere(g.face_centers[0, :] < 1e-10))
         dir_faces = np.hstack((left, bot))
-        bound = bc.BoundaryCondition(g, dir_faces.ravel(1),
+        bound = bc.BoundaryCondition(g, dir_faces.ravel('F'),
                                      ['dir'] * dir_faces.size)
         constit = setup_stiffness(g)
 
