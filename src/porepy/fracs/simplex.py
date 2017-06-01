@@ -52,13 +52,13 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
 
     Examples
     --------
-    frac1 = np.array([[1,1,4,4], [1,4,4,1], [2,2,2]])
-    frac2 = np.array([[2,2,2], [1,1,4,4], [1,4,4,1]])
+    frac1 = np.array([[1,1,4,4], [1,4,4,1], [2,2,2,2]])
+    frac2 = np.array([[2,2,2,2], [1,1,4,4], [1,4,4,1]])
     fracs = [frac1, frac2]
     domain = {'xmin': 0, 'ymin': 0, 'zmin': 0,
               'xmax': 5, 'ymax': 5, 'zmax': 5,}
     path_to_gmsh = .... # Set the sytem path to gmsh
-    gb = tetrahedral_grid(fracs, domain, gmsh_path = path_to_gms)
+    gb = tetrahedral_grid(fracs, domain, gmsh_path = path_to_gmsh)
     """
 
     # Verbosity level
