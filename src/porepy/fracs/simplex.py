@@ -43,7 +43,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     The fractures should be specified either by a combination of fracs and
     box, or by network (possibly combined with box). See above.
 
-    **kwargs: To be explored. Should contain the key 'gmsh_path'.
+    **kwargs: To be explored.
 
     Returns
     -------
@@ -101,12 +101,11 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     out_file = file_name + '.msh'
 
     network.to_gmsh(in_file, **kwargs)
-    gmsh_path = kwargs.get('gmsh_path')
 
     gmsh_opts = kwargs.get('gmsh_opts', {})
     gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
     gmsh_opts['-v'] = gmsh_verbose
-    gmsh_status = gmsh_interface.run_gmsh(gmsh_path, in_file, out_file, dims=3,
+    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3,
                                           **gmsh_opts)
 
     if verbose > 0:
@@ -169,7 +168,7 @@ def triangle_grid(fracs, domain, **kwargs):
         lines (2 x num_lines) connections between points, defines fractures.
     box: (dictionary) keys xmin, xmax, ymin, ymax, [together bounding box
         for the domain]
-    **kwargs: To be explored. Must contain the key 'gmsh_path'
+    **kwargs: To be explored.
 
     Returns
     -------
@@ -183,8 +182,7 @@ def triangle_grid(fracs, domain, **kwargs):
     tags = np.array([1, 3])
     fracs = {'points': p, 'edges': lines}
     box = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2}
-    path_to_gmsh = '~/gmsh/bin/gmsh'#... # set path to gmsh
-    g = triangle_grid(fracs, box, gmsh_path=path_to_gmsh)
+    g = triangle_grid(fracs, box)
     """
     # Verbosity level
     verbose = kwargs.get('verbose', 1)
@@ -223,7 +221,6 @@ def triangle_grid(fracs, domain, **kwargs):
         mesh_size_bound = None
 
     # gmsh options
-    gmsh_path = kwargs.get('gmsh_path')
 
     gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
     gmsh_opts = {'-v': gmsh_verbose}
@@ -235,7 +232,7 @@ def triangle_grid(fracs, domain, **kwargs):
     gw.write_geo(in_file)
 
     # Run gmsh
-    gmsh_status = gmsh_interface.run_gmsh(gmsh_path, in_file, out_file, dims=2,
+    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=2,
                                           **gmsh_opts)
 
     if verbose > 0:

@@ -43,9 +43,7 @@ def split_fractures(bucket, **kwargs):
     >>> f_set = [f_1, f_2]
     >>> domain = {'xmin': -2, 'xmax': 2,
             'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax': 2}
-    >>> # SET TO GMSH PATH
-    >>> path_to_gmsh = '~/gmsh/bin/gmsh'
-    >>> bucket = meshing.create_grid(f_set, domain, gmsh_path=path_to_gmsh)
+    >>> bucket = meshing.create_grid(f_set, domain)
     >>> [g.compute_geometry(is_embedded=True) for g,_ in bucket]
     >>>
     >>> split_grid.split_fractures(bucket, offset=0.1)

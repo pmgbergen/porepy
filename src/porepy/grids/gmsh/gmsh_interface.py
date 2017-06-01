@@ -5,7 +5,7 @@ import sys
 import os
 from meshio import gmsh_io
 
-from porepy.utils import sort_points
+from porepy.utils import sort_points, read_config
 import porepy.grids.constants as gridding_constants
 
 
@@ -412,12 +412,11 @@ class GmshGridBucketWriter(object):
 
 #------------------ End of GmshGridBucketWriter------------------------------
 
-def run_gmsh(path_to_gmsh, in_file, out_file, dims, **kwargs):
+def run_gmsh(in_file, out_file, dims, **kwargs):
     """
     Convenience function to run gmsh.
 
     Parameters:
-        path_to_gmsh (str): Path to the location of the gmsh binary
         in_file (str): Name of gmsh configuration file (.geo)
         out_file (str): Name of output file for gmsh (.msh)
         dims (int): Number of dimensions gmsh should grid. If dims is less than
@@ -432,6 +431,10 @@ def run_gmsh(path_to_gmsh, in_file, out_file, dims, **kwargs):
             simulation completed successfully, >0 signifies problems.
 
     """
+    # Import config file to get location of gmsh executable.
+    config = read_config.read()
+    path_to_gmsh = config['gmsh_path']
+
     opts = ' '
     for key, val in kwargs.items():
         # Gmsh keywords are specified with prefix '-'
