@@ -79,9 +79,9 @@ class DualVEM(Solver):
 
         D, rhs = dual.matrix_rhs(g, data)
         up = sps.linalg.spsolve(D, rhs)
-        u = dual.extractU(g, up)
-        p = dual.extractP(g, up)
-        P0u = dual.projectU(g, u, perm)
+        u = dual.extract_u(g, up)
+        p = dual.extract_p(g, up)
+        P0u = dual.project_u(g, u, perm)
 
         """
         M, bc_weight = self.matrix(g, data, bc_weight=True)
@@ -216,22 +216,15 @@ class DualVEM(Solver):
         if bc is None:
             return rhs
 
-        # remap the dictionary such that the key is lowercase
-        keys = [k for k in bc_val.keys()]
-        bc_val = {k.lower(): bc_val[k] for k in keys}
-        keys = [k.lower() for k in keys]
-
-        if 'dir' in keys:
-            is_dir = np.hstack((bc.is_dir,
-                                np.zeros(g.num_cells, dtype=np.bool)))
+        if np.any(bc.is_dir):
+            is_dir = np.where(bc.is_dir)[0]
             faces, _, sgn = sps.find(g.cell_faces)
             sgn = sgn[np.unique(faces, return_index=True)[1]]
-            rhs[is_dir] += -sgn[bc.is_dir] * bc_val['dir']
+            rhs[is_dir] += -sgn[is_dir] * bc_val[is_dir]
 
-        if 'neu' in keys:
-            is_neu = np.hstack((bc.is_neu,
-                                np.zeros(g.num_cells, dtype=np.bool)))
-            rhs[is_neu] = bc_weight*bc_val['neu'] * g.face_areas[bc.is_neu]
+        if np.any(bc.is_neu):
+            is_neu = np.where(bc.is_neu)[0]
+            rhs[is_neu] = bc_weight*bc_val[is_neu] * g.face_areas[is_neu]
 
         return rhs
 

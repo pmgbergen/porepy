@@ -66,7 +66,7 @@ def cart_grid_3d(fracs, nx, physdims=None):
 
     # Create 2D grids
     for f in fracs:
-        assert np.all(f.shape == [3, 4]), 'fractures must have shape [3,4]'
+        assert np.all(f.shape == (3, 4)), 'fractures must have shape [3,4]'
         is_xy_frac = np.allclose(f[2, 0], f[2])
         is_xz_frac = np.allclose(f[1, 0], f[1])
         is_yz_frac = np.allclose(f[0, 0], f[0])
