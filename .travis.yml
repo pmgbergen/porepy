@@ -14,7 +14,7 @@ install:
   # Show all packages, for debugging
 
 script: 
-  - pytest test --cov test --cov-report term-missing
+  - pytest test --cov=src --cov-report term-missing
 
 after_success:
   - coveralls
