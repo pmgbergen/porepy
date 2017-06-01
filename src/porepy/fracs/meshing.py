@@ -52,7 +52,6 @@ def simplex_grid(fracs, domain, **kwargs):
     domain = {'xmin': 0, 'ymin': 0, 'xmax':5, 'ymax':5}
     path_to_gmsh = .... # Set the sytem path to gmsh
     gb = simplex_grid(fracs, domain,gmsh_path = path_to_gmsh)
-
     """
     if 'zmax' in domain:
         ndim = 3

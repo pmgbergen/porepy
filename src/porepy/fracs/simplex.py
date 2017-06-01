@@ -1,3 +1,6 @@
+"""
+Module for creating simplex grids with fractures.
+"""
 import warnings
 import time
 import numpy as np
@@ -12,6 +15,7 @@ import porepy.utils.comp_geom as cg
 def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
+    The function can be call through the wrapper function meshing.simplex_grid.
 
     Based on the specified fractures, the method computes fracture
     intersections if necessary, creates a gmsh input file, runs gmsh and reads
@@ -27,27 +31,34 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     decomposition if these are available (attributes 'intersections' and
     'decomposition').
 
-    TODO: The method finds the mapping between faces in one dimension and cells
-        in a lower dimension, but the information is not used. Should be
-        returned in a sensible format.
+    Parameters
+    ----------
+    fracs (list, optional): List of either pre-defined fractures, or
+        np.ndarrays, (each 3xn) of fracture vertexes.
+    box (dictionary, optional). Domain specification. Should have keywords
+        xmin, xmax, ymin, ymax, zmin, zmax.
+    network (fractures.FractureNetwork, optional): A FractureNetwork
+        containing fractures.
 
-    Parameters:
-        fracs (list, optional): List of either pre-defined fractures, or
-            np.ndarrays, (each 3xn) of fracture vertexes.
-        box (dictionary, optional). Domain specification. Should have keywords
-            xmin, xmax, ymin, ymax, zmin, zmax.
-        network (fractures.FractureNetwork, optional): A FractureNetwork
-            containing fractures.
+    The fractures should be specified either by a combination of fracs and
+    box, or by network (possibly combined with box). See above.
 
-        The fractures should be specified either by a combination of fracs and
-        box, or by network (possibly combined with box). See above.
+    **kwargs: To be explored. Should contain the key 'gmsh_path'.
 
-        **kwargs: To be explored. Should contain the key 'gmsh_path'.
+    Returns
+    -------
+    list (length 4): For each dimension (3 -> 0), a list of all grids in
+        that dimension.
 
-    Returns:
-        list (length 4): For each dimension (3 -> 0), a list of all grids in
-            that dimension.
-
+    Examples
+    --------
+    frac1 = np.array([[1,1,4,4], [1,4,4,1], [2,2,2]])
+    frac2 = np.array([[2,2,2], [1,1,4,4], [1,4,4,1]])
+    fracs = [frac1, frac2]
+    domain = {'xmin': 0, 'ymin': 0, 'zmin': 0,
+              'xmax': 5, 'ymax': 5, 'zmax': 5,}
+    path_to_gmsh = .... # Set the sytem path to gmsh
+    gb = tetrahedral_grid(fracs, domain, gmsh_path = path_to_gms)
     """
 
     # Verbosity level
@@ -152,17 +163,6 @@ def triangle_grid(fracs, domain, **kwargs):
     To be added:
     Functionality for tuning gmsh, including grid size, refinements, etc.
 
-    Examples
-    >>> p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
-    >>> lines = np.array([[0, 2], [1, 3]])
-    >>> char_h = 0.5 * np.ones(p.shape[1])
-    >>> tags = np.array([1, 3])
-    >>> fracs = {'points': p, 'edges': lines}
-    >>> box = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2}
-    >>> path_to_gmsh = '~/gmsh/bin/gmsh'
-    >>> g = create_grid(fracs, box, gmsh_path=path_to_gmsh)
-    >>> plot_grid.plot_grid(g)
-
     Parameters
     ----------
     fracs: (dictionary) Two fields: points (2 x num_points) np.ndarray,
@@ -170,10 +170,21 @@ def triangle_grid(fracs, domain, **kwargs):
     box: (dictionary) keys xmin, xmax, ymin, ymax, [together bounding box
         for the domain]
     **kwargs: To be explored. Must contain the key 'gmsh_path'
+
     Returns
     -------
     list (length 3): For each dimension (2 -> 0), a list of all grids in
         that dimension.
+
+    Examples
+    p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
+    lines = np.array([[0, 2], [1, 3]])
+    char_h = 0.5 * np.ones(p.shape[1])
+    tags = np.array([1, 3])
+    fracs = {'points': p, 'edges': lines}
+    box = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2}
+    path_to_gmsh = '~/gmsh/bin/gmsh'#... # set path to gmsh
+    g = triangle_grid(fracs, box, gmsh_path=path_to_gmsh)
     """
     # Verbosity level
     verbose = kwargs.get('verbose', 1)
