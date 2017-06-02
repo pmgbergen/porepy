@@ -14,7 +14,7 @@ install:
   # Show all packages, for debugging
 
 script: 
-  - pytest test --cov=src --cov-report term-missing
+  - coverage run --source=porepy test
 
 after_success:
   - coveralls
