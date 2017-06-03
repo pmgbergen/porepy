@@ -8,7 +8,7 @@ class DualCoupling(AbstractCoupling):
 #------------------------------------------------------------------------------#
 
     def __init__(self, solver):
-        super().__init__(...)
+        self.solver = solver
 
 #------------------------------------------------------------------------------#
 
@@ -34,9 +34,9 @@ class DualCoupling(AbstractCoupling):
         """
         # pylint: disable=invalid-name
 
-        # Normal permeability of the intersection
-        kn = data_edge['kn']
-        assert kn is not None
+        # Normal permeability and aperture of the intersection to
+        # compute the effective normal permeability
+        ln = 2*np.divide(data_edge['kn'], data_l['a'])
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
@@ -54,7 +54,7 @@ class DualCoupling(AbstractCoupling):
         cc[0, 1] = cc[1, 0].T
 
         # Compute the diagonal terms
-        dataIJ = 1./np.multiply(g_h.face_areas[faces_h], kn[cells_l])
+        dataIJ = 1./np.multiply(g_h.face_areas[faces_h], ln[cells_l])
         I, J = faces_h, faces_h
         cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
 

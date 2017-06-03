@@ -114,7 +114,10 @@ class DualVEM(Solver):
                 return M, 1
             return M
 
-        k, bc = data.get('k'), data.get('bc')
+        # Retrieve the permeability, boundary conditions, and aperture
+        # The aperture is needed in the hybrid-dimensional case, otherwise is
+        # assumed unitary
+        k, bc, a = data.get('k'), data.get('bc'), data.get('a', 1.)
 
         if k is None:
             kxx = np.ones(g.num_cells)
@@ -145,8 +148,10 @@ class DualVEM(Solver):
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
             faces_loc = faces[loc]
 
-            # Retrieve permeability, sign of the normals, and normals
-            K = k.perm[0:g.dim, 0:g.dim, c]
+            # Retrieve the permeability, sign of the normals, and normals
+            # The permeability correspond to the effective tangential
+            # permeability in the hybrid-dimensional case
+            K = a[c]*k.perm[0:g.dim, 0:g.dim, c]
             sgn_loc = sgn[loc]
             normals = f_normals[:, faces_loc]
 
