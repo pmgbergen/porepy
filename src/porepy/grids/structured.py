@@ -127,8 +127,8 @@ class TensorGrid(Grid):
 
         # Face nodes
         node_array = np.arange(0, num_nodes).reshape(num_y+1, num_x+1)
-        fn1 = node_array[:-1, ::].ravel()
-        fn2 = node_array[1:, ::].ravel()
+        fn1 = node_array[:-1, ::].ravel(order='C')
+        fn2 = node_array[1:, ::].ravel(order='C')
         face_nodes_x = np.vstack((fn1, fn2)).ravel(order='F')
 
         fn1 = node_array[::, :-1].ravel(order='C')
@@ -279,6 +279,8 @@ class CartGrid(TensorGrid):
         physdims (np.ndarray): Physical dimensions in each direction.
             Defaults to same as nx, that is, cells of unit size.
         """
+
+#        nx = nx.astype(np.int)
 
         if physdims is None:
             physdims = nx

@@ -68,7 +68,7 @@ class TriangleGrid(Grid):
         num_cells = tri.shape[1]
 
         num_nodes_per_face = 2
-        face_nodes = face_nodes.ravel(0)
+        face_nodes = face_nodes.ravel('C')
         indptr = np.hstack((np.arange(0, num_nodes_per_face * num_faces,
                                       num_nodes_per_face),
                             num_nodes_per_face * num_faces))
@@ -78,7 +78,8 @@ class TriangleGrid(Grid):
 
         # Cell face relation
         num_faces_per_cell = 3
-        cell_faces = cell_faces.reshape(num_faces_per_cell, num_cells).ravel(1)
+        cell_faces = cell_faces.reshape(num_faces_per_cell,
+                                        num_cells).ravel('F')
         indptr = np.hstack((np.arange(0, num_faces_per_cell*num_cells,
                                       num_faces_per_cell),
                             num_faces_per_cell * num_cells))

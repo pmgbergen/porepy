@@ -79,7 +79,7 @@ def test_laplacian_stencil_cart_2d():
 def test_uniform_flow_cart_2d():
     # Structured Cartesian grid
     g, perm = setup_cart_2d(np.array([10, 10]))
-    bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel(1) == 1)
+    bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
     bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), [
                                  'dir'] * bound_faces.size)
 
@@ -137,8 +137,8 @@ def test_uniform_flow_cart_2d_pert():
     g.nodes[2, :] = 0
     g.compute_geometry()
 
-    bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel(1) == 1)
-    bound = bc.BoundaryCondition(g, bound_faces.ravel(1), [
+    bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
+    bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), [
                                  'dir'] * bound_faces.size)
 
     # Python inverter is most efficient for small problems

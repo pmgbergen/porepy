@@ -238,7 +238,8 @@ def invert_diagonal_blocks(mat, s, method=None):
             n2 = n * n
             i = p1 + np.arange(n+1)
             # Picking out the sub-matrices here takes a lot of time.
-            v[p2 + np.arange(n2)] = np.linalg.inv(a[i[0]:i[-1], i[0]:i[-1]].A)
+            v[p2 + np.arange(n2)] = np.linalg.inv(a[i[0]:i[-1],
+                                                    i[0]:i[-1]].A).ravel()
             p1 = p1 + n
             p2 = p2 + n2
         return v
@@ -529,13 +530,13 @@ class ExcludeBoundaries(object):
         col_neu = np.argwhere([not it for it in bound.is_neu[fno]])
         row_neu = np.arange(col_neu.size)
         self.exclude_neu = sps.coo_matrix((np.ones(row_neu.size),
-                                           (row_neu, col_neu.ravel(0))),
+                                           (row_neu, col_neu.ravel('C'))),
                                           shape=(row_neu.size,
                                                  num_subfno)).tocsr()
         col_dir = np.argwhere([not it for it in bound.is_dir[fno]])
         row_dir = np.arange(col_dir.size)
         self.exclude_dir = sps.coo_matrix((np.ones(row_dir.size),
-                                           (row_dir, col_dir.ravel(0))),
+                                           (row_dir, col_dir.ravel('C'))),
                                           shape=(row_dir.size,
                                                  num_subfno)).tocsr()
 
