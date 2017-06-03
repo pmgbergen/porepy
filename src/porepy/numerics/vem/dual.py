@@ -117,7 +117,8 @@ class DualVEM(Solver):
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
-        k, bc, a = data.get('k'), data.get('bc'), data.get('a', 1.)
+        k, bc = data.get('k'), data.get('bc')
+        a = data.get('a', np.ones(g.num_cells))
 
         if k is None:
             kxx = np.ones(g.num_cells)
