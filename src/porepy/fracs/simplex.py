@@ -193,10 +193,7 @@ def triangle_grid(fracs, domain, **kwargs):
 
     # We split all fracture intersections so that the new lines do not
     # intersect, except possible at the end points
-    dx = np.array(
-        [[domain['xmax'] - domain['xmin']], [domain['ymax'] - domain['ymin']]])
-    pts_split, lines_split = cg.remove_edge_crossings(
-        pts_all, lines, box=dx)
+    pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines)
     # We find the end points that is shared by more than one intersection
     intersections = __find_intersection_points(lines_split)
 
