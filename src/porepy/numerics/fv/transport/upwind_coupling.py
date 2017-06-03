@@ -6,10 +6,10 @@ from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 class UpwindCoupling(AbstractCoupling):
 
-    #------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
     def __init__(self, solver):
-        super().__init__(...)
+        self.solver = solver
 
 #------------------------------------------------------------------------------#
 
