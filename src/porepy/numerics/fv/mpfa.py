@@ -1,4 +1,4 @@
-"
+"""
 Implementation of the multi-point flux approximation O-method.
 
 """
@@ -333,7 +333,7 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
     return flux_glob, bound_flux_glob, active_faces
 
 
-def _mpfa_local(g, k, bnd, eta=0, inverter='numba'):
+def _mpfa_local(g, k, bnd, eta=0, inverter='numba', apertures=None):
     """
     Actual implementation of the MPFA O-method. To calculate MPFA on a grid
     directly, either call this method, or, to respect the privacy of this

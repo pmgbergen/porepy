@@ -1202,7 +1202,6 @@ def _map_hf_2_f(fno, subfno, nd):
                           shape=(hf.max() + 1, hfi.max() + 1)).tocsr()
     return hf2f
 
-<<<<<<< 62eaa57cb5727e87a95ba9ac0ba53dde1eb1a8cf
 
 def __expand_indices_nd(ind, nd, direction='F'):
     """
@@ -1233,8 +1232,6 @@ def __expand_indices_nd(ind, nd, direction='F'):
     return new_ind
 
 
-=======
->>>>>>> Moved functions between fv discretizations
 def __unique_hooks_law(csym, casym, subcell_topology, nd):
     """
     Go from products of normal vectors with stiffness matrices (symmetric
