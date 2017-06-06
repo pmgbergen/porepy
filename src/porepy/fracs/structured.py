@@ -65,7 +65,7 @@ def cart_grid_3d(fracs, nx, physdims=None):
     tol = .1 * physdims / nx
 
     # Create 2D grids
-    for f in fracs:
+    for fi, f in enumerate(fracs):
         assert np.all(f.shape == (3, 4)), 'fractures must have shape [3,4]'
         is_xy_frac = np.allclose(f[2, 0], f[2])
         is_xz_frac = np.allclose(f[1, 0], f[1])
@@ -110,6 +110,8 @@ def cart_grid_3d(fracs, nx, physdims=None):
         nodes = np.unique(nodes)
         loc_coord = g_3d.nodes[:, nodes]
         g = _create_embedded_2d_grid(loc_coord, nodes)
+
+        g.frac_num = fi
         g_2d.append(g)
 
     # Create 1D grids:
@@ -146,6 +148,8 @@ def cart_grid_3d(fracs, nx, physdims=None):
         e_pt = pts[:, edges[1, e]]
         nodes = _find_nodes_on_line(g_3d, nx, s_pt, e_pt)
         loc_coord = g_3d.nodes[:, nodes]
+        assert loc_coord.shape[1] > 1, '1d grid in intersection should span\
+            more than one node'
         g = mesh_2_grid.create_embedded_line_grid(loc_coord, nodes)
         g_1d.append(g)
 

@@ -722,3 +722,32 @@ class GridBucket(object):
         self.update_node_ordering(node_number)
 
 #------------------------------------------------------------------------------#
+
+    def __str__(self):
+        max_dim = self.grids_of_dimension(self.dim_max())
+        num_nodes = 0
+        num_cells = 0
+        for g in max_dim:
+            num_nodes += g.num_nodes
+            num_cells += g.num_cells
+        s = 'Mixed dimensional grid. \n'
+        s += 'Maximum dimension ' + str(self.dim_max()) + '\n'
+        s += 'Minimum dimension ' + str(self.dim_min()) + '\n'
+        s += 'Size of highest dimensional grid: Cells: ' + str(num_cells)
+        s += '. Nodes: ' + str(num_nodes) + '\n'
+        s += 'In lower dimensions: \n'
+        for dim in range(self.dim_max()-1, self.dim_min()-1, -1):
+            gl = self.grids_of_dimension(dim)
+            s += str(len(gl)) + ' grids of dimension ' + str(dim) + '\n'
+        return s
+
+#------------------------------------------------------------------------------#
+
+    def __repr__(self):
+        s = 'Grid bucket containing ' + str(gb.size) + ' grids:\n'
+        num = 0
+        for dim in range(self.dim_max(), self.dim_min()-1, -1):
+            gl = self.grids_of_dimension(dim)
+            s += str(len(gl)) + ' grids of dimension ' + str(dim) + '\n'
+        return s
+
