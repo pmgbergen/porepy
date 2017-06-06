@@ -420,10 +420,10 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
     bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
     # Most of the work is done by submethod for elasticity (which is common for
     # elasticity and poro-elasticity).
-    hook, igrad, rhs_cells, _, _ = __mpsa_elasticity(g, constit,
-                                                     subcell_topology,
-                                                     bound_exclusion, eta,
-                                                     inverter)
+    hook, igrad, rhs_cells, _, _ = mpsa_elasticity(g, constit,
+                                                   subcell_topology,
+                                                   bound_exclusion, eta,
+                                                   inverter)
 
     hook_igrad = hook * igrad
     # NOTE: This is the point where we expect to reach peak memory need.
