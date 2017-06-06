@@ -1,8 +1,8 @@
 # Benchmark 1
 
 ## Permeable fractures
-![alt text](vem_permeable.png "VEM solution")
+![alt text](vem_permeable.png "VEM solution" =250x)
 
 ## Blocking fractures
-![alt text](https://github.com/pmgbergen/porepy/blob/develop/examples/example1/benchmark1/vem_blocking.png "VEM solution")
+![alt text](vem_blocking.png "VEM solution" =100x)
 
