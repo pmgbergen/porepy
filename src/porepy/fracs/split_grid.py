@@ -114,6 +114,8 @@ def split_faces(gh, face_cells):
         # (to save computation).
         face_id = duplicate_faces(gh, face_cells[i])
         face_cells = update_face_cells(face_cells, face_id, i)
+        if face_id.size == 0:
+            continue
 
         # We now set the cell_faces map based on which side of the
         # fractures the cells lie. We assume that all fractures are
@@ -185,6 +187,13 @@ def duplicate_faces(gh, face_cells):
     # anyway.
     _, frac_id, _ = sps.find(face_cells)
     frac_id = np.unique(frac_id)
+    rem = gh.has_face_tag(FaceTag.BOUNDARY)[frac_id]
+    gh.add_face_tag(frac_id[rem], FaceTag.FRACTURE)
+    gh.remove_face_tag(frac_id, FaceTag.TIP)
+    frac_id = frac_id[~rem]
+    if frac_id.size == 0:
+        return frac_id
+
     node_start = gh.face_nodes.indptr[frac_id]
     node_end = gh.face_nodes.indptr[frac_id + 1]
     nodes = gh.face_nodes.indices[mcolon(node_start, node_end)]
@@ -217,6 +226,7 @@ def duplicate_faces(gh, face_cells):
     # Not sure if this still does the correct thing. Might have to
     # send in a logical array instead of frac_id.
     gh.add_face_tag(frac_id, FaceTag.FRACTURE | FaceTag.BOUNDARY)
+    gh.remove_face_tag(frac_id, FaceTag.TIP)
     gh.face_tags = np.append(gh.face_tags, gh.face_tags[frac_id])
 
     return frac_id
