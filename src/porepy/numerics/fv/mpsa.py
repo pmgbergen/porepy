@@ -430,8 +430,8 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
     del hook, igrad
 
     # Output should be on face-level (not sub-face)
-    hf2f = _map_hf_2_f(subcell_topology.fno_unique,
-                       subcell_topology.subfno_unique, nd)
+    hf2f = fvutils.map_hf_2_f(subcell_topology.fno_unique,
+                   	      subcell_topology.subfno_unique, nd)
 
     # Stress discretization
     stress = hf2f * hook_igrad * rhs_cells
@@ -1172,7 +1172,7 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
                                   shape=(num_bound, num_subfno * nd))
     # The user of the discretization should now nothing about half faces,
     # thus map from half face to face indices.
-    hf_2_f = _map_hf_2_f(fno, subfno, nd).transpose()
+    hf_2_f = fvutils.map_hf_2_f(fno, subfno, nd).transpose()
     # the rows of rhs_bound will be ordered with first the x-component of all
     # neumann faces, then the y-component of all neumann faces, then the
     # z-component of all neumann faces. Then we will have the equivalent for
@@ -1180,56 +1180,6 @@ def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
 
     return rhs_bound
-
-
-def _map_hf_2_f(fno, subfno, nd):
-    """
-    Create mapping from half-faces to faces
-    Parameters
-    ----------
-    fno face numbering in sub-cell topology based on unique subfno
-    subfno sub-face numbering
-    nd dimension
-
-    Returns
-    -------
-
-    """
-
-    hfi = fvutils.expand_indices_nd(subfno, nd)
-    hf = fvutils.expand_indices_nd(fno, nd)
-    hf2f = sps.coo_matrix((np.ones(hf.size), (hf, hfi)),
-                          shape=(hf.max() + 1, hfi.max() + 1)).tocsr()
-    return hf2f
-
-
-def __expand_indices_nd(ind, nd, direction='F'):
-    """
-    Expand indices from scalar to vector form.
-
-    Examples:
-    >>> i = np.array([0, 1, 3])
-    >>> __expand_indices_nd(i, 2)
-    (array([0, 1, 2, 3, 6, 7]))
-
-    >>> __expand_indices_nd(i, 3, 0)
-    (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
-
-    Parameters
-    ----------
-    ind
-    nd
-    direction
-
-    Returns
-    -------
-
-    """
-    dim_inds = np.arange(nd)
-    dim_inds = dim_inds[:, np.newaxis]  # Prepare for broadcasting
-    new_ind = nd * ind + dim_inds
-    new_ind = new_ind.ravel(direction)
-    return new_ind
 
 
 def __unique_hooks_law(csym, casym, subcell_topology, nd):

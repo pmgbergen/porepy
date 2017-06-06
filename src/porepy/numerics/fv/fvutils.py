@@ -469,6 +469,27 @@ def expand_indices_nd(ind, nd, direction=1):
     new_ind = new_ind.ravel(direction)
     return new_ind
 
+def map_hf_2_f(fno, subfno, nd):
+    """
+    Create mapping from half-faces to faces for vector problems.
+
+    Parameters
+    ----------
+    fno face numbering in sub-cell topology based on unique subfno
+    subfno sub-face numbering
+    nd dimension
+
+    Returns
+    -------
+
+    """
+
+    hfi = expand_indices_nd(subfno, nd)
+    hf = expand_indices_nd(fno, nd)
+    hf2f = sps.coo_matrix((np.ones(hf.size), (hf, hfi)),
+                          shape=(hf.max() + 1, hfi.max() + 1)).tocsr()
+    return hf2f
+
 def scalar_divergence(g):
     """
     Get divergence operator for a grid.
@@ -863,4 +884,3 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
                                    (np.arange(num_cells_loc), loc_cells)),
                                   shape=(num_cells_loc, g.num_cells))
     return face_map, cell_map
-
