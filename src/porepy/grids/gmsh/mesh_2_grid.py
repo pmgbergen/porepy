@@ -88,6 +88,11 @@ def create_2d_grids(pts, cells, **kwargs):
             # Add mapping to global point numbers
             g.global_point_ind = pind_loc
 
+            # Associate a fracture id (corresponding to the ordering of the
+            # frature planes in the original fracture list provided by the
+            # user)
+            g.frac_num = fi
+
             # Append to list of 2d grids
             g_2d.append(g)
 
@@ -150,6 +155,8 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
             loc_pts_1d = np.unique(loc_line_pts)  # .flatten()
             loc_coord = pts[loc_pts_1d, :].transpose()
             g = create_embedded_line_grid(loc_coord, loc_pts_1d)
+            frac_num = pn[:offset_index+1:]
+            g.frac_num = frac_num
             g_1d.append(g)
 
         else:  # Auxiliary line
