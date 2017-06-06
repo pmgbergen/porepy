@@ -19,7 +19,7 @@ def add_data(gb, domain):
     Define the permeability, apertures, boundary conditions
     """
     gb.add_node_props(['k', 'f', 'bc', 'bc_val', 'a'])
-    kf = 1e4
+    kf = 1e-4
     tol = 1e-5
     a = 1e-4
 
@@ -102,4 +102,4 @@ for g, d in gb:
     d["p"] = solver.extract_p(g, d["up"])
     d["P0u"] = solver.project_u(g, d["beta_n"])
 
-exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem_permeable', binary=False)
+exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem_blocking', binary=False)
