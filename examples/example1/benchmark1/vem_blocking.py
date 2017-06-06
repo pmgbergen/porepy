@@ -12,6 +12,8 @@ from porepy.grids import coarsening
 from porepy.numerics.mixed_dim import coupler
 from porepy.numerics.vem import dual, dual_coupling
 
+from porepy.utils.errors import error
+
 #------------------------------------------------------------------------------#
 
 def add_data(gb, domain):
@@ -103,3 +105,7 @@ for g, d in gb:
     d["P0u"] = solver.project_u(g, d["beta_n"])
 
 exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem_blocking', binary=False)
+
+# Consistency check
+assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 35.6444911616)
+assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), 1.03190700381)
