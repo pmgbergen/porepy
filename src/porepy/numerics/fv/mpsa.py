@@ -100,7 +100,7 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter=None):
         # Assemble the right hand side and solve
         rhs = q + div * bound_stress * bound_vals
         x = sps.linalg.spsolve(A, rhs)
-        s = stress * x - bound_stress * bound_vals
+        s = stress * x + bound_stress * bound_vals
 
     """
 
