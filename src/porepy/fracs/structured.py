@@ -148,6 +148,8 @@ def cart_grid_3d(fracs, nx, physdims=None):
         e_pt = pts[:, edges[1, e]]
         nodes = _find_nodes_on_line(g_3d, nx, s_pt, e_pt)
         loc_coord = g_3d.nodes[:, nodes]
+        assert loc_coord.shape[1] > 1, '1d grid in intersection should span\
+            more than one node'
         g = mesh_2_grid.create_embedded_line_grid(loc_coord, nodes)
         g_1d.append(g)
 
