@@ -15,6 +15,91 @@ from porepy.numerics.fv import fvutils
 from porepy.utils import matrix_compression, mcolon
 from porepy.grids import structured
 from porepy.params import fourth_order_tensor, bc
+from porepy.numerics.mixed_dim.solver import Solver
+
+
+class Mpsa(Solver):
+
+    def ndof(self, g):
+        """
+        Return the number of degrees of freedom associated to the method.
+        In this case number of cells times dimension (stress dof).
+
+        Parameter
+        ---------
+        g: grid, or a subclass.
+
+        Return
+        ------
+        dof: the number of degrees of freedom.
+
+        """
+        return g.dim * g.num_cells
+
+#------------------------------------------------------------------------------#
+
+    def matrix_rhs(self, g, data):
+        """
+        Return the matrix and right-hand side for a discretization of a second
+        order elliptic equation using a FV method with a multi-point stress
+        approximation.
+        The name of data in the input dictionary (data) are:
+        c : fourth_order_tensor
+            Stress tensor defined cell-wise. If not given lambda and mu is set 
+            to 1. A warning is rised.
+        f : array (self.g.dim * self.g.num_cells)
+            Vector body force term defined cell-wise. Given as stress, i.e.
+            should already been multiplied with the cell sizes.  If not given a
+            zero source body stress term is assumed and a warning arised.
+        bc : boundary conditions (optional)
+        bc_val : dictionary (optional)
+            Values of the boundary conditions. The dictionary has at most the
+            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
+            conditions, respectively.
+
+        Parameters
+        ----------
+        g : grid, or a subclass, with geometry fields computed.
+        data: dictionary to store the data.
+
+        Return
+        ------
+        matrix: sparse csr (g.dim * g_num_cells, g.dim * g_num_cells)
+            Discretization matrix.
+        rhs: array (g.dim * g_num_cells)
+            Right-hand side which contains the boundary conditions and the scalar
+            source term.
+        """
+        c, bnd, bc_val, f = data.get('c'), data.get(
+            'bc'), data.get('bc_val'), data.get('f')
+        if c is None:
+            lam = np.ones(g.num_cells)
+            mu = np.ones(g.num_cells)
+            c = fourth_order_tensor.FourthOrderTensor(g.dim, mu, lam)
+            warnings.warn('Permeability not assigned, assumed identity')
+
+        stress, bound_stress = mpsa(g, c, bnd)
+        div = fvutils.vector_divergence(g)
+        M = div * stress
+
+        return M, self.rhs(g, bound_stress, bc_val, f)
+
+#------------------------------------------------------------------------------#
+
+    def rhs(self, g, bound_stress, bc_val, f):
+        """
+        Return the righ-hand side for a discretization of a second order elliptic
+        equation using the MPSA method. See self.matrix_rhs for a detailed
+        description.
+        """
+        if f is None:
+            f = np.zeros(g.dim * g.num_cells)
+            warnings.warn('Scalar source not assigned, assumed null')
+        div = fvutils.vector_divergence(g)
+
+        return -div * bound_stress * bc_val - f
+
+#------------------------------------------------------------------------------#
 
 
 def mpsa(g, constit, bound, faces=None, eta=0, inverter=None):
@@ -98,9 +183,9 @@ def mpsa(g, constit, bound, faces=None, eta=0, inverter=None):
         bound_vals[bound_faces] = np.arange(bound_faces.size * g.dim)
 
         # Assemble the right hand side and solve
-        rhs = q + div * bound_stress * bound_vals
+        rhs = -q - div * bound_stress * bound_vals
         x = sps.linalg.spsolve(A, rhs)
-        s = stress * x - bound_stress * bound_vals
+        s = stress * x + bound_stress * bound_vals
 
     """
 

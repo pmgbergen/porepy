@@ -44,8 +44,9 @@ class Mpfa(Solver):
             Permeability defined cell-wise. If not given a identity permeability
             is assumed and a warning arised.
         f : array (self.g.num_cells)
-            Scalar source term defined cell-wise. Given as flux density, i.e. later
-            multiplied with the cell sizes.  If not given a zero source
+            Scalar source term defined cell-wise. Given as net inn/out-flow, i.e.
+            should already have been multiplied with the cell sizes. Positive 
+            values are considered innflow. If not given a zero source
             term is assumed and a warning arised.
         bc : boundary conditions (optional)
         bc_val : dictionary (optional)
@@ -92,7 +93,7 @@ class Mpfa(Solver):
             warnings.warn('Scalar source not assigned, assumed null')
         div = g.cell_faces.T
 
-        return div * bound_flux * bc_val + f * g.cell_volumes
+        return -div * bound_flux * bc_val + f
 
 #------------------------------------------------------------------------------#
 

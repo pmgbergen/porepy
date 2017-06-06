@@ -26,8 +26,7 @@ def simplex_grid(fracs, domain, **kwargs):
         consist of a (nd x n) array describing fracture vertices. The
         fractures may be intersecting.
     domain (dict): Domain specification, determined by xmin, xmax, ...
-    **kwargs: Has to contain key-argument "gmsh_path". May contain fracture
-    tags, options for gridding, etc.
+    **kwargs: May contain fracture tags, options for gridding, etc.
 
     Returns
     -------
@@ -50,8 +49,8 @@ def simplex_grid(fracs, domain, **kwargs):
     frac2 = np.array([[1,4],[4,1]])
     fracs = [frac1, frac2]
     domain = {'xmin': 0, 'ymin': 0, 'xmax':5, 'ymax':5}
-    path_to_gmsh = .... # Set the sytem path to gmsh
-    gb = simplex_grid(fracs, domain,gmsh_path = path_to_gmsh)
+    gb = simplex_grid(fracs, domain)
+   
     """
     if 'zmax' in domain:
         ndim = 3
