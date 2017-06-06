@@ -6,3 +6,5 @@
 ## Blocking fractures
 ![alt text](vem_blocking.png "VEM solution" =100x)
 
+<img src="vem_blocking.png" alt="Drawing" style="width: 200px;"/>
+
