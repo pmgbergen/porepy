@@ -445,7 +445,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
     return stress, bound_stress
 
 
-def __mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
+def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
                       inverter):
     """
     This is the function where the real discretization takes place. It contains
