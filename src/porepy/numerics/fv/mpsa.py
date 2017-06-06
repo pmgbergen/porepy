@@ -437,7 +437,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
     stress = hf2f * hook_igrad * rhs_cells
 
     # Right hand side for boundary discretization
-    rhs_bound = _create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
+    rhs_bound = create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
     # Discretization of boundary values
     bound_stress = hf2f * hook_igrad * rhs_bound
     stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
@@ -633,10 +633,6 @@ def _split_stiffness_matrix(constit):
         csym = np.delete(csym, (2, 5, 6, 7, 8), axis=1)
         casym = np.delete(casym, (2, 5, 6, 7, 8), axis=0)
         casym = np.delete(casym, (2, 5, 6, 7, 8), axis=1)
-<<<<<<< HEAD
-=======
-
->>>>>>> MPSA uses correct version of tensor copy.
 
     # The splitting is hard coded based on the ordering of elements in the
     # stiffness matrix
@@ -846,7 +842,7 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
-def _create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
+def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     """
     Define rhs matrix to get basis functions for incorporates boundary
     conditions
