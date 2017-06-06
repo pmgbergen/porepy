@@ -1,10 +1,8 @@
 # Benchmark 1
 
 ## Permeable fractures
-![alt text](vem_permeable.png "VEM solution" =250x)
+<img src="vem_permeable.png" alt="VEM" style="width: 20px;"/>
 
 ## Blocking fractures
-![alt text](vem_blocking.png "VEM solution" =100x)
-
-<img src="vem_blocking.png" alt="Drawing" style="width: 200px;"/>
+<img src="vem_blocking.png" alt="VEM" style="width: 10px;"/>
 
