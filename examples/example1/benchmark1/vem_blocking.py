@@ -104,7 +104,7 @@ for g, d in gb:
     d["p"] = solver.extract_p(g, d["up"])
     d["P0u"] = solver.project_u(g, d["beta_n"])
 
-exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem_blocking', binary=False)
+exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem_blocking')
 
 # Consistency check
 assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 35.6444911616)

@@ -12,6 +12,8 @@ from porepy.grids import coarsening
 from porepy.numerics.mixed_dim import coupler
 from porepy.numerics.vem import dual, dual_coupling
 
+from porepy.utils.errors import error
+
 #------------------------------------------------------------------------------#
 
 def add_data(gb, domain):
@@ -70,7 +72,7 @@ mesh_kwargs['mesh_size'] = {'mode': 'constant',
 mesh_kwargs['gmsh_path'] = '~/gmsh/bin/gmsh'
 
 domain = {'xmin': 0, 'xmax': 700, 'ymin': 0, 'ymax': 600}
-gb = importer.from_csv('sotra.csv', mesh_kwargs, domain)
+gb = importer.from_csv('network.csv', mesh_kwargs, domain)
 gb.compute_geometry()
 gb.assign_node_ordering()
 
@@ -95,4 +97,8 @@ for g, d in gb:
     d["p"] = solver.extract_p(g, d["up"])
     d["P0u"] = solver.project_u(g, d["beta_n"])
 
-exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='sotra')
+exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem')
+
+# Consistency check
+assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 1788700521.16)
+assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), 7.19845778645e-06)
