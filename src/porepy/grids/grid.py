@@ -20,6 +20,7 @@ from porepy.utils import matrix_compression, half_space, mcolon
 
 from porepy.utils import comp_geom as cg
 from porepy.utils.sort_points import sort_point_pairs
+from porepy.utils.grids import structured, simplex, point_grid
 
 
 class FaceTag(np.uint8, Enum):
@@ -160,13 +161,41 @@ class Grid(object):
         """
         Implementation of __repr__
 
-        NOTE: Should be revisited - not sure if this is the optimal information
-        to provide here.
         """
         s = 'Grid with history ' + ', '.join(self.name) + '\n'
         s = s + 'Number of cells ' + str(self.num_cells) + '\n'
         s = s + 'Number of faces ' + str(self.num_faces) + '\n'
         s = s + 'Number of nodes ' + str(self.num_nodes) + '\n'
+        s += 'Dimension ' + str(self.dim)
+        return s
+
+    def __str__(self):
+        """ Implementation of __str__
+        """
+
+        # Special treatment of point grids.
+        if isinstance(self, point_grid.PointGrid):
+            s = 'Point grid.\n'
+            n = self.nodes
+            s += 'Coordinate: (' + str(n[0]) + ', ' + str(n[1])
+            s += ', ' + str(n[2]) + ')\n'
+            return s
+
+        # More or less uniform treatment of the types of grids.
+        if isinstance(self, structured.CartGrid):
+            s = 'Cartesian grid in ' + str(self.dim) + ' dimensions.\n'
+        elif isinstance(self, structured.TensorGrid):
+            s = 'Tensor grid in ' str(self.dim) + ' dimensions.\n'
+        elif isinstance(self, simplex.StructuredTriangleGrid):
+            s = 'Structured triangular grid.\n'
+        elif isinstance(self, simplex.TriangleGrid):
+            s = 'Triangular grid. \n'
+        elif isinstance(self, simplex.TetrahedralGrid):
+            s = 'Tetrahedral grid.\n'
+        s = s + 'Number of cells ' + str(self.num_cells) + '\n'
+        s = s + 'Number of faces ' + str(self.num_faces) + '\n'
+        s = s + 'Number of nodes ' + str(self.num_nodes) + '\n'
+
         return s
 
     def compute_geometry(self, is_embedded=False, is_starshaped=False):
