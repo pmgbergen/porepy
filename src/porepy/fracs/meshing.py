@@ -201,15 +201,15 @@ def nodes_per_face(g):
     """
     Returns the number of nodes per face for a given grid
     """
-    if 'TensorGrid'in g.name and g.dim == 3:
+    if ('TensorGrid' in g.name or 'CartGrid' in g.name) and g.dim == 3:
         n_per_face = 4
     elif 'TetrahedralGrid' in g.name:
         n_per_face = 3
-    elif 'TensorGrid'in g.name and g.dim == 2:
+    elif ('TensorGrid' in g.name or 'CartGrid' in g.name) and g.dim == 2:
         n_per_face = 2
     elif 'TriangleGrid'in g.name:
         n_per_face = 2
-    elif 'TensorGrid' in g.name and g.dim == 1:
+    elif ('TensorGrid' in g.name or 'CartGrid' in g.name) and g.dim == 1:
         n_per_face = 1
     else:
         raise ValueError(

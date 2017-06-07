@@ -287,21 +287,23 @@ class CartGrid(TensorGrid):
 
         dims = np.asarray(nx).shape
         assert dims == np.asarray(physdims).shape
+        name = 'CartGrid'
 
         # Create point distribution, and then leave construction to
         # TensorGrid constructor
         if dims is (): # dirty trick
             nodes_x = np.linspace(0, physdims, nx+1)
-            super(self.__class__, self).__init__(nodes_x)
+            super(self.__class__, self).__init__(nodes_x, name=name)
         elif dims[0] == 2:
             nodes_x = np.linspace(0, physdims[0], nx[0]+1)
             nodes_y = np.linspace(0, physdims[1], nx[1]+1)
-            super(self.__class__, self).__init__(nodes_x, nodes_y)
+            super(self.__class__, self).__init__(nodes_x, nodes_y, name=name)
         elif dims[0] == 3:
             nodes_x = np.linspace(0, physdims[0], nx[0] + 1)
             nodes_y = np.linspace(0, physdims[1], nx[1] + 1)
             nodes_z = np.linspace(0, physdims[2], nx[2] + 1)
-            super(self.__class__, self).__init__(nodes_x, nodes_y, nodes_z)
+            super(self.__class__, self).__init__(nodes_x, nodes_y, nodes_z,
+                                                 name=name)
         else:
             raise ValueError('Cartesian grid only implemented for up to three \
             dimensions')
