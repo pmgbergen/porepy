@@ -18,8 +18,8 @@ class PointGrid(Grid):
 
         name = 'PointGrid' if name is None else name
 
-        face_nodes = sps.identity(1, bool, "csr")
-        cell_faces = sps.identity(1, bool, "csr")
+        face_nodes = sps.identity(1, np.int, "csr")
+        cell_faces = sps.identity(1, np.int, "csr")
         pt = np.asarray(pt).reshape((3,1))
 
         super(PointGrid, self).__init__(0, pt, face_nodes, cell_faces, name)
