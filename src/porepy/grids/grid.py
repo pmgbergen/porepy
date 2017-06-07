@@ -20,7 +20,6 @@ from porepy.utils import matrix_compression, half_space, mcolon
 
 from porepy.utils import comp_geom as cg
 from porepy.utils.sort_points import sort_point_pairs
-from porepy.grids import structured, simplex, point_grid
 
 
 class FaceTag(np.uint8, Enum):
@@ -174,7 +173,7 @@ class Grid(object):
         """
 
         # Special treatment of point grids.
-        if isinstance(self, point_grid.PointGrid):
+        if 'PointGrid' in self.name:
             s = 'Point grid.\n'
             n = self.nodes
             s += 'Coordinate: (' + str(n[0]) + ', ' + str(n[1])
@@ -182,15 +181,15 @@ class Grid(object):
             return s
 
         # More or less uniform treatment of the types of grids.
-        if isinstance(self, structured.CartGrid):
+        if 'CartGrid' in self.name:
             s = 'Cartesian grid in ' + str(self.dim) + ' dimensions.\n'
-        elif isinstance(self, structured.TensorGrid):
+        elif 'TensorGrid' in self.name:
             s = 'Tensor grid in ' + str(self.dim) + ' dimensions.\n'
-        elif isinstance(self, simplex.StructuredTriangleGrid):
+        elif 'StructuredTriangleGrid' in self.name:
             s = 'Structured triangular grid.\n'
-        elif isinstance(self, simplex.TriangleGrid):
+        elif 'TriangleGrid' in self.name:
             s = 'Triangular grid. \n'
-        elif isinstance(self, simplex.TetrahedralGrid):
+        elif 'TetrahedralGrid' in self.name:
             s = 'Tetrahedral grid.\n'
         s = s + 'Number of cells ' + str(self.num_cells) + '\n'
         s = s + 'Number of faces ' + str(self.num_faces) + '\n'
