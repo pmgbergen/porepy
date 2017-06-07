@@ -4,7 +4,7 @@ Created on Thu Feb 25 20:16:42 2016
 
 @author: keile
 """
-
+from __future__ import division
 import numpy as np
 
 

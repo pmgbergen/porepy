@@ -6,6 +6,7 @@ intersection between lines, with grid generation in mind, and should perhaps
 be moved to a separate module.
 
 """
+from __future__ import division
 import time
 import numpy as np
 from sympy import geometry as geom
@@ -195,8 +196,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         if np.any(np.diff(edges[:2], axis=0) == 0):
             raise ValueError('Have created a point edge')
         edge_copy = np.sort(edges[:2], axis=0)
-        edge_unique, *new_2_old = setmembership.unique_columns_tol(edge_copy,
-                                                                   tol=tol)
+        edge_unique, _, _ = setmembership.unique_columns_tol(edge_copy, tol=tol)
         if edge_unique.shape[1] < edges.shape[1]:
             raise ValueError('Have created the same edge twice')
 
