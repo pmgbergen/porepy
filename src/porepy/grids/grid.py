@@ -20,7 +20,7 @@ from porepy.utils import matrix_compression, half_space, mcolon
 
 from porepy.utils import comp_geom as cg
 from porepy.utils.sort_points import sort_point_pairs
-from porepy.utils.grids import structured, simplex, point_grid
+from porepy.grids import structured, simplex, point_grid
 
 
 class FaceTag(np.uint8, Enum):
@@ -185,7 +185,7 @@ class Grid(object):
         if isinstance(self, structured.CartGrid):
             s = 'Cartesian grid in ' + str(self.dim) + ' dimensions.\n'
         elif isinstance(self, structured.TensorGrid):
-            s = 'Tensor grid in ' str(self.dim) + ' dimensions.\n'
+            s = 'Tensor grid in ' + str(self.dim) + ' dimensions.\n'
         elif isinstance(self, simplex.StructuredTriangleGrid):
             s = 'Structured triangular grid.\n'
         elif isinstance(self, simplex.TriangleGrid):
