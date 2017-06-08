@@ -15,7 +15,7 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
 
 
     def test_one_intersection(self):
-        p_1, p_2, *rest = self.setup_polygons()
+        p_1, p_2, _, _ = self.setup_polygons()
 
         # First intersection of 1 by edges of 2. It should be two of these
         p_1_2 = cg.polygon_segment_intersect(p_1, p_2)
@@ -29,7 +29,7 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         assert p_2_1 is None
 
     def test_mutual_intersection(self):
-        p1, _, p3, *rest = self.setup_polygons()
+        p1, _, p3, _ = self.setup_polygons()
 
         # First intersection of 1 by edges of 3
         p_1_3 = cg.polygon_segment_intersect(p1, p3)
@@ -44,7 +44,7 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         assert np.min(np.sum(np.abs(p_3_1 - p_i_known_2), axis=0)) < 1e-5
 
     def test_mutual_intersection_not_at_origin(self):
-        p1, _, p3, *rest = self.setup_polygons()
+        p1, _, p3, _ = self.setup_polygons()
 
         incr = np.array([1, 2, 3]).reshape((-1, 1))
         p1 += incr
@@ -62,14 +62,14 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         assert np.min(np.sum(np.abs(p_3_1 - p_i_known_2), axis=0)) < 1e-5
 
     def test_parallel_planes(self):
-        p_1, *rest = self.setup_polygons()
+        p_1, _, _, _ = self.setup_polygons()
         p_2 = p_1 + np.array([0, 1, 0]).reshape((-1, 1))
         isect = cg.polygon_segment_intersect(p_1, p_2)
         assert isect is None
 
     def test_extension_would_intersect(self):
         # The extension of p_2 would intersect, but should detect nothing
-        p_1, p_2, *rest = self.setup_polygons()
+        p_1, p_2, _, _ = self.setup_polygons()
         p_2 += np.array([2, 0, 0]).reshape((-1, 1))
         isect = cg.polygon_segment_intersect(p_1, p_2)
         assert isect is None
@@ -77,7 +77,7 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
     def test_segments_intersect(self):
         # Test where the planes intersect in a way where segments only touches
         # segments, which does not qualify as intersection.
-        p_1, _, _, p_4, *rest = self.setup_polygons()
+        p_1, _, _, p_4 = self.setup_polygons()
         isect = cg.polygon_segment_intersect(p_1, p_4)
         assert isect is None
         # Also try the other way around
