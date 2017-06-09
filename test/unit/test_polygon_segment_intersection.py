@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import unittest
 
@@ -84,6 +85,23 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         isect = cg.polygon_segment_intersect(p_4, p_1)
         assert isect is None
 
+    def test_issue_16(self):
+        # Test motivated from debuging Issue #16 (GitHub)
+        # Two polygons meet in a common vertex; return should be None
+        frac1 = np.array([[1, 2, 4],
+                          [1, 4, 1],
+                          [2, 2, 2]])
+
+        frac2 = np.array([[2, 2, 2],
+                          [2, 4, 1],
+                          [1, 2, 4]])
+       
+        isect_known = np.array([[2], [5/3], [2]])
+        isect = cg.polygon_segment_intersect(frac1, frac2)
+        assert np.allclose(isect, isect_known)
+
+        isect = cg.polygon_segment_intersect(frac1[:, [0, 2, 1]], frac2)
+        assert np.allclose(isect, isect_known)
 
     if __name__ == '__main__':
         unittest.main()

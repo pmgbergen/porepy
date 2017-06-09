@@ -1297,6 +1297,10 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     # Drop the z-coordinate
     poly_1_xy = poly_1_xy[:2]
 
+    # Make sure the xy-polygon is ccw.
+    if not is_ccw_polygon(poly_1_xy):
+        poly_1_xy = poly_1_xy[:, ::-1]
+
     # Rotate the second polygon with the same rotation matrix
     poly_2_rot = rot_p_1.dot(poly_2)
 
@@ -1379,7 +1383,6 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
                     # inverse rotation, 3) translate to original coordinate.
                     isect = np.hstack((isect, irot.dot(_to3D(p_00)) +
                                        center_1))
-
         if isect.shape[1] == 0:
             isect = None
 
