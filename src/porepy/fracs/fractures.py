@@ -347,8 +347,25 @@ class Fracture(object):
         elif int_points.shape[1] == 1:
             # There should be exactly one unique boundary point.
             bp = np.hstack((bound_pt_self, bound_pt_other))
+            if bp.shape[1] == 0:
+                # The other point on the intersection line must be a vertex.
+                # Brute force search
+                found_vertex = False
+                for self_p in self.p.T:
+                    diff = self_p.reshape((-1, 1)) - other.p
+                    dist = np.sqrt(np.sum(np.power(diff, 2), axis=0))
+                    if np.any(np.isclose(dist, 0, rtol=tol)):
+                        if found_vertex:
+                            raise ValueError('Found > 2 intersection points')
+                        found_vertex = True
+                        int_points = np.hstack((int_points,
+                                                self_p.reshape((-1, 1))))
+
+                # There is not more to say here, simply return
+                return int_points, on_boundary_self, on_boundary_other
+
             u_bound_pt, _, _ = setmembership.unique_columns_tol(bp, tol=tol)
-            assert u_bound_pt.shape[1] == 1
+            assert u_bound_pt.shape[1] == 1, 'The fractures should be convex'
 
         # If a segment runs through the polygon, there should be no interior points.
         # This may be sensitive to tolerances, should be a useful test to gauge
