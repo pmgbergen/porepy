@@ -74,7 +74,8 @@ class BasicsTest( unittest.TestCase ):
             bound_faces = g.get_domain_boundary_faces()
             labels = np.array(['dir'] * bound_faces.size)
             d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
-            d['bc_val'] = 3*np.ones(g.num_faces).ravel('F')
+            d['bc_val'] = np.zeros(g.num_faces)
+            d['bc_val'][bound_faces] = 3
 
         gb.add_edge_prop('beta_n')
         for e, d in gb.edges_props():

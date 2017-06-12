@@ -4,7 +4,9 @@ import unittest
 
 from porepy.grids import structured, simplex
 import porepy.utils.comp_geom as cg
+from porepy.params import bc
 from porepy.numerics.fv.transport import upwind
+from porepy.viz import plot_grid
 
 #------------------------------------------------------------------------------#
 
@@ -17,14 +19,14 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'beta_n': solver.beta_n(g, [1, 0, 0])}
+        data = {'beta_n': solver.beta_n(g, [2, 0, 0])}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = np.array([[ 0, 0, 0],
-                            [-1, 1, 0],
-                            [ 0,-1, 1]])
-        deltaT_known = 1/3
+        M_known = np.array([[ 2, 0, 0],
+                            [-2, 2, 0],
+                            [ 0,-2, 0]])
+        deltaT_known = 1/6
 
         rtol = 1e-15
         atol = rtol
@@ -38,14 +40,14 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'beta_n': solver.beta_n(g, [-1, 0, 0])}
+        data = {'beta_n': solver.beta_n(g, [-2, 0, 0])}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = np.array([[1,-1, 0],
-                            [0, 1,-1],
-                            [0, 0, 0]])
-        deltaT_known = 1/3
+        M_known = np.array([[0,-2, 0],
+                            [0, 2,-2],
+                            [0, 0, 2]])
+        deltaT_known = 1/6
 
         rtol = 1e-15
         atol = rtol
@@ -59,17 +61,18 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'beta_n': solver.beta_n(g, [1, 0, 0])}
+        data = {'beta_n': solver.beta_n(g, [2, 0, 0])}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = 0.5 * np.array([[ 0, 0, 0, 0, 0, 0],
-                                  [-1, 1, 0, 0, 0, 0],
-                                  [ 0,-1, 1, 0, 0, 0],
-                                  [ 0, 0, 0, 0, 0, 0],
-                                  [ 0, 0, 0,-1, 1, 0],
-                                  [ 0, 0, 0, 0,-1, 1]])
-        deltaT_known = 1/6
+        M_known = np.array([[ 1, 0, 0, 0, 0, 0],
+                            [-1, 1, 0, 0, 0, 0],
+                            [ 0,-1, 0, 0, 0, 0],
+                            [ 0, 0, 0, 1, 0, 0],
+                            [ 0, 0, 0,-1, 1, 0],
+                            [ 0, 0, 0, 0,-1, 0]])
+
+        deltaT_known = 1/12
 
         rtol = 1e-15
         atol = rtol
@@ -83,17 +86,17 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'beta_n': solver.beta_n(g, [-1, 0, 0])}
+        data = {'beta_n': solver.beta_n(g, [-2, 0, 0])}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = 0.5 * np.array([[ 1,-1, 0, 0, 0, 0],
-                                  [ 0, 1,-1, 0, 0, 0],
-                                  [ 0, 0, 0, 0, 0, 0],
-                                  [ 0, 0, 0, 1,-1, 0],
-                                  [ 0, 0, 0, 0, 1,-1],
-                                  [ 0, 0, 0, 0, 0, 0]])
-        deltaT_known = 1/6
+        M_known = np.array([[ 0,-1, 0, 0, 0, 0],
+                            [ 0, 1,-1, 0, 0, 0],
+                            [ 0, 0, 1, 0, 0, 0],
+                            [ 0, 0, 0, 0,-1, 0],
+                            [ 0, 0, 0, 0, 1,-1],
+                            [ 0, 0, 0, 0, 0, 1]])
+        deltaT_known = 1/12
 
         rtol = 1e-15
         atol = rtol
@@ -112,8 +115,8 @@ class BasicsTest( unittest.TestCase ):
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[ 1,-1, 0, 0],
-                            [ 0, 0, 0, 0],
-                            [ 0, 0, 1,-1],
+                            [ 0, 1, 0, 0],
+                            [ 0, 0, 0,-1],
                             [-1, 0, 0, 1]])
         deltaT_known = 1/8
 
@@ -134,8 +137,8 @@ class BasicsTest( unittest.TestCase ):
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[ 1, 0, 0,-1],
-                            [-1, 1, 0, 0],
-                            [ 0, 0, 0, 0],
+                            [-1, 0, 0, 0],
+                            [ 0, 0, 1, 0],
                             [ 0, 0,-1, 1]])
         deltaT_known = 1/8
 
@@ -155,15 +158,14 @@ class BasicsTest( unittest.TestCase ):
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = 0.25 * np.array([[ 1,-1, 0, 0, 0, 0, 0, 0],
-                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
-                                   [ 0, 0, 1,-1, 0, 0, 0, 0],
-                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
-                                   [ 0, 0, 0, 0, 1,-1, 0, 0],
-                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
-                                   [ 0, 0, 0, 0, 0, 0, 1,-1],
-                                   [ 0, 0, 0, 0, 0, 0, 0, 0]])
-
+        M_known = 0.25 * np.array([[ 0,-1, 0, 0, 0, 0, 0, 0],
+                                   [ 0, 1, 0, 0, 0, 0, 0, 0],
+                                   [ 0, 0, 0,-1, 0, 0, 0, 0],
+                                   [ 0, 0, 0, 1, 0, 0, 0, 0],
+                                   [ 0, 0, 0, 0, 0,-1, 0, 0],
+                                   [ 0, 0, 0, 0, 0, 1, 0, 0],
+                                   [ 0, 0, 0, 0, 0, 0, 0,-1],
+                                   [ 0, 0, 0, 0, 0, 0, 0, 1]])
 
         deltaT_known = 1/6
 
@@ -183,15 +185,14 @@ class BasicsTest( unittest.TestCase ):
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = 0.25 * np.array([[ 0, 0, 0, 0, 0, 0, 0, 0],
-                                   [-1, 1, 0, 0, 0, 0, 0, 0],
-                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
-                                   [ 0, 0,-1, 1, 0, 0, 0, 0],
-                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
-                                   [ 0, 0, 0, 0,-1, 1, 0, 0],
-                                   [ 0, 0, 0, 0, 0, 0, 0, 0],
-                                   [ 0, 0, 0, 0, 0, 0,-1, 1]])
-
+        M_known = 0.25 * np.array([[ 1, 0, 0, 0, 0, 0, 0, 0],
+                                   [-1, 0, 0, 0, 0, 0, 0, 0],
+                                   [ 0, 0, 1, 0, 0, 0, 0, 0],
+                                   [ 0, 0,-1, 0, 0, 0, 0, 0],
+                                   [ 0, 0, 0, 0, 1, 0, 0, 0],
+                                   [ 0, 0, 0, 0,-1, 0, 0, 0],
+                                   [ 0, 0, 0, 0, 0, 0, 1, 0],
+                                   [ 0, 0, 0, 0, 0, 0,-1, 0]])
 
         deltaT_known = 1/6
 
@@ -213,9 +214,9 @@ class BasicsTest( unittest.TestCase ):
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = np.array([[ 0, 0, 0],
+        M_known = np.array([[ 1, 0, 0],
                             [-1, 1, 0],
-                            [ 0,-1, 1]])
+                            [ 0,-1, 0]])
         deltaT_known = 1/3
 
         rtol = 1e-15
@@ -236,9 +237,9 @@ class BasicsTest( unittest.TestCase ):
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = np.array([[1,-1, 0],
+        M_known = np.array([[0,-1, 0],
                             [0, 1,-1],
-                            [0, 0, 0]])
+                            [0, 0, 1]])
         deltaT_known = 1/3
 
         rtol = 1e-15
@@ -259,12 +260,12 @@ class BasicsTest( unittest.TestCase ):
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = 0.5 * np.array([[ 0, 0, 0, 0, 0, 0],
+        M_known = 0.5 * np.array([[ 1, 0, 0, 0, 0, 0],
                                   [-1, 1, 0, 0, 0, 0],
-                                  [ 0,-1, 1, 0, 0, 0],
-                                  [ 0, 0, 0, 0, 0, 0],
+                                  [ 0,-1, 0, 0, 0, 0],
+                                  [ 0, 0, 0, 1, 0, 0],
                                   [ 0, 0, 0,-1, 1, 0],
-                                  [ 0, 0, 0, 0,-1, 1]])
+                                  [ 0, 0, 0, 0,-1, 0]])
 
         deltaT_known = 1/6
 
@@ -286,12 +287,12 @@ class BasicsTest( unittest.TestCase ):
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
-        M_known = 0.5 * np.array([[ 1,-1, 0, 0, 0, 0],
+        M_known = 0.5 * np.array([[ 0,-1, 0, 0, 0, 0],
                                   [ 0, 1,-1, 0, 0, 0],
-                                  [ 0, 0, 0, 0, 0, 0],
-                                  [ 0, 0, 0, 1,-1, 0],
+                                  [ 0, 0, 1, 0, 0, 0],
+                                  [ 0, 0, 0, 0,-1, 0],
                                   [ 0, 0, 0, 0, 1,-1],
-                                  [ 0, 0, 0, 0, 0, 0]])
+                                  [ 0, 0, 0, 0, 0, 1]])
 
         deltaT_known = 1/6
 
@@ -314,8 +315,8 @@ class BasicsTest( unittest.TestCase ):
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[ 1,-1, 0, 0],
-                            [ 0, 0, 0, 0],
-                            [ 0, 0, 1,-1],
+                            [ 0, 1, 0, 0],
+                            [ 0, 0, 0,-1],
                             [-1, 0, 0, 1]])
         deltaT_known = 1/8
 
@@ -338,14 +339,67 @@ class BasicsTest( unittest.TestCase ):
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[ 1, 0, 0,-1],
-                            [-1, 1, 0, 0],
-                            [ 0, 0, 0, 0],
+                            [-1, 0, 0, 0],
+                            [ 0, 0, 1, 0],
                             [ 0, 0,-1, 1]])
         deltaT_known = 1/8
 
         rtol = 1e-15
         atol = rtol
         assert np.allclose(M, M_known, rtol, atol)
+        assert np.allclose(deltaT, deltaT_known, rtol, atol)
+
+#------------------------------------------------------------------------------#
+
+    def test_upwind_1d_beta_negative_bc_dir(self):
+        g = structured.CartGrid(3, 1)
+        g.compute_geometry()
+
+        solver = upwind.Upwind()
+        data = {'beta_n': solver.beta_n(g, [-2, 0, 0]),
+                'bc': bc.BoundaryCondition(g, g.get_boundary_faces(), ['dir']*2),
+                'bc_val': 3*np.ones(g.num_faces).ravel('F')}
+
+        M, rhs = solver.matrix_rhs(g, data)
+        deltaT = solver.cfl(g, data)
+
+        M_known = np.array([[2,-2, 0],
+                            [0, 2,-2],
+                            [0, 0, 2]])
+        rhs_known = np.array([0, 0, 6])
+        deltaT_known = 1/6
+
+        rtol = 1e-15
+        atol = rtol
+        assert np.allclose(M.todense(), M_known, rtol, atol)
+        assert np.allclose(rhs, rhs_known, rtol, atol)
+        assert np.allclose(deltaT, deltaT_known, rtol, atol)
+
+#------------------------------------------------------------------------------#
+
+    def test_upwind_1d_beta_negative_bc_neu(self):
+        g = structured.CartGrid(3, 1)
+        g.compute_geometry()
+
+        solver = upwind.Upwind()
+        bc_val = np.array([2, 0, 0, -2])
+        data = {'beta_n': solver.beta_n(g, [-2, 0, 0]),
+                'bc': bc.BoundaryCondition(g, g.get_boundary_faces(), ['neu']*2),
+                'bc_val': bc_val.ravel('F')}
+
+        M, rhs = solver.matrix_rhs(g, data)
+        deltaT = solver.cfl(g, data)
+
+        M_known = np.array([[0,-2, 0],
+                            [0, 2,-2],
+                            [0, 0, 2]])
+        rhs_known = np.array([-2, 0, 2])
+        deltaT_known = 1/6
+
+        rtol = 1e-15
+        atol = rtol
+        assert np.allclose(M.todense(), M_known, rtol, atol)
+        assert np.allclose(rhs, rhs_known, rtol, atol)
         assert np.allclose(deltaT, deltaT_known, rtol, atol)
 
 #------------------------------------------------------------------------------#
