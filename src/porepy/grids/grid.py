@@ -615,6 +615,16 @@ class Grid(object):
         """
         return self.__indices(self.has_face_tag(FaceTag.BOUNDARY))
 
+    def get_domain_boundary_faces(self):
+        """
+        Get domain boundary faces id of the grid
+
+        Returns:
+            np.ndarray (1d), index of boundary faces
+
+        """
+        return self.__indices(self.has_face_tag(FaceTag.DOMAIN_BOUNDARY))
+
     def get_boundary_nodes(self):
         """
         Get nodes on the boundary
