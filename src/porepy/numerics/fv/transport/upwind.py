@@ -96,24 +96,32 @@ class Upwind(Solver):
         # We need to impose no-flow for the inflow faces without boundary
         # condition
         mask = np.unique(indices, return_index=True)[1]
-        b_faces = g.get_boundary_faces()
+        bc_neu = g.get_boundary_faces()
 
         if has_bc:
             # If boundary conditions are imposed remove the faces from this
             # procedure.
             bc_dir = np.where(bc.is_dir)[0]
-            b_faces = np.setdiff1d(b_faces, bc_dir, assume_unique=True)
+            bc_neu = np.setdiff1d(bc_neu, bc_dir, assume_unique=True)
+            bc_dir = mask[bc_dir]
 
-        # Remove the inflow faces without specified boundary conditions.
-        b_faces = mask[b_faces]
-        flow_faces.data[b_faces] = flow_faces.data[b_faces].clip(min=0)
+            # Remove Dirichlet inflow
+            inflow = flow_faces.copy()
 
-        # Determine the inflow faces
-        if_inflow_faces = flow_faces.copy()
-        if_inflow_faces.data = np.sign(if_inflow_faces.data.clip(max=0))
+            inflow.data[bc_dir] = inflow.data[bc_dir].clip(max=0)
+            flow_faces.data[bc_dir] = flow_faces.data[bc_dir].clip(min=0)
+
+        # Remove all Neumann
+        bc_neu = mask[bc_neu]
+        flow_faces.data[bc_neu] = 0
+
+        # Determine the outflow faces
+        if_faces = flow_faces.copy()
+        if_faces.data = np.sign(if_faces.data)
 
         # Compute the inflow/outflow related to the cells of the problem
-        flow_cells = if_inflow_faces.transpose() * flow_faces
+        flow_faces.data = flow_faces.data.clip(min=0)
+        flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
 
         f = data.get('f', np.zeros(g.num_cells)) * g.cell_volumes
@@ -121,26 +129,28 @@ class Upwind(Solver):
         if not has_bc:
             return flow_cells, f
 
-        # Dirichlet boundary condition
-        flow_faces.data = np.multiply(flow_faces.data,
-                                      bc.is_dir[indices]).clip(max=0)
-        flow_faces.eliminate_zeros()
-
         # Impose the boundary conditions
-        # TODO: Think about Neumann conditions
         bc_val_dir = np.zeros(g.num_faces)
-        if 'dir' in bc_val.keys():
-            bc_val_dir[bc.is_dir] = bc_val['dir']
+        if np.any(bc.is_dir):
+            is_dir = np.where(bc.is_dir)[0]
+            bc_val_dir[is_dir] = bc_val[is_dir]
 
-        flow_faces.data = -flow_faces.data * bc_val_dir[flow_faces.indices]
+        # We assume that for Neumann boundary condition a positive 'bc_val'
+        # represents an outflow for the domain. A negative 'bc_val' represents
+        # an inflow for the domain.
+        bc_val_neu = np.zeros(g.num_faces)
+        if np.any(bc.is_neu):
+            is_neu = np.where(bc.is_neu)[0]
+            bc_val_neu[is_neu] = bc_val[is_neu]
 
-        return flow_cells, f + np.squeeze(np.asarray(flow_faces.sum(axis=0)))
+        return flow_cells, f - inflow.transpose() * bc_val_dir \
+                             - np.abs(g.cell_faces.transpose()) * bc_val_neu
 
 #------------------------------------------------------------------------------#
 
     def cfl(self, g, data):
         """
-	Return the time step according to the CFL condition.
+    Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
         weighted with the face area, at each face.
 
@@ -159,10 +169,7 @@ class Upwind(Solver):
 
         """
         beta_n = data['beta_n']
-        try:
-            apertures = data['a']
-        except KeyError:
-            apertures = np.ones(g.num_cells)
+        apertures = data.get('a', np.ones(g.num_cells))
 
         faces, cell, _ = sps.find(g.cell_faces)
         not_zero = ~np.isclose(np.zeros(faces.size), beta_n[faces], atol=0)
@@ -196,12 +203,13 @@ class Upwind(Solver):
         if cell_apertures is None:
             face_apertures = np.ones(g.num_faces)
         else:
-            aace_apertures = abs(g.cell_faces) * cell_apertures
+            face_apertures = abs(g.cell_faces) * cell_apertures
             r, _, _ = sps.find(g.cell_faces)
             face_apertures = face_apertures / np.bincount(r)
 
         beta = np.asarray(beta)
         assert beta.size == 3
-        return np.array([np.dot(n, a * beta) for n, a in zip(g.face_normals.T, face_apertures)])
+        return np.array([np.dot(n, a * beta) \
+                             for n, a in zip(g.face_normals.T, face_apertures)])
 
 #------------------------------------------------------------------------------#
