@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 
@@ -139,8 +140,7 @@ class Upwind(Solver):
 
     def cfl(self, g, data):
         """
-        Return the time step according to the CFL (Courant–Friedrichs–Lewy)
-        condition.
+	Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
         weighted with the face area, at each face.
 
@@ -196,7 +196,7 @@ class Upwind(Solver):
         if cell_apertures is None:
             face_apertures = np.ones(g.num_faces)
         else:
-            face_apertures = abs(g.cell_faces) * cell_apertures
+            aace_apertures = abs(g.cell_faces) * cell_apertures
             r, _, _ = sps.find(g.cell_faces)
             face_apertures = face_apertures / np.bincount(r)
 

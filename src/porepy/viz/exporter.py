@@ -168,7 +168,7 @@ def export_vtk_1d( g ):
     if g.nodes.shape[0] == 1:
         [ ptsVTK.InsertNextPoint( node, 0., 0. ) for node in g.nodes.T ]
     if g.nodes.shape[0] == 2:
-        [ ptsVTK.InsertNextPoint( *node, 0. ) for node in g.nodes.T ]
+        [ ptsVTK.InsertNextPoint( node[0], node[1], 0. ) for node in g.nodes.T ]
     else:
         [ ptsVTK.InsertNextPoint( *node ) for node in g.nodes.T ]
     gVTK.SetPoints( ptsVTK )
@@ -197,7 +197,7 @@ def export_vtk_2d( g ):
 
     ptsVTK = vtk.vtkPoints()
     if g.nodes.shape[0] == 2:
-        [ ptsVTK.InsertNextPoint( *node, 0. ) for node in g.nodes.T ]
+        [ ptsVTK.InsertNextPoint( node[0], node[1], 0. ) for node in g.nodes.T ]
     else:
         [ ptsVTK.InsertNextPoint( *node ) for node in g.nodes.T ]
     gVTK.SetPoints( ptsVTK )

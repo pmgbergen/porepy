@@ -22,7 +22,7 @@ class TriangleGrid(Grid):
     parent Grid class.
 
     """
-    def __init__(self, p, tri=None):
+    def __init__(self, p, tri=None, name=None):
         """
         Create triangular grid from point cloud.
 
@@ -38,6 +38,8 @@ class TriangleGrid(Grid):
         p (np.ndarray, 2 x num_nodes): Point coordinates
         tri (np.ndarray, 3 x num_cells): Cell-node connections. If not
         provided, a Delaunay triangulation will be applied
+        name (str, optional): Name of grid type. Defaults to None, in which
+            case  'TriangleGrid' will be assigned.
         """
 
         self.dim = 2
@@ -46,6 +48,9 @@ class TriangleGrid(Grid):
             tri = scipy.spatial.Delaunay(p.transpose())
             tri = tri.simplices
             tri = tri.transpose()
+
+        if name is None:
+            name = 'TriangleGrid'
 
         num_nodes = p.shape[1]
 
@@ -90,7 +95,7 @@ class TriangleGrid(Grid):
                                     shape=(num_faces, num_cells))
 
         super(TriangleGrid, self).__init__(2, nodes, face_nodes, cell_faces,
-                                           'TriangleGrid')
+                                           name)
 
     def cell_node_matrix(self):
         """ Get cell-node relations in a Nc x 3 matrix
@@ -171,7 +176,8 @@ class StructuredTriangleGrid(TriangleGrid):
             # The node numbers are increased by nx[0] + 1 for each row
             tri = np.hstack((tri, tri_base + (iter1 + 1) * (nx[0] + 1)))
 
-        super(self.__class__, self).__init__(p, tri)
+        super(self.__class__, self).__init__(p, tri,
+                                             name='StructuredTriangleGrid')
 
 
 class TetrahedralGrid(Grid):

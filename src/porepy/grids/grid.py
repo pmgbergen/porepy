@@ -160,13 +160,41 @@ class Grid(object):
         """
         Implementation of __repr__
 
-        NOTE: Should be revisited - not sure if this is the optimal information
-        to provide here.
         """
         s = 'Grid with history ' + ', '.join(self.name) + '\n'
         s = s + 'Number of cells ' + str(self.num_cells) + '\n'
         s = s + 'Number of faces ' + str(self.num_faces) + '\n'
         s = s + 'Number of nodes ' + str(self.num_nodes) + '\n'
+        s += 'Dimension ' + str(self.dim)
+        return s
+
+    def __str__(self):
+        """ Implementation of __str__
+        """
+
+        # Special treatment of point grids.
+        if 'PointGrid' in self.name:
+            s = 'Point grid.\n'
+            n = self.nodes
+            s += 'Coordinate: (' + str(n[0]) + ', ' + str(n[1])
+            s += ', ' + str(n[2]) + ')\n'
+            return s
+
+        # More or less uniform treatment of the types of grids.
+        if 'CartGrid' in self.name:
+            s = 'Cartesian grid in ' + str(self.dim) + ' dimensions.\n'
+        elif 'TensorGrid' in self.name:
+            s = 'Tensor grid in ' + str(self.dim) + ' dimensions.\n'
+        elif 'StructuredTriangleGrid' in self.name:
+            s = 'Structured triangular grid.\n'
+        elif 'TriangleGrid' in self.name:
+            s = 'Triangular grid. \n'
+        elif 'TetrahedralGrid' in self.name:
+            s = 'Tetrahedral grid.\n'
+        s = s + 'Number of cells ' + str(self.num_cells) + '\n'
+        s = s + 'Number of faces ' + str(self.num_faces) + '\n'
+        s = s + 'Number of nodes ' + str(self.num_nodes) + '\n'
+
         return s
 
     def compute_geometry(self, is_embedded=False, is_starshaped=False):

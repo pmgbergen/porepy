@@ -6,6 +6,7 @@ intersection between lines, with grid generation in mind, and should perhaps
 be moved to a separate module.
 
 """
+from __future__ import division
 import time
 import numpy as np
 from sympy import geometry as geom
@@ -195,8 +196,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         if np.any(np.diff(edges[:2], axis=0) == 0):
             raise ValueError('Have created a point edge')
         edge_copy = np.sort(edges[:2], axis=0)
-        edge_unique, *new_2_old = setmembership.unique_columns_tol(edge_copy,
-                                                                   tol=tol)
+        edge_unique, _, _ = setmembership.unique_columns_tol(edge_copy, tol=tol)
         if edge_unique.shape[1] < edges.shape[1]:
             raise ValueError('Have created the same edge twice')
 
@@ -1297,6 +1297,10 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     # Drop the z-coordinate
     poly_1_xy = poly_1_xy[:2]
 
+    # Make sure the xy-polygon is ccw.
+    if not is_ccw_polygon(poly_1_xy):
+        poly_1_xy = poly_1_xy[:, ::-1]
+
     # Rotate the second polygon with the same rotation matrix
     poly_2_rot = rot_p_1.dot(poly_2)
 
@@ -1379,7 +1383,6 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
                     # inverse rotation, 3) translate to original coordinate.
                     isect = np.hstack((isect, irot.dot(_to3D(p_00)) +
                                        center_1))
-
         if isect.shape[1] == 0:
             isect = None
 

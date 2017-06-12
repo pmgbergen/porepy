@@ -10,9 +10,13 @@ PorePy currently has the following distinguishing features:
 PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the University of Bergen, Norway. The software is developed under projects funded by the Reserach Council of Norway and Statoil.
 
 # Installation
-PorePy depends on `numpy`, `scipy` and `networkx`, and (for the moment) also on `meshio`, `sympy` and `matplotlib`. The latter packages may be droped / changed later. To install, use
+PorePy depends on `numpy`, `scipy` and `networkx`, and (for the moment) also on `meshio`, `sympy` and `matplotlib`. The latter packages may be droped / changed later. To install (on Linux, probably also OSX), use
 
 	pip install porepy
+
+Installation by pip on Windows may cause problems with buliding the requirements (`numpy` etc). Intallation with conda is recommended; a Conda distribution will be added shortly.
+
+PorePy is developed under Python 3, but should also be compatible with Python 2.7.
 
 # From source
 To get the most current version, install from github:

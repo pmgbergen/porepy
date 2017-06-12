@@ -4,6 +4,7 @@ Module for partitioning of grids based on various methods.
 Intended support is by Cartesian indexing, and METIS-based.
 
 """
+from __future__ import division
 import warnings
 import sys
 import networkx

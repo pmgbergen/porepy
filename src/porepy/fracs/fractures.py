@@ -299,7 +299,7 @@ class Fracture(object):
                                   range(isect_other_self.shape[1])]
 
         if int_points.shape[1] > 1:
-            int_points, *rest \
+            int_points, _, _ \
                 = setmembership.unique_columns_tol(int_points, tol=tol)
         # There should be at most two of these points
         assert int_points.shape[1] <= 2
@@ -347,8 +347,25 @@ class Fracture(object):
         elif int_points.shape[1] == 1:
             # There should be exactly one unique boundary point.
             bp = np.hstack((bound_pt_self, bound_pt_other))
-            u_bound_pt, *rest = setmembership.unique_columns_tol(bp, tol=tol)
-            assert u_bound_pt.shape[1] == 1
+            if bp.shape[1] == 0:
+                # The other point on the intersection line must be a vertex.
+                # Brute force search
+                found_vertex = False
+                for self_p in self.p.T:
+                    diff = self_p.reshape((-1, 1)) - other.p
+                    dist = np.sqrt(np.sum(np.power(diff, 2), axis=0))
+                    if np.any(np.isclose(dist, 0, rtol=tol)):
+                        if found_vertex:
+                            raise ValueError('Found > 2 intersection points')
+                        found_vertex = True
+                        int_points = np.hstack((int_points,
+                                                self_p.reshape((-1, 1))))
+
+                # There is not more to say here, simply return
+                return int_points, on_boundary_self, on_boundary_other
+
+            u_bound_pt, _, _ = setmembership.unique_columns_tol(bp, tol=tol)
+            assert u_bound_pt.shape[1] == 1, 'The fractures should be convex'
 
         # If a segment runs through the polygon, there should be no interior points.
         # This may be sensitive to tolerances, should be a useful test to gauge
@@ -421,7 +438,7 @@ class Fracture(object):
             # No intersections should have more than two poitns
             assert ip.shape[1] < 3
 
-            ip_unique, *rest = setmembership.unique_columns_tol(ip, tol=tol)
+            ip_unique, _, _ = setmembership.unique_columns_tol(ip, tol=tol)
             if ip_unique.shape[1] == 2:
                 # The polygons share a segment, or a
                 bound_pt = np.hstack((bound_pt, ip_unique))
@@ -430,7 +447,7 @@ class Fracture(object):
                 # intersections (convex, non-overlapping polygons).
             elif ip_unique.shape[1] == 1:
                 # Either a vertex or single intersection point.
-                poly_ext, *rest = setmembership.unique_columns_tol(
+                poly_ext, _, _ = setmembership.unique_columns_tol(
                     np.hstack((self.p, ip_unique)), tol=tol)
                 if poly_ext.shape[1] == self.p.shape[1]:
                     # This is a vertex, we skip it
@@ -451,7 +468,7 @@ class Fracture(object):
         # Return a unique version of bound_pt
         # No need to uniquify unless there is more than one point.
         if bound_pt.shape[1] > 1:
-            bound_pt, *rest = setmembership.unique_columns_tol(bound_pt, tol=tol)
+            bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt, tol=tol)
 
         return bound_pt, has_segment, non_vertex, cuts_two
 
@@ -565,7 +582,7 @@ class Fracture(object):
             if len(isect) > 0 and num_isect > 0:
                 num_pts_orig = self.p.shape[1]
                 # Add extra points at the end of the point list.
-                self.p, *rest \
+                self.p, _, _ \
                     = setmembership.unique_columns_tol(np.hstack((self.p,
                                                                   isect)))
                 num_isect = self.p.shape[1] - num_pts_orig
@@ -643,8 +660,7 @@ class Fracture(object):
                 inside = np.logical_not(outside_box(self.p, bi))
                 # Dump points that are outside.
                 self.p = self.p[:, inside]
-                self.p, *rest = setmembership.unique_columns_tol(self.p,
-                                                                 tol=tol)
+                self.p, _, _ = setmembership.unique_columns_tol(self.p, tol=tol)
                 # We have modified the fractures, so re-calculate the centroid
                 self.compute_centroid()
             else:
@@ -1409,7 +1425,7 @@ class FractureNetwork(object):
                 tri = tri[:, np.logical_not(degenerate_tri)]
 
                 # Remove duplicate triangles, if any
-                tri, *rest = setmembership.unique_columns_tol(tri)
+                tri, _, _ = setmembership.unique_columns_tol(tri)
 
 
             # We need a connection map between cells. The simplest option was
@@ -1575,8 +1591,8 @@ class FractureNetwork(object):
             # from different directions
             new_edges = np.sort(new_edges, axis=0)
             # Find unique representation
-            unique_new_edges, * \
-                rest = setmembership.unique_columns_tol(new_edges)
+            unique_new_edges, _, _\
+                = setmembership.unique_columns_tol(new_edges)
             edges = np.hstack((edges, unique_new_edges))
 
         if self.verbose > 0:
@@ -2031,8 +2047,7 @@ class FractureNetwork(object):
         if data is None:
             data = {}
         # Use offset 1 for fracture numbers (should we rather do 0?)
-        frac_num = {'Fracture Number': 1 + np.arange(len(self._fractures))}
-        data = {**data, **frac_num}
+        data['Fracture_Number'] = 1 + np.arange(len(self._fractures))
 
         for name, data in data.items():
             data_vtk = vtk_np.numpy_to_vtk(data.ravel(order='F'), deep=True,

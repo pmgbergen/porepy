@@ -24,7 +24,7 @@ class TestPolygonBoundariesIntersect(unittest.TestCase):
         
     def test_segment_plane_intersection(self):
         # One intersection in a segment. Another in the interior, but should not be detected
-        p_1, p_2, *rest = self.setup_polygons()
+        p_1, p_2, _, _ = self.setup_polygons()
         p_2 -= np.array([0, 0, 0.3]).reshape((-1, 1))
         isect = cg.polygon_boundaries_intersect(p_1, p_2)
         p_known = np.array([0, 0, -1]).reshape((-1, 1))
@@ -34,7 +34,7 @@ class TestPolygonBoundariesIntersect(unittest.TestCase):
     def test_overlapping_segments(self):
         # The function should find the segment (1, 0, [-1,1])
         # In addition, each the points (1, 0, +-1) will be found twice (they are corners of both polygons)
-        p_1, *rest = self.setup_polygons()
+        p_1, _, _, _ = self.setup_polygons()
         p_2 = p_1 + np.array([2, 0, 0]).reshape((-1, 1))
         isect = cg.polygon_boundaries_intersect(p_1, p_2)
         p_int = isect[0]
