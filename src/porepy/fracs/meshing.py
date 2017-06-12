@@ -50,7 +50,7 @@ def simplex_grid(fracs, domain, **kwargs):
     fracs = [frac1, frac2]
     domain = {'xmin': 0, 'ymin': 0, 'xmax':5, 'ymax':5}
     gb = simplex_grid(fracs, domain)
-   
+
     """
     if 'zmax' in domain:
         ndim = 3

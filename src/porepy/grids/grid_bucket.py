@@ -615,7 +615,12 @@ class GridBucket(object):
 
     def target_2_source_nodes(self, g_src, g_trg):
         """
-        Runar did this.
+        Find the local node mapping from a source grid to a target grid. 
+
+        target_2_source_nodes(..) returns the mapping from g_src -> g_trg such
+        that g_trg.nodes[:, map] == g_src.nodes. E.g., if the target grid is the
+        highest dim grid, target_2_source_nodes will equal the global node
+        numbering. 
 
         """
         node_source = np.atleast_2d(g_src.global_point_ind)
@@ -736,7 +741,7 @@ class GridBucket(object):
         s += 'Size of highest dimensional grid: Cells: ' + str(num_cells)
         s += '. Nodes: ' + str(num_nodes) + '\n'
         s += 'In lower dimensions: \n'
-        for dim in range(self.dim_max()-1, self.dim_min()-1, -1):
+        for dim in range(self.dim_max() - 1, self.dim_min() - 1, -1):
             gl = self.grids_of_dimension(dim)
             s += str(len(gl)) + ' grids of dimension ' + str(dim) + '\n'
         return s
@@ -746,8 +751,7 @@ class GridBucket(object):
     def __repr__(self):
         s = 'Grid bucket containing ' + str(gb.size) + ' grids:\n'
         num = 0
-        for dim in range(self.dim_max(), self.dim_min()-1, -1):
+        for dim in range(self.dim_max(), self.dim_min() - 1, -1):
             gl = self.grids_of_dimension(dim)
             s += str(len(gl)) + ' grids of dimension ' + str(dim) + '\n'
         return s
-
