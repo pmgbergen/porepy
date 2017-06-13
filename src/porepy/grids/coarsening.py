@@ -3,7 +3,7 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.grids.grid import Grid
+from porepy.grids import grid, grid_bucket
 from porepy.params import second_order_tensor, bc
 
 from porepy.utils import matrix_compression, mcolon, accumarray
@@ -16,21 +16,43 @@ def generate_coarse_grid(g, subdiv):
     """ Generate a coarse grid clustering the cells according to the flags
     given by subdiv. Subdiv should be long as the number of cells in the
     original grid, it contains integers (possibly not continuous) which
-    represent the cells in the final mesh.
+    represent the cells in the final mesh. If a grid bucket is given the
+    coarsening is applied to the higher dimensional grid.
 
     The values computed in "compute_geometry" are not preserved and they should
     be computed out from this function.
 
     Note: there is no check for disconnected cells in the final grid.
+    Note: the return is different if a grid or a grid bucket is given.
 
     Parameters:
-    g: the grid
-    subdiv: a list of flags, one for each cell of the original grid
+        g: the grid or grid bucket
+        subdiv: a list of flags, one for each cell of the original grid
+
+    Return:
+        grid: if a grid is given as input, its coarser version is returned.
+        If a grid bucket is given as input, the grid is updated in place.
 
     How to use:
     subdiv = np.array([0,0,1,1,1,1,3,4,6,4,6,4])
-    g = generate_coarse_grid( g, subdiv )
+    g = generate_coarse_grid(g, subdiv)
 
+    or with a grid bucket:
+    subdiv = np.array([0,0,1,1,1,1,3,4,6,4,6,4])
+    generate_coarse_grid(gb, subdiv)
+
+    """
+    if isinstance(g, grid.Grid):
+        return generate_coarse_grid_single(g, subdiv, False)
+
+    if isinstance(g, grid_bucket.GridBucket):
+        generate_coarse_grid_gb(g, subdiv)
+
+#------------------------------------------------------------------------------#
+
+def generate_coarse_grid_single(g, subdiv, face_map):
+    """
+    Specific function for a single grid. Use the common interface instead.
     """
 
     subdiv = np.asarray(subdiv)
@@ -62,7 +84,7 @@ def generate_coarse_grid(g, subdiv):
         mask[ np.unique(faces_old, return_index=True )[1]] = False
         # extract the indexes of the internal edges, to be discared
         index = np.array([ np.where( faces_old == f )[0] \
-                                              for f in faces_old[mask]]).ravel()
+                                for f in faces_old[mask]], dtype=np.int).ravel()
         faces_new = np.delete( faces_old, index )
         cell_faces = np.r_[ cell_faces, faces_new ]
         cells = np.r_[ cells, np.repeat( cellId, faces_new.shape[0] ) ]
@@ -85,7 +107,6 @@ def generate_coarse_grid(g, subdiv):
     cell_faces_id = np.arange(cell_faces_unique.size, dtype=cell_faces.dtype)
     cell_faces = np.array([cell_faces_id[np.where( cell_faces_unique == f )[0]]\
                                                    for f in cell_faces]).ravel()
-
     shape = (cell_faces_unique.size, cells_list.size)
     cell_faces =  sps.csc_matrix((orient, (cell_faces, cells)), shape = shape)
 
@@ -105,7 +126,40 @@ def generate_coarse_grid(g, subdiv):
 
     name = g.name
     name.append( "coarse" )
-    return Grid( g.dim, g.nodes[:,nodes_list], face_nodes, cell_faces, name )
+    g_co = grid.Grid(g.dim, g.nodes[:, nodes_list], face_nodes, cell_faces, name)
+
+    if face_map:
+        return g_co, np.array([cell_faces_unique, cell_faces_id])
+
+    return g_co
+
+#------------------------------------------------------------------------------#
+
+def generate_coarse_grid_gb(gb, subdiv):
+    """
+    Specific function for a grid bucket. Use the common interface instead.
+    """
+
+    # Extract the higher dimensional grids
+    # NOTE: we assume only one high dimensional grid
+    g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
+
+    # Construct the coarse grids
+    g_co, face_map = generate_coarse_grid_single(g, subdiv, True)
+
+    # Update all the face_cells for all the 'edges' connected to the grid
+    for e, d in gb.edges_props_of_node(g):
+        # The indices that need to be mapped to the new grid
+        face_cells = d['face_cells'].tocsr()
+        indices = face_cells.indices
+        # Map indices
+        mask = np.argsort(indices)
+        indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
+        # Reverse the ordering
+        face_cells.indices = indices[np.argsort(mask)]
+        d['face_cells'] = face_cells.tocsc()
+
+    gb.update_nodes(g, g_co)
 
 #------------------------------------------------------------------------------#
 
