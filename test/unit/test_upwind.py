@@ -6,7 +6,6 @@ from porepy.grids import structured, simplex
 import porepy.utils.comp_geom as cg
 from porepy.params import bc
 from porepy.numerics.fv.transport import upwind
-from porepy.viz import plot_grid
 
 #------------------------------------------------------------------------------#
 

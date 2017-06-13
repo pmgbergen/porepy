@@ -8,8 +8,6 @@ from porepy.params import bc
 from porepy.numerics.fv.transport import upwind, upwind_coupling
 from porepy.numerics.mixed_dim import coupler
 
-from porepy.viz import plot_grid
-
 #------------------------------------------------------------------------------#
 
 class BasicsTest( unittest.TestCase ):
