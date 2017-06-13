@@ -83,8 +83,8 @@ def face_on_side(g, side, tol=1e-8):
 
     It is assumed that the grid forms a box in 2d or 3d.
 
-    The faces are specified by one of two type of keywords: (xmin / left),
-    (xmax / right), (ymin / south), (ymax / north), (zmin, bottom),
+    The faces are specified by one of two type of keywords: (xmin / west),
+    (xmax / east), (ymin / south), (ymax / north), (zmin, bottom),
     (zmax / top).
 
     Parameters:
