@@ -61,7 +61,7 @@ class GridBucket(object):
         """
         return self.graph.number_of_nodes()
 
-#-----------------------
+#------------------------------------------------------------------------------#
 
     def dim_max(self):
         """
@@ -100,6 +100,23 @@ class GridBucket(object):
 
         """
         return self.graph.edges_iter()
+
+#------------------------------------------------------------------------------#
+
+    def edges_props_of_node(self, n):
+        """
+        Iterator over the edges of the specific node.
+
+        Parameters:
+            n: A node in the graph.
+
+        Yields:
+            core.grid.edges: The edge (pair of grids) associated with an edge.
+            data: The dictionary storing all information in this edge.
+
+        """
+        for e in self.graph.edges([n]):
+            yield e, self.edge_props(e)
 
 #------------------------------------------------------------------------------#
 
@@ -148,6 +165,38 @@ class GridBucket(object):
 
         """
         return e[0], e[1]
+
+#------------------------------------------------------------------------------#
+
+    def get_grids(self, cond):
+        """
+        Obtain the grids subject to a condition.
+
+        Parameters:
+            cond: Predicate to select a grid.
+
+        Returns:
+            grids: np.array of the grids.
+
+        """
+        return np.array([g for g, _ in self if cond(g)])
+
+#------------------------------------------------------------------------------#
+
+    def update_nodes(self, new, old):
+        """
+        Update the grids givin the old and new values. The edges are updated
+        accordingly.
+
+        Parameters:
+            new: List of the new grids, it can be a single element
+            old: List of the old grids, it can be a single element
+        """
+        new = np.atleast_1d(new)
+        old = np.atleast_1d(old)
+        assert new.size == old.size
+
+        networkx.relabel_nodes(self.graph, dict(zip(new, old)), False)
 
 #------------------------------------------------------------------------------#
 
@@ -403,7 +452,8 @@ class GridBucket(object):
                 prop_list.append(self.graph.edge[gp[1]][gp[0]][key])
             else:
                 raise KeyError('Unknown edge')
-        return prop_list
+        return np.array(prop_list)
+
 #------------------------------------------------------------------------------#
 
     def edge_props(self, gp):
@@ -615,12 +665,12 @@ class GridBucket(object):
 
     def target_2_source_nodes(self, g_src, g_trg):
         """
-        Find the local node mapping from a source grid to a target grid. 
+        Find the local node mapping from a source grid to a target grid.
 
         target_2_source_nodes(..) returns the mapping from g_src -> g_trg such
         that g_trg.nodes[:, map] == g_src.nodes. E.g., if the target grid is the
         highest dim grid, target_2_source_nodes will equal the global node
-        numbering. 
+        numbering.
 
         """
         node_source = np.atleast_2d(g_src.global_point_ind)
