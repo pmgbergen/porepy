@@ -1,3 +1,4 @@
+from __future__ import division, print_function
 import numpy as np
 import scipy.optimize as opt
 
@@ -93,12 +94,25 @@ def half_space_pt(n, x0, pts, recompute=True):
     bounds = ((np.amin(pts[0, :]), np.amax(pts[0, :])),
               (np.amin(pts[1, :]), np.amax(pts[1, :])),
               (np.amin(pts[2, :]), np.amax(pts[2, :])),
-              (None, None), (None, None))
+              (0, None), (0, None))
     res = opt.linprog(c, A_ub, np.zeros(dim).T, bounds=bounds)
-    if recompute and (res.status != 0 or res.x[3] <= 0 or res.x[4] <= 0):
+
+    # We allow point also in the boundary of the half-space intersection,
+    # imposing res.x[4] < 0. To avoid this change in res.x[4] <= 0.
+    if recompute and (res.status != 0 or res.x[3] == 0):  #np.prod(~if_check)
         return half_space_pt(-n, x0, pts, False)
 
-    assert res.status == 0 and res.x[3] > 0 and res.x[4] > 0
-    return np.array(res.x[0:3]) / res.x[3]
+    def if_check(x):
+        condition = np.array([np.dot(x - x_, n_) for n_, x_ in zip(n.T, x0.T)])
+        check = condition + res.x[4]/res.x[3]
+        return np.logical_or(check <= 0, np.isclose(check, 0))
+
+    x = np.array(res.x[0:3]) / res.x[3]
+
+    assert res.status == 0 and np.all(if_check(x)) and res.x[3] > 0
+
+    if np.isclose(res.x[4], 0):
+        print('Non star-shaped polygon, attention is required')
+    return x
 
 #------------------------------------------------------------------------------#
