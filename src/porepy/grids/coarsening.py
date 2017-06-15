@@ -319,25 +319,29 @@ def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
         is_coarse[seeds] = True
         is_fine[seeds] = False
 
-    # If two neighbors are coarse, eliminate one of them
+    # If two neighbors are coarse, eliminate one of them without touching the
+    # seeds
     c2c = np.abs(A) > 0
     c2c_rows, _, _ = sps.find(c2c)
 
-    pairs = np.empty((2,0), dtype=np.int)
+    pairs = np.empty((0,2), dtype=np.int)
     for idx, it in enumerate(np.where(is_coarse)[0]):
         loc = slice(c2c.indptr[it], c2c.indptr[it+1])
         ind = np.setdiff1d(c2c_rows[loc], it)
         cind = ind[is_coarse[ind]]
-        new_pair = np.stack((np.repeat(it, cind.size), cind))
-        pairs = np.append(pairs, new_pair, axis=1)
+        new_pair = np.stack((np.repeat(it, cind.size), cind), axis=-1)
+        pairs = np.append(pairs, new_pair, axis=0)
 
+    # Remove one of the neighbors cells
     if pairs.size:
-        pairs = setmembership.unique_columns_tol(np.sort(pairs, axis=0),
-                                                 axis=1)
-        for ij in pairs.T:
-            mi = np.argmin(A[ij, ij])
-            is_coarse[ij[mi]] = False
-            is_fine[ij[mi]] = True
+        pairs = setmembership.unique_rows(np.sort(pairs, axis=1))[0]
+        for ij in pairs:
+            A_val = np.array(A[ij, ij].data).ravel()
+            ids = ij[np.argsort(A_val)]
+            ids = np.setdiff1d(ids, seeds, assume_unique=True)
+            if ids.size:
+                is_coarse[ids[0]] = False
+                is_fine[ids[0]] = True
 
     coarse = np.where(is_coarse)[0]
 
