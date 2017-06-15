@@ -191,6 +191,32 @@ def tpfa_matrix(g, perm=None, faces=None):
 
 #------------------------------------------------------------------------------#
 
+def generate_seeds(gb):
+    # Extract the higher dimensional grid
+    g_h = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
+    g_h_faces, g_h_cells, _ = sps.find(g_h.cell_faces)
+
+    # Extract the 1-codimensional grids
+    gs = gb.get_grids(lambda g: g.dim == gb.dim_max()-1)
+
+    seeds = np.empty(0, dtype=np.int)
+    for g in gs:
+        tips = np.where(g.has_face_tag(grid.FaceTag.TIP))[0]
+        faces, cells, _ = sps.find(g.cell_faces)
+        index = np.in1d(faces, tips).nonzero()[0]
+        cells = np.unique(cells[index])
+
+        face_cells = gb.graph.edge[g][g_h]['face_cells']
+        interf_cells, interf_faces, _ = sps.find(face_cells)
+        index = np.in1d(interf_cells, cells).nonzero()[0]
+
+        index = np.in1d(g_h_faces, interf_faces[index]).nonzero()[0]
+        seeds = np.concatenate((seeds, g_h_cells[index]))
+
+    return seeds
+
+#------------------------------------------------------------------------------#
+
 def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
     """
     Create the partition based on an input matrix using the algebraic multigrid
