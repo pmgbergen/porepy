@@ -280,8 +280,9 @@ def plot_grid_1d(g, cell_value, ax, **kwargs):
 #------------------------------------------------------------------------------#
 
 def plot_grid_2d(g, cell_value, ax, **kwargs):
-    cell_nodes = g.cell_nodes()
-    nodes, cells, _  = sps.find( cell_nodes )
+    faces, _, _ = sps.find(g.cell_faces)
+    nodes, _, _ = sps.find(g.face_nodes)
+
 
     alpha = kwargs.get('alpha', 1)
     if kwargs.get('color_map'):
@@ -293,12 +294,14 @@ def plot_grid_2d(g, cell_value, ax, **kwargs):
         def color_face(value): return np.r_[rgb, alpha]
 
     for c in np.arange( g.num_cells ):
-        loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
-        ptsId = nodes[loc]
-        mask = sort_points.sort_point_plane( g.nodes[:, ptsId], \
-                                             g.cell_centers[:, c] )
+        loc_f = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+        faces_loc = faces[loc_f]
 
-        pts = g.nodes[:, ptsId[mask]]
+        loc_n = g.face_nodes.indptr[faces_loc]
+        pts_pairs = np.array([nodes[loc_n], nodes[loc_n + 1]])
+        ordering = sort_points.sort_point_pairs(pts_pairs)[0, :]
+
+        pts = g.nodes[:, ordering]
         linewidth = kwargs.get('linewidth', 1)
         poly = Poly3DCollection([pts.T], linewidth = linewidth)
         poly.set_edgecolor('k')
