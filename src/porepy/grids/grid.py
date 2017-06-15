@@ -336,6 +336,7 @@ class Grid(object):
                 x0 = xn[:, nodes[loc_n]]
                 x1 = xn[:, nodes[loc_n + 1]]
                 coords = np.concatenate((x0, x1), axis=1)
+                x0 = (x1 + x0)/2.
                 if not np.all(half_space.half_space_int(normal, x0, coords)):
                     center = half_space.half_space_pt(normal, x0, coords)
                     center_tile = np.tile(center, (faces_loc.size, 1)).T
