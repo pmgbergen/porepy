@@ -6,7 +6,7 @@ import scipy.sparse as sps
 from porepy.grids import grid, grid_bucket
 from porepy.params import second_order_tensor, bc
 
-from porepy.utils import matrix_compression, mcolon, accumarray
+from porepy.utils import matrix_compression, mcolon, accumarray, setmembership
 
 from porepy.numerics.fv import tpfa
 
@@ -93,13 +93,15 @@ def generate_coarse_grid_single(g, subdiv, face_map):
         # reconstruct the face_nodes mapping
         # consider only the unvisited faces
         not_visit = ~visit[faces_new]
-        if not_visit.size == 0: continue
+        if not_visit.size == 0:
+            continue
         # mask to consider only the external faces
-        mask = np.sum( [ face_node_ind == f for f in faces_new[not_visit] ], \
-                        axis = 0, dtype = np.bool )
-        face_nodes = np.r_[ face_nodes, face_node_ind[ mask ] ]
-        nodes_new = g.face_nodes.indices[ mask ]
-        nodes = np.r_[ nodes, nodes_new ]
+        mask = np.atleast_1d(np.sum([face_node_ind == f \
+                                     for f in faces_new[not_visit]], \
+                                    axis=0, dtype=np.bool))
+        face_nodes = np.r_[face_nodes, face_node_ind[mask]]
+        nodes_new = g.face_nodes.indices[mask]
+        nodes = np.r_[nodes, nodes_new]
         visit[faces_new] = True
 
     # Rename the faces
@@ -181,6 +183,9 @@ def tpfa_matrix(g, perm=None, faces=None):
         Two-point flux approximation matrix
 
     """
+    if isinstance(g, grid_bucket.GridBucket):
+       g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
+
     if perm is None:
         perm = second_order_tensor.SecondOrderTensor(g.dim,np.ones(g.num_cells))
 
