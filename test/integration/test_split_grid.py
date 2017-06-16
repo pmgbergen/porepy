@@ -49,3 +49,27 @@ class TestMeshing(unittest.TestCase):
         assert len(g_2) == 3
         assert len(g_1) == 3
         assert len(g_0) == 1
+
+    def test_L_intersection_2d(self):
+        """
+        Create a L-intersection in 2D
+        """
+
+        f_1 = np.array([[.2, 0.5], [0.8, 0.5]])
+        f_2 = np.array([[0.2, 0.1], [0.2, 0.5]])
+
+        f_set = [f_1, f_2]
+        box = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
+
+        bucket = meshing.simplex_grid(f_set, box)
+        bucket.compute_geometry()
+
+        g_3 = bucket.grids_of_dimension(3)
+        g_2 = bucket.grids_of_dimension(2)
+        g_1 = bucket.grids_of_dimension(1)
+        g_0 = bucket.grids_of_dimension(0)
+
+        assert len(g_3) == 0
+        assert len(g_2) == 1
+        assert len(g_1) == 2
+        assert len(g_0) == 1
