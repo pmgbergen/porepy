@@ -10,7 +10,7 @@ from porepy.grids import constants
 from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
 from porepy.fracs import fractures, utils
 import porepy.utils.comp_geom as cg
-
+from porepy.utils.setmembership import unique_columns_tol
 
 def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     """
@@ -152,7 +152,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     return grids
 
 
-def triangle_grid(fracs, domain, **kwargs):
+def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -200,9 +200,27 @@ def triangle_grid(fracs, domain, **kwargs):
     # Unified description of points and lines for domain, and fractures
     pts_all, lines = __merge_domain_fracs_2d(domain, frac_pts, frac_con)
 
+    # Snap to underlying grid before comparing points
+    pts_all = cg.snap_to_grid(pts_all, tol)
+
     # We split all fracture intersections so that the new lines do not
     # intersect, except possible at the end points
-    pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines)
+    pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol)
+
+    # Ensure unique description of points
+    pts_all = cg.snap_to_grid(pts_all, tol)
+    pts_split, _, old_2_new = unique_columns_tol(pts_all, tol=tol)
+    lines_split[:2] = old_2_new[lines_split[:2]]
+
+    # Remove lines with the same start and end-point.
+    # This can be caused by L-intersections, or possibly also if the two
+    # endpoints are considered equal under tolerance tol.
+    remove_line_ind = np.where(np.diff(lines_split[:2], axis=0)[0] == 0)[0]
+    lines_split = np.delete(lines_split, remove_line_ind, axis=1)
+
+    # TODO: This operation may leave points that are not referenced by any
+    # lines. We should probably delete these.
+
     # We find the end points that is shared by more than one intersection
     intersections = __find_intersection_points(lines_split)
 
