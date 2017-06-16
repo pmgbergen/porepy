@@ -55,13 +55,14 @@ class TestMeshing(unittest.TestCase):
         Create a L-intersection in 2D
         """
 
-        f_1 = np.array([[.2, 0.5], [0.8, 0.5]])
-        f_2 = np.array([[0.2, 0.1], [0.2, 0.5]])
+        f_1 = np.array([[.2, 0.8],
+                        [0.5, 0.5]])
+        f_2 = np.array([[0.2, 0.2],
+                        [0.1, 0.5]])
 
         f_set = [f_1, f_2]
         box = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
-
-        bucket = meshing.simplex_grid(f_set, box)
+        bucket = meshing.cart_grid(f_set, [10, 10], physdims=[1, 1])
         bucket.compute_geometry()
 
         g_3 = bucket.grids_of_dimension(3)
