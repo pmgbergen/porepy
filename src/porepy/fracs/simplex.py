@@ -208,8 +208,8 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol)
 
     # Ensure unique description of points
-    pts_all = cg.snap_to_grid(pts_all, tol)
-    pts_split, _, old_2_new = unique_columns_tol(pts_all, tol=tol)
+    pts_split = cg.snap_to_grid(pts_split, tol)
+    pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=tol)
     lines_split[:2] = old_2_new[lines_split[:2]]
 
     # Remove lines with the same start and end-point.
