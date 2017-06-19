@@ -4,7 +4,7 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.grids.grid import Grid
-from porepy.params import second_order_tensor, bc
+from porepy.params import tensor, bc
 
 from porepy.utils import matrix_compression, mcolon, accumarray
 
@@ -128,7 +128,7 @@ def tpfa_matrix(g, perm=None, faces=None):
 
     """
     if perm is None:
-        perm = second_order_tensor.SecondOrderTensor(g.dim,np.ones(g.num_cells))
+        perm = tensor.SecondOrder(g.dim,np.ones(g.num_cells))
 
     bound = bc.BoundaryCondition(g, np.empty(0), '')
     trm, _ = tpfa.tpfa(g, perm, bound, faces)

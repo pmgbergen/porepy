@@ -58,7 +58,7 @@ class Mass(Solver):
         """
         ndof = self.ndof(g)
         coeff = g.cell_volumes * data.get('phi', 1) / data.get('deltaT', 1)
-        apertures = data.get('a')
+        apertures = data.get('apertures')
         if apertures is not None:
             coeff = coeff * apertures
 

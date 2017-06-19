@@ -9,7 +9,7 @@ import scipy.sparse as sps
 from scipy.sparse.linalg import spsolve
 
 from porepy.grids import structured, simplex
-from porepy.params import bc, second_order_tensor
+from porepy.params import bc, tensor
 
 
 from porepy.viz.exporter import export_vtk
@@ -30,21 +30,19 @@ def add_data(gb):
     """
     Define the permeability, apertures, boundary conditions, source term
     """
-    gb.add_node_props(['k', 'f', 'bc', 'bc_val', 'a'])
+    gb.add_node_props(['perm', 'source', 'bc', 'bc_val', 'apertures'])
     for g, d in gb:
         # Permeability
         kxx = np.ones(g.num_cells)
         if all(g.cell_centers[0, :] < 0.0001):
-            perm = second_order_tensor.SecondOrderTensor(3,
-                                                         kxx / 100, kxx, kxx)
+            perm = tensor.SecondOrder(3,                 kxx / 100, kxx, kxx)
         else:
-            perm = second_order_tensor.SecondOrderTensor(3,
-                                                         kxx * np.power(100, g.dim < 3))
+            perm = tensor.SecondOrder(3,                 kxx * np.power(100, g.dim < 3))
 
-        d['k'] = perm
+        d['perm'] = perm
 
         # Source term
-        d['f'] = np.zeros(g.num_cells)
+        d['source'] = np.zeros(g.num_cells)
 
         # Boundaries
         bound_faces = g.get_boundary_faces()
@@ -64,7 +62,7 @@ def add_data(gb):
         d['bc_val'] = d_bound.ravel('F')
 
         # Assign apertures
-        d['a'] = np.ones(g.num_cells) * np.power(1e-2, 3 - g.dim)
+        d['apertures'] = np.ones(g.num_cells) * np.power(1e-2, 3 - g.dim)
 
 #------------------------------------------------------------------------------#
 
@@ -119,7 +117,7 @@ if __name__ == '__main__':
     max_p, min_p, normalization, error_norm = np.zeros(1), np.zeros(1), 0, 0
     for g, d in gb:
         p1, p2 = d["p"], d["p_condensation"]
-        error_norm += sum(np.power(p1 - p2, 2) * g.cell_volumes * d['a'])
+        error_norm += sum(np.power(p1 - p2, 2) * g.cell_volumes * d['apertures'])
         normalization += sum(g.cell_volumes)
         max_p = np.array(np.amax(np.concatenate((max_p, p1)), axis=0), ndmin=1)
         min_p = np.array(np.amin(np.concatenate((min_p, p1)), axis=0), ndmin=1)

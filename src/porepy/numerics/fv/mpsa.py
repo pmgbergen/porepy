@@ -44,10 +44,10 @@ class Mpsa(Solver):
         order elliptic equation using a FV method with a multi-point stress
         approximation.
         The name of data in the input dictionary (data) are:
-        c : fourth_order_tensor
+        stiffness : fourth_order_tensor
             Stress tensor defined cell-wise. If not given lambda and mu is set 
             to 1. A warning is rised.
-        f : array (self.g.dim * self.g.num_cells)
+        source : array (self.g.dim * self.g.num_cells)
             Vector body force term defined cell-wise. Given as stress, i.e.
             should already been multiplied with the cell sizes.  If not given a
             zero source body stress term is assumed and a warning arised.
@@ -70,12 +70,12 @@ class Mpsa(Solver):
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        c, bnd, bc_val, f = data.get('c'), data.get(
-            'bc'), data.get('bc_val'), data.get('f')
+        c, bnd, bc_val, f = data.get('stiffness'), data.get(
+            'bc'), data.get('bc_val'), data.get('source')
         if c is None:
             lam = np.ones(g.num_cells)
             mu = np.ones(g.num_cells)
-            c = fourth_order_tensor.FourthOrderTensor(g.dim, mu, lam)
+            c =tensor.FourthOrder(g.dim, mu, lam)
             warnings.warn('Permeability not assigned, assumed identity')
 
         stress, bound_stress = mpsa(g, c, bnd)
@@ -161,7 +161,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
     Example:
         # Set up a Cartesian grid
         g = structured.CartGrid([5, 5])
-        c = fourth_order_tensor.FourthOrderTensor(g.dim, np.ones(g.num_cells))
+        c =tensor.FourthOrder(g.dim, np.ones(g.num_cells))
 
         # Dirirchlet boundary conditions
         bound_faces = g.get_boundary_faces().ravel()
@@ -264,9 +264,9 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
     fv_utils.cell_ind_for_partial_update()
 
     Parameters:
-        g (core.grids.grid): grid to be discretized
-        constit (core.constit.second_order_tensor) permeability tensor
-        bnd (core.bc.bc) class for boundary values
+        g (porepy.grids.grid.Grid): grid to be discretized
+        constit (porepy.params.tensor.SecondOrder) permeability tensor
+        bnd (porepy.params.bc.BoundaryCondition) class for boundary conditions
         faces (np.ndarray) faces to be considered. Intended for partial
             discretization, may change in the future
         eta Location of pressure continuity point. Should be 1/3 for simplex

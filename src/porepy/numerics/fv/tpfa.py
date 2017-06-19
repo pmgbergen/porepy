@@ -8,7 +8,7 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.params import second_order_tensor
+from porepy.params import tensor
 from porepy.numerics.mixed_dim.solver import Solver
 
 
@@ -128,9 +128,9 @@ def tpfa(g, k, bnd, faces=None, apertures=None):
     cells (defined as the two cells sharing the face).
 
     Parameters
-        g (core.grids.grid): grid to be discretized
-        k (core.constit.second_order_tensor): permeability tensor.
-        bc (core.bc.bc): class for boundary values
+        g (porepy.grids.grid.Grid): grid to be discretized
+        k (porepy.params.tensor.SecondOrder) permeability tensor
+        bnd (porepy.params.bc.BoundarCondition) class for boundary conditions
         faces (np.ndarray) faces to be considered. Intended for partial
             discretization, may change in the future
         apertures (np.ndarray) apertures of the cells for scaling of the face
@@ -203,4 +203,4 @@ def tpfa(g, k, bnd, faces=None, apertures=None):
     bndr_sgn = bndr_sgn[sort_id]
     bound_flux = sps.coo_matrix((t_b * bndr_sgn, (bndr_ind, bndr_ind)),
                                 (g.num_faces, g.num_faces))
-    return flux, bound_flux
+    return flux,  bound_flux

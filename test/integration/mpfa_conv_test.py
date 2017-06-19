@@ -21,7 +21,7 @@ import unittest
 from math import pi
 
 from porepy.grids import structured, simplex
-from porepy.params import second_order_tensor, fourth_order_tensor, bc
+from porepy.params import tensor, bc
 from porepy.numerics.fv import mpfa, fvutils, mpsa
 from porepy.utils.mcolon import mcolon
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
@@ -135,7 +135,7 @@ class MainTester(unittest.TestCase):
         # Compute permeability
         char_func_cells = chi(g.cell_centers[0], g.cell_centers[1]) * 1.
         perm_vec = (1 - char_func_cells) + kappa * char_func_cells
-        perm = second_order_tensor.SecondOrderTensor(2, perm_vec)
+        perm = tensor.SecondOrder(2, perm_vec)
 
         # The rest of the function is similar to self.solve.system, see that
         # for comments.
@@ -196,9 +196,8 @@ class MainTester(unittest.TestCase):
         char_func_cells = chi(g.cell_centers[0], g.cell_centers[1]) * 1.
         mat_vec = (1 - char_func_cells) + kappa * char_func_cells
 
-        k = fourth_order_tensor.FourthOrderTensor(2, mat_vec, mat_vec)
-        stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter='python',
-                                         eta=0)
+        k = tensor.FourthOrder(2, mat_vec, mat_vec)
+        stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter='python')
         div = fvutils.vector_divergence(g)
         a = div * stress
 
@@ -313,9 +312,7 @@ class CartGrid2D(MainTester):
         an_sol = _SolutionHomogeneousDomainFlow(u, x, y)
 
         perm = 1
-        k = second_order_tensor.SecondOrderTensor(2,
-                                                  perm * np.ones(
-                                                      self.g_nolines.num_cells))
+        k = tensor.SecondOrder(2, perm * np.ones(self.g_nolines.num_cells))
         u_num, flux_num = self.solve_system_homogeneous_perm(self.g_nolines,
                                                              self.bc,
                                                              self.bound_faces,
@@ -372,7 +369,7 @@ class CartGrid2D(MainTester):
 
         muc = np.ones(self.g_nolines.num_cells)
         lambdac = muc
-        k = fourth_order_tensor.FourthOrderTensor(2, muc, lambdac)
+        k = tensor.FourthOrder(2, muc, lambdac)
 
         u_num, stress_num = self.solve_system_homogeneous_elasticity(
             self.g_nolines, self.bc, self.bound_faces, k, an_sol)
@@ -729,9 +726,7 @@ class TriangleGrid2D(MainTester):
         bound_cond = self.bc
         bound_faces = self.bound_faces
         perm = 1
-        k = second_order_tensor.SecondOrderTensor(2,
-                                                  perm * np.ones(
-                                                      g.num_cells))
+        k = tensor.SecondOrder(2,perm * np.ones(g.num_cells))
 
         u_num, flux_num = self.solve_system_homogeneous_perm(g, bound_cond,
                                                              bound_faces, k,
@@ -799,7 +794,7 @@ class TriangleGrid2D(MainTester):
 
         muc = np.ones(self.g_nolines.num_cells)
         lambdac = muc
-        k = fourth_order_tensor.FourthOrderTensor(2, muc, lambdac)
+        k = tensor.FourthOrder(2, muc, lambdac)
 
         u_num, stress_num = self.solve_system_homogeneous_elasticity(
             self.g_nolines, self.bc, self.bound_faces, k, an_sol)

@@ -3,16 +3,29 @@ import numpy as np
 import numpy.linalg
 import unittest
 
-from porepy.numerics.fv import mpfa, biot, fvutils
-from porepy.params import second_order_tensor, fourth_order_tensor, bc
+from porepy.numerics.fv import mpfa, mpsa, fvutils
+from porepy.params import tensor, bc
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
 class BiotTest(unittest.TestCase):
 
-    def test_steady_state(self):
-        # Zero boundary conditions and no right hand sid. Nothing should
-        # happen.
+    def mpfa_discr(self, g, bound):
+        k = tensor.SecondOrder(g.dim, np.ones(g.num_cells))
+        flux, bound_flux = mpfa.mpfa(g, k, bound, inverter='python')
+        div_flow = fvutils.scalar_divergence(g)
+        return flux, bound_flux, div_flow
+
+    def mpsa_discr(self, g, bound):
+        mu = np.ones(g.num_cells)
+        c = tensor.FourthOrder(g.dim, mu, mu)
+        stress, bound_stress, \
+            grad_p, div_d, stabilization = mpsa.biot(g, c, bound,
+                                                     inverter='python')
+        div_mech = fvutils.vector_divergence(g)
+        return stress, bound_stress, grad_p, div_d, stabilization, div_mech
+
+    def test_no_dynamics_2d(self):
         g_list = setup_grids.setup_2d()
         for g in g_list:
             discr = biot.Biot()
@@ -22,8 +35,8 @@ class BiotTest(unittest.TestCase):
                                          ['dir'] * bound_faces.size)
 
             mu = np.ones(g.num_cells)
-            c = fourth_order_tensor.FourthOrderTensor(g.dim, mu, mu)
-            k = second_order_tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+            c = tensor.FourthOrder(g.dim, mu, mu)
+            k = tensor.SecondOrder(g.dim, np.ones(g.num_cells))
 
             bound_val = np.zeros(g.num_faces)
 
