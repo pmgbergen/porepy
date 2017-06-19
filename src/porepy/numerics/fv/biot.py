@@ -96,6 +96,10 @@ class Biot(Solver):
     def discretize(self, g, data):
         """ Discretize flow and mechanics equations using FV methods.
 
+        The parameters needed for the discretization are:
+
+
+
         """
         # Discretization of elasticity / poro-mechanics
         self._discretize_flow(g, data)
@@ -154,114 +158,6 @@ class Biot(Solver):
         data['compr_discr'] = sps.dia_matrix((g.cell_volumes * compr * poro, 0),
                                              shape=(g.num_cells, g.num_cells))
 
-
-#----------------------- Linear solvers -------------------------------------
-
-    def solve(self, A, solver='direct', **kwargs):
-
-        solver = solver.strip().lower()
-        if solver == 'direct':
-            def slv(b):
-                x = la.spsolve(A, b)
-                return x
-        elif solver == 'factorized':
-            slv = la.factorized(A.to_csc())
-
-        else:
-            raise ValueError('Unknown solver ' + solver)
-
-        return slv
-
-
-#----------------------- Methods for post processing -------------------------
-    def extractD(self, g, u, dims=None, as_vector=False):
-        """ Extract displacement field from solution.
-
-        Parameters:
-            g: grid, or a subclass.
-            u (np.ndarray): Solution variable, representing displacements and
-                pressure.
-            dim (list of int, optional): Which dimension to extract. If None,
-                all dimensions are returned.
-        Returns:
-            list of np.ndarray: Displacement variables in the specified
-                dimensions.
-
-        """
-        if dims is None:
-            dims = np.arange(g.dim)
-        vals = []
-
-        inds = np.arange(0, g.num_cells * g.dim, g.dim)
-
-        for d in dims:
-            vals.append(u[d + inds])
-        if as_vector:
-            vals = np.asarray(vals).reshape((-1, 1), order='C')
-            return vals
-        else:
-            return vals
-
-
-    def extractP(self, g, u):
-        """ Extract pressure field from solution.
-
-        Parameters:
-            g: grid, or a subclass.
-            u (np.ndarray): Solution variable, representing displacements and
-                pressure.
-
-        Returns:
-            np.ndarray: Pressure part of solution vector.
-
-        """
-        return u[g.dim * g.num_cells:]
-
-
-    def compute_flux(self, g, u, data):
-        """ Compute flux field corresponding to a solution.
-
-        Parameters:
-            g: grid, or a subclass.
-            u (np.ndarray): Solution variable, representing displacements and
-                pressure.
-            bc_flow (np.ndarray): Flux boundary values.
-            data (dictionary): Dictionary related to grid and problem. Should
-                contain boundary discretization.
-
-        Returns:
-            np.ndarray: Flux over all faces
-
-        """
-        flux_discr = data['flux']
-        bound_flux = data['bound_flux']
-        bound_val = data['bound_flow_val']
-        p = self.extractP(g, u)
-        flux = flux_discr * p + bound_flux * bound_val
-        return flux
-
-    def compute_stress(self, g, u, data):
-        """ Compute stress field corresponding to a solution.
-
-        Parameters:
-            g: grid, or a subclass.
-            u (np.ndarray): Solution variable, representing displacements and
-                pressure.
-            bc_flow (np.ndarray): Flux boundary values.
-            data (dictionary): Dictionary related to grid and problem. Should
-                contain boundary discretization.
-
-        Returns:
-            np.ndarray, g.dim * g.num_faces: Stress over all faces. Stored as
-                all stress values on the first face, then the second etc.
-
-        """
-        stress_discr = data['stress']
-        bound_stress = data['bound_stress']
-        bound_val = data['bound_mech_val']
-        d = self.extractD(g, u, as_vector=True)
-        stress = stress_discr * d + (bound_stress * bound_val)[:, np.newaxis]
-        return stress
 
 #-------------------------------------------------------------------------
 
@@ -471,7 +367,7 @@ class Biot(Solver):
         """
         rows = np.tile(np.arange(nf), ((nd, 1))).reshape((1, nd*nf),
                                                          order='F')[0]
-        
+
         cols = fvutils.expand_indices_nd(np.arange(nf), nd)
         vals = np.ones(nf*nd)
         return sps.coo_matrix((vals, (rows, cols))).tocsr()
@@ -514,3 +410,112 @@ class Biot(Solver):
         # and the composed map
         div = div_op * vector_2_scalar
         return div
+
+#----------------------- Linear solvers -------------------------------------
+
+    def solve(self, A, solver='direct', **kwargs):
+
+        solver = solver.strip().lower()
+        if solver == 'direct':
+            def slv(b):
+                x = la.spsolve(A, b)
+                return x
+        elif solver == 'factorized':
+            slv = la.factorized(A.to_csc())
+
+        else:
+            raise ValueError('Unknown solver ' + solver)
+
+        return slv
+
+
+#----------------------- Methods for post processing -------------------------
+    def extractD(self, g, u, dims=None, as_vector=False):
+        """ Extract displacement field from solution.
+
+        Parameters:
+            g: grid, or a subclass.
+            u (np.ndarray): Solution variable, representing displacements and
+                pressure.
+            dim (list of int, optional): Which dimension to extract. If None,
+                all dimensions are returned.
+        Returns:
+            list of np.ndarray: Displacement variables in the specified
+                dimensions.
+
+        """
+        if dims is None:
+            dims = np.arange(g.dim)
+        vals = []
+
+        inds = np.arange(0, g.num_cells * g.dim, g.dim)
+
+        for d in dims:
+            vals.append(u[d + inds])
+        if as_vector:
+            vals = np.asarray(vals).reshape((-1, 1), order='C')
+            return vals
+        else:
+            return vals
+
+
+    def extractP(self, g, u):
+        """ Extract pressure field from solution.
+
+        Parameters:
+            g: grid, or a subclass.
+            u (np.ndarray): Solution variable, representing displacements and
+                pressure.
+
+        Returns:
+            np.ndarray: Pressure part of solution vector.
+
+        """
+        return u[g.dim * g.num_cells:]
+
+
+    def compute_flux(self, g, u, data):
+        """ Compute flux field corresponding to a solution.
+
+        Parameters:
+            g: grid, or a subclass.
+            u (np.ndarray): Solution variable, representing displacements and
+                pressure.
+            bc_flow (np.ndarray): Flux boundary values.
+            data (dictionary): Dictionary related to grid and problem. Should
+                contain boundary discretization.
+
+        Returns:
+            np.ndarray: Flux over all faces
+
+        """
+        flux_discr = data['flux']
+        bound_flux = data['bound_flux']
+        bound_val = data['bound_flow_val']
+        p = self.extractP(g, u)
+        flux = flux_discr * p + bound_flux * bound_val
+        return flux
+
+    def compute_stress(self, g, u, data):
+        """ Compute stress field corresponding to a solution.
+
+        Parameters:
+            g: grid, or a subclass.
+            u (np.ndarray): Solution variable, representing displacements and
+                pressure.
+            bc_flow (np.ndarray): Flux boundary values.
+            data (dictionary): Dictionary related to grid and problem. Should
+                contain boundary discretization.
+
+        Returns:
+            np.ndarray, g.dim * g.num_faces: Stress over all faces. Stored as
+                all stress values on the first face, then the second etc.
+
+        """
+        stress_discr = data['stress']
+        bound_stress = data['bound_stress']
+        bound_val = data['bound_mech_val']
+        d = self.extractD(g, u, as_vector=True)
+        stress = stress_discr * d + (bound_stress * bound_val)[:, np.newaxis]
+        return stress
+
