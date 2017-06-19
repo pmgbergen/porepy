@@ -35,30 +35,20 @@ class Mpfa(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data):
+    def matrix_rhs(self, g, data, discretize=True):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point flux
         approximation.
-        The name of data in the input dictionary (data) are:
-        k : second_order_tensor
-            Permeability defined cell-wise. If not given a identity permeability
-            is assumed and a warning arised.
-        f : array (self.g.num_cells)
-            Scalar source term defined cell-wise. Given as net inn/out-flow, i.e.
-            should already have been multiplied with the cell sizes. Positive 
-            values are considered innflow. If not given a zero source
-            term is assumed and a warning arised.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
 
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
+        data: dictionary to store the data. For details on necessary keywords,
+            see method discretize()
+        discretize (boolean, optional): Whether to discetize prior to matrix
+            assembly. If False, data should already contain discretization.
+            Defaults to True.
 
         Return
         ------
@@ -67,17 +57,15 @@ class Mpfa(Solver):
         rhs: array (g_num_cells)
             Right-hand side which contains the boundary conditions and the scalar
             source term.
-        """
-        k, bnd, bc_val, a, f = data.get('k'), data.get(
-            'bc'), data.get('bc_val'), data.get('a'), data.get('f')
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
 
-        trm, bound_flux = mpfa(g, k, bnd, faces=None, apertures=a)
-        div = g.cell_faces.T
-        M = div * trm
+        """
+        div = fvutils.scalar_divergence(g)
+        flux = data['flux']
+        M = div * flux
+
+        bound_flux = data['bound_flux']
+        bc_val = data['bc_val']
+        f = data.get('f')
 
         return M, self.rhs(g, bound_flux, bc_val, f)
 
@@ -98,8 +86,43 @@ class Mpfa(Solver):
 
 #------------------------------------------------------------------------------#
 
+    def discretize(self, g, data):
+        """
+        The name of data in the input dictionary (data) are:
+        k : second_order_tensor
+            Permeability defined cell-wise. If not given a identity permeability
+            is assumed and a warning arised.
+        f : array (self.g.num_cells)
+            Scalar source term defined cell-wise. Given as net inn/out-flow, i.e.
+            should already have been multiplied with the cell sizes. Positive
+            values are considered innflow. If not given a zero source
+            term is assumed and a warning arised.
+        bc : boundary conditions (optional)
+        bc_val : dictionary (optional)
+            Values of the boundary conditions. The dictionary has at most the
+            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
+            conditions, respectively.
 
+        Parameters
+        ----------
+        g : grid, or a subclass, with geometry fields computed.
+        data: dictionary to store the data.
 
+        """
+        k = data.get('k')
+        bnd = data.get('bc')
+        a = data.get('a')
+
+        if k is None:
+            kxx = np.ones(g.num_cells)
+            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+            warnings.warn('Permeability not assigned, assumed identity')
+
+        trm, bound_flux = mpfa(g, k, bnd, faces=None, apertures=a)
+        data['flux'] = trm
+        data['bound_flux'] = bound_flux
+
+#------------------------------------------------------------------------------#
 
 def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
          **kwargs):
