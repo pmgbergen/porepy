@@ -188,7 +188,7 @@ class TetrahedralGrid(Grid):
 
     """
 
-    def __init__(self, p, tet=None):
+    def __init__(self, p, tet=None, name=None):
         """
         Create a tetrahedral grid from a set of point and cells.
 
@@ -211,6 +211,9 @@ class TetrahedralGrid(Grid):
             tet = scipy.spatial.Delaunay(p.transpose())
             tet = tet.simplices
             tet = tet.transpose()
+
+        if name is None:
+            name = 'TetrahedralGrid'
 
         num_nodes = p.shape[1]
 
@@ -287,4 +290,80 @@ class TetrahedralGrid(Grid):
         cross_z = dx[0] * dy[1] - dx[1] * dy[0]
 
         return dx[2] * cross_x + dy[2] * cross_y + dz[2] * cross_z
+
+class StructuredTetrahedralGrid(TetrahedralGrid):
+    """ Class for a structured triangular grids, composed of squares divided
+    into two.
+
+    For information on attributes and methods, see the documentation of the
+    parent Grid class.
+
+    """
+
+    def __init__(self, nx, physdims=None):
+        """
+        Construct a triangular grid by splitting Cartesian cells in two.
+
+        Examples:
+        Grid on the unit cube
+        >>> nx = np.array([2, 3])
+        >>> physdims = np.ones(2)
+        >>> g = simplex.StructuredTriangleGrid(nx, physdims)
+
+        Parameters
+        ----------
+        nx (np.ndarray, size 2): number of cells in each direction of
+        underlying Cartesian grid
+        physdims (np.ndarray, size 2): domain size. Defaults to nx,
+        thus Cartesian cells are unit squares
+        """
+        nx = np.asarray(nx)
+        if physdims is None:
+            physdims = nx
+        else:
+            physdims = np.asarray(physdims)
+
+        x = np.linspace(0, physdims[0], nx[0] + 1)
+        y = np.linspace(0, physdims[1], nx[1] + 1)
+        z = np.linspace(0, physdims[2], nx[2] + 1)
+
+        # Node coordinates
+        y_coord, x_coord, z_coord = np.meshgrid(y, x, z)
+        p = np.vstack((x_coord.ravel(order='F'), y_coord.ravel(order='F'),
+                       z_coord.ravel(order='F')))
+
+        # Define nodes of the first row of cells.
+        tmp_ind = np.arange(0, nx[0])
+        ind_1 = tmp_ind  # Lower left node in quad
+        ind_2 = tmp_ind + 1  # Lower right node
+        ind_3 = nx[0] + 1 + tmp_ind  # Upper left node
+        ind_4 = nx[0] + 2 + tmp_ind  # Upper right node
+
+        nxy = (nx[0] + 1) * (nx[1] + 1)
+        ind_5 = ind_1 + nxy
+        ind_6 = ind_2 + nxy
+        ind_7 = ind_3 + nxy
+        ind_8 = ind_4 + nxy
+
+        tet_base = np.vstack((ind_1, ind_2, ind_3, ind_5,
+                              ind_2, ind_3, ind_5, ind_7,
+                              ind_2, ind_5, ind_6, ind_7,
+                              ind_2, ind_3, ind_4, ind_7,
+                              ind_2, ind_4, ind_6, ind_7,
+                              ind_4, ind_6, ind_7, ind_8)).reshape((4, -1), order='F')
+        # Initialize array of triangles. For the moment, we will append the
+        # cells here, but we do know how many cells there are in advance,
+        # so pre-allocation is possible if this turns out to be a bottleneck
+
+        # Loop over all remaining rows in the y-direction.
+        for iter2 in range(nx[2].astype('int64')):
+            for iter1 in range(nx[1].astype('int64')):
+                increment = iter2 * nxy + iter1 * (nx[0]+1)
+                if iter2 == 0 and iter1 == 0:
+                    tet = tet_base + increment
+                else:
+                    tet = np.hstack((tet, tet_base + increment))
+
+        super(self.__class__, self).__init__(p, tet=tet,
+                                             name='StructuredTetrahedralGrid')
 
