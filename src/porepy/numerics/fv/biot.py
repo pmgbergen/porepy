@@ -4,7 +4,7 @@ import time
 import numpy as np
 
 from porepy.numerics.fv import mpfa, mpsa, fvutils
-from porepy.params import second_order_tensor, fourth_order_tensor, bc
+from porepy.params import tensor, bc
 from porepy.numerics.mixed_dim.solver import Solver
 
 
@@ -275,9 +275,9 @@ class Biot(Solver):
             so that we can compute Biot forces on a face.
 
         Parameters:
-            g (core.grids.grid): grid to be discretized
-            k (core.constit.second_order_tensor) permeability tensor
-            constit (core.bc.bc) class for boundary values
+            g (porepy.grids.grid.Grid): grid to be discretized
+            k (porepy.constit.tensor.SecondOrder) permeability tensor
+            constit (porepy.bc.bc.BoundaryCondition) class for boundary values
             faces (np.ndarray) faces to be considered. Intended for partial
                 discretization, may change in the future
             eta Location of pressure continuity point. Should be 1/3 for simplex
@@ -309,8 +309,8 @@ class Biot(Solver):
         Example:
             # Set up a Cartesian grid
             g = structured.CartGrid([5, 5])
-            c = fourth_order_tensor.FourthOrderTensor(g.dim, np.ones(g.num_cells))
-            k = second_order_tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+            c = tensor.FourthOrder(g.dim, np.ones(g.num_cells))
+            k = tensor.SecondOrder(g.dim, np.ones(g.num_cells))
 
             # Dirirchlet boundary conditions for mechanics
             bound_faces = g.get_boundary_faces().ravel()

@@ -23,15 +23,15 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
 
-        gb.add_node_props(['a', 'beta_n'])
+        gb.add_node_props(['apertures', 'discharge'])
         for g, d in gb:
-            d['a'] = 1e-1*np.ones(g.num_cells)
-            d['beta_n'] = solver.beta_n(g, [2, 0, 0])
+            d['apertures'] = 1e-1*np.ones(g.num_cells)
+            d['discharge'] = solver.discharge(g, [2, 0, 0])
 
-        gb.add_edge_prop('beta_n')
+        gb.add_edge_prop('discharge')
         for e, d in gb.edges_props():
             gn = gb.sorted_nodes_of_edge(e)
-            d['beta_n'] = gb.node_props(gn[1])['beta_n']
+            d['discharge'] = gb.node_props(gn[1])['discharge']
 
         coupling = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling)
@@ -64,10 +64,10 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
 
-        gb.add_node_props(['a', 'beta_n', 'bc', 'bc_val'])
+        gb.add_node_props(['apertures', 'discharge', 'bc', 'bc_val'])
         for g, d in gb:
-            d['a'] = np.ones(g.num_cells)*np.power(1e-1, 2-g.dim)
-            d['beta_n'] = solver.beta_n(g, [1, 1, 0], d['a'])
+            d['apertures'] = np.ones(g.num_cells)*np.power(1e-1, 2-g.dim)
+            d['discharge'] = solver.discharge(g, [1, 1, 0], d['apertures'])
 
             bound_faces = g.get_domain_boundary_faces()
             labels = np.array(['dir'] * bound_faces.size)
@@ -75,10 +75,10 @@ class BasicsTest( unittest.TestCase ):
             d['bc_val'] = np.zeros(g.num_faces)
             d['bc_val'][bound_faces] = 3
 
-        gb.add_edge_prop('beta_n')
+        gb.add_edge_prop('discharge')
         for e, d in gb.edges_props():
             gn = gb.sorted_nodes_of_edge(e)
-            d['beta_n'] = gb.node_props(gn[1])['beta_n']
+            d['discharge'] = gb.node_props(gn[1])['discharge']
 
         coupling = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling)

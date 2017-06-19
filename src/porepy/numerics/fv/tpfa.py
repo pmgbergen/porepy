@@ -8,7 +8,7 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.params import second_order_tensor
+from porepy.params import tensor
 from porepy.numerics.mixed_dim.solver import Solver
 
 
@@ -63,11 +63,11 @@ class Tpfa(Solver):
             source term.
 
         """
-        k, bnd, bc_val, a, f = data.get('k'), data.get(
-            'bc'), data.get('bc_val'), data.get('apertures'), data.get('f')
+        k, bnd, bc_val, a, f = data.get('perm'), data.get(
+            'bc'), data.get('bc_val'), data.get('apertures'), data.get('source')
         if k is None:
             kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+            k = tensor.SecondOrder(g.dim, kxx)
             warnings.warn('Permeability not assigned, assumed identity')
 
         trm, bound_flux = tpfa(g, k, bnd, faces, apertures=a)
@@ -89,7 +89,7 @@ class Tpfa(Solver):
             warnings.warn('Scalar source not assigned, assumed null')
 
         div = g.cell_faces.T
-        return div * bound_flux * bc_val + f
+        return -div * bound_flux * bc_val + f
 
 
 #------------------------------------------------------------------------------#
@@ -101,9 +101,9 @@ def tpfa(g, k, bnd, faces=None, apertures=None):
     cells (defined as the two cells sharing the face).
 
     Parameters
-        g (core.grids.grid): grid to be discretized
-        k (core.constit.second_order_tensor): permeability tensor.
-        bc (core.bc.bc): class for boundary values
+        g (porepy.grids.grid.Grid): grid to be discretized
+        k (porepy.params.tensor.SecondOrder) permeability tensor
+        bnd (porepy.params.bc.BoundarCondition) class for boundary conditions
         faces (np.ndarray) faces to be considered. Intended for partial
             discretization, may change in the future
         apertures (np.ndarray) apertures of the cells for scaling of the face
@@ -176,4 +176,4 @@ def tpfa(g, k, bnd, faces=None, apertures=None):
     bndr_sgn = bndr_sgn[sort_id]
     bound_flux = sps.coo_matrix((t_b * bndr_sgn, (bndr_ind, bndr_ind)),
                                 (g.num_faces, g.num_faces))
-    return flux, bound_flux
+    return flux,  bound_flux

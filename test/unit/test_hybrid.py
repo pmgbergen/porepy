@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 from porepy.grids import structured, simplex
-from porepy.params import second_order_tensor as sot
+from porepy.params import tensor
 from porepy.numerics.vem import hybrid
 import porepy.utils.comp_geom as cg
 
@@ -17,9 +17,9 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = sot.SecondOrderTensor(g.dim, kxx)
+        perm = tensor.SecondOrder(g.dim, kxx)
 
-        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
         solver = hybrid.HybridDualVEM()
         M = solver.matrix_rhs(g, data)[0].todense()
 
@@ -40,9 +40,9 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.sin(g.cell_centers[0,:])+1
-        perm = sot.SecondOrderTensor(g.dim, kxx)
+        perm = tensor.SecondOrder(g.dim, kxx)
 
-        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
         solver = hybrid.HybridDualVEM()
         M = solver.matrix_rhs(g, data)[0].todense()
 
@@ -65,10 +65,10 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = sot.SecondOrderTensor(g.dim, kxx)
+        perm = tensor.SecondOrder(g.dim, kxx)
 
         solver = hybrid.HybridDualVEM()
-        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
         M_known = np.array([[-2.25,  1.75,  0.  ,  0.25,  0.  ,  0.25,  0.  ],
@@ -93,10 +93,10 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.square(g.cell_centers[1,:])+1
         kyy = np.square(g.cell_centers[0,:])+1
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
-        perm = sot.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
+        perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
 
         solver = hybrid.HybridDualVEM()
-        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
         M_known = np.array(\
@@ -134,10 +134,10 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = sot.SecondOrderTensor(g.dim, kxx)
+        perm = tensor.SecondOrder(g.dim, kxx)
 
         solver = hybrid.HybridDualVEM()
-        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
         M_known = np.array([[ -2, 0, 2, 0, 0],
@@ -167,10 +167,10 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.square(g.cell_centers[1,:])+1
         kyy = np.square(g.cell_centers[0,:])+1
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
-        perm = sot.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
+        perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
 
         solver = hybrid.HybridDualVEM()
-        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
         M_known = np.array(\
@@ -199,10 +199,10 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = sot.SecondOrderTensor(g.dim, kxx)
+        perm = tensor.SecondOrder(g.dim, kxx)
 
         solver = hybrid.HybridDualVEM()
-        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
         #np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
@@ -223,10 +223,10 @@ class BasicsTest( unittest.TestCase ):
         kyy = np.square(g.cell_centers[0,:])+1
         kzz = g.cell_centers[2,:]+1
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
-        perm = sot.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
+        perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
 
         solver = hybrid.HybridDualVEM()
-        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
         #np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
@@ -247,10 +247,10 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry(is_embedded=True)
 
         kxx = np.ones(g.num_cells)
-        perm = sot.SecondOrderTensor(g.dim, kxx)
+        perm = tensor.SecondOrder(g.dim, kxx)
 
         solver = hybrid.HybridDualVEM()
-        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
         M_known = np.array([[-2.25,  1.75,  0.  ,  0.25,  0.  ,  0.25,  0.  ],
@@ -275,10 +275,10 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = sot.SecondOrderTensor(g.dim, kxx)
+        perm = tensor.SecondOrder(g.dim, kxx)
 
         solver = hybrid.HybridDualVEM()
-        data = {'k': perm, 'f': np.zeros(g.num_cells)}
+        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
         M = solver.matrix_rhs(g, data)[0].todense()
 
         M_known = np.array([[-3.,  3.,  0.,  0.],
