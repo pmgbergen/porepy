@@ -98,7 +98,7 @@ class MainTester(unittest.TestCase):
         rewriting of the way analytical solutions are represented).
         """
         # Discretization. Use python inverter for speed
-        flux, bound_flux = mpfa.mpfa(g, k, bound_cond, inverter='python')
+        flux, bound_flux = mpfa.mpfa(g, k, bound_cond, inverter='python', eta=0)
         # Set up linear system
         div = fvutils.scalar_divergence(g)
         a = div * flux
@@ -140,7 +140,8 @@ class MainTester(unittest.TestCase):
         # The rest of the function is similar to self.solve.system, see that
         # for comments.
         bound_faces = g.get_boundary_faces()
-        flux, bound_flux = mpfa.mpfa(g, perm, bound_cond, inverter='python')
+        flux, bound_flux = mpfa.mpfa(g, perm, bound_cond, inverter='python',
+                                     eta=0)
 
         xc = g.cell_centers
         xf = g.face_centers
@@ -164,7 +165,8 @@ class MainTester(unittest.TestCase):
 
     def solve_system_homogeneous_elasticity(self, g, bound_cond,
                                             bound_faces, k, an_sol):
-        stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter='python')
+        stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter='python',
+                                         eta=0)
         div = fvutils.vector_divergence(g)
         a = div * stress
 
@@ -195,7 +197,8 @@ class MainTester(unittest.TestCase):
         mat_vec = (1 - char_func_cells) + kappa * char_func_cells
 
         k = fourth_order_tensor.FourthOrderTensor(2, mat_vec, mat_vec)
-        stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter='python')
+        stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter='python',
+                                         eta=0)
         div = fvutils.vector_divergence(g)
         a = div * stress
 

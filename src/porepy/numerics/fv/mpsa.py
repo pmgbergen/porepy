@@ -102,7 +102,7 @@ class Mpsa(Solver):
 #------------------------------------------------------------------------------#
 
 
-def mpsa(g, constit, bound, eta=0, inverter=None, max_memory=None,
+def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
          **kwargs):
     """
     Discretize the vector elliptic equation by the multi-point stress
@@ -190,6 +190,8 @@ def mpsa(g, constit, bound, eta=0, inverter=None, max_memory=None,
         s = stress * x + bound_stress * bound_vals
 
     """
+    if eta is None:
+        eta = fvutils.determine_eta(g)
 
     if max_memory is None:
         # For the moment nothing to do here, just call main mpfa method for the

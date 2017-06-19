@@ -99,7 +99,9 @@ class Mpfa(Solver):
 #------------------------------------------------------------------------------#
 
 
-def mpfa(g, k, bnd, eta=0, inverter=None, apertures=None, max_memory=None,
+
+
+def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
          **kwargs):
     """
     Discretize the scalar elliptic equation by the multi-point flux
@@ -125,7 +127,7 @@ def mpfa(g, k, bnd, eta=0, inverter=None, apertures=None, max_memory=None,
         g (core.grids.grid): grid to be discretized
         k (core.constit.second_order_tensor) permeability tensor
         bnd (core.bc.bc) class for boundary values
-        eta Location of pressure continuity point. Should be 1/3 for simplex
+        eta Location of pressure continuity point. Defaults to 1/3 for simplex
             grids, 0 otherwise. On boundary faces with Dirichlet conditions,
             eta=0 will be enforced.
         inverter (string) Block inverter to be used, either numba (default),
@@ -233,7 +235,7 @@ def mpfa(g, k, bnd, eta=0, inverter=None, apertures=None, max_memory=None,
     return flux, bound_flux
 
 
-def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
+def mpfa_partial(g, k, bnd, eta=None, inverter='numba', cells=None, faces=None,
                  nodes=None):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
@@ -333,7 +335,7 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
     return flux_glob, bound_flux_glob, active_faces
 
 
-def _mpfa_local(g, k, bnd, eta=0, inverter='numba', apertures=None):
+def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     """
     Actual implementation of the MPFA O-method. To calculate MPFA on a grid
     directly, either call this method, or, to respect the privacy of this
@@ -369,6 +371,8 @@ def _mpfa_local(g, k, bnd, eta=0, inverter='numba', apertures=None):
     Dirichlet gives a right hand side for (ii).
 
     """
+    if eta is None:
+        eta = fvutils.determine_eta(g)
 
     # The method reduces to the more efficient TPFA in one dimension, so that
     # method may be called. In 0D, there is no internal discretization to be
