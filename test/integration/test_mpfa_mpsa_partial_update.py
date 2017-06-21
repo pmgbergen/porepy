@@ -3,8 +3,8 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.numerics.fv import mpfa, mpsa, fvutils
-from porepy.params.second_order_tensor import SecondOrderTensor as PermTensor
-from porepy.params.fourth_order_tensor import FourthOrderTensor as StiffnessTensor
+from porepy.params.tensor import SecondOrder as PermTensor
+from porepy.params.tensor import FourthOrder as StiffnessTensor
 from porepy.grids.structured import CartGrid
 from porepy.params import bc
 

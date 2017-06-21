@@ -19,7 +19,7 @@ from scipy.sparse.linalg import spsolve
 
 
 from porepy.grids import structured
-from porepy.params import second_order_tensor, bc
+from porepy.params import tensor, bc
 from porepy.utils.errors import error
 from porepy.numerics.vem import dual, dual_coupling
 from porepy.viz.plot_grid import plot_grid
@@ -55,11 +55,11 @@ from porepy.numerics.mixed_dim import coupler
 #
 #    # devo mettere l'apertura indicata come a
 #
-#    gb.add_node_props(['k', 'f', 'bc', 'bc_val'])
+#    gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
 #    for g, d in gb:
 #        kxx = np.ones(g.num_cells)
-#        d['k'] = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-#        d['f'] = np.zeros(g.num_cells)
+#        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+#        d['source'] = np.zeros(g.num_cells)
 #
 #        b_faces = g.get_boundary_faces()
 #        b_faces_left = b_faces[g.face_centers[0, b_faces] == 0]
@@ -130,11 +130,11 @@ from porepy.numerics.mixed_dim import coupler
 #
 #    # devo mettere l'apertura indicata come a
 #
-#    gb.add_node_props(['k', 'f', 'bc', 'bc_val'])
+#    gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
 #    for g, d in gb:
 #        kxx = np.ones(g.num_cells)
-#        d['k'] = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-#        d['f'] = np.zeros(g.num_cells)
+#        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+#        d['source'] = np.zeros(g.num_cells)
 #
 #        if g.dim != 0:
 #            b_faces = g.get_boundary_faces()
@@ -220,11 +220,11 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     if kwargs['visualize']:
         plot_grid(gb, info="f", alpha=0)
 
-    gb.add_node_props(['k', 'f', 'bc', 'bc_val'])
+    gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
-        d['k'] = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-        d['f'] = np.zeros(g.num_cells)
+        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+        d['source'] = np.zeros(g.num_cells)
 
         b_faces = g.get_boundary_faces()
         b_faces_dir = b_faces[np.bitwise_or(g.face_centers[1, b_faces] == -1,

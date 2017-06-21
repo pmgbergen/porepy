@@ -4,7 +4,7 @@ import numpy.linalg
 import unittest
 
 from porepy.numerics.fv import mpfa, mpsa, fvutils
-from porepy.params import second_order_tensor, fourth_order_tensor, bc
+from porepy.params import tensor, bc
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
@@ -12,14 +12,14 @@ class BiotTest():
     # class BiotTest(unittest.TestCase):
 
     def mpfa_discr(self, g, bound):
-        k = second_order_tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+        k = tensor.SecondOrder(g.dim, np.ones(g.num_cells))
         flux, bound_flux = mpfa.mpfa(g, k, bound, inverter='python')
         div_flow = fvutils.scalar_divergence(g)
         return flux, bound_flux, div_flow
 
     def mpsa_discr(self, g, bound):
         mu = np.ones(g.num_cells)
-        c = fourth_order_tensor.FourthOrderTensor(g.dim, mu, mu)
+        c = tensor.FourthOrder(g.dim, mu, mu)
         stress, bound_stress, \
             grad_p, div_d, stabilization = mpsa.biot(g, c, bound,
                                                      inverter='python')

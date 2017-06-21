@@ -8,7 +8,7 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.params import second_order_tensor
+from porepy.params import tensor
 from porepy.numerics.mixed_dim.solver import Solver
 import porepy.utils.comp_geom as cg
 
@@ -41,10 +41,10 @@ class DualVEM(Solver):
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using dual virtual element method.
         The name of data in the input dictionary (data) are:
-        k : second_order_tensor
+        perm : second_order_tensor
             Permeability defined cell-wise. If not given a identity permeability
             is assumed and a warning arised.
-        f : array (self.g.num_cells)
+        source : array (self.g.num_cells)
             Scalar source term defined cell-wise. If not given a zero source
             term is assumed and a warning arised.
         bc : boundary conditions (optional)
@@ -75,7 +75,7 @@ class DualVEM(Solver):
         bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
                    'neu': fun_neu(f.face_centers[:, b_faces_neu])}
 
-        data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
+        data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
 
         D, rhs = dual.matrix_rhs(g, data)
         up = sps.linalg.spsolve(D, rhs)
@@ -117,12 +117,12 @@ class DualVEM(Solver):
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
-        k, bc = data.get('k'), data.get('bc')
-        a = data.get('a', np.ones(g.num_cells))
+        k, bc = data.get('perm'), data.get('bc')
+        a = data.get('apertures', np.ones(g.num_cells))
 
         if k is None:
             kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+            k = tensor.SecondOrder(g.dim, kxx)
             warnings.warn('Permeability not assigned, assumed identity')
 
         faces, _, sgn = sps.find(g.cell_faces)
@@ -205,9 +205,9 @@ class DualVEM(Solver):
         # pylint: disable=invalid-name
 
         if g.dim == 0:
-            return np.hstack(([0], data['f']))
+            return np.hstack(([0], data['source']))
 
-        f, bc, bc_val = data.get('f'), data.get('bc'), data.get('bc_val')
+        f, bc, bc_val = data.get('source'), data.get('bc'), data.get('bc_val')
         assert not bool(bc is None) != bool(bc_val is None)
 
         if f is None:
@@ -299,7 +299,7 @@ class DualVEM(Solver):
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to self.massHdiv
         kxx = np.ones(g.num_cells)
-        k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+        k = tensor.SecondOrder(g.dim, kxx)
 
         faces, _, sgn = sps.find(g.cell_faces)
         c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)

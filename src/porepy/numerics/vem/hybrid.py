@@ -11,7 +11,7 @@ import scipy.sparse as sps
 from porepy.numerics.mixed_dim.solver import Solver
 from porepy.utils import comp_geom as cg
 from porepy.numerics.vem import dual
-from porepy.params import second_order_tensor
+from porepy.params import tensor
 
 
 class HybridDualVEM(Solver):
@@ -41,10 +41,10 @@ class HybridDualVEM(Solver):
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using hybrid dual virtual element method.
         The name of data in the input dictionary (data) are:
-        k : second_order_tensor
+        perm : tensor.SecondOrder
             Permeability defined cell-wise. If not given a identity permeability
             is assumed and a warning arised.
-        f : array (self.g.num_cells)
+        source : array (self.g.num_cells)
             Scalar source term defined cell-wise. If not given a zero source
             term is assumed and a warning arised.
         bc : boundary conditions (optional)
@@ -75,7 +75,7 @@ class HybridDualVEM(Solver):
         bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
                    'neu': fun_neu(f.face_centers[:, b_faces_neu])}
 
-        data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
+        data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
 
         H, rhs = hybrid.matrix_rhs(g, data)
         l = sps.linalg.spsolve(H, rhs)
@@ -89,12 +89,12 @@ class HybridDualVEM(Solver):
         if g.dim == 0:
             return sps.identity(self.ndof(g), format="csr"), np.zeros(1)
 
-        k, f = data.get('k'), data.get('f')
+        k, f = data.get('perm'), data.get('source')
         bc, bc_val = data.get('bc'), data.get('bc_val')
 
         if k is None:
             kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+            k = tensor.SecondOrder(g.dim, kxx)
             warnings.warn('Permeability not assigned, assumed identity')
 
         if f is None:
@@ -211,11 +211,11 @@ class HybridDualVEM(Solver):
         if g.dim == 0:
             return 0, l[0]
 
-        k, f = data.get('k'), data.get('f')
+        k, f = data.get('perm'), data.get('source')
 
         if k is None:
             kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+            k = tensor.SecondOrder(g.dim, kxx)
             warnings.warn('Permeability not assigned, assumed identity')
 
         if f is None:
