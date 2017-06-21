@@ -34,7 +34,7 @@ def darcy_dualVEM_example0(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+    perm = tensor.SecondOrder(g.dim, kxx)
 
     f = np.ones(g.num_cells)
 

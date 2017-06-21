@@ -58,7 +58,7 @@ from porepy.numerics.mixed_dim import coupler
 #    gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
 #    for g, d in gb:
 #        kxx = np.ones(g.num_cells)
-#        d['perm'] = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+#        d['perm'] = tensor.SecondOrder(g.dim, kxx)
 #        d['source'] = np.zeros(g.num_cells)
 #
 #        b_faces = g.get_boundary_faces()

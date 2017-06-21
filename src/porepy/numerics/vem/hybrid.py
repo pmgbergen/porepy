@@ -41,7 +41,7 @@ class HybridDualVEM(Solver):
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using hybrid dual virtual element method.
         The name of data in the input dictionary (data) are:
-        perm : second_order_tensor
+        perm : tensor.SecondOrder
             Permeability defined cell-wise. If not given a identity permeability
             is assumed and a warning arised.
         source : array (self.g.num_cells)
@@ -94,7 +94,7 @@ class HybridDualVEM(Solver):
 
         if k is None:
             kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+            k = tensor.SecondOrder(g.dim, kxx)
             warnings.warn('Permeability not assigned, assumed identity')
 
         if f is None:

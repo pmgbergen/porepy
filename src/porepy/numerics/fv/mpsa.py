@@ -14,7 +14,7 @@ import scipy.sparse as sps
 from porepy.numerics.fv import fvutils
 from porepy.utils import matrix_compression, mcolon
 from porepy.grids import structured, partition
-from porepy.params import fourth_order_tensor, bc
+from porepy.params import tensor, bc
 from porepy.numerics.mixed_dim.solver import Solver
 
 
@@ -44,7 +44,7 @@ class Mpsa(Solver):
         order elliptic equation using a FV method with a multi-point stress
         approximation.
         The name of data in the input dictionary (data) are:
-        stiffness : fourth_order_tensor
+        stiffness : tensor.FourthOrder
             Stress tensor defined cell-wise. If not given lambda and mu is set 
             to 1. A warning is rised.
         source : array (self.g.dim * self.g.num_cells)
