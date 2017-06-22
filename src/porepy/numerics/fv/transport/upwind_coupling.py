@@ -109,3 +109,53 @@ class UpwindCoupling(AbstractCoupling):
         return cc
 
 #------------------------------------------------------------------------------#
+
+    def cfl(self, g_h, g_l, data_h, data_l, data_edge):
+        """
+        Return the time step according to the CFL condition.
+        Note: the vector field is assumed to be given as the normal velocity,
+        weighted with the face area, at each face.
+
+        The name of data in the input dictionary (data) are:
+        beta_n : array (g.num_faces)
+            Normal velocity at each face, weighted by the face area.
+
+        Parameters:
+            g_h: grid of higher dimension
+            g_l: grid of lower dimension
+            data_h: dictionary which stores the data for the higher dimensional
+                grid
+            data_l: dictionary which stores the data for the lower dimensional
+                grid
+            data: dictionary which stores the data for the edges of the grid
+                bucket
+
+        Return:
+            deltaT: time step according to CFL condition.
+
+        """
+        beta_n = data_edge['beta_n']
+
+        # Recover the information for the grid-grid mapping
+        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
+
+        not_zero = ~np.isclose(np.zeros(faces_h.size), beta_n[faces_h], atol=0)
+        if not np.any(not_zero):
+            return np.inf
+
+        cells_l = cells_l[not_zero]
+        faces_h = faces_h[not_zero]
+
+        cell_faces_h = g_h.cell_faces.tocsr()[faces_h, :]
+        cells_h = cell_faces_h.nonzero()[1][not_zero]
+
+        apertures_h = data_h.get('a', np.ones(g_h.num_cells))[cells_h]
+        apertures_l = data_l.get('a', np.ones(g_l.num_cells))[cells_l]
+        phi_l = data_l.get('phi', np.ones(g_l.num_cells))[cells_l]
+
+        dist = 0.5 * np.divide(apertures_l, apertures_h)
+        beta_n = np.divide(beta_n[faces_h], g_h.face_areas[faces_h]*apertures_h)
+
+        return np.amin(np.abs(np.divide(dist, beta_n)) * phi_l)
+
+#------------------------------------------------------------------------------#
