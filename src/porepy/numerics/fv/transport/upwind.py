@@ -150,7 +150,7 @@ class Upwind(Solver):
 
     def cfl(self, g, data):
         """
-    Return the time step according to the CFL condition.
+        Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
         weighted with the face area, at each face.
 
@@ -170,16 +170,22 @@ class Upwind(Solver):
         """
         beta_n = data['beta_n']
         apertures = data.get('a', np.ones(g.num_cells))
+        phi = data.get('phi', np.ones(g.num_cells))
 
-        faces, cell, _ = sps.find(g.cell_faces)
+        faces, cells, _ = sps.find(g.cell_faces)
         not_zero = ~np.isclose(np.zeros(faces.size), beta_n[faces], atol=0)
         if not np.any(not_zero):
             return np.inf
 
-        beta_n = np.abs(beta_n[faces[not_zero]])
-        volumes = g.cell_volumes[cell[not_zero]] * apertures[cell[not_zero]]
+        cells = cells[not_zero]
+        faces = faces[not_zero]
 
-        return np.amin(np.divide(volumes, beta_n)) / g.dim
+        dist_vector = g.face_centers[:, faces] - g.cell_centers[:, cells]
+        dist = np.einsum('ij,ij->j', dist_vector, g.face_normals[:, faces])
+
+        coeff = (apertures * phi)[cells]
+
+        return np.amin(np.abs(np.divide(dist, beta_n[faces])) * coeff)
 
 #------------------------------------------------------------------------------#
 
