@@ -45,8 +45,7 @@ class Mpsa(Solver):
         approximation.
         The name of data in the input dictionary (data) are:
         stiffness : tensor.FourthOrder
-            Stress tensor defined cell-wise. If not given lambda and mu is set 
-            to 1. A warning is rised.
+            Stress tensor defined cell-wise.
         source : array (self.g.dim * self.g.num_cells)
             Vector body force term defined cell-wise. Given as stress, i.e.
             should already been multiplied with the cell sizes.  If not given a
@@ -72,11 +71,6 @@ class Mpsa(Solver):
         """
         c, bnd, bc_val, f = data.get('stiffness'), data.get(
             'bc'), data.get('bc_val'), data.get('source')
-        if c is None:
-            lam = np.ones(g.num_cells)
-            mu = np.ones(g.num_cells)
-            c =tensor.FourthOrder(g.dim, mu, lam)
-            warnings.warn('Permeability not assigned, assumed identity')
 
         stress, bound_stress = mpsa(g, c, bnd)
         div = fvutils.vector_divergence(g)

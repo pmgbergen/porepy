@@ -42,8 +42,7 @@ class DualVEM(Solver):
         order elliptic equation using dual virtual element method.
         The name of data in the input dictionary (data) are:
         perm : second_order_tensor
-            Permeability defined cell-wise. If not given a identity permeability
-            is assumed and a warning arised.
+            Permeability defined cell-wise.
         source : array (self.g.num_cells)
             Scalar source term defined cell-wise. If not given a zero source
             term is assumed and a warning arised.
@@ -119,11 +118,6 @@ class DualVEM(Solver):
         # assumed unitary
         k, bc = data.get('perm'), data.get('bc')
         a = data.get('apertures', np.ones(g.num_cells))
-
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = tensor.SecondOrder(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
 
         faces, _, sgn = sps.find(g.cell_faces)
 
