@@ -58,7 +58,7 @@ class Data(object):
             raise ValueError('Negative aperture')
         self._aperture = val
 
-    aperture = property(_get_aperture, _set_aperture)
+    apertures = property(_get_aperture, _set_aperture)
 
 #------------------- Sources ---------------------------------------------
 
@@ -164,7 +164,7 @@ class Data(object):
         self._stiffness = val
     stiffness = property(_stiffness_getter, _stifness_setter)
 
-#--------------------- Boundary conditions ----------------------------
+#--------------------- Boundary conditions and values ------------------------
 
     def bc(self, obj):
         """ Pick out solver specific boundary condition object
@@ -192,7 +192,35 @@ class Data(object):
             return self.bc_transport
         elif obj.physcis.lower().strip() in ['mechanics', 'elasticity', 'mech']:
             return self.bc_mech
-#---
+
+    def bc_val(self, obj):
+        """ Pick out solver specific boundary values
+
+        Discretization methods in need of boundary values should access
+        this method (instead of properties bc_val_flow, bc_val_transport etc).
+
+        Parameters:
+
+        obj: Solver
+            Discretization object. Should have attribute 'physics'
+
+        Returns:
+
+        bc.BoundaryCondition:
+            bc_val_flow if obj.physics equals 'flow' or 'pressure'
+            bc_val_transport if obj.physics equals 'heat' or 'transport'
+            bc_val_mechanics if obj.physcis equals 'mechanics', 'mech' or
+                'elasticity'
+
+        """
+        if obj.physics.lower().strip() in ['flow', 'pressure']:
+            return self.bc_val_flow
+        elif obj.physics.lower().strip() in ['heat', 'transport']:
+            return self.bc_val_transport
+        elif obj.physcis.lower().strip() in ['mechanics', 'elasticity', 'mech']:
+            return self.bc_val_mech
+
+#------------- boundary condition
 
     def _get_bc_flow(self):
         """ Boundary condition for flow problem.
@@ -224,4 +252,37 @@ class Data(object):
     def _set_bc_mech(self, bnd):
         self._bc_mech = bnd
     bc_mech = property(_get_bc_mech, _set_bc_mech)
+
+#------ Boundary values
+
+    def _get_bc_val_flow(self):
+        """ Boundary values for flow problem.
+        Solvers should rather access bc_val().
+        """
+        return self._bc_val_flow
+    def _set_bc_flow(self, bnd):
+        self._bc_val_flow = bnd
+    bc_val_flow = property(_get_bc_val_flow, _set_bc_val_flow)
+
+#---
+
+    def _get_bc_val_transport(self):
+        """ Boundary values for transport problem.
+        Solvers should rather access bc_val().
+        """
+        return self._bc_transport
+    def _set_bc_val_transport(self, bnd):
+        self._bc_val_transport = bnd
+    bc_val_transport = property(_get_bc_val_transport, _set_bc_val_transport)
+
+#---
+
+    def _get_bc_mech(self):
+        """ Boundary values for mechanics problem.
+        Solvers should rather access bc_val().
+        """
+        return self._bc_val_mech
+    def _set_bc_val_mech(self, bnd):
+        self._bc_val_mech = bnd
+    bc_val_mech = property(_get_bc_val_mech, _set_bc_val_mech)
 
