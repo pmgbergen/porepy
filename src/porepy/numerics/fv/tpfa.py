@@ -38,7 +38,8 @@ class Tpfa(Solver):
         order elliptic equation using a FV method with a two-point flux approximation.
         The name of data in the input dictionary (data) are:
         k : second_order_tensor
-            Permeability defined cell-wise.
+            Permeability defined cell-wise. If not given a identity permeability
+            is assumed and a warning arised.
         f : array (self.g.num_cells)
             Scalar source term defined cell-wise. If not given a zero source
             term is assumed and a warning arised.
@@ -70,11 +71,16 @@ class Tpfa(Solver):
         flux = data['flux']
         M = div * flux
 
+        k = data.tensor(self)
+        bnd = data.bc(self)
+        bc_val = data.bc_val(self)
+        a = data.apertures
+        sources = data.sources(self)
+
         bound_flux = data['bound_flux']
         bc_val = data['bc_val']
-        f = data.get('f')
 
-        return M, self.rhs(g, bound_flux, bc_val, f)
+        return M, self.rhs(g, bound_flux, bc_val, sources)
 
 #------------------------------------------------------------------------------#
 
