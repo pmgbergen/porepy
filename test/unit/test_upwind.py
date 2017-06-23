@@ -25,7 +25,7 @@ class BasicsTest( unittest.TestCase ):
         M_known = np.array([[ 2, 0, 0],
                             [-2, 2, 0],
                             [ 0,-2, 0]])
-        deltaT_known = 1/6
+        deltaT_known = 1/12
 
         rtol = 1e-15
         atol = rtol
@@ -46,7 +46,7 @@ class BasicsTest( unittest.TestCase ):
         M_known = np.array([[0,-2, 0],
                             [0, 2,-2],
                             [0, 0, 2]])
-        deltaT_known = 1/6
+        deltaT_known = 1/12
 
         rtol = 1e-15
         atol = rtol
@@ -117,7 +117,7 @@ class BasicsTest( unittest.TestCase ):
                             [ 0, 1, 0, 0],
                             [ 0, 0, 0,-1],
                             [-1, 0, 0, 1]])
-        deltaT_known = 1/8
+        deltaT_known = 1/6
 
         rtol = 1e-15
         atol = rtol
@@ -139,7 +139,7 @@ class BasicsTest( unittest.TestCase ):
                             [-1, 0, 0, 0],
                             [ 0, 0, 1, 0],
                             [ 0, 0,-1, 1]])
-        deltaT_known = 1/8
+        deltaT_known = 1/6
 
         rtol = 1e-15
         atol = rtol
@@ -166,7 +166,7 @@ class BasicsTest( unittest.TestCase ):
                                    [ 0, 0, 0, 0, 0, 0, 0,-1],
                                    [ 0, 0, 0, 0, 0, 0, 0, 1]])
 
-        deltaT_known = 1/6
+        deltaT_known = 1/4
 
         rtol = 1e-15
         atol = rtol
@@ -193,7 +193,7 @@ class BasicsTest( unittest.TestCase ):
                                    [ 0, 0, 0, 0, 0, 0, 1, 0],
                                    [ 0, 0, 0, 0, 0, 0,-1, 0]])
 
-        deltaT_known = 1/6
+        deltaT_known = 1/4
 
         rtol = 1e-15
         atol = rtol
@@ -216,7 +216,7 @@ class BasicsTest( unittest.TestCase ):
         M_known = np.array([[ 1, 0, 0],
                             [-1, 1, 0],
                             [ 0,-1, 0]])
-        deltaT_known = 1/3
+        deltaT_known = 1/6
 
         rtol = 1e-15
         atol = rtol
@@ -239,7 +239,7 @@ class BasicsTest( unittest.TestCase ):
         M_known = np.array([[0,-1, 0],
                             [0, 1,-1],
                             [0, 0, 1]])
-        deltaT_known = 1/3
+        deltaT_known = 1/6
 
         rtol = 1e-15
         atol = rtol
@@ -317,7 +317,7 @@ class BasicsTest( unittest.TestCase ):
                             [ 0, 1, 0, 0],
                             [ 0, 0, 0,-1],
                             [-1, 0, 0, 1]])
-        deltaT_known = 1/8
+        deltaT_known = 1/6
 
         rtol = 1e-15
         atol = rtol
@@ -341,7 +341,7 @@ class BasicsTest( unittest.TestCase ):
                             [-1, 0, 0, 0],
                             [ 0, 0, 1, 0],
                             [ 0, 0,-1, 1]])
-        deltaT_known = 1/8
+        deltaT_known = 1/6
 
         rtol = 1e-15
         atol = rtol
@@ -366,7 +366,7 @@ class BasicsTest( unittest.TestCase ):
                             [0, 2,-2],
                             [0, 0, 2]])
         rhs_known = np.array([0, 0, 6])
-        deltaT_known = 1/6
+        deltaT_known = 1/12
 
         rtol = 1e-15
         atol = rtol
@@ -393,7 +393,7 @@ class BasicsTest( unittest.TestCase ):
                             [0, 2,-2],
                             [0, 0, 2]])
         rhs_known = np.array([-2, 0, 2])
-        deltaT_known = 1/6
+        deltaT_known = 1/12
 
         rtol = 1e-15
         atol = rtol
