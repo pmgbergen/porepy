@@ -11,13 +11,6 @@ import copy
 import numpy as np
 
 
-
-
-
-
-
-
-
 class SecondOrder(object):
     """ Cell-wise permeability represented by (3 ,3 ,Nc)-matrix.
 
@@ -131,7 +124,7 @@ class SecondOrder(object):
 
             return SecondOrder(self.dim, kxx, kxy=kxy, kxz=kxz, kyy=kyy,
                                      kyz=kyz, kzz=kzz)
-        
+
 #----------------------------------------------------------------------#
 
 class FourthOrder(object):
