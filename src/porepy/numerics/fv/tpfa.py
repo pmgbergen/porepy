@@ -13,6 +13,19 @@ from porepy.numerics.mixed_dim.solver import Solver
 
 
 class Tpfa(Solver):
+    """ Discretize elliptic equations by a two-point flux approximation.
+
+    Attributes:
+
+    physics : str
+        Which physics is the solver intended flow. Will determine which data
+        will be accessed (e.g. flow specific, or conductivity / heat-related).
+        See Data class for more details. Defaults to flow.
+
+    """
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
 
     def ndof(self, g):
         """
