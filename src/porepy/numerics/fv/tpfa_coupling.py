@@ -7,27 +7,23 @@ from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 class TpfaCoupling(AbstractCoupling):
 
-    #------------------------------------------------------------------------------#
-
     def __init__(self, solver):
         self.solver = solver
 
-#------------------------------------------------------------------------------#
-
     def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
         """
-        Computes the coupling terms for the faces between cells in g_h and g_l 
-        using the two-printoint flux approximation.  
+        Computes the coupling terms for the faces between cells in g_h and g_l
+        using the two-printoint flux approximation.
 
         Parameters:
-            g_h and g_l: grid structures of the higher and lower dimensional 
-                subdomains, respectively. 
-            data_h and data_l: the corresponding data dictionaries. Assumed 
-                to contain both permeability values ('perm') and apertures 
+            g_h and g_l: grid structures of the higher and lower dimensional
+                subdomains, respectively.
+            data_h and data_l: the corresponding data dictionaries. Assumed
+                to contain both permeability values ('perm') and apertures
                 ('apertures') for each of the cells in the grids.
 
         Returns:
-            cc: Discretization matrices for the coupling terms assembled 
+            cc: Discretization matrices for the coupling terms assembled
                 in a csc.sparse matrix.
         """
 
@@ -112,19 +108,19 @@ class TpfaCoupling(AbstractCoupling):
         # Save the flux discretization for back-computation of fluxes   
         cells2faces = sps.csr_matrix((sgn_h,(faces_h, cells_h)),
                                      (g_h.num_faces, g_h.num_cells))
-    
+
         data_edge['coupling_flux'] = sps.hstack([cells2faces*cc[0,0],
                                                  cells2faces*cc[0,1]])
-        
+
         return cc
 
     #------------------------------------------------------------------------------#
 
 def compute_discharges(gb):
         """
-        Computes discharges over all faces in the entire grid bucket given 
+        Computes discharges over all faces in the entire grid bucket given
         pressures for all nodes, provided as node properties.
-        
+
         Parameter:
             gb: grid bucket with the following data fields for all nodes/grids:
                     'flux': Internal discretization of fluxes.
@@ -140,7 +136,7 @@ def compute_discharges(gb):
             edge property.
         """
         gb.add_node_props(['discharge'])
-    
+
         for gr, da in gb:
             if gr.dim>0:
                 f,_,s = sps.find(gr.cell_faces)
@@ -160,6 +156,6 @@ def compute_discharges(gb):
                 data2= gb.node_props(g2)
                 data2['discharge']=copy.deepcopy(flux2)
                 data['discharge']=copy.deepcopy(flux2)
-            
-        return gb 
+
+        return gb
 #------------------------------------------------------------------------------#
