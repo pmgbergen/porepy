@@ -17,6 +17,8 @@ install:
 before_script:
   # Download gmsh
   - wget http://gmsh.info/bin/Linux/gmsh-3.0.0-Linux64.tgz
+  - pwd
+  - ls
   - tar xvf gmsh-3.0.0-Linux.tgz
 
   # Create porepy config file
