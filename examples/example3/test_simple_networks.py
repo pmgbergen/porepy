@@ -6,16 +6,13 @@ on any problems if ran as a main method.
 
 """
 import sys
-import getopt
 import numpy as np
-import matplotlib.pyplot as plt
 import time
 import traceback
 import logging
 from inspect import isfunction, getmembers
 
 from porepy.fracs import meshing
-from porepy.viz import plot_grid
 
 
 def single_isolated_fracture(**kwargs):
@@ -205,26 +202,6 @@ def two_fractures_L_intersection_one_displaced(**kwargs):
 if __name__ == '__main__':
 
     # If invoked as main, run all tests
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'v:', ['gmsh_path=',
-                                                        'verbose=',
-                                                        'compute_geometry='])
-    except getopt.GetoptError as err:
-        print(err)
-        sys.exit(2)
-
-    gmsh_path = None
-    verbose = 0
-    compute_geometry = True
-    # process options
-    for o, a in opts:
-        if o == '--gmsh_path':
-            gmsh_path = a
-        elif o in ('-v', '--verbose'):
-            verbose = int(a)
-        elif o == '--compute_geometry':
-            compute_geometry = True
-
     return_expected = 1
     success_counter = 0
     failure_counter = 0
@@ -243,9 +220,7 @@ if __name__ == '__main__':
 
         time_loc = time.time()
         try:
-            gb, expected = func[1](gmsh_path=gmsh_path,
-                                   verbose=verbose,
-                                   gmsh_verbose=0,
+            gb, expected = func[1](verbose=verbose,
                                    return_expected=True)
 
             # Check that the bucket has the expected number of grids in each
