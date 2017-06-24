@@ -1,6 +1,11 @@
 # Examples
 This folder contains examples of PorePy from papers, presentations, code developments, etc.
 
+# Example maintanence
+We try to keep the up to date as the code evolves, but cannot always manage this.
+Examples stored in files named test_something.py are part of the test suite, and are thus monitored regularly. 
+Examples that for one reason or another are not part of the test suite should still run; let us know if not.
+Some examples may be outdated, but kept for historical or other reasons. These will be marked with an git commit id to a version of the code where the example works.
 
 # Overview
 
@@ -11,3 +16,4 @@ This folder contains examples of PorePy from papers, presentations, code develop
 * [example4](example4) illustration of virtual element methods (mixed and hybridized). Also mixed-dimensional example.
 * [example5](example5) Illustration of linear transport discretization. Both mono- and mixed-dimensional cases.
 * [example6](example6) Coarsening of grids into polyhedral shapes.
+* [example7](example7) Mixed-dimensional coupling with finite volume methods.
