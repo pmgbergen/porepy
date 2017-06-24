@@ -22,7 +22,7 @@ before_script:
   - tar xvf gmsh-3.0.0-Linux64.tgz
 
   # Create porepy config file
-  - echo 'config = {\"gmsh_path\": \"~/gmsh-3.0.0-Linux/bin/gmsh\"}' >> porepy_config.py 
+  - echo 'config = {"gmsh_path": "~/gmsh-3.0.0-Linux/bin/gmsh"}' >> porepy_config.py 
 
   # add $HOME to $PYTHONPATH to make config file accessible
   - export PYTHONPATH=${HOME}:${PYTHONPATH}
