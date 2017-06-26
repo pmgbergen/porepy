@@ -2,7 +2,7 @@ import numpy as np
 import scipy.sparse as sps
 import unittest
 
-from porepy.grids import structured, simplex
+from porepy.grids import structured, simplex, grid
 from porepy.grids import coarsening as co
 from porepy.fracs import meshing
 
@@ -230,5 +230,195 @@ class BasicsTest( unittest.TestCase ):
                           3,8,8,3,3,5,5,6,6,5,4,7,6,8,7,7,7,8,8,7,9,5,5,6,6,5,5,
                           6,6,8,8,7,9,8,8,9,9])-1
         assert np.array_equal(part, known)
+
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_2d_1d_test0(self):
+        f = np.array([[1, 1], [0, 2]])
+        gb = meshing.cart_grid([f], [2, 2])
+        gb.compute_geometry()
+
+        part = co.create_partition(co.tpfa_matrix(gb))
+        co.generate_coarse_grid(gb, part)
+
+        # Test
+        known_indices = np.array([1, 0, 1, 0])
+        known = np.array([1, 4, 10, 11])
+
+        for _, d in gb.edges_props():
+            indices, faces, _ = sps.find(d['face_cells'])
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
+
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_2d_1d_test1(self):
+        f = np.array([[1, 1], [0, 1]])
+        gb = meshing.cart_grid([f], [2, 2])
+        gb.compute_geometry()
+
+        part = co.create_partition(co.tpfa_matrix(gb))
+        co.generate_coarse_grid(gb, part)
+
+        # Test
+        known_indices = np.array([0, 0])
+        known = np.array([1, 9])
+
+        for _, d in gb.edges_props():
+            indices, faces, _ = sps.find(d['face_cells'])
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
+
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_2d_1d_test2(self):
+        f = np.array([[1, 1], [0, 1]])
+        gb = meshing.cart_grid([f], [2, 2])
+        gb.compute_geometry()
+
+        seeds = co.generate_seeds(gb)
+        known_seeds = np.array([0, 1])
+        assert np.array_equal(seeds, known_seeds)
+
+        part = co.create_partition(co.tpfa_matrix(gb), seeds=seeds)
+        co.generate_coarse_grid(gb, part)
+
+        # Test
+        known_indices = np.array([0, 0])
+        known = np.array([1, 10])
+
+        for _, d in gb.edges_props():
+            indices, faces, _ = sps.find(d['face_cells'])
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
+
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_2d_1d_test3(self):
+        f = np.array([[1, 1], [1, 2]])
+        gb = meshing.cart_grid([f], [2, 2])
+        gb.compute_geometry()
+
+        part = co.create_partition(co.tpfa_matrix(gb))
+        co.generate_coarse_grid(gb, part)
+
+        # Test
+        known_indices = np.array([0, 0])
+        known = np.array([3, 9])
+
+        for _, d in gb.edges_props():
+            indices, faces, _ = sps.find(d['face_cells'])
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
+
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_2d_1d_test4(self):
+        f = np.array([[1, 1], [1, 2]])
+        gb = meshing.cart_grid([f], [2, 2])
+        gb.compute_geometry()
+
+        seeds = co.generate_seeds(gb)
+        known_seeds = np.array([2, 3])
+        assert np.array_equal(seeds, known_seeds)
+
+        part = co.create_partition(co.tpfa_matrix(gb), seeds=seeds)
+        co.generate_coarse_grid(gb, part)
+
+        # Test
+        known_indices = np.array([0, 0])
+        known = np.array([4, 10])
+
+        for _, d in gb.edges_props():
+            indices, faces, _ = sps.find(d['face_cells'])
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
+
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_2d_1d_cross_test5(self):
+        f1 = np.array([[3, 3], [1, 5]])
+        f2 = np.array([[1, 5], [3, 3]])
+        gb = meshing.cart_grid([f1, f2], [6, 6])
+        gb.compute_geometry()
+
+        part = co.create_partition(co.tpfa_matrix(gb), cdepth=3)
+        co.generate_coarse_grid(gb, part)
+
+        # Test
+        known_indices = np.array([[0, 0], [3, 2, 1, 0, 3, 2, 1, 0], [0, 0],
+                                  [3, 2, 1, 0, 3, 2, 1, 0]])
+        known = np.array([[2, 5], [4, 9, 12, 16, 44, 45, 46, 47], [2, 5],
+                          [31, 32, 33, 34, 48, 49, 50, 51]])
+
+        for i, e_d in enumerate(gb.edges_props()):
+            indices, faces, _ = sps.find(e_d[1]['face_cells'])
+            assert np.array_equal(faces, known[i])
+            assert np.array_equal(indices, known_indices[i])
+
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_2d_1d_cross_test6(self):
+        f1 = np.array([[3, 3], [1, 5]])
+        f2 = np.array([[1, 5], [3, 3]])
+        gb = meshing.cart_grid([f1, f2], [6, 6])
+        gb.compute_geometry()
+
+        seeds = co.generate_seeds(gb)
+        known_seeds = np.array([8, 9, 26, 27, 13, 16, 19, 22])
+        assert np.array_equal(seeds, known_seeds)
+
+        part = co.create_partition(co.tpfa_matrix(gb), cdepth=3, seeds=seeds)
+        co.generate_coarse_grid(gb, part)
+
+        # Test
+        known_indices = np.array([[0, 0], [3, 2, 1, 0, 3, 2, 1, 0], [0, 0],
+                                  [3, 2, 1, 0, 3, 2, 1, 0]])
+        known = np.array([[2, 5], [5, 10, 14, 18, 52, 53, 54, 55], [2, 5],
+                          [37, 38, 39, 40, 56, 57, 58, 59]])
+
+        for i, e_d in enumerate(gb.edges_props()):
+            indices, faces, _ = sps.find(e_d[1]['face_cells'])
+            assert np.array_equal(faces, known[i])
+            assert np.array_equal(indices, known_indices[i])
+
+#------------------------------------------------------------------------------#
+
+    def test_create_partition_2d_1d_cross_test7(self):
+        N = 20
+        f1 = np.array([[N/2, N/2], [1, N-1]])
+        f2 = np.array([[1, N-1], [N/2, N/2]])
+        gb = meshing.cart_grid([f1, f2], [N, N])
+        gb.compute_geometry()
+
+        seeds = co.generate_seeds(gb)
+        known_seeds = np.array([29, 30, 369, 370, 181, 198, 201, 218])
+        assert np.array_equal(seeds, known_seeds)
+
+        part = co.create_partition(co.tpfa_matrix(gb), cdepth=3, seeds=seeds)
+        co.generate_coarse_grid(gb, part)
+
+        # Test
+        known_indices = np.array([[0, 0], [17, 16, 15, 14, 13, 12, 11, 10, 9,
+                                           8, 7, 6, 5, 4, 3, 2, 1, 0, 17, 16,
+                                           15, 14, 13, 12, 11, 10, 9, 8, 7, 6,
+                                           5, 4, 3, 2, 1, 0], [0, 0],
+                                  [17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6,
+                                   5, 4, 3, 2, 1, 0, 17, 16, 15, 14, 13, 12, 11,
+                                   10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]])
+        known = np.array([[9, 19], [10, 18, 28, 37, 46, 54, 62, 71, 77, 84, 91,
+                                    99, 108, 116, 124, 134, 143, 151, 328, 329,
+                                    330, 331, 332, 333, 334, 335, 336, 337, 338,
+                                    339, 340, 341, 342, 343, 344, 345],
+                          [9, 19], [236, 237, 238, 239, 240, 241, 242, 243, 244,
+                                    245, 246, 247, 248, 249, 250, 251, 252, 253,
+                                    346, 347, 348, 349, 350, 351, 352, 353, 354,
+                                    355, 356, 357, 358, 359, 360, 361, 362,
+                                    363]])
+
+        for i, e_d in enumerate(gb.edges_props()):
+            indices, faces, _ = sps.find(e_d[1]['face_cells'])
+            assert np.array_equal(faces, known[i])
+            assert np.array_equal(indices, known_indices[i])
 
 #------------------------------------------------------------------------------#
