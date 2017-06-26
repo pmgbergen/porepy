@@ -24,6 +24,8 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False, **kwargs):
 
     Returns:
         gb: grid bucket associated to the configuration.
+        domain: if the domain is not given as input parameter, the bounding box
+        is returned.
 
     """
 
@@ -43,6 +45,8 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False, **kwargs):
     edges = np.vstack((np.arange(0, 2*num_fracs, 2),
                        np.arange(1, 2*num_fracs, 2)))
 
+    f_set = np.array([pts[:, e] for e in edges.T])
+
     # Define the domain as bounding-box if not defined
     if domain is None:
         max_coord = pts.max(axis=1)
@@ -51,7 +55,7 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False, **kwargs):
         domain = {'xmin': min_coord[0], 'xmax': max_coord[0],
                   'ymin': min_coord[1], 'ymax': max_coord[1]}
 
-    f_set = np.array([pts[:, e] for e in edges.T])
+        return meshing.simplex_grid(f_set, domain, **mesh_kwargs), domain
 
     return meshing.simplex_grid(f_set, domain, **mesh_kwargs)
 
