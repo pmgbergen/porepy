@@ -374,7 +374,7 @@ class DualVEM(Solver):
         F = np.array([s*m(f) for m in mono \
                       for s, f in zip(sgn, f_centers.T)]).reshape((dim, -1))
 
-        assert np.allclose(G, np.dot(F, D))
+        assert np.allclose(G, np.dot(F, D)), "G "+str(G)+" F*D "+str(np.dot(F,D))
 
         # local matrix Pi_s
         Pi_s = np.linalg.solve(G, F)
