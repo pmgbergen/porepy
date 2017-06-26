@@ -53,8 +53,9 @@ class Data(object):
             return self._aperture
         else:
             return self._aperture * np.ones(self._num_cells)
+
     def _set_aperture(self, val):
-        if (isinstance(val, np.ndarray) and np.any(val<0)) or val < 0:
+        if (isinstance(val, np.ndarray) and np.any(val < 0)) or val < 0:
             raise ValueError('Negative aperture')
         self._aperture = val
 
@@ -91,6 +92,7 @@ class Data(object):
         Solvers should rather access the function source().
         """
         return self._source_flow
+
     def _set_source_flow(self, arr):
         self._source_flow = arr
     source_flow = property(_get_source_flow, _set_source_flow)
@@ -103,9 +105,10 @@ class Data(object):
         Solvers should rather access the function source().
         """
         return self._source_transport
+
     def _set_source_transport(self, arr):
         self._source_transport = arr
-    source_transport= property(_get_source_transport, _set_source_transport)
+    source_transport = property(_get_source_transport, _set_source_transport)
 
 #-------------------- Permeability and conductivity ---------------------
 
@@ -138,6 +141,7 @@ class Data(object):
         Solvers should rather access tensor().
         """
         return self._perm
+
     def _set_perm(self, ten):
         self._perm = ten
 
@@ -149,6 +153,7 @@ class Data(object):
         Solvers should rather access tensor().
         """
         return self._conductivity
+
     def _set_conductivity(self, ten):
         self._conductivity = ten
 
@@ -156,13 +161,14 @@ class Data(object):
 
 #--------------------- Stiffness -------------------------------------
 
-    def _stiffness_getter(self):
+    def _get_stiffness(self):
         """ Stiffness matrix, defined as fourth order tensor
         """
         return self._stiffness
-    def _stiffness_setter(self, val):
+
+    def _set_stiffness(self, val):
         self._stiffness = val
-    stiffness = property(_stiffness_getter, _stifness_setter)
+    stiffness = property(_get_stiffness, _set_stiffness)
 
 #--------------------- Boundary conditions and values ------------------------
 
@@ -227,6 +233,7 @@ class Data(object):
         Solvers should rather access bc().
         """
         return self._bc_flow
+
     def _set_bc_flow(self, bnd):
         self._bc_flow = bnd
     bc_flow = property(_get_bc_flow, _set_bc_flow)
@@ -238,6 +245,7 @@ class Data(object):
         Solvers should rather access bc().
         """
         return self._bc_transport
+
     def _set_bc_transport(self, bnd):
         self._bc_transport = bnd
     bc_transport = property(_get_bc_transport, _set_bc_transport)
@@ -249,6 +257,7 @@ class Data(object):
         Solvers should rather access bc().
         """
         return self._bc_mech
+
     def _set_bc_mech(self, bnd):
         self._bc_mech = bnd
     bc_mech = property(_get_bc_mech, _set_bc_mech)
@@ -260,7 +269,8 @@ class Data(object):
         Solvers should rather access bc_val().
         """
         return self._bc_val_flow
-    def _set_bc_flow(self, bnd):
+
+    def _set_bc_val_flow(self, bnd):
         self._bc_val_flow = bnd
     bc_val_flow = property(_get_bc_val_flow, _set_bc_val_flow)
 
@@ -271,18 +281,19 @@ class Data(object):
         Solvers should rather access bc_val().
         """
         return self._bc_transport
+
     def _set_bc_val_transport(self, bnd):
         self._bc_val_transport = bnd
     bc_val_transport = property(_get_bc_val_transport, _set_bc_val_transport)
 
 #---
 
-    def _get_bc_mech(self):
+    def _get_bc_val_mech(self):
         """ Boundary values for mechanics problem.
         Solvers should rather access bc_val().
         """
         return self._bc_val_mech
+
     def _set_bc_val_mech(self, bnd):
         self._bc_val_mech = bnd
     bc_val_mech = property(_get_bc_val_mech, _set_bc_val_mech)
-
