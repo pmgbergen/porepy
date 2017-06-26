@@ -1,6 +1,9 @@
 """ Contains class for storing data / parameters associated with a grid.
 """
+import warnings
 import numpy as np
+
+from porepy.numerics.mixed_dim.solver import Solver
 
 
 class Data(object):
@@ -32,12 +35,26 @@ class Data(object):
         self._num_cells = g.num_cells
         self._num_faces = g.num_faces
 
+        self.known_physics = ['flow', 'transport', 'mechanics']
+
     def __repr__(self):
         s = 'Data object for grid with ' + str(self._num_cells)
         s += ' cells and ' + str(self._num_faces) + ' faces \n'
         s += 'Assigned attributes / properties: \n'
         s += str(list(self.__dict__.keys()))
         return s
+
+    def _get_physics(self, obj):
+        if isinstance(obj, Solver):
+            if not hasattr(obj, physics):
+                raise AttributeError('Solver object should have attribute physics')
+            s = obj.physics.strip().lower()
+        elif isinstance(obj, str):
+            s = obj.strip().lower()
+        if not s in self.known_physics:
+            # Give a warning if 
+            warnings.warn('Unknown physics ' + s)
+
 
 #------------------ Aperture -----------------
 
@@ -63,7 +80,7 @@ class Data(object):
 
 #------------------- Sources ---------------------------------------------
 
-    def sources(self, obj):
+    def get_source(self, obj):
         """ Pick out solver-specific source.
 
         Discretization methods should access this method.
@@ -80,6 +97,8 @@ class Data(object):
             Heat source if obj.physics equals 'heat' or 'transport'.
 
         """
+        
+
         if obj.physics.lower().strip() in ['flow', 'pressure']:
             return self._source_flow
         elif obj.physics.lower().strip() in ['heat', 'transport']:
