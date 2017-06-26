@@ -81,7 +81,7 @@ def generate_coarse_grid_single(g, subdiv, face_map):
         # reconstruct the cell_faces mapping
         faces_old, _, orient_old = sps.find(g.cell_faces[:, cells_old])
         mask = np.ones(faces_old.size, dtype=np.bool)
-        mask[ np.unique(faces_old, return_index=True )[1]] = False
+        mask[np.unique(faces_old, return_index=True )[1]] = False
         # extract the indexes of the internal edges, to be discared
         index = np.array([ np.where( faces_old == f )[0] \
                                 for f in faces_old[mask]], dtype=np.int).ravel()
@@ -93,13 +93,14 @@ def generate_coarse_grid_single(g, subdiv, face_map):
         # reconstruct the face_nodes mapping
         # consider only the unvisited faces
         not_visit = ~visit[faces_new]
-        if not_visit.size == 0:
+        if not_visit.size == 0 or np.all(~not_visit):
             continue
         # mask to consider only the external faces
         mask = np.atleast_1d(np.sum([face_node_ind == f \
                                      for f in faces_new[not_visit]], \
                                     axis=0, dtype=np.bool))
         face_nodes = np.r_[face_nodes, face_node_ind[mask]]
+
         nodes_new = g.face_nodes.indices[mask]
         nodes = np.r_[nodes, nodes_new]
         visit[faces_new] = True
@@ -127,7 +128,7 @@ def generate_coarse_grid_single(g, subdiv, face_map):
     face_nodes =  sps.csc_matrix(( data, nodes, indptr ))
 
     name = g.name
-    name.append( "coarse" )
+    name.append("coarse")
     g_co = grid.Grid(g.dim, g.nodes[:, nodes_list], face_nodes, cell_faces, name)
 
     if face_map:
@@ -274,6 +275,8 @@ def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
     for _ in np.arange(2, cdepth+1):
         for j in np.arange(Nc):
             rowj = np.array(STold.rows[j])
+            if rowj.size == 0:
+                continue
             row = np.hstack([STold.rows[r] for r in rowj])
             ST[j, np.concatenate((rowj, row))] = True
         STold = ST.copy()
