@@ -103,6 +103,15 @@ class SubcellTopology(object):
         self.num_subfno_unique = self.subfno_unique.max() + 1
         self.unique_subfno = unique_subfno
 
+    def __repr__(self):
+        s = 'Subcell topology with:\n'
+        s += str(self.num_cno) + ' cells\n'
+        s += str(self.g.num_nodes) + ' nodes\n'
+        s += str(self.g.num_faces) + ' faces\n'
+        s += str(self.num_subfno_unique) + ' unique subfaces\n'
+        s += str(self.fno.size) + ' subfaces before pairing face neighbors\n'
+        return s
+
     def pair_over_subfaces(self, other):
         """
         Transfer quantities from a cell-face base (cells sharing a face have
