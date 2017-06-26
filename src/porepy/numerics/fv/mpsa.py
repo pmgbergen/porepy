@@ -668,6 +668,32 @@ def _split_stiffness_matrix(constit):
 
 
 def _tensor_vector_prod(g, constit, subcell_topology):
+    """ Compute product between stiffness tensor and face normals.
+
+    The method splits the stiffness matrix into a symmetric and asymmetric
+    part, and computes the products with normal vectors for each. The method
+    also provides a unique identification of sub-cells (in the form of pairs of
+    cells and nodes), and a global numbering of subcell gradients.
+
+    Parameters:
+        g: grid
+        constit: Stiffness matrix, in the form of a fourth order tensor.
+        subcell_topology: Numberings of subcell quantities etc.
+
+    Returns:
+        ncsym, ncasym: Product with face normals for symmetric and asymmetric
+            part of stiffness tensors. On the subcell level. In effect, these
+            will be stresses on subfaces, as functions of the subcell gradients
+            (to be computed somewhere else). The rows first represent stresses
+            in the x-direction for all faces, then y direction etc.
+        cell_nodes_blocks: Unique pairing of cell and node numbers for
+            subcells. First row: Cell numbers, second node numbers. np.ndarray.
+        grad_ind: Numbering scheme for subcell gradients - gives a global
+            numbering for the gradients. One column per subcell, the rows gives
+            the index for the individual components of the gradients.
+
+    """
+
     # Stack cells and nodes, and remove duplicate rows. Since subcell_mapping
     # defines cno and nno (and others) working cell-wise, this will
     # correspond to a unique rows (Matlab-style) from what I understand.
