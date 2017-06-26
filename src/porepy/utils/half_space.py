@@ -2,7 +2,6 @@ from __future__ import division, print_function
 import numpy as np
 import scipy.optimize as opt
 
-
 def half_space_int(n, x0, pts):
     """
     Find the points that lie in the intersection of half spaces (3D)
@@ -91,28 +90,16 @@ def half_space_pt(n, x0, pts, recompute=True):
     dim = (1, n.shape[1])
     c = np.array([0, 0, 0, 0, -1])
     A_ub = np.concatenate((n, [np.sum(-n*x0, axis=0)], np.ones(dim))).T
-    bounds = ((np.amin(pts[0, :]), np.amax(pts[0, :])),
-              (np.amin(pts[1, :]), np.amax(pts[1, :])),
-              (np.amin(pts[2, :]), np.amax(pts[2, :])),
-              (0, None), (0, None))
-    res = opt.linprog(c, A_ub, np.zeros(dim).T, bounds=bounds)
+    b_ub = np.zeros(dim).T
+    b_min, b_max = np.amin(pts, axis=1), np.amax(pts, axis=1)
+    bounds = ((b_min[0], b_max[0]), (b_min[1], b_max[1]),
+              (b_min[2], b_max[2]), (0, None), (0, None))
+    res = opt.linprog(c, A_ub, b_ub, bounds=bounds)
 
-    # We allow point also in the boundary of the half-space intersection,
-    # imposing res.x[4] < 0. To avoid this change in res.x[4] <= 0.
-    if recompute and (res.status != 0 or res.x[3] == 0):  #np.prod(~if_check)
+    if recompute and (not res.success or np.all(np.isclose(res.x[3:], 0))):
         return half_space_pt(-n, x0, pts, False)
 
-    def if_check(x):
-        condition = np.array([np.dot(x - x_, n_) for n_, x_ in zip(n.T, x0.T)])
-        check = condition + res.x[4]/res.x[3]
-        return np.logical_or(check <= 0, np.isclose(check, 0))
-
-    x = np.array(res.x[0:3]) / res.x[3]
-
-    assert res.status == 0 and np.all(if_check(x)) and res.x[3] > 0
-
-    if np.isclose(res.x[4], 0):
-        print('Non star-shaped polygon, attention is required')
-    return x
+    assert res.success
+    return np.array(res.x[:3])/res.x[3]
 
 #------------------------------------------------------------------------------#
