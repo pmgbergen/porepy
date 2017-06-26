@@ -32,7 +32,8 @@ class BiotTest(unittest.TestCase):
                     'bc_val_mech': np.tile(bound_val, g.dim),
                     'bc_val_flow': bound_val,
                     'poro': np.ones(g.num_cells),
-                    'dt': 1
+                    'dt': 1,
+                    'biot_alpha': 1
                    }
 
             A, b = discr.matrix_rhs(g, data)
