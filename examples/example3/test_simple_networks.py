@@ -5,17 +5,12 @@ The module doubles as a test framework (though not unittest), and will report
 on any problems if ran as a main method.
 
 """
-import sys
 import numpy as np
-import time
-import traceback
-import logging
-from inspect import isfunction, getmembers
 
 from porepy.fracs import meshing
 
 
-def single_isolated_fracture(**kwargs):
+def test_single_isolated_fracture(**kwargs):
     """
     A single fracture completely immersed in a boundary grid.
     """
@@ -31,7 +26,7 @@ def single_isolated_fracture(**kwargs):
         return grids
 
 
-def two_intersecting_fractures(**kwargs):
+def test_two_intersecting_fractures(**kwargs):
     """
     Two fractures intersecting along a line.
 
@@ -56,7 +51,7 @@ def two_intersecting_fractures(**kwargs):
         return grids
 
 
-def three_intersecting_fractures(**kwargs):
+def test_three_intersecting_fractures(**kwargs):
     """
     Three fractures intersecting, with intersecting intersections (point)
     """
@@ -79,7 +74,7 @@ def three_intersecting_fractures(**kwargs):
         return grids
 
 
-def one_fracture_intersected_by_two(**kwargs):
+def test_one_fracture_intersected_by_two(**kwargs):
     """
     One fracture, intersected by two other (but no point intersections)
     """
@@ -102,7 +97,7 @@ def one_fracture_intersected_by_two(**kwargs):
         return grids
 
 
-def split_into_octants(**kwargs):
+def test_split_into_octants(**kwargs):
     f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
     f_2 = np.array([[-1, -1, 1, 1], [-1, 1, 1, -1], [0, 0, 0, 0]])
     f_3 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]])
@@ -117,7 +112,7 @@ def split_into_octants(**kwargs):
     return grids
 
 
-def three_fractures_sharing_line_same_segment(**kwargs):
+def test_three_fractures_sharing_line_same_segment(**kwargs):
     """
     Three fractures that all share an intersection line. This can be considered
     as three intersection lines that coincide.
@@ -135,7 +130,7 @@ def three_fractures_sharing_line_same_segment(**kwargs):
         return grids
 
 
-def three_fractures_split_segments(**kwargs):
+def test_three_fractures_split_segments(**kwargs):
     """
     Three fractures that all intersect along the same line, but with the
     intersection between two of them forming an extension of the intersection
@@ -153,7 +148,7 @@ def three_fractures_split_segments(**kwargs):
         return grids
 
 
-def two_fractures_L_intersection(**kwargs):
+def test_two_fractures_L_intersection(**kwargs):
     """
     Two fractures sharing a segment in an L-intersection.
     """
@@ -168,7 +163,7 @@ def two_fractures_L_intersection(**kwargs):
         return grids
 
 
-def two_fractures_L_intersection_part_of_segment(**kwargs):
+def test_two_fractures_L_intersection_part_of_segment(**kwargs):
     """
     Two fractures sharing what is a full segment for one, an part of a segment
     for the other.
@@ -184,7 +179,7 @@ def two_fractures_L_intersection_part_of_segment(**kwargs):
         return grids
 
 
-def two_fractures_L_intersection_one_displaced(**kwargs):
+def test_two_fractures_L_intersection_one_displaced(**kwargs):
     """
     Two fractures sharing what is a part of segments for both.
     """
@@ -199,68 +194,3 @@ def two_fractures_L_intersection_one_displaced(**kwargs):
         return grids
 
 
-if __name__ == '__main__':
-
-    # If invoked as main, run all tests
-    return_expected = 1
-    success_counter = 0
-    failure_counter = 0
-
-    time_tot = time.time()
-    functions_list = [o for o in getmembers(
-        sys.modules[__name__]) if isfunction(o[1])]
-    for f in functions_list:
-        func = f
-        if func[0] == 'isfunction':
-            continue
-        elif func[0] == 'getmembers':
-            continue
-        if verbose > 0:
-            print('Running ' + func[0])
-
-        time_loc = time.time()
-        try:
-            gb, expected = func[1](verbose=verbose,
-                                   return_expected=True)
-
-            # Check that the bucket has the expected number of grids in each
-            # dimension.
-            for dim, exp_l in zip(range(3, -1, -1), expected):
-                g_loc = gb.grids_of_dimension(dim)
-                assert len(g_loc) == exp_l
-
-        except Exception as exp:
-            print('\n')
-            print(' ************** FAILURE **********')
-            print('Example ' + func[0] + ' failed')
-            print(exp)
-            logging.error(traceback.format_exc())
-            failure_counter += 1
-            continue
-
-        if compute_geometry:
-            try:
-                for g, _ in gb:
-                    if g.dim == 3:
-                        g.compute_geometry()
-                    else:
-                        g.compute_geometry(is_embedded=True)
-            except Exception as exp:
-                print('************ FAILURE **********')
-                print('Geometry computation failed for grid ' + str(g))
-                print(exp)
-                logging.error(traceback.format_exc())
-                failure_counter += 1
-                continue
-
-        # If we have made it this far, this is a success
-        success_counter += 1
-    #################################
-    # Summary
-    #
-    print('\n')
-    print(' --- ')
-    print('Ran in total ' + str(success_counter + failure_counter) + ' tests,'
-          + ' out of which ' + str(failure_counter) + ' failed.')
-    print('Total elapsed time is ' + str(time.time() - time_tot) + ' seconds')
-    print('\n')
