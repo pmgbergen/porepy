@@ -10,6 +10,16 @@ from porepy.numerics.mixed_dim.solver import Solver
 
 class Biot(Solver):
 
+    def __init__(self, eta=None):
+        """ Set default values for some parameters used in discretization.
+
+        """
+        defaults = {'fluid_compr': 0,
+                    'fluid_viscosity': 1,
+                    'biot_alpha': 1
+                    }
+        self.defaults = defaults
+
     def ndof(self, g):
         """ Return the number of degrees of freedom associated wiht the method.
 
@@ -29,15 +39,21 @@ class Biot(Solver):
     def matrix_rhs(self, g, data, discretize=True):
         if discretize:
             self.discretize(g, data)
+
         A_biot = self.assemble_matrix(g, data)
-        rhs_bound = self.rhs_bound(g, data)
+        rhs_bound = self.rhs(g, data)
         return A_biot, rhs_bound
 
 #--------------------------- Helper methods for discretization ----------
 
+    def rhs(self, g, data):
+        bnd = self.rhs_bound(g, data)
+        tm = self.rhs_time(g, data)
+#        src = data['source']
+        return bnd + tm
+
     def rhs_bound(self, g, data):
-        """ Boundary component of the right hand side (dependency on previous
-        time step).
+        """ Boundary component of the right hand side.
 
         TODO: Boundary effects of coupling terms.
 
@@ -52,17 +68,18 @@ class Biot(Solver):
             state.
 
         """
-        d = data['bound_mech_val']
-        p = data['bound_flow_val']
+        d = data['bc_val_mech']
+        p = data['bc_val_flow']
 
         div_flow = fvutils.scalar_divergence(g)
         div_mech = fvutils.vector_divergence(g)
 
-        p_bound = div_flow * data['bound_flux'] * p
-        s_bound = div_mech * data['bound_stress'] * d
+        p_bound = -div_flow * data['bound_flux'] * p\
+                  - data['bound_div_d'] * d
+        s_bound = -div_mech * data['bound_stress'] * d
         return np.hstack((s_bound, p_bound))
 
-    def rhs_time(self, g, data, state):
+    def rhs_time(self, g, data):
         """ Time component of the right hand side (dependency on previous time
         step).
 
@@ -73,13 +90,18 @@ class Biot(Solver):
             g: grid, or subclass, with geometry fields computed.
             data: dictionary to store the data terms. Must have been through a
                 call to discretize() to discretization of right hand side.
-            state: np.ndarray, solution vector from previous time step.
+            state: np.ndarray optional, solution vector from previous time
+                step. Defaults to zero.
 
         Returns:
             np.ndarray: Contribution to right hand side given the current
             state.
 
         """
+        state = data.get('state', None)
+        if state is None:
+            state = np.zeros((g.dim + 1) * g.num_cells)
+
         d = self.extractD(g, state, as_vector=True)
         p = self.extractP(g, state)
 
@@ -96,9 +118,44 @@ class Biot(Solver):
     def discretize(self, g, data):
         """ Discretize flow and mechanics equations using FV methods.
 
-        The parameters needed for the discretization are:
+        The parameters needed for the discretization are stored in the
+        dictionary data, which should contain the following mandatory keywords:
 
+            Related to flow equation:
+                perm: Second order tensor representing permeability
+                bound_flow: BoundaryCondition object for flow equation. Used in
+                    mpfa.
 
+            Related to mechanics equation:
+                stiffness: Fourth order tensor representing elastic moduli.
+                bound_mech: BoundaryCondition object for mechanics equation.
+                    Used in mpsa.
+
+        In addition, the following parameters are optional:
+
+            Related to flow equation:
+                fluid_viscosity (double). Defaults to 1.
+                fluid_compr (double): Fluid compressibility. Defaults to 0.
+
+            Related to coupling terms:
+                biot_alpha (double between 0 and 1): Biot's coefficient.
+                    Defaults to 1.
+
+            Related to numerics:
+                inverter (str): Which method to use for block inversion. See
+                    fvutils.invert_diagonal_blocks for detail, and for default
+                    options.
+                eta (double): Location of continuity point in MPSA and MPFA.
+                    Defaults to 1/3 for simplex grids, 0 otherwise.
+
+        The discretization is stored in the data dictionary, in the form of
+        several matrices representing different coupling terms. For details,
+        and how to combine these, see self.assemble_matrix()
+
+        Parameters:
+            g (grid): Grid to be discretized.
+            data (dictionary): Containing data for discretization. See above
+                for specification.
 
         """
         # Discretization of elasticity / poro-mechanics
@@ -108,11 +165,29 @@ class Biot(Solver):
 
 
     def assemble_matrix(self, g, data):
+        """ Assemble the poro-elastic system matrix.
+
+        The discretization is presumed stored in the data dictionary.
+
+        Parameters:
+            g (grid): Grid for disrcetization
+            data (dictionary): Data for discretization, as well as matrices
+                with discretization of the sub-parts of the system.
+
+        Returns:
+            scipy.sparse.bmat: Block matrix with the combined MPSA/MPFA
+                discretization.
+
+        """
         div_flow = fvutils.scalar_divergence(g)
         div_mech = fvutils.vector_divergence(g)
 
+        fluid_viscosity = data.get('fluid_viscosity',
+                                   self.defaults['fluid_viscosity'])
+        biot_alpha = data.get('biot_alpha', self.defaults['biot_alpha'])
+
         # Put together linear system
-        A_flow = div_flow * data['flux'] / data['water_viscosity']
+        A_flow = div_flow * data['flux'] / fluid_viscosity
         A_mech = div_mech * data['stress']
 
         # Time step size
@@ -121,8 +196,8 @@ class Biot(Solver):
         d_scaling = data.get('displacement_scaling', 1)
         # Matrix for left hand side
         A_biot = sps.bmat([[A_mech,
-                            data['grad_p'] * data['biot_alpha']],
-                            [data['div_d'] * data['biot_alpha'] * d_scaling,
+                            data['grad_p'] * biot_alpha],
+                            [data['div_d'] * biot_alpha * d_scaling,
                              data['compr_discr'] \
                              + dt * A_flow + data['stabilization']]]).tocsr()
 
@@ -134,35 +209,21 @@ class Biot(Solver):
         perm = data.get('perm')
         bound_flow = data.get('bound_flow')
         # Discretiztaion of MPFA
-        flux, bound_flux = mpfa.mpfa(g, perm, bound_flow, **data)
-        data['flux'] = flux
-        data['bound_flux'] = bound_flux
+        md = mpfa.Mpfa()
+        mpfa_data = {'k': perm, 'bc': bound_flow}
+        mpfa_data['inverter'] = data.get('inverter', None)
 
-
-    def _discretize_mech(self, g, data):
-        # Discretization of elasticity / poro-mechanics
-        stress, bound_stress, grad_p, div_d, \
-            stabilization, bound_div_d = self.discretize(g, data['stiffness'],
-                                            data['bound_mech'], **data)
-
-        data['stress'] = stress
-        data['bound_stress'] = bound_stress
-        data['grad_p'] = grad_p
-        data['div_d'] = div_d
-        data['stabilization'] = stabilization
-        data['bound_div_d'] = bound_div_d
+        md.discretize(g, mpfa_data)
+        data['flux'] = mpfa_data['flux']
+        data['bound_flux'] = mpfa_data['bound_flux']
 
     def _discretize_compr(self, g, data):
-        compr = data.get('fluid_compr', 0)
+        compr = data.get('fluid_compr', self.defaults['fluid_compr'])
         poro = data['poro']
         data['compr_discr'] = sps.dia_matrix((g.cell_volumes * compr * poro, 0),
                                              shape=(g.num_cells, g.num_cells))
 
-
-#-------------------------------------------------------------------------
-
-    def discretize(self, g, constit, bound_mech, bound_flow, faces=None, eta=0,
-                   inverter=None, **kwargs):
+    def _discretize_mech(self, g, data):
         """
         Discretization of poro-elasticity by the MPSA-W method.
 
@@ -245,6 +306,13 @@ class Biot(Solver):
             p = x[g.num_cells * gdim:]
 
         """
+        bound_mech = data['bound_mech']
+        bound_flow = data['bound_flow']
+        constit = data['stiffness']
+
+        eta = data.get('eta', 0)
+        inverter = data.get('inverter', None)
+
 
         # The grid coordinates are always three-dimensional, even if the grid
         # is really 2D. This means that there is not a 1-1 relation between the
@@ -338,7 +406,7 @@ class Biot(Solver):
                                    shape=(subcell_topology.num_cno * nd,
                                           num_subhfno * nd)).tocsr()
 
-        del hook, rhs_bound
+#        del hook, rhs_bound
         del rows, cols, vals
 
         grad_p = div_gradp * hook_normal * igrad * rhs_normals
@@ -346,16 +414,25 @@ class Biot(Solver):
 
         del hook_normal, div_gradp
 
-        div = self._subcell_gradient_to_cell_scalar(g, cell_node_blocks) 
+        div = self._subcell_gradient_to_cell_scalar(g, cell_node_blocks)
 
         div_d = div * igrad * rhs_cells
-        bound_div_d = self._face_vector_to_scalar(g.num_faces, g.dim)\
-                      * bound_stress
+
+        # The boundary discretization of the div_d term is represented directly
+        # on the cells, instead of going via the faces.
+        bound_div_d = div * igrad * rhs_bound
         del rhs_cells
 
         stabilization = div * igrad * rhs_normals
 
-        return stress, bound_stress, grad_p, div_d, stabilization, bound_div_d
+        data['stress'] = stress
+        data['bound_stress'] = bound_stress
+        data['grad_p'] = grad_p
+        data['div_d'] = div_d
+        data['stabilization'] = stabilization
+        data['bound_div_d'] = bound_div_d
+
+
 
     def _face_vector_to_scalar(self, nf, nd):
         """ Create a mapping from vector quantities on faces (stresses) to
@@ -453,7 +530,7 @@ class Biot(Solver):
         for d in dims:
             vals.append(u[d + inds])
         if as_vector:
-            vals = np.asarray(vals).reshape((-1, 1), order='C')
+            vals = np.asarray(vals).reshape((-1, 1), order='F')
             return vals
         else:
             return vals
@@ -491,7 +568,7 @@ class Biot(Solver):
         """
         flux_discr = data['flux']
         bound_flux = data['bound_flux']
-        bound_val = data['bound_flow_val']
+        bound_val = data['bc_val_flow']
         p = self.extractP(g, u)
         flux = flux_discr * p + bound_flux * bound_val
         return flux
@@ -514,8 +591,8 @@ class Biot(Solver):
         """
         stress_discr = data['stress']
         bound_stress = data['bound_stress']
-        bound_val = data['bound_mech_val']
+        bound_val = data['bc_val_mech']
         d = self.extractD(g, u, as_vector=True)
-        stress = stress_discr * d + (bound_stress * bound_val)[:, np.newaxis]
+        stress = np.squeeze(stress_discr * d) + (bound_stress * bound_val)
         return stress
 
