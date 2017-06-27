@@ -197,7 +197,8 @@ class MainTester(unittest.TestCase):
         mat_vec = (1 - char_func_cells) + kappa * char_func_cells
 
         k = tensor.FourthOrder(2, mat_vec, mat_vec)
-        stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter='python')
+        stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter='python',
+                                         eta=0)
         div = fvutils.vector_divergence(g)
         a = div * stress
 

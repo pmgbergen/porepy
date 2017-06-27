@@ -275,13 +275,8 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
     return flux, bound_flux
 
 
-<<<<<<< d5ddf4178e186cf8cbf1753642728ac182fd558a
-def mpfa_partial(g, k, bnd, eta=None, inverter='numba', cells=None, faces=None,
-                 nodes=None):
-=======
 def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
                  nodes=None, apertures=None):
->>>>>>> Change name conventions
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
     of global variable numbers.

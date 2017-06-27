@@ -3,7 +3,7 @@ import numpy as np
 import numpy.linalg
 import unittest
 
-from porepy.numerics.fv import mpfa, mpsa, fvutils
+from porepy.numerics.fv import mpfa, mpsa, fvutils, biot
 from porepy.params import tensor, bc
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
