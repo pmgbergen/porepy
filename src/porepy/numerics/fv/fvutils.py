@@ -103,6 +103,15 @@ class SubcellTopology(object):
         self.num_subfno_unique = self.subfno_unique.max() + 1
         self.unique_subfno = unique_subfno
 
+    def __repr__(self):
+        s = 'Subcell topology with:\n'
+        s += str(self.num_cno) + ' cells\n'
+        s += str(self.g.num_nodes) + ' nodes\n'
+        s += str(self.g.num_faces) + ' faces\n'
+        s += str(self.num_subfno_unique) + ' unique subfaces\n'
+        s += str(self.fno.size) + ' subfaces before pairing face neighbors\n'
+        return s
+
     def pair_over_subfaces(self, other):
         """
         Transfer quantities from a cell-face base (cells sharing a face have
@@ -141,6 +150,8 @@ class SubcellTopology(object):
         # vector version, to be used on stresses
         pair_over_subfaces_nd = sps.kron(sps.eye(nd), pair_over_subfaces)
         return pair_over_subfaces_nd * other
+
+#------------------------ End of class SubcellTopology ----------------------
 
 
 def compute_dist_face_cell(g, subcell_topology, eta):
@@ -185,6 +196,34 @@ def compute_dist_face_cell(g, subcell_topology, eta):
     mat = sps.csr_matrix((dist.ravel('F'), cols.ravel('F'), ind_ptr))
     return subcell_topology.pair_over_subfaces(mat)
 
+def determine_eta(g):
+    """ Set default value for the location of continuity point eta in MPFA and
+    MSPA.
+
+    The function is intended to give a best estimate of eta in cases where the
+    user has not specified a value.
+
+    Parameters:
+        g: Grid for discretization
+
+    Returns:
+        double. 1/3 if the grid in known to consist of simplicies (it is one of
+           TriangleGrid, TetrahedralGrid, or their structured versions). 0 if
+           not.
+    """
+
+    if 'StructuredTriangleGrid' in g.name:
+        return 1/3
+    elif 'TriangleGrid' in g.name:
+        return 1/3
+    elif 'StructuredTetrahedralGrid' in g.name:
+        return 1/3
+    elif 'TetrahedralGrid' in g.name:
+        return 1/3
+    else:
+        return 0
+
+#------------- Methods related to block inversion ----------------------------
 
 # @profile
 def invert_diagonal_blocks(mat, s, method=None):
@@ -441,6 +480,8 @@ def block_diag_index(m, n=None):
     j = matrix_compression.rldecode(sumn, m_n_full)
     return i, j
 
+#------------------- End of methods related to block inversion ---------------
+
 def expand_indices_nd(ind, nd, direction=1):
     """
     Expand indices from scalar to vector form.
@@ -574,6 +615,8 @@ def zero_out_sparse_rows(A, rows, diag=None):
 
     return A
 
+
+#-----------------------------------------------------------------------------
 
 class ExcludeBoundaries(object):
     """ Wrapper class to store mapping for exclusion of equations that are
