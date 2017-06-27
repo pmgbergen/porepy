@@ -68,8 +68,8 @@ class Biot(Solver):
             state.
 
         """
-        d = data['bc_val_mech']
-        p = data['bc_val_flow']
+        d = data['param'].get_bc_val('mechanics')
+        p = data['param'].get_bc_val('flow')
 
         div_flow = fvutils.scalar_divergence(g)
         div_mech = fvutils.vector_divergence(g)
@@ -107,7 +107,7 @@ class Biot(Solver):
 
         d_scaling = data.get('displacement_scaling', 1)
 
-        div_d = np.squeeze(data['biot_alpha'] * data['div_d'] * d * d_scaling)
+        div_d = np.squeeze(data['param'].biot_alpha * data['div_d'] * d * d_scaling)
         p_cmpr = data['compr_discr'] * p
 
         mech_rhs = np.zeros(g.dim * g.num_cells)
@@ -181,10 +181,10 @@ class Biot(Solver):
         """
         div_flow = fvutils.scalar_divergence(g)
         div_mech = fvutils.vector_divergence(g)
+        param = data['param']
 
-        fluid_viscosity = data.get('fluid_viscosity',
-                                   self.defaults['fluid_viscosity'])
-        biot_alpha = data.get('biot_alpha', self.defaults['biot_alpha'])
+        fluid_viscosity = param.fluid_viscosity
+        biot_alpha = param.biot_alpha
 
         # Put together linear system
         A_flow = div_flow * data['flux'] / fluid_viscosity
@@ -206,20 +206,17 @@ class Biot(Solver):
 
     def _discretize_flow(self, g, data):
 
-        perm = data.get('perm')
-        bound_flow = data.get('bound_flow')
-        # Discretiztaion of MPFA
-        md = mpfa.Mpfa()
-        mpfa_data = {'k': perm, 'bc': bound_flow}
-        mpfa_data['inverter'] = data.get('inverter', None)
+        # Discretiztaion using MPFA
+        md = mpfa.Mpfa(physics='flow')
 
-        md.discretize(g, mpfa_data)
-        data['flux'] = mpfa_data['flux']
-        data['bound_flux'] = mpfa_data['bound_flux']
+        md.discretize(g, data)
+        data['flux'] = data['flux']
+        data['bound_flux'] = data['bound_flux']
 
     def _discretize_compr(self, g, data):
-        compr = data.get('fluid_compr', self.defaults['fluid_compr'])
-        poro = data['poro']
+        param = data['param']
+        compr = param.fluid_compr
+        poro = param.porosity
         data['compr_discr'] = sps.dia_matrix((g.cell_volumes * compr * poro, 0),
                                              shape=(g.num_cells, g.num_cells))
 
@@ -307,13 +304,13 @@ class Biot(Solver):
             p = x[g.num_cells * gdim:]
 
         """
-        bound_mech = data['bound_mech']
-        bound_flow = data['bound_flow']
-        constit = data['stiffness']
+        param = data['param']
+        bound_mech = param.get_bc('mechanics')
+        bound_flow = param.get_bc('flow')
+        constit = param.get_tensor('mechanics')
 
         eta = data.get('eta', 0)
         inverter = data.get('inverter', None)
-
 
         # The grid coordinates are always three-dimensional, even if the grid
         # is really 2D. This means that there is not a 1-1 relation between the

@@ -17,6 +17,9 @@ from porepy.numerics.mixed_dim.solver import Solver
 
 class Mpfa(Solver):
 
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -73,16 +76,19 @@ class Mpfa(Solver):
             source term.
 
         """
+        if discretize:
+            self.discretize(g, data)
+
         div = fvutils.scalar_divergence(g)
         flux = data['flux']
         M = div * flux
 
         bound_flux = data['bound_flux']
-        bc_val = data['bc_val']
-        f = data.get('f')
 
-        # Add the flux discretizations to the data dictionary
-        data['flux'], data['bound_flux'] = trm, bound_flux
+        param = data['param']
+
+        bc_val = param.get_bc_val(self)
+        f = param.get_sources(self)
 
         return M, self.rhs(g, bound_flux, bc_val, f)
 
@@ -126,16 +132,12 @@ class Mpfa(Solver):
         data: dictionary to store the data.
 
         """
-        k = data.get('k')
-        bnd = data.get('bc')
-        a = data.get('a')
+        param = data['param']
+        k = param.get_tensor(self)
+        bnd = param.get_bc(self)
+        a = param.apertures
 
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
-
-        trm, bound_flux = mpfa(g, k, bnd, faces=None, apertures=a)
+        trm, bound_flux = mpfa(g, k, bnd, apertures=a)
         data['flux'] = trm
         data['bound_flux'] = bound_flux
 

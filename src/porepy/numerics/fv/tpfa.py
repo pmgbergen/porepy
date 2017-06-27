@@ -81,14 +81,9 @@ class Tpfa(Solver):
 
         """
         div = fvutils.scalar_divergence(g)
+        self.discretize(g, data)
         flux = data['flux']
         M = div * flux
-
-        k = data.tensor(self)
-        bnd = data.bc(self)
-        bc_val = data.bc_val(self)
-        a = data.apertures
-        sources = data.sources(self)
 
         bound_flux = data['bound_flux']
         bc_val = data['bc_val']
@@ -135,14 +130,12 @@ class Tpfa(Solver):
         data: dictionary to store the data.
 
         """
-        k = data.get('k')
-        bnd = data.get('bc')
-        a = data.get('a')
-
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
+        param = data['data']
+        k = param.tensor(self)
+        bnd = param.bc(self)
+        bc_val = param.bc_val(self)
+        a = param.apertures
+        sources = para.sources(self)
 
         trm, bound_flux = tpfa(g, k, bnd, faces=None, apertures=a)
         data['flux'] = trm
