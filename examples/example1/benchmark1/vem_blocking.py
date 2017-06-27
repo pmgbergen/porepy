@@ -56,11 +56,11 @@ def add_data(gb, domain):
 
         bc_val = np.zeros(g.num_faces)
         if g.dim == 2:
-            bc_val[bound_faces[left]] = -np.ones(left.size)
+            bc_val[bound_faces[left]] = -np.ones(np.sum(left))
         else:
-            bc_val[bound_faces[left]] = -np.ones(left.size) * a
+            bc_val[bound_faces[left]] = -np.ones(np.sum(left)) * a
 
-        bc_val[bound_faces[right]] = np.ones(right.size)
+        bc_val[bound_faces[right]] = np.ones(np.sum(right))
 
         d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
         d['bc_val'] = bc_val.ravel('F')
