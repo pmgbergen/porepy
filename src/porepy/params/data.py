@@ -16,20 +16,44 @@ class Data(object):
 
     List of possible attributes (implemented as properties, see respective
     getter methods for further description):
-        aperture (fracture width)
-        perm (permeability tensor)
-        conductivity (heat conductivity tensor)
-        stiffness (Elastic stiffness tensor)
-        bc: bc_flow, bc_transport, bc_mech (boundary condition object)
-        sources: source_flow, source_transport (cell-wise sources)
+
+    General quantities (not physics specific)
+
+    Scalar quantities
+        biot_alpha: Biot's coefficient in poro-elasticity. Defaults to 1.
+        fluid_viscosity: In a single phase system. Defaults to 1.
+        fluid_compr: Fluid compressibility in a single phase system. Defaults
+            to 0.
+
+    Cell-wise quantities:
+        aperture (fracture width). Defaults to 1.
+        porosity
+
+    Physic-specific
+        tensor (Returns permeability, conductivtiy or stiffness)
+        bc (BoundaryCondition object)
+        bc_val (Boundary values
+        sources (flow and transport)
 
     Solvers will access data as needed. If a solver inquires for unassigned
     data, this will result in a runtime error.
+
+    Attributes (in addition to parameters described above):
+
+    known_physics : list
+        List of keyword signifying physical processes. There are at least one
+        Solver that uses each of the keywords.
 
     """
 
     def __init__(self, g):
         """ Initialize Data object.
+
+        Parameters:
+
+        g - grid:
+            Grid where the data is valid. Currently, only number of cells and
+            faces are accessed.
 
         """
         self._num_cells = g.num_cells
@@ -46,42 +70,266 @@ class Data(object):
 
     def _get_physics(self, obj):
         if isinstance(obj, Solver):
-            if not hasattr(obj, physics):
+            if not hasattr(obj, 'physics'):
                 raise AttributeError('Solver object should have attribute physics')
             s = obj.physics.strip().lower()
         elif isinstance(obj, str):
             s = obj.strip().lower()
-        if not s in self.known_physics:
-            # Give a warning if 
-            warnings.warn('Unknown physics ' + s)
+        else:
+            raise ValueError('Expected str or Solver object')
 
+        if not s in self.known_physics:
+            # Give a warning if the physics keyword is unknown
+            warnings.warn('Unknown physics ' + s)
+        return s
+
+#------------- Start of definition of parameters -------------------------
+
+#------------- Constants
+
+#--------------- Biot Alpha ---------------------------------------
+    def _get_biot_alpha(self):
+        if hasattr(self, '_biot_alpha'):
+            return self._biot_alpha
+        else:
+            return 1
+    def _set_biot_alpha(self, val):
+        if val < 0 or val > 1:
+            raise ValueError('Biot\'s constant should be between 0 and 1')
+        self._biot_alpha = val
+    biot_alpha = property(_get_biot_alpha, _set_biot_alpha)
+
+#--------------- Fluid viscosity ------------------------------------
+    def _get_fluid_viscosity(self):
+        if hasattr(self, '_fluid_viscosity'):
+            return self._fluid_viscosity
+        else:
+            return 1
+
+    def _set_fluid_viscosity(self, val):
+        if val <= 0:
+            raise ValueError('Fluid viscosity should be positive')
+        self._fluid_viscosity = val
+    fluid_viscosity = property(_get_fluid_viscosity, _set_fluid_viscosity)
+
+#----------- Fluid compressibility
+    def _get_fluid_compr(self):
+        if hasattr(self, '_fluid_compr'):
+            return self._fluid_compr
+        else:
+            return 0.
+
+    def _set_fluid_compr(self, val):
+        if val < 0:
+            raise ValueError('Fluid compressibility should be non-negative')
+        self._fluid_compr = val
+    fluid_compr = property(_get_fluid_compr, _set_fluid_compr)
+
+#-------------------- Cell-wise quantities below here --------------------
 
 #------------------ Aperture -----------------
 
-    def _get_aperture(self):
+    def _get_aperture(self, default=1):
         """ double or array_like
         Cell-wise quantity representing fracture aperture (really, height of
         surpressed dimensions). Set as either a np.ndarray, or a scalar
-        (uniform value. Always
-        returned as np.ndarray.
+        (uniform) value. Always returned as np.ndarray.
         """
+        if not hasattr(self, '_apertures'):
+            return default * np.ones(self._num_cells)
+
         if isinstance(self._aperture, np.ndarray):
             # Hope that the user did not initialize as array with wrong size
-            return self._aperture
+            return self._apertures
         else:
-            return self._aperture * np.ones(self._num_cells)
+            return self._apertures * np.ones(self._num_cells)
 
     def _set_aperture(self, val):
         if (isinstance(val, np.ndarray) and np.any(val < 0)) or val < 0:
             raise ValueError('Negative aperture')
-        self._aperture = val
+        self._apertures = val
 
     apertures = property(_get_aperture, _set_aperture)
+
+#---------------- Porosity -------------------------------------------------
+
+    def _get_porosity(self):
+        """ double or array-like
+        Cell-wise representation of porosity. Set as either a np.ndarary, or a
+        scalar (uniform) value. Always returned as np.ndarray.
+        """
+        if isinstance(self._porosity, np.ndarray):
+            # Hope that the user did not initialize as array with wrong size
+            return self._porosity
+        else:
+            return self._porosity * np.ones(self._num_cells)
+
+    def _set_porosity(self, val):
+        if isinstance(val, np.ndarray):
+            if np.any(val < 0) or np.any(val > 1):
+                raise ValueError('Porosity outside unit interval')
+        else:
+            if val < 0 or val > 1:
+                raise ValueError('Porosity outside unit interval')
+        self._porosity = val
+
+    porosity = property(_get_porosity, _set_porosity)
+
+#----------- Multi-physics (solver-/context-dependent) parameters below -----
 
 #------------------- Sources ---------------------------------------------
 
     def get_source(self, obj):
-        """ Pick out solver-specific source.
+        """ Pick out physics-specific source.
+
+        Discretization methods should access this method.
+
+        Parameters:
+
+        obj : Solver or str
+            Identification of physical regime. Either discretization object
+            with attribute 'physics' or a str.
+
+        Returns:
+
+        np.ndarray
+            Volume source if obj.physics equals 'flow'
+            Heat source if obj.physics equals 'transport'.
+
+        """
+        physics = self._get_physics(obj)
+
+        if physics == 'flow':
+            return self._source_flow
+        elif physics == 'transport':
+            return self._source_transport
+
+    def set_source(self, obj, val):
+        """ Set physics-specific source
+
+        Parameters:
+
+        obj: Solver or str
+            Identification of physical regime. Either discretization object
+            with attribute 'physics' or a str.
+
+        val: np.ndarray. Size self._num_cells
+            Source terms in each cell.
+
+        """
+        physics == self._get_physics(obj)
+
+        if physics == 'flow':
+            self._source_flow = val
+        elif physics == 'transport':
+            self._source_transport = val
+
+    def _get_source_flow(self):
+        """ array_like
+        Cell-wise quantity representing the volume source in a cell. Represent
+        total in/outflow in the cell (integrated over the cell volume).
+        Sources should be accessed via get_source / set_source
+        """
+        return self._source_flow
+
+    source_flow = property(_get_source_flow)
+
+    def _get_source_transport(self):
+        """ array_like
+        Cell-wise quantity representing the concentration / temperature source
+        in a cell. Represent total in/outflow in the cell (integrated over the
+        cell volume).
+        Sources should be accessed via get_source / set_source
+        """
+        return self._source_transport
+
+    source_transport = property(_get_source_transport)
+
+#-------------------- Permeability, conductivity, ---------------------
+
+    def get_tensor(self, obj):
+        """ Pick out physics-specific tensor.
+
+        Discretization methods considering second and fourth orrder tensors
+        (e.g. permeability, conductivity, stiffness) should access this method.
+
+        Parameters:
+
+        obj : Solver
+            Discretization object. Should have attribute 'physics'.
+
+        Returns:
+
+        tensor, representing
+            Permeability if obj.physics equals 'flow'
+            conductivity if obj.physics equals 'transport'
+            stiffness if physics equals 'mechanics'
+
+        """
+        physics = self._get_physics(obj)
+
+        if physics == 'flow':
+            return self._perm
+        elif physics == 'transport':
+            return self._conductivity
+        elif physics == 'mechanics':
+            return self._stiffness
+
+    def set_tensor(self, obj, val):
+        """ Set physics-specific source
+
+        Parameters:
+
+        obj: Solver or str
+            Identification of physical regime. Either discretization object
+            with attribute 'physics' or a str.
+
+        val : tensor, representing
+            Permeability if obj.physics equals 'flow'
+            conductivity if obj.physics equals 'transport'
+            stiffness if physics equals 'mechanics'
+
+        """
+        physics = self._get_physics(obj)
+
+        if physics == 'flow':
+            self._perm = val
+        elif physics == 'transport':
+            self._conductivity = val
+        elif physics == 'mechanics':
+            self._stiffness = val
+
+    def _get_perm(self):
+        """ tensor.SecondOrder
+        Cell wise permeability, represented as a second order tensor.
+        Solvers should rather access get_tensor().
+        """
+        return self._perm
+
+    perm = property(_get_perm)
+
+    def _get_conductivity(self):
+        """ tensor.SecondOrder
+        Cell wise conductivity, represented as a second order tensor.
+        Solvers should rather access tensor().
+        """
+        return self._conductivity
+
+    conductivity = property(_get_conductivity)
+
+    def _get_stiffness(self):
+        """ Stiffness matrix, defined as fourth order tensor
+        """
+        return self._stiffness
+
+    stiffness = property(_get_stiffness)
+
+#--------------------- Boundary conditions and values ------------------------
+
+######### Boundary condition
+
+    def get_bc(self, obj):
+        """ Pick out physics-specific boundary condition
 
         Discretization methods should access this method.
 
@@ -92,50 +340,77 @@ class Data(object):
 
         Returns:
 
-        second order tensor
-            Volume source if obj.physics equals 'flow' or 'pressure',
-            Heat source if obj.physics equals 'heat' or 'transport'.
+        BoundaryCondition, for
+            flow/pressure equation y if physics equals 'flow'
+            transport equation if physics equals 'transport'
+            elasticity if physics equals 'mechanics'
 
         """
-        
+        physics = self._get_physics(obj)
 
-        if obj.physics.lower().strip() in ['flow', 'pressure']:
-            return self._source_flow
-        elif obj.physics.lower().strip() in ['heat', 'transport']:
-            return self._source_transport
+        if physics == 'flow':
+            return self._bc_flow
+        elif physics == 'transport':
+            return self._bc_transport
+        elif physics == 'mechanics':
+            return self._bc_mechanics
 
-    def _get_source_flow(self):
-        """ array_like
-        Cell-wise quantity representing the volume source in a cell. Represent
-        total in/outflow in the cell (integrated over the cell volume).
-        Solvers should rather access the function source().
+    def set_bc(self, obj, val):
+        """ Set physics-specific boundary condition
+
+        Parameters:
+
+        obj: Solver or str
+            Identification of physical regime. Either discretization object
+            with attribute 'physics' or a str.
+
+        val : BoundaryCondition, representing
+            flow/pressure equation y if physics equals 'flow'
+            transport equation if physics equals 'transport'
+            elasticity if physics equals 'mechanics'
+
         """
-        return self._source_flow
+        physics = self._get_physics(obj)
 
-    def _set_source_flow(self, arr):
-        self._source_flow = arr
-    source_flow = property(_get_source_flow, _set_source_flow)
+        if physics == 'flow':
+            self._bc_flow = val
+        elif physics == 'transport':
+            self._bc_transport= val
+        elif physics == 'mechanics':
+            self._bc_mechanics = val
 
-    def _get_source_transport(self):
-        """ array_like
-        Cell-wise quantity representing the concentration / temperature source
-        in a cell. Represent total in/outflow in the cell (integrated over the
-        cell volume).
-        Solvers should rather access the function source().
+    def _get_bc_flow(self):
+        """ BoundaryCondition object
+        Cell wise permeability, represented as a second order tensor.
+        Solvers should rather access get_tensor().
         """
-        return self._source_transport
+        return self._bc_flow
 
-    def _set_source_transport(self, arr):
-        self._source_transport = arr
-    source_transport = property(_get_source_transport, _set_source_transport)
+    bc_flow = property(_get_bc_flow)
 
-#-------------------- Permeability and conductivity ---------------------
+    def _get_bc_transport(self):
+        """ bc.BoundaryCondition
+        Cell wise conductivity, represented as a second order tensor.
+        Solvers should rather access tensor().
+        """
+        return self._bc_transport
 
-    def tensor(self, obj):
-        """ Pick out solver-specific second order tensor.
+    conductivity = property(_get_conductivity)
 
-        Discretization methods for second order elliptic equations should
-        access this method (instead of perm or conductivity).
+    def _get_bc_mechanics(self):
+        """ Stiffness matrix, defined as fourth order tensor
+        """
+        return self._bc_mechanics
+
+    stiffness = property(_get_stiffness)
+
+
+######### Boundary value
+
+    def get_bc_val(self, obj):
+        """ Pick out physics-specific boundary condition
+
+        Discretization methods should access this method.
 
         Parameters:
 
@@ -144,175 +419,60 @@ class Data(object):
 
         Returns:
 
-        second order tensor
-            Permeability if obj.physics equals 'flow' or 'pressure',
-            conductivity if obj.physics equals 'heat' or 'transport'.
+        BoundaryCondition, for
+            flow/pressure equation y if physics equals 'flow'
+            transport equation if physics equals 'transport'
+            elasticity if physics equals 'mechanics'
 
         """
-        if obj.physics.lower().strip() in ['flow', 'pressure']:
-            return self.perm
-        elif obj.physics.lower().strip() in ['heat', 'transport']:
-            return self.conductivity
+        physics = self._get_physics(obj)
 
-    def _get_perm(self):
+        if physics == 'flow':
+            return self._bc_val_flow
+        elif physics == 'transport':
+            return self._bc_val_transport
+        elif physics == 'mechanics':
+            return self._bc_val_mechanics
+
+    def set_bc_val(self, obj, val):
+        """ Set physics-specific boundary condition
+
+        Parameters:
+
+        obj: Solver or str
+            Identification of physical regime. Either discretization object
+            with attribute 'physics' or a str.
+
+        val : BoundaryCondition, representing
+            flow/pressure equation y if physics equals 'flow'
+            transport equation if physics equals 'transport'
+            elasticity if physics equals 'mechanics'
+
+        """
+        physics = self._get_physics(obj)
+
+        if physics == 'flow':
+            self._bc_val_flow = val
+        elif physics == 'transport':
+            self._bc_val_transport = val
+        elif physics == 'mechanics':
+            self._bc_val_mechanics = val
+
+    def _get_bc_val_flow(self):
         """ tensor.SecondOrder
         Cell wise permeability, represented as a second order tensor.
-        Solvers should rather access tensor().
+        Solvers should rather access get_tensor().
         """
-        return self._perm
+        return self._bc_val_flow
 
-    def _set_perm(self, ten):
-        self._perm = ten
+    bc_val_flow = property(_get_bc_val_flow)
 
-    perm = property(_get_perm, _set_perm)
-
-    def _get_conductivity(self):
+    def _get_bc_val_transport(self):
         """ tensor.SecondOrder
         Cell wise conductivity, represented as a second order tensor.
         Solvers should rather access tensor().
         """
-        return self._conductivity
+        return self._bc_val_transport
 
-    def _set_conductivity(self, ten):
-        self._conductivity = ten
+    bc_val_transport = property(_get_bc_val_transport)
 
-    conductivity = property(_get_conductivity, _set_conductivity)
-
-#--------------------- Stiffness -------------------------------------
-
-    def _get_stiffness(self):
-        """ Stiffness matrix, defined as fourth order tensor
-        """
-        return self._stiffness
-
-    def _set_stiffness(self, val):
-        self._stiffness = val
-    stiffness = property(_get_stiffness, _set_stiffness)
-
-#--------------------- Boundary conditions and values ------------------------
-
-    def bc(self, obj):
-        """ Pick out solver specific boundary condition object
-
-        Discretization methods in need of boundary conditions should access
-        this method (instead of properties bc_flow, bc_transport etc).
-
-        Parameters:
-
-        obj: Solver
-            Discretization object. Should have attribute 'physics'
-
-        Returns:
-
-        bc.BoundaryCondition:
-            bc_flow if obj.physics equals 'flow' or 'pressure'
-            bc_transport if obj.physics equals 'heat' or 'transport'
-            bc_mechanics if obj.physcis equals 'mechanics', 'mech' or
-                'elasticity'
-
-        """
-        if obj.physics.lower().strip() in ['flow', 'pressure']:
-            return self.bc_flow
-        elif obj.physics.lower().strip() in ['heat', 'transport']:
-            return self.bc_transport
-        elif obj.physcis.lower().strip() in ['mechanics', 'elasticity', 'mech']:
-            return self.bc_mech
-
-    def bc_val(self, obj):
-        """ Pick out solver specific boundary values
-
-        Discretization methods in need of boundary values should access
-        this method (instead of properties bc_val_flow, bc_val_transport etc).
-
-        Parameters:
-
-        obj: Solver
-            Discretization object. Should have attribute 'physics'
-
-        Returns:
-
-        bc.BoundaryCondition:
-            bc_val_flow if obj.physics equals 'flow' or 'pressure'
-            bc_val_transport if obj.physics equals 'heat' or 'transport'
-            bc_val_mechanics if obj.physcis equals 'mechanics', 'mech' or
-                'elasticity'
-
-        """
-        if obj.physics.lower().strip() in ['flow', 'pressure']:
-            return self.bc_val_flow
-        elif obj.physics.lower().strip() in ['heat', 'transport']:
-            return self.bc_val_transport
-        elif obj.physcis.lower().strip() in ['mechanics', 'elasticity', 'mech']:
-            return self.bc_val_mech
-
-#------------- boundary condition
-
-    def _get_bc_flow(self):
-        """ Boundary condition for flow problem.
-        Solvers should rather access bc().
-        """
-        return self._bc_flow
-
-    def _set_bc_flow(self, bnd):
-        self._bc_flow = bnd
-    bc_flow = property(_get_bc_flow, _set_bc_flow)
-
-#---
-
-    def _get_bc_transport(self):
-        """ Boundary condition for transport problem.
-        Solvers should rather access bc().
-        """
-        return self._bc_transport
-
-    def _set_bc_transport(self, bnd):
-        self._bc_transport = bnd
-    bc_transport = property(_get_bc_transport, _set_bc_transport)
-
-#---
-
-    def _get_bc_mech(self):
-        """ Boundary condition for mechanics problem.
-        Solvers should rather access bc().
-        """
-        return self._bc_mech
-
-    def _set_bc_mech(self, bnd):
-        self._bc_mech = bnd
-    bc_mech = property(_get_bc_mech, _set_bc_mech)
-
-#------ Boundary values
-
-    def _get_bc_val_flow(self):
-        """ Boundary values for flow problem.
-        Solvers should rather access bc_val().
-        """
-        return self._bc_val_flow
-
-    def _set_bc_val_flow(self, bnd):
-        self._bc_val_flow = bnd
-    bc_val_flow = property(_get_bc_val_flow, _set_bc_val_flow)
-
-#---
-
-    def _get_bc_val_transport(self):
-        """ Boundary values for transport problem.
-        Solvers should rather access bc_val().
-        """
-        return self._bc_transport
-
-    def _set_bc_val_transport(self, bnd):
-        self._bc_val_transport = bnd
-    bc_val_transport = property(_get_bc_val_transport, _set_bc_val_transport)
-
-#---
-
-    def _get_bc_val_mech(self):
-        """ Boundary values for mechanics problem.
-        Solvers should rather access bc_val().
-        """
-        return self._bc_val_mech
-
-    def _set_bc_val_mech(self, bnd):
-        self._bc_val_mech = bnd
-    bc_val_mech = property(_get_bc_val_mech, _set_bc_val_mech)
