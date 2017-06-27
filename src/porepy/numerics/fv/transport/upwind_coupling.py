@@ -134,28 +134,32 @@ class UpwindCoupling(AbstractCoupling):
             deltaT: time step according to CFL condition.
 
         """
+        # Retrieve the beta_n, which is mandatory
         beta_n = data_edge['beta_n']
 
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
 
+        # Detect and remove the faces which have zero in "beta_n"
         not_zero = ~np.isclose(np.zeros(faces_h.size), beta_n[faces_h], atol=0)
         if not np.any(not_zero):
             return np.inf
 
         cells_l = cells_l[not_zero]
         faces_h = faces_h[not_zero]
-
+        # Mapping from faces_h to cell_h
         cell_faces_h = g_h.cell_faces.tocsr()[faces_h, :]
         cells_h = cell_faces_h.nonzero()[1][not_zero]
-
+        # Retrieve and map additional data
         apertures_h = data_h.get('a', np.ones(g_h.num_cells))[cells_h]
         apertures_l = data_l.get('a', np.ones(g_l.num_cells))[cells_l]
         phi_l = data_l.get('phi', np.ones(g_l.num_cells))[cells_l]
-
+        # Compute discrete distance cell to face centers for the lower
+        # dimensional grid
         dist = 0.5 * np.divide(apertures_l, apertures_h)
+        # Since beta_n is multiplied by the aperture, we get rid of it!!!!
         beta_n = np.divide(beta_n[faces_h], g_h.face_areas[faces_h]*apertures_h)
-
+        # deltaT is deltaX/beta_n with coefficient
         return np.amin(np.abs(np.divide(dist, beta_n)) * phi_l)
 
 #------------------------------------------------------------------------------#

@@ -43,7 +43,8 @@ class Upwind(Solver):
 
         The name of data in the input dictionary (data) are:
         beta_n : array (g.num_faces)
-            Normal velocity at each face, weighted by the face area.
+            Normal velocity at each face, weighted by the face area (units of
+            m^3/s).
         bc : boundary conditions (optional)
         bc_val : dictionary (optional)
             Values of the boundary conditions. The dictionary has at most the
@@ -168,11 +169,14 @@ class Upwind(Solver):
         deltaT: time step according to CFL condition.
 
         """
+        # Retrieve the data, only "beta_n" is mandatory
         beta_n = data['beta_n']
         apertures = data.get('a', np.ones(g.num_cells))
         phi = data.get('phi', np.ones(g.num_cells))
 
         faces, cells, _ = sps.find(g.cell_faces)
+
+        # Detect and remove the faces which have zero in "beta_n"
         not_zero = ~np.isclose(np.zeros(faces.size), beta_n[faces], atol=0)
         if not np.any(not_zero):
             return np.inf
@@ -180,11 +184,15 @@ class Upwind(Solver):
         cells = cells[not_zero]
         faces = faces[not_zero]
 
+        # Compute discrete distance cell to face centers
         dist_vector = g.face_centers[:, faces] - g.cell_centers[:, cells]
+        # Element-wise scalar products between the distance vectors and the
+        # normals
         dist = np.einsum('ij,ij->j', dist_vector, g.face_normals[:, faces])
-
+        # Since beta_n is multiplied by the aperture, we get rid of it!!!!
+        # Additionally we consider the phi (porosity) and the cell-mapping
         coeff = (apertures * phi)[cells]
-
+        # deltaT is deltaX/beta_n with coefficient
         return np.amin(np.abs(np.divide(dist, beta_n[faces])) * coeff)
 
 #------------------------------------------------------------------------------#
