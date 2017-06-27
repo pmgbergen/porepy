@@ -615,12 +615,12 @@ class GridBucket(object):
 
     def target_2_source_nodes(self, g_src, g_trg):
         """
-        Find the local node mapping from a source grid to a target grid. 
+        Find the local node mapping from a source grid to a target grid.
 
         target_2_source_nodes(..) returns the mapping from g_src -> g_trg such
         that g_trg.nodes[:, map] == g_src.nodes. E.g., if the target grid is the
         highest dim grid, target_2_source_nodes will equal the global node
-        numbering. 
+        numbering.
 
         """
         node_source = np.atleast_2d(g_src.global_point_ind)
@@ -725,6 +725,85 @@ class GridBucket(object):
         node_number = self.node_prop(node, 'node_number')
         self.remove_node(node)
         self.update_node_ordering(node_number)
+
+#------------------------------------------------------------------------------#
+
+    def loop_nodes(self, fct):
+        """
+        Loop on all the nodes and evaluate a function on each of them.
+
+        Parameter:
+            fct: function to evaluate. It takes a grid and the related data and
+                returns a scalar.
+
+        Returns:
+            values: vector containing the function evaluated on each node,
+                ordered by 'node_number'.
+
+        """
+        values = np.empty(self.size())
+        for g, d in self:
+            values[d['node_number']] = fct(g, d)
+        return values
+
+#------------------------------------------------------------------------------#
+
+    def loop_edges(self, fct):
+        """
+        Loop on all the edges and evaluate a function on each of them.
+
+        Parameter:
+            fct: function to evaluate. It returns a scalar and takes: the higher
+                and lower dimensional grids, the higher and lower dimensional
+                data, the global data.
+
+        Returns:
+            matrix: sparse strict upper triangular matrix containing the function
+                evaluated on each edge (pair of nodes), ordered by their
+                relative 'node_number'.
+
+        """
+        i = np.zeros(self.graph.number_of_edges(), dtype=int)
+        j = np.zeros(i.size, dtype=int)
+        values = np.zeros(i.size)
+
+        # Loop over the edges of the graph (pair of connected nodes)
+        idx = 0
+        for e, data in self.edges_props():
+            g_l, g_h = self.sorted_nodes_of_edge(e)
+            data_l, data_h = self.node_props(g_l), self.node_props(g_h)
+
+            i[idx], j[idx] = self.nodes_prop([g_l, g_h], 'node_number')
+            values[idx] = fct(g_h, g_l, data_h, data_l, data)
+            idx += 1
+
+        # Upper triangular matrix
+        return sps.coo_matrix((values, (i, j)), (self.size(), self.size()))
+
+#------------------------------------------------------------------------------#
+
+    def loop(self, fct_nodes, fct_edges):
+        """
+        Loop on all the nodes and edges and evaluate a function on each of them.
+
+        Parameter:
+            fct_nodes: function to evaluate. It takes a grid and the related data
+                and returns a scalar.
+
+            fct_edges: function to evaluate. It returns a scalar and takes: the
+                higher and lower dimensional grids, the higher and lower
+                dimensional data, the global data.
+
+        Returns:
+            matrix: sparse triangular matrix containing the function
+                evaluated on each edge (pair of nodes) and node, ordered by their
+                relative 'node_number'. The diagonal contains the node
+                evaluation.
+
+        """
+        matrix = self.loop_edges(fct_edges)
+        matrix.setdiag(self.loop_nodes(fct_nodes))
+        return matrix
 
 #------------------------------------------------------------------------------#
 
