@@ -46,8 +46,6 @@ def add_data(gb, domain):
 
         bound_face_centers = g.face_centers[:, bound_faces]
 
-        top = bound_face_centers[1, :] > domain['ymax'] - tol
-        bot = bound_face_centers[1, :] < domain['ymin'] + tol
         left = bound_face_centers[0, :] < domain['xmin'] + tol
         right = bound_face_centers[0, :] > domain['xmax'] - tol
 
