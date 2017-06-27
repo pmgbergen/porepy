@@ -5,25 +5,11 @@ import unittest
 
 from porepy.numerics.fv import mpfa, mpsa, fvutils, biot
 from porepy.params import tensor, bc
+from porepy.params.data import Data
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
 class BiotTest(unittest.TestCase):
-
-    def mpfa_discr(self, g, bound):
-        k = tensor.SecondOrder(g.dim, np.ones(g.num_cells))
-        flux, bound_flux = mpfa.mpfa(g, k, bound, inverter='python')
-        div_flow = fvutils.scalar_divergence(g)
-        return flux, bound_flux, div_flow
-
-    def mpsa_discr(self, g, bound):
-        mu = np.ones(g.num_cells)
-        c = tensor.FourthOrder(g.dim, mu, mu)
-        stress, bound_stress, \
-            grad_p, div_d, stabilization = mpsa.biot(g, c, bound,
-                                                     inverter='python')
-        div_mech = fvutils.vector_divergence(g)
-        return stress, bound_stress, grad_p, div_d, stabilization, div_mech
 
     def test_no_dynamics_2d(self):
         g_list = setup_grids.setup_2d()
@@ -40,13 +26,18 @@ class BiotTest(unittest.TestCase):
 
             bound_val = np.zeros(g.num_faces)
 
-            data = {'bound_flow': bound, 'bound_mech': bound, 'perm': k,
-                    'stiffness': c, 'inverter': 'python',
-                    'bc_val_mech': np.tile(bound_val, g.dim),
-                    'bc_val_flow': bound_val,
-                    'poro': np.ones(g.num_cells),
-                    'dt': 1,
-                    'biot_alpha': 1
+            param = Data(g)
+            param.set_bc('flow', bound)
+            param.set_bc('mechanics', bound)
+            param.set_tensor('flow', k)
+            param.set_tensor('mechanics', c)
+            param.set_bc_val('mechanics', np.tile(bound_val, g.dim))
+            param.set_bc_val('flow', bound_val)
+            param.porosity = np.ones(g.num_cells)
+            param.biot_alpha = 1
+            data = {'param': param,
+                    'inverter': 'python',
+                    'dt': 1
                    }
 
             A, b = discr.matrix_rhs(g, data)
