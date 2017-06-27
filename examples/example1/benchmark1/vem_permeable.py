@@ -74,7 +74,6 @@ def add_data(gb, domain):
 mesh_kwargs = {}
 mesh_kwargs['mesh_size'] = {'mode': 'constant',
                             'value': 0.045, 'bound_value': 0.045}
-mesh_kwargs['gmsh_path'] = '~/gmsh/bin/gmsh'
 
 domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
 gb = importer.from_csv('network.csv', mesh_kwargs, domain)
