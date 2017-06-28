@@ -20,6 +20,9 @@ from porepy.numerics.mixed_dim.solver import Solver
 
 class Mpsa(Solver):
 
+    def __init__(self, physics='mechanics')
+        self.physics = physics
+
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -69,8 +72,11 @@ class Mpsa(Solver):
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        c, bnd, bc_val, f = data.get('stiffness'), data.get(
-            'bc'), data.get('bc_val'), data.get('source')
+        param = data['param']
+        c = param.get_tensor(self)
+        bnd = param.get_bc(self)
+        bc_val = param.get_bc_val(self)
+        f = param.get_source(self)
 
         stress, bound_stress = mpsa(g, c, bnd)
         div = fvutils.vector_divergence(g)
@@ -86,9 +92,6 @@ class Mpsa(Solver):
         equation using the MPSA method. See self.matrix_rhs for a detailed
         description.
         """
-        if f is None:
-            f = np.zeros(g.dim * g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
         div = fvutils.vector_divergence(g)
 
         return -div * bound_stress * bc_val - f
