@@ -201,9 +201,11 @@ class Parameters(object):
         physics = self._get_physics(obj)
 
         if physics == 'flow':
-            return self._source_flow
+            return self._get_source_flow()
         elif physics == 'transport':
-            return self._source_transport
+            return self._get_source_transport()
+        elif physics == 'mechanics':
+            return self._get_source_mechanics()
 
     def set_source(self, obj, val):
         """ Set physics-specific source
@@ -224,6 +226,8 @@ class Parameters(object):
             self._source_flow = val
         elif physics == 'transport':
             self._source_transport = val
+        elif physics == 'mechanics':
+            self._source_mechanics = val
 
     def _get_source_flow(self):
         """ array_like
@@ -231,7 +235,10 @@ class Parameters(object):
         total in/outflow in the cell (integrated over the cell volume).
         Sources should be accessed via get_source / set_source
         """
-        return self._source_flow
+        if hasattr(self, '_source_flow'):
+            return self.self._get_source_flow()
+        else:
+            return np.zeros(self._num_cells)
 
     source_flow = property(_get_source_flow)
 
@@ -242,9 +249,19 @@ class Parameters(object):
         cell volume).
         Sources should be accessed via get_source / set_source
         """
-        return self._source_transport
+        if hasattr(self, '_source_transport'):
+            return self.self._get_source_transport()
+        else:
+            return np.zeros(self._num_cells)
 
     source_transport = property(_get_source_transport)
+
+    def _get_source_mechanics(self):
+        if hasattr(self, '_source_mechanics'):
+            return self._source_mechanics
+        else:
+            return np.zeros(self._num_cells * self._dim)
+    source_mechanics = property(_get_source_mechanics)
 
 #-------------------- Permeability, conductivity, ---------------------
 
@@ -429,11 +446,11 @@ class Parameters(object):
         physics = self._get_physics(obj)
 
         if physics == 'flow':
-            return self._bc_val_flow
+            return self._get_bc_val_flow()
         elif physics == 'transport':
-            return self._bc_val_transport
+            return self._get_bc_val_transport()
         elif physics == 'mechanics':
-            return self._bc_val_mechanics
+            return self._get_bc_val_mechanics()
 
     def set_bc_val(self, obj, val):
         """ Set physics-specific boundary condition
