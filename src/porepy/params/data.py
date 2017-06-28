@@ -58,6 +58,7 @@ class Parameters(object):
         """
         self._num_cells = g.num_cells
         self._num_faces = g.num_faces
+        self.dim = g.dim
 
         self.known_physics = ['flow', 'transport', 'mechanics']
 
@@ -463,7 +464,10 @@ class Parameters(object):
         Cell wise permeability, represented as a second order tensor.
         Solvers should rather access get_tensor().
         """
-        return self._bc_val_flow
+        if hasattr(self, '_bc_val_flow'):
+            return self._bc_val_flow
+        else:
+            return np.zeros(self._num_faces)
 
     bc_val_flow = property(_get_bc_val_flow)
 
@@ -472,7 +476,18 @@ class Parameters(object):
         Cell wise conductivity, represented as a second order tensor.
         Solvers should rather access tensor().
         """
-        return self._bc_val_transport
+        if hasattr(self, '_bc_val_transport'):
+            return self._bc_val_transport
+        else:
+            return np.zeros(self._num_faces)
 
     bc_val_transport = property(_get_bc_val_transport)
 
+
+    def _get_bc_val_mechanics(self):
+
+        if hasattr(self, '_bc_val_transport'):
+            return self._bc_val_transport
+        else:
+            return np.zeros(self._num_faces * self.dim)
+    bc_val_mechanics = property(_get_bc_val_mechanics)
