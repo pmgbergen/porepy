@@ -125,7 +125,7 @@ class Upwind(Solver):
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
 
-        f = data.get('f', np.zeros(g.num_cells)) * g.cell_volumes
+        f = data.get('f', np.zeros(g.num_cells))
 
         if not has_bc:
             return flow_cells, f
