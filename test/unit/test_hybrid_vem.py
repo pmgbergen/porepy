@@ -3,6 +3,8 @@ import unittest
 
 from porepy.grids import structured, simplex
 from porepy.params import tensor
+from porepy.params.bc import BoundaryCondition
+from porepy.params.data import Parameters
 from porepy.numerics.vem import hybrid
 import porepy.utils.comp_geom as cg
 
@@ -18,10 +20,15 @@ class BasicsTest( unittest.TestCase ):
 
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
 
-        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
-        solver = hybrid.HybridDualVEM()
-        M = solver.matrix_rhs(g, data)[0].todense()
+        solver = hybrid.HybridDualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix_rhs(g, {'param': param})[0].todense()
 
         M_known = 3 * np.array([[-1, 1, 0, 0],
                                 [ 1,-2, 1, 0],
@@ -42,9 +49,15 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.sin(g.cell_centers[0,:])+1
         perm = tensor.SecondOrder(g.dim, kxx)
 
-        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
-        solver = hybrid.HybridDualVEM()
-        M = solver.matrix_rhs(g, data)[0].todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+
+        solver = hybrid.HybridDualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix_rhs(g, {'param': param})[0].todense()
 
         M_known = np.array([[-3.4976883980802449, 3.4976883980802453, 0, 0],
                             [ 3.4976883980802453, -7.9359650138928544,
@@ -67,9 +80,15 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
 
-        solver = hybrid.HybridDualVEM()
-        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+
+        solver = hybrid.HybridDualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix_rhs(g, {'param': param})[0].todense()
 
         M_known = np.array([[-2.25,  1.75,  0.  ,  0.25,  0.  ,  0.25,  0.  ],
                             [ 1.75, -4.5 ,  1.75,  0.25,  0.25,  0.25,  0.25],
@@ -95,9 +114,15 @@ class BasicsTest( unittest.TestCase ):
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
         perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
 
-        solver = hybrid.HybridDualVEM()
-        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+
+        solver = hybrid.HybridDualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix_rhs(g, {'param': param})[0].todense()
 
         M_known = np.array(\
                 [[-2.7386363636363646,  2.2613636363636376,  0.                ,
@@ -136,9 +161,15 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
 
-        solver = hybrid.HybridDualVEM()
-        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+
+        solver = hybrid.HybridDualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix_rhs(g, {'param': param})[0].todense()
 
         M_known = np.array([[ -2, 0, 2, 0, 0],
                             [  0,  -1.9999999999999996e+00,
@@ -169,9 +200,15 @@ class BasicsTest( unittest.TestCase ):
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
         perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
 
-        solver = hybrid.HybridDualVEM()
-        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+
+        solver = hybrid.HybridDualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix_rhs(g, {'param': param})[0].todense()
 
         M_known = np.array(\
              [[ -2.888888888888888 ,   0.               ,    3.3333333333333326,
@@ -201,9 +238,16 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
 
-        solver = hybrid.HybridDualVEM()
-        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+
+        solver = hybrid.HybridDualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+
+        M = solver.matrix_rhs(g, {'param': param})[0].todense()
 
         #np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
         M_known = matrix_for_test_dual_hybrid_vem_3d_iso_cart()
@@ -225,9 +269,15 @@ class BasicsTest( unittest.TestCase ):
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
         perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
 
-        solver = hybrid.HybridDualVEM()
-        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+
+        solver = hybrid.HybridDualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix_rhs(g, {'param': param})[0].todense()
 
         #np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
         M_known = matrix_for_test_dual_hybrid_vem_3d_ani_cart()
@@ -248,10 +298,15 @@ class BasicsTest( unittest.TestCase ):
 
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
 
-        solver = hybrid.HybridDualVEM()
-        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        solver = hybrid.HybridDualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix_rhs(g, {'param': param})[0].todense()
 
         M_known = np.array([[-2.25,  1.75,  0.  ,  0.25,  0.  ,  0.25,  0.  ],
                             [ 1.75, -4.5 ,  1.75,  0.25,  0.25,  0.25,  0.25],
@@ -277,9 +332,15 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
 
-        solver = hybrid.HybridDualVEM()
-        data = {'perm': perm, 'source': np.zeros(g.num_cells)}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+
+        solver = hybrid.HybridDualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix_rhs(g, {'param': param})[0].todense()
 
         M_known = np.array([[-3.,  3.,  0.,  0.],
                             [ 3., -6.,  3.,  0.],

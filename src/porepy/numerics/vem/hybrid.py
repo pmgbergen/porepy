@@ -18,6 +18,9 @@ class HybridDualVEM(Solver):
 
 #------------------------------------------------------------------------------#
 
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -89,17 +92,11 @@ class HybridDualVEM(Solver):
         if g.dim == 0:
             return sps.identity(self.ndof(g), format="csr"), np.zeros(1)
 
-        k, f = data.get('perm'), data.get('source')
-        bc, bc_val = data.get('bc'), data.get('bc_val')
-
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = tensor.SecondOrder(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
-
-        if f is None:
-            f = np.zeros(g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
+        param = data['param']
+        k = param.get_tensor(self)
+        f = param.get_source(self)
+        bc = param.get_bc(self)
+        bc_val = param.get_bc_val(self)
 
         faces, _, sgn = sps.find(g.cell_faces)
 
