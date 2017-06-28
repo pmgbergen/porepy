@@ -6,7 +6,7 @@ import numpy as np
 from porepy.numerics.mixed_dim.solver import Solver
 
 
-class Data(object):
+class Parameters(object):
     """ Class to store all physical parameters used by solvers.
 
     The intention is to provide a unified way of passing around parameters, and

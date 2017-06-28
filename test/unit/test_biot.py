@@ -5,7 +5,7 @@ import unittest
 
 from porepy.numerics.fv import mpfa, mpsa, fvutils, biot
 from porepy.params import tensor, bc
-from porepy.params.data import Data
+from porepy.params.data import Parameters
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
@@ -26,7 +26,7 @@ class BiotTest(unittest.TestCase):
 
             bound_val = np.zeros(g.num_faces)
 
-            param = Data(g)
+            param = Parameters(g)
             param.set_bc('flow', bound)
             param.set_bc('mechanics', bound)
             param.set_tensor('flow', k)
