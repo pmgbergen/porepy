@@ -26,9 +26,9 @@ __version__ = '0.1.0'
 ### Numerics
 # Control volume, elliptic
 from porepy.numerics.fv.mpsa import Mpsa
-from porepy.numerics.fv.tpfa import Mpfa
-from porepy.numerics.fv.mpfa import Tpfa
-from porepy.numerics.fv.Biot import Biot
+from porepy.numerics.fv.tpfa import Tpfa
+from porepy.numerics.fv.mpfa import Mpfa
+from porepy.numerics.fv.biot import Biot
 from porepy.numerics.fv.tpfa_coupling import TpfaCoupling
 
 # Virtual elements, elliptic
@@ -54,6 +54,6 @@ from porepy.fracs import meshing, simplex, structured
 from porepy.params import units
 from porepy.params.bc import BoundaryCondition
 from porepy.params import bc
-from porepy.params.data import Parameters
+#from porepy.params.data import Parameters
 
 
