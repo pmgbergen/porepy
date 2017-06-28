@@ -220,7 +220,7 @@ class Parameters(object):
             Source terms in each cell.
 
         """
-        physics == self._get_physics(obj)
+        physics = self._get_physics(obj)
 
         if physics == 'flow':
             self._source_flow = val
