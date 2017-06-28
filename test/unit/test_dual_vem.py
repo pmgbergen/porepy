@@ -3,6 +3,8 @@ import unittest
 
 from porepy.grids import structured, simplex
 from porepy.params import tensor
+from porepy.params.bc import BoundaryCondition
+from porepy.params.data import Parameters
 from porepy.numerics.vem import dual
 import porepy.utils.comp_geom as cg
 
@@ -18,9 +20,15 @@ class BasicsTest( unittest.TestCase ):
 
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        solver = dual.DualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
 
         M_known = 1e-2 * np.array( [[ 25, -(8+1/3.), 0, 0, 1e2, 0, 0],
                                     [ -(8+1/3.), 50, -(8+1/3.), 0, -1e2, 1e2, 0],
@@ -43,9 +51,14 @@ class BasicsTest( unittest.TestCase ):
 
         kxx = np.sin(g.cell_centers[0,:])+1
         perm = tensor.SecondOrder(g.dim, kxx)
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
 
         M_known = 1e-2 * np.array( [[ 21.4427334468001192, -7.14757781560004, 0,
                                       0, 1e2, 0, 0],
@@ -74,8 +87,14 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = np.array( [[ 0.625, -0.375,      0, 0, 0,  0,  0,  1,  0],
@@ -104,8 +123,14 @@ class BasicsTest( unittest.TestCase ):
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
         perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = np.array([[0.625000000000000, -0.422619047619048, 0,
@@ -141,8 +166,14 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
@@ -179,8 +210,14 @@ class BasicsTest( unittest.TestCase ):
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
         perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
@@ -215,9 +252,14 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
 
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
         #np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
         M_known = matrix_for_test_dual_vem_3d_iso_cart()
 
@@ -238,8 +280,14 @@ class BasicsTest( unittest.TestCase ):
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
         perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
 
         #np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
         M_known = matrix_for_test_dual_vem_3d_ani_cart()
@@ -260,8 +308,14 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = 1e-2 * np.array( [[ 25, -(8+1/3.), 0, 0, 1e2, 0, 0],
@@ -288,9 +342,14 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
 
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
         # Matrix computed with an already validated code (MRST)
         M_known = np.array( [[ 0.625, -0.375,      0, 0, 0,  0,  0,  1,  0],
                              [-0.375,   1.25, -0.375, 0, 0,  0,  0, -1,  1],
@@ -322,8 +381,14 @@ class BasicsTest( unittest.TestCase ):
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = np.array([[0.625000000000000, -0.422619047619048, 0,
@@ -361,8 +426,14 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
@@ -403,8 +474,14 @@ class BasicsTest( unittest.TestCase ):
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
-        solver = dual.DualVEM()
-        M = solver.matrix(g, {'perm': perm}).todense()
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = dual.DualVEM(physics='flow')
+
+        param = Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        M = solver.matrix(g, {'param': param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)

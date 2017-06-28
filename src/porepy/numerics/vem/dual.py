@@ -15,6 +15,9 @@ import porepy.utils.comp_geom as cg
 
 class DualVEM(Solver):
 
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
 #------------------------------------------------------------------------------#
 
     def ndof(self, g):
@@ -116,8 +119,10 @@ class DualVEM(Solver):
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
-        k, bc = data.get('perm'), data.get('bc')
-        a = data.get('apertures', np.ones(g.num_cells))
+        param = data['param']
+        k = param.get_tensor(self)
+        bc = param.get_bc(self)
+        a = param.apertures
 
         faces, _, sgn = sps.find(g.cell_faces)
 
@@ -201,7 +206,11 @@ class DualVEM(Solver):
         if g.dim == 0:
             return np.hstack(([0], data['source']))
 
-        f, bc, bc_val = data.get('source'), data.get('bc'), data.get('bc_val')
+        param = data['param']
+        f = param.get_source(self)
+        bc = param.get_bc(self)
+        bc_val = param.get_bc_val(self)
+
         assert not bool(bc is None) != bool(bc_val is None)
 
         if f is None:
