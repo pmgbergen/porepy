@@ -20,7 +20,7 @@ from porepy.numerics.mixed_dim.solver import Solver
 
 class Mpsa(Solver):
 
-    def __init__(self, physics='mechanics')
+    def __init__(self, physics='mechanics'):
         self.physics = physics
 
     def ndof(self, g):
