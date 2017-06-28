@@ -1,5 +1,5 @@
 """
-Example illustrating the elimination of intersection cells for transport problem. 
+Example illustrating the elimination of intersection cells for transport problem.
 Note that with the current parameters and time steps, the non-eliminated version
 is unstable. This happens because the CFL method of upwind.py does not take 0d grids
 into account, but illustrates the power of the elimination neatly.
@@ -107,12 +107,12 @@ if __name__ == '__main__':
     gb.add_node_prop("deltaT", None, deltaT)
     gb_r.add_node_prop("deltaT", None, deltaT_r)
 
-    mass_solver = mass_matrix.Mass()
+    mass_solver = mass_matrix.MassMatrix()
     coupler_solver = coupler.Coupler(mass_solver)
     M, _ = coupler_solver.matrix_rhs(gb)
     M_r, _ = coupler_solver.matrix_rhs(gb_r)
 
-    inv_mass_solver = mass_matrix.InvMass()
+    inv_mass_solver = mass_matrix.InvMassMatrix()
     coupler_solver = coupler.Coupler(inv_mass_solver)
     invM, _ = coupler_solver.matrix_rhs(gb)
     invM_r, _ = coupler_solver.matrix_rhs(gb_r)

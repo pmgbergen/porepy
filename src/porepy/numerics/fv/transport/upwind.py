@@ -70,10 +70,10 @@ class Upwind(Solver):
         U, rhs = advect.matrix_rhs(g, data)
 
         data = {'deltaT': advect.cfl(g, data)}
-        M, _ = mass.Mass().matrix_rhs(g, data)
+        M, _ = mass.MassMatrix().matrix_rhs(g, data)
 
         M_minus_U = M - U
-        invM = mass.Mass().inv(M)
+        invM = mass.MassMatrix().inv(M)
 
         # Loop over the time
         for i in np.arange( N ):

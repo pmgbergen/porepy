@@ -46,12 +46,12 @@ def upwind_example0(**kwargs):
     U, rhs = advect.matrix_rhs(g, data)
 
     data = {'deltaT': advect.cfl(g, data)}
-    M, _ = mass_matrix.Mass().matrix_rhs(g, data)
+    M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
 
     conc = np.zeros(g.num_cells)
 
     M_minus_U = M - U
-    invM, _ = mass_matrix.InvMass().matrix_rhs(g, data)
+    invM, _ = mass_matrix.InvMassMatrix().matrix_rhs(g, data)
 
     # Loop over the time
     Nt = int(T / data['deltaT'])
@@ -87,7 +87,7 @@ def upwind_example1(**kwargs):
     U, rhs = advect.matrix_rhs(g, data)
 
     data = {'deltaT': 2*advect.cfl(g, data)}
-    M, _ = mass_matrix.Mass().matrix_rhs(g, data)
+    M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
 
     conc = np.zeros(g.num_cells)
 
@@ -149,11 +149,11 @@ def upwind_example2(**kwargs):
     U, rhs = advect.matrix_rhs(g, data)
 
     data = {'deltaT': advect.cfl(g, data)}
-    M, _ = mass_matrix.Mass().matrix_rhs(g, data)
+    M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
 
     conc = np.zeros(g.num_cells)
     M_minus_U = M - U
-    invM, _ = mass_matrix.InvMass().matrix_rhs(g, data)
+    invM, _ = mass_matrix.InvMassMatrix().matrix_rhs(g, data)
 
     # Loop over the time
     Nt = int(T / data['deltaT'])
