@@ -88,7 +88,7 @@ class Mpfa(Solver):
         param = data['param']
 
         bc_val = param.get_bc_val(self)
-        f = param.get_sources(self)
+        f = param.get_source(self)
 
         return M, self.rhs(g, bound_flux, bc_val, f)
 
@@ -142,6 +142,7 @@ class Mpfa(Solver):
         data['bound_flux'] = bound_flux
 
 #------------------------------------------------------------------------------#
+
 
 def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
          **kwargs):
@@ -225,8 +226,9 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
         # For the moment nothing to do here, just call main mpfa method for the
         # entire grid.
         # TODO: We may want to estimate the memory need, and give a warning if
-        # this seems excessive 
-        flux, bound_flux = _mpfa_local(g, k, bnd, eta=eta, inverter=inverter, apertures=apertures)
+        # this seems excessive
+        flux, bound_flux = _mpfa_local(
+            g, k, bnd, eta=eta, inverter=inverter, apertures=apertures)
     else:
         # Estimate number of partitions necessary based on prescribed memory
         # usage
@@ -242,7 +244,7 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
         # Empty fields for flux and bound_flux. Will be expanded as we go.
         # Implementation note: It should be relatively straightforward to
         # estimate the memory need of flux (face_nodes -> node_cells ->
-        # unique). 
+        # unique).
         flux = sps.csr_matrix(g.num_faces, g.num_cells)
         bound_flux = sps.csr_matrix(g.num_faces, g.num_faces)
 
@@ -337,7 +339,7 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
     sub_g, l2g_faces, _ = partition.extract_subgrid(g, ind)
     l2g_cells = sub_g.parent_cell_ind
 
-    ## Local parameter fields
+    # Local parameter fields
     # Copy permeability field, and restrict to local cells
     loc_k = k.copy()
     loc_k.perm = loc_k.perm[::, ::, l2g_cells]
@@ -364,10 +366,9 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
 
     # Map to global indices
     face_map, cell_map = fvutils.map_subgrid_to_grid(g, l2g_faces, l2g_cells,
-                                                      is_vector=False)
+                                                     is_vector=False)
     flux_glob = face_map * flux_loc * cell_map
     bound_flux_glob = face_map * bound_flux_loc * face_map.transpose()
-
 
     # By design of mpfa, and the subgrids, the discretization will update faces
     # outside the active faces. Kill these.

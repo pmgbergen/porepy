@@ -135,13 +135,14 @@ class Tpfa(Solver):
         bnd = param.bc(self)
         bc_val = param.bc_val(self)
         a = param.apertures
-        sources = para.sources(self)
+        sources = param.get_source(self)
 
         trm, bound_flux = tpfa(g, k, bnd, faces=None, apertures=a)
         data['flux'] = trm
         data['bound_flux'] = bound_flux
 
 #------------------------------------------------------------------------------#
+
 
 def tpfa(g, k, bnd, faces=None, apertures=None):
     """  Discretize the second order elliptic equation using two-point flux

@@ -72,7 +72,8 @@ class Parameters(object):
     def _get_physics(self, obj):
         if isinstance(obj, Solver):
             if not hasattr(obj, 'physics'):
-                raise AttributeError('Solver object should have attribute physics')
+                raise AttributeError(
+                    'Solver object should have attribute physics')
             s = obj.physics.strip().lower()
         elif isinstance(obj, str):
             s = obj.strip().lower()
@@ -94,6 +95,7 @@ class Parameters(object):
             return self._biot_alpha
         else:
             return 1
+
     def _set_biot_alpha(self, val):
         if val < 0 or val > 1:
             raise ValueError('Biot\'s constant should be between 0 and 1')
@@ -139,14 +141,14 @@ class Parameters(object):
         if not hasattr(self, '_apertures'):
             return default * np.ones(self._num_cells)
 
-        if isinstance(self._aperture, np.ndarray):
+        if isinstance(self._apertures, np.ndarray):
             # Hope that the user did not initialize as array with wrong size
             return self._apertures
         else:
             return self._apertures * np.ones(self._num_cells)
 
     def _set_aperture(self, val):
-        if (isinstance(val, np.ndarray) and np.any(val < 0)) or val < 0:
+        if np.any(val < 0):
             raise ValueError('Negative aperture')
         self._apertures = val
 
@@ -236,7 +238,7 @@ class Parameters(object):
         Sources should be accessed via get_source / set_source
         """
         if hasattr(self, '_source_flow'):
-            return self.self._get_source_flow()
+            return self._source_flow
         else:
             return np.zeros(self._num_cells)
 
@@ -344,7 +346,7 @@ class Parameters(object):
 
 #--------------------- Boundary conditions and values ------------------------
 
-######### Boundary condition
+# Boundary condition
 
     def get_bc(self, obj):
         """ Pick out physics-specific boundary condition
@@ -393,7 +395,7 @@ class Parameters(object):
         if physics == 'flow':
             self._bc_flow = val
         elif physics == 'transport':
-            self._bc_transport= val
+            self._bc_transport = val
         elif physics == 'mechanics':
             self._bc_mechanics = val
 
@@ -423,7 +425,7 @@ class Parameters(object):
     stiffness = property(_get_stiffness)
 
 
-######### Boundary value
+# Boundary value
 
     def get_bc_val(self, obj):
         """ Pick out physics-specific boundary condition
@@ -499,7 +501,6 @@ class Parameters(object):
             return np.zeros(self._num_faces)
 
     bc_val_transport = property(_get_bc_val_transport)
-
 
     def _get_bc_val_mechanics(self):
 
