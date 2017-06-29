@@ -90,49 +90,49 @@ class Parameters(object):
 #------------- Constants
 
 #--------------- Biot Alpha ---------------------------------------
-    def _get_biot_alpha(self):
+    def get_biot_alpha(self):
         if hasattr(self, '_biot_alpha'):
             return self._biot_alpha
         else:
             return 1
 
-    def _set_biot_alpha(self, val):
+    def set_biot_alpha(self, val):
         if val < 0 or val > 1:
             raise ValueError('Biot\'s constant should be between 0 and 1')
         self._biot_alpha = val
-    biot_alpha = property(_get_biot_alpha, _set_biot_alpha)
+    biot_alpha = property(get_biot_alpha, set_biot_alpha)
 
 #--------------- Fluid viscosity ------------------------------------
-    def _get_fluid_viscosity(self):
+    def get_fluid_viscosity(self):
         if hasattr(self, '_fluid_viscosity'):
             return self._fluid_viscosity
         else:
             return 1
 
-    def _set_fluid_viscosity(self, val):
+    def set_fluid_viscosity(self, val):
         if val <= 0:
             raise ValueError('Fluid viscosity should be positive')
         self._fluid_viscosity = val
-    fluid_viscosity = property(_get_fluid_viscosity, _set_fluid_viscosity)
+    fluid_viscosity = property(get_fluid_viscosity, set_fluid_viscosity)
 
 #----------- Fluid compressibility
-    def _get_fluid_compr(self):
+    def get_fluid_compr(self):
         if hasattr(self, '_fluid_compr'):
             return self._fluid_compr
         else:
             return 0.
 
-    def _set_fluid_compr(self, val):
+    def set_fluid_compr(self, val):
         if val < 0:
             raise ValueError('Fluid compressibility should be non-negative')
         self._fluid_compr = val
-    fluid_compr = property(_get_fluid_compr, _set_fluid_compr)
+    fluid_compr = property(get_fluid_compr, set_fluid_compr)
 
 #-------------------- Cell-wise quantities below here --------------------
 
 #------------------ Aperture -----------------
 
-    def _get_aperture(self, default=1):
+    def get_aperture(self, default=1):
         """ double or array_like
         Cell-wise quantity representing fracture aperture (really, height of
         surpressed dimensions). Set as either a np.ndarray, or a scalar
@@ -147,16 +147,16 @@ class Parameters(object):
         else:
             return self._apertures * np.ones(self._num_cells)
 
-    def _set_aperture(self, val):
+    def set_aperture(self, val):
         if np.any(val < 0):
             raise ValueError('Negative aperture')
         self._apertures = val
 
-    apertures = property(_get_aperture, _set_aperture)
+    apertures = property(get_aperture, set_aperture)
 
 #---------------- Porosity -------------------------------------------------
 
-    def _get_porosity(self):
+    def get_porosity(self):
         """ double or array-like
         Cell-wise representation of porosity. Set as either a np.ndarary, or a
         scalar (uniform) value. Always returned as np.ndarray.
@@ -167,7 +167,7 @@ class Parameters(object):
         else:
             return self._porosity * np.ones(self._num_cells)
 
-    def _set_porosity(self, val):
+    def set_porosity(self, val):
         if isinstance(val, np.ndarray):
             if np.any(val < 0) or np.any(val > 1):
                 raise ValueError('Porosity outside unit interval')
@@ -176,7 +176,7 @@ class Parameters(object):
                 raise ValueError('Porosity outside unit interval')
         self._porosity = val
 
-    porosity = property(_get_porosity, _set_porosity)
+    porosity = property(get_porosity, set_porosity)
 
 #----------- Multi-physics (solver-/context-dependent) parameters below -----
 
@@ -203,9 +203,9 @@ class Parameters(object):
         physics = self._get_physics(obj)
 
         if physics == 'flow':
-            return self._get_source_flow()
+            return self.get_source_flow()
         elif physics == 'transport':
-            return self._get_source_transport()
+            return self.get_source_transport()
         elif physics == 'mechanics':
             return self._get_source_mechanics()
         else:
@@ -237,7 +237,7 @@ class Parameters(object):
             raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
                              % (physics, self.known_physics))
 
-    def _get_source_flow(self):
+    def get_source_flow(self):
         """ array_like
         Cell-wise quantity representing the volume source in a cell. Represent
         total in/outflow in the cell (integrated over the cell volume).
@@ -248,9 +248,9 @@ class Parameters(object):
         else:
             return np.zeros(self._num_cells)
 
-    source_flow = property(_get_source_flow)
+    source_flow = property(get_source_flow)
 
-    def _get_source_transport(self):
+    def get_source_transport(self):
         """ array_like
         Cell-wise quantity representing the concentration / temperature source
         in a cell. Represent total in/outflow in the cell (integrated over the
@@ -262,14 +262,14 @@ class Parameters(object):
         else:
             return np.zeros(self._num_cells)
 
-    source_transport = property(_get_source_transport)
+    source_transport = property(get_source_transport)
 
-    def _get_source_mechanics(self):
+    def get_source_mechanics(self):
         if hasattr(self, '_source_mechanics'):
             return self._source_mechanics
         else:
             return np.zeros(self._num_cells * self._dim)
-    source_mechanics = property(_get_source_mechanics)
+    source_mechanics = property(get_source_mechanics)
 
 #-------------------- Permeability, conductivity, ---------------------
 
@@ -331,30 +331,30 @@ class Parameters(object):
             raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
                              % (physics, self.known_physics))
 
-    def _get_perm(self):
+    def get_permeability(self):
         """ tensor.SecondOrder
         Cell wise permeability, represented as a second order tensor.
         Solvers should rather access get_tensor().
         """
         return self._perm
 
-    perm = property(_get_perm)
+    perm = property(get_permeability)
 
-    def _get_conductivity(self):
+    def get_conductivity(self):
         """ tensor.SecondOrder
         Cell wise conductivity, represented as a second order tensor.
         Solvers should rather access tensor().
         """
         return self._conductivity
 
-    conductivity = property(_get_conductivity)
+    conductivity = property(get_conductivity)
 
-    def _get_stiffness(self):
+    def get_stiffness(self):
         """ Stiffness matrix, defined as fourth order tensor
         """
         return self._stiffness
 
-    stiffness = property(_get_stiffness)
+    stiffness = property(get_stiffness)
 
 #--------------------- Boundary conditions and values ------------------------
 
@@ -381,11 +381,11 @@ class Parameters(object):
         physics = self._get_physics(obj)
 
         if physics == 'flow':
-            return self._bc_flow
+            return self.get_bc_flow()
         elif physics == 'transport':
-            return self._bc_transport
+            return self.get_bc_transport()
         elif physics == 'mechanics':
-            return self._bc_mechanics
+            return self.get_bc_mechanics()
 
     def set_bc(self, obj, val):
         """ Set physics-specific boundary condition
@@ -414,30 +414,30 @@ class Parameters(object):
             raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
                              % (physics, self.known_physics))
 
-    def _get_bc_flow(self):
+    def get_bc_flow(self):
         """ BoundaryCondition object
         Cell wise permeability, represented as a second order tensor.
         Solvers should rather access get_tensor().
         """
         return self._bc_flow
 
-    bc_flow = property(_get_bc_flow)
+    bc_flow = property(get_bc_flow)
 
-    def _get_bc_transport(self):
+    def get_bc_transport(self):
         """ bc.BoundaryCondition
         Cell wise conductivity, represented as a second order tensor.
         Solvers should rather access tensor().
         """
         return self._bc_transport
 
-    conductivity = property(_get_conductivity)
+    conductivity = property(get_conductivity)
 
-    def _get_bc_mechanics(self):
+    def get_bc_mechanics(self):
         """ Stiffness matrix, defined as fourth order tensor
         """
         return self._bc_mechanics
 
-    stiffness = property(_get_stiffness)
+    stiffness = property(get_stiffness)
 
 
 # Boundary value
@@ -463,14 +463,18 @@ class Parameters(object):
         physics = self._get_physics(obj)
 
         if physics == 'flow':
-            return self._get_bc_val_flow()
+            return self.get_bc_val_flow()
         elif physics == 'transport':
-            return self._get_bc_val_transport()
+            return self.get_bc_val_transport()
         elif physics == 'mechanics':
+<<<<<<< 9c04b356b974086d612e9097366e4d7047ff248b
             return self._get_bc_val_mechanics()
         else:
             raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
                              % (physics, self.known_physics))
+=======
+            return self.get_bc_val_mechanics()
+>>>>>>> Parameters get and set methods are public (no underscore)
 
     def set_bc_val(self, obj, val):
         """ Set physics-specific boundary condition
@@ -499,7 +503,7 @@ class Parameters(object):
             raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
                              % (physics, self.known_physics))
 
-    def _get_bc_val_flow(self):
+    def get_bc_val_flow(self):
         """ tensor.SecondOrder
         Cell wise permeability, represented as a second order tensor.
         Solvers should rather access get_tensor().
@@ -509,9 +513,9 @@ class Parameters(object):
         else:
             return np.zeros(self._num_faces)
 
-    bc_val_flow = property(_get_bc_val_flow)
+    bc_val_flow = property(get_bc_val_flow)
 
-    def _get_bc_val_transport(self):
+    def get_bc_val_transport(self):
         """ tensor.SecondOrder
         Cell wise conductivity, represented as a second order tensor.
         Solvers should rather access tensor().
@@ -521,8 +525,9 @@ class Parameters(object):
         else:
             return np.zeros(self._num_faces)
 
-    bc_val_transport = property(_get_bc_val_transport)
+    bc_val_transport = property(get_bc_val_transport)
 
+<<<<<<< 9c04b356b974086d612e9097366e4d7047ff248b
     def _get_bc_val_mechanics(self):
         """ tensor.FourthOrder
         Cell wise conductivity, represented as a fourth order tensor.
@@ -530,6 +535,12 @@ class Parameters(object):
         """
         if hasattr(self, '_bc_val_mechanics'):
             return self._bc_val_mechanics
+=======
+    def get_bc_val_mechanics(self):
+
+        if hasattr(self, '_bc_val_transport'):
+            return self._bc_val_transport
+>>>>>>> Parameters get and set methods are public (no underscore)
         else:
             return np.zeros(self._num_faces * self.dim)
-    bc_val_mechanics = property(_get_bc_val_mechanics)
+    bc_val_mechanics = property(get_bc_val_mechanics)
