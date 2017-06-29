@@ -208,6 +208,9 @@ class Parameters(object):
             return self._get_source_transport()
         elif physics == 'mechanics':
             return self._get_source_mechanics()
+        else:
+            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
+                             % (physics, self.known_physics))
 
     def set_source(self, obj, val):
         """ Set physics-specific source
@@ -230,6 +233,9 @@ class Parameters(object):
             self._source_transport = val
         elif physics == 'mechanics':
             self._source_mechanics = val
+        else:
+            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
+                             % (physics, self.known_physics))
 
     def _get_source_flow(self):
         """ array_like
@@ -294,6 +300,9 @@ class Parameters(object):
             return self._conductivity
         elif physics == 'mechanics':
             return self._stiffness
+        else:
+            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
+                             % (physics, self.known_physics))
 
     def set_tensor(self, obj, val):
         """ Set physics-specific source
@@ -318,6 +327,9 @@ class Parameters(object):
             self._conductivity = val
         elif physics == 'mechanics':
             self._stiffness = val
+        else:
+            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
+                             % (physics, self.known_physics))
 
     def _get_perm(self):
         """ tensor.SecondOrder
@@ -398,6 +410,9 @@ class Parameters(object):
             self._bc_transport = val
         elif physics == 'mechanics':
             self._bc_mechanics = val
+        else:
+            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
+                             % (physics, self.known_physics))
 
     def _get_bc_flow(self):
         """ BoundaryCondition object
@@ -453,6 +468,9 @@ class Parameters(object):
             return self._get_bc_val_transport()
         elif physics == 'mechanics':
             return self._get_bc_val_mechanics()
+        else:
+            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
+                             % (physics, self.known_physics))
 
     def set_bc_val(self, obj, val):
         """ Set physics-specific boundary condition
@@ -477,6 +495,9 @@ class Parameters(object):
             self._bc_val_transport = val
         elif physics == 'mechanics':
             self._bc_val_mechanics = val
+        else:
+            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
+                             % (physics, self.known_physics))
 
     def _get_bc_val_flow(self):
         """ tensor.SecondOrder
