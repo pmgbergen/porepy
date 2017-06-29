@@ -258,7 +258,7 @@ class Parameters(object):
         Sources should be accessed via get_source / set_source
         """
         if hasattr(self, '_source_transport'):
-            return self.self._get_source_transport()
+            return self._source_transport
         else:
             return np.zeros(self._num_cells)
 
@@ -524,9 +524,12 @@ class Parameters(object):
     bc_val_transport = property(_get_bc_val_transport)
 
     def _get_bc_val_mechanics(self):
-
-        if hasattr(self, '_bc_val_transport'):
-            return self._bc_val_transport
+        """ tensor.FourthOrder
+        Cell wise conductivity, represented as a fourth order tensor.
+        Solvers should rather access tensor().
+        """
+        if hasattr(self, '_bc_val_mechanics'):
+            return self._bc_val_mechanics
         else:
             return np.zeros(self._num_faces * self.dim)
     bc_val_mechanics = property(_get_bc_val_mechanics)
