@@ -122,7 +122,7 @@ class DualVEM(Solver):
         param = data['param']
         k = param.get_tensor(self)
         bc = param.get_bc(self)
-        a = param.apertures
+        a = param.aperture
 
         faces, _, sgn = sps.find(g.cell_faces)
 

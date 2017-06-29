@@ -135,7 +135,7 @@ class Mpfa(Solver):
         param = data['param']
         k = param.get_tensor(self)
         bnd = param.get_bc(self)
-        a = param.apertures
+        a = param.aperture
 
         trm, bound_flux = mpfa(g, k, bnd, apertures=a)
         data['flux'] = trm

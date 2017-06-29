@@ -152,7 +152,7 @@ class Parameters(object):
             raise ValueError('Negative aperture')
         self._apertures = val
 
-    apertures = property(get_aperture, set_aperture)
+    aperture = property(get_aperture, set_aperture)
 
 #---------------- Porosity -------------------------------------------------
 

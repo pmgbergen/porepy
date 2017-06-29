@@ -134,7 +134,7 @@ class Tpfa(Solver):
         k = param.tensor(self)
         bnd = param.bc(self)
         bc_val = param.bc_val(self)
-        a = param.apertures
+        a = param.aperture
         sources = param.get_source(self)
 
         trm, bound_flux = tpfa(g, k, bnd, faces=None, apertures=a)
