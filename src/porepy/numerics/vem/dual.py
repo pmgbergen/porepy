@@ -10,7 +10,7 @@ import scipy.sparse as sps
 
 from porepy.params import tensor
 from porepy.numerics.mixed_dim.solver import Solver
-import porepy.utils.comp_geom as cg
+from porepy.utils import comp_geom as cg
 
 
 class DualVEM(Solver):
