@@ -133,7 +133,7 @@ class DualVEM(Solver):
 
         # Weight for the stabilization term
         diams = g.cell_diameters()
-        weight = np.divide(np.power(diams, 2-g.dim), a)
+        weight = np.power(diams, 2-g.dim)
 
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
@@ -154,10 +154,10 @@ class DualVEM(Solver):
             # permeability in the hybrid-dimensional case
             K = a[c]*k.perm[0:g.dim, 0:g.dim, c]
             sgn_loc = sgn[loc]
-            normals = a[c]*f_normals[:, faces_loc]
+            normals = f_normals[:, faces_loc]
 
             # Compute the H_div-mass local matrix
-            A, _ = self.massHdiv(K, c_centers[:, c], a[c]*g.cell_volumes[c],
+            A, _ = self.massHdiv(K, c_centers[:, c], g.cell_volumes[c],
                                  f_centers[:, faces_loc], normals, sgn_loc,
                                  diams[c], weight[c])
 
@@ -276,7 +276,7 @@ class DualVEM(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def project_u(self, g, u, data):
+    def project_u(self, g, u):
         """  Project the velocity computed with a dual vem solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
@@ -296,8 +296,6 @@ class DualVEM(Solver):
         if g.dim == 0:
             return np.zeros(3).reshape((3, 1))
 
-        a = data.get('a', np.ones(g.num_cells))
-
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to self.massHdiv
         kxx = np.ones(g.num_cells)
@@ -316,9 +314,9 @@ class DualVEM(Solver):
 
             K = k.perm[0:g.dim, 0:g.dim, c]
             sgn_loc = sgn[loc]
-            normals = a[c]*f_normals[:, faces_loc]
+            normals = f_normals[:, faces_loc]
 
-            _, Pi_s = self.massHdiv(K, c_centers[:, c], a[c]*g.cell_volumes[c],
+            _, Pi_s = self.massHdiv(K, c_centers[:, c], g.cell_volumes[c],
                                     f_centers[:, faces_loc], normals, sgn_loc,
                                     diams[c])
 
