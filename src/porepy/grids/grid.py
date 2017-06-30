@@ -189,6 +189,8 @@ class Grid(object):
             s = 'Structured triangular grid.\n'
         elif 'TriangleGrid' in self.name:
             s = 'Triangular grid. \n'
+        elif 'StructuredTetrahedralGrid' in self.name:
+            s = 'Structured tetrahedral grid.\n'
         elif 'TetrahedralGrid' in self.name:
             s = 'Tetrahedral grid.\n'
         s = s + 'Number of cells ' + str(self.num_cells) + '\n'

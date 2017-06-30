@@ -16,6 +16,8 @@ PorePy depends on `numpy`, `scipy` and `networkx`, and (for the moment) also on 
 
 Installation by pip on Windows may cause problems with buliding the requirements (`numpy` etc). Intallation with conda is recommended; a Conda distribution will be added shortly.
 
+For more detailed install instructions, including how to access GMSH (for meshing), see Licence.txt.
+
 PorePy is developed under Python 3, but should also be compatible with Python 2.7.
 
 # From source

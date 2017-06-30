@@ -44,8 +44,6 @@ def add_data(gb, domain):
 
         bound_face_centers = g.face_centers[:, bound_faces]
 
-        top = bound_face_centers[1, :] > domain['ymax'] - tol
-        bot = bound_face_centers[1, :] < domain['ymin'] + tol
         left = bound_face_centers[0, :] < domain['xmin'] + tol
         right = bound_face_centers[0, :] > domain['xmax'] - tol
 
@@ -53,7 +51,7 @@ def add_data(gb, domain):
         labels[np.logical_or(left, right)] = 'dir'
 
         bc_val = np.zeros(g.num_faces)
-        bc_val[bound_faces[left]] = 1013250*np.ones(left.size)
+        bc_val[bound_faces[left]] = 1013250*np.ones(np.sum(left))
 
         d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
         d['bc_val'] = bc_val.ravel('F')
@@ -69,7 +67,6 @@ def add_data(gb, domain):
 mesh_kwargs = {}
 mesh_kwargs['mesh_size'] = {'mode': 'constant',
                             'value': 7, 'bound_value': 7}
-mesh_kwargs['gmsh_path'] = '~/gmsh/bin/gmsh'
 
 domain = {'xmin': 0, 'xmax': 700, 'ymin': 0, 'ymax': 600}
 gb = importer.from_csv('network.csv', mesh_kwargs, domain)
@@ -99,6 +96,8 @@ for g, d in gb:
 
 exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem')
 
+print( np.sum(error.norm_L2(g, d['p']) for g, d in gb) )
+print( np.sum(error.norm_L2(g, d['P0u']) for g, d in gb) )
 # Consistency check
-assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 1788700521.16)
-assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), 7.19845778645e-06)
+assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 1788853869.93)
+assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), 7.19640354325e-06)

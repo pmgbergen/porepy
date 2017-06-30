@@ -32,7 +32,7 @@ class TestStructured(unittest.TestCase):
         f_nodes_0 = [5]
         glob_1 = np.sort(g_1d_1.global_point_ind)
         glob_2 = np.sort(g_1d_2.global_point_ind)
-        glob_0 = np.sort(g_0d.global_point_ind)
+        glob_0 = np.sort(np.atleast_1d(g_0d.global_point_ind))
         assert np.all(f_nodes_1 == glob_1)
         assert np.all(f_nodes_2 == glob_2)
         assert np.all(f_nodes_0 == glob_0)

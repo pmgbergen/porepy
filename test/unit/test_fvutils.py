@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 
@@ -54,3 +55,8 @@ def test_subcell_mapping_2d_simplex_1():
     assert np.sum(subfcum == 2) == 2
     assert np.sum(subfcum == 1) == 8
 
+def test_determine_eta():
+    g = simplex.StructuredTriangleGrid([1, 1])
+    assert fvutils.determine_eta(g) == 1/3
+    g = structured.CartGrid([1, 1])
+    assert fvutils.determine_eta(g) == 0

@@ -46,8 +46,6 @@ def add_data(gb, domain):
 
         bound_face_centers = g.face_centers[:, bound_faces]
 
-        top = bound_face_centers[1, :] > domain['ymax'] - tol
-        bot = bound_face_centers[1, :] < domain['ymin'] + tol
         left = bound_face_centers[0, :] < domain['xmin'] + tol
         right = bound_face_centers[0, :] > domain['xmax'] - tol
 
@@ -56,11 +54,11 @@ def add_data(gb, domain):
 
         bc_val = np.zeros(g.num_faces)
         if g.dim == 2:
-            bc_val[bound_faces[left]] = -np.ones(left.size)
+            bc_val[bound_faces[left]] = -np.ones(np.sum(left))
         else:
-            bc_val[bound_faces[left]] = -np.ones(left.size) * a
+            bc_val[bound_faces[left]] = -np.ones(np.sum(left)) * a
 
-        bc_val[bound_faces[right]] = np.ones(right.size)
+        bc_val[bound_faces[right]] = np.ones(np.sum(right))
 
         d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
         d['bc_val'] = bc_val.ravel('F')
@@ -76,7 +74,6 @@ def add_data(gb, domain):
 mesh_kwargs = {}
 mesh_kwargs['mesh_size'] = {'mode': 'constant',
                             'value': 0.045, 'bound_value': 0.045}
-mesh_kwargs['gmsh_path'] = '~/gmsh/bin/gmsh'
 
 domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
 gb = importer.from_csv('network.csv', mesh_kwargs, domain)

@@ -226,7 +226,7 @@ def cart_grid_2d(fracs, nx, physdims=None):
 
     # Create 0-D grids
     if np.any(shared_nodes > 1):
-        for global_node in np.where(shared_nodes > 1):
+        for global_node in np.argwhere(shared_nodes > 1).ravel():
             g = point_grid.PointGrid(g_2d.nodes[:, global_node])
             g.global_point_ind = np.asarray(global_node)
             g_0d.append(g)

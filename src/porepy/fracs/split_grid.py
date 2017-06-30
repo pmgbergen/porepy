@@ -60,6 +60,8 @@ def split_fractures(bucket, **kwargs):
     # For each vertex in the bucket we find the corresponding lower-
     # dimensional grids.
     for gh, _ in bucket:
+        # add new field to grid
+        gh.frac_pairs = np.zeros((2,0),dtype=np.int32)
         if gh.dim < 1:
             # Nothing to do. We can not split 0D grids.
             continue
@@ -110,6 +112,7 @@ def split_faces(gh, face_cells):
     The face_cells are updated such that the copy of a face also
     map to the same lower-dim cell.
     """
+    gh.frac_pairs = np.zeros((2,0), dtype=np.int32)
     for i in range(len(face_cells)):
         # We first we duplicate faces along tagged faces. The duplicate
         # faces will share the same nodes as the original faces,
@@ -127,7 +130,15 @@ def split_faces(gh, face_cells):
         n = np.reshape(gh.face_normals[:, face_id[0]], (3, 1))
         n = n / np.linalg.norm(n)
         x0 = np.reshape(gh.face_centers[:, face_id[0]], (3, 1))
-        update_cell_connectivity(gh, face_id, n, x0)
+        flag = update_cell_connectivity(gh, face_id, n, x0)
+
+        if flag==0:
+            # if flag== 0 we added left and right faces (if it is -1 no faces
+            # was added and we don't have left and right face pairs.
+            # we now add the new faces to the frac_pair array.
+            left = face_id
+            right = np.arange(gh.num_faces - face_id.size, gh.num_faces)
+            gh.frac_pairs = np.hstack((gh.frac_pairs, np.vstack((left,right))))
 
     return face_cells
 
@@ -193,6 +204,7 @@ def duplicate_faces(gh, face_cells):
     rem = gh.has_face_tag(FaceTag.BOUNDARY)[frac_id]
     gh.add_face_tag(frac_id[rem], FaceTag.FRACTURE)
     gh.remove_face_tag(frac_id, FaceTag.TIP)
+
     frac_id = frac_id[~rem]
     if frac_id.size == 0:
         return frac_id
@@ -288,7 +300,7 @@ def update_cell_connectivity(g, face_id, normal, x0):
         # so we should not delete anything from this matrix.
         rem = np.arange(g.cell_faces.shape[0], g.num_faces)
         remove_faces(g, rem, rem_cell_faces=False)
-        return
+        return -1
 
     # Assume that fracture is either on boundary (above case) or completely
     # innside domain. Check that each face added two cells:
@@ -321,6 +333,8 @@ def update_cell_connectivity(g, face_id, normal, x0):
     # This means that the normals of right and left cells point in the same
     # direction, but their cell_faces values have oposite signs.
     g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
+
+    return 0
 
 
 def remove_faces(g, face_id, rem_cell_faces=True):
