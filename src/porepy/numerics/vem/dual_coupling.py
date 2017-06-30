@@ -36,7 +36,7 @@ class DualCoupling(AbstractCoupling):
 
         # Normal permeability and aperture of the intersection to
         # compute the effective normal permeability
-        ln = 2*np.divide(data_edge['kn'], data_l['a'])
+        ln = 2*np.divide(data_edge['kn'], data_l['apertures'])
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions

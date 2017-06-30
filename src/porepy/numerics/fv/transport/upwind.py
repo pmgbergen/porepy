@@ -42,14 +42,14 @@ class Upwind(Solver):
         the outflow boundary conditions are open.
 
         The name of data in the input dictionary (data) are:
-        beta_n : array (g.num_faces)
+        discharge : array (g.num_faces)
             Normal velocity at each face, weighted by the face area.
         bc : boundary conditions (optional)
         bc_val : dictionary (optional)
             Values of the boundary conditions. The dictionary has at most the
             following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
-
+            conditions, respectively. 
+        source : array (g.num_cells) of source (positive) or sink (negative) terms.
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -64,7 +64,7 @@ class Upwind(Solver):
 
         Examples
         --------
-        data = {'beta_n': u, 'bc': bnd, 'bc_val': bnd_val}
+        data = {'discharge': u, 'bc': bnd, 'bc_val': bnd_val}
         advect = upwind.Upwind()
         U, rhs = advect.matrix_rhs(g, data)
 
@@ -82,15 +82,15 @@ class Upwind(Solver):
         if g.dim == 0:
             return sps.csr_matrix([0]), [0]
 
-        beta_n, bc, bc_val = data['beta_n'], data.get('bc'), data.get('bc_val')
-        assert beta_n is not None
+        discharge, bc, bc_val = data['discharge'], data.get('bc'), data.get('bc_val')
+        assert discharge is not None
 
         has_bc = not(bc is None or bc_val is None)
 
         # Compute the face flux respect to the real direction of the normals
         indices = g.cell_faces.indices
         flow_faces = g.cell_faces.copy()
-        flow_faces.data *= beta_n[indices]
+        flow_faces.data *= discharge[indices]
 
         # Retrieve the faces boundary and their numeration in the flow_faces
         # We need to impose no-flow for the inflow faces without boundary
@@ -124,7 +124,7 @@ class Upwind(Solver):
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
 
-        f = data.get('f', np.zeros(g.num_cells)) * g.cell_volumes
+        f = data.get('source', np.zeros(g.num_cells)) * g.cell_volumes
 
         if not has_bc:
             return flow_cells, f
@@ -155,7 +155,7 @@ class Upwind(Solver):
         weighted with the face area, at each face.
 
         The name of data in the input dictionary (data) are:
-        beta_n : array (g.num_faces)
+        discharge : array (g.num_faces)
             Normal velocity at each face, weighted by the face area.
 
         Parameters
@@ -168,22 +168,22 @@ class Upwind(Solver):
         deltaT: time step according to CFL condition.
 
         """
-        beta_n = data['beta_n']
-        apertures = data.get('a', np.ones(g.num_cells))
+        discharge = data['discharge']
+        apertures = data.get('apertures', np.ones(g.num_cells))
 
         faces, cell, _ = sps.find(g.cell_faces)
-        not_zero = ~np.isclose(np.zeros(faces.size), beta_n[faces], atol=0)
+        not_zero = ~np.isclose(np.zeros(faces.size), discharge[faces], atol=0)
         if not np.any(not_zero):
             return np.inf
 
-        beta_n = np.abs(beta_n[faces[not_zero]])
+        discharge = np.abs(discharge[faces[not_zero]])
         volumes = g.cell_volumes[cell[not_zero]] * apertures[cell[not_zero]]
 
-        return np.amin(np.divide(volumes, beta_n)) / g.dim
+        return np.amin(np.divide(volumes, discharge)) / g.dim
 
 #------------------------------------------------------------------------------#
 
-    def beta_n(self, g, beta, cell_apertures=None):
+    def discharge(self, g, beta, cell_apertures=None):
         """
         Return the normal component of the velocity, for each face, weighted by
         the face area and aperture.
@@ -196,7 +196,7 @@ class Upwind(Solver):
 
         Return
         ------
-        beta_n : array (g.num_faces)
+        discharge : array (g.num_faces)
             Normal velocity at each face, weighted by the face area.
 
         """
