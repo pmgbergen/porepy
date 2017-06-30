@@ -496,14 +496,10 @@ class Parameters(object):
         elif physics == 'transport':
             return self.get_bc_val_transport()
         elif physics == 'mechanics':
-<<<<<<< 9c04b356b974086d612e9097366e4d7047ff248b
-            return self._get_bc_val_mechanics()
+            return self.get_bc_val_mechanics()
         else:
             raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
                              % (physics, self.known_physics))
-=======
-            return self.get_bc_val_mechanics()
->>>>>>> Parameters get and set methods are public (no underscore)
 
     def set_bc_val(self, obj, val):
         """ Set physics-specific boundary condition
@@ -556,20 +552,13 @@ class Parameters(object):
 
     bc_val_transport = property(get_bc_val_transport)
 
-<<<<<<< 9c04b356b974086d612e9097366e4d7047ff248b
-    def _get_bc_val_mechanics(self):
+    def get_bc_val_mechanics(self):
         """ tensor.FourthOrder
         Cell wise conductivity, represented as a fourth order tensor.
         Solvers should rather access tensor().
         """
         if hasattr(self, '_bc_val_mechanics'):
             return self._bc_val_mechanics
-=======
-    def get_bc_val_mechanics(self):
-
-        if hasattr(self, '_bc_val_transport'):
-            return self._bc_val_transport
->>>>>>> Parameters get and set methods are public (no underscore)
         else:
             return np.zeros(self._num_faces * self.dim)
     bc_val_mechanics = property(get_bc_val_mechanics)
