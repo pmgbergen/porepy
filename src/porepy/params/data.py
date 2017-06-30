@@ -4,7 +4,8 @@ import warnings
 import numpy as np
 
 from porepy.numerics.mixed_dim.solver import Solver
-
+from porepy.params.tensor import SecondOrder, FourthOrder
+from porepy.params.bc import BoundaryCondition
 
 class Parameters(object):
     """ Class to store all physical parameters used by solvers.
@@ -59,6 +60,7 @@ class Parameters(object):
         self._num_cells = g.num_cells
         self._num_faces = g.num_faces
         self.dim = g.dim
+        self.g = g
 
         self.known_physics = ['flow', 'transport', 'mechanics']
 
@@ -156,11 +158,14 @@ class Parameters(object):
 
 #---------------- Porosity -------------------------------------------------
 
-    def get_porosity(self):
+    def get_porosity(self, default=1):
         """ double or array-like
         Cell-wise representation of porosity. Set as either a np.ndarary, or a
         scalar (uniform) value. Always returned as np.ndarray.
         """
+        if not hasattr(self, '_porosity'):
+            return default * np.ones(self._num_cells)
+
         if isinstance(self._porosity, np.ndarray):
             # Hope that the user did not initialize as array with wrong size
             return self._porosity
@@ -334,25 +339,39 @@ class Parameters(object):
     def get_permeability(self):
         """ tensor.SecondOrder
         Cell wise permeability, represented as a second order tensor.
-        Solvers should rather access get_tensor().
+        Defaults to a unit tensor.
         """
-        return self._perm
+        if hasattr(self, '_perm'):
+            return self._perm
+        else:
+            t = SecondOrder(self.dim, np.ones(self._num_cells))
+            return t
 
     perm = property(get_permeability)
 
     def get_conductivity(self):
         """ tensor.SecondOrder
         Cell wise conductivity, represented as a second order tensor.
-        Solvers should rather access tensor().
+        Defaults to a unit tensor.
         """
-        return self._conductivity
+        if hasattr(self, '_conductivity'):
+            return self._conductivity
+        else:
+            t = SecondOrder(self.dim, np.ones(self._num_cells))
+            return t
 
     conductivity = property(get_conductivity)
 
     def get_stiffness(self):
-        """ Stiffness matrix, defined as fourth order tensor
+        """ Stiffness matrix, defined as fourth order tensor.
+        If not defined, a unit tensor is returned.
         """
-        return self._stiffness
+        if hasattr(self, '_stiffness'):
+            return self._stiffness
+        else:
+            t = FourthOrder(self.dim, np.ones(self._num_cells),
+                            np.ones(self._num_cells))
+            return t
 
     stiffness = property(get_stiffness)
 
@@ -419,7 +438,10 @@ class Parameters(object):
         Cell wise permeability, represented as a second order tensor.
         Solvers should rather access get_tensor().
         """
-        return self._bc_flow
+        if hasattr(self, '_bc_flow'):
+            return self._bc_flow
+        else:
+            return BoundaryCondition(g)
 
     bc_flow = property(get_bc_flow)
 
@@ -428,14 +450,20 @@ class Parameters(object):
         Cell wise conductivity, represented as a second order tensor.
         Solvers should rather access tensor().
         """
-        return self._bc_transport
+        if hasattr(self, '_bc_transport'):
+            return self._bc_transport
+        else:
+            return BoundaryCondition(g)
 
     conductivity = property(get_conductivity)
 
     def get_bc_mechanics(self):
         """ Stiffness matrix, defined as fourth order tensor
         """
-        return self._bc_mechanics
+        if hasattr(self, '_bc_mechanics'):
+            return self._bc_mechanics
+        else:
+            return BoundaryCondition(g)
 
     stiffness = property(get_stiffness)
 
@@ -458,7 +486,8 @@ class Parameters(object):
             flow/pressure equation y if physics equals 'flow'
             transport equation if physics equals 'transport'
             elasticity if physics equals 'mechanics'
-
+            If the BoundaryCondition is not specified, Neumann conditions will
+            be assigned.
         """
         physics = self._get_physics(obj)
 
