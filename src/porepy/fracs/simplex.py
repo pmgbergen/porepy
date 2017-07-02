@@ -203,6 +203,10 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     # Snap to underlying grid before comparing points
     pts_all = cg.snap_to_grid(pts_all, tol)
 
+    # Ensure unique description of points
+    pts_all, _, old_2_new = unique_columns_tol(pts_all, tol=tol)
+    lines[:2] = old_2_new[lines[:2]]
+
     # We split all fracture intersections so that the new lines do not
     # intersect, except possible at the end points
     pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol)
