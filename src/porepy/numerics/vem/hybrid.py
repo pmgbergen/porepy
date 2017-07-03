@@ -91,6 +91,7 @@ class HybridDualVEM(Solver):
 
         k, f = data.get('k'), data.get('f')
         bc, bc_val = data.get('bc'), data.get('bc_val')
+        a = data.get('a', np.ones(g.num_cells))
 
         if k is None:
             kxx = np.ones(g.num_cells)
@@ -130,15 +131,14 @@ class HybridDualVEM(Solver):
             ndof = faces_loc.size
 
             # Retrieve permeability and normals assumed outward to the cell.
-            K = k.perm[0:g.dim, 0:g.dim, c]
             sgn_loc = sgn[loc].reshape((-1, 1))
             normals = np.multiply(np.tile(sgn_loc.T, (g.dim, 1)),
                                   f_normals[:, faces_loc])
 
             # Compute the H_div-mass local matrix
-            A, _ = massHdiv(K, c_centers[:, c], g.cell_volumes[c],
-                            f_centers[:, faces_loc], normals, np.ones(ndof),
-                            diams[c], weight[c])
+            A = massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
+                         a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
+                         a[c]*normals, np.ones(ndof), diams[c], weight[c])[0]
             # Compute the Div local matrix
             B = -np.ones((ndof, 1))
             # Compute the hybrid local matrix
@@ -212,6 +212,7 @@ class HybridDualVEM(Solver):
             return 0, l[0]
 
         k, f = data.get('k'), data.get('f')
+        a = data.get('a', np.ones(g.num_cells))
 
         if k is None:
             kxx = np.ones(g.num_cells)
@@ -244,15 +245,14 @@ class HybridDualVEM(Solver):
             ndof = faces_loc.size
 
             # Retrieve permeability and normals assumed outward to the cell.
-            K = k.perm[0:g.dim, 0:g.dim, c]
             sgn_loc = sgn[loc].reshape((-1, 1))
             normals = np.multiply(np.tile(sgn_loc.T, (g.dim, 1)),
                                   f_normals[:, faces_loc])
 
             # Compute the H_div-mass local matrix
-            A, _ = massHdiv(K, c_centers[:, c], g.cell_volumes[c],
-                            f_centers[:, faces_loc], normals, np.ones(ndof),
-                            diams[c], weight[c])
+            A = massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
+                         a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
+                         a[c]*normals, np.ones(ndof), diams[c], weight[c])[0]
             # Compute the Div local matrix
             B = -np.ones((ndof, 1))
             # Compute the hybrid local matrix
