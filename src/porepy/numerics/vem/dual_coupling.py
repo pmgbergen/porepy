@@ -35,7 +35,7 @@ class DualCoupling(AbstractCoupling):
         # pylint: disable=invalid-name
 
         # Normal permeability and aperture of the intersection
-        k, a = 2*data_edge['kn'], data_l['a']
+        k, aperture_h = 2*data_edge['kn'], data_h['a']
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
@@ -43,9 +43,10 @@ class DualCoupling(AbstractCoupling):
 
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
-        faces, _, sgn = sps.find(g_h.cell_faces)
-        sgn = sgn[np.unique(faces, return_index=True)[1]]
-        sgn = sgn[faces_h]
+        faces, cells_h, sgn = sps.find(g_h.cell_faces)
+        ind = np.unique(faces, return_index=True)[1]
+        sgn = sgn[ind][faces_h]
+        cells_h = cells_h[ind][faces_h]
 
         # Compute the off-diagonal terms
         dataIJ, I, J = sgn, g_l.num_faces+cells_l, faces_h
@@ -53,7 +54,7 @@ class DualCoupling(AbstractCoupling):
         cc[0, 1] = cc[1, 0].T
 
         # Compute the diagonal terms
-        dataIJ = 1./(g_h.face_areas[faces_h]*a[cells_l]*k[cells_l])
+        dataIJ = 1./(g_h.face_areas[faces_h]*aperture_h[cells_h]*k[cells_l])
         I, J = faces_h, faces_h
         cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
 
