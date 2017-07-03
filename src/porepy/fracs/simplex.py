@@ -6,11 +6,13 @@ import time
 import numpy as np
 from meshio import gmsh_io
 
+import porepy
 from porepy.grids import constants
 from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
 from porepy.fracs import fractures, utils
 import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import unique_columns_tol
+
 
 def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     """
@@ -71,7 +73,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
 
         frac_list = []
         for f in fracs:
-            if isinstance(f, fractures.Fracture):
+            if isinstance(f, fractures.Fracture) \
+                or isinstance(f, porepy.Fracture):
                 frac_list.append(f)
             else:
                 # Convert the fractures from numpy representation to our 3D
