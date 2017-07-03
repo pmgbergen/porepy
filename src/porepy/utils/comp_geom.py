@@ -1728,6 +1728,28 @@ def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
     dist = d_starts + sc * d1 - tc * d2
     return np.sqrt(dist.dot(dist))
 
+#------------------------------------------------------------------------------#
+
+def distance_point_segment(pt, start, end):
+    """
+    Compute the minimum distance between a point and a segment.
+
+    Parameters:
+        pt: the point
+        start: a point representing one extreme of the segment.
+        end: the second point representing the segment.
+    Returns:
+        distance: the minimum distance between the point and the segment.
+    """
+    pt_shift = end - start
+    length = np.dot(pt_shift, pt_shift)
+    u = np.dot(pt - start, pt_shift) / (length if length != 0 else 1)
+    dx = start + np.clip(u, 0, 1) * pt_shift - pt
+
+    return np.sqrt(np.dot(dx, dx))
+
+#------------------------------------------------------------------------------#
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
