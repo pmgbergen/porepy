@@ -1184,10 +1184,12 @@ class FractureNetwork(object):
 
             # Obtain new points and edges, so that no edges on this fracture
             # are intersecting.
+            # It seems necessary to increase the tolerance here somewhat to
+            # obtain a more robust algorithm. Not sure about how to do this
+            # consistent.
             p_new, edges_new = cg.remove_edge_crossings(p_2d, edges_2d,
-                                                        tol=self.tol,
+                                                        tol=self.tol*5,
                                                         verbose=self.verbose)
-
             # Then, patch things up by converting new points to 3D,
 
             # From the design of the functions in cg, we know that new points
