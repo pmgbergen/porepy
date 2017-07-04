@@ -14,11 +14,14 @@ import scipy.sparse as sps
 from porepy.numerics.fv import fvutils
 from porepy.utils import matrix_compression, mcolon
 from porepy.grids import structured, partition
-from porepy.params import fourth_order_tensor, bc
+from porepy.params import tensor, bc
 from porepy.numerics.mixed_dim.solver import Solver
 
 
 class Mpsa(Solver):
+
+    def __init__(self, physics='mechanics'):
+        self.physics = physics
 
     def ndof(self, g):
         """
@@ -44,10 +47,9 @@ class Mpsa(Solver):
         order elliptic equation using a FV method with a multi-point stress
         approximation.
         The name of data in the input dictionary (data) are:
-        c : fourth_order_tensor
-            Stress tensor defined cell-wise. If not given lambda and mu is set 
-            to 1. A warning is rised.
-        f : array (self.g.dim * self.g.num_cells)
+        stiffness : tensor.FourthOrder
+            Stress tensor defined cell-wise.
+        source : array (self.g.dim * self.g.num_cells)
             Vector body force term defined cell-wise. Given as stress, i.e.
             should already been multiplied with the cell sizes.  If not given a
             zero source body stress term is assumed and a warning arised.
@@ -70,13 +72,11 @@ class Mpsa(Solver):
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        c, bnd, bc_val, f = data.get('c'), data.get(
-            'bc'), data.get('bc_val'), data.get('f')
-        if c is None:
-            lam = np.ones(g.num_cells)
-            mu = np.ones(g.num_cells)
-            c = fourth_order_tensor.FourthOrderTensor(g.dim, mu, lam)
-            warnings.warn('Permeability not assigned, assumed identity')
+        param = data['param']
+        c = param.get_tensor(self)
+        bnd = param.get_bc(self)
+        bc_val = param.get_bc_val(self)
+        f = param.get_source(self)
 
         stress, bound_stress = mpsa(g, c, bnd)
         div = fvutils.vector_divergence(g)
@@ -92,9 +92,6 @@ class Mpsa(Solver):
         equation using the MPSA method. See self.matrix_rhs for a detailed
         description.
         """
-        if f is None:
-            f = np.zeros(g.dim * g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
         div = fvutils.vector_divergence(g)
 
         return -div * bound_stress * bc_val - f
@@ -161,7 +158,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
     Example:
         # Set up a Cartesian grid
         g = structured.CartGrid([5, 5])
-        c = fourth_order_tensor.FourthOrderTensor(g.dim, np.ones(g.num_cells))
+        c =tensor.FourthOrder(g.dim, np.ones(g.num_cells))
 
         # Dirirchlet boundary conditions
         bound_faces = g.get_boundary_faces().ravel()
@@ -264,9 +261,9 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
     fv_utils.cell_ind_for_partial_update()
 
     Parameters:
-        g (core.grids.grid): grid to be discretized
-        constit (core.constit.second_order_tensor) permeability tensor
-        bnd (core.bc.bc) class for boundary values
+        g (porepy.grids.grid.Grid): grid to be discretized
+        constit (porepy.params.tensor.SecondOrder) permeability tensor
+        bnd (porepy.params.bc.BoundaryCondition) class for boundary conditions
         faces (np.ndarray) faces to be considered. Intended for partial
             discretization, may change in the future
         eta Location of pressure continuity point. Should be 1/3 for simplex

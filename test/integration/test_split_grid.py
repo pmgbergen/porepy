@@ -103,3 +103,5 @@ class TestMeshing(unittest.TestCase):
             assert f_p.shape[1] == f_p_shape_true
             assert np.allclose(
                 g.face_centers[:, f_p[0]], g.face_centers[:, f_p[1]])
+
+        assert np.allclose(g_0[0].nodes, np.array([1, 1, 1]))

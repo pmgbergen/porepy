@@ -16,7 +16,7 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.grids import structured, simplex
-from porepy.params import second_order_tensor, bc
+from porepy.params import tensor, bc
 from porepy.utils.errors import error
 from porepy.numerics.vem import dual
 from porepy.viz.plot_grid import plot_grid
@@ -34,7 +34,7 @@ def darcy_dualVEM_example0(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+    perm = tensor.SecondOrder(g.dim, kxx)
 
     f = np.ones(g.num_cells)
 
@@ -43,7 +43,7 @@ def darcy_dualVEM_example0(**kwargs):
     bnd_val = np.zeros(g.num_faces)
 
     solver = dual.DualVEM()
-    data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
+    data = {'k': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
@@ -67,7 +67,7 @@ def darcy_dualVEM_example1(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+    perm = tensor.SecondOrder(g.dim, kxx)
 
     def funP_ex(pt):
         return np.sin(2*np.pi*pt[0]) * np.sin(2*np.pi*pt[1])
@@ -86,7 +86,7 @@ def darcy_dualVEM_example1(**kwargs):
     bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
     solver = dual.DualVEM()
-    data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
+    data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
@@ -118,7 +118,7 @@ def darcy_dualVEM_example2(**kwargs):
     T = cg.tangent_matrix(g.nodes)
 
     kxx = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+    perm = tensor.SecondOrder(g.dim, kxx)
 
     def funP_ex(pt):
         return np.pi*pt[0] - 6*pt[1] + np.exp(1)*pt[2] - 4
@@ -135,7 +135,7 @@ def darcy_dualVEM_example2(**kwargs):
     bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
     solver = dual.DualVEM()
-    data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
+    data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
@@ -163,7 +163,7 @@ def darcy_dualVEM_example3(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+    perm = tensor.SecondOrder(g.dim, kxx)
 
     def funP_ex(pt):
         return np.sin(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1])\
@@ -187,7 +187,7 @@ def darcy_dualVEM_example3(**kwargs):
     bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
     solver = dual.DualVEM()
-    data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
+    data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)

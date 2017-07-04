@@ -9,7 +9,7 @@ import numpy as np
 import random
 
 from porepy.grids import structured
-from porepy.params import second_order_tensor, bc
+from porepy.params import tensor, bc
 from porepy.numerics.fv import mpfa
 
 
@@ -19,7 +19,7 @@ def setup_cart_2d(nx):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+    perm =tensor.SecondOrder(g.dim, kxx)
 
     return g, perm
 

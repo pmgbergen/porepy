@@ -4,7 +4,7 @@ import scipy.sparse as sps
 from porepy.viz import plot_grid, exporter
 from porepy.fracs import importer
 
-from porepy.params import bc, second_order_tensor
+from porepy.params import bc, tensor
 
 from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening
@@ -20,22 +20,22 @@ def add_data(gb, domain):
     """
     Define the permeability, apertures, boundary conditions
     """
-    gb.add_node_props(['k', 'f', 'bc', 'bc_val', 'a'])
+    gb.add_node_props(['perm', 'source', 'bc', 'bc_val', 'apertures'])
     tol = 1e-3
 
     for g, d in gb:
         # Permeability
         kxx = np.ones(g.num_cells)
         if g.dim == 2:
-            d['k'] = second_order_tensor.SecondOrderTensor(g.dim, 1e-14*kxx)
+            d['perm'] = tensor.SecondOrder(g.dim, 1e-14*kxx)
         else:
-            d['k'] = second_order_tensor.SecondOrderTensor(g.dim, 1e-8*kxx)
+            d['perm'] = tensor.SecondOrder(g.dim, 1e-8*kxx)
 
         # Source term
-        d['f'] = np.zeros(g.num_cells)
+        d['source'] = np.zeros(g.num_cells)
 
         # Assign apertures
-        d['a'] = np.ones(g.num_cells) * np.power(1e-2, 2 - g.dim)
+        d['apertures'] = np.ones(g.num_cells) * np.power(1e-2, 2 - g.dim)
 
         # Boundaries
         bound_faces = g.get_boundary_faces()
@@ -44,8 +44,6 @@ def add_data(gb, domain):
 
         bound_face_centers = g.face_centers[:, bound_faces]
 
-        top = bound_face_centers[1, :] > domain['ymax'] - tol
-        bot = bound_face_centers[1, :] < domain['ymin'] + tol
         left = bound_face_centers[0, :] < domain['xmin'] + tol
         right = bound_face_centers[0, :] > domain['xmax'] - tol
 
@@ -53,7 +51,7 @@ def add_data(gb, domain):
         labels[np.logical_or(left, right)] = 'dir'
 
         bc_val = np.zeros(g.num_faces)
-        bc_val[bound_faces[left]] = 1013250*np.ones(left.size)
+        bc_val[bound_faces[left]] = 1013250*np.ones(np.sum(left))
 
         d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
         d['bc_val'] = bc_val.ravel('F')
@@ -69,7 +67,6 @@ def add_data(gb, domain):
 mesh_kwargs = {}
 mesh_kwargs['mesh_size'] = {'mode': 'constant',
                             'value': 7, 'bound_value': 7}
-mesh_kwargs['gmsh_path'] = '~/gmsh/bin/gmsh'
 
 domain = {'xmin': 0, 'xmax': 700, 'ymin': 0, 'ymax': 600}
 gb = importer.from_csv('network.csv', mesh_kwargs, domain)
@@ -91,14 +88,16 @@ A, b = solver_coupler.matrix_rhs(gb)
 up = sps.linalg.spsolve(A, b)
 solver_coupler.split(gb, "up", up)
 
-gb.add_node_props(["beta_n", "p", "P0u"])
+gb.add_node_props(["discharge", "p", "P0u"])
 for g, d in gb:
-    d["beta_n"] = solver.extract_u(g, d["up"])
+    d["discharge"] = solver.extract_u(g, d["up"])
     d["p"] = solver.extract_p(g, d["up"])
-    d["P0u"] = solver.project_u(g, d["beta_n"])
+    d["P0u"] = solver.project_u(g, d["discharge"])
 
 exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem')
 
+print( np.sum(error.norm_L2(g, d['p']) for g, d in gb) )
+print( np.sum(error.norm_L2(g, d['P0u']) for g, d in gb) )
 # Consistency check
-assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 1788700521.16)
-assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), 7.19845778645e-06)
+assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 1788853869.93)
+assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), 7.19640354325e-06)

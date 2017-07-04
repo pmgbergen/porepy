@@ -47,7 +47,7 @@ def mcolon(lo, hi):
 
     i = hi >= lo + 1
     if not any(i):
-        return None
+        return np.array([], dtype=np.int32)
 
     lo = lo[i]
     hi = hi[i] - 1
