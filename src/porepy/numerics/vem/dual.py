@@ -15,6 +15,8 @@ from porepy.utils import comp_geom as cg
 
 class DualVEM(Solver):
 
+#------------------------------------------------------------------------------#
+
     def __init__(self, physics='flow'):
         self.physics = physics
 
@@ -122,7 +124,7 @@ class DualVEM(Solver):
         param = data['param']
         k = param.get_tensor(self)
         bc = param.get_bc(self)
-        a = param.aperture
+        a = param.get_aperture()
 
         faces, _, sgn = sps.find(g.cell_faces)
 
