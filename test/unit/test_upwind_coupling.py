@@ -10,6 +10,7 @@ from porepy.params.data import Parameters
 from porepy.numerics.fv.transport import upwind, upwind_coupling
 from porepy.numerics.mixed_dim import coupler
 
+from porepy.viz import plot_grid
 
 #------------------------------------------------------------------------------#
 
@@ -367,6 +368,7 @@ class BasicsTest( unittest.TestCase ):
         gb.compute_geometry()
         gb.assign_node_ordering()
 
+        plot_grid.plot_grid(gb, alpha=0, info='c')
 
         tol = 1e-3
         solver = upwind.Upwind()
@@ -533,7 +535,7 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d():
+    def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d(self):
         U = np.array([\
             [  2.50e-01,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
                0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
@@ -708,3 +710,5 @@ class BasicsTest( unittest.TestCase ):
         return U, rhs
 
 #------------------------------------------------------------------------------#
+
+BasicsTest().test_upwind_coupling_3d_2d_1d_0d()
