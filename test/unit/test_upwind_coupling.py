@@ -63,7 +63,7 @@ class BasicsTest( unittest.TestCase ):
         coupling_conditions = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
-        deltaT = np.amin(gb.loop(solver.cfl, coupling_conditions.cfl).data)
+        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
 
         U_known = np.array([[ 1, 0,  0],
                             [ 0, 1, -1],
@@ -127,7 +127,7 @@ class BasicsTest( unittest.TestCase ):
         coupling_conditions = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
-        deltaT = np.amin(gb.loop(solver.cfl, coupling_conditions.cfl).data)
+        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
 
         U_known = np.array([[ 1, 0, 0],
                             [ 0, 1, 0],
@@ -213,7 +213,7 @@ class BasicsTest( unittest.TestCase ):
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
 
-        deltaT = np.amin(gb.loop(solver.cfl, coupling_conditions.cfl).data)
+        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
 
         U_known = np.array(\
         [[ 1.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ],
@@ -286,7 +286,7 @@ class BasicsTest( unittest.TestCase ):
         coupling_conditions = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
-        deltaT = np.amin(gb.loop(solver.cfl, coupling_conditions.cfl).data)
+        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
 
         U_known = np.array([[ 1, 0, 0],
                             [ 0, 1,-1],
@@ -351,7 +351,7 @@ class BasicsTest( unittest.TestCase ):
         coupling_conditions = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
-        deltaT = np.amin(gb.loop(solver.cfl, coupling_conditions.cfl).data)
+        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
 
         U_known = np.array([[.5, 0, 0],
                             [0, .5, 0],
@@ -462,7 +462,7 @@ class BasicsTest( unittest.TestCase ):
         coupling_conditions = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
-        deltaT = np.amin(gb.loop(solver.cfl, coupling_conditions.cfl).data)
+        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
 
         U_known, rhs_known = matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d()
 
