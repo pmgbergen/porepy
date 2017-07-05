@@ -952,26 +952,47 @@ class FractureNetwork(object):
         # By now, all segments in the grid are defined by a unique set of
         # points and edges. The next task is to identify intersecting edges,
         # and split them.
-        all_p, edges,edges_2_frac, is_boundary_edge\
+        all_p, edges, edges_2_frac, is_boundary_edge\
             = self._remove_edge_intersections(all_p, edges, edges_2_frac,
                                             is_boundary_edge)
 
         if self.verbose > 1:
             self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
 
+
         # With all edges being non-intersecting, the next step is to split the
         # fractures into polygons formed of boundary edges, intersection edges
         # and auxiliary edges that connect the boundary and intersections.
-        all_p, edges, is_boundary_edge, poly_segments, poly_2_frac\
-                = self._split_into_polygons(all_p, edges, edges_2_frac,
-                                            is_boundary_edge)
+#        all_p, edges, is_boundary_edge, poly_segments, poly_2_frac\
+#                = self._split_into_polygons(all_p, edges, edges_2_frac,
+#                                            is_boundary_edge)
 
         # Store the full decomposition.
         self.decomposition = {'points': all_p,
                               'edges': edges.astype('int'),
                               'is_bound': is_boundary_edge,
-                              'polygons': poly_segments,
-                              'polygon_frac': poly_2_frac}
+                              'edges_2_frac': edges_2_frac}
+        polygons = []
+        line_in_frac = []
+        for fi, _ in enumerate(self._fractures):
+            ei = []
+            ei_bound = []
+            for i, e in enumerate(edges_2_frac):
+                if fi in e:
+                    if self.decomposition['is_bound'][i]:
+                        ei_bound.append(i)
+                    else:
+                        ei.append(i)
+
+            poly = sort_points.sort_point_pairs(edges[:2, ei_bound])
+            polygons.append(poly)
+            line_in_frac.append(ei)
+
+        self.decomposition['polygons'] = polygons
+        self.decomposition['line_in_frac'] = line_in_frac
+
+#                              'polygons': poly_segments,
+#                             'polygon_frac': poly_2_frac}
 
         logger.info('Finished fracture splitting after %.5f seconds',
                     time.time() - start_time)
@@ -1856,7 +1877,8 @@ class FractureNetwork(object):
         is_bound = self.decomposition['is_bound']
         num_edges = edges.shape[1]
 
-        poly_2_frac = self.decomposition['polygon_frac']
+        poly_2_frac = np.arange(len(self.decomposition['polygons']))
+        self.decomposition['polygon_frac'] = poly_2_frac
 
         # Construct a map from edges to polygons
         edge_2_poly = [[] for i in range(num_edges)]
@@ -2043,6 +2065,7 @@ class FractureNetwork(object):
     def to_gmsh(self, file_name, **kwargs):
         p = self.decomposition['points']
         edges = self.decomposition['edges']
+        edges_2_fracs = self.decomposition['edges_2_frac']
 
         poly = self._poly_2_segment()
 
@@ -2073,5 +2096,7 @@ class FractureNetwork(object):
         writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
                             intersection_points=intersection_points,
                             mesh_size_bound=mesh_size_bound,
-                            mesh_size=mesh_size, tolerance=gmsh_tolerance)
+                            mesh_size=mesh_size, tolerance=gmsh_tolerance,
+                            edges_2_frac=self.decomposition['line_in_frac'])
+
         writer.write_geo(file_name)
