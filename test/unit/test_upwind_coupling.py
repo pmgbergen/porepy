@@ -4,11 +4,11 @@ import unittest
 
 from porepy.fracs import meshing
 import porepy.utils.comp_geom as cg
-from porepy.params import bc
+from porepy.params.bc import BoundaryCondition
+from porepy.params.data import Parameters
+
 from porepy.numerics.fv.transport import upwind, upwind_coupling
 from porepy.numerics.mixed_dim import coupler
-
-from porepy.viz import plot_grid ############################
 
 #------------------------------------------------------------------------------#
 
@@ -25,11 +25,14 @@ class BasicsTest( unittest.TestCase ):
 
         tol = 1e-3
         solver = upwind.Upwind()
-        gb.add_node_props(['beta_n', 'bc', 'bc_val', 'a'])
+        gb.add_node_props(['param'])
 
         for g, d in gb:
-            d['a'] = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
-            d['beta_n'] = solver.beta_n(g, [0, 1, 0], d['a'])
+            param = Parameters(g)
+
+            aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
+            param.set_aperture(aperture)
+            param.set_discharge(solver.discharge(g, [0, 1, 0], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -44,14 +47,18 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(top, bottom)]
             bc_val[bc_dir] = 1
 
-            d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
-            d['bc_val'] = bc_val
+            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val(solver, bc_val)
 
-        # Assign coupling permeability
-        gb.add_edge_prop('beta_n')
+            d['param'] = param
+
+        # Assign coupling discharge
+        gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            d['beta_n'] = gb.node_prop(g_h, 'beta_n')
+            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            d['param'] = Parameters(g_h)
+            d['param'].set_discharge(discharge)
 
         coupling_conditions = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
@@ -82,11 +89,14 @@ class BasicsTest( unittest.TestCase ):
 
         tol = 1e-3
         solver = upwind.Upwind()
-        gb.add_node_props(['beta_n', 'bc', 'bc_val', 'a'])
+        gb.add_node_props(['param'])
 
         for g, d in gb:
-            d['a'] = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
-            d['beta_n'] = solver.beta_n(g, [1, 0, 0], d['a'])
+            param = Parameters(g)
+
+            aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
+            param.set_aperture(aperture)
+            param.set_discharge(solver.discharge(g, [1, 0, 0], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -101,14 +111,18 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(left, right)]
             bc_val[bc_dir] = 1
 
-            d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
-            d['bc_val'] = bc_val
+            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val(solver, bc_val)
 
-        # Assign coupling permeability
-        gb.add_edge_prop('beta_n')
+            d['param'] = param
+
+        # Assign coupling discharge
+        gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            d['beta_n'] = gb.node_prop(g_h, 'beta_n')
+            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            d['param'] = Parameters(g_h)
+            d['param'].set_discharge(discharge)
 
         coupling_conditions = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
@@ -142,11 +156,14 @@ class BasicsTest( unittest.TestCase ):
 
         tol = 1e-3
         solver = upwind.Upwind()
-        gb.add_node_props(['beta_n', 'bc', 'bc_val', 'a'])
+        gb.add_node_props(['param'])
 
         for g, d in gb:
-            d['a'] = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
-            d['beta_n'] = solver.beta_n(g, [1, 0, 0], d['a'])
+            param = Parameters(g)
+
+            aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
+            param.set_aperture(aperture)
+            param.set_discharge(solver.discharge(g, [1, 0, 0], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -161,14 +178,18 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(left, right)]
             bc_val[bc_dir] = 1
 
-            d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
-            d['bc_val'] = bc_val
+            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val(solver, bc_val)
 
-        # Assign coupling permeability
-        gb.add_edge_prop('beta_n')
+            d['param'] = param
+
+        # Assign coupling discharge
+        gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            d['beta_n'] = gb.node_prop(g_h, 'beta_n')
+            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            d['param'] = Parameters(g_h)
+            d['param'].set_discharge(discharge)
 
         coupling_conditions = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
@@ -209,11 +230,14 @@ class BasicsTest( unittest.TestCase ):
 
         tol = 1e-3
         solver = upwind.Upwind()
-        gb.add_node_props(['beta_n', 'bc', 'bc_val', 'a'])
+        gb.add_node_props(['param'])
 
         for g, d in gb:
-            d['a'] = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
-            d['beta_n'] = solver.beta_n(g, [0, 0, 1], d['a'])
+            param = Parameters(g)
+
+            aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
+            param.set_aperture(aperture)
+            param.set_discharge(solver.discharge(g, [0, 0, 1], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -228,14 +252,18 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(top, bottom)]
             bc_val[bc_dir] = 1
 
-            d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
-            d['bc_val'] = bc_val
+            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val(solver, bc_val)
 
-        # Assign coupling permeability
-        gb.add_edge_prop('beta_n')
+            d['param'] = param
+
+        # Assign coupling discharge
+        gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            d['beta_n'] = gb.node_prop(g_h, 'beta_n')
+            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            d['param'] = Parameters(g_h)
+            d['param'].set_discharge(discharge)
 
         coupling_conditions = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
@@ -267,11 +295,14 @@ class BasicsTest( unittest.TestCase ):
 
         tol = 1e-3
         solver = upwind.Upwind()
-        gb.add_node_props(['beta_n', 'bc', 'bc_val', 'a'])
+        gb.add_node_props(['param'])
 
         for g, d in gb:
-            d['a'] = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
-            d['beta_n'] = solver.beta_n(g, [1, 0, 0], d['a'])
+            param = Parameters(g)
+
+            aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
+            param.set_aperture(aperture)
+            param.set_discharge(solver.discharge(g, [1, 0, 0], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -286,23 +317,23 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(left, right)]
             bc_val[bc_dir] = 1
 
-            d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
-            d['bc_val'] = bc_val
+            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val(solver, bc_val)
 
-        # Assign coupling permeability
-        gb.add_edge_prop('beta_n')
+            d['param'] = param
+
+        # Assign coupling discharge
+        gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            d['beta_n'] = gb.node_prop(g_h, 'beta_n')
+            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            d['param'] = Parameters(g_h)
+            d['param'].set_discharge(discharge)
 
         coupling_conditions = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
         deltaT = np.amin(gb.loop(solver.cfl, coupling_conditions.cfl).data)
-
-        print( repr(U.todense() ))
-        print( repr(rhs) )
-        print( deltaT )
 
         U_known = np.array([[.5, 0, 0],
                             [0, .5, 0],
@@ -335,15 +366,16 @@ class BasicsTest( unittest.TestCase ):
         gb.compute_geometry()
         gb.assign_node_ordering()
 
-        #plot_grid.plot_grid(gb, alpha=0, info="c")
-
         tol = 1e-3
         solver = upwind.Upwind()
-        gb.add_node_props(['beta_n', 'bc', 'bc_val', 'a'])
+        gb.add_node_props(['param'])
 
         for g, d in gb:
-            d['a'] = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
-            d['beta_n'] = solver.beta_n(g, [1, 0, 0], d['a'])
+            param = Parameters(g)
+
+            aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
+            param.set_aperture(aperture)
+            param.set_discharge(solver.discharge(g, [1, 0, 0], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -358,47 +390,39 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(left, right)]
             bc_val[bc_dir] = 1
 
-            d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
-            d['bc_val'] = bc_val
+            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val(solver, bc_val)
 
-        # Assign coupling permeability
-        gb.add_edge_prop('beta_n')
+            d['param'] = param
+
+        # Assign coupling discharge
+        gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            d['beta_n'] = gb.node_prop(g_h, 'beta_n')
-            print(g_h.dim,  d['beta_n'] )
+            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            d['param'] = Parameters(g_h)
+            d['param'].set_discharge(discharge)
 
         coupling_conditions = upwind_coupling.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
         deltaT = np.amin(gb.loop(solver.cfl, coupling_conditions.cfl).data)
 
-        np.set_printoptions(linewidth=75, precision=2)
-        #print( repr(U.todense() ))
-        #print( repr(rhs) )
-        #print( deltaT )
+        U_known, rhs_known = matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d()
 
-#        U_known = np.array([[.5, 0, 0],
-#                            [0, .5, 0],
-#                            [0, 0, 1e-2]])
-#        rhs_known = np.array([.5, .5, 1e-2])
-#
-#        deltaT_known = 5*1e-1
-#
-#        rtol = 1e-15
-#        atol = rtol
-#        assert np.allclose(U.todense(), U_known, rtol, atol)
-#        assert np.allclose(rhs, rhs_known, rtol, atol)
-#        assert np.allclose(deltaT, deltaT_known, rtol, atol)
+        deltaT_known = 5*1e-3
+
+        rtol = 1e-15
+        atol = rtol
+        assert np.allclose(U.todense(), U_known, rtol, atol)
+        assert np.allclose(rhs, rhs_known, rtol, atol)
+        assert np.allclose(deltaT, deltaT_known, rtol, atol)
 
 #------------------------------------------------------------------------------#
 
-BasicsTest().test_upwind_coupling_3d_2d_1d_0d()
-
-
 def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d():
-    U = np.array(\
-       [[  2.50e-01,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
+    U = np.array([\
+        [  2.50e-01,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
@@ -535,12 +559,12 @@ def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d():
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
            0.00e+00,   0.00e+00,   1.00e-04,   0.00e+00,   0.00e+00,
-           0.00e+00,   0.00e+00],
+           0.00e+00,  -1.00e-04],
         [  0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
-           0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
+           0.00e+00,   0.00e+00,   0.00e+00,   1.00e-04,   0.00e+00,
            0.00e+00,   0.00e+00],
         [  0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
@@ -558,8 +582,8 @@ def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d():
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
            0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
-           0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,   0.00e+00,
-           0.00e+00,   0.00e+00]])
+           0.00e+00,   0.00e+00,   0.00e+00,  -1.00e-04,   0.00e+00,
+           0.00e+00,   1.00e-04]])
     rhs = np.array(\
         [  2.50e-01,   0.00e+00,   2.50e-01,   0.00e+00,   2.50e-01,
          0.00e+00,   2.50e-01,   0.00e+00,   5.00e-03,   0.00e+00,
@@ -567,4 +591,7 @@ def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d():
          0.00e+00,   5.00e-03,   0.00e+00,   5.00e-03,   0.00e+00,
          0.00e+00,   0.00e+00,   0.00e+00,   1.00e-04,   0.00e+00,
          0.00e+00,   0.00e+00])
+
     return U, rhs
+
+#------------------------------------------------------------------------------#
