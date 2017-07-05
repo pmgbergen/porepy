@@ -97,6 +97,7 @@ class HybridDualVEM(Solver):
         f = param.get_source(self)
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
+        a = param.aperture
 
         faces, _, sgn = sps.find(g.cell_faces)
 
@@ -207,17 +208,10 @@ class HybridDualVEM(Solver):
         if g.dim == 0:
             return 0, l[0]
 
-        k, f = data.get('k'), data.get('f')
-        a = data.get('a', np.ones(g.num_cells))
-
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = tensor.SecondOrder(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
-
-        if f is None:
-            f = np.zeros(g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
+        param = data['param']
+        k = param.get_tensor(self)
+        f = param.get_source(self)
+        a = param.aperture
 
         faces, _, sgn = sps.find(g.cell_faces)
 

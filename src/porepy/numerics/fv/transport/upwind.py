@@ -11,6 +11,10 @@ class Upwind(Solver):
 
 
     """
+#------------------------------------------------------------------------------#
+
+    def __init__(self, physics='transport'):
+        self.physics = physics
 
 #------------------------------------------------------------------------------#
 
@@ -82,8 +86,11 @@ class Upwind(Solver):
         if g.dim == 0:
             return sps.csr_matrix([0]), [0]
 
-        discharge, bc, bc_val = data['discharge'], data.get('bc'), data.get('bc_val')
-        assert discharge is not None
+        param = data['param']
+        discharge = param.get_discharge()
+        bc = param.get_bc(self)
+        bc_val = param.get_bc_val(self)
+        f = param.get_source(self)
 
         has_bc = not(bc is None or bc_val is None)
 
@@ -123,8 +130,6 @@ class Upwind(Solver):
         flow_faces.data = flow_faces.data.clip(min=0)
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
-
-        f = data.get('source', np.zeros(g.num_cells)) * g.cell_volumes
 
         if not has_bc:
             return flow_cells, f
@@ -168,15 +173,16 @@ class Upwind(Solver):
         deltaT: time step according to CFL condition.
 
         """
-        # Retrieve the data, only "beta_n" is mandatory
-        beta_n = data['beta_n']
-        apertures = data.get('a', np.ones(g.num_cells))
-        phi = data.get('phi', np.ones(g.num_cells))
+        # Retrieve the data, only "discharge" is mandatory
+        param = data['param']
+        discharge = param.get_discharge()
+        aperture = param.get_aperture()
+        phi = param.get_porosity()
 
         faces, cells, _ = sps.find(g.cell_faces)
 
-        # Detect and remove the faces which have zero in "beta_n"
-        not_zero = ~np.isclose(np.zeros(faces.size), beta_n[faces], atol=0)
+        # Detect and remove the faces which have zero in discharge
+        not_zero = ~np.isclose(np.zeros(faces.size), discharge[faces], atol=0)
         if not np.any(not_zero):
             return np.inf
 
@@ -188,11 +194,11 @@ class Upwind(Solver):
         # Element-wise scalar products between the distance vectors and the
         # normals
         dist = np.einsum('ij,ij->j', dist_vector, g.face_normals[:, faces])
-        # Since beta_n is multiplied by the aperture, we get rid of it!!!!
+        # Since discharge is multiplied by the aperture, we get rid of it!!!!
         # Additionally we consider the phi (porosity) and the cell-mapping
-        coeff = (apertures * phi)[cells]
-        # deltaT is deltaX/beta_n with coefficient
-        return np.amin(np.abs(np.divide(dist, beta_n[faces])) * coeff)
+        coeff = (aperture * phi)[cells]
+        # deltaT is deltaX/discharge with coefficient
+        return np.amin(np.abs(np.divide(dist, discharge[faces])) * coeff)
 
 #------------------------------------------------------------------------------#
 
@@ -222,6 +228,10 @@ class Upwind(Solver):
 
         beta = np.asarray(beta)
         assert beta.size == 3
+
+        if g.dim == 0:
+            return np.atleast_1d(np.dot(g.face_normals, face_apertures * beta))
+
         return np.array([np.dot(n, a * beta) \
                              for n, a in zip(g.face_normals.T, face_apertures)])
 

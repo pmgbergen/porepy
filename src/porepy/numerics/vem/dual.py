@@ -210,15 +210,11 @@ class DualVEM(Solver):
 
         assert not bool(bc is None) != bool(bc_val is None)
 
-        if f is None:
-            f = np.zeros(g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
-
         rhs = np.zeros(self.ndof(g))
         is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
                           np.ones(g.num_cells, dtype=np.bool)))
 
-        rhs[is_p] = -f*g.cell_volumes
+        rhs[is_p] = -f
         if bc is None:
             return rhs
 
@@ -300,7 +296,8 @@ class DualVEM(Solver):
         # thus we assign a unit permeability to be passed to self.massHdiv
         kxx = np.ones(g.num_cells)
         k = tensor.SecondOrder(g.dim, kxx)
-        a = data.get('a', np.ones(g.num_cells))
+        param = data['param']
+        a = param.aperture
 
         faces, _, sgn = sps.find(g.cell_faces)
         c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
