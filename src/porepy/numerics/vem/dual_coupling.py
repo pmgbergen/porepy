@@ -35,7 +35,8 @@ class DualCoupling(AbstractCoupling):
         # pylint: disable=invalid-name
 
         # Normal permeability and aperture of the intersection
-        k, aperture_h = 2*data_edge['kn'], data_h['a']
+        k = 2*data_edge['kn'] # TODO: need to be fixed!!!!!!!
+        aperture_h = data_h['param'].get_aperture()
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
