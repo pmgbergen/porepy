@@ -215,9 +215,6 @@ class BasicsTest( unittest.TestCase ):
 
         deltaT = np.amin(gb.loop(solver.cfl, coupling_conditions.cfl).data)
 
-        for g, d in gb:
-            print( g.cell_centers, d['node_number'] )
-
         U_known = np.array(\
         [[ 1.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ],
          [ 0.  ,  1.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  , -1.  ,  0.  ],
@@ -387,6 +384,44 @@ class BasicsTest( unittest.TestCase ):
         gb.compute_geometry()
         gb.assign_node_ordering()
 
+        cell_centers1 = np.array([[ 0.25 , 0.75 , 0.25 , 0.75],
+                                  [ 0.25 , 0.25 , 0.75 , 0.75],
+                                  [ 0.5  , 0.5  , 0.5  , 0.5 ]])
+        cell_centers2 = np.array([[ 0.5  , 0.5  , 0.5  , 0.5 ],
+                                  [ 0.25 , 0.25 , 0.75 , 0.75],
+                                  [ 0.75 , 0.25 , 0.75 , 0.25]])
+        cell_centers3 = np.array([[ 0.25 , 0.75 , 0.25 , 0.75],
+                                  [ 0.5  , 0.5  , 0.5  , 0.5 ],
+                                  [ 0.25 , 0.25 , 0.75 , 0.75]])
+        cell_centers4 = np.array([[ 0.5 ], [ 0.25], [ 0.5 ]])
+        cell_centers5 = np.array([[ 0.5 ], [ 0.75], [ 0.5 ]])
+        cell_centers6 = np.array([[ 0.75], [ 0.5 ], [ 0.5 ]])
+        cell_centers7 = np.array([[ 0.25], [ 0.5 ], [ 0.5 ]])
+        cell_centers8 = np.array([[ 0.5 ], [ 0.5 ], [ 0.25]])
+        cell_centers9 = np.array([[ 0.5 ], [ 0.5 ], [ 0.75]])
+
+        for g, d in gb:
+            if np.allclose(g.cell_centers[:, 0], cell_centers1[:, 0]):
+                d['node_number'] = 1
+            elif np.allclose(g.cell_centers[:, 0], cell_centers2[:, 0]):
+                d['node_number'] = 2
+            elif np.allclose(g.cell_centers[:, 0], cell_centers3[:, 0]):
+                d['node_number'] = 3
+            elif np.allclose(g.cell_centers[:, 0], cell_centers4[:, 0]):
+                d['node_number'] = 4
+            elif np.allclose(g.cell_centers[:, 0], cell_centers5[:, 0]):
+                d['node_number'] = 5
+            elif np.allclose(g.cell_centers[:, 0], cell_centers6[:, 0]):
+                d['node_number'] = 6
+            elif np.allclose(g.cell_centers[:, 0], cell_centers7[:, 0]):
+                d['node_number'] = 7
+            elif np.allclose(g.cell_centers[:, 0], cell_centers8[:, 0]):
+                d['node_number'] = 8
+            elif np.allclose(g.cell_centers[:, 0], cell_centers9[:, 0]):
+                d['node_number'] = 9
+            else:
+                pass
+
         tol = 1e-3
         solver = upwind.Upwind()
         gb.add_node_props(['param'])
@@ -429,7 +464,7 @@ class BasicsTest( unittest.TestCase ):
         U, rhs = solver_coupler.matrix_rhs(gb)
         deltaT = np.amin(gb.loop(solver.cfl, coupling_conditions.cfl).data)
 
-        U_known, rhs_known = self.matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d()
+        U_known, rhs_known = matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d()
 
         deltaT_known = 5*1e-3
 
