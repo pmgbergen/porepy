@@ -10,6 +10,7 @@ import scipy.sparse as sps
 
 from porepy.params import tensor
 from porepy.numerics.mixed_dim.solver import Solver
+from porepy.numerics.fv import fvutils
 
 
 class Tpfa(Solver):
@@ -86,7 +87,9 @@ class Tpfa(Solver):
         M = div * flux
 
         bound_flux = data['bound_flux']
-        bc_val = data['bc_val']
+        param = data['param']
+        bc_val = param.get_bc_val(self)
+        sources = param.get_source(self)
 
         return M, self.rhs(g, bound_flux, bc_val, sources)
 
@@ -130,11 +133,11 @@ class Tpfa(Solver):
         data: dictionary to store the data.
 
         """
-        param = data['data']
-        k = param.tensor(self)
-        bnd = param.bc(self)
-        bc_val = param.bc_val(self)
-        a = param.aperture
+        param = data['param']
+        k = param.get_tensor(self)
+        bnd = param.get_bc(self)
+        bc_val = param.get_bc_val(self)
+        a = param.get_aperture()
         sources = param.get_source(self)
 
         trm, bound_flux = tpfa(g, k, bnd, faces=None, apertures=a)
