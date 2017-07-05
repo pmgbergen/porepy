@@ -202,11 +202,12 @@ class DualVEM(Solver):
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        if g.dim == 0:
-            return np.hstack(([0], data['source']))
-
         param = data['param']
         f = param.get_source(self)
+
+        if g.dim == 0:
+            return np.hstack(([0], f))
+
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
 
@@ -224,11 +225,11 @@ class DualVEM(Solver):
             is_dir = np.where(bc.is_dir)[0]
             faces, _, sgn = sps.find(g.cell_faces)
             sgn = sgn[np.unique(faces, return_index=True)[1]]
-            rhs[is_dir] += -sgn[is_dir] * bc_val[is_dir]
+            rhs[is_dir] += -sgn[is_dir] * bc_val[is_dir] ######## aperture???
 
         if np.any(bc.is_neu):
             is_neu = np.where(bc.is_neu)[0]
-            rhs[is_neu] = bc_weight*bc_val[is_neu] * g.face_areas[is_neu]
+            rhs[is_neu] = bc_weight*bc_val[is_neu]
 
         return rhs
 
@@ -299,7 +300,7 @@ class DualVEM(Solver):
         kxx = np.ones(g.num_cells)
         k = tensor.SecondOrder(g.dim, kxx)
         param = data['param']
-        a = param.aperture
+        a = param.get_aperture()
 
         faces, _, sgn = sps.find(g.cell_faces)
         c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
