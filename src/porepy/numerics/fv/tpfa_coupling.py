@@ -29,8 +29,8 @@ class TpfaCoupling(AbstractCoupling):
 
         k_l = data_l['param'].get_tensor(self.solver)
         k_h = data_h['param'].get_tensor(self.solver)
-        a_l = data_l['param'].apertures
-        a_h = data_h['param'].apertures
+        a_l = data_l['param'].get_aperture()
+        a_h = data_h['param'].get_aperture()
 
         dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
 
