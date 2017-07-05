@@ -214,9 +214,13 @@ class BasicsTest( unittest.TestCase ):
 
 #        rtol = 1e-15
 #        atol = rtol
-        assert np.allclose(U.todense(), U_known, rtol, atol)
-        assert np.allclose(rhs, rhs_known, rtol, atol)
-        assert np.allclose(deltaT, deltaT_known, rtol, atol)
+#        assert np.allclose(U.todense(), U_known, rtol, atol)
+#        assert np.allclose(rhs, rhs_known, rtol, atol)
+#        assert np.allclose(deltaT, deltaT_known, rtol, atol)
+
+        assert np.allclose(U.todense(), U_known)
+        assert np.allclose(rhs, rhs_known)
+        assert np.allclose(deltaT, deltaT_known)
 
 #------------------------------------------------------------------------------#
 
@@ -414,9 +418,13 @@ class BasicsTest( unittest.TestCase ):
 
 #        rtol = 1e-15
 #        atol = rtol
-        assert np.allclose(U.todense(), U_known, rtol, atol)
-        assert np.allclose(rhs, rhs_known, rtol, atol)
-        assert np.allclose(deltaT, deltaT_known, rtol, atol)
+#        assert np.allclose(U.todense(), U_known, rtol, atol)
+#        assert np.allclose(rhs, rhs_known, rtol, atol)
+#        assert np.allclose(deltaT, deltaT_known, rtol, atol)
+
+        assert np.allclose(U.todense(), U_known)
+        assert np.allclose(rhs, rhs_known)
+        assert np.allclose(deltaT, deltaT_known)
 
 #------------------------------------------------------------------------------#
 
