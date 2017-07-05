@@ -154,6 +154,24 @@ class BasicsTest( unittest.TestCase ):
         gb.compute_geometry()
         gb.assign_node_ordering()
 
+        # Enforce node orderning because of Python 3.5 and 2.7.
+        # Don't do it in general.
+        cell_centers_1 = np.array([[  1.50000000e+00, 5.00000000e-01],
+                                   [  1.00000000e+00, 1.00000000e+00],
+                                   [ -5.55111512e-17, 5.55111512e-17]])
+        cell_centers_2 = np.array([[  1.00000000e+00, 1.00000000e+00],
+                                   [  1.50000000e+00, 5.00000000e-01],
+                                   [ -5.55111512e-17, 5.55111512e-17]])
+
+        for g, d in gb:
+            if g.dim == 1:
+                if np.allclose(g.cell_centers, cell_centers_1):
+                    d['node_number'] = 1
+                elif np.allclose(g.cell_centers, cell_centers_2):
+                    d['node_number'] = 2
+                else:
+                    raise ValueError('Grid not found')
+
         tol = 1e-3
         solver = upwind.Upwind()
         gb.add_node_props(['param'])
@@ -365,6 +383,44 @@ class BasicsTest( unittest.TestCase ):
                                **{'physdims': [1, 1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
+
+        cell_centers1 = np.array([[ 0.25 , 0.75 , 0.25 , 0.75],
+                                  [ 0.25 , 0.25 , 0.75 , 0.75],
+                                  [ 0.5  , 0.5  , 0.5  , 0.5 ]])
+        cell_centers2 = np.array([[ 0.5  , 0.5  , 0.5  , 0.5 ],
+                                  [ 0.25 , 0.25 , 0.75 , 0.75],
+                                  [ 0.75 , 0.25 , 0.75 , 0.25]])
+        cell_centers3 = np.array([[ 0.25 , 0.75 , 0.25 , 0.75],
+                                  [ 0.5  , 0.5  , 0.5  , 0.5 ],
+                                  [ 0.25 , 0.25 , 0.75 , 0.75]])
+        cell_centers4 = np.array([[ 0.5 ], [ 0.25], [ 0.5 ]])
+        cell_centers5 = np.array([[ 0.5 ], [ 0.75], [ 0.5 ]])
+        cell_centers6 = np.array([[ 0.75], [ 0.5 ], [ 0.5 ]])
+        cell_centers7 = np.array([[ 0.25], [ 0.5 ], [ 0.5 ]])
+        cell_centers8 = np.array([[ 0.5 ], [ 0.5 ], [ 0.25]])
+        cell_centers9 = np.array([[ 0.5 ], [ 0.5 ], [ 0.75]])
+
+        for g, d in gb:
+            if np.allclose(g.cell_centers[:, 0], cell_centers1[:, 0]):
+                d['node_number'] = 1
+            elif np.allclose(g.cell_centers[:, 0], cell_centers2[:, 0]):
+                d['node_number'] = 2
+            elif np.allclose(g.cell_centers[:, 0], cell_centers3[:, 0]):
+                d['node_number'] = 3
+            elif np.allclose(g.cell_centers[:, 0], cell_centers4[:, 0]):
+                d['node_number'] = 4
+            elif np.allclose(g.cell_centers[:, 0], cell_centers5[:, 0]):
+                d['node_number'] = 5
+            elif np.allclose(g.cell_centers[:, 0], cell_centers6[:, 0]):
+                d['node_number'] = 6
+            elif np.allclose(g.cell_centers[:, 0], cell_centers7[:, 0]):
+                d['node_number'] = 7
+            elif np.allclose(g.cell_centers[:, 0], cell_centers8[:, 0]):
+                d['node_number'] = 8
+            elif np.allclose(g.cell_centers[:, 0], cell_centers9[:, 0]):
+                d['node_number'] = 9
+            else:
+                pass
 
         tol = 1e-3
         solver = upwind.Upwind()
@@ -706,3 +762,5 @@ def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d():
     return U, rhs
 
 #------------------------------------------------------------------------------#
+
+#BasicsTest().test_upwind_coupling_3d_2d_1d_0d()
