@@ -42,15 +42,14 @@ class Upwind(Solver):
         the outflow boundary conditions are open.
 
         The name of data in the input dictionary (data) are:
-        beta_n : array (g.num_faces)
-            Normal velocity at each face, weighted by the face area (units of
-            m^3/s).
+        discharge : array (g.num_faces)
+            Normal velocity at each face, weighted by the face area.
         bc : boundary conditions (optional)
         bc_val : dictionary (optional)
             Values of the boundary conditions. The dictionary has at most the
             following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
             conditions, respectively.
-
+        source : array (g.num_cells) of source (positive) or sink (negative) terms.
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -65,7 +64,7 @@ class Upwind(Solver):
 
         Examples
         --------
-        data = {'beta_n': u, 'bc': bnd, 'bc_val': bnd_val}
+        data = {'discharge': u, 'bc': bnd, 'bc_val': bnd_val}
         advect = upwind.Upwind()
         U, rhs = advect.matrix_rhs(g, data)
 
@@ -83,15 +82,15 @@ class Upwind(Solver):
         if g.dim == 0:
             return sps.csr_matrix([0]), [0]
 
-        beta_n, bc, bc_val = data['beta_n'], data.get('bc'), data.get('bc_val')
-        assert beta_n is not None
+        discharge, bc, bc_val = data['discharge'], data.get('bc'), data.get('bc_val')
+        assert discharge is not None
 
         has_bc = not(bc is None or bc_val is None)
 
         # Compute the face flux respect to the real direction of the normals
         indices = g.cell_faces.indices
         flow_faces = g.cell_faces.copy()
-        flow_faces.data *= beta_n[indices]
+        flow_faces.data *= discharge[indices]
 
         # Retrieve the faces boundary and their numeration in the flow_faces
         # We need to impose no-flow for the inflow faces without boundary
@@ -125,7 +124,7 @@ class Upwind(Solver):
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
 
-        f = data.get('f', np.zeros(g.num_cells))
+        f = data.get('source', np.zeros(g.num_cells)) * g.cell_volumes
 
         if not has_bc:
             return flow_cells, f
@@ -156,7 +155,7 @@ class Upwind(Solver):
         weighted with the face area, at each face.
 
         The name of data in the input dictionary (data) are:
-        beta_n : array (g.num_faces)
+        discharge : array (g.num_faces)
             Normal velocity at each face, weighted by the face area.
 
         Parameters
@@ -197,7 +196,7 @@ class Upwind(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def beta_n(self, g, beta, cell_apertures=None):
+    def discharge(self, g, beta, cell_apertures=None):
         """
         Return the normal component of the velocity, for each face, weighted by
         the face area and aperture.
@@ -210,7 +209,7 @@ class Upwind(Solver):
 
         Return
         ------
-        beta_n : array (g.num_faces)
+        discharge : array (g.num_faces)
             Normal velocity at each face, weighted by the face area.
 
         """

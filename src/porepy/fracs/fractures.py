@@ -7,6 +7,7 @@ The model relies heavily on functions in the computational geometry library.
 # Import of 'standard' external packages
 import warnings
 import time
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -40,6 +41,9 @@ from porepy.grids.gmsh.gmsh_interface import GmshWriter
 from porepy.grids.constants import GmshConstants
 from porepy.fracs.utils import determine_mesh_size
 
+
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 class Fracture(object):
 
@@ -874,9 +878,8 @@ class FractureNetwork(object):
 
         """
         self.has_checked_intersections = True
-        if self.verbose > 0:
-            print('Find intersections between fractures')
-            start_time = time.time()
+        logger.info('Find intersection between fratures')
+        start_time = time.time()
 
         # If desired, use the original points in the fracture intersection.
         # This will reset the field self._fractures.p, and thus revoke
@@ -893,10 +896,8 @@ class FractureNetwork(object):
                     self.intersections.append(Intersection(first, second,
                                                            isect))
 
-        if self.verbose > 0:
-            print('Done. Elapsed time ' + str(time.time() - start_time))
-            if self.verbose > 1:
-                self.intersection_info()
+        logger.info('Found %i intersections. Ellapsed time: %.5f',
+                    len(self.intersections), time.time() - start_time)
 
     def intersection_info(self, frac_num=None):
         # Number of fractures with some intersection
@@ -937,9 +938,8 @@ class FractureNetwork(object):
 
         """
 
-        if self.verbose > 0:
-            start_time = time.time()
-            print('Split fracture intersections')
+        logger.info('Split intersections')
+        start_time = time.time()
 
         # First, collate all points and edges used to describe fracture
         # boundaries and intersections.
@@ -952,9 +952,8 @@ class FractureNetwork(object):
         # By now, all segments in the grid are defined by a unique set of
         # points and edges. The next task is to identify intersecting edges,
         # and split them.
-        all_p, edges,\
-            edges_2_frac, is_boundary_edge = \
-            self._remove_edge_intersections(all_p, edges, edges_2_frac,
+        all_p, edges,edges_2_frac, is_boundary_edge\
+            = self._remove_edge_intersections(all_p, edges, edges_2_frac,
                                             is_boundary_edge)
 
         if self.verbose > 1:
@@ -963,12 +962,9 @@ class FractureNetwork(object):
         # With all edges being non-intersecting, the next step is to split the
         # fractures into polygons formed of boundary edges, intersection edges
         # and auxiliary edges that connect the boundary and intersections.
-        all_p, \
-            edges,\
-            is_boundary_edge,\
-            poly_segments,\
-            poly_2_frac = self._split_into_polygons(all_p, edges, edges_2_frac,
-                                                    is_boundary_edge)
+        all_p, edges, is_boundary_edge, poly_segments, poly_2_frac\
+                = self._split_into_polygons(all_p, edges, edges_2_frac,
+                                            is_boundary_edge)
 
         # Store the full decomposition.
         self.decomposition = {'points': all_p,
@@ -977,9 +973,8 @@ class FractureNetwork(object):
                               'polygons': poly_segments,
                               'polygon_frac': poly_2_frac}
 
-        if self.verbose > 0:
-            print('Fracture splitting done. Elapsed time ' + str(time.time() -
-                                                                 start_time))
+        logger.info('Finished fracture splitting after %.5f seconds',
+                    time.time() - start_time)
 
     def _point_and_edge_lists(self):
         """
@@ -998,9 +993,8 @@ class FractureNetwork(object):
                 edge is on the boundary of a fracture.
 
         """
-        if self.verbose > 1:
-            print('  Create lists of points and edges')
-            start_time = time.time()
+        logger.info('Compile list of points and edges')
+        start_time = time.time()
 
         # Field for all points in the fracture description
         all_p = np.empty((3, 0))
@@ -1043,11 +1037,8 @@ class FractureNetwork(object):
         # Ensure that edges are integers
         edges = edges.astype('int')
 
-        if self.verbose > 1:
-            print('  Done creating lists. Elapsed time ' + str(time.time() -
-                                                               start_time))
-            if self.verbose > 1:
-                print('    Uniquify next')
+        logger.info('Points and edges done. Elapsed time %.5f', time.time() -
+                    start_time)
 
         return self._uniquify_points_and_edges(all_p, edges, edges_2_frac,
                                                is_boundary_edge)
@@ -1058,11 +1049,9 @@ class FractureNetwork(object):
         # for declearing two points equal
         # NOTE: We need to account for dimensions in the tolerance;
 
-        if self.verbose > 1:
-            start_time = time.time()
-            print('    Uniquify points and edges. Starting with:')
-            print('    ' + str(all_p.shape[1]) + ' points, ' +\
-                  str(edges.shape[1]) + ' edges')
+        start_time = time.time()
+        logger.info("""Uniquify points and edges, starting with %i points, %i
+                    edges""", all_p.shape[1], edges.shape[1])
 
         all_p = cg.snap_to_grid(all_p, tol=self.tol)
 
@@ -1114,11 +1103,9 @@ class FractureNetwork(object):
         # plane.
         self._verify_fractures_in_plane(p_unique, edges, edges_2_frac)
 
-        if self.verbose > 1:
-            print('  Uniquify complete:')
-            print('    ' + str(p_unique.shape[1]) + ' points, ' +\
-                  str(edges.shape[1]) + ' edges')
-            print('  Elapsed time ' + str(time.time() - start_time))
+        logger.info('''Uniquify complete. %i points, %i edges. Ellapsed time
+                    %.5f''', p_unique.shape[1], edges.shape[1], time.time() -
+                    start_time)
 
         return p_unique, edges, edges_2_frac, is_boundary_edge
 
@@ -1146,9 +1133,8 @@ class FractureNetwork(object):
             non-intersecting.
 
         """
-        if self.verbose > 0:
-            print('Remove edge intersections')
-            start_time = time.time()
+        logger.info('Remove edge intersections')
+        start_time = time.time()
 
         # The algorithm loops over all fractures, pulls out edges associated
         # with the fracture, project to the local 2D plane, and look for
@@ -1157,8 +1143,7 @@ class FractureNetwork(object):
         # points and edges are updated.
         for fi, frac in enumerate(self._fractures):
 
-            if self.verbose > 1:
-                print('  Remove intersections from fracture ' + str(fi))
+            logger.debug('Remove intersections from fracture %i', fi)
 
             # Identify the edges associated with this fracture
             # It would have been more convenient to use an inverse
@@ -1184,10 +1169,12 @@ class FractureNetwork(object):
 
             # Obtain new points and edges, so that no edges on this fracture
             # are intersecting.
+            # It seems necessary to increase the tolerance here somewhat to
+            # obtain a more robust algorithm. Not sure about how to do this
+            # consistent.
             p_new, edges_new = cg.remove_edge_crossings(p_2d, edges_2d,
-                                                        tol=self.tol,
+                                                        tol=self.tol*5,
                                                         verbose=self.verbose)
-
             # Then, patch things up by converting new points to 3D,
 
             # From the design of the functions in cg, we know that new points
@@ -1260,10 +1247,9 @@ class FractureNetwork(object):
                 del is_boundary_edge[ei]
             # And we are done with this fracture. On to the next one.
 
-        if self.verbose > 0:
-            print('Done with intersection removal. Elapsed time ' +
-                  str(time.time() - start_time))
 
+        logger.info('Done with intersection removal. Elapsed time %.5f',
+                    time.time() - start_time)
         self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
 
         return self._uniquify_points_and_edges(all_p, edges, edges_2_frac,
@@ -1331,10 +1317,8 @@ class FractureNetwork(object):
             splitting is allowed to introduce new additional points.
 
         """
-
-        if self.verbose > 0:
-            print('Split fractures into polygon')
-            start_time = time.time()
+        logger.info('Split fractures into non-intersecting polygons')
+        start_time = time.time()
 
         # For each polygon, list of segments that make up the polygon
         poly_segments = []
@@ -1527,9 +1511,8 @@ class FractureNetwork(object):
                     # tried to find an exact maximum number of iterations.
                     raise ValueError('This must be too many iterations')
 
-            if self.verbose > 2:
-                print('    Split fracture into ' + str(np.unique(polygon).size)
-                      + ' polygons')
+            logger.debug('Split fracture %i into %i polygons', fi,
+                         np.unique(polygon).size)
 
             # For each cell, find its boundary
             for poly in np.unique(polygon):
@@ -1595,9 +1578,8 @@ class FractureNetwork(object):
                 = setmembership.unique_columns_tol(new_edges)
             edges = np.hstack((edges, unique_new_edges))
 
-        if self.verbose > 0:
-            print('Done with splitting into polygons. Elapsed time ' +
-                  str(time.time() - start_time))
+        logger.info('Fracture splitting done. Elapsed time %.5f', time.time() -
+                    start_time)
 
         return all_p, edges, is_boundary_edge, poly_segments, poly_2_frac
 

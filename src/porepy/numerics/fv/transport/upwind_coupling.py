@@ -35,8 +35,8 @@ class UpwindCoupling(AbstractCoupling):
         """
 
         # Normal component of the velocity from the higher dimensional grid
-        beta_n = data_edge['beta_n']
-        assert beta_n is not None
+        discharge = data_edge['discharge']
+        assert discharge is not None
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
@@ -48,13 +48,13 @@ class UpwindCoupling(AbstractCoupling):
 
             faces0, _, sgn_h = sps.find(g_h.cell_faces)
             sgn_h = sgn_h[np.unique(faces0, return_index=True)[1]]
-            beta_n_h = sgn_h[faces_h] * beta_n[faces_h]
+            discharge_h = sgn_h[faces_h] * discharge[faces_h]
 
             faces1, _, sgn_l = sps.find(g_l.cell_faces)
             sgn_l = sgn_l[np.unique(faces1, return_index=True)[1]]
-            # obs beta_n SHOULD be indexed by faces_h, as it per convention is
+            # obs discharge SHOULD be indexed by faces_h, as it per convention is
             # extracted from that grid (second in gb.sorted_nodes_of_edge):
-            beta_n_l = sgn_l[faces_l] * beta_n[faces_h]
+            discharge_l = sgn_l[faces_l] * discharge[faces_h]
 
             # Determine which cells correspond to the faces
             cell_faces_h = g_h.cell_faces.tocsr()[faces_h, :]
@@ -64,17 +64,17 @@ class UpwindCoupling(AbstractCoupling):
 
             diag_cc11 = np.zeros(g_l.num_cells)
             np.add.at(diag_cc11, cells_l, np.sign(
-                beta_n_l.clip(min=0)) * beta_n_l)
+                discharge_l.clip(min=0)) * discharge_l)
             diag_cc00 = np.zeros(g_h.num_cells)
             np.add.at(diag_cc11, cells_h, np.sign(
-                beta_n_h.clip(min=0)) * beta_n_h)
+                discharge_h.clip(min=0)) * discharge_h)
 
             # Compute the outflow from the second to the first grid
-            cc[1, 0] = sps.coo_matrix((beta_n_l.clip(max=0), (cells_l, cells_h)),
+            cc[1, 0] = sps.coo_matrix((discharge_l.clip(max=0), (cells_l, cells_h)),
                                       shape=(dof[1], dof[0]))
 
             # Compute the inflow from the first to the second grid
-            cc[0, 1] = sps.coo_matrix((beta_n_h.clip(max=0), (cells_h, cells_l)),
+            cc[0, 1] = sps.coo_matrix((discharge_h.clip(max=0), (cells_h, cells_l)),
                                       shape=(dof[0], dof[1]))
 
         else:
@@ -84,23 +84,23 @@ class UpwindCoupling(AbstractCoupling):
             # Recover the correct sign for the velocity
             faces, _, sgn = sps.find(g_h.cell_faces)
             sgn = sgn[np.unique(faces, return_index=True)[1]]
-            beta_n = sgn[faces_h] * beta_n[faces_h]
+            discharge = sgn[faces_h] * discharge[faces_h]
 
             # Determine which are the corresponding cells of the faces_h
             cell_faces_h = g_h.cell_faces.tocsr()[faces_h, :]
             cells_h = cell_faces_h.nonzero()[1]
 
             diag_cc11 = np.zeros(g_l.num_cells)
-            np.add.at(diag_cc11, cells_l, np.sign(beta_n.clip(max=0)) * beta_n)
+            np.add.at(diag_cc11, cells_l, np.sign(discharge.clip(max=0)) * discharge)
 
             diag_cc00 = np.zeros(g_h.num_cells)
-            np.add.at(diag_cc00, cells_h, np.sign(beta_n.clip(min=0)) * beta_n)
+            np.add.at(diag_cc00, cells_h, np.sign(discharge.clip(min=0)) * discharge)
             # Compute the outflow from the higher to the lower dimensional grid
-            cc[1, 0] = sps.coo_matrix((-beta_n.clip(min=0), (cells_l, cells_h)),
+            cc[1, 0] = sps.coo_matrix((-discharge.clip(min=0), (cells_l, cells_h)),
                                       shape=(dof[1], dof[0]))
 
             # Compute the inflow from the higher to the lower dimensional grid
-            cc[0, 1] = sps.coo_matrix((beta_n.clip(max=0), (cells_h, cells_l)),
+            cc[0, 1] = sps.coo_matrix((discharge.clip(max=0), (cells_h, cells_l)),
                                       shape=(dof[0], dof[1]))
 
         cc[1, 1] = sps.dia_matrix((diag_cc11, 0), shape=(dof[1], dof[1]))

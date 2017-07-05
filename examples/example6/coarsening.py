@@ -15,7 +15,7 @@ import logging
 from inspect import isfunction, getmembers
 
 from porepy.grids import structured, simplex
-from porepy.params import second_order_tensor
+from porepy.params import tensor
 
 from porepy.viz.plot_grid import plot_grid
 from porepy.grids.coarsening import *
@@ -91,7 +91,7 @@ def coarsening_example2(**kwargs):
 
     kxx = 3*np.ones(g.num_cells)
     kyy = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy)
+    perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy)
 
     part = create_partition(tpfa_matrix(g, perm=perm))
     g = generate_coarse_grid(g, part)
@@ -142,7 +142,7 @@ def coarsening_example3(**kwargs):
 
     kxx = 3*np.ones(g.num_cells)
     kyy = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy)
+    perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy)
 
     part = create_partition(tpfa_matrix(g, perm=perm))
     g = generate_coarse_grid(g, part)

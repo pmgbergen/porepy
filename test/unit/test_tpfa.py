@@ -8,7 +8,7 @@ Created on Sun Feb 28 20:55:56 2016
 import numpy as np
 
 from porepy.grids import structured
-from porepy.params import second_order_tensor, bc
+from porepy.params import tensor, bc
 from porepy.numerics.fv import tpfa
 
 
@@ -21,7 +21,7 @@ def test_tpfa_cart_2d():
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+    perm = tensor.SecondOrder(g.dim, kxx)
 
     bound_faces = np.array([0, 3, 12])
     bound = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
@@ -73,7 +73,7 @@ def test_uniform_flow_cart_2d():
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+    perm = tensor.SecondOrder(g.dim, kxx)
     bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
     bound = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
 

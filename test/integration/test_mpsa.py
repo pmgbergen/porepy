@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.params import fourth_order_tensor, bc
+from porepy.params import tensor, bc
 from porepy.grids import structured, simplex
 from porepy.numerics.fv import mpsa, fvutils
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
@@ -10,7 +10,7 @@ from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 def setup_stiffness(g, mu=1, l=1):
     mu = np.ones(g.num_cells) * mu
     l = np.ones(g.num_cells) * l
-    return fourth_order_tensor.FourthOrderTensor(g.dim, mu, l)
+    return tensor.FourthOrder(g.dim, mu, l)
 
 
 def test_uniform_strain():

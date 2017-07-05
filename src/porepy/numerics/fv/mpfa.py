@@ -9,13 +9,16 @@ import scipy.sparse as sps
 
 from porepy.numerics.fv import fvutils, tpfa
 from porepy.grids import partition
-from porepy.params import second_order_tensor, bc
+from porepy.params import tensor, bc
 from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
 from porepy.numerics.mixed_dim.solver import Solver
 
 
 class Mpfa(Solver):
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
 
     def ndof(self, g):
         """
@@ -41,6 +44,20 @@ class Mpfa(Solver):
         order elliptic equation using a FV method with a multi-point flux
         approximation.
 
+        The name of data in the input dictionary (data) are:
+        k : second_order_tensor
+            Permeability defined cell-wise.
+        f : array (self.g.num_cells)
+            Scalar source term defined cell-wise. Given as net inn/out-flow, i.e.
+            should already have been multiplied with the cell sizes. Positive 
+            values are considered innflow. If not given a zero source
+            term is assumed and a warning arised.
+        bc : boundary conditions (optional)
+        bc_val : dictionary (optional)
+            Values of the boundary conditions. The dictionary has at most the
+            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
+            conditions, respectively.
+
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -59,13 +76,19 @@ class Mpfa(Solver):
             source term.
 
         """
+        if discretize:
+            self.discretize(g, data)
+
         div = fvutils.scalar_divergence(g)
         flux = data['flux']
         M = div * flux
 
         bound_flux = data['bound_flux']
-        bc_val = data['bc_val']
-        f = data.get('f')
+
+        param = data['param']
+
+        bc_val = param.get_bc_val(self)
+        f = param.get_source(self)
 
         return M, self.rhs(g, bound_flux, bc_val, f)
 
@@ -109,20 +132,17 @@ class Mpfa(Solver):
         data: dictionary to store the data.
 
         """
-        k = data.get('k')
-        bnd = data.get('bc')
-        a = data.get('a')
+        param = data['param']
+        k = param.get_tensor(self)
+        bnd = param.get_bc(self)
+        a = param.aperture
 
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
-
-        trm, bound_flux = mpfa(g, k, bnd, faces=None, apertures=a)
+        trm, bound_flux = mpfa(g, k, bnd, apertures=a)
         data['flux'] = trm
         data['bound_flux'] = bound_flux
 
 #------------------------------------------------------------------------------#
+
 
 def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
          **kwargs):
@@ -178,7 +198,7 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
     Example:
         # Set up a Cartesian grid
         g = structured.CartGrid([5, 5])
-        k = second_order_tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+        k = tensor.SecondOrder(g.dim, np.ones(g.num_cells))
         g.compute_geometry()
         # Dirirchlet boundary conditions
         bound_faces = g.get_boundary_faces().ravel()
@@ -206,8 +226,9 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
         # For the moment nothing to do here, just call main mpfa method for the
         # entire grid.
         # TODO: We may want to estimate the memory need, and give a warning if
-        # this seems excessive 
-        flux, bound_flux = _mpfa_local(g, k, bnd, eta=eta, inverter=inverter)
+        # this seems excessive
+        flux, bound_flux = _mpfa_local(
+            g, k, bnd, eta=eta, inverter=inverter, apertures=apertures)
     else:
         # Estimate number of partitions necessary based on prescribed memory
         # usage
@@ -223,7 +244,7 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
         # Empty fields for flux and bound_flux. Will be expanded as we go.
         # Implementation note: It should be relatively straightforward to
         # estimate the memory need of flux (face_nodes -> node_cells ->
-        # unique). 
+        # unique).
         flux = sps.csr_matrix(g.num_faces, g.num_cells)
         bound_flux = sps.csr_matrix(g.num_faces, g.num_faces)
 
@@ -258,8 +279,8 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
     return flux, bound_flux
 
 
-def mpfa_partial(g, k, bnd, eta=None, inverter='numba', cells=None, faces=None,
-                 nodes=None):
+def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
+                 nodes=None, apertures=None):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
     of global variable numbers.
@@ -272,9 +293,9 @@ def mpfa_partial(g, k, bnd, eta=None, inverter='numba', cells=None, faces=None,
     fv_utils.cell_ind_for_partial_update()
 
     Parameters:
-        g (core.grids.grid): grid to be discretized
-        k (core.constit.second_order_tensor) permeability tensor
-        bnd (core.bc.bc) class for boundary values
+        g (porepy.grids.grid.Grid): grid to be discretized
+        k (porepy.params.tensor.SecondOrder) permeability tensor
+        bnd (porepy.params.bc.BoundarCondition) class for boundary conditions
         faces (np.ndarray) faces to be considered. Intended for partial
             discretization, may change in the future
         eta Location of pressure continuity point. Should be 1/3 for simplex
@@ -288,6 +309,8 @@ def mpfa_partial(g, k, bnd, eta=None, inverter='numba', cells=None, faces=None,
             subgrid computation. Defaults to None.
         nodes (np.array, int, optional): Index of nodes on which to base the
             subgrid computation. Defaults to None.
+        apertures (np.ndarray, float, optional) apertures of the cells for scaling of the face
+            normals. Defaults to None.
 
         Note that if all of {cells, faces, nodes} are None, empty matrices will
         be returned.
@@ -316,7 +339,7 @@ def mpfa_partial(g, k, bnd, eta=None, inverter='numba', cells=None, faces=None,
     sub_g, l2g_faces, _ = partition.extract_subgrid(g, ind)
     l2g_cells = sub_g.parent_cell_ind
 
-    ## Local parameter fields
+    # Local parameter fields
     # Copy permeability field, and restrict to local cells
     loc_k = k.copy()
     loc_k.perm = loc_k.perm[::, ::, l2g_cells]
@@ -339,14 +362,13 @@ def mpfa_partial(g, k, bnd, eta=None, inverter='numba', cells=None, faces=None,
 
     # Discretization of sub-problem
     flux_loc, bound_flux_loc = _mpfa_local(sub_g, loc_k, loc_bnd,
-                                           eta=eta, inverter=inverter)
+                                           eta=eta, inverter=inverter, apertures=apertures)
 
     # Map to global indices
     face_map, cell_map = fvutils.map_subgrid_to_grid(g, l2g_faces, l2g_cells,
-                                                      is_vector=False)
+                                                     is_vector=False)
     flux_glob = face_map * flux_loc * cell_map
     bound_flux_glob = face_map * bound_flux_loc * face_map.transpose()
-
 
     # By design of mpfa, and the subgrids, the discretization will update faces
     # outside the active faces. Kill these.
@@ -627,7 +649,7 @@ def _tensor_vector_prod(g, k, subcell_topology, apertures=None):
     normals = g.face_normals[:, subcell_topology.fno] / num_nodes[
         subcell_topology.fno]
     if apertures is not None:
-        normals = normals / apertures[subcell_topology.cno]
+        normals = normals * apertures[subcell_topology.cno]
 
     # Represent normals and permeability on matrix form
     ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))
