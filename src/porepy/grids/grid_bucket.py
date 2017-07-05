@@ -728,7 +728,7 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def loop_nodes(self, fct):
+    def apply_function_to_nodes(self, fct):
         """
         Loop on all the nodes and evaluate a function on each of them.
 
@@ -748,7 +748,7 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def loop_edges(self, fct):
+    def apply_function_to_edges(self, fct):
         """
         Loop on all the edges and evaluate a function on each of them.
 
@@ -782,7 +782,7 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def loop(self, fct_nodes, fct_edges):
+    def apply_function(self, fct_nodes, fct_edges):
         """
         Loop on all the nodes and edges and evaluate a function on each of them.
 
@@ -801,8 +801,8 @@ class GridBucket(object):
                 evaluation.
 
         """
-        matrix = self.loop_edges(fct_edges)
-        matrix.setdiag(self.loop_nodes(fct_nodes))
+        matrix = self.apply_function_to_edges(fct_edges)
+        matrix.setdiag(self.apply_function_to_nodes(fct_nodes))
         return matrix
 
 #------------------------------------------------------------------------------#
