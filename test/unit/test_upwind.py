@@ -4,7 +4,8 @@ import unittest
 
 from porepy.grids import structured, simplex
 import porepy.utils.comp_geom as cg
-from porepy.params import bc
+from porepy.params.bc import BoundaryCondition
+from porepy.params.data import Parameters
 from porepy.numerics.fv.transport import upwind
 
 #------------------------------------------------------------------------------#
@@ -13,12 +14,19 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_1d_beta_positive(self):
+    def test_upwind_1d_discharge_positive(self):
         g = structured.CartGrid(3, 1)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, [2, 0, 0])}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, [2, 0, 0]))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -34,12 +42,19 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_1d_dischargeegative(self):
+    def test_upwind_1d_discharge_negative(self):
         g = structured.CartGrid(3, 1)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, [-2, 0, 0])}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, [-2, 0, 0]))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -55,12 +70,19 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_2d_cart_beta_positive(self):
+    def test_upwind_2d_cart_discharge_positive(self):
         g = structured.CartGrid([3, 2], [1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, [2, 0, 0])}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, [2, 0, 0]))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -80,12 +102,19 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_2d_cart_dischargeegative(self):
+    def test_upwind_2d_cart_discharge_negative(self):
         g = structured.CartGrid([3, 2], [1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, [-2, 0, 0])}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, [-2, 0, 0]))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -104,12 +133,19 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_2d_simplex_beta_positive(self):
+    def test_upwind_2d_simplex_discharge_positive(self):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, [1, 0, 0])}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, [1, 0, 0]))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -126,12 +162,19 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_2d_simplex_dischargeegative(self):
+    def test_upwind_2d_simplex_discharge_negative(self):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, [-1, 0, 0])}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, [-1, 0, 0]))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -148,12 +191,19 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_3d_cart_dischargeegative(self):
+    def test_upwind_3d_cart_discharge_negative(self):
         g = structured.CartGrid([2, 2, 2], [1, 1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, [-1, 0, 0])}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, [-1, 0, 0]))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -175,12 +225,19 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_3d_cart_beta_positive(self):
+    def test_upwind_3d_cart_discharge_positive(self):
         g = structured.CartGrid([2, 2, 2], [1, 1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, [1, 0, 0])}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, [1, 0, 0]))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -202,14 +259,21 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_1d_surf_beta_positive(self):
+    def test_upwind_1d_surf_discharge_positive(self):
         g = structured.CartGrid(3, 1)
         R = cg.rot(-np.pi/5., [0,1,-1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, np.dot(R, [1, 0, 0]))}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, np.dot(R, [1, 0, 0])))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -225,14 +289,21 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_1d_surf_dischargeegative(self):
+    def test_upwind_1d_surf_discharge_negative(self):
         g = structured.CartGrid(3, 1)
         R = cg.rot(-np.pi/8., [-1,1,-1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, np.dot(R, [-1, 0, 0]))}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, np.dot(R, [-1, 0, 0])))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -248,14 +319,21 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_2d_cart_surf_beta_positive(self):
+    def test_upwind_2d_cart_surf_discharge_positive(self):
         g = structured.CartGrid([3, 2], [1, 1])
         R = cg.rot(np.pi/4., [0,1,0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, np.dot(R, [1, 0, 0]))}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, np.dot(R, [1, 0, 0])))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -275,14 +353,21 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_2d_cart_surf_dischargeegative(self):
+    def test_upwind_2d_cart_surf_discharge_negative(self):
         g = structured.CartGrid([3, 2], [1, 1])
         R = cg.rot(np.pi/6., [1,1,0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, np.dot(R, [-1, 0, 0]))}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, np.dot(R, [-1, 0, 0])))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -302,14 +387,21 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_2d_simplex_surf_beta_positive(self):
+    def test_upwind_2d_simplex_surf_discharge_positive(self):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
         R = cg.rot(np.pi/2., [1,1,0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, np.dot(R, [1, 0, 0]))}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, np.dot(R, [1, 0, 0])))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -326,14 +418,21 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_2d_simplex_surf_dischargeegative(self):
+    def test_upwind_2d_simplex_surf_discharge_negative(self):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
         R = cg.rot(-np.pi/5., [1,1,-1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, np.dot(R, [-1, 0, 0]))}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, np.dot(R, [-1, 0, 0])))
+
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        param.set_bc(solver, bc)
+
+        data = {'param': param}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -350,15 +449,21 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_1d_dischargeegative_bc_dir(self):
+    def test_upwind_1d_discharge_negative_bc_dir(self):
         g = structured.CartGrid(3, 1)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        data = {'discharge': solver.discharge(g, [-2, 0, 0]),
-                'bc': bc.BoundaryCondition(g, g.get_boundary_faces(), ['dir']*2),
-                'bc_val': 3*np.ones(g.num_faces).ravel('F')}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, [-2, 0, 0]))
 
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        bc_val = 3*np.ones(g.num_faces).ravel('F')
+        param.set_bc(solver, bc)
+        param.set_bc_val(solver, bc_val)
+
+        data = {'param': param}
         M, rhs = solver.matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)
 
@@ -376,16 +481,21 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_1d_dischargeegative_bc_neu(self):
+    def test_upwind_1d_discharge_negative_bc_neu(self):
         g = structured.CartGrid(3, 1)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        bc_val = np.array([2, 0, 0, -2])
-        data = {'discharge': solver.discharge(g, [-2, 0, 0]),
-                'bc': bc.BoundaryCondition(g, g.get_boundary_faces(), ['neu']*2),
-                'bc_val': bc_val.ravel('F')}
+        param = Parameters(g)
+        param.set_discharge(solver.discharge(g, [-2, 0, 0]))
 
+        bf = g.get_boundary_faces()
+        bc = BoundaryCondition(g, bf, bf.size * ['neu'])
+        bc_val = np.array([2, 0, 0, -2]).ravel('F')
+        param.set_bc(solver, bc)
+        param.set_bc_val(solver, bc_val)
+
+        data = {'param': param}
         M, rhs = solver.matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)
 
