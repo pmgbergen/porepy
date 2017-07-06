@@ -6,8 +6,8 @@ try:
     import vtk
     import vtk.util.numpy_support as ns
 except ImportError:
-    import warning
-    warning.warn("No vtk module loaded.")
+    import warnings
+    warnings.warn("No vtk module loaded.")
 
 from porepy.grids import grid, grid_bucket
 from porepy.utils import sort_points
