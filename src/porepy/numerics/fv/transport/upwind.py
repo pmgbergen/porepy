@@ -11,6 +11,10 @@ class Upwind(Solver):
 
 
     """
+#------------------------------------------------------------------------------#
+
+    def __init__(self, physics='transport'):
+        self.physics = physics
 
 #------------------------------------------------------------------------------#
 
@@ -48,7 +52,7 @@ class Upwind(Solver):
         bc_val : dictionary (optional)
             Values of the boundary conditions. The dictionary has at most the
             following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively. 
+            conditions, respectively.
         source : array (g.num_cells) of source (positive) or sink (negative) terms.
         Parameters
         ----------
@@ -69,10 +73,10 @@ class Upwind(Solver):
         U, rhs = advect.matrix_rhs(g, data)
 
         data = {'deltaT': advect.cfl(g, data)}
-        M, _ = mass.Mass().matrix_rhs(g, data)
+        M, _ = mass.MassMatrix().matrix_rhs(g, data)
 
         M_minus_U = M - U
-        invM = mass.Mass().inv(M)
+        invM = mass.MassMatrix().inv(M)
 
         # Loop over the time
         for i in np.arange( N ):
@@ -82,8 +86,11 @@ class Upwind(Solver):
         if g.dim == 0:
             return sps.csr_matrix([0]), [0]
 
-        discharge, bc, bc_val = data['discharge'], data.get('bc'), data.get('bc_val')
-        assert discharge is not None
+        param = data['param']
+        discharge = param.get_discharge()
+        bc = param.get_bc(self)
+        bc_val = param.get_bc_val(self)
+        f = param.get_source(self)
 
         has_bc = not(bc is None or bc_val is None)
 
@@ -124,8 +131,6 @@ class Upwind(Solver):
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
 
-        f = data.get('source', np.zeros(g.num_cells)) * g.cell_volumes
-
         if not has_bc:
             return flow_cells, f
 
@@ -150,7 +155,7 @@ class Upwind(Solver):
 
     def cfl(self, g, data):
         """
-    Return the time step according to the CFL condition.
+        Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
         weighted with the face area, at each face.
 
@@ -168,18 +173,32 @@ class Upwind(Solver):
         deltaT: time step according to CFL condition.
 
         """
-        discharge = data['discharge']
-        apertures = data.get('apertures', np.ones(g.num_cells))
+        # Retrieve the data, only "discharge" is mandatory
+        param = data['param']
+        discharge = param.get_discharge()
+        aperture = param.get_aperture()
+        phi = param.get_porosity()
 
-        faces, cell, _ = sps.find(g.cell_faces)
+        faces, cells, _ = sps.find(g.cell_faces)
+
+        # Detect and remove the faces which have zero in discharge
         not_zero = ~np.isclose(np.zeros(faces.size), discharge[faces], atol=0)
         if not np.any(not_zero):
             return np.inf
 
-        discharge = np.abs(discharge[faces[not_zero]])
-        volumes = g.cell_volumes[cell[not_zero]] * apertures[cell[not_zero]]
+        cells = cells[not_zero]
+        faces = faces[not_zero]
 
-        return np.amin(np.divide(volumes, discharge)) / g.dim
+        # Compute discrete distance cell to face centers
+        dist_vector = g.face_centers[:, faces] - g.cell_centers[:, cells]
+        # Element-wise scalar products between the distance vectors and the
+        # normals
+        dist = np.einsum('ij,ij->j', dist_vector, g.face_normals[:, faces])
+        # Since discharge is multiplied by the aperture, we get rid of it!!!!
+        # Additionally we consider the phi (porosity) and the cell-mapping
+        coeff = (aperture * phi)[cells]
+        # deltaT is deltaX/discharge with coefficient
+        return np.amin(np.abs(np.divide(dist, discharge[faces])) * coeff)
 
 #------------------------------------------------------------------------------#
 
@@ -209,6 +228,10 @@ class Upwind(Solver):
 
         beta = np.asarray(beta)
         assert beta.size == 3
+
+        if g.dim == 0:
+            return np.atleast_1d(np.dot(g.face_normals, face_apertures * beta))
+
         return np.array([np.dot(n, a * beta) \
                              for n, a in zip(g.face_normals.T, face_apertures)])
 
