@@ -234,7 +234,7 @@ class Parameters(object):
         elif physics == 'transport':
             return self.get_source_transport()
         elif physics == 'mechanics':
-            return self._get_source_mechanics()
+            return self.get_source_mechanics()
         else:
             raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
                              % (physics, self.known_physics))
