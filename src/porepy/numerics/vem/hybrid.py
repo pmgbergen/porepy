@@ -148,10 +148,9 @@ class HybridDualVEM(Solver):
             L = np.dot(np.dot(C.T, L - invA), C)
 
             # Compute the local hybrid right using the static condensation
-            f_loc = f[c]*g.cell_volumes[c]
             rhs[faces_loc] += np.dot(C.T,
                                      np.dot(invA,
-                                            np.dot(B, np.dot(S, f_loc))))[:, 0]
+                                            np.dot(B, np.dot(S, f[c]))))[:, 0]
 
             # Save values for hybrid matrix
             cols = np.tile(faces_loc, (faces_loc.size, 1))
@@ -250,10 +249,9 @@ class HybridDualVEM(Solver):
 
             # Perform the static condensation to compute the pressure and velocity
             S = 1/np.dot(B.T, solve(A, B))
-            f_loc = f[c]*g.cell_volumes[c]
             l_loc = l[faces_loc].reshape((-1, 1))
 
-            p[c] = np.dot(S, f_loc - np.dot(B.T, solve(A, np.dot(C, l_loc))))
+            p[c] = np.dot(S, f[c] - np.dot(B.T, solve(A, np.dot(C, l_loc))))
             u[faces_loc] = -np.multiply(sgn_loc, solve(A, np.dot(B, p[c]) + \
                                                        np.dot(C, l_loc)))
 
