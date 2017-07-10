@@ -335,14 +335,14 @@ class GmshGridBucketWriter(object):
         for dim in range(max_dim + 1):
             num_grids[dim] = len(self.gb.grids_of_dimension(dim))
 
-            # Identify the highest dimension    
+            # Identify the highest dimension
         while num_grids[-1] == 0:
             num_grids = num_grids[:-1]
 
             # We will pick the global point set from the highest dimensional
             # grid. The current implementation assumes there is a single grid
             # in that dimension. Taking care of multiple grids should not be
-            # difficult, but it has not been necessary up to know. 
+            # difficult, but it has not been necessary up to know.
             if num_grids[-1] != 1:
                 raise NotImplementedError('Have not considered several grids\
                                           in the highest dimension')

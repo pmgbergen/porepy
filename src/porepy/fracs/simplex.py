@@ -229,8 +229,9 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     # Gridding size
     if 'mesh_size' in kwargs.keys():
         mesh_size, mesh_size_bound = \
-            utils.determine_mesh_size(
-                pts_split.shape[1], **kwargs['mesh_size'])
+            utils.determine_mesh_size(pts_split, lines_split,
+                                      **kwargs['mesh_size'])
+#                pts_split.shape[1], **kwargs['mesh_size'])
     else:
         mesh_size = None
         mesh_size_bound = None
