@@ -1596,7 +1596,7 @@ def is_collinear(pts, tol=1e-5):
 
     coll = np.array([np.linalg.norm(np.cross(p - pt0, pt1 - pt0)) \
              for p in pts[:, 1:-1].T])
-    return np.allclose(coll, np.zeros(coll.size), tol)
+    return np.allclose(coll, np.zeros(coll.size), rtol=tol)
 
 #------------------------------------------------------------------------------#
 
