@@ -215,7 +215,7 @@ def tpfa(g, k, bnd, faces=None, apertures=None):
     # Move Neumann faces to Neumann transmissibility
     bndr_ind = g.get_boundary_faces()
     t_b = np.zeros(g.num_faces)
-    t_b[bnd.is_dir] = t[bnd.is_dir]
+    t_b[bnd.is_dir] = -t[bnd.is_dir]
     t_b[bnd.is_neu] = 1
     t_b = t_b[bndr_ind]
     t[np.logical_or(bnd.is_neu, is_not_active)] = 0
@@ -229,4 +229,4 @@ def tpfa(g, k, bnd, faces=None, apertures=None):
     bndr_sgn = bndr_sgn[sort_id]
     bound_flux = sps.coo_matrix((t_b * bndr_sgn, (bndr_ind, bndr_ind)),
                                 (g.num_faces, g.num_faces))
-    return flux,  bound_flux
+    return flux, bound_flux
