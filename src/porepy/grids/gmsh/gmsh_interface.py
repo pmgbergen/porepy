@@ -76,18 +76,30 @@ class GmshWriter(object):
             self.lines[2] == constants.FRACTURE_TAG)).ravel()
         frac_lines = self.lines[:, frac_ind]
 
-        s = '// Start specification of fractures \n'
-        for i in range(frac_ind.size):
-            s += 'frac_line_' + str(i) + ' = newl; Line(frac_line_' + str(i) \
-                 + ') ={'
-            s += 'p' + str(int(frac_lines[0, i])) + ', p' \
-                 + str(int(frac_lines[1, i])) + '}; \n'
+        frac_id = frac_lines[3, :]
+        range_id = np.arange(np.amin(frac_id), np.amax(frac_id)+1)
+
+        s = '// Start specification of fractures\n'
+        seg_id = 0
+        for i in range_id:
+            local_seg_id = str()
+            for mask in np.flatnonzero(frac_id == i):
+                s += 'frac_line_' + str(seg_id) + ' = newl; ' + \
+                     'Line(frac_line_' + str(seg_id) + ') = {' + \
+                     'p' + str(int(frac_lines[0, mask])) + \
+                     ', p' + str(int(frac_lines[1, mask])) + \
+                     '};\n' + \
+                     'Line{ frac_line_' + str(seg_id) + \
+                     '} In Surface{domain_surf};\n'
+                local_seg_id += 'frac_line_' + str(seg_id) + ', '
+                seg_id += 1
+
+            local_seg_id = local_seg_id[:-2]
             s += 'Physical Line(\"' + constants.PHYSICAL_NAME_FRACTURES \
-                 + str(i) + '\") = { frac_line_' + str(i) + ' };\n'
-            s += 'Line{ frac_line_' + str(i) + '} In Surface{domain_surf}; \n'
+                 + str(i) + '\") = { ' + local_seg_id + ' };\n'
             s += '\n'
 
-        s += '// End of fracture specification \n\n'
+        s += '// End of fracture specification\n\n'
         return s
 
     def __write_boundary_2d(self):
@@ -99,27 +111,27 @@ class GmshWriter(object):
                                                   check_circular=True)
 
         s = '// Start of specification of domain'
-        s += '// Define lines that make up the domain boundary \n'
+        s += '// Define lines that make up the domain boundary\n'
 
         loop_str = '{'
         for i in range(bound_line.shape[1]):
             s += 'bound_line_' + str(i) + ' = newl; Line(bound_line_'\
                  + str(i) + ') ={'
             s += 'p' + str(int(bound_line[0, i])) + ', p' + \
-                 str(int(bound_line[1, i])) + '}; \n'
+                 str(int(bound_line[1, i])) + '};\n'
             loop_str += 'bound_line_' + str(i) + ', '
 
         s += '\n'
         loop_str = loop_str[:-2]  # Remove last comma
-        loop_str += '}; \n'
-        s += '// Line loop that makes the domain boundary \n'
-        s += 'Domain_loop = newll; \n'
+        loop_str += '};\n'
+        s += '// Line loop that makes the domain boundary\n'
+        s += 'Domain_loop = newll;\n'
         s += 'Line Loop(Domain_loop) = ' + loop_str
-        s += 'domain_surf = news; \n'
-        s += 'Plane Surface(domain_surf) = {Domain_loop}; \n'
+        s += 'domain_surf = news;\n'
+        s += 'Plane Surface(domain_surf) = {Domain_loop};\n'
         s += 'Physical Surface(\"' + constants.PHYSICAL_NAME_DOMAIN + \
-             '\") = {domain_surf}; \n'
-        s += '// End of domain specification \n \n'
+             '\") = {domain_surf};\n'
+        s += '// End of domain specification\n\n'
         return s
 
     def __write_boundary_3d(self):
@@ -183,7 +195,7 @@ class GmshWriter(object):
         num_p = p.shape[1]
         if p.shape[0] == 2:
             p = np.vstack((p, np.zeros(num_p)))
-        s = '// Define points \n'
+        s = '// Define points\n'
         for i in range(self.pts.shape[1]):
             s += 'p' + str(i) + ' = newp; Point(p' + str(i) + ') = '
             s += '{' + str(p[0, i]) + ', ' + str(p[1, i]) + ', '\
@@ -193,7 +205,7 @@ class GmshWriter(object):
             else:
                 s += '};\n'
 
-        s += '// End of point specification \n \n'
+        s += '// End of point specification\n\n'
         return s
 
     def __write_lines(self, embed_in=None):
@@ -207,7 +219,6 @@ class GmshWriter(object):
             has_tags = True
         else:
             has_tags = False
-
         for i in range(num_lines):
             si = str(i)
             s += 'frac_line_' + si + '= newl; Line(frac_line_' + si \
@@ -270,7 +281,7 @@ class GmshWriter(object):
         for i, p in enumerate(self.intersection_points):
             s += 'Physical Point(\"' + constants.PHYSICAL_NAME_FRACTURE_POINT \
                 + str(i) + '\") = {p' + str(p) + '};' + ls
-        s += '// End of physical point specification ' + ls + ls
+        s += '// End of physical point specification' + ls + ls
         return s
 
 # ----------- end of GmshWriter ----------------------------------------------
