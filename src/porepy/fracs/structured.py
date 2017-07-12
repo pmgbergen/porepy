@@ -157,7 +157,8 @@ def cart_grid_3d(fracs, nx, physdims=None):
     # Here we also use the intersection information from the FractureNetwork
     # class.
     for p in intersection_points:
-        node = np.argmin(cg.dist_point_pointset(p, g_3d.nodes))
+        node = np.argmin(cg.dist_point_pointset(pts[:, p], g_3d.nodes))
+        assert np.allclose(g_3d.nodes[:, node], pts[:, p])
         g = point_grid.PointGrid(g_3d.nodes[:, node])
         g.global_point_ind = np.asarray(node)
         g_0d.append(g)

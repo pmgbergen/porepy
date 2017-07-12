@@ -7,11 +7,16 @@ be moved to a separate module.
 
 """
 from __future__ import division
+import logging
 import time
 import numpy as np
 from sympy import geometry as geom
 
 from porepy.utils import setmembership
+
+
+# Module level logger
+logger = logging.getLogger(__name__)
 
 #-----------------------------------------------------------------------------
 #
@@ -62,6 +67,8 @@ def snap_to_grid(pts, tol=1e-3, box=None, **kwargs):
     # Precission in each direction
     delta = box * tol
     pts = np.rint(pts.astype(np.float64) / delta) * delta
+#    logging.debug('Snapped %i points to grid with tolerance %d', pts.shape[1],
+#                 tol)
     return pts
 
 #------------------------------------------------------------------------------#
@@ -119,7 +126,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             Intended for debugging.
 
     """
-
+    logger = logging.getLogger(__name__ + '.split_edge')
     tol = kwargs['tol']
 
     # Some back and forth with the index of the edges to be split, depending on
@@ -147,7 +154,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
     vertices, pt_ind, _ = _add_point(vertices, new_pt, **kwargs)
 
     # Sanity check
-    assert len(pt_ind) <= 2
+    assert len(pt_ind) <= 2, 'Splitting can at most create two new points'
     # Check for a single intersection point
     if len(pt_ind) < 2:
         pi = pt_ind[0]
@@ -157,6 +164,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             # with a shared vertex for the edges
             new_line = 0
             split_type = 0
+            logger.debug('Intersection on shared vertex')
             return vertices, edges, new_line, split_type
         else:
             # We may need to split the edge (start, end) into two
@@ -178,6 +186,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         if new_edges.size == 0:
             new_line = 0
             split_type = 1
+            logger.debug('Intersection on existing vertex')
             return vertices, edges, new_line, split_type
 
         # Add any tags to the new edge.
@@ -201,8 +210,10 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             raise ValueError('Have created the same edge twice')
 
         split_type = 2
+        logger.debug('Intersection on new single vertex')
         return vertices, edges, new_line, split_type
     else:
+        logger.debug('Splitting handles two points')
         # Without this, we will delete something we should not delete below.
         assert edge_ind[0] < edge_ind[1]
 
@@ -243,6 +254,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
                                new_edges,
                                edges[:, edge_ind[0]+1:]))
 
+            logger.debug('Second edge split into two new parts')
             split_type = 4
         elif i0 == start and i1 == end:
             # We don't know if i0 is closest to the start or end of edges[:,
@@ -274,7 +286,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             # Delete the second segment. This is most easily handled after
             # edges is expanded, to avoid accounting for changing edge indices.
             edges = np.delete(edges, edge_ind[0], axis=1)
-
+            logger.debug('First edge split into 2 parts')
             split_type = 5
 
         # Note that we know that i0 is closest to start, thus no need to test
@@ -296,14 +308,18 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             #   (0, 1), (1, 2)
             if edges[0, edge_ind[1]] == i1:
                 if edges[1, edge_ind[1]] == start:
+                    logger.debug('First edge split into 2')
                     edges = np.delete(edges, edge_ind[1], axis=1)
                 else:
                     edges[0, edge_ind[1]] = start
+                    logger.debug('First and second edge split into 2')
             elif edges[1, edge_ind[1]] == i1:
                 if edges[0, edge_ind[1]] == start:
                     edges = np.delete(edges, edge_ind[1], axis=1)
+                    logger.debug('First edge split into 2')
                 else:
                     edges[1, edge_ind[1]] = start
+                    logger.debug('First and second edge split into 2')
             else:
                 raise ValueError('This should not happen')
 
@@ -325,13 +341,17 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             if edges[0, edge_ind[1]] == i0:
                 if edges[1, edge_ind[1]] == end:
                     edges = np.delete(edges, edge_ind[1], axis=1)
+                    logger.debug('First edge split into 2')
                 else:
                     edges[0, edge_ind[1]] = end
+                    logger.debug('First and second edge split into 2')
             elif edges[1, edge_ind[1]] == i0:
                 if edges[0, edge_ind[1]] == end:
                     edges = np.delete(edges, edge_ind[1], axis=1)
+                    logger.debug('First edge split into 2')
                 else:
                     edges[1, edge_ind[1]] = end
+                    logger.debug('First and second edge split into 2')
             else:
                 raise ValueError('This should not happen')
             new_edges = np.array([[start, i0],
@@ -460,11 +480,10 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
     NotImplementedError if a 3D point array is provided.
 
     """
-    if verbose > 1:
-        start_time = time.time()
-        num_edges_orig = edges.shape[1]
-        print('  Find intersections between ' + str(num_edges_orig) + ' edges')
+    # Use a non-standard naming convention for the logger to
+    logger = logging.getLogger(__name__ + '.remove_edge_crossings')
 
+    logger.info('Find intersections between %i edges', edges.shape[1])
     nd = vertices.shape[0]
 
     # Only 2D is considered. 3D should not be too dificult, but it is not
@@ -485,19 +504,23 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
     split_type = []
 
     # Loop over all edges, search for intersections. The number of edges can
-    #  change due to splitting.
+    # change due to splitting.
     while edge_counter < edges.shape[1]:
         # The direct test of whether two edges intersect is somewhat
         # expensive, and it is hard to vectorize this part. Therefore,
         # we first identify edges which crosses the extention of this edge (
         # intersection of line and line segment). We then go on to test for
         # real intersections.
-
+        logger.debug('Remove intersection from edge with indices %i, %i',
+                      edges[0, edge_counter], edges[1, edge_counter])
         # Find start and stop coordinates for all edges
         start_x = vertices[0, edges[0]]
         start_y = vertices[1, edges[0]]
         end_x = vertices[0, edges[1]]
         end_y = vertices[1, edges[1]]
+        logger.debug('Start point (%.5f, %.5f), End (%.5f, %.5f)',
+                      start_x[edge_counter], start_y[edge_counter],
+                      end_x[edge_counter], end_y[edge_counter])
 
         a = end_y - start_y
         b = -(end_x - start_x)
@@ -541,16 +564,15 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
         # are no candidate edges
         if intersections.size > 0:
             intersections = intersections.ravel('C')
+            logger.debug('Found %i candidate intersections',
+                          intersections.size)
         else:
             # There are no candidates for intersection
             edge_counter += 1
+            logger.debug('Found no candidate intersections')
             continue
 
-        if verbose > 2:
-            print('    ------')
-            print('    Splitting edge no ' + str(edge_counter) + '. Vertices:')
-            print('    ' + str(vertices[:, edges[0, edge_counter]]))
-            print('    ' + str(vertices[:, edges[1, edge_counter]]))
+        size_before_splitting = edges.shape[1]
 
         int_counter = 0
         while intersections.size > 0 and int_counter < intersections.size:
@@ -571,11 +593,17 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                 int_counter += 1
                 continue
 
-            if verbose > 2:
-                print('    Intersection with edge ' + str(intsect)
-                      + '. Vertices:')
-                print('    ' + str(vertices[:, edges[0, intsect]]))
-                print('    ' + str(vertices[:, edges[1, intsect]]))
+            logger.debug('Look for intersection with edge %i', intsect)
+            logger.debug('Outer edge: Start (%.5f, %.5f), End (%.5f, %.5f)',
+                          vertices[0, edges[0, edge_counter]],
+                          vertices[1, edges[0, edge_counter]],
+                          vertices[0, edges[1, edge_counter]],
+                          vertices[1, edges[1, edge_counter]])
+            logger.debug('Inner edge: Start (%.5f, %.5f), End (%.5f, %.5f)',
+                          vertices[0, edges[0, intsect]],
+                          vertices[1, edges[0, intsect]],
+                          vertices[0, edges[1, intsect]],
+                          vertices[1, edges[1, intsect]])
 
             # Check if this point intersects
             new_pt = lines_intersect(vertices[:, edges[0, edge_counter]],
@@ -595,13 +623,14 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
             orig_vertex_num = vertices.shape[1]
             orig_edge_num = edges.shape[1]
 
-            if new_pt is not None:
+            if new_pt is None:
+                logger.debug('No intersection found')
+            else:
                 new_pt = snap_to_grid(new_pt, tol=tol)
                 # The case of segment intersections need special treatment.
                 if new_pt.shape[-1] == 1:
-                    if verbose > 2:
-                        print('    Found intersection: (' + str(new_pt[0]) +
-                              ', '  + str(new_pt[1]))
+                    logger.debug('Found intersection (%.5f, %.5f)', new_pt[0],
+                                  new_pt[1])
 
                     # Split edge edge_counter (outer loop), unless the
                     # intersection hits an existing point (in practices this
@@ -613,13 +642,8 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                             split = _split_edge(vertices, edges, edge_counter,
                                                 new_pt, **kwargs)
                     split_type.append(split)
-                    if verbose > 2 and split_outer_edge > 0 and \
-                       vertices.shape[1] > orig_vertex_num:
-                        print('      Introduced new point. Min length of edges:'
-                              + str(md))
-                        if md < tol:
-                            import pdb
-                            pdb.set_trace()
+                    if split_outer_edge > 0:
+                        logger.debug('Split outer edge')
 
                     if edges.shape[1] > orig_edge_num + split_outer_edge:
                         raise ValueError('Have created edge without bookkeeping')
@@ -637,36 +661,24 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                         raise ValueError('Have created edge without bookkeeping')
 
                     split_type.append(split)
-                    if verbose > 2 and split_inner_edge > 0 and \
-                        vertices.shape[1] > orig_vertex_num:
-                        print('      Introduced new point. Min length of edges:'
-                              + str(md))
-                        if md < tol:
-                            import pdb
-                            pdb.set_trace()
+                    if split_inner_edge > 0:
+                        logger.debug('Split inner edge')
                     intersections += split_outer_edge + split_inner_edge
                 else:
                     # We have found an intersection along a line segment
-                    if verbose > 2:
-                        print('    Found two intersections: ('
-                              + str(new_pt[0, 0]) + ', '  + str(new_pt[1, 0]) +
-                              'and ' + str(new_pt[0, 1]) + ', '  +
-                              str(new_pt[1, 1]))
-
+                    logger.debug('''Found two intersections: (%.5f, %.5f) and
+                                    (%.5f, %.5f)''', new_pt[0, 0],
+                                    new_pt[1, 0], new_pt[0, 1], new_pt[1, 1])
                     vertices, edges, splits,\
                             s_type = _split_edge(vertices, edges,
                                                  [edge_counter, intsect],
                                                  new_pt, **kwargs)
                     split_type.append(s_type)
                     intersections += splits
-                    if verbose > 2 and (splits[0] > 0 or splits[1] > 0):
-                        print('    Introduced new point')
+                    logger.debug('Split into %i parts', splits)
 
             # Sanity checks - turned out to be useful for debugging.
             if np.any(np.diff(edges[:2], axis=0) == 0):
-                if verbose > 3:
-                    import pdb
-                    pdb.set_trace()
                 raise ValueError('Have somehow created a point edge')
             if intersections.max() > edges.shape[1]:
                 raise ValueError('Intersection pointer outside edge array')
@@ -677,12 +689,13 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
         # We're done with all intersections of this loop. increase index of
         # outer loop
         edge_counter += 1
+        logger.debug('Edge split into %i new parts', edges.shape[1] -
+                     size_before_splitting)
 
     if verbose > 1:
-        print('  Edge intersection removal complete. Elapsed time ' +\
-              str(time.time() - start_time))
-        print('  Introduced ' + str(edges.shape[1] - num_edges_orig) + \
-              ' new edges')
+        logger.info('Edge intersection removal complete. Elapsed time: %g',
+                    time.time() - start_time)
+        logger.info('Introduced %i new edges', edges.shape[1] - num_edges_orig)
 
     return vertices, edges
 

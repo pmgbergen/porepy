@@ -3,7 +3,7 @@ from porepy.utils import comp_geom as cg
 
 #def determine_mesh_size(num_pts, **kwargs):
 #        https://docs.scipy.org/doc/scipy/reference/tutorial/interpolate.html#two-dimensional-spline-representation-procedural-bisplrep
-def determine_mesh_size(pts, lines, **kwargs):
+def determine_mesh_size(pts, lines=None, **kwargs):
     """
     Set the preferred mesh size for geometrical points as specified by
     gmsh.
@@ -124,7 +124,6 @@ def determine_mesh_size(pts, lines, **kwargs):
 
 
         return dist_pts, bound_val, pts, lines
-#        return dist_pts, bound_val, pts, new_lines
 
     elif mode == 'constant':
         val = kwargs.get('value', None)
@@ -140,6 +139,9 @@ def determine_mesh_size(pts, lines, **kwargs):
         else:
             mesh_size_bound = None
 
-        return mesh_size, mesh_size_bound, pts, lines
+        if lines is None:
+            return mesh_size, mesh_size_bound
+        else:
+            return mesh_size, mesh_size_bound, pts, lines
     else:
         raise ValueError('Unknown mesh size mode ' + mode)

@@ -8,11 +8,25 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.params import second_order_tensor
+from porepy.params import tensor
 from porepy.numerics.mixed_dim.solver import Solver
+from porepy.numerics.fv import fvutils
 
 
 class Tpfa(Solver):
+    """ Discretize elliptic equations by a two-point flux approximation.
+
+    Attributes:
+
+    physics : str
+        Which physics is the solver intended flow. Will determine which data
+        will be accessed (e.g. flow specific, or conductivity / heat-related).
+        See Data class for more details. Defaults to flow.
+
+    """
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
 
     def ndof(self, g):
         """
@@ -35,8 +49,19 @@ class Tpfa(Solver):
     def matrix_rhs(self, g, data, faces=None, discretize=True):
         """
         Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method with a multi-point flux
-        approximation.
+        order elliptic equation using a FV method with a two-point flux approximation.
+        The name of data in the input dictionary (data) are:
+        k : second_order_tensor
+            Permeability defined cell-wise. If not given a identity permeability
+            is assumed and a warning arised.
+        f : array (self.g.num_cells)
+            Scalar source term defined cell-wise. If not given a zero source
+            term is assumed and a warning arised.
+        bc : boundary conditions (optional)
+        bc_val : dictionary (optional)
+            Values of the boundary conditions. The dictionary has at most the
+            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
+            conditions, respectively.
 
         Parameters
         ----------
@@ -57,14 +82,16 @@ class Tpfa(Solver):
 
         """
         div = fvutils.scalar_divergence(g)
+        self.discretize(g, data)
         flux = data['flux']
         M = div * flux
 
         bound_flux = data['bound_flux']
-        bc_val = data['bc_val']
-        f = data.get('f')
+        param = data['param']
+        bc_val = param.get_bc_val(self)
+        sources = param.get_source(self)
 
-        return M, self.rhs(g, bound_flux, bc_val, f)
+        return M, self.rhs(g, bound_flux, bc_val, sources)
 
 #------------------------------------------------------------------------------#
 
@@ -106,20 +133,19 @@ class Tpfa(Solver):
         data: dictionary to store the data.
 
         """
-        k = data.get('k')
-        bnd = data.get('bc')
-        a = data.get('a')
-
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
+        param = data['param']
+        k = param.get_tensor(self)
+        bnd = param.get_bc(self)
+        bc_val = param.get_bc_val(self)
+        a = param.get_aperture()
+        sources = param.get_source(self)
 
         trm, bound_flux = tpfa(g, k, bnd, faces=None, apertures=a)
         data['flux'] = trm
         data['bound_flux'] = bound_flux
 
 #------------------------------------------------------------------------------#
+
 
 def tpfa(g, k, bnd, faces=None, apertures=None):
     """  Discretize the second order elliptic equation using two-point flux
@@ -128,9 +154,9 @@ def tpfa(g, k, bnd, faces=None, apertures=None):
     cells (defined as the two cells sharing the face).
 
     Parameters
-        g (core.grids.grid): grid to be discretized
-        k (core.constit.second_order_tensor): permeability tensor.
-        bc (core.bc.bc): class for boundary values
+        g (porepy.grids.grid.Grid): grid to be discretized
+        k (porepy.params.tensor.SecondOrder) permeability tensor
+        bnd (porepy.params.bc.BoundarCondition) class for boundary conditions
         faces (np.ndarray) faces to be considered. Intended for partial
             discretization, may change in the future
         apertures (np.ndarray) apertures of the cells for scaling of the face
@@ -203,4 +229,4 @@ def tpfa(g, k, bnd, faces=None, apertures=None):
     bndr_sgn = bndr_sgn[sort_id]
     bound_flux = sps.coo_matrix((t_b * bndr_sgn, (bndr_ind, bndr_ind)),
                                 (g.num_faces, g.num_faces))
-    return flux, bound_flux
+    return flux,  bound_flux

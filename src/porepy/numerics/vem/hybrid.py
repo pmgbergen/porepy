@@ -11,12 +11,15 @@ import scipy.sparse as sps
 from porepy.numerics.mixed_dim.solver import Solver
 from porepy.utils import comp_geom as cg
 from porepy.numerics.vem import dual
-from porepy.params import second_order_tensor
+from porepy.params import tensor
 
 
 class HybridDualVEM(Solver):
 
 #------------------------------------------------------------------------------#
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
 
     def ndof(self, g):
         """
@@ -41,10 +44,10 @@ class HybridDualVEM(Solver):
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using hybrid dual virtual element method.
         The name of data in the input dictionary (data) are:
-        k : second_order_tensor
+        perm : tensor.SecondOrder
             Permeability defined cell-wise. If not given a identity permeability
             is assumed and a warning arised.
-        f : array (self.g.num_cells)
+        source : array (self.g.num_cells)
             Scalar source term defined cell-wise. If not given a zero source
             term is assumed and a warning arised.
         bc : boundary conditions (optional)
@@ -75,7 +78,7 @@ class HybridDualVEM(Solver):
         bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
                    'neu': fun_neu(f.face_centers[:, b_faces_neu])}
 
-        data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
+        data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
 
         H, rhs = hybrid.matrix_rhs(g, data)
         l = sps.linalg.spsolve(H, rhs)
@@ -89,17 +92,12 @@ class HybridDualVEM(Solver):
         if g.dim == 0:
             return sps.identity(self.ndof(g), format="csr"), np.zeros(1)
 
-        k, f = data.get('k'), data.get('f')
-        bc, bc_val = data.get('bc'), data.get('bc_val')
-
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
-
-        if f is None:
-            f = np.zeros(g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
+        param = data['param']
+        k = param.get_tensor(self)
+        f = param.get_source(self)
+        bc = param.get_bc(self)
+        bc_val = param.get_bc_val(self)
+        a = param.aperture
 
         faces, _, sgn = sps.find(g.cell_faces)
 
@@ -130,15 +128,14 @@ class HybridDualVEM(Solver):
             ndof = faces_loc.size
 
             # Retrieve permeability and normals assumed outward to the cell.
-            K = k.perm[0:g.dim, 0:g.dim, c]
             sgn_loc = sgn[loc].reshape((-1, 1))
             normals = np.multiply(np.tile(sgn_loc.T, (g.dim, 1)),
                                   f_normals[:, faces_loc])
 
             # Compute the H_div-mass local matrix
-            A, _ = massHdiv(K, c_centers[:, c], g.cell_volumes[c],
-                            f_centers[:, faces_loc], normals, np.ones(ndof),
-                            diams[c], weight[c])
+            A = massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
+                         a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
+                         a[c]*normals, np.ones(ndof), diams[c], weight[c])[0]
             # Compute the Div local matrix
             B = -np.ones((ndof, 1))
             # Compute the hybrid local matrix
@@ -151,10 +148,9 @@ class HybridDualVEM(Solver):
             L = np.dot(np.dot(C.T, L - invA), C)
 
             # Compute the local hybrid right using the static condensation
-            f_loc = f[c]*g.cell_volumes[c]
             rhs[faces_loc] += np.dot(C.T,
                                      np.dot(invA,
-                                            np.dot(B, np.dot(S, f_loc))))[:, 0]
+                                            np.dot(B, np.dot(S, f[c]))))[:, 0]
 
             # Save values for hybrid matrix
             cols = np.tile(faces_loc, (faces_loc.size, 1))
@@ -211,16 +207,10 @@ class HybridDualVEM(Solver):
         if g.dim == 0:
             return 0, l[0]
 
-        k, f = data.get('k'), data.get('f')
-
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
-
-        if f is None:
-            f = np.zeros(g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
+        param = data['param']
+        k = param.get_tensor(self)
+        f = param.get_source(self)
+        a = param.aperture
 
         faces, _, sgn = sps.find(g.cell_faces)
 
@@ -244,15 +234,14 @@ class HybridDualVEM(Solver):
             ndof = faces_loc.size
 
             # Retrieve permeability and normals assumed outward to the cell.
-            K = k.perm[0:g.dim, 0:g.dim, c]
             sgn_loc = sgn[loc].reshape((-1, 1))
             normals = np.multiply(np.tile(sgn_loc.T, (g.dim, 1)),
                                   f_normals[:, faces_loc])
 
             # Compute the H_div-mass local matrix
-            A, _ = massHdiv(K, c_centers[:, c], g.cell_volumes[c],
-                            f_centers[:, faces_loc], normals, np.ones(ndof),
-                            diams[c], weight[c])
+            A = massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
+                         a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
+                         a[c]*normals, np.ones(ndof), diams[c], weight[c])[0]
             # Compute the Div local matrix
             B = -np.ones((ndof, 1))
             # Compute the hybrid local matrix
@@ -260,10 +249,9 @@ class HybridDualVEM(Solver):
 
             # Perform the static condensation to compute the pressure and velocity
             S = 1/np.dot(B.T, solve(A, B))
-            f_loc = f[c]*g.cell_volumes[c]
             l_loc = l[faces_loc].reshape((-1, 1))
 
-            p[c] = np.dot(S, f_loc - np.dot(B.T, solve(A, np.dot(C, l_loc))))
+            p[c] = np.dot(S, f[c] - np.dot(B.T, solve(A, np.dot(C, l_loc))))
             u[faces_loc] = -np.multiply(sgn_loc, solve(A, np.dot(B, p[c]) + \
                                                        np.dot(C, l_loc)))
 

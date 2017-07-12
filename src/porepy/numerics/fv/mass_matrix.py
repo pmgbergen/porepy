@@ -4,7 +4,7 @@ import scipy.sparse as sps
 from porepy.numerics.mixed_dim.solver import Solver
 
 
-class Mass(Solver):
+class MassMatrix(Solver):
 
 #------------------------------------------------------------------------------#
 
@@ -53,12 +53,12 @@ class Mass(Solver):
         Examples
         --------
         data = {'deltaT': 1e-2, 'phi': 0.3*np.ones(g.num_cells)}
-        M, _ = mass.Mass().matrix_rhs(g, data)
+        M, _ = mass.MassMatrix().matrix_rhs(g, data)
 
         """
         ndof = self.ndof(g)
         coeff = g.cell_volumes * data.get('phi', 1) / data.get('deltaT', 1)
-        apertures = data.get('a')
+        apertures = data.get('apertures')
         if apertures is not None:
             coeff = coeff * apertures
 
@@ -67,7 +67,7 @@ class Mass(Solver):
 ##########################################################################
 
 
-class InvMass(Solver):
+class InvMassMatrix(Solver):
 
 #------------------------------------------------------------------------------#
 
@@ -117,10 +117,10 @@ class InvMass(Solver):
         Examples
         --------
         data = {'deltaT': 1e-2, 'phi': 0.3*np.ones(g.num_cells)}
-        M, _ = mass.InvMass().matrix_rhs(g, data)
+        M, _ = mass.InvMassMatrix().matrix_rhs(g, data)
 
         """
-        M, rhs = Mass().matrix_rhs(g, data)
+        M, rhs = MassMatrix().matrix_rhs(g, data)
         return sps.dia_matrix((1. / M.diagonal(), 0), shape=M.shape), rhs
 
 #------------------------------------------------------------------------------#

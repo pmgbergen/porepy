@@ -6,11 +6,13 @@ import time
 import numpy as np
 from meshio import gmsh_io
 
+import porepy
 from porepy.grids import constants
 from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
 from porepy.fracs import fractures, utils
 import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import unique_columns_tol
+
 
 def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     """
@@ -71,7 +73,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
 
         frac_list = []
         for f in fracs:
-            if isinstance(f, fractures.Fracture):
+            if isinstance(f, fractures.Fracture) \
+                or isinstance(f, porepy.Fracture):
                 frac_list.append(f)
             else:
                 # Convert the fractures from numpy representation to our 3D
@@ -202,6 +205,10 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
 
     # Snap to underlying grid before comparing points
     pts_all = cg.snap_to_grid(pts_all, tol)
+
+    # Ensure unique description of points
+    pts_all, _, old_2_new = unique_columns_tol(pts_all, tol=tol)
+    lines[:2] = old_2_new[lines[:2]]
 
     # We split all fracture intersections so that the new lines do not
     # intersect, except possible at the end points

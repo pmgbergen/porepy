@@ -16,7 +16,7 @@ import logging
 from inspect import isfunction, getmembers
 
 from porepy.grids import structured, simplex
-from porepy.params import bc, second_order_tensor
+from porepy.params import bc, tensor
 from porepy.utils.errors import error
 from porepy.utils import comp_geom as cg
 from porepy.numerics.vem import dual
@@ -36,22 +36,22 @@ def upwind_example0(**kwargs):
     g.compute_geometry()
 
     advect = upwind.Upwind()
-    beta_n = advect.beta_n(g, [1, 0, 0])
+    discharge = advect.discharge(g, [1, 0, 0])
 
     b_faces = g.get_boundary_faces()
     bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
     bnd_val = {'dir': np.hstack(([1], np.zeros(b_faces.size-1)))}
-    data = {'beta_n': beta_n, 'bc': bnd, 'bc_val': bnd_val}
+    data = {'discharge': discharge, 'bc': bnd, 'bc_val': bnd_val}
 
     U, rhs = advect.matrix_rhs(g, data)
 
     data = {'deltaT': advect.cfl(g, data)}
-    M, _ = mass_matrix.Mass().matrix_rhs(g, data)
+    M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
 
     conc = np.zeros(g.num_cells)
 
     M_minus_U = M - U
-    invM, _ = mass_matrix.InvMass().matrix_rhs(g, data)
+    invM, _ = mass_matrix.InvMassMatrix().matrix_rhs(g, data)
 
     # Loop over the time
     Nt = int(T / data['deltaT'])
@@ -77,17 +77,17 @@ def upwind_example1(**kwargs):
     g.compute_geometry()
 
     advect = upwind.Upwind()
-    beta_n = advect.beta_n(g, [1, 0, 0])
+    discharge = advect.discharge(g, [1, 0, 0])
 
     b_faces = g.get_boundary_faces()
     bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
     bnd_val = {'dir': np.hstack(([1], np.zeros(b_faces.size-1)))}
-    data = {'beta_n': beta_n, 'bc': bnd, 'bc_val': bnd_val}
+    data = {'discharge': discharge, 'bc': bnd, 'bc_val': bnd_val}
 
     U, rhs = advect.matrix_rhs(g, data)
 
     data = {'deltaT': 2*advect.cfl(g, data)}
-    M, _ = mass_matrix.Mass().matrix_rhs(g, data)
+    M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
 
     conc = np.zeros(g.num_cells)
 
@@ -120,7 +120,7 @@ def upwind_example2(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+    perm = tensor.SecondOrder(g.dim, kxx)
 
     def funp_ex(pt): return -np.sin(pt[0])*np.sin(pt[1])-pt[0]
 
@@ -131,11 +131,11 @@ def upwind_example2(**kwargs):
     bnd_val = {'dir': funp_ex(g.face_centers[:, b_faces])}
 
     solver = dual.DualVEM()
-    data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
+    data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
-    beta_n = solver.extractU(g, up)
+    discharge = solver.extractU(g, up)
 
     u, p = solver.extractU(g, up), solver.extractP(g, up)
     P0u = solver.projectU(g, u, data)
@@ -144,16 +144,16 @@ def upwind_example2(**kwargs):
     advect = upwind.Upwind()
 
     bnd_val = {'dir': np.hstack(([1], np.zeros(b_faces.size-1)))}
-    data = {'beta_n': beta_n, 'bc': bnd, 'bc_val': bnd_val}
+    data = {'discharge': discharge, 'bc': bnd, 'bc_val': bnd_val}
 
     U, rhs = advect.matrix_rhs(g, data)
 
     data = {'deltaT': advect.cfl(g, data)}
-    M, _ = mass_matrix.Mass().matrix_rhs(g, data)
+    M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
 
     conc = np.zeros(g.num_cells)
     M_minus_U = M - U
-    invM, _ = mass_matrix.InvMass().matrix_rhs(g, data)
+    invM, _ = mass_matrix.InvMassMatrix().matrix_rhs(g, data)
 
     # Loop over the time
     Nt = int(T / data['deltaT'])

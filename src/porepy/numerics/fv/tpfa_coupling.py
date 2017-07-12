@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import scipy.sparse as sps
 from porepy.utils.comp_geom import map_grid
@@ -6,34 +7,30 @@ from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 class TpfaCoupling(AbstractCoupling):
 
-    #------------------------------------------------------------------------------#
-
     def __init__(self, solver):
         self.solver = solver
 
-#------------------------------------------------------------------------------#
-
     def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
         """
-        Computes the coupling terms for the faces between cells in g_h and g_l 
-        using the two-printoint flux approximation.  
+        Computes the coupling terms for the faces between cells in g_h and g_l
+        using the two-printoint flux approximation.
 
         Parameters:
-            g_h and g_l: grid structures of the higher and lower dimensional 
-                subdomains, respectively. 
-            data_h and data_l: the corresponding data dictionaries. Assumed 
-                to contain both permeability values ('k') and apertures ('a')
-                for each of the cells in the grids.
+            g_h and g_l: grid structures of the higher and lower dimensional
+                subdomains, respectively.
+            data_h and data_l: the corresponding data dictionaries. Assumed
+                to contain both permeability values ('perm') and apertures
+                ('apertures') for each of the cells in the grids.
 
         Returns:
-            cc: Discretization matrices for the coupling terms assembled 
+            cc: Discretization matrices for the coupling terms assembled
                 in a csc.sparse matrix.
         """
 
-        k_l = data_l['k']
-        k_h = data_h['k']
-        a_l = data_l['a']
-        a_h = data_h['a']
+        k_l = data_l['param'].get_tensor(self.solver)
+        k_h = data_h['param'].get_tensor(self.solver)
+        a_l = data_l['param'].get_aperture()
+        a_h = data_h['param'].get_aperture()
 
         dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
 
@@ -107,6 +104,59 @@ class TpfaCoupling(AbstractCoupling):
         cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
         I, J = cells_l, cells_l
         cc[1, 1] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[1]))
+
+        # Save the flux discretization for back-computation of fluxes
+        cells2faces = sps.csr_matrix((sgn_h, (faces_h, cells_h)),
+                                     (g_h.num_faces, g_h.num_cells))
+
+        data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
+                                                 cells2faces * cc[0, 1]])
+
         return cc
 
+    #------------------------------------------------------------------------------#
+
+
+def compute_discharges(gb):
+    """
+    Computes discharges over all faces in the entire grid bucket given
+    pressures for all nodes, provided as node properties.
+
+    Parameter:
+        gb: grid bucket with the following data fields for all nodes/grids:
+                'flux': Internal discretization of fluxes.
+                'bound_flux': Discretization of boundary fluxes.
+                'p': Pressure values for each cell of the grid.
+                'bc_val': Boundary condition values.
+            and the following edge property field for all connected grids:
+                'coupling_flux': Discretization of the coupling fluxes.
+    Returns:
+        gb, the same grid bucket with the added field 'discharge' added to all
+        node data fields. Note that the fluxes between grids will be added doubly,
+        both to the data corresponding to the higher dimensional grid and as a
+        edge property.
+    """
+    gb.add_node_props(['discharge'])
+
+    for gr, da in gb:
+        if gr.dim > 0:
+            f, _, s = sps.find(gr.cell_faces)
+            _, ind = np.unique(f, return_index=True)
+            s = s[ind]
+            da['discharge'] = (da['flux'] * da['p']
+                               + da['bound_flux'] * da['bc_val'])
+
+    gb.add_edge_prop('discharge')
+    for e, data in gb.edges_props():
+        g1, g2 = gb.sorted_nodes_of_edge(e)
+        if data['face_cells'] is not None:
+            coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
+            pressures = gb.nodes_prop([g2, g1], 'p')
+            coupling_contribution = coupling_flux * np.concatenate(pressures)
+            flux2 = coupling_contribution + gb.node_prop(g2, 'discharge')
+            data2 = gb.node_props(g2)
+            data2['discharge'] = copy.deepcopy(flux2)
+            data['discharge'] = copy.deepcopy(flux2)
+
+    return gb
 #------------------------------------------------------------------------------#

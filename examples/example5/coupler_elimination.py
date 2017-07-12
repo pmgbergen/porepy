@@ -1,5 +1,5 @@
 """
-Example illustrating the elimination of intersection cells for transport problem. 
+Example illustrating the elimination of intersection cells for transport problem.
 Note that with the current parameters and time steps, the non-eliminated version
 is unstable. This happens because the CFL method of upwind.py does not take 0d grids
 into account, but illustrates the power of the elimination neatly.
@@ -32,7 +32,7 @@ from porepy.numerics.fv import mass_matrix
 
 def add_data_transport(gb):
 
-    gb.add_node_props(['bc', 'bc_val', 'beta_n', 'a'])
+    gb.add_node_props(['bc', 'bc_val', 'discharge', 'apertures'])
     for g, d in gb:
         b_faces = g.get_boundary_faces()
         print(g.face_centers.shape)
@@ -41,14 +41,14 @@ def add_data_transport(gb):
         b_faces = b_faces[index]
         d['bc'] = bc.BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
         d['bc_val'] = {'dir': np.ones(b_faces.size)}
-        d['a'] = np.ones(g.num_cells) * np.power(.01, float(g.dim < 3))
-        d['beta_n'] = upwind.Upwind().beta_n(
-            g, [1, 1, 2 * np.power(1000, g.dim < 2)], d['a'])
+        d['apertures'] = np.ones(g.num_cells) * np.power(.01, float(g.dim < 3))
+        d['discharge'] = upwind.Upwind().discharge(
+            g, [1, 1, 2 * np.power(1000, g.dim < 2)], d['apertures'])
 
-    gb.add_edge_prop('beta_n')
+    gb.add_edge_prop('discharge')
     for e, d in gb.edges_props():
         g_h = gb.sorted_nodes_of_edge(e)[1]
-        d['beta_n'] = gb.node_prop(g_h, 'beta_n')
+        d['discharge'] = gb.node_prop(g_h, 'discharge')
 
 #------------------------------------------------------------------------------#
 
@@ -107,12 +107,12 @@ if __name__ == '__main__':
     gb.add_node_prop("deltaT", None, deltaT)
     gb_r.add_node_prop("deltaT", None, deltaT_r)
 
-    mass_solver = mass_matrix.Mass()
+    mass_solver = mass_matrix.MassMatrix()
     coupler_solver = coupler.Coupler(mass_solver)
     M, _ = coupler_solver.matrix_rhs(gb)
     M_r, _ = coupler_solver.matrix_rhs(gb_r)
 
-    inv_mass_solver = mass_matrix.InvMass()
+    inv_mass_solver = mass_matrix.InvMassMatrix()
     coupler_solver = coupler.Coupler(inv_mass_solver)
     invM, _ = coupler_solver.matrix_rhs(gb)
     invM_r, _ = coupler_solver.matrix_rhs(gb_r)

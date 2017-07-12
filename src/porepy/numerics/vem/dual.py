@@ -8,12 +8,17 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.params import second_order_tensor
+from porepy.params import tensor
 from porepy.numerics.mixed_dim.solver import Solver
-import porepy.utils.comp_geom as cg
+from porepy.utils import comp_geom as cg
 
 
 class DualVEM(Solver):
+
+#------------------------------------------------------------------------------#
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
 
 #------------------------------------------------------------------------------#
 
@@ -41,10 +46,9 @@ class DualVEM(Solver):
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using dual virtual element method.
         The name of data in the input dictionary (data) are:
-        k : second_order_tensor
-            Permeability defined cell-wise. If not given a identity permeability
-            is assumed and a warning arised.
-        f : array (self.g.num_cells)
+        perm : second_order_tensor
+            Permeability defined cell-wise.
+        source : array (self.g.num_cells)
             Scalar source term defined cell-wise. If not given a zero source
             term is assumed and a warning arised.
         bc : boundary conditions (optional)
@@ -75,7 +79,7 @@ class DualVEM(Solver):
         bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
                    'neu': fun_neu(f.face_centers[:, b_faces_neu])}
 
-        data = {'k': perm, 'f': f, 'bc': bnd, 'bc_val': bnd_val}
+        data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
 
         D, rhs = dual.matrix_rhs(g, data)
         up = sps.linalg.spsolve(D, rhs)
@@ -117,13 +121,10 @@ class DualVEM(Solver):
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
-        k, bc = data.get('k'), data.get('bc')
-        a = data.get('a', np.ones(g.num_cells))
-
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
+        param = data['param']
+        k = param.get_tensor(self)
+        bc = param.get_bc(self)
+        a = param.get_aperture()
 
         faces, _, sgn = sps.find(g.cell_faces)
 
@@ -131,8 +132,11 @@ class DualVEM(Solver):
         # surface coordinates in 1d and 2d)
         c_centers, f_normals, f_centers, _, _, _ = cg.map_grid(g)
 
-        # Weight for the stabilization term
+        # In the virtual cell approach the cell diameters should involve the
+        # apertures, however to keep consistency with the hybrid-dimensional
+        # approach and with the related hypotheses we avoid.
         diams = g.cell_diameters()
+        # Weight for the stabilization term
         weight = np.power(diams, 2-g.dim)
 
         # Allocate the data to store matrix entries, that's the most efficient
@@ -149,17 +153,11 @@ class DualVEM(Solver):
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
             faces_loc = faces[loc]
 
-            # Retrieve the permeability, sign of the normals, and normals
-            # The permeability correspond to the effective tangential
-            # permeability in the hybrid-dimensional case
-            K = a[c]*k.perm[0:g.dim, 0:g.dim, c]
-            sgn_loc = sgn[loc]
-            normals = f_normals[:, faces_loc]
-
             # Compute the H_div-mass local matrix
-            A, _ = self.massHdiv(K, c_centers[:, c], g.cell_volumes[c],
-                                 f_centers[:, faces_loc], normals, sgn_loc,
-                                 diams[c], weight[c])
+            A = self.massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
+                              a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
+                              a[c]*f_normals[:, faces_loc], sgn[loc],
+                              diams[c], weight[c])[0]
 
             # Save values for Hdiv-mass local matrix in the global structure
             cols = np.tile(faces_loc, (faces_loc.size, 1))
@@ -204,21 +202,22 @@ class DualVEM(Solver):
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
+        param = data['param']
+        f = param.get_source(self)
+
         if g.dim == 0:
-            return np.hstack(([0], data['f']))
+            return np.hstack(([0], f))
 
-        f, bc, bc_val = data.get('f'), data.get('bc'), data.get('bc_val')
+        bc = param.get_bc(self)
+        bc_val = param.get_bc_val(self)
+
         assert not bool(bc is None) != bool(bc_val is None)
-
-        if f is None:
-            f = np.zeros(g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
 
         rhs = np.zeros(self.ndof(g))
         is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
                           np.ones(g.num_cells, dtype=np.bool)))
 
-        rhs[is_p] = -f*g.cell_volumes
+        rhs[is_p] = -f
         if bc is None:
             return rhs
 
@@ -226,11 +225,11 @@ class DualVEM(Solver):
             is_dir = np.where(bc.is_dir)[0]
             faces, _, sgn = sps.find(g.cell_faces)
             sgn = sgn[np.unique(faces, return_index=True)[1]]
-            rhs[is_dir] += -sgn[is_dir] * bc_val[is_dir]
+            rhs[is_dir] += -sgn[is_dir] * bc_val[is_dir] ######## aperture???
 
         if np.any(bc.is_neu):
             is_neu = np.where(bc.is_neu)[0]
-            rhs[is_neu] = bc_weight*bc_val[is_neu] * g.face_areas[is_neu]
+            rhs[is_neu] = bc_weight*bc_val[is_neu]
 
         return rhs
 
@@ -276,7 +275,7 @@ class DualVEM(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def project_u(self, g, u):
+    def project_u(self, g, u, data):
         """  Project the velocity computed with a dual vem solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
@@ -299,11 +298,16 @@ class DualVEM(Solver):
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to self.massHdiv
         kxx = np.ones(g.num_cells)
-        k = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+        k = tensor.SecondOrder(g.dim, kxx)
+        param = data['param']
+        a = param.get_aperture()
 
         faces, _, sgn = sps.find(g.cell_faces)
         c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
 
+        # In the virtual cell approach the cell diameters should involve the
+        # apertures, however to keep consistency with the hybrid-dimensional
+        # approach and with the related hypotheses we avoid.
         diams = g.cell_diameters()
 
         P0u = np.zeros((3, g.num_cells))
@@ -312,13 +316,10 @@ class DualVEM(Solver):
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
             faces_loc = faces[loc]
 
-            K = k.perm[0:g.dim, 0:g.dim, c]
-            sgn_loc = sgn[loc]
-            normals = f_normals[:, faces_loc]
-
-            _, Pi_s = self.massHdiv(K, c_centers[:, c], g.cell_volumes[c],
-                                    f_centers[:, faces_loc], normals, sgn_loc,
-                                    diams[c])
+            Pi_s = self.massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
+                                 a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
+                                 a[c]*f_normals[:, faces_loc], sgn[loc],
+                                 diams[c])[1]
 
             # extract the velocity for the current cell
             P0u[dim, c] = np.dot(Pi_s, u[faces_loc]) / diams[c]

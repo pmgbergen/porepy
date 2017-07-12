@@ -778,6 +778,85 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
+    def apply_function_to_nodes(self, fct):
+        """
+        Loop on all the nodes and evaluate a function on each of them.
+
+        Parameter:
+            fct: function to evaluate. It takes a grid and the related data and
+                returns a scalar.
+
+        Returns:
+            values: vector containing the function evaluated on each node,
+                ordered by 'node_number'.
+
+        """
+        values = np.empty(self.size())
+        for g, d in self:
+            values[d['node_number']] = fct(g, d)
+        return values
+
+#------------------------------------------------------------------------------#
+
+    def apply_function_to_edges(self, fct):
+        """
+        Loop on all the edges and evaluate a function on each of them.
+
+        Parameter:
+            fct: function to evaluate. It returns a scalar and takes: the higher
+                and lower dimensional grids, the higher and lower dimensional
+                data, the global data.
+
+        Returns:
+            matrix: sparse strict upper triangular matrix containing the function
+                evaluated on each edge (pair of nodes), ordered by their
+                relative 'node_number'.
+
+        """
+        i = np.zeros(self.graph.number_of_edges(), dtype=int)
+        j = np.zeros(i.size, dtype=int)
+        values = np.zeros(i.size)
+
+        # Loop over the edges of the graph (pair of connected nodes)
+        idx = 0
+        for e, data in self.edges_props():
+            g_l, g_h = self.sorted_nodes_of_edge(e)
+            data_l, data_h = self.node_props(g_l), self.node_props(g_h)
+
+            i[idx], j[idx] = self.nodes_prop([g_l, g_h], 'node_number')
+            values[idx] = fct(g_h, g_l, data_h, data_l, data)
+            idx += 1
+
+        # Upper triangular matrix
+        return sps.coo_matrix((values, (i, j)), (self.size(), self.size()))
+
+#------------------------------------------------------------------------------#
+
+    def apply_function(self, fct_nodes, fct_edges):
+        """
+        Loop on all the nodes and edges and evaluate a function on each of them.
+
+        Parameter:
+            fct_nodes: function to evaluate. It takes a grid and the related data
+                and returns a scalar.
+
+            fct_edges: function to evaluate. It returns a scalar and takes: the
+                higher and lower dimensional grids, the higher and lower
+                dimensional data, the global data.
+
+        Returns:
+            matrix: sparse triangular matrix containing the function
+                evaluated on each edge (pair of nodes) and node, ordered by their
+                relative 'node_number'. The diagonal contains the node
+                evaluation.
+
+        """
+        matrix = self.apply_function_to_edges(fct_edges)
+        matrix.setdiag(self.apply_function_to_nodes(fct_nodes))
+        return matrix
+
+#------------------------------------------------------------------------------#
+
     def __str__(self):
         max_dim = self.grids_of_dimension(self.dim_max())
         num_nodes = 0
