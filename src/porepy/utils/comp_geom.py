@@ -1746,13 +1746,17 @@ def distance_point_segment(pt, start, end):
         end: the second point representing the segment.
     Returns:
         distance: the minimum distance between the point and the segment.
+        intersect: point of intersection
+        if_pt: True if the point on intersection is one of the input points (pt,
+        start, or end)
     """
     pt_shift = end - start
     length = np.dot(pt_shift, pt_shift)
     u = np.dot(pt - start, pt_shift) / (length if length != 0 else 1)
-    dx = start + np.clip(u, 0, 1) * pt_shift - pt
+    dx = start + np.clip(u, 0., 1.) * pt_shift - pt
 
-    return np.sqrt(np.dot(dx, dx))
+    return np.sqrt(np.dot(dx, dx)), dx + pt
+
 
 #------------------------------------------------------------------------------#
 
