@@ -1567,7 +1567,8 @@ def is_collinear(pts, tol=1e-5):
 
     Parameters:
         pts (np.ndarray, 3xn): the points.
-        tol (double, optional): Tolerance used in comparison. Defaults to 1e-5.
+        tol (double, optional): Absolute tolerance used in comparison.
+            Defaults to 1e-5.
 
     Returns:
         boolean, True if the points lie on a line.
@@ -1581,9 +1582,14 @@ def is_collinear(pts, tol=1e-5):
     pt0 = pts[:, 0]
     pt1 = pts[:, 1]
 
+    dist = 0
+    for i in np.arange(pts.shape[1]):
+        for j in np.arange(i+1, pts.shape[1]):
+            dist = max(dist, np.linalg.norm(pts[:, i] - pts[:, j]))
+
     coll = np.array([np.linalg.norm(np.cross(p - pt0, pt1 - pt0)) \
-             for p in pts[:, 1:-1].T])
-    return np.allclose(coll, np.zeros(coll.size), tol)
+             for p in pts[:, 1:-1].T])/dist
+    return np.allclose(coll, np.zeros(coll.size), atol=tol, rtol=0)
 
 #------------------------------------------------------------------------------#
 
