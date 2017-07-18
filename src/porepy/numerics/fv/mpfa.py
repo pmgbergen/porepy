@@ -9,7 +9,7 @@ import scipy.sparse as sps
 
 from porepy.numerics.fv import fvutils, tpfa
 from porepy.grids import partition
-from porepy.params import tensor, bc
+from porepy.params import tensor, bc, data
 from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
 from porepy.numerics.mixed_dim.solver import Solver
@@ -283,15 +283,15 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
 #------------------------------------------------------------------------------
 
 
-class MPFAMultiDim():
+class MpfaMultiDim(Solver):
     def __init__(self, physics='flow'):
         self.physics = physics
-
-    def matrix_rhs(self, gb):
         discr = Mpfa(self.physics)
         coupling_conditions = TpfaCoupling(discr)
-        solver = Coupler(discr, coupling_conditions)
-        return solver.matrix_rhs(gb)
+        self.solver = Coupler(discr, coupling_conditions)
+
+    def matrix_rhs(self, gb):
+        return self.solver.matrix_rhs(gb)
 
 #------------------------------------------------------------------------------
 
@@ -440,7 +440,14 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     # method may be called. In 0D, there is no internal discretization to be
     # done.
     if g.dim == 1:
-        return tpfa.tpfa(g, k, bnd, apertures=apertures)
+        discr = tpfa.Tpfa()
+        params = data.Parameters(g)
+        params.set_bc('flow', bnd)
+        params.set_aperture(apertures)
+        params.set_tensor('flow', k)
+        d = {'param': params}
+        discr.discretize(g, d)
+        return d['flux'], d['bound_flux']
     elif g.dim == 0:
         return sps.csr_matrix([0]), 0
 
