@@ -13,6 +13,8 @@ from porepy.params import tensor, bc
 from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
 from porepy.numerics.mixed_dim.solver import Solver
+from porepy.numerics.mixed_dim.coupler import Coupler
+from porepy.numerics.fv.tpfa import TpfaCoupling
 
 
 class Mpfa(Solver):
@@ -277,6 +279,21 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
             bound_flux += loc_bound_flux
 
     return flux, bound_flux
+
+#------------------------------------------------------------------------------
+
+
+class MPFAMultiDim():
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
+    def matrix_rhs(self, gb):
+        discr = Mpfa(self.physics)
+        coupling_conditions = TpfaCoupling(discr)
+        solver = Coupler(discr, coupling_conditions)
+        return solver.matrix_rhs(gb)
+
+#------------------------------------------------------------------------------
 
 
 def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
