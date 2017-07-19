@@ -681,14 +681,13 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def compute_geometry(self, is_embedded=True, is_starshaped=False):
+    def compute_geometry(self, is_embedded=True):
         """Compute geometric quantities for the grids.
 
         Note: the flag "is_embedded" is True by default.
         """
 
-        [g.compute_geometry(is_embedded=is_embedded,
-                            is_starshaped=is_starshaped) for g, _ in self]
+        [g.compute_geometry(is_embedded=is_embedded) for g, _ in self]
 
 #------------------------------------------------------------------------------#
 
