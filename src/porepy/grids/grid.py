@@ -16,11 +16,9 @@ import itertools
 from enum import Enum
 from scipy import sparse as sps
 
-from porepy.utils import matrix_compression, half_space, mcolon
+from porepy.utils import matrix_compression, mcolon
 
 from porepy.utils import comp_geom as cg
-from porepy.utils.sort_points import sort_point_pairs
-
 
 class FaceTag(np.uint8, Enum):
     """
@@ -199,7 +197,7 @@ class Grid(object):
 
         return s
 
-    def compute_geometry(self, is_embedded=False, is_starshaped=False):
+    def compute_geometry(self, is_embedded=False):
         """Compute geometric quantities for the grid.
 
         This method initializes class variables describing the grid
@@ -218,7 +216,7 @@ class Grid(object):
         elif self.dim == 1:
             self.__compute_geometry_1d()
         elif self.dim == 2:
-            self.__compute_geometry_2d(is_embedded, is_starshaped)
+            self.__compute_geometry_2d(is_embedded)
         else:
             self.__compute_geometry_3d()
 
@@ -234,15 +232,13 @@ class Grid(object):
     def __compute_geometry_1d(self):
         "Compute 1D geometry"
 
-        xn = self.nodes
-
         self.face_areas = np.ones(self.num_faces)
 
         fn = self.face_nodes.indices
         n = fn.size
-        self.face_centers = xn[:, fn]
+        self.face_centers = self.nodes[:, fn]
 
-        self.face_normals = np.tile(cg.compute_tangent(xn), (n, 1)).T
+        self.face_normals = np.tile(cg.compute_tangent(self.nodes), (n, 1)).T
 
         cf = self.cell_faces.indices
         xf1 = self.face_centers[:, cf[::2]]
@@ -270,21 +266,19 @@ class Grid(object):
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
         self.face_normals[:, flip] *= -1
 
-    def __compute_geometry_2d(self, is_embedded, is_starshaped):
+    def __compute_geometry_2d(self, is_embedded):
         "Compute 2D geometry, with method motivated by similar MRST function"
 
-        xn = self.nodes
-
         if is_embedded:
-            R = cg.project_plane_matrix(xn)
-            xn = np.dot(R, xn)
+            R = cg.project_plane_matrix(self.nodes)
+            self.nodes = np.dot(R, self.nodes)
 
         fn = self.face_nodes.indices
         edge1 = fn[::2]
         edge2 = fn[1::2]
 
-        xe1 = xn[:, edge1]
-        xe2 = xn[:, edge2]
+        xe1 = self.nodes[:, edge1]
+        xe2 = self.nodes[:, edge2]
 
         edge_length_x = xe2[0] - xe1[0]
         edge_length_y = xe2[1] - xe1[1]
@@ -298,20 +292,18 @@ class Grid(object):
             (edge_length_y, -edge_length_x, np.zeros(n)))
 
         cell_faces, cellno = self.cell_faces.nonzero()
-        num_cell_faces = np.bincount(cellno)
-
         cx = np.bincount(cellno, weights=self.face_centers[0, cell_faces])
         cy = np.bincount(cellno, weights=self.face_centers[1, cell_faces])
         cz = np.bincount(cellno, weights=self.face_centers[2, cell_faces])
-        cell_centers = np.vstack((cx, cy, cz)) / num_cell_faces
+        self.cell_centers = np.vstack((cx, cy, cz)) / np.bincount(cellno)
 
-        a = xe1[:, cell_faces] - cell_centers[:, cellno]
-        b = xe2[:, cell_faces] - cell_centers[:, cellno]
+        a = xe1[:, cell_faces] - self.cell_centers[:, cellno]
+        b = xe2[:, cell_faces] - self.cell_centers[:, cellno]
 
         sub_volumes = 0.5 * np.abs(a[0] * b[1] - a[1] * b[0])
         self.cell_volumes = np.bincount(cellno, weights=sub_volumes)
 
-        sub_centroids = (cell_centers[:, cellno] + 2 *
+        sub_centroids = (self.cell_centers[:, cellno] + 2 *
                          self.face_centers[:, cell_faces]) / 3
 
         ccx = np.bincount(cellno, weights=sub_volumes * sub_centroids[0])
@@ -319,34 +311,6 @@ class Grid(object):
         ccz = np.bincount(cellno, weights=sub_volumes * sub_centroids[2])
 
         self.cell_centers = np.vstack((ccx, ccy, ccz)) / self.cell_volumes
-
-        if is_starshaped:
-            faces, _, _ = sps.find(self.cell_faces)
-            nodes, _, _ = sps.find(self.face_nodes)
-
-            for c in np.arange(self.num_cells):
-                loc = slice(self.cell_faces.indptr[c],
-                            self.cell_faces.indptr[c + 1])
-                faces_loc = faces[loc]
-                loc_n = self.face_nodes.indptr[faces_loc]
-                ordering = sort_point_pairs(np.array([nodes[loc_n],
-                                                      nodes[loc_n + 1]]),
-                                            ordering=True)[1].astype(np.float)
-                normal = np.multiply(1 - 2. * ordering, np.divide(
-                    self.face_normals[:, faces_loc], self.face_areas[faces_loc]))
-
-                x0 = xn[:, nodes[loc_n]]
-                x1 = xn[:, nodes[loc_n + 1]]
-                coords = np.concatenate((x0, x1), axis=1)
-                x0 = (x1 + x0)/2.
-                if not np.all(half_space.half_space_int(normal, x0, coords)):
-                    center = half_space.half_space_pt(normal, x0, coords)
-                    center_tile = np.tile(center, (faces_loc.size, 1)).T
-                    a = xe1[:, faces_loc] - center_tile
-                    b = xe2[:, faces_loc] - center_tile
-                    sub_volumes = 0.5 * np.abs(a[0] * b[1] - a[1] * b[0])
-                    self.cell_centers[:, c] = center
-                    self.cell_volumes[c] = np.sum(sub_volumes)
 
         # Ensure that normal vector direction corresponds with sign convention
         # in self.cellFaces
@@ -368,6 +332,7 @@ class Grid(object):
         self.face_normals[:, flip] *= -1
 
         if is_embedded:
+            self.nodes = np.dot(R.T, self.nodes)
             self.face_normals = np.dot(R.T, self.face_normals)
             self.face_centers = np.dot(R.T, self.face_centers)
             self.cell_centers = np.dot(R.T, self.cell_centers)
@@ -382,7 +347,6 @@ class Grid(object):
         parts (face and cell computations are an obvious solution).
 
         """
-        xn = self.nodes
         num_face_nodes = self.face_nodes.nnz
         face_node_ptr = self.face_nodes.indptr
 
@@ -408,14 +372,15 @@ class Grid(object):
                                        face_node_ind))).tocsc()
 
         # Define temporary face center as the mean of the face nodes
-        tmp_face_center = xn[:, face_nodes] * edge_2_face / num_nodes_per_face
+        tmp_face_center = self.nodes[:, face_nodes] * edge_2_face / num_nodes_per_face
         # Associate this value with all the edge of this face
         tmp_face_center = edge_2_face * tmp_face_center.transpose()
 
         # Vector along each edge
-        along_edge = xn[:, face_nodes[next_node]] - xn[:, face_nodes]
+        along_edge = self.nodes[:, face_nodes[next_node]] - \
+                     self.nodes[:, face_nodes]
         # Vector from face center to start node of each edge
-        face_2_node = tmp_face_center.transpose() - xn[:, face_nodes]
+        face_2_node = tmp_face_center.transpose() - self.nodes[:, face_nodes]
 
         # Assign a normal vector with this edge, by taking the cross product
         # between along_edge and face_2_node
@@ -438,7 +403,8 @@ class Grid(object):
         # Centers of sub-faces are given by the centroid coordinates,
         # e.g. the mean coordinate of the edge endpoints and the temporary
         # face center
-        sub_centroids = (xn[:, face_nodes] + xn[:, face_nodes[next_node]]
+        sub_centroids = (self.nodes[:, face_nodes] + \
+                         self.nodes[:, face_nodes[next_node]]
                          + tmp_face_center.transpose()) / 3
 
         # Face normals are given as the sum of the sub-components
@@ -452,7 +418,7 @@ class Grid(object):
         # sub-normals, and sum over the components (axis=0).
         # NOTE: There should be a built-in function for this in numpy?
         sub_normals_sign = np.sign(np.sum(sub_normals * (edge_2_face *
-                                                         face_normals.transpose()).transpose(),
+                                          face_normals.transpose()).transpose(),
                                           axis=0))
 
         # Finally, face centers are the area weighted means of centroids of
