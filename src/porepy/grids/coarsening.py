@@ -198,6 +198,11 @@ def tpfa_matrix(g, perm=None, faces=None):
 #------------------------------------------------------------------------------#
 
 def generate_seeds(gb):
+    seeds = np.empty(0, dtype=np.int)
+
+    if isinstance(gb, grid.Grid):
+        return seeds
+
     # Extract the higher dimensional grid
     g_h = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
     g_h_faces, g_h_cells, _ = sps.find(g_h.cell_faces)
@@ -205,7 +210,6 @@ def generate_seeds(gb):
     # Extract the 1-codimensional grids
     gs = gb.get_grids(lambda g: g.dim == gb.dim_max()-1)
 
-    seeds = np.empty(0, dtype=np.int)
     for g in gs:
         tips = np.where(g.has_face_tag(grid.FaceTag.TIP))[0]
         faces, cells, _ = sps.find(g.cell_faces)
