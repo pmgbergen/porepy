@@ -29,13 +29,13 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False, **kwargs):
 
     """
     pts, edges = fractures_from_csv(f_name, **kwargs)
+    f_set = np.array([pts[:, e] for e in edges.T])
 
     # Define the domain as bounding-box if not defined
     if domain is None:
         overlap = kwargs.get('domain_overlap', 0)
         domain = _bounding_box(pts, overlap)
-
-    f_set = np.array([pts[:, e] for e in edges.T])
+        return meshing.simplex_grid(f_set, domain, **mesh_kwargs), domain
 
     return meshing.simplex_grid(f_set, domain, **mesh_kwargs)
 
