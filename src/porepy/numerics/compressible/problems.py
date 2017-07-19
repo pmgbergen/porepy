@@ -2,7 +2,7 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.grids import structured
-from porepy.numerics.fv import tpfa
+from porepy.numerics.fv import tpfa, mass_matrix
 from porepy.numerics.compressible import solvers
 from porepy.params.data import Parameters
 from porepy.params import tensor
@@ -17,18 +17,32 @@ class SlightlyCompressible():
     """
 
     def __init__(self):
+        self._data = dict()
+        self._set_data()
         self.solver = solvers.Implicit(self)
         self.solver.parameters['store_results'] = True
         self.parameters = {'file_name': 'pressure'}
         self.parameters['folder_name'] = 'results'
-        self.data = dict()
+
     #---------Discretization---------------
 
     def flux_disc(self):
         """
-        Returns the flux discretization. 
+        Returns the flux discretization.
         """
         return tpfa.Tpfa()
+
+    def time_disc(self):
+        """
+        Returns the flux discretization.
+        """
+        class TimeDisc(mass_matrix.MassMatrix):
+            def matrix_rhs(self, g, data):
+                d = {'phi': data['param'].get_porosity(),
+                     'deltaT': data['deltaT']}
+                lhs, rhs = mass_matrix.MassMatrix.matrix_rhs(self, g, d)
+                return lhs * data['compressibility'], rhs * data['compressibility']
+        return TimeDisc()
 
     def solve(self):
         """
@@ -36,6 +50,12 @@ class SlightlyCompressible():
         """
         self.data = self.solver.solve()
         return self.data
+
+    def update(self, t):
+        source = self.source(t)
+        bc_val = self.bc_val(t)
+        self.data()['param'].set_source(self.flux_disc(), source)
+        self.data()['param'].set_bc_val(self.flux_disc(), bc_val)
 
     #-----Parameters------------
     def porosity(self):
@@ -48,13 +68,7 @@ class SlightlyCompressible():
         kxx = np.ones(self.grid().num_cells)
         return tensor.SecondOrder(self.grid().dim, kxx)
 
-    #--------Inn/outflow terms---------------
-
-    def initial_pressure(self):
-        return np.zeros(self.grid().num_cells)
-
-    def source(self, t):
-        return np.zeros(self.g.num_cells)
+    #----Boundary Condition-----------
 
     def bc(self):
         dir_bound = np.array([])
@@ -64,11 +78,38 @@ class SlightlyCompressible():
     def bc_val(self, t):
         return np.zeros(self.grid().num_faces)
 
+    #-----Sink and sources-----------
+
+    def source(self, t):
+        f = np.zeros(self.grid().num_cells)
+        return f
+
+    #-----Data-----------------
+
+    def data(self):
+        return self._data
+
+    def _set_data(self):
+        self._data['param'] = Parameters(self.grid())
+        self._data['deltaT'] = self.time_step()
+        self._data['end_time'] = self.end_time()
+        self._data['param'].set_tensor(self.flux_disc(), self.permeability())
+        self._data['param'].set_porosity(self.porosity())
+        self._data['compressibility'] = self.compressibility()
+        self._data['param'].set_bc(self.flux_disc(), self.bc())
+        self._data['param'].set_bc_val(self.flux_disc(), self.bc_val(0.0))
+    #--------Initial conditions---------------
+
+    def initial_pressure(self):
+        return np.zeros(self.grid().num_cells)
+
     #---------Overloaded Functions-----------------
+
     def grid(self):
         raise NotImplementedError('subclass must overload function grid()')
 
     #--------Time stepping------------
+
     def time_step(self):
         return 1.0
 
