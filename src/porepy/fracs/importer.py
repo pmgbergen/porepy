@@ -78,7 +78,10 @@ def fractures_from_csv(f_name, tagcols=None, **kwargs):
     npargs['skip_header'] = kwargs.get('skip_header', 1)
 
     # Extract the data from the csv file
-    data = np.atleast_2d(np.genfromtxt(f_name, **npargs))
+    data = np.genfromtxt(f_name, **npargs)
+    if data.size == 0:
+        return np.empty((2,0)), np.empty((2,0), dtype=np.int)
+    data = np.atleast_2d(data)
 
     num_fracs = data.shape[0] if data.size > 0 else 0
     num_data = data.shape[1] if data.size > 0 else 0
