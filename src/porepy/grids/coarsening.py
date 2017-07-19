@@ -262,7 +262,8 @@ def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
     At = A.T
 
     for i in np.arange(Nc):
-        ci, _, vals = sps.find(At[:,i])
+        loc = slice(At.indptr[i], At.indptr[i+1])
+        ci, vals = At.indices[loc], At.data[loc]
         neg = vals < 0.
         nvals = vals[neg]
         nci = ci[neg]
@@ -271,15 +272,14 @@ def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
         ST[nci[ind], i] = True
 
     # Temporary field, will store connections of depth 1
-    STold = ST.copy()
     for _ in np.arange(2, cdepth+1):
+        STold = ST.copy()
         for j in np.arange(Nc):
             rowj = np.array(STold.rows[j])
             if rowj.size == 0:
                 continue
             row = np.hstack([STold.rows[r] for r in rowj])
             ST[j, np.concatenate((rowj, row))] = True
-        STold = ST.copy()
 
     del STold
 
@@ -357,7 +357,10 @@ def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
     connection = sps.lil_matrix((Nc,Nc),dtype=np.double)
     for it in np.arange(Nc):
         n = np.setdiff1d(c2c_rows[c2c.indptr[it]:c2c.indptr[it+1]], it)
-        connection[it, n] = np.abs(A[it, n] / At[it, it])
+        loc = slice(A.indptr[it], A.indptr[it+1])
+        A_idx, A_row = A.indices[loc], A.data[loc]
+        mask = A_idx != it
+        connection[it, n] = np.abs( A_row[mask] / A_row[np.logical_not(mask)] )
 
     connection = connection.tocsr()
 
@@ -369,12 +372,20 @@ def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
 
     connection_idx = mcolon.mcolon(connection.indptr[coarse],
                                    connection.indptr[coarse+1])
-    vals = accumarray.accum(candidates, connection.data[connection_idx],
-                            size=[Nc,NC])
+    vals = sps.csr_matrix(accumarray.accum(candidates,
+                                           connection.data[connection_idx],
+                                           size=[Nc,NC]))
     del candidates_rep, candidates_idx, connection_idx
 
-    mcind = np.argmax(vals, axis=0)
-    mcval = [ vals[r,c] for c,r in enumerate(mcind) ]
+    mcind = np.atleast_1d(np.squeeze(np.asarray(vals.argmax(axis=0))))
+    mcval = -np.inf*np.ones(mcind.size)
+    for c, r in enumerate(mcind):
+        loc = slice(vals.indptr[r], vals.indptr[r+1])
+        vals_idx, vals_data = vals.indices[loc], vals.data[loc]
+        mask = vals_idx == c
+        if vals_idx.size == 0 or not np.any(mask):
+            continue
+        mcval[c] = vals_data[mask]
 
     it = NC
     not_found = np.logical_not(is_coarse)
@@ -385,7 +396,8 @@ def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
 
         primal[mi, nadd] = True
         not_found[nadd] = False
-        vals[nadd, :] *= 0
+
+        vals.data[vals.indptr[nadd]:vals.indptr[nadd+1]] = 0
 
         nc = connection.indices[connection.indptr[nadd]:connection.indptr[nadd+1]]
         af = not_found[nc]
@@ -394,9 +406,17 @@ def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
         nv = nv.data[af]
         if len(nc) > 0:
             vals += sps.csr_matrix((nv,(nc, np.repeat(mi,len(nc)))),
-                                          shape=(Nc,NC)).todense()
-        mcind = np.argmax(vals, axis=0)
-        mcval = [ vals[r,c] for c,r in enumerate(mcind) ]
+                                          shape=(Nc,NC))
+
+        mcind = np.atleast_1d(np.squeeze(np.asarray(vals.argmax(axis=0))))
+        mcval = -np.inf*np.ones(mcind.size)
+        for c, r in enumerate(mcind):
+            loc = slice(vals.indptr[r], vals.indptr[r+1])
+            vals_idx, vals_data = vals.indices[loc], vals.data[loc]
+            mask = vals_idx == c
+            if vals_idx.size == 0 or not np.any(mask):
+                continue
+            mcval[c] = vals_data[mask]
 
         it = it + 1
         if it > Nc + 5: break
