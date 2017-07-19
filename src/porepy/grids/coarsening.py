@@ -74,9 +74,16 @@ def generate_coarse_grid_single(g, subdiv, face_map):
                                                 num_nodes_per_face)
 
     cells_list = np.unique(subdiv)
+    cell_volumes = np.zeros(cells_list.size)
+    cell_centers = np.zeros((3, cells_list.size))
+
     for cellId, cell in enumerate(cells_list):
         # extract the cells of the original mesh associated to a specific label
         cells_old = np.where(subdiv == cell)[0]
+
+        # compute the volume
+        cell_volumes[cellId] = np.sum(g.cell_volumes[cells_old])
+        cell_centers[:, cellId] = np.average(g.cell_centers[:, cells_old], axis=1)
 
         # reconstruct the cell_faces mapping
         faces_old, _, orient_old = sps.find(g.cell_faces[:, cells_old])
@@ -85,10 +92,10 @@ def generate_coarse_grid_single(g, subdiv, face_map):
         # extract the indexes of the internal edges, to be discared
         index = np.array([ np.where( faces_old == f )[0] \
                                 for f in faces_old[mask]], dtype=np.int).ravel()
-        faces_new = np.delete( faces_old, index )
-        cell_faces = np.r_[ cell_faces, faces_new ]
-        cells = np.r_[ cells, np.repeat( cellId, faces_new.shape[0] ) ]
-        orient = np.r_[ orient, np.delete( orient_old, index ) ]
+        faces_new = np.delete(faces_old, index)
+        cell_faces = np.r_[cell_faces, faces_new]
+        cells = np.r_[cells, np.repeat(cellId, faces_new.shape[0])]
+        orient = np.r_[orient, np.delete(orient_old, index)]
 
         # reconstruct the face_nodes mapping
         # consider only the unvisited faces
@@ -122,19 +129,33 @@ def generate_coarse_grid_single(g, subdiv, face_map):
                                                         for n in nodes]).ravel()
 
     # sort the nodes
-    nodes = nodes[ np.argsort(face_nodes,kind='mergesort') ]
+    nodes = nodes[np.argsort(face_nodes, kind='mergesort')]
     data = np.ones(nodes.size, dtype=g.face_nodes.data.dtype)
-    indptr = np.r_[0, np.cumsum( np.bincount( face_nodes ) )]
-    face_nodes =  sps.csc_matrix(( data, nodes, indptr ))
+    indptr = np.r_[0, np.cumsum(np.bincount(face_nodes))]
+    face_nodes =  sps.csc_matrix((data, nodes, indptr))
 
-    name = g.name
-    name.append("coarse")
-    g_co = grid.Grid(g.dim, g.nodes[:, nodes_list], face_nodes, cell_faces, name)
+    # store again the data in the same grid
+    g.name.append("coarse")
+
+    g.nodes = g.nodes[:, nodes_list]
+    g.num_nodes = g.nodes.shape[1]
+
+    g.face_nodes = face_nodes
+    g.num_faces = g.face_nodes.shape[1]
+    g.face_areas = g.face_areas[cell_faces_unique]
+    g.face_tags = g.face_tags[cell_faces_unique]
+    g.face_normals = g.face_normals[:, cell_faces_unique]
+    g.face_centers = g.face_centers[:, cell_faces_unique]
+
+    g.cell_faces = cell_faces
+    g.num_cells = g.cell_faces.shape[1]
+    g.cell_volumes = cell_volumes
+    g.cell_centers = half_space.star_shape_cell_centers(g)
+    is_nan = np.isnan(g.cell_centers[0, :])
+    g.cell_centers[:, is_nan] = cell_centers[:, is_nan]
 
     if face_map:
-        return g_co, np.array([cell_faces_unique, cell_faces_id])
-
-    return g_co
+        return np.array([cell_faces_unique, cell_faces_id])
 
 #------------------------------------------------------------------------------#
 
@@ -148,7 +169,7 @@ def generate_coarse_grid_gb(gb, subdiv):
     g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
 
     # Construct the coarse grids
-    g_co, face_map = generate_coarse_grid_single(g, subdiv, True)
+    face_map = generate_coarse_grid_single(g, subdiv, True)
 
     # Update all the face_cells for all the 'edges' connected to the grid
     for e, d in gb.edges_props_of_node(g):
@@ -161,8 +182,6 @@ def generate_coarse_grid_gb(gb, subdiv):
         # Reverse the ordering
         face_cells.indices = indices[np.argsort(mask)]
         d['face_cells'] = face_cells.tocsc()
-
-    gb.update_nodes(g, g_co)
 
 #------------------------------------------------------------------------------#
 
