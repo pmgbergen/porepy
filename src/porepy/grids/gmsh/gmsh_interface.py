@@ -57,12 +57,12 @@ class GmshWriter(object):
         if self.nd == 2:
             s += self.__write_boundary_2d()
             s += self.__write_fractures_compartments_2d()
-            s += self.__write_physical_points()
         elif self.nd == 3:
             s += self.__write_boundary_3d()
             s += self.__write_lines()
             s += self.__write_polygons()
-            s += self.__write_physical_points()
+
+        s += self.__write_physical_points()
 
         with open(file_name, 'w') as f:
             f.write(s)
@@ -77,6 +77,8 @@ class GmshWriter(object):
         frac_lines = self.lines[:, frac_ind]
 
         frac_id = frac_lines[3, :]
+        if frac_id.size == 0:
+            return str()
         range_id = np.arange(np.amin(frac_id), np.amax(frac_id)+1)
 
         s = '// Start specification of fractures\n'
