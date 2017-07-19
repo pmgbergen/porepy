@@ -7,8 +7,20 @@ from porepy.grids import grid, grid_bucket
 from porepy.params import tensor, bc
 
 from porepy.utils import matrix_compression, mcolon, accumarray, setmembership
+from porepy.utils import half_space
 
 from porepy.numerics.fv import tpfa
+
+
+#------------------------------------------------------------------------------#
+
+def coarsen(g, cdepth=2, epsilon=0.25, if_seeds=True):
+    seeds = None
+    if if_seeds:
+        seeds = generate_seeds(g)
+    matrix = tpfa_matrix(g)
+    part = create_partition(matrix, cdepth, epsilon, seeds=seeds)
+    generate_coarse_grid(g, part)
 
 #------------------------------------------------------------------------------#
 
