@@ -38,9 +38,7 @@ class SlightlyCompressible():
         """
         class TimeDisc(mass_matrix.MassMatrix):
             def matrix_rhs(self, g, data):
-                d = {'phi': data['param'].get_porosity(),
-                     'deltaT': data['deltaT']}
-                lhs, rhs = mass_matrix.MassMatrix.matrix_rhs(self, g, d)
+                lhs, rhs = mass_matrix.MassMatrix.matrix_rhs(self, g, data)
                 return lhs * data['compressibility'], rhs * data['compressibility']
         return TimeDisc()
 
