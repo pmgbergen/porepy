@@ -245,11 +245,12 @@ class SlightlyCompressibleMultiDim():
     def end_time(self):
         return 1.0
 
-    def save(self):
-        pressures = self.data['pressure']
-        times = np.array(self.data['times'])
+    def save(self, save_every=1):
+        pressures = self.data['pressure'][::save_every]
+        times = np.array(self.data['times'])[::save_every]
         folder = self.parameters['folder_name']
         f_name = self.parameters['file_name']
+
         for i, p in enumerate(pressures):
             self.time_disc().split(self.grid(), 'pressure', p)
             data_to_plot = ['pressure']
