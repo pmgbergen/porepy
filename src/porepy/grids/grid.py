@@ -131,7 +131,6 @@ class Grid(object):
         self.face_tags = np.tile(FaceTag.NONE, self.num_faces)
         self.update_boundary_face_tag()
 
-
     def copy(self):
         """
         Create a deep copy of the grid.
@@ -226,7 +225,7 @@ class Grid(object):
         "Compute 0D geometry"
         self.face_areas = np.ones(1)
         self.face_centers = self.nodes
-        self.face_normals = np.zeros(3)  # not well-defined
+        self.face_normals = np.zeros((3, 1))  # not well-defined
 
         self.cell_volumes = np.ones(1)
         self.cell_centers = self.nodes

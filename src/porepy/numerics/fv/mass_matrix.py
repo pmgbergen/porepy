@@ -6,6 +6,11 @@ from porepy.numerics.mixed_dim.solver import Solver
 
 class MassMatrix(Solver):
 
+    #-------------------------------------------------------------------------
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
 #------------------------------------------------------------------------------#
 
     def ndof(self, g):
@@ -57,10 +62,10 @@ class MassMatrix(Solver):
 
         """
         ndof = self.ndof(g)
-        coeff = g.cell_volumes * data.get('phi', 1) / data.get('deltaT', 1)
-        apertures = data.get('apertures')
-        if apertures is not None:
-            coeff = coeff * apertures
+        phi = data['param'].get_porosity()
+        apertures = data['param'].get_aperture()
+        coeff = g.cell_volumes * phi / data['deltaT']
+        coeff = coeff * apertures
 
         return sps.dia_matrix((coeff, 0), shape=(ndof, ndof)), np.zeros(ndof)
 
@@ -68,6 +73,11 @@ class MassMatrix(Solver):
 
 
 class InvMassMatrix(Solver):
+
+    #------------------------------------------------------------------------------#
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
 
 #------------------------------------------------------------------------------#
 
@@ -120,7 +130,7 @@ class InvMassMatrix(Solver):
         M, _ = mass.InvMassMatrix().matrix_rhs(g, data)
 
         """
-        M, rhs = MassMatrix().matrix_rhs(g, data)
+        M, rhs = MassMatrix(physics=self.physics).matrix_rhs(g, data)
         return sps.dia_matrix((1. / M.diagonal(), 0), shape=M.shape), rhs
 
 #------------------------------------------------------------------------------#
