@@ -247,11 +247,13 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
 
     gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
     gmsh_opts = {'-v': gmsh_verbose}
+    meshing_algorithm = kwargs.get('meshing_algorithm')
 
     # Create a writer of gmsh .geo-files
     gw = gmsh_interface.GmshWriter(
         pts_split, lines_split, domain=domain, mesh_size=mesh_size,
-        mesh_size_bound=mesh_size_bound, intersection_points=intersections)
+        mesh_size_bound=mesh_size_bound, intersection_points=intersections,
+        meshing_algorithm=meshing_algorithm)
     gw.write_geo(in_file)
 
     # Run gmsh

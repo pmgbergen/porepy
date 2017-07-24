@@ -17,7 +17,8 @@ class GmshWriter(object):
 
     def __init__(self, pts, lines, polygons=None, domain=None, nd=None,
                  mesh_size=None, mesh_size_bound=None, line_type=None,
-                 intersection_points=None, tolerance=None):
+                 intersection_points=None, tolerance=None,
+                 meshing_algorithm=None):
         """
 
         :param pts: np.ndarary, Points
@@ -46,6 +47,8 @@ class GmshWriter(object):
         self.intersection_points = intersection_points
         self.tolerance = tolerance
 
+        self.meshing_algorithm = meshing_algorithm
+
     def write_geo(self, file_name):
 
         if self.tolerance is not None:
@@ -63,6 +66,7 @@ class GmshWriter(object):
             s += self.__write_polygons()
 
         s += self.__write_physical_points()
+        s += self.__write_meshing_algorithm()
 
         with open(file_name, 'w') as f:
             f.write(s)
@@ -285,6 +289,16 @@ class GmshWriter(object):
                 + str(i) + '\") = {p' + str(p) + '};' + ls
         s += '// End of physical point specification' + ls + ls
         return s
+
+    def __write_meshing_algorithm(self):
+        # See: http://www.manpagez.com/info/gmsh/gmsh-2.4.0/gmsh_76.php
+        if self.meshing_algorithm is None:
+            if self.nd == 2:
+                return "\nMesh.Algorithm = 1;"
+            elif self.nd == 3:
+                return ""
+        else:
+            return "\nMesh.Algorithm = " + str(self.meshing_algorithm) + ";"
 
 # ----------- end of GmshWriter ----------------------------------------------
 
