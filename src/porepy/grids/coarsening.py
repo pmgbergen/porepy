@@ -2,6 +2,7 @@
 
 import numpy as np
 import scipy.sparse as sps
+import scipy.stats as stats
 
 from porepy.grids import grid, grid_bucket
 from porepy.params import tensor, bc
@@ -35,7 +36,6 @@ def generate_coarse_grid(g, subdiv):
     be computed out from this function.
 
     Note: there is no check for disconnected cells in the final grid.
-    Note: the return is different if a grid or a grid bucket is given.
 
     Parameters:
         g: the grid or grid bucket
@@ -55,7 +55,7 @@ def generate_coarse_grid(g, subdiv):
 
     """
     if isinstance(g, grid.Grid):
-        return generate_coarse_grid_single(g, subdiv, False)
+        generate_coarse_grid_single(g, subdiv, False)
 
     if isinstance(g, grid_bucket.GridBucket):
         generate_coarse_grid_gb(g, subdiv)
