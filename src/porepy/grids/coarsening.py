@@ -258,7 +258,96 @@ def generate_seeds(gb):
 
 #------------------------------------------------------------------------------#
 
-def create_partition(A, cdepth=2, epsilon=0.25, seeds=None):
+def create_aggregations(g):
+    """ Create a cell partition based on their volumes.
+
+    Parameter:
+        g: grid or grid bucket
+
+    Return:
+        partition: partition of the cells for the coarsening algorithm
+
+    """
+
+    # Extract the higher dimensional grids
+    # NOTE: we assume only one high dimensional grid
+    if isinstance(g, grid_bucket.GridBucket):
+        g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
+
+    partition = -np.ones(g.num_cells, dtype=np.int)
+
+    volumes = g.cell_volumes.copy()
+    volumes_checked = volumes.copy()
+    c2c = g.cell_connection_map()
+
+    # Compute the inverse of the harminc mean
+    mean = 1./stats.hmean(1./volumes)
+
+    new_id = 1
+    while np.any(partition < 0):
+        # Consider the smallest element to be aggregated
+        cell_id = np.argmin(volumes_checked)
+
+        # If the smallest fulfil the condition, stop the loop
+        if volumes[cell_id] > mean:
+            break
+
+        do_it = True
+        old_cluster = np.array([cell_id])
+        while do_it:
+            cluster = __get_neigh(old_cluster, c2c, partition)
+            volume = np.sum(volumes[cluster])
+            if volume > mean or np.array_equal(old_cluster, cluster):
+                do_it = False
+            else:
+                old_cluster = cluster
+
+        # If one of the element in the cluster has already a partition id,
+        # we uniform the ids
+        partition_cluster = partition[cluster]
+        has_coarse_id = partition_cluster > 0
+        if np.any(has_coarse_id):
+            # For each coarse id in the cluster, rename the coarse ids in the
+            # partition
+            for partition_id in partition_cluster[has_coarse_id]:
+                which_partition_id = partition == partition_id
+                partition[which_partition_id] = new_id
+                volumes[which_partition_id] = volume
+                volumes_checked[which_partition_id] = volume
+
+        # Update the data for the cluster
+        partition[cluster] = new_id
+        volumes[cluster] = volume
+        new_id += 1
+
+        volumes_checked[cluster] = np.inf
+
+    # Fill up the cells which are left
+    has_not_coarse_id = partition < 0
+    partition[has_not_coarse_id] = new_id + np.arange(np.sum(has_not_coarse_id))
+    return partition
+
+#------------------------------------------------------------------------------#
+
+def __get_neigh(cells_id, c2c, partition):
+    """ Support function for create_aggregations
+    """
+    neighbors = np.empty(0, dtype=np.int)
+
+    for cell_id in np.atleast_1d(cells_id):
+        # Extract the neighbors of the current cell
+        loc = slice(c2c.indptr[cell_id], c2c.indptr[cell_id + 1])
+        neighbors = np.hstack((neighbors, c2c.indices[loc]))
+
+    neighbors = np.unique(neighbors)
+    partition_neighbors = partition[neighbors]
+
+    # Check if some neighbor has already a coarse id
+    return np.sort(neighbors[partition_neighbors < 0])
+
+#------------------------------------------------------------------------------#
+
+def create_partition(A, seeds=None, **kwargs):
     """
     Create the partition based on an input matrix using the algebraic multigrid
     method coarse/fine-splittings based on direct couplings. The standard values
