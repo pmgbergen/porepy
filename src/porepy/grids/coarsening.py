@@ -15,13 +15,34 @@ from porepy.numerics.fv import tpfa
 
 #------------------------------------------------------------------------------#
 
-def coarsen(g, cdepth=2, epsilon=0.25, if_seeds=True):
-    seeds = None
-    if if_seeds:
-        seeds = generate_seeds(g)
-    matrix = tpfa_matrix(g)
-    part = create_partition(matrix, cdepth, epsilon, seeds=seeds)
-    generate_coarse_grid(g, part)
+def coarsen(g, method='by_volume', method_kwargs={}):
+    """ Create a coarse grid from a given grid. If a grid bucket is passed the
+    procedure is applied to the higher in dimension.
+    Note: the grid is modified in place.
+    Parameters:
+        g: the grid or grid bucket
+        method: string which define the method to coarse. Current options:
+            'by_volume' (the coarsening is based on the cell volumes) or 'by_tpfa'
+            (using the algebraic multigrid method coarse/fine-splittings based on
+            direct couplings)
+        method_kwargs: the arguments for each method
+
+    """
+
+    if method.lower() == 'by_volume':
+        partition = create_aggregations(g)
+
+    elif method.lower() == 'by_tpfa':
+        seeds = np.empty(0, dtype=np.int)
+        if bool(method_kwargs) and method_kwargs.get('if_seeds', False):
+            seeds = generate_seeds(g)
+        matrix = tpfa_matrix(g)
+        partition = create_partition(matrix, seeds=seeds, **method_kwargs)
+
+    else:
+        raise ValueError("Undefined coarsening algorithm")
+
+    generate_coarse_grid(g, partition)
 
 #------------------------------------------------------------------------------#
 
