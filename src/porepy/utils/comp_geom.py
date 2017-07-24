@@ -1772,7 +1772,7 @@ def distance_point_segment(pt, start, end):
 
 #------------------------------------------------------------------------------#
 
-def argsort_point_on_line(pts):
+def argsort_point_on_line(pts, tol=1e-5):
     """
     Return the indexes of the point according to their position on a line.
     The first point in the list has to be on of the extrema of the line.
@@ -1783,7 +1783,7 @@ def argsort_point_on_line(pts):
         argsort: the indexes of the points
     """
     assert pts.shape[1] > 1
-    assert is_collinear(pts)
+    assert is_collinear(pts, tol)
     delta = np.tile(pts[:, 0], (pts.shape[1], 1)).T - pts
     return np.argsort(np.abs(np.einsum('ij,ij->j', delta, delta)))
 
