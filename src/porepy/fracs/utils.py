@@ -21,6 +21,7 @@ def determine_mesh_size(pts, lines=None, **kwargs):
 
         val = kwargs.get('value', 1)
         bound_val = kwargs.get('bound_value', None)
+        tol = kwargs.get('tol', 1e-5)
 
         pts_id = lines[:2, :]
         dist = np.linalg.norm(pts[:, pts_id[0, :]] - pts[:, pts_id[1, :]],
@@ -97,7 +98,7 @@ def determine_mesh_size(pts, lines=None, **kwargs):
                                      np.flatnonzero(extra_mask_bool) + num_pts))
                 pts_frac_id = np.unique(pts_frac_id)
                 pts_frac = pts[:, pts_frac_id]
-                pts_frac_id = pts_frac_id[cg.argsort_point_on_line(pts_frac)]
+                pts_frac_id = pts_frac_id[cg.argsort_point_on_line(pts_frac, tol)]
                 pts_frac_id = np.vstack((pts_frac_id[:-1], pts_frac_id[1:]))
                 other_info = np.tile(lines[2:, mask_bool][:, 0],
                                                     (pts_frac_id.shape[1], 1)).T
