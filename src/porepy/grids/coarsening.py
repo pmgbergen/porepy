@@ -229,6 +229,10 @@ def tpfa_matrix(g, perm=None, faces=None):
 #------------------------------------------------------------------------------#
 
 def generate_seeds(gb):
+    """
+    Giving the higher dimensional grid in a grid bucket, generate the seed for
+    the tip of lower
+    """
     seeds = np.empty(0, dtype=np.int)
 
     if isinstance(gb, grid.Grid):
@@ -376,7 +380,11 @@ def create_partition(A, seeds=None, **kwargs):
 
     """
 
-    if A.size == 0: return np.zeros(1)
+    cdepth = int(kwargs.get('cdepth', 2))
+    epsilon = kwargs.get('epsilon', 0.25)
+
+    if A.size == 0:
+        return np.zeros(1)
     Nc = A.shape[0]
 
     # For each node, which other nodes are strongly connected to it
@@ -475,8 +483,7 @@ def create_partition(A, seeds=None, **kwargs):
     # Primal grid
     NC = coarse.size
     primal = sps.lil_matrix((NC,Nc),dtype=np.bool)
-    for i in np.arange(NC):
-        primal[i, coarse[i]] = True
+    primal[np.arange(NC), coarse[np.arange(NC)]] = True
 
     connection = sps.lil_matrix((Nc,Nc),dtype=np.double)
     for it in np.arange(Nc):
@@ -501,37 +508,13 @@ def create_partition(A, seeds=None, **kwargs):
                                            size=[Nc,NC]))
     del candidates_rep, candidates_idx, connection_idx
 
-    mcind = np.atleast_1d(np.squeeze(np.asarray(vals.argmax(axis=0))))
-    mcval = -np.inf*np.ones(mcind.size)
-    for c, r in enumerate(mcind):
-        loc = slice(vals.indptr[r], vals.indptr[r+1])
-        vals_idx, vals_data = vals.indices[loc], vals.data[loc]
-        mask = vals_idx == c
-        if vals_idx.size == 0 or not np.any(mask):
-            continue
-        mcval[c] = vals_data[mask]
-
     it = NC
     not_found = np.logical_not(is_coarse)
     # Process the strongest connection globally
     while np.any(not_found):
-        mi = np.argmax(mcval)
-        nadd = mcind[mi]
 
-        primal[mi, nadd] = True
-        not_found[nadd] = False
-
-        vals.data[vals.indptr[nadd]:vals.indptr[nadd+1]] = 0
-
-        nc = connection.indices[connection.indptr[nadd]:connection.indptr[nadd+1]]
-        af = not_found[nc]
-        nc = nc[af]
-        nv = mcval[mi] * connection[nadd, :]
-        nv = nv.data[af]
-        if len(nc) > 0:
-            vals += sps.csr_matrix((nv,(nc, np.repeat(mi,len(nc)))),
-                                          shape=(Nc,NC))
-
+        np.argmax(vals.data)
+        vals.argmax(axis=0)
         mcind = np.atleast_1d(np.squeeze(np.asarray(vals.argmax(axis=0))))
         mcval = -np.inf*np.ones(mcind.size)
         for c, r in enumerate(mcind):
@@ -542,8 +525,26 @@ def create_partition(A, seeds=None, **kwargs):
                 continue
             mcval[c] = vals_data[mask]
 
+        mi = np.argmax(mcval)
+        nadd = mcind[mi]
+
+        primal[mi, nadd] = True
         it = it + 1
-        if it > Nc + 5: break
+        if it > Nc + 5:
+            break
+
+        not_found[nadd] = False
+        vals.data[vals.indptr[nadd]:vals.indptr[nadd+1]] = 0
+
+        loc = slice(connection.indptr[nadd], connection.indptr[nadd+1])
+        nc = connection.indices[loc]
+        af = not_found[nc]
+        nc = nc[af]
+        nv = mcval[mi] * connection[nadd, :]
+        nv = nv.data[af]
+        if len(nc) > 0:
+            vals += sps.csr_matrix((nv,(nc, np.repeat(mi,len(nc)))),
+                                          shape=(Nc,NC))
 
     coarse, fine = primal.tocsr().nonzero()
     return coarse[np.argsort(fine)]
