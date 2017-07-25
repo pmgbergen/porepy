@@ -140,12 +140,21 @@ class BasicsTest( unittest.TestCase ):
         # Test
         for e_d in gb.edges_props():
             faces = sps.find(e_d[1]['face_cells'])[1]
-            if e_d[0][1].dim == 0:
+
+            if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) \
+                or \
+               (e_d[0][0].dim == 1 and e_d[0][1].dim == 0):
                 known = [2, 5]
-            if e_d[0][1].dim  == 1:
-                if np.allclose(e_d[0][1].cell_centers, cell_centers_1):
+
+            if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) \
+                or \
+               (e_d[0][0].dim == 2 and e_d[0][1].dim == 1):
+
+                g = e_d[0][0] if e_d[0][0].dim == 1 else e_d[0][1]
+
+                if np.allclose(g.cell_centers, cell_centers_1):
                     known = [5, 10, 14, 18, 52, 53, 54, 55]
-                elif np.allclose(e_d[0][1].cell_centers, cell_centers_2):
+                elif np.allclose(g.cell_centers, cell_centers_2):
                     known = [37, 38, 39, 40, 56, 57, 58, 59]
                 else:
                     raise ValueError('Grid not found')
@@ -213,20 +222,29 @@ class BasicsTest( unittest.TestCase ):
              3. ,  3. ,  3. ,  3. ,  3. ]])
 
         # Test
-        for i, e_d in enumerate(gb.edges_props()):
+        for e_d in gb.edges_props():
             indices, faces, _ = sps.find(e_d[1]['face_cells'])
-            if e_d[0][1].dim == 1:
+
+            if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) \
+                or \
+               (e_d[0][0].dim == 2 and e_d[0][1].dim == 1):
                 known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
                 known = [2, 7, 12, 17, 40, 41, 42, 43]
-            if e_d[0][1].dim == 2:
-                if np.allclose(e_d[0][1].cell_centers, cell_centers_1):
+
+            if (e_d[0][0].dim == 2 and e_d[0][1].dim == 3) \
+                or \
+               (e_d[0][0].dim == 3 and e_d[0][1].dim == 2):
+
+                g = e_d[0][0] if e_d[0][0].dim == 2 else e_d[0][1]
+
+                if np.allclose(g.cell_centers, cell_centers_1):
                     known_indices = [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0,
                                      4, 8, 12, 3, 7, 11, 15, 2, 6, 10, 14, 1, 5,
                                      9, 13, 0, 4, 8, 12]
                     known = [22, 25, 28, 31, 40, 43, 46, 49, 58, 61, 64, 67, 76,
                              79, 82, 85, 288, 289, 290, 291, 292, 293, 294, 295,
                              296, 297, 298, 299, 300, 301, 302, 303]
-                elif np.allclose(e_d[0][1].cell_centers, cell_centers_2):
+                elif np.allclose(g.cell_centers, cell_centers_2):
                     known_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
                                      13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
                                      10, 11, 12, 13, 14, 15]
@@ -414,14 +432,23 @@ class BasicsTest( unittest.TestCase ):
         # Test
         for e_d in gb.edges_props():
             indices, faces, _ = sps.find(e_d[1]['face_cells'])
-            if e_d[0][1].dim == 0:
+
+            if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) \
+                or \
+               (e_d[0][0].dim == 1 and e_d[0][1].dim == 0):
                 known = [2, 5]
                 known_indices = [0, 0]
-            if e_d[0][1].dim  == 1:
-                if np.allclose(e_d[0][1].cell_centers, cell_centers_1):
+
+            if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) \
+                or \
+               (e_d[0][0].dim == 2 and e_d[0][1].dim == 1):
+
+                g = e_d[0][0] if e_d[0][0].dim == 1 else e_d[0][1]
+
+                if np.allclose(g.cell_centers, cell_centers_1):
                     known = [4, 9, 12, 16, 44, 45, 46, 47]
                     known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
-                elif np.allclose(e_d[0][1].cell_centers, cell_centers_2):
+                elif np.allclose(g.cell_centers, cell_centers_2):
                     known = [31, 32, 33, 34, 48, 49, 50, 51]
                     known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
                 else:
@@ -463,14 +490,23 @@ class BasicsTest( unittest.TestCase ):
         # Test
         for e_d in gb.edges_props():
             indices, faces, _ = sps.find(e_d[1]['face_cells'])
-            if e_d[0][1].dim == 0:
+
+            if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) \
+                or \
+               (e_d[0][0].dim == 1 and e_d[0][1].dim == 0):
                 known = [2, 5]
                 known_indices = [0, 0]
-            if e_d[0][1].dim  == 1:
-                if np.allclose(e_d[0][1].cell_centers, cell_centers_1):
+
+            if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) \
+                or \
+               (e_d[0][0].dim == 2 and e_d[0][1].dim == 1):
+
+                g = e_d[0][0] if e_d[0][0].dim == 1 else e_d[0][1]
+
+                if np.allclose(g.cell_centers, cell_centers_1):
                     known = [5, 10, 14, 18, 52, 53, 54, 55]
                     known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
-                elif np.allclose(e_d[0][1].cell_centers, cell_centers_2):
+                elif np.allclose(g.cell_centers, cell_centers_2):
                     known = [37, 38, 39, 40, 56, 57, 58, 59]
                     known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
                 else:
@@ -490,7 +526,7 @@ class BasicsTest( unittest.TestCase ):
 
         seeds = co.generate_seeds(gb)
         known_seeds = np.array([29, 30, 369, 370, 181, 198, 201, 218])
-        assert np.array_equal(seeds, known_seeds)
+        assert np.array_equal(np.sort(seeds), np.sort(known_seeds))
 
         part = co.create_partition(co.tpfa_matrix(gb), cdepth=3, seeds=seeds)
         co.generate_coarse_grid(gb, part)
@@ -537,11 +573,20 @@ class BasicsTest( unittest.TestCase ):
         # Test
         for e_d in gb.edges_props():
             indices, faces, _ = sps.find(e_d[1]['face_cells'])
-            if e_d[0][1].dim == 0:
+
+            if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) \
+                or \
+               (e_d[0][0].dim == 1 and e_d[0][1].dim == 0):
                 known = [9, 19]
                 known_indices = [0, 0]
-            if e_d[0][1].dim  == 1:
-                if np.allclose(e_d[0][1].cell_centers, cell_centers_1):
+
+            if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) \
+                or \
+               (e_d[0][0].dim == 2 and e_d[0][1].dim == 1):
+
+                g = e_d[0][0] if e_d[0][0].dim == 1 else e_d[0][1]
+
+                if np.allclose(g.cell_centers, cell_centers_1):
                     known = [10, 18, 28, 37, 46, 54, 62, 71, 77, 84, 91, 99,
                              108, 116, 124, 134, 143, 151, 328, 329, 330, 331,
                              332, 333, 334, 335, 336, 337, 338, 339, 340, 341,
@@ -549,7 +594,7 @@ class BasicsTest( unittest.TestCase ):
                     known_indices = [17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6,
                                      5, 4, 3, 2, 1, 0, 17, 16, 15, 14, 13, 12,
                                      11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
-                elif np.allclose(e_d[0][1].cell_centers, cell_centers_2):
+                elif np.allclose(g.cell_centers, cell_centers_2):
                     known = [236, 237, 238, 239, 240, 241, 242, 243, 244, 245,
                              246, 247, 248, 249, 250, 251, 252, 253, 346, 347,
                              348, 349, 350, 351, 352, 353, 354, 355, 356, 357,
