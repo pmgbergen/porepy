@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
-import os, sys
+import os
+import sys
 
 from porepy.viz import exporter
 from porepy.fracs import importer
@@ -12,7 +13,7 @@ from porepy.grids.grid import FaceTag
 from porepy.numerics.mixed_dim import coupler
 from porepy.numerics.vem import dual, dual_coupling
 from porepy.numerics.fv.transport import upwind, upwind_coupling
-from porepy.numerics.fv import tpfa, tpfa_coupling
+from porepy.numerics.fv import tpfa
 
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
@@ -20,6 +21,7 @@ from porepy.params.data import Parameters
 from porepy.utils.errors import error
 
 #------------------------------------------------------------------------------#
+
 
 def add_data_darcy(gb, domain, tol):
     gb.add_node_props(['param'])
@@ -35,7 +37,7 @@ def add_data_darcy(gb, domain, tol):
         param.set_source("flow", np.zeros(g.num_cells))
 
         aperture = np.power(1e-2, gb.dim_max() - g.dim)
-        param.set_aperture(np.ones(g.num_cells)*aperture)
+        param.set_aperture(np.ones(g.num_cells) * aperture)
 
         bound_faces = g.get_boundary_faces()
         if bound_faces.size != 0:
@@ -53,12 +55,14 @@ def add_data_darcy(gb, domain, tol):
 
             bc_val = np.zeros(g.num_faces)
             bc_dir = bound_faces[boundary]
-            bc_val[bc_dir] = np.sum(g.face_centers[:, bc_dir], axis=0)*aperture
+            bc_val[bc_dir] = np.sum(
+                g.face_centers[:, bc_dir], axis=0) * aperture
 
             param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("flow", bc_val)
         else:
-            param.set_bc("flow", BoundaryCondition(g, np.empty(0), np.empty(0)))
+            param.set_bc("flow", BoundaryCondition(
+                g, np.empty(0), np.empty(0)))
 
         d['param'] = param
 
@@ -71,17 +75,19 @@ def add_data_darcy(gb, domain, tol):
 
 #------------------------------------------------------------------------------#
 
+
 def add_data_advection_diffusion(gb, domain, tol):
 
     for g, d in gb:
         param = d['param']
 
-        kxx = 5*1e-2*np.ones(g.num_cells)
+        kxx = 5 * 1e-2 * np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)
         param.set_tensor("transport", perm)
 
         # The 0.5 needs to be fixed in a better way
-        source = 0.5*np.ones(g.num_cells)*g.cell_volumes*param.get_aperture()
+        source = 0.5 * np.ones(g.num_cells) * \
+            g.cell_volumes * param.get_aperture()
         param.set_source("transport", source)
 
         bound_faces = g.get_boundary_faces()
@@ -101,10 +107,12 @@ def add_data_advection_diffusion(gb, domain, tol):
             bc_val = np.zeros(g.num_faces)
             bc_dir = bound_faces[boundary]
 
-            param.set_bc("transport", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("transport", BoundaryCondition(
+                g, bound_faces, labels))
             param.set_bc_val("transport", bc_val)
         else:
-            param.set_bc("transport", BoundaryCondition(g, np.empty(0), np.empty(0)))
+            param.set_bc("transport", BoundaryCondition(
+                g, np.empty(0), np.empty(0)))
 
     # Assign coupling discharge
     gb.add_edge_prop('param')
@@ -115,6 +123,7 @@ def add_data_advection_diffusion(gb, domain, tol):
         d['param'].set_discharge(discharge)
 
 #------------------------------------------------------------------------------#
+
 
 folder = os.path.dirname(os.path.realpath(__file__)) + "/"
 export_folder = folder + 'advection_diffusion_coupling'
@@ -171,17 +180,20 @@ diffusion_discr = tpfa.Tpfa(physics="transport")
 add_data_advection_diffusion(gb, domain, tol)
 
 advection_coupling_conditions = upwind_coupling.UpwindCoupling(advection_discr)
-advection_coupler = coupler.Coupler(advection_discr, advection_coupling_conditions)
+advection_coupler = coupler.Coupler(
+    advection_discr, advection_coupling_conditions)
 U, rhs_u = advection_coupler.matrix_rhs(gb)
 
-diffusion_coupling_conditions = tpfa_coupling.TpfaCoupling(diffusion_discr)
-diffusion_coupler = coupler.Coupler(diffusion_discr, diffusion_coupling_conditions)
+diffusion_coupling_conditions = tpfa.TpfaCoupling(diffusion_discr)
+diffusion_coupler = coupler.Coupler(
+    diffusion_discr, diffusion_coupling_conditions)
 D, rhs_d = diffusion_coupler.matrix_rhs(gb)
 
 theta = sps.linalg.spsolve(D + U, rhs_u + rhs_d)
 diffusion_coupler.split(gb, "temperature", theta)
 
-exporter.export_vtk(gb, 'advection_diffusion', ["temperature"], folder=export_folder)
+exporter.export_vtk(gb, 'advection_diffusion', [
+                    "temperature"], folder=export_folder)
 
 # Consistency check
 #assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 19.8455019189)

@@ -8,8 +8,16 @@ Created on Sun Feb 28 20:55:56 2016
 import numpy as np
 
 from porepy.grids import structured
-from porepy.params import tensor, bc
+from porepy.params import tensor, bc, data
 from porepy.numerics.fv import tpfa
+
+
+def _assign_params(g, perm, bound):
+    params = data.Parameters(g)
+    params.set_tensor('Flow', perm)
+    params.set_bc('Flow', bound)
+    d = {'param': params}
+    return d
 
 
 def test_tpfa_cart_2d():
@@ -26,7 +34,10 @@ def test_tpfa_cart_2d():
     bound_faces = np.array([0, 3, 12])
     bound = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
 
-    trm, bound_flux = tpfa.tpfa(g, perm, bound)
+    discr = tpfa.Tpfa()
+    d = _assign_params(g, perm, bound)
+    discr.discretize(g, d)
+    trm, bound_flux = d['flux'], d['bound_flux']
     div = g.cell_faces.T
     a = div * trm
     b = (div * bound_flux).A
@@ -50,6 +61,7 @@ def test_tpfa_cart_2d():
     assert b[0, 12] == 2
 
     # Cell 3 has one Dirichlet, one Neumann face
+    print(a)
     assert a[2, 2] == 4
     assert a[2, 1] == -1
     assert a[2, 5] == -1
@@ -74,10 +86,14 @@ def test_uniform_flow_cart_2d():
 
     kxx = np.ones(g.num_cells)
     perm = tensor.SecondOrder(g.dim, kxx)
-    bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
+    bound_faces = np.argwhere(
+        np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
     bound = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
 
-    flux = tpfa.tpfa(g, perm, bound)
+    discr = tpfa.Tpfa()
+    d = _assign_params(g, perm, bound)
+    discr.discretize(g, d)
+    flux, bound_flux = d['flux'], d['bound_flux']
 
 
 if __name__ == '__main__':
