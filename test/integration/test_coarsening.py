@@ -14,7 +14,8 @@ class BasicsTest( unittest.TestCase ):
 
     def test_coarse_grid_2d( self ):
         g = structured.CartGrid([3, 2])
-        g = co.generate_coarse_grid( g, [5, 2, 2, 5, 2, 2] )
+        g.compute_geometry()
+        co.generate_coarse_grid( g, [5, 2, 2, 5, 2, 2] )
 
         assert g.num_cells == 2
         assert g.num_faces == 12
@@ -42,7 +43,8 @@ class BasicsTest( unittest.TestCase ):
 
     def test_coarse_grid_3d(self):
         g = structured.CartGrid([2, 2, 2])
-        g = co.generate_coarse_grid( g, [0, 0, 0, 0, 1, 1, 2, 2] )
+        g.compute_geometry()
+        co.generate_coarse_grid( g, [0, 0, 0, 0, 1, 1, 2, 2] )
 
         assert g.num_cells == 3
         assert g.num_faces == 30
@@ -88,6 +90,7 @@ class BasicsTest( unittest.TestCase ):
         f = np.array([[2, 2], [0, 2]])
 
         gb = meshing.cart_grid([f], [4, 2])
+        gb.compute_geometry()
         co.generate_coarse_grid(gb, part)
 
         # Test
@@ -115,15 +118,39 @@ class BasicsTest( unittest.TestCase ):
         f2 = np.array([[1, 5], [3, 3]])
 
         gb = meshing.cart_grid([f1, f2], [6, 6])
+        gb.compute_geometry()
+
+        cell_centers_1 = np.array( \
+                      [[  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
+                          3.00000000e+00],
+                       [  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
+                          1.50000000e+00],
+                       [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
+                          1.66533454e-16]])
+        cell_centers_2 = np.array( \
+                      [[  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
+                          1.50000000e+00],
+                       [  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
+                          3.00000000e+00],
+                       [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
+                          1.66533454e-16]])
+
         co.generate_coarse_grid(gb, part)
 
         # Test
-        known = np.array([[2, 5], [5, 10, 14, 18, 52, 53, 54, 55],
-                          [2, 5], [37, 38, 39, 40, 56, 57, 58, 59]])
-
-        for i, e_d in enumerate(gb.edges_props()):
+        for e_d in gb.edges_props():
             faces = sps.find(e_d[1]['face_cells'])[1]
-            assert np.array_equal(faces, known[i])
+            if e_d[0][1].dim == 0:
+                known = [2, 5]
+            if e_d[0][1].dim  == 1:
+                if np.allclose(e_d[0][1].cell_centers, cell_centers_1):
+                    known = [5, 10, 14, 18, 52, 53, 54, 55]
+                elif np.allclose(e_d[0][1].cell_centers, cell_centers_2):
+                    known = [37, 38, 39, 40, 56, 57, 58, 59]
+                else:
+                    raise ValueError('Grid not found')
+
+            assert np.array_equal(faces, known)
 
 #------------------------------------------------------------------------------#
 
@@ -132,6 +159,7 @@ class BasicsTest( unittest.TestCase ):
                       [0, 2, 2, 0],
                       [0, 0, 2, 2]])
         gb = meshing.cart_grid([f], [4, 2, 2])
+        gb.compute_geometry()
 
         g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
         part = np.zeros(g.num_cells)
@@ -157,6 +185,7 @@ class BasicsTest( unittest.TestCase ):
                        [1, 1, 5, 5],
                        [3, 3, 3, 3]])
         gb = meshing.cart_grid([f1, f2], [6, 6, 6])
+        gb.compute_geometry()
 
         g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
         part = np.zeros(g.num_cells)
@@ -168,26 +197,48 @@ class BasicsTest( unittest.TestCase ):
 
         co.generate_coarse_grid(gb, part)
 
-        # Test
-        known_indices = np.array([[3, 2, 1, 0, 3, 2, 1, 0],
-        [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12, 3, 7, 11, 15, 2,
-         6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12],
-        [3, 2, 1, 0, 3, 2, 1, 0],
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5,
-         6, 7, 8, 9, 10, 11, 12, 13, 14, 15]])
-        known = np.array([[2, 7, 12, 17, 40, 41, 42, 43],
-        [22, 25, 28, 31, 40, 43, 46, 49, 58, 61, 64, 67, 76, 79, 82, 85, 288,
-         289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300, 301, 302,
-         303],
-         [2, 7, 12, 17, 40, 41, 42, 43],
-         [223, 224, 225, 226, 229, 230, 231, 232, 235, 236, 237, 238, 241, 242,
-          243, 244, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 315,
-          316, 317, 318, 319]])
+        cell_centers_1 = np.array( \
+          [[ 3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,
+             3. ,  3. ,  3. ,  3. ,  3. ],
+           [ 1.5,  1.5,  1.5,  1.5,  2.5,  2.5,  2.5,  2.5,  3.5,  3.5,  3.5,
+             3.5,  4.5,  4.5,  4.5,  4.5],
+           [ 4.5,  3.5,  2.5,  1.5,  4.5,  3.5,  2.5,  1.5,  4.5,  3.5,  2.5,
+             1.5,  4.5,  3.5,  2.5,  1.5]])
+        cell_centers_2 = np.array( \
+          [[ 1.5,  2.5,  3.5,  4.5,  1.5,  2.5,  3.5,  4.5,  1.5,  2.5,  3.5,
+             4.5,  1.5,  2.5,  3.5,  4.5],
+           [ 1.5,  1.5,  1.5,  1.5,  2.5,  2.5,  2.5,  2.5,  3.5,  3.5,  3.5,
+             3.5,  4.5,  4.5,  4.5,  4.5],
+           [ 3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,
+             3. ,  3. ,  3. ,  3. ,  3. ]])
 
+        # Test
         for i, e_d in enumerate(gb.edges_props()):
             indices, faces, _ = sps.find(e_d[1]['face_cells'])
-            assert np.array_equal(indices, known_indices[i])
-            assert np.array_equal(faces, known[i])
+            if e_d[0][1].dim == 1:
+                known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
+                known = [2, 7, 12, 17, 40, 41, 42, 43]
+            if e_d[0][1].dim == 2:
+                if np.allclose(e_d[0][1].cell_centers, cell_centers_1):
+                    known_indices = [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0,
+                                     4, 8, 12, 3, 7, 11, 15, 2, 6, 10, 14, 1, 5,
+                                     9, 13, 0, 4, 8, 12]
+                    known = [22, 25, 28, 31, 40, 43, 46, 49, 58, 61, 64, 67, 76,
+                             79, 82, 85, 288, 289, 290, 291, 292, 293, 294, 295,
+                             296, 297, 298, 299, 300, 301, 302, 303]
+                elif np.allclose(e_d[0][1].cell_centers, cell_centers_2):
+                    known_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+                                     13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+                                     10, 11, 12, 13, 14, 15]
+                    known = [223, 224, 225, 226, 229, 230, 231, 232, 235, 236,
+                             237, 238, 241, 242, 243, 244, 304, 305, 306, 307,
+                             308, 309, 310, 311, 312, 313, 314, 315, 316, 317,
+                             318, 319]
+                else:
+                    raise ValueError('Grid not found')
+
+            assert np.array_equal(indices, known_indices)
+            assert np.array_equal(faces, known)
 
 #------------------------------------------------------------------------------#
 
@@ -345,16 +396,39 @@ class BasicsTest( unittest.TestCase ):
         part = co.create_partition(co.tpfa_matrix(gb), cdepth=3)
         co.generate_coarse_grid(gb, part)
 
-        # Test
-        known_indices = np.array([[0, 0], [3, 2, 1, 0, 3, 2, 1, 0], [0, 0],
-                                  [3, 2, 1, 0, 3, 2, 1, 0]])
-        known = np.array([[2, 5], [4, 9, 12, 16, 44, 45, 46, 47], [2, 5],
-                          [31, 32, 33, 34, 48, 49, 50, 51]])
+        cell_centers_1 = np.array( \
+                      [[  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
+                          3.00000000e+00],
+                       [  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
+                          1.50000000e+00],
+                       [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
+                          1.66533454e-16]])
+        cell_centers_2 = np.array( \
+                      [[  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
+                          1.50000000e+00],
+                       [  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
+                          3.00000000e+00],
+                       [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
+                          1.66533454e-16]])
 
-        for i, e_d in enumerate(gb.edges_props()):
+        # Test
+        for e_d in gb.edges_props():
             indices, faces, _ = sps.find(e_d[1]['face_cells'])
-            assert np.array_equal(faces, known[i])
-            assert np.array_equal(indices, known_indices[i])
+            if e_d[0][1].dim == 0:
+                known = [2, 5]
+                known_indices = [0, 0]
+            if e_d[0][1].dim  == 1:
+                if np.allclose(e_d[0][1].cell_centers, cell_centers_1):
+                    known = [4, 9, 12, 16, 44, 45, 46, 47]
+                    known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
+                elif np.allclose(e_d[0][1].cell_centers, cell_centers_2):
+                    known = [31, 32, 33, 34, 48, 49, 50, 51]
+                    known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
+                else:
+                    raise ValueError('Grid not found')
+
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
 
 #------------------------------------------------------------------------------#
 
@@ -371,16 +445,39 @@ class BasicsTest( unittest.TestCase ):
         part = co.create_partition(co.tpfa_matrix(gb), cdepth=3, seeds=seeds)
         co.generate_coarse_grid(gb, part)
 
-        # Test
-        known_indices = np.array([[0, 0], [3, 2, 1, 0, 3, 2, 1, 0], [0, 0],
-                                  [3, 2, 1, 0, 3, 2, 1, 0]])
-        known = np.array([[2, 5], [5, 10, 14, 18, 52, 53, 54, 55], [2, 5],
-                          [37, 38, 39, 40, 56, 57, 58, 59]])
+        cell_centers_1 = np.array( \
+                      [[  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
+                          3.00000000e+00],
+                       [  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
+                          1.50000000e+00],
+                       [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
+                          1.66533454e-16]])
+        cell_centers_2 = np.array( \
+                      [[  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
+                          1.50000000e+00],
+                       [  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
+                          3.00000000e+00],
+                       [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
+                          1.66533454e-16]])
 
-        for i, e_d in enumerate(gb.edges_props()):
+        # Test
+        for e_d in gb.edges_props():
             indices, faces, _ = sps.find(e_d[1]['face_cells'])
-            assert np.array_equal(faces, known[i])
-            assert np.array_equal(indices, known_indices[i])
+            if e_d[0][1].dim == 0:
+                known = [2, 5]
+                known_indices = [0, 0]
+            if e_d[0][1].dim  == 1:
+                if np.allclose(e_d[0][1].cell_centers, cell_centers_1):
+                    known = [5, 10, 14, 18, 52, 53, 54, 55]
+                    known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
+                elif np.allclose(e_d[0][1].cell_centers, cell_centers_2):
+                    known = [37, 38, 39, 40, 56, 57, 58, 59]
+                    known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
+                else:
+                    raise ValueError('Grid not found')
+
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
 
 #------------------------------------------------------------------------------#
 
@@ -398,27 +495,72 @@ class BasicsTest( unittest.TestCase ):
         part = co.create_partition(co.tpfa_matrix(gb), cdepth=3, seeds=seeds)
         co.generate_coarse_grid(gb, part)
 
-        # Test
-        known_indices = np.array([[0, 0], [17, 16, 15, 14, 13, 12, 11, 10, 9,
-                                           8, 7, 6, 5, 4, 3, 2, 1, 0, 17, 16,
-                                           15, 14, 13, 12, 11, 10, 9, 8, 7, 6,
-                                           5, 4, 3, 2, 1, 0], [0, 0],
-                                  [17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6,
-                                   5, 4, 3, 2, 1, 0, 17, 16, 15, 14, 13, 12, 11,
-                                   10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]])
-        known = np.array([[9, 19], [10, 18, 28, 37, 46, 54, 62, 71, 77, 84, 91,
-                                    99, 108, 116, 124, 134, 143, 151, 328, 329,
-                                    330, 331, 332, 333, 334, 335, 336, 337, 338,
-                                    339, 340, 341, 342, 343, 344, 345],
-                          [9, 19], [236, 237, 238, 239, 240, 241, 242, 243, 244,
-                                    245, 246, 247, 248, 249, 250, 251, 252, 253,
-                                    346, 347, 348, 349, 350, 351, 352, 353, 354,
-                                    355, 356, 357, 358, 359, 360, 361, 362,
-                                    363]])
+        cell_centers_1 = np.array( \
+                      [[  1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
+                          1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
+                          1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
+                          1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
+                          1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
+                          1.00000000e+01,   1.00000000e+01,   1.00000000e+01],
+                       [  1.85000000e+01,   1.75000000e+01,   1.65000000e+01,
+                          1.55000000e+01,   1.45000000e+01,   1.35000000e+01,
+                          1.25000000e+01,   1.15000000e+01,   1.05000000e+01,
+                          9.50000000e+00,   8.50000000e+00,   7.50000000e+00,
+                          6.50000000e+00,   5.50000000e+00,   4.50000000e+00,
+                          3.50000000e+00,   2.50000000e+00,   1.50000000e+00],
+                       [ -9.43689571e-16,  -8.32667268e-16,  -7.21644966e-16,
+                         -6.10622664e-16,  -4.99600361e-16,  -3.88578059e-16,
+                         -2.77555756e-16,  -1.66533454e-16,  -5.55111512e-17,
+                          5.55111512e-17,   1.66533454e-16,   2.77555756e-16,
+                          3.88578059e-16,   4.99600361e-16,   6.10622664e-16,
+                          7.21644966e-16,   8.32667268e-16,   9.43689571e-16]])
+        cell_centers_2 = np.array( \
+                      [[  1.85000000e+01,   1.75000000e+01,   1.65000000e+01,
+                          1.55000000e+01,   1.45000000e+01,   1.35000000e+01,
+                          1.25000000e+01,   1.15000000e+01,   1.05000000e+01,
+                          9.50000000e+00,   8.50000000e+00,   7.50000000e+00,
+                          6.50000000e+00,   5.50000000e+00,   4.50000000e+00,
+                          3.50000000e+00,   2.50000000e+00,   1.50000000e+00],
+                       [  1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
+                          1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
+                          1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
+                          1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
+                          1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
+                          1.00000000e+01,   1.00000000e+01,   1.00000000e+01],
+                       [ -9.43689571e-16,  -8.32667268e-16,  -7.21644966e-16,
+                         -6.10622664e-16,  -4.99600361e-16,  -3.88578059e-16,
+                         -2.77555756e-16,  -1.66533454e-16,  -5.55111512e-17,
+                          5.55111512e-17,   1.66533454e-16,   2.77555756e-16,
+                          3.88578059e-16,   4.99600361e-16,   6.10622664e-16,
+                          7.21644966e-16,   8.32667268e-16,   9.43689571e-16]])
 
-        for i, e_d in enumerate(gb.edges_props()):
+        # Test
+        for e_d in gb.edges_props():
             indices, faces, _ = sps.find(e_d[1]['face_cells'])
-            assert np.array_equal(faces, known[i])
-            assert np.array_equal(indices, known_indices[i])
+            if e_d[0][1].dim == 0:
+                known = [9, 19]
+                known_indices = [0, 0]
+            if e_d[0][1].dim  == 1:
+                if np.allclose(e_d[0][1].cell_centers, cell_centers_1):
+                    known = [10, 18, 28, 37, 46, 54, 62, 71, 77, 84, 91, 99,
+                             108, 116, 124, 134, 143, 151, 328, 329, 330, 331,
+                             332, 333, 334, 335, 336, 337, 338, 339, 340, 341,
+                             342, 343, 344, 345]
+                    known_indices = [17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6,
+                                     5, 4, 3, 2, 1, 0, 17, 16, 15, 14, 13, 12,
+                                     11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+                elif np.allclose(e_d[0][1].cell_centers, cell_centers_2):
+                    known = [236, 237, 238, 239, 240, 241, 242, 243, 244, 245,
+                             246, 247, 248, 249, 250, 251, 252, 253, 346, 347,
+                             348, 349, 350, 351, 352, 353, 354, 355, 356, 357,
+                             358, 359, 360, 361, 362, 363]
+                    known_indices = [17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6,
+                                     5, 4, 3, 2, 1, 0, 17, 16, 15, 14, 13, 12,
+                                     11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+                else:
+                    raise ValueError('Grid not found')
+
+            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, known_indices)
 
 #------------------------------------------------------------------------------#
