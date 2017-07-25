@@ -5,7 +5,11 @@ import scipy.sparse as sps
 import scipy.stats as stats
 
 from porepy.grids import grid, grid_bucket
-from porepy.params import tensor, bc
+
+from porepy.params.data import Parameters
+from porepy.params import tensor
+from porepy.params.bc import BoundaryCondition
+
 
 from porepy.utils import matrix_compression, mcolon, accumarray, setmembership
 from porepy.utils import half_space
@@ -218,7 +222,7 @@ def generate_coarse_grid_gb(gb, subdiv):
 
 #------------------------------------------------------------------------------#
 
-def tpfa_matrix(g, perm=None, faces=None):
+def tpfa_matrix(g, perm=None):
     """
     Compute a two-point flux approximation matrix useful related to a call of
     create_partition.
@@ -227,8 +231,6 @@ def tpfa_matrix(g, perm=None, faces=None):
     ----------
     g: the grid
     perm: (optional) permeability, the it is not given unitary tensor is assumed
-    faces (np.array, int): Index of faces where TPFA should be applied.
-            Defaults all faces in the grid.
 
     Returns
     -------
@@ -242,10 +244,11 @@ def tpfa_matrix(g, perm=None, faces=None):
     if perm is None:
         perm = tensor.SecondOrder(g.dim,np.ones(g.num_cells))
 
-    bound = bc.BoundaryCondition(g, np.empty(0), '')
-    trm, _ = tpfa.tpfa(g, perm, bound, faces)
-    div = g.cell_faces.T
-    return div * trm
+    solver = tpfa.Tpfa()
+    param = Parameters(g)
+    param.set_tensor(solver, perm)
+    param.set_bc(solver, BoundaryCondition(g, np.empty(0), ''))
+    return solver.matrix_rhs(g, {'param': param})[0]
 
 #------------------------------------------------------------------------------#
 
