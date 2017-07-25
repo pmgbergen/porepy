@@ -495,7 +495,7 @@ def create_partition(A, seeds=None, **kwargs):
     if pairs.size:
         pairs = setmembership.unique_rows(np.sort(pairs, axis=1))[0]
         for ij in pairs:
-            A_val = np.array(A[ij, ij].data).ravel()
+            A_val = np.array(A[ij, ij]).ravel()
             ids = ij[np.argsort(A_val)]
             ids = np.setdiff1d(ids, seeds, assume_unique=True)
             if ids.size:
