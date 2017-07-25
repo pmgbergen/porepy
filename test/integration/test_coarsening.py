@@ -114,8 +114,8 @@ class BasicsTest( unittest.TestCase ):
         part[[9, 10]] = 8
         part[[20, 26, 25]] = 9
         part[[3, 4, 5, 11]] = 10
-        f1 = np.array([[3, 3], [1, 5]])
-        f2 = np.array([[1, 5], [3, 3]])
+        f1 = np.array([[3., 3.], [1., 5.]])
+        f2 = np.array([[1., 5.], [3., 3.]])
 
         gb = meshing.cart_grid([f1, f2], [6, 6])
         gb.compute_geometry()
@@ -164,15 +164,15 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_coarse_grid_3d_2d(self):
-        f = np.array([[2, 2, 2, 2],
-                      [0, 2, 2, 0],
-                      [0, 0, 2, 2]])
+        f = np.array([[2., 2., 2., 2.],
+                      [0., 2., 2., 0.],
+                      [0., 0., 2., 2.]])
         gb = meshing.cart_grid([f], [4, 2, 2])
         gb.compute_geometry()
 
         g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
         part = np.zeros(g.num_cells)
-        part[g.cell_centers[0, :] < 2] = 1
+        part[g.cell_centers[0, :] < 2.] = 1
         co.generate_coarse_grid(gb, part)
 
         # Test
@@ -187,22 +187,22 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_coarse_grid_3d_2d_cross(self):
-        f1 = np.array([[3, 3, 3, 3],
-                       [1, 5, 5, 1],
-                       [1, 1, 5, 5]])
-        f2 = np.array([[1, 5, 5, 1],
-                       [1, 1, 5, 5],
-                       [3, 3, 3, 3]])
+        f1 = np.array([[3., 3., 3., 3.],
+                       [1., 5., 5., 1.],
+                       [1., 1., 5., 5.]])
+        f2 = np.array([[1., 5., 5., 1.],
+                       [1., 1., 5., 5.],
+                       [3., 3., 3., 3.]])
         gb = meshing.cart_grid([f1, f2], [6, 6, 6])
         gb.compute_geometry()
 
         g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
         part = np.zeros(g.num_cells)
-        p1, p2 = g.cell_centers[0, :] < 3, g.cell_centers[2, :] < 3
+        p1, p2 = g.cell_centers[0, :] < 3., g.cell_centers[2, :] < 3.
         part[np.logical_and(p1, p2)] = 1
-        part[np.logical_and(p1, ~p2)] = 2
-        part[np.logical_and(~p1, p2)] = 3
-        part[np.logical_and(~p1, ~p2)] = 4
+        part[np.logical_and(p1, np.logical_not(p2))] = 2
+        part[np.logical_and(np.logical_not(p1), p2)] = 3
+        part[np.logical_and(np.logical_not(p1), np.logical_not(p2))] = 4
 
         co.generate_coarse_grid(gb, part)
 
@@ -255,8 +255,8 @@ class BasicsTest( unittest.TestCase ):
                 else:
                     raise ValueError('Grid not found')
 
-            assert np.array_equal(indices, known_indices)
-            assert np.array_equal(faces, known)
+            assert np.array_equal(indices, np.array(known_indices))
+            assert np.array_equal(faces, np.array(known))
 
 #------------------------------------------------------------------------------#
 
@@ -303,7 +303,7 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test0(self):
-        f = np.array([[1, 1], [0, 2]])
+        f = np.array([[1., 1.], [0., 2.]])
         gb = meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
@@ -322,7 +322,7 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test1(self):
-        f = np.array([[1, 1], [0, 1]])
+        f = np.array([[1., 1.], [0., 1.]])
         gb = meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
@@ -341,7 +341,7 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test2(self):
-        f = np.array([[1, 1], [0, 1]])
+        f = np.array([[1., 1.], [0., 1.]])
         gb = meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
@@ -364,7 +364,7 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test3(self):
-        f = np.array([[1, 1], [1, 2]])
+        f = np.array([[1., 1.], [1., 2.]])
         gb = meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
@@ -383,7 +383,7 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test4(self):
-        f = np.array([[1, 1], [1, 2]])
+        f = np.array([[1., 1.], [1., 2.]])
         gb = meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
@@ -406,8 +406,8 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_cross_test5(self):
-        f1 = np.array([[3, 3], [1, 5]])
-        f2 = np.array([[1, 5], [3, 3]])
+        f1 = np.array([[3., 3.], [1., 5.]])
+        f2 = np.array([[1., 5.], [3., 3.]])
         gb = meshing.cart_grid([f1, f2], [6, 6])
         gb.compute_geometry()
 
@@ -454,20 +454,20 @@ class BasicsTest( unittest.TestCase ):
                 else:
                     raise ValueError('Grid not found')
 
-            assert np.array_equal(faces, known)
-            assert np.array_equal(indices, known_indices)
+            assert np.array_equal(faces, np.array(known))
+            assert np.array_equal(indices, np.array(known_indices))
 
 #------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_cross_test6(self):
-        f1 = np.array([[3, 3], [1, 5]])
-        f2 = np.array([[1, 5], [3, 3]])
+        f1 = np.array([[3., 3.], [1., 5.]])
+        f2 = np.array([[1., 5.], [3., 3.]])
         gb = meshing.cart_grid([f1, f2], [6, 6])
         gb.compute_geometry()
 
         seeds = co.generate_seeds(gb)
         known_seeds = np.array([8, 9, 26, 27, 13, 16, 19, 22])
-        assert np.array_equal(seeds, known_seeds)
+        assert np.array_equal(np.sort(seeds), np.sort(known_seeds))
 
         part = co.create_partition(co.tpfa_matrix(gb), cdepth=3, seeds=seeds)
         co.generate_coarse_grid(gb, part)
@@ -512,15 +512,15 @@ class BasicsTest( unittest.TestCase ):
                 else:
                     raise ValueError('Grid not found')
 
-            assert np.array_equal(faces, known)
-            assert np.array_equal(indices, known_indices)
+            assert np.array_equal(faces, np.array(known))
+            assert np.array_equal(indices, np.array(known_indices))
 
 #------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_cross_test7(self):
         N = 20
-        f1 = np.array([[N/2, N/2], [1, N-1]])
-        f2 = np.array([[1, N-1], [N/2, N/2]])
+        f1 = np.array([[N/2., N/2.], [1., N-1.]])
+        f2 = np.array([[1., N-1.], [N/2., N/2.]])
         gb = meshing.cart_grid([f1, f2], [N, N])
         gb.compute_geometry()
 
@@ -605,7 +605,7 @@ class BasicsTest( unittest.TestCase ):
                 else:
                     raise ValueError('Grid not found')
 
-            assert np.array_equal(faces, known)
-            assert np.array_equal(indices, known_indices)
+            assert np.array_equal(faces, np.array(known))
+            assert np.array_equal(indices, np.array(known_indices))
 
 #------------------------------------------------------------------------------#
