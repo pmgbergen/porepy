@@ -2,14 +2,14 @@ from __future__ import division
 import numpy as np
 import scipy.sparse as sps####
 import unittest
-from porepy.fracs import meshing
+from porepy.fracs import meshing, simplex
 import porepy.utils.comp_geom as cg
+from porepy.utils.errors import error
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
 
 from porepy.numerics.fv import mpfa, tpfa, tpfa_coupling
-from porepy.numerics.mixed_dim import coupler
-
+from porepy.numerics.mixed_dim import coupler, condensation
 
 #------------------------------------------------------------------------------#
 
@@ -62,6 +62,12 @@ class BasicsTest( unittest.TestCase ):
 
             d['param'] = param
 
+        gb.add_edge_prop('param')
+        for e, d in gb.edges_props():
+            g_h = gb.sorted_nodes_of_edge(e)[1]
+            d['param'] = Parameters(g_h)
+
+
         coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         A, rhs = solver_coupler.matrix_rhs(gb)
@@ -80,9 +86,9 @@ class BasicsTest( unittest.TestCase ):
         
         for _, d in gb:            
             if d['node_number'] == 0:
-                assert np.allclose( d['discharge'], d_0, rtol, atol)
+                assert np.allclose( d['param'].get_discharge(), d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['discharge'], d_1, rtol, atol)
+                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
                 
         assert np.allclose(p, p_known, rtol, atol)
 
@@ -132,6 +138,11 @@ class BasicsTest( unittest.TestCase ):
             param.set_bc_val(solver, bc_val)
 
             d['param'] = param
+            
+        gb.add_edge_prop('param')
+        for e, d in gb.edges_props():
+            g_h = gb.sorted_nodes_of_edge(e)[1]
+            d['param'] = Parameters(g_h)
 
         coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
@@ -150,17 +161,116 @@ class BasicsTest( unittest.TestCase ):
         atol = rtol
         
         for _, d in gb:
-            print('d_{} = np.'.format(d['node_number']), repr(d['discharge']))
+            
             if d['node_number'] == 0:
-                assert np.allclose( d['discharge'], d_0, rtol, atol)
+                assert np.allclose( d['param'].get_discharge(), d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['discharge'], d_1, rtol, atol)
+                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
                 
         assert np.allclose(p, p_known, rtol, atol)
         
 
 
+    def test_0d_elimination_fluxes_2d_1d_cross(self):
+        f1 = np.array([[0, 1],
+                       [.4, .4]])
+        f2 = np.array([[.5, .5],
+                       [0, 1]])
+        domain = {'xmin': 0, 'ymin': 0, 'xmax':1, 'ymax':1}
+        mesh_size = 0.4
+        mesh_kwargs = {}
+        mesh_kwargs['mesh_size'] = {'mode': 'constant',
+                            'value': mesh_size, 'bound_value': mesh_size}
+        gb = meshing.simplex_grid( [f1, f2],domain,**mesh_kwargs)
+        gb.compute_geometry()
+        gb.assign_node_ordering()
         
+        # Enforce node orderning because of Python 3.5 and 2.7.
+        # Don't do it in general.
+        # cell_centers_1 = np.array([[  7.50000000e-01, 2.500000000e-01],
+        #                            [  5.00000000e-01, 5.00000000e-01],
+        #                            [ -5.55111512e-17, 5.55111512e-17]])
+        # cell_centers_2 = np.array([[  5.00000000e-01, 5.00000000e-01],
+        #                            [  7.50000000e-01, 2.500000000e-01],
+        #                            [ -5.55111512e-17, 5.55111512e-17]])
+
+        # for g, d in gb:
+        #     if g.dim == 1:
+        #         if np.allclose(g.cell_centers, cell_centers_1):
+        #             d['node_number'] = 1
+        #         elif np.allclose(g.cell_centers, cell_centers_2):
+        #             d['node_number'] = 2
+        #         else:
+        #             raise ValueError('Gri
+        #            d not found')
+                
+        tol = 1e-3
+        solver = tpfa.Tpfa()
+        gb.add_node_props(['param'])
+        a = 1e-2
+        for g, d in gb:
+            param = Parameters(g)
+
+            a_dim = np.power(a, gb.dim_max() - g.dim)
+            aperture = np.ones(g.num_cells)*a_dim
+            param.set_aperture(aperture)
+
+            kxx = np.ones(g.num_cells) * np.power(1e3, g.dim<gb.dim_max())
+            #print(kxx, 'dim', g.dim)
+            p = tensor.SecondOrder(3,kxx,kyy=kxx,kzz=kxx)
+            #print(p.perm)
+            param.set_tensor('flow', p)
+            bound_faces = g.get_boundary_faces()
+            bound_face_centers = g.face_centers[:, bound_faces]
+
+            right = bound_face_centers[0, :] > 1 - tol
+            left = bound_face_centers[0, :] < tol
+
+            labels = np.array(['neu'] * bound_faces.size)
+            labels[right] = ['dir']
+
+            bc_val = np.zeros(g.num_faces)
+            bc_dir = bound_faces[right]
+            bc_neu = bound_faces[left]
+            bc_val[bc_dir] = g.face_centers[0,bc_dir]
+            bc_val[bc_neu] = -g.face_areas[bc_neu]*a_dim
+            
+            param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val(solver, bc_val)
+
+            d['param'] = param
+
+        gb.add_edge_prop('param')
+        for e, d in gb.edges_props():
+            g_h = gb.sorted_nodes_of_edge(e)[1]
+            d['param'] = Parameters(g_h)
+
+        coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
+        solver_coupler = coupler.Coupler(solver, coupling_conditions)
+        A, rhs = solver_coupler.matrix_rhs(gb)
+
+        
+        
+        p = sps.linalg.spsolve(A, rhs)
+        p_cond, p_red, _, _ = condensation.solve_static_condensation(\
+                                                    A, rhs, gb, dim=0)
+
+        
+        
+        solver_coupler.split(gb, "p_cond", p_cond)
+        solver_coupler.split(gb, "p", p)
+        
+        dim_to_remove = 0
+        
+        gb_r = gb.duplicate_without_dimension(dim_to_remove,
+                                              compute_new_fluxes=True)
+        solver_coupler.split(gb_r, "p", p_red)
+        coupling_conditions.compute_discharges(gb_r)
+       
+        tol = 1e-10
+        assert((np.amax(np.absolute(p-p_cond))) < tol)        
+        assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
+
 #------------------------------------------------------------------------------#
 # Left out due to problems with fracture face id: not the same each time the grids
 # are generated.
@@ -264,9 +374,11 @@ class BasicsTest( unittest.TestCase ):
         
 #         rtol = 1e-6
 #         atol = rtol
+
     
 #         for _, d in gb:
 #             n = d['node_number']
+
 #             print('n',n)
 #             print('d',d['discharge'])
 #             print(discharges_known[n])
@@ -332,4 +444,5 @@ def fluxes_2d_1d_left_right_dir_neu():
                           -4.99442570e-03,  -5.24244319e-07])
     d_1 = np.array([ -1.01001192e-05,  -1.11486078e-05,  -1.00000000e-02])
     return d_0, d_1
+#------------------------------------------------------------------------------#
 

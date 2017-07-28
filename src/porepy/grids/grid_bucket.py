@@ -10,7 +10,8 @@ import numpy as np
 import networkx
 
 from porepy.utils import setmembership
-
+from porepy.numerics.mixed_dim import condensation
+from porepy.params.data import Parameters
 
 class GridBucket(object):
     """
@@ -135,6 +136,22 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
+    def sort_multiple_nodes(self, nodes): 
+        """ 
+        Sort all the nodes according to node number. 
+ 
+        Parameters: 
+            nodes: List of graph nodes. 
+ 
+        Returns: 
+            sorted_nodes: The same nodes, sorted. 
+ 
+        """ 
+        assert self.has_nodes_prop(nodes,'node_number') 
+         
+        return sorted(nodes, key = lambda n: self.node_prop( n, 'node_number')) 
+ 
+#------------------------------------------------------------------------------# 
     def nodes_of_edge(self, e):
         """
         Obtain the vertices of an edge.
@@ -399,7 +416,7 @@ class GridBucket(object):
         for gp in np.atleast_2d(grid_pairs):
             if tuple(gp) in self.graph.edges():
                 prop_list.append(self.graph.edge[gp[0]][gp[1]][key])
-            elif tuple(gp[::-1]) in self.graph.edges():
+            elif tuple(gp[::-1]) in self.graph.edges():                
                 prop_list.append(self.graph.edge[gp[1]][gp[0]][key])
             else:
                 raise KeyError('Unknown edge')
@@ -653,15 +670,17 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def duplicate_without_dimension(self, dim):
+    def duplicate_without_dimension(self, dim, compute_new_fluxes=False):
         """
         Remove all the nodes of dimension dim and add new edges between their
         neighbors by calls to remove_node.
 
         """
         gb_copy = self.copy()
-        for g in gb_copy.grids_of_dimension(dim):
-            gb_copy.eliminate_node(g)
+        grids_of_dim=gb_copy.grids_of_dimension(dim)
+        gb_copy.add_edge_prop('cell_cells')
+        for g in grids_of_dim:
+            gb_copy.eliminate_node(g, compute_new_fluxes)
 
         return gb_copy
 
@@ -671,17 +690,18 @@ class GridBucket(object):
         """
         Given two 1d grids meeting at a 0d node (to be removed), find which two
         faces meet at the intersection (one from each grid) and build the connection
-        matrix face_faces.
+        matrix cell_cells.
         The lower dimensional node (corresponding to the first dimension, cells,
         in face_cells) is first in gb.sorted_nodes_of_edge. To be consistent with
-        this, the grid corresponding to the first dimension of face_faces should
+        this, the grid corresponding to the first dimension of cell_cells should
         be the first grid of the node sorting.
 
         Parameters:
             n1 and n2: The two 1d grids.
             zero_d_node: The 0d grid to be removed.
         Returns: The sparse matrix face_faces (n1.num_faces x n2.num_faces, with n1
-            and n2 sorted), the 1d-1d equivalent of the face_cells matrix.
+            and n2 sorted) and cell_cells (n1.num_cells x n2.num_cells), the 1d-1d 
+            equivalent of the face_cells matrix.
         """
         # Sort nodes according to node_number
         n1, n2 = self.sorted_nodes_of_edge([n1, n2])
@@ -689,21 +709,25 @@ class GridBucket(object):
         # Identify the faces connecting the neighbors to the grid to be removed
         fc1 = self.edge_props([n1, zero_d_node])
         fc2 = self.edge_props([n2, zero_d_node])
-        _, face_number_1, _ = sps.find(fc1['face_cells'])
-        _, face_number_2, _ = sps.find(fc2['face_cells'])
+        cells_1, face_number_1, _ = sps.find(fc1['face_cells'])
+        cells_2, face_number_2, _ = sps.find(fc2['face_cells'])
 
-        # Connect the two remaining grids grids through the face_faces matrix,
+        # Connect the two remaining grid through the cell_cells matrix,
         # to be placed as a face_cells
         # substitute.
         face_faces = sps.csc_matrix(
-            (np.array([True]), (face_number_1, face_number_2)),
+            (np.array([True]*face_number_1.shape[0]), (face_number_1, face_number_2)),
             (n1.num_faces, n2.num_faces))
-
-        return face_faces
+        # NB ORDERING!        
+        cell_cells = sps.csc_matrix(
+            (np.array([True]*cells_1.shape[0]), (cells_2, cells_1)),
+            (n2.num_cells, n1.num_cells))
+        
+        return face_faces, cell_cells
 
 #------------------------------------------------------------------------------#
 
-    def eliminate_node(self, node):
+    def eliminate_node(self, node, compute_new_fluxes=False):
         """
         Remove the node (and the edges it partakes in) and add new direct
         connections (gb edges) between each of the neighbor pairs. A 0d node
@@ -711,21 +735,28 @@ class GridBucket(object):
 
         """
         # Identify neighbors
-        neighbors = self.node_neighbors(node)
+        neighbors = self.sort_multiple_nodes( self.node_neighbors(node) )
+        
         n_neighbors = len(neighbors)
+        
         # Add an edge between each neighbor pair
         for i in range(n_neighbors - 1):
             n1 = neighbors[i]
             for j in range(i + 1, n_neighbors):
                 n2 = neighbors[j]
-                face_faces = self.find_shared_face(n1, n2, node)
-                self.add_edge([n1, n2], face_faces)
-
+                face_faces, cell_cells = self.find_shared_face(n1, n2, node)
+                                
+                self.add_edge([n1, n2], cell_cells)
+                if compute_new_fluxes:
+                    self.add_edge_prop('param', [[n1,n2]],[Parameters(n2)])
+        if compute_new_fluxes:
+            condensation.new_coupling_fluxes(self, node, neighbors)
+        
         # Remove the node and update the ordering of the remaining nodes
         node_number = self.node_prop(node, 'node_number')
         self.remove_node(node)
         self.update_node_ordering(node_number)
-
+        
 #------------------------------------------------------------------------------#
 
     def apply_function_to_nodes(self, fct):

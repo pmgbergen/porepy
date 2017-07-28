@@ -43,39 +43,26 @@ class UpwindCoupling(AbstractCoupling):
 
         # 1d-1d
         if g_h.dim == g_l.dim:
-            faces_h, faces_l, _ = sps.find(data_edge['face_cells'])
-
-            faces0, _, sgn_h = sps.find(g_h.cell_faces)
-            sgn_h = sgn_h[np.unique(faces0, return_index=True)[1]]
-            discharge_h = sgn_h[faces_h] * discharge[faces_h]
-
-            faces1, _, sgn_l = sps.find(g_l.cell_faces)
-            sgn_l = sgn_l[np.unique(faces1, return_index=True)[1]]
-            # obs discharge SHOULD be indexed by faces_h, as it per convention is
-            # extracted from that grid (second in gb.sorted_nodes_of_edge):
-            discharge_l = sgn_l[faces_l] * discharge[faces_h]
-
-            # Determine which cells correspond to the faces
-            cell_faces_h = g_h.cell_faces.tocsr()[faces_h, :]
-            cells_h = cell_faces_h.nonzero()[1]
-            cell_faces_l = g_l.cell_faces.tocsr()[faces_l, :]
-            cells_l = cell_faces_l.nonzero()[1]
-
+            # Remember that face_cells are really cell-cell connections
+            # in this case
+            cells_h, cells_l,_ = sps.find(data_edge['face_cells'])
             diag_cc11 = np.zeros(g_l.num_cells)
-            np.add.at(diag_cc11, cells_l, np.sign(
-                discharge_l.clip(min=0)) * discharge_l)
             diag_cc00 = np.zeros(g_h.num_cells)
-            np.add.at(diag_cc11, cells_h, np.sign(
-                discharge_h.clip(min=0)) * discharge_h)
-
+            # Need only one discharge, from h to l. Positive values
+            # go from h to l.
+            
+            
+            d_00 = (np.sign(discharge.clip(min=0)) * discharge).sum(axis=1)
+            d_11 = (np.sign(discharge.clip(max=0)) * discharge).sum(axis=0)
+            
+            
+            np.add.at(diag_cc00, range(g_h.num_cells), d_00)
+            np.add.at(diag_cc11, range(g_l.num_cells), d_11)
             # Compute the outflow from the second to the first grid
-            cc[1, 0] = sps.coo_matrix((discharge_l.clip(max=0), (cells_l, cells_h)),
-                                      shape=(dof[1], dof[0]))
-
-            # Compute the inflow from the first to the second grid
-            cc[0, 1] = sps.coo_matrix((discharge_h.clip(max=0), (cells_h, cells_l)),
-                                      shape=(dof[0], dof[1]))
-
+            cc[1, 0] = sps.coo_matrix(-discharge.clip(min=0).T)
+            # Compute the inflow to the first from the second grid
+            cc[0, 1] = sps.coo_matrix(discharge.clip(max=0))    
+            
         else:
             # Recover the information for the grid-grid mapping
             cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
@@ -105,6 +92,7 @@ class UpwindCoupling(AbstractCoupling):
         cc[1, 1] = sps.dia_matrix((diag_cc11, 0), shape=(dof[1], dof[1]))
 
         cc[0, 0] = sps.dia_matrix((diag_cc00, 0), shape=(dof[0], dof[0]))
+       
         return cc
 
 #------------------------------------------------------------------------------#
@@ -138,7 +126,13 @@ class UpwindCoupling(AbstractCoupling):
         aperture_h = data_h['param'].get_aperture()
         aperture_l = data_l['param'].get_aperture()
         phi_l = data_l['param'].get_porosity()
-
+        if g_h.dim==g_l.dim:
+            return np.inf#########
+            cells_h, cells_l,_ = sps.find(data_edge['face_cells'])
+            not_zero = ~np.isclose(np.zeros(discharge.size), discharge, atol = 0)
+            if not np.any(not_zero):
+                return np.Inf
+            
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
 
@@ -150,7 +144,10 @@ class UpwindCoupling(AbstractCoupling):
         cells_l = cells_l[not_zero]
         faces_h = faces_h[not_zero]
         # Mapping from faces_h to cell_h
+        
         cell_faces_h = g_h.cell_faces.tocsr()[faces_h, :]
+        print('cfh', cell_faces_h)
+        print(cell_faces_h.nonzero()[1], not_zero)
         cells_h = cell_faces_h.nonzero()[1][not_zero]
         # Retrieve and map additional data
         aperture_h = aperture_h[cells_h]
