@@ -7,6 +7,7 @@ from porepy.numerics.mixed_dim.solver import Solver
 from porepy.params.tensor import SecondOrder, FourthOrder
 from porepy.params.bc import BoundaryCondition
 
+
 class Parameters(object):
     """ Class to store all physical parameters used by solvers.
 
@@ -463,7 +464,7 @@ class Parameters(object):
         if hasattr(self, '_bc_flow'):
             return self._bc_flow
         else:
-            return BoundaryCondition(g)
+            return BoundaryCondition(self.g)
 
     bc_flow = property(get_bc_flow)
 
@@ -475,7 +476,7 @@ class Parameters(object):
         if hasattr(self, '_bc_transport'):
             return self._bc_transport
         else:
-            return BoundaryCondition(g)
+            return BoundaryCondition(self.g)
 
     conductivity = property(get_conductivity)
 
@@ -485,7 +486,7 @@ class Parameters(object):
         if hasattr(self, '_bc_mechanics'):
             return self._bc_mechanics
         else:
-            return BoundaryCondition(g)
+            return BoundaryCondition(self.g)
 
     stiffness = property(get_stiffness)
 

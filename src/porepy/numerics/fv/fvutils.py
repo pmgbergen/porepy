@@ -181,8 +181,9 @@ def compute_dist_face_cell(g, subcell_topology, eta):
     dims = g.dim
 
     _, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
-    cols += matrix_compression.rldecode(np.cumsum(blocksz)-blocksz[0], blocksz)
-    eta_vec = eta*np.ones(subcell_topology.fno.size)
+    cols += matrix_compression.rldecode(np.cumsum(blocksz) -
+                                        blocksz[0], blocksz)
+    eta_vec = eta * np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
     bnd = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.squeeze()
                       == 1).squeeze()
@@ -195,6 +196,7 @@ def compute_dist_face_cell(g, subcell_topology, eta):
     ind_ptr = np.hstack((np.arange(0, cols.size, dims), cols.size))
     mat = sps.csr_matrix((dist.ravel('F'), cols.ravel('F'), ind_ptr))
     return subcell_topology.pair_over_subfaces(mat)
+
 
 def determine_eta(g):
     """ Set default value for the location of continuity point eta in MPFA and
@@ -213,19 +215,21 @@ def determine_eta(g):
     """
 
     if 'StructuredTriangleGrid' in g.name:
-        return 1/3
+        return 1 / 3
     elif 'TriangleGrid' in g.name:
-        return 1/3
+        return 1 / 3
     elif 'StructuredTetrahedralGrid' in g.name:
-        return 1/3
+        return 1 / 3
     elif 'TetrahedralGrid' in g.name:
-        return 1/3
+        return 1 / 3
     else:
         return 0
 
 #------------- Methods related to block inversion ----------------------------
 
 # @profile
+
+
 def invert_diagonal_blocks(mat, s, method=None):
     """
     Invert block diagonal matrix.
@@ -275,7 +279,7 @@ def invert_diagonal_blocks(mat, s, method=None):
         for b in range(sz.size):
             n = sz[b]
             n2 = n * n
-            i = p1 + np.arange(n+1)
+            i = p1 + np.arange(n + 1)
             # Picking out the sub-matrices here takes a lot of time.
             v[p2 + np.arange(n2)] = np.linalg.inv(a[i[0]:i[-1],
                                                     i[0]:i[-1]].A).ravel()
@@ -382,7 +386,7 @@ def invert_diagonal_blocks(mat, s, method=None):
                     for _ in range(num_cols_per_row[iter2 +
                                                     block_row_starts_ind[iter1]]):
                         loc_col = ind[data_counter] \
-                                  - block_row_starts_ind[iter1]
+                            - block_row_starts_ind[iter1]
                         loc_mat[iter2, loc_col] = data[data_counter]
                         data_counter += 1
 
@@ -437,7 +441,7 @@ def block_diag_matrix(vals, sz):
     row, _ = block_diag_index(sz)
     # This line recovers starting indices of the rows.
     indptr = np.hstack((np.zeros(1),
-                        np.cumsum(matrix_compression\
+                        np.cumsum(matrix_compression
                                   .rldecode(sz, sz)))).astype('int32')
     return sps.csr_matrix((vals, row, indptr))
 
@@ -470,7 +474,7 @@ def block_diag_index(m, n=None):
     start = np.hstack((np.zeros(1, dtype='int'), m))
     pos = np.cumsum(start)
     p1 = pos[0:-1]
-    p2 = pos[1:]-1
+    p2 = pos[1:] - 1
     p1_full = matrix_compression.rldecode(p1, n)
     p2_full = matrix_compression.rldecode(p2, n)
 
@@ -481,6 +485,7 @@ def block_diag_index(m, n=None):
     return i, j
 
 #------------------- End of methods related to block inversion ---------------
+
 
 def expand_indices_nd(ind, nd, direction=1):
     """
@@ -510,6 +515,7 @@ def expand_indices_nd(ind, nd, direction=1):
     new_ind = new_ind.ravel(direction)
     return new_ind
 
+
 def map_hf_2_f(fno, subfno, nd):
     """
     Create mapping from half-faces to faces for vector problems.
@@ -530,6 +536,7 @@ def map_hf_2_f(fno, subfno, nd):
     hf2f = sps.coo_matrix((np.ones(hf.size), (hf, hfi)),
                           shape=(hf.max() + 1, hfi.max() + 1)).tocsr()
     return hf2f
+
 
 def scalar_divergence(g):
     """
@@ -578,6 +585,7 @@ def vector_divergence(g):
 
     return block_div.transpose()
 
+
 def zero_out_sparse_rows(A, rows, diag=None):
     """
     zeros out given rows from sparse csr matrix. Optionally also set values on
@@ -590,7 +598,6 @@ def zero_out_sparse_rows(A, rows, diag=None):
             on the eliminated rows.
 
     """
-
 
     # If matrix is not csr, it will be converted to csr, then the rows will be
     # zeroed, and the matrix converted back.
@@ -631,7 +638,6 @@ class ExcludeBoundaries(object):
     """
 
     def __init__(self, subcell_topology, bound, nd):
-
         """
         Define mappings to exclude boundary faces with dirichlet and neumann
         conditions
@@ -717,8 +723,8 @@ class ExcludeBoundaries(object):
 
 #-----------------End of class ExcludeBoundaries-----------------------------
 
-def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
 
+def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
     """ Obtain indices of cells and faces needed for a partial update of the
     discretization stencil.
 
@@ -802,20 +808,20 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
         active_vertexes[np.squeeze(np.where(cn * prim_cells > 0))] = 1
 
         # Faces of the vertexes, these will be the active faces.
-        active_face_ind = np.squeeze(np.where(g.face_nodes.transpose()\
-                                           * active_vertexes > 0))
+        active_face_ind = np.squeeze(np.where(g.face_nodes.transpose()
+                                              * active_vertexes > 0))
         active_faces[active_face_ind] = 1
 
         # Secondary vertexes, involved in at least one of the active faces,
         # that is, the faces to be updated. Corresponds to vertexes between o-o
         # above.
-        active_vertexes[np.squeeze(np.where(g.face_nodes\
-                                            * active_faces > 0))]=1
+        active_vertexes[np.squeeze(np.where(g.face_nodes
+                                            * active_faces > 0))] = 1
 
         # Finally, get hold of all cells that shares one of the secondary
         # vertexes.
-        cells_overlap = np.squeeze(np.where((cn.transpose()\
-                                            * active_vertexes) > 0))
+        cells_overlap = np.squeeze(np.where((cn.transpose()
+                                             * active_vertexes) > 0))
         # And we have our overlap!
         cell_ind = np.hstack((cell_ind, cells_overlap))
 
@@ -847,15 +853,15 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
 
         # The active faces are those sharing a vertex with the primary faces
         primary_vertex = np.zeros(g.num_nodes, dtype=np.bool)
-        primary_vertex[np.squeeze(np.where((g.face_nodes \
+        primary_vertex[np.squeeze(np.where((g.face_nodes
                                             * primary_faces) > 0))] = 1
-        active_face_ind = np.squeeze(np.where((g.face_nodes.transpose()\
+        active_face_ind = np.squeeze(np.where((g.face_nodes.transpose()
                                                * primary_vertex) > 0))
         active_faces[active_face_ind] = 1
 
         # Find vertexes of the active faces
         active_nodes = np.zeros(g.num_nodes, dtype=np.bool)
-        active_nodes[np.squeeze(np.where((g.face_nodes\
+        active_nodes[np.squeeze(np.where((g.face_nodes
                                           * active_faces) > 0))] = 1
 
         active_cells = np.zeros(g.num_cells, dtype=np.bool)
@@ -877,20 +883,20 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
         active_vertexes[nodes] = 1
 
         # Find cells that share these nodes
-        active_cells = np.squeeze(np.where((cn.transpose() \
+        active_cells = np.squeeze(np.where((cn.transpose()
                                             * active_vertexes) > 0))
         # Append the newly found active cells
         cell_ind = np.hstack((cell_ind, active_cells))
 
         # Multiply face_nodes.transpose() (e.g. node-faces) with the active
         # vertexes to get the number of active nodes perm face
-        num_active_face_nodes = np.array(g.face_nodes.transpose()\
-                                          * active_vertexes)
+        num_active_face_nodes = np.array(g.face_nodes.transpose()
+                                         * active_vertexes)
         # Total number of nodes per face
         num_face_nodes = np.array(g.face_nodes.sum(axis=0))
         # Active faces are those where all nodes are active.
         active_face_ind = np.squeeze(np.argwhere((num_active_face_nodes ==
-                                              num_face_nodes).ravel('F')))
+                                                  num_face_nodes).ravel('F')))
         active_faces[active_face_ind] = 1
 
     face_ind = np.squeeze(np.where(active_faces))
@@ -900,6 +906,7 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
     face_ind.sort()
     # Return, with data type int
     return cell_ind.astype('int'), face_ind.astype('int')
+
 
 def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
 
@@ -915,7 +922,7 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
                                          num_faces_loc * nd))
 
         cell_map = sps.csr_matrix((np.ones(num_cells_loc * nd),
-                                   (np.arange(num_cells_loc* nd),
+                                   (np.arange(num_cells_loc * nd),
                                     expand_indices_nd(loc_cells, nd))),
                                   shape=(num_cells_loc * nd,
                                          g.num_cells * nd))
@@ -927,3 +934,50 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
                                    (np.arange(num_cells_loc), loc_cells)),
                                   shape=(num_cells_loc, g.num_cells))
     return face_map, cell_map
+
+#------------------------------------------------------------------------------
+
+
+def compute_discharges(self, gb):
+    """
+    Computes discharges over all faces in the entire grid bucket given
+    pressures for all nodes, provided as node properties.
+
+    Parameter:
+        gb: grid bucket with the following data fields for all nodes/grids:
+                'flux': Internal discretization of fluxes.
+                'bound_flux': Discretization of boundary fluxes.
+                'p': Pressure values for each cell of the grid.
+                'bc_val': Boundary condition values.
+            and the following edge property field for all connected grids:
+                'coupling_flux': Discretization of the coupling fluxes.
+    Returns:
+        gb, the same grid bucket with the added field 'discharge' added to all
+        node data fields. Note that the fluxes between grids will be added doubly,
+        both to the data corresponding to the higher dimensional grid and as a
+        edge property.
+    """
+    gb.add_node_props(['discharge'])
+
+    for gr, da in gb:
+        if gr.dim > 0:
+            f, _, s = sps.find(gr.cell_faces)
+            _, ind = np.unique(f, return_index=True)
+            s = s[ind]
+            da['discharge'] = (da['flux'] * da['p']
+                               + da['bound_flux'] * da['bc_val'])
+
+    gb.add_edge_prop('discharge')
+    for e, data in gb.edges_props():
+        g1, g2 = gb.sorted_nodes_of_edge(e)
+        if data['face_cells'] is not None:
+            coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
+            pressures = gb.nodes_prop([g2, g1], 'p')
+            coupling_contribution = coupling_flux * \
+                np.concatenate(pressures)
+            flux2 = coupling_contribution + gb.node_prop(g2, 'discharge')
+            data2 = gb.node_props(g2)
+            data2['discharge'] = copy.deepcopy(flux2)
+            data['discharge'] = copy.deepcopy(flux2)
+
+    return gb

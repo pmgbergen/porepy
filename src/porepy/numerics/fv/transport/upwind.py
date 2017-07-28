@@ -4,6 +4,7 @@ import scipy.sparse as sps
 
 from porepy.numerics.mixed_dim.solver import Solver
 
+
 class Upwind(Solver):
     """
     Discretize a hyperbolic transport equation using a single point upstream
@@ -230,9 +231,9 @@ class Upwind(Solver):
         assert beta.size == 3
 
         if g.dim == 0:
-            return np.atleast_1d(np.dot(g.face_normals, face_apertures * beta))
+            return np.atleast_1d(np.dot(g.face_normals.ravel('F'), face_apertures * beta))
 
-        return np.array([np.dot(n, a * beta) \
-                             for n, a in zip(g.face_normals.T, face_apertures)])
+        return np.array([np.dot(n, a * beta)
+                         for n, a in zip(g.face_normals.T, face_apertures)])
 
 #------------------------------------------------------------------------------#
