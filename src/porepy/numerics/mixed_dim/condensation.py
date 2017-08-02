@@ -3,8 +3,6 @@ The static condensation or Schur complement proceedure
 It can e.g. be used to improve condition numbers when solving linear
 systems by removing the 0d fracture intersection cells.
 """
-
-
 import numpy as np
 import scipy.sparse as sps
 
@@ -94,7 +92,7 @@ def eliminate_dofs(A, rhs, to_be_eliminated, inverter=sps.linalg.inv):
         A_reduced (scipy.sparse.csr_matrix): The system matrix for the reduced system, i.e.,
             corresponding to the master dofs only. It is computed as the "master" part of 
             A minus the slave-master contribution: 
-                A_reduced = A_mm - A_ms A_ss⁻¹ A_sm 
+                A_reduced = A_mm - A_ms inv(A_ss) A_sm 
         rhs_reduced: The right hand side for the reduced system.
         Condensation_matrix: The matrix used for back-computation of the
             unknowns of the slaves once the reduced system has been solved.
@@ -214,4 +212,3 @@ def new_coupling_fluxes(gb, node, neighbours):
             id_1 = slice(global_idx[j], global_idx[j+1])
             cc_01 = all_cc.tocsr()[id_0, :].tocsc()[:,id_1]
             gb.add_edge_prop('coupling_flux', [[n_0,n_1]], [-cc_01])
-            
