@@ -11,7 +11,7 @@ from porepy.fracs import importer
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
 from porepy.numerics.mixed_dim import coupler
-from porepy.numerics.fv import tpfa, mpfa, tpfa_coupling
+from porepy.numerics.fv import tpfa, mpfa
 from porepy.utils.errors import error
 
 #------------------------------------------------------------------------------#
@@ -99,7 +99,7 @@ else:
     l2_norm = 19.8904769004
 
 # Set coupling conditions and discretize
-coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
+coupling_conditions = tpfa.TpfaCoupling(solver)
 solver_coupler = coupler.Coupler(solver, coupling_conditions)
 A, b = solver_coupler.matrix_rhs(gb)
 

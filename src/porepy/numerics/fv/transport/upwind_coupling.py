@@ -62,7 +62,7 @@ class UpwindCoupling(AbstractCoupling):
             cc[1, 0] = sps.coo_matrix(-discharge.clip(min=0).T)
             # Compute the inflow to the first from the second grid
             cc[0, 1] = sps.coo_matrix(discharge.clip(max=0))    
-            
+
         else:
             # Recover the information for the grid-grid mapping
             cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
@@ -88,7 +88,7 @@ class UpwindCoupling(AbstractCoupling):
             # Compute the inflow from the higher to the lower dimensional grid
             cc[0, 1] = sps.coo_matrix((discharge.clip(max=0), (cells_h, cells_l)),
                                       shape=(dof[0], dof[1]))
-
+            
         cc[1, 1] = sps.dia_matrix((diag_cc11, 0), shape=(dof[1], dof[1]))
 
         cc[0, 0] = sps.dia_matrix((diag_cc00, 0), shape=(dof[0], dof[0]))
@@ -144,10 +144,7 @@ class UpwindCoupling(AbstractCoupling):
         cells_l = cells_l[not_zero]
         faces_h = faces_h[not_zero]
         # Mapping from faces_h to cell_h
-        
         cell_faces_h = g_h.cell_faces.tocsr()[faces_h, :]
-        print('cfh', cell_faces_h)
-        print(cell_faces_h.nonzero()[1], not_zero)
         cells_h = cell_faces_h.nonzero()[1][not_zero]
         # Retrieve and map additional data
         aperture_h = aperture_h[cells_h]
