@@ -15,7 +15,7 @@ from porepy.fracs import meshing
 import porepy.utils.comp_geom as cg
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
-from porepy.numerics.fv import tpfa, tpfa_coupling
+from porepy.numerics.fv import tpfa
 from porepy.numerics.mixed_dim import coupler, condensation
 from porepy.utils.errors import error
 
@@ -73,7 +73,7 @@ class BasicsTest( unittest.TestCase ):
             param.set_bc_val(solver, bc_val)
             d['param'] = param
                 
-        coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
+        coupling_conditions = tpfa.TpfaCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         A, rhs = solver_coupler.matrix_rhs(gb)
         
@@ -142,7 +142,7 @@ class BasicsTest( unittest.TestCase ):
 
        
 
-        coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
+        coupling_conditions = tpfa.TpfaCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         A, rhs = solver_coupler.matrix_rhs(gb)
 

@@ -61,6 +61,7 @@ def test_tpfa_cart_2d():
     assert b[0, 12] == 2
 
     # Cell 3 has one Dirichlet, one Neumann face
+    print(a)
     assert a[2, 2] == 4
     assert a[2, 1] == -1
     assert a[2, 5] == -1

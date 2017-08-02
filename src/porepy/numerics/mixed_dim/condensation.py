@@ -139,7 +139,7 @@ def eliminate_dofs(A, rhs, to_be_eliminated, inverter=sps.linalg.inv):
 
 def new_coupling_fluxes(gb, node, neighbours): 
     """ 
-    Adds new coupling_flux fields to the new edges arising through  
+    Adds new coupling_flux data fields to the new gb edges arising through  
     the removal of one node. 
     Idea: set up a condensation for the local system of old coupling_fluxes 
     for the removed nodes and its n_neighbours neighbour nodes/grids. 
@@ -148,8 +148,7 @@ def new_coupling_fluxes(gb, node, neighbours):
     neighbours = gb.sort_multiple_nodes(neighbours)
     # sorted from "lowest" to "highest", we want the opposite 
     neighbours = neighbours[::-1] 
-    n_cells_l = node.num_cells 
-     
+    n_cells_l = node.num_cells  
     n_neighbours = len(neighbours) 
 
     # Initialize coupling matrix (see coupler.py, matrix_rhs)
@@ -208,15 +207,11 @@ def new_coupling_fluxes(gb, node, neighbours):
             d_edge = gb.edge_props([n_0, n_0])
             d_edge['coupling_flux'] = sps.csr_matrix(c_f)
             d_edge['param'] = Parameters(n_0)
-            #d_edge['cell_cells'] = cell_cells
             
         # Get the contribution between different grids
         for j in range(i+1, n_neighbours): 
             n_1 = neighbours[j]
-            
             id_1 = slice(global_idx[j], global_idx[j+1])
             cc_01 = all_cc.tocsr()[id_0, :].tocsc()[:,id_1]
-            
-            c_f = -cc_01
-            gb.add_edge_prop('coupling_flux', [[n_0,n_1]], [c_f])
+            gb.add_edge_prop('coupling_flux', [[n_0,n_1]], [-cc_01])
             
