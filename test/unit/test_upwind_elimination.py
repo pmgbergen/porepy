@@ -3,13 +3,12 @@ import numpy as np
 import scipy.sparse as sps
 import unittest
 
-from porepy.fracs import meshing, simplex
-import porepy.utils.comp_geom as cg
+from porepy.fracs import meshing
 from porepy.utils.errors import error
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
 
-from porepy.numerics.fv import mpfa, tpfa, fvutils
+from porepy.numerics.fv import tpfa, fvutils
 from porepy.numerics.fv.transport import upwind, upwind_coupling
 from porepy.numerics.mixed_dim import coupler, condensation
 #------------------------------------------------------------------------------#
@@ -24,7 +23,7 @@ class BasicsTest( unittest.TestCase ):
     def test_upwind_2d_1d_cross_with_elimination(self):
         """
         Simplest possible elimination scenario, one 0d-grid removed. Check on upwind
-        matrix, rhs and solution, no check of time step estimate. Full solution included
+        matrix, rhs, solution and time step estimate. Full solution included
         (as comments) for comparison purposes if test breaks.
         """
         f1 = np.array([[0, 1],
@@ -143,15 +142,17 @@ class BasicsTest( unittest.TestCase ):
         advection_coupler = coupler.Coupler(advection_discr, advection_coupling_conditions)
         #U, rhs_u = advection_coupler.matrix_rhs(gb)
         U_r, rhs_u_r = advection_coupler.matrix_rhs(gb_r)
-        
-                    
+        deltaT = np.amin(gb_r.apply_function(advection_discr.cfl,
+                                             advection_coupling_conditions.cfl).data)
+                            
         #theta = sps.linalg.spsolve(U, rhs_u )
         theta_r = sps.linalg.spsolve(U_r, rhs_u_r )
         #coupling.split(gb, 'theta', theta)
         #coupling.split(gb_r, 'theta', theta_r)
         
-        U_known, rhs_known, theta_known = known_for_elimination()
+        U_known, rhs_known, theta_known, deltaT_known = known_for_elimination()
         tol = 1e-7
+        assert(np.isclose(deltaT, deltaT_known, tol, tol))
         assert((np.amax(np.absolute(U_r-U_known))) < tol)
         assert((np.amax(np.absolute(rhs_u_r-rhs_known))) < tol)
         assert((np.amax(np.absolute(theta_r-theta_known))) < tol)        
@@ -350,6 +351,7 @@ def known_for_elimination():
     rhs = np.array([ 0.25 ,  0.25 ,  0.25 ,  0.25 ,  0.005,  0.005,  0.005,  0.005])
     t = np.array([ 0.5,         5.24204316,  0.5,         5.24204316,  0.36083555,
                    0.5,                   0.51514807,  0.51514807])
-    return U, rhs, t
-
+    dT = 0.00274262835006
+    
+    return U, rhs, t, dT
 

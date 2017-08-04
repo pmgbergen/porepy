@@ -6,7 +6,6 @@ systems by removing the 0d fracture intersection cells.
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.grids import grid_bucket
 from porepy.params.data import Parameters
 
 

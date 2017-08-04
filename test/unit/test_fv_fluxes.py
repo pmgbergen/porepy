@@ -1,16 +1,20 @@
+"""
+Tests for the FV flux back-computation for grid buckets.
+Solves simple pressure problems, computes all fluxes on gb nodes and edges
+and compares to known solutions.
+"""
 from __future__ import division
 import numpy as np
-import scipy.sparse as sps####
+import scipy.sparse as sps
 import unittest
+
 from porepy.fracs import meshing, simplex
 import porepy.utils.comp_geom as cg
 from porepy.utils.errors import error
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
-
 from porepy.numerics.fv import mpfa, tpfa, fvutils
 from porepy.numerics.mixed_dim import coupler, condensation
-from porepy.viz import plot_grid
 
 #------------------------------------------------------------------------------#
 
@@ -264,9 +268,7 @@ class BasicsTest( unittest.TestCase ):
         coupling.split(gb_r, "p", p_red)
         fvutils.compute_discharges(gb)
         fvutils.compute_discharges(gb_r)
-        #plot_grid.plot_grid(gb, 'p')
-        #plot_grid.plot_grid(gb_r, 'p')
-         # Known discharges
+        # Known discharges
         d_0, d_1, d_2 = fluxes_2d_1d_cross_with_elimination()
 
         # Check node fluxes, ...
@@ -331,7 +333,6 @@ class BasicsTest( unittest.TestCase ):
                     assert np.allclose( pa.get_discharge(), d_22, rtol, atol)
         # ... and pressures
         tol = 1e-10
-        #plot_grid.plot_grid(gb_r, 'p')
         assert((np.amax(np.absolute(p-p_cond))) < tol)        
         assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
 
@@ -553,4 +554,3 @@ def coupling_fluxes_2d_1d_cross_with_el():
     return  d_11, d_21, d_22
 #------------------------------------------------------------------------------#
 
-BasicsTest().test_tpfa_fluxes_2d_1d_cross_with_elimination()

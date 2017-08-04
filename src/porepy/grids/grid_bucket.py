@@ -709,9 +709,10 @@ class GridBucket(object):
         # Identify the faces connecting the neighbors to the grid to be removed
         fc1 = self.edge_props([n1, zero_d_node])
         fc2 = self.edge_props([n2, zero_d_node])
-        cells_1, face_number_1, _ = sps.find(fc1['face_cells'])
-        cells_2, face_number_2, _ = sps.find(fc2['face_cells'])
-
+        _, face_number_1 = fc1['face_cells'].nonzero()
+        _, face_number_2 = fc2['face_cells'].nonzero()
+        _,cells_1 = n1.cell_faces[face_number_1].nonzero()
+        _,cells_2 = n2.cell_faces[face_number_2].nonzero()
         # Connect the two remaining grid through the cell_cells matrix,
         # to be placed as a face_cells
         # substitute.
@@ -719,9 +720,10 @@ class GridBucket(object):
             (np.array([True]*face_number_1.shape[0]), (face_number_1, face_number_2)),
             (n1.num_faces, n2.num_faces))
         # NB ORDERING!        
-        cell_cells = sps.csc_matrix(
-            (np.array([True]*cells_1.shape[0]), (cells_2, cells_1)),
-            (n2.num_cells, n1.num_cells))
+        cell_cells = np.zeros((n2.num_cells, n1.num_cells), dtype=bool)
+        rows = np.tile(cells_2,(cells_1.size,1))
+        cols = np.tile(cells_1,(cells_2.size,1)).T
+        cell_cells[rows,cols] = True
         
         return face_faces, cell_cells
 
@@ -745,7 +747,6 @@ class GridBucket(object):
             for j in range(i + 1, n_neighbors):
                 n2 = neighbors[j]
                 face_faces, cell_cells = self.find_shared_face(n1, n2, node)
-                                
                 self.add_edge([n1, n2], cell_cells)
                 if compute_new_fluxes:
                     self.add_edge_prop('param', [[n1,n2]],[Parameters(n2)])

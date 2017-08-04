@@ -12,7 +12,6 @@ import scipy.sparse as sps
 import unittest
 
 from porepy.fracs import meshing
-import porepy.utils.comp_geom as cg
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
 from porepy.numerics.fv import tpfa

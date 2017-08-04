@@ -12,7 +12,6 @@ import scipy.sparse as sps
 import unittest
 
 from porepy.fracs import meshing
-import porepy.utils.comp_geom as cg
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
 from porepy.numerics.fv import tpfa
@@ -89,8 +88,7 @@ class BasicsTest( unittest.TestCase ):
         assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
 
 
-#------------------------------------------------------------------------------#
-   
+#------------------------------------------------------------------------------#  
 
 
     def test_1d_elimination_3d_2d_1d(self):

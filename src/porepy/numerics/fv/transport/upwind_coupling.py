@@ -127,12 +127,27 @@ class UpwindCoupling(AbstractCoupling):
         aperture_l = data_l['param'].get_aperture()
         phi_l = data_l['param'].get_porosity()
         if g_h.dim==g_l.dim:
-            return np.inf#########
-            cells_h, cells_l,_ = sps.find(data_edge['face_cells'])
-            not_zero = ~np.isclose(np.zeros(discharge.size), discharge, atol = 0)
+            # More or less same as below, except we have cell_cells in the place
+            # of face_cells (see grid_bucket.duplicate_without_dimension).
+            phi_h = data_h['param'].get_porosity()
+            cells_h, cells_l = data_edge['face_cells'].nonzero()
+            d1 = discharge[cells_h,cells_l]
+            not_zero = ~np.isclose(np.zeros(d1.shape), d1, atol = 0)
             if not np.any(not_zero):
                 return np.Inf
             
+            diff = g_h.cell_centers[:,cells_h]-g_l.cell_centers[:,cells_l]
+            dist = np.linalg.norm(diff, 2, axis=0)
+
+            # Use minimum of cell values for convenience
+            phi_l = phi_l[cells_l]
+            phi_h = phi_h[cells_h]
+            apt_h = aperture_h[cells_h]
+            apt_l = aperture_l[cells_l]
+            coeff = np.minimum(phi_h,phi_l)*np.minimum(apt_h,apt_l)
+            
+            return np.amin(np.abs(np.divide(dist, d1)) * coeff)
+        
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
 
