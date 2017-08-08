@@ -45,7 +45,7 @@ class UpwindCoupling(AbstractCoupling):
         if g_h.dim == g_l.dim:
             # Remember that face_cells are really cell-cell connections
             # in this case
-            cells_h, cells_l,_ = sps.find(data_edge['face_cells'])
+            cells_l, cells_h = data_edge['face_cells'].nonzero()
             diag_cc11 = np.zeros(g_l.num_cells)
             diag_cc00 = np.zeros(g_h.num_cells)
             # Need only one discharge, from h to l. Positive values

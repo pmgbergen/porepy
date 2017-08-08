@@ -5,11 +5,11 @@ Created on Fri Mar  4 09:04:16 2016
 @author: eke001
 """
 from __future__ import division
-import sys
 import numpy as np
 import scipy.sparse as sps
 
 from porepy.utils import matrix_compression, mcolon
+from porepy.params.data import Parameters
 
 
 class SubcellTopology(object):
@@ -981,8 +981,12 @@ def compute_discharges(gb, physics='flow'):
             pa.set_discharge(dis)
 
 
-        elif g1.dim == g2.dim and data['face_cells'] is not None:
-            pa = data['param']
+        elif g1.dim == g2.dim and data['face_cells'] is not None:   
+            try:
+                pa = data['param']
+            except KeyError:
+                pa = Parameters(g2)
+                data['param'] = pa
             # g2 is now only the "higher", but still the one defining the faces
             # (cell-cells connections) in the sense that the normals are assumed
             # outward from g2, "pointing towards the g1 cells". Note that in

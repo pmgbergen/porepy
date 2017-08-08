@@ -129,8 +129,9 @@ class BasicsTest( unittest.TestCase ):
         #coupling.split(gb, "p", p)
         
         dim_to_remove = 0
-        gb_r = gb.duplicate_without_dimension(dim_to_remove,
-                                              compute_new_fluxes=True)
+        gb_r, elimination_data = gb.duplicate_without_dimension(dim_to_remove)
+        condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
+        
         coupling.split(gb_r, "p", p_red)
         
         #fvutils.compute_discharges(gb)

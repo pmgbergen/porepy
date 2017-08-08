@@ -51,6 +51,7 @@ def solve_static_condensation(A, rhs, gb, dim=0, condensation_inverter=sps.linal
     return x, x_reduced, original_to_kept_dofs, eliminated_dofs
 
 
+
 def dofs_of_dimension(gb, A, dim=0):
     """
     Extracts the global dof numbers corresponding to a given dimension.
@@ -134,40 +135,40 @@ def eliminate_dofs(A, rhs, to_be_eliminated, inverter=sps.linalg.inv):
     return A_reduced, rhs_reduced, condensation_matrix, to_be_kept, A_ss_inv
 
 
-def new_coupling_fluxes(gb, node, neighbours): 
+def new_coupling_fluxes(gb_old, gb_el, neighbours_old, neighbours_el, node_old): 
     """ 
     Adds new coupling_flux data fields to the new gb edges arising through  
     the removal of one node. 
     Idea: set up a condensation for the local system of old coupling_fluxes 
     for the removed nodes and its n_neighbours neighbour nodes/grids. 
     """ 
-     
-    neighbours = gb.sort_multiple_nodes(neighbours)
+    neighbours_old = gb_old.sort_multiple_nodes(neighbours_old)
+    neighbours_el = gb_el.sort_multiple_nodes(neighbours_el)
     # sorted from "lowest" to "highest", we want the opposite 
-    neighbours = neighbours[::-1] 
-    n_cells_l = node.num_cells  
-    n_neighbours = len(neighbours) 
+    #neighbours = neighbours[::-1] 
+    n_cells_l = node_old.num_cells  
+    n_neighbours = len(neighbours_old) 
 
     # Initialize coupling matrix (see coupler.py, matrix_rhs)
     all_cc = np.empty((n_neighbours+1, n_neighbours+1), dtype=np.object) 
     pos_i = 0
-    for ni in neighbours: 
+    for g_i in neighbours_old: 
         pos_j = 0 
-        for nj in neighbours: 
-            all_cc[pos_i, pos_j] = sps.coo_matrix((ni.num_cells, nj.num_cells)) 
+        for g_j in neighbours_old: 
+            all_cc[pos_i, pos_j] = sps.coo_matrix((g_i.num_cells, g_j.num_cells)) 
             pos_j += 1 
          
-        all_cc[pos_i, n_neighbours] = sps.coo_matrix((ni.num_cells, node.num_cells)) 
-        all_cc[n_neighbours, pos_i] =sps.coo_matrix((node.num_cells, ni.num_cells)) 
+        all_cc[pos_i, n_neighbours] = sps.coo_matrix((g_i.num_cells, node_old.num_cells)) 
+        all_cc[n_neighbours, pos_i] =sps.coo_matrix((node_old.num_cells, g_i.num_cells)) 
         pos_i +=1
         
-    all_cc[n_neighbours, n_neighbours] = sps.coo_matrix((node.num_cells,
-                                                         node.num_cells)) 
+    all_cc[n_neighbours, n_neighbours] = sps.coo_matrix((node_old.num_cells,
+                                                         node_old.num_cells)) 
     dofs = np.zeros(n_neighbours) 
     
     # Assemble original system: 
     for i in range(n_neighbours): 
-        cc = gb.edge_prop((neighbours[i], node), 'coupling_discretization') 
+        cc = gb_old.edge_prop((neighbours_old[i], node_old), 'coupling_discretization') 
         idx = np.ix_([i, n_neighbours], [i, n_neighbours]) 
         all_cc[idx] += cc[0]
         dofs[i] = cc[0][0][0].shape[0] 
@@ -182,10 +183,10 @@ def new_coupling_fluxes(gb, node, neighbours):
         
     # Extract the new coupling fluxes from the eliminated system and map to faces of 
     # the first grid
-    for i, n_0 in enumerate(neighbours):
+    for i, g_0 in enumerate(neighbours_el):
         id_0 = slice(global_idx[i], global_idx[i+1])
         # Get the internal contribution (grids that have an internal hole after
-        # the elimination), to be added to the node n_0. This contribution
+        # the elimination), to be added to the node g_0. This contribution
         # is found at the off-diagonal part of the diagonal blocks
         cc_00 = all_cc.tocsr()[id_0, :].tocsc()[:,id_0]
 
@@ -200,14 +201,22 @@ def new_coupling_fluxes(gb, node, neighbours):
             cell_cells = sps.csr_matrix(c_f>0)
             # The fluxes c_f*p go from cells_1 to cells_2:
             # c_1, c_2, _ = sparse.find(cell_cells)
-            gb.add_edge([n_0, n_0], cell_cells)
-            d_edge = gb.edge_props([n_0, n_0])
+            gb_el.add_edge([g_0, g_0], cell_cells)
+            d_edge = gb_el.edge_props([g_0, g_0])
             d_edge['coupling_flux'] = sps.csr_matrix(c_f)
-            d_edge['param'] = Parameters(n_0)
+            d_edge['param'] = Parameters(g_0)
             
         # Get the contribution between different grids
         for j in range(i+1, n_neighbours): 
-            n_1 = neighbours[j]
+            g_1 = neighbours_el[j]
             id_1 = slice(global_idx[j], global_idx[j+1])
             cc_01 = all_cc.tocsr()[id_0, :].tocsc()[:,id_1]
-            gb.add_edge_prop('coupling_flux', [[n_0,n_1]], [-cc_01])
+            gb_el.add_edge_prop('coupling_flux', [[g_0,g_1]], [-cc_01])
+            
+def compute_elimination_fluxes(gb, gb_el, elimination_data):
+    neighbours_dict = elimination_data['neighbours']
+    neighbours_dict_old = elimination_data['neighbours_old']
+    eliminated_nodes= elimination_data['eliminated_nodes']
+    for i, neighbours in neighbours_dict.items():
+        new_coupling_fluxes(gb, gb_el, neighbours_dict_old[i], neighbours,
+                            eliminated_nodes[i])

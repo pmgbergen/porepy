@@ -199,7 +199,6 @@ class BasicsTest( unittest.TestCase ):
 
         for g, d in gb:
             if g.dim == 1:
-                print(g.cell_centers)
                 if np.allclose(g.cell_centers, cell_centers_1):
                     d['node_number'] = 1
                 elif np.allclose(g.cell_centers, cell_centers_2):
@@ -260,14 +259,17 @@ class BasicsTest( unittest.TestCase ):
         
         coupling.split(gb, "p_cond", p_cond)
         coupling.split(gb, "p", p)
-        
+
+        # Make a copy of the grid bucket without the 0d grid
         dim_to_remove = 0
-        
-        gb_r = gb.duplicate_without_dimension(dim_to_remove,
-                                              compute_new_fluxes=True)
+        gb_r, elimination_data = gb.duplicate_without_dimension(dim_to_remove)
+        # Compute the flux discretization on the new edges
+        condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
+        # Compute the discharges from the flux discretizations and computed pressures
         coupling.split(gb_r, "p", p_red)
         fvutils.compute_discharges(gb)
         fvutils.compute_discharges(gb_r)
+        
         # Known discharges
         d_0, d_1, d_2 = fluxes_2d_1d_cross_with_elimination()
 

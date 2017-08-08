@@ -1,7 +1,7 @@
 """
 This example contains the set up and computation of the blocking version of the
 benchmark1 with the fv discretizations. Note the choice between tpfa and mpfa in
-line 78. 
+line 79. 
 """
 import numpy as np
 import scipy.sparse as sps
@@ -34,8 +34,9 @@ def add_data(gb, domain, mesh_value):
         param.set_aperture(aperture)
         
         # Permeability
+        # Use fracture value in the fractures, i.e., the lower dimensional grids
         k_frac = np.power(kf, g.dim<gb.dim_max())
-        p = tensor.SecondOrder(3,np.ones(g.num_cells) * k_frac)
+        p = tensor.SecondOrder(3, np.ones(g.num_cells) * k_frac)
         param.set_tensor('flow', p)
         param.set_tensor('flow', p)
                 
@@ -90,7 +91,7 @@ gb.assign_node_ordering()
 # Assign parameters
 add_data(gb, domain, mesh_size)
 
-# Choose discretizationand define the solver
+# Choose discretization and define the solver
 if multi_point:
     solver = mpfa.Mpfa()
     l2_norm = 35.7487817896
