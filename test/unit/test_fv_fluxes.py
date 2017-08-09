@@ -299,7 +299,6 @@ class BasicsTest( unittest.TestCase ):
             g1, g2 = gb.sorted_nodes_of_edge(e)
             pa = data['param']
             node_numbers = gb.nodes_prop([g2, g1], 'node_number')
-            
             if pa is not None:
                 
                 if node_numbers == (0,1):
@@ -318,7 +317,6 @@ class BasicsTest( unittest.TestCase ):
             g1, g2 = gb_r.sorted_nodes_of_edge(e)
             pa = data['param']
             node_numbers = gb_r.nodes_prop([g2, g1], 'node_number')
-            
             if pa is not None:
                 
                 if node_numbers == (0,1):
@@ -544,14 +542,11 @@ def coupling_fluxes_2d_1d_cross_no_el():
     return d_01, d_10, d_02, d_20, d_13, d_23
 #------------------------------------------------------------------------------#
 def coupling_fluxes_2d_1d_cross_with_el():
-    d_11 = np.array([[ 0.        , -0.34984981],
-                     [ 0.        ,  0.        ]])
+    d_11 = np.array([0.34984981])
 
-    d_21 = np.array([[ 0.27718625, -0.07266356],
-                     [ 0.27718625, -0.07266356]])
+    d_21 = np.array([ 0.27718625,  0.27718625, -0.07266356, -0.07266356])
 
-    d_22 = np.array([[  0.00000000e+00,  0.00000000e+00],
-                     [  0.00000000e+00,   0.00000000e+00]])
+    d_22 = np.array([ 0.00000000e+00])
     
     return  d_11, d_21, d_22
 #------------------------------------------------------------------------------#
