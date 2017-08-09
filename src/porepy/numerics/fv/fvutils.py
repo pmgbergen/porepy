@@ -961,10 +961,10 @@ def compute_discharges(gb, physics='flow'):
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
         
-    for gr, da in gb:
-        if gr.dim > 0:
-            pa = da['param']
-            dis = da['flux'] * da['p'] + da['bound_flux'] \
+    for g, d in gb:
+        if g.dim > 0:
+            pa = d['param']
+            dis = d['flux'] * d['p'] + d['bound_flux'] \
                                * pa.get_bc_val(physics)
             pa.set_discharge(dis)
 
@@ -991,16 +991,16 @@ def compute_discharges(gb, physics='flow'):
             # (cell-cells connections) in the sense that the normals are assumed
             # outward from g2, "pointing towards the g1 cells". Note that in
             # general, there are g2.num_cells x g1.num_cells connections/"faces".
-            coupling_flux = gb.edge_prop(e, 'coupling_flux')[0].todense()
-            pressures = gb.nodes_prop([g2, g1], 'p')
+            cc = data['face_cells']
+            cells_1, cells_2 = cc.nonzero()
+            coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
 
-            # The dense-sparse conversion may possibly be avoidable if einsum is
-            # removed
-            contribution_0 = np.einsum('ij,i->ij',
-                                       coupling_flux,pressures[0])
-            contribution_1 = np.einsum('ij,j->ij',
-                                       coupling_flux,pressures[1])
-            dis = contribution_0-contribution_1
+            pressures = gb.nodes_prop([g2, g1], 'p')
+            p2 = pressures[0][cells_2]
+            p1 = pressures[1][cells_1]
+            contribution_2 = np.multiply(coupling_flux[cc], p2)
+            contribution_1 = np.multiply(coupling_flux[cc], p1)
+            dis = contribution_2-contribution_1
             # Store flux at the edge only. This means that the flux will remain
             # zero in the data of both g1 and g2
-            pa.set_discharge(dis)
+            pa.set_discharge(np.ravel(dis))

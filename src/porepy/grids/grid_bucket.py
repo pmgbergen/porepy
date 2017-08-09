@@ -560,7 +560,7 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def assign_node_ordering(self):
+    def assign_node_ordering(self, overwrite_existing=True):
         """
         Assign an ordering of the nodes in the graph, stored as the attribute
         'node_number'.
@@ -573,8 +573,9 @@ class GridBucket(object):
         can in principle change between two calls to this function.
 
         If an ordering covering all nodes in the graph already exist, but does
-        not coincide with the new ordering, a warning is issued.
-
+        not coincide with the new ordering, a warning is issued. If the optional
+        parameter overwrite_existing is set to False, no update is performed if
+        an node ordering already exists.
         """
 
         # Check whether 'node_number' is defined for the grids already.
@@ -582,7 +583,9 @@ class GridBucket(object):
         for _, n in self:
             if not 'node_number' in n.keys():
                 ordering_exists = False
-
+        if ordering_exists and not overwrite_existing:
+            return
+            
         counter = 0
         # Loop over grids in decreasing dimensions
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
@@ -595,6 +598,7 @@ class GridBucket(object):
                 # Assign new value
                 n['node_number'] = counter
                 counter += 1
+                
 #------------------------------------------------------------------------------#
 
     def update_node_ordering(self, removed_number):
@@ -681,6 +685,12 @@ class GridBucket(object):
         gb_copy = self.copy()
         grids_of_dim = gb_copy.grids_of_dimension(dim)
         grids_of_dim_old = self.grids_of_dimension(dim)
+        # The node numbers are copied for each grid, so they can be used to
+        # make sure we use the same grids (g and g_old) below.
+        nn_new = gb_copy.nodes_prop(grids_of_dim, 'node_number')
+        nn_old = self.nodes_prop(grids_of_dim_old, 'node_number')
+        _, old_in_new = setmembership.ismember_rows(np.array(nn_new),
+                                                   np.array(nn_old), sort=False)
         neighbours_dict = {}
         neighbours_dict_old = {}
         eliminated_nodes =  {}
@@ -690,7 +700,7 @@ class GridBucket(object):
             # Keep track of which nodes were connected to each of the eliminated
             # nodes. Note that the key is the node number in the old gb, whereas
             # the neighbours lists refer to the copy grids.
-            g_old = grids_of_dim_old[i]
+            g_old = grids_of_dim_old[old_in_new[i]]
             neighbours_dict[i] = neighbours
             neighbours_dict_old[i] = self.node_neighbors(g_old)
             eliminated_nodes[i] = g_old
@@ -698,6 +708,7 @@ class GridBucket(object):
         elimination_data = {'neighbours':neighbours_dict,
                             'neighbours_old':neighbours_dict_old,
                             'eliminated_nodes':eliminated_nodes}
+        
         return gb_copy, elimination_data
 
 #------------------------------------------------------------------------------#

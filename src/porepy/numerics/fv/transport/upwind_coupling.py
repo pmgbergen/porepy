@@ -48,21 +48,12 @@ class UpwindCoupling(AbstractCoupling):
             cells_l, cells_h = data_edge['face_cells'].nonzero()
             diag_cc11 = np.zeros(g_l.num_cells)
             diag_cc00 = np.zeros(g_h.num_cells)
-            # Need only one discharge, from h to l. Positive values
-            # go from h to l.
-            
-            
-            d_00 = (np.sign(discharge.clip(min=0)) * discharge).sum(axis=1)
-            d_11 = (np.sign(discharge.clip(max=0)) * discharge).sum(axis=0)
-            
-            
+            d_00 = np.bincount(cells_h, np.sign(discharge.clip(min=0)) * discharge,
+                               minlength=g_h.num_cells)
+            d_11 = np.bincount(cells_l, np.sign(discharge.clip(max=0)) * discharge,
+                               minlength=g_l.num_cells)
             np.add.at(diag_cc00, range(g_h.num_cells), d_00)
             np.add.at(diag_cc11, range(g_l.num_cells), d_11)
-            # Compute the outflow from the second to the first grid
-            cc[1, 0] = sps.coo_matrix(-discharge.clip(min=0).T)
-            # Compute the inflow to the first from the second grid
-            cc[0, 1] = sps.coo_matrix(discharge.clip(max=0))    
-
         else:
             # Recover the information for the grid-grid mapping
             cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
@@ -81,18 +72,24 @@ class UpwindCoupling(AbstractCoupling):
 
             diag_cc00 = np.zeros(g_h.num_cells)
             np.add.at(diag_cc00, cells_h, np.sign(discharge.clip(min=0)) * discharge)
-            # Compute the outflow from the higher to the lower dimensional grid
-            cc[1, 0] = sps.coo_matrix((-discharge.clip(min=0), (cells_l, cells_h)),
+        # Compute the outflow from the higher to the lower dimensional grid
+        cc[1, 0] = sps.coo_matrix((-discharge.clip(min=0), (cells_l, cells_h)),
                                       shape=(dof[1], dof[0]))
 
-            # Compute the inflow from the higher to the lower dimensional grid
-            cc[0, 1] = sps.coo_matrix((discharge.clip(max=0), (cells_h, cells_l)),
+        # Compute the inflow from the higher to the lower dimensional grid
+        cc[0, 1] = sps.coo_matrix((discharge.clip(max=0), (cells_h, cells_l)),
                                       shape=(dof[0], dof[1]))
             
         cc[1, 1] = sps.dia_matrix((diag_cc11, 0), shape=(dof[1], dof[1]))
 
         cc[0, 0] = sps.dia_matrix((diag_cc00, 0), shape=(dof[0], dof[0]))
-       
+
+        
+        if data_h['node_number'] == data_l['node_number']:
+            # All contributions to be returned to the same block of the
+            # global matrix in this case
+            cc = np.array([np.sum(cc, axis=(0,1))])
+            
         return cc
 
 #------------------------------------------------------------------------------#
@@ -131,8 +128,7 @@ class UpwindCoupling(AbstractCoupling):
             # of face_cells (see grid_bucket.duplicate_without_dimension).
             phi_h = data_h['param'].get_porosity()
             cells_h, cells_l = data_edge['face_cells'].nonzero()
-            d1 = discharge[cells_h,cells_l]
-            not_zero = ~np.isclose(np.zeros(d1.shape), d1, atol = 0)
+            not_zero = ~np.isclose(np.zeros(discharge.shape), discharge, atol = 0)
             if not np.any(not_zero):
                 return np.Inf
             
@@ -146,7 +142,7 @@ class UpwindCoupling(AbstractCoupling):
             apt_l = aperture_l[cells_l]
             coeff = np.minimum(phi_h,phi_l)*np.minimum(apt_h,apt_l)
             
-            return np.amin(np.abs(np.divide(dist, d1)) * coeff)
+            return np.amin(np.abs(np.divide(dist, discharge)) * coeff)
         
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])

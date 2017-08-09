@@ -198,7 +198,7 @@ def new_coupling_fluxes(gb_old, gb_el, neighbours_old, neighbours_el, node_old):
         # Check whether there is an internal hole in the grid. If so, add connections
         # between the cells on either side
         if not np.allclose(c_f, 0, 1e-10, 1e-12):
-            cell_cells = sps.csr_matrix(c_f>0)
+            cell_cells = np.array(c_f>0, dtype=bool)
             # The fluxes c_f*p go from cells_1 to cells_2:
             # c_1, c_2, _ = sparse.find(cell_cells)
             gb_el.add_edge([g_0, g_0], cell_cells)
