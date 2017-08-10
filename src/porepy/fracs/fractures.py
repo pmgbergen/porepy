@@ -777,10 +777,14 @@ class EllipticFracture(Fracture):
 
 class Intersection(object):
 
-    def __init__(self, first, second, coord):
+    def __init__(self, first, second, coord, bound_first=False, bound_second=False):
         self.first = first
         self.second = second
         self.coord = coord
+        # Information on whether the intersection points lies on the boundaries
+        # of the fractures
+        self.bound_first = bound_first
+        self.bound_second = bound_second
 
     def __repr__(self):
         s = 'Intersection between fractures ' + str(self.first.index) + ' and ' + \
@@ -891,10 +895,18 @@ class FractureNetwork(object):
         for i, first in enumerate(self._fractures):
             for j in range(i + 1, len(self._fractures)):
                 second = self._fractures[j]
-                isect, _, _ = first.intersects(second, self.tol)
+                isect, bound_first, bound_second = first.intersects(second,
+                                                                    self.tol)
                 if len(isect) > 0:
+                    # Let the intersection know whether both intersection
+                    # points lies on the boundary of each fracture
+                    bound_first = len(bound_first) == 2 and all(bound_first)
+                    bound_second = len(bound_second) == 2\
+                        and all(bound_second)
                     self.intersections.append(Intersection(first, second,
-                                                           isect))
+                                                           isect,
+                                                           bound_first=bound_first,
+                                                           bound_second=bound_second))
 
         logger.info('Found %i intersections. Ellapsed time: %.5f',
                     len(self.intersections), time.time() - start_time)
@@ -1053,7 +1065,14 @@ class FractureNetwork(object):
                 edges = np.hstack(
                     (edges, num_p + np.arange(2).reshape((-1, 1))))
                 edges_2_frac.append([i.first.index, i.second.index])
-                is_boundary_edge.append(False)
+                # If the intersection points are on the boundary of both
+                # fractures, this is a boundary segment.
+                # This does not cover the case of a T-intersection, that will
+                # have to come later.
+                if i.bound_first and i.bound_second:
+                    is_boundary_edge.append(True)
+                else:
+                    is_boundary_edge.append(False)
 
         # Ensure that edges are integers
         edges = edges.astype('int')
