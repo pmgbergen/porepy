@@ -40,8 +40,8 @@ def test_tpfa_cart_2d():
     trm, bound_flux = d['flux'], d['bound_flux']
     div = g.cell_faces.T
     a = div * trm
-    b = (div * bound_flux).A
-    print(b)
+    b = -(div * bound_flux).A
+    
     # Checks on interior cell
     mid = 4
     assert a[mid, mid] == 4
@@ -67,14 +67,14 @@ def test_tpfa_cart_2d():
     assert a[2, 5] == -1
 
     assert b[2, 3] == 2
-    assert b[2, 14] == 1
+    assert b[2, 14] == -1
     # Cell 2 has one Neumann face
     assert a[1, 1] == 3
     assert a[1, 0] == -1
     assert a[1, 2] == -1
     assert a[1, 4] == -1
 
-    assert b[1, 13] == 1
+    assert b[1, 13] == -1
 
     return a
 

@@ -106,7 +106,7 @@ if __name__ == '__main__':
 
     # The p_reduced only has pressures for the cells of grids of dim>0, so
     # should be plotted on a grid where the 0d has been removed:
-    gb_r = gb.duplicate_without_dimension(0)
+    gb_r, _ = gb.duplicate_without_dimension(0)
 
     # Add the solutions to data fields in the grid buckets
     gb.add_node_props(["p", "p_condensation"])

@@ -114,8 +114,7 @@ def export_vtk_single(g, name, data, binary, time_step):
 def export_vtk_gb(gb, name, data, binary, time_step, folder):
     assert isinstance(gb, grid_bucket.GridBucket)
     assert isinstance(data, list) or data is None
-    gb.assign_node_ordering()
-
+    gb.assign_node_ordering(overwrite_existing=False)
     gb.add_node_prop('file_name')
     gb.add_node_prop('grid_dim')
 

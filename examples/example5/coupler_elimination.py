@@ -22,7 +22,7 @@ from porepy.grids.coarsening import *
 from porepy.grids import grid_bucket, remove_grids
 from porepy.fracs import meshing, split_grid
 
-from porepy.numerics.mixed_dim import coupler
+from porepy.numerics.mixed_dim import coupler, condensation
 
 from porepy.numerics.fv.transport import upwind, upwind_coupling
 from porepy.numerics.fv import mass_matrix
@@ -88,7 +88,8 @@ if __name__ == '__main__':
     ################## Transport solver ##################
 
     print("Compute global matrix and rhs for the advection problem")
-    gb_r = remove_grids.duplicate_without_dimension(gb, 0)
+    gb_r, elimination_data = gb.duplicate_without_dimension(0)
+    condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
 
     add_data_transport(gb)
     add_data_transport(gb_r)
