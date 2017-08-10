@@ -385,7 +385,7 @@ class Fracture(object):
             assert other_segment  # This should be reflexive
             assert bound_pt_self.shape[1] == 2
             assert np.allclose(bound_pt_self, bound_pt_other)
-            on_boundary_self == [True, True]
+            on_boundary_self = [True, True]
             on_boundary_other = [True, True]
             return bound_pt_self, on_boundary_self, on_boundary_other
 
