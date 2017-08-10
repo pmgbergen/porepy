@@ -2,8 +2,12 @@ import sys, os
 import numpy as np
 import scipy.sparse as sps
 
-import vtk
-import vtk.util.numpy_support as ns
+try:
+    import vtk
+    import vtk.util.numpy_support as ns
+except ImportError:
+    import warnings
+    warnings.warn("No vtk module loaded.")
 
 from porepy.grids import grid, grid_bucket
 from porepy.utils import sort_points
@@ -42,6 +46,9 @@ def export_vtk(g, name, data=None, binary=True, time_step=None, folder=None):
     export_vtk(gb, file_name, ["conc"], time_step=i_export, folder="simu")
 
     """
+    if 'vtk' not in sys.modules:
+        return
+
     if isinstance(g, grid.Grid):
         export_vtk_single(g, make_folder(folder, name), data, binary, time_step)
 
@@ -107,8 +114,7 @@ def export_vtk_single(g, name, data, binary, time_step):
 def export_vtk_gb(gb, name, data, binary, time_step, folder):
     assert isinstance(gb, grid_bucket.GridBucket)
     assert isinstance(data, list) or data is None
-    gb.assign_node_ordering()
-
+    gb.assign_node_ordering(overwrite_existing=False)
     gb.add_node_prop('file_name')
     gb.add_node_prop('grid_dim')
 

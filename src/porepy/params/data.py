@@ -7,6 +7,7 @@ from porepy.numerics.mixed_dim.solver import Solver
 from porepy.params.tensor import SecondOrder, FourthOrder
 from porepy.params.bc import BoundaryCondition
 
+
 class Parameters(object):
     """ Class to store all physical parameters used by solvers.
 
@@ -183,6 +184,28 @@ class Parameters(object):
 
     porosity = property(get_porosity, set_porosity)
 
+#---------------- Discharge -------------------------------------------------
+
+    def get_discharge(self):
+        """ double or array-like
+        Face-wise representation of discharge.
+        Always set and returned as np.ndarray (1 x g.num_faces) for 
+        internal grids. For edges between dimensions they may also 
+        be grid1.num_cells x grid2.num_cells.
+        """
+        if not hasattr(self, '_discharge'):
+            raise ValueError('Discharge not set')
+        return self._discharge
+
+    def set_discharge(self, val):
+        if not isinstance(val, np.ndarray):
+            raise ValueError('Only np.ndarray allowed for discharge')
+        else:
+            self._discharge = val
+
+    discharge = property(get_discharge, set_discharge)
+
+
 #----------- Multi-physics (solver-/context-dependent) parameters below -----
 
 #------------------- Sources ---------------------------------------------
@@ -212,7 +235,7 @@ class Parameters(object):
         elif physics == 'transport':
             return self.get_source_transport()
         elif physics == 'mechanics':
-            return self._get_source_mechanics()
+            return self.get_source_mechanics()
         else:
             raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
                              % (physics, self.known_physics))
@@ -441,7 +464,7 @@ class Parameters(object):
         if hasattr(self, '_bc_flow'):
             return self._bc_flow
         else:
-            return BoundaryCondition(g)
+            return BoundaryCondition(self.g)
 
     bc_flow = property(get_bc_flow)
 
@@ -453,7 +476,7 @@ class Parameters(object):
         if hasattr(self, '_bc_transport'):
             return self._bc_transport
         else:
-            return BoundaryCondition(g)
+            return BoundaryCondition(self.g)
 
     conductivity = property(get_conductivity)
 
@@ -463,7 +486,7 @@ class Parameters(object):
         if hasattr(self, '_bc_mechanics'):
             return self._bc_mechanics
         else:
-            return BoundaryCondition(g)
+            return BoundaryCondition(self.g)
 
     stiffness = property(get_stiffness)
 

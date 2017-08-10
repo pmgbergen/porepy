@@ -133,7 +133,12 @@ def quiver(vector_value, ax, g, **kwargs):
 
 def plot_single(g, cell_value, vector_value, info, **kwargs):
 
-    fig = plt.figure()
+    figsize = kwargs.get('figsize', None)
+    if figsize is None:
+        fig = plt.figure()
+    else:
+        fig = plt.figure(figsize=figsize)
+
     ax = fig.add_subplot(111, projection='3d')
 
     ax.set_title( " ".join( g.name ) )
@@ -142,7 +147,11 @@ def plot_single(g, cell_value, vector_value, info, **kwargs):
     ax.set_zlabel('z')
 
     if cell_value is not None and g.dim !=3:
-        extr_value = np.array([np.amin(cell_value), np.amax(cell_value)])
+        if kwargs.get('color_map'):
+            extr_value = kwargs['color_map']
+        else:
+            extr_value = np.array([np.amin(cell_value), np.amax(cell_value)])
+	        
         kwargs['color_map'] = color_map(extr_value)
 
     plot_grid_xd(g, cell_value, vector_value, ax, **kwargs)
@@ -172,10 +181,13 @@ def plot_gb(gb, cell_value, vector_value, info, **kwargs):
     ax.set_zlabel('z')
 
     if cell_value is not None and gb.dim_max() !=3:
-        extr_value = np.array([np.inf, -np.inf])
-        for _, d in gb:
-            extr_value[0] = min(np.amin(d[cell_value]), extr_value[0])
-            extr_value[1] = max(np.amax(d[cell_value]), extr_value[1])
+        if kwargs.get('color_map'):
+            extr_value = kwargs['color_map']
+        else:
+            extr_value = np.array([np.inf, -np.inf])
+            for _, d in gb:
+                extr_value[0] = min(np.amin(d[cell_value]), extr_value[0])
+                extr_value[1] = max(np.amax(d[cell_value]), extr_value[1])
         kwargs['color_map'] = color_map(extr_value)
 
     gb.assign_node_ordering()

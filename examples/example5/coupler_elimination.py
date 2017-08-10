@@ -1,5 +1,5 @@
 """
-Example illustrating the elimination of intersection cells for transport problem. 
+Example illustrating the elimination of intersection cells for transport problem.
 Note that with the current parameters and time steps, the non-eliminated version
 is unstable. This happens because the CFL method of upwind.py does not take 0d grids
 into account, but illustrates the power of the elimination neatly.
@@ -22,7 +22,7 @@ from porepy.grids.coarsening import *
 from porepy.grids import grid_bucket, remove_grids
 from porepy.fracs import meshing, split_grid
 
-from porepy.numerics.mixed_dim import coupler
+from porepy.numerics.mixed_dim import coupler, condensation
 
 from porepy.numerics.fv.transport import upwind, upwind_coupling
 from porepy.numerics.fv import mass_matrix
@@ -88,7 +88,8 @@ if __name__ == '__main__':
     ################## Transport solver ##################
 
     print("Compute global matrix and rhs for the advection problem")
-    gb_r = remove_grids.duplicate_without_dimension(gb, 0)
+    gb_r, elimination_data = gb.duplicate_without_dimension(0)
+    condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
 
     add_data_transport(gb)
     add_data_transport(gb_r)
@@ -107,12 +108,12 @@ if __name__ == '__main__':
     gb.add_node_prop("deltaT", None, deltaT)
     gb_r.add_node_prop("deltaT", None, deltaT_r)
 
-    mass_solver = mass_matrix.Mass()
+    mass_solver = mass_matrix.MassMatrix()
     coupler_solver = coupler.Coupler(mass_solver)
     M, _ = coupler_solver.matrix_rhs(gb)
     M_r, _ = coupler_solver.matrix_rhs(gb_r)
 
-    inv_mass_solver = mass_matrix.InvMass()
+    inv_mass_solver = mass_matrix.InvMassMatrix()
     coupler_solver = coupler.Coupler(inv_mass_solver)
     invM, _ = coupler_solver.matrix_rhs(gb)
     invM_r, _ = coupler_solver.matrix_rhs(gb_r)

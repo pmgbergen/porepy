@@ -97,6 +97,7 @@ class HybridDualVEM(Solver):
         f = param.get_source(self)
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
+        a = param.aperture
 
         faces, _, sgn = sps.find(g.cell_faces)
 
@@ -127,15 +128,14 @@ class HybridDualVEM(Solver):
             ndof = faces_loc.size
 
             # Retrieve permeability and normals assumed outward to the cell.
-            K = k.perm[0:g.dim, 0:g.dim, c]
             sgn_loc = sgn[loc].reshape((-1, 1))
             normals = np.multiply(np.tile(sgn_loc.T, (g.dim, 1)),
                                   f_normals[:, faces_loc])
 
             # Compute the H_div-mass local matrix
-            A, _ = massHdiv(K, c_centers[:, c], g.cell_volumes[c],
-                            f_centers[:, faces_loc], normals, np.ones(ndof),
-                            diams[c], weight[c])
+            A = massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
+                         a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
+                         a[c]*normals, np.ones(ndof), diams[c], weight[c])[0]
             # Compute the Div local matrix
             B = -np.ones((ndof, 1))
             # Compute the hybrid local matrix
@@ -148,10 +148,9 @@ class HybridDualVEM(Solver):
             L = np.dot(np.dot(C.T, L - invA), C)
 
             # Compute the local hybrid right using the static condensation
-            f_loc = f[c]*g.cell_volumes[c]
             rhs[faces_loc] += np.dot(C.T,
                                      np.dot(invA,
-                                            np.dot(B, np.dot(S, f_loc))))[:, 0]
+                                            np.dot(B, np.dot(S, f[c]))))[:, 0]
 
             # Save values for hybrid matrix
             cols = np.tile(faces_loc, (faces_loc.size, 1))
@@ -208,16 +207,10 @@ class HybridDualVEM(Solver):
         if g.dim == 0:
             return 0, l[0]
 
-        k, f = data.get('perm'), data.get('source')
-
-        if k is None:
-            kxx = np.ones(g.num_cells)
-            k = tensor.SecondOrder(g.dim, kxx)
-            warnings.warn('Permeability not assigned, assumed identity')
-
-        if f is None:
-            f = np.zeros(g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
+        param = data['param']
+        k = param.get_tensor(self)
+        f = param.get_source(self)
+        a = param.aperture
 
         faces, _, sgn = sps.find(g.cell_faces)
 
@@ -241,15 +234,14 @@ class HybridDualVEM(Solver):
             ndof = faces_loc.size
 
             # Retrieve permeability and normals assumed outward to the cell.
-            K = k.perm[0:g.dim, 0:g.dim, c]
             sgn_loc = sgn[loc].reshape((-1, 1))
             normals = np.multiply(np.tile(sgn_loc.T, (g.dim, 1)),
                                   f_normals[:, faces_loc])
 
             # Compute the H_div-mass local matrix
-            A, _ = massHdiv(K, c_centers[:, c], g.cell_volumes[c],
-                            f_centers[:, faces_loc], normals, np.ones(ndof),
-                            diams[c], weight[c])
+            A = massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
+                         a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
+                         a[c]*normals, np.ones(ndof), diams[c], weight[c])[0]
             # Compute the Div local matrix
             B = -np.ones((ndof, 1))
             # Compute the hybrid local matrix
@@ -257,10 +249,9 @@ class HybridDualVEM(Solver):
 
             # Perform the static condensation to compute the pressure and velocity
             S = 1/np.dot(B.T, solve(A, B))
-            f_loc = f[c]*g.cell_volumes[c]
             l_loc = l[faces_loc].reshape((-1, 1))
 
-            p[c] = np.dot(S, f_loc - np.dot(B.T, solve(A, np.dot(C, l_loc))))
+            p[c] = np.dot(S, f[c] - np.dot(B.T, solve(A, np.dot(C, l_loc))))
             u[faces_loc] = -np.multiply(sgn_loc, solve(A, np.dot(B, p[c]) + \
                                                        np.dot(C, l_loc)))
 

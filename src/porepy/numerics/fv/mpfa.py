@@ -9,10 +9,12 @@ import scipy.sparse as sps
 
 from porepy.numerics.fv import fvutils, tpfa
 from porepy.grids import partition
-from porepy.params import tensor, bc
+from porepy.params import tensor, bc, data
 from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
 from porepy.numerics.mixed_dim.solver import Solver
+from porepy.numerics.mixed_dim.coupler import Coupler
+from porepy.numerics.fv.tpfa import TpfaCoupling
 
 
 class Mpfa(Solver):
@@ -278,6 +280,21 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
 
     return flux, bound_flux
 
+#------------------------------------------------------------------------------
+
+
+class MpfaMultiDim(Solver):
+    def __init__(self, physics='flow'):
+        self.physics = physics
+        discr = Mpfa(self.physics)
+        coupling_conditions = TpfaCoupling(discr)
+        self.solver = Coupler(discr, coupling_conditions)
+
+    def matrix_rhs(self, gb):
+        return self.solver.matrix_rhs(gb)
+
+#------------------------------------------------------------------------------
+
 
 def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
                  nodes=None, apertures=None):
@@ -423,7 +440,14 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     # method may be called. In 0D, there is no internal discretization to be
     # done.
     if g.dim == 1:
-        return tpfa.tpfa(g, k, bnd, apertures=apertures)
+        discr = tpfa.Tpfa()
+        params = data.Parameters(g)
+        params.set_bc('flow', bnd)
+        params.set_aperture(apertures)
+        params.set_tensor('flow', k)
+        d = {'param': params}
+        discr.discretize(g, d)
+        return d['flux'], d['bound_flux']
     elif g.dim == 0:
         return sps.csr_matrix([0]), 0
 
@@ -751,11 +775,11 @@ def _create_bound_rhs(bnd, bound_exclusion,
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order='F')
 
     # For the Neumann boundary conditions, we define the value as seen from
-    # the outside fo the domain. E.g. innflow is defined to be positive. We
-    # therefore set the matrix indices to 1. We also have to scale it with
+    # the innside of the domain. E.g. outflow is defined to be positive. We
+    # therefore set the matrix indices to -1. We also have to scale it with
     # the number of nodes per face because the flux of face is the sum of its
     # half-faces.
-    scaled_sgn = 1 / num_face_nodes[fno[neu_ind_all]]
+    scaled_sgn = - 1 / num_face_nodes[fno[neu_ind_all]]
     if neu_ind.size > 0:
         neu_cell = sps.coo_matrix((scaled_sgn,
                                    (neu_ind, np.arange(neu_ind.size))),

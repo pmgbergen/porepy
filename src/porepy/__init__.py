@@ -23,13 +23,13 @@ __version__ = '0.1.0'
 # user can be exposed to should have a shortcut here. Borderline cases will be
 # decided as needed
 
-### Numerics
+# Numerics
 # Control volume, elliptic
 from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
 from porepy.numerics.fv.biot import Biot
-from porepy.numerics.fv.tpfa_coupling import TpfaCoupling
+from porepy.numerics.fv.tpfa import TpfaCoupling
 
 # Virtual elements, elliptic
 from porepy.numerics.vem.dual import DualVEM
@@ -39,7 +39,7 @@ from porepy.numerics.vem.dual_coupling import DualCoupling
 # Transport related
 from porepy.numerics.fv.transport.upwind import Upwind
 from porepy.numerics.fv.transport.upwind_coupling import UpwindCoupling
-from porepy.numerics.fv.mass_matrix import Mass
+from porepy.numerics.fv.mass_matrix import MassMatrix, InvMassMatrix
 
 # Grids
 from porepy.grids.structured import CartGrid, TensorGrid
@@ -55,5 +55,3 @@ from porepy.params import units
 from porepy.params.bc import BoundaryCondition
 from porepy.params import bc
 #from porepy.params.data import Parameters
-
-

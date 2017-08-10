@@ -29,8 +29,8 @@ class TpfaCoupling(AbstractCoupling):
 
         k_l = data_l['param'].get_tensor(self.solver)
         k_h = data_h['param'].get_tensor(self.solver)
-        a_l = data_l['param'].apertures
-        a_h = data_h['param'].apertures
+        a_l = data_l['param'].get_aperture()
+        a_h = data_h['param'].get_aperture()
 
         dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
 
@@ -71,7 +71,6 @@ class TpfaCoupling(AbstractCoupling):
         n1 = n[np.newaxis, :, :]
         n2 = n[:, np.newaxis, :]
         n1n2 = n1 * n2
-
         normal_perm = np.einsum(
             'ij...,ij...', n1n2, k_l.perm[:, :, cells_l])
         # The area has been multiplied in twice, not once as above, through n1
@@ -111,52 +110,88 @@ class TpfaCoupling(AbstractCoupling):
 
         data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
                                                  cells2faces * cc[0, 1]])
+        data_edge['coupling_discretization'] = cc
 
         return cc
 
     #------------------------------------------------------------------------------#
 
 
-def compute_discharges(gb):
-    """
-    Computes discharges over all faces in the entire grid bucket given
-    pressures for all nodes, provided as node properties.
+    def compute_discharges(self, gb):
+        """
+        Computes discharges over all faces in the entire grid bucket given
+        pressures for all nodes, provided as node properties.
 
-    Parameter:
-        gb: grid bucket with the following data fields for all nodes/grids:
-                'flux': Internal discretization of fluxes.
-                'bound_flux': Discretization of boundary fluxes.
-                'p': Pressure values for each cell of the grid.
-                'bc_val': Boundary condition values.
-            and the following edge property field for all connected grids:
-                'coupling_flux': Discretization of the coupling fluxes.
-    Returns:
-        gb, the same grid bucket with the added field 'discharge' added to all
-        node data fields. Note that the fluxes between grids will be added doubly,
-        both to the data corresponding to the higher dimensional grid and as a
-        edge property.
-    """
-    gb.add_node_props(['discharge'])
+        Parameter:
+            gb: grid bucket with the following data fields for all nodes/grids:
+                    'flux': Internal discretization of fluxes.
+                    'bound_flux': Discretization of boundary fluxes.
+                    'p': Pressure values for each cell of the grid.
+                    'bc_val': Boundary condition values.
+                and the following edge property field for all connected grids:
+                    'coupling_flux': Discretization of the coupling fluxes.
+        Returns:
+            gb, the same grid bucket with the added field 'discharge' added to all
+            node data fields. Note that the fluxes between grids will be added doubly,
+            both to the data corresponding to the higher dimensional grid and as a
+            edge property. This is not true in the case of edges between grids of equal
+            dimension. There, the fluxes are only added at the edge.
+        """
+        
+        
 
-    for gr, da in gb:
-        if gr.dim > 0:
-            f, _, s = sps.find(gr.cell_faces)
-            _, ind = np.unique(f, return_index=True)
-            s = s[ind]
-            da['discharge'] = (da['flux'] * da['p']
-                               + da['bound_flux'] * da['bc_val'])
+        for gr, da in gb:
+            if gr.dim > 0:
+                pa = da['param']
+                f, _, s = sps.find(gr.cell_faces)
+                _, ind = np.unique(f, return_index=True)
+                s = s[ind]
+                fl = da['flux']
+               
+                dis = fl * da['p'] + da['bound_flux'] \
+                                   * pa.get_bc_val(self.solver)
+                
+                pa.set_discharge(dis)
 
-    gb.add_edge_prop('discharge')
-    for e, data in gb.edges_props():
-        g1, g2 = gb.sorted_nodes_of_edge(e)
-        if data['face_cells'] is not None:
-            coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
-            pressures = gb.nodes_prop([g2, g1], 'p')
-            coupling_contribution = coupling_flux * np.concatenate(pressures)
-            flux2 = coupling_contribution + gb.node_prop(g2, 'discharge')
-            data2 = gb.node_props(g2)
-            data2['discharge'] = copy.deepcopy(flux2)
-            data['discharge'] = copy.deepcopy(flux2)
-
-    return gb
-#------------------------------------------------------------------------------#
+        
+        for e, data in gb.edges_props():
+            # According to the sorting convention, g2 is the higher dimensional grid,
+            # the one to who's faces the fluxes correspond 
+            g1, g2 = gb.sorted_nodes_of_edge(e)
+            
+            if data['face_cells'] is not None and g1.dim != g2.dim:
+                pa = data['param']#
+                coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
+                pressures = gb.nodes_prop([g2, g1], 'p')
+                coupling_contribution = coupling_flux * np.concatenate(pressures)
+                pa_2 = gb.node_prop(g2, 'param')
+                flux = coupling_contribution + pa_2.get_discharge()
+                pa_2.set_discharge(copy.deepcopy(flux))                
+                pa.set_discharge(flux)
+                
+            
+            elif g1.dim == g2.dim:
+                pa = data['param']
+                # g2 is now only the "higher", but still the one defining the faces
+                # (cell-cells connections) in the sense that the normals are assumed
+                # outward from g2, "pointing towards the g1 cells". Note that in
+                # general, there are g2.num_cells x g1.num_cells possible connections.
+                # In the 1d-1d case, only one connection is active.
+                        
+                coupling_flux = gb.edge_prop(e, 'coupling_flux')[0].todense()
+                pressures = gb.nodes_prop([g2, g1], 'p')
+                
+                # The dense-sparse conversion may be avoidable if einsum is
+                # removed
+                contribution_0 = np.einsum('ij,i->ij',
+                                           coupling_flux,pressures[0])
+                contribution_1 = np.einsum('ij,j->ij',
+                                           coupling_flux,pressures[1])
+                flux = contribution_0-contribution_1
+                # Store flux at the edge only. This means that the flux will remain
+                # zero in the data of both g1 and g2
+                
+                pa.set_discharge(flux)
+            
+        
+    #------------------------------------------------------------------------------#
