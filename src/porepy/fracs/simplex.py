@@ -74,7 +74,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
         frac_list = []
         for f in fracs:
             if isinstance(f, fractures.Fracture) \
-                or isinstance(f, porepy.Fracture):
+               or isinstance(f, porepy.Fracture):
                 frac_list.append(f)
             else:
                 # Convert the fractures from numpy representation to our 3D
@@ -95,6 +95,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
         network.find_intersections()
     else:
         print('Use existing intersections')
+
     if not hasattr(network, 'decomposition'):
         network.split_intersections()
     else:
