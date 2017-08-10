@@ -3,7 +3,6 @@ import numpy as np
 import unittest
 
 from porepy.fracs import meshing
-import porepy.utils.comp_geom as cg
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 

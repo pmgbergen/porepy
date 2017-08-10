@@ -43,39 +43,17 @@ class UpwindCoupling(AbstractCoupling):
 
         # 1d-1d
         if g_h.dim == g_l.dim:
-            faces_h, faces_l, _ = sps.find(data_edge['face_cells'])
-
-            faces0, _, sgn_h = sps.find(g_h.cell_faces)
-            sgn_h = sgn_h[np.unique(faces0, return_index=True)[1]]
-            discharge_h = sgn_h[faces_h] * discharge[faces_h]
-
-            faces1, _, sgn_l = sps.find(g_l.cell_faces)
-            sgn_l = sgn_l[np.unique(faces1, return_index=True)[1]]
-            # obs discharge SHOULD be indexed by faces_h, as it per convention is
-            # extracted from that grid (second in gb.sorted_nodes_of_edge):
-            discharge_l = sgn_l[faces_l] * discharge[faces_h]
-
-            # Determine which cells correspond to the faces
-            cell_faces_h = g_h.cell_faces.tocsr()[faces_h, :]
-            cells_h = cell_faces_h.nonzero()[1]
-            cell_faces_l = g_l.cell_faces.tocsr()[faces_l, :]
-            cells_l = cell_faces_l.nonzero()[1]
-
+            # Remember that face_cells are really cell-cell connections
+            # in this case
+            cells_l, cells_h = data_edge['face_cells'].nonzero()
             diag_cc11 = np.zeros(g_l.num_cells)
-            np.add.at(diag_cc11, cells_l, np.sign(
-                discharge_l.clip(min=0)) * discharge_l)
             diag_cc00 = np.zeros(g_h.num_cells)
-            np.add.at(diag_cc11, cells_h, np.sign(
-                discharge_h.clip(min=0)) * discharge_h)
-
-            # Compute the outflow from the second to the first grid
-            cc[1, 0] = sps.coo_matrix((discharge_l.clip(max=0), (cells_l, cells_h)),
-                                      shape=(dof[1], dof[0]))
-
-            # Compute the inflow from the first to the second grid
-            cc[0, 1] = sps.coo_matrix((discharge_h.clip(max=0), (cells_h, cells_l)),
-                                      shape=(dof[0], dof[1]))
-
+            d_00 = np.bincount(cells_h, np.sign(discharge.clip(min=0)) * discharge,
+                               minlength=g_h.num_cells)
+            d_11 = np.bincount(cells_l, np.sign(discharge.clip(max=0)) * discharge,
+                               minlength=g_l.num_cells)
+            np.add.at(diag_cc00, range(g_h.num_cells), d_00)
+            np.add.at(diag_cc11, range(g_l.num_cells), d_11)
         else:
             # Recover the information for the grid-grid mapping
             cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
@@ -94,17 +72,24 @@ class UpwindCoupling(AbstractCoupling):
 
             diag_cc00 = np.zeros(g_h.num_cells)
             np.add.at(diag_cc00, cells_h, np.sign(discharge.clip(min=0)) * discharge)
-            # Compute the outflow from the higher to the lower dimensional grid
-            cc[1, 0] = sps.coo_matrix((-discharge.clip(min=0), (cells_l, cells_h)),
+        # Compute the outflow from the higher to the lower dimensional grid
+        cc[1, 0] = sps.coo_matrix((-discharge.clip(min=0), (cells_l, cells_h)),
                                       shape=(dof[1], dof[0]))
 
-            # Compute the inflow from the higher to the lower dimensional grid
-            cc[0, 1] = sps.coo_matrix((discharge.clip(max=0), (cells_h, cells_l)),
+        # Compute the inflow from the higher to the lower dimensional grid
+        cc[0, 1] = sps.coo_matrix((discharge.clip(max=0), (cells_h, cells_l)),
                                       shape=(dof[0], dof[1]))
-
+            
         cc[1, 1] = sps.dia_matrix((diag_cc11, 0), shape=(dof[1], dof[1]))
 
         cc[0, 0] = sps.dia_matrix((diag_cc00, 0), shape=(dof[0], dof[0]))
+
+        
+        if data_h['node_number'] == data_l['node_number']:
+            # All contributions to be returned to the same block of the
+            # global matrix in this case
+            cc = np.array([np.sum(cc, axis=(0,1))])
+            
         return cc
 
 #------------------------------------------------------------------------------#
@@ -138,7 +123,27 @@ class UpwindCoupling(AbstractCoupling):
         aperture_h = data_h['param'].get_aperture()
         aperture_l = data_l['param'].get_aperture()
         phi_l = data_l['param'].get_porosity()
+        if g_h.dim==g_l.dim:
+            # More or less same as below, except we have cell_cells in the place
+            # of face_cells (see grid_bucket.duplicate_without_dimension).
+            phi_h = data_h['param'].get_porosity()
+            cells_h, cells_l = data_edge['face_cells'].nonzero()
+            not_zero = ~np.isclose(np.zeros(discharge.shape), discharge, atol = 0)
+            if not np.any(not_zero):
+                return np.Inf
+            
+            diff = g_h.cell_centers[:,cells_h]-g_l.cell_centers[:,cells_l]
+            dist = np.linalg.norm(diff, 2, axis=0)
 
+            # Use minimum of cell values for convenience
+            phi_l = phi_l[cells_l]
+            phi_h = phi_h[cells_h]
+            apt_h = aperture_h[cells_h]
+            apt_l = aperture_l[cells_l]
+            coeff = np.minimum(phi_h,phi_l)*np.minimum(apt_h,apt_l)
+            
+            return np.amin(np.abs(np.divide(dist, discharge)) * coeff)
+        
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
 

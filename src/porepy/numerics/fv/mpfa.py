@@ -775,11 +775,11 @@ def _create_bound_rhs(bnd, bound_exclusion,
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order='F')
 
     # For the Neumann boundary conditions, we define the value as seen from
-    # the outside fo the domain. E.g. innflow is defined to be positive. We
-    # therefore set the matrix indices to 1. We also have to scale it with
+    # the innside of the domain. E.g. outflow is defined to be positive. We
+    # therefore set the matrix indices to -1. We also have to scale it with
     # the number of nodes per face because the flux of face is the sum of its
     # half-faces.
-    scaled_sgn = 1 / num_face_nodes[fno[neu_ind_all]]
+    scaled_sgn = - 1 / num_face_nodes[fno[neu_ind_all]]
     if neu_ind.size > 0:
         neu_cell = sps.coo_matrix((scaled_sgn,
                                    (neu_ind, np.arange(neu_ind.size))),
