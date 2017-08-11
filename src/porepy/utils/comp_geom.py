@@ -1741,6 +1741,32 @@ def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
     dist = d_starts + sc * d1 - tc * d2
     return np.sqrt(dist.dot(dist))
 
+#----------------------------------------------------------------------------#
+
+def dist_pointset(p):
+    """ Compute mutual distance between all points in a point set.
+
+    Parameters:
+        p (np.ndarray, 3xn): Points
+
+    Returns:
+        np.array (nxn): Distance between points.
+    """
+    if p.size > 3:
+        n = p.shape[1]
+    else:
+        n = 1
+        p = p.reshape((-1, 1))
+
+    d = np.zeros((n, n))
+    for i in range(n):
+        d[i] = dist_point_pointset(p[:, i], p)
+
+    return d
+
+
+#----------------------------------------------------------------------------#
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()

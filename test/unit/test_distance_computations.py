@@ -66,3 +66,43 @@ class TestSegmentDistance(unittest.TestCase):
     if __name__ == '__main__':
         unittest.main()
 
+
+class TestDistancePointSet(unittest.TestCase):
+
+    def test_unit_square(self):
+        p = np.array([[0, 0], [1, 0], [1, 1], [0, 1]]).T
+        d = cg.dist_pointset(p)
+        s2 = np.sqrt(2)
+        known = np.array([[0, 1, s2, 1],
+                          [1, 0, 1, s2],
+                          [s2, 1, 0, 1],
+                          [1, s2, 1, 0]])
+        assert np.allclose(d, known)
+
+    def test_3d(self):
+        p = np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]).T
+        d = cg.dist_pointset(p)
+        known = np.array([[0, 1, 1],
+                          [1, 0, np.sqrt(2)],
+                          [1, np.sqrt(2), 0]])
+        assert np.allclose(d, known)
+
+    def test_zero_diagonal(self):
+        sz = 5
+        p = np.random.rand(3, sz)
+        d = cg.dist_pointset(p)
+        assert np.allclose(np.diagonal(d), np.zeros(sz))
+
+    def test_symmetry(self):
+        p = np.random.rand(3, 7)
+        d = cg.dist_pointset(p)
+        assert np.allclose(d, d.T)
+
+    def test_single_point(self):
+        p = np.random.rand(2)
+        d = cg.dist_pointset(p)
+        assert d.shape == (1, 1)
+        assert d[0, 0] == 0
+
+    if __name__ == '__main__':
+        unittest.main()
