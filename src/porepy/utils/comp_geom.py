@@ -73,15 +73,6 @@ def snap_to_grid(pts, tol=1e-3, box=None, **kwargs):
 
 #------------------------------------------------------------------------------#
 
-def __nrm(v):
-    return np.sqrt(np.sum(v * v, axis=0))
-
-#------------------------------------------------------------------------------#
-
-def __dist(p1, p2):
-    return __nrm(p1 - p2)
-
-#------------------------------------------------------------------------------#
 
 def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
     """
@@ -253,16 +244,16 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
                                edges[:, edge_ind[0]+1:]))
-            
+
             logger.debug('Second edge split into two new parts')
             split_type = 4
         elif i0 == start and i1 == end:
             # We don't know if i0 is closest to the start or end of edges[:,
             # edges_ind[1]]. Find the nearest.
-            if __dist(np.squeeze(vertices[:, i0]),
-                      vertices[:, edges[0, edge_ind[1]]]) < \
-               __dist(np.squeeze(vertices[:, i1]),
-                      vertices[:, edges[0, edge_ind[1]]]):
+            if dist_point_pointset(vertices[:, i0],
+                                     vertices[:, edges[0, edge_ind[1]]]) < \
+                dist_point_pointset(vertices[:, i1],
+                                      vertices[:, edges[0, edge_ind[1]]]):
                 other_start = edges[0, edge_ind[1]]
                 other_end = edges[1, edge_ind[1]]
             else:
@@ -430,7 +421,7 @@ def _add_point(vertices, pt, tol=1e-3, **kwargs):
     ind = []
     # Distance
     for i in range(pt.shape[-1]):
-        dist = __dist(pt[:, i].reshape((-1, 1)), vertices)
+        dist = dist_point_pointset(pt[:, i], vertices)
         min_dist = np.min(dist)
 
         # The tolerance parameter here turns out to be critical in an edge
@@ -573,7 +564,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
             continue
 
         size_before_splitting = edges.shape[1]
-    
+
         int_counter = 0
         while intersections.size > 0 and int_counter < intersections.size:
             # Line intersect (inner loop) is an intersection if it crosses
@@ -617,7 +608,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                 for pi in [edges[0, edge_counter],
                            edges[1, edge_counter],
                            edges[0, intsect], edges[1, intsect]]:
-                    md = min(md, __dist(np.squeeze(p), vertices[:, pi]))
+                    md = min(md, dist_point_pointset(p, vertices[:, pi]))
                 return md
 
             orig_vertex_num = vertices.shape[1]
@@ -832,6 +823,40 @@ def is_inside_polygon(poly, p, tol=0, default=False):
                 break
     return inside
 
+#-----------------------------------------------------------------------------
+
+def dist_point_pointset(p, pset, exponent=2):
+    """
+    Compute distance between a point and a set of points.
+
+    Parameters:
+        p (np.ndarray): Point from which distances will be computed
+        pset (nd.array): Point cloud to which we compute distances
+        exponent (double, optional): Exponent of the norm used. Defaults to 2.
+
+    Return:
+        np.ndarray: Array of distances.
+
+    """
+
+    # If p is 1D, do a reshape to facilitate broadcasting, but on a copy
+    if p.ndim == 1:
+        pt = p.reshape((-1, 1))
+    else:
+        pt = p
+
+    # If the point cloud is a single point, it should still be a ndx1 array.
+    if pset.size < 4:
+        pset_copy = pset.reshape((-1, 1))
+    else:
+        # Call it a copy, even though it isn't
+        pset_copy = pset
+
+    return np.power(np.sum(np.power(np.abs(pt - pset_copy), exponent),
+                           axis=0), 1/exponent)
+
+
+>>>>>>> 5badab3... Renamed function for distance computation between points in comp_geom.
 #------------------------------------------------------------------------------#
 
 def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
