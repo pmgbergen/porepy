@@ -106,3 +106,77 @@ class TestDistancePointSet(unittest.TestCase):
 
     if __name__ == '__main__':
         unittest.main()
+
+
+class TestDistancePointSegments(unittest.TestCase):
+
+    def test_single_point_and_segment(self):
+        p = np.array([0, 0])
+        start = np.array([1, 0])
+        end = np.array([1, 1])
+
+        d = cg.dist_points_segments(p, start, end)
+
+        assert d[0, 0] == 1
+
+    def test_many_points_single_segment(self):
+        p = np.array([[0, 1], [1, 1], [1.5, 1], [2, 1], [3, 1]]).T
+        start = np.array([1, 0])
+        end = np.array([2, 0])
+
+        d = cg.dist_points_segments(p, start, end)
+
+        assert d.shape[0] == 5
+        assert d.shape[1] == 1
+
+        known = np.array([np.sqrt(2), 1, 1, 1, np.sqrt(2)]).reshape((-1, 1))
+        assert np.allclose(d, known)
+
+    def test_single_point_many_segments(self):
+        p = np.array([1, 1])
+        start = np.array([[0, 0], [0, 1], [0, 2]]).T
+        end = np.array([[2, 0], [2, 1], [2, 2]]).T
+
+        d = cg.dist_points_segments(p, start, end)
+
+        assert d.shape[0] == 1
+        assert d.shape[1] == 3
+
+        known = np.array([1, 0, 1])
+        assert np.allclose(d[0], known)
+
+    def test_many_points_and_segments(self):
+        p = np.array([[0, 0, 0], [1, 0, 0]]).T
+
+        start = np.array([[0, 0, -1], [0, 1, 1]]).T
+        end = np.array([[0, 0, 1], [1, 1, 1]]).T
+
+        d = cg.dist_points_segments(p, start, end)
+
+        assert d.shape[0] == 2
+        assert d.shape[1] == 2
+
+        known = np.array([[0, np.sqrt(2)], [1, np.sqrt(2)]])
+        assert np.allclose(d, known)
+
+    def test_point_closest_segment_end(self):
+        p = np.array([0, 0])
+        start = np.array([[1, 0], [1, 1]]).T
+        end = np.array([[2, 0], [2, 1]]).T
+
+        d = cg.dist_points_segments(p, start, end)
+
+        known = np.array([1, np.sqrt(2)])
+        assert np.allclose(d[0], known)
+
+    def test_flipped_lines(self):
+        p = np.array([0, 0])
+        start = np.array([[1, 0], [1, 1]]).T
+        end = np.array([[1, 1], [1, 0]])
+
+        d = cg.dist_points_segments(p, start, end)
+        known = np.array([1, 1])
+        assert np.allclose(d[0], known)
+
+    if __name__ == '__main__':
+        unittest.main()

@@ -1707,6 +1707,48 @@ def dist_segment_segment(s1_start, s1_end, s2_start, s2_end):
 
 #-----------------------------------------------------------------------------
 
+def dist_points_segments(p, start, end):
+    """ Compute distances between points and line segments.
+
+
+    """
+    if start.size < 4:
+        start = start.reshape((-1, 1))
+        end = end.reshape((-1, 1))
+    if p.size < 4:
+        p = p.reshape((-1, 1))
+
+    num_p = p.shape[1]
+    num_l = start.shape[1]
+    d = np.zeros((num_p, num_l))
+
+    line = end - start
+    lengths = np.sqrt(np.sum(line * line, axis=0))
+
+    for pi in range(num_p):
+        # Project the vectors from start to point onto the line, and compute
+        # relative length
+        v = p[:, pi].reshape((-1, 1)) - start
+        proj = np.sum(v * line, axis=0) / lengths**2
+
+        # Projections with length less than zero have the closest point at
+        # start
+        less = np.ma.less_equal(proj, 0)
+        d[pi, less] = dist_point_pointset(p[:, pi], start[:, less])
+        # Similarly, above one signifies closest to end
+        above = np.ma.greater_equal(proj, 1)
+        d[pi, above] = dist_point_pointset(p[:, pi], end[:, above])
+
+        # Points inbetween
+        between = np.logical_not(np.logical_or(less, above).data)
+        proj_p = start[:, between] + proj[between] * line[:, between]
+        d[pi, between] = dist_point_pointset(p[:, pi], proj_p)
+
+    return d
+
+
+#-----------------------------------------------------------------------------
+
 def dist_point_pointset(p, pset, exponent=2):
     """
     Compute distance between a point and a set of points.
