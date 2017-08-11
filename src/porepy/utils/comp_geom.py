@@ -1644,7 +1644,7 @@ def map_grid(g):
 
 #------------------------------------------------------------------------------#
 
-def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
+def dist_segment_segment(s1_start, s1_end, s2_start, s2_end):
     """
     Compute the distance between two line segments.
 

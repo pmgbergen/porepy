@@ -13,12 +13,12 @@ class TestSegmentDistance(unittest.TestCase):
 
     def test_segment_no_intersect_2d(self):
         p00, p10, p11, p01 = self.setup_2d_unit_square()
-        d = cg.distance_segment_segment(p00, p01, p11, p10)
+        d = cg.dist_segment_segment(p00, p01, p11, p10)
         assert d == 1
 
     def test_segment_intersect_2d(self):
         p00, p10, p11, p01 = self.setup_2d_unit_square()
-        d = cg.distance_segment_segment(p00, p11, p10, p01)
+        d = cg.dist_segment_segment(p00, p11, p10, p01)
         assert d == 0
 
     def test_line_passing(self):
@@ -27,7 +27,7 @@ class TestSegmentDistance(unittest.TestCase):
         p2 = np.array([1, 0])
         p3 = np.array([2, -1])
         p4 = np.array([2, 1])
-        d = cg.distance_segment_segment(p1, p2, p3, p4)
+        d = cg.dist_segment_segment(p1, p2, p3, p4)
         assert d == 1
 
     def test_share_point(self):
@@ -35,7 +35,7 @@ class TestSegmentDistance(unittest.TestCase):
         p1 = np.array([0, 0])
         p2 = np.array([0, 1])
         p3 = np.array([1, 1])
-        d = cg.distance_segment_segment(p1, p2, p2, p3)
+        d = cg.dist_segment_segment(p1, p2, p2, p3)
         assert d == 0
 
     def test_intersection_3d(self):
@@ -43,7 +43,7 @@ class TestSegmentDistance(unittest.TestCase):
         p111 = np.array([1, 1, 1])
         p100 = np.array([1, 0, 0])
         p011 = np.array([0, 1, 1])
-        d = cg.distance_segment_segment(p000, p111, p100, p011)
+        d = cg.dist_segment_segment(p000, p111, p100, p011)
         assert d == 0
 
     def test_changed_order_3d(self):
@@ -53,11 +53,11 @@ class TestSegmentDistance(unittest.TestCase):
         p2 = np.random.rand(1, 3)[0]
         p3 = np.random.rand(1, 3)[0]
         p4 = np.random.rand(1, 3)[0]
-        d1 = cg.distance_segment_segment(p1, p2, p3, p4)
-        d2 = cg.distance_segment_segment(p2, p1, p3, p4)
-        d3 = cg.distance_segment_segment(p1, p2, p4, p3)
-        d4 = cg.distance_segment_segment(p2, p1, p4, p3)
-        d5 = cg.distance_segment_segment(p4, p3, p2, p1)
+        d1 = cg.dist_segment_segment(p1, p2, p3, p4)
+        d2 = cg.dist_segment_segment(p2, p1, p3, p4)
+        d3 = cg.dist_segment_segment(p1, p2, p4, p3)
+        d4 = cg.dist_segment_segment(p2, p1, p4, p3)
+        d5 = cg.dist_segment_segment(p4, p3, p2, p1)
         assert np.allclose(d1, d2)
         assert np.allclose(d1, d3)
         assert np.allclose(d1, d4)
