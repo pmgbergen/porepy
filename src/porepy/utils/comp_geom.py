@@ -1728,7 +1728,10 @@ def dist_point_pointset(p, pset, exponent=2):
         pt = p
 
     # If the point cloud is a single point, it should still be a ndx1 array.
-    if pset.size < 4:
+    if pset.size == 0:
+        # In case of empty sets, return an empty zero
+        return np.zeros(0)
+    elif pset.size < 4:
         pset_copy = pset.reshape((-1, 1))
     else:
         # Call it a copy, even though it isn't
