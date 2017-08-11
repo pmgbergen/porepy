@@ -825,40 +825,6 @@ def is_inside_polygon(poly, p, tol=0, default=False):
 
 #-----------------------------------------------------------------------------
 
-def dist_point_pointset(p, pset, exponent=2):
-    """
-    Compute distance between a point and a set of points.
-
-    Parameters:
-        p (np.ndarray): Point from which distances will be computed
-        pset (nd.array): Point cloud to which we compute distances
-        exponent (double, optional): Exponent of the norm used. Defaults to 2.
-
-    Return:
-        np.ndarray: Array of distances.
-
-    """
-
-    # If p is 1D, do a reshape to facilitate broadcasting, but on a copy
-    if p.ndim == 1:
-        pt = p.reshape((-1, 1))
-    else:
-        pt = p
-
-    # If the point cloud is a single point, it should still be a ndx1 array.
-    if pset.size < 4:
-        pset_copy = pset.reshape((-1, 1))
-    else:
-        # Call it a copy, even though it isn't
-        pset_copy = pset
-
-    return np.power(np.sum(np.power(np.abs(pt - pset_copy), exponent),
-                           axis=0), 1/exponent)
-
-
->>>>>>> 5badab3... Renamed function for distance computation between points in comp_geom.
-#------------------------------------------------------------------------------#
-
 def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
     """
     Check if two line segments defined by their start end endpoints, intersect.
