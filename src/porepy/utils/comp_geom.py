@@ -693,7 +693,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                      size_before_splitting)
 
     if verbose > 1:
-        logger.info('Edge intersection removal complete. Elapsed time: %g', 
+        logger.info('Edge intersection removal complete. Elapsed time: %g',
                     time.time() - start_time)
         logger.info('Introduced %i new edges', edges.shape[1] - num_edges_orig)
 
@@ -831,33 +831,6 @@ def is_inside_polygon(poly, p, tol=0, default=False):
                 # No need to check the remaining segments of the polygon.
                 break
     return inside
-
-
-#-----------------------------------------------------------------------------
-
-def dist_point_pointset(p, pset, exponent=2):
-    """
-    Compute distance between a point and a set of points.
-
-    Parameters:
-        p (np.ndarray): Point from which distances will be computed
-        pset (nd.array): Point cloud to which we compute distances
-        exponent (double, optional): Exponent of the norm used. Defaults to 2.
-
-    Return:
-        np.ndarray: Array of distances.
-
-    """
-
-    # If p is 1D, do a reshape to facilitate broadcasting, but on a copy
-    if p.ndim == 1:
-        pt = p.reshape((-1, 1))
-    else:
-        pt = p
-
-    return np.power(np.sum(np.power(np.abs(pt - pset), exponent),
-                           axis=0), 1/exponent)
-
 
 #------------------------------------------------------------------------------#
 
@@ -1740,6 +1713,38 @@ def dist_segment_segment(s1_start, s1_end, s2_start, s2_end):
     # get the difference of the two closest points
     dist = d_starts + sc * d1 - tc * d2
     return np.sqrt(dist.dot(dist))
+
+#-----------------------------------------------------------------------------
+
+def dist_point_pointset(p, pset, exponent=2):
+    """
+    Compute distance between a point and a set of points.
+
+    Parameters:
+        p (np.ndarray): Point from which distances will be computed
+        pset (nd.array): Point cloud to which we compute distances
+        exponent (double, optional): Exponent of the norm used. Defaults to 2.
+
+    Return:
+        np.ndarray: Array of distances.
+
+    """
+
+    # If p is 1D, do a reshape to facilitate broadcasting, but on a copy
+    if p.ndim == 1:
+        pt = p.reshape((-1, 1))
+    else:
+        pt = p
+
+    # If the point cloud is a single point, it should still be a ndx1 array.
+    if pset.size < 4:
+        pset_copy = pset.reshape((-1, 1))
+    else:
+        # Call it a copy, even though it isn't
+        pset_copy = pset
+
+    return np.power(np.sum(np.power(np.abs(pt - pset_copy), exponent),
+                           axis=0), 1/exponent)
 
 #----------------------------------------------------------------------------#
 
