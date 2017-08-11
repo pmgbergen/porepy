@@ -226,7 +226,7 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
 
     # Special treatment of the case with an empty array
     if mat.shape[1] == 0:
-        return mat
+        return mat, np.array([], dtype=int), np.array([], dtype=int)
 
     # If the matrix is integers, and the tolerance less than 1/2, we can use
     # the new unique function that ships with numpy 1.13. This comes with a
