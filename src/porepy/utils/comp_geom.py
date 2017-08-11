@@ -1710,6 +1710,17 @@ def dist_segment_segment(s1_start, s1_end, s2_start, s2_end):
 def dist_points_segments(p, start, end):
     """ Compute distances between points and line segments.
 
+    Also return closest points on the segments.
+
+    Parameters:
+        p (np.array, ndxn): Individual points
+        start (np.ndarray, nd x n_segments): Start points of segments.
+        end (np.ndarray, nd x n_segments): End point of segments
+
+    Returns:
+        np.array, num_points x num_segments: Distances.
+        np.array, num-points x num_segments x nd: Points on the segments
+            closest to the individual points.
 
     """
     if start.size < 4:
@@ -1725,6 +1736,10 @@ def dist_points_segments(p, start, end):
     line = end - start
     lengths = np.sqrt(np.sum(line * line, axis=0))
 
+    nd = p.shape[0]
+    # Closest points
+    cp = np.zeros((num_p, num_l, nd))
+
     for pi in range(num_p):
         # Project the vectors from start to point onto the line, and compute
         # relative length
@@ -1735,16 +1750,19 @@ def dist_points_segments(p, start, end):
         # start
         less = np.ma.less_equal(proj, 0)
         d[pi, less] = dist_point_pointset(p[:, pi], start[:, less])
+        cp[pi, less, :] = np.swapaxes(start[:, less], 1, 0)
         # Similarly, above one signifies closest to end
         above = np.ma.greater_equal(proj, 1)
         d[pi, above] = dist_point_pointset(p[:, pi], end[:, above])
+        cp[pi, above, :] = np.swapaxes(end[:, above], 1, 0)
 
         # Points inbetween
         between = np.logical_not(np.logical_or(less, above).data)
         proj_p = start[:, between] + proj[between] * line[:, between]
         d[pi, between] = dist_point_pointset(p[:, pi], proj_p)
+        cp[pi, between, :] = np.swapaxes(proj_p, 1, 0)
 
-    return d
+    return d, cp
 
 
 #-----------------------------------------------------------------------------
