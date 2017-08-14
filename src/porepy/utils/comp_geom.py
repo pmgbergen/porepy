@@ -1608,6 +1608,44 @@ def map_grid(g):
 
 #------------------------------------------------------------------------------#
 
+def dist_segment_set(start, end):
+    """ Compute distance and closest points between sets of line segments.
+
+    Parameters:
+        start (np.array, nd x num_segments): Start points of segments.
+        end (np.array, nd x num_segments): End points of segments.
+
+    Returns:
+        np.array, num_segments x num_segments: Distances between segments.
+        np.array, num_segments x num_segments x nd: For segment i and j,
+            element [i, j] gives the point on i closest to segment j.
+
+    """
+    if start.size < 4:
+        start = start.reshape((-1, 1))
+    if end.size < 4:
+        end = end.reshape((-1, 1))
+
+    nd = start.shape[0]
+    ns = start.shape[1]
+
+    d = np.zeros((ns, ns))
+    cp = np.zeros((ns, ns, nd))
+
+    for i in range(ns):
+        cp[i, i, :] = start[:, i] + 0.5 * (end[:, i] - start[:, i])
+        for j in range(i+1, ns):
+            dl, cpi, cpj = dist_two_segments(start[:, i], end[:, i],
+                                             start[:, j], end[:, j])
+            d[i, j] = d
+            d[j, i] = d
+            cp[i, j, :] = cpi
+            cp[j, i, :] = cpj
+
+    return d, cp
+
+#------------------------------------------------------------------------------#
+
 def dist_two_segments(s1_start, s1_end, s2_start, s2_end):
     """
     Compute the distance between two line segments.
