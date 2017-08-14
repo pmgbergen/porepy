@@ -1612,6 +1612,10 @@ def dist_segment_segment(s1_start, s1_end, s2_start, s2_end):
     """
     Compute the distance between two line segments.
 
+    Also find the closest point on each of the two segments. In the case where
+    the closest points are not unique (parallel lines), points somewhere along
+    the segments are returned.
+
     The implementaion is based on http://geomalgorithms.com/a07-_distance.html
     (C++ code can be found somewhere on the page). Also confer that page for
     explanation of the algorithm.
@@ -1629,6 +1633,8 @@ def dist_segment_segment(s1_start, s1_end, s2_start, s2_end):
 
     Returns:
         double: Minimum distance between the segments
+        np.array (size nd): Closest point on the first segment
+        np.array (size nd): Closest point on the second segment
 
     """
 
@@ -1703,7 +1709,11 @@ def dist_segment_segment(s1_start, s1_end, s2_start, s2_end):
 
     # get the difference of the two closest points
     dist = d_starts + sc * d1 - tc * d2
-    return np.sqrt(dist.dot(dist))
+
+    cp1 = s1_start + d1 * sc
+    cp2 = s2_start + d2 * tc
+
+    return np.sqrt(dist.dot(dist)), cp1, cp2
 
 #-----------------------------------------------------------------------------
 
@@ -1915,6 +1925,13 @@ def dist_points_polygon(p, poly, tol=1e-5):
         cp[:, pi] = p_outside[i, mi, :]
 
     return d, cp
+
+#----------------------------------------------------------------------------#
+
+def dist_segment_polygon(start, end, poly):
+    """ Compute the distance from a line segment to a polygon.
+    """
+    pass
 
 #----------------------------------------------------------------------------#
 

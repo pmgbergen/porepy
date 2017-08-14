@@ -13,13 +13,16 @@ class TestSegmentDistance(unittest.TestCase):
 
     def test_segment_no_intersect_2d(self):
         p00, p10, p11, p01 = self.setup_2d_unit_square()
-        d = cg.dist_segment_segment(p00, p01, p11, p10)
+        d, _, _ = cg.dist_segment_segment(p00, p01, p11, p10)
         assert d == 1
 
     def test_segment_intersect_2d(self):
         p00, p10, p11, p01 = self.setup_2d_unit_square()
-        d = cg.dist_segment_segment(p00, p11, p10, p01)
+        d, cp_1, cp_2 = cg.dist_segment_segment(p00, p11, p10, p01)
         assert d == 0
+
+        assert np.allclose(cp_1, np.array([0.5, 0.5]))
+        assert np.allclose(cp_2, np.array([0.5, 0.5]))
 
     def test_line_passing(self):
         # Lines not crossing
@@ -27,24 +30,30 @@ class TestSegmentDistance(unittest.TestCase):
         p2 = np.array([1, 0])
         p3 = np.array([2, -1])
         p4 = np.array([2, 1])
-        d = cg.dist_segment_segment(p1, p2, p3, p4)
+        d, cp1, cp2 = cg.dist_segment_segment(p1, p2, p3, p4)
         assert d == 1
+        assert np.allclose(cp1, np.array([1, 0]))
+        assert np.allclose(cp2, np.array([2, 0]))
 
     def test_share_point(self):
         # Two lines share a point
         p1 = np.array([0, 0])
         p2 = np.array([0, 1])
         p3 = np.array([1, 1])
-        d = cg.dist_segment_segment(p1, p2, p2, p3)
+        d, cp1, cp2 = cg.dist_segment_segment(p1, p2, p2, p3)
         assert d == 0
+        assert np.allclose(cp1, p2)
+        assert np.allclose(cp2, p2)
 
     def test_intersection_3d(self):
         p000 = np.array([0, 0, 0])
         p111 = np.array([1, 1, 1])
         p100 = np.array([1, 0, 0])
         p011 = np.array([0, 1, 1])
-        d = cg.dist_segment_segment(p000, p111, p100, p011)
+        d, cp1, cp2 = cg.dist_segment_segment(p000, p111, p100, p011)
         assert d == 0
+        assert np.allclose(cp1, np.array([0.5, 0.5, 0.5]))
+        assert np.allclose(cp2, np.array([0.5, 0.5, 0.5]))
 
     def test_changed_order_3d(self):
         # The order of the start and endpoints of the segments should not matter
@@ -53,15 +62,25 @@ class TestSegmentDistance(unittest.TestCase):
         p2 = np.random.rand(1, 3)[0]
         p3 = np.random.rand(1, 3)[0]
         p4 = np.random.rand(1, 3)[0]
-        d1 = cg.dist_segment_segment(p1, p2, p3, p4)
-        d2 = cg.dist_segment_segment(p2, p1, p3, p4)
-        d3 = cg.dist_segment_segment(p1, p2, p4, p3)
-        d4 = cg.dist_segment_segment(p2, p1, p4, p3)
-        d5 = cg.dist_segment_segment(p4, p3, p2, p1)
+        d1, cp11, cp12 = cg.dist_segment_segment(p1, p2, p3, p4)
+        d2, cp21, cp22 = cg.dist_segment_segment(p2, p1, p3, p4)
+        d3, cp31, cp32 = cg.dist_segment_segment(p1, p2, p4, p3)
+        d4, cp41, cp42 = cg.dist_segment_segment(p2, p1, p4, p3)
+        d5, cp51, cp52 = cg.dist_segment_segment(p4, p3, p2, p1)
         assert np.allclose(d1, d2)
         assert np.allclose(d1, d3)
         assert np.allclose(d1, d4)
         assert np.allclose(d1, d5)
+
+        assert np.allclose(cp11, cp21)
+        assert np.allclose(cp31, cp11)
+        assert np.allclose(cp41, cp11)
+        assert np.allclose(cp52, cp11)
+        assert np.allclose(cp12, cp22)
+        assert np.allclose(cp12, cp32)
+        assert np.allclose(cp12, cp42)
+        assert np.allclose(cp12, cp51)
+
 
     if __name__ == '__main__':
         unittest.main()
