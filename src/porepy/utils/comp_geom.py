@@ -1608,7 +1608,7 @@ def map_grid(g):
 
 #------------------------------------------------------------------------------#
 
-def dist_segment_segment(s1_start, s1_end, s2_start, s2_end):
+def dist_two_segments(s1_start, s1_end, s2_start, s2_end):
     """
     Compute the distance between two line segments.
 
@@ -1930,8 +1930,18 @@ def dist_points_polygon(p, poly, tol=1e-5):
 
 def dist_segment_polygon(start, end, poly):
     """ Compute the distance from a line segment to a polygon.
+
+    Parameters:
+        start (np.array, nd): One endpoint of segment
+        end (np.array, nd): Other endpoint of segment
+        poly (np.array, nd x n_vert): Vertexes of polygon.
+
+    Returns:
+        double: Distance from segment to polygon.
+        np.array, nd: Closest point.
     """
-    pass
+    d_start_poly, cp_s_p = dist_point_polygon(start, poly)
+    d_end_poly, cp_e_p = dist_point_polygon(end, poly)
 
 #----------------------------------------------------------------------------#
 
