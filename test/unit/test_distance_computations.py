@@ -197,3 +197,37 @@ class TestDistancePointSegments(unittest.TestCase):
 
     if __name__ == '__main__':
         unittest.main()
+
+
+class TestDistancePointPolygon(unittest.TestCase):
+
+
+    def test_norot_poly(self):
+        poly = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+        p = np.array([[0.5, 0.5, 0], [0.5, 0, 0], [0.5, 0.5, 1], [0, 0, 1],
+                      [0.5, 0, 1], [2, 0.5, 0], [2, 0, 1]]).T
+
+        d, cp = cg.dist_points_polygon(p, poly)
+
+        known_d = np.array([0, 0, 1, 1, 1, 1, np.sqrt(2)])
+        known_cp = np.array([[0.5, 0.5, 0], [0.5, 0, 0], [0.5, 0.5, 0],
+                             [0, 0, 0], [0.5, 0, 0], [1, 0.5, 0], [1, 0, 0]]).T
+
+        assert np.allclose(d, known_d)
+        assert np.allclose(cp, known_cp)
+
+    def test_rot_poly(self):
+        poly = np.array([[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]]).T
+
+        p = np.array([[0, 0, 0], [0, 0.5, 0.5], [2, 0.5, 0.5], [0, 0, 0.5],
+                      [0, -1, 0.5], [1, 0, 0], [1, 0.5, 0.5]]).T
+
+        d, cp = cg.dist_points_polygon(p, poly)
+
+        known_d = np.array([1, 1, 1, 1, np.sqrt(2), 0, 0])
+        known_cp = np.array([[1, 0, 0], [1, 0.5, 0.5], [1, 0.5, 0.5],
+                             [1, 0, 0.5], [1, 0, 0.5], [1, 0, 0],
+                             [1, 0.5, 0.5]]).T
+
+        assert np.allclose(d, known_d)
+        assert np.allclose(cp, known_cp)

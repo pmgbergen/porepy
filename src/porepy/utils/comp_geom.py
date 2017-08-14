@@ -1823,6 +1823,98 @@ def dist_pointset(p):
 
     return d
 
+#----------------------------------------------------------------------------#
+
+def dist_points_polygon(p, poly, tol=1e-5):
+    """ Compute distance from points to a polygon. Also find closest point on
+    the polygon.
+
+    The computation is split into two, the closest point can either be in the
+    interior, or at the boundary of the point.
+
+    Parameters:
+        p (np.array, nd x n_pts): Points for which we will compute distances.
+        poly (np.array, nd x n_vertexes): Vertexes of polygon. Edges are formed
+            by subsequent points.
+
+    Returns:
+        np.array (n_pts): Distance from points to polygon
+        np.array (nd x n_pts): For each point, the closest point on the
+            polygon.
+
+    """
+
+
+    if p.size < 4:
+        p.reshape((-1, 1))
+
+    num_p = p.shape[1]
+    num_vert = poly.shape[1]
+    nd = p.shape[0]
+
+    # First translate the points so that the first plane is located at the origin
+    center = np.mean(poly, axis=1).reshape((-1, 1))
+    # Compute copies of polygon and point in new coordinate system
+    orig_poly = poly
+    poly = poly - center
+    orig_p = p
+    p = p - center
+
+    # Obtain the rotation matrix that projects p1 to the xy-plane
+    rot_p = project_plane_matrix(poly)
+    irot = rot_p.transpose()
+    poly_rot = rot_p.dot(poly)
+
+    # Sanity check: The points should lay on a plane
+    assert np.all(np.abs(poly_rot[2]) < tol)
+
+    poly_xy = poly_rot[:2]
+
+    # Make sure the xy-polygon is ccw.
+    if not is_ccw_polygon(poly_xy):
+        poly_1_xy = poly_xy[:, ::-1]
+
+    # Rotate the point set, using the same coordinate system.
+    p = rot_p.dot(p)
+
+    in_poly = is_inside_polygon(poly_xy, p)
+
+    # Distances
+    d = np.zeros(num_p)
+    # Closest points
+    cp = np.zeros((nd, num_p))
+
+    # For points that are located inside the extrusion of the polygon, the
+    # distance is simply the z-coordinate
+    d[in_poly] = np.abs(p[2, in_poly])
+
+    # The corresponding closest points are found by inverse rotation of the
+    # closest point on the polygon
+    cp_inpoly = p[:, in_poly]
+    if cp_inpoly.size == 3:
+        cp_inpoly = cp_inpoly.reshape((-1, 1))
+    cp_inpoly[2, :] = 0
+    cp[:, in_poly] = center + irot.dot(cp_inpoly)
+
+    if np.all(in_poly):
+        return d, cp
+
+    # Next, points that are outside the extruded polygons. These will have
+    # their closest point among one of the edges
+    start = orig_poly
+    end = orig_poly[:, (1 + np.arange(num_vert)) % num_vert]
+
+    outside_poly = np.where(np.logical_not(in_poly))[0]
+
+    d_outside, p_outside = dist_points_segments(orig_p[:, outside_poly], start,
+                                                end)
+
+    for i, pi in enumerate(outside_poly):
+        mi = np.argmin(d_outside[i])
+        d[pi] = d_outside[i, mi]
+        cp[:, pi] = p_outside[i, mi, :]
+
+    return d, cp
 
 #----------------------------------------------------------------------------#
 
