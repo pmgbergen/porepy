@@ -1966,21 +1966,140 @@ def dist_points_polygon(p, poly, tol=1e-5):
 
 #----------------------------------------------------------------------------#
 
-def dist_segment_polygon(start, end, poly):
-    """ Compute the distance from a line segment to a polygon.
+def dist_segments_polygon(start, end, poly, tol=1e-5):
+    """ Compute the distance from line segments to a polygon.
 
     Parameters:
-        start (np.array, nd): One endpoint of segment
-        end (np.array, nd): Other endpoint of segment
+        start (np.array, nd x num_segments): One endpoint of segments
+        end (np.array, nd x num_segments): Other endpoint of segments
         poly (np.array, nd x n_vert): Vertexes of polygon.
 
     Returns:
-        double: Distance from segment to polygon.
-        np.array, nd: Closest point.
+        np.ndarray, double: Distance from segment to polygon.
+        np.array, nd x num_segments: Closest point.
     """
-    d_start_poly, cp_s_p = dist_point_polygon(start, poly)
-    d_end_poly, cp_e_p = dist_point_polygon(end, poly)
+    if start.size < 4:
+        start = start.reshape((-1, 1))
+    if end.size < 4:
+        end = end.reshape((-1, 1))
 
+    num_p = start.shape[1]
+    num_vert = poly.shape[1]
+    nd = start.shape[0]
+
+    d = np.zeros(num_p)
+    cp = np.zeros((nd, num_p))
+
+    # First translate the points so that the first plane is located at the origin
+    center = np.mean(poly, axis=1).reshape((-1, 1))
+    # Compute copies of polygon and point in new coordinate system
+    orig_poly = poly
+    orig_start = start
+    orig_end = end
+
+    poly = poly - center
+    start  = start - center
+    end = end - center
+
+    # Obtain the rotation matrix that projects p1 to the xy-plane
+    rot_p = project_plane_matrix(poly)
+    irot = rot_p.transpose()
+    poly_rot = rot_p.dot(poly)
+
+    # Sanity check: The points should lay on a plane
+    assert np.all(np.abs(poly_rot[2]) < tol)
+
+    poly_xy = poly_rot[:2]
+
+    # Make sure the xy-polygon is ccw.
+    if not is_ccw_polygon(poly_xy):
+        poly_1_xy = poly_xy[:, ::-1]
+
+    # Rotate the point set, using the same coordinate system.
+    start = rot_p.dot(start)
+    end = rot_p.dot(end)
+
+    dz = end[2] - start[2]
+    non_zero_incline = np.abs(dz) > tol
+
+    # Parametrization along line of intersection point
+    t = 0 * dz
+
+    # Intersection point for segments with non-zero incline
+    t[non_zero_incline] = -start[2, non_zero_incline]\
+                          / dz[non_zero_incline]
+    # Segments with z=0 along the segment
+    zero_along_segment = np.logical_and(non_zero_incline,
+                                        np.logical_and(t>=0,
+                                                       t<=1).astype(np.bool))
+
+    x0 = start +  (end - start) * t
+    # Check if zero point is inside the polygon
+    inside = is_inside_polygon(poly_xy, x0[:2])
+    crosses = np.logical_and(inside, zero_along_segment)
+
+    # For points with zero incline, the z-coordinate should be zero for the
+    # point to be inside
+    segment_in_plane = np.logical_and(np.abs(start[2]) < tol,
+                                      np.logical_not(non_zero_incline))
+    # Check if either start or endpoint is inside the polygon. This leaves the
+    # option of the segment crossing the polygon within the plane, but this
+    # will be handled by the crossing of segments below
+    endpoint_in_polygon = np.logical_or(is_inside_polygon(poly_xy, start[:2]),
+                                        is_inside_polygon(poly_xy, end[:2]))
+
+    segment_in_polygon = np.logical_and(segment_in_plane, endpoint_in_polygon)
+
+    intersects = np.logical_or(crosses, segment_in_polygon)
+
+    x0[2, intersects] = 0
+    cp[:, intersects] = center + irot.dot(x0[:, intersects])
+
+    # Check if we're done, or if we should consider proximity to polygon
+    # segments
+    if np.all(intersects):
+        # The distance is known to be zero, so no need to set it
+        return d, cp
+
+    not_found = np.where(np.logical_not(intersects))[0]
+
+    # If we reach this, the minimum is not zero for all segments. The point
+    # with minimum distance is then either 1) one endpoint of the segments
+    # (point-polygon), 2) found as a segment-segment minimum (segment and
+    # boundary of polygon), or 3) anywhere along the segment parallel with
+    # polygon.
+    poly = orig_poly
+    start = orig_start
+    end = orig_end
+
+    # Distance from endpoints to 
+    d_start_poly, cp_s_p = dist_points_polygon(start, poly)
+    d_end_poly, cp_e_p = dist_points_polygon(end, poly)
+
+    # Loop over all segments that did not cross the polygon. The minimum is
+    # found either by the endpoints, or as between two segments.
+    for si in not_found:
+        md = d_start_poly[si]
+        cp_l = cp_s_p
+
+        if d_end_poly[si] < md:
+            md = d_end_poly
+            cp_l = cp_e_p
+
+        # Loop over polygon segments
+        for poly_i in range(num_vert):
+            ds, cp_s, _ = dist_two_segments(start[:, si], end[:, si],
+                                            poly[:, poly_i],
+                                            poly[:, (poly_i+1) % num_vert])
+            if ds < md:
+                md = ds
+                cp_l = cp_s
+
+        # By now, we have found the minimum
+        d[si] = md
+        cp[:, si] = cp_l.reshape((1, -1))
+
+    return d, cp
 #----------------------------------------------------------------------------#
 
 if __name__ == "__main__":

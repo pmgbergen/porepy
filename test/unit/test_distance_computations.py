@@ -250,3 +250,137 @@ class TestDistancePointPolygon(unittest.TestCase):
 
         assert np.allclose(d, known_d)
         assert np.allclose(cp, known_cp)
+
+    if __name__ == '__main__':
+        unittest.main()
+
+class TestDistanceSegmentPolygon(unittest.TestCase):
+
+    def test_segment_intersects_no_rot(self):
+        p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+
+        start = np.array([0.5, 0.5, -1])
+        end = np.array([0.5, 0.5, 1])
+
+        d, cp = cg.dist_segments_polygon(start, end, p)
+
+        known_d = np.array([0])
+        known_cp = np.array([0.5, 0.5, 0]).reshape((-1, 1))
+
+        assert np.allclose(d, known_d)
+        assert np.allclose(cp, known_cp)
+
+    def test_segment_no_intersection_intersect_extrusion__no_rot(self):
+        p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+
+        start = np.array([0.5, 0.5, 1])
+        end = np.array([0.5, 0.5, 2])
+
+        d, cp = cg.dist_segments_polygon(start, end, p)
+
+        known_d = np.array([1])
+        known_cp = np.array([0.5, 0.5, 0]).reshape((-1, 1))
+
+        assert np.allclose(d, known_d)
+        assert np.allclose(cp, known_cp)
+
+    def test_segment_intersects_in_endpoint_no_rot(self):
+        p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+
+        start = np.array([0.5, 0.5, 0])
+        end = np.array([0.5, 0.5, 1])
+
+        d, cp = cg.dist_segments_polygon(start, end, p)
+
+        known_d = np.array([0])
+        known_cp = np.array([0.5, 0.5, 0]).reshape((-1, 1))
+
+        assert np.allclose(d, known_d)
+        assert np.allclose(cp, known_cp)
+
+    def test_segment_no_intersection_no_rot(self):
+        p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+
+        start = np.array([1.5, 0.5, -1])
+        end = np.array([1.5, 0.5, 1])
+
+        d, cp = cg.dist_segments_polygon(start, end, p)
+
+        known_d = np.array([0.5])
+        known_cp = np.array([1.5, 0.5, 0]).reshape((-1, 1))
+
+        assert np.allclose(d, known_d)
+        assert np.allclose(cp, known_cp)
+
+    def test_segment_in_polygon(self):
+        p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+
+        start = np.array([0.5, 0.5, 0])
+        end = np.array([0.7, 0.7, 0])
+
+        d, cp = cg.dist_segments_polygon(start, end, p)
+
+        known_d = np.array([0])
+
+        assert np.allclose(d, known_d)
+        assert cp[2] == 0  # x and y coordinate of closest point is not clear
+                           # in this case
+
+    def test_segment_parallel_polygon(self):
+        p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+
+        start = np.array([0.5, 0.5, 1])
+        end = np.array([0.7, 0.7, 1])
+
+        d, cp = cg.dist_segments_polygon(start, end, p)
+
+        known_d = np.array([1])
+
+        assert np.allclose(d, known_d)
+        assert cp[2] == 0  # x and y coordinate of closest point is not clear
+                           # in this case
+
+    def test_segment_parallel_polygon_extends_outside_both_sides(self):
+        p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+
+        start = np.array([-0.5, -0.5, 0])
+        end = np.array([1.7, 1.7, 0])
+
+        d, cp = cg.dist_segments_polygon(start, end, p)
+
+        known_d = np.array([0])
+
+        assert np.allclose(d, known_d)
+        assert cp[2] == 0  # x and y coordinate of closest point is not clear
+                           # in this case
+
+    def test_segment_parallel_polygon_extends_outside_intersection(self):
+        p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+
+        start = np.array([0.5, 0.5, 0])
+        end = np.array([1.7, 1.7, 0])
+
+        d, cp = cg.dist_segments_polygon(start, end, p)
+
+        known_d = np.array([0])
+
+        assert np.allclose(d, known_d)
+        assert cp[2] == 0  # x and y coordinate of closest point is not clear
+                           # in this case
+
+    def test_segment_parallel_polygon_extends_outside_no_intersection(self):
+        p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+
+        start = np.array([0.5, 0.5, 1])
+        end = np.array([1.7, 1.7, 1])
+
+        d, cp = cg.dist_segments_polygon(start, end, p)
+
+        known_d = np.array([1])
+
+        assert np.allclose(d, known_d)
+        assert cp[2] == 0  # x and y coordinate of closest point is not clear
+                           # in this case
+
+    if __name__ == '__main__':
+        unittest.main()
