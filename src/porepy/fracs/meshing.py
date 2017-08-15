@@ -17,7 +17,7 @@ from porepy.utils import setmembership, mcolon
 
 def simplex_grid(fracs, domain, **kwargs):
     """
-    Main function for grid generation. Creates a fractured simiplex grid in 2 
+    Main function for grid generation. Creates a fractured simiplex grid in 2
     or 3 dimensions.
 
     Parameters
@@ -84,6 +84,55 @@ def simplex_grid(fracs, domain, **kwargs):
     split_grid.split_fractures(gb)
     return gb
 
+#------------------------------------------------------------------------------#
+
+def from_gmsh(file_name, dim, **kwargs):
+    """
+    Import an already generated grid from gmsh.
+    NOTE: Only 2d grid is implemented so far.
+
+    Parameters
+    ----------
+    file_name (string): Gmsh file name.
+    dim (int): Spatial dimension of the grid.
+    **kwargs: May contain fracture tags, options for gridding, etc.
+
+    Returns
+    -------
+    Grid or GridBucket: If no fractures are present in the gmsh file a simple
+        grid is returned. Otherwise, a complete bucket where all fractures are
+        represented as lower dim grids. See the documentation of simplex_grid
+        for further details.
+
+    Examples
+    --------
+    gb = from_gmsh('grid.geo', 2)
+
+    """
+    # Call relevant method, depending on grid dimensions.
+    if dim == 2:
+        grids = simplex.triangle_grid_from_gmsh(file_name, **kwargs)
+#    elif dim == 3:
+#        grids = simplex.tetrahedral_grid_from_gmsh(file_name, **kwargs)
+    else:
+        raise ValueError('Only support for 2 dimensions')
+
+    # No fractures are specified, return a simple grid
+    if len(grids[1]) == 0:
+        grids[0][0].compute_geometry()
+        return grids[0][0]
+
+    # Tag tip faces
+    tag_faces(grids)
+
+    # Assemble grids in a bucket
+    gb = assemble_in_bucket(grids)
+    gb.compute_geometry()
+    # Split the grids.
+    split_grid.split_fractures(gb)
+    return gb
+
+#------------------------------------------------------------------------------#
 
 def cart_grid(fracs, nx, **kwargs):
     """

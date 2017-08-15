@@ -231,8 +231,6 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     # We find the end points that is shared by more than one intersection
     intersections = __find_intersection_points(lines_split)
 
-    # Constants used in the gmsh.geo-file
-    const = constants.GmshConstants()
     # Gridding size
     if 'mesh_size' in kwargs.keys():
         mesh_size, mesh_size_bound, pts_split, lines_split = \
@@ -245,8 +243,6 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
 
     # gmsh options
 
-    gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
-    gmsh_opts = {'-v': gmsh_verbose}
     meshing_algorithm = kwargs.get('meshing_algorithm')
 
     # Create a writer of gmsh .geo-files
@@ -255,6 +251,22 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
         mesh_size_bound=mesh_size_bound, intersection_points=intersections,
         meshing_algorithm=meshing_algorithm)
     gw.write_geo(in_file)
+
+    return triangle_grid_from_gmsh(file_name, **kwargs)
+
+#------------------------------------------------------------------------------#
+
+def triangle_grid_from_gmsh(file_name, **kwargs):
+
+    if file_name.endswith('.geo'):
+        file_name = file_name[:-4]
+    in_file = file_name + '.geo'
+    out_file = file_name + '.msh'
+
+    # Verbosity level
+    verbose = kwargs.get('verbose', 1)
+    gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
+    gmsh_opts = {'-v': gmsh_verbose}
 
     # Run gmsh
     gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=2,
@@ -274,6 +286,9 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     # Invert phys_names dictionary to map from physical tags to corresponding
     # physical names
     phys_names = {v: k for k, v in phys_names.items()}
+
+    # Constants used in the gmsh.geo-file
+    const = constants.GmshConstants()
 
     # Create grids from gmsh mesh.
     g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False)
@@ -300,6 +315,7 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
 
     return grids
 
+#------------------------------------------------------------------------------#
 
 def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     """
