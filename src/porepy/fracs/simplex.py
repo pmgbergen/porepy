@@ -236,7 +236,6 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
         mesh_size, mesh_size_bound, pts_split, lines_split = \
             utils.determine_mesh_size(pts_split, lines_split,
                                       **kwargs['mesh_size'])
-#                pts_split.shape[1], **kwargs['mesh_size'])
     else:
         mesh_size = None
         mesh_size_bound = None
