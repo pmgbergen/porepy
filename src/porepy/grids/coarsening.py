@@ -286,7 +286,7 @@ def generate_seeds(gb):
 
 #------------------------------------------------------------------------------#
 
-def create_aggregations(g):
+def create_aggregations(g, **kwargs):
     """ Create a cell partition based on their volumes.
 
     Parameter:
@@ -309,7 +309,8 @@ def create_aggregations(g):
     c2c = g.cell_connection_map()
 
     # Compute the inverse of the harminc mean
-    mean = 1./stats.hmean(1./volumes)
+    weight = kwargs.get('weight', 1.)
+    mean = weight/stats.hmean(1./volumes)
 
     new_id = 1
     while np.any(partition < 0):
@@ -349,6 +350,29 @@ def create_aggregations(g):
         new_id += 1
 
         volumes_checked[cluster] = np.inf
+
+    volumes_checked = volumes.copy()
+    which_cell = volumes_checked < mean
+    volumes_checked[np.logical_not(which_cell)] = np.inf
+
+    while np.any(which_cell):
+        cell_id = np.argmin(volumes_checked)
+        part_cell = partition[cell_id]
+        # Extract the neighbors of the current cell
+        loc = slice(c2c.indptr[cell_id], c2c.indptr[cell_id + 1])
+        neighbors = np.setdiff1d(c2c.indices[loc], np.asarray(cell_id))
+        part_neighbors = partition[neighbors]
+        neighbors = neighbors[part_neighbors != part_cell]
+        if neighbors.size == 0:
+            volumes_checked = np.inf
+            which_cell = volumes_checked < mean
+            continue
+        smallest = np.argmin(volumes[neighbors])
+        mask = partition == part_cell
+        partition[mask] = partition[neighbors[smallest]]
+        volumes[mask] = volumes[smallest] + volumes[cell_id]
+        volumes_checked[mask] = volumes[smallest] + volumes[cell_id]
+        which_cell = volumes_checked < mean
 
     # Fill up the cells which are left
     has_not_coarse_id = partition < 0
