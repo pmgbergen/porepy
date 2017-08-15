@@ -19,7 +19,7 @@ from porepy.numerics.fv import tpfa
 
 #------------------------------------------------------------------------------#
 
-def coarsen(g, method='by_volume', method_kwargs={}):
+def coarsen(g, method, **method_kwargs):
     """ Create a coarse grid from a given grid. If a grid bucket is passed the
     procedure is applied to the higher in dimension.
     Note: the grid is modified in place.
@@ -34,11 +34,11 @@ def coarsen(g, method='by_volume', method_kwargs={}):
     """
 
     if method.lower() == 'by_volume':
-        partition = create_aggregations(g)
+        partition = create_aggregations(g, **method_kwargs)
 
     elif method.lower() == 'by_tpfa':
         seeds = np.empty(0, dtype=np.int)
-        if bool(method_kwargs) and method_kwargs.get('if_seeds', False):
+        if method_kwargs.get('if_seeds', False):
             seeds = generate_seeds(g)
         matrix = tpfa_matrix(g)
         partition = create_partition(matrix, seeds=seeds, **method_kwargs)
