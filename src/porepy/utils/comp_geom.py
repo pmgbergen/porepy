@@ -1760,8 +1760,6 @@ def distance_point_segment(pt, start, end):
     Returns:
         distance: the minimum distance between the point and the segment.
         intersect: point of intersection
-        if_pt: True if the point on intersection is one of the input points (pt,
-        start, or end)
     """
     pt_shift = end - start
     length = np.dot(pt_shift, pt_shift)
