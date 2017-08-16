@@ -35,7 +35,7 @@ class DualCoupling(AbstractCoupling):
         # pylint: disable=invalid-name
 
         # Normal permeability and aperture of the intersection
-        k = 2*data_edge['kn'] # TODO: need to be fixed!!!!!!!
+        k = 2*data_edge['kn'] # TODO: need to be handled in a different way
         aperture_h = data_h['param'].get_aperture()
 
         # Retrieve the number of degrees of both grids
@@ -55,7 +55,7 @@ class DualCoupling(AbstractCoupling):
         cc[0, 1] = cc[1, 0].T
 
         # Compute the diagonal terms
-        dataIJ = 1./(g_h.face_areas[faces_h]*aperture_h[cells_h]*k[cells_l])
+        dataIJ = 1./(g_h.face_areas[faces_h] * aperture_h[cells_h] * k[cells_l])
         I, J = faces_h, faces_h
         cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
 

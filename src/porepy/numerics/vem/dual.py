@@ -154,9 +154,9 @@ class DualVEM(Solver):
             faces_loc = faces[loc]
 
             # Compute the H_div-mass local matrix
-            A = self.massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
-                              a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
-                              a[c]*f_normals[:, faces_loc], sgn[loc],
+            A = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
+                              g.cell_volumes[c], f_centers[:, faces_loc],
+                              f_normals[:, faces_loc], sgn[loc],
                               diams[c], weight[c])[0]
 
             # Save values for Hdiv-mass local matrix in the global structure
@@ -229,7 +229,7 @@ class DualVEM(Solver):
 
         if np.any(bc.is_neu):
             is_neu = np.where(bc.is_neu)[0]
-            rhs[is_neu] = bc_weight*bc_val[is_neu]
+            rhs[is_neu] = bc_weight * bc_val[is_neu]
 
         return rhs
 
@@ -297,8 +297,7 @@ class DualVEM(Solver):
 
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to self.massHdiv
-        kxx = np.ones(g.num_cells)
-        k = tensor.SecondOrder(g.dim, kxx)
+        k = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
         param = data['param']
         a = param.get_aperture()
 
@@ -316,13 +315,13 @@ class DualVEM(Solver):
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
             faces_loc = faces[loc]
 
-            Pi_s = self.massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
-                                 a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
-                                 a[c]*f_normals[:, faces_loc], sgn[loc],
+            Pi_s = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
+                                 g.cell_volumes[c], f_centers[:, faces_loc],
+                                 f_normals[:, faces_loc], sgn[loc],
                                  diams[c])[1]
 
             # extract the velocity for the current cell
-            P0u[dim, c] = np.dot(Pi_s, u[faces_loc]) / diams[c]
+            P0u[dim, c] = np.dot(Pi_s, u[faces_loc]) / diams[c] * a[c]
             P0u[:, c] = np.dot(R.T, P0u[:, c])
 
         return P0u
