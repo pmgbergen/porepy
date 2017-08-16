@@ -253,7 +253,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
                                edges[:, edge_ind[0]+1:]))
-            
+
             logger.debug('Second edge split into two new parts')
             split_type = 4
         elif i0 == start and i1 == end:
@@ -480,7 +480,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
     NotImplementedError if a 3D point array is provided.
 
     """
-    # Use a non-standard naming convention for the logger to 
+    # Use a non-standard naming convention for the logger to
     logger = logging.getLogger(__name__ + '.remove_edge_crossings')
 
     logger.info('Find intersections between %i edges', edges.shape[1])
@@ -573,7 +573,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
             continue
 
         size_before_splitting = edges.shape[1]
-    
+
         int_counter = 0
         while intersections.size > 0 and int_counter < intersections.size:
             # Line intersect (inner loop) is an intersection if it crosses
@@ -667,7 +667,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                 else:
                     # We have found an intersection along a line segment
                     logger.debug('''Found two intersections: (%.5f, %.5f) and
-                                    (%.5f, %.5f)''', new_pt[0, 0], 
+                                    (%.5f, %.5f)''', new_pt[0, 0],
                                     new_pt[1, 0], new_pt[0, 1], new_pt[1, 1])
                     vertices, edges, splits,\
                             s_type = _split_edge(vertices, edges,
@@ -693,7 +693,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                      size_before_splitting)
 
     if verbose > 1:
-        logger.info('Edge intersection removal complete. Elapsed time: %g', 
+        logger.info('Edge intersection removal complete. Elapsed time: %g',
                     time.time() - start_time)
         logger.info('Introduced %i new edges', edges.shape[1] - num_edges_orig)
 
@@ -1580,7 +1580,8 @@ def is_collinear(pts, tol=1e-5):
 
     Parameters:
         pts (np.ndarray, 3xn): the points.
-        tol (double, optional): Tolerance used in comparison. Defaults to 1e-5.
+        tol (double, optional): Absolute tolerance used in comparison.
+            Defaults to 1e-5.
 
     Returns:
         boolean, True if the points lie on a line.
@@ -1594,9 +1595,14 @@ def is_collinear(pts, tol=1e-5):
     pt0 = pts[:, 0]
     pt1 = pts[:, 1]
 
+    dist = 0
+    for i in np.arange(pts.shape[1]):
+        for j in np.arange(i+1, pts.shape[1]):
+            dist = max(dist, np.linalg.norm(pts[:, i] - pts[:, j]))
+
     coll = np.array([np.linalg.norm(np.cross(p - pt0, pt1 - pt0)) \
-             for p in pts[:, 1:-1].T])
-    return np.allclose(coll, np.zeros(coll.size), rtol=tol)
+             for p in pts[:, 1:-1].T])/dist
+    return np.allclose(coll, np.zeros(coll.size), atol=tol, rtol=0)
 
 #------------------------------------------------------------------------------#
 
@@ -1740,6 +1746,46 @@ def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
     # get the difference of the two closest points
     dist = d_starts + sc * d1 - tc * d2
     return np.sqrt(dist.dot(dist))
+
+#------------------------------------------------------------------------------#
+
+def distance_point_segment(pt, start, end):
+    """
+    Compute the minimum distance between a point and a segment.
+
+    Parameters:
+        pt: the point
+        start: a point representing one extreme of the segment.
+        end: the second point representing the segment.
+    Returns:
+        distance: the minimum distance between the point and the segment.
+        intersect: point of intersection
+    """
+    pt_shift = end - start
+    length = np.dot(pt_shift, pt_shift)
+    u = np.dot(pt - start, pt_shift) / (length if length != 0 else 1)
+    dx = start + np.clip(u, 0., 1.) * pt_shift - pt
+
+    return np.sqrt(np.dot(dx, dx)), dx + pt
+
+#------------------------------------------------------------------------------#
+
+def argsort_point_on_line(pts, tol=1e-5):
+    """
+    Return the indexes of the point according to their position on a line.
+    The first point in the list has to be on of the extrema of the line.
+
+    Parameters:
+        pts: the list of points
+    Returns:
+        argsort: the indexes of the points
+    """
+    assert pts.shape[1] > 1
+    assert is_collinear(pts, tol)
+    delta = np.tile(pts[:, 0], (pts.shape[1], 1)).T - pts
+    return np.argsort(np.abs(np.einsum('ij,ij->j', delta, delta)))
+
+#------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
     import doctest
