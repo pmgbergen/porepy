@@ -16,7 +16,10 @@ import logging
 from inspect import isfunction, getmembers
 
 from porepy.grids import structured, simplex
-from porepy.params import bc, tensor
+from porepy.params.bc import BoundaryCondition
+from porepy.params import tensor
+from porepy.params.data import Parameters
+
 from porepy.utils.errors import error
 from porepy.utils import comp_geom as cg
 from porepy.numerics.vem import dual
@@ -32,20 +35,23 @@ def upwind_example0(**kwargs):
     #######################
     T = 1
     Nx, Ny = 10, 1
-    g = structured.CartGrid( [Nx, Ny], [1, 1] )
+    g = structured.CartGrid([Nx, Ny], [1, 1])
     g.compute_geometry()
 
-    advect = upwind.Upwind()
-    discharge = advect.discharge(g, [1, 0, 0])
+    advect = upwind.Upwind("transport")
+    param = Parameters(g)
+    param.set_discharge(advect.discharge(g, [1, 0, 0]))
 
     b_faces = g.get_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
-    bnd_val = {'dir': np.hstack(([1], np.zeros(b_faces.size-1)))}
-    data = {'discharge': discharge, 'bc': bnd, 'bc_val': bnd_val}
+    bc = BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
+    bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
+    param.set_bc("transport", bc)
+    param.set_bc_val("transport", bc_val)
+
+    data = {'param': param}
+    data['deltaT'] = advect.cfl(g, data)
 
     U, rhs = advect.matrix_rhs(g, data)
-
-    data = {'deltaT': advect.cfl(g, data)}
     M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
 
     conc = np.zeros(g.num_cells)
@@ -56,14 +62,15 @@ def upwind_example0(**kwargs):
     # Loop over the time
     Nt = int(T / data['deltaT'])
     time = np.empty(Nt)
+    folder = 'example0'
     for i in np.arange( Nt ):
 
         # Update the solution
         conc = invM.dot((M_minus_U).dot(conc) + rhs)
         time[i] = data['deltaT']*i
-        export_vtk(g, "conc_EE", {"conc": conc}, time_step=i)
+        export_vtk(g, "conc_EE", {"conc": conc}, time_step=i, folder=folder)
 
-    export_pvd(g, "conc_EE", time)
+    export_pvd(g, "conc_EE", time, folder=folder)
 
 #------------------------------------------------------------------------------#
 
@@ -73,39 +80,43 @@ def upwind_example1(**kwargs):
     #######################
     T = 1
     Nx, Ny = 10, 1
-    g = structured.CartGrid( [Nx, Ny], [1, 1] )
+    g = structured.CartGrid([Nx, Ny], [1, 1])
     g.compute_geometry()
 
-    advect = upwind.Upwind()
-    discharge = advect.discharge(g, [1, 0, 0])
+    advect = upwind.Upwind("transport")
+    param = Parameters(g)
+    param.set_discharge(advect.discharge(g, [1, 0, 0]))
 
     b_faces = g.get_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
-    bnd_val = {'dir': np.hstack(([1], np.zeros(b_faces.size-1)))}
-    data = {'discharge': discharge, 'bc': bnd, 'bc_val': bnd_val}
+    bc = BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
+    bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
+    param.set_bc("transport", bc)
+    param.set_bc_val("transport", bc_val)
+
+    data = {'param': param}
+    data['deltaT'] = advect.cfl(g, data)
 
     U, rhs = advect.matrix_rhs(g, data)
-
-    data = {'deltaT': 2*advect.cfl(g, data)}
     M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
 
     conc = np.zeros(g.num_cells)
 
     # Perform an LU factorization to speedup the solver
-    IE_solver = sps.linalg.factorized( ( M + U ).tocsc() )
+    IE_solver = sps.linalg.factorized((M + U).tocsc())
 
     # Loop over the time
     Nt = int(T / data['deltaT'])
     time = np.empty(Nt)
+    folder = 'example1'
     for i in np.arange( Nt ):
 
         # Update the solution
         # Backward and forward substitution to solve the system
         conc = IE_solver(M.dot(conc) + rhs)
         time[i] = data['deltaT']*i
-        export_vtk(g, "conc_IE", {"conc": conc}, time_step=i)
+        export_vtk(g, "conc_IE", {"conc": conc}, time_step=i, folder=folder)
 
-    export_pvd(g, "conc_IE", time)
+    export_pvd(g, "conc_IE", time, folder=folder)
 
 #------------------------------------------------------------------------------#
 
@@ -116,39 +127,56 @@ def upwind_example2(**kwargs):
     #######################
     T = 2
     Nx, Ny = 10, 10
-    g = structured.CartGrid( [Nx, Ny], [1, 1] )
-    g.compute_geometry()
-
-    kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
-
     def funp_ex(pt): return -np.sin(pt[0])*np.sin(pt[1])-pt[0]
 
-    f = np.zeros(g.num_cells)
+    g = structured.CartGrid([Nx, Ny], [1, 1])
+    g.compute_geometry()
 
+    param = Parameters(g)
+
+    # Permeability
+    perm = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+    param.set_tensor("flow", perm)
+
+    # Source term
+    param.set_source("flow", np.zeros(g.num_cells))
+
+    # Boundaries
     b_faces = g.get_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
-    bnd_val = {'dir': funp_ex(g.face_centers[:, b_faces])}
+    bc = BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
+    bc_val = np.zeros(g.num_faces)
+    bc_val[b_faces] = funp_ex(g.face_centers[:, b_faces])
+    param.set_bc("flow", bc)
+    param.set_bc_val("flow", bc_val)
 
-    solver = dual.DualVEM()
-    data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
+    # Darcy solver
+    solver = dual.DualVEM("flow")
+    data = {'param': param}
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
-    discharge = solver.extractU(g, up)
 
-    u, p = solver.extractU(g, up), solver.extractP(g, up)
-    P0u = solver.projectU(g, u, data)
+    p, u = solver.extract_p(g, up), solver.extract_u(g, up)
+    P0u = solver.project_u(g, u, data)
     export_vtk(g, "darcy", {"p": p, "P0u": P0u})
 
-    advect = upwind.Upwind()
+    # Discharge
+    param.set_discharge(u)
 
-    bnd_val = {'dir': np.hstack(([1], np.zeros(b_faces.size-1)))}
-    data = {'discharge': discharge, 'bc': bnd, 'bc_val': bnd_val}
+    # Boundaries
+    bc = BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
+    bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
+    param.set_bc("transport", bc)
+    param.set_bc_val("transport", bc_val)
+
+    data = {'param': param}
+
+    # Advect solver
+    advect = upwind.Upwind("transport")
 
     U, rhs = advect.matrix_rhs(g, data)
 
-    data = {'deltaT': advect.cfl(g, data)}
+    data['deltaT'] = advect.cfl(g, data)
     M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
 
     conc = np.zeros(g.num_cells)
@@ -158,14 +186,15 @@ def upwind_example2(**kwargs):
     # Loop over the time
     Nt = int(T / data['deltaT'])
     time = np.empty(Nt)
+    folder = 'example2'
     for i in np.arange( Nt ):
 
         # Update the solution
         conc = invM.dot((M_minus_U).dot(conc) + rhs)
         time[i] = data['deltaT']*i
-        export_vtk(g, "conc_darcy", {"conc": conc}, time_step=i)
+        export_vtk(g, "conc_darcy", {"conc": conc}, time_step=i, folder=folder)
 
-    export_pvd(g, "conc_darcy", time)
+    export_pvd(g, "conc_darcy", time, folder=folder)
 
 #------------------------------------------------------------------------------#
 
