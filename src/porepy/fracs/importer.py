@@ -5,7 +5,8 @@ from porepy.fracs import meshing
 
 #------------------------------------------------------------------------------#
 
-def from_csv(f_name, mesh_kwargs, domain=None, pause=False, **kwargs):
+def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
+             return_domain=False, **kwargs):
     """
     Create the grid bucket from a set of fractures stored in a csv file and a
     domain. In the csv file, we assume the following structure:
@@ -35,9 +36,11 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False, **kwargs):
     if domain is None:
         overlap = kwargs.get('domain_overlap', 0)
         domain = _bounding_box(pts, overlap)
-        return meshing.simplex_grid(f_set, domain, **mesh_kwargs), domain
 
-    return meshing.simplex_grid(f_set, domain, **mesh_kwargs)
+    if return_domain:
+        return meshing.simplex_grid(f_set, domain, **mesh_kwargs), domain
+    else:
+        return meshing.simplex_grid(f_set, domain, **mesh_kwargs)
 
 #------------------------------------------------------------------------------#
 
