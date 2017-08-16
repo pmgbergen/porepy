@@ -30,14 +30,14 @@ def __constant_determine_mesh_size(pts, lines, **kwargs):
     num_pts = pts.shape[1]
     val = kwargs.get('value', None)
     bound_val = kwargs.get('bound_value', None)
-    bound_weigh = kwargs.get('bound_weight', 1.)
 
     if val is not None:
         mesh_size = val * np.ones(num_pts)
     else:
         mesh_size = None
+
     if bound_val is not None:
-        mesh_size_bound = bound_weigh * bound_val
+        mesh_size_bound = bound_val
     else:
         mesh_size_bound = None
 
