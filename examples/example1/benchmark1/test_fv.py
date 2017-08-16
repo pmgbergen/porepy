@@ -6,7 +6,7 @@ line 79.
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.viz import plot_grid, exporter
+from porepy.viz import exporter
 from porepy.fracs import importer
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
