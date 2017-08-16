@@ -17,12 +17,11 @@ from porepy.utils.errors import error
 
 #------------------------------------------------------------------------------#
 
-def add_data(gb, domain):
+def add_data(gb, domain, kf):
     """
     Define the permeability, apertures, boundary conditions
     """
     gb.add_node_props(['param'])
-    kf = 1e-4
     tol = 1e-5
     a = 1e-4
 
@@ -73,38 +72,73 @@ def add_data(gb, domain):
 
 #------------------------------------------------------------------------------#
 
-mesh_kwargs = {}
-mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 0.045, 'bound_value': 0.045}
+def write_network(file_name):
+    network = "FID,START_X,START_Y,END_X,END_Y\n"
+    network += "0,0,0.5,1,0.5\n"
+    network += "1,0.5,0,0.5,1\n"
+    network += "2,0.5,0.75,1,0.75\n"
+    network += "3,0.75,0.5,0.75,1\n"
+    network += "4,0.5,0.625,0.75,0.625\n"
+    network += "5,0.625,0.5,0.625,0.75\n"
+    with open(file_name, "w") as text_file:
+        text_file.write(network)
 
-domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
-gb = importer.from_csv('network.csv', mesh_kwargs, domain)
-gb.compute_geometry()
-gb.assign_node_ordering()
+#------------------------------------------------------------------------------#
 
-internal_flag = FaceTag.FRACTURE
-[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+def main(kf, known_p, known_u, description):
+    mesh_kwargs = {}
+    mesh_kwargs['mesh_size'] = {'mode': 'constant',
+                                'value': 0.045, 'bound_value': 0.045}
 
-# Assign parameters
-add_data(gb, domain)
+    domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
 
-# Choose and define the solvers and coupler
-solver = dual.DualVEM("flow")
-coupling_conditions = dual_coupling.DualCoupling(solver)
-solver_coupler = coupler.Coupler(solver, coupling_conditions)
-A, b = solver_coupler.matrix_rhs(gb)
+    file_name = 'network_geiger.csv'
+    write_network(file_name)
+    gb = importer.from_csv(file_name, mesh_kwargs, domain)
+    gb.compute_geometry()
+    gb.assign_node_ordering()
 
-up = sps.linalg.spsolve(A, b)
-solver_coupler.split(gb, "up", up)
+    internal_flag = FaceTag.FRACTURE
+    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
-gb.add_node_props(["discharge", "p", "P0u"])
-for g, d in gb:
-    d["discharge"] = solver.extract_u(g, d["up"])
-    d["p"] = solver.extract_p(g, d["up"])
-    d["P0u"] = solver.project_u(g, d["discharge"], d)
+    # Assign parameters
+    add_data(gb, domain, kf)
 
-exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem_blocking')
+    # Choose and define the solvers and coupler
+    solver = dual.DualVEM("flow")
+    coupling_conditions = dual_coupling.DualCoupling(solver)
+    solver_coupler = coupler.Coupler(solver, coupling_conditions)
+    A, b = solver_coupler.matrix_rhs(gb)
 
-# Consistency check
-assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 35.6444911616)
-assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), 1.03190700381)
+    up = sps.linalg.spsolve(A, b)
+    solver_coupler.split(gb, "up", up)
+
+    gb.add_node_props(["discharge", "p", "P0u"])
+    for g, d in gb:
+        d["discharge"] = solver.extract_u(g, d["up"])
+        d["p"] = solver.extract_p(g, d["up"])
+        d["P0u"] = solver.project_u(g, d["discharge"], d)
+
+    exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem' + description)
+
+    # Consistency check
+    assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), known_p)
+    assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), known_u)
+
+#------------------------------------------------------------------------------#
+
+def test_vem_blocking():
+    kf = 1e-4
+    known_p = 35.6444911616
+    known_u = 1.03190700381
+    main(kf, known_p, known_u, "blocking")
+
+#------------------------------------------------------------------------------#
+
+def test_vem_permeable():
+    kf = 1e4
+    known_p = 19.8455019189
+    known_u = 1.87843905895
+    main(kf, known_p, known_u, "permeable")
+
+#------------------------------------------------------------------------------#
