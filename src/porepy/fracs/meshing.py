@@ -114,6 +114,8 @@ def from_gmsh(file_name, dim, **kwargs):
         grids = simplex.triangle_grid_from_gmsh(file_name, **kwargs)
 #    elif dim == 3:
 #        grids = simplex.tetrahedral_grid_from_gmsh(file_name, **kwargs)
+#   NOTE: function simplex.tetrahedral_grid needs to be split as did for
+#   simplex.triangle_grid
     else:
         raise ValueError('Only support for 2 dimensions')
 
