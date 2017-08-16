@@ -177,8 +177,7 @@ def create_0d_grids(pts, cells):
     return g_0d
 
 
-def create_embedded_line_grid(loc_coord, glob_id):
-    atol = 1e-4
+def create_embedded_line_grid(loc_coord, glob_id, atol=1e-4):
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
     loc_coord -= loc_center
     # Check that the points indeed form a line
