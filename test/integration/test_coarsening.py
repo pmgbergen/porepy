@@ -1,88 +1,89 @@
-import numpy as np
-import scipy.sparse as sps
 import unittest
 import sys
 
-from porepy.grids import structured, simplex, grid
+import numpy as np
+import scipy.sparse as sps
+
+from porepy.grids import structured, simplex
 from porepy.grids import coarsening as co
 from porepy.fracs import meshing
 
 #------------------------------------------------------------------------------#
 
-class BasicsTest( unittest.TestCase ):
+class BasicsTest(unittest.TestCase):
 
 #------------------------------------------------------------------------------#
 
-    def test_coarse_grid_2d( self ):
+    def test_coarse_grid_2d(self):
         g = structured.CartGrid([3, 2])
         g.compute_geometry()
-        co.generate_coarse_grid( g, [5, 2, 2, 5, 2, 2] )
+        co.generate_coarse_grid(g, [5, 2, 2, 5, 2, 2])
 
         assert g.num_cells == 2
         assert g.num_faces == 12
         assert g.num_nodes == 11
 
-        pt = np.tile(np.array([2,1,0]), (g.nodes.shape[1], 1) ).T
-        find = np.isclose( pt, g.nodes ).all( axis = 0 )
+        pt = np.tile(np.array([2, 1, 0]), (g.nodes.shape[1], 1)).T
+        find = np.isclose(pt, g.nodes).all(axis=0)
         assert find.any() == False
 
-        faces_cell0, _, orient_cell0 = sps.find( g.cell_faces[:, 0] )
-        assert np.array_equal( faces_cell0, [1, 2, 4, 5, 7, 8, 10, 11] )
-        assert np.array_equal( orient_cell0, [-1, 1, -1, 1, -1, -1, 1, 1] )
+        faces_cell0, _, orient_cell0 = sps.find(g.cell_faces[:, 0])
+        assert np.array_equal(faces_cell0, [1, 2, 4, 5, 7, 8, 10, 11])
+        assert np.array_equal(orient_cell0, [-1, 1, -1, 1, -1, -1, 1, 1])
 
-        faces_cell1, _, orient_cell1 = sps.find( g.cell_faces[:,1] )
-        assert np.array_equal( faces_cell1, [0, 1, 3, 4, 6, 9] )
-        assert np.array_equal( orient_cell1, [-1, 1, -1, 1, -1, 1] )
+        faces_cell1, _, orient_cell1 = sps.find(g.cell_faces[:, 1])
+        assert np.array_equal(faces_cell1, [0, 1, 3, 4, 6, 9])
+        assert np.array_equal(orient_cell1, [-1, 1, -1, 1, -1, 1])
 
-        known = np.array( [ [0, 4], [1, 5], [3, 6], [4, 7], [5, 8], [6, 10],
-                            [0, 1], [1, 2], [2, 3], [7, 8], [8, 9], [9, 10] ] )
+        known = np.array([[0, 4], [1, 5], [3, 6], [4, 7], [5, 8], [6, 10],
+                          [0, 1], [1, 2], [2, 3], [7, 8], [8, 9], [9, 10]])
 
-        for f in np.arange( g.num_faces ):
-            assert np.array_equal( sps.find( g.face_nodes[:,f] )[0], known[f,:] )
+        for f in np.arange(g.num_faces):
+            assert np.array_equal(sps.find(g.face_nodes[:, f])[0], known[f, :])
 
 #------------------------------------------------------------------------------#
 
     def test_coarse_grid_3d(self):
         g = structured.CartGrid([2, 2, 2])
         g.compute_geometry()
-        co.generate_coarse_grid( g, [0, 0, 0, 0, 1, 1, 2, 2] )
+        co.generate_coarse_grid(g, [0, 0, 0, 0, 1, 1, 2, 2])
 
         assert g.num_cells == 3
         assert g.num_faces == 30
         assert g.num_nodes == 27
 
-        faces_cell0, _, orient_cell0 = sps.find( g.cell_faces[:,0] )
+        faces_cell0, _, orient_cell0 = sps.find(g.cell_faces[:, 0])
         known = [0, 1, 2, 3, 8, 9, 10, 11, 18, 19, 20, 21, 22, 23, 24, 25]
-        assert np.array_equal( faces_cell0, known )
+        assert np.array_equal(faces_cell0, known)
         known = [-1, 1, -1, 1, -1, -1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1]
-        assert np.array_equal( orient_cell0, known )
+        assert np.array_equal(orient_cell0, known)
 
-        faces_cell1, _, orient_cell1 = sps.find( g.cell_faces[:,1] )
+        faces_cell1, _, orient_cell1 = sps.find(g.cell_faces[:, 1])
         known = [4, 5, 12, 13, 14, 15, 22, 23, 26, 27]
-        assert np.array_equal( faces_cell1, known )
+        assert np.array_equal(faces_cell1, known)
         known = [-1, 1, -1, -1, 1, 1, -1, -1, 1, 1]
-        assert np.array_equal( orient_cell1, known )
+        assert np.array_equal(orient_cell1, known)
 
-        faces_cell2, _, orient_cell2 = sps.find( g.cell_faces[:,2] )
+        faces_cell2, _, orient_cell2 = sps.find(g.cell_faces[:, 2])
         known = [6, 7, 14, 15, 16, 17, 24, 25, 28, 29]
-        assert np.array_equal( faces_cell2, known )
+        assert np.array_equal(faces_cell2, known)
         known = [-1, 1, -1, -1, 1, 1, -1, -1, 1, 1]
-        assert np.array_equal( orient_cell2, known )
+        assert np.array_equal(orient_cell2, known)
 
-        known = np.array( [ [0, 3, 9, 12], [2, 5, 11, 14], [3, 6, 12, 15],
-                            [5, 8, 14, 17], [9, 12, 18, 21], [11, 14, 20, 23],
-                            [12, 15, 21, 24], [14, 17, 23, 26], [0, 1, 9, 10],
-                            [1, 2, 10, 11], [6, 7, 15, 16], [7, 8, 16, 17],
-                            [9, 10, 18, 19], [10, 11, 19, 20], [12, 13, 21, 22],
-                            [13, 14, 22, 23], [15, 16, 24, 25], [16, 17, 25, 26],
-                            [0, 1, 3, 4], [1, 2, 4, 5], [3, 4, 6, 7],
-                            [4, 5, 7, 8], [9, 10, 12, 13], [10, 11, 13, 14],
-                            [12, 13, 15, 16], [13, 14, 16, 17], [18, 19, 21, 22],
-                            [19, 20, 22, 23], [21, 22, 24, 25],
-                            [22, 23, 25, 26] ] )
+        known = np.array([[0, 3, 9, 12], [2, 5, 11, 14], [3, 6, 12, 15],
+                          [5, 8, 14, 17], [9, 12, 18, 21], [11, 14, 20, 23],
+                          [12, 15, 21, 24], [14, 17, 23, 26], [0, 1, 9, 10],
+                          [1, 2, 10, 11], [6, 7, 15, 16], [7, 8, 16, 17],
+                          [9, 10, 18, 19], [10, 11, 19, 20], [12, 13, 21, 22],
+                          [13, 14, 22, 23], [15, 16, 24, 25], [16, 17, 25, 26],
+                          [0, 1, 3, 4], [1, 2, 4, 5], [3, 4, 6, 7],
+                          [4, 5, 7, 8], [9, 10, 12, 13], [10, 11, 13, 14],
+                          [12, 13, 15, 16], [13, 14, 16, 17], [18, 19, 21, 22],
+                          [19, 20, 22, 23], [21, 22, 24, 25],
+                          [22, 23, 25, 26]])
 
-        for f in np.arange( g.num_faces ):
-            assert np.array_equal( sps.find( g.face_nodes[:,f] )[0], known[f,:] )
+        for f in np.arange(g.num_faces):
+            assert np.array_equal(sps.find(g.face_nodes[:, f])[0], known[f, :])
 
 #------------------------------------------------------------------------------#
 
@@ -106,7 +107,7 @@ class BasicsTest( unittest.TestCase ):
     def test_coarse_grid_2d_1d_cross(self):
     # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
     # non-fixed order, we need to exclude this test.
-        if  sys.version_info >= (3,6):
+        if  sys.version_info >= (3, 6):
             part = np.zeros(36)
             part[[0, 1, 2, 6, 7]] = 1
             part[[8, 14, 13]] = 2
@@ -125,19 +126,19 @@ class BasicsTest( unittest.TestCase ):
             gb.compute_geometry()
 
             cell_centers_1 = np.array( \
-                          [[  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
-                              3.00000000e+00],
-                           [  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
-                              1.50000000e+00],
-                           [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
-                              1.66533454e-16]])
+                          [[3.00000000e+00, 3.00000000e+00, 3.00000000e+00,
+                            3.00000000e+00],
+                           [4.50000000e+00, 3.50000000e+00, 2.50000000e+00,
+                            1.50000000e+00],
+                           [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17,
+                            1.66533454e-16]])
             cell_centers_2 = np.array( \
-                          [[  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
-                              1.50000000e+00],
-                           [  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
-                              3.00000000e+00],
-                           [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
-                              1.66533454e-16]])
+                          [[4.50000000e+00, 3.50000000e+00, 2.50000000e+00,
+                            1.50000000e+00],
+                           [3.00000000e+00, 3.00000000e+00, 3.00000000e+00,
+                            3.00000000e+00],
+                           [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17,
+                            1.66533454e-16]])
 
             co.generate_coarse_grid(gb, part)
 
@@ -193,7 +194,7 @@ class BasicsTest( unittest.TestCase ):
     def test_coarse_grid_3d_2d_cross(self):
     # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
     # non-fixed order, we need to exclude this test.
-        if  sys.version_info >= (3,6):
+        if  sys.version_info >= (3, 6):
             f1 = np.array([[3., 3., 3., 3.],
                            [1., 5., 5., 1.],
                            [1., 1., 5., 5.]])
@@ -214,19 +215,19 @@ class BasicsTest( unittest.TestCase ):
             co.generate_coarse_grid(gb, part)
 
             cell_centers_1 = np.array( \
-              [[ 3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,
-                 3. ,  3. ,  3. ,  3. ,  3. ],
-               [ 1.5,  1.5,  1.5,  1.5,  2.5,  2.5,  2.5,  2.5,  3.5,  3.5,  3.5,
-                 3.5,  4.5,  4.5,  4.5,  4.5],
-               [ 4.5,  3.5,  2.5,  1.5,  4.5,  3.5,  2.5,  1.5,  4.5,  3.5,  2.5,
-                 1.5,  4.5,  3.5,  2.5,  1.5]])
+              [[3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3.,
+                3., 3., 3., 3., 3.],
+               [1.5, 1.5, 1.5, 1.5, 2.5, 2.5, 2.5, 2.5, 3.5, 3.5, 3.5,
+                3.5, 4.5, 4.5, 4.5, 4.5],
+               [4.5, 3.5, 2.5, 1.5, 4.5, 3.5, 2.5, 1.5, 4.5, 3.5, 2.5,
+                1.5, 4.5, 3.5, 2.5, 1.5]])
             cell_centers_2 = np.array( \
-              [[ 1.5,  2.5,  3.5,  4.5,  1.5,  2.5,  3.5,  4.5,  1.5,  2.5,  3.5,
-                 4.5,  1.5,  2.5,  3.5,  4.5],
-               [ 1.5,  1.5,  1.5,  1.5,  2.5,  2.5,  2.5,  2.5,  3.5,  3.5,  3.5,
-                 3.5,  4.5,  4.5,  4.5,  4.5],
-               [ 3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,  3. ,
-                 3. ,  3. ,  3. ,  3. ,  3. ]])
+              [[1.5, 2.5, 3.5, 4.5, 1.5, 2.5, 3.5, 4.5, 1.5, 2.5, 3.5,
+                4.5, 1.5, 2.5, 3.5, 4.5],
+               [1.5, 1.5, 1.5, 1.5, 2.5, 2.5, 2.5, 2.5, 3.5, 3.5, 3.5,
+                3.5, 4.5, 4.5, 4.5, 4.5],
+               [3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3.,
+                3., 3., 3., 3., 3.]])
 
             # Test
             for e_d in gb.edges_props():
@@ -271,17 +272,18 @@ class BasicsTest( unittest.TestCase ):
         g = structured.CartGrid([5, 5])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g))
-        known = np.array([0,0,0,1,1,0,0,2,1,1,3,2,2,2,1,3,3,2,4,4,3,3,4,4,4])
+        known = np.array([0, 0, 0, 1, 1, 0, 0, 2, 1, 1, 3, 2, 2, 2, 1, 3, 3, 2,\
+                          4, 4, 3, 3, 4, 4, 4])
         assert np.array_equal(part, known)
 
 #------------------------------------------------------------------------------#
 
     def test_create_partition_2d_tri(self):
-        g = simplex.StructuredTriangleGrid([3,2])
+        g = simplex.StructuredTriangleGrid([3, 2])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g))
-        known = np.array([1,1,1,0,0,1,0,2,2,0,2,2])
-        known_map = np.array([4,3,7,5,11,8,1,2,10,6,12,9])-1
+        known = np.array([1, 1, 1, 0, 0, 1, 0, 2, 2, 0, 2, 2])
+        known_map = np.array([4, 3, 7, 5, 11, 8, 1, 2, 10, 6, 12, 9]) - 1
         assert np.array_equal(part, known[known_map])
 
 #------------------------------------------------------------------------------#
@@ -290,21 +292,27 @@ class BasicsTest( unittest.TestCase ):
         g = structured.CartGrid([10, 10])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g), cdepth=4)
-        known = np.array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-                          1,1,2,1,1,1,1,1,1,1,1,2,2,3,1,1,1,1,1,1,1,2,2,3,3,1,1,
-                          1,1,1,2,2,2,3,3,3,1,1,1,1,2,2,2,3,3,3,3,1,1,2,2,2,2,3,
-                          3,3,3,3,2,2,2,2,2,3,3,3,3,3,2,2,2,2,2])-1
+        known = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,\
+                          1, 1, 1, 1, 1, 1, 1, 1, 1,
+                          1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 1, 1, 1, 1,\
+                          1, 1, 1, 2, 2, 3, 3, 1, 1,
+                          1, 1, 1, 2, 2, 2, 3, 3, 3, 1, 1, 1, 1, 2, 2, 2, 3, 3,\
+                          3, 3, 1, 1, 2, 2, 2, 2, 3,
+                          3, 3, 3, 3, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 2, 2, 2, 2,\
+                          2]) - 1
         assert np.array_equal(part, known)
 
 #------------------------------------------------------------------------------#
 
     def test_create_partition_3d_cart(self):
-        g = structured.CartGrid([4,4,4])
+        g = structured.CartGrid([4, 4, 4])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g))
-        known = np.array([1,1,1,1,2,4,1,3,2,2,3,3,2,2,3,3,5,4,1,6,4,4,4,3,2,4,7,
-                          3,8,8,3,3,5,5,6,6,5,4,7,6,8,7,7,7,8,8,7,9,5,5,6,6,5,5,
-                          6,6,8,8,7,9,8,8,9,9])-1
+        known = np.array([1, 1, 1, 1, 2, 4, 1, 3, 2, 2, 3, 3, 2, 2, 3, 3, 5, 4,\
+                          1, 6, 4, 4, 4, 3, 2, 4, 7,
+                          3, 8, 8, 3, 3, 5, 5, 6, 6, 5, 4, 7, 6, 8, 7, 7, 7, 8,\
+                          8, 7, 9, 5, 5, 6, 6, 5, 5,
+                          6, 6, 8, 8, 7, 9, 8, 8, 9, 9]) - 1
         assert np.array_equal(part, known)
 
 #------------------------------------------------------------------------------#
@@ -415,7 +423,7 @@ class BasicsTest( unittest.TestCase ):
     def test_create_partition_2d_1d_cross_test5(self):
     # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
     # non-fixed order, we need to exclude this test.
-        if  sys.version_info >= (3,6):
+        if  sys.version_info >= (3, 6):
             f1 = np.array([[3., 3.], [1., 5.]])
             f2 = np.array([[1., 5.], [3., 3.]])
             gb = meshing.cart_grid([f1, f2], [6, 6])
@@ -425,19 +433,19 @@ class BasicsTest( unittest.TestCase ):
             co.generate_coarse_grid(gb, part)
 
             cell_centers_1 = np.array( \
-                          [[  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
-                              3.00000000e+00],
-                           [  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
-                              1.50000000e+00],
-                           [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
-                              1.66533454e-16]])
+                          [[3.00000000e+00, 3.00000000e+00, 3.00000000e+00,
+                            3.00000000e+00],
+                           [4.50000000e+00, 3.50000000e+00, 2.50000000e+00,
+                            1.50000000e+00],
+                           [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17,
+                            1.66533454e-16]])
             cell_centers_2 = np.array( \
-                          [[  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
-                              1.50000000e+00],
-                           [  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
-                              3.00000000e+00],
-                           [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
-                              1.66533454e-16]])
+                          [[4.50000000e+00, 3.50000000e+00, 2.50000000e+00,
+                            1.50000000e+00],
+                           [3.00000000e+00, 3.00000000e+00, 3.00000000e+00,
+                            3.00000000e+00],
+                           [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17,
+                            1.66533454e-16]])
 
             # Test
             for e_d in gb.edges_props():
@@ -472,7 +480,7 @@ class BasicsTest( unittest.TestCase ):
     def test_create_partition_2d_1d_cross_test6(self):
         # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
         # non-fixed order, we need to exclude this test.
-        if  sys.version_info >= (3,6):
+        if  sys.version_info >= (3, 6):
             f1 = np.array([[3., 3.], [1., 5.]])
             f2 = np.array([[1., 5.], [3., 3.]])
             gb = meshing.cart_grid([f1, f2], [6, 6])
@@ -486,19 +494,19 @@ class BasicsTest( unittest.TestCase ):
             co.generate_coarse_grid(gb, part)
 
             cell_centers_1 = np.array( \
-                          [[  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
-                              3.00000000e+00],
-                           [  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
-                              1.50000000e+00],
-                           [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
-                              1.66533454e-16]])
+                          [[3.00000000e+00, 3.00000000e+00, 3.00000000e+00,
+                            3.00000000e+00],
+                           [4.50000000e+00, 3.50000000e+00, 2.50000000e+00,
+                            1.50000000e+00],
+                           [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17,
+                            1.66533454e-16]])
             cell_centers_2 = np.array( \
-                          [[  4.50000000e+00,   3.50000000e+00,   2.50000000e+00,
-                              1.50000000e+00],
-                           [  3.00000000e+00,   3.00000000e+00,   3.00000000e+00,
-                              3.00000000e+00],
-                           [ -1.66533454e-16,  -5.55111512e-17,   5.55111512e-17,
-                              1.66533454e-16]])
+                          [[4.50000000e+00, 3.50000000e+00, 2.50000000e+00,
+                            1.50000000e+00],
+                           [3.00000000e+00, 3.00000000e+00, 3.00000000e+00,
+                            3.00000000e+00],
+                           [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17,
+                            1.66533454e-16]])
 
             # Test
             for e_d in gb.edges_props():
@@ -533,7 +541,7 @@ class BasicsTest( unittest.TestCase ):
     def test_create_partition_2d_1d_cross_test7(self):
     # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
     # non-fixed order, we need to exclude this test.
-        if  sys.version_info >= (3,6):
+        if  sys.version_info >= (3, 6):
             N = 20
             f1 = np.array([[N/2., N/2.], [1., N-1.]])
             f2 = np.array([[1., N-1.], [N/2., N/2.]])
@@ -548,43 +556,43 @@ class BasicsTest( unittest.TestCase ):
             co.generate_coarse_grid(gb, part)
 
             cell_centers_1 = np.array( \
-                          [[  1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
-                              1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
-                              1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
-                              1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
-                              1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
-                              1.00000000e+01,   1.00000000e+01,   1.00000000e+01],
-                           [  1.85000000e+01,   1.75000000e+01,   1.65000000e+01,
-                              1.55000000e+01,   1.45000000e+01,   1.35000000e+01,
-                              1.25000000e+01,   1.15000000e+01,   1.05000000e+01,
-                              9.50000000e+00,   8.50000000e+00,   7.50000000e+00,
-                              6.50000000e+00,   5.50000000e+00,   4.50000000e+00,
-                              3.50000000e+00,   2.50000000e+00,   1.50000000e+00],
-                           [ -9.43689571e-16,  -8.32667268e-16,  -7.21644966e-16,
-                             -6.10622664e-16,  -4.99600361e-16,  -3.88578059e-16,
-                             -2.77555756e-16,  -1.66533454e-16,  -5.55111512e-17,
-                              5.55111512e-17,   1.66533454e-16,   2.77555756e-16,
-                              3.88578059e-16,   4.99600361e-16,   6.10622664e-16,
-                              7.21644966e-16,   8.32667268e-16,   9.43689571e-16]])
+                          [[1.00000000e+01, 1.00000000e+01, 1.00000000e+01,
+                            1.00000000e+01, 1.00000000e+01, 1.00000000e+01,
+                            1.00000000e+01, 1.00000000e+01, 1.00000000e+01,
+                            1.00000000e+01, 1.00000000e+01, 1.00000000e+01,
+                            1.00000000e+01, 1.00000000e+01, 1.00000000e+01,
+                            1.00000000e+01, 1.00000000e+01, 1.00000000e+01],
+                           [1.85000000e+01, 1.75000000e+01, 1.65000000e+01,
+                            1.55000000e+01, 1.45000000e+01, 1.35000000e+01,
+                            1.25000000e+01, 1.15000000e+01, 1.05000000e+01,
+                            9.50000000e+00, 8.50000000e+00, 7.50000000e+00,
+                            6.50000000e+00, 5.50000000e+00, 4.50000000e+00,
+                            3.50000000e+00, 2.50000000e+00, 1.50000000e+00],
+                           [-9.43689571e-16, -8.32667268e-16, -7.21644966e-16,
+                            -6.10622664e-16, -4.99600361e-16, -3.88578059e-16,
+                            -2.77555756e-16, -1.66533454e-16, -5.55111512e-17,
+                            5.55111512e-17, 1.66533454e-16, 2.77555756e-16,
+                            3.88578059e-16, 4.99600361e-16, 6.10622664e-16,
+                            7.21644966e-16, 8.32667268e-16, 9.43689571e-16]])
             cell_centers_2 = np.array( \
-                          [[  1.85000000e+01,   1.75000000e+01,   1.65000000e+01,
-                              1.55000000e+01,   1.45000000e+01,   1.35000000e+01,
-                              1.25000000e+01,   1.15000000e+01,   1.05000000e+01,
-                              9.50000000e+00,   8.50000000e+00,   7.50000000e+00,
-                              6.50000000e+00,   5.50000000e+00,   4.50000000e+00,
-                              3.50000000e+00,   2.50000000e+00,   1.50000000e+00],
-                           [  1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
-                              1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
-                              1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
-                              1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
-                              1.00000000e+01,   1.00000000e+01,   1.00000000e+01,
-                              1.00000000e+01,   1.00000000e+01,   1.00000000e+01],
-                           [ -9.43689571e-16,  -8.32667268e-16,  -7.21644966e-16,
-                             -6.10622664e-16,  -4.99600361e-16,  -3.88578059e-16,
-                             -2.77555756e-16,  -1.66533454e-16,  -5.55111512e-17,
-                              5.55111512e-17,   1.66533454e-16,   2.77555756e-16,
-                              3.88578059e-16,   4.99600361e-16,   6.10622664e-16,
-                              7.21644966e-16,   8.32667268e-16,   9.43689571e-16]])
+                          [[1.85000000e+01, 1.75000000e+01, 1.65000000e+01,
+                            1.55000000e+01, 1.45000000e+01, 1.35000000e+01,
+                            1.25000000e+01, 1.15000000e+01, 1.05000000e+01,
+                            9.50000000e+00, 8.50000000e+00, 7.50000000e+00,
+                            6.50000000e+00, 5.50000000e+00, 4.50000000e+00,
+                            3.50000000e+00, 2.50000000e+00, 1.50000000e+00],
+                           [1.00000000e+01, 1.00000000e+01, 1.00000000e+01,
+                            1.00000000e+01, 1.00000000e+01, 1.00000000e+01,
+                            1.00000000e+01, 1.00000000e+01, 1.00000000e+01,
+                            1.00000000e+01, 1.00000000e+01, 1.00000000e+01,
+                            1.00000000e+01, 1.00000000e+01, 1.00000000e+01,
+                            1.00000000e+01, 1.00000000e+01, 1.00000000e+01],
+                           [-9.43689571e-16, -8.32667268e-16, -7.21644966e-16,
+                            -6.10622664e-16, -4.99600361e-16, -3.88578059e-16,
+                            -2.77555756e-16, -1.66533454e-16, -5.55111512e-17,
+                            5.55111512e-17, 1.66533454e-16, 2.77555756e-16,
+                            3.88578059e-16, 4.99600361e-16, 6.10622664e-16,
+                            7.21644966e-16, 8.32667268e-16, 9.43689571e-16]])
 
             # Test
             for e_d in gb.edges_props():
