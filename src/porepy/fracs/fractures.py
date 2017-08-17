@@ -64,6 +64,13 @@ class Fracture(object):
     def __eq__(self, other):
         return self.index == other.index
 
+    def copy(self):
+        """ Return a deep copy of the fracture.
+
+        """
+        p = np.copy(self.p)
+        return Fracture(p)
+
     def points(self):
         """
         Iterator over the vexrtexes of the bounding polygon
