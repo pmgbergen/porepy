@@ -976,7 +976,7 @@ class FractureNetwork(object):
         # and split them.
         all_p, edges, edges_2_frac, is_boundary_edge\
             = self._remove_edge_intersections(all_p, edges, edges_2_frac,
-                                            is_boundary_edge)
+                                              is_boundary_edge)
 
         if self.verbose > 1:
             self._verify_fractures_in_plane(all_p, edges, edges_2_frac)
@@ -999,12 +999,21 @@ class FractureNetwork(object):
         for fi, _ in enumerate(self._fractures):
             ei = []
             ei_bound = []
-            for i, e in enumerate(edges_2_frac):
-                if fi in e:
-                    if self.decomposition['is_bound'][i]:
+            # Find the edges of this fracture, add to either internal or
+            # external fracture list
+            for i, e in enumerate(zip(edges_2_frac, is_boundary_edge)):
+                # Check that the boundary information matches the fractures
+                assert e[0].size == e[1].size
+                hit = np.where(e[0] == fi)[0]
+                if hit.size == 1:
+                    if e[1][hit]:
                         ei_bound.append(i)
                     else:
                         ei.append(i)
+                elif hit.size > 1:
+                    raise ValueError('Non-unique fracture edge relation')
+                else:
+                    continue
 
             poly = sort_points.sort_point_pairs(edges[:2, ei_bound])
             polygons.append(poly)
@@ -1062,7 +1071,7 @@ class FractureNetwork(object):
             edges = np.hstack((edges, loc_e))
             for i in range(num_p_loc):
                 edges_2_frac.append([fi])
-                is_boundary_edge.append(True)
+                is_boundary_edge.append([True])
 
         # Next, loop over all intersections, and define new points and edges
         for i in self.intersections:
@@ -1080,7 +1089,11 @@ class FractureNetwork(object):
                 # This does not cover the case of a T-intersection, that will
                 # have to come later.
                 if i.bound_first and i.bound_second:
-                    is_boundary_edge.append(True)
+                    is_boundary_edge.append([True, True])
+                elif i.bound_first and not i.bound_second:
+                    is_boundary_edge.append([True, False])
+                elif not i.bound_first and i.bound_second:
+                    is_boundary_edge.append([False, True])
                 else:
                     is_boundary_edge.append(False)
 
@@ -1123,11 +1136,18 @@ class FractureNetwork(object):
 
         # Update the edges_2_frac map to refer to the new edges
         edges_2_frac_new = e_unique.shape[1] * [np.empty(0)]
+        is_boundary_edge_new = e_unique.shape[1] * [np.empty(0)]
         for old_i, new_i in enumerate(all_2_unique_e):
-            edges_2_frac_new[new_i] =\
+            edges_2_frac_new[new_i], ind =\
                 np.unique(np.hstack((edges_2_frac_new[new_i],
-                                     edges_2_frac[old_i])))
+                                     edges_2_frac[old_i])),
+                          return_index=True)
+            tmp = np.hstack((is_boundary_edge_new[new_i],
+                             is_boundary_edge[old_i]))
+            is_boundary_edge_new[new_i] = tmp[ind]
+
         edges_2_frac = edges_2_frac_new
+        is_boundary_edge = is_boundary_edge_new
 
         # Represent edges by unique values
         edges = e_unique
@@ -1139,10 +1159,7 @@ class FractureNetwork(object):
         unique_ind_e = np.delete(unique_ind_e, point_edges)
         for ri in point_edges[::-1]:
             del edges_2_frac[ri]
-
-        # Update boundary information
-        is_boundary_edge = [is_boundary_edge[i]
-                            for i in unique_ind_e]  # Hope this is right
+            del is_boundary_edge[ri]
 
         # Ensure that the edge to fracture map to a list of numpy arrays.
         # Use unique so that the same edge only refers to an edge once.
