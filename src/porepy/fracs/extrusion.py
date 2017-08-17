@@ -125,3 +125,220 @@ def fracture_length(pt, e):
     y1 = pt[1, e[1]]
 
     return np.sqrt(np.power(x1-x0, 2) + np.power(y1-y0, 2))
+
+def _disc_radius_center(lengths, p0, p1):
+    """ Compute radius and center of a disc, based on the length of a chord
+    through the disc, and assumptions on the location of the chord.
+
+    For the moment, it is assumed that the chord is struck at an arbitrary
+    hight of the circle.  Also, we assume that the chord is horizontal. In the
+    context of an exposed fracture, this implies that the exposure is
+    horizontal (I believe), and that an arbitrary portion of the original
+    (disc-shaped) fracture has been eroded.
+
+    Parameters:
+        length (np.array, double, size: num_frac): Of the chords
+        p0 (np.array, 2 x num_frac): One endpoint of fractures.
+        p1 (np.array, 2 x num_frac): Second endpoint of fractures
+
+    Returns:
+        np.array, num_frac: Radius of discs
+        np.array, 3 x num_frac: Center of the discs (assuming vertical disc)
+
+    """
+
+    num_frac = lengths.size
+
+    # Angle between a vertical line through the disc center and the line
+    # through the disc center and one of the fracture endpoints. Assumed to be
+    # uniform, for the lack of more information.
+    theta = np.pi * np.random.rand(num_frac)
+
+    radius = lengths / np.sin(theta)
+
+    mid_point = 0.5 * (p0 + p1)
+    depth = radius * np.cos(theta)
+
+    return radius, np.vstack((mid_point, depth))
+
+def _discs_from_exposure(pt, edges):
+    """ Create fracture discs based on exposed lines in an outrcrop.
+
+    The outcrop is assumed to be in the xy-plane.
+
+    The returned disc will be vertical, and the points on the outcrop will be
+    included in the polygon representation. The disc center is calculated using
+    disc_radius_center(), see that function for assumptions.
+
+    Parameters:
+        pt (np.array, 2 x num_pts): Coordinates of exposed points.
+        edges (np.array, 2 x num_fracs): Connections between fractures.
+
+    Returns:
+        list of Fracture: One per fracture trace.
+
+    """
+
+    num_fracs = edges.shape[1]
+
+    lenths = frac_length(pt, edges)
+    p0 = pt[:, edges[0]]
+    p1 = pt[:, edges[1]]
+
+    v = p1 - p0
+    strike_angle = np.arctan2(v[1], v[0])
+
+    center, radius = _disc_radius_center(lengths, p0, p1)
+
+    fracs = []
+
+    for fi in range(num_fracs):
+        # The simplest way of distributing points along the disc seems to be to
+        # create an elliptic fracture, and pick out the points. 
+        f = EllipticFracture(center=center[:, i], major_axis=radius[i],
+                             minor_axis=radius[i], dip_angle=np.pi/2,
+                             strike_angle=strike_angle[i], major_axis_angle=0)
+
+        # Add the points on the exposed surface. This creates an unequal
+        # distribution of the points, but it is the only hard information we
+        # have on the fracture
+        f.add_points(np.hstack((np.vstack((p0[:, fi], 0)), np.vstack((p1[:, fi], 0)))))
+
+        fracs.append(Fracture(f.p))
+
+    return fracs
+
+
+def impose_inlcine(fracs, exposure, family, family_mean, family_std):
+    """ Impose incline on the fractures from family-based parameters.
+
+    The incline for each family is specified in terms of its mean and standard
+    deviation. A normal distribution in assumed. The rotation is taken around
+    the line of exposure, thus the resulting fractures are consistent with the
+    outcrop.
+
+    Parameters:
+        fracs (list of Frature): Fractures to be inclined.
+        exposure (np.array, 3xnum_frac): Exposed line for each fracture
+            (visible in outcrop). Rotation will be around this line.
+        family (np.array, num_fracs): For each fracture, which family does it
+            belong to.
+        family_mean (np.array, num_family): Mean value of incline for each
+            family. In radians.
+        family_std (np.array, num_family): Standard deviation of incine for
+            each family. In radians.
+
+    """
+    def rotate_fracture(frac, vec, angle):
+        # Helper function to carry out rotation.
+        rot = cg.rot(angle, vec)
+        p = frac.p
+        center = np.mean(p, axis=1).reshape((-1, 1))
+        frac.p = center + rot.dot(p - center)
+        frac.points_2_ccw()
+
+    for fi, f in enumerate(fracs):
+        fam = family[fi]
+        ang = np.random.normal(loc=family_mean[fam], scale=family_std[fam])
+        rotate_fracture(f, exposure[fi], ang)
+
+
+def cut_fracture_by_plane(main_frac, other_frac, reference_point):
+    """ Cut a fracture by a plane, and confine it to one side of the plane.
+
+    Intended use is to confine abutting fractures (T-intersections) to one side
+    of the fracture it hits.
+
+    Parameters:
+        main_frac (Fracture): The fracture to be cut.
+        other_frac (Fracture): The fracture that defines the confining plane.
+        reference_point (np.array, nd): Point on the main frature that defines
+            which side should be kept. Will typically be the other point of the
+            exposed line.
+
+    Returns:
+        Fracture: A copy of the main fracture, cut by the other fracture.
+
+    Raises:
+        ValueError if the points in the other fracture is too close. This could
+        probably be handled by a scaling of coordinates, it is tacitly assumed
+        that we're working in something resembling the unit box.
+
+    """
+
+    # First determine extent of the main fracture
+    main_min = main_frac.p.min(axis=1)
+    main_max = main_frac.p.max(axis=1)
+
+    # Equation for the plane through the other fracture, on the form 
+    #  n_x(x-c_x) + n_y(y-c_y) + n_z(z-c_z) = 0
+    n = cg.compute_normal(other_frac.p)
+    c = other_frac.center
+
+    # max and min coordinates that extends outside the main fracture
+    main_min -= 1
+    main_max += 1
+
+    # Define points in the plane of the second fracture with min and max
+    # coordinates picked from the main fracture.
+    # The below tricks with indices are needed to find a dimension with a
+    # non-zero gradient of the plane, so that we can divide safely. 
+    # Implementation note: It might have been possible to do this with a
+    # rotation to the natural plane of the other fracture, but it is not clear
+    # this will really be simpler.
+
+    # Not sure about the tolerance here
+    # We should perhaps do a scaling of coordinates.
+    non_zero = np.where(np.abs(n) > 1e-8)[0]
+    if non_zero.size == 0:
+        raise ValueError('Points of second fracture too close')
+    ind = np.setdiff1d(np.arange(3), non_zero[0])
+    i0 = ind[0]
+    i1 = ind[1]
+    i2 = non_zero[0]
+
+    p = np.zeros((3, 4))
+    # A for-loop might have been possible here.
+    p[i0, 0] = main_min[i0]
+    p[i1, 0] = main_min[i1]
+    p[i2, 0] = c[i0] - (n[i0] * (main_min[i0] - c[i0])
+                      + n[i1] * (main_min[i1] - c[i1])) / n[i0]
+
+    p[i0, 1] = main_max[i0]
+    p[i1, 1] = main_min[i1]
+    p[i2, 1] = c[i0] - (n[i0] * (main_max[i0] - c[i0])
+                      + n[i1] * (main_min[i1] - c[i1])) / n[i0]
+
+    p[i0, 2] = main_max[i0]
+    p[i1, 2] = main_max[i1]
+    p[i2, 2] = c[i0] - (n[i0] * (main_max[i0] - c[i0])
+                      + n[i1] * (main_max[i1] - c[i1])) / n[i0]
+
+    p[i0, 3] = main_min[i0]
+    p[i1, 3] = main_max[i1]
+    p[i2, 3] = c[i0] - (n[i0] * (main_min[i0] - c[i0])
+                      + n[i1] * (main_max[i1] - c[i1])) / n[i0]
+
+    # Create an auxiliary fracture that spans the same plane as the other
+    # fracture, and with a larger extension than the main fracture.
+    aux_frac = Fracture(p)
+
+    isect_pt, _, _ = main_frac.intersects(aux_frac)
+
+    # Next step is to eliminate points in the main fracture that are on the
+    # wrong side of the other fracture.
+    v = main_frac.p - other_frac.center
+    sgn = np.sign(v * n)
+    right_sign = np.sign(reference_point * v)
+
+    # Eliminate points that are on the other side. 
+    eliminate = np.where(sgn * right_sign < 0)
+
+    # Add intersection points on the main fracture. One of these may already be
+    # present, as the point of extrusion, but add_point will uniquify the point
+    # cloud.
+    # We add the points after elimination, to ensure that the points on the
+    # plane are present in the final fracture.
+    main_frac.add_points(isect_pt)
+
+    return main_frac
