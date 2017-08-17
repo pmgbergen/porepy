@@ -10,8 +10,7 @@ from porepy.params.data import Parameters
 
 from porepy.grids.grid import FaceTag
 
-from porepy.numerics.mixed_dim import coupler
-from porepy.numerics.vem import dual, dual_coupling
+from porepy.numerics.vem import dual
 
 from porepy.utils.errors import error
 
@@ -105,19 +104,17 @@ def main(kf, known_p, known_u, description):
     add_data(gb, domain, kf)
 
     # Choose and define the solvers and coupler
-    solver = dual.DualVEM("flow")
-    coupling_conditions = dual_coupling.DualCoupling(solver)
-    solver_coupler = coupler.Coupler(solver, coupling_conditions)
-    A, b = solver_coupler.matrix_rhs(gb)
+    solver = dual.DualVEMMixDim('flow')
+    A, b = solver.matrix_rhs(gb)
 
     up = sps.linalg.spsolve(A, b)
-    solver_coupler.split(gb, "up", up)
+    solver.split(gb, "up", up)
 
     gb.add_node_props(["discharge", "p", "P0u"])
     for g, d in gb:
-        d["discharge"] = solver.extract_u(g, d["up"])
-        d["p"] = solver.extract_p(g, d["up"])
-        d["P0u"] = solver.project_u(g, d["discharge"], d)
+        d["discharge"] = solver.discr.extract_u(g, d["up"])
+        d["p"] = solver.discr.extract_p(g, d["up"])
+        d["P0u"] = solver.discr.project_u(g, d["discharge"], d)
 
     exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem' + description)
 

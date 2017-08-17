@@ -108,21 +108,19 @@ def main(kf, l2_norm, description, multi_point):
 
     # Choose discretization and define the solver
     if multi_point:
-        solver = mpfa.Mpfa()
+        solver = mpfa.MpfaMixDim('flow')
     else:
-        solver = tpfa.Tpfa()
+        solver = tpfa.TpfaMixDim('flow')
 
-    # Set coupling conditions and discretize
-    coupling_conditions = tpfa.TpfaCoupling(solver)
-    solver_coupler = coupler.Coupler(solver, coupling_conditions)
-    A, b = solver_coupler.matrix_rhs(gb)
+    # Discretize
+    A, b = solver.matrix_rhs(gb)
 
     # Solve the linear system
     p = sps.linalg.spsolve(A, b)
 
     # Store the solution
     gb.add_node_props(["p"])
-    solver_coupler.split(gb, "p", p)
+    solver.split(gb, "p", p)
     exporter.export_vtk(gb, 'fv', ["p"], folder='fv_blocking')
 
     # Consistency check
