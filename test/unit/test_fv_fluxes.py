@@ -35,7 +35,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = tpfa.TpfaMultiDim(physics='flow')
+        solver = tpfa.TpfaMixDim(physics='flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
@@ -61,7 +61,7 @@ class BasicsTest( unittest.TestCase ):
             bc_neu = bound_faces[left]
             bc_val[bc_dir] = g.face_centers[0,bc_dir]
             bc_val[bc_neu] = -g.face_areas[bc_neu]*a_dim
-           
+
             param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val('flow', bc_val)
 
@@ -74,24 +74,24 @@ class BasicsTest( unittest.TestCase ):
 
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A,rhs)
-        coupler.Coupler(solver).split(gb, "p", p)
+        solver.split(gb, "p", p)
         fvutils.compute_discharges(gb)
-        
+
         p_known = np.array([1.7574919 ,  1.25249747,  1.7574919 ,  1.25249747,
                             1.25250298,  1.80993337])
 
         # Known discharges
         d_0, d_1 = fluxes_2d_1d_left_right_dir_neu()
-        
+
         rtol = 1e-6
         atol = rtol
-        
+
         for _, d in gb:
             if d['node_number'] == 0:
                 assert np.allclose( d['param'].get_discharge(), d_0, rtol, atol)
             if d['node_number'] == 1:
                 assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
-                
+
         assert np.allclose(p, p_known, rtol, atol)
 
         #------------------------------------------------------------------------------#
@@ -136,11 +136,11 @@ class BasicsTest( unittest.TestCase ):
             bc_val[bc_dir] = g.face_centers[0,bc_dir]
             bc_val[bc_neu] = -g.face_areas[bc_neu]*a_dim
 
-            param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+            param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val('flow', bc_val)
 
             d['param'] = param
-            
+
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
@@ -158,19 +158,19 @@ class BasicsTest( unittest.TestCase ):
 
         # Known discharges
         d_0, d_1 = fluxes_2d_1d_left_right_dir_neu()
-                
+
         rtol = 1e-6
         atol = rtol
-        
+
         for _, d in gb:
-            
+
             if d['node_number'] == 0:
                 assert np.allclose( d['param'].get_discharge(), d_0, rtol, atol)
             if d['node_number'] == 1:
                 assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
-                
+
         assert np.allclose(p, p_known, rtol, atol)
-        
+
 
 
     def test_tpfa_fluxes_2d_1d_cross_with_elimination(self):
@@ -187,7 +187,7 @@ class BasicsTest( unittest.TestCase ):
         #gb = meshing.simplex_grid( [f1, f2],domain,**mesh_kwargs)
         gb.compute_geometry()
         gb.assign_node_ordering()
-        
+
         # Enforce node orderning because of Python 3.5 and 2.7.
         # Don't do it in general.
         cell_centers_1 = np.array([[  7.50000000e-01, 2.500000000e-01],
@@ -205,9 +205,9 @@ class BasicsTest( unittest.TestCase ):
                     d['node_number'] = 2
                 else:
                     raise ValueError('Grid not found')
-       
+
         tol = 1e-3
-        solver = tpfa.TpfaMultiDim()
+        solver = tpfa.TpfaMixDim('flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
@@ -220,7 +220,7 @@ class BasicsTest( unittest.TestCase ):
             kxx = np.ones(g.num_cells) * np.power(1e3, g.dim<gb.dim_max())
             p = tensor.SecondOrder(3,kxx,kyy=kxx,kzz=kxx)
             param.set_tensor('flow', p)
-            
+
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -235,7 +235,7 @@ class BasicsTest( unittest.TestCase ):
             bc_neu = bound_faces[left]
             bc_val[bc_dir] = g.face_centers[0,bc_dir]
             bc_val[bc_neu] = -g.face_areas[bc_neu]*a_dim
-            
+
             param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val('flow', bc_val)
 
@@ -246,19 +246,16 @@ class BasicsTest( unittest.TestCase ):
             g_h = gb.sorted_nodes_of_edge(e)[1]
             d['param'] = Parameters(g_h)
 
-        
+
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A,rhs)
-        #solver_coupler.split(gb, "p", p)
-        coupling = coupler.Coupler(solver)
-        
-        
+
         p = sps.linalg.spsolve(A, rhs)
         p_cond, p_red, _, _ = condensation.solve_static_condensation(\
                                                     A, rhs, gb, dim=0)
-        
-        coupling.split(gb, "p_cond", p_cond)
-        coupling.split(gb, "p", p)
+
+        solver.split(gb, "p_cond", p_cond)
+        solver.split(gb, "p", p)
 
         # Make a copy of the grid bucket without the 0d grid
         dim_to_remove = 0
@@ -266,10 +263,10 @@ class BasicsTest( unittest.TestCase ):
         # Compute the flux discretization on the new edges
         condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
         # Compute the discharges from the flux discretizations and computed pressures
-        coupling.split(gb_r, "p", p_red)
+        solver.split(gb_r, "p", p_red)
         fvutils.compute_discharges(gb)
         fvutils.compute_discharges(gb_r)
-        
+
         # Known discharges
         d_0, d_1, d_2 = fluxes_2d_1d_cross_with_elimination()
 
@@ -284,7 +281,7 @@ class BasicsTest( unittest.TestCase ):
             if d['node_number'] == 2:
                 assert np.allclose( d['param'].get_discharge(), d_2, rtol, atol)
         for g, d in gb_r:
-            
+
             if d['node_number'] == 0:
                 assert np.allclose(  d['param'].get_discharge(), d_0, rtol, atol)
             if d['node_number'] == 1:
@@ -294,13 +291,13 @@ class BasicsTest( unittest.TestCase ):
 
         # ... edge fluxes ...
         d_01, d_10, d_02, d_20, d_13, d_23 = coupling_fluxes_2d_1d_cross_no_el()
-        
+
         for e, data in gb.edges_props():
             g1, g2 = gb.sorted_nodes_of_edge(e)
             pa = data['param']
             node_numbers = gb.nodes_prop([g2, g1], 'node_number')
             if pa is not None:
-                
+
                 if node_numbers == (0,1):
                     assert np.allclose( pa.get_discharge(), d_01, rtol, atol) or \
                         np.allclose( pa.get_discharge(), d_10, rtol, atol)
@@ -318,7 +315,7 @@ class BasicsTest( unittest.TestCase ):
             pa = data['param']
             node_numbers = gb_r.nodes_prop([g2, g1], 'node_number')
             if pa is not None:
-                
+
                 if node_numbers == (0,1):
                     assert np.allclose( pa.get_discharge(), d_01, rtol, atol) or \
                         np.allclose( pa.get_discharge(), d_10, rtol, atol)
@@ -333,7 +330,7 @@ class BasicsTest( unittest.TestCase ):
                     assert np.allclose( pa.get_discharge(), d_22, rtol, atol)
         # ... and pressures
         tol = 1e-10
-        assert((np.amax(np.absolute(p-p_cond))) < tol)        
+        assert((np.amax(np.absolute(p-p_cond))) < tol)
         assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#
@@ -424,7 +421,7 @@ class BasicsTest( unittest.TestCase ):
 
 #             d['param'] = param
 
-       
+
 
 #         coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
 #         solver_coupler = coupler.Coupler(solver, coupling_conditions)
@@ -433,20 +430,20 @@ class BasicsTest( unittest.TestCase ):
 #         solver_coupler.split(gb, "p", p)
 #         coupling_conditions.compute_discharges(gb)
 
-        
+
 #         discharges_known, p_known = \
 #                 discharges_pressure_for_test_tpfa_coupling_3d_2d_1d_0d()
-        
+
 #         rtol = 1e-6
 #         atol = rtol
 
-    
+
 #         for _, d in gb:
 #             n = d['node_number']
 #             if discharges_known[n] is not None:
 #                 assert np.allclose(d['discharge'], discharges_known[n], rtol, atol)
 #         assert np.allclose(p, p_known, rtol, atol)
-        
+
 # #------------------------------------------------------------------------------#
 
 # def discharges_pressure_for_test_tpfa_coupling_3d_2d_1d_0d():
@@ -547,7 +544,7 @@ def coupling_fluxes_2d_1d_cross_with_el():
     d_21 = np.array([ 0.27718625,  0.27718625, -0.07266356, -0.07266356])
 
     d_22 = np.array([ 0.00000000e+00])
-    
+
     return  d_11, d_21, d_22
 #------------------------------------------------------------------------------#
 
