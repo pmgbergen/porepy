@@ -39,3 +39,15 @@ class Solver(object):
         raise NotImplementedError("Method not implemented")
 
 #------------------------------------------------------------------------------#
+
+class SolverMixDim():
+    def __init__(self, physics):
+        raise NotImplementedError("Method not implemented")
+
+    def matrix_rhs(self, gb):
+        return self.solver.matrix_rhs(gb)
+
+    def split(self, gb, key, values):
+        return self.solver.split(gb, key, values)
+
+#------------------------------------------------------------------------------#
