@@ -15,11 +15,11 @@ from porepy.numerics.mixed_dim import coupler, condensation
 
 class BasicsTest( unittest.TestCase ):
     """
-    Tests for the elimination fluxes. 
+    Tests for the elimination fluxes.
     """
 
 #------------------------------------------------------------------------------#
-    
+
     def test_upwind_2d_1d_cross_with_elimination(self):
         """
         Simplest possible elimination scenario, one 0d-grid removed. Check on upwind
@@ -39,7 +39,7 @@ class BasicsTest( unittest.TestCase ):
         #gb = meshing.simplex_grid( [f1, f2],domain,**mesh_kwargs)
         gb.compute_geometry()
         gb.assign_node_ordering()
-        
+
         # Enforce node orderning because of Python 3.5 and 2.7.
         # Don't do it in general.
         cell_centers_1 = np.array([[  7.50000000e-01, 2.500000000e-01],
@@ -57,9 +57,9 @@ class BasicsTest( unittest.TestCase ):
                     d['node_number'] = 2
                 else:
                     raise ValueError('Grid not found')
-       
+
         tol = 1e-3
-        solver = tpfa.TpfaMultiDim()
+        solver = tpfa.TpfaMixDim()
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
@@ -72,7 +72,7 @@ class BasicsTest( unittest.TestCase ):
             kxx = np.ones(g.num_cells) * np.power(1e3, g.dim<gb.dim_max())
             p = tensor.SecondOrder(3,kxx,kyy=kxx,kzz=kxx)
             param.set_tensor('flow', p)
-            
+
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -87,7 +87,7 @@ class BasicsTest( unittest.TestCase ):
             bc_neu = bound_faces[left]
             bc_val[bc_dir] = g.face_centers[0,bc_dir]
             bc_val[bc_neu] = -g.face_areas[bc_neu]*a_dim
-            
+
             param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val('flow', bc_val)
 
@@ -120,20 +120,17 @@ class BasicsTest( unittest.TestCase ):
             g_h = gb.sorted_nodes_of_edge(e)[1]
             d['param'] = Parameters(g_h)
 
-        
+
         A, rhs = solver.matrix_rhs(gb)
         # p = sps.linalg.spsolve(A,rhs)
         _, p_red, _, _ = condensation.solve_static_condensation(\
                                                     A, rhs, gb, dim=0)
-        coupling = coupler.Coupler(solver)
-        #coupling.split(gb, "p", p)
-        
         dim_to_remove = 0
         gb_r, elimination_data = gb.duplicate_without_dimension(dim_to_remove)
         condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
-        
-        coupling.split(gb_r, "p", p_red)
-        
+
+        solver.split(gb_r, "p", p_red)
+
         #fvutils.compute_discharges(gb)
         fvutils.compute_discharges(gb_r)
 
@@ -156,8 +153,8 @@ class BasicsTest( unittest.TestCase ):
         assert(np.isclose(deltaT, deltaT_known, tol, tol))
         assert((np.amax(np.absolute(U_r-U_known))) < tol)
         assert((np.amax(np.absolute(rhs_u_r-rhs_known))) < tol)
-        assert((np.amax(np.absolute(theta_r-theta_known))) < tol)        
-        
+        assert((np.amax(np.absolute(theta_r-theta_known))) < tol)
+
 #------------------------------------------------------------------------------#
 # Left out due to problems with fracture face id: not the same each time the grids
 # are generated.
@@ -246,7 +243,7 @@ class BasicsTest( unittest.TestCase ):
 
 #             d['param'] = param
 
-       
+
 
 #         coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
 #         solver_coupler = coupler.Coupler(solver, coupling_conditions)
@@ -255,14 +252,14 @@ class BasicsTest( unittest.TestCase ):
 #         solver_coupler.split(gb, "p", p)
 #         coupling_conditions.compute_discharges(gb)
 
-        
+
 #         discharges_known, p_known = \
 #                 discharges_pressure_for_test_tpfa_coupling_3d_2d_1d_0d()
-        
+
 #         rtol = 1e-6
 #         atol = rtol
 
-    
+
 #         for _, d in gb:
 #             n = d['node_number']
 
@@ -272,7 +269,7 @@ class BasicsTest( unittest.TestCase ):
 #             if discharges_known[n] is not None:
 #                 assert np.allclose(d['discharge'], discharges_known[n], rtol, atol)
 #         assert np.allclose(p, p_known, rtol, atol)
-        
+
 # #------------------------------------------------------------------------------#
 
 # def discharges_pressure_for_test_tpfa_coupling_3d_2d_1d_0d():
@@ -357,11 +354,11 @@ def known_for_elimination():
                   [ -2.57411535e-01,   0.00000000e+00,   0.00000000e+00,
                     0.00000000e+00,   0.00000000e+00,  -7.26635590e-02,
                     0.00000000e+00,   3.30075094e-01]])
-   
+
     rhs = np.array([ 0.25 ,  0.25 ,  0.25 ,  0.25 ,  0.005,  0.005,  0.005,  0.005])
     t = np.array([ 0.5       ,  5.24204316,  0.5       ,  5.24204316,  0.55273715,
         0.5       ,  0.51514807,  0.51514807])
     dT = 0.00274262835006
-    
+
     return U, rhs, t, dT
 
