@@ -108,3 +108,20 @@ def x_intersections(edges):
         x_fracs[:, i] = np.unique(ei)
     return nodes, x_fracs, x_edges
 
+def fracture_length(pt, e):
+    """ Compute length of fracture lines.
+
+    Parameters:
+        pt (np.array, 2xnpt): Coordinates of fracture endpoints
+        e (np.array, 2xn_frac): Index of fracture endpoints.
+
+    Returns:
+        np.array, n_frac: Length of fractures.
+
+    """
+    x0 = pt[0, e[0]]
+    x1 = pt[0, e[1]]
+    y0 = pt[1, e[0]]
+    y1 = pt[1, e[1]]
+
+    return np.sqrt(np.power(x1-x0, 2) + np.power(y1-y0, 2))
