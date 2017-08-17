@@ -12,10 +12,22 @@ from porepy.grids import partition
 from porepy.params import tensor, bc, data
 from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
-from porepy.numerics.mixed_dim.solver import Solver
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.fv.tpfa import TpfaCoupling
 
+#------------------------------------------------------------------------------
+
+class MpfaMixDim(SolverMixDim):
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
+        self.discr = Mpfa(self.physics)
+        self.coupling_conditions = TpfaCoupling(self.discr)
+
+        self.solver = Coupler(self.discr, self.coupling_conditions)
+
+#------------------------------------------------------------------------------
 
 class Mpfa(Solver):
 
@@ -51,7 +63,7 @@ class Mpfa(Solver):
             Permeability defined cell-wise.
         f : array (self.g.num_cells)
             Scalar source term defined cell-wise. Given as net inn/out-flow, i.e.
-            should already have been multiplied with the cell sizes. Positive 
+            should already have been multiplied with the cell sizes. Positive
             values are considered innflow. If not given a zero source
             term is assumed and a warning arised.
         bc : boundary conditions (optional)
@@ -281,20 +293,6 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
     return flux, bound_flux
 
 #------------------------------------------------------------------------------
-
-
-class MpfaMultiDim(Solver):
-    def __init__(self, physics='flow'):
-        self.physics = physics
-        discr = Mpfa(self.physics)
-        coupling_conditions = TpfaCoupling(discr)
-        self.solver = Coupler(discr, coupling_conditions)
-
-    def matrix_rhs(self, gb):
-        return self.solver.matrix_rhs(gb)
-
-#------------------------------------------------------------------------------
-
 
 def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
                  nodes=None, apertures=None):

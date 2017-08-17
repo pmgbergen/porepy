@@ -9,10 +9,26 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.params import tensor
-from porepy.numerics.mixed_dim.solver import Solver
+
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
+from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
+
 from porepy.utils import comp_geom as cg
 
+#------------------------------------------------------------------------------#
+
+class DualVEMMixDim(SolverMixDim):
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
+        self.discr = DualVEM(self.physics)
+        self.coupling_conditions = DualCoupling(self.discr)
+
+        self.solver = Coupler(self.discr, self.coupling_conditions)
+
+#------------------------------------------------------------------------------#
 
 class DualVEM(Solver):
 

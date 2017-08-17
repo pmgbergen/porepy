@@ -2,9 +2,28 @@ from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.mixed_dim.solver import Solver
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
+from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
+#------------------------------------------------------------------------------#
+
+class UpwindMixDim(SolverMixDim):
+
+    def __init__(self, physics='transport'):
+        self.physics = physics
+
+        self.discr = Upwind(self.physics)
+        self.coupling_conditions = UpwindCoupling(self.discr)
+
+        self.solver = Coupler(self.discr, self.coupling_conditions)
+
+    def cfl(self, gb):
+        deltaT = gb.apply_function(self.discr.cfl,
+                                   self.coupling_conditions.cfl).data
+        return np.amin(deltaT)
+
+#------------------------------------------------------------------------------#
 
 class Upwind(Solver):
     """

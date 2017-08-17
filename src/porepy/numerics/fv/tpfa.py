@@ -10,11 +10,25 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.params import tensor
-from porepy.numerics.mixed_dim.solver import Solver
+
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
+
 from porepy.numerics.fv import fvutils
 
+#------------------------------------------------------------------------------
+
+class TpfaMixDim(SolverMixDim):
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
+        self.discr = Tpfa(self.physics)
+        self.coupling_conditions = TpfaCoupling(self.discr)
+
+        self.solver = Coupler(self.discr, self.coupling_conditions)
+
+#------------------------------------------------------------------------------
 
 class Tpfa(Solver):
     """ Discretize elliptic equations by a two-point flux approximation.
@@ -207,19 +221,6 @@ class Tpfa(Solver):
         data['bound_flux'] = bound_flux
 
 
-#------------------------------------------------------------------------------
-
-class TpfaMultiDim():
-    def __init__(self, physics='flow'):
-        self.physics = physics
-
-    def matrix_rhs(self, gb):
-        discr = Tpfa(self.physics)
-        coupling_conditions = TpfaCoupling(discr)
-        solver = Coupler(discr, coupling_conditions)
-        return solver.matrix_rhs(gb)
-
-    
 #------------------------------------------------------------------------------
 
 class TpfaCoupling(AbstractCoupling):
