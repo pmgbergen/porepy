@@ -5,9 +5,20 @@ class Coupler(object):
 
 #------------------------------------------------------------------------------#
 
-    def __init__(self, solver, coupling=None):
-        self.solver = solver
-        self.coupling = coupling
+    def __init__(self, solver, coupling=None, solver_fct=None, coupling_fct=None):
+        self.solver_ndof = solver.ndof
+
+        if solver_fct is None:
+            self.solver_fct = solver.matrix_rhs
+        else:
+            self.solver_fct = solver_fct
+
+        if coupling is None and coupling_fct is None:
+            self.coupling_fct = None
+        elif coupling_fct is not None:
+            self.coupling_fct = coupling_fct
+        else:
+            self.coupling_fct = coupling.matrix_rhs
 
 #------------------------------------------------------------------------------#
 
@@ -25,7 +36,7 @@ class Coupler(object):
 
         gb.add_node_prop('dof')
         for g, d in gb:
-            d['dof'] = self.solver.ndof(g)
+            d['dof'] = self.solver_ndof(g)
 
 #------------------------------------------------------------------------------#
 
@@ -64,13 +75,13 @@ class Coupler(object):
         # Loop over the grids and compute the problem matrix
         for g, data in gb:
             pos = data['node_number']
-            matrix[pos, pos], rhs[pos] = self.solver.matrix_rhs(g, data)
+            matrix[pos, pos], rhs[pos] = self.solver_fct(g, data)
 
         # Handle special case of 1-element grids, that give 0-d arrays
         rhs = np.array([np.atleast_1d(a) for a in tuple(rhs)])
 
         # if the coupling conditions are not given fill only the diagonal part
-        if self.coupling is None:
+        if self.coupling_fct is None:
             return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
         # Loop over the edges of the graph (pair of connected grids) to compute
@@ -81,7 +92,7 @@ class Coupler(object):
             idx = np.ix_([pos_h, pos_l], [pos_h, pos_l])
 
             data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
-            matrix[idx] += self.coupling.matrix_rhs(g_h, g_l, data_h, data_l, data)
+            matrix[idx] += self.coupling_fct(g_h, g_l, data_h, data_l, data)
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
