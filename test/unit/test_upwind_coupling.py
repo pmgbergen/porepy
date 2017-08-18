@@ -6,7 +6,7 @@ from porepy.fracs import meshing
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.numerics.fv.transport import upwind, upwind_coupling
+from porepy.numerics.fv.transport import upwind
 from porepy.numerics.mixed_dim import coupler
 
 #------------------------------------------------------------------------------#
