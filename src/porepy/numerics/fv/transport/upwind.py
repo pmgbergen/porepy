@@ -23,6 +23,11 @@ class UpwindMixDim(SolverMixDim):
                                    self.coupling_conditions.cfl).data
         return np.amin(deltaT)
 
+    def outflow(self, gb):
+        def bind(g, d):
+            return self.discr.outflow(g, d), np.zeros(g.num_cells)
+        return Coupler(self.discr, solver_fct=bind).matrix_rhs(gb)[0]
+
 #------------------------------------------------------------------------------#
 
 class Upwind(Solver):
@@ -263,7 +268,7 @@ class Upwind(Solver):
 
     def outflow(self, g, data):
         if g.dim == 0:
-            return sps.csr_matrix([0]), [0]
+            return sps.csr_matrix([0])
 
         param = data['param']
         discharge = param.get_discharge()
