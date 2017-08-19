@@ -1,6 +1,10 @@
+from __future__ import division, print_function
 import numpy as np
+import scipy.sparse as sps
 import scipy.optimize as opt
 
+from porepy.utils import comp_geom as cg
+from porepy.utils.sort_points import sort_point_pairs
 
 def half_space_int(n, x0, pts):
     """
@@ -90,15 +94,49 @@ def half_space_pt(n, x0, pts, recompute=True):
     dim = (1, n.shape[1])
     c = np.array([0, 0, 0, 0, -1])
     A_ub = np.concatenate((n, [np.sum(-n*x0, axis=0)], np.ones(dim))).T
-    bounds = ((np.amin(pts[0, :]), np.amax(pts[0, :])),
-              (np.amin(pts[1, :]), np.amax(pts[1, :])),
-              (np.amin(pts[2, :]), np.amax(pts[2, :])),
-              (None, None), (None, None))
-    res = opt.linprog(c, A_ub, np.zeros(dim).T, bounds=bounds)
-    if recompute and (res.status != 0 or res.x[3] <= 0 or res.x[4] <= 0):
+    b_ub = np.zeros(dim).T
+    b_min, b_max = np.amin(pts, axis=1), np.amax(pts, axis=1)
+    bounds = ((b_min[0], b_max[0]), (b_min[1], b_max[1]),
+              (b_min[2], b_max[2]), (0, None), (0, None))
+    res = opt.linprog(c, A_ub, b_ub, bounds=bounds)
+
+    if recompute and (not res.success or np.all(np.isclose(res.x[3:], 0))):
         return half_space_pt(-n, x0, pts, False)
 
-    assert res.status == 0 and res.x[3] > 0 and res.x[4] > 0
-    return np.array(res.x[0:3]) / res.x[3]
+    if res.success and not np.all(np.isclose(res.x[3:], 0)):
+        return np.array(res.x[:3])/res.x[3]
+    else:
+        return np.array([np.nan, np.nan, np.nan])
 
+#------------------------------------------------------------------------------#
+
+def star_shape_cell_centers(g):
+
+    if g.dim < 2:
+        return g.cell_centers
+
+    faces, _, sgn = sps.find(g.cell_faces)
+    nodes, _, _ = sps.find(g.face_nodes)
+
+    xn = g.nodes
+    if g.dim == 2:
+        R = cg.project_plane_matrix(xn)
+        xn = np.dot(R, xn)
+
+    cell_centers = np.zeros((3, g.num_cells))
+    for c in np.arange(g.num_cells):
+        loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+        faces_loc = faces[loc]
+        loc_n = g.face_nodes.indptr[faces_loc]
+        normal = np.multiply(sgn[loc], np.divide(g.face_normals[:, faces_loc],
+                                                 g.face_areas[faces_loc]))
+
+        x0, x1 = xn[:, nodes[loc_n]], xn[:, nodes[loc_n + 1]]
+        coords = np.concatenate((x0, x1), axis=1)
+        cell_centers[:, c] = half_space_pt(normal, (x1 + x0)/2., coords)
+
+    if g.dim == 2:
+        cell_centers = np.dot(R.T, cell_centers)
+
+    return cell_centers
 #------------------------------------------------------------------------------#
