@@ -206,20 +206,27 @@ class Tpfa(Solver):
         data['flux'] = flux
         data['bound_flux'] = bound_flux
 
-
 #------------------------------------------------------------------------------
 
-class TpfaMultiDim():
+
+class TpfaMultiDim(Solver):
+    """
+    Solver class for a multi-dimensional Tpfa discretization including coupling 
+    between dimensions.
+    """
     def __init__(self, physics='flow'):
         self.physics = physics
-
-    def matrix_rhs(self, gb):
         discr = Tpfa(self.physics)
         coupling_conditions = TpfaCoupling(discr)
-        solver = Coupler(discr, coupling_conditions)
-        return solver.matrix_rhs(gb)
+        self.solver = Coupler(discr, coupling_conditions)
+        
+    def matrix_rhs(self, gb):
+        """
+        Returns the solution matrix and right hand side for the global system, 
+        see Coupler.matrix_rhs.
+        """
+        return self.solver.matrix_rhs(gb)
 
-    
 #------------------------------------------------------------------------------
 
 class TpfaCoupling(AbstractCoupling):
