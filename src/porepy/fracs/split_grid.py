@@ -61,7 +61,7 @@ def split_fractures(bucket, **kwargs):
     # dimensional grids.
     for gh, _ in bucket:
         # add new field to grid
-        gh.frac_pairs = np.zeros((2,0),dtype=np.int32)
+        gh.frac_pairs = np.zeros((2, 0), dtype=np.int32)
         if gh.dim < 1:
             # Nothing to do. We can not split 0D grids.
             continue
@@ -112,7 +112,7 @@ def split_faces(gh, face_cells):
     The face_cells are updated such that the copy of a face also
     map to the same lower-dim cell.
     """
-    gh.frac_pairs = np.zeros((2,0), dtype=np.int32)
+    gh.frac_pairs = np.zeros((2, 0), dtype=np.int32)
     for i in range(len(face_cells)):
         # We first we duplicate faces along tagged faces. The duplicate
         # faces will share the same nodes as the original faces,
@@ -132,13 +132,14 @@ def split_faces(gh, face_cells):
         x0 = np.reshape(gh.face_centers[:, face_id[0]], (3, 1))
         flag = update_cell_connectivity(gh, face_id, n, x0)
 
-        if flag==0:
+        if flag == 0:
             # if flag== 0 we added left and right faces (if it is -1 no faces
             # was added and we don't have left and right face pairs.
             # we now add the new faces to the frac_pair array.
             left = face_id
             right = np.arange(gh.num_faces - face_id.size, gh.num_faces)
-            gh.frac_pairs = np.hstack((gh.frac_pairs, np.vstack((left,right))))
+            gh.frac_pairs = np.hstack(
+                (gh.frac_pairs, np.vstack((left, right))))
 
     return face_cells
 
