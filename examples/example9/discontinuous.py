@@ -77,16 +77,18 @@ def glue_tips(partition, gb, g):
 
 #------------------------------------------------------------------------------#
 
-folder = '/home/elle/ANIGMA/porepy/examples/exampleXX/'
+folder = '/home/elle/ANIGMA/porepy/examples/example9/'
 file_name = 'geometry.geo'
 if_coarse = False
 
 gb = meshing.from_gmsh(folder + file_name, dim=2)
 g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
+g_fine = g.copy()
 
 if if_coarse:
     partition = co.create_aggregations(g, weight=1)
     glue_tips(partition, gb, g)
+    partition = co.reorder_partition(partition)
     co.generate_coarse_grid(g, partition)
 
 # Choose and define the solvers and coupler
@@ -102,7 +104,13 @@ P0u = solver.project_u(g, u, data)
 
 diams = g.cell_diameters()
 print( "diam", np.amin(diams), np.average(diams), np.amax(diams) )
-exporter.export_vtk(g, 'vem', {"p": p, "P0u": P0u}, binary=False,
-                    folder='discontinuous')
+
+folder = 'discontinuous'
+data = {"p": p, "P0u": P0u}
+exporter.export_vtk(g, 'vem', data, binary=False, folder=folder)
+
+if if_coarse:
+    data = {'partition': partition, 'p': p[partition]}
+    exporter.export_vtk(g_fine, 'sub_grid', data, binary=False, folder=folder)
 
 #------------------------------------------------------------------------------#
