@@ -109,7 +109,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = mpfa.Mpfa(physics='flow')
+        solver = mpfa.MpfaMultiDim(physics='flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
@@ -146,11 +146,10 @@ class BasicsTest( unittest.TestCase ):
             g_h = gb.sorted_nodes_of_edge(e)[1]
             d['param'] = Parameters(g_h)
 
-        coupling_conditions = tpfa.TpfaCoupling(solver)
-        solver_coupler = coupler.Coupler(solver, coupling_conditions)
-        A, rhs = solver_coupler.matrix_rhs(gb)
+
+        A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A, rhs)
-        solver_coupler.split(gb, "p", p)
+        solver.solver.split(gb, "p", p)
         fvutils.compute_discharges(gb)
 
         p_known = np.array([1.7574919 ,  1.25249747,  1.7574919 ,  1.25249747,

@@ -1,6 +1,9 @@
 import numpy as np
 from scipy import sparse as sps
 
+from porepy.utils.mcolon import mcolon
+from porepy.utils import sparse_mat
+
 
 class Graph:
     """
@@ -25,7 +28,10 @@ class Graph:
     """
 
     def __init__(self, node_connections):
-        self.node_connections = node_connections
+        if node_connections.getformat() != 'csr':
+            self.node_connections = node_connections.tocsr()
+        else:
+            self.node_connections = node_connections
         self.regions = 0
         self.color = np.array([np.NaN] * node_connections.shape[1])
 
@@ -54,6 +60,7 @@ class Graph:
             node = queue.pop(0)
             if node not in visited:
                 visited.append(node)
-                (_, neighbours, _) = sps.find(self.node_connections[node, :])
+                neighbours = sparse_mat.slice_indices(
+                    self.node_connections, node)
                 queue.extend(neighbours)
         self.color[visited] = color

@@ -187,5 +187,3 @@ diffusion.split(gb, "temperature", theta)
 exporter.export_vtk(gb, 'advection_diffusion', [
                     "temperature"], folder=export_folder)
 
-# Consistency check
-#assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 19.8455019189)

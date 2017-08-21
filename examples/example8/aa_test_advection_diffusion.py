@@ -56,5 +56,3 @@ theta = sps.linalg.spsolve(D + U, rhs_u + rhs_d)
 
 exporter.export_vtk(g, "advection_diffusion", {"theta": theta})
 
-# Consistency check
-#assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 19.8455019189)
