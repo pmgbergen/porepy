@@ -6,8 +6,9 @@
 *.swp
 *.py~
 *.un~
-*.pos 
+*.pos
 *.vtu
+*.pvd
 *.vrml
 *~
 *.swo
