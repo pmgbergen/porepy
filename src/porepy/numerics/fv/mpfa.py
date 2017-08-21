@@ -284,6 +284,10 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
 
 
 class MpfaMultiDim(Solver):
+    """
+    Solver class for a multi-dimensional Mpfa discretization with a Tpfa
+    coupling between dimensions.
+    """
     def __init__(self, physics='flow'):
         self.physics = physics
         discr = Mpfa(self.physics)
@@ -291,6 +295,10 @@ class MpfaMultiDim(Solver):
         self.solver = Coupler(discr, coupling_conditions)
 
     def matrix_rhs(self, gb):
+        """
+        Returns the solution matrix and right hand side for the global system, 
+        see Coupler.matrix_rhs.
+        """
         return self.solver.matrix_rhs(gb)
 
 #------------------------------------------------------------------------------
@@ -477,7 +485,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
         k.perm = np.tensordot(R.T, np.tensordot(R, k.perm, (1, 0)), (0, 1))
         k.perm = np.delete(k.perm, (2), axis=0)
         k.perm = np.delete(k.perm, (2), axis=1)
-
+        
     # Define subcell topology, that is, the local numbering of faces, subfaces,
     # sub-cells and nodes. This numbering is used throughout the
     # discretization.

@@ -173,14 +173,14 @@ class Tpfa(Solver):
         # Distance from face center to cell center
         fc_cc = g.face_centers[::, fi] - g.cell_centers[::, ci]
 
-        # Transpose normal vectors to match the shape of K
-
+        # Transpose normal vectors to match the shape of K and multiply the two
         nk = perm * n
         nk = nk.sum(axis=0)
-        nk *= fc_cc
-        t_face = nk.sum(axis=0)
-        dist_face_cell = np.power(fc_cc, 2).sum(axis=0)
 
+        # Divide the norm of the normal permeability through the distance between
+        # the face centre and the cell centre
+        t_face = np.linalg.norm(nk, 2, axis=0)
+        dist_face_cell = np.linalg.norm(fc_cc, 2, axis=0)
         t_face = np.divide(t_face, dist_face_cell)
 
         # Return harmonic average
@@ -206,20 +206,27 @@ class Tpfa(Solver):
         data['flux'] = flux
         data['bound_flux'] = bound_flux
 
-
 #------------------------------------------------------------------------------
 
-class TpfaMultiDim():
+
+class TpfaMultiDim(Solver):
+    """
+    Solver class for a multi-dimensional Tpfa discretization including coupling 
+    between dimensions.
+    """
     def __init__(self, physics='flow'):
         self.physics = physics
-
-    def matrix_rhs(self, gb):
         discr = Tpfa(self.physics)
         coupling_conditions = TpfaCoupling(discr)
-        solver = Coupler(discr, coupling_conditions)
-        return solver.matrix_rhs(gb)
+        self.solver = Coupler(discr, coupling_conditions)
+        
+    def matrix_rhs(self, gb):
+        """
+        Returns the solution matrix and right hand side for the global system, 
+        see Coupler.matrix_rhs.
+        """
+        return self.solver.matrix_rhs(gb)
 
-    
 #------------------------------------------------------------------------------
 
 class TpfaCoupling(AbstractCoupling):
@@ -261,24 +268,22 @@ class TpfaCoupling(AbstractCoupling):
         cells_h, sgn_h = cells_h[faces_h], sgn_h[faces_h]
 
         # The procedure for obtaining the face transmissibilities of the higher
-        # grid is analougous to the one used in numerics.fv.tpfa.py, see that file
-        # for explanations
+        # grid is analougous to the one used in the discretize function of the
+        # Tpfa class.
         n = g_h.face_normals[:, faces_h]
         n *= sgn_h
         perm_h = k_h.perm[:, :, cells_h]
-
         fc_cc_h = g_h.face_centers[::, faces_h] - g_h.cell_centers[::, cells_h]
+
         nk_h = perm_h * n
-
         nk_h = nk_h.sum(axis=0)
-        nk_h *= fc_cc_h
-        t_face_h = nk_h.sum(axis=0)
-
+        
         # Account for the apertures
-        t_face_h = t_face_h * a_h[cells_h]
-        dist_face_cell_h = np.power(fc_cc_h, 2).sum(axis=0)
+        t_face_h = np.linalg.norm(nk_h, 2, axis=0) * a_h[cells_h]
+        dist_face_cell_h = np.linalg.norm(fc_cc_h, 2, axis=0)
         t_face_h = np.divide(t_face_h, dist_face_cell_h)
 
+        
         # For the lower dimension some simplifications can be made, due to the
         # alignment of the face normals and (normal) permeabilities of the
         # cells. First, the normal component of the permeability of the lower
