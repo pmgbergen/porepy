@@ -1,16 +1,17 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.viz import plot_grid, exporter
+from porepy.viz import exporter
 from porepy.fracs import importer
 
-from porepy.params import bc, tensor
+from porepy.params import tensor
+from porepy.params.bc import BoundaryCondition
+from porepy.params.data import Parameters
 
 from porepy.grids.grid import FaceTag
-from porepy.grids import coarsening
+from porepy.grids import coarsening as co
 
-from porepy.numerics.mixed_dim import coupler
-from porepy.numerics.vem import dual, dual_coupling
+from porepy.numerics.vem import dual
 
 from porepy.utils.errors import error
 
@@ -20,41 +21,48 @@ def add_data(gb, domain):
     """
     Define the permeability, apertures, boundary conditions
     """
-    gb.add_node_props(['perm', 'source', 'bc', 'bc_val', 'apertures'])
+    gb.add_node_props(['param'])
     tol = 1e-3
+    a = 1e-2
 
     for g, d in gb:
+        param = Parameters(g)
+
         # Permeability
-        kxx = np.ones(g.num_cells)
         if g.dim == 2:
-            d['perm'] = tensor.SecondOrder(g.dim, 1e-14*kxx)
+            perm = tensor.SecondOrder(g.dim, 1e-14*np.ones(g.num_cells))
         else:
-            d['perm'] = tensor.SecondOrder(g.dim, 1e-8*kxx)
+            perm = tensor.SecondOrder(g.dim, 1e-8*np.ones(g.num_cells))
+        param.set_tensor("flow", perm)
 
         # Source term
-        d['source'] = np.zeros(g.num_cells)
+        param.set_source("flow", np.zeros(g.num_cells))
 
         # Assign apertures
-        d['apertures'] = np.ones(g.num_cells) * np.power(1e-2, 2 - g.dim)
+        aperture = np.power(a, gb.dim_max() - g.dim)
+        param.set_aperture(np.ones(g.num_cells) * aperture)
 
         # Boundaries
         bound_faces = g.get_boundary_faces()
-        if bound_faces.size == 0:
-            continue
+        if bound_faces.size != 0:
+            bound_face_centers = g.face_centers[:, bound_faces]
 
-        bound_face_centers = g.face_centers[:, bound_faces]
+            left = bound_face_centers[0, :] < domain['xmin'] + tol
+            right = bound_face_centers[0, :] > domain['xmax'] - tol
 
-        left = bound_face_centers[0, :] < domain['xmin'] + tol
-        right = bound_face_centers[0, :] > domain['xmax'] - tol
+            labels = np.array(['neu'] * bound_faces.size)
+            labels[np.logical_or(left, right)] = 'dir'
 
-        labels = np.array(['neu'] * bound_faces.size)
-        labels[np.logical_or(left, right)] = 'dir'
+            bc_val = np.zeros(g.num_faces)
+            bc_val[bound_faces[left]] = 1013250
 
-        bc_val = np.zeros(g.num_faces)
-        bc_val[bound_faces[left]] = 1013250*np.ones(np.sum(left))
+            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val("flow", bc_val)
+        else:
+            param.set_bc("flow", BoundaryCondition(
+                g, np.empty(0), np.empty(0)))
 
-        d['bc'] = bc.BoundaryCondition(g, bound_faces, labels)
-        d['bc_val'] = bc_val.ravel('F')
+        d['param'] = param
 
     # Assign coupling permeability
     gb.add_edge_prop('kn')
@@ -66,38 +74,38 @@ def add_data(gb, domain):
 
 mesh_kwargs = {}
 mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 7, 'bound_value': 7}
+                            'value': 10, 'bound_value': 10}
 
 domain = {'xmin': 0, 'xmax': 700, 'ymin': 0, 'ymax': 600}
 gb = importer.from_csv('network.csv', mesh_kwargs, domain)
 gb.compute_geometry()
+co.coarsen(gb, 'by_volume')
 gb.assign_node_ordering()
 
 internal_flag = FaceTag.FRACTURE
 [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
+exporter.export_vtk(gb, 'grid', folder='vem')
+
 # Assign parameters
 add_data(gb, domain)
 
 # Choose and define the solvers and coupler
-solver = dual.DualVEM()
-coupling_conditions = dual_coupling.DualCoupling(solver)
-solver_coupler = coupler.Coupler(solver, coupling_conditions)
-A, b = solver_coupler.matrix_rhs(gb)
+solver = dual.DualVEMMixDim("flow")
+A, b = solver.matrix_rhs(gb)
 
 up = sps.linalg.spsolve(A, b)
-solver_coupler.split(gb, "up", up)
+solver.split(gb, "up", up)
 
 gb.add_node_props(["discharge", "p", "P0u"])
 for g, d in gb:
-    d["discharge"] = solver.extract_u(g, d["up"])
-    d["p"] = solver.extract_p(g, d["up"])
-    d["P0u"] = solver.project_u(g, d["discharge"])
+    d["u"] = solver.discr.extract_u(g, d["up"])
+    d["p"] = solver.discr.extract_p(g, d["up"])
+    d["P0u"] = solver.discr.project_u(g, d["u"], d)
 
 exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem')
 
-print( np.sum(error.norm_L2(g, d['p']) for g, d in gb) )
-print( np.sum(error.norm_L2(g, d['P0u']) for g, d in gb) )
 # Consistency check
-assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 1788853869.93)
-assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), 7.19640354325e-06)
+kown_p, known_u = 1789235303.43, 7.19640354325e-06
+assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), known_p)
+assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), known_u)
