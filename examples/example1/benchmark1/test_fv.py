@@ -124,34 +124,35 @@ def main(kf, l2_norm, description, multi_point):
     exporter.export_vtk(gb, 'fv', ["p"], folder='fv_blocking')
 
     # Consistency check
-    assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), l2_norm)
+    sum_p = np.sum([np.sum(d['p']) for g, d in gb])
+    assert np.isclose(sum_p, l2_norm)
 
 #------------------------------------------------------------------------------#
 
 def test_fv_blocking():
     kf = 1e-4
-    known_p = 36.1027322839
+    known_p = 3794.07449077
     main(kf, known_p, "blocking", False)
 
 #------------------------------------------------------------------------------#
 
 def test_fv_permeable():
     kf = 1e4
-    known_p = 19.8904769004
+    known_p = 1959.92284202
     main(kf, known_p, "permeable", False)
 
 #------------------------------------------------------------------------------#
 
 def test_mpfa_blocking():
     kf = 1e-4
-    known_p = 35.7487817896
+    known_p = 3753.95221798
     main(kf, known_p, "blocking", True)
 
 #------------------------------------------------------------------------------#
 
 def test_mpfa_permeable():
     kf = 1e4
-    known_p = 19.8556014941
+    known_p = 1953.23760603
     main(kf, known_p, "permeable", True)
 
 #------------------------------------------------------------------------------#

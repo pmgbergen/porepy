@@ -119,23 +119,25 @@ def main(kf, known_p, known_u, description):
     exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem' + description)
 
     # Consistency check
-    assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), known_p)
-    assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), known_u)
+    sum_p = np.sum([np.sum(d['p']) for g, d in gb])
+    assert np.isclose(sum_p, known_p)
+    sum_u = np.sum([np.sum(d['P0u']) for g, d in gb])
+    assert np.isclose(sum_u, known_u)
 
 #------------------------------------------------------------------------------#
 
 def test_vem_blocking():
     kf = 1e-4
-    known_p = 35.6444911616
-    known_u = 1.03190700381
+    known_p = 3742.22460057
+    known_u = 1422.55111784
     main(kf, known_p, known_u, "blocking")
 
 #------------------------------------------------------------------------------#
 
 def test_vem_permeable():
     kf = 1e4
-    known_p = 19.8455019189
-    known_u = 1.87843905895
+    known_p = 1951.01087145
+    known_u = 807.191616699
     main(kf, known_p, known_u, "permeable")
 
 #------------------------------------------------------------------------------#
