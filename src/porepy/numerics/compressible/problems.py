@@ -56,7 +56,11 @@ class SlightlyCompressible():
         self.data()['param'].set_source(self.flux_disc(), source)
         self.data()['param'].set_bc_val(self.flux_disc(), bc_val)
 
+    def step(self):
+        return self.solver.step()
+
     #-----Parameters------------
+
     def porosity(self):
         return np.ones(self.grid().num_cells)
 
@@ -213,6 +217,12 @@ class SlightlyCompressibleMultiDim():
         for _, d in self.grid():
             d['problem'].update(t)
 
+    def step(self):
+        return self.solver.step()
+
+    def reassemble(self):
+        return self.solver.reassemble()
+
     #-----Data-----------------
 
     def data(self):
@@ -246,8 +256,8 @@ class SlightlyCompressibleMultiDim():
         return 1.0
 
     def save(self, save_every=1):
-        pressures = self.data['pressure'][::save_every]
-        times = np.array(self.data['times'])[::save_every]
+        pressures = self.data()['pressure'][::save_every]
+        times = np.array(self.data()['times'])[::save_every]
         folder = self.parameters['folder_name']
         f_name = self.parameters['file_name']
 
