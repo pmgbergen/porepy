@@ -86,35 +86,24 @@ class GmshWriter(object):
         range_id = np.arange(np.amin(frac_id), np.amax(frac_id)+1)
 
         s = '// Start specification of fractures\n'
-        for i in range(frac_ind.size):
-            s += 'frac_line_' + str(i) + ' = newl; Line(frac_line_' + str(i) \
-                 + ') ={'
-            s += 'p' + str(int(frac_lines[0, i])) + ', p' \
-                 + str(int(frac_lines[1, i])) + '}; \n'
-            s += 'Physical Line(\"' + constants.PHYSICAL_NAME_FRACTURES \
-                 + str(i) + '\") = { frac_line_' + str(i) + ' };\n'
-            s += 'Line{ frac_line_' + str(i) + '} In Surface{domain_surf}; \n'
-            s += '\n'
+        seg_id = 0
+        for i in range_id:
+            local_seg_id = str()
+            for mask in np.flatnonzero(frac_id == i):
+                s += 'frac_line_' + str(seg_id) + ' = newl; ' + \
+                     'Line(frac_line_' + str(seg_id) + ') = {' + \
+                     'p' + str(int(frac_lines[0, mask])) + \
+                     ', p' + str(int(frac_lines[1, mask])) + \
+                     '};\n' + \
+                     'Line{ frac_line_' + str(seg_id) + \
+                     '} In Surface{domain_surf};\n'
+                local_seg_id += 'frac_line_' + str(seg_id) + ', '
+                seg_id += 1
 
-# NOTE: Need to be fixed!
-#        seg_id = 0
-#        for i in range_id:
-#            local_seg_id = str()
-#            for mask in np.flatnonzero(frac_id == i):
-#                s += 'frac_line_' + str(seg_id) + ' = newl; ' + \
-#                     'Line(frac_line_' + str(seg_id) + ') = {' + \
-#                     'p' + str(int(frac_lines[0, mask])) + \
-#                     ', p' + str(int(frac_lines[1, mask])) + \
-#                     '};\n' + \
-#                     'Line{ frac_line_' + str(seg_id) + \
-#                     '} In Surface{domain_surf};\n'
-#                local_seg_id += 'frac_line_' + str(seg_id) + ', '
-#                seg_id += 1
-#
-#            local_seg_id = local_seg_id[:-2]
-#            s += 'Physical Line(\"' + constants.PHYSICAL_NAME_FRACTURES \
-#                 + str(i) + '\") = { ' + local_seg_id + ' };\n'
-#            s += '\n'
+            local_seg_id = local_seg_id[:-2]
+            s += 'Physical Line(\"' + constants.PHYSICAL_NAME_FRACTURES \
+                 + str(i) + '\") = { ' + local_seg_id + ' };\n'
+            s += '\n'
 
         s += '// End of fracture specification\n\n'
         return s
