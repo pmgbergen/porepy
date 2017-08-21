@@ -286,7 +286,7 @@ class Upwind(Solver):
         # We need to impose no-flow for the inflow faces without boundary
         # condition
         mask = np.unique(indices, return_index=True)[1]
-        bc_neu = g.get_boundary_faces()
+        bc_neu = g.get_domain_boundary_faces()
 
         if has_bc:
             # If boundary conditions are imposed remove the faces from this
@@ -310,7 +310,8 @@ class Upwind(Solver):
         if_faces.data = np.sign(if_faces.data)
 
         outflow_faces = if_faces.indices[if_faces.data > 0]
-        outflow_faces = np.intersect1d(outflow_faces, g.get_boundary_faces(),
+        outflow_faces = np.intersect1d(outflow_faces,
+                                       g.get_domain_boundary_faces(),
                                        assume_unique=True)
 
         # va tutto bene se ho neumann omogeneo
