@@ -2,12 +2,12 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.viz import plot_grid, exporter
-from porepy.fracs import importer
+from porepy.fracs import importer, meshing
 
 from porepy.params import bc, tensor
 
 from porepy.grids.grid import FaceTag
-from porepy.grids import coarsening
+from porepy.grids import coarsening as co
 
 from porepy.numerics.mixed_dim import coupler
 from porepy.numerics.vem import dual, dual_coupling
@@ -73,15 +73,34 @@ def add_data(gb, domain):
 
 mesh_kwargs = {}
 mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 0.045, 'bound_value': 0.045}
+                            'value': 0.1, 'bound_value': 0.1}
+#                            'value': 0.045, 'bound_value': 0.045}
 
 domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
 gb = importer.from_csv('network.csv', mesh_kwargs, domain)
 gb.compute_geometry()
+
+#print([g.face_tags for g, _ in gb] )
+
+part = co.create_partition(co.tpfa_matrix(gb), cdepth=1)
+co.generate_coarse_grid(gb, part)
+
+gb.compute_geometry(is_starshaped=True)
+
+#print([g.face_tags for g, _ in gb] )
+#for i, e_d in enumerate(gb.edges_props()):
+#    indices, faces, _ = sps.find(e_d[1]['face_cells'])
+#    print( "indices ", indices )
+#    print( "faces ", faces )
+
+plot_grid.plot_grid(gb, info="c", alpha=0)
+
 gb.assign_node_ordering()
 
 internal_flag = FaceTag.FRACTURE
 [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+
+print([g.face_tags for g, _ in gb] )
 
 # Assign parameters
 add_data(gb, domain)
@@ -91,6 +110,10 @@ solver = dual.DualVEM()
 coupling_conditions = dual_coupling.DualCoupling(solver)
 solver_coupler = coupler.Coupler(solver, coupling_conditions)
 A, b = solver_coupler.matrix_rhs(gb)
+
+#import matplotlib.pylab as pl
+#pl.spy(A,precision=0.01, markersize=1)
+#pl.show()
 
 up = sps.linalg.spsolve(A, b)
 solver_coupler.split(gb, "up", up)
