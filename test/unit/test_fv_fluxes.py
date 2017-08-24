@@ -74,7 +74,7 @@ class BasicsTest( unittest.TestCase ):
 
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A,rhs)
-        coupler.Coupler(solver).split(gb, "p", p)
+        solver.solver.split(gb, "p", p)
         fvutils.compute_discharges(gb)
         
         p_known = np.array([1.7574919 ,  1.25249747,  1.7574919 ,  1.25249747,
@@ -109,7 +109,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = mpfa.Mpfa(physics='flow')
+        solver = mpfa.MpfaMultiDim(physics='flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
@@ -146,11 +146,10 @@ class BasicsTest( unittest.TestCase ):
             g_h = gb.sorted_nodes_of_edge(e)[1]
             d['param'] = Parameters(g_h)
 
-        coupling_conditions = tpfa.TpfaCoupling(solver)
-        solver_coupler = coupler.Coupler(solver, coupling_conditions)
-        A, rhs = solver_coupler.matrix_rhs(gb)
+        
+        A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A, rhs)
-        solver_coupler.split(gb, "p", p)
+        solver.solver.split(gb, "p", p)
         fvutils.compute_discharges(gb)
 
         p_known = np.array([1.7574919 ,  1.25249747,  1.7574919 ,  1.25249747,
@@ -249,16 +248,14 @@ class BasicsTest( unittest.TestCase ):
         
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A,rhs)
-        #solver_coupler.split(gb, "p", p)
-        coupling = coupler.Coupler(solver)
-        
+                
         
         p = sps.linalg.spsolve(A, rhs)
         p_cond, p_red, _, _ = condensation.solve_static_condensation(\
                                                     A, rhs, gb, dim=0)
         
-        coupling.split(gb, "p_cond", p_cond)
-        coupling.split(gb, "p", p)
+        solver.solver.split(gb, "p_cond", p_cond)
+        solver.solver.split(gb, "p", p)
 
         # Make a copy of the grid bucket without the 0d grid
         dim_to_remove = 0
@@ -266,7 +263,7 @@ class BasicsTest( unittest.TestCase ):
         # Compute the flux discretization on the new edges
         condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
         # Compute the discharges from the flux discretizations and computed pressures
-        coupling.split(gb_r, "p", p_red)
+        solver.solver.split(gb_r, "p", p_red)
         fvutils.compute_discharges(gb)
         fvutils.compute_discharges(gb_r)
         

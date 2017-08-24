@@ -97,7 +97,7 @@ if multi_point:
     l2_norm = 35.7487817896
 else:
     solver = tpfa.Tpfa()
-    l2_norm = 36.1027322839
+    l2_norm = 35.842709396
 
 # Set coupling conditions and discretize
 coupling_conditions = tpfa.TpfaCoupling(solver)

@@ -2105,7 +2105,7 @@ class FractureNetwork(object):
 
         if 'mesh_size' in kwargs.keys():
             mesh_size, mesh_size_bound = \
-                determine_mesh_size(self.decomposition['points'].shape[1],
+                determine_mesh_size(self.decomposition['points'],
                                     **kwargs['mesh_size'])
         else:
             mesh_size = None
