@@ -1643,8 +1643,8 @@ def dist_segment_set(start, end):
         for j in range(i+1, ns):
             dl, cpi, cpj = dist_two_segments(start[:, i], end[:, i],
                                              start[:, j], end[:, j])
-            d[i, j] = d
-            d[j, i] = d
+            d[i, j] = dl
+            d[j, i] = dl
             cp[i, j, :] = cpi
             cp[j, i, :] = cpj
 
