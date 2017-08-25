@@ -1652,6 +1652,36 @@ def dist_segment_set(start, end):
 
 #------------------------------------------------------------------------------#
 
+def dist_segment_segment_set(start, end, start_set, end_set):
+    """ Compute distance and closest points between a segment and a set of
+    segments.
+
+    Parameters:
+
+    """
+    if start.size < 4:
+        start = start.reshape((-1, 1))
+    if end.size < 4:
+        end = end.reshape((-1, 1))
+
+    nd = start.shape[0]
+    ns = start_set.shape[1]
+
+    d = np.zeros( ns)
+    cp_set = np.zeros(( nd, ns))
+    cp = np.zeros((nd, ns))
+
+    for i in range(ns):
+        dl, cpi, cpj = dist_two_segments(start, end, start_set[:, j],
+                                         end_set[:, j])
+        d[i] = dl
+        cp[:, i] = cpi
+        cp_set[:, i] = cpj
+
+    return d, cp, cp_set
+
+#------------------------------------------------------------------------------#
+
 def dist_two_segments(s1_start, s1_end, s2_start, s2_end):
     """
     Compute the distance between two line segments.
