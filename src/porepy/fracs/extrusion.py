@@ -333,6 +333,7 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point):
 
     # Eliminate points that are on the other side. 
     eliminate = np.where(sgn * right_sign < 0)
+    main_frac = np.delete(main_frac, eliminate, axis=1)
 
     # Add intersection points on the main fracture. One of these may already be
     # present, as the point of extrusion, but add_point will uniquify the point
