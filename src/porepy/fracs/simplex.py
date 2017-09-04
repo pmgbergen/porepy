@@ -6,7 +6,6 @@ import time
 import numpy as np
 from meshio import gmsh_io
 
-import porepy
 from porepy.grids import constants
 from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
 from porepy.fracs import fractures, utils
@@ -235,8 +234,8 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     # Gridding size
     if 'mesh_size' in kwargs.keys():
         mesh_size, mesh_size_bound, pts_split, lines_split = \
-            utils.determine_mesh_size(pts_split, lines_split,
-                                      **kwargs['mesh_size'])
+            utils.determine_mesh_size_2d(pts_split, lines_split,
+                                         **kwargs['mesh_size'])
     else:
         mesh_size = None
         mesh_size_bound = None
