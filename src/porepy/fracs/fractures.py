@@ -803,6 +803,9 @@ class Intersection(object):
         for i in range(self.coord.shape[1]):
             s += '(' + str(self.coord[0, i]) + ', ' + str(self.coord[1, i]) + ', ' + \
                  str(self.coord[2, i]) + ') \n'
+        if self.coord.size > 0:
+            s += 'On boundary of first fracture ' + str(self.bound_first) + '\n'
+            s += 'On boundary of second fracture ' + str(self.bound_second)
         return s
 
     def get_other_fracture(self, i):
