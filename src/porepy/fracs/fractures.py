@@ -333,6 +333,7 @@ class Fracture(object):
                                                                 self.p,
                                                                 tol=tol)
 
+
         # Short cut: If no boundary intersections, we return the interior
         # points
         if len(bound_sect_self_other) == 0 and len(bound_sect_other_self) == 0:
@@ -399,12 +400,19 @@ class Fracture(object):
             on_boundary_other = [True, True]
             return bound_pt_self, on_boundary_self, on_boundary_other
 
-        # Case of cutting
-        if self_cuts_through or other_cuts_through:
-            # Do not expect this yet, corresponds to one kind of a a
-            # T-intersection (vertexes embedded in plane, but not fully cutting
-            # is another possibility).
-            raise NotImplementedError()
+        # Case where one boundary segment of one fracture cuts through two
+        # boundary segment (thus the surface) of the other fracture. Gives a
+        # T-type intersection
+        if self_cuts_through:
+            assert np.allclose(bound_pt_self, bound_pt_other)
+            on_boundary_self = [True, True]
+            on_boundary_other = [False, False]
+            return bound_pt_self, on_boundary_self, on_boundary_other
+        elif other_cuts_through:
+            assert np.allclose(bound_pt_self, bound_pt_other)
+            on_boundary_self = [False, False]
+            on_boundary_other = [True, True]
+            return bound_pt_self, on_boundary_self, on_boundary_other
 
         # By now, there should be a single member of bound_pt
         assert bound_pt_self.shape[1] == 1 or bound_pt_self.shape[1] == 2
