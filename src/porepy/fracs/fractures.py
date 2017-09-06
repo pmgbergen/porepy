@@ -1958,7 +1958,8 @@ class FractureNetwork(object):
         tag = np.zeros(num_edges, dtype='int')
 
         # Find fractures that are tagged as a boundary
-        bound_ind = np.where(is_bound)[0]
+        all_bound = [np.all(is_bound[i]) for i in range(len(is_bound))]
+        bound_ind = np.where(all_bound)[0]
         # Remove those that are referred to by more than fracture - this takes
         # care of L-type intersections
         bound_ind = np.setdiff1d(bound_ind, has_1d_grid)
