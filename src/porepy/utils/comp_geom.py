@@ -1534,7 +1534,7 @@ def compute_normals_1d(pts):
 #------------------------------------------------------------------------------#
 
 def compute_tangent(pts):
-    """ Compute a tangent of a set of points.
+    """ Compute a tangent vector of a set of points.
 
     The algorithm assume that the points lie on a plane.
 
@@ -1546,7 +1546,13 @@ def compute_tangent(pts):
 
     """
 
-    tangent = pts[:, 0] - np.mean(pts, axis=1)
+    mean_pts = np.mean(pts, axis=1).reshape((-1, 1))
+    # Set of possible tangent vector. We can pick any of these, as long as it
+    # is nonzero
+    tangent = pts - mean_pts
+    # Find the point that is furthest away from the mean point
+    max_ind = np.argmax(np.sum(tangent**2, axis=0))
+    tangent = tangent[:, max_ind]
     assert not np.allclose(tangent, np.zeros(3))
     return tangent / np.linalg.norm(tangent)
 
