@@ -227,7 +227,7 @@ class Fracture(object):
               for i in range(self.p.shape[1])]
         return sympy.geometry.Polygon(*sp)
 
-    def intersects(self, other, tol):
+    def intersects(self, other, tol, check_point_contact=True):
         """
         Find intersections between self and another polygon.
 
@@ -236,11 +236,16 @@ class Fracture(object):
         intersections. Intersection types supported so far are
             X (full intersection, possibly involving boundaries)
             L (Two fractures intersect at a boundary)
+            T (Boundary segment of one fracture lies partly or completely in
+                the plane of another)
 
-        Not yet supported is T (one fracture ends with a segment, or possibly a
-        point in the plane of another). Patterns involving more than two
-        fractures need to be delt with by someone else (see FractureNetwork)
-
+        Parameters:
+            other (Fracture): To test intersection with.
+            tol (double): Geometric tolerance
+            check_point_contact (boolean, optional): If True, we check if a
+                single point (e.g. a vertex) of one fracture lies in the plane
+                of the other. This is usually an error, thus the test should be
+                on, but may be allowed when imposing external boundaries.
 
         """
 
@@ -254,8 +259,8 @@ class Fracture(object):
 
         # Keep track of whether the intersection points are on the boundary of
         # the polygons.
-        on_boundary_self = []
-        on_boundary_other = []
+        on_boundary_self = False
+        on_boundary_other = False
 
         ####
         # First compare max/min coordinates. If the bounding boxes of the
@@ -318,19 +323,15 @@ class Fracture(object):
             # An intersection between self and other (in that order) is defined
             # as being between interior of self and boundary of other. See
             # polygon_segment_intersect for details.
-            on_boundary_self += [
-                False for i in range(isect_self_other.shape[1])]
-            on_boundary_other += [
-                True for i in range(isect_self_other.shape[1])]
+            on_boundary_self = False
+            on_boundary_other = False
 
         if isect_other_self is not None:
             int_points = np.hstack((int_points, isect_other_self))
 
             # Interior of other intersected by boundary of self
-            on_boundary_self += [
-                True for i in range(isect_other_self.shape[1])]
-            on_boundary_other += [False for i in
-                                  range(isect_other_self.shape[1])]
+            on_boundary_self = False
+            on_boundary_other = False
 
         if int_points.shape[1] > 1:
             int_points, _, _ \
@@ -357,21 +358,18 @@ class Fracture(object):
         # Short cut: If no boundary intersections, we return the interior
         # points
         if len(bound_sect_self_other) == 0 and len(bound_sect_other_self) == 0:
+            if check_point_contact and int_points.shape[1] == 1:
+                raise ValueError('Contact in a single point not allowed')
             # None of the intersection points lay on the boundary
             return int_points, on_boundary_self, on_boundary_other
 
         # Else, we have boundary intersection, and need to process them
-        bound_pt_self, \
-            self_segment, \
-            _, \
-            self_cuts_through = self._process_segment_isect(
-                bound_sect_self_other, self.p, tol)
+        bound_pt_self, self_segment, _, self_cuts_through = \
+                self._process_segment_isect(bound_sect_self_other, self.p, tol)
 
-        bound_pt_other, \
-            other_segment, \
-            _, \
-            other_cuts_through = self._process_segment_isect(
-                bound_sect_other_self, other.p, tol)
+        bound_pt_other, other_segment, _, other_cuts_through = \
+                self._process_segment_isect(bound_sect_other_self, other.p,
+                                            tol)
 
         # Run some sanity checks
 
@@ -425,21 +423,45 @@ class Fracture(object):
         # T-type intersection
         if self_cuts_through:
             assert np.allclose(bound_pt_self, bound_pt_other)
-            on_boundary_self = [True, True]
-            on_boundary_other = [False, False]
+            on_boundary_self = True
+            on_boundary_other = False
             return bound_pt_self, on_boundary_self, on_boundary_other
         elif other_cuts_through:
             assert np.allclose(bound_pt_self, bound_pt_other)
-            on_boundary_self = [False, False]
-            on_boundary_other = [True, True]
+            on_boundary_self = False
+            on_boundary_other = True
             return bound_pt_self, on_boundary_self, on_boundary_other
 
         # By now, there should be a single member of bound_pt
         assert bound_pt_self.shape[1] == 1 or bound_pt_self.shape[1] == 2
         assert bound_pt_other.shape[1] == 1 or bound_pt_other.shape[1] == 2
         bound_pt = np.hstack((int_points, bound_pt_self))
-        on_boundary_self += [False for i in range(bound_pt_self.shape[1])]
-        on_boundary_other += [True for i in range(bound_pt_self.shape[1])]
+
+        # Check if there are two boundary points on the same segment. If so,
+        # this is a boundary segment.
+        on_boundary_self = False
+        if bound_pt_self.shape[1] == 2:
+            if bound_sect_self_other[0][0] == bound_sect_self_other[1][0]:
+                on_boundary_self = True
+        on_boundary_other = False
+        if bound_pt_other.shape[1] == 2:
+            if bound_sect_other_self[0][0] == bound_sect_other_self[1][0]:
+                on_boundary_other = True
+        # Special case if a segment is cut as one interior point (by its
+        # vertex), and a boundary point on the same segment, this is a boundary
+        # segment
+        if int_points.shape[1] == 1 and bound_pt_self.shape[1] == 1:
+            is_vert, vi = self.is_vertex(int_points)
+            seg_i = bound_sect_self_other[0][0]
+            nfp = self.p.shape[1]
+            if is_vert and (vi == seg_i or (seg_i+1) % nfp == vi):
+                on_boundary_self = True
+        if int_points.shape[1] == 1 and bound_pt_other.shape[1] == 1:
+            is_vert, vi = other.is_vertex(int_points)
+            seg_i = bound_sect_other_self[0][0]
+            nfp = other.p.shape[1]
+            if is_vert and (vi == seg_i or (seg_i+1) % nfp == vi):
+                on_boundary_other = True
 
         return bound_pt, on_boundary_self, on_boundary_other
 
@@ -619,7 +641,7 @@ class Fracture(object):
             active_dims = np.squeeze(np.argwhere(active_dims))
 
             # Find intersection points
-            isect, _, _ = self.intersects(bf, tol)
+            isect, _, _ = self.intersects(bf, tol, check_point_contact=False)
             num_isect = isect.shape[1]
             if len(isect) > 0 and num_isect > 0:
                 num_pts_orig = self.p.shape[1]
@@ -834,6 +856,7 @@ class Intersection(object):
         if self.coord.size > 0:
             s += 'On boundary of first fracture ' + str(self.bound_first) + '\n'
             s += 'On boundary of second fracture ' + str(self.bound_second)
+            s += '\n'
         return s
 
     def get_other_fracture(self, i):
@@ -941,9 +964,6 @@ class FractureNetwork(object):
                 if len(isect) > 0:
                     # Let the intersection know whether both intersection
                     # points lies on the boundary of each fracture
-                    bound_first = len(bound_first) == 2 and all(bound_first)
-                    bound_second = len(bound_second) == 2\
-                        and all(bound_second)
                     self.intersections.append(Intersection(first, second,
                                                            isect,
                                                            bound_first=bound_first,
@@ -1126,7 +1146,7 @@ class FractureNetwork(object):
                 elif not i.bound_first and i.bound_second:
                     is_boundary_edge.append([False, True])
                 else:
-                    is_boundary_edge.append(False)
+                    is_boundary_edge.append([False, False])
 
         # Ensure that edges are integers
         edges = edges.astype('int')
@@ -1168,6 +1188,7 @@ class FractureNetwork(object):
         # Update the edges_2_frac map to refer to the new edges
         edges_2_frac_new = e_unique.shape[1] * [np.empty(0)]
         is_boundary_edge_new = e_unique.shape[1] * [np.empty(0)]
+
         for old_i, new_i in enumerate(all_2_unique_e):
             edges_2_frac_new[new_i], ind =\
                 np.unique(np.hstack((edges_2_frac_new[new_i],
