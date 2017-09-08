@@ -94,6 +94,26 @@ class Fracture(object):
         for i in range(sz):
             yield self.p[:, np.array([i, i + 1]) % sz]
 
+    def is_vertex(self, p, tol=1e-4):
+        """ Check whether a given point is a vertex of the fracture.
+
+        Parameters:
+            p (np.array): Point to check
+            tol (double): Tolerance of point accuracy.
+
+        Returns:
+            True: if the point is in the vertex set, false if not.
+            int: Index of the identical vertex. None if not a vertex.
+        """
+        p = p.reshape((-1, 1))
+        ap = np.hstack((p, self.p))
+        up, _, ind = setmembership.unique_columns_tol(ap, tol=tol*np.sqrt(3))
+        if up.shape[1] == ap.shape[1]:
+            return False, None
+        else:
+            occurences = np.where(ind == ind[0])[0]
+            return True, (occurences[1] - 1)
+
     def points_2_ccw(self):
         """
         Ensure that the points are sorted in a counter-clockwise order.
