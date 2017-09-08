@@ -873,6 +873,9 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
     d_1 = end_1 - start_1
     d_2 = end_2 - start_2
 
+    length_1 = np.sqrt(np.sum(d_1 * d_1))
+    length_2 = np.sqrt(np.sum(d_2 * d_2))
+
     # Vector between the start points
     d_s = start_2 - start_1
 
@@ -889,29 +892,35 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
 
     discr = d_1[0] *(-d_2[1]) - d_1[1] * (-d_2[0])
 
-    if np.abs(discr) < tol:
+    # Check if lines are parallel.
+    # The tolerance should be relative to the length of d_1 and d_2
+    if np.abs(discr) < tol * length_1 * length_2:
         # The lines are parallel, and will only cross if they are also colinear
-
+        logger.debug('The segments are parallel')
         # Cross product between line 1 and line between start points on line
         start_cross_line = d_s[0] * d_1[1] - d_s[1] * d_1[0]
-        if np.abs(start_cross_line) < tol:
+        if np.abs(start_cross_line) < tol * max(length_1, length_2):
+            logger.debug('Lines are colinear')
             # The lines are co-linear
 
             # Write l1 on the form start_1 + t * d_1, find the parameter value
             # needed for equality with start_2 and end_2
-            if np.abs(d_1[0]) > tol:
+            if np.abs(d_1[0]) > tol * length_1:
                 t_start_2 = (start_2[0] - start_1[0])/d_1[0]
                 t_end_2 = (end_2[0] - start_1[0])/d_1[0]
-            elif np.abs(d_1[1]) > tol:
+            elif np.abs(d_1[1]) > tol * length_2:
                 t_start_2 = (start_2[1] - start_1[1])/d_1[1]
                 t_end_2 = (end_2[1] - start_1[1])/d_1[1]
             else:
                 # d_1 is zero
+                logger.error('Found what must be a point-edge')
                 raise ValueError('Start and endpoint of line should be\
                                  different')
             if t_start_2 < 0 and t_end_2 < 0:
+                logger.debug('Lines are not overlapping')
                 return None
             elif t_start_2 > 1 and t_end_2 > 1:
+                logger.debug('Lines are not overlapping')
                 return None
             # We have an overlap, find its parameter values
             t_min = max(min(t_start_2, t_end_2), 0)
@@ -921,13 +930,16 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
                 # It seems this can only happen if they are also equal to 0 or
                 # 1, that is, the lines share a single point
                 p_1 = start_1 + d_1 * t_min
+                logger.debug('Colinear lines share a single point')
                 return p_1.reshape((-1, 1))
 
+            logger.debug('Colinear lines intersect along segment')
             p_1 = start_1 + d_1 * t_min
             p_2 = start_1 + d_1 * t_max
             return np.array([[p_1[0], p_2[0]], [p_1[1], p_2[1]]])
 
         else:
+            logger.debug('Lines are not colinear')
             # Lines are parallel, but not colinear
             return None
     else:
@@ -945,6 +957,7 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
         # Use tol to allow some approximations
         if t_1 >= -tol and t_1 <= (1 + tol) and \
            t_2 >= -tol and t_2 <= (1 + tol):
+            logger.debug('Segment intersection found in one point')
             return np.array([[isect_1[0]], [isect_1[1]]])
 
         return None
