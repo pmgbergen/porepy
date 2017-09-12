@@ -105,6 +105,105 @@ def fractures_from_csv(f_name, tagcols=None, **kwargs):
 
 #------------------------------------------------------------------
 
+def from_fab(f_name):
+    """ Read fractures from a .fab file, as specified by FracMan.
+
+    The filter is based on the .fab-files available at the time of writing, and
+    may not cover all options available.
+
+    Parameters:
+        f_name (str): Path to .fab file.
+
+    Returns:
+        fracs (list of np.ndarray): Each list element contains fracture
+            vertexes as a nd x n_pt array.
+        tess_fracs (list of np.ndarray): Each list element contains fracture
+            cut by the domain boundary, represented by vertexes as a nd x n_pt
+            array.
+        tess_frac (np.ndarray): For each element in tess_frac, a +-1 defining
+            which boundary the fracture is on.
+
+    The function also reads in various other information of unknown usefulness,
+    see implementation for details. This information is currently not returned.
+
+    """
+
+    def read_keyword(line):
+        # Read a single keyword, on the form  key = val
+        words = line.split('=')
+        assert len(words) == 2
+        key = words[0].strip()
+        val = words[1].strip()
+        return key, val
+
+    def read_section(f, section_name):
+        # Read a section of the file, surrounded by a BEGIN / END wrapping
+        d = {}
+        for line in f:
+            if line.strip() == 'END ' + section_name.upper().strip():
+                return d
+            k, v = read_keyword(line)
+            d[k] = v
+
+    def read_fractures(f, is_tess=False):
+        # Read the fracture
+        fracs = []
+        fracture_ids = []
+        trans = []
+        nd = 3
+        for line in f:
+            if not is_tess and line.strip() == 'END FRACTURE':
+                return fracs, np.asarray(fracture_ids), np.asarray(trans)
+            elif is_tess and line.strip() == 'END TESSFRACTURE':
+                return fracs, np.asarray(fracture_ids), np.asarray(trans)
+            if is_tess:
+                ids, num_vert = line.split()
+            else:
+                ids, num_vert, t = line.split()
+                trans.append(float(t))
+
+            ids = int(ids)
+            num_vert = int(num_vert)
+            vert = np.zeros((num_vert, nd))
+            for i in range(num_vert):
+                data = f.readline().split()
+                vert[i] = np.asarray(data[1:])
+
+            # Transpose to nd x n_pt format
+            vert = vert.T
+
+            # Read line containing normal vector, but disregard result
+            data = f.readline().split()
+            if is_tess:
+                trans.append(int(data[1]))
+            fracs.append(vert)
+            fracture_ids.append(ids)
+
+    with open('DFN.fab', 'r') as f:
+        for line in f:
+            if line.strip() == 'BEGIN FORMAT':
+                # Read the format section, but disregard the information for
+                # now
+                formats = read_section(f, 'FORMAT')
+            elif line.strip() == 'BEGIN PROPERTIES':
+                # Read in properties section, but disregard information
+                props = read_section(f, 'PROPERTIES')
+            elif line.strip() == 'BEGIN SETS':
+                # Read set section, but disregard information.
+                sets = read_section(f, 'SETS')
+            elif line.strip() == 'BEGIN FRACTURE':
+                # Read fractures
+                fracs, frac_ids, trans = read_fractures(f, is_tess=False)
+            elif line.strip() == 'BEGIN TESSFRACTURE':
+                # Read tess_fractures
+                tess_fracs, tess_frac_ids, tess_sgn = read_fractures(f, is_tess=True)
+            elif line.strip()[:5] == 'BEGIN':
+                # Check for keywords not yet implemented.
+                raise ValueError('Unknown section type ' + line)
+
+    return fracs, tess_fracs, tess_sgn
+
+
 def _bounding_box(pts, overlap=0):
     """ Obtain a bounding box for a point cloud.
 
