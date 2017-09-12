@@ -13,19 +13,19 @@ def _intersection_by_num_node(edges, num):
         num: Target number of nodes in intersections
 
     Returns:
-        nodes: Nodes with the prescribed number of edges meeting.
-        edges_of_nodes (n x num): Each row gives edges meeting in a node.
+        crosses: Nodes with the prescribed number of edges meeting.
+        edges_of_crosses (n x num): Each row gives edges meeting in a node.
 
     """
     num_occ = np.bincount(edges[:2].ravel())
-    abutments = np.where(num_occ == num)[0]
+    crosses = np.where(num_occ == num)[0]
 
-    num_abut = abutments.size
+    num_crosses = crosses.size
 
-    edges_of_nodes = np.zeros((num_abut, num), dtype=np.int)
+    edges_of_crosses = np.zeros((num_abut, num), dtype=np.int)
     for i, pi in enumerate(abutments):
-        edges_of_nodes[i] = np.where(np.any(edges[:2] == pi, axis=0))[0]
-    return nodes, edges_of_nodes
+        edges_of_crosses[i] = np.where(np.any(edges[:2] == pi, axis=0))[0]
+    return crosses, edges_of_crosses
 
 
 def t_intersections(edges):
@@ -152,16 +152,20 @@ def _disc_radius_center(lengths, p0, p1):
     # Angle between a vertical line through the disc center and the line
     # through the disc center and one of the fracture endpoints. Assumed to be
     # uniform, for the lack of more information.
-    theta = np.pi * np.random.rand(num_frac)
+    # Restrict the angle in the interval (0.1, 0.9) * pi to avoid excessively
+    # large fractures.
+    theta = np.pi * (0.1 + 0.8 * np.random.rand(num_frac))
 
-    radius = lengths / np.sin(theta)
+    radius = 0.5 * lengths / np.sin(theta)
 
+    # Midpoint in (x, y)-coordinate given as midpoint of exposed line
     mid_point = 0.5 * (p0 + p1)
+    # z-coordinate from angle
     depth = radius * np.cos(theta)
 
     return radius, np.vstack((mid_point, depth))
 
-def _discs_from_exposure(pt, edges):
+def discs_from_exposure(pt, edges):
     """ Create fracture discs based on exposed lines in an outrcrop.
 
     The outcrop is assumed to be in the xy-plane.
@@ -181,18 +185,18 @@ def _discs_from_exposure(pt, edges):
 
     num_fracs = edges.shape[1]
 
-    lenths = frac_length(pt, edges)
+    lengths = fracture_length(pt, edges)
     p0 = pt[:, edges[0]]
     p1 = pt[:, edges[1]]
 
     v = p1 - p0
     strike_angle = np.arctan2(v[1], v[0])
 
-    center, radius = _disc_radius_center(lengths, p0, p1)
+    radius, center = _disc_radius_center(lengths, p0, p1)
 
     fracs = []
 
-    for fi in range(num_fracs):
+    for i in range(num_fracs):
         # The simplest way of distributing points along the disc seems to be to
         # create an elliptic fracture, and pick out the points. 
         f = EllipticFracture(center=center[:, i], major_axis=radius[i],
@@ -202,8 +206,8 @@ def _discs_from_exposure(pt, edges):
         # Add the points on the exposed surface. This creates an unequal
         # distribution of the points, but it is the only hard information we
         # have on the fracture
-        f.add_points(np.hstack((np.vstack((p0[:, fi], 0)), np.vstack((p1[:, fi], 0)))))
-
+        f.add_points(np.vstack((np.hstack((p0[:, i], 0)),
+                                np.hstack((p1[:, i], 0)))).T)
         fracs.append(Fracture(f.p))
 
     return fracs
@@ -237,13 +241,14 @@ def impose_inlcine(fracs, exposure, family, family_mean, family_std):
         frac.p = center + rot.dot(p - center)
         frac.points_2_ccw()
 
+    exposure = np.vstack((exposure, np.zeros(len(fracs))))
     for fi, f in enumerate(fracs):
         fam = family[fi]
         ang = np.random.normal(loc=family_mean[fam], scale=family_std[fam])
-        rotate_fracture(f, exposure[fi], ang)
+        rotate_fracture(f, exposure[:, fi], ang)
 
 
-def cut_fracture_by_plane(main_frac, other_frac, reference_point):
+def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
     """ Cut a fracture by a plane, and confine it to one side of the plane.
 
     Intended use is to confine abutting fractures (T-intersections) to one side
@@ -265,6 +270,9 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point):
         that we're working in something resembling the unit box.
 
     """
+    reference_point = reference_point.reshape((-1, 1))
+    if reference_point.size == 2:
+        reference_point = np.vstack((reference_point, 0))
 
     # First determine extent of the main fracture
     main_min = main_frac.p.min(axis=1)
@@ -272,7 +280,7 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point):
 
     # Equation for the plane through the other fracture, on the form 
     #  n_x(x-c_x) + n_y(y-c_y) + n_z(z-c_z) = 0
-    n = cg.compute_normal(other_frac.p)
+    n = cg.compute_normal(other_frac.p).reshape((-1, 1))
     c = other_frac.center
 
     # max and min coordinates that extends outside the main fracture
@@ -323,11 +331,11 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point):
     # fracture, and with a larger extension than the main fracture.
     aux_frac = Fracture(p)
 
-    isect_pt, _, _ = main_frac.intersects(aux_frac)
+    isect_pt, _, _ = main_frac.intersects(aux_frac, tol)
 
     # Next step is to eliminate points in the main fracture that are on the
     # wrong side of the other fracture.
-    v = main_frac.p - other_frac.center
+    v = main_frac.p - other_frac.center.reshape((-1, 1))
     sgn = np.sign(v * n)
     right_sign = np.sign(reference_point * v)
 
