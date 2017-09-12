@@ -155,7 +155,7 @@ class Fracture(object):
 
         """
         self.p = np.hstack((self.p, p))
-        self.p = setmembership.unique_columns_tol(self.p, tol=tol)
+        self.p, _, _ = setmembership.unique_columns_tol(self.p, tol=tol)
 
         self.points_2_ccw()
 
