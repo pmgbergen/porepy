@@ -187,6 +187,7 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     fracs = {'points': p, 'edges': lines}
     box = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2}
     g = triangle_grid(fracs, box)
+
     """
     # Verbosity level
     verbose = kwargs.get('verbose', 1)
@@ -339,14 +340,19 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     # Use constants set outside. If we ever
     const = constants.GmshConstants()
 
-    # First create lines that define the domain
-    x_min = dom['xmin']
-    x_max = dom['xmax']
-    y_min = dom['ymin']
-    y_max = dom['ymax']
-    dom_p = np.array([[x_min, x_max, x_max, x_min],
-                      [y_min, y_min, y_max, y_max]])
-    dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+    if isinstance(domain, dict):
+        # First create lines that define the domain
+        x_min = dom['xmin']
+        x_max = dom['xmax']
+        y_min = dom['ymin']
+        y_max = dom['ymax']
+        dom_p = np.array([[x_min, x_max, x_max, x_min],
+                          [y_min, y_min, y_max, y_max]])
+        dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+    else:
+        dom_p = dom
+        tmp = np.arange(dom_p.shape[1])
+        dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
 
     num_dom_lines = dom_lines.shape[1]  # Should be 4
 
