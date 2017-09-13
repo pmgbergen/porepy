@@ -818,6 +818,10 @@ class FractureNetwork(object):
         self.tol = tol
         self.verbose = verbose
 
+        # Initialize with an empty domain. Can be modified later by a call to
+        # 'impose_external_boundary()'
+        self.domain = None
+
     def add(self, f):
         # Careful here, if we remove one fracture and then add, we'll have
         # identical indices.
@@ -2040,7 +2044,19 @@ class FractureNetwork(object):
 
         writer.Update()
 
-    def to_gmsh(self, file_name, **kwargs):
+    def to_gmsh(self, file_name, in_3d=True, **kwargs):
+        """ Write the fracture network as input for mesh generation by gmsh.
+
+        It is assumed that intersections have been found and processed (e.g. by
+        the methods find_intersection() and split_intersection()).
+
+        Parameters:
+            file_name (str): Path to the .geo file to be written
+            in_3d (boolean, optional): Whether to embed the 2d fracture grids
+               in 3d. If True (default), the mesh will be DFM-style, False will
+               give a DFN-type mesh.
+
+        """
         p = self.decomposition['points']
         edges = self.decomposition['edges']
 
@@ -2065,10 +2081,13 @@ class FractureNetwork(object):
         # the size of the domain - presumably by the largest dimension. To
         # counteract this, we divide our (absolute) tolerance self.tol with the
         # domain size.
-        dx = np.array([[self.domain['xmax'] - self.domain['xmin']],
-                       [self.domain['ymax'] - self.domain['ymin']],
-                       [self.domain['zmax'] - self.domain['zmin']]])
-        gmsh_tolerance = self.tol / dx.max()
+        if in_3d:
+            dx = np.array([[self.domain['xmax'] - self.domain['xmin']],
+                           [self.domain['ymax'] - self.domain['ymin']],
+                           [self.domain['zmax'] - self.domain['zmin']]])
+            gmsh_tolerance = self.tol / dx.max()
+        else:
+            gmsh_tolerance = self.tol
 
         writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
                             intersection_points=intersection_points,
