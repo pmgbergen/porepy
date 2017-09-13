@@ -8,7 +8,7 @@ Instructions are found on the GitHub webpage. Simply type `pip install porepy`.
 ## Intall on Windows
 This is a bit more tricky, since installing the dependencies (e.g. `numpy`, `scipy`) using pip requires access to a compiler.
 The recommended solution (for working with Python on Windows in general, it seems)
-is to intall the dependencies using `conda`, and then `pip install porepy`.
+is to install the dependencies using `conda`, and then `pip install porepy`.
 We plan to provide conda install for PorePy as well, but have not come that far yet.
 
 ## How about Mac?
