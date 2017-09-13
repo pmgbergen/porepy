@@ -10,6 +10,7 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.fracs import structured, simplex, split_grid
+from porepy.fracs.fractures import FractureNetwork, Intersection
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.grid import FaceTag
 from porepy.utils import setmembership, mcolon
@@ -81,6 +82,36 @@ def simplex_grid(fracs, domain, **kwargs):
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
     # Split the grids.
+    split_grid.split_fractures(gb)
+    return gb
+
+#------------------------------------------------------------------------------#
+
+def dfn(fracs, conforming, intersections=None):
+
+    if isinstance(fracs, FractureNetwork):
+        network = fracs
+    else:
+        network = FractureNetwork(fracs)
+
+    if intersections is not None:
+        network.intersections = []
+        for isect in intersections:
+            first = intersections[0]
+            second = intersections[1]
+            coord = intersections[2:].reshape((3, -1))
+            network.intersections.append(Intersection(first, second, coord))
+    else:
+        network.find_intersections()
+
+    if conforming:
+        grids = simplex.triangle_grid_embedded(network, find_isect=False)
+    else:
+        pass
+
+    tag_faces(grids)
+    gb = assemble_in_bucket(grids)
+    gb.compute_geometry()
     split_grid.split_fractures(gb)
     return gb
 
