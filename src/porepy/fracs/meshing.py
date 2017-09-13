@@ -203,7 +203,7 @@ def cart_grid(fracs, nx, **kwargs):
     return gb
 
 
-def tag_faces(grids):
+def tag_faces(grids, check_highest_dim=True):
     """
     Tag faces of grids. Three different tags are given to different types of
     faces:
@@ -214,11 +214,19 @@ def tag_faces(grids):
             lower dim grid).
         TIP: A boundary face that is not on the domain boundary, nor
             coupled to a lower domentional domain.
+
+    Parameters:
+        grids (list): List of grids to be tagged. Sorted per dimension.
+        check_highest_dim (boolean, default=True): If true, we require there is
+            a single mesh in the highest dimension. The test is useful, but
+            should be waived for dfn meshes.
+
     """
 
     # Assume only one grid of highest dimension
-    assert len(grids[0]) == 1, 'Must be exactly'\
-        '1 grid of dim: ' + str(len(grids))
+    if check_highest_dim:
+        assert len(grids[0]) == 1, 'Must be exactly'\
+            '1 grid of dim: ' + str(len(grids))
     g_h = grids[0][0]
     bnd_faces = g_h.get_boundary_faces()
     g_h.add_face_tag(bnd_faces, FaceTag.DOMAIN_BOUNDARY)
