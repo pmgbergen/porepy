@@ -39,8 +39,7 @@ class GmshWriter(object):
         self.lchar = mesh_size
         self.lchar_bound = mesh_size_bound
 
-        if domain is not None:
-            self.domain = domain
+        self.domain = domain
 
         # Points that should be decleared physical (intersections between 3
         # fractures)
@@ -58,10 +57,12 @@ class GmshWriter(object):
         s += self.__write_points()
 
         if self.nd == 2:
-            s += self.__write_boundary_2d()
+            if self.domain is not None:
+                s += self.__write_boundary_2d()
             s += self.__write_fractures_compartments_2d()
         elif self.nd == 3:
-            s += self.__write_boundary_3d()
+            if self.domain is not None:
+                s += self.__write_boundary_3d()
             s += self.__write_lines()
             s += self.__write_polygons()
 
@@ -272,7 +273,8 @@ class GmshWriter(object):
                 + str(pi) + '};' + ls
             s += 'Physical Surface(\"' + constants.PHYSICAL_NAME_FRACTURES \
                  + str(pi) + '\") = {fracture_' + str(pi) + '};' + ls
-            s += 'Surface{fracture_' + str(pi) + '} In Volume{1};' + ls + ls
+            if self.domain is not None:
+                s += 'Surface{fracture_' + str(pi) + '} In Volume{1};' + ls + ls
 
         s += '// End of fracture specification' + ls + ls
 
