@@ -377,7 +377,7 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     # Use constants set outside. If we ever
     const = constants.GmshConstants()
 
-    if isinstance(domain, dict):
+    if isinstance(dom, dict):
         # First create lines that define the domain
         x_min = dom['xmin']
         x_max = dom['xmax']
