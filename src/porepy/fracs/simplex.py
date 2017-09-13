@@ -96,7 +96,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     else:
         print('Use existing intersections')
 
-    pts, cells, cell_info, phys_names = run_gmsh(file_name, network, **kwargs)
+    pts, cells, cell_info, phys_names = _run_gmsh(file_name, network, **kwargs)
 
     # Call upon helper functions to create grids in various dimensions.
     # The constructors require somewhat different information, reflecting the
