@@ -96,6 +96,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     else:
         print('Use existing intersections')
 
+    start_time = time.time()
     pts, cells, cell_info, phys_names = _run_gmsh(file_name, network, **kwargs)
 
     # Call upon helper functions to create grids in various dimensions.
@@ -179,7 +180,6 @@ def _run_gmsh(file_name, network, **kwargs):
                                           **gmsh_opts)
 
     if verbose > 0:
-        start_time = time.time()
         if gmsh_status == 0:
             print('Gmsh processed file successfully')
         else:
