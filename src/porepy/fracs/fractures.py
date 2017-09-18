@@ -818,6 +818,10 @@ class FractureNetwork(object):
         self.tol = tol
         self.verbose = verbose
 
+        # Initialize with an empty domain. Can be modified later by a call to
+        # 'impose_external_boundary()'
+        self.domain = None
+
     def add(self, f):
         # Careful here, if we remove one fracture and then add, we'll have
         # identical indices.
@@ -2040,7 +2044,19 @@ class FractureNetwork(object):
 
         writer.Update()
 
-    def to_gmsh(self, file_name, **kwargs):
+    def to_gmsh(self, file_name, in_3d=True, **kwargs):
+        """ Write the fracture network as input for mesh generation by gmsh.
+
+        It is assumed that intersections have been found and processed (e.g. by
+        the methods find_intersection() and split_intersection()).
+
+        Parameters:
+            file_name (str): Path to the .geo file to be written
+            in_3d (boolean, optional): Whether to embed the 2d fracture grids
+               in 3d. If True (default), the mesh will be DFM-style, False will
+               give a DFN-type mesh.
+
+        """
         p = self.decomposition['points']
         edges = self.decomposition['edges']
 
@@ -2065,13 +2081,52 @@ class FractureNetwork(object):
         # the size of the domain - presumably by the largest dimension. To
         # counteract this, we divide our (absolute) tolerance self.tol with the
         # domain size.
-        dx = np.array([[self.domain['xmax'] - self.domain['xmin']],
-                       [self.domain['ymax'] - self.domain['ymin']],
-                       [self.domain['zmax'] - self.domain['zmin']]])
-        gmsh_tolerance = self.tol / dx.max()
+        if in_3d:
+            dx = np.array([[self.domain['xmax'] - self.domain['xmin']],
+                           [self.domain['ymax'] - self.domain['ymin']],
+                           [self.domain['zmax'] - self.domain['zmin']]])
+            gmsh_tolerance = self.tol / dx.max()
+        else:
+            gmsh_tolerance = self.tol
 
         writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
                             intersection_points=intersection_points,
                             mesh_size_bound=mesh_size_bound,
                             mesh_size=mesh_size, tolerance=gmsh_tolerance)
         writer.write_geo(file_name)
+
+    def fracture_to_plane(self, frac_num):
+        """ Project fracture vertexes and intersection points to the natural
+        plane of the fracture.
+
+        """
+        isect = self.get_intersections(frac_num)
+
+        frac = self._fractures[frac_num]
+        cp = frac.center.reshape((-1, 1))
+
+        rot = cg.project_plane_matrix(frac.p)
+
+        def rot_translate(pts):
+            # Convenience method to translate and rotate a point.
+            return rot.dot(pts - cp)
+
+        p = rot_translate(frac.p)
+        assert np.max(np.abs(p[2])) < self.tol
+        p_2d = p[:2]
+
+        # Intersection points, in 2d coordinates
+        ip = np.empty((2, 0))
+
+        other_frac = np.empty(0, dtype=np.int)
+
+        for i in isect[0]:
+            tmp_p = rot_translate(i.coord)
+            if tmp_p.shape[1] > 0:
+                assert np.max(np.abs(tmp_p[2])) < self.tol
+                ip = np.append(ip, tmp_p[:2], axis=1)
+
+                of = i.get_other_fracture(frac).index
+                other_frac = np.append(other_frac, of)
+
+        return p_2d, ip, other_frac, rot, cp

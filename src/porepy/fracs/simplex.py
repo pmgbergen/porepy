@@ -96,34 +96,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
     else:
         print('Use existing intersections')
 
-    if not hasattr(network, 'decomposition'):
-        network.split_intersections()
-    else:
-        print('Use existing decomposition')
-
-    in_file = file_name + '.geo'
-    out_file = file_name + '.msh'
-
-    network.to_gmsh(in_file, **kwargs)
-
-    gmsh_opts = kwargs.get('gmsh_opts', {})
-    gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
-    gmsh_opts['-v'] = gmsh_verbose
-    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3,
-                                          **gmsh_opts)
-
-    if verbose > 0:
-        start_time = time.time()
-        if gmsh_status == 0:
-            print('Gmsh processed file successfully')
-        else:
-            print('Gmsh failed with status ' + str(gmsh_status))
-
-    pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
-
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names
-    phys_names = {v: k for k, v in phys_names.items()}
+    start_time = time.time()
+    pts, cells, cell_info, phys_names = _run_gmsh(file_name, network, **kwargs)
 
     # Call upon helper functions to create grids in various dimensions.
     # The constructors require somewhat different information, reflecting the
@@ -155,6 +129,69 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
 
     return grids
 
+def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network.geo'):
+
+    verbose = 1
+
+    if find_isect:
+        network.find_intersections()
+
+    pts, cells, cell_info, phys_names = _run_gmsh(f_name, network, in_3d=False)
+    g_2d = mesh_2_grid.create_2d_grids(
+        pts, cells, is_embedded=True, phys_names=phys_names,
+        cell_info=cell_info, network=network)
+    g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
+    g_0d = mesh_2_grid.create_0d_grids(pts, cells)
+
+    grids = [g_2d, g_1d, g_0d]
+
+    if verbose > 0:
+        print('\n')
+        for g_set in grids:
+            if len(g_set) > 0:
+                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
+                    '-d grids with '
+                num = 0
+                for g in g_set:
+                    num += g.num_cells
+                s += str(num) + ' cells'
+                print(s)
+        print('\n')
+
+    return grids
+
+def _run_gmsh(file_name, network, **kwargs):
+
+    verbose = kwargs.get('verbose', 1)
+    in_file = file_name + '.geo'
+    out_file = file_name + '.msh'
+
+    if not hasattr(network, 'decomposition'):
+        network.split_intersections()
+    else:
+        print('Use existing decomposition')
+
+    network.to_gmsh(in_file, **kwargs)
+
+    gmsh_opts = kwargs.get('gmsh_opts', {})
+    gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
+    gmsh_opts['-v'] = gmsh_verbose
+    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3,
+                                          **gmsh_opts)
+
+    if verbose > 0:
+        if gmsh_status == 0:
+            print('Gmsh processed file successfully')
+        else:
+            print('Gmsh failed with status ' + str(gmsh_status))
+
+    pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
+
+    # Invert phys_names dictionary to map from physical tags to corresponding
+    # physical names
+    phys_names = {v: k for k, v in phys_names.items()}
+
+    return pts, cells, cell_info, phys_names
 
 def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     """
@@ -187,6 +224,7 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     fracs = {'points': p, 'edges': lines}
     box = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2}
     g = triangle_grid(fracs, box)
+
     """
     # Verbosity level
     verbose = kwargs.get('verbose', 1)
@@ -280,8 +318,6 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
             print('Gmsh failed with status ' + str(gmsh_status))
 
     pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
-    warnings.warn('The 2d gridder has not been validated for the new meshio'
-                  + 'format. Use with care')
 
     # Invert phys_names dictionary to map from physical tags to corresponding
     # physical names
@@ -339,14 +375,19 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     # Use constants set outside. If we ever
     const = constants.GmshConstants()
 
-    # First create lines that define the domain
-    x_min = dom['xmin']
-    x_max = dom['xmax']
-    y_min = dom['ymin']
-    y_max = dom['ymax']
-    dom_p = np.array([[x_min, x_max, x_max, x_min],
-                      [y_min, y_min, y_max, y_max]])
-    dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+    if isinstance(dom, dict):
+        # First create lines that define the domain
+        x_min = dom['xmin']
+        x_max = dom['xmax']
+        y_min = dom['ymin']
+        y_max = dom['ymax']
+        dom_p = np.array([[x_min, x_max, x_max, x_min],
+                          [y_min, y_min, y_max, y_max]])
+        dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
+    else:
+        dom_p = dom
+        tmp = np.arange(dom_p.shape[1])
+        dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
 
     num_dom_lines = dom_lines.shape[1]  # Should be 4
 

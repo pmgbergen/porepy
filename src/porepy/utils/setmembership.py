@@ -223,6 +223,8 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
         array([0, 1, 0])
 
     """
+    # Treat 1d array as 2d
+    mat = np.atleast_2d(mat)
 
     # Special treatment of the case with an empty array
     if mat.shape[1] == 0:
