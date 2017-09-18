@@ -1,3 +1,5 @@
+import numpy as np
+
 class Solver(object):
 
 #------------------------------------------------------------------------------#
@@ -50,4 +52,6 @@ class SolverMixDim():
     def split(self, gb, key, values):
         return self.solver.split(gb, key, values)
 
+    def ndof(self, gb):
+        return np.sum([self.discr.ndof(g) for g,_ in gb])
 #------------------------------------------------------------------------------#
