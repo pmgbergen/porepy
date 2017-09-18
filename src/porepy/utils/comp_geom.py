@@ -1606,7 +1606,7 @@ def is_collinear(pts, tol=1e-5):
 
 #------------------------------------------------------------------------------#
 
-def map_grid(g):
+def map_grid(g, tol=1e-5):
     """ If a 2d or a 1d grid is passed, the function return the cell_centers,
     face_normals, and face_centers using local coordinates. If a 3d grid is
     passed nothing is applied. The return vectors have a reduced number of rows.
@@ -1637,9 +1637,10 @@ def map_grid(g):
         v = compute_normal(g.nodes) if g.dim == 2 else compute_tangent(g.nodes)
         R = project_plane_matrix(g.nodes, v)
         face_centers = np.dot(R, face_centers)
-        dim = np.logical_not(np.isclose(np.sum(np.abs(face_centers.T-
-                                                      face_centers[:, 0]),
-                                               axis=0), 0))
+
+        check = np.sum(np.abs(face_centers.T - face_centers[:, 0]), axis=0)
+        check /= np.sum(check)
+        dim = np.logical_not(np.isclose(check, 0, atol=tol, rtol=0))
         assert g.dim == np.sum(dim)
         face_centers = face_centers[dim, :]
         cell_centers = np.dot(R, cell_centers)[dim, :]
