@@ -28,6 +28,38 @@ class DualVEMMixDim(SolverMixDim):
 
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
+    def check_conservation(self, gb, u, conservation):
+        """
+        Assert if the local conservation of mass is preserved for the grid
+        bucket.
+        Parameters
+        ----------
+        gb: grid bucket, or a subclass.
+        u : string name of the velocity in the data associated to gb.
+        conservation: string name for the conservation of mass.
+        """
+        for g, d in gb:
+            d[conservation] = self.discr.check_conservation(g, d[u])
+
+        # add to the lower dimensional grids the contribution from the higher
+        # dimensional grids
+        for e, data in gb.edges_props():
+            g_l, g_h = gb.sorted_nodes_of_edge(e)
+
+            cells_l, faces_h, _ = sps.find(data['face_cells'])
+            faces, cells_h, sign = sps.find(g_h.cell_faces)
+            ind = np.unique(faces, return_index=True)[1]
+            sign = sign[ind][faces_h]
+
+            conservation_l = gb.node_prop(g_l, conservation)
+            u_h = sign*gb.node_prop(g_h, u)[faces_h]
+
+            for c_l, u_f in zip(cells_l, u_h):
+                conservation_l[c_l] -= u_f
+
+        for g, d in gb:
+            print(np.amax(np.abs(d[conservation])))
+
 #------------------------------------------------------------------------------#
 
 class DualVEM(Solver):
@@ -348,6 +380,28 @@ class DualVEM(Solver):
             P0u[:, c] = np.dot(R.T, P0u[:, c])
 
         return P0u
+
+#------------------------------------------------------------------------------#
+
+    def check_conservation(self, g, u):
+        """
+        Return the local conservation of mass in the cells.
+        Parameters
+        ----------
+        g: grid, or a subclass.
+        u : array (g.num_faces) velocity at each face.
+        """
+        faces, cells, sign = sps.find(g.cell_faces)
+        index = np.argsort(cells)
+        faces, sign = faces[index], sign[index]
+
+        conservation = np.empty(g.num_cells)
+        for c in np.arange(g.num_cells):
+            # For the current cell retrieve its faces
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+            conservation[c] = np.sum(u[faces[loc]]*sign[loc])
+
+        return conservation
 
 #------------------------------------------------------------------------------#
 
