@@ -10,7 +10,9 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.fracs import structured, simplex, split_grid
-from porepy.fracs.fractures import FractureNetwork, Intersection
+from porepy.fracs.fractures import Intersection
+from porepy import FractureNetwork
+from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.grid import FaceTag
 from porepy.utils import setmembership, mcolon
@@ -87,9 +89,10 @@ def simplex_grid(fracs, domain, **kwargs):
 
 #------------------------------------------------------------------------------#
 
-def dfn(fracs, conforming, intersections=None):
+def dfn(fracs, conforming, intersections=None, **kwargs):
 
-    if isinstance(fracs, FractureNetwork):
+    if isinstance(fracs, FractureNetwork) \
+       or isinstance(frac, FractureNetwork_full):
         network = fracs
     else:
         network = FractureNetwork(fracs)
@@ -106,10 +109,35 @@ def dfn(fracs, conforming, intersections=None):
 
     if conforming:
         grids = simplex.triangle_grid_embedded(network, find_isect=False)
+        tag_faces(grids, check_highest_dim=False)
     else:
-        pass
 
-    tag_faces(grids)
+        grid_list = []
+        neigh_list = []
+
+        for fi in range(len(network._fractures)):
+            # Rotate fracture vertexes and intersection points
+            fp, ip, other_frac, rot, cp = network.fracture_to_plane(fi)
+
+            f_lines = np.reshape(np.arange(ip.shape[1]), (2, -1), order='F')
+            frac_dict = {'points': ip, 'edges': f_lines}
+            grids = simplex.triangle_grid(frac_dict, fp, verbose=False,
+                                          **kwargs)
+
+            irot = rot.T
+
+            # Loop over grids, rotate back again to 3d coordinates
+            for gl in grids:
+                for g in gl:
+                    g.nodes = irot.dot(g.nodes) + cp
+
+            assert len(grids[0]) == 1, 'Fracture should be covered by single'\
+                'mesh'
+
+            grid_list.append(grids)
+            neigh_list.append(other_frac)
+        return grid_list, neigh_list
+
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
     split_grid.split_fractures(gb)
