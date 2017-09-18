@@ -143,7 +143,9 @@ class DualVEM(Solver):
         bc = param.get_bc(self)
         a = param.get_aperture()
 
-        faces, _, sgn = sps.find(g.cell_faces)
+        faces, cells, sign = sps.find(g.cell_faces)
+        index = np.argsort(cells)
+        faces, sign = faces[index], sign[index]
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
@@ -173,7 +175,7 @@ class DualVEM(Solver):
             # Compute the H_div-mass local matrix
             A = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
                               g.cell_volumes[c], f_centers[:, faces_loc],
-                              f_normals[:, faces_loc], sgn[loc],
+                              f_normals[:, faces_loc], sign[loc],
                               diams[c], weight[c])[0]
 
             # Save values for Hdiv-mass local matrix in the global structure
@@ -187,7 +189,8 @@ class DualVEM(Solver):
         # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
-        M = sps.bmat([[mass, div.T], [div, None]], format='csr')
+        M = sps.bmat([[mass, div.T],
+                      [ div,  None]], format='csr')
 
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
@@ -240,9 +243,9 @@ class DualVEM(Solver):
 
         if np.any(bc.is_dir):
             is_dir = np.where(bc.is_dir)[0]
-            faces, _, sgn = sps.find(g.cell_faces)
-            sgn = sgn[np.unique(faces, return_index=True)[1]]
-            rhs[is_dir] += -sgn[is_dir] * bc_val[is_dir] ######## aperture???
+            faces, _, sign = sps.find(g.cell_faces)
+            sign = sign[np.unique(faces, return_index=True)[1]]
+            rhs[is_dir] += -sign[is_dir] * bc_val[is_dir]
 
         if np.any(bc.is_neu):
             is_neu = np.where(bc.is_neu)[0]
@@ -318,7 +321,10 @@ class DualVEM(Solver):
         param = data['param']
         a = param.get_aperture()
 
-        faces, _, sgn = sps.find(g.cell_faces)
+        faces, cells, sign = sps.find(g.cell_faces)
+        index = np.argsort(cells)
+        faces, sign = faces[index], sign[index]
+
         c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
 
         # In the virtual cell approach the cell diameters should involve the
@@ -334,7 +340,7 @@ class DualVEM(Solver):
 
             Pi_s = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
                                  g.cell_volumes[c], f_centers[:, faces_loc],
-                                 f_normals[:, faces_loc], sgn[loc],
+                                 f_normals[:, faces_loc], sign[loc],
                                  diams[c])[1]
 
             # extract the velocity for the current cell
@@ -345,7 +351,7 @@ class DualVEM(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def massHdiv(self, K, c_center, c_volume, f_centers, normals, sgn, diam,
+    def massHdiv(self, K, c_center, c_volume, f_centers, normals, sign, diam,
                  weight=0):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
@@ -361,7 +367,7 @@ class DualVEM(Solver):
             Center of the cell faces.
         normals : ndarray (g.dim, num_faces_of_cell)
             Normal of the cell faces weighted by the face areas.
-        sgn : array (num_faces_of_cell)
+        sign : array (num_faces_of_cell)
             +1 or -1 if the normal is inward or outward to the cell.
         diam : scalar
             Diameter of the cell.
@@ -389,7 +395,7 @@ class DualVEM(Solver):
 
         # local matrix F
         F = np.array([s*m(f) for m in mono \
-                      for s, f in zip(sgn, f_centers.T)]).reshape((dim, -1))
+                      for s, f in zip(sign, f_centers.T)]).reshape((dim, -1))
 
         assert np.allclose(G, np.dot(F, D)), "G "+str(G)+" F*D "+str(np.dot(F,D))
 
@@ -446,13 +452,13 @@ class DualCoupling(AbstractCoupling):
 
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
-        faces, cells_h, sgn = sps.find(g_h.cell_faces)
+        faces, cells_h, sign = sps.find(g_h.cell_faces)
         ind = np.unique(faces, return_index=True)[1]
-        sgn = sgn[ind][faces_h]
+        sign = sign[ind][faces_h]
         cells_h = cells_h[ind][faces_h]
 
         # Compute the off-diagonal terms
-        dataIJ, I, J = sgn, g_l.num_faces+cells_l, faces_h
+        dataIJ, I, J = sign, g_l.num_faces+cells_l, faces_h
         cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
         cc[0, 1] = cc[1, 0].T
 
