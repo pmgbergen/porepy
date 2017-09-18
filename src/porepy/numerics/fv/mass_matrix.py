@@ -76,9 +76,8 @@ class MassMatrix(Solver):
         """
         ndof = self.ndof(g)
         phi = data['param'].get_porosity()
-        apertures = data['param'].get_aperture()
-        coeff = g.cell_volumes * phi / data['deltaT']
-        coeff = coeff * apertures
+        aperture = data['param'].get_aperture()
+        coeff = g.cell_volumes * phi / data['deltaT'] * aperture
 
         return sps.dia_matrix((coeff, 0), shape=(ndof, ndof)), np.zeros(ndof)
 
