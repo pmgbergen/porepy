@@ -131,28 +131,28 @@ def main(kf, l2_norm, description, multi_point):
 
 def test_fv_blocking():
     kf = 1e-4
-    known_p = 3794.07449077
+    known_p = 3764.01127376
     main(kf, known_p, "blocking", False)
 
 #------------------------------------------------------------------------------#
 
 def test_fv_permeable():
     kf = 1e4
-    known_p = 1959.92284202
+    known_p = 1954.56637486
     main(kf, known_p, "permeable", False)
 
 #------------------------------------------------------------------------------#
 
 def test_mpfa_blocking():
     kf = 1e-4
-    known_p = 3753.95221798
+    known_p = 3753.06014349
     main(kf, known_p, "blocking", True)
 
 #------------------------------------------------------------------------------#
 
 def test_mpfa_permeable():
     kf = 1e4
-    known_p = 1953.23760603
+    known_p = 1953.01419355
     main(kf, known_p, "permeable", True)
 
 #------------------------------------------------------------------------------#
