@@ -2094,3 +2094,39 @@ class FractureNetwork(object):
                             mesh_size_bound=mesh_size_bound,
                             mesh_size=mesh_size, tolerance=gmsh_tolerance)
         writer.write_geo(file_name)
+
+    def fracture_to_plane(self, frac_num):
+        """ Project fracture vertexes and intersection points to the natural
+        plane of the fracture.
+
+        """
+        isect = self.get_intersections(frac_num)
+
+        frac = self._fractures[frac_num]
+        cp = frac.center.reshape((-1, 1))
+
+        rot = cg.project_plane_matrix(frac.p)
+
+        def rot_translate(pts):
+            # Convenience method to translate and rotate a point.
+            return rot.dot(pts - cp)
+
+        p = rot_translate(frac.p)
+        assert np.max(np.abs(p[2])) < self.tol
+        p_2d = p[:2]
+
+        # Intersection points, in 2d coordinates
+        ip = np.empty((2, 0))
+
+        other_frac = np.empty(0, dtype=np.int)
+
+        for i in isect[0]:
+            tmp_p = rot_translate(i.coord)
+            if tmp_p.shape[1] > 0:
+                assert np.max(np.abs(tmp_p[2])) < self.tol
+                ip = np.append(ip, tmp_p[:2], axis=1)
+
+                of = i.get_other_fracture(frac).index
+                other_frac = np.append(other_frac, of)
+
+        return p_2d, ip, other_frac, rot, cp
