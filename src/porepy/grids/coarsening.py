@@ -87,6 +87,21 @@ def generate_coarse_grid(g, subdiv):
 
 #------------------------------------------------------------------------------#
 
+def reorder_partition(subdiv):
+    """
+    Re-order the partition id in case to obtain contiguous numbers.
+    Parameters:
+        subdiv: array where for each cell one id
+    Return:
+        the subdivision written in a contiguous way
+    """
+    old_ids = np.unique(subdiv)
+    for new_id, old_id in enumerate(old_ids):
+        subdiv[subdiv == old_id] = new_id
+    return subdiv
+
+#------------------------------------------------------------------------------#
+
 def generate_coarse_grid_single(g, subdiv, face_map):
     """
     Specific function for a single grid. Use the common interface instead.
