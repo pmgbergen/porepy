@@ -189,8 +189,8 @@ class Parameters(object):
     def get_discharge(self):
         """ double or array-like
         Face-wise representation of discharge.
-        Always set and returned as np.ndarray (1 x g.num_faces) for 
-        internal grids. For edges between dimensions they may also 
+        Always set and returned as np.ndarray (1 x g.num_faces) for
+        internal grids. For edges between dimensions they may also
         be grid1.num_cells x grid2.num_cells.
         """
         if not hasattr(self, '_discharge'):
