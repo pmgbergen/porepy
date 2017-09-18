@@ -33,7 +33,6 @@ class Coupler(object):
         gb: grid bucket.
 
         """
-
         gb.add_node_prop('dof')
         for g, d in gb:
             d['dof'] = self.solver_ndof(g)
