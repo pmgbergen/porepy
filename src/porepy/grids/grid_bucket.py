@@ -635,7 +635,7 @@ class GridBucket(object):
                 ordering_exists = False
         if ordering_exists and not overwrite_existing:
             return
-            
+
         counter = 0
         # Loop over grids in decreasing dimensions
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
@@ -730,7 +730,7 @@ class GridBucket(object):
         neighbors by calls to remove_node.
 
         """
-        
+
         gb_copy = self.copy()
         grids_of_dim = gb_copy.grids_of_dimension(dim)
         grids_of_dim_old = self.grids_of_dimension(dim)
@@ -753,11 +753,11 @@ class GridBucket(object):
             neighbours_dict[i] = neighbours
             neighbours_dict_old[i] = self.node_neighbors(g_old)
             eliminated_nodes[i] = g_old
-        
+
         elimination_data = {'neighbours':neighbours_dict,
                             'neighbours_old':neighbours_dict_old,
                             'eliminated_nodes':eliminated_nodes}
-        
+
         return gb_copy, elimination_data
 
 #------------------------------------------------------------------------------#
@@ -811,7 +811,7 @@ class GridBucket(object):
         rows = np.tile(cells_1,(cells_2.size,1))
         cols = np.tile(cells_2,(cells_1.size,1)).T
         cell_cells[rows,cols] = True
-        
+
         return cell_cells
 
 #------------------------------------------------------------------------------#
@@ -825,9 +825,9 @@ class GridBucket(object):
         """
         # Identify neighbors
         neighbors = self.sort_multiple_nodes( self.node_neighbors(node) )
-        
+
         n_neighbors = len(neighbors)
-        
+
         # Add an edge between each neighbor pair
         for i in range(n_neighbors - 1):
             g0 = neighbors[i]
@@ -835,14 +835,14 @@ class GridBucket(object):
                 g1 = neighbors[j]
                 cell_cells = self.find_shared_face(g0, g1, node)
                 self.add_edge([g0, g1], cell_cells)
-        
+
         # Remove the node and update the ordering of the remaining nodes
         node_number = self.node_prop(node, 'node_number')
         self.remove_node(node)
         self.update_node_ordering(node_number)
 
         return neighbors
-        
+
 #------------------------------------------------------------------------------#
 
     def apply_function_to_nodes(self, fct):
