@@ -153,21 +153,21 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def sort_multiple_nodes(self, nodes): 
-        """ 
-        Sort all the nodes according to node number. 
- 
-        Parameters: 
-            nodes: List of graph nodes. 
- 
-        Returns: 
-            sorted_nodes: The same nodes, sorted. 
- 
-        """ 
-        assert self.has_nodes_prop(nodes,'node_number') 
-         
-        return sorted(nodes, key = lambda n: self.node_prop( n, 'node_number')) 
- 
+    def sort_multiple_nodes(self, nodes):
+        """
+        Sort all the nodes according to node number.
+
+        Parameters:
+            nodes: List of graph nodes.
+
+        Returns:
+            sorted_nodes: The same nodes, sorted.
+
+        """
+        assert self.has_nodes_prop(nodes,'node_number')
+
+        return sorted(nodes, key = lambda n: self.node_prop( n, 'node_number'))
+
 #------------------------------------------------------------------------------# 
     def nodes_of_edge(self, e):
         """
