@@ -108,7 +108,8 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
         network.find_intersections()
 
     if conforming:
-        grids = simplex.triangle_grid_embedded(network, find_isect=False)
+        grids = simplex.triangle_grid_embedded(network, find_isect=False,
+                                               **kwargs)
         tag_faces(grids, check_highest_dim=False)
     else:
 
