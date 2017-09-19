@@ -90,6 +90,21 @@ def simplex_grid(fracs, domain, **kwargs):
 #------------------------------------------------------------------------------#
 
 def dfn(fracs, conforming, intersections=None, **kwargs):
+    """
+
+    Parameters:
+        fracs (either Fractures, or a FractureNetwork).
+        conforming (boolean): If True, the mesh will be conforming along 1d
+            intersections.
+        intersections (list of lists, optional): Each item corresponds to an
+            intersection between two fractures. In each sublist, the first two
+            indices gives fracture ids (refering to order in fracs). The third
+            item is a numpy array representing intersection coordinates. If no
+            intersections provided, intersections will be detected using
+            function in FractureNetwork.
+        **kwargs: Parameters passed to gmsh.
+
+    """
 
     if isinstance(fracs, FractureNetwork) \
        or isinstance(frac, FractureNetwork_full):
@@ -102,13 +117,14 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
         for isect in intersections:
             first = intersections[0]
             second = intersections[1]
-            coord = intersections[2:].reshape((3, -1))
+            coord = intersections[2].reshape((3, -1))
             network.intersections.append(Intersection(first, second, coord))
     else:
         network.find_intersections()
 
     if conforming:
-        grids = simplex.triangle_grid_embedded(network, find_isect=False)
+        grids = simplex.triangle_grid_embedded(network, find_isect=False,
+                                               **kwargs)
         tag_faces(grids, check_highest_dim=False)
     else:
 

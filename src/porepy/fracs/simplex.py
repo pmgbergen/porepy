@@ -129,14 +129,16 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
 
     return grids
 
-def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network.geo'):
+def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network.geo',
+                           **kwargs):
 
     verbose = 1
 
     if find_isect:
         network.find_intersections()
 
-    pts, cells, cell_info, phys_names = _run_gmsh(f_name, network, in_3d=False)
+    pts, cells, cell_info, phys_names = _run_gmsh(f_name, network,
+                                                  in_3d=False, **kwargs)
     g_2d = mesh_2_grid.create_2d_grids(
         pts, cells, is_embedded=True, phys_names=phys_names,
         cell_info=cell_info, network=network)
