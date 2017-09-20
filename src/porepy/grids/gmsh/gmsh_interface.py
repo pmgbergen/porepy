@@ -17,7 +17,7 @@ class GmshWriter(object):
 
     def __init__(self, pts, lines, polygons=None, domain=None, nd=None,
                  mesh_size=None, mesh_size_bound=None, line_type=None,
-                 intersection_points=None, tolerance=None,
+                 intersection_points=None, tolerance=None, edges_2_frac=None,
                  meshing_algorithm=None):
         """
 
@@ -45,6 +45,7 @@ class GmshWriter(object):
         # fractures)
         self.intersection_points = intersection_points
         self.tolerance = tolerance
+        self.e2f = edges_2_frac
 
         self.meshing_algorithm = meshing_algorithm
 
@@ -243,6 +244,7 @@ class GmshWriter(object):
                     s += constants.PHYSICAL_NAME_AUXILIARY_LINE
 
                 s += si + '\") = {frac_line_' + si + '};' + ls
+
             s += ls
         s += '// End of line specification ' + ls + ls
         return s
@@ -275,6 +277,11 @@ class GmshWriter(object):
                  + str(pi) + '\") = {fracture_' + str(pi) + '};' + ls
             if self.domain is not None:
                 s += 'Surface{fracture_' + str(pi) + '} In Volume{1};' + ls + ls
+
+            for li in self.e2f[pi]:
+                s += 'Line{frac_line_' + str(li) + '} In Surface{fracture_'
+                s += str(pi) + '};' + ls
+            s += ls
 
         s += '// End of fracture specification' + ls + ls
 
