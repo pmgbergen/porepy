@@ -95,9 +95,16 @@ def reorder_partition(subdiv):
     Return:
         the subdivision written in a contiguous way
     """
-    old_ids = np.unique(subdiv)
-    for new_id, old_id in enumerate(old_ids):
-        subdiv[subdiv == old_id] = new_id
+    if isinstance(subdiv, dict):
+        for _, partition in subdiv.items():
+            old_ids = np.unique(partition)
+            for new_id, old_id in enumerate(old_ids):
+                partition[partition == old_id] = new_id
+    else:
+        old_ids = np.unique(subdiv)
+        for new_id, old_id in enumerate(old_ids):
+            subdiv[subdiv == old_id] = new_id
+
     return subdiv
 
 #------------------------------------------------------------------------------#
@@ -216,24 +223,22 @@ def generate_coarse_grid_gb(gb, subdiv):
     Specific function for a grid bucket. Use the common interface instead.
     """
 
-    # Extract the higher dimensional grids
-    # NOTE: we assume only one high dimensional grid
-    g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
+    for g, partition in subdiv.items():
 
-    # Construct the coarse grids
-    face_map = generate_coarse_grid_single(g, subdiv, True)
+        # Construct the coarse grids
+        face_map = generate_coarse_grid_single(g, partition, True)
 
-    # Update all the face_cells for all the 'edges' connected to the grid
-    for e, d in gb.edges_props_of_node(g):
-        # The indices that need to be mapped to the new grid
-        face_cells = d['face_cells'].tocsr()
-        indices = face_cells.indices
-        # Map indices
-        mask = np.argsort(indices)
-        indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
-        # Reverse the ordering
-        face_cells.indices = indices[np.argsort(mask)]
-        d['face_cells'] = face_cells.tocsc()
+        # Update all the face_cells for all the 'edges' connected to the grid
+        for e, d in gb.edges_props_of_node(g):
+            # The indices that need to be mapped to the new grid
+            face_cells = d['face_cells'].tocsr()
+            indices = face_cells.indices
+            # Map indices
+            mask = np.argsort(indices)
+            indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
+            # Reverse the ordering
+            face_cells.indices = indices[np.argsort(mask)]
+            d['face_cells'] = face_cells.tocsc()
 
 #------------------------------------------------------------------------------#
 
@@ -313,85 +318,92 @@ def create_aggregations(g, **kwargs):
     """
 
     # Extract the higher dimensional grids
-    # NOTE: we assume only one high dimensional grid
     if isinstance(g, grid_bucket.GridBucket):
-        g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
+        g = g.get_grids(lambda g_: g_.dim == g.dim_max())
 
-    partition = -np.ones(g.num_cells, dtype=np.int)
+    g_list = np.atleast_1d(g)
+    partition = dict()
 
-    volumes = g.cell_volumes.copy()
-    volumes_checked = volumes.copy()
-    c2c = g.cell_connection_map()
+    for g in g_list:
+        partition_local = -np.ones(g.num_cells, dtype=np.int)
 
-    # Compute the inverse of the harminc mean
-    weight = kwargs.get('weight', 1.)
-    mean = weight/stats.hmean(1./volumes)
+        volumes = g.cell_volumes.copy()
+        volumes_checked = volumes.copy()
+        c2c = g.cell_connection_map()
 
-    new_id = 1
-    while np.any(partition < 0):
-        # Consider the smallest element to be aggregated
-        cell_id = np.argmin(volumes_checked)
+        # Compute the inverse of the harminc mean
+        weight = kwargs.get('weight', 1.)
+        mean = weight/stats.hmean(1./volumes)
 
-        # If the smallest fulfil the condition, stop the loop
-        if volumes[cell_id] > mean:
-            break
+        new_id = 1
+        while np.any(partition_local < 0):
+            # Consider the smallest element to be aggregated
+            cell_id = np.argmin(volumes_checked)
 
-        do_it = True
-        old_cluster = np.array([cell_id])
-        while do_it:
-            cluster = __get_neigh(old_cluster, c2c, partition)
-            volume = np.sum(volumes[cluster])
-            if volume > mean or np.array_equal(old_cluster, cluster):
-                do_it = False
-            else:
-                old_cluster = cluster
+            # If the smallest fulfil the condition, stop the loop
+            if volumes[cell_id] > mean:
+                break
 
-        # If one of the element in the cluster has already a partition id,
-        # we uniform the ids
-        partition_cluster = partition[cluster]
-        has_coarse_id = partition_cluster > 0
-        if np.any(has_coarse_id):
-            # For each coarse id in the cluster, rename the coarse ids in the
-            # partition
-            for partition_id in partition_cluster[has_coarse_id]:
-                which_partition_id = partition == partition_id
-                partition[which_partition_id] = new_id
-                volumes[which_partition_id] = volume
-                volumes_checked[which_partition_id] = volume
+            do_it = True
+            old_cluster = np.array([cell_id])
+            while do_it:
+                cluster = __get_neigh(old_cluster, c2c, partition_local)
+                volume = np.sum(volumes[cluster])
+                if volume > mean or np.array_equal(old_cluster, cluster):
+                    do_it = False
+                else:
+                    old_cluster = cluster
 
-        # Update the data for the cluster
-        partition[cluster] = new_id
-        volumes[cluster] = volume
-        new_id += 1
+            # If one of the element in the cluster has already a partition id,
+            # we uniform the ids
+            partition_cluster = partition_local[cluster]
+            has_coarse_id = partition_cluster > 0
+            if np.any(has_coarse_id):
+                # For each coarse id in the cluster, rename the coarse ids in the
+                # partition_local
+                for partition_id in partition_cluster[has_coarse_id]:
+                    which_partition_id = partition_local == partition_id
+                    partition_local[which_partition_id] = new_id
+                    volumes[which_partition_id] = volume
+                    volumes_checked[which_partition_id] = volume
 
-        volumes_checked[cluster] = np.inf
+            # Update the data for the cluster
+            partition_local[cluster] = new_id
+            volumes[cluster] = volume
+            new_id += 1
 
-    volumes_checked = volumes.copy()
-    which_cell = volumes_checked < mean
-    volumes_checked[np.logical_not(which_cell)] = np.inf
+            volumes_checked[cluster] = np.inf
 
-    while np.any(which_cell):
-        cell_id = np.argmin(volumes_checked)
-        part_cell = partition[cell_id]
-        # Extract the neighbors of the current cell
-        loc = slice(c2c.indptr[cell_id], c2c.indptr[cell_id + 1])
-        neighbors = np.setdiff1d(c2c.indices[loc], np.asarray(cell_id))
-        part_neighbors = partition[neighbors]
-        neighbors = neighbors[part_neighbors != part_cell]
-        if neighbors.size == 0:
-            volumes_checked = np.inf
-            which_cell = volumes_checked < mean
-            continue
-        smallest = np.argmin(volumes[neighbors])
-        mask = partition == part_cell
-        partition[mask] = partition[neighbors[smallest]]
-        volumes[mask] = volumes[smallest] + volumes[cell_id]
-        volumes_checked[mask] = volumes[smallest] + volumes[cell_id]
+        volumes_checked = volumes.copy()
         which_cell = volumes_checked < mean
+        volumes_checked[np.logical_not(which_cell)] = np.inf
 
-    # Fill up the cells which are left
-    has_not_coarse_id = partition < 0
-    partition[has_not_coarse_id] = new_id + np.arange(np.sum(has_not_coarse_id))
+        while np.any(which_cell):
+            cell_id = np.argmin(volumes_checked)
+            part_cell = partition_local[cell_id]
+            # Extract the neighbors of the current cell
+            loc = slice(c2c.indptr[cell_id], c2c.indptr[cell_id + 1])
+            neighbors = np.setdiff1d(c2c.indices[loc], np.asarray(cell_id))
+            part_neighbors = partition_local[neighbors]
+            neighbors = neighbors[part_neighbors != part_cell]
+            if neighbors.size == 0:
+                volumes_checked = np.inf
+                which_cell = volumes_checked < mean
+                continue
+            smallest = np.argmin(volumes[neighbors])
+            mask = partition_local == part_cell
+            partition_local[mask] = partition_local[neighbors[smallest]]
+            volumes[mask] = volumes[smallest] + volumes[cell_id]
+            volumes_checked[mask] = volumes[smallest] + volumes[cell_id]
+            which_cell = volumes_checked < mean
+
+        # Fill up the cells which are left
+        has_not_coarse_id = partition_local < 0
+        partition_local[has_not_coarse_id] = new_id + \
+                                            np.arange(np.sum(has_not_coarse_id))
+
+        partition[g] = partition_local
+
     return partition
 
 #------------------------------------------------------------------------------#
