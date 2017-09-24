@@ -1283,7 +1283,8 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     poly_1_xy = rot_p_1.dot(poly_1)
 
     # Sanity check: The points should lay on a plane
-    assert np.all(np.abs(poly_1_xy[2]) < tol)
+    assert np.amax(np.abs(poly_1_xy[2]))/np.amax(np.abs(poly_1_xy[:2])) < tol
+
     # Drop the z-coordinate
     poly_1_xy = poly_1_xy[:2]
 
@@ -2098,7 +2099,7 @@ def dist_segments_polygon(start, end, poly, tol=1e-5):
     start = orig_start
     end = orig_end
 
-    # Distance from endpoints to 
+    # Distance from endpoints to
     d_start_poly, cp_s_p = dist_points_polygon(start, poly)
     d_end_poly, cp_e_p = dist_points_polygon(end, poly)
 
