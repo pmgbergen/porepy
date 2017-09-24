@@ -53,5 +53,5 @@ class SolverMixDim():
         return self.solver.split(gb, key, values)
 
     def ndof(self, gb):
-        return np.sum([self.discr.ndof(g) for g,_ in gb])
+        return np.sum([self.discr_ndof(g) for g,_ in gb])
 #------------------------------------------------------------------------------#
