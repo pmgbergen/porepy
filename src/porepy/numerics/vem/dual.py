@@ -28,6 +28,18 @@ class DualVEMMixDim(SolverMixDim):
 
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
+    def extract_u(self, gb, up, u):
+        for g, d in gb:
+            d[u] = self.discr.extract_u(g, d[up])
+
+    def extract_p(self, gb, up, p):
+        for g, d in gb:
+            d[p] = self.discr.extract_p(g, d[up])
+
+    def project_u(self, gb, u, P0u):
+        for g, d in gb:
+            d[P0u] = self.discr.project_u(g, d[u], d)
+
     def check_conservation(self, gb, u, conservation):
         """
         Assert if the local conservation of mass is preserved for the grid
