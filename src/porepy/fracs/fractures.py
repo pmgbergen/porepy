@@ -238,7 +238,6 @@ class Fracture(object):
             L (Two fractures intersect at a boundary)
             T (Boundary segment of one fracture lies partly or completely in
                 the plane of another)
-
         Parameters:
             other (Fracture): To test intersection with.
             tol (double): Geometric tolerance
@@ -353,7 +352,6 @@ class Fracture(object):
         bound_sect_other_self = cg.polygon_boundaries_intersect(other.p,
                                                                 self.p,
                                                                 tol=tol)
-
 
         # Short cut: If no boundary intersections, we return the interior
         # points
@@ -872,10 +870,7 @@ class FractureNetwork(object):
 
     def __init__(self, fractures=None, verbose=0, tol=1e-4):
 
-        if fractures is None:
-            self._fractures = fractures
-        else:
-            self._fractures = fractures
+        self._fractures = fractures
 
         for i, f in enumerate(self._fractures):
             f.set_index(i)
@@ -975,6 +970,7 @@ class FractureNetwork(object):
 
         logger.info('Found %i intersections. Ellapsed time: %.5f',
                     len(self.intersections), time.time() - start_time)
+
 
     def intersection_info(self, frac_num=None):
         # Number of fractures with some intersection
@@ -1843,7 +1839,9 @@ class FractureNetwork(object):
         rot = cg.project_plane_matrix(p_loc)
         p_2d = rot.dot(p_loc)
 
-        assert np.max(np.abs(p_2d[2])) < 2*self.tol * np.sqrt(3)
+        assert np.amax(np.abs(p_2d[2]))/np.amax(np.abs(p_2d[:2])) < \
+               2*self.tol * np.sqrt(3)
+
         # Dump third coordinate
         p_2d = p_2d[:2]
 
@@ -2217,40 +2215,5 @@ class FractureNetwork(object):
                             mesh_size=mesh_size, tolerance=gmsh_tolerance,
                             edges_2_frac=self.decomposition['line_in_frac'])
 
+
         writer.write_geo(file_name)
-
-    def fracture_to_plane(self, frac_num):
-        """ Project fracture vertexes and intersection points to the natural
-        plane of the fracture.
-
-        """
-        isect = self.get_intersections(frac_num)
-
-        frac = self._fractures[frac_num]
-        cp = frac.center.reshape((-1, 1))
-
-        rot = cg.project_plane_matrix(frac.p)
-
-        def rot_translate(pts):
-            # Convenience method to translate and rotate a point.
-            return rot.dot(pts - cp)
-
-        p = rot_translate(frac.p)
-        assert np.max(np.abs(p[2])) < self.tol
-        p_2d = p[:2]
-
-        # Intersection points, in 2d coordinates
-        ip = np.empty((2, 0))
-
-        other_frac = np.empty(0, dtype=np.int)
-
-        for i in isect[0]:
-            tmp_p = rot_translate(i.coord)
-            if tmp_p.shape[1] > 0:
-                assert np.max(np.abs(tmp_p[2])) < self.tol
-                ip = np.append(ip, tmp_p[:2], axis=1)
-
-                of = i.get_other_fracture(frac).index
-                other_frac = np.append(other_frac, of)
-
-        return p_2d, ip, other_frac, rot, cp
