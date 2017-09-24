@@ -74,6 +74,62 @@ class DualVEMMixDim(SolverMixDim):
 
 #------------------------------------------------------------------------------#
 
+class DualVEMDFN(SolverMixDim):
+
+    def __init__(self, dim_max, physics='flow'):
+        # NOTE: There is no flow along the intersections of the fractures.
+
+        self.physics = physics
+        self.dim_max = dim_max
+        self.discr = DualVEM(self.physics)
+
+        self.coupling_conditions = DualCouplingDFN(self.__ndof__)
+
+        kwargs = {"discr_ndof": self.__ndof__, "discr_fct": self.__matrix_rhs__}
+        self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
+
+    def extract_u(self, gb, up, u):
+        for g, d in gb:
+            if g.dim == self.dim_max:
+                d[u] = self.discr.extract_u(g, d[up])
+            else:
+                d[u] = np.zeros(g.num_faces)
+
+    def extract_p(self, gb, up, p):
+        for g, d in gb:
+            if g.dim == self.dim_max:
+                d[p] = self.discr.extract_p(g, d[up])
+            else:
+                d[p] = d[up]
+
+    def project_u(self, gb, u, P0u):
+        for g, d in gb:
+            if g.dim == self.dim_max:
+                d[P0u] = self.discr.project_u(g, d[u], d)
+            else:
+                d[P0u] = np.zeros((3, g.num_cells))
+
+    def __ndof__(self, g):
+        # The highest dimensional problem has the standard number of dof
+        # associated with the solver. For the lower dimensional problems, the
+        # number of dof is the number of cells.
+        if g.dim == self.dim_max:
+            return self.discr.ndof(g)
+        else:
+            return g.num_cells
+
+    def __matrix_rhs__(self, g, data):
+        # The highest dimensional problem compute the matrix and rhs, the lower
+        # dimensional problem and empty matrix. For the latter, the size of the
+        # matrix is the number of cells.
+        if g.dim == self.dim_max:
+            return self.discr.matrix_rhs(g, data)
+        else:
+            ndof = self.__ndof__(g)
+            return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
+
+#------------------------------------------------------------------------------#
+
 class DualVEM(Solver):
 
 #------------------------------------------------------------------------------#
@@ -481,8 +537,8 @@ class DualCoupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
-    def __init__(self, solver):
-        self.solver = solver
+    def __init__(self, discr):
+        self.discr_ndof = discr.ndof
 
 #------------------------------------------------------------------------------#
 
@@ -532,6 +588,56 @@ class DualCoupling(AbstractCoupling):
         dataIJ = 1./(g_h.face_areas[faces_h] * aperture_h[cells_h] * k[cells_l])
         I, J = faces_h, faces_h
         cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
+
+        return cc
+
+#------------------------------------------------------------------------------#
+
+class DualCouplingDFN(AbstractCoupling):
+
+#------------------------------------------------------------------------------#
+
+    def __init__(self, discr_ndof):
+
+        self.discr_ndof = discr_ndof
+
+#------------------------------------------------------------------------------#
+
+    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
+        """
+        Construct the matrix (and right-hand side) for the coupling conditions
+        of a DFN. We use the Lagrange multiplier to impose continuity of the
+        normal fluxes at the intersections.
+        Note: the right-hand side is not implemented now.
+
+        Parameters:
+            g_h: grid of higher dimension
+            g_l: grid of lower dimension
+            data_h: Not used but kept for consistency
+            data_l: Not used but kept for consistency
+            data: Not used but kept for consistency
+
+        Returns:
+            cc: block matrix which store the contribution of the coupling
+                condition. See the abstract coupling class for a more detailed
+                description.
+        """
+        # pylint: disable=invalid-name
+
+        # Retrieve the number of degrees of both grids
+        # Create the block matrix for the contributions
+        dof, cc = self.create_block_matrix(g_h, g_l)
+
+        # Recover the information for the grid-grid mapping
+        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
+        faces, cells_h, sign = sps.find(g_h.cell_faces)
+        ind = np.unique(faces, return_index=True)[1]
+        sign = sign[ind][faces_h]
+
+        # Compute the off-diagonal terms
+        dataIJ, I, J = sign, cells_l, faces_h
+        cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
+        cc[0, 1] = cc[1, 0].T
 
         return cc
 
