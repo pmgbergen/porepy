@@ -98,10 +98,9 @@ up = sps.linalg.spsolve(A, b)
 solver.split(gb, "up", up)
 
 gb.add_node_props(["discharge", "p", "P0u"])
-for g, d in gb:
-    d["u"] = solver.discr.extract_u(g, d["up"])
-    d["p"] = solver.discr.extract_p(g, d["up"])
-    d["P0u"] = solver.discr.project_u(g, d["u"], d)
+solver.extract_u(gb, "up", "discharge")
+solver.extract_p(gb, "up", "p")
+solver.project_u(gb, "discharge", "P0u")
 
 exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem')
 
