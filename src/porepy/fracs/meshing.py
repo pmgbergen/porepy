@@ -113,12 +113,7 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
         network = FractureNetwork(fracs)
 
     if intersections is not None:
-        network.intersections = []
-        for isect in intersections:
-            first = intersections[0]
-            second = intersections[1]
-            coord = intersections[2].reshape((3, -1))
-            network.intersections.append(Intersection(first, second, coord))
+        network.intersections = [Intersection(*i) for i in intersections]
     else:
         network.find_intersections()
 
