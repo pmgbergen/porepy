@@ -2,6 +2,7 @@ import warnings
 import numpy as np
 
 from porepy.fracs import meshing
+from porepy.fracs.fractures import Fracture, FractureNetwork
 
 #------------------------------------------------------------------------------#
 
@@ -103,7 +104,38 @@ def fractures_from_csv(f_name, tagcols=None, **kwargs):
 
     return pts, edges.astype(np.int)
 
-#------------------------------------------------------------------
+#------------------------------------------------------------------------------#
+
+def read_dfn(file_name, file_inters=None, conforming=True, tol=None, **kwargs):
+    """ Read the fractures and (possible) intersection from files.
+    The fractures are in a .fab file, as specified by FracMan.
+    The intersection are specified in the function intersection_dfn.
+
+    Parameters:
+        file_name (str): Path to .fab file.
+        file_intersections (str): Optional path to intersection file.
+        conforming (boolean): If True, the mesh will be conforming along 1d
+            intersections.
+        **kwargs: Parameters passed to gmsh.
+
+    Returns:
+        gb (GridBucket): The grid bucket.
+
+    """
+    fracs, tf, sgn = from_fab(file_name)
+    fractures = [Fracture(f) for f in fracs]
+    if tol is not None:
+        network = FractureNetwork(fractures, tol=tol)
+    else:
+        network = FractureNetwork(fractures)
+
+    if file_inters is None:
+        return meshing.dfn(network, conforming, **kwargs)
+    else:
+        inters = intersection_dfn(file_inters, fractures)
+        return meshing.dfn(network, conforming, inters, **kwargs)
+
+#------------------------------------------------------------------------------#
 
 def from_fab(f_name):
     """ Read fractures from a .fab file, as specified by FracMan.
@@ -179,7 +211,7 @@ def from_fab(f_name):
             fracs.append(vert)
             fracture_ids.append(ids)
 
-    with open('DFN.fab', 'r') as f:
+    with open(f_name, 'r') as f:
         for line in f:
             if line.strip() == 'BEGIN FORMAT':
                 # Read the format section, but disregard the information for
@@ -203,6 +235,38 @@ def from_fab(f_name):
 
     return fracs, tess_fracs, tess_sgn
 
+#------------------------------------------------------------------------------#
+
+def intersection_dfn(file_name, fractures):
+    """ Read the fracture intersections from file.
+    NOTE: We assume that the fracture id in the file starts from 1. The file
+    format is as follow:
+    x_0 y_0 x_1 y_1 frac_id0 frac_id1
+
+    Parameters:
+        file_name (str): Path to file.
+        fractures (either Fractures, or a FractureNetwork).
+
+    Returns:
+        intersections (list of lists): Each item corresponds to an
+            intersection between two fractures. In each sublist, the first two
+            indices gives fracture ids (refering to order in fractures). The third
+            item is a numpy array representing intersection coordinates.
+    """
+    class DummyFracture(object):
+        def __init__(self, index):
+            self.index = index
+
+    inter_from_file = np.loadtxt(file_name)
+    intersections = np.empty((inter_from_file.shape[0], 3), dtype=np.object)
+
+    for line, intersection in zip(inter_from_file, intersections):
+        intersection[0] = DummyFracture(int(line[6])-1)
+        intersection[1] = DummyFracture(int(line[7])-1)
+        intersection[2] = np.array(line[:6]).reshape((3,-1), order='F')
+    return intersections
+
+#------------------------------------------------------------------------------#
 
 def _bounding_box(pts, overlap=0):
     """ Obtain a bounding box for a point cloud.
