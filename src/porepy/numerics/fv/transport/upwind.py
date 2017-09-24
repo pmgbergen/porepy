@@ -332,8 +332,8 @@ class UpwindCoupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
-    def __init__(self, solver):
-        self.solver = solver
+    def __init__(self, discr):
+        self.discr_ndof = discr.ndof
 
 #------------------------------------------------------------------------------#
 
