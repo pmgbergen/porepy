@@ -5,14 +5,24 @@ class Coupler(object):
 
 #------------------------------------------------------------------------------#
 
-    def __init__(self, solver, coupling=None, solver_fct=None, coupling_fct=None):
-        self.solver_ndof = solver.ndof
+    def __init__(self, discr=None, coupling=None, **kwargs):
 
-        if solver_fct is None:
-            self.solver_fct = solver.matrix_rhs
+        # Consider the dofs
+        discr_ndof = kwargs.get("discr_ndof")
+        if discr_ndof is None:
+            self.discr_ndof = discr.ndof
         else:
-            self.solver_fct = solver_fct
+            self.discr_ndof = discr_ndof
 
+        # Consider the solver for each dimension
+        discr_fct = kwargs.get("discr_fct")
+        if discr_fct is None:
+            self.discr_fct = discr.matrix_rhs
+        else:
+            self.discr_fct = discr_fct
+
+        # Consider the coupling between dimensions
+        coupling_fct = kwargs.get("coupling_fct")
         if coupling is None and coupling_fct is None:
             self.coupling_fct = None
         elif coupling_fct is not None:
@@ -35,7 +45,7 @@ class Coupler(object):
         """
         gb.add_node_prop('dof')
         for g, d in gb:
-            d['dof'] = self.solver_ndof(g)
+            d['dof'] = self.discr_ndof(g)
 
 #------------------------------------------------------------------------------#
 
@@ -74,7 +84,7 @@ class Coupler(object):
         # Loop over the grids and compute the problem matrix
         for g, data in gb:
             pos = data['node_number']
-            matrix[pos, pos], rhs[pos] = self.solver_fct(g, data)
+            matrix[pos, pos], rhs[pos] = self.discr_fct(g, data)
 
         # Handle special case of 1-element grids, that give 0-d arrays
         rhs = np.array([np.atleast_1d(a) for a in tuple(rhs)])
