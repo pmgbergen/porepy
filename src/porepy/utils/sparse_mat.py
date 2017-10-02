@@ -19,10 +19,10 @@ def zero_columns(A, cols):
 
 
     '''
-    if A.getformat() != 'csc':
-        raise Warning('Zero out columns most efficient for csc matrices')
-        A = A.tocsc()
-    indptr = A.indptr
 
+    if A.getformat() != 'csc':
+        raise ValueError('Need a csc matrix')
+
+    indptr = A.indptr
     col_indptr = mcolon(indptr[cols], indptr[cols + 1])
     A.data[col_indptr] = 0
