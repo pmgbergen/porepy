@@ -1,0 +1,170 @@
+import numpy as np
+import scipy.sparse as sps
+
+from porepy.viz import exporter, plot_grid
+from porepy.fracs import importer
+from porepy.fracs.fractures import Fracture, FractureNetwork
+from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
+from porepy.fracs import meshing, simplex
+
+from porepy.params import tensor
+from porepy.params.bc import BoundaryCondition
+from porepy.params.data import Parameters
+
+from porepy.grids.grid import FaceTag
+from porepy.grids import coarsening as co
+
+from porepy.numerics.vem import dual
+
+#------------------------------------------------------------------------------#
+
+def source_f1(x, y, z):
+
+    if z >= 0:
+        val = 8*y*(1-y)-8*(z-1)*(z-1)
+    else:
+        val = 8*y*(1-y)-8*(z+1)*(z+1)
+    return -val
+
+#------------------------------------------------------------------------------#
+
+def source_f2(x, y, z):
+
+    if x >= 0:
+        val = 8*y*(1-y)-8*(x+1)*(x+1)
+    else:
+        val = 8*y*(1-y)-8*(x-1)*(x-1)
+    return -val
+
+#------------------------------------------------------------------------------#
+
+def sol_f1(x, y, z):
+
+    if z >= 0:
+        val = 4*y*(1-y)*(z-1)*(z-1)
+    else:
+        val = 4*y*(1-y)*(z+1)*(z+1)
+    return val
+
+#------------------------------------------------------------------------------#
+
+def sol_f2(x, y, z):
+
+    if x >= 0:
+        val = 4*y*(1-y)*(x+1)*(x+1)
+    else:
+        val = 4*y*(1-y)*(x-1)*(x-1)
+    return val
+
+#------------------------------------------------------------------------------#
+
+def perm(x, y, z):
+    return 1
+
+#------------------------------------------------------------------------------#
+
+def add_data(gb, domain, tol):
+    """
+    Define the permeability, apertures, boundary conditions
+    """
+    gb.add_node_props(['param'])
+
+    source_f = [source_f1, source_f2]
+    sol_f = [sol_f1, sol_f2]
+
+    for g, d in gb:
+        if g.dim < 2:
+            continue
+
+        param = Parameters(g)
+
+        # Permeability
+        kxx = np.array([perm(*pt) for pt in g.cell_centers.T])
+        param.set_tensor("flow", tensor.SecondOrder(g.dim, kxx))
+
+        # Source term
+        frac_id = d['node_number']
+        source = np.array([source_f[frac_id](*pt) for pt in g.cell_centers.T])
+        param.set_source("flow", g.cell_volumes*source)
+
+        # Boundaries
+        bound_faces = g.get_boundary_faces()
+        if bound_faces.size != 0:
+            bound_face_centers = g.face_centers[:, bound_faces]
+
+            labels = np.array(['dir'] * bound_faces.size)
+
+            bc_val = np.zeros(g.num_faces)
+            bc = [sol_f[frac_id](*pt) for pt in bound_face_centers.T]
+            bc_val[bound_faces] = np.array(bc)
+
+            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val("flow", bc_val)
+        else:
+            param.set_bc("flow", BoundaryCondition(
+                g, np.empty(0), np.empty(0)))
+
+        d['param'] = param
+
+#------------------------------------------------------------------------------#
+
+def error_p(gb):
+
+    error = 0
+    sol_f = [sol_f1, sol_f2]
+    for g, d in gb:
+        if g.dim < 2:
+            d["err"] = np.zeros(g.num_cells)
+            continue
+        frac_id = d['node_number']
+        sol = np.array([sol_f[frac_id](*pt) for pt in g.cell_centers.T])
+        d["err"] = d["p"] - sol
+        error += np.sum(np.power(d["err"], 2)*g.cell_volumes)
+
+    return np.sqrt(error)
+
+#------------------------------------------------------------------------------#
+
+tol = 1e-5
+dim_max = 2
+
+mesh_kwargs = {}
+mesh_kwargs['mesh_size'] = {'mode': 'constant',
+                            'value': 0.015625, 'bound_value': 1}
+
+domain = {'xmin': -1, 'xmax': 1, 'ymin': -0.5, 'ymax': 0.5, 'zmin': -1, 'zmax': 1}
+file_name = 'dfn_square.fab'
+file_intersections = 'traces_square.dat'
+gb = importer.read_dfn(file_name, file_intersections, tol=1e-5, **mesh_kwargs)
+gb.remove_nodes(lambda g: g.dim == 0)
+gb.compute_geometry()
+#co.coarsen(gb, 'by_volume')
+gb.assign_node_ordering()
+
+exporter.export_vtk(gb, 'grid', folder='vem')
+
+internal_flag = FaceTag.FRACTURE
+[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+
+# Assign parameters
+add_data(gb, domain, tol)
+
+# Choose and define the solvers and coupler
+solver = dual.DualVEMDFN(dim_max, 'flow')
+
+A, b = solver.matrix_rhs(gb)
+
+up = sps.linalg.spsolve(A, b)
+solver.split(gb, "up", up)
+
+gb.add_node_props(["discharge", "p", "P0u", "err"])
+solver.extract_u(gb, "up", "discharge")
+solver.extract_p(gb, "up", "p")
+solver.project_u(gb, "discharge", "P0u")
+
+diam = np.amax([np.amax(g.cell_diameters()) for g, _ in gb if g.dim==dim_max])
+print("h=", diam, "- err(p)=", error_p(gb))
+
+exporter.export_vtk(gb, 'vem', ["p", "err", "P0u"], folder='vem')
+
+#------------------------------------------------------------------------------#
