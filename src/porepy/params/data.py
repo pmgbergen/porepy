@@ -189,9 +189,7 @@ class Parameters(object):
     def get_discharge(self):
         """ double or array-like
         Face-wise representation of discharge.
-        Always set and returned as np.ndarray (1 x g.num_faces) for 
-        internal grids. For edges between dimensions they may also 
-        be grid1.num_cells x grid2.num_cells.
+        Always set and returned as np.ndarray (1 x g.num_faces).
         """
         if not hasattr(self, '_discharge'):
             raise ValueError('Discharge not set')
@@ -200,6 +198,8 @@ class Parameters(object):
     def set_discharge(self, val):
         if not isinstance(val, np.ndarray):
             raise ValueError('Only np.ndarray allowed for discharge')
+        elif self._num_faces != val.size:
+            raise ValueError('Wrong size of discharge, should be one per face')
         else:
             self._discharge = val
 
@@ -323,11 +323,11 @@ class Parameters(object):
         physics = self._get_physics(obj)
 
         if physics == 'flow':
-            return self._perm
+            return self.get_permeability()
         elif physics == 'transport':
-            return self._conductivity
+            return self.get_conductivity()
         elif physics == 'mechanics':
-            return self._stiffness
+            return self.get_stiffness()
         else:
             raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
                              % (physics, self.known_physics))
