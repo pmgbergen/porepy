@@ -3,6 +3,7 @@ import numpy as np
 
 from porepy.fracs import meshing
 from porepy.fracs.fractures import Fracture, FractureNetwork
+from porepy.utils.setmembership import unique_columns_tol
 
 #------------------------------------------------------------------------------#
 
@@ -45,7 +46,7 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
 
 #------------------------------------------------------------------------------#
 
-def fractures_from_csv(f_name, tagcols=None, **kwargs):
+def fractures_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
     """ Read csv file with fractures to obtain fracture description.
 
     Create the grid bucket from a set of fractures stored in a csv file and a
@@ -101,6 +102,14 @@ def fractures_from_csv(f_name, tagcols=None, **kwargs):
                        np.arange(1, 2*num_fracs, 2)))
     if tagcols is not None:
         edges = np.vstack((edges, data[:, tagcols].T))
+
+    pts, _, old_2_new = unique_columns_tol(pts, tol=tol)
+    edges[:2] = old_2_new[edges[:2]]
+
+    to_remove = np.where(edges[0, :] == edges[1, :])[0]
+    edges = np.delete(edges, to_remove, axis=1)
+
+    assert np.all(np.diff(edges[:2], axis=0) != 0)
 
     return pts, edges.astype(np.int)
 
