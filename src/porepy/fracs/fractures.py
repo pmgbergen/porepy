@@ -1846,7 +1846,7 @@ class FractureNetwork(object):
         p_loc -= p_loc_c
 
         # Project the points onto the local plane defined by the fracture
-        rot = cg.project_plane_matrix(p_loc)
+        rot = cg.project_plane_matrix(p_loc, tol=self.tol)
         p_2d = rot.dot(p_loc)
 
         assert np.amax(np.abs(p_2d[2]))/np.amax(np.abs(p_2d[:2])) < \
