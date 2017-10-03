@@ -1440,6 +1440,34 @@ def project_plane_matrix(pts, normal=None, tol=1e-5):
 
 #------------------------------------------------------------------------------#
 
+def project_line_matrix(pts, tangent=None, tol=1e-5):
+    """ Project the points on a line using local coordinates.
+
+    The projected points are computed by a dot product.
+    example: np.dot( R, pts )
+
+    Parameters:
+    pts (np.ndarray, 3xn): the points.
+    tangent: (optional) the tangent unit vector of the plane, otherwise two
+        points are required.
+
+    Returns:
+    np.ndarray, 3x3, projection matrix.
+
+    """
+
+    if tangent is None:
+        tangent = compute_tangent(pts)
+    else:
+        tangent = tangent.flatten() / np.linalg.norm(tangent)
+
+    reference = np.array([0., 0., 1.])
+    angle = np.arccos(np.dot(tangent, reference))
+    vect = np.cross(tangent, reference)
+    return rot(angle, vect)
+
+#------------------------------------------------------------------------------#
+
 def rot(a, vect):
     """ Compute the rotation matrix about a vector by an angle using the matrix
     form of Rodrigues formula.
