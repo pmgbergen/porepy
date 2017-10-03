@@ -1410,7 +1410,7 @@ def is_planar(pts, normal=None, tol=1e-5):
 
 #------------------------------------------------------------------------------#
 
-def project_plane_matrix(pts, normal=None):
+def project_plane_matrix(pts, normal=None, tol=1e-5):
     """ Project the points on a plane using local coordinates.
 
     The projected points are computed by a dot product.
@@ -1429,7 +1429,9 @@ def project_plane_matrix(pts, normal=None):
     if normal is None:
         normal = compute_normal(pts)
     else:
-        normal = normal / np.linalg.norm(normal)
+        normal = normal.flatten() / np.linalg.norm(normal)
+
+    assert is_planar(pts, normal, tol)
 
     reference = np.array([0., 0., 1.])
     angle = np.arccos(np.dot(normal, reference))
