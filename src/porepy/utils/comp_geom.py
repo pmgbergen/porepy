@@ -1379,8 +1379,9 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
 
         return isect
 
+#------------------------------------------------------------------------------#
 
-def is_planar(pts, normal=None):
+def is_planar(pts, normal=None, tol=1e-5):
     """ Check if the points lie on a plane.
 
     Parameters:
@@ -1396,11 +1397,16 @@ def is_planar(pts, normal=None):
     if normal is None:
         normal = compute_normal(pts)
     else:
-        normal = normal / np.linalg.norm(normal)
+        normal = normal.flatten() / np.linalg.norm(normal)
 
-    check = np.array([np.isclose(np.dot(normal, pts[:, 0] - p), 0) \
-                      for p in pts[:, 1:].T], dtype=np.bool)
-    return np.all(check)
+    check_all = np.zeros(pts.shape[1]-1, dtype=np.bool)
+
+    for idx, p in enumerate(pts[:, 1:].T):
+        den = np.linalg.norm(pts[:, 0] - p)
+        dotprod = np.dot(normal, (pts[:, 0] - p)/(den if den else 1))
+        check_all[idx] = np.isclose(dotprod, 0, atol=tol, rtol=0)
+
+    return np.all(check_all)
 
 #------------------------------------------------------------------------------#
 
