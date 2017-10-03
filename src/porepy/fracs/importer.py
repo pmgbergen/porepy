@@ -7,7 +7,7 @@ from porepy.fracs.fractures import Fracture, FractureNetwork
 #------------------------------------------------------------------------------#
 
 def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
-             return_domain=False, **kwargs):
+             return_domain=False, tol=1e-8, **kwargs):
     """
     Create the grid bucket from a set of fractures stored in a csv file and a
     domain. In the csv file, we assume the following structure:
@@ -30,7 +30,7 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
         is returned.
 
     """
-    pts, edges = fractures_from_csv(f_name, **kwargs)
+    pts, edges = fractures_from_csv(f_name, tol=tol, **kwargs)
     f_set = np.array([pts[:, e] for e in edges.T])
 
     # Define the domain as bounding-box if not defined
