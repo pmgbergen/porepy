@@ -590,7 +590,8 @@ class Fracture(object):
 
         def outside_box(p, bound_i):
             # Helper function to test if points are outside the bounding box
-            p = cg.snap_to_grid(p, tol=tol)
+            relative = np.amax(np.linalg.norm(p, axis=0))
+            p = cg.snap_to_grid(p, tol=tol/relative)
             # snap_to_grid will impose a grid of size self.tol, thus points
             # that are more than half that distance away from the boundary
             # are deemed outside.
@@ -1174,7 +1175,8 @@ class FractureNetwork(object):
         logger.info("""Uniquify points and edges, starting with %i points, %i
                     edges""", all_p.shape[1], edges.shape[1])
 
-        all_p = cg.snap_to_grid(all_p, tol=self.tol)
+        relative = np.amax(np.linalg.norm(all_p, axis=0))
+        all_p = cg.snap_to_grid(all_p, tol=self.tol/relative)
 
         # We now need to find points that occur in multiple places
         p_unique, unique_ind_p, \
@@ -1499,7 +1501,8 @@ class FractureNetwork(object):
             p = np.asarray(t['vertices']).transpose()
             segments = np.sort(np.asarray(t['segments']).transpose(), axis=0)
 
-            p = cg.snap_to_grid(p, tol=self.tol)
+            relative = np.amax(np.linalg.norm(p, axis=0))
+            p = cg.snap_to_grid(p, tol=self.tol/relative)
 
             # It turns out that Triangle sometime creates (almost) duplicate
             # points. Our algorithm are based on the points staying, thus these
