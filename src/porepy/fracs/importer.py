@@ -266,7 +266,7 @@ def intersection_dfn(file_name, fractures):
         def __init__(self, index):
             self.index = index
 
-    inter_from_file = np.loadtxt(file_name)
+    inter_from_file = np.atleast_2d(np.loadtxt(file_name))
     intersections = np.empty((inter_from_file.shape[0], 3), dtype=np.object)
 
     for line, intersection in zip(inter_from_file, intersections):
