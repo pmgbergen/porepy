@@ -142,7 +142,9 @@ class Fracture(object):
 
     def add_points(self, p, check_convexity=True, tol=1e-4):
         """
-        Add a point to the polygon, and enforce ccw sorting.
+        Add a point to the polygon with ccw sorting enforced.
+
+        Test for convexity after points are added.
 
         Parameters:
             p (np.ndarray, 3xn): Points to add
@@ -157,7 +159,8 @@ class Fracture(object):
         self.p = np.hstack((self.p, p))
         self.p, _, _ = setmembership.unique_columns_tol(self.p, tol=tol)
 
-        self.points_2_ccw()
+        # Sort points to ccw
+        self.p = self.p[:, self.points_2_ccw()]
 
         return self.check_convexity()
 
