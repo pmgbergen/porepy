@@ -1678,10 +1678,8 @@ def dist_segment_segment_set(start, end, start_set, end_set):
     Parameters:
 
     """
-    if start.size < 4:
-        start = start.reshape((-1, 1))
-    if end.size < 4:
-        end = end.reshape((-1, 1))
+    start = np.squeeze(start)
+    end = np.squeeze(end)
 
     nd = start.shape[0]
     ns = start_set.shape[1]
@@ -1691,8 +1689,8 @@ def dist_segment_segment_set(start, end, start_set, end_set):
     cp = np.zeros((nd, ns))
 
     for i in range(ns):
-        dl, cpi, cpj = dist_two_segments(start, end, start_set[:, j],
-                                         end_set[:, j])
+        dl, cpi, cpj = dist_two_segments(start, end, start_set[:, i],
+                                         end_set[:, i])
         d[i] = dl
         cp[:, i] = cpi
         cp_set[:, i] = cpj
@@ -1746,7 +1744,7 @@ def dist_two_segments(s1_start, s1_end, s2_start, s2_end):
     dot_2_starts = d2.dot(d_starts)
     discr = dot_1_1 * dot_2_2 - dot_1_2 ** 2
     # Sanity check
-    assert discr >= 0
+    assert discr >= -SMALL_TOLERANCE
 
     sc = sN = sD = discr
     tc = tN = tD = discr
