@@ -185,7 +185,8 @@ def create_embedded_line_grid(loc_coord, glob_id, atol=1e-4):
     # Find the tangent of the line
     tangent = cg.compute_tangent(loc_coord)
     # Projection matrix
-    rot = cg.project_plane_matrix(loc_coord, tangent)
+    rot = cg.project_line_matrix(loc_coord, tangent)
+
     loc_coord_1d = rot.dot(loc_coord)
     # The points are now 1d along one of the coordinate axis, but we
     # don't know which yet. Find this.
