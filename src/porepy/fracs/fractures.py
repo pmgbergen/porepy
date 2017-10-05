@@ -165,7 +165,20 @@ class Fracture(object):
         # Sort points to ccw
         self.p = self.p[:, self.points_2_ccw()]
 
-        return self.check_convexity()
+        return self.check_convexity() and self.is_planar(tol)
+
+    def remove_points(self, ind, keep_orig=False):
+        """ Remove points from the fracture definition
+
+        Parameters:
+            ind (np array-like): Indices of points to remove.
+            keep_orig (boolean, optional): Whether to keep the original points
+                in the attribute orig_p. Defaults to False.
+
+        """
+        self.p = np.delete(self.p, ind, axis=1)
+        if not keep_orig:
+            self.orig_p = self.p
 
     def plane_coordinates(self):
         """
