@@ -204,7 +204,7 @@ def discs_from_exposure(pt, edges):
 
     for i in range(num_fracs):
         # The simplest way of distributing points along the disc seems to be to
-        # create an elliptic fracture, and pick out the points. 
+        # create an elliptic fracture, and pick out the points.
         f = EllipticFracture(center=center[:, i], major_axis=radius[i],
                              minor_axis=radius[i], dip_angle=np.pi/2,
                              strike_angle=strike_angle[i], major_axis_angle=0)
@@ -214,7 +214,7 @@ def discs_from_exposure(pt, edges):
         # have on the fracture
         f.add_points(np.vstack((np.hstack((p0[:, i], 0)),
                                 np.hstack((p1[:, i], 0)))).T)
-        fracs.append(Fracture(f.p))
+        fracs.append(Fracture(f.p, check_convexity=False))
 
     return fracs
 
@@ -335,7 +335,7 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
 
     # Create an auxiliary fracture that spans the same plane as the other
     # fracture, and with a larger extension than the main fracture.
-    aux_frac = Fracture(p)
+    aux_frac = Fracture(p, check_convexity=False)
 
     isect_pt, _, _ = main_frac.intersects(aux_frac, tol)
 

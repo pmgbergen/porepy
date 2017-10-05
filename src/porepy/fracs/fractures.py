@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 class Fracture(object):
 
-    def __init__(self, points, index=None):
+    def __init__(self, points, index=None, check_convexity=True):
         self.p = points
         # Ensure the points are ccw
         self.points_2_ccw()
@@ -59,7 +59,8 @@ class Fracture(object):
         self.index = index
 
         assert self.is_planar(), 'Points define non-planar fracture'
-        assert self.check_convexity(), 'Points form non-convex polygon'
+        if check_convexity:
+            assert self.check_convexity(), 'Points form non-convex polygon'
 
     def set_index(self, i):
         self.index = i
@@ -147,12 +148,15 @@ class Fracture(object):
         """
         Add a point to the polygon with ccw sorting enforced.
 
-        Test for convexity after points are added.
+        Always run a test to check that the points are still planar. By
+        default, a check of convexity is also performed, however, this can be
+        turned off to speed up simulations (the test uses sympy, which turns
+        out to be slow in many cases).
 
         Parameters:
             p (np.ndarray, 3xn): Points to add
             check_convexity (boolean, optional): Verify that the polygon is
-                convex. Defaults to true
+                convex. Defaults to true.
             tol (double): Tolerance used to check if the point already exists.
 
         Return:
@@ -165,7 +169,10 @@ class Fracture(object):
         # Sort points to ccw
         self.p = self.p[:, self.points_2_ccw()]
 
-        return self.check_convexity() and self.is_planar(tol)
+        if check_convexity:
+            return self.check_convexity() and self.is_planar(tol)
+        else:
+            return self.check_convexity()
 
     def remove_points(self, ind, keep_orig=False):
         """ Remove points from the fracture definition
