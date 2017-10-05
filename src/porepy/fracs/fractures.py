@@ -1975,12 +1975,13 @@ class FractureNetwork(object):
         return p_2_p, s_2_s
 
 
-    def impose_external_boundary(self, box, truncate_fractures=True):
+    def impose_external_boundary(self, box=None, truncate_fractures=True):
         """
         Set an external boundary for the fracture set.
 
         The boundary takes the form of a 3D box, described by its minimum and
-        maximum coordinates.
+        maximum coordinates. If no bounding box is provided, a box will be
+        fited outside the fracture network.
 
         If desired, the fratures will be truncated to lay within the bounding
         box; that is, Fracture.p will be modified. The orginal coordinates of
@@ -1998,6 +1999,20 @@ class FractureNetwork(object):
             boundary will be truncated.
 
         """
+        if box is None:
+            OVERLAP = 0.05
+            cmin = np.ones((3, 1)) * float('inf')
+            cmax = -np.ones((3, 1)) * float('inf')
+            for f in self._fractures:
+                cmin = np.min(np.hstack((cmin, f.p)), axis=1).reshape((-1, 1))
+                cmax = np.max(np.hstack((cmax, f.p)), axis=1).reshape((-1, 1))
+            cmin = cmin[:, 0]
+            cmax = cmax[:, 0]
+            dx = OVERLAP * (cmax - cmin)
+            box = {'xmin': cmin[0] - dx[0], 'xmax': cmax[0] + dx[0],
+                   'ymin': cmin[1] - dx[1], 'ymax': cmax[1] + dx[1],
+                   'zmin': cmin[2] - dx[2], 'zmax': cmax[2] + dx[2]}
+
         # Insert boundary in the form of a box, and kick out (parts of)
         # fractures outside the box
         self.domain = box
