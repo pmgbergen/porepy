@@ -971,9 +971,11 @@ class FractureNetwork(object):
         fi = frac.index
         frac_arr = []
         for i in self.intersections:
+            if i.coord.size == 0:
+                continue
             if i.first == frac or i.second == frac:
-                ac_arr.append(i)
-        return np.asarray(arr).astype(np.int)
+                frac_arr.append(i)
+        return frac_arr
 
 
     def find_intersections(self, use_orig_points=False):
