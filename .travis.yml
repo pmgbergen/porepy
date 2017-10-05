@@ -11,6 +11,7 @@ install:
   - sudo apt-get update
   - pip install -r requirements-dev.txt
   - pip install .
+  - pip freeze
   
   # Show all packages, for debugging
 
