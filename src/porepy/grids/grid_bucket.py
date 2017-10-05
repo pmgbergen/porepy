@@ -924,6 +924,25 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
+    def diameter(self, cond=None):
+        """
+        Compute the grid bucket diameter (mesh size), considering a loop on all
+        the grids.  It is possible to specify a condition based on the grid to
+        select some of them.
+
+        Parameter:
+            cond: optional, predicate with a grid as input.
+
+        Return:
+            diameter: the diameter of the grid bucket.
+        """
+        if cond is None:
+            cond = lambda _: True
+        diam = [np.amax(g.cell_diameters()) for g in self.graph if cond(g)]
+        return np.amax(diam)
+
+#------------------------------------------------------------------------------#
+
     def __str__(self):
         max_dim = self.grids_of_dimension(self.dim_max())
         num_nodes = 0
