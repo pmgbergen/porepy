@@ -191,7 +191,8 @@ class Fracture(object):
             boolean, true if the polygon is convex.
 
         """
-        return self.as_sp_polygon().is_convex()
+        p_2d = self.plane_coordinates()
+        return self.as_sp_polygon(p_2d).is_convex()
 
     def compute_centroid(self):
         """
