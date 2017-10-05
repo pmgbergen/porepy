@@ -91,12 +91,20 @@ def main(kf, known_p, known_u, description, mesh_size):
                                 'value': mesh_size, 'bound_value': mesh_size}
 
     domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
+    if_coarse = True
 
     file_name = 'network_geiger.csv'
     write_network(file_name)
     gb = importer.from_csv(file_name, mesh_kwargs, domain)
     gb.compute_geometry()
-    co.coarsen(gb, 'by_volume')
+
+    g_fine = gb.get_grids(lambda g: g.dim == gb.dim_max())[0].copy()
+
+    if if_coarse:
+        partition = co.create_aggregations(gb)
+        partition = co.reorder_partition(partition)
+        co.generate_coarse_grid(gb, partition)
+
     gb.assign_node_ordering()
 
     internal_flag = FaceTag.FRACTURE
@@ -121,19 +129,24 @@ def main(kf, known_p, known_u, description, mesh_size):
     exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem_' + description,
                         binary=False)
 
-    # Consistency check
-    print(np.sum(error.norm_L2(g, d['p']) for g, d in gb))
-    print(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb))
+    if if_coarse:
+        p = np.array([d['p'] for g, d in gb if g.dim == gb.dim_max()]).ravel()
+        data = {'partition': partition, 'p': p[partition]}
+        exporter.export_vtk(g_fine, 'sub_grid', data, binary=False,
+                            folder='vem_' + description)
 
-#    assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), known_p)
-#    assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), known_u)
+    # Consistency check
+    sum_p = np.sum([np.sum(d['p']) for g, d in gb])
+    assert np.isclose(sum_p, known_p)
+    sum_u = np.sum([np.sum(d['P0u']) for g, d in gb])
+    assert np.isclose(sum_u, known_u)
 
 #------------------------------------------------------------------------------#
 
 def vem_blocking():
     kf = 1e-4
-    known_p = np.array([35.6446518361, 35.6434707071, 35.6470264787])
-    known_u = np.array([1.03180913136, 1.03177583893, 1.03175321947])
+    known_p = np.array([3353.92610062, 11550.9015435, 42095.6122356])
+    known_u = np.array([1228.5641806, 4470.07715627, 16480.4368485])
     mesh_size = np.array([0.035, 0.0175, 0.00875])
 
     for i in np.arange(mesh_size.size):
@@ -143,8 +156,8 @@ def vem_blocking():
 
 def vem_permeable():
     kf = 1e4
-    known_p = np.array([19.8453878933, 19.8449307562, 19.8448008744])
-    known_u = np.array([1.87878568819, 1.87881987135, 1.8787508862])
+    known_p = np.array([1723.86407618, 5958.53425387, 21760.3627239])
+    known_u = np.array([714.214932253, 2546.8328328, 9292.63691179])
     mesh_size = np.array([0.035, 0.0175, 0.00875])
 
     for i in np.arange(mesh_size.size):
