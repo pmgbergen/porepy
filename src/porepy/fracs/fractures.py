@@ -58,6 +58,9 @@ class Fracture(object):
 
         self.index = index
 
+        assert self.is_planar(), 'Points define non-planar fracture'
+        assert self.check_convexity(), 'Points form non-convex polygon'
+
     def set_index(self, i):
         self.index = i
 
@@ -196,6 +199,21 @@ class Fracture(object):
         """
         p_2d = self.plane_coordinates()
         return self.as_sp_polygon(p_2d).is_convex()
+
+    def is_planar(self, tol=1e-4):
+        """ Check if the points forming this fracture lies in a plane.
+
+        Parameters:
+            tol (double): Tolerance for non-planarity. Treated as an absolute
+                quantity (no scaling with fracture extent)
+
+        Returns:
+            boolean, True if the polygon is planar. False if not.
+        """
+        p = self.p - np.mean(self.p, axis=1).reshape((-1, 1))
+        rot = cg.project_plane_matrix(p)
+        p_2d = rot.dot(p)
+        return np.max(np.abs(p_2d[2])) < tol
 
     def compute_centroid(self):
         """
