@@ -1914,7 +1914,7 @@ class FractureNetwork(object):
 
         extent = p_2d.max(axis=1) - p_2d.min(axis=1)
 
-        assert extent[2] < np.max(extent[:2]) * self.tol
+        assert extent[2] < np.max(extent[:2]) * self.tol * 5
         # Dump third coordinate
         p_2d = p_2d[:2]
 
