@@ -1662,12 +1662,42 @@ def dist_segment_set(start, end):
         for j in range(i+1, ns):
             dl, cpi, cpj = dist_two_segments(start[:, i], end[:, i],
                                              start[:, j], end[:, j])
-            d[i, j] = d
-            d[j, i] = d
+            d[i, j] = dl
+            d[j, i] = dl
             cp[i, j, :] = cpi
             cp[j, i, :] = cpj
 
     return d, cp
+
+#------------------------------------------------------------------------------#
+
+def dist_segment_segment_set(start, end, start_set, end_set):
+    """ Compute distance and closest points between a segment and a set of
+    segments.
+
+    Parameters:
+
+    """
+    if start.size < 4:
+        start = start.reshape((-1, 1))
+    if end.size < 4:
+        end = end.reshape((-1, 1))
+
+    nd = start.shape[0]
+    ns = start_set.shape[1]
+
+    d = np.zeros( ns)
+    cp_set = np.zeros(( nd, ns))
+    cp = np.zeros((nd, ns))
+
+    for i in range(ns):
+        dl, cpi, cpj = dist_two_segments(start, end, start_set[:, j],
+                                         end_set[:, j])
+        d[i] = dl
+        cp[:, i] = cpi
+        cp_set[:, i] = cpj
+
+    return d, cp, cp_set
 
 #------------------------------------------------------------------------------#
 
@@ -1914,6 +1944,8 @@ def dist_points_polygon(p, poly, tol=1e-5):
         np.array (n_pts): Distance from points to polygon
         np.array (nd x n_pts): For each point, the closest point on the
             polygon.
+        np.array (n_pts, bool): True if the point is found in the interior,
+            false if on a bounding segment.
 
     """
 
@@ -1970,7 +2002,7 @@ def dist_points_polygon(p, poly, tol=1e-5):
     cp[:, in_poly] = center + irot.dot(cp_inpoly)
 
     if np.all(in_poly):
-        return d, cp
+        return d, cp, in_poly
 
     # Next, points that are outside the extruded polygons. These will have
     # their closest point among one of the edges
@@ -1987,7 +2019,7 @@ def dist_points_polygon(p, poly, tol=1e-5):
         d[pi] = d_outside[i, mi]
         cp[:, pi] = p_outside[i, mi, :]
 
-    return d, cp
+    return d, cp, in_poly
 
 #----------------------------------------------------------------------------#
 
@@ -2098,8 +2130,8 @@ def dist_segments_polygon(start, end, poly, tol=1e-5):
     end = orig_end
 
     # Distance from endpoints to 
-    d_start_poly, cp_s_p = dist_points_polygon(start, poly)
-    d_end_poly, cp_e_p = dist_points_polygon(end, poly)
+    d_start_poly, cp_s_p, s_in_poly = dist_points_polygon(start, poly)
+    d_end_poly, cp_e_p, e_in_poly = dist_points_polygon(end, poly)
 
     # Loop over all segments that did not cross the polygon. The minimum is
     # found either by the endpoints, or as between two segments.

@@ -693,6 +693,32 @@ class Grid(object):
 
         return c2c
 
+    def closest_cell(self, p):
+        """ For a set of points, find closest cell by cell center.
+
+        Parameters:
+            p (np.ndarray, 3xn): Point coordinates. If p.shape[0] < 3,
+                additional points will be treated as zeros.
+
+        Returns:
+            np.ndarray of ints: For each point, index of the cell with center
+                closest to the point.
+	"""
+        dim_p = p.shape[0]
+        if p.shape[0] < 3:
+            z = np.zeros((3 - p.shape[0], p.shape[1]))
+            p = np.vstack((p, z))
+
+        def min_dist(pts):
+            c = self.cell_centers
+            d = np.sum(np.power(c - pts, 2), axis=0)
+            return np.argmin(d)
+
+        ci = np.empty(p.shape[1], dtype=np.int)
+        for i in range(p.shape[1]):
+            ci[i] = min_dist(p[:, i].reshape((3, -1)))
+        return ci
+
     def add_face_tag(self, f, tag):
         self.face_tags[f] = np.bitwise_or(self.face_tags[f], tag)
 
