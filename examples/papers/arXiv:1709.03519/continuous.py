@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.viz import plot_grid, exporter
+from porepy.viz import exporter
 from porepy.fracs import meshing
 
 from porepy.params import tensor
@@ -63,7 +63,7 @@ def glue_tips(partition, gb, g):
 
 #------------------------------------------------------------------------------#
 
-folder = '/home/elle/ANIGMA/porepy/examples/example9/'
+folder = './'
 file_name = 'geometry.geo'
 if_coarse = True
 
