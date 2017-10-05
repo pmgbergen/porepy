@@ -2182,12 +2182,7 @@ class FractureNetwork(object):
             d = b - a
             return np.sqrt(np.sum(d * d))
 
-
-        edges = self.decomposition['edges']
-
-        frac_2_edge = self._fracs_2_edges(self.decomposition['edges_2_frac'])
-
-        intersecting_frac = []
+        intersecting_fracs = []
         # Loop over all fractures
         for f in self._fractures:
 
@@ -2211,32 +2206,46 @@ class FractureNetwork(object):
                 # with a segment, this may be insufficient, but we will deal
                 # with this if necessary.
                 closest_segment = np.argmin(dist, axis=1)
+                min_dist = dist[np.arange(i.coord.shape[1]), closest_segment]
 
-                for pi, si, di in enumerate(zip(closest_segment,
-                                                dist[closest_segment])):
+                for pi, (si, di) in enumerate(zip(closest_segment, min_dist)):
                     if di < h_ideal:
                         d_1 = dist_p(cp[:, pi], f.p[:, si])
                         d_2 = dist_p(cp[:, pi], f.p[:, (si+1)%nfp])
+                        # If the intersection point is not very close to any of
+                        # the points on the segment, we split the segment.
                         if d_1 > hmin and d_2 > hmin:
                             np.insert(f.p, (si+1)%nfp, cp[:, pi], axis=1)
-            intersecting_frac.append(isect_f)
+
+            # Take note of the intersecting fractures
+            intersecting_fracs.append(isect_f)
 
         for fi, f in enumerate(self._fractures):
-            nfp = fi.p.shape[1]
+            nfp = f.p.shape[1]
             for of in self._fractures:
                 # Can do some box arguments here to avoid computations
 
                 # First, check if we are intersecting, this is covered already
-                if of in intersecting_fracs[fi]:
+                if of.index in intersecting_fracs[fi]:
                     continue
 
+                f_start = f.p
+                f_end = np.roll(f_start, 1, axis=1)
                 # Then, compare distance between segments
+                # Loop over fracture segments of this fracture
                 for si, fs in enumerate(f.segments()):
                     of_start = of.p
                     of_end = np.roll(of_start, 1, axis=1)
-                    d, cp_f, _ = cg.dist_segment_segment_set(f_start, f_end,
-                                                             of_start, of_end)
+                    # Compute distance to all fractures of the other fracture,
+                    # and find the closest segment on the other fracture
+                    fs = f_start[:, si].squeeze()#.reshape((-1, 1))
+                    fe = f_end[:, si].squeeze()#.reshape((-1, 1))
+                    d, cp_f, _ = cg.dist_segment_segment_set(fs, fe, of_start,
+                                                             of_end)
                     mi = np.argmin(d)
+                    # If the distance is smaller than ideal length, but the
+                    # closets point is not too close to the segment endpoints,
+                    # we add a new point
                     if d[mi] < h_ideal:
                         d_1 = dist_p(cp_f[:, mi], f.p[:, si])
                         d_2 = dist_p(cp_f[:, mi], f.p[:, (si+1)%nfp])
@@ -2253,33 +2262,6 @@ class FractureNetwork(object):
                         continue
                     if di < h_ideal:
                         pass
-
-                
-
-            intersecting_frac = np.unique(intersecting_frac)
-
-            f_start = f.p
-            f_end = np.roll(f_start, 1, axis=1)
-
-            # Loop over all fractures once more. 
-            for of in self._fractures:
-                # If the fractures are intersecting, no need to do anything
-                # (covered above). If not, find the closest points by comparing
-                # segments.
-                if of.index in intersecting_frac:
-                    continue
-
-                    # again information to be picked up - identify the distance
-                    # with the closest points, and the two respective fractures
-                    # / segments
-
-
-
-
-
-
-
-
 
 
     def distance_point_segment(self):
