@@ -222,9 +222,22 @@ class Fracture(object):
         # Project back again.
         self.center = rot.transpose().dot(np.append(center, z))
 
-    def as_sp_polygon(self):
-        sp = [sympy.geometry.Point(self.p[:, i])
-              for i in range(self.p.shape[1])]
+    def as_sp_polygon(self, p=None):
+        """ Represent polygon as a sympy object.
+
+        Parameters:
+            p (np.array, nd x npt, optional): Points for the polygon. Defaults
+                to None, in which case self.p is used.
+
+        Returns:
+            sympy.geometry.Polygon: Representation of the polygon formed by p.
+
+        """
+        if p is None:
+            p = self.p
+
+        sp = [sympy.geometry.Point(p[:, i])
+              for i in range(p.shape[1])]
         return sympy.geometry.Polygon(*sp)
 
     def intersects(self, other, tol, check_point_contact=True):
