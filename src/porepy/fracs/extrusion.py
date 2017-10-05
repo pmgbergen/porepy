@@ -59,22 +59,28 @@ def t_intersections(edges):
     num_abut = abutments.size
     primal_frac = np.zeros(num_abut, dtype=np.int)
     sec_frac = np.zeros(num_abut, dtype=np.int)
-    for i, ei in enumerate(frac_num[edges_of_abutments]):
-        fi, count = np.unique(ei, return_counts=True)
+    other_point = np.zeros(num_abut, dtype=np.int)
+    for i, (pi, ei) in enumerate(zip(abutments, edges_of_abutments)):
+        # Count number of occurences for each fracture associated with this
+        # intersection.
+        fi_all = frac_num[edges_of_abutments]
+        fi, count = np.unique(fi_all, return_counts=True)
         assert fi.size == 2
+        # Find the fracture number associated with main and abutting edge.
         if count[0] == 1:
             primal_frac[i] = fi[1]
             sec_frac[i] = fi[0]
         else:
             primal_frac[i] = fi[0]
             sec_frac[i] = fi[1]
-
-    other_point = np.zeros(num_abut, dtype=np.int)
-    for i, pi in enumerate(abutments):
-        if edges[0, sec_frac[i]] == pi:
-            other_point[i] = edges[1, sec_frac[i]]
+        # Also find the other point of the abutting edge
+        ind = np.where(fi_all == sec_frac[i])[1]
+        ei_abut = ei[ind]
+        assert ei_abut.size == 1
+        if edges[0, ei_abut] == pi:
+            other_point[i] = edges[1, ei_abut]
         else:
-            other_point[i] = edges[0, sec_frac[i]]
+            other_point[i] = edges[0, ei_abut]
 
     return abutments, primal_frac, sec_frac, other_point
 
