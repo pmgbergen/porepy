@@ -2125,7 +2125,7 @@ class FractureNetwork(object):
         See the gmsh manual for further details.
 
         """
-        mode = kwargs.get('mode', 'constant')
+        mode = kwargs.get('mode', 'distance')
 
         num_pts = self.decomposition['points'].shape[1]
 
@@ -2141,11 +2141,22 @@ class FractureNetwork(object):
             else:
                 mesh_size_bound = None
             return mesh_size, mesh_size_bound
+        elif mode == 'distance':
+
+            p = self.decomposition['points']
+            dist = cg.dist_pointset(p, max_diag=True)
+            mesh_size = np.min(dist, axis=1)
+            mesh_size = np.max(mesh_size, self.hmin * np.ones_like(p))
+            mesh_size = np.min(mesh_size, self.h_ideal * np.ones_like(p))
+
+            mesh_size_bound = self.h_ideal
         else:
             raise ValueError('Unknown mesh size mode ' + mode)
 
     def compute_distances(self, h_ideal, hmin):
 
+        self.h_ideal = h_ideal
+        self.hmin = hmin
         isect_pt = np.zeros((3, 0), dtype=np.double)
 
         def dist_p(a, b):
