@@ -1910,7 +1910,9 @@ class FractureNetwork(object):
         rot = cg.project_plane_matrix(p_loc)
         p_2d = rot.dot(p_loc)
 
-        assert np.max(np.abs(p_2d[2])) < 2*self.tol * np.sqrt(3)
+        extent = p_2d.max(axis=1) - p_2d.min(axis=1)
+
+        assert extent[2] < np.max(extent[:2]) * self.tol
         # Dump third coordinate
         p_2d = p_2d[:2]
 
