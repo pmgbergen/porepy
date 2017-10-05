@@ -18,7 +18,7 @@ class GmshWriter(object):
     def __init__(self, pts, lines, polygons=None, domain=None, nd=None,
                  mesh_size=None, mesh_size_bound=None, line_type=None,
                  intersection_points=None, tolerance=None, edges_2_frac=None,
-                 meshing_algorithm=None):
+                 meshing_algorithm=None, point_size=None):
         """
 
         :param pts: np.ndarary, Points
@@ -41,6 +41,8 @@ class GmshWriter(object):
 
         if domain is not None:
             self.domain = domain
+
+        self.point_size = point_size
 
         # Points that should be decleared physical (intersections between 3
         # fractures)
@@ -207,8 +209,8 @@ class GmshWriter(object):
             s += 'p' + str(i) + ' = newp; Point(p' + str(i) + ') = '
             s += '{' + str(p[0, i]) + ', ' + str(p[1, i]) + ', '\
                  + str(p[2, i])
-            if self.lchar is not None:
-                s += ', ' + str(self.lchar[i]) + ' };\n'
+            if self.point_size is not None:
+                s += ', ' + str(self.point_size[i]) + ' };\n'
             else:
                 s += '};\n'
 
