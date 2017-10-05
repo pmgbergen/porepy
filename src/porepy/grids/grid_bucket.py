@@ -168,7 +168,7 @@ class GridBucket(object):
 
         return sorted(nodes, key = lambda n: self.node_prop( n, 'node_number'))
 
-#------------------------------------------------------------------------------# 
+#------------------------------------------------------------------------------#
     def nodes_of_edge(self, e):
         """
         Obtain the vertices of an edge.
@@ -648,7 +648,7 @@ class GridBucket(object):
                 # Assign new value
                 n['node_number'] = counter
                 counter += 1
-                
+
 #------------------------------------------------------------------------------#
 
     def update_node_ordering(self, removed_number):
@@ -767,19 +767,19 @@ class GridBucket(object):
         Given two nd grids meeting at a (n-1)d node (to be removed), find which two
         faces meet at the intersection (one from each grid) and build the connection
         matrix cell_cells.
-        In face_cells, the cells of the lower dimensional grid correspond to the first 
-        axis and the faces of the higher dimensional grid to the second axis. 
-        Furthermore, grids are sorted with the lower-dimensional first and the 
-        higher-dimesnional last. To be consistent with this, the grid corresponding 
+        In face_cells, the cells of the lower dimensional grid correspond to the first
+        axis and the faces of the higher dimensional grid to the second axis.
+        Furthermore, grids are sorted with the lower-dimensional first and the
+        higher-dimesnional last. To be consistent with this, the grid corresponding
         to the first axis of cell_cells is the first grid of the node sorting.
 
         Parameters:
             g0 and g1: The two nd grids.
             g_l: The (n-1)d grid to be removed.
-        Returns: The np array cell_cells (g0.num_cells x g1.num_cells), the nd-nd 
-            equivalent of the face_cells matrix. Cell_cells identifies connections 
+        Returns: The np array cell_cells (g0.num_cells x g1.num_cells), the nd-nd
+            equivalent of the face_cells matrix. Cell_cells identifies connections
             ("faces") between all permutations of cells of the two grids which were
-            initially connected to the lower_dim_node. 
+            initially connected to the lower_dim_node.
             Example: g_l is connected to cells 0 and 1 of g0 (vertical)
             and 1 and 2 of g1 (horizontal) as follows:
 
@@ -789,7 +789,7 @@ class GridBucket(object):
 
             Cell_cells: [ [ 0, 1, 1, 0],
                           [ 0, 1, 1, 0] ]
-            connects both cell 0 and 1 of g0 (read along first dimension) to 
+            connects both cell 0 and 1 of g0 (read along first dimension) to
             cells 1 and 2 of g1 (second dimension of the array).
         """
         # Sort nodes according to node_number
@@ -819,7 +819,7 @@ class GridBucket(object):
     def eliminate_node(self, node):
         """
         Remove the node (and the edges it partakes in) and add new direct
-        connections (gb edges) between each of the neighbor pairs. A node with 
+        connections (gb edges) between each of the neighbor pairs. A node with
         n_neighbors neighbours gives rise to 1 + 2 + ... + n_neighbors-1 new edges.
 
         """
