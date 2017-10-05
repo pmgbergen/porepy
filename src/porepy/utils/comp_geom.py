@@ -1903,11 +1903,13 @@ def dist_point_pointset(p, pset, exponent=2):
 
 #----------------------------------------------------------------------------#
 
-def dist_pointset(p):
+def dist_pointset(p, max_diag=False):
     """ Compute mutual distance between all points in a point set.
 
     Parameters:
         p (np.ndarray, 3xn): Points
+        max_diag (boolean, defaults to True): If True, the diagonal values will
+            are set to a large value, rather than 0.
 
     Returns:
         np.array (nxn): Distance between points.
@@ -1921,6 +1923,10 @@ def dist_pointset(p):
     d = np.zeros((n, n))
     for i in range(n):
         d[i] = dist_point_pointset(p[:, i], p)
+
+    if max_diag:
+        for i in range(n):
+            d[i, i] = 2 * np.max(d[i])
 
     return d
 
