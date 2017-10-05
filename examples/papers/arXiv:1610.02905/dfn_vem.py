@@ -1,11 +1,8 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.viz import exporter, plot_grid
+from porepy.viz import exporter
 from porepy.fracs import importer
-from porepy.fracs.fractures import Fracture, FractureNetwork
-from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
-from porepy.fracs import meshing, simplex
 
 from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
@@ -63,7 +60,7 @@ def perm(x, y, z):
 
 #------------------------------------------------------------------------------#
 
-def add_data(gb, domain, tol):
+def add_data(gb, tol):
     """
     Define the permeability, apertures, boundary conditions
     """
@@ -126,13 +123,11 @@ def error_p(gb):
 #------------------------------------------------------------------------------#
 
 tol = 1e-5
-dim_max = 2
 
 mesh_kwargs = {}
 mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 0.015625, 'bound_value': 1}
+                            'value': 0.25, 'bound_value': 1}
 
-domain = {'xmin': -1, 'xmax': 1, 'ymin': -0.5, 'ymax': 0.5, 'zmin': -1, 'zmax': 1}
 file_name = 'dfn_square.fab'
 file_intersections = 'traces_square.dat'
 gb = importer.read_dfn(file_name, file_intersections, tol=1e-5, **mesh_kwargs)
@@ -147,11 +142,10 @@ internal_flag = FaceTag.FRACTURE
 [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
 # Assign parameters
-add_data(gb, domain, tol)
+add_data(gb, tol)
 
 # Choose and define the solvers and coupler
-solver = dual.DualVEMDFN(dim_max, 'flow')
-
+solver = dual.DualVEMDFN(gb.dim_max(), 'flow')
 A, b = solver.matrix_rhs(gb)
 
 up = sps.linalg.spsolve(A, b)
@@ -162,7 +156,7 @@ solver.extract_u(gb, "up", "discharge")
 solver.extract_p(gb, "up", "p")
 solver.project_u(gb, "discharge", "P0u")
 
-diam = np.amax([np.amax(g.cell_diameters()) for g, _ in gb if g.dim==dim_max])
+diam = gb.diameter(lambda g: g.dim==gb.dim_max())
 print("h=", diam, "- err(p)=", error_p(gb))
 
 exporter.export_vtk(gb, 'vem', ["p", "err", "P0u"], folder='vem')
