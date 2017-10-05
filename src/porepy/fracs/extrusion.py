@@ -22,8 +22,8 @@ def _intersection_by_num_node(edges, num):
 
     num_crosses = crosses.size
 
-    edges_of_crosses = np.zeros((num_abut, num), dtype=np.int)
-    for i, pi in enumerate(abutments):
+    edges_of_crosses = np.zeros((num_crosses, num), dtype=np.int)
+    for i, pi in enumerate(crosses):
         edges_of_crosses[i] = np.where(np.any(edges[:2] == pi, axis=0))[0]
     return crosses, edges_of_crosses
 
