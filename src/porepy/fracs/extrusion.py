@@ -284,7 +284,7 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
     main_min = main_frac.p.min(axis=1)
     main_max = main_frac.p.max(axis=1)
 
-    # Equation for the plane through the other fracture, on the form 
+    # Equation for the plane through the other fracture, on the form
     #  n_x(x-c_x) + n_y(y-c_y) + n_z(z-c_z) = 0
     n = cg.compute_normal(other_frac.p).reshape((-1, 1))
     c = other_frac.center
@@ -296,7 +296,7 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
     # Define points in the plane of the second fracture with min and max
     # coordinates picked from the main fracture.
     # The below tricks with indices are needed to find a dimension with a
-    # non-zero gradient of the plane, so that we can divide safely. 
+    # non-zero gradient of the plane, so that we can divide safely.
     # Implementation note: It might have been possible to do this with a
     # rotation to the natural plane of the other fracture, but it is not clear
     # this will really be simpler.
@@ -305,7 +305,7 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
     # We should perhaps do a scaling of coordinates.
     non_zero = np.where(np.abs(n) > 1e-8)[0]
     if non_zero.size == 0:
-        raise ValueError('Points of second fracture too close')
+        raise ValueError('Could not compute normal vector of other fracture')
     ind = np.setdiff1d(np.arange(3), non_zero[0])
     i0 = ind[0]
     i1 = ind[1]
@@ -315,23 +315,23 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
     # A for-loop might have been possible here.
     p[i0, 0] = main_min[i0]
     p[i1, 0] = main_min[i1]
-    p[i2, 0] = c[i0] - (n[i0] * (main_min[i0] - c[i0])
-                      + n[i1] * (main_min[i1] - c[i1])) / n[i0]
+    p[i2, 0] = c[i2] - (n[i0] * (main_min[i0] - c[i0])
+                      + n[i1] * (main_min[i1] - c[i1])) / n[i2]
 
     p[i0, 1] = main_max[i0]
     p[i1, 1] = main_min[i1]
-    p[i2, 1] = c[i0] - (n[i0] * (main_max[i0] - c[i0])
-                      + n[i1] * (main_min[i1] - c[i1])) / n[i0]
+    p[i2, 1] = c[i2] - (n[i0] * (main_max[i0] - c[i0])
+                      + n[i1] * (main_min[i1] - c[i1])) / n[i2]
 
     p[i0, 2] = main_max[i0]
     p[i1, 2] = main_max[i1]
-    p[i2, 2] = c[i0] - (n[i0] * (main_max[i0] - c[i0])
-                      + n[i1] * (main_max[i1] - c[i1])) / n[i0]
+    p[i2, 2] = c[i2] - (n[i0] * (main_max[i0] - c[i0])
+                      + n[i1] * (main_max[i1] - c[i1])) / n[i2]
 
     p[i0, 3] = main_min[i0]
     p[i1, 3] = main_max[i1]
-    p[i2, 3] = c[i0] - (n[i0] * (main_min[i0] - c[i0])
-                      + n[i1] * (main_max[i1] - c[i1])) / n[i0]
+    p[i2, 3] = c[i2] - (n[i0] * (main_min[i0] - c[i0])
+                      + n[i1] * (main_max[i1] - c[i1])) / n[i2]
 
     # Create an auxiliary fracture that spans the same plane as the other
     # fracture, and with a larger extension than the main fracture.
@@ -342,11 +342,13 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
     # Next step is to eliminate points in the main fracture that are on the
     # wrong side of the other fracture.
     v = main_frac.p - other_frac.center.reshape((-1, 1))
-    sgn = np.sign(v * n)
-    right_sign = np.sign(reference_point * v)
+    sgn = np.sign(np.sum(v * n, axis=0))
+    ref_v = reference_point - other_frac.center.reshape((-1, 1))
+    right_sign = np.sign(np.sum(ref_v * n, axis=0))
 
-    # Eliminate points that are on the other side. 
-    eliminate = np.where(sgn * right_sign < 0)
+    # Eliminate points that are on the other side.
+    eliminate = np.where(sgn * right_sign < 0)[0]
+    main_frac.remove_points(eliminate)
 
     # Add intersection points on the main fracture. One of these may already be
     # present, as the point of extrusion, but add_point will uniquify the point
