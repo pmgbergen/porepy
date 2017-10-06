@@ -195,7 +195,7 @@ def _run_gmsh(file_name, network, **kwargs):
 
     return pts, cells, cell_info, phys_names
 
-def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
+def triangle_grid(fracs, domain, **kwargs):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -234,6 +234,8 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     # File name for communication with gmsh
     file_name = kwargs.get('file_name', 'gmsh_frac_file')
 
+    tol = kwargs.get('tol', 1e-4)
+
     in_file = file_name + '.geo'
     out_file = file_name + '.msh'
 
@@ -247,9 +249,15 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     # Snap to underlying grid before comparing points
     pts_all = cg.snap_to_grid(pts_all, tol)
 
+    assert np.all(np.diff(lines[:2], axis=0) != 0)
+
     # Ensure unique description of points
     pts_all, _, old_2_new = unique_columns_tol(pts_all, tol=tol)
     lines[:2] = old_2_new[lines[:2]]
+    to_remove = np.where(lines[0, :] == lines[1, :])[0]
+    lines = np.delete(lines, to_remove, axis=1)
+
+    assert np.all(np.diff(lines[:2], axis=0) != 0)
 
     # We split all fracture intersections so that the new lines do not
     # intersect, except possible at the end points
@@ -259,6 +267,8 @@ def triangle_grid(fracs, domain, tol=1e-4, **kwargs):
     pts_split = cg.snap_to_grid(pts_split, tol)
     pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=tol)
     lines_split[:2] = old_2_new[lines_split[:2]]
+    to_remove = np.where(lines[0, :] == lines[1, :])[0]
+    lines = np.delete(lines, to_remove, axis=1)
 
     # Remove lines with the same start and end-point.
     # This can be caused by L-intersections, or possibly also if the two
