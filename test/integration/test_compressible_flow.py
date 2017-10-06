@@ -1,27 +1,18 @@
 import unittest
 import numpy as np
 
-from porepy.numerics.compressible import problems, solvers
+from porepy.numerics.compressible import problems
 from porepy.grids import structured
 from porepy.fracs import meshing
 from porepy.params import tensor
 
 
 class TestCompressibleFlow(unittest.TestCase):
-    def test_single_grid_problem(self):
-        problem = UnitSquareInjection()
-        solution = problem.solve()
-        p = solution['pressure']
-        p0 = p[10]
-        pT = p[-1]
-        p_ref0, p_refT = _reference_solution_single_grid()
-        assert np.allclose(p0, p_ref0)
-        assert np.allclose(pT, p_refT)
 
     def test_3d_Fracture_problem(self):
         problem = UnitSquareInjectionMultiDim()
         solution = problem.solve()
-        p = solution['pressure'][-1]
+        p = solution['flow'][-1]
         problem.time_disc().split(problem.grid(), 'pressure', p)
         for g, d in problem.grid():
             if g.dim == 3:
@@ -33,68 +24,33 @@ class TestCompressibleFlow(unittest.TestCase):
 ###############################################################################
 
 
-class UnitSquareInjection(problems.SlightlyCompressible):
-
-    def __init__(self):
-        nx = 11
-        ny = 11
-
-        physdims = [1, 1]
-
-        g = structured.CartGrid([nx, ny], physdims=physdims)
-        g.compute_geometry()
-        self.g = g
-        # Initialize base class
-        problems.SlightlyCompressible.__init__(self)
-
-    #--------grid function--------
-
-    def grid(self):
-        return self.g
-
-    #--------Inn/outflow terms---------------
-
-    def source(self, t):
-        f = np.zeros(self.g.num_cells)
-        source_cell = round(self.g.num_cells / 2)
-        f[source_cell] = 20 * self.g.cell_volumes[source_cell]  # m**3/s
-        return f * (t < .05)
-
-    #--------Time stepping------------
-    def time_step(self):
-        return .005
-
-    def end_time(self):
-        return 0.1
+class MatrixDomain(problems.SubSlightlyCompressible):
+    def __init__(self, g, d):
+        problems.SubSlightlyCompressible.__init__(self, g, d)
 
 
-class MatrixDomain(problems.SubProblem):
-    def __init__(self, g):
-        problems.SubProblem.__init__(self, g)
-
-
-class FractureDomain(problems.SubProblem):
-    def __init__(self, g):
-        problems.SubProblem.__init__(self, g)
+class FractureDomain(problems.SubSlightlyCompressible):
+    def __init__(self, g, d):
+        problems.SubSlightlyCompressible.__init__(self, g, d)
         aperture = np.power(0.001, 3 - g.dim)
         self.data()['param'].set_aperture(aperture)
 
     def permeability(self):
-        kxx = 1000 * np.ones(self.g.num_cells)
+        kxx = 1000 * np.ones(self.grid().num_cells)
         return tensor.SecondOrder(3, kxx)
 
 
 class IntersectionDomain(FractureDomain):
-    def __init__(self, g):
-        FractureDomain.__init__(self, g)
+    def __init__(self, g, d):
+        FractureDomain.__init__(self, g, d)
 
     def source(self, t):
-        assert self.g.num_cells == 1, '0D grid should only have 1 cell'
-        f = .4 * self.g.cell_volumes  # m**3/s
+        assert self.grid().num_cells == 1, '0D grid should only have 1 cell'
+        f = .4 * self.grid().cell_volumes  # m**3/s
         return f * (t < .05)
 
 
-class UnitSquareInjectionMultiDim(problems.SlightlyCompressibleMultiDim):
+class UnitSquareInjectionMultiDim(problems.SlightlyCompressible):
 
     def __init__(self):
 
@@ -109,7 +65,7 @@ class UnitSquareInjectionMultiDim(problems.SlightlyCompressibleMultiDim):
 
         self.g = g
         # Initialize base class
-        problems.SlightlyCompressibleMultiDim.__init__(self)
+        problems.SlightlyCompressible.__init__(self, 'flow')
 
     #--------grid function--------
 
@@ -120,11 +76,11 @@ class UnitSquareInjectionMultiDim(problems.SlightlyCompressibleMultiDim):
         self.grid().add_node_props(['problem'])
         for g, d in self.grid():
             if g.dim == 3:
-                d['problem'] = MatrixDomain(g)
+                d['problem'] = MatrixDomain(g, d)
             elif g.dim == 2 or g.dim == 1:
-                d['problem'] = FractureDomain(g)
+                d['problem'] = FractureDomain(g, d)
             elif g.dim == 0:
-                d['problem'] = IntersectionDomain(g)
+                d['problem'] = IntersectionDomain(g, d)
             else:
                 raise ValueError('Unkown grid-dimension %d' % g.dim)
     #--------Time stepping------------
@@ -136,60 +92,6 @@ class UnitSquareInjectionMultiDim(problems.SlightlyCompressibleMultiDim):
         return 0.05
 
 ###############################################################################
-
-
-def _reference_solution_single_grid():
-    pT = np.array([0.00621076,  0.0064875,  0.00695763,  0.00747579,  0.00787619,
-                   0.00802654,  0.00787619,  0.00747579,  0.00695763,  0.0064875,
-                   0.00621076,  0.0064875,  0.00679082,  0.00730681,  0.00787666,
-                   0.00831785,  0.00848373,  0.00831785,  0.00787666,  0.00730681,
-                   0.00679082,  0.0064875,  0.00695763,  0.00730681,  0.00790215,
-                   0.00856158,  0.00907363,  0.00926651,  0.00907363,  0.00856158,
-                   0.00790215,  0.00730681,  0.00695763,  0.00747579,  0.00787666,
-                   0.00856158,  0.00932247,  0.00991504,  0.01013867,  0.00991504,
-                   0.00932247,  0.00856158,  0.00787666,  0.00747579,  0.00787619,
-                   0.00831785,  0.00907363,  0.00991504,  0.01057172,  0.01081989,
-                   0.01057172,  0.00991504,  0.00907363,  0.00831785,  0.00787619,
-                   0.00802654,  0.00848373,  0.00926651,  0.01013867,  0.01081989,
-                   0.01107748,  0.01081989,  0.01013867,  0.00926651,  0.00848373,
-                   0.00802654,  0.00787619,  0.00831785,  0.00907363,  0.00991504,
-                   0.01057172,  0.01081989,  0.01057172,  0.00991504,  0.00907363,
-                   0.00831785,  0.00787619,  0.00747579,  0.00787666,  0.00856158,
-                   0.00932247,  0.00991504,  0.01013867,  0.00991504,  0.00932247,
-                   0.00856158,  0.00787666,  0.00747579,  0.00695763,  0.00730681,
-                   0.00790215,  0.00856158,  0.00907363,  0.00926651,  0.00907363,
-                   0.00856158,  0.00790215,  0.00730681,  0.00695763,  0.0064875,
-                   0.00679082,  0.00730681,  0.00787666,  0.00831785,  0.00848373,
-                   0.00831785,  0.00787666,  0.00730681,  0.00679082,  0.0064875,
-                   0.00621076,  0.0064875,  0.00695763,  0.00747579,  0.00787619,
-                   0.00802654,  0.00787619,  0.00747579,  0.00695763,  0.0064875,
-                   0.00621076])
-    p0 = np.array([0.00163541,  0.00196744,  0.00257963,  0.00333943,  0.00400819,
-                   0.00428807,  0.00400819,  0.00333943,  0.00257963,  0.00196744,
-                   0.00163541,  0.00196744,  0.00243047,  0.00331231,  0.00446589,
-                   0.00555531,  0.00605294,  0.00555531,  0.00446589,  0.00331231,
-                   0.00243047,  0.00196744,  0.00257963,  0.00331231,  0.00477516,
-                   0.00684537,  0.00903211,  0.010208,  0.00903211,  0.00684537,
-                   0.00477516,  0.00331231,  0.00257963,  0.00333943,  0.00446589,
-                   0.00684537,  0.01056736,  0.01517516,  0.01844586,  0.01517516,
-                   0.01056736,  0.00684537,  0.00446589,  0.00333943,  0.00400819,
-                   0.00555531,  0.00903211,  0.01517516,  0.02468009,  0.0353479,
-                   0.02468009,  0.01517516,  0.00903211,  0.00555531,  0.00400819,
-                   0.00428807,  0.00605294,  0.010208,  0.01844586,  0.0353479,
-                   0.07602835,  0.0353479,  0.01844586,  0.010208,  0.00605294,
-                   0.00428807,  0.00400819,  0.00555531,  0.00903211,  0.01517516,
-                   0.02468009,  0.0353479,  0.02468009,  0.01517516,  0.00903211,
-                   0.00555531,  0.00400819,  0.00333943,  0.00446589,  0.00684537,
-                   0.01056736,  0.01517516,  0.01844586,  0.01517516,  0.01056736,
-                   0.00684537,  0.00446589,  0.00333943,  0.00257963,  0.00331231,
-                   0.00477516,  0.00684537,  0.00903211,  0.010208,  0.00903211,
-                   0.00684537,  0.00477516,  0.00331231,  0.00257963,  0.00196744,
-                   0.00243047,  0.00331231,  0.00446589,  0.00555531,  0.00605294,
-                   0.00555531,  0.00446589,  0.00331231,  0.00243047,  0.00196744,
-                   0.00163541,  0.00196744,  0.00257963,  0.00333943,  0.00400819,
-                   0.00428807,  0.00400819,  0.00333943,  0.00257963,  0.00196744,
-                   0.00163541])
-    return p0, pT
 
 
 def _reference_solution_multi_grid():
