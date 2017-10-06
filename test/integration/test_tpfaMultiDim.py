@@ -1,6 +1,6 @@
 import numpy as np
 
-from porepy.numerics.fv.tpfa import TpfaMultiDim
+from porepy.numerics.fv.tpfa import TpfaMixDim
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
@@ -19,7 +19,7 @@ def setup_2d_1d(nx, simplex_grid=False):
                             'value': mesh_size, 'bound_value': 2*mesh_size}
         domain = {'xmin': 0, 'ymin': 0, 'xmax':1, 'ymax':1}
         gb = meshing.simplex_grid(fracs, domain,**mesh_kwargs)
-        
+
     gb.compute_geometry()
     gb.assign_node_ordering()
     gb.add_node_props(['param'])
@@ -39,12 +39,12 @@ def setup_2d_1d(nx, simplex_grid=False):
             param.set_bc('flow', bound)
             param.set_bc_val('flow', bc_val)
         d['param'] = param
-        
+
     return gb
 
 def check_pressures(gb):
     """
-    Check that the pressures are not too far from an approximate 
+    Check that the pressures are not too far from an approximate
     analytical solution.
     """
     for g, d in gb:
@@ -58,7 +58,7 @@ def test_uniform_flow_cart_2d_1d_cartesian():
     gb = setup_2d_1d(np.array([10, 10]))
 
     # Python inverter is most efficient for small problems
-    flux_discr = TpfaMultiDim('flow')
+    flux_discr = TpfaMixDim('flow')
     A, rhs = flux_discr.matrix_rhs(gb)
     p = np.linalg.solve(A.A, rhs)
 
@@ -71,7 +71,7 @@ def test_uniform_flow_cart_2d_1d_simplex():
     gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
 
     # Python inverter is most efficient for small problems
-    flux_discr = TpfaMultiDim('flow')
+    flux_discr = TpfaMixDim('flow')
     A, rhs = flux_discr.matrix_rhs(gb)
     p = np.linalg.solve(A.A, rhs)
 
