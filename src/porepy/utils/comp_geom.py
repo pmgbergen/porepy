@@ -1654,8 +1654,12 @@ def map_grid(g, tol=1e-5):
                np.ones(3, dtype=bool), nodes
 
     if g.dim == 1 or g.dim == 2:
-        v = compute_normal(g.nodes) if g.dim == 2 else compute_tangent(g.nodes)
-        R = project_plane_matrix(g.nodes, v)
+
+        if g.dim == 2:
+            R = project_plane_matrix(g.nodes)
+        else:
+            R = project_line_matrix(g.nodes)
+
         face_centers = np.dot(R, face_centers)
 
         check = np.sum(np.abs(face_centers.T - face_centers[:, 0]), axis=0)
