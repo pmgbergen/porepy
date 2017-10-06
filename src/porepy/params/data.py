@@ -198,8 +198,6 @@ class Parameters(object):
     def set_discharge(self, val):
         if not isinstance(val, np.ndarray):
             raise ValueError('Only np.ndarray allowed for discharge')
-        elif self._num_faces != val.size:
-            raise ValueError('Wrong size of discharge, should be one per face')
         else:
             self._discharge = val
 

@@ -1,6 +1,6 @@
 """
 Module for converting gmsh output file to our grid structure.
-Maybe we will add the reverse mapping. 
+Maybe we will add the reverse mapping.
 """
 import numpy as np
 
@@ -177,11 +177,11 @@ def create_0d_grids(pts, cells):
     return g_0d
 
 
-def create_embedded_line_grid(loc_coord, glob_id):
+def create_embedded_line_grid(loc_coord, glob_id, atol=1e-4):
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
     loc_coord -= loc_center
     # Check that the points indeed form a line
-    assert cg.is_collinear(loc_coord)
+    assert cg.is_collinear(loc_coord, atol)
     # Find the tangent of the line
     tangent = cg.compute_tangent(loc_coord)
     # Projection matrix
@@ -191,7 +191,8 @@ def create_embedded_line_grid(loc_coord, glob_id):
     # don't know which yet. Find this.
 
     sum_coord = np.sum(np.abs(loc_coord_1d), axis=1)
-    active_dimension = np.logical_not(np.isclose(sum_coord, 0))
+    sum_coord /= np.amax(sum_coord)
+    active_dimension = np.logical_not(np.isclose(sum_coord, 0, atol=atol, rtol=0))
     # Check that we are indeed in 1d
     assert np.sum(active_dimension) == 1
     # Sort nodes, and create grid

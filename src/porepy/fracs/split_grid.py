@@ -6,12 +6,8 @@ import numpy as np
 from scipy import sparse as sps
 import warnings
 
-try:
-    import matplotlib.pyplot as plt
-except ImportError:
-    warnings.warn('Matplotlib is not available. Simple plotting will not work')
-
 from porepy.utils.half_space import half_space_int
+from porepy.utils import sparse_mat
 from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
 from porepy.grids.grid import Grid, FaceTag
@@ -200,7 +196,7 @@ def duplicate_faces(gh, face_cells):
     # attached to the same nodes. We do not attach the faces to
     # any cells as this connection will have to be undone later
     # anyway.
-    _, frac_id, _ = sps.find(face_cells)
+    frac_id = face_cells.nonzero()[1]
     frac_id = np.unique(frac_id)
     rem = gh.has_face_tag(FaceTag.BOUNDARY)[frac_id]
     gh.add_face_tag(frac_id[rem], FaceTag.FRACTURE)
@@ -261,7 +257,7 @@ def update_face_cells(face_cells, face_id, i):
         if j == i:
             f_c = sps.hstack((f_c, f_c[:, face_id]))
         else:
-            empty = sps.csc_matrix(f_c[:, face_id].shape)
+            empty = sps.csc_matrix((f_c.shape[0], face_id.size))
             f_c = sps.hstack((f_c, empty))
         face_cells[j] = f_c
     return face_cells
@@ -400,8 +396,12 @@ def duplicate_nodes(g, nodes, offset):
         # t_node takes into account the added nodes.
         t_node = node + node_count
         # Find cells connected to node
-        (_, cells, _) = sps.find(g.cell_nodes()[t_node, :])
-        #cells = np.unique(cells)
+        cells = sparse_mat.slice_indices(g.cell_nodes().tocsr(), t_node)
+#        cell_nodes = g.cell_nodes().tocsr()
+#        ind_ptr = cell_nodes.indptr
+#        cells = cell_nodes.indices[
+#            mcolon(ind_ptr[t_node], ind_ptr[t_node + 1])]
+        cells = np.unique(cells)
         # Find the color of each cell. A group of cells is given the same color
         # if they are connected by faces. This means that all cells on one side
         # of a fracture will have the same color, but a different color than
@@ -418,7 +418,7 @@ def duplicate_nodes(g, nodes, offset):
             # For each color we wish to add one node. First we find all faces that
             # are connected to the fracture node, and have the correct cell
             # color
-            local_faces, _, _ = sps.find(g.cell_faces[:, cells[ix == j]])
+            local_faces = (g.cell_faces[:, cells[ix == j]]).nonzero()[0]
             local_faces = np.unique(local_faces)
             con_to_node = np.ravel(g.face_nodes[t_node, local_faces].todense())
             faces = np.append(faces, local_faces[con_to_node])

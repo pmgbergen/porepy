@@ -43,6 +43,10 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
 
     plt.figure(**kwargs)
     plt.axis([d['xmin'], d['xmax'], d['ymin'], d['ymax']])
+    plt.plot([d['xmin'], d['xmax'], d['xmax'], d['xmin'], d['xmin']],
+             [d['ymin'], d['ymin'], d['ymax'], d['ymax'], d['ymin']],
+             '-', color='red')
+
     # Simple for-loop to draw one fracture after another. Not fancy, but it
     # serves its purpose.
     for i in range(c.shape[1]):

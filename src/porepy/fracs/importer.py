@@ -5,7 +5,8 @@ from porepy.fracs import meshing
 
 #------------------------------------------------------------------------------#
 
-def from_csv(f_name, mesh_kwargs, domain=None, pause=False, **kwargs):
+def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
+             return_domain=False, **kwargs):
     """
     Create the grid bucket from a set of fractures stored in a csv file and a
     domain. In the csv file, we assume the following structure:
@@ -24,18 +25,22 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False, **kwargs):
 
     Returns:
         gb: grid bucket associated to the configuration.
+        domain: if the domain is not given as input parameter, the bounding box
+        is returned.
 
     """
     pts, edges = fractures_from_csv(f_name, **kwargs)
+    f_set = np.array([pts[:, e] for e in edges.T])
 
     # Define the domain as bounding-box if not defined
     if domain is None:
         overlap = kwargs.get('domain_overlap', 0)
         domain = _bounding_box(pts, overlap)
 
-    f_set = np.array([pts[:, e] for e in edges.T])
-
-    return meshing.simplex_grid(f_set, domain, **mesh_kwargs)
+    if return_domain:
+        return meshing.simplex_grid(f_set, domain, **mesh_kwargs), domain
+    else:
+        return meshing.simplex_grid(f_set, domain, **mesh_kwargs)
 
 #------------------------------------------------------------------------------#
 
@@ -76,7 +81,10 @@ def fractures_from_csv(f_name, tagcols=None, **kwargs):
     npargs['skip_header'] = kwargs.get('skip_header', 1)
 
     # Extract the data from the csv file
-    data = np.atleast_2d(np.genfromtxt(f_name, **npargs))
+    data = np.genfromtxt(f_name, **npargs)
+    if data.size == 0:
+        return np.empty((2,0)), np.empty((2,0), dtype=np.int)
+    data = np.atleast_2d(data)
 
     num_fracs = data.shape[0] if data.size > 0 else 0
     num_data = data.shape[1] if data.size > 0 else 0
@@ -94,7 +102,6 @@ def fractures_from_csv(f_name, tagcols=None, **kwargs):
         edges = np.vstack((edges, data[:, tagcols].T))
 
     return pts, edges.astype(np.int)
-
 
 #------------------------------------------------------------------
 

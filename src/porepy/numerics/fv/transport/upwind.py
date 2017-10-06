@@ -174,6 +174,8 @@ class Upwind(Solver):
         deltaT: time step according to CFL condition.
 
         """
+        if g.dim == 0:
+            return np.inf
         # Retrieve the data, only "discharge" is mandatory
         param = data['param']
         discharge = param.get_discharge()

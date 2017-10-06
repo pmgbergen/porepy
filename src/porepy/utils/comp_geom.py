@@ -253,7 +253,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
             edges = np.hstack((edges[:, :edge_ind[0]],
                                new_edges,
                                edges[:, edge_ind[0]+1:]))
-            
+
             logger.debug('Second edge split into two new parts')
             split_type = 4
         elif i0 == start and i1 == end:
@@ -480,7 +480,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
     NotImplementedError if a 3D point array is provided.
 
     """
-    # Use a non-standard naming convention for the logger to 
+    # Use a non-standard naming convention for the logger to
     logger = logging.getLogger(__name__ + '.remove_edge_crossings')
 
     logger.info('Find intersections between %i edges', edges.shape[1])
@@ -573,7 +573,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
             continue
 
         size_before_splitting = edges.shape[1]
-    
+
         int_counter = 0
         while intersections.size > 0 and int_counter < intersections.size:
             # Line intersect (inner loop) is an intersection if it crosses
@@ -667,7 +667,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                 else:
                     # We have found an intersection along a line segment
                     logger.debug('''Found two intersections: (%.5f, %.5f) and
-                                    (%.5f, %.5f)''', new_pt[0, 0], 
+                                    (%.5f, %.5f)''', new_pt[0, 0],
                                     new_pt[1, 0], new_pt[0, 1], new_pt[1, 1])
                     vertices, edges, splits,\
                             s_type = _split_edge(vertices, edges,
@@ -693,7 +693,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
                      size_before_splitting)
 
     if verbose > 1:
-        logger.info('Edge intersection removal complete. Elapsed time: %g', 
+        logger.info('Edge intersection removal complete. Elapsed time: %g',
                     time.time() - start_time)
         logger.info('Introduced %i new edges', edges.shape[1] - num_edges_orig)
 
@@ -909,6 +909,9 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
     d_1 = end_1 - start_1
     d_2 = end_2 - start_2
 
+    length_1 = np.sqrt(np.sum(d_1 * d_1))
+    length_2 = np.sqrt(np.sum(d_2 * d_2))
+
     # Vector between the start points
     d_s = start_2 - start_1
 
@@ -925,29 +928,35 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
 
     discr = d_1[0] *(-d_2[1]) - d_1[1] * (-d_2[0])
 
-    if np.abs(discr) < tol:
+    # Check if lines are parallel.
+    # The tolerance should be relative to the length of d_1 and d_2
+    if np.abs(discr) < tol * length_1 * length_2:
         # The lines are parallel, and will only cross if they are also colinear
-
+        logger.debug('The segments are parallel')
         # Cross product between line 1 and line between start points on line
         start_cross_line = d_s[0] * d_1[1] - d_s[1] * d_1[0]
-        if np.abs(start_cross_line) < tol:
+        if np.abs(start_cross_line) < tol * max(length_1, length_2):
+            logger.debug('Lines are colinear')
             # The lines are co-linear
 
             # Write l1 on the form start_1 + t * d_1, find the parameter value
             # needed for equality with start_2 and end_2
-            if np.abs(d_1[0]) > tol:
+            if np.abs(d_1[0]) > tol * length_1:
                 t_start_2 = (start_2[0] - start_1[0])/d_1[0]
                 t_end_2 = (end_2[0] - start_1[0])/d_1[0]
-            elif np.abs(d_1[1]) > tol:
+            elif np.abs(d_1[1]) > tol * length_2:
                 t_start_2 = (start_2[1] - start_1[1])/d_1[1]
                 t_end_2 = (end_2[1] - start_1[1])/d_1[1]
             else:
                 # d_1 is zero
+                logger.error('Found what must be a point-edge')
                 raise ValueError('Start and endpoint of line should be\
                                  different')
             if t_start_2 < 0 and t_end_2 < 0:
+                logger.debug('Lines are not overlapping')
                 return None
             elif t_start_2 > 1 and t_end_2 > 1:
+                logger.debug('Lines are not overlapping')
                 return None
             # We have an overlap, find its parameter values
             t_min = max(min(t_start_2, t_end_2), 0)
@@ -957,13 +966,16 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
                 # It seems this can only happen if they are also equal to 0 or
                 # 1, that is, the lines share a single point
                 p_1 = start_1 + d_1 * t_min
+                logger.debug('Colinear lines share a single point')
                 return p_1.reshape((-1, 1))
 
+            logger.debug('Colinear lines intersect along segment')
             p_1 = start_1 + d_1 * t_min
             p_2 = start_1 + d_1 * t_max
             return np.array([[p_1[0], p_2[0]], [p_1[1], p_2[1]]])
 
         else:
+            logger.debug('Lines are not colinear')
             # Lines are parallel, but not colinear
             return None
     else:
@@ -981,6 +993,7 @@ def lines_intersect(start_1, end_1, start_2, end_2, tol=1e-8):
         # Use tol to allow some approximations
         if t_1 >= -tol and t_1 <= (1 + tol) and \
            t_2 >= -tol and t_2 <= (1 + tol):
+            logger.debug('Segment intersection found in one point')
             return np.array([[isect_1[0]], [isect_1[1]]])
 
         return None
@@ -1580,7 +1593,8 @@ def is_collinear(pts, tol=1e-5):
 
     Parameters:
         pts (np.ndarray, 3xn): the points.
-        tol (double, optional): Tolerance used in comparison. Defaults to 1e-5.
+        tol (double, optional): Absolute tolerance used in comparison.
+            Defaults to 1e-5.
 
     Returns:
         boolean, True if the points lie on a line.
@@ -1594,9 +1608,14 @@ def is_collinear(pts, tol=1e-5):
     pt0 = pts[:, 0]
     pt1 = pts[:, 1]
 
+    dist = 0
+    for i in np.arange(pts.shape[1]):
+        for j in np.arange(i+1, pts.shape[1]):
+            dist = max(dist, np.linalg.norm(pts[:, i] - pts[:, j]))
+
     coll = np.array([np.linalg.norm(np.cross(p - pt0, pt1 - pt0)) \
-             for p in pts[:, 1:-1].T])
-    return np.allclose(coll, np.zeros(coll.size), rtol=tol)
+             for p in pts[:, 1:-1].T])/dist
+    return np.allclose(coll, np.zeros(coll.size), atol=tol, rtol=0)
 
 #------------------------------------------------------------------------------#
 
@@ -1740,6 +1759,46 @@ def distance_segment_segment(s1_start, s1_end, s2_start, s2_end):
     # get the difference of the two closest points
     dist = d_starts + sc * d1 - tc * d2
     return np.sqrt(dist.dot(dist))
+
+#------------------------------------------------------------------------------#
+
+def distance_point_segment(pt, start, end):
+    """
+    Compute the minimum distance between a point and a segment.
+
+    Parameters:
+        pt: the point
+        start: a point representing one extreme of the segment.
+        end: the second point representing the segment.
+    Returns:
+        distance: the minimum distance between the point and the segment.
+        intersect: point of intersection
+    """
+    pt_shift = end - start
+    length = np.dot(pt_shift, pt_shift)
+    u = np.dot(pt - start, pt_shift) / (length if length != 0 else 1)
+    dx = start + np.clip(u, 0., 1.) * pt_shift - pt
+
+    return np.sqrt(np.dot(dx, dx)), dx + pt
+
+#------------------------------------------------------------------------------#
+
+def argsort_point_on_line(pts, tol=1e-5):
+    """
+    Return the indexes of the point according to their position on a line.
+    The first point in the list has to be on of the extrema of the line.
+
+    Parameters:
+        pts: the list of points
+    Returns:
+        argsort: the indexes of the points
+    """
+    assert pts.shape[1] > 1
+    assert is_collinear(pts, tol)
+    delta = np.tile(pts[:, 0], (pts.shape[1], 1)).T - pts
+    return np.argsort(np.abs(np.einsum('ij,ij->j', delta, delta)))
+
+#------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
     import doctest

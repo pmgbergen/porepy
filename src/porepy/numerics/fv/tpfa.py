@@ -109,7 +109,6 @@ class Tpfa(Solver):
             f = np.zeros(g.num_cells)
             warnings.warn('Scalar source not assigned, assumed null')
         div = g.cell_faces.T
-
         return -div * bound_flux * bc_val + f
 
 #------------------------------------------------------------------------------#
@@ -174,15 +173,14 @@ class Tpfa(Solver):
         # Distance from face center to cell center
         fc_cc = g.face_centers[::, fi] - g.cell_centers[::, ci]
 
-        # Transpose normal vectors to match the shape of K
-
+        # Transpose normal vectors to match the shape of K and multiply the two
         nk = perm * n
         nk = nk.sum(axis=0)
-        nk *= fc_cc
-        t_face = nk.sum(axis=0)
-        # print(t_face, 'tface')
-        dist_face_cell = np.power(fc_cc, 2).sum(axis=0)
 
+        # Divide the norm of the normal permeability through the distance between
+        # the face centre and the cell centre
+        t_face = np.linalg.norm(nk, 2, axis=0)
+        dist_face_cell = np.linalg.norm(fc_cc, 2, axis=0)
         t_face = np.divide(t_face, dist_face_cell)
 
         # Return harmonic average
@@ -208,10 +206,15 @@ class Tpfa(Solver):
         data['flux'] = flux
         data['bound_flux'] = bound_flux
 
-
 #------------------------------------------------------------------------------
 
-class TpfaMultiDim():
+
+class TpfaMultiDim(Solver):
+    """
+    Solver class for a multi-dimensional Tpfa discretization including coupling 
+    between dimensions.
+    """
+
     def __init__(self, physics='flow'):
         self.physics = physics
         discr = Tpfa(self.physics)
@@ -224,51 +227,6 @@ class TpfaMultiDim():
     def split(self, gb, names, var):
         return self.solver.split(gb, names, var)
 
-    def compute_discharges(self, gb):
-        """
-        Computes discharges over all faces in the entire grid bucket given
-        pressures for all nodes, provided as node properties.
-
-        Parameter:
-            gb: grid bucket with the following data fields for all nodes/grids:
-                    'flux': Internal discretization of fluxes.
-                    'bound_flux': Discretization of boundary fluxes.
-                    'p': Pressure values for each cell of the grid.
-                    'bc_val': Boundary condition values.
-                and the following edge property field for all connected grids:
-                    'coupling_flux': Discretization of the coupling fluxes.
-        Returns:
-            gb, the same grid bucket with the added field 'discharge' added to all
-            node data fields. Note that the fluxes between grids will be added doubly,
-            both to the data corresponding to the higher dimensional grid and as a
-            edge property.
-        """
-        gb.add_node_props(['discharge'])
-
-        for gr, da in gb:
-            if gr.dim > 0:
-                f, _, s = sps.find(gr.cell_faces)
-                _, ind = np.unique(f, return_index=True)
-                s = s[ind]
-                da['discharge'] = (da['flux'] * da['p']
-                                   + da['bound_flux'] * da['bc_val'])
-
-        gb.add_edge_prop('discharge')
-        for e, data in gb.edges_props():
-            g1, g2 = gb.sorted_nodes_of_edge(e)
-            if data['face_cells'] is not None:
-                coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
-                pressures = gb.nodes_prop([g2, g1], 'p')
-                coupling_contribution = coupling_flux * \
-                    np.concatenate(pressures)
-                flux2 = coupling_contribution + gb.node_prop(g2, 'discharge')
-                data2 = gb.node_props(g2)
-                data2['discharge'] = copy.deepcopy(flux2)
-                data['discharge'] = copy.deepcopy(flux2)
-
-        return gb
-
-
 #------------------------------------------------------------------------------
 
 
@@ -280,7 +238,7 @@ class TpfaCoupling(AbstractCoupling):
     def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
         """
         Computes the coupling terms for the faces between cells in g_h and g_l
-        using the two-printoint flux approximation.
+        using the two-point flux approximation.
 
         Parameters:
             g_h and g_l: grid structures of the higher and lower dimensional
@@ -311,22 +269,19 @@ class TpfaCoupling(AbstractCoupling):
         cells_h, sgn_h = cells_h[faces_h], sgn_h[faces_h]
 
         # The procedure for obtaining the face transmissibilities of the higher
-        # grid is analougous to the one used in numerics.fv.tpfa.py, see that file
-        # for explanations
+        # grid is analougous to the one used in the discretize function of the
+        # Tpfa class.
         n = g_h.face_normals[:, faces_h]
         n *= sgn_h
         perm_h = k_h.perm[:, :, cells_h]
-
         fc_cc_h = g_h.face_centers[::, faces_h] - g_h.cell_centers[::, cells_h]
-        nk_h = perm_h * n
 
+        nk_h = perm_h * n
         nk_h = nk_h.sum(axis=0)
-        nk_h *= fc_cc_h
-        t_face_h = nk_h.sum(axis=0)
 
         # Account for the apertures
-        t_face_h = t_face_h * a_h[cells_h]
-        dist_face_cell_h = np.power(fc_cc_h, 2).sum(axis=0)
+        t_face_h = np.linalg.norm(nk_h, 2, axis=0) * a_h[cells_h]
+        dist_face_cell_h = np.linalg.norm(fc_cc_h, 2, axis=0)
         t_face_h = np.divide(t_face_h, dist_face_cell_h)
 
         # For the lower dimension some simplifications can be made, due to the
@@ -378,6 +333,7 @@ class TpfaCoupling(AbstractCoupling):
 
         data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
                                                  cells2faces * cc[0, 1]])
+        data_edge['coupling_discretization'] = cc
 
         return cc
 
