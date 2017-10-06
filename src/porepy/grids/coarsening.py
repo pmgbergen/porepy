@@ -23,6 +23,7 @@ def coarsen(g, method, **method_kwargs):
     """ Create a coarse grid from a given grid. If a grid bucket is passed the
     procedure is applied to the higher in dimension.
     Note: the grid is modified in place.
+    Note: do not call compute_geometry afterward.
     Parameters:
         g: the grid or grid bucket
         method: string which define the method to coarse. Current options:
@@ -222,6 +223,10 @@ def generate_coarse_grid_gb(gb, subdiv):
     """
     Specific function for a grid bucket. Use the common interface instead.
     """
+
+    if not isinstance(subdiv, dict):
+        g = gb.get_grids(lambda g: g.dim==gb.dim_max())[0]
+        subdiv = {g: subdiv}
 
     for g, partition in subdiv.items():
 
