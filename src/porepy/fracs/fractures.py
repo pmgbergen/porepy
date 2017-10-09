@@ -2150,6 +2150,7 @@ class FractureNetwork(object):
             mesh_size = np.min(mesh_size, self.h_ideal * np.ones_like(p))
 
             mesh_size_bound = self.h_ideal
+            return mesh_size, mehs_size_bound
         else:
             raise ValueError('Unknown mesh size mode ' + mode)
 
@@ -2343,8 +2344,7 @@ class FractureNetwork(object):
                 determine_mesh_size(self.decomposition['points'],
                                     **kwargs['mesh_size'])
         else:
-            mesh_size = None
-            mesh_size_bound = None
+            mesh_size, mesh_size_bound = self._determine_mesh_size()
 
         # The tolerance applied in gmsh should be consistent with the tolerance
         # used in the splitting of the fracture network. The documentation of
