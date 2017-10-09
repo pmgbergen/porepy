@@ -86,6 +86,7 @@ def simplex_grid(fracs, domain, **kwargs):
 
 #------------------------------------------------------------------------------#
 
+
 def from_gmsh(file_name, dim, **kwargs):
     """
     Import an already generated grid from gmsh.
@@ -135,6 +136,7 @@ def from_gmsh(file_name, dim, **kwargs):
     return gb
 
 #------------------------------------------------------------------------------#
+
 
 def cart_grid(fracs, nx, **kwargs):
     """
@@ -200,6 +202,7 @@ def cart_grid(fracs, nx, **kwargs):
 
     # Split grid.
     split_grid.split_fractures(gb, **kwargs)
+    gb.assign_node_ordering()
     return gb
 
 
