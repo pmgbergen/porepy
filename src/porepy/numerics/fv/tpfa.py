@@ -221,6 +221,11 @@ class TpfaMultiDim(Solver):
         coupling_conditions = TpfaCoupling(discr)
         self.solver = Coupler(discr, coupling_conditions)
 
+    def ndof(self, gb):
+        ndof = 0
+        for g, _ in gb:
+            ndof += g.num_cells
+
     def matrix_rhs(self, gb):
         return self.solver.matrix_rhs(gb)
 

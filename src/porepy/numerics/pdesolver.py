@@ -11,12 +11,9 @@ from porepy.numerics.mixed_dim.solver import Solver
 
 class AbstractSolver():
     """
-    Class for solving slightly compressible flow using backward Euler.
+    Class for solving slightly compressible flow.
     We solve the equation:
-    c_p * phi * (p^k+1 - p^k)/dt - nabla * K * grad(p^k+1) = f^k+1.
-
-    To solve a slightly compressible flow problem please see the
-    porepy.numerics.compressible.problems.SlightlyCompressible class.
+    phi * dp/dt - nabla * K * grad(p) + v * nabla p  = f.
     """
 
     def __init__(self, problem):
@@ -25,16 +22,15 @@ class AbstractSolver():
         ----------
         problem: a problem class. Must have the attributes
             problem.grid()
-            problem.porosity()
-            problem.compressibility()
+            problem.porosity(): phi
             problem.space_disc()
-            problem.permeability()
+            problem.diffusivity(): K
             problem.time_step()
             problem.end_time()
             problem.bc()
             problem.bc_val(t)
             problem.initial_pressure()
-            problem.source(t)
+            problem.source(t): f
         """
         # Get data
         g = problem.grid()
@@ -133,6 +129,11 @@ class AbstractSolver():
 
 
 class Implicit(AbstractSolver):
+    """
+    Implicit time discretization:
+    (y_k+1 - y_k) / dt = F^k+1
+    """
+
     def __init__(self, problem):
         AbstractSolver.__init__(self, problem)
 
@@ -146,6 +147,11 @@ class Implicit(AbstractSolver):
 
 
 class BDF2(AbstractSolver):
+    """
+    Second order implicit time discretization:
+    (y_k+2 - 4/3 * y_k+1 + 1/3 * y_k) / dt = 2/3 * F^k+2
+    """
+
     def __init__(self, problem):
         self.flag_first = True
         AbstractSolver.__init__(self, problem)
@@ -174,6 +180,11 @@ class BDF2(AbstractSolver):
 
 
 class Explicit(AbstractSolver):
+    """
+    Explicit time discretization:
+    (y_k - y_k-1)/dt = F^k
+    """
+
     def __init__(self, problem):
         AbstractSolver.__init__(self, problem)
 
@@ -201,6 +212,11 @@ class Explicit(AbstractSolver):
 
 
 class CrankNicolson(AbstractSolver):
+    """
+    Crank-Nicolson time discretization:
+    (y_k+1 - y_k) / dt = 0.5 * (F^k+1 + F^k)
+    """
+
     def __init__(self, problem):
         self.g = problem.grid()
         self.lhs_flux, self.rhs_flux = self._discretize(problem.space_disc())
@@ -230,47 +246,3 @@ class CrankNicolson(AbstractSolver):
         self.lhs = self.lhs_time + 0.5 * self.lhs_flux
         self.rhs = (self.lhs_time - 0.5 * self.lhs_flux_0) * \
             self.p0 + rhs1 + rhs0
-
-
-if __name__ == '__main__':
-    from porepy.fracs import meshing
-    from porepy.params.data import Parameters
-    from porepy.numerics.fv.tpfa import Tpfa
-    from porepy.numerics.fv.tpfa_coupling import TpfaCoupling
-    from porepy.numerics.mixed_dim.coupler import Coupler
-
-    T = 0.1
-    dt = 0.001
-
-    frac = np.array([[1, 3], [2, 2]])
-    gb = meshing.cart_grid([frac], [12, 12], physdims=[4, 4])
-    gb.assign_node_ordering()
-    gb.add_node_props(['param'])
-    for g, d in gb:
-        params = Parameters(g)
-        params._compressibility = 1
-        if g.dim != 2:
-            continue
-        bc_val = np.zeros(g.num_cells)
-        left = np.isclose(g.face_centers[0], 0)
-        bc_val[left] = 0.1 * g.face_areas[left]
-        params.set_bc_val('flow', bc_val)
-        d['param'] = params
-        d['time_step'] = dt
-        d['pressure'] = np.zeros(g.num_cells)
-
-    darcy_discr = Tpfa('Flow')
-    solver = Compressible(darcy_discr, 'Flow')
-    coupling_conditions = TpfaCoupling(solver)
-    solver = Coupler(solver, coupling_conditions)
-
-    t = dt
-    pressures = np.zeros(solver.ndof(gb))
-    times = [0.0]
-    while t < T:
-        matrix, rhs = solver.matrix_rhs(gb)
-        p = sps.linalg.spsolve(matrix, rhs)
-        solver.split(gb, 'pressure', p)
-        pressures.append(p)
-        times.append(t)
-        t += dt
