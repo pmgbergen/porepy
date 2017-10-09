@@ -24,14 +24,14 @@ class TestCompressibleFlow(unittest.TestCase):
 ###############################################################################
 
 
-class MatrixDomain(problems.SubSlightlyCompressible):
+class MatrixDomain(problems.SlightlyCompressibleData):
     def __init__(self, g, d):
-        problems.SubSlightlyCompressible.__init__(self, g, d)
+        problems.SlightlyCompressibleData.__init__(self, g, d)
 
 
-class FractureDomain(problems.SubSlightlyCompressible):
+class FractureDomain(problems.SlightlyCompressibleData):
     def __init__(self, g, d):
-        problems.SubSlightlyCompressible.__init__(self, g, d)
+        problems.SlightlyCompressibleData.__init__(self, g, d)
         aperture = np.power(0.001, 3 - g.dim)
         self.data()['param'].set_aperture(aperture)
 
@@ -50,6 +50,19 @@ class IntersectionDomain(FractureDomain):
         return f * (t < .05)
 
 
+def set_sub_problems(gb):
+    gb.add_node_props(['problem'])
+    for g, d in gb:
+        if g.dim == 3:
+            d['problem'] = MatrixDomain(g, d)
+        elif g.dim == 2 or g.dim == 1:
+            d['problem'] = FractureDomain(g, d)
+        elif g.dim == 0:
+            d['problem'] = IntersectionDomain(g, d)
+        else:
+            raise ValueError('Unkown grid-dimension %d' % g.dim)
+
+
 class UnitSquareInjectionMultiDim(problems.SlightlyCompressible):
 
     def __init__(self):
@@ -62,7 +75,7 @@ class UnitSquareInjectionMultiDim(problems.SlightlyCompressible):
         g = meshing.cart_grid(f_set, [4, 4, 4], physdims=[1, 1, 1])
         g.compute_geometry()
         g.assign_node_ordering()
-
+        set_sub_problems(g)
         self.g = g
         # Initialize base class
         problems.SlightlyCompressible.__init__(self, 'flow')
@@ -72,17 +85,6 @@ class UnitSquareInjectionMultiDim(problems.SlightlyCompressible):
     def grid(self):
         return self.g
 
-    def set_sub_problems(self):
-        self.grid().add_node_props(['problem'])
-        for g, d in self.grid():
-            if g.dim == 3:
-                d['problem'] = MatrixDomain(g, d)
-            elif g.dim == 2 or g.dim == 1:
-                d['problem'] = FractureDomain(g, d)
-            elif g.dim == 0:
-                d['problem'] = IntersectionDomain(g, d)
-            else:
-                raise ValueError('Unkown grid-dimension %d' % g.dim)
     #--------Time stepping------------
 
     def time_step(self):

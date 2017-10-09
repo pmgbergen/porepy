@@ -15,7 +15,6 @@ class PdeProblem():
     def __init__(self, physics='transport'):
         self.physics = physics
         self._data = dict()
-        self.set_sub_problems()
         self._set_data()
         self._solver = self.solver()
         self._solver.parameters['store_results'] = True
@@ -38,11 +37,6 @@ class PdeProblem():
     def update(self, t):
         for g, d in self.grid():
             d['problem'].update(t)
-
-    def set_sub_problems(self):
-        self.grid().add_node_props(['problem'])
-        for g, d in self.grid():
-            d['problem'] = PdeSubProblem(g, d)
 
     def solver(self):
         return pdesolver.Implicit(self)
@@ -100,20 +94,12 @@ class PdeProblem():
             self.grid(), self.parameters['file_name'], times, folder=folder)
 
 
-class PdeSubProblem():
+class PdeProblemData():
     def __init__(self, g, data, physics='transport'):
         self._g = g
         self._data = data
         self.physics = physics
         self._set_data()
-
-    def _set_data(self):
-        if 'param' not in self._data:
-            self._data['param'] = Parameters(self.grid())
-        self._data['param'].set_tensor(self.physics, self.diffusivity())
-        self._data['param'].set_porosity(self.porosity())
-        self._data['param'].set_bc(self.physics, self.bc())
-        self._data['param'].set_bc_val(self.physics, self.bc_val(0.0))
 
     def update(self, t):
         source = self.source(t)
@@ -147,3 +133,11 @@ class PdeSubProblem():
     def diffusivity(self):
         kxx = np.ones(self.grid().num_cells)
         return tensor.SecondOrder(self.grid().dim, kxx)
+
+    def _set_data(self):
+        if 'param' not in self._data:
+            self._data['param'] = Parameters(self.grid())
+        self._data['param'].set_tensor(self.physics, self.diffusivity())
+        self._data['param'].set_porosity(self.porosity())
+        self._data['param'].set_bc(self.physics, self.bc())
+        self._data['param'].set_bc_val(self.physics, self.bc_val(0.0))

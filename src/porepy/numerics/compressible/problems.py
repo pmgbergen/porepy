@@ -34,12 +34,12 @@ class SlightlyCompressible(PdeProblem):
         return multi_dim_discr
 
 
-class SubSlightlyCompressible(PdeSubProblem):
+class SlightlyCompressibleData(PdeProblemData):
     def __init__(self, g, data, physics='flow'):
-        PdeSubProblem.__init__(self, g, data, physics)
+        PdeProblemData.__init__(self, g, data, physics)
 
     def _set_data(self):
-        PdeSubProblem._set_data(self)
+        PdeProblemData._set_data(self)
         self.data()['compressibility'] = self.compressibility()
 
     def compressibility(self):
