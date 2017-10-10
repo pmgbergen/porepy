@@ -16,7 +16,7 @@ class SlightlyCompressible(PdeProblem):
         PdeProblem.__init__(self, physics)
 
     def space_disc(self):
-        return self.diffusive_disc()
+        return self.diffusive_disc(), self.source_disc()
 
     def time_disc(self):
         """

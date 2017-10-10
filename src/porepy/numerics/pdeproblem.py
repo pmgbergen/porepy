@@ -4,7 +4,7 @@ import scipy.sparse as sps
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
 from porepy.fracs import meshing
-from porepy.numerics.fv import fvutils, tpfa, mass_matrix
+from porepy.numerics.fv import fvutils, tpfa, mass_matrix, source
 from porepy.numerics.fv.transport import upwind, upwind_coupling
 from porepy.numerics import pdesolver
 from porepy.numerics.mixed_dim import coupler
@@ -51,8 +51,11 @@ class PdeProblem():
         diffusive_discr = tpfa.TpfaMultiDim(physics=self.physics)
         return diffusive_discr
 
+    def source_disc(self):
+        return source.IntegralMultiDim(physics=self.physics)
+
     def space_disc(self):
-        return self.advective_disc(), self.diffusive_disc()
+        return self.advective_disc(), self.diffusive_disc(), self.source_disc()
 
     def time_disc(self):
         """

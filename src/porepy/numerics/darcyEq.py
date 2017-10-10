@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.fv import tpfa
+from porepy.numerics.fv import tpfa, source
 from porepy.grids.grid_bucket import GridBucket
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
@@ -24,10 +24,19 @@ class Darcy():
         reassemble matrices. This must be called between every time step to
         update the rhs of the system.
         """
-        lhs, rhs = self._discretize()
-        self.lhs = lhs
-        self.rhs = rhs
-        return lhs, rhs
+        lhs_flux, rhs_flux = self._discretize(self.flux_disc())
+        lhs_source, rhs_source = self._discretize(self.source_disc())
+        assert lhs_source.nnz == 0, 'Source lhs different from zero!'
+        self.lhs = lhs_flux
+        self.rhs = rhs_flux + rhs_source
+        return self.lhs, self.rhs
+
+    def source_disc(self):
+        if isinstance(self.grid(), GridBucket):
+            source_discr = source.IntegralMultiDim(physics=self.physics)
+        else:
+            source_discr = source.Integral(physics=self.physics)
+        return source_discr
 
     def flux_disc(self):
         if isinstance(self.grid(), GridBucket):
@@ -36,11 +45,11 @@ class Darcy():
             diffusive_discr = tpfa.Tpfa(physics=self.physics)
         return diffusive_discr
 
-    def _discretize(self):
+    def _discretize(self, discr):
         if isinstance(self.grid(), GridBucket):
-            lhs, rhs = self.flux_disc().matrix_rhs(self.grid())
+            lhs, rhs = discr.matrix_rhs(self.grid())
         else:
-            lhs, rhs = self.flux_disc().matrix_rhs(self.grid(), self.data())
+            lhs, rhs = discr.matrix_rhs(self.grid(), self.data())
         return lhs, rhs
 
     def grid(self):

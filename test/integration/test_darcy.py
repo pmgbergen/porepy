@@ -73,6 +73,66 @@ class BasicsTest(unittest.TestCase):
             p_diff = pressure - p_analytic
             assert np.max(np.abs(p_diff)) < 0.03
 
+    def test_darcy_dirich_neumann_source_sink_cart(self):
+        gb = setup_3d(np.array([4, 4, 4]), simplex_grid=False)
+        problem = darcyEq.Darcy(gb)
+        p = problem.solve()
+        problem.split('pressure')
+
+        for g, d in gb:
+            if g.dim == 3:
+                p_ref = darcy_dirich_neumann_source_sink_cart_ref_3d()
+                assert np.allclose(d['pressure'], p_ref)
+            if g.dim == 0:
+                p_ref = [-10788.06883149]
+                assert np.allclose(d['pressure'], p_ref)
+        return gb
+
+
+def setup_3d(nx, simplex_grid=False):
+    f1 = np.array(
+        [[0.2, 0.2, 0.8, 0.8], [0.2, 0.8, 0.8, 0.2], [0.5, 0.5, 0.5, 0.5]])
+    f2 = np.array(
+        [[0.2, 0.8, 0.8, 0.2],  [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
+    f3 = np.array(
+        [[0.5, 0.5, 0.5, 0.5], [0.2, 0.8, 0.8, 0.2], [0.2, 0.2, 0.8, 0.8]])
+    fracs = [f1, f2, f3]
+    if not simplex_grid:
+        gb = meshing.cart_grid(fracs, nx, physdims=[1, 1, 1])
+    else:
+        mesh_kwargs = {}
+        mesh_size = .3
+        mesh_kwargs['mesh_size'] = {'mode': 'constant',
+                                    'value': mesh_size, 'bound_value': 2 * mesh_size}
+        domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
+        gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
+
+    gb.add_node_props(['param'])
+    for g, d in gb:
+        a = 0.01 / np.max(nx)
+        a = np.power(a, gb.dim_max() - g.dim)
+        param = Parameters(g)
+        param.set_aperture(a)
+
+        # BoundaryCondition
+        left = g.face_centers[0] < 1e-6
+        top = g.face_centers[2] > 1 - 1e-6
+        dir_faces = np.argwhere(left)
+        bc_cond = bc.BoundaryCondition(g, dir_faces, ['dir'] * dir_faces.size)
+        bc_val = np.zeros(g.num_faces)
+        bc_val[dir_faces] = 3
+        bc_val[top] = 2.4
+        param.set_bc('flow', bc_cond)
+        param.set_bc_val('flow', bc_val)
+
+        # Source and sink
+        src = np.zeros(g.num_cells)
+        src[0] = np.pi
+        src[-1] = -np.pi
+        param.set_source('flow', src)
+        d['param'] = param
+    return gb
+
 
 def setup_2d_1d(nx, simplex_grid=False):
     frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
@@ -109,3 +169,23 @@ def setup_2d_1d(nx, simplex_grid=False):
         d['param'] = param
 
     return gb
+
+
+def darcy_dirich_neumann_source_sink_cart_ref_3d():
+    p_ref = np.array([0.54570555, -11.33848749, -19.44484907, -23.13293673,
+                      -2.03828237, -12.73249228, -20.96189563, -24.14626244,
+                      -2.81412045, -14.03104316, -22.2699576, -25.06029852,
+                      -2.82350853, -13.6157183, -21.47553858, -24.92564315,
+                      -2.46107297, -13.72231418, -22.34607642, -25.80769869,
+                      -3.22878706, -15.29275276, -26.21591677, -27.42991885,
+                      -3.99188865, -18.72292714, -29.82101211, -28.89933092,
+                      -3.68770392, -16.13278292, -25.09083527, -28.24109233,
+                      -4.36104216, -17.17318124, -26.53960339, -30.32186276,
+                      -4.81751268, -18.63731792, -30.45264082, -32.08038545,
+                      -5.489682, -22.06836116, -34.23287575, -33.94433277,
+                      -5.17804343, -19.54672997, -29.78375042, -34.04856,
+                      -7.71448607, -22.60562853, -32.40425572, -36.8597635,
+                      -8.00575965, -23.53059111, -34.01202746, -38.25317203,
+                      -8.37196805, -24.79222197, -35.8194776, -40.46051172,
+                      -8.34414468, -24.57071193, -35.99975111, -44.22506448])
+    return p_ref

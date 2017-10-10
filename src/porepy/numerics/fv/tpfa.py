@@ -93,23 +93,19 @@ class Tpfa(Solver):
         bound_flux = data['bound_flux']
         param = data['param']
         bc_val = param.get_bc_val(self)
-        sources = param.get_source(self)
 
-        return M, self.rhs(g, bound_flux, bc_val, sources)
+        return M, self.rhs(g, bound_flux, bc_val)
 
 #------------------------------------------------------------------------------#
 
-    def rhs(self, g, bound_flux, bc_val, f):
+    def rhs(self, g, bound_flux, bc_val):
         """
         Return the righ-hand side for a discretization of a second order elliptic
         equation using the TPFA method. See self.matrix_rhs for a detaild
         description.
         """
-        if f is None:
-            f = np.zeros(g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
         div = g.cell_faces.T
-        return -div * bound_flux * bc_val + f
+        return -div * bound_flux * bc_val
 
 #------------------------------------------------------------------------------#
 
