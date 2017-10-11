@@ -2144,10 +2144,11 @@ class FractureNetwork(object):
         elif mode == 'distance':
 
             p = self.decomposition['points']
+            num_pts = p.shape[1]
             dist = cg.dist_pointset(p, max_diag=True)
             mesh_size = np.min(dist, axis=1)
-            mesh_size = np.maximum(mesh_size, self.hmin * np.ones_like(p))
-            mesh_size = np.minimum(mesh_size, self.h_ideal * np.ones_like(p))
+            mesh_size = np.maximum(mesh_size, self.hmin * np.ones(num_pts))
+            mesh_size = np.minimum(mesh_size, self.h_ideal * np.ones(num_pts))
 
             mesh_size_bound = self.h_ideal
             return mesh_size, mesh_size_bound
@@ -2164,7 +2165,7 @@ class FractureNetwork(object):
             a = a.reshape((-1, 1))
             b = b.reshape((-1, 1))
             d = b - a
-            return np.sqrt(np.sum(d * d))
+            return np.sqrt(np.sum(d**2))
 
         intersecting_fracs = []
         # Loop over all fractures
@@ -2194,12 +2195,12 @@ class FractureNetwork(object):
 
                 for pi, (si, di) in enumerate(zip(closest_segment, min_dist)):
                     if di < h_ideal:
-                        d_1 = dist_p(cp[:, pi], f.p[:, si])
-                        d_2 = dist_p(cp[:, pi], f.p[:, (si+1)%nfp])
+                        d_1 = dist_p(cp[pi, si], f.p[:, si])
+                        d_2 = dist_p(cp[pi, si], f.p[:, (si+1)%nfp])
                         # If the intersection point is not very close to any of
                         # the points on the segment, we split the segment.
                         if d_1 > hmin and d_2 > hmin:
-                            np.insert(f.p, (si+1)%nfp, cp[:, pi], axis=1)
+                            np.insert(f.p, (si+1)%nfp, cp[pi, si], axis=1)
 
             # Take note of the intersecting fractures
             intersecting_fracs.append(isect_f)
