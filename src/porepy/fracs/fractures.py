@@ -2146,11 +2146,11 @@ class FractureNetwork(object):
             p = self.decomposition['points']
             dist = cg.dist_pointset(p, max_diag=True)
             mesh_size = np.min(dist, axis=1)
-            mesh_size = np.max(mesh_size, self.hmin * np.ones_like(p))
-            mesh_size = np.min(mesh_size, self.h_ideal * np.ones_like(p))
+            mesh_size = np.maximum(mesh_size, self.hmin * np.ones_like(p))
+            mesh_size = np.minimum(mesh_size, self.h_ideal * np.ones_like(p))
 
             mesh_size_bound = self.h_ideal
-            return mesh_size, mehs_size_bound
+            return mesh_size, mesh_size_bound
         else:
             raise ValueError('Unknown mesh size mode ' + mode)
 
@@ -2162,7 +2162,7 @@ class FractureNetwork(object):
 
         def dist_p(a, b):
             a = a.reshape((-1, 1))
-            b = a.reshape((-1, 1))
+            b = b.reshape((-1, 1))
             d = b - a
             return np.sqrt(np.sum(d * d))
 
