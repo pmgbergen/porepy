@@ -941,6 +941,10 @@ class FractureNetwork(object):
         self.tol = tol
         self.verbose = verbose
 
+        # Initialize mesh size parameters as empty
+        self.h_min = None
+        self.h_ideal = None
+
     def add(self, f):
         # Careful here, if we remove one fracture and then add, we'll have
         # identical indices.
@@ -1812,12 +1816,14 @@ class FractureNetwork(object):
                 mesh_size_bound = None
             return mesh_size, mesh_size_bound
         elif mode == 'distance':
+            if self.h_min is None or self.h_ideal is None:
+                return None, None
 
             p = self.decomposition['points']
             num_pts = p.shape[1]
             dist = cg.dist_pointset(p, max_diag=True)
             mesh_size = np.min(dist, axis=1)
-            mesh_size = np.maximum(mesh_size, self.hmin * np.ones(num_pts))
+            mesh_size = np.maximum(mesh_size, self.h_min * np.ones(num_pts))
             mesh_size = np.minimum(mesh_size, self.h_ideal * np.ones(num_pts))
 
             mesh_size_bound = self.h_ideal
@@ -1825,10 +1831,10 @@ class FractureNetwork(object):
         else:
             raise ValueError('Unknown mesh size mode ' + mode)
 
-    def compute_distances(self, h_ideal, hmin):
+    def compute_distances(self, h_ideal=None, h_min=None):
 
         self.h_ideal = h_ideal
-        self.hmin = hmin
+        self.h_min = h_min
         isect_pt = np.zeros((3, 0), dtype=np.double)
 
         def dist_p(a, b):
@@ -2011,6 +2017,8 @@ class FractureNetwork(object):
         self.zero_d_pt = intersection_points
 
         if 'mesh_size' in kwargs.keys():
+            # Legacy option, this should be removed.
+            print('Using old version of mesh size determination')
             mesh_size, mesh_size_bound = \
                 determine_mesh_size(self.decomposition['points'],
                                     **kwargs['mesh_size'])
