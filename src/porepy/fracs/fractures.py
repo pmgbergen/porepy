@@ -172,7 +172,7 @@ class Fracture(object):
         if check_convexity:
             return self.check_convexity() and self.is_planar(tol)
         else:
-            return self.check_convexity()
+            return self.is_planar()
 
     def remove_points(self, ind, keep_orig=False):
         """ Remove points from the fracture definition
