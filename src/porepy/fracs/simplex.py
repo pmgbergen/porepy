@@ -11,6 +11,7 @@ from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
 from porepy.fracs import fractures, utils
 import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import unique_columns_tol
+import porepy
 
 
 def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
@@ -94,6 +95,14 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
         network.find_intersections()
     else:
         print('Use existing intersections')
+
+    # If fields h_ideal and h_min are provided, try to estimate mesh sizes.
+    h_ideal = kwargs.get('h_ideal', None)
+    h_min = kwargs.get('h_min', None)
+    if h_ideal is not None and h_min is not None:
+        network.compute_distances(h_ideal, h_min)
+        # In this case we need to recompute intersection decomposition anyhow.
+        network.split_intersections()
 
     if not hasattr(network, 'decomposition'):
         network.split_intersections()
