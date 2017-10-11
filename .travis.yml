@@ -20,7 +20,7 @@ before_script:
   - wget http://gmsh.info/bin/Linux/gmsh-3.0.0-Linux64.tgz
   - pwd
   - ls
-  - tar xvf gmsh-3.0.0-Linux64.tgz
+  - tar xvf gmsh-2.11.0-Linux64.tgz
 
   # Create porepy config file
   - cd $TRAVIS_BUILD_DIR
