@@ -171,6 +171,7 @@ def _disc_radius_center(lengths, p0, p1):
 
     return radius, np.vstack((mid_point, depth))
 
+@profile
 def discs_from_exposure(pt, edges):
     """ Create fracture discs based on exposed lines in an outrcrop.
 
@@ -213,7 +214,8 @@ def discs_from_exposure(pt, edges):
         # distribution of the points, but it is the only hard information we
         # have on the fracture
         f.add_points(np.vstack((np.hstack((p0[:, i], 0)),
-                                np.hstack((p1[:, i], 0)))).T)
+                                np.hstack((p1[:, i], 0)))).T,
+                     check_convexity=False)
         fracs.append(Fracture(f.p, check_convexity=False))
 
     return fracs
