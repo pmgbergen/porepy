@@ -171,7 +171,6 @@ def _disc_radius_center(lengths, p0, p1):
 
     return radius, np.vstack((mid_point, depth))
 
-@profile
 def discs_from_exposure(pt, edges):
     """ Create fracture discs based on exposed lines in an outrcrop.
 
