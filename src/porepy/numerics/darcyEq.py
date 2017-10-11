@@ -5,7 +5,7 @@ from porepy.numerics.fv import tpfa, source
 from porepy.grids.grid_bucket import GridBucket
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
-
+from porepy.viz.exporter import export_vtk
 
 class Darcy():
     def __init__(self, gb, data=None, physics='flow'):
@@ -14,6 +14,8 @@ class Darcy():
         self._data = data
         self.lhs, self.rhs = self.reassemble()
         self.p = np.zeros(self.flux_disc().ndof(self.grid()))
+        self.parameters = {'file_name': physics}
+        self.parameters['folder_name'] = 'results'
 
     def solve(self):
         self.p = sps.linalg.spsolve(self.lhs, self.rhs)
@@ -61,7 +63,12 @@ class Darcy():
     def split(self, name):
         self.flux_disc().split(self.grid(), name, self.p)
 
-
+    def save(self):
+        self.flux_disc().split(self.grid(), 'p', self.p)
+        folder = self.parameters['folder_name']
+        f_name = self.parameters['file_name']
+        export_vtk(self.grid(), f_name, ['p'], folder=folder)
+            
 class DarcyData():
     def __init__(self, g, data, physics='flow'):
         self._g = g
