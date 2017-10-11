@@ -91,7 +91,6 @@ class Upwind(Solver):
         discharge = param.get_discharge()
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
-        f = param.get_source(self)
 
         has_bc = not(bc is None or bc_val is None)
 
@@ -149,8 +148,8 @@ class Upwind(Solver):
             is_neu = np.where(bc.is_neu)[0]
             bc_val_neu[is_neu] = bc_val[is_neu]
 
-        return flow_cells, f - inflow.transpose() * bc_val_dir \
-                             - np.abs(g.cell_faces.transpose()) * bc_val_neu
+        return flow_cells, - inflow.transpose() * bc_val_dir \
+            - np.abs(g.cell_faces.transpose()) * bc_val_neu
 
 #------------------------------------------------------------------------------#
 

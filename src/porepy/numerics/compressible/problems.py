@@ -3,7 +3,7 @@ import scipy.sparse as sps
 
 from porepy.grids import structured
 from porepy.numerics.pdeproblem import *
-from porepy.numerics.fv import tpfa, mass_matrix
+from porepy.numerics.fv import tpfa, mass_matrix, fvutils
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.params.data import Parameters
 from porepy.params import tensor
@@ -32,6 +32,10 @@ class SlightlyCompressible(PdeProblem):
         single_dim_discr = TimeDisc(self.time_step())
         multi_dim_discr = Coupler(single_dim_discr)
         return multi_dim_discr
+
+    def discharge(self):
+        self.diffusive_disc().split(self.grid(), 'p', self._solver.p)
+        fvutils.compute_discharges(self.grid())
 
 
 class SlightlyCompressibleData(PdeProblemData):

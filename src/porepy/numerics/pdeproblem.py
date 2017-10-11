@@ -38,6 +38,9 @@ class PdeProblem():
         for g, d in self.grid():
             d['problem'].update(t)
 
+    def reassemble(self):
+        return self._solver.reassemble()
+
     def solver(self):
         return pdesolver.Implicit(self)
 
@@ -144,3 +147,4 @@ class PdeProblemData():
         self._data['param'].set_porosity(self.porosity())
         self._data['param'].set_bc(self.physics, self.bc())
         self._data['param'].set_bc_val(self.physics, self.bc_val(0.0))
+        self._data['param'].set_source(self.physics, self.source(0.0))

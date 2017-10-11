@@ -88,6 +88,7 @@ class AbstractSolver():
         Take one time step
         """
         self.p = sps.linalg.spsolve(self.lhs, self.rhs)
+        return self.p
 
     def update(self, t):
         """

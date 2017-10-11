@@ -82,6 +82,7 @@ def simplex_grid(fracs, domain, **kwargs):
     gb.compute_geometry()
     # Split the grids.
     split_grid.split_fractures(gb, **kwargs)
+    gb.assign_node_ordering()
     return gb
 
 #------------------------------------------------------------------------------#
