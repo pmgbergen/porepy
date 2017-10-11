@@ -221,7 +221,8 @@ class TpfaMultiDim(Solver):
         ndof = 0
         for g, _ in gb:
             ndof += g.num_cells
-
+        return ndof
+    
     def matrix_rhs(self, gb):
         return self.solver.matrix_rhs(gb)
 
