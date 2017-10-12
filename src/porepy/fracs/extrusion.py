@@ -1,7 +1,98 @@
+""" Simple functionality for extrusion of fractures (2D->3D). The main entry
+point is the function fractures_from_outcrop(), this wraps the other functions.
+
+The extrusion is carried out to be consistent with a set of 2D lines, e.g. an
+outcrop. Fracture discs are constructed from the exposed lines. In case of
+intersections in the exposed plane, the fractures will either cross
+(if X-intersection), or the the abutting relation will be preserved (if
+Y/T-intersection). If the extruded discs intersect outside the plane of
+exposure, this will (almost surely, no checks are actually made) become a
+X-intersection.
+
+The fractures can be assigned a dip from the vertical, again taken as
+consistent with the exposed line.
+
+No attempts are made to create fractures that do not cross the confined plane.
+
+"""
 import numpy as np
 
 from porepy.utils import comp_geom as cg
 from porepy.fracs.fractures import EllipticFracture, Fracture
+
+
+def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, **kwargs):
+    """ Create a set of fractures compatible with exposed lines in an outcrop.
+
+    See module-level documentation for futher comments.
+
+    Parameters:
+        pt (np.array, 2 x num_pts): Coordinates of start and endpoints of
+            extruded lines.
+        edges (np.array, n x num_pts): Connections between points. Should not
+            have their crossings removed before. Should have 2 or 3 rows - the
+            first two identifying start and endpoints, and the third
+            potentially identifying fracture family relations.
+        ensure_realistic_cut (boolean, defaults to True): If True, we ensure
+            that T-intersections do not have cut fractures that extend beyond
+            the confining fracture. May overrule user-supplied controls on
+            fracture sizes.
+        **kwargs: Potentially user defined options. Forwarded to
+            discs_from_exposure() and impose_inclines()
+
+    Returns:
+        list of Fracture: Fracture planes.
+
+    """
+    # identify crossings
+    split_pt, split_edges = cg.remove_edge_crossings(pt, edges)
+
+    # Find t-intersections
+    abutment_pts, prim_frac, sec_frac, other_pt = t_intersections(split_edges)
+
+    # Calculate fracture lengths
+    lengths = fracture_length(pt, edges)
+
+    # Extrude to fracture discs
+    fractures, extrude_ang = discs_from_exposure(pt, edges, **kwargs)
+
+    p0 = pt[:, edges[0]]
+    p1 = pt[:, edges[1]]
+    exposure = p1 - p0
+
+    if edges.shape[0] > 2:
+        family = edges[2]
+    else:
+        family = None
+
+    # Impose incline.
+    rot_ang = impose_inlcine(fractures, exposure, family, **kwargs)
+
+    # Cut fractures
+    for prim, sec, p in zip(prim_frac, sec_frac, other_pt):
+        _, radius = cut_fracture_by_plane(fractures[sec], fractures[prim],
+                                    split_pt[:, p])
+        # If specified, ensure that cuts in T-intersections appear realistic.
+        if ensure_realistic_cuts and radius is not None:
+            ang = np.arctan2(0.5*lengths[prim], radius)
+
+            # Ensure the center of both fractures are on the same side of the
+            # exposed plane - if not, the cut will still be bad.
+            if extrude_ang[sec] > np.pi/2 and ang < np.pi/2:
+                ang = np.pi-ang
+            elif extrude_ang[sec] < np.pi/2 and ang > np.pi/2:
+                ang = np.pi-ang
+
+            e0 = p0[:, prim]
+            e1 = p1[:, prim]
+            new_radius, center, _ = disc_radius_center(lengths[prim], e0, e1,
+                                                       theta=ang)
+            strike = np.arctan2(e1[1] - e0[1], e1[0]- e0[0])
+            f = create_fracture(center, new_radius, np.pi/2, strike, e0, e1)
+            rotate_fracture(f, e1-e0, rot_ang[prim])
+            fractures[prim] = f
+
+    return fractures
 
 
 def _intersection_by_num_node(edges, num):
