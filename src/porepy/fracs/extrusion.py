@@ -343,6 +343,10 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
 
     Returns:
         Fracture: A copy of the main fracture, cut by the other fracture.
+        double: In cases where one interseciton point extends beyond the other
+            fracture, this is the distance between the center of the other
+            fracture and the intersection point. If both intersections are
+            within the polygon, None will be returned.
 
     Raises:
         ValueError if the points in the other fracture is too close. This could
@@ -431,4 +435,26 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
     # plane are present in the final fracture.
     main_frac.add_points(isect_pt)
 
-    return main_frac
+    # If the main fracture is too large compared to the other, the cut line
+    # will extend beyond the confining plane. In these cases, compute the
+    # distance from the fracture center to the outside intersection point. This
+    # can be used to extend the other fracture so as to avoid such strange
+    # configurations.
+    other_center = other_frac.center.reshape((-1, 1))
+    other_p = other_frac.p
+    rot = cg.project_plane_matrix(other_p - other_center)
+
+    other_rot = rot.dot(other_p - other_center)[:2]
+    isect_rot = rot.dot(isect_pt - other_center)[:2]
+
+    is_inside = cg.is_inside_polygon(other_rot, isect_rot)
+    # At one point (the exposed point) must be in the polygon of the other
+    # fracture.
+    assert is_inside.any()
+
+    if not is_inside.all():
+        hit = np.logical_not(is_inside)
+        r = np.sqrt(np.sum(isect_pt[:, hit]**2))
+        return main_frac, r
+    else:
+        return main_frac, None
