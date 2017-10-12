@@ -856,6 +856,8 @@ class EllipticFracture(Fracture):
                                         np.pi/6)
 
         """
+        if center.ndim == 1:
+            center = center.reshape((-1, 1))
         self.center = center
 
         # First, populate polygon in the xy-plane
@@ -880,7 +882,7 @@ class EllipticFracture(Fracture):
         dip_pts = dip_rot.dot(rot_ref_pts)
 
         # Set the points, and store them in a backup.
-        self.p = center[:, np.newaxis] + dip_pts
+        self.p = center + dip_pts
         self.orig_p = self.p.copy()
 
         # Compute normal vector
