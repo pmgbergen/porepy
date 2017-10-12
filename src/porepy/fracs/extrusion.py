@@ -172,7 +172,8 @@ def disc_radius_center(lengths, p0, p1, theta=None):
     radius = 0.5 * lengths / np.sin(theta)
 
     # Midpoint in (x, y)-coordinate given as midpoint of exposed line
-    mid_point = 0.5 * (p0 + p1)
+    mid_point = 0.5 * (p0 + p1).reshape((2, -1))
+
     # z-coordinate from angle
     depth = radius * np.cos(theta)
 
@@ -312,14 +313,20 @@ def impose_inlcine(fracs, exposure, family, family_mean, family_std):
         family_std (np.array, num_family): Standard deviation of incine for
             each family. In radians.
 
+    Returns:
+        np.array, size num_frac: Rotation angles.
+
     """
 
     exposure = np.vstack((exposure, np.zeros(len(fracs))))
+    all_ang = np.zeros(len(fracs))
     for fi, f in enumerate(fracs):
         fam = family[fi]
         ang = np.random.normal(loc=family_mean[fam], scale=family_std[fam])
         rotate_fracture(f, exposure[:, fi], ang)
+        all_ang[fam] = ang
 
+    return all_ang
 
 def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
     """ Cut a fracture by a plane, and confine it to one side of the plane.
