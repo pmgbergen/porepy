@@ -132,20 +132,23 @@ def fracture_length(pt, e):
 
     return np.sqrt(np.power(x1-x0, 2) + np.power(y1-y0, 2))
 
-def _disc_radius_center(lengths, p0, p1):
+def _disc_radius_center(lengths, p0, p1, theta=None):
     """ Compute radius and center of a disc, based on the length of a chord
     through the disc, and assumptions on the location of the chord.
 
-    For the moment, it is assumed that the chord is struck at an arbitrary
-    hight of the circle.  Also, we assume that the chord is horizontal. In the
-    context of an exposed fracture, this implies that the exposure is
-    horizontal (I believe), and that an arbitrary portion of the original
-    (disc-shaped) fracture has been eroded.
+    The relation between the exposure and the center of the fracture is
+    given by the theta, which gives the angle between a vertical line through
+    the disc center and the line through the disc center and any of the
+    exposure endpoints. If no values are given a random value is assigned,
+    corresponding to an arbitrary portion of the original (disc-shaped)
+    fracture has been eroded.
 
     Parameters:
         length (np.array, double, size: num_frac): Of the chords
         p0 (np.array, 2 x num_frac): One endpoint of fractures.
         p1 (np.array, 2 x num_frac): Second endpoint of fractures
+        angle (np.array, num_frac, optional): Angle determining disc center,
+            see description above. Defaults to random values.
 
     Returns:
         np.array, num_frac: Radius of discs
@@ -155,12 +158,10 @@ def _disc_radius_center(lengths, p0, p1):
 
     num_frac = lengths.size
 
-    # Angle between a vertical line through the disc center and the line
-    # through the disc center and one of the fracture endpoints. Assumed to be
-    # uniform, for the lack of more information.
     # Restrict the angle in the interval (0.1, 0.9) * pi to avoid excessively
     # large fractures.
-    theta = np.pi * (0.1 + 0.8 * np.random.rand(num_frac))
+    if theta is None:
+        theta = np.pi * (0.1 + 0.8 * np.random.rand(num_frac))
 
     radius = 0.5 * lengths / np.sin(theta)
 
@@ -171,18 +172,22 @@ def _disc_radius_center(lengths, p0, p1):
 
     return radius, np.vstack((mid_point, depth))
 
-def discs_from_exposure(pt, edges):
+def discs_from_exposure(pt, edges, angle=None):
     """ Create fracture discs based on exposed lines in an outrcrop.
 
-    The outcrop is assumed to be in the xy-plane.
+    The outcrop is assumed to be in the xy-plane. The returned disc will be
+    vertical, and the points on the outcrop will be included in the polygon
+    representation.
 
-    The returned disc will be vertical, and the points on the outcrop will be
-    included in the polygon representation. The disc center is calculated using
-    disc_radius_center(), see that function for assumptions.
+    The location of the center is calculated from the angle, see
+    _disc_radius_center() for details.
 
     Parameters:
         pt (np.array, 2 x num_pts): Coordinates of exposed points.
         edges (np.array, 2 x num_fracs): Connections between fractures.
+        angle (np.array, num_fracs, optional): See above, and
+           _disc_radius_center() for description. If not provided, random
+           values will be drawn. Measured in radians.
 
     Returns:
         list of Fracture: One per fracture trace.
@@ -198,7 +203,7 @@ def discs_from_exposure(pt, edges):
     v = p1 - p0
     strike_angle = np.arctan2(v[1], v[0])
 
-    radius, center = _disc_radius_center(lengths, p0, p1)
+    radius, center = _disc_radius_center(lengths, p0, p1, angle)
 
     fracs = []
 
