@@ -203,21 +203,70 @@ def discs_from_exposure(pt, edges):
     fracs = []
 
     for i in range(num_fracs):
-        # The simplest way of distributing points along the disc seems to be to
-        # create an elliptic fracture, and pick out the points.
-        f = EllipticFracture(center=center[:, i], major_axis=radius[i],
-                             minor_axis=radius[i], dip_angle=np.pi/2,
-                             strike_angle=strike_angle[i], major_axis_angle=0)
-
-        # Add the points on the exposed surface. This creates an unequal
-        # distribution of the points, but it is the only hard information we
-        # have on the fracture
-        f.add_points(np.vstack((np.hstack((p0[:, i], 0)),
-                                np.hstack((p1[:, i], 0)))).T,
-                     check_convexity=False)
-        fracs.append(Fracture(f.p, check_convexity=False))
-
+        fracs.append(create_fracture(center[:, i], radius[i], np.pi/2,
+                                     strike_angle[i], p0[:, i], p1[:, i]))
     return fracs
+
+def create_fracture(center, radius, dip, strike, exp_0, exp_1):
+    """ Create a single circular fracture consistent with a given exposure.
+
+    The exposed points will be added to the fracture description.
+
+    Parameters:
+        center (np.array-like, dim 3): Center of the fracture.
+        radius (double): Fracture radius.
+        dip (double): dip angle of the fracture. See EllipticFracture for
+            details.
+        strike (np.array-like, dim 3): Strike angle for rotation. See
+            EllipticFracture for details.
+        exp_0 (np.array-like, dim 2 or 3): First exposed point. Will be
+            contained in fracture polygon.
+        exp_1 (np.array-like, dim 2 or 3): Second exposed point. Will be
+            contained in fracture polygon.
+
+    Returns:
+        Fracture: New fracture, according to the specifications.
+
+    """
+
+    if exp_0.size == 2:
+        exp_0 = np.append(exp_0, 0)
+
+    if exp_1.size == 2:
+        exp_1 = np.append(exp_1, 0)
+
+    # The simplest way of distributing points along the disc seems to be to
+    # create an elliptic fracture, and pick out the points.
+    f = EllipticFracture(center=center, major_axis=radius, minor_axis=radius,
+                         dip_angle=dip, strike_angle=strike,
+                         major_axis_angle=0)
+    # Add the points on the exposed surface. This creates an unequal
+    # distribution of the points, but it is the only hard information we have
+    # on the fracture
+    f.add_points(np.vstack((exp_0, exp_1)).T, check_convexity=False)
+    # Not sure if f still shoudl be EllipticFracture here, or if we should
+    # create a new fracture with the same point distribution.
+    return f
+
+
+def rotate_fracture(frac, vec, angle):
+    """ Rotate a fracture along a specified strike vector.
+
+    Parameters:
+        frac (Fracture): To be rotated. Points are modified in-place.
+        vec (np.array-like): Rotation will be around this angle.
+        ang (double). Rotation angle. Measured in radians.
+
+    """
+
+    if vec.size == 2:
+        vec = np.append(vec, 0)
+
+    rot = cg.rot(angle, vec)
+    p = frac.p
+    center = np.mean(p, axis=1).reshape((-1, 1))
+    frac.p = center + rot.dot(p - center)
+    frac.points_2_ccw()
 
 
 def impose_inlcine(fracs, exposure, family, family_mean, family_std):
@@ -240,13 +289,6 @@ def impose_inlcine(fracs, exposure, family, family_mean, family_std):
             each family. In radians.
 
     """
-    def rotate_fracture(frac, vec, angle):
-        # Helper function to carry out rotation.
-        rot = cg.rot(angle, vec)
-        p = frac.p
-        center = np.mean(p, axis=1).reshape((-1, 1))
-        frac.p = center + rot.dot(p - center)
-        frac.points_2_ccw()
 
     exposure = np.vstack((exposure, np.zeros(len(fracs))))
     for fi, f in enumerate(fracs):
