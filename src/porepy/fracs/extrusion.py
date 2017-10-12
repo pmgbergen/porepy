@@ -177,9 +177,9 @@ def disc_radius_center(lengths, p0, p1, theta=None):
     # z-coordinate from angle
     depth = radius * np.cos(theta)
 
-    return radius, np.vstack((mid_point, depth))
+    return radius, np.vstack((mid_point, depth)), theta
 
-def discs_from_exposure(pt, edges, angle=None):
+def discs_from_exposure(pt, edges, exposure_angle=None, **kwargs):
     """ Create fracture discs based on exposed lines in an outrcrop.
 
     The outcrop is assumed to be in the xy-plane. The returned disc will be
@@ -192,8 +192,8 @@ def discs_from_exposure(pt, edges, angle=None):
     Parameters:
         pt (np.array, 2 x num_pts): Coordinates of exposed points.
         edges (np.array, 2 x num_fracs): Connections between fractures.
-        angle (np.array, num_fracs, optional): See above, and
-           _disc_radius_center() for description. Values very close to pi/2, 0
+        exposure_angle (np.array, num_fracs, optional): See above, and
+           disc_radius_center() for description. Values very close to pi/2, 0
            and pi will be modified to avoid unphysical extruded fractures.  If
            not provided, random values will be drawn. Measured in radians.
            Should be between 0 and pi.
@@ -212,25 +212,26 @@ def discs_from_exposure(pt, edges, angle=None):
     v = p1 - p0
     strike_angle = np.arctan2(v[1], v[0])
 
-    if angle is not None:
+    if exposure_angle is not None:
         # Angles of pi/2 will give point contacts
-        hit = np.abs(angle - np.pi/2) < 0.01
-        angle[hit] = angle[hit] + 0.01
+        hit = np.abs(exposure_angle - np.pi/2) < 0.01
+        exposure_angle[hit] = exposure_angle[hit] + 0.01
 
         # Angles of 0 and pi give infinite fractures.
-        hit = angle < 0.05
-        angle[hit] = 0.05
-        hit = np.pi - angle < 0.05
-        angle[hit] = 0.05
+        hit = exposure_angle < 0.05
+        exposure_angle[hit] = 0.05
+        hit = np.pi - exposure_angle < 0.05
+        exposure_angle[hit] = 0.05
 
-    radius, center = disc_radius_center(lengths, p0, p1, angle)
+    radius, center, ang = disc_radius_center(lengths, p0, p1, exposure_angle)
 
     fracs = []
 
     for i in range(num_fracs):
         fracs.append(create_fracture(center[:, i], radius[i], np.pi/2,
                                      strike_angle[i], p0[:, i], p1[:, i]))
-    return fracs
+    return fracs, ang
+
 
 def create_fracture(center, radius, dip, strike, exp_0, exp_1):
     """ Create a single circular fracture consistent with a given exposure.
@@ -294,7 +295,8 @@ def rotate_fracture(frac, vec, angle):
     frac.points_2_ccw()
 
 
-def impose_inlcine(fracs, exposure, family, family_mean, family_std):
+def impose_inlcine(fracs, exposure, frac_family=None, family_mean_incline=None,
+                   family_std_incline=None, **kwargs):
     """ Impose incline on the fractures from family-based parameters.
 
     The incline for each family is specified in terms of its mean and standard
@@ -307,22 +309,33 @@ def impose_inlcine(fracs, exposure, family, family_mean, family_std):
         exposure (np.array, 3xnum_frac): Exposed line for each fracture
             (visible in outcrop). Rotation will be around this line.
         family (np.array, num_fracs): For each fracture, which family does it
-            belong to.
-        family_mean (np.array, num_family): Mean value of incline for each
-            family. In radians.
-        family_std (np.array, num_family): Standard deviation of incine for
-            each family. In radians.
+            belong to. If not provided, all fractures are considered to belong
+            to the same family.
+        family_mean_incline (np.array, num_family): Mean value of incline for each
+            family. In radians. Defaults to zero.
+        family_std_incline (np.array, num_family): Standard deviation of incine for
+            each family. In radians. Defaultst to zero.
+
+        To set value for each fracture, set family = np.arange(len(fracs)),
+        family_mean_incline=prescribed_value, and family_std_incline=None.
 
     Returns:
         np.array, size num_frac: Rotation angles.
 
     """
+    if frac_family is None:
+        frac_family = np.zeros(len(fracs))
+    if family_mean_incline is None:
+        family_mean_incline = np.zeros(np.unique(frac_family).size)
+    if family_std_incline is None:
+        family_std_incline = np.zeros(np.unique(frac_family).size)
 
     exposure = np.vstack((exposure, np.zeros(len(fracs))))
     all_ang = np.zeros(len(fracs))
     for fi, f in enumerate(fracs):
-        fam = family[fi]
-        ang = np.random.normal(loc=family_mean[fam], scale=family_std[fam])
+        fam = frac_family[fi]
+        ang = np.random.normal(loc=family_mean_incline[fam],
+                               scale=family_std_incline[fam])
         rotate_fracture(f, exposure[:, fi], ang)
         all_ang[fam] = ang
 
