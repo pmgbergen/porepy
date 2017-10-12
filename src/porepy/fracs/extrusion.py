@@ -161,7 +161,13 @@ def _disc_radius_center(lengths, p0, p1, theta=None):
     # Restrict the angle in the interval (0.1, 0.9) * pi to avoid excessively
     # large fractures.
     if theta is None:
-        theta = np.pi * (0.1 + 0.8 * np.random.rand(num_frac))
+        rnd = np.random.rand(num_frac)
+        # Angles of pi/2 will read to point contacts that cannot be handled
+        # of the FractureNetwork. Point contacts also make little physical
+        # sense, so we vaoid them.
+        hit = np.abs(rnd - 0.5) < 0.01
+        rnd[hit] += 0.01
+        theta = np.pi * (0.1 + 0.8 * rnd)
 
     radius = 0.5 * lengths / np.sin(theta)
 
@@ -186,8 +192,10 @@ def discs_from_exposure(pt, edges, angle=None):
         pt (np.array, 2 x num_pts): Coordinates of exposed points.
         edges (np.array, 2 x num_fracs): Connections between fractures.
         angle (np.array, num_fracs, optional): See above, and
-           _disc_radius_center() for description. If not provided, random
-           values will be drawn. Measured in radians.
+           _disc_radius_center() for description. Values very close to pi/2, 0
+           and pi will be modified to avoid unphysical extruded fractures.  If
+           not provided, random values will be drawn. Measured in radians.
+           Should be between 0 and pi.
 
     Returns:
         list of Fracture: One per fracture trace.
@@ -202,6 +210,17 @@ def discs_from_exposure(pt, edges, angle=None):
 
     v = p1 - p0
     strike_angle = np.arctan2(v[1], v[0])
+
+    if angle is not None:
+        # Angles of pi/2 will give point contacts
+        hit = np.abs(angle - np.pi/2) < 0.01
+        angle[hit] = angle[hit] + 0.01
+
+        # Angles of 0 and pi give infinite fractures.
+        hit = angle < 0.05
+        angle[hit] = 0.05
+        hit = np.pi - angle < 0.05
+        angle[hit] = 0.05
 
     radius, center = _disc_radius_center(lengths, p0, p1, angle)
 
