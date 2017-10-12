@@ -132,7 +132,7 @@ def fracture_length(pt, e):
 
     return np.sqrt(np.power(x1-x0, 2) + np.power(y1-y0, 2))
 
-def _disc_radius_center(lengths, p0, p1, theta=None):
+def disc_radius_center(lengths, p0, p1, theta=None):
     """ Compute radius and center of a disc, based on the length of a chord
     through the disc, and assumptions on the location of the chord.
 
@@ -186,7 +186,7 @@ def discs_from_exposure(pt, edges, angle=None):
     representation.
 
     The location of the center is calculated from the angle, see
-    _disc_radius_center() for details.
+    disc_radius_center() for details.
 
     Parameters:
         pt (np.array, 2 x num_pts): Coordinates of exposed points.
@@ -222,7 +222,7 @@ def discs_from_exposure(pt, edges, angle=None):
         hit = np.pi - angle < 0.05
         angle[hit] = 0.05
 
-    radius, center = _disc_radius_center(lengths, p0, p1, angle)
+    radius, center = disc_radius_center(lengths, p0, p1, angle)
 
     fracs = []
 
