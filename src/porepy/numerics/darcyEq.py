@@ -15,6 +15,8 @@ class Darcy():
         self._data = data
         self.lhs, self.rhs = self.reassemble()
         self.p = np.zeros(self.flux_disc().ndof(self.grid()))
+        self.parameters = {'file_name': physics}
+        self.parameters['folder_name'] = 'results'
 
     def solve(self):
         self.p = sps.linalg.spsolve(self.lhs, self.rhs)
@@ -71,7 +73,9 @@ class Darcy():
 
     def save(self, save_every=None):
         self.split('p')
-        export_vtk(self.grid(), 'pressure', ['p'])
+        folder = self.parameters['folder_name']
+        f_name = self.parameters['file_name']
+        export_vtk(self.grid(), f_name, ['p'], folder=folder)
 
 
 class DarcyData():

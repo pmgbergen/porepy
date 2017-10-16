@@ -294,6 +294,12 @@ class MpfaMultiDim(Solver):
         coupling_conditions = TpfaCoupling(discr)
         self.solver = Coupler(discr, coupling_conditions)
 
+    def ndof(self, gb):
+        ndof = 0
+        for g, _ in gb:
+            ndof += g.num_cells
+        return ndof
+
     def matrix_rhs(self, gb):
         """
         Returns the solution matrix and right hand side for the global system, 
@@ -301,6 +307,8 @@ class MpfaMultiDim(Solver):
         """
         return self.solver.matrix_rhs(gb)
 
+    def split(self, gb, names, var):
+        return self.solver.split(gb, names, var)
 #------------------------------------------------------------------------------
 
 
