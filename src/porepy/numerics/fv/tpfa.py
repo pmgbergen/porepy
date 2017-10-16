@@ -134,6 +134,12 @@ class Tpfa(Solver):
             apertures : (np.ndarray) (optional) apertures of the cells for scaling of
                 the face normals.
 
+        Hidden option (intended as "advanced" option that one should normally not
+        care about):
+            Half transmissibility calculation according to Ivar Aavatsmark, see
+            folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry 
+            Aavatsmark_transmissibilities: True   to the data dictionary.
+
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -171,14 +177,22 @@ class Tpfa(Solver):
 
         # Transpose normal vectors to match the shape of K and multiply the two
         nk = perm * n
-        nk = nk.sum(axis=0)
+        nk = nk.sum(axis=1)
 
-        # Divide the norm of the normal permeability through the distance between
-        # the face centre and the cell centre
-        t_face = np.linalg.norm(nk, 2, axis=0)
-        dist_face_cell = np.linalg.norm(fc_cc, 2, axis=0)
+        if data.get('Aavatsmark_transmissibilities', False):
+            # These work better in some cases (possibly if the problem is grid
+            # quality rather than anisotropy?). To be explored (with care) or
+            # ignored.
+            dist_face_cell = np.linalg.norm(fc_cc, 2, axis=0)
+            t_face = np.linalg.norm(nk, 2, axis=0)
+        else:
+            nk *= fc_cc
+            t_face = nk.sum(axis=0)
+            dist_face_cell = np.power(fc_cc, 2).sum(axis=0)
+            
+
         t_face = np.divide(t_face, dist_face_cell)
-
+    
         # Return harmonic average
         t = 1 / np.bincount(fi, weights=1 / t_face)
 
@@ -241,13 +255,24 @@ class TpfaCoupling(AbstractCoupling):
         """
         Computes the coupling terms for the faces between cells in g_h and g_l
         using the two-point flux approximation.
-
+        
         Parameters:
             g_h and g_l: grid structures of the higher and lower dimensional
                 subdomains, respectively.
             data_h and data_l: the corresponding data dictionaries. Assumed
                 to contain both permeability values ('perm') and apertures
                 ('apertures') for each of the cells in the grids.
+
+        Two hidden options (intended as "advanced" options that one should 
+        normally not care about):
+            Half transmissibility calculation according to Ivar Aavatsmark, see
+            folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry 
+            'Aavatsmark_transmissibilities': True   to the edge data.
+
+            Aperture correction. The face centre is moved half an aperture 
+            away from the fracture for the matrix side transmissibility 
+            calculation. Activated by adding the entry 
+            'aperture_correction': True   to the edge data.
 
         Returns:
             cc: Discretization matrices for the coupling terms assembled
@@ -271,19 +296,36 @@ class TpfaCoupling(AbstractCoupling):
         cells_h, sgn_h = cells_h[faces_h], sgn_h[faces_h]
 
         # The procedure for obtaining the face transmissibilities of the higher
-        # grid is analougous to the one used in the discretize function of the
-        # Tpfa class.
+        # grid is in the main analougous to the one used in the discretize function
+        # of the Tpfa class.
         n = g_h.face_normals[:, faces_h]
         n *= sgn_h
         perm_h = k_h.perm[:, :, cells_h]
-        fc_cc_h = g_h.face_centers[::, faces_h] - g_h.cell_centers[::, cells_h]
-
+        
+        # Compute the distance between face center and cell center. If specified
+        # (edgewise), the face centroid is shifted half an aperture in the normal
+        # direction of the fracture. Unless matrix cell size approaches the
+        # aperture, this has minimal impact.
+        if data_edge.get('aperture_correction', False):
+            apt_dim = np.divide(a_l[cells_l], a_h[cells_h])
+            fc_corrected = g_h.face_centers[::,faces_h].copy()-apt_dim/2*n
+            fc_cc_h = fc_corrected - g_h.cell_centers[::,cells_h]
+        else:
+            fc_cc_h = g_h.face_centers[::, faces_h] - g_h.cell_centers[::, cells_h]
+        
         nk_h = perm_h * n
-        nk_h = nk_h.sum(axis=0)
-
-        # Account for the apertures
-        t_face_h = np.linalg.norm(nk_h, 2, axis=0) * a_h[cells_h]
-        dist_face_cell_h = np.linalg.norm(fc_cc_h, 2, axis=0)
+        nk_h = nk_h.sum(axis=1)
+        if data_edge.get('Aavatsmark_transmissibilities', False):
+            dist_face_cell_h = np.linalg.norm(fc_cc_h, 2, axis=0)
+            t_face_h = np.linalg.norm(nk_h, 2, axis=0)
+        else:
+            nk_h *= fc_cc_h
+            t_face_h = nk_h.sum(axis=0)
+            dist_face_cell_h = np.power(fc_cc_h, 2).sum(axis=0)
+        
+        # Account for the apertures 
+        t_face_h = t_face_h * a_h[cells_h]
+        # and compute the matrix side half transmissibilities
         t_face_h = np.divide(t_face_h, dist_face_cell_h)
 
         # For the lower dimension some simplifications can be made, due to the

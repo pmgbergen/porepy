@@ -6,6 +6,7 @@ from porepy.grids.structured import CartGrid
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
+from porepy.viz import plot_grid
 
 
 class BasicsTest(unittest.TestCase):
@@ -61,7 +62,11 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_darcy_uniform_flow_simplex(self):
-        # Unstructured simplex grid
+        """
+        Unstructured simplex grid. Note that the solution depends
+        on the grid quality. Also sensitive to the way in which
+        the tpfa half transmissibilities are computed. 
+        """
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
         problem = darcyEq.Darcy(gb)
         p = problem.solve()
@@ -71,7 +76,7 @@ class BasicsTest(unittest.TestCase):
             pressure = d['pressure']
             p_analytic = g.cell_centers[1]
             p_diff = pressure - p_analytic
-            assert np.max(np.abs(p_diff)) < 0.03
+            assert np.max(np.abs(p_diff)) < 0.033
 
     def test_darcy_dirich_neumann_source_sink_cart(self):
         gb = setup_3d(np.array([4, 4, 4]), simplex_grid=False)
@@ -144,7 +149,7 @@ def setup_2d_1d(nx, simplex_grid=False):
         mesh_kwargs = {}
         mesh_size = .3
         mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                    'value': mesh_size, 'bound_value': 2 * mesh_size}
+                                    'value': mesh_size, 'bound_value': 1 * mesh_size}
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
         gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
 
@@ -153,7 +158,7 @@ def setup_2d_1d(nx, simplex_grid=False):
     gb.add_node_props(['param'])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(gb.dim_max(), kxx)
+        perm = tensor.SecondOrder(3, kxx)
         a = 0.01 / np.max(nx)
         a = np.power(a, gb.dim_max() - g.dim)
         param = Parameters(g)
@@ -167,7 +172,7 @@ def setup_2d_1d(nx, simplex_grid=False):
             param.set_bc('flow', bound)
             param.set_bc_val('flow', bc_val)
         d['param'] = param
-
+    
     return gb
 
 
@@ -189,3 +194,5 @@ def darcy_dirich_neumann_source_sink_cart_ref_3d():
                       -8.37196805, -24.79222197, -35.8194776, -40.46051172,
                       -8.34414468, -24.57071193, -35.99975111, -44.22506448])
     return p_ref
+
+BasicsTest().test_darcy_uniform_flow_simplex()
