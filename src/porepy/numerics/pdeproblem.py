@@ -71,6 +71,7 @@ class PdeProblem():
         self.parameters['folder_name'] = 'results'
 
     def data(self):
+        'Get data dictionary'
         return self._data
 
     def _set_data(self):
@@ -78,35 +79,45 @@ class PdeProblem():
             d['deltaT'] = self.time_step()
 
     def solve(self):
+        'Solve problem'
         return self._solver.solve()
 
     def step(self):
+        'Take one time step'
         return self._solver.step()
 
     def update(self, t):
+        'Update parameters to time t'
         for g, d in self.grid():
             d['problem'].update(t)
 
     def reassemble(self):
+        'Reassemble matrices and rhs'
         return self._solver.reassemble()
 
     def solver(self):
+        'Initiate solver'
         return pdesolver.Implicit(self)
 
     def advective_disc(self):
+        'Discretization of term v * \nabla T'
         advection_discr = upwind.Upwind(physics=self.physics)
         advection_coupling = upwind_coupling.UpwindCoupling(advection_discr)
         advection_solver = coupler.Coupler(advection_discr, advection_coupling)
         return advection_solver
 
     def diffusive_disc(self):
+        'Discretization of term \nabla K \nabla T'
         diffusive_discr = tpfa.TpfaMultiDim(physics=self.physics)
         return diffusive_discr
 
     def source_disc(self):
+        'Discretization of source term, q'
         return source.IntegralMultiDim(physics=self.physics)
 
     def space_disc(self):
+        '''Space discretization. Returns the discretization terms that should be
+        used in the model'''
         return self.advective_disc(), self.diffusive_disc(), self.source_disc()
 
     def time_disc(self):
@@ -118,6 +129,7 @@ class PdeProblem():
         return multi_dim_discr
 
     def initial_condition(self):
+        'Returns initial condition for global variable'
         for _, d in self.grid():
             d[self.physics] = d['problem'].initial_condition()
 
@@ -125,15 +137,19 @@ class PdeProblem():
         return global_variable
 
     def grid(self):
+        'Returns initial condition for global variable'
         raise NotImplementedError('subclass must overload function grid()')
 
     def time_step(self):
+        'Returns the time step'
         return 1.0
 
     def end_time(self):
+        'Returns the end time'
         return 1.0
 
     def save(self, save_every=1):
+        'Saves the solution'
         variables = self.data()[self.physics][::save_every]
         times = np.array(self.data()['times'])[::save_every]
         folder = self.parameters['folder_name']
@@ -194,42 +210,55 @@ class PdeProblemData():
         self._set_data()
 
     def update(self, t):
+        'Update source and bc_val term to time step t'
         source = self.source(t)
         bc_val = self.bc_val(t)
         self.data()['param'].set_source(self.physics, source)
         self.data()['param'].set_bc_val(self.physics, bc_val)
 
     def bc(self):
+        'Define boundary condition'
         dir_bound = np.array([])
         return bc.BoundaryCondition(self.grid(), dir_bound,
                                     ['dir'] * dir_bound.size)
 
     def bc_val(self, t):
+        'Returns boundary condition values at time t'
         return np.zeros(self.grid().num_faces)
 
     def initial_condition(self):
+        'Returns initial condition'
         return np.zeros(self.grid().num_cells)
 
     def source(self, t):
+        'Returns source term'
         return np.zeros(self.grid().num_cells)
 
     def porosity(self):
+        'Returns porosity'
         return np.ones(self.grid().num_cells)
 
     def diffusivity(self):
+        'Returns diffusivity tensor'
         kxx = np.ones(self.grid().num_cells)
         return tensor.SecondOrder(self.grid().dim, kxx)
 
     def aperture(self):
+        'Returns apperture of each cell'
         return np.ones(self.grid().num_cells)
 
     def data(self):
+        'Returns data dictionary'
         return self._data
 
     def grid(self):
+        'Returns grid'
         return self._g
 
     def _set_data(self):
+        '''Create a Parameter object and assign data based on the returned 
+        values from the functions (e.g., self.source(t))
+        '''
         if 'param' not in self._data:
             self._data['param'] = Parameters(self.grid())
         self._data['param'].set_tensor(self.physics, self.diffusivity())
