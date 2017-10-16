@@ -12,6 +12,55 @@ from porepy.viz.exporter import export_vtk, export_pvd
 
 
 class PdeProblem():
+    '''
+    Base class for solving general pde problems. This class solves equations of
+    the type:
+    dT/dt + v*\nabla T - \nabla K \nabla T = q
+
+    Init:
+    - physics (string) Physics key word. See Parameters class for valid physics
+
+    Functions that should be overloaded:
+        grid(): returns the grid bucket for the problem
+
+    functions:
+    data(): returns data dictionary. Is only used for single grids (I.e. not
+            GridBucket)
+    solve(): solve problem
+    step(): take one time step
+    update(t): update parameters to time t
+    reassemble(): reassemble matrices and right hand side
+    solver(): initiate solver (see numerics.pdesolver)
+    advective_disc(): discretization of the advective term
+    diffusive_disc(): discretization of the diffusive term
+    soruce_disc(): discretization of the source term, q
+    space_disc(): returns one or more of the above discretizations. If
+                  advective_disc(), source_disc() are returned we solve
+                  the problem without diffusion
+    time_disc(): returns the time discretization
+    initial_condition(): returns the initial condition for global variable
+    time_step(): returns time step length
+    end_time(): returns end time
+    save(save_every=1): save solution. Parameter: save_every, save only every
+                                                  save_every time steps
+
+    Example:
+    # We create a problem with standard data, neglecting the advective term
+
+    class ExampleProblem(PdeProblem):
+        def __init__(self, gb):
+            self._g = gb
+            PdeProblem.__init__(self)
+
+        def space_disc(self):
+            return self.source_disc(), self.diffusive_discr()
+    gb = meshing.cart_grid([], [10,10], physdims=[1,1])
+    for g, d in gb:
+        d['problem'] = PdeProblemData(g, d)
+    problem = ExampleProblem(gb)
+    problem.solve()
+    '''
+
     def __init__(self, physics='transport'):
         self.physics = physics
         self._data = dict()
@@ -101,6 +150,43 @@ class PdeProblem():
 
 
 class PdeProblemData():
+    '''
+    Base class for assigning valid data to a grid.
+    Init:
+    - g    (Grid) Grid that data should correspond to
+    - d    (dictionary) data dictionary that data will be assigned to
+    - physics (string) Physics key word. See Parameters class for valid physics
+
+    Functions:
+        update(t): Update source and bc term to time t
+        bc: Set boundary condition
+        bc_val(t): boundary condition value at time t
+        initial_condition(): initial condition for problem
+        source(): source term for problem
+        porosity(): porosity of each cell
+        diffusivity(): second order diffusivity tensor
+        aperture(): the aperture of each cell
+        data(): returns data dictionary
+        grid(): returns the grid g
+
+    Example:
+    # We set an inflow and outflow boundary condition by overloading the
+    # bc_val term
+    class ExampleData(PdeProblemData):
+        def __init__(g, d):
+            PdeProblemData.__init__(self, g, d)
+        def bc_val(self):
+            left = self.grid().nodes[0] < 1e-6
+            right = self.grid().nodes[0] > 1 - 1e-6
+            val = np.zeros(g.num_faces)
+            val[left] = 1
+            val[right] = -1
+            return val
+    gb = meshing.cart_grid([], [10,10], physdims=[1,1])
+    for g, d in gb:
+        d['problem'] = ExampleData(g, d)
+    '''
+
     def __init__(self, g, data, physics='transport'):
         self._g = g
         self._data = data
@@ -127,12 +213,6 @@ class PdeProblemData():
     def source(self, t):
         return np.zeros(self.grid().num_cells)
 
-    def data(self):
-        return self._data
-
-    def grid(self):
-        return self._g
-
     def porosity(self):
         return np.ones(self.grid().num_cells)
 
@@ -142,6 +222,12 @@ class PdeProblemData():
 
     def aperture(self):
         return np.ones(self.grid().num_cells)
+
+    def data(self):
+        return self._data
+
+    def grid(self):
+        return self._g
 
     def _set_data(self):
         if 'param' not in self._data:
