@@ -6,7 +6,6 @@ from porepy.grids.structured import CartGrid
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
-from porepy.viz import plot_grid
 
 
 class BasicsTest(unittest.TestCase):
