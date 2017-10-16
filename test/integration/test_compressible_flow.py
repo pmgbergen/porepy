@@ -18,6 +18,7 @@ class TestCompressibleFlow(unittest.TestCase):
             if g.dim == 3:
                 pT = d['pressure']
         p_refT = _reference_solution_multi_grid()
+
         assert np.allclose(pT, p_refT)
 
 

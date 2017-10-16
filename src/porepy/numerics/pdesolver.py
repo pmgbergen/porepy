@@ -9,11 +9,11 @@ from porepy.params import bc
 from porepy.numerics.mixed_dim.solver import Solver
 
 
-class AbstractSolver():
+class AbstractSolver(object):
     """
-    Class for solving slightly compressible flow.
-    We solve the equation:
-    phi * dp/dt - nabla * K * grad(p) + v * nabla p  = f.
+    Abstract base class for solving a general first order time pde problem.
+    dT/dt + G(T) = 0,
+    where G(T) is a space discretization
     """
 
     def __init__(self, problem):
@@ -64,7 +64,6 @@ class AbstractSolver():
         # reassemble
         self.lhs = []
         self.rhs = []
-        self.reassemble()
 
         self.parameters = {'store_results': False, 'verbose': False}
 
@@ -76,11 +75,11 @@ class AbstractSolver():
         while t < self.T + 1e-14:
             if self.parameters['verbose']:
                 print('solving time step: ', t)
-            self.step()
             self.update(t)
             self.reassemble()
+            self.step()
             t += self.dt
-
+        self.update(t)
         return self.data
 
     def step(self):
@@ -94,12 +93,12 @@ class AbstractSolver():
         """
         update parameters for next time step
         """
-        self.problem.update(t + self.dt)
+        self.problem.update(t)
         self.p0 = self.p
         # Store result
         if self.parameters['store_results'] == True:
             self.data[self.problem.physics].append(self.p)
-            self.data['times'].append(t)
+            self.data['times'].append(t - self.dt)
 
     def reassemble(self):
         """
@@ -161,7 +160,8 @@ class BDF2(AbstractSolver):
         """
         update parameters for next time step
         """
-        self.flag_first = False
+        if t > self.dt + 1e-6:
+            self.flag_first = False
         self.p_1 = self.p0
         AbstractSolver.update(self, t)
 
@@ -192,14 +192,15 @@ class Explicit(AbstractSolver):
         """
         Solve problem.
         """
-        t = self.dt
-        while t < self.T + 1e-14:
+        t = 0.0
+        while t < self.T - self.dt + 1e-14:
             if self.parameters['verbose']:
                 print('solving time step: ', t)
-            self.step()
-            self.update(t - self.dt)
+            self.update(t)
             self.reassemble()
+            self.step()
             t += self.dt
+
         return self.data
 
     def reassemble(self):
