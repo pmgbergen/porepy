@@ -132,7 +132,7 @@ class Upwind(Solver):
         flow_cells.tocsr()
 
         if not has_bc:
-            return flow_cells, f
+            return flow_cells, np.zeros(g.num_cells)
 
         # Impose the boundary conditions
         bc_val_dir = np.zeros(g.num_faces)

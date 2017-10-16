@@ -139,7 +139,6 @@ class Implicit(AbstractSolver):
         AbstractSolver.__init__(self, problem)
 
     def reassemble(self):
-
         lhs_flux, rhs_flux = self._discretize(self.space_disc)
         lhs_time, rhs_time = self._discretize(self.time_disc)
 

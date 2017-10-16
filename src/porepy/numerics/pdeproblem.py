@@ -64,7 +64,7 @@ class PdeProblem():
         """
         Returns the flux discretization.
         """
-        mass_matrix_discr = mass_matrix.MassMatrix()
+        mass_matrix_discr = mass_matrix.MassMatrix(physics=self.physics)
         multi_dim_discr = coupler.Coupler(mass_matrix_discr)
         return multi_dim_discr
 
@@ -140,6 +140,9 @@ class PdeProblemData():
         kxx = np.ones(self.grid().num_cells)
         return tensor.SecondOrder(self.grid().dim, kxx)
 
+    def aperture(self):
+        return np.ones(self.grid().num_cells)
+
     def _set_data(self):
         if 'param' not in self._data:
             self._data['param'] = Parameters(self.grid())
@@ -148,3 +151,4 @@ class PdeProblemData():
         self._data['param'].set_bc(self.physics, self.bc())
         self._data['param'].set_bc_val(self.physics, self.bc_val(0.0))
         self._data['param'].set_source(self.physics, self.source(0.0))
+        self._data['param'].set_aperture(self.aperture())

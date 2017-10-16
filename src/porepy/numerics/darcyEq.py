@@ -1,10 +1,11 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.fv import tpfa, source
+from porepy.numerics.fv import tpfa, source, fvutils
 from porepy.grids.grid_bucket import GridBucket
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
+from porepy.viz.exporter import export_vtk
 
 
 class Darcy():
@@ -18,6 +19,9 @@ class Darcy():
     def solve(self):
         self.p = sps.linalg.spsolve(self.lhs, self.rhs)
         return self.p
+
+    def step(self):
+        return self.solve()
 
     def reassemble(self):
         """
@@ -60,6 +64,14 @@ class Darcy():
 
     def split(self, name):
         self.flux_disc().split(self.grid(), name, self.p)
+
+    def discharge(self):
+        self.split('p')
+        fvutils.compute_discharges(self.grid())
+
+    def save(self, save_every=None):
+        self.split('p')
+        export_vtk(self.grid(), 'pressure', ['p'])
 
 
 class DarcyData():
