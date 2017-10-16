@@ -154,7 +154,7 @@ def t_intersections(edges):
     for i, (pi, ei) in enumerate(zip(abutments, edges_of_abutments)):
         # Count number of occurences for each fracture associated with this
         # intersection.
-        fi_all = frac_num[edges_of_abutments]
+        fi_all = frac_num[ei]
         fi, count = np.unique(fi_all, return_counts=True)
         assert fi.size == 2
         # Find the fracture number associated with main and abutting edge.
@@ -165,7 +165,7 @@ def t_intersections(edges):
             primal_frac[i] = fi[0]
             sec_frac[i] = fi[1]
         # Also find the other point of the abutting edge
-        ind = np.where(fi_all == sec_frac[i])[1]
+        ind = np.where(fi_all == sec_frac[i])
         ei_abut = ei[ind]
         assert ei_abut.size == 1
         if edges[0, ei_abut] == pi:
