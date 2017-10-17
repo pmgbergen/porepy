@@ -92,9 +92,9 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
         network = fractures.FractureNetwork(frac_list, verbose=verbose,
                                             tol=kwargs.get('tol', 1e-4))
 
-    # Impose domain boundary.
-    if box is not None:
-        network.impose_external_boundary(box)
+    # Impose external boundary. If box is None, a domain size somewhat larger
+    # than the network will be assigned.
+    network.impose_external_boundary(box)
 
     # Find intersections and split them, preparing the way for dumping the
     # network to gmsh
