@@ -323,11 +323,11 @@ class Parameters(object):
         physics = self._get_physics(obj)
 
         if physics == 'flow':
-            return self._perm
+            return self.get_permeability()
         elif physics == 'transport':
-            return self._conductivity
+            return self.get_conductivity()
         elif physics == 'mechanics':
-            return self._stiffness
+            return self.get_stiffness()
         else:
             raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
                              % (physics, self.known_physics))

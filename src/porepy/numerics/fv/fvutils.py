@@ -185,8 +185,7 @@ def compute_dist_face_cell(g, subcell_topology, eta):
                                         blocksz[0], blocksz)
     eta_vec = eta * np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
-    bnd = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.squeeze()
-                      == 1).squeeze()
+    bnd = np.in1d(subcell_topology.fno, g.get_boundary_faces())
     eta_vec[bnd] = 0
     cp = g.face_centers[:, subcell_topology.fno] \
         + eta_vec * (g.nodes[:, subcell_topology.nno] -
