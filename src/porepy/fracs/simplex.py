@@ -73,12 +73,19 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
 
         frac_list = []
         for f in fracs:
-            if isinstance(f, fractures.Fracture) \
-               or isinstance(f, porepy.Fracture):
+            # Input can be either numpy arrays or predifined fractures. As a
+            # guide, we treat f as a fracture if it has an attribute p which is
+            # a numpy array. 
+            # If f turns out not to be a fracture, strange errors will result
+            # as the further program tries to access non-existing methods.
+            # The correct treatment here would be several
+            # isinstance-statements, but that became less than elegant. To
+            # revisit.
+            if hasattr(f, 'p') and isinstance(f.p, np.ndarray):
+                # Convert the fractures from numpy representation to our 3D
+                # fracture data structure.
                 frac_list.append(f)
             else:
-                # Convert the fractures from numpy representation to our 3D
-                # fracture data structure..
                 frac_list.append(fractures.Fracture(f))
 
         # Combine the fractures into a network
