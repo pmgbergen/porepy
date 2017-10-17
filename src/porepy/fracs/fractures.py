@@ -1913,7 +1913,7 @@ class FractureNetwork(object):
                         d_1 = dist_p(cp_f[:, mi], f.p[:, si])
                         d_2 = dist_p(cp_f[:, mi], f.p[:, (si+1)%nfp])
                         if d_1 > h_min and d_2 > h_min:
-                            np.insert(f.p, (si+1)%nfp, cp[:, pi], axis=1)
+                            np.insert(f.p, (si+1)%nfp, cp_f[:, si], axis=1)
 
                 # Finally, cover the case where the smallest distance is given
                 # by a point. Points with false in_point should already be
