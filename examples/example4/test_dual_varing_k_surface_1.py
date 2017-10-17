@@ -1,14 +1,10 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.viz import exporter
-from porepy.fracs import importer
-
 from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import structured, simplex
 from porepy.grids import coarsening as co
 
@@ -41,7 +37,7 @@ def add_data(g):
 
     # Permeability
     kxx = np.array([permeability(*pt) for pt in g.cell_centers.T])
-    param.set_tensor("flow", tensor.SecondOrder(g.dim, kxx))
+    param.set_tensor("flow", tensor.SecondOrder(3, kxx))
 
     # Source term
     source = np.array([rhs(*pt) for pt in g.cell_centers.T])

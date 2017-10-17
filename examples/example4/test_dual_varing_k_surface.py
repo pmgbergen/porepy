@@ -1,14 +1,10 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.viz import exporter
-from porepy.fracs import importer
-
 from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import structured, simplex
 from porepy.grids import coarsening as co
 
@@ -19,14 +15,16 @@ from porepy.numerics.vem import dual
 #------------------------------------------------------------------------------#
 
 def rhs(x, y, z):
-    return 8*np.pi**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)*(x**2 + y**2 + 1) -\
-    4*np.pi*y*np.cos(2*np.pi*y)*np.sin(2*np.pi*x) -\
-    4*np.pi*x*np.cos(2*np.pi*x)*np.sin(2*np.pi*y)
+    return 7*z*(x**2 + y**2 + 1) - y*(x**2 - 9*z**2) - 4*x**2*z -\
+    (8*np.sin(np.pi*y) -\
+    4*np.pi**2*y**2*np.sin(np.pi*y) + 16*np.pi*y*np.cos(np.pi*y))*(x**2/2 +\
+    y**2/2 + 1/2) -\
+    4*y**2*(2*np.sin(np.pi*y) + np.pi*y*np.cos(np.pi*y))
 
 #------------------------------------------------------------------------------#
 
 def solution(x, y, z):
-    return np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
+    return x**2*z+4*y**2*np.sin(np.pi*y)-3*z**3
 
 #------------------------------------------------------------------------------#
 
@@ -35,7 +33,7 @@ def permeability(x, y, z):
 
 #------------------------------------------------------------------------------#
 
-def add_data(g, tol):
+def add_data(g):
     """
     Define the permeability, apertures, boundary conditions
     """
@@ -43,7 +41,7 @@ def add_data(g, tol):
 
     # Permeability
     kxx = np.array([permeability(*pt) for pt in g.cell_centers.T])
-    param.set_tensor("flow", tensor.SecondOrder(g.dim, kxx))
+    param.set_tensor("flow", tensor.SecondOrder(3, kxx))
 
     # Source term
     source = np.array([rhs(*pt) for pt in g.cell_centers.T])
@@ -72,31 +70,38 @@ def error_p(g, p):
 
 #------------------------------------------------------------------------------#
 
-tol = 1e-5
+def main(N):
+    Nx = Ny = N
+    #g = structured.CartGrid([Nx, Ny], [1, 1])
+    g = simplex.StructuredTriangleGrid([Nx, Ny], [1, 1])
+    R = cg.rot(np.pi/4., [1,0,0])
+    g.nodes = np.dot(R, g.nodes)
+    g.compute_geometry(is_embedded=True)
+    #co.coarsen(g, 'by_volume')
 
-Nx = Ny = 320
-#g = structured.CartGrid([Nx, Ny], [2, 2])
-g = simplex.StructuredTriangleGrid([Nx, Ny], [2, 2])
-R = cg.rot(np.pi/4., [0,1,0])
-g.nodes = np.dot(R, g.nodes)
-g.compute_geometry()
-#co.coarsen(g, 'by_volume')
+    # Assign parameters
+    data = add_data(g)
 
-# Assign parameters
-data = add_data(g, tol)
+    # Choose and define the solvers
+    solver = dual.DualVEM('flow')
+    A, b = solver.matrix_rhs(g, data)
+    up = sps.linalg.spsolve(A, b)
 
-# Choose and define the solvers
-solver = dual.DualVEM('flow')
-A, b = solver.matrix_rhs(g, data)
-up = sps.linalg.spsolve(A, b)
+    u = solver.extract_u(g, up)
+    p = solver.extract_p(g, up)
+    P0u = solver.project_u(g, u, data)
 
-u = solver.extract_u(g, up)
-p = solver.extract_p(g, up)
-P0u = solver.project_u(g, u, data)
+    diam = np.amax(g.cell_diameters())
+    return diam, error_p(g, p)
 
-diam = np.amax(g.cell_diameters())
-print("h=", diam, "- err(p)=", error_p(g, p))
+#------------------------------------------------------------------------------#
 
-exporter.export_vtk(g, 'vem', {"p": p, "P0u": P0u}, folder='vem')
+def test_vem_varing_k_surface():
+    diam_10, error_10 = main(10)
+    diam_20, error_20 = main(20)
+
+    known_order = 1.97928213116
+    order = np.log(error_10/error_20)/np.log(diam_10/diam_20)
+    assert np.isclose(order, known_order)
 
 #------------------------------------------------------------------------------#
