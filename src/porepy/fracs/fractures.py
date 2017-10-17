@@ -1877,7 +1877,7 @@ class FractureNetwork(object):
                         d_2 = dist_p(cp[pi, si], f.p[:, (si+1)%nfp])
                         # If the intersection point is not very close to any of
                         # the points on the segment, we split the segment.
-                        if d_1 > hmin and d_2 > hmin:
+                        if d_1 > h_min and d_2 > h_min:
                             np.insert(f.p, (si+1)%nfp, cp[pi, si], axis=1)
 
             # Take note of the intersecting fractures
@@ -1912,7 +1912,7 @@ class FractureNetwork(object):
                     if d[mi] < h_ideal:
                         d_1 = dist_p(cp_f[:, mi], f.p[:, si])
                         d_2 = dist_p(cp_f[:, mi], f.p[:, (si+1)%nfp])
-                        if d_1 > hmin and d_2 > hmin:
+                        if d_1 > h_min and d_2 > h_min:
                             np.insert(f.p, (si+1)%nfp, cp[:, pi], axis=1)
 
                 # Finally, cover the case where the smallest distance is given
