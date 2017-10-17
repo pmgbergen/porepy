@@ -811,6 +811,14 @@ def is_inside_polygon(poly, p, tol=0, default=False):
     else:
         pt = p
 
+    # The test uses is_ccw_polyline, and tacitly assumes that the polygon
+    # vertexes is sorted in a ccw fashion. If this is not the case, flip the
+    # order of the nodes on a copy, and use this for the testing.
+    # Note that if the nodes are not cw nor ccw (e.g. they are crossing), the
+    # test cannot be trusted anyhow.
+    if not is_ccw_polygon(poly):
+        poly = poly.copy()[:, ::-1]
+
     poly_size = poly.shape[1]
 
     inside = np.ones(pt.shape[1], dtype=np.bool)
