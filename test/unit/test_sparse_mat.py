@@ -49,5 +49,21 @@ class TestSparseMath(unittest.TestCase):
         assert rows_2 == np.array([2])
         assert np.all(rows0_2 == np.array([1, 2]))
 
+    def test_zero_columns(self):
+        # Test slicing of csr_matrix
+        A = sps.csc_matrix(np.array([[0, 0, 0],
+                                     [1, 0, 0],
+                                     [0, 0, 3]]))
+        A0 = A.copy()
+        A2 = A.copy()
+        A0_2 = A.copy()
+        sparse_mat.zero_columns(A0, np.array([0]))
+        sparse_mat.zero_columns(A2, np.array([2]))
+        sparse_mat.zero_columns(A0_2, np.array([0, 1, 2]))
+
+        assert np.sum(A0[:, 0] != 0) == 0
+        assert np.sum(A2[:, 2] != 0) == 0
+        assert np.sum(A0_2[:, 0:3] != 0) == 0
+
     if __name__ == '__main__':
         unittest.main()
