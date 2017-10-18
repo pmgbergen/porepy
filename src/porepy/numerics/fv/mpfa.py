@@ -90,24 +90,20 @@ class Mpfa(Solver):
         param = data['param']
 
         bc_val = param.get_bc_val(self)
-        f = param.get_source(self)
 
-        return M, self.rhs(g, bound_flux, bc_val, f)
+        return M, self.rhs(g, bound_flux, bc_val)
 
 #------------------------------------------------------------------------------#
 
-    def rhs(self, g, bound_flux, bc_val, f):
+    def rhs(self, g, bound_flux, bc_val):
         """
         Return the righ-hand side for a discretization of a second order elliptic
         equation using the MPFA method. See self.matrix_rhs for a detaild
         description.
         """
-        if f is None:
-            f = np.zeros(g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
         div = g.cell_faces.T
 
-        return -div * bound_flux * bc_val + f
+        return -div * bound_flux * bc_val
 
 #------------------------------------------------------------------------------#
 
@@ -288,6 +284,7 @@ class MpfaMultiDim(Solver):
     Solver class for a multi-dimensional Mpfa discretization with a Tpfa
     coupling between dimensions.
     """
+
     def __init__(self, physics='flow'):
         self.physics = physics
         discr = Mpfa(self.physics)
@@ -493,7 +490,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
         k.perm = np.tensordot(R.T, np.tensordot(R, k.perm, (1, 0)), (0, 1))
         k.perm = np.delete(k.perm, (2), axis=0)
         k.perm = np.delete(k.perm, (2), axis=1)
-        
+
     # Define subcell topology, that is, the local numbering of faces, subfaces,
     # sub-cells and nodes. This numbering is used throughout the
     # discretization.
