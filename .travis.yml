@@ -17,15 +17,15 @@ install:
 
 before_script:
   # Download gmsh
-  - wget http://gmsh.info/bin/Linux/gmsh-3.0.0-Linux64.tgz
+  - wget http://gmsh.info/bin/Linux/gmsh-2.11.0-Linux64.tgz
   - pwd
   - ls
-  - tar xvf gmsh-3.0.0-Linux64.tgz
+  - tar xvf gmsh-2.11.0-Linux64.tgz
 
   # Create porepy config file
   - cd $TRAVIS_BUILD_DIR
   - echo $TRAVIS_BUILD_DIR
-  - echo "config = {\"gmsh_path\":\"$TRAVIS_BUILD_DIR/gmsh-3.0.0-Linux/bin/gmsh\"} " > porepy_config.py
+  - echo "config = {\"gmsh_path\":\"$TRAVIS_BUILD_DIR/gmsh-2.11.0-Linux/bin/gmsh\"} " > porepy_config.py
   # add $HOME to $PYTHONPATH to make config file accessible
   - export PYTHONPATH=${TRAVIS_BUILD_DIR}:${PYTHONPATH}
 
