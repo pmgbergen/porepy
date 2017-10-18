@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy.numerics import darcyEq
+from porepy.numerics import darcy
 from porepy.grids.structured import CartGrid
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
@@ -38,8 +38,8 @@ class BasicsTest(unittest.TestCase):
             d['param'] = Parameters(sub_g)
             d['param'].set_bc_val('flow', bc_val(g))
 
-        problem_mono = darcyEq.Darcy(g, {'param': param_g})
-        problem_mult = darcyEq.Darcy(gb)
+        problem_mono = darcy.Darcy(g, {'param': param_g})
+        problem_mult = darcy.Darcy(gb)
 
         p_mono = problem_mono.solve()
         p_mult = problem_mult.solve()
@@ -49,7 +49,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_darcy_uniform_flow_cart(self):
         gb = setup_2d_1d([10, 10])
-        problem = darcyEq.Darcy(gb)
+        problem = darcy.Darcy(gb)
         p = problem.solve()
         problem.split('pressure')
 
@@ -67,7 +67,7 @@ class BasicsTest(unittest.TestCase):
         the tpfa half transmissibilities are computed. 
         """
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
-        problem = darcyEq.Darcy(gb)
+        problem = darcy.Darcy(gb)
         p = problem.solve()
         problem.split('pressure')
 
@@ -79,7 +79,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_darcy_dirich_neumann_source_sink_cart(self):
         gb = setup_3d(np.array([4, 4, 4]), simplex_grid=False)
-        problem = darcyEq.Darcy(gb)
+        problem = darcy.Darcy(gb)
         p = problem.solve()
         problem.split('pressure')
 
@@ -171,7 +171,7 @@ def setup_2d_1d(nx, simplex_grid=False):
             param.set_bc('flow', bound)
             param.set_bc_val('flow', bc_val)
         d['param'] = param
-    
+
     return gb
 
 
@@ -193,5 +193,6 @@ def darcy_dirich_neumann_source_sink_cart_ref_3d():
                       -8.37196805, -24.79222197, -35.8194776, -40.46051172,
                       -8.34414468, -24.57071193, -35.99975111, -44.22506448])
     return p_ref
+
 
 BasicsTest().test_darcy_uniform_flow_simplex()

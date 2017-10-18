@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy.numerics.darcyEq import DarcyData
+from porepy.numerics.darcy import DarcyData
 from porepy.grids import simplex
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters

@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 from porepy.numerics.parabolic import *
-from porepy.numerics import darcyEq
+from porepy.numerics import darcy
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
@@ -215,7 +215,7 @@ def solve_darcy_problem(gb):
     for e, d in gb.edges_props():
         g_h = gb.sorted_nodes_of_edge(e)[1]
         d['param'] = Parameters(g_h)
-    flux = darcyEq.Darcy(gb)
+    flux = darcy.Darcy(gb)
     p = flux.solve()
     flux.split('p')
     fvutils.compute_discharges(gb)
