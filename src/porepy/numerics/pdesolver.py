@@ -41,15 +41,11 @@ class AbstractSolver(object):
         data[problem.physics] = []
         data['times'] = []
 
-        problem.update(dt)
-
         space_disc = problem.space_disc()
         time_disc = problem.time_disc()
 
         p0 = problem.initial_condition()
         p = p0
-        data[problem.physics].append(p)
-        data['times'].append(0.0)
 
         self.problem = problem
         self.g = g
