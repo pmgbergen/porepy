@@ -22,27 +22,19 @@ class AbstractSolver(object):
         ----------
         problem: a problem class. Must have the attributes
             problem.grid()
-            problem.porosity(): phi
+            problem.data()
             problem.space_disc()
-            problem.diffusivity(): K
+            problem.time_disc()
             problem.time_step()
             problem.end_time()
-            problem.bc()
-            problem.bc_val(t)
             problem.initial_pressure()
-            problem.source(t): f
         """
         # Get data
         g = problem.grid()
 
-        dt = problem.time_step()
-        T = problem.end_time()
         data = problem.data()
         data[problem.physics] = []
         data['times'] = []
-
-        space_disc = problem.space_disc()
-        time_disc = problem.time_disc()
 
         p0 = problem.initial_condition()
         p = p0
@@ -50,10 +42,10 @@ class AbstractSolver(object):
         self.problem = problem
         self.g = g
         self.data = data
-        self.dt = dt
-        self.T = T
-        self.space_disc = space_disc
-        self.time_disc = time_disc
+        self.dt = problem.time_step()
+        self.T = problem.end_time()
+        self.space_disc = problem.space_disc()
+        self.time_disc = problem.time_disc()
         self.p0 = p0
         self.p = p
         # First initial empty lhs and rhs, then initialize them through
