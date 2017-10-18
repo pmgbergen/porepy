@@ -54,6 +54,16 @@ class TestSparseMath(unittest.TestCase):
         A = sps.csc_matrix(np.array([[0, 0, 0],
                                      [1, 0, 0],
                                      [0, 0, 3]]))
+
+        A0_t = sps.csc_matrix(np.array([[0, 0, 0],
+                                        [0, 0, 0],
+                                        [0, 0, 3]]))
+        A2_t = sps.csc_matrix(np.array([[0, 0, 0],
+                                        [1, 0, 0],
+                                        [0, 0, 0]]))
+        A0_2_t = sps.csc_matrix(np.array([[0, 0, 0],
+                                          [0, 0, 0],
+                                          [0, 0, 0]]))
         A0 = A.copy()
         A2 = A.copy()
         A0_2 = A.copy()
@@ -61,9 +71,9 @@ class TestSparseMath(unittest.TestCase):
         sparse_mat.zero_columns(A2, np.array([2]))
         sparse_mat.zero_columns(A0_2, np.array([0, 1, 2]))
 
-        assert np.sum(A0[:, 0] != 0) == 0
-        assert np.sum(A2[:, 2] != 0) == 0
-        assert np.sum(A0_2[:, 0:3] != 0) == 0
+        assert np.sum(A0 != A0_t) == 0
+        assert np.sum(A2 != A2_t) == 0
+        assert np.sum(A0_2 != A0_2_t) == 0
 
     if __name__ == '__main__':
         unittest.main()
