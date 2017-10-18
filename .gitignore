@@ -11,3 +11,6 @@
 *.vrml
 *~
 *.swo
+*.coverage
+.cache/*
+bin/*
