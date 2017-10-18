@@ -18,10 +18,10 @@ class PdeProblem():
     dT/dt + v*\nabla T - \nabla K \nabla T = q
 
     Init:
+    - gb (Grid/GridBucket) Grid or grid bucket for the problem
     - physics (string) Physics key word. See Parameters class for valid physics
 
     Functions that should be overloaded:
-        grid(): returns the grid bucket for the problem
 
     functions:
     data(): returns data dictionary. Is only used for single grids (I.e. not
@@ -39,6 +39,7 @@ class PdeProblem():
                   the problem without diffusion
     time_disc(): returns the time discretization
     initial_condition(): returns the initial condition for global variable
+    grid(): returns the grid bucket for the problem
     time_step(): returns time step length
     end_time(): returns end time
     save(save_every=1): save solution. Parameter: save_every, save only every
@@ -61,7 +62,8 @@ class PdeProblem():
     problem.solve()
     '''
 
-    def __init__(self, physics='transport'):
+    def __init__(self, gb, physics='transport'):
+        self._gb = gb
         self.physics = physics
         self._data = dict()
         self._set_data()
@@ -137,8 +139,8 @@ class PdeProblem():
         return global_variable
 
     def grid(self):
-        'Returns initial condition for global variable'
-        raise NotImplementedError('subclass must overload function grid()')
+        'Returns grid/grid_bucket'
+        return self._gb
 
     def time_step(self):
         'Returns the time step'

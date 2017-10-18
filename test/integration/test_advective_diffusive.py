@@ -105,11 +105,7 @@ class BasicsTest(unittest.TestCase):
 
 class SourceProblem(PdeProblem):
     def __init__(self, g):
-        self._g = g
-        PdeProblem.__init__(self)
-
-    def grid(self):
-        return self._g
+        PdeProblem.__init__(self, g)
 
     def space_disc(self):
         return self.source_disc()
@@ -120,11 +116,7 @@ class SourceProblem(PdeProblem):
 
 class SourceAdvectiveProblem(PdeProblem):
     def __init__(self, g):
-        self._g = g
-        PdeProblem.__init__(self)
-
-    def grid(self):
-        return self._g
+        PdeProblem.__init__(self, g)
 
     def space_disc(self):
         return self.source_disc(), self.advective_disc()
@@ -135,11 +127,7 @@ class SourceAdvectiveProblem(PdeProblem):
 
 class SourceAdvectiveDiffusiveProblem(PdeProblem):
     def __init__(self, g):
-        self._g = g
-        PdeProblem.__init__(self)
-
-    def grid(self):
-        return self._g
+        PdeProblem.__init__(self, g)
 
     def space_disc(self):
         return self.source_disc(), self.advective_disc(), self.diffusive_disc()

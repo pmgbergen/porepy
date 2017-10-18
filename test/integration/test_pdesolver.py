@@ -69,16 +69,10 @@ class TestBase(unittest.TestCase):
 class UnitSquareInjectionMultiDim(PdeProblem):
     def __init__(self, gb):
         # Initialize base class
-        self._g = gb
-        PdeProblem.__init__(self)
+        PdeProblem.__init__(self, gb)
 
     def space_disc(self):
         return self.source_disc()
-
-    #--------grid function--------
-
-    def grid(self):
-        return self._g
 
     #--------Time stepping------------
 
