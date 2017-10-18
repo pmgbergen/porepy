@@ -6,12 +6,12 @@ from porepy.params import tensor, bc
 from porepy.fracs import meshing
 from porepy.numerics.fv import fvutils, tpfa, mass_matrix, source
 from porepy.numerics.fv.transport import upwind, upwind_coupling
-from porepy.numerics import pdesolver
+from porepy.numerics import pde_solver
 from porepy.numerics.mixed_dim import coupler
 from porepy.viz.exporter import export_vtk, export_pvd
 
 
-class PdeProblem():
+class ParabolicProblem():
     '''
     Base class for solving general pde problems. This class solves equations of
     the type:
@@ -30,7 +30,7 @@ class PdeProblem():
     step(): take one time step
     update(t): update parameters to time t
     reassemble(): reassemble matrices and right hand side
-    solver(): initiate solver (see numerics.pdesolver)
+    solver(): initiate solver (see numerics.pde_solver)
     advective_disc(): discretization of the advective term
     diffusive_disc(): discretization of the diffusive term
     soruce_disc(): discretization of the source term, q
@@ -48,16 +48,16 @@ class PdeProblem():
     Example:
     # We create a problem with standard data, neglecting the advective term
 
-    class ExampleProblem(PdeProblem):
+    class ExampleProblem(ParabolicProblem):
         def __init__(self, gb):
             self._g = gb
-            PdeProblem.__init__(self)
+            ParabolicProblem.__init__(self)
 
         def space_disc(self):
             return self.source_disc(), self.diffusive_discr()
     gb = meshing.cart_grid([], [10,10], physdims=[1,1])
     for g, d in gb:
-        d['problem'] = PdeProblemData(g, d)
+        d['problem'] = ParabolicData(g, d)
     problem = ExampleProblem(gb)
     problem.solve()
     '''
@@ -99,7 +99,7 @@ class PdeProblem():
 
     def solver(self):
         'Initiate solver'
-        return pdesolver.Implicit(self)
+        return pde_solver.Implicit(self)
 
     def advective_disc(self):
         'Discretization of term v * \nabla T'
@@ -167,7 +167,7 @@ class PdeProblem():
             self.grid(), self.parameters['file_name'], times, folder=folder)
 
 
-class PdeProblemData():
+class ParabolicData():
     '''
     Base class for assigning valid data to a grid.
     Init:
@@ -190,9 +190,9 @@ class PdeProblemData():
     Example:
     # We set an inflow and outflow boundary condition by overloading the
     # bc_val term
-    class ExampleData(PdeProblemData):
+    class ExampleData(ParabolicData):
         def __init__(g, d):
-            PdeProblemData.__init__(self, g, d)
+            ParabolicData.__init__(self, g, d)
         def bc_val(self):
             left = self.grid().nodes[0] < 1e-6
             right = self.grid().nodes[0] > 1 - 1e-6

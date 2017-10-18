@@ -2,7 +2,7 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.grids import structured
-from porepy.numerics.pdeproblem import *
+from porepy.numerics.parabolic import *
 from porepy.numerics.fv import tpfa, mass_matrix, fvutils
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.params.data import Parameters
@@ -11,9 +11,9 @@ from porepy.params import bc
 from porepy.viz.exporter import export_vtk, export_pvd
 
 
-class SlightlyCompressible(PdeProblem):
+class SlightlyCompressible(ParabolicProblem):
     '''
-    Inherits from PdeProblem
+    Inherits from ParabolicProblem
     This class solves equations of the type:
     phi *c_p dp/dt  - \nabla K \nabla p = q
 
@@ -23,7 +23,7 @@ class SlightlyCompressible(PdeProblem):
 
     functions:
     discharge(): computes the discharges and saves it in the grid bucket as 'p'
-    Also see functions from PdeProblem
+    Also see functions from ParabolicProblem
 
     Example:
     # We create a problem with standard data
@@ -36,7 +36,7 @@ class SlightlyCompressible(PdeProblem):
    '''
 
     def __init__(self, gb, physics='flow'):
-        PdeProblem.__init__(self, gb, physics)
+        ParabolicProblem.__init__(self, gb, physics)
 
     def space_disc(self):
         return self.diffusive_disc(), self.source_disc()
@@ -61,9 +61,9 @@ class SlightlyCompressible(PdeProblem):
         fvutils.compute_discharges(self.grid())
 
 
-class SlightlyCompressibleData(PdeProblemData):
+class SlightlyCompressibleData(ParabolicData):
     '''
-    Inherits from PdeProblemData
+    Inherits from ParabolicData
     Base class for assigning valid data for a slighly compressible problem.
     Init:
     - g    (Grid) Grid that data should correspond to
@@ -74,7 +74,7 @@ class SlightlyCompressibleData(PdeProblemData):
         compressibility: (float) the compressibility of the fluid
         permeability: (tensor.SecondOrder) The permeability tensor for the rock.
                       Setting the permeability is equivalent to setting
-                      the PdeProblemData.diffusivity() function. 
+                      the ParabolicData.diffusivity() function. 
     Example:
     # We set an inflow and outflow boundary condition by overloading the
     # bc_val term
@@ -94,10 +94,10 @@ class SlightlyCompressibleData(PdeProblemData):
     '''
 
     def __init__(self, g, data, physics='flow'):
-        PdeProblemData.__init__(self, g, data, physics)
+        ParabolicData.__init__(self, g, data, physics)
 
     def _set_data(self):
-        PdeProblemData._set_data(self)
+        ParabolicData._set_data(self)
         self.data()['compressibility'] = self.compressibility()
 
     def compressibility(self):

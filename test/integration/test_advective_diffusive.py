@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy.numerics.pdeproblem import *
+from porepy.numerics.parabolic import *
 from porepy.numerics import darcyEq
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
@@ -103,9 +103,9 @@ class BasicsTest(unittest.TestCase):
             assert np.all(const_temp)
 
 
-class SourceProblem(PdeProblem):
+class SourceProblem(ParabolicProblem):
     def __init__(self, g):
-        PdeProblem.__init__(self, g)
+        ParabolicProblem.__init__(self, g)
 
     def space_disc(self):
         return self.source_disc()
@@ -114,9 +114,9 @@ class SourceProblem(PdeProblem):
         return 0.5
 
 
-class SourceAdvectiveProblem(PdeProblem):
+class SourceAdvectiveProblem(ParabolicProblem):
     def __init__(self, g):
-        PdeProblem.__init__(self, g)
+        ParabolicProblem.__init__(self, g)
 
     def space_disc(self):
         return self.source_disc(), self.advective_disc()
@@ -125,9 +125,9 @@ class SourceAdvectiveProblem(PdeProblem):
         return 0.5
 
 
-class SourceAdvectiveDiffusiveProblem(PdeProblem):
+class SourceAdvectiveDiffusiveProblem(ParabolicProblem):
     def __init__(self, g):
-        PdeProblem.__init__(self, g)
+        ParabolicProblem.__init__(self, g)
 
     def space_disc(self):
         return self.source_disc(), self.advective_disc(), self.diffusive_disc()
@@ -166,9 +166,9 @@ def source(g, t):
     return value
 
 
-class MatrixDomain(PdeProblemData):
+class MatrixDomain(ParabolicData):
     def __init__(self, g, d, physics='transport'):
-        PdeProblemData.__init__(self, g, d, physics)
+        ParabolicData.__init__(self, g, d, physics)
 
     def initial_condition(self):
         return 10 * np.ones(self.grid().num_cells)

@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
 
-from porepy.numerics.pdeproblem import PdeProblem, PdeProblemData
-from porepy.numerics.pdesolver import *
+from porepy.numerics.parabolic import ParabolicProblem, ParabolicData
+from porepy.numerics.pde_solver import *
 from porepy.grids import structured
 from porepy.fracs import meshing
 from porepy.params import tensor
@@ -20,7 +20,7 @@ class TestBase(unittest.TestCase):
         self.gb = meshing.cart_grid(f_set, [4, 4, 4], physdims=[1, 1, 1])
         self.gb.add_node_props(['problem'])
         for g, d in self.gb:
-            d['problem'] = PdeProblemData(g, d)
+            d['problem'] = ParabolicData(g, d)
 
     def test_implicit_solver(self):
         problem = UnitSquareInjectionMultiDim(self.gb)
@@ -66,10 +66,10 @@ class TestBase(unittest.TestCase):
 ###############################################################################
 
 
-class UnitSquareInjectionMultiDim(PdeProblem):
+class UnitSquareInjectionMultiDim(ParabolicProblem):
     def __init__(self, gb):
         # Initialize base class
-        PdeProblem.__init__(self, gb)
+        ParabolicProblem.__init__(self, gb)
 
     def space_disc(self):
         return self.source_disc()
