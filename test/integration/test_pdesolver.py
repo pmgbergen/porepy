@@ -45,9 +45,9 @@ class TestBase(unittest.TestCase):
         solver.step()
         # The first step should be an implicit step
         assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
-        assert np.sum(np.abs(solver.rhs - 1) < 1e-6) == 1
+        assert np.sum(np.abs(solver.rhs - 1.0) < 1e-6) == 1
         assert np.sum(np.abs(solver.p) > 1e-6) == 1
-        assert np.sum(np.abs(solver.p - 1 / 2) < 1e-6) == 1
+        assert np.sum(np.abs(solver.p - 1.0 / 2.0) < 1e-6) == 1
         assert np.allclose(solver.p0, 0)
         assert np.allclose(solver.p_1, 0)
 
@@ -56,11 +56,11 @@ class TestBase(unittest.TestCase):
         solver.step()
         # The second step should be a full bdf2 step
         assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
-        assert np.sum(np.abs(solver.rhs - 2) < 1e-6) == 1
+        assert np.sum(np.abs(solver.rhs - 2.0) < 1e-6) == 1
         assert np.sum(np.abs(solver.p) > 1e-6) == 1
         assert np.sum(np.abs(solver.p - 1) < 1e-6) == 1
         assert np.sum(np.abs(solver.p0 - 0.5) < 1e-6) == 1
-        assert np.allclose(solver.p_1, 0)
+        assert np.allclose(solver.p_1, 0.0)
 
     def test_explicit_solver(self):
         '''Inject 1 in cell 0. Test that rhs and pressure solution
@@ -103,7 +103,7 @@ class UnitSquareInjectionMultiDim(ParabolicProblem):
         for g, d in self.grid():
             source = np.zeros(g.num_cells)
             if g.dim == 0 and t > self.time_step() - 1e-5:
-                source[0] = 1
+                source[0] = 1.0
             d['param'].set_source('transport', source)
 
 
