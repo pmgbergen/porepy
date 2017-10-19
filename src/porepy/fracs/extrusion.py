@@ -67,7 +67,7 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None, *
     # Cut fractures
     for prim, sec, p in zip(prim_frac, sec_frac, other_pt):
         _, radius = cut_fracture_by_plane(fractures[sec], fractures[prim],
-                                    split_pt[:, p])
+                                    split_pt[:, p], **kwargs)
         # If specified, ensure that cuts in T-intersections appear realistic.
         if ensure_realistic_cuts and radius is not None:
             ang = np.arctan2(0.5*lengths[prim], radius)
@@ -412,7 +412,7 @@ def impose_inlcine(fracs, exposure, frac_family=None, family_mean_incline=None,
 
     """
     if frac_family is None:
-        frac_family = np.zeros(len(fracs))
+        frac_family = np.zeros(len(fracs), dtype=np.int)
     if family_mean_incline is None:
         family_mean_incline = np.zeros(np.unique(frac_family).size)
     if family_std_incline is None:
@@ -548,7 +548,7 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
     other_rot = rot.dot(other_p - other_center)[:2]
     isect_rot = rot.dot(isect_pt - other_center)[:2]
 
-    is_inside = cg.is_inside_polygon(other_rot, isect_rot)
+    is_inside = cg.is_inside_polygon(other_rot, isect_rot, tol, default=True)
     # At one point (the exposed point) must be in the polygon of the other
     # fracture.
     assert is_inside.any()
