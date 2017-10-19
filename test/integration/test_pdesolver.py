@@ -23,6 +23,8 @@ class TestBase(unittest.TestCase):
             d['problem'] = ParabolicData(g, d)
 
     def test_implicit_solver(self):
+        '''Inject 1 in cell 0. Test that rhs and pressure solution
+        is correct'''
         problem = UnitSquareInjectionMultiDim(self.gb)
         problem.update(0.0)
         solver = Implicit(problem)
@@ -33,17 +35,36 @@ class TestBase(unittest.TestCase):
         assert np.sum(np.abs(solver.p - 1) < 1e-6) == 1
 
     def test_BDF2_solver(self):
+        '''Inject 1 in cell 0. Test that rhs and pressure solution
+        is correct'''
         problem = UnitSquareInjectionTwoSteps(self.gb)
         problem.update(0.0)
         solver = BDF2(problem)
-        solver.solve()
+        solver.update(solver.dt)
+        solver.reassemble()
+        solver.step()
+        # The first step should be an implicit step
+        assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
+        assert np.sum(np.abs(solver.rhs - 1) < 1e-6) == 1
+        assert np.sum(np.abs(solver.p) > 1e-6) == 1
+        assert np.sum(np.abs(solver.p - 1 / 2) < 1e-6) == 1
+        assert np.allclose(solver.p0, 0)
+        assert np.allclose(solver.p_1, 0)
+
+        solver.update(2 * solver.dt)
+        solver.reassemble()
+        solver.step()
+        # The second step should be a full bdf2 step
         assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
         assert np.sum(np.abs(solver.rhs - 2) < 1e-6) == 1
         assert np.sum(np.abs(solver.p) > 1e-6) == 1
         assert np.sum(np.abs(solver.p - 1) < 1e-6) == 1
-        assert np.sum(np.abs(solver.p_1 - 0.5) < 1e-6) == 1
+        assert np.sum(np.abs(solver.p0 - 0.5) < 1e-6) == 1
+        assert np.allclose(solver.p_1, 0)
 
     def test_explicit_solver(self):
+        '''Inject 1 in cell 0. Test that rhs and pressure solution
+        is correct'''
         problem = UnitSquareInjectionMultiDim(self.gb)
         problem.update(0.0)
         solver = Explicit(problem)
@@ -52,6 +73,8 @@ class TestBase(unittest.TestCase):
         assert np.sum(np.abs(solver.p) > 1e-6) == 0
 
     def test_CrankNicolson_solver(self):
+        '''Inject 1 in cell 0. Test that rhs and pressure solution
+        is correct'''
         problem = UnitSquareInjectionMultiDim(self.gb)
         problem.update(0.0)
         solver = CrankNicolson(problem)

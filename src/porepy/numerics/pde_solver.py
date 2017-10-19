@@ -150,6 +150,8 @@ class BDF2(AbstractSolver):
         """
         if t > self.dt + 1e-6:
             self.flag_first = False
+        else:
+            self.flag_first = True
         self.p_1 = self.p0
         AbstractSolver.update(self, t)
 
