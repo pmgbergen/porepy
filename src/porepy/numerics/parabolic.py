@@ -21,9 +21,7 @@ class ParabolicProblem():
     - gb (Grid/GridBucket) Grid or grid bucket for the problem
     - physics (string) Physics key word. See Parameters class for valid physics
 
-    Functions that should be overloaded:
-
-    functions:
+    Functions:
     data(): returns data dictionary. Is only used for single grids (I.e. not
             GridBucket)
     solve(): solve problem
@@ -46,7 +44,7 @@ class ParabolicProblem():
                                                   save_every time steps
 
     Example:
-    # We create a problem with standard data, neglecting the advective term
+    # We create a problem with default data, neglecting the advective term
 
     class ExampleProblem(ParabolicProblem):
         def __init__(self, gb):
