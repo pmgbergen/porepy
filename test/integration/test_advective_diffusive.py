@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 from porepy.numerics.parabolic import *
-from porepy.numerics import darcy
+from porepy.numerics import elliptic
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
@@ -26,8 +26,8 @@ class BasicsTest(unittest.TestCase):
 
     def test_src_2d(self):
         """
-        test that the mono_dimensional darcy solver gives the same answer as
-        the grid bucket darcy
+        test that the mono_dimensional elliptic solver gives the same answer as
+        the grid bucket elliptic
         """
         gb = meshing.cart_grid([], [10, 10])
 
@@ -44,8 +44,8 @@ class BasicsTest(unittest.TestCase):
 
     def test_src_3d(self):
         """
-        test that the mono_dimensional darcy solver gives the same answer as
-        the grid bucket darcy
+        test that the mono_dimensional elliptic solver gives the same answer as
+        the grid bucket elliptic
         """
         delete_node_data(self.gb3d)
 
@@ -68,7 +68,7 @@ class BasicsTest(unittest.TestCase):
                 d['problem'] = InjectionDomain(g, d)
             else:
                 d['problem'] = MatrixDomain(g, d)
-        solve_darcy_problem(self.gb3d)
+        solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveProblem(self.gb3d)
         problem.solve()
         dE = change_in_energy(problem)
@@ -81,7 +81,7 @@ class BasicsTest(unittest.TestCase):
                 d['problem'] = InjectionDomain(g, d)
             else:
                 d['problem'] = MatrixDomain(g, d)
-        solve_darcy_problem(self.gb3d)
+        solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveDiffusiveProblem(self.gb3d)
         problem.solve()
         dE = change_in_energy(problem)
@@ -94,7 +94,7 @@ class BasicsTest(unittest.TestCase):
                 d['problem'] = InjectionDomain(g, d)
             else:
                 d['problem'] = MatrixDomain(g, d)
-        solve_darcy_problem(self.gb3d)
+        solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveDiffusiveDirBound(self.gb3d)
         problem.solve()
         for _, d in self.gb3d:
@@ -200,7 +200,7 @@ def change_in_energy(problem):
     return dE
 
 
-def solve_darcy_problem(gb):
+def solve_elliptic_problem(gb):
     for g, d in gb:
         if g.dim == 2:
             d['param'].set_source(
@@ -215,7 +215,7 @@ def solve_darcy_problem(gb):
     for e, d in gb.edges_props():
         g_h = gb.sorted_nodes_of_edge(e)[1]
         d['param'] = Parameters(g_h)
-    flux = darcy.Darcy(gb)
+    flux = elliptic.Elliptic(gb)
     p = flux.solve()
     flux.split('p')
     fvutils.compute_discharges(gb)

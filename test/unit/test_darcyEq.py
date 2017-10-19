@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy.numerics.darcy import DarcyData
+from porepy.numerics.elliptic import EllipticData
 from porepy.grids import simplex
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
@@ -13,22 +13,22 @@ class BasicsTest(unittest.TestCase):
 
     #------------------------------------------------------------------------------#
 
-    def test_darcy_data_default_values(self):
+    def test_elliptic_data_default_values(self):
         """
-        test that the darcy data initialize the correct data.
+        test that the elliptic data initialize the correct data.
         """
         p = np.random.rand(3, 10)
         g = simplex.TetrahedralGrid(p)
         param = Parameters(g)
-        darcy_data = dict()
-        DarcyData(g, darcy_data)
-        darcy_param = darcy_data['param']
+        elliptic_data = dict()
+        EllipticData(g, elliptic_data)
+        elliptic_param = elliptic_data['param']
 
-        check_parameters(darcy_param, param)
+        check_parameters(elliptic_param, param)
 
-    def test_darcy_data_given_values(self):
+    def test_elliptic_data_given_values(self):
         """
-        test that the darcy data initialize the correct data.
+        test that the elliptic data initialize the correct data.
         """
         p = np.random.rand(3, 10)
         g = simplex.TetrahedralGrid(p)
@@ -50,11 +50,11 @@ class BasicsTest(unittest.TestCase):
         param.set_aperture(apperture)
         param.set_tensor('flow', K)
         param.set_source('flow', source)
-        # Define DarcyData class
+        # Define EllipticData class
 
-        class Data(DarcyData):
+        class Data(EllipticData):
             def __init__(self, g, data):
-                DarcyData.__init__(self, g, data)
+                EllipticData.__init__(self, g, data)
 
             def bc(self):
                 return bc_cond
@@ -74,11 +74,11 @@ class BasicsTest(unittest.TestCase):
             def source(self):
                 return source
 
-        darcy_data = dict()
-        Data(g, darcy_data)
-        darcy_param = darcy_data['param']
+        elliptic_data = dict()
+        Data(g, elliptic_data)
+        elliptic_param = elliptic_data['param']
 
-        check_parameters(darcy_param, param)
+        check_parameters(elliptic_param, param)
 
 
 #------------------------------------------------------------------------------#

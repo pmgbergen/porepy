@@ -1,5 +1,6 @@
 '''
-Module for initializing, assigning data, solve, and save an incompressible flow
+Module for initializing, assigning data, solve, and save an elliptic pde.
+Ths can for example be incompressible flow
 problem assuming darcy's law. Please see the tutorial darcy's equation on the
 porepy github: https://github.com/pmgbergen/porepy
 '''
@@ -13,7 +14,7 @@ from porepy.params.data import Parameters
 from porepy.viz.exporter import export_vtk
 
 
-class Darcy():
+class Elliptic():
     '''
     Class for solving an incompressible flow problem: 
     \nabla K \nabla p = q,
@@ -124,15 +125,15 @@ class Darcy():
         export_vtk(self.grid(), f_name, ['p'], folder=folder)
 
 
-class DarcyData():
+class EllipticData():
     '''
     Class for setting data to an incompressible flow problem: 
     \nabla K \nabla p = q,
     where K is the second order permeability tenser, p the fluid pressure
     and q sinks and sources. This class creates a Parameter object and 
-    assigns the data to this object by calling DarcyData's functions.
+    assigns the data to this object by calling EllipticData's functions.
 
-    To change the default values create a class that inherits from DarcyData.
+    To change the default values create a class that inherits from EllipticData.
     Then overload the values you whish to change.
 
     Parameters in Init:

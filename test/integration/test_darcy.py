@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy.numerics import darcy
+from porepy.numerics import elliptic
 from porepy.grids.structured import CartGrid
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
@@ -14,8 +14,8 @@ class BasicsTest(unittest.TestCase):
 
     def test_mono_equals_multi(self):
         """
-        test that the mono_dimensional darcy solver gives the same answer as
-        the grid bucket darcy
+        test that the mono_dimensional elliptic solver gives the same answer as
+        the grid bucket elliptic
         """
         g = CartGrid([10, 10])
         g.compute_geometry()
@@ -38,8 +38,8 @@ class BasicsTest(unittest.TestCase):
             d['param'] = Parameters(sub_g)
             d['param'].set_bc_val('flow', bc_val(g))
 
-        problem_mono = darcy.Darcy(g, {'param': param_g})
-        problem_mult = darcy.Darcy(gb)
+        problem_mono = elliptic.Elliptic(g, {'param': param_g})
+        problem_mult = elliptic.Elliptic(gb)
 
         p_mono = problem_mono.solve()
         p_mult = problem_mult.solve()
@@ -47,9 +47,9 @@ class BasicsTest(unittest.TestCase):
         assert np.allclose(p_mono, p_mult)
 #------------------------------------------------------------------------------#
 
-    def test_darcy_uniform_flow_cart(self):
+    def test_elliptic_uniform_flow_cart(self):
         gb = setup_2d_1d([10, 10])
-        problem = darcy.Darcy(gb)
+        problem = elliptic.Elliptic(gb)
         p = problem.solve()
         problem.split('pressure')
 
@@ -60,14 +60,14 @@ class BasicsTest(unittest.TestCase):
             assert np.max(np.abs(p_diff)) < 0.03
 #------------------------------------------------------------------------------#
 
-    def test_darcy_uniform_flow_simplex(self):
+    def test_elliptic_uniform_flow_simplex(self):
         """
         Unstructured simplex grid. Note that the solution depends
         on the grid quality. Also sensitive to the way in which
         the tpfa half transmissibilities are computed. 
         """
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
-        problem = darcy.Darcy(gb)
+        problem = elliptic.Elliptic(gb)
         p = problem.solve()
         problem.split('pressure')
 
@@ -77,15 +77,15 @@ class BasicsTest(unittest.TestCase):
             p_diff = pressure - p_analytic
             assert np.max(np.abs(p_diff)) < 0.033
 
-    def test_darcy_dirich_neumann_source_sink_cart(self):
+    def test_elliptic_dirich_neumann_source_sink_cart(self):
         gb = setup_3d(np.array([4, 4, 4]), simplex_grid=False)
-        problem = darcy.Darcy(gb)
+        problem = elliptic.Elliptic(gb)
         p = problem.solve()
         problem.split('pressure')
 
         for g, d in gb:
             if g.dim == 3:
-                p_ref = darcy_dirich_neumann_source_sink_cart_ref_3d()
+                p_ref = elliptic_dirich_neumann_source_sink_cart_ref_3d()
                 assert np.allclose(d['pressure'], p_ref)
             if g.dim == 0:
                 p_ref = [-10788.06883149]
@@ -175,7 +175,7 @@ def setup_2d_1d(nx, simplex_grid=False):
     return gb
 
 
-def darcy_dirich_neumann_source_sink_cart_ref_3d():
+def elliptic_dirich_neumann_source_sink_cart_ref_3d():
     p_ref = np.array([0.54570555, -11.33848749, -19.44484907, -23.13293673,
                       -2.03828237, -12.73249228, -20.96189563, -24.14626244,
                       -2.81412045, -14.03104316, -22.2699576, -25.06029852,
