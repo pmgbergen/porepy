@@ -193,6 +193,3 @@ def darcy_dirich_neumann_source_sink_cart_ref_3d():
                       -8.37196805, -24.79222197, -35.8194776, -40.46051172,
                       -8.34414468, -24.57071193, -35.99975111, -44.22506448])
     return p_ref
-
-
-BasicsTest().test_darcy_uniform_flow_simplex()
