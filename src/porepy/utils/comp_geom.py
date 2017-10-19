@@ -781,8 +781,7 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
 
     if np.abs(cross_product) <= tol:
         return default
-
-    return cross_product > 0
+    return cross_product > -tol
 
 #-----------------------------------------------------------------------------
 
