@@ -164,9 +164,9 @@ class BDF2(AbstractSolver):
             self.lhs = lhs_time + lhs_flux
             self.rhs = lhs_time * self.p0 + rhs_flux + rhs_time
         else:
-            self.lhs = lhs_time + 2 / 3 * lhs_flux
-            bdf2_rhs = 4 / 3 * lhs_time * self.p0 - 1 / 3 * lhs_time * self.p_1
-            self.rhs = bdf2_rhs + 2 / 3 * rhs_flux + rhs_time
+            self.lhs = lhs_time + 2. / 3 * lhs_flux
+            bdf2_rhs = 4. / 3 * lhs_time * self.p0 - 1. / 3 * lhs_time * self.p_1
+            self.rhs = bdf2_rhs + 2. / 3 * rhs_flux + rhs_time
 
 
 class Explicit(AbstractSolver):
