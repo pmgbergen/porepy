@@ -81,10 +81,12 @@ def simplex_grid(fracs, domain, **kwargs):
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
     # Split the grids.
-    split_grid.split_fractures(gb)
+    split_grid.split_fractures(gb, **kwargs)
+    gb.assign_node_ordering()
     return gb
 
 #------------------------------------------------------------------------------#
+
 
 def from_gmsh(file_name, dim, **kwargs):
     """
@@ -135,6 +137,7 @@ def from_gmsh(file_name, dim, **kwargs):
     return gb
 
 #------------------------------------------------------------------------------#
+
 
 def cart_grid(fracs, nx, **kwargs):
     """
@@ -200,6 +203,7 @@ def cart_grid(fracs, nx, **kwargs):
 
     # Split grid.
     split_grid.split_fractures(gb, **kwargs)
+    gb.assign_node_ordering()
     return gb
 
 
@@ -338,6 +342,9 @@ def obtain_interdim_mappings(lg, fn, n_per_face):
     # An element in cell_2_face gives, for all cells in the
     # lower-dimensional grid, the index of the corresponding face
     # in the higher-dimensional structure.
-
+    assert np.all(is_mem) or np.all(~is_mem),\
+        '''Either all cells should have a corresponding face in a higher dim grid
+        or no cells should have a corresponding face in a higher dim grid. This
+        might be a problem with gmsh or how we read the gmsh output, not sure.. '''
     low_dim_cell = np.where(is_mem)[0]
     return cell_2_face, low_dim_cell

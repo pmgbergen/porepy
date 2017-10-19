@@ -2,88 +2,110 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.grids import structured
-from porepy.numerics.fv import tpfa
-from porepy.numerics.compressible import solvers
+from porepy.numerics.parabolic import *
+from porepy.numerics.fv import tpfa, mass_matrix, fvutils
+from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.params.data import Parameters
 from porepy.params import tensor
 from porepy.params import bc
 from porepy.viz.exporter import export_vtk, export_pvd
 
 
-class SlightlyCompressible():
-    """
-    Base-class for slightly compressible flow. Initialize all needed
-    attributes for a slightly compressible solver.
-    """
+class SlightlyCompressible(ParabolicProblem):
+    '''
+    Inherits from ParabolicProblem
+    This class solves equations of the type:
+    phi *c_p dp/dt  - \nabla K \nabla p = q
 
-    def __init__(self):
-        self.solver = solvers.Implicit(self)
-        self.solver.parameters['store_results'] = True
-        self.parameters = {'file_name': 'pressure'}
-        self.parameters['folder_name'] = 'results'
-        self.data = dict()
-    #---------Discretization---------------
+    Init:
+    - gb (Grid/GridBucket) Grid or grid bucket for the problem
+    - physics (string) Physics key word. See Parameters class for valid physics
 
-    def flux_disc(self):
-        """
-        Returns the flux discretization. 
-        """
-        return tpfa.Tpfa()
+    functions:
+    discharge(): computes the discharges and saves it in the grid bucket as 'p'
+    Also see functions from ParabolicProblem
 
-    def solve(self):
-        """
-        Call the solver
-        """
-        self.data = self.solver.solve()
-        return self.data
+    Example:
+    # We create a problem with standard data
 
-    #-----Parameters------------
-    def porosity(self):
-        return np.ones(self.grid().num_cells)
+    gb = meshing.cart_grid([], [10,10], physdims=[1,1])
+    for g, d in gb:
+        d['problem'] = SlightlyCompressibleData(g, d)
+    problem = SlightlyCompressible(gb)
+    problem.solve()
+   '''
+
+    def __init__(self, gb, physics='flow'):
+        ParabolicProblem.__init__(self, gb, physics)
+
+    def space_disc(self):
+        return self.diffusive_disc(), self.source_disc()
+
+    def time_disc(self):
+        """
+        Returns the time discretization.
+        """
+        class TimeDisc(mass_matrix.MassMatrix):
+            def __init__(self, deltaT):
+                self.deltaT = deltaT
+
+            def matrix_rhs(self, g, data):
+                lhs, rhs = mass_matrix.MassMatrix.matrix_rhs(self, g, data)
+                return lhs * data['compressibility'], rhs * data['compressibility']
+        single_dim_discr = TimeDisc(self.time_step())
+        multi_dim_discr = Coupler(single_dim_discr)
+        return multi_dim_discr
+
+    def discharge(self):
+        self.diffusive_disc().split(self.grid(), 'p', self._solver.p)
+        fvutils.compute_discharges(self.grid())
+
+
+class SlightlyCompressibleData(ParabolicData):
+    '''
+    Inherits from ParabolicData
+    Base class for assigning valid data for a slighly compressible problem.
+    Init:
+    - g    (Grid) Grid that data should correspond to
+    - d    (dictionary) data dictionary that data will be assigned to
+    - physics (string) Physics key word. See Parameters class for valid physics
+
+    Functions:
+        compressibility: (float) the compressibility of the fluid
+        permeability: (tensor.SecondOrder) The permeability tensor for the rock.
+                      Setting the permeability is equivalent to setting
+                      the ParabolicData.diffusivity() function. 
+    Example:
+    # We set an inflow and outflow boundary condition by overloading the
+    # bc_val term
+    class ExampleData(SlightlyCompressibleData):
+        def __init__(g, d):
+            SlightlyCompressibleData.__init__(self, g, d)
+        def bc_val(self):
+            left = self.grid().nodes[0] < 1e-6
+            right = self.grid().nodes[0] > 1 - 1e-6
+            val = np.zeros(g.num_faces)
+            val[left] = 1
+            val[right] = -1
+            return val
+    gb = meshing.cart_grid([], [10,10], physdims=[1,1])
+    for g, d in gb:
+        d['problem'] = ExampleData(g, d)
+    '''
+
+    def __init__(self, g, data, physics='flow'):
+        ParabolicData.__init__(self, g, data, physics)
+
+    def _set_data(self):
+        ParabolicData._set_data(self)
+        self.data()['compressibility'] = self.compressibility()
 
     def compressibility(self):
-        return 1
+        return 1.0
 
     def permeability(self):
         kxx = np.ones(self.grid().num_cells)
         return tensor.SecondOrder(self.grid().dim, kxx)
 
-    #--------Inn/outflow terms---------------
-
-    def initial_pressure(self):
-        return np.zeros(self.grid().num_cells)
-
-    def source(self, t):
-        return np.zeros(self.g.num_cells)
-
-    def bc(self):
-        dir_bound = np.array([])
-        return bc.BoundaryCondition(self.grid(), dir_bound,
-                                    ['dir'] * dir_bound.size)
-
-    def bc_val(self, t):
-        return np.zeros(self.grid().num_faces)
-
-    #---------Overloaded Functions-----------------
-    def grid(self):
-        raise NotImplementedError('subclass must overload function grid()')
-
-    #--------Time stepping------------
-    def time_step(self):
-        return 1.0
-
-    def end_time(self):
-        return 1.0
-
-    def save_results(self):
-        pressures = self.data['pressure']
-        times = np.array(self.data['times'])
-        folder = self.parameters['folder_name']
-        f_name = self.parameters['file_name']
-        for i, p in enumerate(pressures):
-            data_to_plot = {'pressure': p}
-            export_vtk(
-                self.grid(), f_name, data_to_plot, time_step=i, folder=folder)
-
-        export_pvd(
-            self.grid(), self.parameters['file_name'], times, folder=folder)
+    def diffusivity(self):
+        return self.permeability()
