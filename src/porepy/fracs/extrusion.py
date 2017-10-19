@@ -84,7 +84,8 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None, *
             new_radius, center, _ = disc_radius_center(lengths[prim], e0, e1,
                                                        theta=ang)
             strike = np.arctan2(e1[1] - e0[1], e1[0]- e0[0])
-            f = create_fracture(center, new_radius, np.pi/2, strike, e0, e1)
+            f = create_fracture(center, new_radius, np.pi/2, strike,
+                                np.vstack((e0, e1)).T)
             rotate_fracture(f, e1-e0, rot_ang[prim])
             fractures[prim] = f
 
@@ -315,12 +316,17 @@ def discs_from_exposure(pt, edges, exposure_angle=None, **kwargs):
     fracs = []
 
     for i in range(num_fracs):
+        z = 2 * center[2, i]
+        extra_point_depth = np.array([0, 0, z, z])
+        extra_points = np.vstack((np.vstack((p0[:, i], p1[:, i], p0[:, i],
+                                             p1[:, i])).T,
+                                  extra_point_depth))
         fracs.append(create_fracture(center[:, i], radius[i], np.pi/2,
-                                     strike_angle[i], p0[:, i], p1[:, i]))
+                                     strike_angle[i], extra_points))
     return fracs, ang
 
 
-def create_fracture(center, radius, dip, strike, exp_0, exp_1):
+def create_fracture(center, radius, dip, strike, extra_points):
     """ Create a single circular fracture consistent with a given exposure.
 
     The exposed points will be added to the fracture description.
@@ -332,21 +338,16 @@ def create_fracture(center, radius, dip, strike, exp_0, exp_1):
             details.
         strike (np.array-like, dim 3): Strike angle for rotation. See
             EllipticFracture for details.
-        exp_0 (np.array-like, dim 2 or 3): First exposed point. Will be
-            contained in fracture polygon.
-        exp_1 (np.array-like, dim 2 or 3): Second exposed point. Will be
-            contained in fracture polygon.
+        extra_points (np.array, 3xnpt): Extra points to be added to the
+            fracture. The points are assumed to lie on the ellipsis.
 
     Returns:
         Fracture: New fracture, according to the specifications.
 
     """
-
-    if exp_0.size == 2:
-        exp_0 = np.append(exp_0, 0)
-
-    if exp_1.size == 2:
-        exp_1 = np.append(exp_1, 0)
+    if extra_points.shape[0] == 2:
+        extra_points = np.vstack((extra_points,
+                                  np.zeros(extra_points.shape[1])))
 
     # The simplest way of distributing points along the disc seems to be to
     # create an elliptic fracture, and pick out the points.
@@ -356,7 +357,7 @@ def create_fracture(center, radius, dip, strike, exp_0, exp_1):
     # Add the points on the exposed surface. This creates an unequal
     # distribution of the points, but it is the only hard information we have
     # on the fracture
-    f.add_points(np.vstack((exp_0, exp_1)).T, check_convexity=False)
+    f.add_points(extra_points, check_convexity=False)
     # Not sure if f still shoudl be EllipticFracture here, or if we should
     # create a new fracture with the same point distribution.
     return f
