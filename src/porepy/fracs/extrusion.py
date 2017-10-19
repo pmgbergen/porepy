@@ -21,7 +21,7 @@ from porepy.utils import comp_geom as cg
 from porepy.fracs.fractures import EllipticFracture, Fracture
 
 
-def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, **kwargs):
+def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None, **kwargs):
     """ Create a set of fractures compatible with exposed lines in an outcrop.
 
     See module-level documentation for futher comments.
@@ -29,10 +29,8 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, **kwargs):
     Parameters:
         pt (np.array, 2 x num_pts): Coordinates of start and endpoints of
             extruded lines.
-        edges (np.array, n x num_pts): Connections between points. Should not
-            have their crossings removed before. Should have 2 or 3 rows - the
-            first two identifying start and endpoints, and the third
-            potentially identifying fracture family relations.
+        edges (np.array, 2 x num_pts): Connections between points. Should not
+            have their crossings removed before.
         ensure_realistic_cut (boolean, defaults to True): If True, we ensure
             that T-intersections do not have cut fractures that extend beyond
             the confining fracture. May overrule user-supplied controls on
@@ -44,6 +42,9 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, **kwargs):
         list of Fracture: Fracture planes.
 
     """
+    assert edges.shape[0] == 2, 'Edges have two endpoints'
+    edges = np.vstack((edges, np.arange(edges.shape[1], dtype=np.int)))
+
     # identify crossings
     split_pt, split_edges = cg.remove_edge_crossings(pt, edges)
 
@@ -60,13 +61,8 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, **kwargs):
     p1 = pt[:, edges[1]]
     exposure = p1 - p0
 
-    if edges.shape[0] > 2:
-        family = edges[2]
-    else:
-        family = None
-
     # Impose incline.
-    rot_ang = impose_inlcine(fractures, exposure, family, **kwargs)
+    rot_ang = impose_inlcine(fractures, exposure, frac_family=family, **kwargs)
 
     # Cut fractures
     for prim, sec, p in zip(prim_frac, sec_frac, other_pt):
