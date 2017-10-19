@@ -49,11 +49,6 @@ class Mpfa(Solver):
         The name of data in the input dictionary (data) are:
         k : second_order_tensor
             Permeability defined cell-wise.
-        f : array (self.g.num_cells)
-            Scalar source term defined cell-wise. Given as net inn/out-flow, i.e.
-            should already have been multiplied with the cell sizes. Positive 
-            values are considered innflow. If not given a zero source
-            term is assumed and a warning arised.
         bc : boundary conditions (optional)
         bc_val : dictionary (optional)
             Values of the boundary conditions. The dictionary has at most the
@@ -113,11 +108,6 @@ class Mpfa(Solver):
         k : second_order_tensor
             Permeability defined cell-wise. If not given a identity permeability
             is assumed and a warning arised.
-        f : array (self.g.num_cells)
-            Scalar source term defined cell-wise. Given as net inn/out-flow, i.e.
-            should already have been multiplied with the cell sizes. Positive
-            values are considered innflow. If not given a zero source
-            term is assumed and a warning arised.
         bc : boundary conditions (optional)
         bc_val : dictionary (optional)
             Values of the boundary conditions. The dictionary has at most the

@@ -344,6 +344,7 @@ def obtain_interdim_mappings(lg, fn, n_per_face):
     # in the higher-dimensional structure.
     assert np.all(is_mem) or np.all(~is_mem),\
         '''Either all cells should have a corresponding face in a higher dim grid
-        or no cells should have a corresponding face in a higher dim grid '''
+        or no cells should have a corresponding face in a higher dim grid. This
+        might be a problem with gmsh or how we read the gmsh output, not sure.. '''
     low_dim_cell = np.where(is_mem)[0]
     return cell_2_face, low_dim_cell

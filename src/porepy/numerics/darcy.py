@@ -1,3 +1,8 @@
+'''
+Module for initializing, assigning data, solve, and save an incompressible flow
+problem assuming darcy's law. Please see the tutorial darcy's equation on the
+porepy github: https://github.com/pmgbergen/porepy
+'''
 import numpy as np
 import scipy.sparse as sps
 
@@ -9,16 +14,57 @@ from porepy.viz.exporter import export_vtk
 
 
 class Darcy():
+    '''
+    Class for solving an incompressible flow problem: 
+    \nabla K \nabla p = q,
+    where K is the second order permeability tenser, p the fluid pressure
+    and q sinks and sources.
+
+    Parameters in Init:
+    gb: (Grid /GridBucket) a grid or grid bucket object. If gb = GridBucket
+        a Parameter class should be added to each grid bucket data node with
+        keyword 'param'.
+    data: (dictionary) Defaults to None. Only used if gb is a Grid. Should
+          contain a Parameter class with the keyword 'Param'
+    physics: (string): defaults to 'flow'
+
+    Functions:
+    solve(): Calls reassemble and solves the linear system.
+             Returns: the pressure p.
+             Sets attributes: self.p
+    step(): Same as solve, but without reassemble of the matrices
+    reassemble(): Assembles the lhs matrix and rhs array. 
+            Returns: lhs, rhs.
+            Sets attributes: self.lhs, self.rhs
+    source_disc(): Defines the discretization of the source term.
+            Returns Source discretization object
+    flux_disc(): Defines the discretization of the flux term.
+            Returns Flux discretization object (E.g., Tpfa)
+    grid(): Returns: the Grid or GridBucket
+    data(): Returns: Data dictionary
+    split(name): Assignes the pressure self.p to the data dictionary at each
+                 node in the GridBucket.
+                 Parameters:
+                    name: (string) The keyword assigned to the pressure
+    discharge(): Calls split('p'). Then calculate the discharges over each
+                 face in the grids and between edges in the GridBucket
+    save(): calls split('p'). Then export the pressure to a vtk file to the 
+            folder self.parameters['folder_name'] with file name
+            self.parameters['file_name']
+    '''
+
     def __init__(self, gb, data=None, physics='flow'):
         self.physics = physics
         self._gb = gb
         self._data = data
-        self.lhs, self.rhs = self.reassemble()
+        self.lhs = []
+        self.rhs = []
         self.p = np.zeros(self.flux_disc().ndof(self.grid()))
         self.parameters = {'file_name': physics}
         self.parameters['folder_name'] = 'results'
 
     def solve(self):
+        self.lhs, self.rhs = self.reassemble()
         self.p = sps.linalg.spsolve(self.lhs, self.rhs)
         return self.p
 
@@ -79,6 +125,41 @@ class Darcy():
 
 
 class DarcyData():
+    '''
+    Class for setting data to an incompressible flow problem: 
+    \nabla K \nabla p = q,
+    where K is the second order permeability tenser, p the fluid pressure
+    and q sinks and sources. This class creates a Parameter object and 
+    assigns the data to this object by calling DarcyData's functions.
+
+    To change the default values create a class that inherits from DarcyData.
+    Then overload the values you whish to change.
+
+    Parameters in Init:
+    gb: (Grid /GridBucket) a grid or grid bucket object
+    data: (dictionary) Dictionary which Parameter will be added to with keyword
+          'param'
+    physics: (string): defaults to 'flow'
+
+    Functions that assign data to Parameter class:
+        bc(): defaults to neumann boundary condition
+             Returns: (Object) boundary condition
+        bc_val(): defaults to 0
+             returns: (ndarray) boundary condition values
+        porosity(): defaults to 1
+             returns: (ndarray) porosity of each cell
+        apperture(): defaults to 1
+             returns: (ndarray) aperture of each cell
+        permeability(): defaults to 1
+             returns: (tensor.SecondOrder) Permeabillity tensor
+        source(): defaults to 0
+             returns: (ndarray) The source and sinks
+
+    Utility functions:
+        grid(): returns: the grid
+
+    '''
+
     def __init__(self, g, data, physics='flow'):
         self._g = g
         self._data = data
