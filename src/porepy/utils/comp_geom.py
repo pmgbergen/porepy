@@ -1303,9 +1303,9 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
 
     # If the rotation of whole second point cloud lies on the same side of z=0,
     # there are no intersections.
-    if poly_2_rot[2].min() > 0:
+    if poly_2_rot[2].min() > tol:
         return None
-    elif poly_2_rot[2].max() < 0:
+    elif poly_2_rot[2].max() < -tol:
         return None
 
     # Check if the second plane is parallel to the first (same xy-plane)
@@ -1364,7 +1364,8 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
 
                 # Sanity check. We have ruled out segments not crossing the
                 # origin above.
-                assert t >= -tol and t <= 1+tol
+                if t < -tol or t > 1+tol:
+                    continue
 
                 # x and y-coordinate for z=0
                 x0 = pt_1[0] + dx * t
