@@ -1381,9 +1381,42 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
                     # inverse rotation, 3) translate to original coordinate.
                     isect = np.hstack((isect, irot.dot(_to3D(p_00)) +
                                        center_1))
+            elif np.abs(pt_1[2]) < tol and np.abs(pt_2[2]) < tol:
+                # The segment lies completely within the polygon plane.
+                both_pts = np.vstack((pt_1, pt_2)).T
+                # Find points within tho polygon itself
+                inside = is_inside_polygon(poly_1_xy, both_pts[:2],tol=tol)
+
+                if inside.all():
+                    # Both points are inside, add and go on
+                    isect = np.hstack((isect, irot.dot(both_pts) + center_1))
+                else:
+                    # A single point is inside. Need to find the intersection between this line segment and the polygon
+                    if inside.any():
+                        isect_loc = both_pts[:2, inside].reshape((2, -1))
+                        p1 = both_pts[:, inside]
+                        p2 = both_pts[:, np.logical_not(inside)]
+                    else:
+                        isect_loc = np.empty((2, 0))
+                        p1 = both_pts[:, 0]
+                        p2 = both_pts[:, 1]
+                    poly_1_start = poly_1
+                    poly_1_end = np.roll(poly_1, 1, axis=1)
+                    for j in range(poly_1.shape[1]):
+                        ip = segments_intersect_3d(p1, p2, poly_1_start[:, j],
+                                                   poly_1_end[:, j])
+                        if ip is not None:
+                            isect_loc = np.hstack((isect_loc, ip[:2]))
+
+                    isect = np.hstack((isect, irot.dot(_to3D(isect_loc)) + center_1))
+
         if isect.shape[1] == 0:
             isect = None
 
+        # For points lying in the plane of poly_1, the same points may be found
+        # several times
+        if isect is not None:
+            isect, _, _ = setmembership.unique_columns_tol(isect, tol=tol)
         return isect
 
 
@@ -2141,7 +2174,7 @@ def dist_segments_polygon(start, end, poly, tol=1e-5):
     start = orig_start
     end = orig_end
 
-    # Distance from endpoints to 
+    # Distance from endpoints to
     d_start_poly, cp_s_p, s_in_poly = dist_points_polygon(start, poly)
     d_end_poly, cp_e_p, e_in_poly = dist_points_polygon(end, poly)
 
