@@ -997,10 +997,10 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     """
 
     # Convert input to numpy if necessary
-    start_1 = np.asarray(start_1).astype(np.float)
-    end_1 = np.asarray(end_1).astype(np.float)
-    start_2 = np.asarray(start_2).astype(np.float)
-    end_2 = np.asarray(end_2).astype(np.float)
+    start_1 = np.asarray(start_1).astype(np.float).ravel()
+    end_1 = np.asarray(end_1).astype(np.float).ravel()
+    start_2 = np.asarray(start_2).astype(np.float).ravel()
+    end_2 = np.asarray(end_2).astype(np.float).ravel()
 
     # Short hand for component of start and end points, as well as vectors
     # along lines.
