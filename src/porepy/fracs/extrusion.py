@@ -46,7 +46,7 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None, *
     edges = np.vstack((edges, np.arange(edges.shape[1], dtype=np.int)))
 
     # identify crossings
-    split_pt, split_edges = cg.remove_edge_crossings(pt, edges)
+    split_pt, split_edges = cg.remove_edge_crossings(pt, edges, **kwargs)
 
     # Find t-intersections
     abutment_pts, prim_frac, sec_frac, other_pt = t_intersections(split_edges)
@@ -253,8 +253,8 @@ def disc_radius_center(lengths, p0, p1, theta=None):
         # Angles of pi/2 will read to point contacts that cannot be handled
         # of the FractureNetwork. Point contacts also make little physical
         # sense, so we vaoid them.
-        hit = np.abs(rnd - 0.5) < 0.01
-        rnd[hit] += 0.01
+        hit = np.abs(rnd - 0.5) < 0.05
+        rnd[hit] += 0.05
         theta = np.pi * (0.1 + 0.8 * rnd)
 
     radius = 0.5 * lengths / np.sin(theta)
@@ -321,6 +321,7 @@ def discs_from_exposure(pt, edges, exposure_angle=None, **kwargs):
         extra_points = np.vstack((np.vstack((p0[:, i], p1[:, i], p0[:, i],
                                              p1[:, i])).T,
                                   extra_point_depth))
+
         fracs.append(create_fracture(center[:, i], radius[i], np.pi/2,
                                      strike_angle[i], extra_points))
     return fracs, ang
@@ -429,11 +430,13 @@ def impose_inlcine(fracs, exposure, frac_family=None, family_mean_incline=None,
 
     return all_ang
 
-def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
+def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
+                          recompute_center=False):
     """ Cut a fracture by a plane, and confine it to one side of the plane.
 
     Intended use is to confine abutting fractures (T-intersections) to one side
-    of the fracture it hits.
+    of the fracture it hits. This is done by deleting points on the abutting
+    fracture.
 
     Parameters:
         main_frac (Fracture): The fracture to be cut.
@@ -528,6 +531,9 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4):
     # Eliminate points that are on the other side.
     eliminate = np.where(sgn * right_sign < 0)[0]
     main_frac.remove_points(eliminate)
+
+    if recompute_center:
+        main_frac.compute_center()
 
     # Add intersection points on the main fracture. One of these may already be
     # present, as the point of extrusion, but add_point will uniquify the point
