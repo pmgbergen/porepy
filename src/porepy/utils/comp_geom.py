@@ -1249,15 +1249,12 @@ def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
 
 #----------------------------------------------------------
 
-def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
+def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
     """
     Find intersections between polygons embeded in 3D.
 
     The intersections are defined as between the interior of the first polygon
     and the boundary of the second.
-
-    TODO:
-        1) Also cover case where the one polygon ends in the plane of the other.
 
     Parameters:
         poly_1 (np.ndarray, 3xn1): Vertexes of polygon, assumed ordered as cw or
@@ -1266,6 +1263,9 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
             as cw or ccw.
         tol (double, optional): Tolerance for when two points are equal.
             Defaults to 1e-8.
+        include_bound_pt (boolean, optional): Include cases where a segment is
+            in the plane of the first ploygon, and the segment crosses the
+            polygon boundary. Defaults to True.
 
     Returns:
         np.ndarray, size 3 x num_isect, coordinates of intersection points; or
@@ -1400,13 +1400,14 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
                         isect_loc = np.empty((2, 0))
                         p1 = both_pts[:, 0]
                         p2 = both_pts[:, 1]
-                    poly_1_start = poly_1
-                    poly_1_end = np.roll(poly_1, 1, axis=1)
-                    for j in range(poly_1.shape[1]):
-                        ip = segments_intersect_3d(p1, p2, poly_1_start[:, j],
-                                                   poly_1_end[:, j])
-                        if ip is not None:
-                            isect_loc = np.hstack((isect_loc, ip[:2]))
+                    if include_bound_pt:
+                        poly_1_start = poly_1
+                        poly_1_end = np.roll(poly_1, 1, axis=1)
+                        for j in range(poly_1.shape[1]):
+                            ip = segments_intersect_3d(p1, p2, poly_1_start[:, j],
+                                                       poly_1_end[:, j])
+                            if ip is not None:
+                                isect_loc = np.hstack((isect_loc, ip[:2]))
 
                     isect = np.hstack((isect, irot.dot(_to3D(isect_loc)) + center_1))
 
