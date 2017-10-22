@@ -368,8 +368,14 @@ class Fracture(object):
         # segment of the other.
 
         # Compute intersections, with both polygons as first argument
-        isect_self_other = cg.polygon_segment_intersect(self.p, other.p, tol=tol)
-        isect_other_self = cg.polygon_segment_intersect(other.p, self.p, tol=tol)
+        # Do not include boundary points of the polygons here, these will be
+        # processed later
+        isect_self_other = cg.polygon_segment_intersect(self.p, other.p,
+                                                        tol=tol,
+                                                        include_bound_pt=False)
+        isect_other_self = cg.polygon_segment_intersect(other.p, self.p,
+                                                        tol=tol,
+                                                        include_bound_pt=False)
 
         # Process data
         if isect_self_other is not None:
@@ -397,8 +403,8 @@ class Fracture(object):
         # There at at the most two intersection points between the fractures
         # (assuming convexity). If two interior points are found, we can simply
         # cut it short here.
-        if int_points.shape[1] == 2:
-            return int_points, on_boundary_self, on_boundary_other
+#        if int_points.shape[1] == 2:
+#            return int_points, on_boundary_self, on_boundary_other
 
         ####
         # Next, check for intersections between the polygon boundaries
@@ -1861,7 +1867,7 @@ class FractureNetwork(object):
                 else:
                     isect_f.append(i.first.index)
 
-                # Assuming the fracture is convex, the closest point for 
+                # Assuming the fracture is convex, the closest point for
                 dist, cp = cg.dist_points_segments(i.coord, f.p,
                                                    np.roll(f.p, 1, axis=1))
                 # Insert a (candidate) point only at the segment closest to the
