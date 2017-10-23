@@ -329,7 +329,7 @@ def assemble_in_bucket(grids, **kwargs):
 
 
 def obtain_interdim_mappings(lg, fn, n_per_face,
-                             ensure_matching_face_cell=True):
+                             ensure_matching_face_cell=True, **kwargs):
     """
     Find mappings between faces in higher dimension and cells in the lower
     dimension
