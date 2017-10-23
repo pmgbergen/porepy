@@ -397,8 +397,21 @@ class Fracture(object):
         if int_points.shape[1] > 1:
             int_points, _, _ \
                 = setmembership.unique_columns_tol(int_points, tol=tol)
-        # There should be at most two of these points
-        assert int_points.shape[1] <= 2
+                
+        # There should be at most two of these points.
+        # In some cases, likely involving extrusion, several segments may lay
+        # essentially in the fracture plane, producing more than two segments.
+        # Thus, if more than two colinear points are found, pick out the first
+        # and last one.
+        if int_points.shape[1] > 2:
+            if cg.is_collinear(int_points, tol):
+                sort_ind = cg.argsort_point_on_line(int_points, tol)
+                int_points = int_points[:, [sort_ind[0], sort_ind[-1]]]
+            else:
+                # This is a bug
+                raise ValueError(''' Found more than two intersection between
+                                 fracture polygons.
+                                 ''')
 
         # There at at the most two intersection points between the fractures
         # (assuming convexity). If two interior points are found, we can simply
