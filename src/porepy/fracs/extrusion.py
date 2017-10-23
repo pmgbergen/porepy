@@ -540,7 +540,7 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
     # cloud.
     # We add the points after elimination, to ensure that the points on the
     # plane are present in the final fracture.
-    main_frac.add_points(isect_pt)
+    main_frac.add_points(isect_pt, check_convexity=False)
 
     # If the main fracture is too large compared to the other, the cut line
     # will extend beyond the confining plane. In these cases, compute the
