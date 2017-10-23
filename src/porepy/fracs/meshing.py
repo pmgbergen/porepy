@@ -20,6 +20,14 @@ def simplex_grid(fracs, domain, **kwargs):
     Main function for grid generation. Creates a fractured simiplex grid in 2
     or 3 dimensions.
 
+    NOTE: For some fracture networks, what appears to be a bug in Gmsh leads to
+    surface grids with cells that does not have a corresponding face in the 3d
+    grid. The problem may have been resolved (at least partly) by newer
+    versions of Gmsh, but can still be an issue for our purposes. If this
+    behavior is detected, an assertion error is raised. To avoid the issue,
+    and go on with a surface mesh that likely is problematic, kwargs should
+    contain a keyword ensure_matching_face_cell=False.
+
     Parameters
     ----------
     fracs (list of np.ndarray): One list item for each fracture. Each item
@@ -78,7 +86,7 @@ def simplex_grid(fracs, domain, **kwargs):
     tag_faces(grids)
 
     # Assemble grids in a bucket
-    gb = assemble_in_bucket(grids)
+    gb = assemble_in_bucket(grids, **kwargs)
     gb.compute_geometry()
     # Split the grids.
     split_grid.split_fractures(gb, **kwargs)
@@ -272,7 +280,7 @@ def nodes_per_face(g):
     return n_per_face
 
 
-def assemble_in_bucket(grids):
+def assemble_in_bucket(grids, **kwargs):
     """
     Create a GridBucket from a list of grids.
     Parameters
@@ -308,7 +316,7 @@ def assemble_in_bucket(grids):
 
             for lg in grids[dim + 1]:
                 cell_2_face, cell = obtain_interdim_mappings(
-                    lg, fn, n_per_face)
+                    lg, fn, n_per_face, **kwargs)
                 face_cells = sps.csc_matrix(
                     (np.array([True] * cell.size), (cell, cell_2_face)),
                     (lg.num_cells, hg.num_faces))
@@ -320,10 +328,20 @@ def assemble_in_bucket(grids):
     return bucket
 
 
-def obtain_interdim_mappings(lg, fn, n_per_face):
+def obtain_interdim_mappings(lg, fn, n_per_face,
+                             ensure_matching_face_cell=True):
     """
     Find mappings between faces in higher dimension and cells in the lower
     dimension
+
+    Parameters:
+        lg: Lower dimensional grid.
+        fn: Higher dimensional face-node relation.
+        n_per_face: Number of nodes per face in the higher-dimensional grid.
+        ensure_matching_face_cell: Boolean, defaults to True. If True, an
+            assertion is made that all lower-dimensional cells corresponds to a
+            higher dimensional cell.
+
     """
     if lg.dim > 0:
         cn_loc = lg.cell_nodes().indices.reshape((n_per_face,
@@ -342,9 +360,10 @@ def obtain_interdim_mappings(lg, fn, n_per_face):
     # An element in cell_2_face gives, for all cells in the
     # lower-dimensional grid, the index of the corresponding face
     # in the higher-dimensional structure.
-    assert np.all(is_mem) or np.all(~is_mem),\
-        '''Either all cells should have a corresponding face in a higher dim grid
-        or no cells should have a corresponding face in a higher dim grid. This
-        might be a problem with gmsh or how we read the gmsh output, not sure.. '''
+    if ensure_matching_face_cell:
+        assert np.all(is_mem) or np.all(~is_mem),\
+            '''Either all cells should have a corresponding face in a higher
+            dim grid or no cells should have a corresponding face in a higher
+            dim grid. This likely is related to gmsh behavior. '''
     low_dim_cell = np.where(is_mem)[0]
     return cell_2_face, low_dim_cell
