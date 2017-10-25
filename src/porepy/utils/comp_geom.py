@@ -1615,7 +1615,7 @@ def is_collinear(pts, tol=1e-5):
     pt0 = pts[:, 0]
     pt1 = pts[:, 1]
 
-    dist = 0
+    dist = 1
     for i in np.arange(pts.shape[1]):
         for j in np.arange(i+1, pts.shape[1]):
             dist = max(dist, np.linalg.norm(pts[:, i] - pts[:, j]))
