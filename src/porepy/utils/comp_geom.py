@@ -1254,7 +1254,10 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
     Find intersections between polygons embeded in 3D.
 
     The intersections are defined as between the interior of the first polygon
-    and the boundary of the second.
+    and the boundary of the second, although intersections on the boundary of
+    both polygons can also be picked up sometimes. If you need to distinguish
+    between the two, the safer option is to also call
+    polygon_boundary_intersect(), and compare the results.
 
     Parameters:
         poly_1 (np.ndarray, 3xn1): Vertexes of polygon, assumed ordered as cw or
@@ -1376,7 +1379,11 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
                 # Check if the first polygon encloses the point. If the
                 # intersection is on the border, this will not be detected.
 
-                if is_inside_polygon(poly_1_xy, p_00, tol=tol):
+                # For fracture intersection, in particular for intrusion /
+                # Y-intersections, it turned out to be critical to have True
+                # as default here. This comes to the price of picking up
+                # some boundary points as well.
+                if is_inside_polygon(poly_1_xy, p_00, tol=tol, default=True):
                     # Back to physical coordinates by 1) expand to 3D, 2)
                     # inverse rotation, 3) translate to original coordinate.
                     isect = np.hstack((isect, irot.dot(_to3D(p_00)) +
