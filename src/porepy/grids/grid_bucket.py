@@ -169,6 +169,7 @@ class GridBucket(object):
         return sorted(nodes, key = lambda n: self.node_prop( n, 'node_number'))
 
 #------------------------------------------------------------------------------#
+
     def nodes_of_edge(self, e):
         """
         Obtain the vertices of an edge.

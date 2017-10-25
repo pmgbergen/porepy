@@ -168,6 +168,7 @@ class Grid(object):
     def __str__(self):
         """ Implementation of __str__
         """
+        s = str()
 
         # Special treatment of point grids.
         if 'PointGrid' in self.name:
