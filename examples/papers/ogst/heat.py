@@ -49,7 +49,7 @@ def add_data_darcy(gb, domain, tol):
 
         param.set_aperture(np.power(apert, gb.dim_max() - g.dim))
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.get_domain_boundary_faces()
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -93,7 +93,7 @@ def add_data_advection(gb, domain, tol):
         param.set_porosity(1)
         param.set_discharge(d['u'])
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.get_domain_boundary_faces()
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -150,8 +150,8 @@ export_every = 5
 
 mesh_kwargs = {}
 mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 125,
-                            'bound_value': 200,
+                            'value': 75,
+                            'bound_value': 150,
                             'file_name': 'soultz_fracs',
                             'tol': tol}
 
