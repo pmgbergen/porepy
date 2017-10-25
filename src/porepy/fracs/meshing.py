@@ -293,6 +293,10 @@ def tag_faces(grids, check_highest_dim=True):
 
     """
 
+    for gs in grids:
+        for g in gs:
+            g.remove_face_tag([True] * g.num_faces, FaceTag.DOMAIN_BOUNDARY)
+
     # Assume only one grid of highest dimension
     if check_highest_dim:
         assert len(grids[0]) == 1, 'Must be exactly'\

@@ -613,7 +613,7 @@ class Grid(object):
         """
         bd_faces = np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel('F')
                                == 1).ravel('F')
-        self.add_face_tag(bd_faces, FaceTag.BOUNDARY)
+        self.add_face_tag(bd_faces, FaceTag.BOUNDARY | FaceTag.DOMAIN_BOUNDARY)
 
     def cell_diameters(self, cn=None):
         """
