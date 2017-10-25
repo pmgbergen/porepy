@@ -1410,6 +1410,42 @@ def is_planar(pts, normal=None, tol=1e-5):
 
 #------------------------------------------------------------------------------#
 
+def is_point_in_cell(pts, pt, if_make_planar=True):
+    """
+    Check whatever a point is inside a cell.
+
+    Parameters:
+    pts (np.ndarray, 3xn): list of ordered point that define the cell
+    pt (np.array, 3): point to be checked
+    if_make_planar (optional, default True): The cell needs to lie on (s, t)
+        plane. If not already done, this flag need to be used.
+
+    Return:
+        boolean, if the point is inside the cell. If a point is on the boundary
+        of the cell the result may be either True or False.
+    """
+    pt.shape = (3, 1)
+    if if_make_planar:
+        R = project_plane_matrix(pts)
+        pts = np.dot(R, pts)
+        pt = np.dot(R, pt)
+
+    j = pts.shape[1]-1
+    is_odd = False
+
+    for i in np.arange(pts.shape[1]):
+        if (pts[1, i] < pt[1] and pts[1, j] >= pt[1]) \
+           or \
+           (pts[1, j] < pt[1] and pts[1, i] >= pt[1]):
+            if (pts[0, i]+(pt[1]-pts[1, i])/(pts[1, j]-pts[1, i])\
+                *(pts[0,j]-pts[0, i])) < pt[0]:
+                is_odd = not is_odd
+        j = i
+
+    return is_odd
+
+#------------------------------------------------------------------------------#
+
 def project_plane_matrix(pts, normal=None, tol=1e-5):
     """ Project the points on a plane using local coordinates.
 
