@@ -431,7 +431,7 @@ def impose_inlcine(fracs, exposure, frac_family=None, family_mean_incline=None,
     return all_ang
 
 def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
-                          recompute_center=False):
+                          recompute_center=False, **kwargs):
     """ Cut a fracture by a plane, and confine it to one side of the plane.
 
     Intended use is to confine abutting fractures (T-intersections) to one side
