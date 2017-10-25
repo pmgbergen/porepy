@@ -518,7 +518,6 @@ class DualVEM(Solver):
         grad = np.eye(dim)/diam
 
         # local matrix D
-        print(K)
         D = np.array([np.dot(normals.T, np.dot(K, g)) for g in grad]).T
 
         # local matrix G
