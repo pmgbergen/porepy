@@ -528,10 +528,9 @@ class GridBucket(object):
                 identified with the grid hierarchy. Same order as input grid.
 
         """
+        new_grids = np.atleast_1d(new_grids)
         assert not np.any([i is j for i in new_grids for j in self.graph])
-
-        for g in new_grids:
-            self.graph.add_node(g)
+        [self.graph.add_node(g) for g in new_grids]
 
 #------------------------------------------------------------------------------#
 
