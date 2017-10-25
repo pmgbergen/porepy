@@ -413,12 +413,6 @@ class Fracture(object):
                                  fracture polygons.
                                  ''')
 
-        # There at at the most two intersection points between the fractures
-        # (assuming convexity). If two interior points are found, we can simply
-        # cut it short here.
-#        if int_points.shape[1] == 2:
-#            return int_points, on_boundary_self, on_boundary_other
-
         ####
         # Next, check for intersections between the polygon boundaries
         bound_sect_self_other = cg.polygon_boundaries_intersect(self.p,
@@ -455,9 +449,7 @@ class Fracture(object):
 
         # Convex polygons can intersect each other in at most two points (and a
         # line inbetween)
-        if int_points.shape[1] > 1:
-            assert bound_pt_self.shape[1] == 0 and bound_pt_other.shape[1] == 0
-        elif int_points.shape[1] == 1:
+        if int_points.shape[1] == 1:
             # There should be exactly one unique boundary point.
             bp = np.hstack((bound_pt_self, bound_pt_other))
             if bp.shape[1] == 0:
@@ -483,8 +475,6 @@ class Fracture(object):
         # If a segment runs through the polygon, there should be no interior points.
         # This may be sensitive to tolerances, should be a useful test to gauge
         # that.
-        if self_cuts_through or other_cuts_through:
-            assert int_points.shape[1] == 0
 
         # Storage for intersection points located on the boundary
         bound_pt = []
