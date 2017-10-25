@@ -937,16 +937,16 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
 #------------------------------------------------------------------------------
 
 
-def compute_discharges(gb, physics='flow'):
+def compute_discharges(gb, physics='flow', p_name='p'):
     """
     Computes discharges over all faces in the entire grid bucket given
     pressures for all nodes, provided as node properties.
-    
+
     Parameter:
     gb: grid bucket with the following data fields for all nodes/grids:
         'flux': Internal discretization of fluxes.
         'bound_flux': Discretization of boundary fluxes.
-        'p': Pressure values for each cell of the grid.
+        'p': Pressure values for each cell of the grid (overwritten by p_name).
         'bc_val': Boundary condition values.
             and the following edge property field for all connected grids:
         'coupling_flux': Discretization of the coupling fluxes.
@@ -963,8 +963,11 @@ def compute_discharges(gb, physics='flow'):
     for g, d in gb:
         if g.dim > 0:
             pa = d['param']
-            dis = d['flux'] * d['p'] + d['bound_flux'] \
-                               * pa.get_bc_val(physics)
+            if d.get('flux') is not None:
+                dis = d['flux'] * d[p_name] + d['bound_flux'] \
+                                   * pa.get_bc_val(physics)
+            else:
+                dis = np.zeros(g.num_faces)
             pa.set_discharge(dis)
 
     for e, data in gb.edges_props():
@@ -975,7 +978,7 @@ def compute_discharges(gb, physics='flow'):
         if  g1.dim != g2.dim and data['face_cells'] is not None:
             pa = data['param']
             coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
-            pressures = gb.nodes_prop([g2, g1], 'p')
+            pressures = gb.nodes_prop([g2, g1], p_name)
             dis = coupling_flux * np.concatenate(pressures)
             pa.set_discharge(dis)
 
@@ -994,7 +997,7 @@ def compute_discharges(gb, physics='flow'):
             cells_1, cells_2 = cc.nonzero()
             coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
 
-            pressures = gb.nodes_prop([g2, g1], 'p')
+            pressures = gb.nodes_prop([g2, g1], p_name)
             p2 = pressures[0][cells_2]
             p1 = pressures[1][cells_1]
             contribution_2 = np.multiply(coupling_flux[cc], p2)
