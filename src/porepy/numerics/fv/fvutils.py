@@ -952,14 +952,14 @@ def compute_discharges(gb, physics='flow'):
         'coupling_flux': Discretization of the coupling fluxes.
     Returns:
         gb, the same grid bucket with the added field 'discharge' added to all
-        node data fields. Note that the fluxes between grids will be added only 
-        at the gb edge, not at the node fields. The sign of the discharges 
+        node data fields. Note that the fluxes between grids will be added only
+        at the gb edge, not at the node fields. The sign of the discharges
         correspond to the directions of the normals, in the edge/coupling case
-        those of the higher grid. For edges beteween grids of equal dimension, 
+        those of the higher grid. For edges beteween grids of equal dimension,
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
-        
+
     for g, d in gb:
         if g.dim > 0:
             pa = d['param']
@@ -969,7 +969,7 @@ def compute_discharges(gb, physics='flow'):
 
     for e, data in gb.edges_props():
         # According to the sorting convention, g2 is the higher dimensional grid,
-        # the one to who's faces the fluxes correspond 
+        # the one to who's faces the fluxes correspond
         g1, g2 = gb.sorted_nodes_of_edge(e)
 
         if  g1.dim != g2.dim and data['face_cells'] is not None:
@@ -980,7 +980,7 @@ def compute_discharges(gb, physics='flow'):
             pa.set_discharge(dis)
 
 
-        elif g1.dim == g2.dim and data['face_cells'] is not None:   
+        elif g1.dim == g2.dim and data['face_cells'] is not None:
             try:
                 pa = data['param']
             except KeyError:
