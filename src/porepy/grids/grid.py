@@ -693,6 +693,12 @@ class Grid(object):
 
         return c2c
 
+    def bounding_box(self):
+        """
+        Return the bounding box of the grid.
+        """
+        return np.amin(self.nodes, axis=1), np.amax(self.nodes, axis=1)
+
     def add_face_tag(self, f, tag):
         self.face_tags[f] = np.bitwise_or(self.face_tags[f], tag)
 
