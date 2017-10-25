@@ -235,8 +235,9 @@ class ParabolicData():
         return np.zeros(self.grid().num_cells)
 
     def porosity(self):
-        'Returns porosity'
-        return np.ones(self.grid().num_cells)
+        '''Returns apperture of each cell. If None is returned, default
+        Parameter class value is used'''
+        return None
 
     def diffusivity(self):
         'Returns diffusivity tensor'
@@ -244,8 +245,9 @@ class ParabolicData():
         return tensor.SecondOrder(self.grid().dim, kxx)
 
     def aperture(self):
-        'Returns apperture of each cell'
-        return np.ones(self.grid().num_cells)
+        '''Returns apperture of each cell. If None is returned, default
+        Parameter class value is used'''
+        return None
 
     def data(self):
         'Returns data dictionary'
@@ -262,8 +264,11 @@ class ParabolicData():
         if 'param' not in self._data:
             self._data['param'] = Parameters(self.grid())
         self._data['param'].set_tensor(self.physics, self.diffusivity())
-        self._data['param'].set_porosity(self.porosity())
         self._data['param'].set_bc(self.physics, self.bc())
         self._data['param'].set_bc_val(self.physics, self.bc_val(0.0))
         self._data['param'].set_source(self.physics, self.source(0.0))
-        self._data['param'].set_aperture(self.aperture())
+
+        if self.porosity() is not None:
+            self._data['param'].set_porosity(self.porosity())
+        if self.aperture() is not None:
+            self._data['param'].set_aperture(self.aperture())
