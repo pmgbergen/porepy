@@ -253,8 +253,8 @@ def disc_radius_center(lengths, p0, p1, theta=None):
         # Angles of pi/2 will read to point contacts that cannot be handled
         # of the FractureNetwork. Point contacts also make little physical
         # sense, so we vaoid them.
-        hit = np.abs(rnd - 0.5) < 0.05
-        rnd[hit] += 0.05
+        hit = np.abs(rnd - 0.5) < 0.1
+        rnd[hit] += 0.1
         theta = np.pi * (0.1 + 0.8 * rnd)
 
     radius = 0.5 * lengths / np.sin(theta)
