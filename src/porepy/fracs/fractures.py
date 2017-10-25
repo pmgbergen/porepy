@@ -433,9 +433,15 @@ class Fracture(object):
         # points
         if len(bound_sect_self_other) == 0 and len(bound_sect_other_self) == 0:
             if check_point_contact and int_points.shape[1] == 1:
-                raise ValueError('Contact in a single point not allowed')
+                # Point contacts are not implemented. Give a warning, return no
+                # interseciton, and hope the meshing software is merciful
+                logger.warning("""Found a point contact between fracture %i
+                               and %i at (%.5f, %.5f, %.5f)""", self.index,
+                               other.index, *int_points)
+                return np.empty((3, 0)), on_boundary_self, on_boundary_other
             # None of the intersection points lay on the boundary
-            return int_points, on_boundary_self, on_boundary_other
+            else:
+                return int_points, on_boundary_self, on_boundary_other
 
         # Else, we have boundary intersection, and need to process them
         bound_pt_self, self_segment, _, self_cuts_through = \
