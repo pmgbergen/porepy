@@ -249,13 +249,15 @@ class DualVEM(Solver):
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        c_centers, f_normals, f_centers, R, _, _ = cg.map_grid(g)
+        c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
 
         # Rotate the permeability tensor and delete last dimension
-        k = k.copy()
-        k.perm = np.tensordot(R.T, np.tensordot(R, k.perm, (1, 0)), (0, 1))
-        k.perm = np.delete(k.perm, (2), axis=0)
-        k.perm = np.delete(k.perm, (2), axis=1)
+        if g.dim < 3:
+            k = k.copy()
+            k.rotate(R)
+            remove_dim = np.where(np.logical_not(dim))[0]
+            k.perm = np.delete(k.perm, (remove_dim), axis=0)
+            k.perm = np.delete(k.perm, (remove_dim), axis=1)
 
         # In the virtual cell approach the cell diameters should involve the
         # apertures, however to keep consistency with the hybrid-dimensional
@@ -516,6 +518,7 @@ class DualVEM(Solver):
         grad = np.eye(dim)/diam
 
         # local matrix D
+        print(K)
         D = np.array([np.dot(normals.T, np.dot(K, g)) for g in grad]).T
 
         # local matrix G
