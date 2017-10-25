@@ -26,7 +26,7 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_example0(self):
+    def test_upwind_example0(self, if_export=False):
         #######################
         # Simple 2d upwind problem with explicit Euler scheme in time
         #######################
@@ -68,16 +68,18 @@ class BasicsTest( unittest.TestCase ):
             production[i] = np.sum(OF.dot(conc))
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
             time[i] = data['deltaT']*i
-            export_vtk(g, "conc_EE", {"conc": conc}, time_step=i, folder=folder)
+            if if_export:
+                export_vtk(g, "conc_EE", {"conc": conc}, time_step=i, folder=folder)
+
+        if if_export:
+            export_pvd(g, "conc_EE", time, folder=folder)
 
         known = 1.09375
         assert np.sum(production) == known
 
-        export_pvd(g, "conc_EE", time, folder=folder)
-
 #------------------------------------------------------------------------------#
 
-    def test_upwind_example1(self):
+    def test_upwind_example1(self, if_export=False):
         #######################
         # Simple 2d upwind problem with implicit Euler scheme in time
         #######################
@@ -117,9 +119,11 @@ class BasicsTest( unittest.TestCase ):
             # Backward and forward substitution to solve the system
             conc = IE_solver(M.dot(conc) + rhs)
             time[i] = data['deltaT']*i
-            export_vtk(g, "conc_IE", {"conc": conc}, time_step=i, folder=folder)
+            if if_export:
+                export_vtk(g, "conc_IE", {"conc": conc}, time_step=i, folder=folder)
 
-        export_pvd(g, "conc_IE", time, folder=folder)
+        if if_export:
+            export_pvd(g, "conc_IE", time, folder=folder)
 
         known = np.array([0.99969927, 0.99769441, 0.99067741, 0.97352474,
                           0.94064879, 0.88804726, 0.81498958, 0.72453722,
@@ -128,7 +132,7 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
-    def test_upwind_example2(self):
+    def test_upwind_example2(self, if_export=False):
         #######################
         # Simple 2d upwind problem with explicit Euler scheme in time coupled with
         # a Darcy problem
@@ -166,7 +170,9 @@ class BasicsTest( unittest.TestCase ):
 
         p, u = solver.extract_p(g, up), solver.extract_u(g, up)
         P0u = solver.project_u(g, u, data)
-        export_vtk(g, "darcy", {"p": p, "P0u": P0u})
+
+        if if_export:
+            export_vtk(g, "darcy", {"p": p, "P0u": P0u})
 
         # Discharge
         param.set_discharge(u)
@@ -200,9 +206,13 @@ class BasicsTest( unittest.TestCase ):
             # Update the solution
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
             time[i] = data['deltaT']*i
-            export_vtk(g, "conc_darcy", {"conc": conc}, time_step=i, folder=folder)
+            if if_export:
+                export_vtk(g, "conc_darcy", {"conc": conc}, time_step=i, folder=folder)
 
-            known = \
+        if if_export:
+            export_pvd(g, "conc_darcy", time, folder=folder)
+
+        known = \
              np.array([  9.63168200e-01,   8.64054875e-01,   7.25390695e-01,
                          5.72228235e-01,   4.25640080e-01,   2.99387331e-01,
                          1.99574336e-01,   1.26276876e-01,   7.59011550e-02,
@@ -239,7 +249,5 @@ class BasicsTest( unittest.TestCase ):
                          3.59980231e-03])
 
         assert np.allclose(conc, known)
-
-        export_pvd(g, "conc_darcy", time, folder=folder)
 
 #------------------------------------------------------------------------------#
