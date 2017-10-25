@@ -10,5 +10,13 @@
 *.vtu
 *.pvd
 *.vrml
+*.txt
+*.csv
 *~
 *.swo
+*.mtx
+*.gz
+*.m
+*.fab
+*.mat
+*.o
