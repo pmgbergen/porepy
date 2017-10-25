@@ -372,10 +372,10 @@ class Fracture(object):
         # processed later
         isect_self_other = cg.polygon_segment_intersect(self.p, other.p,
                                                         tol=tol,
-                                                        include_bound_pt=False)
+                                                        include_bound_pt=True)
         isect_other_self = cg.polygon_segment_intersect(other.p, self.p,
                                                         tol=tol,
-                                                        include_bound_pt=False)
+                                                        include_bound_pt=True)
 
         # Process data
         if isect_self_other is not None:
@@ -530,19 +530,22 @@ class Fracture(object):
         # Special case if a segment is cut as one interior point (by its
         # vertex), and a boundary point on the same segment, this is a boundary
         # segment
-        if int_points.shape[1] == 1 and bound_pt_self.shape[1] == 1:
-            is_vert, vi = self.is_vertex(int_points)
-            seg_i = bound_sect_self_other[0][0]
-            nfp = self.p.shape[1]
-            if is_vert and (vi == seg_i or (seg_i+1) % nfp == vi):
-                on_boundary_self = True
-        if int_points.shape[1] == 1 and bound_pt_other.shape[1] == 1:
-            is_vert, vi = other.is_vertex(int_points)
-            seg_i = bound_sect_other_self[0][0]
-            nfp = other.p.shape[1]
-            if is_vert and (vi == seg_i or (seg_i+1) % nfp == vi):
-                on_boundary_other = True
+        if bound_pt_self.shape[1] == 1:
+            for ind in range(int_points.shape[1]):
+                is_vert, vi = self.is_vertex(int_points[:, ind])
+                seg_i = bound_sect_self_other[0][0]
+                nfp = self.p.shape[1]
+                if is_vert and (vi == seg_i or (seg_i+1) % nfp == vi):
+                    on_boundary_self = True
+        if bound_pt_other.shape[1] == 1:
+            for ind in range(int_points.shape[1]):
+                is_vert, vi = other.is_vertex(int_points[:, ind])
+                seg_i = bound_sect_other_self[0][0]
+                nfp = other.p.shape[1]
+                if is_vert and (vi == seg_i or (seg_i+1) % nfp == vi):
+                    on_boundary_other = True
 
+        bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt, tol=tol)
         return bound_pt, on_boundary_self, on_boundary_other
 
     def _process_segment_isect(self, isect_bound, poly, tol):
