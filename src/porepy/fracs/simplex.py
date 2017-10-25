@@ -302,11 +302,12 @@ def triangle_grid(fracs, domain, **kwargs):
         meshing_algorithm=meshing_algorithm)
     gw.write_geo(in_file)
 
+    triangle_grid_run_gmsh(file_name, **kwargs)
     return triangle_grid_from_gmsh(file_name, **kwargs)
 
 #------------------------------------------------------------------------------#
 
-def triangle_grid_from_gmsh(file_name, **kwargs):
+def triangle_grid_run_gmsh(file_name, **kwargs):
 
     if file_name.endswith('.geo'):
         file_name = file_name[:-4]
@@ -323,11 +324,23 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
                                           **gmsh_opts)
 
     if verbose > 0:
-        start_time = time.time()
         if gmsh_status == 0:
             print('Gmsh processed file successfully')
         else:
             print('Gmsh failed with status ' + str(gmsh_status))
+
+#------------------------------------------------------------------------------#
+
+def triangle_grid_from_gmsh(file_name, **kwargs):
+
+    start_time = time.time()
+
+    if file_name.endswith('.msh'):
+        file_name = file_name[:-4]
+    out_file = file_name + '.msh'
+
+    # Verbosity level
+    verbose = kwargs.get('verbose', 1)
 
     pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
 
