@@ -956,6 +956,61 @@ class GridBucket(object):
         return np.amin(c_0s, axis=1), np.amax(c_1s, axis=1)
 
 #------------------------------------------------------------------------------#
+
+    def num_cells(self, cond=None):
+        """
+        Compute the total number of cells of the grid bucket, considering a loop
+        on all the grids.  It is possible to specify a condition based on the
+        grid to select some of them.
+
+        Parameter:
+            cond: optional, predicate with a grid as input.
+
+        Return:
+            num_cells: the total number of cells of the grid bucket.
+        """
+        if cond is None:
+            cond = lambda _: True
+        return np.sum([g.num_cells for g in self.graph if cond(g)])
+
+#------------------------------------------------------------------------------#
+
+    def num_faces(self, cond=None):
+        """
+        Compute the total number of faces of the grid bucket, considering a loop
+        on all the grids.  It is possible to specify a condition based on the
+        grid to select some of them.
+
+        Parameter:
+            cond: optional, predicate with a grid as input.
+
+        Return:
+            num_faces: the total number of faces of the grid bucket.
+        """
+        if cond is None:
+            cond = lambda _: True
+        return np.sum([g.num_faces for g in self.graph if cond(g)])
+
+#------------------------------------------------------------------------------#
+
+    def num_nodes(self, cond=None):
+        """
+        Compute the total number of nodes of the grid bucket, considering a loop
+        on all the grids.  It is possible to specify a condition based on the
+        grid to select some of them.
+
+        Parameter:
+            cond: optional, predicate with a grid as input.
+
+        Return:
+            num_nodes: the total number of nodes of the grid bucket.
+        """
+        if cond is None:
+            cond = lambda _: True
+        return np.sum([g.num_nodes for g in self.graph if cond(g)])
+
+#------------------------------------------------------------------------------#
+
     def __str__(self):
         max_dim = self.grids_of_dimension(self.dim_max())
         num_nodes = 0
