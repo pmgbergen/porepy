@@ -688,20 +688,26 @@ class Fracture(object):
         # by the box, and extend the two others to cover segments that run
         # through the extension of the plane only.
         west = Fracture(np.array([[x0_box, x0_box, x0_box, x0_box],
-                                  [y0, y1, y1, y0], [z0, z0, z1, z1]]))
+                                  [y0, y1, y1, y0], [z0, z0, z1, z1]]),
+                        check_convexity=False)
         east = Fracture(np.array([[x1_box, x1_box, x1_box, x1_box],
                                   [y0, y1, y1, y0],
-                                  [z0, z0, z1, z1]]))
+                                  [z0, z0, z1, z1]]),
+                        check_convexity=False)
         south = Fracture(np.array([[x0, x1, x1, x0],
                                    [y0_box, y0_box, y0_box, y0_box],
-                                   [z0, z0, z1, z1]]))
+                                   [z0, z0, z1, z1]]),
+                         check_convexity=False)
         north = Fracture(np.array([[x0, x1, x1, x0],
                                    [y1_box, y1_box, y1_box, y1_box],
-                                   [z0, z0, z1, z1]]))
+                                   [z0, z0, z1, z1]]),
+                         check_convexity=False)
         bottom = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
-                                    [z0_box, z0_box, z0_box, z0_box]]))
+                                    [z0_box, z0_box, z0_box, z0_box]]),
+                          check_convexity=False)
         top = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
-                                 [z1_box, z1_box, z1_box, z1_box]]))
+                                 [z1_box, z1_box, z1_box, z1_box]]),
+                       check_convexity=False)
         # Collect in a list to allow iteration
         bound_planes = [west, east, south, north, bottom, top]
 
