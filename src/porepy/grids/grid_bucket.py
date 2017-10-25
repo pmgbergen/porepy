@@ -943,6 +943,19 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
+    def bounding_box(self):
+        """
+        Return the bounding box of the grid bucket.
+        """
+        c_0s = np.empty((3, self.size()))
+        c_1s = np.empty((3, self.size()))
+
+        for i, g in enumerate(self.graph):
+            c_0s[:, i], c_1s[:, i] = g.bounding_box()
+
+        return np.amin(c_0s, axis=1), np.amax(c_1s, axis=1)
+
+#------------------------------------------------------------------------------#
     def __str__(self):
         max_dim = self.grids_of_dimension(self.dim_max())
         num_nodes = 0
