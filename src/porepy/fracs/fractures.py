@@ -1209,8 +1209,8 @@ class FractureNetwork(object):
         # will deal with coinciding points later.
         for fi, frac in enumerate(self._fractures):
             num_p = all_p.shape[1]
-            num_p_loc = frac.orig_p.shape[1]
-            all_p = np.hstack((all_p, frac.orig_p))
+            num_p_loc = frac.p.shape[1]
+            all_p = np.hstack((all_p, frac.p))
 
             loc_e = num_p + np.vstack((np.arange(num_p_loc),
                                        (np.arange(num_p_loc) + 1) % num_p_loc))
