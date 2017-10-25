@@ -1287,12 +1287,12 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
     # Obtain the rotation matrix that projects p1 to the xy-plane
     rot_p_1 = project_plane_matrix(poly_1)
     irot = rot_p_1.transpose()
-    poly_1_xy = rot_p_1.dot(poly_1)
+    poly_1_rot = rot_p_1.dot(poly_1)
 
     # Sanity check: The points should lay on a plane
-    assert np.all(np.abs(poly_1_xy[2]) < tol)
+    assert np.all(np.abs(poly_1_rot[2]) < tol)
     # Drop the z-coordinate
-    poly_1_xy = poly_1_xy[:2]
+    poly_1_xy = poly_1_rot[:2]
 
     # Make sure the xy-polygon is ccw.
     if not is_ccw_polygon(poly_1_xy):
@@ -1400,11 +1400,14 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
                         isect_loc = np.empty((2, 0))
                         p1 = both_pts[:, 0]
                         p2 = both_pts[:, 1]
-                    if include_bound_pt:
-                        poly_1_start = poly_1
-                        poly_1_end = np.roll(poly_1, 1, axis=1)
+
+                    # If a single internal point is found
+                    if isect_loc.shape[1] == 1 or include_bound_pt:
+                        poly_1_start = poly_1_rot
+                        poly_1_end = np.roll(poly_1_rot, 1, axis=1)
                         for j in range(poly_1.shape[1]):
-                            ip = segments_intersect_3d(p1, p2, poly_1_start[:, j],
+                            ip = segments_intersect_3d(p1, p2,
+                                                       poly_1_start[:, j],
                                                        poly_1_end[:, j])
                             if ip is not None:
                                 isect_loc = np.hstack((isect_loc, ip[:2]))
