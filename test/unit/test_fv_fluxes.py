@@ -109,7 +109,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = mpfa.MpfaMultiDim(physics='flow')
+        solver = mpfa.MpfaMixDim(physics='flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
