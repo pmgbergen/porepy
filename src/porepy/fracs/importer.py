@@ -200,7 +200,8 @@ def from_fab(f_name):
             if is_tess:
                 ids, num_vert = line.split()
             else:
-                ids, num_vert, t = line.split()
+                ids, num_vert, t = line.split()[:3]
+
                 trans.append(float(t))
 
             ids = int(ids)
@@ -237,7 +238,8 @@ def from_fab(f_name):
                 fracs, frac_ids, trans = read_fractures(f, is_tess=False)
             elif line.strip() == 'BEGIN TESSFRACTURE':
                 # Read tess_fractures
-                tess_fracs, tess_frac_ids, tess_sgn = read_fractures(f, is_tess=True)
+                tess_fracs, tess_frac_ids, tess_sgn = \
+                                        read_fractures(f, is_tess=True)
             elif line.strip()[:5] == 'BEGIN':
                 # Check for keywords not yet implemented.
                 raise ValueError('Unknown section type ' + line)
