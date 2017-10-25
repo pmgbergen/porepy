@@ -297,33 +297,34 @@ def tag_faces(grids, check_highest_dim=True):
     if check_highest_dim:
         assert len(grids[0]) == 1, 'Must be exactly'\
             '1 grid of dim: ' + str(len(grids))
-    g_h = grids[0][0]
-    bnd_faces = g_h.get_boundary_faces()
-    g_h.add_face_tag(bnd_faces, FaceTag.DOMAIN_BOUNDARY)
-    bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
-    bnd_nodes = np.unique(bnd_nodes)
-    for g_dim in grids[1:-1]:
-        for g in g_dim:
-            # We find the global nodes of all boundary faces
-            bnd_faces_l = g.get_boundary_faces()
-            indptr = g.face_nodes.indptr
-            fn_loc = mcolon.mcolon(
-                indptr[bnd_faces_l], indptr[bnd_faces_l + 1])
-            nodes_loc = g.face_nodes.indices[fn_loc]
-            # Convert to global numbering
-            nodes_glb = g.global_point_ind[nodes_loc]
-            # We then tag each node as a tip node if it is not a global
-            # boundary node
-            is_tip = np.in1d(nodes_glb, bnd_nodes, invert=True)
-            # We reshape the nodes such that each column equals the nodes of
-            # one face. If a face only contains global boundary nodes, the
-            # local face is also a boundary face. Otherwise, we add a TIP tag.
-            n_per_face = nodes_per_face(g)
-            is_tip = np.any(is_tip.reshape(
-                (n_per_face, bnd_faces_l.size), order='F'), axis=0)
-            g.add_face_tag(bnd_faces_l[is_tip], FaceTag.TIP)
-            g.add_face_tag(bnd_faces_l[is_tip == False],
-                           FaceTag.DOMAIN_BOUNDARY)
+
+    for g_h in np.atleast_1d(grids[0]):
+        bnd_faces = g_h.get_boundary_faces()
+        g_h.add_face_tag(bnd_faces, FaceTag.DOMAIN_BOUNDARY)
+        bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
+        bnd_nodes = np.unique(bnd_nodes)
+        for g_dim in grids[1:-1]:
+            for g in g_dim:
+                # We find the global nodes of all boundary faces
+                bnd_faces_l = g.get_boundary_faces()
+                indptr = g.face_nodes.indptr
+                fn_loc = mcolon.mcolon(
+                    indptr[bnd_faces_l], indptr[bnd_faces_l + 1])
+                nodes_loc = g.face_nodes.indices[fn_loc]
+                # Convert to global numbering
+                nodes_glb = g.global_point_ind[nodes_loc]
+                # We then tag each node as a tip node if it is not a global
+                # boundary node
+                is_tip = np.in1d(nodes_glb, bnd_nodes, invert=True)
+                # We reshape the nodes such that each column equals the nodes of
+                # one face. If a face only contains global boundary nodes, the
+                # local face is also a boundary face. Otherwise, we add a TIP tag.
+                n_per_face = nodes_per_face(g)
+                is_tip = np.any(is_tip.reshape(
+                    (n_per_face, bnd_faces_l.size), order='F'), axis=0)
+                g.add_face_tag(bnd_faces_l[is_tip], FaceTag.TIP)
+                g.add_face_tag(bnd_faces_l[is_tip == False],
+                               FaceTag.DOMAIN_BOUNDARY)
 
 
 def nodes_per_face(g):
