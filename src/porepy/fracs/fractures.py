@@ -397,7 +397,7 @@ class Fracture(object):
         if int_points.shape[1] > 1:
             int_points, _, _ \
                 = setmembership.unique_columns_tol(int_points, tol=tol)
-                
+
         # There should be at most two of these points.
         # In some cases, likely involving extrusion, several segments may lay
         # essentially in the fracture plane, producing more than two segments.
@@ -1613,8 +1613,8 @@ class FractureNetwork(object):
         p_2d = rot.dot(p_loc)
 
         extent = p_2d.max(axis=1) - p_2d.min(axis=1)
-
-        assert extent[2] < np.max(extent[:2]) * self.tol * 5
+        lateral_extent = np.maximum(np.max(extent[2]), 1)
+        assert extent[2] < lateral_extent * self.tol * 10
         # Dump third coordinate
         p_2d = p_2d[:2]
 
