@@ -476,7 +476,7 @@ class Parameters(object):
         else:
             return BoundaryCondition(self.g)
 
-    conductivity = property(get_conductivity)
+    bc_transport = property(get_bc_transport)
 
     def get_bc_mechanics(self):
         """ Stiffness matrix, defined as fourth order tensor
@@ -486,7 +486,7 @@ class Parameters(object):
         else:
             return BoundaryCondition(self.g)
 
-    stiffness = property(get_stiffness)
+    bc_mechanics = property(get_bc_mechanics)
 
 
 # Boundary value

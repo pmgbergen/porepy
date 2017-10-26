@@ -16,7 +16,7 @@ from porepy.grids.grid import FaceTag
 from porepy.utils import setmembership, mcolon
 
 
-def simplex_grid(fracs, domain, **kwargs):
+def simplex_grid(fracs=None, domain=None, network=None, **kwargs):
     """
     Main function for grid generation. Creates a fractured simiplex grid in 2
     or 3 dimensions.
@@ -61,7 +61,9 @@ def simplex_grid(fracs, domain, **kwargs):
     gb = simplex_grid(fracs, domain)
 
     """
-    if 'zmax' in domain:
+    if domain is None:
+        ndim = 3
+    elif 'zmax' in domain:
         ndim = 3
     elif 'ymax' in domain:
         ndim = 2
@@ -70,6 +72,8 @@ def simplex_grid(fracs, domain, **kwargs):
 
     # Call relevant method, depending on grid dimensions.
     if ndim == 2:
+        assert fracs is not None, '2d requires definition of fractures'
+        assert domain is not None, '2d requires definition of domain'
         # Convert the fracture to a fracture dictionary.
         if len(fracs) == 0:
             f_lines = np.zeros((2, 0))
@@ -80,7 +84,7 @@ def simplex_grid(fracs, domain, **kwargs):
         frac_dic = {'points': f_pts, 'edges': f_lines}
         grids = simplex.triangle_grid(frac_dic, domain, **kwargs)
     elif ndim == 3:
-        grids = simplex.tetrahedral_grid(fracs, domain, **kwargs)
+        grids = simplex.tetrahedral_grid(fracs, domain, network, **kwargs)
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
     # Tag tip faces

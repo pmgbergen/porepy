@@ -66,6 +66,6 @@ class BasicsTest( unittest.TestCase ):
         R = cg.project_plane_matrix( pts )
         P_pts = np.dot( R, pts )
 
-        assert np.allclose( P_pts[2,:], 1.15470054 * np.ones(4) )
+        assert np.allclose( P_pts[2,:], -1.15470054 * np.ones(4) )
 
 #------------------------------------------------------------------------------#
