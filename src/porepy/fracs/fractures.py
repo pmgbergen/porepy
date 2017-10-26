@@ -529,6 +529,10 @@ class Fracture(object):
         y1 = np.maximum(y1_box, max_coord[1] + 10 * tol)
         z0 = np.minimum(z0_box, min_coord[2] - 10 * tol)
         z1 = np.maximum(z1_box, max_coord[2] + 10 * tol)
+        
+        print('Line ~500')
+        print('Keep this part')
+        print('Need to decide whether to include tolerance')
 
         def outside_box(p, bound_i):
             # Helper function to test if points are outside the bounding box
@@ -554,6 +558,8 @@ class Fracture(object):
         # For each plane, we keep the fixed coordinate to the value specified
         # by the box, and extend the two others to cover segments that run
         # through the extension of the plane only.
+        
+        Move these to FractureNetwork.impose_external_boundary
         west = Fracture(np.array([[x0_box, x0_box, x0_box, x0_box],
                                   [y0, y1, y1, y0], [z0, z0, z1, z1]]))
         east = Fracture(np.array([[x1_box, x1_box, x1_box, x1_box],
@@ -1782,7 +1788,22 @@ class FractureNetwork(object):
 
         return p_2_p, s_2_s
 
-
+    def add_subdomain_boundaries(self, some_format):
+        Translate some_format into a fracture
+        Store them self._fractures so that split_intersections work
+        keep track of this being a fake fracture
+        
+        Perhaps some_format is normal vector? + point
+        Possible issue: How far to extend the polygon - this needs to be done
+        before impose_external_boundary
+        
+        
+        order of operations:
+            1. Define fractures
+            2. add subdomain boundaries
+            3. impose external boundary
+            
+        
     def impose_external_boundary(self, box, truncate_fractures=True):
         """
         Set an external boundary for the fracture set.
@@ -1809,6 +1830,10 @@ class FractureNetwork(object):
         # Insert boundary in the form of a box, and kick out (parts of)
         # fractures outside the box
         self.domain = box
+        
+        Create fractures of box here.
+        Store them self._fractures so that split_intersections work
+        keep track of which fractures are really boundaries - perhaps attribute is_proxy?
 
         if truncate_fractures:
             # Keep track of fractures that are completely outside the domain.

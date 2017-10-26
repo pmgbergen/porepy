@@ -141,6 +141,26 @@ class GmshWriter(object):
         return s
 
     def __write_boundary_3d(self):
+        
+        Drop everything below here, except the information from
+        
+                s += 'Physical Volume(\"' + \
+            constants.PHYSICAL_NAME_DOMAIN + '\") = {1};' + ls
+                
+        Write all polygons to file, real or fake fractures
+        You may need to first define boundary polygons, then volume, then the remaining fractures
+        
+        Perhaps rewrite _write_polygons to either write the first six (e.g. boundaries), or all other
+        
+        Workflow is then:
+            1. __write_boundary_3d
+                -> call write_polygon(write_boundary=True)
+            2. __write_polygons(write_boundary=False) -> from polygon no 7->
+        
+        Define bounding box based on the first six fractures, or similar, or flags
+        
+        
+        
         # Write the bounding box in 3D
         # Pull out bounding coordinates
         xmin = str(self.domain['xmin']) + ', '

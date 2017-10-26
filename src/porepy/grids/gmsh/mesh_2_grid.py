@@ -69,6 +69,17 @@ def create_2d_grids(pts, cells, **kwargs):
             gmsh_num[i] = pn_ind
 
         for fi in np.unique(frac_num):
+            This loop should only produce grids on surfaces that are actually fractures
+            Fractures are identified with physical names
+            a) Either give seperate physical name to non-fractures (e.g. AUX_POLYGON)
+            b) OR: Pass a list of which fractures (numbers) are really not fractures
+            b) is simpler, a) is better (long term)
+            If a) is chosen, you may need to be careful with         
+            
+    
+            if not_real_fracture:
+                continue
+            
             loc_num = np.where(frac_num == fi)[0]
             loc_gmsh_num = gmsh_num[loc_num]
 
@@ -91,6 +102,10 @@ def create_2d_grids(pts, cells, **kwargs):
             # Associate a fracture id (corresponding to the ordering of the
             # frature planes in the original fracture list provided by the
             # user)
+            
+            Here you may need to have a separate counter to avoid holes in the fracture index counting
+            frac_num should reflect the order of the fractures in 
+            FractureNetwork(list_of_fractures)
             g.frac_num = fi
 
             # Append to list of 2d grids
@@ -117,6 +132,12 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
     # Recover lines
     # There will be up to three types of physical lines: intersections (between
     # fractures), fracture tips, and auxiliary lines (to be disregarded)
+
+    Fare fare krigsmann
+    1d lines should only be made where 2 or more real fractures meet
+    Possibly also on the boundary - talk to Runar
+    It may be better to create all grids and kick out later, but before tagging? or assembly in buckte?
+    
 
     g_1d = []
 
