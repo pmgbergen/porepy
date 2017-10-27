@@ -1446,7 +1446,7 @@ def is_point_in_cell(pts, pt, if_make_planar=True):
 
 #------------------------------------------------------------------------------#
 
-def project_plane_matrix(pts, normal=None, tol=1e-5):
+def project_plane_matrix(pts, normal=None, tol=1e-5, reference=[0, 0, 1]):
     """ Project the points on a plane using local coordinates.
 
     The projected points are computed by a dot product.
@@ -1465,18 +1465,19 @@ def project_plane_matrix(pts, normal=None, tol=1e-5):
     if normal is None:
         normal = compute_normal(pts)
     else:
+        normal = np.asarray(normal)
         normal = normal.flatten() / np.linalg.norm(normal)
 
     assert is_planar(pts, normal, tol)
 
-    reference = np.array([0., 0., 1.])
+    reference = np.asarray(reference, dtype=np.float)
     angle = np.arccos(np.dot(normal, reference))
     vect = np.cross(normal, reference)
     return rot(angle, vect)
 
 #------------------------------------------------------------------------------#
 
-def project_line_matrix(pts, tangent=None, tol=1e-5):
+def project_line_matrix(pts, tangent=None, tol=1e-5, reference=[0, 0, 1]):
     """ Project the points on a line using local coordinates.
 
     The projected points are computed by a dot product.
@@ -1497,7 +1498,7 @@ def project_line_matrix(pts, tangent=None, tol=1e-5):
     else:
         tangent = tangent.flatten() / np.linalg.norm(tangent)
 
-    reference = np.array([0., 0., 1.])
+    reference = np.asarray(reference, dtype=np.float)
     angle = np.arccos(np.dot(tangent, reference))
     vect = np.cross(tangent, reference)
     return rot(angle, vect)
