@@ -1262,7 +1262,7 @@ class FractureNetwork(object):
         logger.info("""Uniquify points and edges, starting with %i points, %i
                     edges""", all_p.shape[1], edges.shape[1])
 
-        all_p = cg.snap_to_grid(all_p, tol=self.tol)
+#        all_p = cg.snap_to_grid(all_p, tol=self.tol)
 
         # We now need to find points that occur in multiple places
         p_unique, unique_ind_p, \
@@ -1387,8 +1387,9 @@ class FractureNetwork(object):
             # obtain a more robust algorithm. Not sure about how to do this
             # consistent.
             p_new, edges_new = cg.remove_edge_crossings(p_2d, edges_2d,
-                                                        tol=self.tol*5,
-                                                        verbose=self.verbose)
+                                                        tol=self.tol,
+                                                        verbose=self.verbose,
+                                                        snap=False)
             # Then, patch things up by converting new points to 3D,
 
             # From the design of the functions in cg, we know that new points
