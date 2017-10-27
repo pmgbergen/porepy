@@ -1380,18 +1380,17 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
                 # Representation as point
                 p_00 = np.array([x0, y0]).reshape((-1, 1))
 
-                # Check if the first polygon encloses the point. If the
-                # intersection is on the border, this will not be detected.
+                # Check if the first polygon encloses the point. When applied
+                # to fracture intersections of T-type (segment embedded in the
+                # plane of another fracture), it turned out to be useful to be
+                # somewhat generous with the definition of the intersection.
+                # Therefore, allow for intersections that are slightly outside
+                # the polygon, and use the projection onto the polygon.
+                dist, cp, ins = dist_points_polygon(_to3D(p_00),
+                                                    _to3D(poly_1_xy))
+                if (dist[0] < tol and include_bound_pt) or dist[0] < 1e-12:
+                    isect = np.hstack((isect, irot.dot(cp) + center_1))
 
-                # For fracture intersection, in particular for intrusion /
-                # Y-intersections, it turned out to be critical to have True
-                # as default here. This comes to the price of picking up
-                # some boundary points as well.
-                if is_inside_polygon(poly_1_xy, p_00, tol=tol, default=True):
-                    # Back to physical coordinates by 1) expand to 3D, 2)
-                    # inverse rotation, 3) translate to original coordinate.
-                    isect = np.hstack((isect, irot.dot(_to3D(p_00)) +
-                                       center_1))
             elif np.abs(pt_1[2]) < tol and np.abs(pt_2[2]) < tol:
                 # The segment lies completely within the polygon plane.
                 both_pts = np.vstack((pt_1, pt_2)).T
