@@ -12,8 +12,7 @@ from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import dual
-
-from porepy.utils.errors import error
+from porepy.utils import comp_geom as cg
 
 #------------------------------------------------------------------------------#
 
@@ -30,7 +29,15 @@ def add_data(gb, domain, kf):
 
         # Permeability
         kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
-        param.set_tensor("flow", tensor.SecondOrder(g.dim, kxx))
+        if g.dim == 2:
+            perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+        else:
+            perm = tensor.SecondOrder(3, kxx=kxx, kyy=1, kzz=1)
+            if g.dim == 1:
+                R = cg.project_line_matrix(g.nodes, reference=[1, 0, 0])
+                perm.rotate(R)
+
+        param.set_tensor("flow", perm)
 
         # Source term
         param.set_source("flow", np.zeros(g.num_cells))
@@ -85,13 +92,15 @@ def write_network(file_name):
 
 #------------------------------------------------------------------------------#
 
-def main(kf, known_p, known_u, description, mesh_size):
+def main(kf, description, mesh_size):
     mesh_kwargs = {}
     mesh_kwargs['mesh_size'] = {'mode': 'constant',
                                 'value': mesh_size, 'bound_value': mesh_size}
 
     domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
     if_coarse = True
+
+    folder='vem_' + description + "_not_coarse"
 
     file_name = 'network_geiger.csv'
     write_network(file_name)
@@ -126,42 +135,36 @@ def main(kf, known_p, known_u, description, mesh_size):
         d["p"] = solver.discr.extract_p(g, d["up"])
         d["P0u"] = solver.discr.project_u(g, d["discharge"], d)
 
-    exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem_' + description,
-                        binary=False)
+    exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder=folder, binary=False)
 
     if if_coarse:
+        partition = partition[gb.grids_of_dimension(gb.dim_max())[0]]
         p = np.array([d['p'] for g, d in gb if g.dim == gb.dim_max()]).ravel()
         data = {'partition': partition, 'p': p[partition]}
         exporter.export_vtk(g_fine, 'sub_grid', data, binary=False,
-                            folder='vem_' + description)
+                            folder=folder)
 
-    # Consistency check
-    sum_p = np.sum([np.sum(d['p']) for g, d in gb])
-    assert np.isclose(sum_p, known_p)
-    sum_u = np.sum([np.sum(d['P0u']) for g, d in gb])
-    assert np.isclose(sum_u, known_u)
+    print("diam", gb.diameter(lambda g: g.dim==gb.dim_max()))
+    print("num_cells 2d", gb.num_cells(lambda g: g.dim==2))
+    print("num_cells 1d", gb.num_cells(lambda g: g.dim==1))
 
 #------------------------------------------------------------------------------#
 
 def vem_blocking():
     kf = 1e-4
-    known_p = np.array([3353.92610062, 11550.9015435, 42095.6122356])
-    known_u = np.array([1228.5641806, 4470.07715627, 16480.4368485])
-    mesh_size = np.array([0.035, 0.0175, 0.00875])
+    mesh_size = 0.035 / np.array([1, 2, 4])
 
     for i in np.arange(mesh_size.size):
-        main(kf, known_p[i], known_u[i], "blocking"+str(i), mesh_size[i])
+        main(kf, "blocking_"+str(i), mesh_size[i])
 
 #------------------------------------------------------------------------------#
 
 def vem_permeable():
     kf = 1e4
-    known_p = np.array([1723.86407618, 5958.53425387, 21760.3627239])
-    known_u = np.array([714.214932253, 2546.8328328, 9292.63691179])
-    mesh_size = np.array([0.035, 0.0175, 0.00875])
+    mesh_size = 0.035 / np.array([1, 2, 4])
 
     for i in np.arange(mesh_size.size):
-        main(kf, known_p[i], known_u[i], "permeable"+str(i), mesh_size[i])
+        main(kf, "permeable_"+str(i), mesh_size[i])
 
 #------------------------------------------------------------------------------#
 
