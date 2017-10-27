@@ -13,7 +13,8 @@ from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import dual
 
-from porepy.utils.errors import error
+from porepy.utils import comp_geom as cg
+from porepy.utils import sort_points
 
 #------------------------------------------------------------------------------#
 
@@ -21,7 +22,7 @@ def add_data(gb, domain):
     """
     Define the permeability, apertures, boundary conditions
     """
-    gb.add_node_props(['param'])
+    gb.add_node_props(['param', 'is_tangent'])
     tol = 1e-3
     a = 1e-2
 
@@ -29,10 +30,13 @@ def add_data(gb, domain):
         param = Parameters(g)
 
         # Permeability
+        d['is_tangential'] = True
         if g.dim == 2:
-            perm = tensor.SecondOrder(g.dim, 1e-14*np.ones(g.num_cells))
+            kxx = 1e-14*np.ones(g.num_cells)
         else:
-            perm = tensor.SecondOrder(g.dim, 1e-8*np.ones(g.num_cells))
+            kxx = 1e-8*np.ones(g.num_cells)
+
+        perm = tensor.SecondOrder(g.dim, kxx)
         param.set_tensor("flow", perm)
 
         # Source term
@@ -68,13 +72,57 @@ def add_data(gb, domain):
     gb.add_edge_prop('kn')
     for e, d in gb.edges_props():
         gn = gb.sorted_nodes_of_edge(e)
-        d['kn'] = 1e-8*np.ones(gn[0].num_cells)
+        aperture = np.power(a, gb.dim_max() - gn[0].dim)
+        d['kn'] = 1e-10*np.ones(gn[0].num_cells)/aperture
 
 #------------------------------------------------------------------------------#
 
+def plot_over_line(gb, pts, name, tol):
+
+    values = np.zeros(pts.shape[1])
+    is_found = np.zeros(pts.shape[1], dtype=np.bool)
+
+    for g, d in gb:
+        if g.dim < gb.dim_max():
+            continue
+
+        if not cg.is_planar(np.hstack((g.nodes, pts)), tol=1e-4):
+            continue
+
+        faces_cells, _, _ = sps.find(g.cell_faces)
+        nodes_faces, _, _ = sps.find(g.face_nodes)
+
+        normal = cg.compute_normal(g.nodes)
+        for c in np.arange(g.num_cells):
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+            pts_id_c = np.array([nodes_faces[g.face_nodes.indptr[f]:\
+                                                g.face_nodes.indptr[f+1]]
+                                                   for f in faces_cells[loc]]).T
+            pts_id_c = sort_points.sort_point_pairs(pts_id_c)[0, :]
+            pts_c = g.nodes[:, pts_id_c]
+
+            mask = np.where(np.logical_not(is_found))[0]
+            if mask.size == 0:
+                break
+            check = np.zeros(mask.size, dtype=np.bool)
+            last = False
+            for i, pt in enumerate(pts[:, mask].T):
+                check[i] = cg.is_point_in_cell(pts_c, pt)
+                if last and not check[i]:
+                    break
+            is_found[mask] = check
+            values[mask[check]] = d[name][c]
+
+    return values
+
+##------------------------------------------------------------------------------#
+
+tol = 1e-4
 mesh_kwargs = {}
-mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 10, 'bound_value': 10}
+mesh_kwargs['mesh_size'] = {'mode': 'weighted',
+                            'value': 500,
+                            'bound_value': 500,
+                            'tol': tol}
 
 domain = {'xmin': 0, 'xmax': 700, 'ymin': 0, 'ymax': 600}
 gb = importer.from_csv('network.csv', mesh_kwargs, domain)
@@ -84,8 +132,6 @@ gb.assign_node_ordering()
 
 internal_flag = FaceTag.FRACTURE
 [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
-exporter.export_vtk(gb, 'grid', folder='vem')
 
 # Assign parameters
 add_data(gb, domain)
@@ -98,14 +144,30 @@ up = sps.linalg.spsolve(A, b)
 solver.split(gb, "up", up)
 
 gb.add_node_props(["discharge", "p", "P0u"])
-for g, d in gb:
-    d["u"] = solver.discr.extract_u(g, d["up"])
-    d["p"] = solver.discr.extract_p(g, d["up"])
-    d["P0u"] = solver.discr.project_u(g, d["u"], d)
+solver.extract_u(gb, "up", "discharge")
+solver.extract_p(gb, "up", "p")
+solver.project_u(gb, "discharge", "P0u")
 
-exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem')
+exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='example_5_1_2')
 
-# Consistency check
-kown_p, known_u = 1789235303.43, 7.19640354325e-06
-assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), known_p)
-assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), known_u)
+# This part is very slow and not optimized, it's just to obtain the plots once.
+b_box = gb.bounding_box()
+N_pts = 1000
+y_range = np.linspace(b_box[0][1]+tol, b_box[1][1]-tol, N_pts)
+pts = np.stack((625*np.ones(N_pts), y_range, np.zeros(N_pts)))
+values = plot_over_line(gb, pts, 'p', tol)
+
+arc_length = y_range - b_box[0][1]
+np.savetxt("example_5_1_2/vem_x_625.csv", (arc_length, values))
+
+x_range = np.linspace(b_box[0][0]+tol, b_box[1][0]-tol, N_pts)
+pts = np.stack((x_range, 500*np.ones(N_pts), np.zeros(N_pts)))
+values = plot_over_line(gb, pts, 'p', tol)
+
+arc_length = x_range - b_box[0][0]
+np.savetxt("example_5_1_2/vem_y_500.csv", (arc_length, values))
+
+
+print("diam", gb.diameter(lambda g: g.dim==gb.dim_max()))
+print("num_cells 2d", gb.num_cells(lambda g: g.dim==2))
+print("num_cells 1d", gb.num_cells(lambda g: g.dim==1))

@@ -100,7 +100,7 @@ def main(kf, description, mesh_size):
     domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
     if_coarse = True
 
-    folder='vem_' + description + "_not_coarse"
+    folder='example_5_1_1_' + description
 
     file_name = 'network_geiger.csv'
     write_network(file_name)
@@ -130,10 +130,9 @@ def main(kf, description, mesh_size):
     solver.split(gb, "up", up)
 
     gb.add_node_props(["discharge", "p", "P0u"])
-    for g, d in gb:
-        d["discharge"] = solver.discr.extract_u(g, d["up"])
-        d["p"] = solver.discr.extract_p(g, d["up"])
-        d["P0u"] = solver.discr.project_u(g, d["discharge"], d)
+    solver.extract_u(gb, "up", "discharge")
+    solver.extract_p(gb, "up", "p")
+    solver.project_u(gb, "discharge", "P0u")
 
     exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder=folder, binary=False)
 
