@@ -384,7 +384,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
 #------------------------------------------------------**kwargs------------------------#
 
-def _add_point(vertices, pt, tol=1e-3, **kwargs):
+def _add_point(vertices, pt, tol=1e-3, snap=True, **kwargs):
     """
     Add a point to a point set, unless the point already exist in the set.
 
@@ -414,8 +414,9 @@ def _add_point(vertices, pt, tol=1e-3, **kwargs):
     nd = vertices.shape[0]
     # Before comparing coordinates, snap both existing and new point to the
     # underlying grid
-    vertices = snap_to_grid(vertices, **kwargs)
-    pt = snap_to_grid(pt, **kwargs)
+    if snap:
+        vertices = snap_to_grid(vertices, **kwargs)
+        pt = snap_to_grid(pt, **kwargs)
 
     new_pt = np.empty((nd, 0))
     ind = []
@@ -442,7 +443,8 @@ def _add_point(vertices, pt, tol=1e-3, **kwargs):
 
 #-----------------------------------------------------------------------------#
 
-def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
+def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True,
+                          **kwargs):
     """
     Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
@@ -487,8 +489,9 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
     # Add tolerance to kwargs, this is later passed to split_edges, and further
     # on.
     kwargs['tol'] = tol
-
-    vertices = snap_to_grid(vertices, **kwargs)
+    kwargs['snap'] = snap
+    if snap:
+        vertices = snap_to_grid(vertices, **kwargs)
 
     # Field used for debugging of edge splits. To see the meaning of the values
     # of each split, look in the source code of split_edges.
@@ -617,7 +620,8 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
             if new_pt is None:
                 logger.debug('No intersection found')
             else:
-                new_pt = snap_to_grid(new_pt, tol=tol)
+                if snap:
+                    new_pt = snap_to_grid(new_pt, tol=tol)
                 # The case of segment intersections need special treatment.
                 if new_pt.shape[-1] == 1:
                     logger.debug('Found intersection (%.5f, %.5f)', new_pt[0],
