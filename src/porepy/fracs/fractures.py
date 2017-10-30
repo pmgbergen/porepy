@@ -57,6 +57,7 @@ class Fracture(object):
         self.orig_p = self.p.copy()
 
         self.index = index
+        self.tags = {}
 
         assert self.is_planar(), 'Points define non-planar fracture'
         if check_convexity:
@@ -64,6 +65,12 @@ class Fracture(object):
 
     def set_index(self, i):
         self.index = i
+
+    def set_tag(self, key, value):
+        self.tags[key] = value
+
+    def get_tag(self, key):
+        return self.tags[key]
 
     def __eq__(self, other):
         return self.index == other.index
