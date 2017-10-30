@@ -14,7 +14,7 @@ from porepy.utils.setmembership import unique_columns_tol
 import porepy
 
 
-def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
+def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs):
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
     The function can be call through the wrapper function meshing.simplex_grid.
@@ -41,6 +41,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
         xmin, xmax, ymin, ymax, zmin, zmax.
     network (fractures.FractureNetwork, optional): A FractureNetwork
         containing fractures.
+    subdomain (list, optional): List of planes partitioning the 3d domain
+        into subdomains. The planes are defined in the same way as fracs.
 
     The fractures should be specified either by a combination of fracs and
     box, or by network (possibly combined with box). See above.
@@ -83,7 +85,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
             # revisit.
             if hasattr(f, 'p') and isinstance(f.p, np.ndarray):
                 # Convert the fractures from numpy representation to our 3D
-                # fracture data structure.
+                # fracture data structure. **Kommentar på feil sted?
                 frac_list.append(f)
             else:
                 frac_list.append(fractures.Fracture(f))
@@ -91,11 +93,12 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
         # Combine the fractures into a network
         network = fractures.FractureNetwork(frac_list, verbose=verbose,
                                             tol=kwargs.get('tol', 1e-4))
-
+    # Add any subdomain boundaries:
+    network.add_subdomain_boundaries(subdomains)
     # Impose external boundary. If box is None, a domain size somewhat larger
     # than the network will be assigned.
     network.impose_external_boundary(box)
-
+    
     # Find intersections and split them, preparing the way for dumping the
     # network to gmsh
     if not network.has_checked_intersections:
@@ -135,7 +138,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
             print('Gmsh failed with status ' + str(gmsh_status))
 
     pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
-
+    
     # Invert phys_names dictionary to map from physical tags to corresponding
     # physical names
     phys_names = {v: k for k, v in phys_names.items()}
