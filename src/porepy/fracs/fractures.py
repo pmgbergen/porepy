@@ -1017,12 +1017,15 @@ class FractureNetwork(object):
             np.array (Intersection): Array of intersections
 
         """
-        fi = frac.index
+        if isinstance(frac, int):
+            fi = frac
+        else:
+            fi = frac.index
         frac_arr = []
         for i in self.intersections:
             if i.coord.size == 0:
                 continue
-            if i.first == frac or i.second == frac:
+            if i.first.index == fi or i.second.index == fi:
                 frac_arr.append(i)
         return frac_arr
 
