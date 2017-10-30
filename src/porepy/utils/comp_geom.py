@@ -1799,7 +1799,7 @@ def dist_two_segments(s1_start, s1_end, s2_start, s2_end):
     dot_2_starts = d2.dot(d_starts)
     discr = dot_1_1 * dot_2_2 - dot_1_2 ** 2
     # Sanity check
-    assert discr >= -SMALL_TOLERANCE
+    assert discr >= -SMALL_TOLERANCE * dot_1_1 * dot_2_2
 
     sc = sN = sD = discr
     tc = tN = tD = discr
