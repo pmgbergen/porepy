@@ -9,6 +9,7 @@ generators etc.
 import numpy as np
 import scipy.sparse as sps
 import warnings
+import time
 
 from porepy.fracs import structured, simplex, split_grid
 from porepy.grids.grid_bucket import GridBucket
@@ -16,7 +17,7 @@ from porepy.grids.grid import FaceTag
 from porepy.utils import setmembership, mcolon
 
 
-def simplex_grid(fracs=None, domain=None, network=None, **kwargs):
+def simplex_grid(fracs=None, domain=None, network=None, verbose=0, **kwargs):
     """
     Main function for grid generation. Creates a fractured simiplex grid in 2
     or 3 dimensions.
@@ -70,6 +71,10 @@ def simplex_grid(fracs=None, domain=None, network=None, **kwargs):
     else:
         raise ValueError('simplex_grid only supported for 2 or 3 dimensions')
 
+    if verbose > 0:
+        print('Construct mesh')
+        tm_msh = time.time()
+        tm_tot = time.time()
     # Call relevant method, depending on grid dimensions.
     if ndim == 2:
         assert fracs is not None, '2d requires definition of fractures'
@@ -87,15 +92,38 @@ def simplex_grid(fracs=None, domain=None, network=None, **kwargs):
         grids = simplex.tetrahedral_grid(fracs, domain, network, **kwargs)
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
+
+    if verbose > 0:
+        print('Done. Elapsed time ' + str(time.time() - tm_msh))
+
     # Tag tip faces
     tag_faces(grids)
 
     # Assemble grids in a bucket
+
+    if verbose > 0:
+        print('Assemble in bucket')
+        tm_bucket = time.time()
     gb = assemble_in_bucket(grids, **kwargs)
+    if verbose > 0:
+        print('Done. Elapsed time ' + str(time.time() - tm_bucket))
+        print('Compute geometry')
+        tm_geom = time.time()
+
     gb.compute_geometry()
     # Split the grids.
+    if verbose > 0:
+        print('Done. Elapsed time ' + str(time.time() - tm_geom))
+        print('Split fractures')
+        tm_split = time.time()
     split_grid.split_fractures(gb, **kwargs)
+    if verbose > 0:
+        print('Done. Elapsed time ' + str(time.time() - tm_split))
     gb.assign_node_ordering()
+
+    if verbose > 0:
+        print('Mesh construction completed. Total time ' + str(time.time() - tm_tot))
+
     return gb
 
 #------------------------------------------------------------------------------#

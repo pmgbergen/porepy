@@ -384,7 +384,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
 #------------------------------------------------------**kwargs------------------------#
 
-def _add_point(vertices, pt, tol=1e-3, **kwargs):
+def _add_point(vertices, pt, tol=1e-3, snap=True, **kwargs):
     """
     Add a point to a point set, unless the point already exist in the set.
 
@@ -414,8 +414,9 @@ def _add_point(vertices, pt, tol=1e-3, **kwargs):
     nd = vertices.shape[0]
     # Before comparing coordinates, snap both existing and new point to the
     # underlying grid
-    vertices = snap_to_grid(vertices, **kwargs)
-    pt = snap_to_grid(pt, **kwargs)
+    if snap:
+        vertices = snap_to_grid(vertices, **kwargs)
+        pt = snap_to_grid(pt, **kwargs)
 
     new_pt = np.empty((nd, 0))
     ind = []
@@ -442,7 +443,8 @@ def _add_point(vertices, pt, tol=1e-3, **kwargs):
 
 #-----------------------------------------------------------------------------#
 
-def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
+def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True,
+                          **kwargs):
     """
     Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
@@ -487,8 +489,9 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
     # Add tolerance to kwargs, this is later passed to split_edges, and further
     # on.
     kwargs['tol'] = tol
-
-    vertices = snap_to_grid(vertices, **kwargs)
+    kwargs['snap'] = snap
+    if snap:
+        vertices = snap_to_grid(vertices, **kwargs)
 
     # Field used for debugging of edge splits. To see the meaning of the values
     # of each split, look in the source code of split_edges.
@@ -617,7 +620,8 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
             if new_pt is None:
                 logger.debug('No intersection found')
             else:
-                new_pt = snap_to_grid(new_pt, tol=tol)
+                if snap:
+                    new_pt = snap_to_grid(new_pt, tol=tol)
                 # The case of segment intersections need special treatment.
                 if new_pt.shape[-1] == 1:
                     logger.debug('Found intersection (%.5f, %.5f)', new_pt[0],
@@ -1376,18 +1380,17 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
                 # Representation as point
                 p_00 = np.array([x0, y0]).reshape((-1, 1))
 
-                # Check if the first polygon encloses the point. If the
-                # intersection is on the border, this will not be detected.
+                # Check if the first polygon encloses the point. When applied
+                # to fracture intersections of T-type (segment embedded in the
+                # plane of another fracture), it turned out to be useful to be
+                # somewhat generous with the definition of the intersection.
+                # Therefore, allow for intersections that are slightly outside
+                # the polygon, and use the projection onto the polygon.
+                dist, cp, ins = dist_points_polygon(_to3D(p_00),
+                                                    _to3D(poly_1_xy))
+                if (dist[0] < tol and include_bound_pt) or dist[0] < 1e-12:
+                    isect = np.hstack((isect, irot.dot(cp) + center_1))
 
-                # For fracture intersection, in particular for intrusion /
-                # Y-intersections, it turned out to be critical to have True
-                # as default here. This comes to the price of picking up
-                # some boundary points as well.
-                if is_inside_polygon(poly_1_xy, p_00, tol=tol, default=True):
-                    # Back to physical coordinates by 1) expand to 3D, 2)
-                    # inverse rotation, 3) translate to original coordinate.
-                    isect = np.hstack((isect, irot.dot(_to3D(p_00)) +
-                                       center_1))
             elif np.abs(pt_1[2]) < tol and np.abs(pt_2[2]) < tol:
                 # The segment lies completely within the polygon plane.
                 both_pts = np.vstack((pt_1, pt_2)).T

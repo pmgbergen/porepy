@@ -221,3 +221,27 @@ def test_T_intersection_both_outside_plane(**kwargs):
     domain = {'xmin':-1, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -1,
               'zmax':2}
     grids = meshing.simplex_grid([p1, p2], domain)
+
+def test_T_intersection_both_on_boundary(**kwargs):
+    p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+    p2 = np.array([[0., 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.]]).T
+
+    domain = {'xmin':-1, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -1,
+              'zmax':2}
+    grids = meshing.simplex_grid([p1, p2], domain)
+
+def test_T_intersection_one_boundary_one_outside(**kwargs):
+    p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+    p2 = np.array([[-0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.]]).T
+
+    domain = {'xmin':-1, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -1,
+              'zmax':2}
+    grids = meshing.simplex_grid([p1, p2], domain)
+
+def test_T_intersection_one_boundary_one_inside(**kwargs):
+    p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+    p2 = np.array([[0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.]]).T
+
+    domain = {'xmin':-1, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -1,
+              'zmax':2}
+    grids = meshing.simplex_grid([p1, p2], domain)
