@@ -2140,12 +2140,16 @@ class FractureNetwork(object):
         p = self.decomposition['points']
         edges = self.decomposition['edges']
         edges_2_fracs = self.decomposition['edges_2_frac']
-
+        frac_tags = self._extract_fracture_tags()
         poly = self._poly_2_segment()
 
         edge_tags, intersection_points = self._classify_edges(poly)
+        point_tags = self._on_boundary(edges, edges_2_fracs, edge_tags)
         edges = np.vstack((self.decomposition['edges'], edge_tags))
 
+        # Remove the points at the boundary
+        int_pts_on_boundary = np.isin(intersection_points, np.where(point_tags))
+        intersection_points = intersection_points[np.logical_not(int_pts_on_boundary)]
         self.zero_d_pt = intersection_points
 
         if 'mesh_size' in kwargs.keys():
@@ -2172,6 +2176,24 @@ class FractureNetwork(object):
                             intersection_points=intersection_points,
                             mesh_size_bound=mesh_size_bound,
                             mesh_size=mesh_size, tolerance=gmsh_tolerance,
-                            edges_2_frac=self.decomposition['line_in_frac'])
+                            edges_2_frac=self.decomposition['line_in_frac'],
+                            fracture_tags=frac_tags)
 
         writer.write_geo(file_name)
+
+
+    def _on_boundary(self, edges, edges_2_frac, edge_tags ):
+        boundary_polygons = []
+        for i, f in enumerate(self._fractures):
+            if f.tags.get('Boundary', False):
+                boundary_polygons.append(i)
+        constants = GmshConstants()
+        point_tags = np.zeros(self.decomposition['points'].shape[1])
+        for e, e2f in enumerate(edges_2_frac):
+            if any(np.in1d(e2f, boundary_polygons)):
+                edge_tags[e] = constants.DOMAIN_BOUNDARY_TAG
+                point_tags[edges[:,e]] = constants.DOMAIN_BOUNDARY_TAG
+    
+        return point_tags
+                
+        
