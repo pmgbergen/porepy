@@ -435,6 +435,25 @@ class Fracture(object):
                 return np.empty((3, 0)), on_boundary_self, on_boundary_other
             # None of the intersection points lay on the boundary
             else:
+                def point_on_segment(ip, poly):
+                    # Check if a set of points are located on a single segment
+                    if ip.shape[1] == 0:
+                        return False
+                    start = poly
+                    end = np.roll(poly, 1, axis=1)
+                    for si in range(start.shape[1]):
+                        dist, cp = cg.dist_points_segments(ip, start[:, si],
+                                                           end[:, si])
+                        if np.all(dist < tol):
+                            return True
+                    return False
+
+                # The 'interior' points can still be on the boundary (naming
+                # of variables should be updated). The points form a boundary
+                # segment if they all lie on the a single segment of the
+                # fracture.
+                on_boundary_self = point_on_segment(int_points, self.p)
+                on_boundary_other = point_on_segment(int_points, other.p)
                 return int_points, on_boundary_self, on_boundary_other
 
         # Else, we have boundary intersection, and need to process them
