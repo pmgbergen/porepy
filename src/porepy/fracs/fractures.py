@@ -699,7 +699,8 @@ class Fracture(object):
         # by the box, and extend the two others to cover segments that run
         # through the extension of the plane only.
         
-        Move these to FractureNetwork.impose_external_boundary
+        # Move these to FractureNetwork.impose_external_boundary.
+        # Doesn't immediately work. Depend on the fracture.
         west = Fracture(np.array([[x0_box, x0_box, x0_box, x0_box],
                                   [y0, y1, y1, y0], [z0, z0, z1, z1]]),
                         check_convexity=False)
@@ -1661,8 +1662,6 @@ class FractureNetwork(object):
             f.plot_frame(ax)
         return fig
 
-
-<<<<<<< HEAD
         for i, f_1 in enumerate(self._fractures):
             for j, f_2 in enumerate(self._fractures[i + 1:]):
                 d = np.Inf
@@ -1683,21 +1682,28 @@ class FractureNetwork(object):
 
         return p_2_p, s_2_s
 
-    def add_subdomain_boundaries(self, some_format):
-        Translate some_format into a fracture
-        Store them self._fractures so that split_intersections work
-        keep track of this being a fake fracture
+    def add_subdomain_boundaries(self, vertexes):
+        # Translate some_format into a fracture
+        # Store them self._fractures so that split_intersections work
+        # keep track of this being a fake fracture
 
-        Perhaps some_format is normal vector? + point
-        Possible issue: How far to extend the polygon - this needs to be done
-        before impose_external_boundary
+        # Perhaps some_format is normal vector? + point. For now: defined by list
+        # of set of points, points[i] =  np.array([[x0, x1, x2, x3],
+        #                          [y0, y1, y2, y3], [z0, z1, z2, z3]]), Avoids:
+        # Possible issue: How far to extend the polygon - this needs to be done
+        # before impose_external_boundary
 
 
-        order of operations:
-            1. Define fractures
-            2. add subdomain boundaries
-            3. impose external boundary
-
+        # order of operations:
+        #     1. Define fractures
+        #     2. add subdomain boundaries
+        #     3. impose external boundary
+     
+        for f in vertexes:
+            if not hasattr(f, 'p') and isinstance(f.p, np.ndarray):
+                f = Fracture(points)
+            f.set_tag('Subdomain', True)
+            self.add(f)
 
     def impose_external_boundary(self, box=None, truncate_fractures=True):
         """
@@ -1740,9 +1746,10 @@ class FractureNetwork(object):
         # Insert boundary in the form of a box, and kick out (parts of)
         # fractures outside the box
         self.domain = box
-        Create fractures of box here.
-        Store them self._fractures so that split_intersections work
-        keep track of which fractures are really boundaries - perhaps attribute is_proxy?
+        self._make_bounding_planes(box)
+        #Create fractures of box here.
+        #Store them self._fractures so that split_intersections work
+        #keep track of which fractures are really boundaries - perhaps attribute is_proxy?
 
         if truncate_fractures:
             # Keep track of fractures that are completely outside the domain.
@@ -1767,6 +1774,52 @@ class FractureNetwork(object):
             for f in self._fractures:
                 assert f.p.shape[1] >= 3
 
+
+    def _make_bounding_planes(self, box):
+        """
+        Translate the bounding box into fractures. Tag them as boundaries.
+        For now limited to a box consisting of six planes.
+        """
+        x0 = box['xmin']
+        x1 = box['xmax']
+        y0 = box['ymin']
+        y1 = box['ymax']
+        z0 = box['zmin']
+        z1 = box['zmax']
+        west = Fracture(np.array([[x0, x0, x0, x0],
+                                  [y0, y1, y1, y0], [z0, z0, z1, z1]]),
+                        check_convexity=False)
+        east = Fracture(np.array([[x1, x1, x1, x1],
+                                  [y0, y1, y1, y0],
+                                  [z0, z0, z1, z1]]),
+                        check_convexity=False)
+        south = Fracture(np.array([[x0, x1, x1, x0],
+                                   [y0, y0, y0, y0],
+                                   [z0, z0, z1, z1]]),
+                         check_convexity=False)
+        north = Fracture(np.array([[x0, x1, x1, x0],
+                                   [y1, y1, y1, y1],
+                                   [z0, z0, z1, z1]]),
+                         check_convexity=False)
+        bottom = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+                                    [z0, z0, z0, z0]]),
+                          check_convexity=False)
+        top = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+                                 [z1, z1, z1, z1]]),
+                       check_convexity=False)
+        # Collect in a list to allow iteration
+        bound_planes = [west, east, south, north, bottom, top]
+        for f in bound_planes:
+            f.set_tag('Boundary', True)
+            self.add(f)
+
+
+    def _extract_fracture_tags(self):
+        tags = []
+        for f in self._fractures:
+            tags.append(f.tags)
+        return tags
+        
 
     def _classify_edges(self, polygon_edges):
         """
