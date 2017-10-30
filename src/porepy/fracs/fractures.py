@@ -458,11 +458,12 @@ class Fracture(object):
 
         # Else, we have boundary intersection, and need to process them
         bound_pt_self, self_segment, _, self_cuts_through = \
-                self._process_segment_isect(bound_sect_self_other, self.p, tol)
+                self._process_segment_isect(bound_sect_self_other, self.p, tol,
+                                            other.p)
 
         bound_pt_other, other_segment, _, other_cuts_through = \
                 self._process_segment_isect(bound_sect_other_self, other.p,
-                                            tol)
+                                            tol, self.p)
 
         # Run some sanity checks
 
@@ -557,7 +558,7 @@ class Fracture(object):
         bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt, tol=tol)
         return bound_pt, on_boundary_self, on_boundary_other
 
-    def _process_segment_isect(self, isect_bound, poly, tol):
+    def _process_segment_isect(self, isect_bound, poly, tol, other_poly):
         """
         Helper function to interpret result from polygon_boundaries_intersect
 
@@ -582,11 +583,23 @@ class Fracture(object):
         # Counter for how many times each segment is found
         num_occ = np.zeros(poly.shape[1])
 
+        # Number of vertexes on the other polygon - used below to identify
+        # whether the intersection coincides with these.
+        num_pt_other = other_poly.shape[1]
+
         # Loop over all intersections, process information
         for bi in isect_bound:
 
             # Index of the intersecting segments
-            num_occ[bi[0]] += 1
+
+            # Special case: For T-type intersection where the vertexes of one
+            # polygon lies on the segment of the other, they do not count
+            # towards cutting through the segment.
+            expanded = np.hstack((other_poly, bi[2]))
+            other_unique, _, _ = setmembership.unique_columns_tol(expanded,
+                                                              tol=tol)
+            if other_unique.shape[1] > num_pt_other:
+                num_occ[bi[0]] += 1
 
             # Coordinates of the intersections
             ip = bi[2]
