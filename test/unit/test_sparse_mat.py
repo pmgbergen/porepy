@@ -76,5 +76,60 @@ class TestSparseMath(unittest.TestCase):
         assert np.sum(A2 != A2_t) == 0
         assert np.sum(A0_2 != A0_2_t) == 0
 
+    #------------------ Test sliced_mat() -----------------------
+    def test_sliced_mat_columns(self):
+        # Test slicing of csr_matrix
+        A = sps.csc_matrix(np.array([[0, 0, 0],
+                                     [1, 0, 0],
+                                     [0, 0, 3]]))
+
+        A0_t = sps.csc_matrix(np.array([[0, 0],
+                                        [0, 0],
+                                        [0, 3]]))
+        A1_t = sps.csc_matrix(np.array([[0, 0],
+                                        [1, 0],
+                                        [0, 0]]))
+        A2_t = sps.csc_matrix(np.array([[0],
+                                        [0],
+                                        [3]]))
+        A3_t = sps.csc_matrix(np.array([[],
+                                        [],
+                                        []]))
+
+        A0 = sparse_mat.slice_mat(A, np.array([1, 2], dtype=int))
+        A1 = sparse_mat.slice_mat(A, np.array([0, 1]))
+        A2 = sparse_mat.slice_mat(A, 2)
+        A3 = sparse_mat.slice_mat(A, np.array([], dtype=np.int))
+        import pdb
+        pdb.set_trace()
+
+        assert np.sum(A0 != A0_t) == 0
+        assert np.sum(A1 != A1_t) == 0
+        assert np.sum(A2 != A2_t) == 0
+        assert np.sum(A3 != A3_t) == 0
+
+    def test_sliced_mat_columns(self):
+        # Test slicing of csr_matrix
+        A = sps.csr_matrix(np.array([[0, 0, 0],
+                                     [1, 0, 0],
+                                     [0, 0, 3]]))
+
+        A0_t = sps.csr_matrix(np.array([[1, 0, 0],
+                                        [0, 0, 3]]))
+        A1_t = sps.csr_matrix(np.array([[0, 0, 0],
+                                        [1, 0, 0]]))
+        A2_t = sps.csr_matrix(np.array([[0, 0, 3]]))
+        A3_t = sps.csr_matrix(np.atleast_2d(np.array([[], [], []])).T)
+
+        A0 = sparse_mat.slice_mat(A, np.array([1, 2], dtype=int))
+        A1 = sparse_mat.slice_mat(A, np.array([0, 1]))
+        A2 = sparse_mat.slice_mat(A, 2)
+        A3 = sparse_mat.slice_mat(A, np.array([], dtype=np.int))
+
+        assert np.sum(A0 != A0_t) == 0
+        assert np.sum(A1 != A1_t) == 0
+        assert np.sum(A2 != A2_t) == 0
+        assert np.sum(A3 != A3_t) == 0
+
     if __name__ == '__main__':
         unittest.main()

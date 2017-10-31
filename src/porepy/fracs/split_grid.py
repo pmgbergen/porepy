@@ -484,8 +484,8 @@ def find_cell_color(g, cells):
     """
     c = np.sort(cells)
     # Local cell-face and face-node maps.
-    cf_sub, _ = __extract_submatrix(g.cell_faces, c)
-    child_cell_ind = np.array([-1] * g.num_cells, dtype=np.int)
+    cf_sub = sparse_mat.slice_mat(g.cell_faces, c)
+    child_cell_ind = -np.ones(g.num_cells, dtype=np.int)
     child_cell_ind[c] = np.arange(cf_sub.shape[1])
 
     # Create a copy of the cell-face relation, so that we can modify it at
@@ -537,17 +537,3 @@ def remove_nodes(g, rem):
     g.face_nodes = g.face_nodes[rows_to_keep, :]
     g.nodes = g.nodes[:, rows_to_keep]
     return g
-
-
-def __extract_submatrix(mat, ind):
-    """ From a matrix, extract the column specified by ind. All zero columns
-    are stripped from the sub-matrix. Mappings from global to local row numbers
-    are also returned.
-    """
-    sub_mat = mat[:, ind]
-    cols = sub_mat.indptr
-    rows = sub_mat.indices
-    data = sub_mat.data
-    unique_rows, rows_sub = np.unique(sub_mat.indices,
-                                      return_inverse=True)
-    return sps.csc_matrix((data, rows_sub, cols)), unique_rows
