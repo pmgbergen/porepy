@@ -245,3 +245,21 @@ def test_T_intersection_one_boundary_one_inside(**kwargs):
     domain = {'xmin':-1, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -1,
               'zmax':2}
     grids = meshing.simplex_grid([p1, p2], domain)
+
+def test_issue_54():
+    mesh_kwargs = {}
+    mesh_size = 5e-1
+    mesh_kwargs['mesh_size'] = {'mode': 'constant',
+    'value': mesh_size, 'bound_value': 1.2*mesh_size}
+    mesh_kwargs['file_name'] = 'bounding_box_test'
+    domain = {'xmin': -1, 'xmax': 1,
+              'ymin': 0, 'ymax': 1,
+              'zmin': 0, 'zmax': 1}
+    f_1 = np.array([[.5,.5,.5,.5],
+                    [.4,.5,.5,.4],
+                    [0.2,0.2,.8,.8]])
+    f_2 = np.array([[0,.8,.8,0],
+                    [.5,.5,.5,.5],
+                    [0.2,0.2,.8,.8]])
+    grids = meshing.simplex_grid([f_1, f_2], domain,
+                                 ensure_matching_face_cell=False)
