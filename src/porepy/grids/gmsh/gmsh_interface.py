@@ -258,7 +258,7 @@ class GmshWriter(object):
             p = self.polygons[0][pi].astype('int')
             reverse = self.polygons[1][pi]
             # First define line loop
-            s += 'frac_loop_' + str(pi) + ' = newll; '
+            s += 'frac_loop_' + str(pi) + ' = newll; ' + ls
             s += 'Line Loop(frac_loop_' + str(pi) + ') = { '
             for i, li in enumerate(p):
                 if reverse[i]:
@@ -270,13 +270,14 @@ class GmshWriter(object):
             s += '};' + ls
 
             # Then the surface
-            s += 'fracture_' + str(pi) + ' = news; '
+            s += 'fracture_' + str(pi) + ' = news; ' + ls
             s += 'Plane Surface(fracture_' + str(pi) + ') = {frac_loop_' \
                 + str(pi) + '};' + ls
             s += 'Physical Surface(\"' + constants.PHYSICAL_NAME_FRACTURES \
                  + str(pi) + '\") = {fracture_' + str(pi) + '};' + ls
             if self.domain is not None:
-                s += 'Surface{fracture_' + str(pi) + '} In Volume{1};' + ls + ls
+                s += 'Surface{fracture_' + str(pi) + '} In Volume{' + \
+                     '1' + '};' + ls + ls
 
             for li in self.e2f[pi]:
                 s += 'Line{frac_line_' + str(li) + '} In Surface{fracture_'
@@ -479,6 +480,7 @@ def run_gmsh(in_file, out_file, dims, **kwargs):
         cmd = path_to_gmsh + ' -2 ' + in_file + ' -o ' + out_file + opts
     else:
         cmd = path_to_gmsh + ' -3 ' + in_file + ' -o ' + out_file + opts
+
     status = os.system(cmd)
 
     return status
