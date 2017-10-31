@@ -975,7 +975,14 @@ class EllipticFracture(Fracture):
         # Compute normal vector
         self.normal = cg.compute_normal(self.p)[:, None]
 
+        # Add tag dictionary
+        self.tags = {}
 
+    def set_tag(self, key, value):
+        self.tags[key] = value
+
+    def get_tag(self, key):
+        return self.tags[key]
 #-------------------------------------------------------------------------
 
 
