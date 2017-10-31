@@ -387,16 +387,16 @@ def duplicate_nodes(g, nodes, offset):
 
     _, iv = sort_sub_list(g.face_nodes.indices, g.face_nodes.indptr)
     g.face_nodes = g.face_nodes.tocsr()
-
     # Iterate over each internal node and split it according to the graph.
     # For each cell attached to the node, we check wich color the cell has.
     # All cells with the same color is then attached to a new copy of the
     # node.
+    cell_nodes = g.cell_nodes().tocsr()
     for node in nodes:
         # t_node takes into account the added nodes.
         t_node = node + node_count
         # Find cells connected to node
-        cells = sparse_mat.slice_indices(g.cell_nodes().tocsr(), t_node)
+        cells = sparse_mat.slice_indices(cell_nodes, node)
 #        cell_nodes = g.cell_nodes().tocsr()
 #        ind_ptr = cell_nodes.indptr
 #        cells = cell_nodes.indices[
@@ -454,7 +454,7 @@ def duplicate_nodes(g, nodes, offset):
 def sort_sub_list(indices, indptr):
     ix = np.zeros(indices.size, dtype=int)
     for i in range(indptr.size - 1):
-        sub_ind = mcolon(indptr[i], indptr[i + 1])
+        sub_ind = slice(indptr[i], indptr[i + 1])
         loc_ix = np.argsort(indices[sub_ind])
         ix[sub_ind] = loc_ix + indptr[i]
     indices = indices[ix]

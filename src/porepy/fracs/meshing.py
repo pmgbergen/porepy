@@ -122,7 +122,8 @@ def simplex_grid(fracs=None, domain=None, network=None, verbose=0, **kwargs):
     gb.assign_node_ordering()
 
     if verbose > 0:
-        print('Mesh construction completed. Total time ' + str(time.time() - tm_tot))
+        print('Mesh construction completed. Total time ' +
+              str(time.time() - tm_tot))
 
     return gb
 
@@ -396,7 +397,7 @@ def obtain_interdim_mappings(lg, fn, n_per_face,
     if not (np.all(is_mem) or np.all(~is_mem)):
         if ensure_matching_face_cell:
             raise ValueError(
-            '''Either all cells should have a corresponding face in a higher
+                '''Either all cells should have a corresponding face in a higher
             dim grid or no cells should have a corresponding face in a higher
             dim grid. This likely is related to gmsh behavior. ''')
         else:
