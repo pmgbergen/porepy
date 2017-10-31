@@ -3,6 +3,7 @@ Module for creating simplex grids with fractures.
 """
 import warnings
 import time
+import sys
 import numpy as np
 from meshio import gmsh_io
 
@@ -186,6 +187,7 @@ def _run_gmsh(file_name, network, **kwargs):
             print('Gmsh processed file successfully')
         else:
             print('Gmsh failed with status ' + str(gmsh_status))
+            sys.exit()
 
     pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
 
