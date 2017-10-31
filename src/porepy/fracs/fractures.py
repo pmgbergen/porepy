@@ -457,11 +457,11 @@ class Fracture(object):
                 return int_points, on_boundary_self, on_boundary_other
 
         # Else, we have boundary intersection, and need to process them
-        bound_pt_self, self_segment, _, self_cuts_through = \
+        bound_pt_self, self_segment, is_vertex_self, self_cuts_through = \
                 self._process_segment_isect(bound_sect_self_other, self.p, tol,
                                             other.p)
 
-        bound_pt_other, other_segment, _, other_cuts_through = \
+        bound_pt_other, other_segment, is_vertex_other, other_cuts_through = \
                 self._process_segment_isect(bound_sect_other_self, other.p,
                                             tol, self.p)
 
@@ -503,28 +503,45 @@ class Fracture(object):
         if self_segment:
             assert other_segment  # This should be reflexive
             assert bound_pt_self.shape[1] == 2
-            assert np.allclose(bound_pt_self, bound_pt_other)
+
+            # Depending on whether the intersection points are also vertexes
+            # of the polygons, bound_pt_self and other need not be identical.
+            # Return the uniquified combination of the two
+            bound_pt = np.hstack((bound_pt_other, bound_pt_self))
+            bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt,
+                                                               tol=tol)
+
             on_boundary_self = [True, True]
             on_boundary_other = [True, True]
-            return bound_pt_self, on_boundary_self, on_boundary_other
+            return bound_pt, on_boundary_self, on_boundary_other
 
         # Case where one boundary segment of one fracture cuts through two
         # boundary segment (thus the surface) of the other fracture. Gives a
         # T-type intersection
         if self_cuts_through:
-            assert np.allclose(bound_pt_self, bound_pt_other)
             on_boundary_self = True
             on_boundary_other = False
-            return bound_pt_self, on_boundary_self, on_boundary_other
+            # Depending on whether the intersection points are also vertexes
+            # of the polygons, bound_pt_self and other need not be identical.
+            # Return the uniquified combination of the two
+            bound_pt = np.hstack((bound_pt_other, bound_pt_self))
+            bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt,
+                                                               tol=tol)
+
+            return bound_pt, on_boundary_self, on_boundary_other
         elif other_cuts_through:
-            assert np.allclose(bound_pt_self, bound_pt_other)
             on_boundary_self = False
             on_boundary_other = True
-            return bound_pt_self, on_boundary_self, on_boundary_other
 
-        # By now, there should be a single member of bound_pt
-        assert bound_pt_self.shape[1] == 1 or bound_pt_self.shape[1] == 2
-        assert bound_pt_other.shape[1] == 1 or bound_pt_other.shape[1] == 2
+            # Depending on whether the intersection points are also vertexes
+            # of the polygons, bound_pt_self and other need not be identical.
+            # Return the uniquified combination of the two
+            bound_pt = np.hstack((bound_pt_other, bound_pt_self))
+            bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt,
+                                                               tol=tol)
+
+            return bound_pt, on_boundary_self, on_boundary_other
+
         bound_pt = np.hstack((int_points, bound_pt_self))
 
         # Check if there are two boundary points on the same segment. If so,
@@ -617,8 +634,8 @@ class Fracture(object):
             elif ip_unique.shape[1] == 1:
                 # Either a vertex or single intersection point.
                 poly_ext, _, _ = setmembership.unique_columns_tol(
-                    np.hstack((self.p, ip_unique)), tol=tol)
-                if poly_ext.shape[1] == self.p.shape[1]:
+                    np.hstack((poly, ip_unique)), tol=tol)
+                if poly_ext.shape[1] == poly.shape[1]:
                     # This is a vertex, we skip it
                     pass
                 else:
