@@ -1020,6 +1020,9 @@ class FractureNetwork(object):
         self.h_min = None
         self.h_ideal = None
 
+        # No auxiliary points have been added
+        self.auxiliary_points_added = False
+
     def add(self, f):
         # Careful here, if we remove one fracture and then add, we'll have
         # identical indices.
@@ -1896,6 +1899,7 @@ class FractureNetwork(object):
             return mesh_size, mesh_size_bound
         elif mode == 'distance':
             if self.h_min is None or self.h_ideal is None:
+                print('Found no information on mesh sizes. Returning')
                 return None, None
 
             p = self.decomposition['points']
@@ -1911,11 +1915,39 @@ class FractureNetwork(object):
         else:
             raise ValueError('Unknown mesh size mode ' + mode)
 
-    def compute_distances(self, h_ideal=None, h_min=None):
+    def insert_auxiliary_points(self, h_ideal=None, h_min=None):
+        """ Insert auxiliary points on fracture edges. Used to guide gmsh mesh
+        size parameters.
+
+        The function should only be called once to avoid insertion of multiple
+        layers of extra points, this will likely kill gmsh.
+
+        The function is motivated by similar functionality for 2d domains, but
+        is considerably less mature.
+
+        The function should be used in conjunction with _determine_mesh_size(),
+        called with mode='distance'. The ultimate goal is to set the mesh size
+        for geometrical points in Gmsh. To that end, this function inserts
+        additional points on the fracture boundaries. The mesh size is then
+        determined as the distance between all points in the fracture
+        description.
+
+        Parameters:
+            h_ideal: Ideal mesh size. Will be added to all points that are
+                sufficiently far away from other points.
+            h_min: Minimal mesh size; we will make no attempts to enforce
+                even smaller mesh sizes upon Gmsh.
+
+        """
+
+
+        if self.auxiliary_points_added:
+            print('Auxiliary points already added. Returning.')
+        else:
+            self.auxiliary_points_added = True
 
         self.h_ideal = h_ideal
         self.h_min = h_min
-        isect_pt = np.zeros((3, 0), dtype=np.double)
 
         def dist_p(a, b):
             a = a.reshape((-1, 1))
@@ -1992,17 +2024,6 @@ class FractureNetwork(object):
                         d_2 = dist_p(cp_f[:, mi], f.p[:, (si+1)%nfp])
                         if d_1 > h_min and d_2 > h_min:
                             np.insert(f.p, (si+1)%nfp, cp_f[:, mi], axis=1)
-
-                # Finally, cover the case where the smallest distance is given
-                # by a point. Points with false in_point should already be
-                # covered by the above iteration over segments.
-                d, cp, in_poly = cg.dist_points_polygon(of.p, f.p)
-                for di, cpi, ip in zip(d, cp, in_poly):
-                    # Closest point on segment is covered above
-                    if not ip:
-                        continue
-                    if di < h_ideal:
-                        pass
 
 
     def distance_point_segment(self):
