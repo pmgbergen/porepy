@@ -52,9 +52,12 @@ def slice_indices(A, slice_ind):
     rows = slice_indices(A, np.array([0,2,3]))
     """
     assert A.getformat() == 'csc' or A.getformat() == 'csr'
-    if slice_ind.size == 1:
+    if isinstance(slice_ind, int):
         indices = A.indices[slice(
-            A.indptr[slice_ind], A.indptr[slice_ind + 1])]
+            A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])]
+    elif slice_ind.size == 1:
+        indices = A.indices[slice(
+            A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])]
     else:
         indices = A.indices[mcolon(
             A.indptr[slice_ind], A.indptr[slice_ind + 1])]

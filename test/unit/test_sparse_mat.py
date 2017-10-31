@@ -28,8 +28,9 @@ class TestSparseMath(unittest.TestCase):
         A = sps.csr_matrix(np.array([[0, 0, 0],
                                      [1, 0, 0],
                                      [0, 0, 3]]))
+
         cols_0 = sparse_mat.slice_indices(A, np.array([0]))
-        cols_2 = sparse_mat.slice_indices(A, np.array([2]))
+        cols_2 = sparse_mat.slice_indices(A, 2)
         cols0_2 = sparse_mat.slice_indices(A, np.array([0, 1, 2]))
 
         assert cols_0.size == 0
@@ -41,8 +42,8 @@ class TestSparseMath(unittest.TestCase):
         A = sps.csc_matrix(np.array([[0, 0, 0],
                                      [1, 0, 0],
                                      [0, 0, 3]]))
-        rows_0 = sparse_mat.slice_indices(A, np.array([0]))
-        rows_2 = sparse_mat.slice_indices(A, np.array([2]))
+        rows_0 = sparse_mat.slice_indices(A, np.array([0], dtype=int))
+        rows_2 = sparse_mat.slice_indices(A, 2)
         rows0_2 = sparse_mat.slice_indices(A, np.array([0, 1, 2]))
 
         assert rows_0 == np.array([1])
@@ -67,8 +68,8 @@ class TestSparseMath(unittest.TestCase):
         A0 = A.copy()
         A2 = A.copy()
         A0_2 = A.copy()
-        sparse_mat.zero_columns(A0, np.array([0]))
-        sparse_mat.zero_columns(A2, np.array([2]))
+        sparse_mat.zero_columns(A0, np.array([0], dtype=int))
+        sparse_mat.zero_columns(A2, 2)
         sparse_mat.zero_columns(A0_2, np.array([0, 1, 2]))
 
         assert np.sum(A0 != A0_t) == 0

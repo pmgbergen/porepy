@@ -396,6 +396,7 @@ def duplicate_nodes(g, nodes, offset):
         # t_node takes into account the added nodes.
         t_node = node + node_count
         # Find cells connected to node
+
         cells = sparse_mat.slice_indices(cell_nodes, node)
 #        cell_nodes = g.cell_nodes().tocsr()
 #        ind_ptr = cell_nodes.indptr
