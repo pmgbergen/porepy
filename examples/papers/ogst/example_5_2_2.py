@@ -135,7 +135,7 @@ def add_data_advection(gb, domain, tol):
 #------------------------------------------------------------------------------#
 
 tol = 1e-4
-export_folder = 'example_5_2_1'
+export_folder = 'example_5_2_2'
 
 T = 40*np.pi*1e7
 Nt = 20 # 10 20 40 80 160 320 640 1280 2560 5120 - 100000

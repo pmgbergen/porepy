@@ -17,30 +17,25 @@ from porepy.numerics.vem import dual
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics.fv import tpfa, mass_matrix
 
-from porepy.utils.errors import error
-
 #------------------------------------------------------------------------------#
 
 def add_data_darcy(gb, domain, tol):
-    gb.add_node_props(['param'])
+    gb.add_node_props(['param', 'if_tangent'])
 
     apert = 1e-2
 
     km = 7.5*1e-10 #2.5*1e-11
-    kf_t_low = 1e-5*km
-    kf_n_low = 1e-5*km
 
-    kf_t_high = 5*1e-5
-    kf_n_high = kf_t_high
+    kf = 5*1e-5
 
     for g, d in gb:
 
         param = Parameters(g)
-
+        d['if_tangent'] = True
         if g.dim == gb.dim_max():
             kxx = km
         else:
-            kxx = kf_t_high
+            kxx = kf
 
         perm = tensor.SecondOrder(g.dim, kxx*np.ones(g.num_cells))
         param.set_tensor("flow", perm)
@@ -77,8 +72,7 @@ def add_data_darcy(gb, domain, tol):
     gb.add_edge_prop('kn')
     for e, d in gb.edges_props():
         g = gb.sorted_nodes_of_edge(e)[0]
-        kf_n = kf_n_high
-        d['kn'] = kf_n / gb.node_prop(g, 'param').get_aperture()
+        d['kn'] = kf / gb.node_prop(g, 'param').get_aperture()
 
 #------------------------------------------------------------------------------#
 
@@ -91,7 +85,7 @@ def add_data_advection(gb, domain, tol):
         param.set_source("transport", source)
 
         param.set_porosity(1)
-        param.set_discharge(d['u'])
+        param.set_discharge(d['discharge'])
 
         bound_faces = g.get_domain_boundary_faces()
         if bound_faces.size != 0:
@@ -124,61 +118,49 @@ def add_data_advection(gb, domain, tol):
 
 #------------------------------------------------------------------------------#
 
-def frac_position(frac_num):
-
-    fracs_num = {'top': np.array([0, 1, 2, 3, 4, 5, 6, 11, 19, 20, 21, 22]),
-                 'bottom': np.array([16, 17, 18]),
-                 'center': np.array([7, 8, 9, 10, 12, 13, 14, 15])}
-
-    for pos in fracs_num:
-        if np.any(pos == frac_num):
-            return pos
-
-#------------------------------------------------------------------------------#
-
 sys.path.append('../../example3')
 import soultz_grid
 
-folder = os.path.dirname(os.path.realpath(__file__)) + "/"
-export_folder = folder + 'heat_coarse_blocking'
-tol = 1e-4
+export_folder = 'example_5_3_coarse'
+tol = 1e-6
 
 T = 40*np.pi*1e7
 Nt = 100
 deltaT = T/Nt
 export_every = 5
+if_coarse = True
 
 mesh_kwargs = {}
 mesh_kwargs['mesh_size'] = {'mode': 'constant',
                             'value': 75,
-                            'bound_value': 150,
-                            'file_name': 'soultz_fracs',
+                            'bound_value': 200,
+                            'meshing_algorithm': 4,
                             'tol': tol}
+mesh_kwargs['num_fracs'] = 20
+mesh_kwargs['num_points'] = 10
+mesh_kwargs['file_name'] = 'soultz_fracs'
+domain = {'xmin':-1200, 'xmax': 500,
+          'ymin':-600,  'ymax': 600,
+          'zmin':600,   'zmax':5500}
+mesh_kwargs['domain'] = domain
 
 print("create soultz grid")
-gb, domain = soultz_grid.create_grid(**mesh_kwargs)
+gb = soultz_grid.create_grid(**mesh_kwargs)
 gb.compute_geometry()
-#co.coarsen(gb, 'by_volume')
+if if_coarse:
+    co.coarsen(gb, 'by_volume')
 gb.assign_node_ordering()
 
-print("export grid")
-gb.add_node_props(["cell_id", "frac_num"])
-for g, d in gb:
-    d['cell_id'] = np.arange(g.num_cells)
-    if g.dim==2 and hasattr(g, 'frac_num'):
-        d['frac_num'] = g.frac_num*np.ones(g.num_cells)
-    else:
-        d['frac_num'] = -1*np.ones(g.num_cells)
-
-exporter.export_vtk(gb, 'grid', ['cell_id', 'frac_num'], folder=export_folder)
-
 print("solve Darcy problem")
-gb.add_node_props(['face_tags'])
+gb.add_node_props(['face_tags', 'cell_id'])
 for g, d in gb:
     d['face_tags'] = g.face_tags.copy()
+    d['cell_id'] = np.arange(g.num_cells)
 
 internal_flag = FaceTag.FRACTURE
 [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+
+exporter.export_vtk(gb, 'grid', ['cell_id'], folder=export_folder)
 
 # Choose and define the solvers and coupler
 darcy = dual.DualVEMMixDim("flow")
@@ -191,10 +173,10 @@ A, b = darcy.matrix_rhs(gb)
 up = sps.linalg.spsolve(A, b)
 darcy.split(gb, "up", up)
 
-gb.add_node_props(["p", "P0u", "u"])
-darcy.extract_u(gb, "up", "u")
+gb.add_node_props(["p", "P0u", "discharge"])
+darcy.extract_u(gb, "up", "discharge")
 darcy.extract_p(gb, "up", "p")
-darcy.project_u(gb, "u", "P0u")
+darcy.project_u(gb, "discharge", "P0u")
 
 # compute the flow rate
 total_flow_rate = 0
@@ -203,7 +185,7 @@ for g, d in gb:
     if bound_faces.size != 0:
         bound_face_centers = g.face_centers[:, bound_faces]
         top = bound_face_centers[2, :] > domain['zmax'] - tol
-        flow_rate = d['u'][bound_faces[top]]
+        flow_rate = d['discharge'][bound_faces[top]]
         total_flow_rate += np.sum(flow_rate)
 
 print("total flow rate", total_flow_rate)
@@ -258,13 +240,8 @@ for i in np.arange(Nt):
         step_to_export = np.r_[step_to_export, i]
         i_export += 1
 
-#    exporter.export_vtk(gb, "theta", ["theta"], time_step=i, folder=export_folder)
-
 exporter.export_pvd(gb, file_name, step_to_export*deltaT, folder=export_folder)
 
 np.savetxt(export_folder + '/production.txt', (deltaT*np.arange(Nt),
                                                np.abs(production)),
            delimiter=',')
-
-# Consistency check
-#assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 19.8455019189)
