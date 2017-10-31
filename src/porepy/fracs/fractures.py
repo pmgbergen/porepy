@@ -1902,6 +1902,7 @@ class FractureNetwork(object):
             num_pts = p.shape[1]
             dist = cg.dist_pointset(p, max_diag=True)
             mesh_size = np.min(dist, axis=1)
+            print('Minimal distance between points encountered is ' + str(np.min(dist)))
             mesh_size = np.maximum(mesh_size, self.h_min * np.ones(num_pts))
             mesh_size = np.minimum(mesh_size, self.h_ideal * np.ones(num_pts))
 
