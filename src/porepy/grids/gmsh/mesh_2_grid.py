@@ -107,10 +107,6 @@ def create_2d_grids(pts, cells, **kwargs):
             # Associate a fracture id (corresponding to the ordering of the
             # frature planes in the original fracture list provided by the
             # user)
-            
-            print('Here you may need to have a separate counter to avoid holes in the fracture index counting            frac_num should reflect the order of the fractures in           FractureNetwork(list_of_fractures) mesh2grid 106')
-            import pdb; pdb.set_trace()
-            
             g.frac_num = fi - boundary_count
 
             # Append to list of 2d grids

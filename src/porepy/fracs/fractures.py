@@ -2219,6 +2219,12 @@ class FractureNetwork(object):
 
 
     def _on_boundary(self, edges, edges_2_frac, edge_tags ):
+        """
+        Finds edges and points on boundary, to avoid that these
+        are meshed. Should be refined to avoid kicking out real
+        intersections at boundaries (e.g., two real fractures meeting
+        at the boundary).
+        """
         boundary_polygons = []
         for i, f in enumerate(self._fractures):
             if f.tags.get('Boundary', False):
