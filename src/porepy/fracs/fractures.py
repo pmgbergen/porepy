@@ -2219,11 +2219,13 @@ class FractureNetwork(object):
         else:
             gmsh_tolerance = self.tol
 
+        meshing_algorithm = kwargs['mesh_size'].get('meshing_algorithm', None)
         writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
                             intersection_points=intersection_points,
                             mesh_size_bound=mesh_size_bound,
                             mesh_size=mesh_size, tolerance=gmsh_tolerance,
-                            edges_2_frac=self.decomposition['line_in_frac'])
+                            edges_2_frac=self.decomposition['line_in_frac'],
+                            meshing_algorithm=meshing_algorithm)
 
 
         writer.write_geo(file_name)
