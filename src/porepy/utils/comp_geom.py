@@ -471,6 +471,10 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
     NotImplementedError if a 3D point array is provided.
 
     """
+    # Sanity check of input specification edge endpoints
+    assert np.all(np.diff(edges[:2], axis=0) != 0), 'Found point edge before'\
+        'removal of intersections'
+
     # Use a non-standard naming convention for the logger to
     logger = logging.getLogger(__name__ + '.remove_edge_crossings')
 
