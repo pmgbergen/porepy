@@ -251,13 +251,14 @@ class DualVEM(Solver):
         # surface coordinates in 1d and 2d)
         c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
 
-        # Rotate the permeability tensor and delete last dimension
-        if g.dim < 3:
-            k = k.copy()
-            k.rotate(R)
-            remove_dim = np.where(np.logical_not(dim))[0]
-            k.perm = np.delete(k.perm, (remove_dim), axis=0)
-            k.perm = np.delete(k.perm, (remove_dim), axis=1)
+        if not data.get('is_tangential', False):
+                # Rotate the permeability tensor and delete last dimension
+                if g.dim < 3:
+                    k = k.copy()
+                    k.rotate(R)
+                    remove_dim = np.where(np.logical_not(dim))[0]
+                    k.perm = np.delete(k.perm, (remove_dim), axis=0)
+                    k.perm = np.delete(k.perm, (remove_dim), axis=1)
 
         # In the virtual cell approach the cell diameters should involve the
         # apertures, however to keep consistency with the hybrid-dimensional
@@ -281,7 +282,7 @@ class DualVEM(Solver):
             faces_loc = faces[loc]
 
             # Compute the H_div-mass local matrix
-            A = self.massHdiv(a[c]*k.perm[:, :, c], c_centers[:, c],
+            A = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
                               g.cell_volumes[c], f_centers[:, faces_loc],
                               f_normals[:, faces_loc], sign[loc],
                               diams[c], weight[c])[0]
