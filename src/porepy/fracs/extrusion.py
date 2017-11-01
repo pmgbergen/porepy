@@ -62,7 +62,8 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None, *
     exposure = p1 - p0
 
     # Impose incline.
-    rot_ang = impose_inlcine(fractures, exposure, frac_family=family, **kwargs)
+    rot_ang = impose_inlcine(fractures, exposure, p0, frac_family=family,
+                             **kwargs)
 
     # Cut fractures
     for prim, sec, p in zip(prim_frac, sec_frac, other_pt):
@@ -86,7 +87,7 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None, *
             strike = np.arctan2(e1[1] - e0[1], e1[0]- e0[0])
             f = create_fracture(center, new_radius, np.pi/2, strike,
                                 np.vstack((e0, e1)).T)
-            rotate_fracture(f, e1-e0, rot_ang[prim])
+            rotate_fracture(f, e1-e0, rot_ang[prim], p0[:, prim])
             fractures[prim] = f
 
     return fractures
@@ -383,28 +384,40 @@ def create_fracture(center, radius, dip, strike, extra_points):
     return f
 
 
-def rotate_fracture(frac, vec, angle):
-    """ Rotate a fracture along a specified strike vector.
+def rotate_fracture(frac, vec, angle, exposure):
+    """ Rotate a fracture along a specified strike vector, and centered on a
+    given point on the fracture surface.
+
+    Modification of the fracture coordinates is done in place.
+
+    TODO: Move this to the fracture itself?
 
     Parameters:
         frac (Fracture): To be rotated. Points are modified in-place.
-        vec (np.array-like): Rotation will be around this angle.
+        vec (np.array-like): Rotation will be around this vector.
         ang (double). Rotation angle. Measured in radians.
+        exposure (np.array-like): Point on the strike vector, rotation will be
+            centered around the line running through this point.
 
     """
+    vec = np.asarray(vec)
+    exposure = np.asarray(exposure)
 
     if vec.size == 2:
         vec = np.append(vec, 0)
+    if exposure.size == 2:
+        exposure = np.append(exposure, 0)
+    exposure = exposure.reshape((3, 1))
 
     rot = cg.rot(angle, vec)
     p = frac.p
-    center = np.mean(p, axis=1).reshape((-1, 1))
-    frac.p = center + rot.dot(p - center)
+    frac.p = exposure + rot.dot(p - exposure)
     frac.points_2_ccw()
 
 
-def impose_inlcine(fracs, exposure, frac_family=None, family_mean_incline=None,
-                   family_std_incline=None, **kwargs):
+def impose_inlcine(fracs, exposure_line, exposure_point, frac_family=None,
+                   family_mean_incline=None, family_std_incline=None,
+                   **kwargs):
     """ Impose incline on the fractures from family-based parameters.
 
     The incline for each family is specified in terms of its mean and standard
@@ -414,8 +427,10 @@ def impose_inlcine(fracs, exposure, frac_family=None, family_mean_incline=None,
 
     Parameters:
         fracs (list of Frature): Fractures to be inclined.
-        exposure (np.array, 3xnum_frac): Exposed line for each fracture
+        exposure_line (np.array, 3xnum_frac): Exposed line for each fracture
             (visible in outcrop). Rotation will be around this line.
+        exposure_point (np.array, 3xnum_frac): Point on exposure line. This
+            point will not be rotated, it's a fixture.
         family (np.array, num_fracs): For each fracture, which family does it
             belong to. If not provided, all fractures are considered to belong
             to the same family.
@@ -438,13 +453,13 @@ def impose_inlcine(fracs, exposure, frac_family=None, family_mean_incline=None,
     if family_std_incline is None:
         family_std_incline = np.zeros(np.unique(frac_family).size)
 
-    exposure = np.vstack((exposure, np.zeros(len(fracs))))
+    exposure_line = np.vstack((exposure_line, np.zeros(len(fracs))))
     all_ang = np.zeros(len(fracs))
     for fi, f in enumerate(fracs):
         fam = frac_family[fi]
         ang = np.random.normal(loc=family_mean_incline[fam],
                                scale=family_std_incline[fam])
-        rotate_fracture(f, exposure[:, fi], ang)
+        rotate_fracture(f, exposure_line[:, fi], ang, exposure_point[:, fi])
         all_ang[fam] = ang
 
     return all_ang
