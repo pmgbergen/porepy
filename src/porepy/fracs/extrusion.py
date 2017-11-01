@@ -116,7 +116,7 @@ def _intersection_by_num_node(edges, num):
     return crosses, edges_of_crosses
 
 
-def t_intersections(edges):
+def t_intersections(edges, remove_three_families=True):
     """ Find points involved in T-intersections.
 
     A t-intersection is defined as a point involved in three fracture segments,
@@ -129,6 +129,9 @@ def t_intersections(edges):
         edges (np.array, 3 x n): Fractures. First two rows give indices of
             start and endpoints. Last row gives index of fracture that the
             segment belongs to.
+        remove_three_families (boolean, defaults to True): If True,
+            T-intersections with where fractures from three different families
+            meet will be removed.
 
     Returns:
         abutments (np.ndarray, int): indices of points that are
@@ -144,16 +147,24 @@ def t_intersections(edges):
     frac_num = edges[-1]
     abutments, edges_of_abutments = _intersection_by_num_node(edges, 3)
 
+    # Initialize fields for abutments.
     num_abut = abutments.size
     primal_frac = np.zeros(num_abut, dtype=np.int)
     sec_frac = np.zeros(num_abut, dtype=np.int)
     other_point = np.zeros(num_abut, dtype=np.int)
+
+    # If fractures meeting in a T-intersection all have different family names,
+    # these will be removed from the list.
+    remove = np.zeros(num_abut, dtype=np.bool)
+
     for i, (pi, ei) in enumerate(zip(abutments, edges_of_abutments)):
         # Count number of occurences for each fracture associated with this
         # intersection.
         fi_all = frac_num[ei]
         fi, count = np.unique(fi_all, return_counts=True)
-        assert fi.size == 2
+        if fi.size > 2:
+             remove[i] = 1
+             continue
         # Find the fracture number associated with main and abutting edge.
         if count[0] == 1:
             primal_frac[i] = fi[1]
@@ -169,6 +180,14 @@ def t_intersections(edges):
             other_point[i] = edges[1, ei_abut]
         else:
             other_point[i] = edges[0, ei_abut]
+
+    # Remove any T-intersections that did not belong to
+    if remove_three_families and remove.any():
+         remove = np.where(remove)[0]
+         abutments = np.delete(abutments, remove)
+         primal_frac = np.delete(primal_frac, remove)
+         sec_frac = np.delete(sec_frac, remove)
+         other_point = np.delete(other_point, remove)
 
     return abutments, primal_frac, sec_frac, other_point
 
