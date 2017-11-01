@@ -24,6 +24,7 @@ class DualVEMMixDim(SolverMixDim):
         self.physics = physics
 
         self.discr = DualVEM(self.physics)
+        self.discr_ndof = self.discr.ndof
         self.coupling_conditions = DualCoupling(self.discr)
 
         self.solver = Coupler(self.discr, self.coupling_conditions)
