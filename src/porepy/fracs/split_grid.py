@@ -300,7 +300,7 @@ def update_cell_connectivity(g, face_id, normal, x0):
     """
 
     # We find the cells attached to the tagged faces.
-    # g.cell_faces = g.cell_faces.tocsr()
+    g.cell_faces = g.cell_faces.tocsr()
     cell_frac = g.cell_faces[face_id, :]
     cell_face_id = np.argwhere(cell_frac)
 
@@ -339,18 +339,18 @@ def update_cell_connectivity(g, face_id, normal, x0):
     col = cell_face_id[~left_cell, 1]
     row = cell_face_id[~left_cell, 0]
     data = np.ravel(g.cell_faces[np.ravel(face_id[row]), col])
-    cell_frac_right = sps.csc_matrix((data, (row, col)),
+    cell_frac_right = sps.csr_matrix((data, (row, col)),
                                      (face_id.size, g.cell_faces.shape[1]))
 
- #   assert g.cell_faces.getformat() == 'csr'
- #   sparse_mat.merge_matrices(g.cell_faces, cell_frac_right, face_id)
-    g.cell_faces[face_id, :] = cell_frac_right
+    assert g.cell_faces.getformat() == 'csr'
+    sparse_mat.merge_matrices(g.cell_faces, cell_frac_right, face_id)
+ #   g.cell_faces[face_id, :] = cell_frac_right
     # And then we add the new left-faces to the cell_face map. We do not
     # change the sign of the matrix since we did not flip the normals.
     # This means that the normals of right and left cells point in the same
     # direction, but their cell_faces values have oposite signs.
     # sparse_mat.stack_mat(g.cell_faces, cell_frac_left)
-    # g.cell_faces.tocsc()
+    g.cell_faces.tocsc()
     g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
 
     return 0
