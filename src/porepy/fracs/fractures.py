@@ -52,7 +52,7 @@ class Fracture(object):
         # Ensure the points are ccw
         self.points_2_ccw()
         self.compute_centroid()
-        self.normal = cg.compute_normal(points)[:, None]
+        self.compute_normal()
 
         self.orig_p = self.p.copy()
 
@@ -263,6 +263,11 @@ class Fracture(object):
 
         # Project back again.
         self.center = rot.transpose().dot(np.append(center, z)).reshape((3, 1))
+
+    def compute_normal(self):
+        """ Compute normal to the polygon.
+        """
+        self.normal = cg.compute_normal(self.p)[:, None]
 
     def as_sp_polygon(self, p=None):
         """ Represent polygon as a sympy object.

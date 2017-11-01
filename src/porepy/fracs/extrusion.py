@@ -415,6 +415,7 @@ def rotate_fracture(frac, vec, angle, exposure):
 
     frac.points_2_ccw()
     frac.compute_centroid()
+    frac.compute_normal()
 
 
 def impose_inlcine(fracs, exposure_line, exposure_point, frac_family=None,
