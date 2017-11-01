@@ -84,7 +84,7 @@ class SecondOrder(object):
                 kyz = 0 * kxx
             # Onsager's principle
             if not np.all((kxx * (kyy * kzz - kyz * kyz) -
-                           kxy * (kyz * kzz - kxz * kyz) +
+                           kxy * (kxy * kzz - kxz * kyz) +
                            kxz * (kxy * kyz - kxz * kyy)) > 0):
                 raise ValueError('Tensor is not positive definite because of '
                                  'components in z-direction')

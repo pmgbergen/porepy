@@ -125,6 +125,7 @@ def add_data_advection_diffusion(gb, domain, tol):
 #------------------------------------------------------------------------------#
 
 
+do_save = False
 folder = os.path.dirname(os.path.realpath(__file__)) + "/"
 export_folder = folder + 'advection_diffusion_coupling'
 tol = 1e-3
@@ -164,7 +165,8 @@ for g, d in gb:
     d["p"] = darcy.discr.extract_p(g, d["up"])
     d["P0u"] = darcy.discr.project_u(g, discharge, d)
 
-exporter.export_vtk(gb, 'darcy', ["p", "P0u"], folder=export_folder)
+if do_save:
+    exporter.export_vtk(gb, 'darcy', ["p", "P0u"], folder=export_folder)
 
 #################################################################
 
@@ -184,6 +186,6 @@ D, rhs_d = diffusion.matrix_rhs(gb)
 theta = sps.linalg.spsolve(D + U, rhs_u + rhs_d)
 diffusion.split(gb, "temperature", theta)
 
-exporter.export_vtk(gb, 'advection_diffusion', [
-                    "temperature"], folder=export_folder)
-
+if do_save:
+    exporter.export_vtk(gb, 'advection_diffusion', [
+        "temperature"], folder=export_folder)

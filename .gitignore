@@ -22,3 +22,6 @@
 *.o
 *.py_o
 *.so
+*.coverage
+.cache/*
+bin/*

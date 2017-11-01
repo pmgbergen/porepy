@@ -1,9 +1,10 @@
 import numpy as np
 import scipy.sparse as sps
 
+
 class Coupler(object):
 
-#------------------------------------------------------------------------------#
+    #------------------------------------------------------------------------------#
 
     def __init__(self, discr=None, coupling=None, **kwargs):
 
@@ -128,6 +129,34 @@ class Coupler(object):
         gb.add_node_prop(key)
         for g, d in gb:
             i = d['node_number']
-            d[key] = values[slice(dofs[i], dofs[i+1])]
+            d[key] = values[slice(dofs[i], dofs[i + 1])]
 
+#------------------------------------------------------------------------------#
+    def merge(self, gb, key):
+        """
+        Merge the stored split function stored in the grid bucket to a vector.
+        The values are put into the global  vector according to the numeration
+        given by "node_number".
+
+        Parameters
+        ----------
+        gb : grid bucket with geometry fields computed.
+        key: new name of the solution to be stored in the grid bucket.
+
+        Returns
+        -------
+        values: (ndarray) the values stored in the bucket as an array
+        """
+        self.ndof(gb)
+        dofs = np.empty(gb.size(), dtype=int)
+        for _, d in gb:
+            dofs[d['node_number']] = d['dof']
+        dofs = np.r_[0, np.cumsum(dofs)]
+        values = np.zeros(dofs[-1])
+
+        for g, d in gb:
+            i = d['node_number']
+            values[slice(dofs[i], dofs[i + 1])] = d[key]
+
+        return values
 #------------------------------------------------------------------------------#
