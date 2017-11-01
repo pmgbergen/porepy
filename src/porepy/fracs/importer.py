@@ -115,7 +115,8 @@ def fractures_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
 
 #------------------------------------------------------------------------------#
 
-def read_dfn(file_name, file_inters=None, conforming=True, tol=None, **kwargs):
+def read_dfn(file_name, file_inters=None, conforming=True, tol=None,
+             vtk_name=None, **kwargs):
     """ Read the fractures and (possible) intersection from files.
     The fractures are in a .fab file, as specified by FracMan.
     The intersection are specified in the function intersection_dfn.
@@ -125,6 +126,8 @@ def read_dfn(file_name, file_inters=None, conforming=True, tol=None, **kwargs):
         file_intersections (str): Optional path to intersection file.
         conforming (boolean): If True, the mesh will be conforming along 1d
             intersections.
+        vtk_name (str): Gives the possibility to export the network in a vtu
+            file. Consider the suffix of the file as ".vtu".
         **kwargs: Parameters passed to gmsh.
 
     Returns:
@@ -137,6 +140,9 @@ def read_dfn(file_name, file_inters=None, conforming=True, tol=None, **kwargs):
         network = FractureNetwork(fractures, tol=tol)
     else:
         network = FractureNetwork(fractures)
+
+    if vtk_name is not None:
+        network.to_vtk(vtk_name)
 
     if file_inters is None:
         return meshing.dfn(network, conforming, **kwargs)
