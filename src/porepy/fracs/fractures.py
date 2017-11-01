@@ -262,7 +262,7 @@ class Fracture(object):
         center = np.sum(cc * area, axis=1) / np.sum(area)
 
         # Project back again.
-        self.center = rot.transpose().dot(np.append(center, z))
+        self.center = rot.transpose().dot(np.append(center, z)).reshape((3, 1))
 
     def as_sp_polygon(self, p=None):
         """ Represent polygon as a sympy object.
