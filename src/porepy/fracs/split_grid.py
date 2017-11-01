@@ -7,7 +7,7 @@ from scipy import sparse as sps
 import warnings
 
 from porepy.utils.half_space import half_space_int
-from porepy.utils import sparse_mat
+from porepy.utils import sparse_mat, setmembership
 from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
 from porepy.grids.grid import Grid, FaceTag
@@ -254,6 +254,7 @@ def update_face_cells(face_cells, face_id, i):
     # For the other lower-dim grids we just add zeros to conserve
     # the right matrix dimensions.
     for j, f_c in enumerate(face_cells):
+        assert f_c.getformat() == 'csc'
         if j == i:
             f_c = sps.hstack((f_c, f_c[:, face_id]))
         else:
@@ -415,21 +416,27 @@ def duplicate_nodes(g, nodes, offset):
         new_nodes = np.repeat(g.nodes[:, t_node, None], colors.size, axis=1)
         faces = np.array([], dtype=int)
         face_pos = np.array([g.face_nodes.indptr[t_node]])
+        assert g.cell_faces.getformat() == 'csc'
+        assert g.face_nodes.getformat() == 'csr'
+        faces_of_node_t = sparse_mat.slice_indices(g.face_nodes, t_node)
         for j in range(colors.size):
             # For each color we wish to add one node. First we find all faces that
-            # are connected to the fracture node, and have the correct cell
+            # are connected to the fracture node and have the correct cell
             # color
-            local_faces = (g.cell_faces[:, cells[ix == j]]).nonzero()[0]
-            local_faces = np.unique(local_faces)
-            con_to_node = np.ravel(g.face_nodes[t_node, local_faces].todense())
-            faces = np.append(faces, local_faces[con_to_node])
-            # These faces is then attached to new node number j.
-            face_pos = np.append(face_pos, face_pos[-1] + np.sum(con_to_node))
+            colored_faces = sparse_mat.slice_indices(
+                g.cell_faces, cells[ix == j])
+            colored_faces = np.unique(colored_faces)
+            is_colored = np.in1d(
+                faces_of_node_t, colored_faces, assume_unique=True)
+
+            faces = np.append(faces, faces_of_node_t[is_colored])
+            # These faces are then attached to new node number j.
+            face_pos = np.append(face_pos, face_pos[-1] + np.sum(is_colored))
             # If an offset is given, we will change the position of the nodes.
             # We move the nodes a length of offset away from the fracture(s).
             if offset > 0 and colors.size > 1:
                 new_nodes[:, j] -= avg_normal(g,
-                                              local_faces[con_to_node]) * offset
+                                              faces_of_node_t[is_colored]) * offset
         # The total number of faces should not have changed, only their
         # connection to nodes. We can therefore just update the indices and
         # indptr map.
