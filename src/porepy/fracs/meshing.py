@@ -181,7 +181,12 @@ def from_gmsh(file_name, dim, **kwargs):
     """
     # Call relevant method, depending on grid dimensions.
     if dim == 2:
-        grids = simplex.triangle_grid_from_gmsh(file_name, **kwargs)
+        if file_name.endswith('.geo'):
+            simplex.triangle_grid_run_gmsh(file_name, **kwargs)
+            grids = simplex.triangle_grid_from_gmsh(file_name, **kwargs)
+        elif file_name.endswith('.msh'):
+            grids = simplex.triangle_grid_from_gmsh(file_name, **kwargs)
+
 #    elif dim == 3:
 #        grids = simplex.tetrahedral_grid_from_gmsh(file_name, **kwargs)
 #   NOTE: function simplex.tetrahedral_grid needs to be split as did for
