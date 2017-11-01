@@ -103,8 +103,3 @@ solver.extract_p(gb, "up", "p")
 solver.project_u(gb, "discharge", "P0u")
 
 exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem')
-
-# Consistency check
-kown_p, known_u = 1789235303.43, 7.19640354325e-06
-assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), known_p)
-assert np.isclose(np.sum(error.norm_L2(g, d['P0u']) for g, d in gb), known_u)

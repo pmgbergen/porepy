@@ -88,7 +88,7 @@ def write_network(file_name):
 
 #------------------------------------------------------------------------------#
 
-def main(kf, l2_norm, description, multi_point):
+def main(kf, description, multi_point):
 
     # Define the geometry and produce the meshes
     mesh_kwargs = {}
@@ -123,36 +123,28 @@ def main(kf, l2_norm, description, multi_point):
     solver.split(gb, "p", p)
     exporter.export_vtk(gb, 'fv', ["p"], folder='fv_blocking')
 
-    # Consistency check
-    sum_p = np.sum([np.sum(d['p']) for g, d in gb])
-    assert np.isclose(sum_p, l2_norm)
-
 #------------------------------------------------------------------------------#
 
 def test_fv_blocking():
     kf = 1e-4
-    known_p = 3764.01127376
-    main(kf, known_p, "blocking", False)
+    main(kf, "blocking", multi_point=False)
 
 #------------------------------------------------------------------------------#
 
 def test_fv_permeable():
     kf = 1e4
-    known_p = 1954.56637486
-    main(kf, known_p, "permeable", False)
+    main(kf, "permeable", multi_point=False)
 
 #------------------------------------------------------------------------------#
 
 def test_mpfa_blocking():
     kf = 1e-4
-    known_p = 3753.06014349
-    main(kf, known_p, "blocking", True)
+    main(kf, "blocking", multi_point=True)
 
 #------------------------------------------------------------------------------#
 
 def test_mpfa_permeable():
     kf = 1e4
-    known_p = 1953.01419355
-    main(kf, known_p, "permeable", True)
+    main(kf, "permeable", multi_point=True)
 
 #------------------------------------------------------------------------------#
