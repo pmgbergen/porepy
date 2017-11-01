@@ -555,6 +555,10 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
 
     isect_pt, _, _ = main_frac.intersects(aux_frac, tol)
 
+    if isect_pt.size == 0:
+        print('No intersection found in cutting of fractures')
+        return main_frac
+
     # Next step is to eliminate points in the main fracture that are on the
     # wrong side of the other fracture.
     v = main_frac.p - other_frac.center.reshape((-1, 1))
