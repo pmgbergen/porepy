@@ -2219,7 +2219,11 @@ class FractureNetwork(object):
         else:
             gmsh_tolerance = self.tol
 
-        meshing_algorithm = kwargs['mesh_size'].get('meshing_algorithm', None)
+        if 'mesh_size' in kwargs.keys():
+            meshing_algorithm = kwargs['mesh_size'].get('meshing_algorithm', None)
+        else:
+            meshing_algorithm = None
+
         writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
                             intersection_points=intersection_points,
                             mesh_size_bound=mesh_size_bound,
