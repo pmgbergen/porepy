@@ -88,11 +88,6 @@ class Mpfa(Solver):
         The name of data in the input dictionary (data) are:
         k : second_order_tensor
             Permeability defined cell-wise.
-        f : array (self.g.num_cells)
-            Scalar source term defined cell-wise. Given as net inn/out-flow, i.e.
-            should already have been multiplied with the cell sizes. Positive
-            values are considered innflow. If not given a zero source
-            term is assumed and a warning arised.
         bc : boundary conditions (optional)
         bc_val : dictionary (optional)
             Values of the boundary conditions. The dictionary has at most the
@@ -129,24 +124,20 @@ class Mpfa(Solver):
         param = data['param']
 
         bc_val = param.get_bc_val(self)
-        f = param.get_source(self)
 
-        return M, self.rhs(g, bound_flux, bc_val, f)
+        return M, self.rhs(g, bound_flux, bc_val)
 
 #------------------------------------------------------------------------------#
 
-    def rhs(self, g, bound_flux, bc_val, f):
+    def rhs(self, g, bound_flux, bc_val):
         """
         Return the righ-hand side for a discretization of a second order elliptic
         equation using the MPFA method. See self.matrix_rhs for a detaild
         description.
         """
-        if f is None:
-            f = np.zeros(g.num_cells)
-            warnings.warn('Scalar source not assigned, assumed null')
         div = g.cell_faces.T
 
-        return -div * bound_flux * bc_val + f
+        return -div * bound_flux * bc_val
 
 #------------------------------------------------------------------------------#
 
@@ -156,11 +147,6 @@ class Mpfa(Solver):
         k : second_order_tensor
             Permeability defined cell-wise. If not given a identity permeability
             is assumed and a warning arised.
-        f : array (self.g.num_cells)
-            Scalar source term defined cell-wise. Given as net inn/out-flow, i.e.
-            should already have been multiplied with the cell sizes. Positive
-            values are considered innflow. If not given a zero source
-            term is assumed and a warning arised.
         bc : boundary conditions (optional)
         bc_val : dictionary (optional)
             Values of the boundary conditions. The dictionary has at most the
@@ -319,6 +305,35 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
 
     return flux, bound_flux
 
+#------------------------------------------------------------------------------
+
+class MpfaMultiDim(Solver):
+    """
+    Solver class for a multi-dimensional Mpfa discretization with a Tpfa
+    coupling between dimensions.
+    """
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
+        discr = Mpfa(self.physics)
+        coupling_conditions = TpfaCoupling(discr)
+        self.solver = Coupler(discr, coupling_conditions)
+
+    def ndof(self, gb):
+        ndof = 0
+        for g, _ in gb:
+            ndof += g.num_cells
+        return ndof
+
+    def matrix_rhs(self, gb):
+        """
+        Returns the solution matrix and right hand side for the global system,
+        see Coupler.matrix_rhs.
+        """
+        return self.solver.matrix_rhs(gb)
+
+    def split(self, gb, names, var):
+        return self.solver.split(gb, names, var)
 #------------------------------------------------------------------------------
 
 def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,

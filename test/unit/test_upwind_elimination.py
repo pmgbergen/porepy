@@ -10,10 +10,12 @@ from porepy.params.data import Parameters
 
 from porepy.numerics.fv import tpfa, fvutils
 from porepy.numerics.fv.transport import upwind
+from porepy.numerics.fv.source import IntegralMultiDim
 from porepy.numerics.mixed_dim import coupler, condensation
 #------------------------------------------------------------------------------#
 
-class BasicsTest( unittest.TestCase ):
+
+class BasicsTest(unittest.TestCase):
     """
     Tests for the elimination fluxes.
     """
@@ -30,24 +32,24 @@ class BasicsTest( unittest.TestCase ):
                        [.5, .5]])
         f2 = np.array([[.5, .5],
                        [0, 1]])
-        domain = {'xmin': 0, 'ymin': 0, 'xmax':1, 'ymax':1}
+        domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
         mesh_size = 0.4
         mesh_kwargs = {}
         mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': mesh_size, 'bound_value': mesh_size}
-        gb = meshing.cart_grid( [f1,f2], [2, 2], **{'physdims': [1, 1]})
+                                    'value': mesh_size, 'bound_value': mesh_size}
+        gb = meshing.cart_grid([f1, f2], [2, 2], **{'physdims': [1, 1]})
         #gb = meshing.simplex_grid( [f1, f2],domain,**mesh_kwargs)
         gb.compute_geometry()
         gb.assign_node_ordering()
 
         # Enforce node orderning because of Python 3.5 and 2.7.
         # Don't do it in general.
-        cell_centers_1 = np.array([[  7.50000000e-01, 2.500000000e-01],
-                                   [  5.00000000e-01, 5.00000000e-01],
-                                   [ -5.55111512e-17, 5.55111512e-17]])
-        cell_centers_2 = np.array([[  5.00000000e-01, 5.00000000e-01],
-                                   [  7.50000000e-01, 2.500000000e-01],
-                                   [ -5.55111512e-17, 5.55111512e-17]])
+        cell_centers_1 = np.array([[7.50000000e-01, 2.500000000e-01],
+                                   [5.00000000e-01, 5.00000000e-01],
+                                   [-5.55111512e-17, 5.55111512e-17]])
+        cell_centers_2 = np.array([[5.00000000e-01, 5.00000000e-01],
+                                   [7.50000000e-01, 2.500000000e-01],
+                                   [-5.55111512e-17, 5.55111512e-17]])
 
         for g, d in gb:
             if g.dim == 1:
@@ -66,11 +68,11 @@ class BasicsTest( unittest.TestCase ):
             param = Parameters(g)
 
             a_dim = np.power(a, gb.dim_max() - g.dim)
-            aperture = np.ones(g.num_cells)*a_dim
+            aperture = np.ones(g.num_cells) * a_dim
             param.set_aperture(aperture)
 
-            kxx = np.ones(g.num_cells) * np.power(1e3, g.dim<gb.dim_max())
-            p = tensor.SecondOrder(3,kxx,kyy=kxx,kzz=kxx)
+            kxx = np.ones(g.num_cells) * np.power(1e3, g.dim < gb.dim_max())
+            p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
             param.set_tensor('flow', p)
 
             bound_faces = g.get_boundary_faces()
@@ -92,7 +94,7 @@ class BasicsTest( unittest.TestCase ):
             param.set_bc_val('flow', bc_val)
 
             # Transport:
-            source = g.cell_volumes*a_dim
+            source = g.cell_volumes * a_dim
             param.set_source("transport", source)
 
             bound_faces = g.get_boundary_faces()
@@ -111,7 +113,8 @@ class BasicsTest( unittest.TestCase ):
             #bc_dir = bound_faces[np.logical_or(left, right)]
             #bc_val[bc_dir] = 1
 
-            param.set_bc('transport', bc.BoundaryCondition(g, bound_faces, labels))
+            param.set_bc('transport', bc.BoundaryCondition(
+                g, bound_faces, labels))
             param.set_bc_val('transport', bc_val)
             d['param'] = param
 
@@ -140,11 +143,13 @@ class BasicsTest( unittest.TestCase ):
         advection_coupler = coupler.Coupler(advection_discr, advection_coupling_conditions)
         #U, rhs_u = advection_coupler.matrix_rhs(gb)
         U_r, rhs_u_r = advection_coupler.matrix_rhs(gb_r)
+        _, rhs_src_r = IntegralMultiDim(physics='transport').matrix_rhs(gb_r)
+        rhs_u_r = rhs_u_r + rhs_src_r
         deltaT = np.amin(gb_r.apply_function(advection_discr.cfl,
                                              advection_coupling_conditions.cfl).data)
 
         #theta = sps.linalg.spsolve(U, rhs_u )
-        theta_r = sps.linalg.spsolve(U_r, rhs_u_r )
+        theta_r = sps.linalg.spsolve(U_r, rhs_u_r)
         #coupling.split(gb, 'theta', theta)
         #coupling.split(gb_r, 'theta', theta_r)
 
@@ -244,7 +249,6 @@ class BasicsTest( unittest.TestCase ):
 #             d['param'] = param
 
 
-
 #         coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
 #         solver_coupler = coupler.Coupler(solver, coupling_conditions)
 #         A, rhs = solver_coupler.matrix_rhs(gb)
@@ -321,44 +325,45 @@ class BasicsTest( unittest.TestCase ):
 
 # #------------------------------------------------------------------------------#
 def fluxes_2d_1d_left_right_dir_neu():
-    d_0 = np.array([  5.00000000e-01,   5.04994426e-01,   5.04994950e-01,
-                          5.00000000e-01,   5.04994426e-01,   5.04994950e-01,
-                          0.00000000e+00,   0.00000000e+00,   4.99442570e-03,
-                          5.24244319e-07,   0.00000000e+00,   0.00000000e+00,
-                          -4.99442570e-03,  -5.24244319e-07])
-    d_1 = np.array([ -1.01001192e-05,  -1.11486078e-05,  -1.00000000e-02])
+    d_0 = np.array([5.00000000e-01,   5.04994426e-01,   5.04994950e-01,
+                    5.00000000e-01,   5.04994426e-01,   5.04994950e-01,
+                    0.00000000e+00,   0.00000000e+00,   4.99442570e-03,
+                    5.24244319e-07,   0.00000000e+00,   0.00000000e+00,
+                    -4.99442570e-03,  -5.24244319e-07])
+    d_1 = np.array([-1.01001192e-05,  -1.11486078e-05,  -1.00000000e-02])
     return d_0, d_1
 #------------------------------------------------------------------------------#
-def known_for_elimination():
-    U = np.array([[  5.00000000e-01,   0.00000000e+00,   0.00000000e+00,
-                     0.00000000e+00,   0.00000000e+00,   0.00000000e+00,
-                     0.00000000e+00,   0.00000000e+00],
-                  [  0.00000000e+00,   5.28888404e-02,   0.00000000e+00,
-                     0.00000000e+00,   0.00000000e+00,   0.00000000e+00,
-                     0.00000000e+00,  -5.28888404e-02],
-                  [  0.00000000e+00,   0.00000000e+00,   5.00000000e-01,
-                     0.00000000e+00,   0.00000000e+00,   0.00000000e+00,
-                     0.00000000e+00,   0.00000000e+00],
-                  [  0.00000000e+00,   0.00000000e+00,   0.00000000e+00,
-                     5.28888404e-02,   0.00000000e+00,   0.00000000e+00,
-                     -5.28888404e-02,   0.00000000e+00],
-                  [  0.00000000e+00,  -3.65602442e-03,   0.00000000e+00,
-                     -3.65602442e-03,   9.11534368e-01,  -3.49849812e-01,
-                     -2.77186253e-01,  -2.77186253e-01],
-                  [ -2.42588465e-01,   0.00000000e+00,  -2.42588465e-01,
-                    0.00000000e+00,   0.00000000e+00,   4.95176930e-01,
-                    0.00000000e+00,   0.00000000e+00],
-                  [  0.00000000e+00,   0.00000000e+00,  -2.57411535e-01,
-                     0.00000000e+00,   0.00000000e+00,  -7.26635590e-02,
-                     3.30075094e-01,  -3.55271368e-15],
-                  [ -2.57411535e-01,   0.00000000e+00,   0.00000000e+00,
-                    0.00000000e+00,   0.00000000e+00,  -7.26635590e-02,
-                    0.00000000e+00,   3.30075094e-01]])
 
-    rhs = np.array([ 0.25 ,  0.25 ,  0.25 ,  0.25 ,  0.005,  0.005,  0.005,  0.005])
-    t = np.array([ 0.5       ,  5.24204316,  0.5       ,  5.24204316,  0.55273715,
-        0.5       ,  0.51514807,  0.51514807])
+
+def known_for_elimination():
+    U = np.array([[5.00000000e-01,   0.00000000e+00,   0.00000000e+00,
+                   0.00000000e+00,   0.00000000e+00,   0.00000000e+00,
+                   0.00000000e+00,   0.00000000e+00],
+                  [0.00000000e+00,   5.28888404e-02,   0.00000000e+00,
+                   0.00000000e+00,   0.00000000e+00,   0.00000000e+00,
+                   0.00000000e+00,  -5.28888404e-02],
+                  [0.00000000e+00,   0.00000000e+00,   5.00000000e-01,
+                   0.00000000e+00,   0.00000000e+00,   0.00000000e+00,
+                   0.00000000e+00,   0.00000000e+00],
+                  [0.00000000e+00,   0.00000000e+00,   0.00000000e+00,
+                   5.28888404e-02,   0.00000000e+00,   0.00000000e+00,
+                   -5.28888404e-02,   0.00000000e+00],
+                  [0.00000000e+00,  -3.65602442e-03,   0.00000000e+00,
+                   -3.65602442e-03,   9.11534368e-01,  -3.49849812e-01,
+                   -2.77186253e-01,  -2.77186253e-01],
+                  [-2.42588465e-01,   0.00000000e+00,  -2.42588465e-01,
+                   0.00000000e+00,   0.00000000e+00,   4.95176930e-01,
+                   0.00000000e+00,   0.00000000e+00],
+                  [0.00000000e+00,   0.00000000e+00,  -2.57411535e-01,
+                   0.00000000e+00,   0.00000000e+00,  -7.26635590e-02,
+                   3.30075094e-01,  -3.55271368e-15],
+                  [-2.57411535e-01,   0.00000000e+00,   0.00000000e+00,
+                   0.00000000e+00,   0.00000000e+00,  -7.26635590e-02,
+                   0.00000000e+00,   3.30075094e-01]])
+
+    rhs = np.array([0.25,  0.25,  0.25,  0.25,  0.005,  0.005,  0.005,  0.005])
+    t = np.array([0.5,  5.24204316,  0.5,  5.24204316,  0.55273715,
+                  0.5,  0.51514807,  0.51514807])
     dT = 0.00274262835006
 
     return U, rhs, t, dT
-

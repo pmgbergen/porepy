@@ -1,9 +1,10 @@
 import numpy as np
 import scipy.sparse as sps
 
+
 class AbstractCoupling(object):
 
-#------------------------------------------------------------------------------#
+    #------------------------------------------------------------------------------#
 
     def __init__(self, discr=None, discr_ndof=None):
 
@@ -75,7 +76,7 @@ class AbstractCoupling(object):
         dof = np.array([self.discr_ndof(g_h), self.discr_ndof(g_l)])
 
         # Create the block matrix for the contributions
-        cc = np.array([sps.coo_matrix((i,j)) for i in dof for j in dof])
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
 
         return dof, cc.reshape((2, 2))
 
