@@ -412,7 +412,9 @@ def rotate_fracture(frac, vec, angle, exposure):
     rot = cg.rot(angle, vec)
     p = frac.p
     frac.p = exposure + rot.dot(p - exposure)
+
     frac.points_2_ccw()
+    frac.compute_centroid()
 
 
 def impose_inlcine(fracs, exposure_line, exposure_point, frac_family=None,
@@ -465,7 +467,7 @@ def impose_inlcine(fracs, exposure_line, exposure_point, frac_family=None,
     return all_ang
 
 def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
-                          recompute_center=False, **kwargs):
+                          recompute_center=True, **kwargs):
     """ Cut a fracture by a plane, and confine it to one side of the plane.
 
     Intended use is to confine abutting fractures (T-intersections) to one side
@@ -557,7 +559,7 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
 
     if isect_pt.size == 0:
         print('No intersection found in cutting of fractures')
-        return main_frac
+        return main_frac, None
 
     # Next step is to eliminate points in the main fracture that are on the
     # wrong side of the other fracture.
@@ -570,8 +572,6 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
     eliminate = np.where(sgn * right_sign < 0)[0]
     main_frac.remove_points(eliminate)
 
-    if recompute_center:
-        main_frac.compute_center()
 
     # Add intersection points on the main fracture. One of these may already be
     # present, as the point of extrusion, but add_point will uniquify the point
@@ -579,6 +579,9 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
     # We add the points after elimination, to ensure that the points on the
     # plane are present in the final fracture.
     main_frac.add_points(isect_pt, check_convexity=False)
+
+    if recompute_center:
+        main_frac.compute_centroid()
 
     # If the main fracture is too large compared to the other, the cut line
     # will extend beyond the confining plane. In these cases, compute the
