@@ -130,7 +130,9 @@ def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000):
                                 'value': 0.05, #0.09
                                 'bound_value': 1}
 
-    gb = importer.read_dfn(file_name, file_intersections, tol=tol, **mesh_kwargs)
+    network_file = folder_export+"network.vtu"
+    gb = importer.read_dfn(file_name, file_intersections, tol=tol,
+                           vtk_name=network_file, **mesh_kwargs)
     gb.remove_nodes(lambda g: g.dim == 0)
     gb.compute_geometry()
     if is_coarse:

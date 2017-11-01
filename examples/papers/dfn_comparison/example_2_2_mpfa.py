@@ -8,10 +8,7 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
-from porepy.grids import coarsening as co
-
-from porepy.numerics.vem import dual
+from porepy.numerics.fv import mpfa, fvutils
 
 from porepy.utils import comp_geom as cg
 from porepy.utils import sort_points
@@ -28,6 +25,7 @@ def add_data(gb, tol):
         param = Parameters(g)
 
         if g.dim == 2:
+
             # Permeability
             kxx = np.ones(g.num_cells)
             param.set_tensor("flow", tensor.SecondOrder(g.dim, kxx))
@@ -56,6 +54,12 @@ def add_data(gb, tol):
                     g, np.empty(0), np.empty(0)))
 
         d['param'] = param
+
+    # Assign coupling discharge
+    gb.add_edge_prop('param')
+    for e, d in gb.edges_props():
+          g_h = gb.sorted_nodes_of_edge(e)[1]
+          d['param'] = Parameters(g_h)
 
 #------------------------------------------------------------------------------#
 
@@ -97,7 +101,7 @@ def plot_over_line(gb, pts, name, tol):
 
     return values
 
-##------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 def compute_flow_rate(gb, tol):
 
@@ -108,7 +112,7 @@ def compute_flow_rate(gb, tol):
             bound_face_centers = g.face_centers[:, bound_faces]
             mask = np.logical_and(bound_face_centers[1, :] < tol,
                                   bound_face_centers[0, :] > 1.5 - tol)
-            flow_rate = d['discharge'][bound_faces[mask]]
+            flow_rate = d['param'].get_discharge()[bound_faces[mask]]
             total_flow_rate += np.sum(flow_rate)
 
     diam = gb.diameter(lambda g: g.dim==gb.dim_max())
@@ -116,46 +120,34 @@ def compute_flow_rate(gb, tol):
 
 #------------------------------------------------------------------------------#
 
-def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000):
+def main(id_problem, tol=1e-5, N_pts=1000):
 
     folder = '/home/elle/Dropbox/Work/tipetut/test2/complex_geometry/'
     file_name = folder + 'DFN_' + str(id_problem) + '.fab'
     file_intersections = folder + 'TRACES_' + str(id_problem) + '.dat'
 
-    folder_export = 'example_2_2_vem/' + str(id_problem) + "/"
-    file_export = 'vem'
+    folder_export = 'example_2_2_mpfa/' + str(id_problem) + "/"
+    file_export = 'mpfa'
 
     mesh_kwargs = {}
     mesh_kwargs['mesh_size'] = {'mode': 'constant',
                                 'value': 0.09,
                                 'bound_value': 1}
 
-    network_file = folder_export+"network.vtu"
-    gb = importer.read_dfn(file_name, file_intersections, tol=tol,
-                           vtk_name=network_file, **mesh_kwargs)
+    gb = importer.read_dfn(file_name, file_intersections, tol=tol, **mesh_kwargs)
     gb.remove_nodes(lambda g: g.dim == 0)
     gb.compute_geometry()
-    if is_coarse:
-        co.coarsen(gb, 'by_volume')
     gb.assign_node_ordering()
-
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
     # Assign parameters
     add_data(gb, tol)
 
     # Choose and define the solvers and coupler
-    solver = dual.DualVEMDFN(gb.dim_max(), 'flow')
-    up = sps.linalg.spsolve(*solver.matrix_rhs(gb))
-    solver.split(gb, "up", up)
+    solver = mpfa.MpfaDFN(gb.dim_max(), 'flow')
+    p = sps.linalg.spsolve(*solver.matrix_rhs(gb))
+    solver.split(gb, "p", p)
 
-    gb.add_node_props(["discharge", "p", "P0u"])
-    solver.extract_u(gb, "up", "discharge")
-    solver.extract_p(gb, "up", "p")
-    solver.project_u(gb, "discharge", "P0u")
-
-    exporter.export_vtk(gb, file_export, ["p", "P0u"], folder=folder_export)
+    exporter.export_vtk(gb, file_export, ["p"], folder=folder_export)
 
     b_box = gb.bounding_box()
     y_range = np.linspace(b_box[0][1]+tol, b_box[1][1]-tol, N_pts)
@@ -166,14 +158,14 @@ def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000):
     np.savetxt(folder_export+"plot_over_line.txt", (arc_length, values))
 
     # compute the flow rate
+    fvutils.compute_discharges(gb, 'flow')
     diam, flow_rate = compute_flow_rate(gb, tol)
     np.savetxt(folder_export+"flow_rate.txt", (diam, flow_rate))
 
 #------------------------------------------------------------------------------#
 
 num_simu = 44
-is_coarse = False
 for i in np.arange(num_simu):
-    main(i+1, is_coarse)
+    main(i+1)
 
 #------------------------------------------------------------------------------#
