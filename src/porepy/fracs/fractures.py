@@ -427,11 +427,17 @@ class Fracture(object):
         # points
         if len(bound_sect_self_other) == 0 and len(bound_sect_other_self) == 0:
             if check_point_contact and int_points.shape[1] == 1:
-                # Point contacts are not implemented. Give a warning, return no
+                #  contacts are not implemented. Give a warning, return no
                 # interseciton, and hope the meshing software is merciful
-                logger.warning("""Found a point contact between fracture %i
-                               and %i at (%.5f, %.5f, %.5f)""", self.index,
-                               other.index, *int_points)
+                if hasattr(self, 'index') and hasattr(other, 'index'):
+                    logger.warning("""Found a point contact between fracture
+                                   %i
+                                   and %i at (%.5f, %.5f, %.5f)""", self.index,
+                                   other.index, *int_points)
+                else:
+                    logger.warning("""Found point contact between fractures
+                                   with no index. Coordinate: (%.5f, %.5f,
+                                   %.5f)""", *int_points)
                 return np.empty((3, 0)), on_boundary_self, on_boundary_other
             # None of the intersection points lay on the boundary
             else:
