@@ -68,7 +68,7 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None, *
     # Cut fractures
     for prim, sec, p in zip(prim_frac, sec_frac, other_pt):
         _, radius = cut_fracture_by_plane(fractures[sec], fractures[prim],
-                                    split_pt[:, p], **kwargs)
+                                          split_pt[:, p], **kwargs)
         # If specified, ensure that cuts in T-intersections appear realistic.
         if ensure_realistic_cuts and radius is not None:
             ang = np.arctan2(0.5*lengths[prim], radius)
@@ -460,7 +460,7 @@ def impose_inlcine(fracs, exposure_line, exposure_point, frac_family=None,
         ang = np.random.normal(loc=family_mean_incline[fam],
                                scale=family_std_incline[fam])
         rotate_fracture(f, exposure_line[:, fi], ang, exposure_point[:, fi])
-        all_ang[fam] = ang
+        all_ang[fi] = ang
 
     return all_ang
 
