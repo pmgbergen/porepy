@@ -866,7 +866,7 @@ class Fracture(object):
                 break
 
     def __repr__(self):
-        return str(self.as_sp_polygon())
+        return self.__str__()
 
     def __str__(self):
         s = 'Points: \n'
