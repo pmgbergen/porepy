@@ -301,8 +301,8 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
     global_node_id = 0
     for f_id in np.arange(num_fractures):
         post = "_F" + str(f_id+offset_name) + "_" + str(case_id) + ".txt"
-
-        g_2d[f_id] = grid.Grid(2, *_dfn_grid_2d(folder, post, **kwargs),
+        nodes_2d, face_nodes_2d, cell_faces_2d = _dfn_grid_2d(folder, post, **kwargs)
+        g_2d[f_id] = grid.Grid(2, nodes_2d, face_nodes_2d, cell_faces_2d,
                                "fracture_" + str(f_id) + "_" + str(case_id))
 
         bnd_faces = g_2d[f_id].get_boundary_faces()
@@ -333,7 +333,8 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
                 mask = conn[:, 2] == g_id
 
                 nodes_id = _nodes_faces_2d(g_2d[f_id], conn[mask, 0])
-                g_1d = grid.Grid(1, *_dfn_grid_1d(g_2d[f_id], nodes_id),
+                nodes_1d, face_nodes_1d, cell_faces_1d = _dfn_grid_1d(g_2d[f_id], nodes_id)
+                g_1d = grid.Grid(1, nodes_1d, face_nodes_1d, cell_faces_1d,
                                  "intersection_" + str(f_id) + \
                                  "_" + str(g_id-1) + "_" + str(case_id))
 
