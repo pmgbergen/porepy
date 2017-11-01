@@ -2,10 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 
-num_file = 20
-folder_name = 'example_2_1_vem_coarse/'
+num_file = 44
+folder_name = 'example_2_2_vem_coarse/'
 file_name = '/plot_over_line.txt'
-figure_name = 'plot_over_line_vem_coarse.pdf' # pdf
+figure_name = 'plot_over_line_mpfa.pdf' # pdf
 
 plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
@@ -22,6 +22,9 @@ ax.set_prop_cycle('color', plt.cm.copper(np.linspace(0,1,num_file,endpoint=False
 for f in np.arange(1, num_file+1):
     f_name = folder_name + str(f) + file_name
     data = np.loadtxt(f_name, delimiter=' ', unpack=True)
+    if np.isnan(data).any():
+        print(f_name, data)
+
     ax.plot(data[:, 0], data[:, 1])
 
 #ax.legend()

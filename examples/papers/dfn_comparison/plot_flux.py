@@ -2,8 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 
-num_file = 20
-folder_name = ['example_2_1_mpfa/', 'example_2_1_vem/', 'example_2_1_vem_coarse/']
+num_file = 44
+#folder_name = ['example_2_1_mpfa/', 'example_2_1_vem/', 'example_2_1_vem_coarse/']
+folder_name = ['example_2_2_mpfa/', 'example_2_2_vem_coarse/']
 labels = ['MPFA', 'VEM', 'VEM-coarse']
 file_name = '/flow_rate.txt'
 figure_name = 'flow_rate.pdf' # pdf
@@ -28,6 +29,8 @@ for folder, label in zip(folder_name, labels):
     for f in np.arange(1, num_file+1):
         f_name = folder + str(f) + file_name
         data_to_plot[f-1] = np.loadtxt(f_name, delimiter=' ', unpack=True)[1]
+        if np.isnan(data_to_plot[f-1]):
+            print(f_name, data_to_plot[f-1])
 
     ax.plot(np.arange(num_file), data_to_plot, label=label)
 
