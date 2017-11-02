@@ -945,7 +945,7 @@ class GridBucket(object):
 #------------------------------------------------------------------------------#
 
     def __repr__(self):
-        s = 'Grid bucket containing ' + str(gb.size) + ' grids:\n'
+        s = 'Grid bucket containing ' + str(self.size()) + ' grids:\n'
         num = 0
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
             gl = self.grids_of_dimension(dim)
