@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.sparse as sps
+import unittest
 
 from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
@@ -91,12 +92,14 @@ def main(N):
 
 #------------------------------------------------------------------------------#
 
-def test_vem_varing_k():
-    diam_10, error_10 = main(10)
-    diam_20, error_20 = main(20)
+class BasicsTest( unittest.TestCase ):
 
-    known_order = 2.00266229752
-    order = np.log(error_10/error_20)/np.log(diam_10/diam_20)
-    assert np.isclose(order, known_order)
+    def test_vem_varing_k(self):
+        diam_10, error_10 = main(10)
+        diam_20, error_20 = main(20)
+
+        known_order = 2.00266229752
+        order = np.log(error_10/error_20)/np.log(diam_10/diam_20)
+        assert np.isclose(order, known_order)
 
 #------------------------------------------------------------------------------#

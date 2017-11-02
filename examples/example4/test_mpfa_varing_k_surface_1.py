@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.sparse as sps
+import unittest
 
 from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
@@ -86,12 +87,14 @@ def main(N):
 
 #------------------------------------------------------------------------------#
 
-def test_mpfa_varing_k_surface_1():
-    diam_10, error_10 = main(10)
-    diam_20, error_20 = main(20)
+class BasicsTest( unittest.TestCase ):
 
-    known_order = 1.99094280061
-    order = np.log(error_10/error_20)/np.log(diam_10/diam_20)
-    assert np.isclose(order, known_order)
+    def test_mpfa_varing_k_surface_1(self):
+        diam_10, error_10 = main(10)
+        diam_20, error_20 = main(20)
+
+        known_order = 1.99094280061
+        order = np.log(error_10/error_20)/np.log(diam_10/diam_20)
+        assert np.isclose(order, known_order)
 
 #------------------------------------------------------------------------------#
