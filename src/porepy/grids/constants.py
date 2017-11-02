@@ -18,9 +18,13 @@ class GmshConstants(object):
         # Tag for objects on the intersection between three fractures
         # (co-dimension n-3)
         self.FRACTURE_INTERSECTION_POINT_TAG = 6
+        # General auxiliary tag
+        self.AUXILIARY_TAG = 7
 
         self.PHYSICAL_NAME_DOMAIN = 'DOMAIN'
         self.PHYSICAL_NAME_FRACTURES = 'FRACTURE_'
+        self.PHYSICAL_NAME_AUXILIARY = 'AUXILIARY_'
+        
         # Physical name for fracture tips
         self.PHYSICAL_NAME_FRACTURE_TIP ='FRACTURE_TIP_'
         self.PHYSICAL_NAME_FRACTURE_LINE = 'FRACTURE_LINE_'

@@ -3,6 +3,10 @@ A module for representation and manipulations of fractures and fracture sets.
 
 The model relies heavily on functions in the computational geometry library.
 
+Known issues:
+The subdomain partitioning may lead to addition of unwanted intersection points,
+see FractureNetwork._on_boundary.
+
 """
 # Import of 'standard' external packages
 import warnings
@@ -57,20 +61,13 @@ class Fracture(object):
         self.orig_p = self.p.copy()
 
         self.index = index
-        self.tags = {}
-
+        
         assert self.is_planar(), 'Points define non-planar fracture'
         if check_convexity:
             assert self.check_convexity(), 'Points form non-convex polygon'
 
     def set_index(self, i):
         self.index = i
-
-    def set_tag(self, key, value):
-        self.tags[key] = value
-
-    def get_tag(self, key):
-        return self.tags[key]
 
     def __eq__(self, other):
         return self.index == other.index
@@ -974,15 +971,7 @@ class EllipticFracture(Fracture):
 
         # Compute normal vector
         self.normal = cg.compute_normal(self.p)[:, None]
-
-        # Add tag dictionary
-        self.tags = {}
-
-    def set_tag(self, key, value):
-        self.tags[key] = value
-
-    def get_tag(self, key):
-        return self.tags[key]
+    
 #-------------------------------------------------------------------------
 
 
@@ -1040,6 +1029,9 @@ class FractureNetwork(object):
         # Initialize mesh size parameters as empty
         self.h_min = None
         self.h_ideal = None
+
+        # Assign an empty tag dictionary
+        self.tags = {}
 
     def add(self, f):
         # Careful here, if we remove one fracture and then add, we'll have
@@ -1743,28 +1735,28 @@ class FractureNetwork(object):
         return p_2_p, s_2_s
 
     def add_subdomain_boundaries(self, vertexes):
-        # Translate some_format into a fracture
-        # Store them self._fractures so that split_intersections work
-        # keep track of this being a fake fracture
-
-        # Perhaps some_format is normal vector? + point. For now: defined by list
-        # of set of points, points[i] =  np.array([[x0, x1, x2, x3],
-        #                          [y0, y1, y2, y3], [z0, z1, z2, z3]]), Avoids:
-        # Possible issue: How far to extend the polygon - this needs to be done
-        # before impose_external_boundary
-
-
-        # order of operations:
-        #     1. Define fractures
-        #     2. add subdomain boundaries
-        #     3. impose external boundary
-     
+        """
+        Adds subdomain boundaries to the fracture network. These are 
+        intended to ensure the partitioning of the matrix along the planes
+        they define.
+        Parameters: 
+            vertexes: either a Fracture or a 
+            np.array([[x0, x1, x2, x3],
+                      [y0, y1, y2, y3], 
+                      [z0, z1, z2, z3]])
+        """
+        subdomain_tags = self.tags.get('subdomain',
+                                       [False]*len(self._fractures))
         for f in vertexes:
-            if not hasattr(f, 'p') and isinstance(f.p, np.ndarray):
-                f = Fracture(points)
-            f.set_tag('Subdomain', True)
+            if not hasattr(f, 'p') or not isinstance(f.p, np.ndarray):
+                # np.array to Fracture:
+                f = Fracture(f)
+            # Add the fake fracture and its tag to the network:
             self.add(f)
-
+            subdomain_tags.append(True)
+            
+        self.tags['subdomain'] = subdomain_tags
+        
     def impose_external_boundary(self, box=None, truncate_fractures=True):
         """
         Set an external boundary for the fracture set.
@@ -1869,16 +1861,16 @@ class FractureNetwork(object):
                        check_convexity=False)
         # Collect in a list to allow iteration
         bound_planes = [west, east, south, north, bottom, top]
+        boundary_tags = self.tags.get('boundary',
+                                       [False]*len(self._fractures))
+
+        # Add the boundaries to the fracture network and tag them.
         for f in bound_planes:
-            f.set_tag('Boundary', True)
             self.add(f)
+            boundary_tags.append(True)
+        self.tags['boundary'] = boundary_tags
 
 
-    def _extract_fracture_tags(self):
-        tags = []
-        for f in self._fractures:
-            tags.append(f.tags)
-        return tags
         
 
     def _classify_edges(self, polygon_edges):
@@ -2200,14 +2192,21 @@ class FractureNetwork(object):
         p = self.decomposition['points']
         edges = self.decomposition['edges']
         edges_2_fracs = self.decomposition['edges_2_frac']
-        frac_tags = self._extract_fracture_tags()
+        frac_tags = self.tags
+        frac_tags['subdomain']+=[False]*(len(self._fractures)
+                                               -len(frac_tags['subdomain']))
+        frac_tags['boundary']+=[False]*(len(self._fractures)
+                                               -len(frac_tags['boundary']))
+        
         poly = self._poly_2_segment()
 
         edge_tags, intersection_points = self._classify_edges(poly)
-        point_tags = self._on_boundary(edges, edges_2_fracs, edge_tags)
-        edges = np.vstack((self.decomposition['edges'], edge_tags))
 
-        # Remove the points at the boundary
+        # All intersection lines and points on boundaries are non-physical in 3d.
+        # I.e., they are assigned boundary conditions, but are not gridded. Hence:
+        # Remove the points and edges at the boundary
+        point_tags, edge_tags = self._on_boundary(edges, edges_2_fracs, edge_tags)
+        edges = np.vstack((self.decomposition['edges'], edge_tags))
         int_pts_on_boundary = np.isin(intersection_points, np.where(point_tags))
         intersection_points = intersection_points[np.logical_not(int_pts_on_boundary)]
         self.zero_d_pt = intersection_points
@@ -2242,24 +2241,39 @@ class FractureNetwork(object):
         writer.write_geo(file_name)
 
 
-    def _on_boundary(self, edges, edges_2_frac, edge_tags ):
+    def _on_boundary(self, edges, edges_2_frac, edge_tags):
         """
         Finds edges and points on boundary, to avoid that these
-        are meshed. Should be refined to avoid kicking out real
-        intersections at boundaries (e.g., two real fractures meeting
-        at the boundary).
+        are gridded. Points  introduced by intersections 
+        of subdomain boundaries and real fractures remain physical
+        (to maintain contact between split fracture lines).
         """
-        boundary_polygons = []
-        for i, f in enumerate(self._fractures):
-            if f.tags.get('Boundary', False):
-                boundary_polygons.append(i)
+        boundary_polygons = np.where(self.tags['boundary'])[0]
+        subdomain_polygons = np.where(self.tags['subdomain'])[0]
+        
         constants = GmshConstants()
         point_tags = np.zeros(self.decomposition['points'].shape[1])
         for e, e2f in enumerate(edges_2_frac):
             if any(np.in1d(e2f, boundary_polygons)):
                 edge_tags[e] = constants.DOMAIN_BOUNDARY_TAG
                 point_tags[edges[:,e]] = constants.DOMAIN_BOUNDARY_TAG
-    
-        return point_tags
+                continue
+            subdomain_parents = np.in1d(e2f, subdomain_polygons)
+            if any(subdomain_parents) and e2f.size - sum(subdomain_parents) < 2:
+                # Intersection of at most one fracture with one (or more)
+                # subdomain boundaries.
+                edge_tags[e] = constants.AUXILIARY_TAG
+
+        # Remove points caused solely by subdomain plane intersection
+        for p in np.unique(edges):
+            es = np.where(edges==p)[1]
+            sds = []
+            for e in es:
+                sds.append(edges_2_frac[e])
+            sds = np.unique(np.concatenate(sds))
+            subdomain_parents = np.in1d(sds, subdomain_polygons)
+            if all(subdomain_parents) and sum(subdomain_parents) > 2: 
+                point_tags[p] = constants.AUXILIARY_TAG
                 
-        
+        return point_tags, edge_tags
+                

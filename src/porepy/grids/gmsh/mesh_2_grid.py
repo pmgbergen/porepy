@@ -68,7 +68,8 @@ def create_2d_grids(pts, cells, **kwargs):
             frac_num[i] = poly_2_frac[int(pn[offset + 1:])]
             gmsh_num[i] = pn_ind
 
-        boundary_count = 0
+        # Counter for boundary and auxiliary planes
+        count_bound_and_aux = 0
         for fi in np.unique(frac_num):
             # This loop should only produce grids on surfaces that are actually fractures
             # Fractures are identified with physical names
@@ -77,15 +78,14 @@ def create_2d_grids(pts, cells, **kwargs):
             # b) is simpler, a) is better (long term)
             # If a) is chosen, you may need to be careful with         
             
-            #import pdb; pdb.set_trace()
             pn = phys_names[phys_name_ind_tri[fi]]
             plane_type = pn[:pn.rfind('_')]
+            
             if plane_type != 'FRACTURE':
-                print(pn)
-                boundary_count += 1
+                count_bound_and_aux += 1
                 continue
             
-            loc_num = np.where(frac_num == fi-boundary_count)[0]
+            loc_num = np.where(frac_num == fi-count_bound_and_aux)[0]
             loc_gmsh_num = gmsh_num[loc_num]
 
             loc_tri_glob_ind = np.empty((0, 3))
@@ -107,7 +107,7 @@ def create_2d_grids(pts, cells, **kwargs):
             # Associate a fracture id (corresponding to the ordering of the
             # frature planes in the original fracture list provided by the
             # user)
-            g.frac_num = fi - boundary_count
+            g.frac_num = fi - count_bound_and_aux
 
             # Append to list of 2d grids
             g_2d.append(g)
@@ -134,8 +134,8 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
     # There will be up to three types of physical lines: intersections (between
     # fractures), fracture tips, and auxiliary lines (to be disregarded)
 
-    print('Fare fare krigsmann    1d lines should only be made where 2 or more real fractures meet    Possibly also on the boundary - talk to Runar    It may be better to create all grids and kick out later, but before tagging? or assembly in buckte?')
-    
+    # All intersection lines and points on boundaries are non-physical in 3d.
+    # I.e., they are assigned boundary conditions, but are not gridded.
 
     g_1d = []
 
@@ -154,6 +154,8 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
     for i, pn_ind in enumerate(np.unique(line_tags)):
         # Index of the final underscore in the physical name. Chars before this
         # will identify the line type, the one after will give index
+
+        #import pdb; pdb.set_trace()
         pn = phys_names[pn_ind]
         offset_index = pn.rfind('_')
         loc_line_cell_num = np.where(line_tags == pn_ind)[0]
@@ -187,6 +189,9 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
 def create_0d_grids(pts, cells):
     # Find 0-d grids (points)
     # We know the points are 1d, so squeeze the superflous dimension
+
+    # All intersection lines and points on boundaries are non-physical in 3d.
+    # I.e., they are assigned boundary conditions, but are not gridded.
     g_0d = []
     if 'vertex' in cells:
         point_cells = cells['vertex'].ravel()
