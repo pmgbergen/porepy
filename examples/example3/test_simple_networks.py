@@ -193,4 +193,73 @@ def test_two_fractures_L_intersection_one_displaced(**kwargs):
     else:
         return grids
 
+def test_T_intersection_within_plane(**kwargs):
+    p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+    p2 = np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, .9, 0.]]).T
 
+    domain = {'xmin':-1, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -1,
+              'zmax':2}
+    # This test, when used with certain versions of gmsh (<2.15?) gives a
+    # a mismatch between 2d cells and 3d faces on fracture surfaces. The bug
+    # can be located in the .msh-file. To function as a test, we disband the
+    # test of cell-face relations.
+    grids = meshing.simplex_grid([p1, p2], domain,
+                                 ensure_matching_face_cell=False)
+
+def test_T_intersection_one_outside_plane(**kwargs):
+    p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+    p2 = np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 1.9, 0.]]).T
+
+    domain = {'xmin':-1, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -1,
+              'zmax':2}
+    grids = meshing.simplex_grid([p1, p2], domain)
+
+def test_T_intersection_both_outside_plane(**kwargs):
+    p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+    p2 = np.array([[0.5, 0.5, 1], [0.5, -0.5, 0], [0.5, 1.9, 0.]]).T
+
+    domain = {'xmin':-1, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -1,
+              'zmax':2}
+    grids = meshing.simplex_grid([p1, p2], domain)
+
+def test_T_intersection_both_on_boundary(**kwargs):
+    p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+    p2 = np.array([[0., 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.]]).T
+
+    domain = {'xmin':-1, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -1,
+              'zmax':2}
+    grids = meshing.simplex_grid([p1, p2], domain)
+
+def test_T_intersection_one_boundary_one_outside(**kwargs):
+    p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+    p2 = np.array([[-0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.]]).T
+
+    domain = {'xmin':-1, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -1,
+              'zmax':2}
+    grids = meshing.simplex_grid([p1, p2], domain)
+
+def test_T_intersection_one_boundary_one_inside(**kwargs):
+    p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
+    p2 = np.array([[0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.]]).T
+
+    domain = {'xmin':-1, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -1,
+              'zmax':2}
+    grids = meshing.simplex_grid([p1, p2], domain)
+
+def test_issue_54():
+    mesh_kwargs = {}
+    mesh_size = 5e-1
+    mesh_kwargs['mesh_size'] = {'mode': 'constant',
+    'value': mesh_size, 'bound_value': 1.2*mesh_size}
+    mesh_kwargs['file_name'] = 'bounding_box_test'
+    domain = {'xmin': -1, 'xmax': 1,
+              'ymin': 0, 'ymax': 1,
+              'zmin': 0, 'zmax': 1}
+    f_1 = np.array([[.5,.5,.5,.5],
+                    [.4,.5,.5,.4],
+                    [0.2,0.2,.8,.8]])
+    f_2 = np.array([[0,.8,.8,0],
+                    [.5,.5,.5,.5],
+                    [0.2,0.2,.8,.8]])
+    grids = meshing.simplex_grid([f_1, f_2], domain,
+                                 ensure_matching_face_cell=False)

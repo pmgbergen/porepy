@@ -17,7 +17,7 @@ class GmshWriter(object):
 
     def __init__(self, pts, lines, polygons=None, domain=None, nd=None,
                  mesh_size=None, mesh_size_bound=None, line_type=None,
-                 intersection_points=None, tolerance=None,
+                 intersection_points=None, tolerance=None, edges_2_frac=None,
                  meshing_algorithm=None):
         """
 
@@ -36,16 +36,17 @@ class GmshWriter(object):
         else:
             self.nd = nd
 
-        self.lchar = mesh_size
-        self.lchar_bound = mesh_size_bound
-
         if domain is not None:
             self.domain = domain
+
+        self.mesh_size = mesh_size
+        self.mesh_size_bound = mesh_size_bound
 
         # Points that should be decleared physical (intersections between 3
         # fractures)
         self.intersection_points = intersection_points
         self.tolerance = tolerance
+        self.e2f = edges_2_frac
 
         self.meshing_algorithm = meshing_algorithm
 
@@ -151,10 +152,10 @@ class GmshWriter(object):
         zmax = str(self.domain['zmax'])  # + ', '
 
         # Add mesh size on boundary points if these are provided
-        if self.lchar_bound is not None:
+        if self.mesh_size_bound is not None:
             zmin += ', '
             zmax += ', '
-            h = str(self.lchar_bound) + '};'
+            h = str(self.mesh_size_bound) + '};'
         else:
             h = '};'
         ls = '\n'
@@ -206,8 +207,8 @@ class GmshWriter(object):
             s += 'p' + str(i) + ' = newp; Point(p' + str(i) + ') = '
             s += '{' + str(p[0, i]) + ', ' + str(p[1, i]) + ', '\
                  + str(p[2, i])
-            if self.lchar is not None:
-                s += ', ' + str(self.lchar[i]) + ' };\n'
+            if self.mesh_size is not None:
+                s += ', ' + str(self.mesh_size[i]) + ' };\n'
             else:
                 s += '};\n'
 
@@ -242,6 +243,7 @@ class GmshWriter(object):
                     s += constants.PHYSICAL_NAME_AUXILIARY_LINE
 
                 s += si + '\") = {frac_line_' + si + '};' + ls
+
             s += ls
         s += '// End of line specification ' + ls + ls
         return s
@@ -273,6 +275,11 @@ class GmshWriter(object):
             s += 'Physical Surface(\"' + constants.PHYSICAL_NAME_FRACTURES \
                  + str(pi) + '\") = {fracture_' + str(pi) + '};' + ls
             s += 'Surface{fracture_' + str(pi) + '} In Volume{1};' + ls + ls
+
+            for li in self.e2f[pi]:
+                s += 'Line{frac_line_' + str(li) + '} In Surface{fracture_'
+                s += str(pi) + '};' + ls
+            s += ls
 
         s += '// End of fracture specification' + ls + ls
 

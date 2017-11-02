@@ -9,6 +9,7 @@ generators etc.
 import numpy as np
 import scipy.sparse as sps
 import warnings
+import time
 
 from porepy.fracs import structured, simplex, split_grid
 from porepy.grids.grid_bucket import GridBucket
@@ -16,7 +17,7 @@ from porepy.grids.grid import FaceTag
 from porepy.utils import setmembership, mcolon
 
 
-def simplex_grid(fracs, domain, **kwargs):
+def simplex_grid(fracs=None, domain=None, network=None, verbose=0, **kwargs):
     """
     Main function for grid generation. Creates a fractured simiplex grid in 2
     or 3 dimensions.
@@ -61,15 +62,23 @@ def simplex_grid(fracs, domain, **kwargs):
     gb = simplex_grid(fracs, domain)
 
     """
-    if 'zmax' in domain:
+    if domain is None:
+        ndim = 3
+    elif 'zmax' in domain:
         ndim = 3
     elif 'ymax' in domain:
         ndim = 2
     else:
         raise ValueError('simplex_grid only supported for 2 or 3 dimensions')
 
+    if verbose > 0:
+        print('Construct mesh')
+        tm_msh = time.time()
+        tm_tot = time.time()
     # Call relevant method, depending on grid dimensions.
     if ndim == 2:
+        assert fracs is not None, '2d requires definition of fractures'
+        assert domain is not None, '2d requires definition of domain'
         # Convert the fracture to a fracture dictionary.
         if len(fracs) == 0:
             f_lines = np.zeros((2, 0))
@@ -80,18 +89,42 @@ def simplex_grid(fracs, domain, **kwargs):
         frac_dic = {'points': f_pts, 'edges': f_lines}
         grids = simplex.triangle_grid(frac_dic, domain, **kwargs)
     elif ndim == 3:
-        grids = simplex.tetrahedral_grid(fracs, domain, **kwargs)
+        grids = simplex.tetrahedral_grid(fracs, domain, network, **kwargs)
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
+
+    if verbose > 0:
+        print('Done. Elapsed time ' + str(time.time() - tm_msh))
+
     # Tag tip faces
     tag_faces(grids)
 
     # Assemble grids in a bucket
+
+    if verbose > 0:
+        print('Assemble in bucket')
+        tm_bucket = time.time()
     gb = assemble_in_bucket(grids, **kwargs)
+    if verbose > 0:
+        print('Done. Elapsed time ' + str(time.time() - tm_bucket))
+        print('Compute geometry')
+        tm_geom = time.time()
+
     gb.compute_geometry()
     # Split the grids.
+    if verbose > 0:
+        print('Done. Elapsed time ' + str(time.time() - tm_geom))
+        print('Split fractures')
+        tm_split = time.time()
     split_grid.split_fractures(gb, **kwargs)
+    if verbose > 0:
+        print('Done. Elapsed time ' + str(time.time() - tm_split))
     gb.assign_node_ordering()
+
+    if verbose > 0:
+        print('Mesh construction completed. Total time ' +
+              str(time.time() - tm_tot))
+
     return gb
 
 #------------------------------------------------------------------------------#
@@ -319,7 +352,7 @@ def assemble_in_bucket(grids, **kwargs):
                 cell_2_face, cell = obtain_interdim_mappings(
                     lg, fn, n_per_face, **kwargs)
                 face_cells = sps.csc_matrix(
-                    (np.array([True] * cell.size), (cell, cell_2_face)),
+                    (np.ones(cell.size, dtype=bool), (cell, cell_2_face)),
                     (lg.num_cells, hg.num_faces))
 
                 # This if may be unnecessary, but better safe than sorry.
@@ -364,11 +397,11 @@ def obtain_interdim_mappings(lg, fn, n_per_face,
     if not (np.all(is_mem) or np.all(~is_mem)):
         if ensure_matching_face_cell:
             raise ValueError(
-            '''Either all cells should have a corresponding face in a higher
+                '''Either all cells should have a corresponding face in a higher
             dim grid or no cells should have a corresponding face in a higher
             dim grid. This likely is related to gmsh behavior. ''')
         else:
             warnings.warn('''Found inconsistency between cells and higher
-                          dimensional faces. Continuing, faces crossed''')
+                          dimensional faces. Continuing, fingers crossed''')
     low_dim_cell = np.where(is_mem)[0]
     return cell_2_face, low_dim_cell
