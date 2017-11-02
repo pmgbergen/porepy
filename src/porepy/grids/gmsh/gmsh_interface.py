@@ -41,6 +41,9 @@ class GmshWriter(object):
 
         self.domain = domain
 
+        self.mesh_size = mesh_size
+        self.mesh_size_bound = mesh_size_bound
+
         # Points that should be decleared physical (intersections between 3
         # fractures)
         self.intersection_points = intersection_points
@@ -153,10 +156,10 @@ class GmshWriter(object):
         zmax = str(self.domain['zmax'])  # + ', '
 
         # Add mesh size on boundary points if these are provided
-        if self.lchar_bound is not None:
+        if self.mesh_size_bound is not None:
             zmin += ', '
             zmax += ', '
-            h = str(self.lchar_bound) + '};'
+            h = str(self.mesh_size_bound) + '};'
         else:
             h = '};'
         ls = '\n'
@@ -208,8 +211,8 @@ class GmshWriter(object):
             s += 'p' + str(i) + ' = newp; Point(p' + str(i) + ') = '
             s += '{' + str(p[0, i]) + ', ' + str(p[1, i]) + ', '\
                  + str(p[2, i])
-            if self.lchar is not None:
-                s += ', ' + str(self.lchar[i]) + ' };\n'
+            if self.mesh_size is not None:
+                s += ', ' + str(self.mesh_size[i]) + ' };\n'
             else:
                 s += '};\n'
 

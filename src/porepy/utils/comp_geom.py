@@ -384,7 +384,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
 
 #------------------------------------------------------**kwargs------------------------#
 
-def _add_point(vertices, pt, tol=1e-3, **kwargs):
+def _add_point(vertices, pt, tol=1e-3, snap=True, **kwargs):
     """
     Add a point to a point set, unless the point already exist in the set.
 
@@ -414,8 +414,9 @@ def _add_point(vertices, pt, tol=1e-3, **kwargs):
     nd = vertices.shape[0]
     # Before comparing coordinates, snap both existing and new point to the
     # underlying grid
-    vertices = snap_to_grid(vertices, **kwargs)
-    pt = snap_to_grid(pt, **kwargs)
+    if snap:
+        vertices = snap_to_grid(vertices, **kwargs)
+        pt = snap_to_grid(pt, **kwargs)
 
     new_pt = np.empty((nd, 0))
     ind = []
@@ -442,7 +443,8 @@ def _add_point(vertices, pt, tol=1e-3, **kwargs):
 
 #-----------------------------------------------------------------------------#
 
-def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
+def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True,
+                          **kwargs):
     """
     Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
@@ -491,8 +493,9 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
     # Add tolerance to kwargs, this is later passed to split_edges, and further
     # on.
     kwargs['tol'] = tol
-
-    vertices = snap_to_grid(vertices, **kwargs)
+    kwargs['snap'] = snap
+    if snap:
+        vertices = snap_to_grid(vertices, **kwargs)
 
     # Field used for debugging of edge splits. To see the meaning of the values
     # of each split, look in the source code of split_edges.
@@ -621,7 +624,8 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, **kwargs):
             if new_pt is None:
                 logger.debug('No intersection found')
             else:
-                new_pt = snap_to_grid(new_pt, tol=tol)
+                if snap:
+                    new_pt = snap_to_grid(new_pt, tol=tol)
                 # The case of segment intersections need special treatment.
                 if new_pt.shape[-1] == 1:
                     logger.debug('Found intersection (%.5f, %.5f)', new_pt[0],
@@ -785,8 +789,7 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
 
     if np.abs(cross_product) <= tol:
         return default
-
-    return cross_product > 0
+    return cross_product > -tol
 
 #-----------------------------------------------------------------------------
 
@@ -814,6 +817,14 @@ def is_inside_polygon(poly, p, tol=0, default=False):
         pt = p.reshape((-1, 1))
     else:
         pt = p
+
+    # The test uses is_ccw_polyline, and tacitly assumes that the polygon
+    # vertexes is sorted in a ccw fashion. If this is not the case, flip the
+    # order of the nodes on a copy, and use this for the testing.
+    # Note that if the nodes are not cw nor ccw (e.g. they are crossing), the
+    # test cannot be trusted anyhow.
+    if not is_ccw_polygon(poly):
+        poly = poly.copy()[:, ::-1]
 
     poly_size = poly.shape[1]
 
@@ -994,10 +1005,10 @@ def segments_intersect_3d(start_1, end_1, start_2, end_2, tol=1e-8):
     """
 
     # Convert input to numpy if necessary
-    start_1 = np.asarray(start_1).astype(np.float)
-    end_1 = np.asarray(end_1).astype(np.float)
-    start_2 = np.asarray(start_2).astype(np.float)
-    end_2 = np.asarray(end_2).astype(np.float)
+    start_1 = np.asarray(start_1).astype(np.float).ravel()
+    end_1 = np.asarray(end_1).astype(np.float).ravel()
+    start_2 = np.asarray(start_2).astype(np.float).ravel()
+    end_2 = np.asarray(end_2).astype(np.float).ravel()
 
     # Short hand for component of start and end points, as well as vectors
     # along lines.
@@ -1246,15 +1257,15 @@ def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
 
 #----------------------------------------------------------
 
-def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
+def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
     """
     Find intersections between polygons embeded in 3D.
 
     The intersections are defined as between the interior of the first polygon
-    and the boundary of the second.
-
-    TODO:
-        1) Also cover case where the one polygon ends in the plane of the other.
+    and the boundary of the second, although intersections on the boundary of
+    both polygons can also be picked up sometimes. If you need to distinguish
+    between the two, the safer option is to also call
+    polygon_boundary_intersect(), and compare the results.
 
     Parameters:
         poly_1 (np.ndarray, 3xn1): Vertexes of polygon, assumed ordered as cw or
@@ -1263,6 +1274,9 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
             as cw or ccw.
         tol (double, optional): Tolerance for when two points are equal.
             Defaults to 1e-8.
+        include_bound_pt (boolean, optional): Include cases where a segment is
+            in the plane of the first ploygon, and the segment crosses the
+            polygon boundary. Defaults to True.
 
     Returns:
         np.ndarray, size 3 x num_isect, coordinates of intersection points; or
@@ -1284,13 +1298,13 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
     # Obtain the rotation matrix that projects p1 to the xy-plane
     rot_p_1 = project_plane_matrix(poly_1)
     irot = rot_p_1.transpose()
-    poly_1_xy = rot_p_1.dot(poly_1)
+    poly_1_rot = rot_p_1.dot(poly_1)
 
     # Sanity check: The points should lay on a plane
     assert np.amax(np.abs(poly_1_xy[2]))/np.amax(np.abs(poly_1_xy[:2])) < tol
 
     # Drop the z-coordinate
-    poly_1_xy = poly_1_xy[:2]
+    poly_1_xy = poly_1_rot[:2]
 
     # Make sure the xy-polygon is ccw.
     if not is_ccw_polygon(poly_1_xy):
@@ -1301,9 +1315,9 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
 
     # If the rotation of whole second point cloud lies on the same side of z=0,
     # there are no intersections.
-    if poly_2_rot[2].min() > 0:
+    if poly_2_rot[2].min() > tol:
         return None
-    elif poly_2_rot[2].max() < 0:
+    elif poly_2_rot[2].max() < -tol:
         return None
 
     # Check if the second plane is parallel to the first (same xy-plane)
@@ -1347,7 +1361,7 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
             pt_2 = poly_2_rot[:, ind[i+1]]
 
             # Check if segment crosses z=0 in the rotated coordinates
-            if max(pt_1[2], pt_2[2]) < 0 or min(pt_1[2], pt_2[2]) > 0:
+            if max(pt_1[2], pt_2[2]) < -tol or min(pt_1[2], pt_2[2]) > tol:
                 continue
 
             dx = pt_2[0] - pt_1[0]
@@ -1362,7 +1376,8 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
 
                 # Sanity check. We have ruled out segments not crossing the
                 # origin above.
-                assert t >= 0 and t <= 1
+                if t < -tol or t > 1+tol:
+                    continue
 
                 # x and y-coordinate for z=0
                 x0 = pt_1[0] + dx * t
@@ -1370,17 +1385,57 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8):
                 # Representation as point
                 p_00 = np.array([x0, y0]).reshape((-1, 1))
 
-                # Check if the first polygon encloses the point. If the
-                # intersection is on the border, this will not be detected.
+                # Check if the first polygon encloses the point. When applied
+                # to fracture intersections of T-type (segment embedded in the
+                # plane of another fracture), it turned out to be useful to be
+                # somewhat generous with the definition of the intersection.
+                # Therefore, allow for intersections that are slightly outside
+                # the polygon, and use the projection onto the polygon.
+                dist, cp, ins = dist_points_polygon(_to3D(p_00),
+                                                    _to3D(poly_1_xy))
+                if (dist[0] < tol and include_bound_pt) or dist[0] < 1e-12:
+                    isect = np.hstack((isect, irot.dot(cp) + center_1))
 
-                if is_inside_polygon(poly_1_xy, p_00, tol=tol):
-                    # Back to physical coordinates by 1) expand to 3D, 2)
-                    # inverse rotation, 3) translate to original coordinate.
-                    isect = np.hstack((isect, irot.dot(_to3D(p_00)) +
-                                       center_1))
+            elif np.abs(pt_1[2]) < tol and np.abs(pt_2[2]) < tol:
+                # The segment lies completely within the polygon plane.
+                both_pts = np.vstack((pt_1, pt_2)).T
+                # Find points within tho polygon itself
+                inside = is_inside_polygon(poly_1_xy, both_pts[:2],tol=tol)
+
+                if inside.all():
+                    # Both points are inside, add and go on
+                    isect = np.hstack((isect, irot.dot(both_pts) + center_1))
+                else:
+                    # A single point is inside. Need to find the intersection between this line segment and the polygon
+                    if inside.any():
+                        isect_loc = both_pts[:2, inside].reshape((2, -1))
+                        p1 = both_pts[:, inside]
+                        p2 = both_pts[:, np.logical_not(inside)]
+                    else:
+                        isect_loc = np.empty((2, 0))
+                        p1 = both_pts[:, 0]
+                        p2 = both_pts[:, 1]
+
+                    # If a single internal point is found
+                    if isect_loc.shape[1] == 1 or include_bound_pt:
+                        poly_1_start = poly_1_rot
+                        poly_1_end = np.roll(poly_1_rot, 1, axis=1)
+                        for j in range(poly_1.shape[1]):
+                            ip = segments_intersect_3d(p1, p2,
+                                                       poly_1_start[:, j],
+                                                       poly_1_end[:, j])
+                            if ip is not None:
+                                isect_loc = np.hstack((isect_loc, ip[:2]))
+
+                    isect = np.hstack((isect, irot.dot(_to3D(isect_loc)) + center_1))
+
         if isect.shape[1] == 0:
             isect = None
 
+        # For points lying in the plane of poly_1, the same points may be found
+        # several times
+        if isect is not None:
+            isect, _, _ = setmembership.unique_columns_tol(isect, tol=tol)
         return isect
 
 #------------------------------------------------------------------------------#
@@ -1745,12 +1800,40 @@ def dist_segment_set(start, end):
         for j in range(i+1, ns):
             dl, cpi, cpj = dist_two_segments(start[:, i], end[:, i],
                                              start[:, j], end[:, j])
-            d[i, j] = d
-            d[j, i] = d
+            d[i, j] = dl
+            d[j, i] = dl
             cp[i, j, :] = cpi
             cp[j, i, :] = cpj
 
     return d, cp
+
+#------------------------------------------------------------------------------#
+
+def dist_segment_segment_set(start, end, start_set, end_set):
+    """ Compute distance and closest points between a segment and a set of
+    segments.
+
+    Parameters:
+
+    """
+    start = np.squeeze(start)
+    end = np.squeeze(end)
+
+    nd = start.shape[0]
+    ns = start_set.shape[1]
+
+    d = np.zeros( ns)
+    cp_set = np.zeros(( nd, ns))
+    cp = np.zeros((nd, ns))
+
+    for i in range(ns):
+        dl, cpi, cpj = dist_two_segments(start, end, start_set[:, i],
+                                         end_set[:, i])
+        d[i] = dl
+        cp[:, i] = cpi
+        cp_set[:, i] = cpj
+
+    return d, cp, cp_set
 
 #------------------------------------------------------------------------------#
 
@@ -1799,7 +1882,7 @@ def dist_two_segments(s1_start, s1_end, s2_start, s2_end):
     dot_2_starts = d2.dot(d_starts)
     discr = dot_1_1 * dot_2_2 - dot_1_2 ** 2
     # Sanity check
-    assert discr >= 0
+    assert discr >= -SMALL_TOLERANCE * dot_1_1 * dot_2_2
 
     sc = sN = sD = discr
     tc = tN = tD = discr
@@ -1958,11 +2041,13 @@ def dist_point_pointset(p, pset, exponent=2):
 
 #----------------------------------------------------------------------------#
 
-def dist_pointset(p):
+def dist_pointset(p, max_diag=False):
     """ Compute mutual distance between all points in a point set.
 
     Parameters:
         p (np.ndarray, 3xn): Points
+        max_diag (boolean, defaults to True): If True, the diagonal values will
+            are set to a large value, rather than 0.
 
     Returns:
         np.array (nxn): Distance between points.
@@ -1976,6 +2061,10 @@ def dist_pointset(p):
     d = np.zeros((n, n))
     for i in range(n):
         d[i] = dist_point_pointset(p[:, i], p)
+
+    if max_diag:
+        for i in range(n):
+            d[i, i] = 2 * np.max(d[i])
 
     return d
 
@@ -1997,6 +2086,8 @@ def dist_points_polygon(p, poly, tol=1e-5):
         np.array (n_pts): Distance from points to polygon
         np.array (nd x n_pts): For each point, the closest point on the
             polygon.
+        np.array (n_pts, bool): True if the point is found in the interior,
+            false if on a bounding segment.
 
     """
 
@@ -2053,7 +2144,7 @@ def dist_points_polygon(p, poly, tol=1e-5):
     cp[:, in_poly] = center + irot.dot(cp_inpoly)
 
     if np.all(in_poly):
-        return d, cp
+        return d, cp, in_poly
 
     # Next, points that are outside the extruded polygons. These will have
     # their closest point among one of the edges
@@ -2070,7 +2161,7 @@ def dist_points_polygon(p, poly, tol=1e-5):
         d[pi] = d_outside[i, mi]
         cp[:, pi] = p_outside[i, mi, :]
 
-    return d, cp
+    return d, cp, in_poly
 
 #----------------------------------------------------------------------------#
 
@@ -2181,8 +2272,8 @@ def dist_segments_polygon(start, end, poly, tol=1e-5):
     end = orig_end
 
     # Distance from endpoints to
-    d_start_poly, cp_s_p = dist_points_polygon(start, poly)
-    d_end_poly, cp_e_p = dist_points_polygon(end, poly)
+    d_start_poly, cp_s_p, s_in_poly = dist_points_polygon(start, poly)
+    d_end_poly, cp_e_p, e_in_poly = dist_points_polygon(end, poly)
 
     # Loop over all segments that did not cross the polygon. The minimum is
     # found either by the endpoints, or as between two segments.
