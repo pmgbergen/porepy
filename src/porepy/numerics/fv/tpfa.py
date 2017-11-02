@@ -24,6 +24,7 @@ class TpfaMixDim(SolverMixDim):
         self.physics = physics
 
         self.discr = Tpfa(self.physics)
+        self.discr_ndof = self.discr.ndof
         self.coupling_conditions = TpfaCoupling(self.discr)
 
         self.solver = Coupler(self.discr, self.coupling_conditions)

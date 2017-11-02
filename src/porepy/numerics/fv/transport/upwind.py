@@ -14,6 +14,7 @@ class UpwindMixDim(SolverMixDim):
         self.physics = physics
 
         self.discr = Upwind(self.physics)
+        self.discr_ndof = self.discr.ndof
         self.coupling_conditions = UpwindCoupling(self.discr)
 
         self.solver = Coupler(self.discr, self.coupling_conditions)
