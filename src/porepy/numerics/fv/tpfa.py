@@ -14,6 +14,7 @@ from porepy.numerics.mixed_dim.solver import Solver
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 from porepy.numerics.fv import fvutils
+from porepy.grids.grid import Grid
 
 
 class Tpfa(Solver):
@@ -232,9 +233,15 @@ class TpfaMultiDim(Solver):
         self.solver = Coupler(discr, coupling_conditions)
 
     def ndof(self, gb):
-        ndof = 0
-        for g, _ in gb:
-            ndof += g.num_cells
+        if isinstance(gb, Grid):
+            # When Coupler.ndof calls its solver, we somehow ends up here with
+            # gb being a single grid. Not sure how this happens, but this seems
+            # like a reasonable workaround.
+            return gb.num_cells
+        else:
+            ndof = 0
+            for g, _ in gb:
+                ndof += g.num_cells
         return ndof
 
     def matrix_rhs(self, gb):
