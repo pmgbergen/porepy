@@ -259,32 +259,6 @@ class Tpfa(Solver):
 
 #------------------------------------------------------------------------------
 
-class TpfaMultiDim(Solver):
-    """
-    Solver class for a multi-dimensional Tpfa discretization including coupling
-    between dimensions.
-    """
-
-    def __init__(self, physics='flow'):
-        self.physics = physics
-        discr = Tpfa(self.physics)
-        coupling_conditions = TpfaCoupling(discr)
-        self.solver = Coupler(discr, coupling_conditions)
-
-    def ndof(self, gb):
-        ndof = 0
-        for g, _ in gb:
-            ndof += g.num_cells
-        return ndof
-
-    def matrix_rhs(self, gb):
-        return self.solver.matrix_rhs(gb)
-
-    def split(self, gb, names, var):
-        return self.solver.split(gb, names, var)
-
-#------------------------------------------------------------------------------
-
 class TpfaCoupling(AbstractCoupling):
 
     def __init__(self, solver):

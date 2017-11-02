@@ -307,35 +307,6 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
 
 #------------------------------------------------------------------------------
 
-class MpfaMultiDim(Solver):
-    """
-    Solver class for a multi-dimensional Mpfa discretization with a Tpfa
-    coupling between dimensions.
-    """
-
-    def __init__(self, physics='flow'):
-        self.physics = physics
-        discr = Mpfa(self.physics)
-        coupling_conditions = TpfaCoupling(discr)
-        self.solver = Coupler(discr, coupling_conditions)
-
-    def ndof(self, gb):
-        ndof = 0
-        for g, _ in gb:
-            ndof += g.num_cells
-        return ndof
-
-    def matrix_rhs(self, gb):
-        """
-        Returns the solution matrix and right hand side for the global system,
-        see Coupler.matrix_rhs.
-        """
-        return self.solver.matrix_rhs(gb)
-
-    def split(self, gb, names, var):
-        return self.solver.split(gb, names, var)
-#------------------------------------------------------------------------------
-
 def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
                  nodes=None, apertures=None):
     """
