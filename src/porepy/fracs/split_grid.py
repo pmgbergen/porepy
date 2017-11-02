@@ -329,7 +329,7 @@ def update_cell_connectivity(g, face_id, normal, x0):
     row = cell_face_id[left_cell, 0]
     data = np.ravel(g.cell_faces[np.ravel(face_id[row]), col])
     assert data.size == face_id.size
-    cell_frac_left = sps.csc_matrix((data, (row, col)),
+    cell_frac_left = sps.csr_matrix((data, (row, col)),
                                     (face_id.size, g.cell_faces.shape[1]))
 
     # We now update the cell_faces map of the faces on the right side of
@@ -343,15 +343,17 @@ def update_cell_connectivity(g, face_id, normal, x0):
                                      (face_id.size, g.cell_faces.shape[1]))
 
     assert g.cell_faces.getformat() == 'csr'
+
     sparse_mat.merge_matrices(g.cell_faces, cell_frac_right, face_id)
  #   g.cell_faces[face_id, :] = cell_frac_right
+
     # And then we add the new left-faces to the cell_face map. We do not
     # change the sign of the matrix since we did not flip the normals.
     # This means that the normals of right and left cells point in the same
     # direction, but their cell_faces values have oposite signs.
-    # sparse_mat.stack_mat(g.cell_faces, cell_frac_left)
-    g.cell_faces.tocsc()
-    g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
+    sparse_mat.stack_mat(g.cell_faces, cell_frac_left)
+    g.cell_faces = g.cell_faces.tocsc()
+    #g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
 
     return 0
 
@@ -513,13 +515,15 @@ def find_cell_color(g, cells):
     c = np.sort(cells)
     # Local cell-face and face-node maps.
     assert g.cell_faces.getformat() == 'csc'
-    cf_sub = sparse_mat.slice_mat(g.cell_faces, c)
+    cell_faces = sparse_mat.slice_mat(g.cell_faces, c)
     child_cell_ind = -np.ones(g.num_cells, dtype=np.int)
-    child_cell_ind[c] = np.arange(cf_sub.shape[1])
+    child_cell_ind[c] = np.arange(cell_faces.shape[1])
 
     # Create a copy of the cell-face relation, so that we can modify it at
     # will
-    cell_faces = cf_sub.copy()
+    # com Runar: I don't think this is neccessary as slice_mat creates a copy
+#    cell_faces = cf_sub.copy()
+
     # Direction of normal vector does not matter here, only 0s and 1s
     cell_faces.data = np.abs(cell_faces.data)
 
