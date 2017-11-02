@@ -16,7 +16,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
     def setup(self):
         self.f_1 = Fracture(np.array([[0, 1, 1, 0],
                                       [.5, .5, .5, .5],
-                                      [0, 0, 1, 1]]))
+                                      [0, 0, 1, 1]]), check_convexity=False)
         self.domain = {'xmin': 0, 'xmax': 1,
                        'ymin': 0, 'ymax': 1,
                        'zmin': 0, 'zmax': 1}
@@ -96,7 +96,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         p = np.array([[-0.5, 0.5, 0.5, -0.5],
                       [0.5, 0.5, 1.5, 1.5],
                       [-0.5, -0.5, 1, 1]])
-        f = Fracture(p)
+        f = Fracture(p, check_convexity=False)
         network = FractureNetwork([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array([[0., 0.5, 0.5, 0],

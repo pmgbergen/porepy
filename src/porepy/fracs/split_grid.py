@@ -7,7 +7,7 @@ from scipy import sparse as sps
 import warnings
 
 from porepy.utils.half_space import half_space_int
-from porepy.utils import sparse_mat
+from porepy.utils import sparse_mat, setmembership
 from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
 from porepy.grids.grid import Grid, FaceTag
@@ -172,7 +172,7 @@ def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
     node_count = duplicate_nodes(gh, nodes, offset)
 
     # We remove the old nodes.
-    #gh = remove_nodes(gh, nodes)
+    # gh = remove_nodes(gh, nodes)
 
     # Update the number of nodes
     gh.num_nodes = gh.num_nodes + node_count  # - nodes.size
@@ -224,9 +224,9 @@ def duplicate_faces(gh, face_cells):
     node_start = gh.face_nodes.indptr[frac_id]
     node_end = gh.face_nodes.indptr[frac_id + 1]
 
-    #frac_nodes = gh.face_nodes[:, frac_id]
+    # frac_nodes = gh.face_nodes[:, frac_id]
 
-    #gh.face_nodes = sps.hstack((gh.face_nodes, frac_nodes))
+    # gh.face_nodes = sps.hstack((gh.face_nodes, frac_nodes))
     # We also copy the attributes of the original faces.
     gh.num_faces += frac_id.size
     gh.face_normals = np.hstack(
@@ -253,12 +253,29 @@ def update_face_cells(face_cells, face_id, i):
     # The duplications should also be associated with grid i.
     # For the other lower-dim grids we just add zeros to conserve
     # the right matrix dimensions.
+    if face_id.size == 0:
+        return face_cells
+
     for j, f_c in enumerate(face_cells):
+        assert f_c.getformat() == 'csc'
         if j == i:
-            f_c = sps.hstack((f_c, f_c[:, face_id]))
+            f_c_sliced = sparse_mat.slice_mat(f_c, face_id)
+            new_indptr = f_c_sliced.indptr + f_c.indptr[-1]
+            new_ind = f_c_sliced.indices
+            new_data = f_c_sliced.data
+
+            f_c.indptr = np.append(f_c.indptr, new_indptr[1:])
+            f_c.indices = np.append(f_c.indices, new_ind)
+            f_c.data = np.append(f_c.data, new_data)
+            f_c._shape = (f_c._shape[0], f_c._shape[1] + face_id.size)
+            #f_c = sps.hstack((f_c, f_c[:, face_id]))
         else:
-            empty = sps.csc_matrix((f_c.shape[0], face_id.size))
-            f_c = sps.hstack((f_c, empty))
+            new_indptr = f_c.indptr[-1] * \
+                np.ones(face_id.size, dtype=f_c.indptr.dtype)
+            f_c.indptr = np.append(f_c.indptr, new_indptr)
+            f_c._shape = (f_c._shape[0], f_c._shape[1] + face_id.size)
+#            empty = sps.csc_matrix((f_c.shape[0], face_id.size))
+#            f_c = sps.hstack((f_c, empty))
         face_cells[j] = f_c
     return face_cells
 
@@ -283,6 +300,7 @@ def update_cell_connectivity(g, face_id, normal, x0):
     """
 
     # We find the cells attached to the tagged faces.
+    g.cell_faces = g.cell_faces.tocsr()
     cell_frac = g.cell_faces[face_id, :]
     cell_face_id = np.argwhere(cell_frac)
 
@@ -311,7 +329,7 @@ def update_cell_connectivity(g, face_id, normal, x0):
     row = cell_face_id[left_cell, 0]
     data = np.ravel(g.cell_faces[np.ravel(face_id[row]), col])
     assert data.size == face_id.size
-    cell_frac_left = sps.csc_matrix((data, (row, col)),
+    cell_frac_left = sps.csr_matrix((data, (row, col)),
                                     (face_id.size, g.cell_faces.shape[1]))
 
     # We now update the cell_faces map of the faces on the right side of
@@ -321,15 +339,21 @@ def update_cell_connectivity(g, face_id, normal, x0):
     col = cell_face_id[~left_cell, 1]
     row = cell_face_id[~left_cell, 0]
     data = np.ravel(g.cell_faces[np.ravel(face_id[row]), col])
-    cell_frac_right = sps.csc_matrix((data, (row, col)),
+    cell_frac_right = sps.csr_matrix((data, (row, col)),
                                      (face_id.size, g.cell_faces.shape[1]))
-    g.cell_faces[face_id, :] = cell_frac_right
+
+    assert g.cell_faces.getformat() == 'csr'
+
+    sparse_mat.merge_matrices(g.cell_faces, cell_frac_right, face_id)
+ #   g.cell_faces[face_id, :] = cell_frac_right
 
     # And then we add the new left-faces to the cell_face map. We do not
     # change the sign of the matrix since we did not flip the normals.
     # This means that the normals of right and left cells point in the same
     # direction, but their cell_faces values have oposite signs.
-    g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
+    sparse_mat.stack_mat(g.cell_faces, cell_frac_left)
+    g.cell_faces = g.cell_faces.tocsc()
+    #g.cell_faces = sps.vstack((g.cell_faces, cell_frac_left), format='csc')
 
     return 0
 
@@ -387,16 +411,17 @@ def duplicate_nodes(g, nodes, offset):
 
     _, iv = sort_sub_list(g.face_nodes.indices, g.face_nodes.indptr)
     g.face_nodes = g.face_nodes.tocsr()
-
     # Iterate over each internal node and split it according to the graph.
     # For each cell attached to the node, we check wich color the cell has.
     # All cells with the same color is then attached to a new copy of the
     # node.
+    cell_nodes = g.cell_nodes().tocsr()
     for node in nodes:
         # t_node takes into account the added nodes.
         t_node = node + node_count
         # Find cells connected to node
-        cells = sparse_mat.slice_indices(g.cell_nodes().tocsr(), t_node)
+
+        cells = sparse_mat.slice_indices(cell_nodes, node)
 #        cell_nodes = g.cell_nodes().tocsr()
 #        ind_ptr = cell_nodes.indptr
 #        cells = cell_nodes.indices[
@@ -414,21 +439,27 @@ def duplicate_nodes(g, nodes, offset):
         new_nodes = np.repeat(g.nodes[:, t_node, None], colors.size, axis=1)
         faces = np.array([], dtype=int)
         face_pos = np.array([g.face_nodes.indptr[t_node]])
+        assert g.cell_faces.getformat() == 'csc'
+        assert g.face_nodes.getformat() == 'csr'
+        faces_of_node_t = sparse_mat.slice_indices(g.face_nodes, t_node)
         for j in range(colors.size):
             # For each color we wish to add one node. First we find all faces that
-            # are connected to the fracture node, and have the correct cell
+            # are connected to the fracture node and have the correct cell
             # color
-            local_faces = (g.cell_faces[:, cells[ix == j]]).nonzero()[0]
-            local_faces = np.unique(local_faces)
-            con_to_node = np.ravel(g.face_nodes[t_node, local_faces].todense())
-            faces = np.append(faces, local_faces[con_to_node])
-            # These faces is then attached to new node number j.
-            face_pos = np.append(face_pos, face_pos[-1] + np.sum(con_to_node))
+            colored_faces = sparse_mat.slice_indices(
+                g.cell_faces, cells[ix == j])
+            colored_faces = np.unique(colored_faces)
+            is_colored = np.in1d(
+                faces_of_node_t, colored_faces, assume_unique=True)
+
+            faces = np.append(faces, faces_of_node_t[is_colored])
+            # These faces are then attached to new node number j.
+            face_pos = np.append(face_pos, face_pos[-1] + np.sum(is_colored))
             # If an offset is given, we will change the position of the nodes.
             # We move the nodes a length of offset away from the fracture(s).
             if offset > 0 and colors.size > 1:
                 new_nodes[:, j] -= avg_normal(g,
-                                              local_faces[con_to_node]) * offset
+                                              faces_of_node_t[is_colored]) * offset
         # The total number of faces should not have changed, only their
         # connection to nodes. We can therefore just update the indices and
         # indptr map.
@@ -454,7 +485,7 @@ def duplicate_nodes(g, nodes, offset):
 def sort_sub_list(indices, indptr):
     ix = np.zeros(indices.size, dtype=int)
     for i in range(indptr.size - 1):
-        sub_ind = mcolon(indptr[i], indptr[i + 1])
+        sub_ind = slice(indptr[i], indptr[i + 1])
         loc_ix = np.argsort(indices[sub_ind])
         ix[sub_ind] = loc_ix + indptr[i]
     indices = indices[ix]
@@ -483,13 +514,16 @@ def find_cell_color(g, cells):
     """
     c = np.sort(cells)
     # Local cell-face and face-node maps.
-    cf_sub, _ = __extract_submatrix(g.cell_faces, c)
-    child_cell_ind = np.array([-1] * g.num_cells, dtype=np.int)
-    child_cell_ind[c] = np.arange(cf_sub.shape[1])
+    assert g.cell_faces.getformat() == 'csc'
+    cell_faces = sparse_mat.slice_mat(g.cell_faces, c)
+    child_cell_ind = -np.ones(g.num_cells, dtype=np.int)
+    child_cell_ind[c] = np.arange(cell_faces.shape[1])
 
     # Create a copy of the cell-face relation, so that we can modify it at
     # will
-    cell_faces = cf_sub.copy()
+    # com Runar: I don't think this is neccessary as slice_mat creates a copy
+#    cell_faces = cf_sub.copy()
+
     # Direction of normal vector does not matter here, only 0s and 1s
     cell_faces.data = np.abs(cell_faces.data)
 
@@ -536,17 +570,3 @@ def remove_nodes(g, rem):
     g.face_nodes = g.face_nodes[rows_to_keep, :]
     g.nodes = g.nodes[:, rows_to_keep]
     return g
-
-
-def __extract_submatrix(mat, ind):
-    """ From a matrix, extract the column specified by ind. All zero columns
-    are stripped from the sub-matrix. Mappings from global to local row numbers
-    are also returned.
-    """
-    sub_mat = mat[:, ind]
-    cols = sub_mat.indptr
-    rows = sub_mat.indices
-    data = sub_mat.data
-    unique_rows, rows_sub = np.unique(sub_mat.indices,
-                                      return_inverse=True)
-    return sps.csc_matrix((data, rows_sub, cols)), unique_rows
