@@ -106,7 +106,7 @@ class ParabolicProblem():
 
     def diffusive_disc(self):
         'Discretization of term \nabla K \nabla T'
-        diffusive_discr = tpfa.TpfaMultiDim(physics=self.physics)
+        diffusive_discr = tpfa.TpfaMixDim(physics=self.physics)
         return diffusive_discr
 
     def source_disc(self):
