@@ -11,6 +11,7 @@ from porepy.grids import structured, simplex
 import porepy.utils.comp_geom as cg
 
 from porepy.numerics.fv import mpfa
+from porepy.numerics.fv import source
 
 #------------------------------------------------------------------------------#
 
@@ -72,6 +73,7 @@ def error_p(g, p):
 
 def main(N):
     Nx = Ny = N
+
     #g = structured.CartGrid([Nx, Ny], [1, 1])
     g = simplex.StructuredTriangleGrid([Nx, Ny], [1, 1])
     R = cg.rot(np.pi/4., [1,0,0])
@@ -83,7 +85,8 @@ def main(N):
 
     # Choose and define the solvers
     solver = mpfa.Mpfa('flow')
-    A, b = solver.matrix_rhs(g, data)
+    A, _ = solver.matrix_rhs(g, data)
+    _, b = source.Integral('flow').matrix_rhs(g, data)
     p = sps.linalg.spsolve(A, b)
 
     diam = np.amax(g.cell_diameters())

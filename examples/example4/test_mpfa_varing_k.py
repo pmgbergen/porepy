@@ -9,6 +9,7 @@ from porepy.params.data import Parameters
 from porepy.grids import structured, simplex
 
 from porepy.numerics.fv import mpfa
+from porepy.numerics.fv import source
 
 #------------------------------------------------------------------------------#
 
@@ -78,7 +79,8 @@ def main(N):
 
     # Choose and define the solvers
     solver = mpfa.Mpfa('flow')
-    A, b = solver.matrix_rhs(g, data)
+    A, _ = solver.matrix_rhs(g, data)
+    _, b = source.Integral('flow').matrix_rhs(g, data)
     p = sps.linalg.spsolve(A, b)
 
     diam = np.amax(g.cell_diameters())
