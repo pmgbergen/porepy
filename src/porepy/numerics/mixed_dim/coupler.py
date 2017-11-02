@@ -167,6 +167,6 @@ class Coupler(object):
             np.array of ints: Indices of all dof for the given grid
 
         """
-        dof_list = self._dof_start_of_grids
+        dof_list = self._dof_start_of_grids(gb)
         nn = gb.node_props(g)['node_number']
         return np.arange(dof_list[nn], dof_list[nn+1])
