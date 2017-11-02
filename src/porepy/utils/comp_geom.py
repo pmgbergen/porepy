@@ -1301,7 +1301,7 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
     poly_1_rot = rot_p_1.dot(poly_1)
 
     # Sanity check: The points should lay on a plane
-    assert np.amax(np.abs(poly_1_xy[2]))/np.amax(np.abs(poly_1_xy[:2])) < tol
+    assert np.amax(np.abs(poly_1_rot[2]))/np.amax(np.abs(poly_1_rot[:2])) < tol
 
     # Drop the z-coordinate
     poly_1_xy = poly_1_rot[:2]
