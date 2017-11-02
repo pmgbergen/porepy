@@ -14,14 +14,23 @@ consistent with the exposed line.
 
 No attempts are made to create fractures that do not cross the confined plane.
 
+KNOWN ISSUES:
+    * When the extrusion is applied with rotations relative to outcrop plane,
+      two fractures may meet in a point only. A warning is issued in this case.
+      The consequences in terms of meshing are hard to predict. To fix this, it
+      is likely necessary to constrain rotation angles to the extrusion angles
+      in T-intersections.
+
 """
 import numpy as np
+import warnings
 
 from porepy.utils import comp_geom as cg
 from porepy.fracs.fractures import EllipticFracture, Fracture
 
 
-def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None, **kwargs):
+def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None,
+                           **kwargs):
     """ Create a set of fractures compatible with exposed lines in an outcrop.
 
     See module-level documentation for futher comments.
@@ -558,8 +567,16 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
 
     isect_pt, _, _ = main_frac.intersects(aux_frac, tol)
 
+    # The extension of the abutting fracture will cross the other fracture
+    # with a certain angle to the vertical. If the other fracture is rotated
+    # with a similar angle, point contact results.
     if isect_pt.size == 0:
-        print('No intersection found in cutting of fractures')
+        warnings.warn("""No intersection found in cutting of fractures. This is
+                         likely caused by an unfortunate combination of
+                         extrusion and rotation angles, which created fractures
+                         that only intersect in a single point (the outcrop
+                         plane. Will try to continue, but this may cause
+                         trouble for meshing etc.""")
         return main_frac, None
 
     # Next step is to eliminate points in the main fracture that are on the
