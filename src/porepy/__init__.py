@@ -38,6 +38,13 @@ from porepy.numerics.vem.hybrid import HybridDualVEM
 from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixDim
 from porepy.numerics.fv.mass_matrix import MassMatrix, InvMassMatrix
 
+# Model related
+from porepy.numerics.pde_solver import AbstractSolver, Implicit, BDF2, Explicit
+from porepy.numerics.pde_solver import CrankNicolson
+from porepy.numerics.darcy_and_transport import DarcyAndTransport
+from porepy.numerics.elliptic import Elliptic, EllipticData
+from porepy.numerics.parabolic import ParabolicProblem, ParabolicData
+
 # Grids
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
