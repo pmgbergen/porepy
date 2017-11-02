@@ -1,3 +1,14 @@
+""" Implementation of a coupler of discretizations for mixed-dimensional
+problems.
+
+The class Coupler act as a general purpose coupler for various discretizations
+(for now assuming the same disrcetization is applied on all grids). The actual
+discretization is constructed by a Solver (within each grid) and an
+AbstractCoupler (between grids). In practice, an extension of the two classes
+is needed. The Coupler acts as a bookkeeper that knows the global numbering,
+and puts submatrices in their right places.
+
+"""
 import numpy as np
 import scipy.sparse as sps
 
@@ -141,3 +152,5 @@ class Coupler(object):
 
         return values
 #------------------------------------------------------------------------------#
+
+    def
