@@ -496,7 +496,7 @@ class Biot(Solver):
                 x = la.spsolve(A, b)
                 return x
         elif solver == 'factorized':
-            slv = la.factorized(A.to_csc())
+            slv = la.factorized(A.tocsc())
 
         else:
             raise ValueError('Unknown solver ' + solver)
@@ -587,9 +587,10 @@ class Biot(Solver):
                 all stress values on the first face, then the second etc.
 
         """
+        param = data['param']
         stress_discr = data['stress']
         bound_stress = data['bound_stress']
-        bound_val = data['bc_val_mech']
+        bound_val = param.get_bc_val_mechanics()
         d = self.extractD(g, u, as_vector=True)
         stress = np.squeeze(stress_discr * d) + (bound_stress * bound_val)
         return stress
