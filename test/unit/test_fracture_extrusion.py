@@ -131,5 +131,21 @@ class TestFractureExtrusion(unittest.TestCase):
 
          self.compare_arrays(p_known, f2.p)
 
+    def test_rotation(self):
+        # Test a case with a fracture terminated in both ends (H-configuration)
+        # This turned out to be problematic for certain cases.
+        # The test is simply that it runs - should have something more
+        # insightful here
+        pt = np.array([[ 0.4587156 ,  0.76605504,  0.60586278,  0.74934585,
+                        0.46570401, 0.55721055],
+                       [ 0.28593274,  0.35321103,  0.31814406,  0.028759  ,
+                        0.44178218, 0.30749384]])
+        edges = np.array([[0, 1], [2, 3], [4, 5]]).T
+
+        np.random.seed(7)
+        family = np.zeros(3, dtype=np.int)
+        extrusion.fractures_from_outcrop(pt, edges, family=family,
+                                         family_std_incline=[0.3])
+
     if __name__ == '__main__':
         unittest.main()
