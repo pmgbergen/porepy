@@ -41,7 +41,7 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
     # Define the domain as bounding-box if not defined
     if domain is None:
         overlap = kwargs.get('domain_overlap', 0)
-        domain = _bounding_box(pts, overlap)
+        domain = bounding_box(pts, overlap)
 
     if return_domain:
         return meshing.simplex_grid(f_set, domain, **mesh_kwargs), domain
@@ -472,7 +472,7 @@ def _dfn_grid_1d(grid_2d, nodes_id):
 
 #------------------------------------------------------------------------------#
 
-def _bounding_box(pts, overlap=0):
+def bounding_box(pts, overlap=0):
     """ Obtain a bounding box for a point cloud.
 
     Parameters:
