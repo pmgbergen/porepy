@@ -1,4 +1,5 @@
 import numpy as np
+import unittest
 
 from porepy.numerics.fv.tpfa import TpfaMixDim
 from porepy.fracs import meshing
@@ -55,28 +56,30 @@ def check_pressures(gb):
         p_diff = pressure - pressure_analytic
         assert np.max(np.abs(p_diff)) < 0.033
 
-def test_uniform_flow_cart_2d_1d_cartesian():
-    # Structured Cartesian grid
-    gb = setup_2d_1d(np.array([10, 10]))
+class BasicsTest(unittest.TestCase):
 
-    # Python inverter is most efficient for small problems
-    flux_discr = TpfaMixDim('flow')
-    A, rhs = flux_discr.matrix_rhs(gb)
-    p = np.linalg.solve(A.A, rhs)
+    def test_uniform_flow_cart_2d_1d_cartesian(self):
+        # Structured Cartesian grid
+        gb = setup_2d_1d(np.array([10, 10]))
 
-    flux_discr.solver.split(gb, 'pressure', p)
+        # Python inverter is most efficient for small problems
+        flux_discr = TpfaMixDim('flow')
+        A, rhs = flux_discr.matrix_rhs(gb)
+        p = np.linalg.solve(A.A, rhs)
 
-    check_pressures(gb)
+        flux_discr.solver.split(gb, 'pressure', p)
 
-def test_uniform_flow_cart_2d_1d_simplex():
-    # Unstructured simplex grid
-    gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
+        check_pressures(gb)
 
-    # Python inverter is most efficient for small problems
-    flux_discr = TpfaMixDim('flow')
-    A, rhs = flux_discr.matrix_rhs(gb)
-    p = np.linalg.solve(A.A, rhs)
+    def test_uniform_flow_cart_2d_1d_simplex(self):
+        # Unstructured simplex grid
+        gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
 
-    flux_discr.solver.split(gb, 'pressure', p)
+        # Python inverter is most efficient for small problems
+        flux_discr = TpfaMixDim('flow')
+        A, rhs = flux_discr.matrix_rhs(gb)
+        p = np.linalg.solve(A.A, rhs)
 
-    check_pressures(gb)
+        flux_discr.solver.split(gb, 'pressure', p)
+
+        check_pressures(gb)
