@@ -427,7 +427,19 @@ class Fracture(object):
                                                                 self.p,
                                                                 tol=tol)
 
-
+        def point_on_segment(ip, poly, need_two=True):
+            # Check if a set of points are located on a single segment
+            if need_two and ip.shape[1] < 2 or\
+                ((not need_two) and ip.shape[1] < 1):
+                return False
+            start = poly
+            end = np.roll(poly, 1, axis=1)
+            for si in range(start.shape[1]):
+                dist, cp = cg.dist_points_segments(ip, start[:, si],
+                                                   end[:, si])
+                if np.all(dist < tol):
+                    return True
+            return False
         # Short cut: If no boundary intersections, we return the interior
         # points
         if len(bound_sect_self_other) == 0 and len(bound_sect_other_self) == 0:
@@ -446,18 +458,7 @@ class Fracture(object):
                 return np.empty((3, 0)), on_boundary_self, on_boundary_other
             # None of the intersection points lay on the boundary
             else:
-                def point_on_segment(ip, poly):
-                    # Check if a set of points are located on a single segment
-                    if ip.shape[1] == 0:
-                        return False
-                    start = poly
-                    end = np.roll(poly, 1, axis=1)
-                    for si in range(start.shape[1]):
-                        dist, cp = cg.dist_points_segments(ip, start[:, si],
-                                                           end[:, si])
-                        if np.all(dist < tol):
-                            return True
-                    return False
+
 
                 # The 'interior' points can still be on the boundary (naming
                 # of variables should be updated). The points form a boundary
@@ -510,9 +511,26 @@ class Fracture(object):
         # Storage for intersection points located on the boundary
         bound_pt = []
 
+        bp, _, _ = setmembership.unique_columns_tol(np.hstack((int_points,
+                                                               bound_pt_self,
+                                                               bound_pt_other)))
+
+        assert bp.shape[1] == int_points.shape[1], """
+            Please file an issue on GitHub, containing this message, and the
+            coordinates of the two polygons.
+
+            This test is inserted to
+            look for redundancies in the intersection algorithm. If this never
+            kicks in, a lot of the code complexity can be kicked out.
+            Unfortunately, the testing must be done on a somewhat wide range
+            of fractures, thus the assertion is just left standing for a while.
+            Sorry about this! EK"""
+
+        self_segment = point_on_segment(bound_pt_self, self.p)
+        other_segment = point_on_segment(bound_pt_other, other.p)
+
         # Cover the case of a segment - essentially an L-intersection
         if self_segment:
-            assert other_segment  # This should be reflexive
             assert bound_pt_self.shape[1] == 2
 
             # Depending on whether the intersection points are also vertexes
@@ -522,8 +540,25 @@ class Fracture(object):
             bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt,
                                                                tol=tol)
 
-            on_boundary_self = [True, True]
-            on_boundary_other = [True, True]
+            on_boundary_self = self_segment
+            on_boundary_other = other_segment or \
+                                    point_on_segment(bound_pt_other, other.p)
+
+            return bound_pt, on_boundary_self, on_boundary_other
+        # Cover the case of a segment - essentially an L-intersection
+        if other_segment:
+            assert bound_pt_other.shape[1] == 2
+
+            # Depending on whether the intersection points are also vertexes
+            # of the polygons, bound_pt_self and other need not be identical.
+            # Return the uniquified combination of the two
+            bound_pt = np.hstack((bound_pt_other, bound_pt_self))
+            bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt,
+                                                               tol=tol)
+
+            on_boundary_self = self_segment or \
+                                   point_on_segment(bound_pt_self, self.p)
+            on_boundary_other = other_segment
             return bound_pt, on_boundary_self, on_boundary_other
 
         # Case where one boundary segment of one fracture cuts through two
@@ -565,6 +600,8 @@ class Fracture(object):
         if bound_pt_other.shape[1] == 2:
             if bound_sect_other_self[0][0] == bound_sect_other_self[1][0]:
                 on_boundary_other = True
+        on_boundary_self = point_on_segment(bound_pt_self, self.p)
+        on_boundary_other = point_on_segment(bound_pt_other, other.p)
         # Special case if a segment is cut as one interior point (by its
         # vertex), and a boundary point on the same segment, this is a boundary
         # segment
