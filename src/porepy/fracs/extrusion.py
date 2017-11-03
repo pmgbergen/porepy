@@ -14,14 +14,23 @@ consistent with the exposed line.
 
 No attempts are made to create fractures that do not cross the confined plane.
 
+KNOWN ISSUES:
+    * When the extrusion is applied with rotations relative to outcrop plane,
+      two fractures may meet in a point only. A warning is issued in this case.
+      The consequences in terms of meshing are hard to predict. To fix this, it
+      is likely necessary to constrain rotation angles to the extrusion angles
+      in T-intersections.
+
 """
 import numpy as np
+import warnings
 
 from porepy.utils import comp_geom as cg
 from porepy.fracs.fractures import EllipticFracture, Fracture
 
 
-def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None, **kwargs):
+def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None,
+                           **kwargs):
     """ Create a set of fractures compatible with exposed lines in an outcrop.
 
     See module-level documentation for futher comments.
@@ -62,12 +71,13 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None, *
     exposure = p1 - p0
 
     # Impose incline.
-    rot_ang = impose_inlcine(fractures, exposure, frac_family=family, **kwargs)
+    rot_ang = impose_inlcine(fractures, exposure, p0, frac_family=family,
+                             **kwargs)
 
     # Cut fractures
     for prim, sec, p in zip(prim_frac, sec_frac, other_pt):
         _, radius = cut_fracture_by_plane(fractures[sec], fractures[prim],
-                                    split_pt[:, p], **kwargs)
+                                          split_pt[:, p], **kwargs)
         # If specified, ensure that cuts in T-intersections appear realistic.
         if ensure_realistic_cuts and radius is not None:
             ang = np.arctan2(0.5*lengths[prim], radius)
@@ -86,7 +96,7 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None, *
             strike = np.arctan2(e1[1] - e0[1], e1[0]- e0[0])
             f = create_fracture(center, new_radius, np.pi/2, strike,
                                 np.vstack((e0, e1)).T)
-            rotate_fracture(f, e1-e0, rot_ang[prim])
+            rotate_fracture(f, e1-e0, rot_ang[prim], p0[:, prim])
             fractures[prim] = f
 
     return fractures
@@ -116,7 +126,7 @@ def _intersection_by_num_node(edges, num):
     return crosses, edges_of_crosses
 
 
-def t_intersections(edges):
+def t_intersections(edges, remove_three_families=True):
     """ Find points involved in T-intersections.
 
     A t-intersection is defined as a point involved in three fracture segments,
@@ -129,6 +139,9 @@ def t_intersections(edges):
         edges (np.array, 3 x n): Fractures. First two rows give indices of
             start and endpoints. Last row gives index of fracture that the
             segment belongs to.
+        remove_three_families (boolean, defaults to True): If True,
+            T-intersections with where fractures from three different families
+            meet will be removed.
 
     Returns:
         abutments (np.ndarray, int): indices of points that are
@@ -144,16 +157,24 @@ def t_intersections(edges):
     frac_num = edges[-1]
     abutments, edges_of_abutments = _intersection_by_num_node(edges, 3)
 
+    # Initialize fields for abutments.
     num_abut = abutments.size
     primal_frac = np.zeros(num_abut, dtype=np.int)
     sec_frac = np.zeros(num_abut, dtype=np.int)
     other_point = np.zeros(num_abut, dtype=np.int)
+
+    # If fractures meeting in a T-intersection all have different family names,
+    # these will be removed from the list.
+    remove = np.zeros(num_abut, dtype=np.bool)
+
     for i, (pi, ei) in enumerate(zip(abutments, edges_of_abutments)):
         # Count number of occurences for each fracture associated with this
         # intersection.
         fi_all = frac_num[ei]
         fi, count = np.unique(fi_all, return_counts=True)
-        assert fi.size == 2
+        if fi.size > 2:
+             remove[i] = 1
+             continue
         # Find the fracture number associated with main and abutting edge.
         if count[0] == 1:
             primal_frac[i] = fi[1]
@@ -169,6 +190,14 @@ def t_intersections(edges):
             other_point[i] = edges[1, ei_abut]
         else:
             other_point[i] = edges[0, ei_abut]
+
+    # Remove any T-intersections that did not belong to
+    if remove_three_families and remove.any():
+         remove = np.where(remove)[0]
+         abutments = np.delete(abutments, remove)
+         primal_frac = np.delete(primal_frac, remove)
+         sec_frac = np.delete(sec_frac, remove)
+         other_point = np.delete(other_point, remove)
 
     return abutments, primal_frac, sec_frac, other_point
 
@@ -364,28 +393,43 @@ def create_fracture(center, radius, dip, strike, extra_points):
     return f
 
 
-def rotate_fracture(frac, vec, angle):
-    """ Rotate a fracture along a specified strike vector.
+def rotate_fracture(frac, vec, angle, exposure):
+    """ Rotate a fracture along a specified strike vector, and centered on a
+    given point on the fracture surface.
+
+    Modification of the fracture coordinates is done in place.
+
+    TODO: Move this to the fracture itself?
 
     Parameters:
         frac (Fracture): To be rotated. Points are modified in-place.
-        vec (np.array-like): Rotation will be around this angle.
+        vec (np.array-like): Rotation will be around this vector.
         ang (double). Rotation angle. Measured in radians.
+        exposure (np.array-like): Point on the strike vector, rotation will be
+            centered around the line running through this point.
 
     """
+    vec = np.asarray(vec)
+    exposure = np.asarray(exposure)
 
     if vec.size == 2:
         vec = np.append(vec, 0)
+    if exposure.size == 2:
+        exposure = np.append(exposure, 0)
+    exposure = exposure.reshape((3, 1))
 
     rot = cg.rot(angle, vec)
     p = frac.p
-    center = np.mean(p, axis=1).reshape((-1, 1))
-    frac.p = center + rot.dot(p - center)
+    frac.p = exposure + rot.dot(p - exposure)
+
     frac.points_2_ccw()
+    frac.compute_centroid()
+    frac.compute_normal()
 
 
-def impose_inlcine(fracs, exposure, frac_family=None, family_mean_incline=None,
-                   family_std_incline=None, **kwargs):
+def impose_inlcine(fracs, exposure_line, exposure_point, frac_family=None,
+                   family_mean_incline=None, family_std_incline=None,
+                   **kwargs):
     """ Impose incline on the fractures from family-based parameters.
 
     The incline for each family is specified in terms of its mean and standard
@@ -395,8 +439,10 @@ def impose_inlcine(fracs, exposure, frac_family=None, family_mean_incline=None,
 
     Parameters:
         fracs (list of Frature): Fractures to be inclined.
-        exposure (np.array, 3xnum_frac): Exposed line for each fracture
+        exposure_line (np.array, 3xnum_frac): Exposed line for each fracture
             (visible in outcrop). Rotation will be around this line.
+        exposure_point (np.array, 3xnum_frac): Point on exposure line. This
+            point will not be rotated, it's a fixture.
         family (np.array, num_fracs): For each fracture, which family does it
             belong to. If not provided, all fractures are considered to belong
             to the same family.
@@ -419,19 +465,19 @@ def impose_inlcine(fracs, exposure, frac_family=None, family_mean_incline=None,
     if family_std_incline is None:
         family_std_incline = np.zeros(np.unique(frac_family).size)
 
-    exposure = np.vstack((exposure, np.zeros(len(fracs))))
+    exposure_line = np.vstack((exposure_line, np.zeros(len(fracs))))
     all_ang = np.zeros(len(fracs))
     for fi, f in enumerate(fracs):
         fam = frac_family[fi]
         ang = np.random.normal(loc=family_mean_incline[fam],
                                scale=family_std_incline[fam])
-        rotate_fracture(f, exposure[:, fi], ang)
-        all_ang[fam] = ang
+        rotate_fracture(f, exposure_line[:, fi], ang, exposure_point[:, fi])
+        all_ang[fi] = ang
 
     return all_ang
 
 def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
-                          recompute_center=False, **kwargs):
+                          recompute_center=True, **kwargs):
     """ Cut a fracture by a plane, and confine it to one side of the plane.
 
     Intended use is to confine abutting fractures (T-intersections) to one side
@@ -521,6 +567,18 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
 
     isect_pt, _, _ = main_frac.intersects(aux_frac, tol)
 
+    # The extension of the abutting fracture will cross the other fracture
+    # with a certain angle to the vertical. If the other fracture is rotated
+    # with a similar angle, point contact results.
+    if isect_pt.size == 0:
+        warnings.warn("""No intersection found in cutting of fractures. This is
+                         likely caused by an unfortunate combination of
+                         extrusion and rotation angles, which created fractures
+                         that only intersect in a single point (the outcrop
+                         plane. Will try to continue, but this may cause
+                         trouble for meshing etc.""")
+        return main_frac, None
+
     # Next step is to eliminate points in the main fracture that are on the
     # wrong side of the other fracture.
     v = main_frac.p - other_frac.center.reshape((-1, 1))
@@ -532,8 +590,6 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
     eliminate = np.where(sgn * right_sign < 0)[0]
     main_frac.remove_points(eliminate)
 
-    if recompute_center:
-        main_frac.compute_center()
 
     # Add intersection points on the main fracture. One of these may already be
     # present, as the point of extrusion, but add_point will uniquify the point
@@ -541,6 +597,9 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
     # We add the points after elimination, to ensure that the points on the
     # plane are present in the final fracture.
     main_frac.add_points(isect_pt, check_convexity=False)
+
+    if recompute_center:
+        main_frac.compute_centroid()
 
     # If the main fracture is too large compared to the other, the cut line
     # will extend beyond the confining plane. In these cases, compute the

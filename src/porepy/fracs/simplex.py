@@ -110,7 +110,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     h_ideal = kwargs.get('h_ideal', None)
     h_min = kwargs.get('h_min', None)
     if h_ideal is not None and h_min is not None:
-        network.compute_distances(h_ideal, h_min)
+        network.insert_auxiliary_points(h_ideal, h_min)
         # In this case we need to recompute intersection decomposition anyhow.
         network.split_intersections()
 
