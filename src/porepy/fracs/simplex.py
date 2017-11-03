@@ -84,10 +84,10 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
             # isinstance-statements, but that became less than elegant. To
             # revisit.
             if hasattr(f, 'p') and isinstance(f.p, np.ndarray):
-                # Convert the fractures from numpy representation to our 3D
-                # fracture data structure. **Kommentar på feil sted?
                 frac_list.append(f)
             else:
+                # Convert the fractures from numpy representation to our 3D
+                # fracture data structure. 
                 frac_list.append(fractures.Fracture(f))
 
         # Combine the fractures into a network
