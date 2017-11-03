@@ -56,7 +56,7 @@ class Fracture(object):
         # Ensure the points are ccw
         self.points_2_ccw()
         self.compute_centroid()
-        self.normal = cg.compute_normal(points)[:, None]
+        self.compute_normal()
 
         self.orig_p = self.p.copy()
 
@@ -266,7 +266,12 @@ class Fracture(object):
         center = np.sum(cc * area, axis=1) / np.sum(area)
 
         # Project back again.
-        self.center = rot.transpose().dot(np.append(center, z))
+        self.center = rot.transpose().dot(np.append(center, z)).reshape((3, 1))
+
+    def compute_normal(self):
+        """ Compute normal to the polygon.
+        """
+        self.normal = cg.compute_normal(self.p)[:, None]
 
     def as_sp_polygon(self, p=None):
         """ Represent polygon as a sympy object.
@@ -431,11 +436,17 @@ class Fracture(object):
         # points
         if len(bound_sect_self_other) == 0 and len(bound_sect_other_self) == 0:
             if check_point_contact and int_points.shape[1] == 1:
-                # Point contacts are not implemented. Give a warning, return no
+                #  contacts are not implemented. Give a warning, return no
                 # interseciton, and hope the meshing software is merciful
-                logger.warning("""Found a point contact between fracture %i
-                               and %i at (%.5f, %.5f, %.5f)""", self.index,
-                               other.index, *int_points)
+                if hasattr(self, 'index') and hasattr(other, 'index'):
+                    logger.warning("""Found a point contact between fracture
+                                   %i
+                                   and %i at (%.5f, %.5f, %.5f)""", self.index,
+                                   other.index, *int_points)
+                else:
+                    logger.warning("""Found point contact between fractures
+                                   with no index. Coordinate: (%.5f, %.5f,
+                                   %.5f)""", *int_points)
                 return np.empty((3, 0)), on_boundary_self, on_boundary_other
             # None of the intersection points lay on the boundary
             else:
@@ -874,7 +885,7 @@ class Fracture(object):
                 break
 
     def __repr__(self):
-        return str(self.as_sp_polygon())
+        return self.__str__()
 
     def __str__(self):
         s = 'Points: \n'
@@ -1029,6 +1040,9 @@ class FractureNetwork(object):
 
         # Assign an empty tag dictionary
         self.tags = {}
+
+        # No auxiliary points have been added
+        self.auxiliary_points_added = False
 
     def add(self, f):
         # Careful here, if we remove one fracture and then add, we'll have
@@ -2000,12 +2014,14 @@ class FractureNetwork(object):
             return mesh_size, mesh_size_bound
         elif mode == 'distance':
             if self.h_min is None or self.h_ideal is None:
+                print('Found no information on mesh sizes. Returning')
                 return None, None
 
             p = self.decomposition['points']
             num_pts = p.shape[1]
             dist = cg.dist_pointset(p, max_diag=True)
             mesh_size = np.min(dist, axis=1)
+            print('Minimal distance between points encountered is ' + str(np.min(dist)))
             mesh_size = np.maximum(mesh_size, self.h_min * np.ones(num_pts))
             mesh_size = np.minimum(mesh_size, self.h_ideal * np.ones(num_pts))
 
@@ -2014,11 +2030,39 @@ class FractureNetwork(object):
         else:
             raise ValueError('Unknown mesh size mode ' + mode)
 
-    def compute_distances(self, h_ideal=None, h_min=None):
+    def insert_auxiliary_points(self, h_ideal=None, h_min=None):
+        """ Insert auxiliary points on fracture edges. Used to guide gmsh mesh
+        size parameters.
+
+        The function should only be called once to avoid insertion of multiple
+        layers of extra points, this will likely kill gmsh.
+
+        The function is motivated by similar functionality for 2d domains, but
+        is considerably less mature.
+
+        The function should be used in conjunction with _determine_mesh_size(),
+        called with mode='distance'. The ultimate goal is to set the mesh size
+        for geometrical points in Gmsh. To that end, this function inserts
+        additional points on the fracture boundaries. The mesh size is then
+        determined as the distance between all points in the fracture
+        description.
+
+        Parameters:
+            h_ideal: Ideal mesh size. Will be added to all points that are
+                sufficiently far away from other points.
+            h_min: Minimal mesh size; we will make no attempts to enforce
+                even smaller mesh sizes upon Gmsh.
+
+        """
+
+
+        if self.auxiliary_points_added:
+            print('Auxiliary points already added. Returning.')
+        else:
+            self.auxiliary_points_added = True
 
         self.h_ideal = h_ideal
         self.h_min = h_min
-        isect_pt = np.zeros((3, 0), dtype=np.double)
 
         def dist_p(a, b):
             a = a.reshape((-1, 1))
@@ -2095,17 +2139,6 @@ class FractureNetwork(object):
                         d_2 = dist_p(cp_f[:, mi], f.p[:, (si+1)%nfp])
                         if d_1 > h_min and d_2 > h_min:
                             np.insert(f.p, (si+1)%nfp, cp_f[:, mi], axis=1)
-
-                # Finally, cover the case where the smallest distance is given
-                # by a point. Points with false in_point should already be
-                # covered by the above iteration over segments.
-                d, cp, in_poly = cg.dist_points_polygon(of.p, f.p)
-                for di, cpi, ip in zip(d, cp, in_poly):
-                    # Closest point on segment is covered above
-                    if not ip:
-                        continue
-                    if di < h_ideal:
-                        pass
 
 
     def distance_point_segment(self):
