@@ -24,7 +24,7 @@ from porepy.fracs import meshing, split_grid
 
 from porepy.numerics.mixed_dim import coupler, condensation
 
-from porepy.numerics.fv.transport import upwind, upwind_coupling
+from porepy.numerics.fv.transport import upwind
 from porepy.numerics.fv import mass_matrix
 
 #------------------------------------------------------------------------------#
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     add_data_transport(gb_r)
 
     upwind_solver = upwind.Upwind()
-    upwind_cc = upwind_coupling.UpwindCoupling(upwind_solver)
+    upwind_cc = upwind.UpwindCoupling(upwind_solver)
     coupler_solver = coupler.Coupler(upwind_solver, upwind_cc)
     U, rhs = coupler_solver.matrix_rhs(gb)
     U_r, rhs_r = coupler_solver.matrix_rhs(gb_r)

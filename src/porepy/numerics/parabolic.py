@@ -5,7 +5,7 @@ from porepy.params.data import Parameters
 from porepy.params import tensor, bc
 from porepy.fracs import meshing
 from porepy.numerics.fv import fvutils, tpfa, mass_matrix, source
-from porepy.numerics.fv.transport import upwind, upwind_coupling
+from porepy.numerics.fv.transport import upwind
 from porepy.numerics import pde_solver
 from porepy.numerics.mixed_dim import coupler
 from porepy.viz.exporter import export_vtk, export_pvd
@@ -102,7 +102,7 @@ class ParabolicProblem():
     def advective_disc(self):
         'Discretization of term v * \nabla T'
         advection_discr = upwind.Upwind(physics=self.physics)
-        advection_coupling = upwind_coupling.UpwindCoupling(advection_discr)
+        advection_coupling = upwind.UpwindCoupling(advection_discr)
         advection_solver = coupler.Coupler(advection_discr, advection_coupling)
         return advection_solver
 

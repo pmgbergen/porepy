@@ -6,7 +6,7 @@ from porepy.fracs import meshing
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.numerics.fv.transport import upwind, upwind_coupling
+from porepy.numerics.fv.transport import upwind
 from porepy.numerics.mixed_dim import coupler
 
 #------------------------------------------------------------------------------#
@@ -59,7 +59,7 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind_coupling.UpwindCoupling(solver)
+        coupling_conditions = upwind.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
         deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
@@ -123,7 +123,7 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind_coupling.UpwindCoupling(solver)
+        coupling_conditions = upwind.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
         deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
@@ -208,7 +208,7 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind_coupling.UpwindCoupling(solver)
+        coupling_conditions = upwind.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
 
@@ -282,7 +282,7 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind_coupling.UpwindCoupling(solver)
+        coupling_conditions = upwind.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
         deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
@@ -347,7 +347,7 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind_coupling.UpwindCoupling(solver)
+        coupling_conditions = upwind.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
         deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
@@ -458,7 +458,7 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind_coupling.UpwindCoupling(solver)
+        coupling_conditions = upwind.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         U, rhs = solver_coupler.matrix_rhs(gb)
         deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
@@ -506,7 +506,7 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling = upwind_coupling.UpwindCoupling(solver)
+        coupling = upwind.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling)
         M = solver_coupler.matrix_rhs(gb)[0].todense()
 
@@ -562,7 +562,7 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling = upwind_coupling.UpwindCoupling(solver)
+        coupling = upwind.UpwindCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling)
         M, rhs = solver_coupler.matrix_rhs(gb)
 
@@ -761,3 +761,4 @@ def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d():
     return U, rhs
 
 #------------------------------------------------------------------------------#
+BasicsTest().test_upwind_coupling_3d_2d_left_right()
