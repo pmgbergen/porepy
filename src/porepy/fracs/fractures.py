@@ -716,9 +716,6 @@ class Fracture(object):
         z0 = np.minimum(z0_box, min_coord[2] - 10 * tol)
         z1 = np.maximum(z1_box, max_coord[2] + 10 * tol)
         
-        print('Line ~500')
-        print('Keep this part')
-        print('Need to decide whether to include tolerance')
 
         def outside_box(p, bound_i):
             # Helper function to test if points are outside the bounding box
@@ -1798,7 +1795,7 @@ class FractureNetwork(object):
         # Insert boundary in the form of a box, and kick out (parts of)
         # fractures outside the box
         self.domain = box
-        self._make_bounding_planes(box)
+        
         #Create fractures of box here.
         #Store them self._fractures so that split_intersections work
         #keep track of which fractures are really boundaries - perhaps attribute is_proxy?
@@ -1827,6 +1824,8 @@ class FractureNetwork(object):
                 assert f.p.shape[1] >= 3
 
 
+        self._make_bounding_planes(box)
+        
     def _make_bounding_planes(self, box):
         """
         Translate the bounding box into fractures. Tag them as boundaries.
@@ -2191,12 +2190,13 @@ class FractureNetwork(object):
     def to_gmsh(self, file_name, **kwargs):
         p = self.decomposition['points']
         edges = self.decomposition['edges']
-        edges_2_fracs = self.decomposition['edges_2_frac']
         frac_tags = self.tags
-        frac_tags['subdomain']+=[False]*(len(self._fractures)
-                                               -len(frac_tags['subdomain']))
-        frac_tags['boundary']+=[False]*(len(self._fractures)
-                                               -len(frac_tags['boundary']))
+        frac_tags['subdomain'] = frac_tags.get('subdomain', []) + \
+                                [False]*(len(self._fractures)
+                                        -len(frac_tags.get('subdomain', [])))
+        frac_tags['boundary'] = frac_tags.get('boundary', []) + \
+                                [False]*(len(self._fractures)
+                                        -len(frac_tags.get('boundary', [])))
         
         poly = self._poly_2_segment()
 
@@ -2205,7 +2205,7 @@ class FractureNetwork(object):
         # All intersection lines and points on boundaries are non-physical in 3d.
         # I.e., they are assigned boundary conditions, but are not gridded. Hence:
         # Remove the points and edges at the boundary
-        point_tags, edge_tags = self._on_boundary(edges, edges_2_fracs, edge_tags)
+        point_tags, edge_tags = self._on_boundary(edges, edge_tags)
         edges = np.vstack((self.decomposition['edges'], edge_tags))
         int_pts_on_boundary = np.isin(intersection_points, np.where(point_tags))
         intersection_points = intersection_points[np.logical_not(int_pts_on_boundary)]
@@ -2241,16 +2241,18 @@ class FractureNetwork(object):
         writer.write_geo(file_name)
 
 
-    def _on_boundary(self, edges, edges_2_frac, edge_tags):
+    def _on_boundary(self, edges, edge_tags):
         """
         Finds edges and points on boundary, to avoid that these
         are gridded. Points  introduced by intersections 
         of subdomain boundaries and real fractures remain physical
         (to maintain contact between split fracture lines).
         """
-        boundary_polygons = np.where(self.tags['boundary'])[0]
-        subdomain_polygons = np.where(self.tags['subdomain'])[0]
-        
+        boundary_polygons = np.where(self.tags.get('boundary', 
+                                [False]*len(self._fractures)))[0]
+        subdomain_polygons = np.where(self.tags.get('subdomain'
+                                [False]*len(self._fractures)))[0]
+        edges_2_frac = self.decomposition['edges_2_frac']
         constants = GmshConstants()
         point_tags = np.zeros(self.decomposition['points'].shape[1])
         for e, e2f in enumerate(edges_2_frac):

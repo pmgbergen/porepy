@@ -135,22 +135,22 @@ def test_two_fractures_touching_one_boundary(**kwargs):
     else:
         return grids
     return grids
-
-def test_two_fractures_touch_boundary_corners(**kwargs):
-    """
-    One fracture, intersected by two other (but no point intersections)
-    """
-
-    #f_1 = np.array([[-2, 2, 2, -2], [-2, 2, 2, -2], [-2, -2, 2, 2]])
-    f_2 = np.array([[-2, 2, 2, -2], [-2, 1, 1, -2], [-2, -2, 2, 2]])
-    
-    kwargs, domain = kwarguments_and_domain()
-    grids = meshing.simplex_grid([ f_2], domain, **kwargs)
-
-    if kwargs.get('return_expected', False):
-        return grids, [1, 2, 0, 0]
-    else:
-        return grids
+# Awaits issue 58
+#def test_two_fractures_touch_boundary_corners(**kwargs):
+#    """
+#    One fracture, intersected by two other (but no point intersections)
+#    """
+#
+#    #f_1 = np.array([[-2, 2, 2, -2], [-2, 2, 2, -2], [-2, -2, 2, 2]])
+#    f_2 = np.array([[-2, 2, 2, -2], [-2, 1, 1, -2], [-2, -2, 2, 2]])
+#    
+#    kwargs, domain = kwarguments_and_domain()
+#    grids = meshing.simplex_grid([ f_2], domain, **kwargs)
+#
+#    if kwargs.get('return_expected', False):
+#        return grids, [1, 2, 0, 0]
+#    else:
+#        return grids
 
 
 def test_three_fractures_sharing_line_same_segment(**kwargs):
@@ -189,21 +189,4 @@ def test_three_fractures_split_segments(**kwargs):
         return grids
 
 
-def test_issue_aa():
-    
-    kwargs, domain = kwarguments_and_domain()
-    f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
-    f_2 = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
-    f_3 = np.array([[1, 1, 1, 1], [0, 1, 1, 0], [0, 0, 1, 1]])
-    f_4 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
-    f_5 = np.array([[0, 1, 1, 0], [1, 1, 1, 1], [0, 0, 1, 1]])
-    f_6 = np.array([[0, 1, 1, 0], [0, 0, 0, 0], [0, 0, 1, 1]])
-    f_7 = np.array([[0, 1, 1, 0], [0, .1, .1, 0], [0, 0, 1, 1]])
-    #grids = meshing.simplex_grid([f_1, f_2, f_3, f_4, f_5, f_6, f_7], domain,**kwargs)
-    grids = meshing.simplex_grid([f_1, f_7], domain,**kwargs)
-    return grids, [1, 2, 1, 0]
 
-if __name__ == '__main__':
-    gb, ex = test_issue_aa()
-    check_number_of_grids(gb, ex )
-    

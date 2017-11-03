@@ -86,7 +86,7 @@ def test_one_fracture_intersected_by_two(**kwargs):
     # Add some parameters for grid size
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
               2}
-    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
+    mesh_size = {'mode': 'constant', 'value': 0.4, 'bound_value': 1}
 
     kwargs['mesh_size'] = mesh_size
     grids = meshing.simplex_grid([f_1, f_2, f_3], domain, **kwargs)
@@ -263,15 +263,16 @@ def test_issue_54():
                     [0.2,0.2,.8,.8]])
     grids = meshing.simplex_grid([f_1, f_2], domain,
                                  ensure_matching_face_cell=False)
-def test_issue_aa():
-    
-    domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2,
-              'zmin': -2, 'zmax': 2}
-    mesh_size = {'mode': 'constant', 'value': 1, 'bound_value': 1}
-    kwargs = {'mesh_size': mesh_size, 'return_expected': True}
-    
-    f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
-    f_2 = np.array([[0, 1, 1, 0], [0, .5, .5, 0], [0, 0, 1, 1]])
-
-    grids = meshing.simplex_grid([f_1, f_2], domain,**kwargs)
+# Pending:
+#def test_issue_58():
+#    
+#    domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2,
+#              'zmin': -2, 'zmax': 2}
+#    mesh_size = {'mode': 'constant', 'value': 1, 'bound_value': 1}
+#    kwargs = {'mesh_size': mesh_size, 'return_expected': True}
+#    
+#    f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
+#    f_2 = np.array([[0, 1, 1, 0], [0, .5, .5, 0], [0, 0, 1, 1]])
+#
+#    grids = meshing.simplex_grid([f_1, f_2], domain,**kwargs)
 

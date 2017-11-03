@@ -5,6 +5,8 @@ Since that algorithm uses fracture intersection methods, the tests functions as
 partial test for the wider fracture intersection framework as well. Full tests
 of the latter are too time consuming to fit into a unit test.
 
+Now the boundary is defined as set of "fake" fractures, all fracture network 
+have 2*dim additional fractures (hence the + 6 in the assertions) 
 """
 import unittest
 import numpy as np
@@ -38,7 +40,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         f.p[0] -= 2
         network = FractureNetwork([f])
         network.impose_external_boundary(self.domain)
-        assert len(network._fractures) == 0
+        assert len(network._fractures) == (0 + 6)
 
     def test_outside_west_bottom(self):
         self.setup()
@@ -47,7 +49,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         f.p[2] -= 1.5
         network = FractureNetwork([f])
         network.impose_external_boundary(self.domain)
-        assert len(network._fractures) == 0
+        assert len(network._fractures) == (0 + 6)
 
     def test_intersect_one(self):
         self.setup()
@@ -59,7 +61,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         p_known = np.array([[0., 0.5, 0.5, 0],
                             [0.5, 0.5, 0.5, 0.5],
                             [0.2, 0.2, 0.8, 0.8]])
-        assert len(network._fractures) == 1
+        assert len(network._fractures) == (1 + 6)
         p_comp = network._fractures[0].p
         assert self._arrays_equal(p_known, p_comp)
 
@@ -73,7 +75,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         p_known = np.array([[0., 1, 1, 0],
                             [0.5, 0.5, 0.5, 0.5],
                             [0.2, 0.2, 0.8, 0.8]])
-        assert len(network._fractures) == 1
+        assert len(network._fractures) == (1 + 6)
         p_comp = network._fractures[0].p
         assert self._arrays_equal(p_known, p_comp)
 
@@ -87,7 +89,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         p_known = np.array([[0., 0.5, 0.5, 0],
                             [0.5, 0.5, 0.5, 0.5],
                             [0., 0., 0.5, 0.75]])
-        assert len(network._fractures) == 1
+        assert len(network._fractures) == (1 + 6)
         p_comp = network._fractures[0].p
         assert self._arrays_equal(p_known, p_comp)
 
@@ -102,7 +104,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         p_known = np.array([[0., 0.5, 0.5, 0],
                             [5./6, 5./6, 1, 1],
                             [0., 0., 0.25, 0.25]])
-        assert len(network._fractures) == 1
+        assert len(network._fractures) == (1 + 6)
         p_comp = network._fractures[0].p
         assert self._arrays_equal(p_known, p_comp)
 

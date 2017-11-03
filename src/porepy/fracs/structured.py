@@ -140,10 +140,13 @@ def cart_grid_3d(fracs, nx, physdims=None):
     edge_tags, intersection_points = network._classify_edges(poly)
     edges = np.vstack((edges, edge_tags))
     const = constants.GmshConstants()
-
+    boundary_points, edge_tags = network._on_boundary(edges, edge_tags)
+    bound_and_aux = np.array([const.DOMAIN_BOUNDARY_TAG, const.AUXILIARY_TAG])
     for e in np.ravel(np.where(edges[2] == const.FRACTURE_INTERSECTION_LINE_TAG)):
         # We find the start and end point of each fracture intersection (1D
         # grid) and then the corresponding global node index.
+        if np.isin(edge_tags[e], bound_and_aux):
+            continue
         s_pt = pts[:, edges[0, e]]
         e_pt = pts[:, edges[1, e]]
         nodes = _find_nodes_on_line(g_3d, nx, s_pt, e_pt)
@@ -157,6 +160,8 @@ def cart_grid_3d(fracs, nx, physdims=None):
     # Here we also use the intersection information from the FractureNetwork
     # class.
     for p in intersection_points:
+        if boundary_points[p]:
+            continue
         node = np.argmin(cg.dist_point_pointset(pts[:, p], g_3d.nodes))
         assert np.allclose(g_3d.nodes[:, node], pts[:, p])
         g = point_grid.PointGrid(g_3d.nodes[:, node])
