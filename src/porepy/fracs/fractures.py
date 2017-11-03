@@ -613,7 +613,9 @@ class Fracture(object):
 
         # Number of vertexes on the other polygon - used below to identify
         # whether the intersection coincides with these.
+        num_pt = poly.shape[1]
         num_pt_other = other_poly.shape[1]
+
 
         # Loop over all intersections, process information
         for bi in isect_bound:
@@ -640,6 +642,10 @@ class Fracture(object):
                 # The polygons share a segment, or a
                 bound_pt = np.hstack((bound_pt, ip_unique))
                 has_segment = True
+                poly_ext, o2n, _ = setmembership.unique_columns_tol(
+                    np.hstack((poly, ip_unique)), tol=tol)
+                non_vertex = list(o2n[-2:] >= num_pt)
+
                 # No need to deal with non_vertex here, there should be no more
                 # intersections (convex, non-overlapping polygons).
             elif ip_unique.shape[1] == 1:
@@ -648,7 +654,8 @@ class Fracture(object):
                     np.hstack((poly, ip_unique)), tol=tol)
                 if poly_ext.shape[1] == poly.shape[1]:
                     # This is a vertex, we skip it
-                    pass
+                    bound_pt = np.hstack((bound_pt, ip_unique))
+                    non_vertex.append(False)
                 else:
                     # New point contact
                     bound_pt = np.hstack((bound_pt, ip_unique))
@@ -665,7 +672,22 @@ class Fracture(object):
         # Return a unique version of bound_pt
         # No need to uniquify unless there is more than one point.
         if bound_pt.shape[1] > 1:
-            bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt, tol=tol)
+            bound_pt, o2n, n2o = \
+                setmembership.unique_columns_tol(bound_pt, tol=tol)
+            non_vertex = np.array([non_vertex[i] for i in o2n])
+
+        assert bound_pt.shape[1] <= 2
+
+        has_segment = False
+        if bound_pt.shape[1] == 2 and not (non_vertex.any()):
+            # We've got two vertexes, let's see if they are a segment
+            ap = np.hstack((poly, bound_pt))
+            rp, o2n, n2o = setmembership.unique_columns_tol(ap, tol=tol)
+            bp_n2o = np.sort(n2o[-2:])
+            if (bp_n2o[0] +1) == bp_n2o[1] or\
+                bp_n2o[0] == 0 and bp_n2o[1] == poly.shape[1]:
+                has_segment = True
+
 
         return bound_pt, has_segment, non_vertex, cuts_two
 
