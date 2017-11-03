@@ -14,19 +14,19 @@ from porepy.numerics.vem import dual
 #------------------------------------------------------------------------------#
 
 def rhs(x, y, z):
-    return 8*np.pi**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)*permeability(x,y,z) -\
-    400*np.pi*y*np.cos(2*np.pi*y)*np.sin(2*np.pi*x) -\
-    400*np.pi*x*np.cos(2*np.pi*x)*np.sin(2*np.pi*y)
+    return 8.*np.pi**2*np.sin(2.*np.pi*x)*np.sin(2.*np.pi*y)*permeability(x,y,z) -\
+    400.*np.pi*y*np.cos(2.*np.pi*y)*np.sin(2.*np.pi*x) -\
+    400.*np.pi*x*np.cos(2.*np.pi*x)*np.sin(2.*np.pi*y)
 
 #------------------------------------------------------------------------------#
 
 def solution(x, y, z):
-    return np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
+    return np.sin(2.*np.pi*x)*np.sin(2.*np.pi*y)
 
 #------------------------------------------------------------------------------#
 
 def permeability(x, y, z):
-    return 1+100*x**2+100*y**2
+    return 1+100.*x**2+100.*y**2
 
 #------------------------------------------------------------------------------#
 
