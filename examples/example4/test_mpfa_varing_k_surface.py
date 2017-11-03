@@ -85,9 +85,9 @@ def main(N):
 
     # Choose and define the solvers
     solver = mpfa.Mpfa('flow')
-    A, _ = solver.matrix_rhs(g, data)
-    _, b = source.Integral('flow').matrix_rhs(g, data)
-    p = sps.linalg.spsolve(A, b)
+    A, b_flux = solver.matrix_rhs(g, data)
+    _, b_source = source.Integral('flow').matrix_rhs(g, data)
+    p = sps.linalg.spsolve(A, b_flux+b_source)
 
     diam = np.amax(g.cell_diameters())
     return diam, error_p(g, p)
