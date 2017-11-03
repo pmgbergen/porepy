@@ -16,21 +16,21 @@ from porepy.numerics.vem import dual
 #------------------------------------------------------------------------------#
 
 def rhs(x, y, z):
-    return 7*z*(x**2 + y**2 + 1) - y*(x**2 - 9*z**2) - 4*x**2*z -\
-    (8*np.sin(np.pi*y) -\
-    4*np.pi**2*y**2*np.sin(np.pi*y) + 16*np.pi*y*np.cos(np.pi*y))*(x**2/2 +\
-    y**2/2 + 1/2) -\
-    4*y**2*(2*np.sin(np.pi*y) + np.pi*y*np.cos(np.pi*y))
+    return 7.*z*(x**2 + y**2 + 1.) - y*(x**2 - 9.*z**2) - 4.*x**2*z -\
+    (8.*np.sin(np.pi*y) -\
+    4.*np.pi**2*y**2*np.sin(np.pi*y) + 16.*np.pi*y*np.cos(np.pi*y))*(x**2/2. +\
+    y**2/2. + 1./2.) -\
+    4.*y**2*(2.*np.sin(np.pi*y) + np.pi*y*np.cos(np.pi*y))
 
 #------------------------------------------------------------------------------#
 
 def solution(x, y, z):
-    return x**2*z+4*y**2*np.sin(np.pi*y)-3*z**3
+    return x**2*z+4.*y**2*np.sin(np.pi*y)-3.*z**3
 
 #------------------------------------------------------------------------------#
 
 def permeability(x, y, z):
-    return 1+x**2+y**2
+    return 1.+x**2+y**2
 
 #------------------------------------------------------------------------------#
 
@@ -97,14 +97,15 @@ def main(N):
 
 #------------------------------------------------------------------------------#
 
-class BasicsTest( unittest.TestCase ):
+#class BasicsTest( unittest.TestCase ):
 
-    def test_vem_varing_k_surface(self):
-        diam_10, error_10 = main(10)
-        diam_20, error_20 = main(20)
+def test_vem_varing_k_surface():
+    diam_10, error_10 = main(10)
+    diam_20, error_20 = main(20)
 
-        known_order = 1.97928213116
-        order = np.log(error_10/error_20)/np.log(diam_10/diam_20)
-        assert np.isclose(order, known_order)
+    known_order = 1.97928213116
+    order = np.log(error_10/error_20)/np.log(diam_10/diam_20)
+    assert np.isclose(order, known_order)
 
 #------------------------------------------------------------------------------#
+test_vem_varing_k_surface()
