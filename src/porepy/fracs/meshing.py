@@ -133,7 +133,13 @@ def simplex_grid(fracs=None, domain=None, network=None, verbose=0, **kwargs):
 #------------------------------------------------------------------------------#
 
 def dfn(fracs, conforming, intersections=None, **kwargs):
-    """
+    """ Create a mesh of a DFN model, that is, only of fractures.
+
+    The mesh can eihter be conforming along fracture intersections, or each
+    fracture is meshed independently. The latter case will typically require
+    some sort of sewing together external to this funciton.
+
+    TODO: What happens if we give in a non-connected network?
 
     Parameters:
         fracs (either Fractures, or a FractureNetwork).
@@ -147,6 +153,15 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
             function in FractureNetwork.
         **kwargs: Parameters passed to gmsh.
 
+    Returns (read carefully, either or here):
+        GridBucket (if conforming is True): Mixed-dimensional mesh that
+            represents all fractures, and intersection poitns and line.
+        list of list of grids (if conforming is false): List of meshes created.
+            One list item per dimension, each item may contain several grids
+            (e.g. one per fracture).
+        list of list (if conforming is false): For each fracture, a list of
+            indices of intersecting fractures.
+
     """
 
     if isinstance(fracs, FractureNetwork) \
@@ -155,6 +170,8 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
     else:
         network = FractureNetwork(fracs)
 
+    # Populate intersections in FractureNetowrk, or find intersections if not
+    # provided.
     if intersections is not None:
         network.intersections = []
         for isect in intersections:
@@ -169,6 +186,10 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
         grids = simplex.triangle_grid_embedded(network, find_isect=False,
                                                **kwargs)
         tag_faces(grids, check_highest_dim=False)
+        gb = assemble_in_bucket(grids)
+        gb.compute_geometry()
+        split_grid.split_fractures(gb)
+        return gb
     else:
 
         grid_list = []
@@ -180,6 +201,7 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
 
             f_lines = np.reshape(np.arange(ip.shape[1]), (2, -1), order='F')
             frac_dict = {'points': ip, 'edges': f_lines}
+            # Create mesh on this fracture surface.
             grids = simplex.triangle_grid(frac_dict, fp, verbose=False,
                                           **kwargs)
 
@@ -196,11 +218,6 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
             grid_list.append(grids)
             neigh_list.append(other_frac)
         return grid_list, neigh_list
-
-    gb = assemble_in_bucket(grids)
-    gb.compute_geometry()
-    split_grid.split_fractures(gb)
-    return gb
 
 #------------------------------------------------------------------------------#
 
