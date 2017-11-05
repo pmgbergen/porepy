@@ -6,12 +6,12 @@ import time
 import numpy as np
 from meshio import gmsh_io
 
-import porepy
 from porepy.grids import constants
 from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
 from porepy.fracs import fractures, utils
 import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import unique_columns_tol
+import porepy
 
 
 def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
@@ -73,21 +73,28 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
 
         frac_list = []
         for f in fracs:
-            if isinstance(f, fractures.Fracture) \
-               or isinstance(f, porepy.Fracture):
+            # Input can be either numpy arrays or predifined fractures. As a
+            # guide, we treat f as a fracture if it has an attribute p which is
+            # a numpy array. 
+            # If f turns out not to be a fracture, strange errors will result
+            # as the further program tries to access non-existing methods.
+            # The correct treatment here would be several
+            # isinstance-statements, but that became less than elegant. To
+            # revisit.
+            if hasattr(f, 'p') and isinstance(f.p, np.ndarray):
+                # Convert the fractures from numpy representation to our 3D
+                # fracture data structure.
                 frac_list.append(f)
             else:
-                # Convert the fractures from numpy representation to our 3D
-                # fracture data structure..
                 frac_list.append(fractures.Fracture(f))
 
         # Combine the fractures into a network
         network = fractures.FractureNetwork(frac_list, verbose=verbose,
                                             tol=kwargs.get('tol', 1e-4))
 
-    # Impose domain boundary.
-    if box is not None:
-        network.impose_external_boundary(box)
+    # Impose external boundary. If box is None, a domain size somewhat larger
+    # than the network will be assigned.
+    network.impose_external_boundary(box)
 
     # Find intersections and split them, preparing the way for dumping the
     # network to gmsh
@@ -97,7 +104,42 @@ def tetrahedral_grid(fracs=None, box=None, network=None, **kwargs):
         print('Use existing intersections')
 
     start_time = time.time()
-    pts, cells, cell_info, phys_names = _run_gmsh(file_name, network, **kwargs)
+    # If fields h_ideal and h_min are provided, try to estimate mesh sizes.
+    h_ideal = kwargs.get('h_ideal', None)
+    h_min = kwargs.get('h_min', None)
+    if h_ideal is not None and h_min is not None:
+        network.insert_auxiliary_points(h_ideal, h_min)
+        # In this case we need to recompute intersection decomposition anyhow.
+        network.split_intersections()
+
+    if not hasattr(network, 'decomposition'):
+        network.split_intersections()
+    else:
+        print('Use existing decomposition')
+
+    in_file = file_name + '.geo'
+    out_file = file_name + '.msh'
+
+    network.to_gmsh(in_file, **kwargs)
+
+    gmsh_opts = kwargs.get('gmsh_opts', {})
+    gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
+    gmsh_opts['-v'] = gmsh_verbose
+    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3,
+                                          **gmsh_opts)
+
+    if verbose > 0:
+        start_time = time.time()
+        if gmsh_status == 0:
+            print('Gmsh processed file successfully')
+        else:
+            print('Gmsh failed with status ' + str(gmsh_status))
+
+    pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
+
+    # Invert phys_names dictionary to map from physical tags to corresponding
+    # physical names
+    phys_names = {v: k for k, v in phys_names.items()}
 
     # Call upon helper functions to create grids in various dimensions.
     # The constructors require somewhat different information, reflecting the

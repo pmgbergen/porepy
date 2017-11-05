@@ -127,7 +127,7 @@ class UpwindCoupling(AbstractCoupling):
             # More or less same as below, except we have cell_cells in the place
             # of face_cells (see grid_bucket.duplicate_without_dimension).
             phi_h = data_h['param'].get_porosity()
-            cells_h, cells_l = data_edge['face_cells'].nonzero()
+            cells_l, cells_h = data_edge['face_cells'].nonzero()
             not_zero = ~np.isclose(np.zeros(discharge.shape), discharge, atol = 0)
             if not np.any(not_zero):
                 return np.Inf

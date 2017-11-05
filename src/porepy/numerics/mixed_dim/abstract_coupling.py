@@ -1,9 +1,18 @@
+""" Module contains super class for all coupling conditions between grids
+in mixed-dimensional problems.
+
+The class partly acts as an interface (Java-style), with some methods that are
+not implemented, but rather intended as a guide for the development of
+concrete couplers.
+
+"""
 import numpy as np
 import scipy.sparse as sps
 
+
 class AbstractCoupling(object):
 
-#------------------------------------------------------------------------------#
+    #------------------------------------------------------------------------------#
 
     def __init__(self, solver):
         self.solver = solver
@@ -71,7 +80,7 @@ class AbstractCoupling(object):
         dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
 
         # Create the block matrix for the contributions
-        cc = np.array([sps.coo_matrix((i,j)) for i in dof for j in dof])
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
 
         return dof, cc.reshape((2, 2))
 

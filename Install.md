@@ -8,7 +8,7 @@ Instructions are found on the GitHub webpage. Simply type `pip install porepy`.
 ## Intall on Windows
 This is a bit more tricky, since installing the dependencies (e.g. `numpy`, `scipy`) using pip requires access to a compiler.
 The recommended solution (for working with Python on Windows in general, it seems)
-is to intall the dependencies using `conda`, and then `pip install porepy`.
+is to install the dependencies using `conda`, and then `pip install porepy`.
 We plan to provide conda install for PorePy as well, but have not come that far yet.
 
 ## How about Mac?
@@ -18,10 +18,12 @@ The expectation is that it should work out nicely. If you try this, please let u
 # Setting up GMSH
 PorePy currently depends on `GMSH` for meshing of fractured domains. 
 To make this work, you need gmsh installed on your system, and PorePy needs to know where to look for it.
-First, visit the [GMSH webpage](http://gmsh.info) and download a suitable version. 
+First, visit the [Gmsh webpage](http://gmsh.info) and download a suitable version. 
 Extract, and move the binary (probably located in the subfolder gmsh-x.x.x-Linux/bin or similar) to whereever you prefer.
 
-Note to Linux users: Although GMSH is available through the standard packaging tools, it tends to be hopelessly outdated, 
+NOTE: We have experienced that some fracture geometries are best handled by somewhat older versions of Gmsh (2.11 seems to be a good version) - newer versions are often result in error messages. Until this is resolved, we therefore recommend to use Gmsh 2.11 with PorePy.
+
+Note to Linux users: Although Gmsh is available through the standard packaging tools, it tends to be hopelessly outdated, 
 and resulted in severe issues for the fracture meshing last time we checked. Use the GMSH web page instead.
 
 
