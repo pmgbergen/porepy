@@ -45,13 +45,15 @@ def setup_2d_1d(nx, simplex_grid=False):
 def check_pressures(gb):
     """
     Check that the pressures are not too far from an approximate 
-    analytical solution.
+    analytical solution. Note that the solution depends
+    on the grid quality. Also sensitive to the way in which
+    the tpfa half transmissibilities are computed. 
     """
     for g, d in gb:
         pressure = d['pressure']
         pressure_analytic = g.cell_centers[1]
         p_diff = pressure - pressure_analytic
-        assert np.max(np.abs(p_diff)) < 0.03
+        assert np.max(np.abs(p_diff)) < 0.033
 
 def test_uniform_flow_cart_2d_1d_cartesian():
     # Structured Cartesian grid

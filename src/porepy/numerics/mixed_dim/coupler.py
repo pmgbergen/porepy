@@ -1,9 +1,21 @@
+""" Implementation of a coupler of discretizations for mixed-dimensional
+problems.
+
+The class Coupler act as a general purpose coupler for various discretizations
+(for now assuming the same disrcetization is applied on all grids). The actual
+discretization is constructed by a Solver (within each grid) and an
+AbstractCoupler (between grids). In practice, an extension of the two classes
+is needed. The Coupler acts as a bookkeeper that knows the global numbering,
+and puts submatrices in their right places.
+
+"""
 import numpy as np
 import scipy.sparse as sps
 
+
 class Coupler(object):
 
-#------------------------------------------------------------------------------#
+    #------------------------------------------------------------------------------#
 
     def __init__(self, solver, coupling=None):
         self.solver = solver
@@ -81,7 +93,8 @@ class Coupler(object):
             idx = np.ix_([pos_h, pos_l], [pos_h, pos_l])
 
             data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
-            matrix[idx] += self.coupling.matrix_rhs(g_h, g_l, data_h, data_l, data)
+            matrix[idx] += self.coupling.matrix_rhs(
+                g_h, g_l, data_h, data_l, data)
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
@@ -100,14 +113,60 @@ class Coupler(object):
         values: array, global solution.
 
         """
-        dofs = np.empty(gb.size(), dtype=int)
-        for _, d in gb:
-            dofs[d['node_number']] = d['dof']
-        dofs = np.r_[0, np.cumsum(dofs)]
+        dofs = self._dof_start_of_grids(gb)
 
         gb.add_node_prop(key)
         for g, d in gb:
             i = d['node_number']
-            d[key] = values[slice(dofs[i], dofs[i+1])]
+            d[key] = values[slice(dofs[i], dofs[i + 1])]
 
 #------------------------------------------------------------------------------#
+    def merge(self, gb, key):
+        """
+        Merge the stored split function stored in the grid bucket to a vector.
+        The values are put into the global  vector according to the numeration
+        given by "node_number".
+
+        Parameters
+        ----------
+        gb : grid bucket with geometry fields computed.
+        key: new name of the solution to be stored in the grid bucket.
+
+        Returns
+        -------
+        values: (ndarray) the values stored in the bucket as an array
+        """
+
+        dofs = self._dof_start_of_grids(gb)
+        values = np.zeros(dofs[-1])
+
+        for g, d in gb:
+            i = d['node_number']
+            values[slice(dofs[i], dofs[i + 1])] = d[key]
+
+        return values
+#------------------------------------------------------------------------------#
+
+    def _dof_start_of_grids(self ,gb):
+        " Helper method to get first global dof for all grids. "
+        self.ndof(gb)
+        dofs = np.empty(gb.size(), dtype=int)
+        for _, d in gb:
+            dofs[d['node_number']] = d['dof']
+        return np.r_[0, np.cumsum(dofs)]
+#------------------------------------------------------------------------------#
+
+    def dof_of_grid(self, gb, g):
+        """ Obtain global indices of dof associated with a given grid.
+
+        Parameters:
+            gb: Grid_bucket representation of mixed-dimensional data.
+            g: Grid, one member of gb.
+
+        Returns:
+            np.array of ints: Indices of all dof for the given grid
+
+        """
+        dof_list = self._dof_start_of_grids(gb)
+        nn = gb.node_props(g)['node_number']
+        return np.arange(dof_list[nn], dof_list[nn+1])
