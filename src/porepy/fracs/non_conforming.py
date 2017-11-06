@@ -81,17 +81,17 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     h_in_combined = np.where(np.in1d(combined_sort, h_ind))[0]
 
     combined_nodes = combined[combined_sort]
-    # Need to pick up the information on new mappings here somehow
-    combined_nodes_unique, all_2_unique, unique_2_all \
+    # Use unique nodes along the line
+    combined_nodes, all_2_unique, unique_2_all \
         = unique_columns_tol(combined_nodes, tol)
+    combined_nodes = combined_nodes[0]
 
-    if combined_nodes_unique.size < combined_nodes.size:
-        # This is bound to happen at some point.
-        g_in_combined = g_in_combined[unique_2_all]
-        h_in_combined = h_in_combined[unique_2_all]
+    # Update maps between grids
+    g_in_combined = unique_2_all[g_in_combined]
+    h_in_combined = unique_2_all[h_in_combined]
 
     # Create a new 1d grid. Default coordinates for now, will be changed
-    new_grid = TensorGrid(combined_nodes_unique)
+    new_grid = TensorGrid(combined_nodes)
 
     # Distance along combined nodes
     d_cn = combined_nodes[-1] - combined_nodes[0]
