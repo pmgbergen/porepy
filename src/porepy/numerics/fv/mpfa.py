@@ -12,10 +12,50 @@ from porepy.grids import partition
 from porepy.params import tensor, bc, data
 from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
-from porepy.numerics.mixed_dim.solver import Solver
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
 from porepy.numerics.mixed_dim.coupler import Coupler
-from porepy.numerics.fv.tpfa import TpfaCoupling
+from porepy.numerics.fv.tpfa import TpfaCoupling, TpfaCouplingDFN
 
+#------------------------------------------------------------------------------
+
+class MpfaMixDim(SolverMixDim):
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
+        self.discr = Mpfa(self.physics)
+        self.discr_ndof = self.discr.ndof
+        self.coupling_conditions = TpfaCoupling(self.discr)
+
+        self.solver = Coupler(self.discr, self.coupling_conditions)
+
+#------------------------------------------------------------------------------
+
+class MpfaDFN(SolverMixDim):
+
+    def __init__(self, dim_max, physics='flow'):
+        # NOTE: There is no flow along the intersections of the fractures.
+
+        self.physics = physics
+        self.dim_max = dim_max
+
+        self.discr = Mpfa(self.physics)
+        self.coupling_conditions = TpfaCouplingDFN(self.discr)
+
+        kwargs = {"discr_ndof": self.discr.ndof,
+                  "discr_fct": self.__matrix_rhs__}
+        self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
+
+    def __matrix_rhs__(self, g, data):
+        # The highest dimensional problem compute the matrix and rhs, the lower
+        # dimensional problem and empty matrix. For the latter, the size of the
+        # matrix is the number of cells.
+        if g.dim == self.dim_max:
+            return self.discr.matrix_rhs(g, data)
+        else:
+            ndof = self.discr.ndof(g)
+            return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
+
+#------------------------------------------------------------------------------
 
 class Mpfa(Solver):
 
@@ -267,37 +307,6 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
     return flux, bound_flux
 
 #------------------------------------------------------------------------------
-
-
-class MpfaMultiDim(Solver):
-    """
-    Solver class for a multi-dimensional Mpfa discretization with a Tpfa
-    coupling between dimensions.
-    """
-
-    def __init__(self, physics='flow'):
-        self.physics = physics
-        discr = Mpfa(self.physics)
-        coupling_conditions = TpfaCoupling(discr)
-        self.solver = Coupler(discr, coupling_conditions)
-
-    def ndof(self, gb):
-        ndof = 0
-        for g, _ in gb:
-            ndof += g.num_cells
-        return ndof
-
-    def matrix_rhs(self, gb):
-        """
-        Returns the solution matrix and right hand side for the global system, 
-        see Coupler.matrix_rhs.
-        """
-        return self.solver.matrix_rhs(gb)
-
-    def split(self, gb, names, var):
-        return self.solver.split(gb, names, var)
-#------------------------------------------------------------------------------
-
 
 def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
                  nodes=None, apertures=None):

@@ -30,14 +30,14 @@ def __constant_determine_mesh_size(pts, lines, **kwargs):
     num_pts = pts.shape[1]
     val = kwargs.get('value', None)
     bound_val = kwargs.get('bound_value', None)
-    bound_weigh = kwargs.get('bound_weight', 1.)
 
     if val is not None:
         mesh_size = val * np.ones(num_pts)
     else:
         mesh_size = None
+
     if bound_val is not None:
-        mesh_size_bound = bound_weigh * bound_val
+        mesh_size_bound = bound_val
     else:
         mesh_size_bound = None
 
@@ -100,6 +100,9 @@ def __weighted_determine_mesh_size(pts, lines, **kwargs):
                     dist_extra = np.r_[dist_extra, min(dist, val)]
                     pts_extra = np.c_[pts_extra, pt_int]
                     pts_id_extra = np.r_[pts_id_extra, line[3]]
+
+    old_lines = lines
+    old_pts = pts
 
     # Since the computation was done point by point with the lines, we need to
     # consider all the new points together and remove (from the new points) the
@@ -175,8 +178,19 @@ def __weighted_determine_mesh_size(pts, lines, **kwargs):
             lines = np.c_[lines, seg]
         else:
             pt_id = pts.shape[1]
-            pts = np.c_[pts, 0.5*(pts[:, seg[0]] + pts[:, seg[1]])]
+            new_pt = 0.5*(pts[:, seg[0]] + pts[:, seg[1]])
+            pts = np.c_[pts, new_pt]
             mesh_size = np.amin([val, dist/2.])
+
+            for old_seg in old_lines.T:
+                start, end = old_pts[:, old_seg[0]], old_pts[:, old_seg[1]]
+                # Compute the distance between the point and the current line
+                dist1, pt_int = cg.distance_point_segment(new_pt, start, end)
+                # If the distance is small than the input value we need to consider
+                # it
+                if dist1 < mesh_size and not np.isclose(dist1, 0.):
+                    mesh_size = dist1
+
             dist_pts = np.r_[dist_pts, mesh_size]
             lines = np.c_[lines, [seg[0], pt_id, seg[2], seg[3]],
                                  [pt_id, seg[1], seg[2], seg[3]]]

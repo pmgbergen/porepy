@@ -23,15 +23,15 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = upwind.Upwind()
         gb.add_node_props(['param'])
+        solver = upwind.UpwindMixDim('transport')
 
         for g, d in gb:
             param = Parameters(g)
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discharge(g, [0, 1, 0], aperture))
+            param.set_discharge(solver.discr.discharge(g, [0, 1, 0], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -46,8 +46,8 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(top, bottom)]
             bc_val[bc_dir] = 1
 
-            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+            param.set_bc('transport', BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val('transport', bc_val)
 
             d['param'] = param
 
@@ -59,10 +59,8 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind.UpwindCoupling(solver)
-        solver_coupler = coupler.Coupler(solver, coupling_conditions)
-        U, rhs = solver_coupler.matrix_rhs(gb)
-        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
+        U, rhs = solver.matrix_rhs(gb)
+        deltaT = solver.cfl(gb)
 
         U_known = np.array([[ 1, 0,  0],
                             [ 0, 1, -1],
@@ -87,7 +85,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = upwind.Upwind()
+        solver = upwind.UpwindMixDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:
@@ -95,7 +93,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discharge(g, [1, 0, 0], aperture))
+            param.set_discharge(solver.discr.discharge(g, [1, 0, 0], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -110,8 +108,8 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(left, right)]
             bc_val[bc_dir] = 1
 
-            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+            param.set_bc('transport', BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val('transport', bc_val)
 
             d['param'] = param
 
@@ -123,10 +121,8 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind.UpwindCoupling(solver)
-        solver_coupler = coupler.Coupler(solver, coupling_conditions)
-        U, rhs = solver_coupler.matrix_rhs(gb)
-        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
+        U, rhs = solver.matrix_rhs(gb)
+        deltaT = solver.cfl(gb)
 
         U_known = np.array([[ 1, 0, 0],
                             [ 0, 1, 0],
@@ -172,7 +168,7 @@ class BasicsTest( unittest.TestCase ):
                     raise ValueError('Grid not found')
 
         tol = 1e-3
-        solver = upwind.Upwind()
+        solver = upwind.UpwindMixDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:
@@ -180,7 +176,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discharge(g, [1, 0, 0], aperture))
+            param.set_discharge(solver.discr.discharge(g, [1, 0, 0], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -195,8 +191,8 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(left, right)]
             bc_val[bc_dir] = 1
 
-            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+            param.set_bc('transport', BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val('transport', bc_val)
 
             d['param'] = param
 
@@ -208,11 +204,8 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind.UpwindCoupling(solver)
-        solver_coupler = coupler.Coupler(solver, coupling_conditions)
-        U, rhs = solver_coupler.matrix_rhs(gb)
-
-        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
+        U, rhs = solver.matrix_rhs(gb)
+        deltaT = solver.cfl(gb)
 
         U_known = np.array(\
         [[ 1.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ],
@@ -246,7 +239,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = upwind.Upwind()
+        solver = upwind.UpwindMixDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:
@@ -254,7 +247,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discharge(g, [0, 0, 1], aperture))
+            param.set_discharge(solver.discr.discharge(g, [0, 0, 1], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -269,8 +262,8 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(top, bottom)]
             bc_val[bc_dir] = 1
 
-            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+            param.set_bc('transport', BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val('transport', bc_val)
 
             d['param'] = param
 
@@ -282,10 +275,8 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind.UpwindCoupling(solver)
-        solver_coupler = coupler.Coupler(solver, coupling_conditions)
-        U, rhs = solver_coupler.matrix_rhs(gb)
-        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
+        U, rhs = solver.matrix_rhs(gb)
+        deltaT = solver.cfl(gb)
 
         U_known = np.array([[ 1, 0, 0],
                             [ 0, 1,-1],
@@ -311,7 +302,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = upwind.Upwind()
+        solver = upwind.UpwindMixDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:
@@ -319,7 +310,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discharge(g, [1, 0, 0], aperture))
+            param.set_discharge(solver.discr.discharge(g, [1, 0, 0], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -334,8 +325,8 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(left, right)]
             bc_val[bc_dir] = 1
 
-            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+            param.set_bc('transport', BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val('transport', bc_val)
 
             d['param'] = param
 
@@ -347,10 +338,8 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind.UpwindCoupling(solver)
-        solver_coupler = coupler.Coupler(solver, coupling_conditions)
-        U, rhs = solver_coupler.matrix_rhs(gb)
-        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
+        U, rhs = solver.matrix_rhs(gb)
+        deltaT = solver.cfl(gb)
 
         U_known = np.array([[.5, 0, 0],
                             [0, .5, 0],
@@ -422,7 +411,7 @@ class BasicsTest( unittest.TestCase ):
                 pass
 
         tol = 1e-3
-        solver = upwind.Upwind()
+        solver = upwind.UpwindMixDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:
@@ -430,7 +419,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discharge(g, [1, 0, 0], aperture))
+            param.set_discharge(solver.discr.discharge(g, [1, 0, 0], aperture))
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -445,8 +434,8 @@ class BasicsTest( unittest.TestCase ):
             bc_dir = bound_faces[np.logical_or(left, right)]
             bc_val[bc_dir] = 1
 
-            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+            param.set_bc('transport', BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val('transport', bc_val)
 
             d['param'] = param
 
@@ -458,10 +447,8 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling_conditions = upwind.UpwindCoupling(solver)
-        solver_coupler = coupler.Coupler(solver, coupling_conditions)
-        U, rhs = solver_coupler.matrix_rhs(gb)
-        deltaT = np.amin(gb.apply_function(solver.cfl, coupling_conditions.cfl).data)
+        U, rhs = solver.matrix_rhs(gb)
+        deltaT = solver.cfl(gb)
 
         U_known, rhs_known = matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d()
 
@@ -483,7 +470,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
         gb.compute_geometry()
 
-        solver = upwind.Upwind()
+        solver = upwind.UpwindMixDim('transport')
 
         gb.add_node_props(['param'])
 
@@ -491,11 +478,11 @@ class BasicsTest( unittest.TestCase ):
             param = Parameters(g)
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discharge(g, [2, 0, 0], aperture))
+            param.set_discharge(solver.discr.discharge(g, [2, 0, 0], aperture))
 
             bf = g.get_boundary_faces()
             bc = BoundaryCondition(g, bf, bf.size * ['neu'])
-            param.set_bc(solver, bc)
+            param.set_bc('transport', bc)
             d['param'] = param
 
         # Assign coupling discharge
@@ -506,9 +493,7 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling = upwind.UpwindCoupling(solver)
-        solver_coupler = coupler.Coupler(solver, coupling)
-        M = solver_coupler.matrix_rhs(gb)[0].todense()
+        M = solver.matrix_rhs(gb)[0].todense()
 
         M_known = np.array([[ 2,  0,  0,  0,  0,  0,  0,  0,  0,  0.],
                             [-2,  2,  0,  0,  0,  0,  0,  0,  0,  0.],
@@ -534,7 +519,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
         gb.compute_geometry()
 
-        solver = upwind.Upwind()
+        solver = upwind.UpwindMixDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:
@@ -542,15 +527,15 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-1, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discharge(g, [1, 1, 0], aperture))
+            param.set_discharge(solver.discr.discharge(g, [1, 1, 0], aperture))
 
             bound_faces = g.get_domain_boundary_faces()
             labels = np.array(['dir'] * bound_faces.size)
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces] = 3
 
-            param.set_bc(solver, BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+            param.set_bc('transport', BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val('transport', bc_val)
 
             d['param'] = param
 
@@ -562,9 +547,7 @@ class BasicsTest( unittest.TestCase ):
             d['param'] = Parameters(g_h)
             d['param'].set_discharge(discharge)
 
-        coupling = upwind.UpwindCoupling(solver)
-        solver_coupler = coupler.Coupler(solver, coupling)
-        M, rhs = solver_coupler.matrix_rhs(gb)
+        M, rhs = solver.matrix_rhs(gb)
 
         M_known = np.array([[ 2,  0,  0,  0,  0,  0,  0,  0,  0,  0.],
                             [-1,  2,  0,  0,  0,  0,  0,  0,  0,  0.],

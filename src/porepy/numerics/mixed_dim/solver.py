@@ -1,3 +1,4 @@
+import numpy as np
 """ Module containing super class for all single-domain solvers.
 
 In reality, this is kind of a contract (in the Java sense), there is
@@ -46,4 +47,18 @@ class Solver(object):
         """
         raise NotImplementedError("Method not implemented")
 
+#------------------------------------------------------------------------------#
+
+class SolverMixDim():
+    def __init__(self, physics):
+        raise NotImplementedError("Method not implemented")
+
+    def matrix_rhs(self, gb):
+        return self.solver.matrix_rhs(gb)
+
+    def split(self, gb, key, values):
+        return self.solver.split(gb, key, values)
+
+    def ndof(self, gb):
+        return np.sum([self.discr_ndof(g) for g,_ in gb])
 #------------------------------------------------------------------------------#

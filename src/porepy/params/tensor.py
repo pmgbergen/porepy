@@ -125,6 +125,16 @@ class SecondOrder(object):
             return SecondOrder(self.dim, kxx, kxy=kxy, kxz=kxz, kyy=kyy,
                                      kyz=kyz, kzz=kzz)
 
+
+    def rotate(self, R):
+        """
+        Rotate the permeability given a rotation matrix.
+
+        Parameter:
+            R: a rotation matrix 3x3
+        """
+        self.perm = np.tensordot(R.T, np.tensordot(R, self.perm, (1, 0)), (0, 1))
+
 #----------------------------------------------------------------------#
 
 class FourthOrder(object):

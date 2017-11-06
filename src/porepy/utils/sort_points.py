@@ -5,7 +5,7 @@ from porepy.utils.comp_geom import project_plane_matrix
 
 #------------------------------------------------------------------------------#
 
-def sort_point_pairs(lines, check_circular=True, ordering=False):
+def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=True):
     """ Sort pairs of numbers to form a chain.
 
     The target application is to sort lines, defined by their
@@ -19,6 +19,7 @@ def sort_point_pairs(lines, check_circular=True, ordering=False):
     check_circular: Verify that the sorted polyline form a circle.
                     Defaluts to true.
     ordering: np.array, return in the original order if a line is flipped or not
+    is_circular: if the lines form a closed set. Default is True.
 
     Returns:
     sorted_lines: np.ndarray, 2xn, sorted line pairs.
@@ -30,6 +31,12 @@ def sort_point_pairs(lines, check_circular=True, ordering=False):
 
     # Start with the first line in input
     sorted_lines[:, 0] = lines[:, 0]
+
+    # In the case of non-circular ordering ensure to start from the correct one
+    if not is_circular:
+        check_circular = False
+        if np.count_nonzero(lines==sorted_lines[0, 0]) > 1:
+            sorted_lines[:, 0] = np.flip(sorted_lines[:, 0], 0)
 
     # The starting point for the next line
     prev = sorted_lines[1, 0]

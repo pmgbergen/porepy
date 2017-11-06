@@ -26,19 +26,16 @@ __version__ = '0.1.0'
 # Numerics
 # Control volume, elliptic
 from porepy.numerics.fv.mpsa import Mpsa
-from porepy.numerics.fv.tpfa import Tpfa
-from porepy.numerics.fv.mpfa import Mpfa
+from porepy.numerics.fv.tpfa import Tpfa, TpfaMixDim
+from porepy.numerics.fv.mpfa import Mpfa, MpfaMixDim
 from porepy.numerics.fv.biot import Biot
-from porepy.numerics.fv.tpfa import TpfaCoupling
 
 # Virtual elements, elliptic
-from porepy.numerics.vem.dual import DualVEM
+from porepy.numerics.vem.dual import DualVEM, DualVEMMixDim
 from porepy.numerics.vem.hybrid import HybridDualVEM
-from porepy.numerics.vem.dual_coupling import DualCoupling
 
 # Transport related
-from porepy.numerics.fv.transport.upwind import Upwind
-from porepy.numerics.fv.transport.upwind import UpwindCoupling
+from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixDim
 from porepy.numerics.fv.mass_matrix import MassMatrix, InvMassMatrix
 
 # Grids
