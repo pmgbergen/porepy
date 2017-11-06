@@ -58,7 +58,8 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     gx = g_node[0][g_sort]
     hx = h_node[0][h_sort]
     # Translate h grid so that their starting point are the same.
-    # Might not be necessary, depending on how map_grid is behaving, but we do it anyhow.
+    # Might not be necessary, depending on how map_grid is behaving, but we do
+    # it anyhow.
     hx += (gx[0]-hx[0])
 
     # Sanity test: End points of 1d grids should be equal
@@ -69,24 +70,25 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     combined = np.hstack((gx[0], gx[1:-1], hx[1:-1], gx[-1]))
     combined_sort = np.argsort(combined)
 
-    # We know where we put the coordinates of g grid, find out where they ended after sorting
+    # We know where we put the coordinates of g grid, find out where they ended
+    # after sorting
     g_ind = np.hstack((0, 1 + np.arange(gx.size-2), combined.size-1))
     g_in_combined = np.where(np.in1d(combined_sort, g_ind))[0]
 
     # Similar with the h grid
-    h_ind = np.hstack((0, g_ind[-2] + 1 + np.arange(hx.size-2), combined.size-1))
+    h_ind = np.hstack((0, g_ind[-2] + 1 + np.arange(hx.size-2),
+                       combined.size-1))
     h_in_combined = np.where(np.in1d(combined_sort, h_ind))[0]
 
     combined_nodes = combined[combined_sort]
     # Need to pick up the information on new mappings here somehow
-    combined_nodes_unique, all_2_unique, unique_2_all = unique_columns_tol(combined_nodes, tol)
+    combined_nodes_unique, all_2_unique, unique_2_all \
+        = unique_columns_tol(combined_nodes, tol)
 
     if combined_nodes_unique.size < combined_nodes.size:
         # This is bound to happen at some point.
         g_in_combined = g_in_combined[unique_2_all]
         h_in_combined = h_in_combined[unique_2_all]
-
-    num_new_nodes = combined_nodes_unique.size
 
     # Create a new 1d grid. Default coordinates for now, will be changed
     new_grid = TensorGrid(combined_nodes_unique)
