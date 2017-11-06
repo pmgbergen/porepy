@@ -1097,6 +1097,9 @@ class FractureNetwork(object):
         # No auxiliary points have been added
         self.auxiliary_points_added = False
 
+        # No external domain set
+        self.domain = None
+
     def add(self, f):
         # Careful here, if we remove one fracture and then add, we'll have
         # identical indices.
