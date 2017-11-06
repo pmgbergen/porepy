@@ -5,7 +5,7 @@ The model relies heavily on functions in the computational geometry library.
 
 Known issues:
 The subdomain partitioning may lead to addition of unwanted intersection points,
-see FractureNetwork._on_boundary.
+see FractureNetwork.on_domain_boundary.
 
 """
 # Import of 'standard' external packages
@@ -1017,6 +1017,14 @@ class Intersection(object):
 
 
 class FractureNetwork(object):
+    """ 
+    Collection of Fractures with geometrical information. Facilitates
+    computation of intersections of the fracture. Also incorporates the
+    bounding box as six boundary fractures and the possibility to impose
+    additional gridding constraints through subdomain boundaries. To ensure
+    that all fractures lie within the box, call impose_external_boundary()
+    _after_ all fractures and subdomains have been specified.
+    """
 
     def __init__(self, fractures=None, verbose=0, tol=1e-4):
 
@@ -1852,7 +1860,8 @@ class FractureNetwork(object):
         z0 = box['zmin']
         z1 = box['zmax']
         west = Fracture(np.array([[x0, x0, x0, x0],
-                                  [y0, y1, y1, y0], [z0, z0, z1, z1]]),
+                                  [y0, y1, y1, y0],
+                                  [z0, z0, z1, z1]]),
                         check_convexity=False)
         east = Fracture(np.array([[x1, x1, x1, x1],
                                   [y0, y1, y1, y0],
@@ -1866,10 +1875,12 @@ class FractureNetwork(object):
                                    [y1, y1, y1, y1],
                                    [z0, z0, z1, z1]]),
                          check_convexity=False)
-        bottom = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+        bottom = Fracture(np.array([[x0, x1, x1, x0],
+                                    [y0, y0, y1, y1],
                                     [z0, z0, z0, z0]]),
                           check_convexity=False)
-        top = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+        top = Fracture(np.array([[x0, x1, x1, x0],
+                                 [y0, y0, y1, y1],
                                  [z1, z1, z1, z1]]),
                        check_convexity=False)
         # Collect in a list to allow iteration
@@ -2221,8 +2232,16 @@ class FractureNetwork(object):
         writer.Update()
 
     def to_gmsh(self, file_name, **kwargs):
+        """
+        Convert the fracture network information to gmsh input format and 
+        write a geo file.
+        """
+        # Extract geometrical information.
         p = self.decomposition['points']
         edges = self.decomposition['edges']
+        poly = self._poly_2_segment()
+        # Obtain tags, and set default values (corresponding to real fractures)
+        # for untagged fractures.
         frac_tags = self.tags
         frac_tags['subdomain'] = frac_tags.get('subdomain', []) + \
                                 [False]*(len(self._fractures)
@@ -2231,19 +2250,18 @@ class FractureNetwork(object):
                                 [False]*(len(self._fractures)
                                         -len(frac_tags.get('boundary', [])))
         
-        poly = self._poly_2_segment()
-
         edge_tags, intersection_points = self._classify_edges(poly)
 
         # All intersection lines and points on boundaries are non-physical in 3d.
         # I.e., they are assigned boundary conditions, but are not gridded. Hence:
         # Remove the points and edges at the boundary
-        point_tags, edge_tags = self._on_boundary(edges, edge_tags)
+        point_tags, edge_tags = self.on_domain_boundary(edges, edge_tags)
         edges = np.vstack((self.decomposition['edges'], edge_tags))
         int_pts_on_boundary = np.isin(intersection_points, np.where(point_tags))
         intersection_points = intersection_points[np.logical_not(int_pts_on_boundary)]
         self.zero_d_pt = intersection_points
 
+        # Obtain mesh size parameters
         if 'mesh_size' in kwargs.keys():
             # Legacy option, this should be removed.
             print('Using old version of mesh size determination')
@@ -2264,6 +2282,7 @@ class FractureNetwork(object):
                        [self.domain['zmax'] - self.domain['zmin']]])
         gmsh_tolerance = self.tol / dx.max()
 
+        # Initialize and run the gmsh writer:
         writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
                             intersection_points=intersection_points,
                             mesh_size_bound=mesh_size_bound,
@@ -2274,20 +2293,31 @@ class FractureNetwork(object):
         writer.write_geo(file_name)
 
 
-    def _on_boundary(self, edges, edge_tags):
+    def on_domain_boundary(self, edges, edge_tags):
         """
         Finds edges and points on boundary, to avoid that these
         are gridded. Points  introduced by intersections 
         of subdomain boundaries and real fractures remain physical
         (to maintain contact between split fracture lines).
         """
+        
+        constants = GmshConstants()
+        # Obtain current tags on fractures
         boundary_polygons = np.where(self.tags.get('boundary', 
                                 [False]*len(self._fractures)))[0]
         subdomain_polygons = np.where(self.tags.get('subdomain'
                                 [False]*len(self._fractures)))[0]
-        edges_2_frac = self.decomposition['edges_2_frac']
-        constants = GmshConstants()
+        # ... on the points...
         point_tags = np.zeros(self.decomposition['points'].shape[1])
+        # and the mapping between fractures and edges.
+        edges_2_frac = self.decomposition['edges_2_frac']
+        
+        # Loop on edges to tag according to following rules:
+        #     Edge is on the boundary:
+        #         Tag it and the points it consists of as boundary entities.
+        #     Edge is caused by the presence of subdomain boundaries
+        #     (Note: one fracture may still be involved):
+        #         Tag it as auxiliary
         for e, e2f in enumerate(edges_2_frac):
             if any(np.in1d(e2f, boundary_polygons)):
                 edge_tags[e] = constants.DOMAIN_BOUNDARY_TAG
@@ -2299,7 +2329,10 @@ class FractureNetwork(object):
                 # subdomain boundaries.
                 edge_tags[e] = constants.AUXILIARY_TAG
 
-        # Remove points caused solely by subdomain plane intersection
+        # Tag points caused solely by subdomain plane intersection as
+        # auxiliary. Note that points involving at least one real fracture
+        # are kept as physical fracture points. This is to avoid connectivity
+        # loss along real fracture intersections.
         for p in np.unique(edges):
             es = np.where(edges==p)[1]
             sds = []
