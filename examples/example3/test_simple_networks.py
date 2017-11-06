@@ -263,16 +263,3 @@ def test_issue_54():
                     [0.2,0.2,.8,.8]])
     grids = meshing.simplex_grid([f_1, f_2], domain,
                                  ensure_matching_face_cell=False)
-# Pending:
-#def test_issue_58():
-#    
-#    domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2,
-#              'zmin': -2, 'zmax': 2}
-#    mesh_size = {'mode': 'constant', 'value': 1, 'bound_value': 1}
-#    kwargs = {'mesh_size': mesh_size, 'return_expected': True}
-#    
-#    f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
-#    f_2 = np.array([[0, 1, 1, 0], [0, .5, .5, 0], [0, 0, 1, 1]])
-#
-#    grids = meshing.simplex_grid([f_1, f_2], domain,**kwargs)
-

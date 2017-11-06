@@ -243,7 +243,9 @@ class Upwind(Solver):
     
     
 class UpwindCoupling(AbstractCoupling):
-
+    """
+    Coupling discretization for the Upwind.
+    """
 #------------------------------------------------------------------------------#
 
     def __init__(self, solver):

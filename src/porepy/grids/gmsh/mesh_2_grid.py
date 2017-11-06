@@ -154,8 +154,6 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
     for i, pn_ind in enumerate(np.unique(line_tags)):
         # Index of the final underscore in the physical name. Chars before this
         # will identify the line type, the one after will give index
-
-        #import pdb; pdb.set_trace()
         pn = phys_names[pn_ind]
         offset_index = pn.rfind('_')
         loc_line_cell_num = np.where(line_tags == pn_ind)[0]
@@ -164,7 +162,6 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
         assert loc_line_pts.size > 1
 
         line_type = pn[:offset_index]
-        #import pdb; pdb.set_trace()
         
         if line_type == gmsh_const.PHYSICAL_NAME_FRACTURE_TIP[:-1]:
             gmsh_tip_num.append(i)
