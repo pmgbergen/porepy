@@ -19,7 +19,7 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrder(3, kxx, kyy=1, kzz=1)
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
 
@@ -50,7 +50,7 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.sin(g.cell_centers[0,:])+1
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrder(3, kxx, kyy=1, kzz=1)
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
         solver = dual.DualVEM(physics='flow')
@@ -85,7 +85,7 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -121,7 +121,7 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.square(g.cell_centers[1,:])+1
         kyy = np.square(g.cell_centers[0,:])+1
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
-        perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
+        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -164,7 +164,7 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -208,7 +208,7 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.square(g.cell_centers[1,:])+1
         kyy = np.square(g.cell_centers[0,:])+1
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
-        perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
+        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -250,7 +250,7 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=kxx)
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -278,7 +278,7 @@ class BasicsTest( unittest.TestCase ):
         kyy = np.square(g.cell_centers[0,:])+1
         kzz = g.cell_centers[2,:]+1
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
-        perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
+        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -306,7 +306,8 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrder(3, kxx, kyy=1, kzz=1)
+        perm.rotate(R)
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -340,7 +341,8 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry(is_embedded=True)
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm.rotate(R)
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -375,9 +377,10 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.square(g.cell_centers[1,:])+1
         kyy = np.square(g.cell_centers[0,:])+1
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
-        perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
+        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         R = cg.rot(np.pi/3., [1,1,0])
+        perm.rotate(R)
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
@@ -424,7 +427,8 @@ class BasicsTest( unittest.TestCase ):
         g.compute_geometry(is_embedded=True)
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm.rotate(R)
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -468,9 +472,10 @@ class BasicsTest( unittest.TestCase ):
         kxx = np.square(g.cell_centers[1,:])+1
         kyy = np.square(g.cell_centers[0,:])+1
         kxy =-np.multiply(g.cell_centers[0,:], g.cell_centers[1,:])
-        perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy, kxy=kxy)
+        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         R = cg.rot(np.pi/3., [1,1,0])
+        perm.rotate(R)
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 

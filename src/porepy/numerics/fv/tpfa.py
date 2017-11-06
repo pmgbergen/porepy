@@ -10,12 +10,54 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.params import tensor
-from porepy.numerics.mixed_dim.solver import Solver
+
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
+
 from porepy.numerics.fv import fvutils
 from porepy.grids.grid import Grid
 
+#------------------------------------------------------------------------------
+
+class TpfaMixDim(SolverMixDim):
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
+        self.discr = Tpfa(self.physics)
+        self.discr_ndof = self.discr.ndof
+        self.coupling_conditions = TpfaCoupling(self.discr)
+
+        self.solver = Coupler(self.discr, self.coupling_conditions)
+
+#------------------------------------------------------------------------------
+
+class TpfaDFN(SolverMixDim):
+
+    def __init__(self, dim_max, physics='flow'):
+        # NOTE: There is no flow along the intersections of the fractures.
+
+        self.physics = physics
+        self.dim_max = dim_max
+
+        self.discr = Tpfa(self.physics)
+        self.coupling_conditions = TpfaCouplingDFN(self.discr)
+
+        kwargs = {"discr_ndof": self.discr.ndof,
+                  "discr_fct": self.__matrix_rhs__}
+        self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
+
+    def __matrix_rhs__(self, g, data):
+        # The highest dimensional problem compute the matrix and rhs, the lower
+        # dimensional problem and empty matrix. For the latter, the size of the
+        # matrix is the number of cells.
+        if g.dim == self.dim_max:
+            return self.discr.matrix_rhs(g, data)
+        else:
+            ndof = self.discr.ndof(g)
+            return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
+
+#------------------------------------------------------------------------------
 
 class Tpfa(Solver):
     """ Discretize elliptic equations by a two-point flux approximation.
@@ -138,7 +180,7 @@ class Tpfa(Solver):
         Hidden option (intended as "advanced" option that one should normally not
         care about):
             Half transmissibility calculation according to Ivar Aavatsmark, see
-            folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry 
+            folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry
             Aavatsmark_transmissibilities: True   to the data dictionary.
 
         Parameters
@@ -190,10 +232,10 @@ class Tpfa(Solver):
             nk *= fc_cc
             t_face = nk.sum(axis=0)
             dist_face_cell = np.power(fc_cc, 2).sum(axis=0)
-            
+
 
         t_face = np.divide(t_face, dist_face_cell)
-    
+
         # Return harmonic average
         t = 1 / np.bincount(fi, weights=1 / t_face)
 
@@ -219,40 +261,6 @@ class Tpfa(Solver):
 
 #------------------------------------------------------------------------------
 
-
-class TpfaMultiDim(Solver):
-    """
-    Solver class for a multi-dimensional Tpfa discretization including coupling 
-    between dimensions.
-    """
-
-    def __init__(self, physics='flow'):
-        self.physics = physics
-        discr = Tpfa(self.physics)
-        coupling_conditions = TpfaCoupling(discr)
-        self.solver = Coupler(discr, coupling_conditions)
-
-    def ndof(self, gb):
-        if isinstance(gb, Grid):
-            # When Coupler.ndof calls its solver, we somehow ends up here with
-            # gb being a single grid. Not sure how this happens, but this seems
-            # like a reasonable workaround.
-            return gb.num_cells
-        else:
-            ndof = 0
-            for g, _ in gb:
-                ndof += g.num_cells
-        return ndof
-
-    def matrix_rhs(self, gb):
-        return self.solver.matrix_rhs(gb)
-
-    def split(self, gb, names, var):
-        return self.solver.split(gb, names, var)
-
-#------------------------------------------------------------------------------
-
-
 class TpfaCoupling(AbstractCoupling):
 
     def __init__(self, solver):
@@ -262,7 +270,7 @@ class TpfaCoupling(AbstractCoupling):
         """
         Computes the coupling terms for the faces between cells in g_h and g_l
         using the two-point flux approximation.
-        
+
         Parameters:
             g_h and g_l: grid structures of the higher and lower dimensional
                 subdomains, respectively.
@@ -270,15 +278,15 @@ class TpfaCoupling(AbstractCoupling):
                 to contain both permeability values ('perm') and apertures
                 ('apertures') for each of the cells in the grids.
 
-        Two hidden options (intended as "advanced" options that one should 
+        Two hidden options (intended as "advanced" options that one should
         normally not care about):
             Half transmissibility calculation according to Ivar Aavatsmark, see
-            folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry 
+            folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry
             'Aavatsmark_transmissibilities': True   to the edge data.
 
-            Aperture correction. The face centre is moved half an aperture 
-            away from the fracture for the matrix side transmissibility 
-            calculation. Activated by adding the entry 
+            Aperture correction. The face centre is moved half an aperture
+            away from the fracture for the matrix side transmissibility
+            calculation. Activated by adding the entry
             'aperture_correction': True   to the edge data.
 
         Returns:
@@ -308,7 +316,7 @@ class TpfaCoupling(AbstractCoupling):
         n = g_h.face_normals[:, faces_h]
         n *= sgn_h
         perm_h = k_h.perm[:, :, cells_h]
-        
+
         # Compute the distance between face center and cell center. If specified
         # (edgewise), the face centroid is shifted half an aperture in the normal
         # direction of the fracture. Unless matrix cell size approaches the
@@ -319,7 +327,7 @@ class TpfaCoupling(AbstractCoupling):
             fc_cc_h = fc_corrected - g_h.cell_centers[::,cells_h]
         else:
             fc_cc_h = g_h.face_centers[::, faces_h] - g_h.cell_centers[::, cells_h]
-        
+
         nk_h = perm_h * n
         nk_h = nk_h.sum(axis=1)
         if data_edge.get('Aavatsmark_transmissibilities', False):
@@ -329,8 +337,8 @@ class TpfaCoupling(AbstractCoupling):
             nk_h *= fc_cc_h
             t_face_h = nk_h.sum(axis=0)
             dist_face_cell_h = np.power(fc_cc_h, 2).sum(axis=0)
-        
-        # Account for the apertures 
+
+        # Account for the apertures
         t_face_h = t_face_h * a_h[cells_h]
         # and compute the matrix side half transmissibilities
         t_face_h = np.divide(t_face_h, dist_face_cell_h)
@@ -362,6 +370,91 @@ class TpfaCoupling(AbstractCoupling):
         # harmonic average
         t_face = np.array([t_face_h, t_face_l])
         t = t_face.prod(axis=0) / t_face.sum(axis=0)
+
+        # Create the block matrix for the contributions
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof]
+                      ).reshape((2, 2))
+
+        # Compute the off-diagonal terms
+        dataIJ, I, J = -t, cells_l, cells_h
+        cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
+        cc[0, 1] = cc[1, 0].T
+
+        # Compute the diagonal terms
+        dataIJ, I, J = t, cells_h, cells_h
+        cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
+        I, J = cells_l, cells_l
+        cc[1, 1] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[1]))
+
+        # Save the flux discretization for back-computation of fluxes
+        cells2faces = sps.csr_matrix((sgn_h, (faces_h, cells_h)),
+                                     (g_h.num_faces, g_h.num_cells))
+
+        data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
+                                                 cells2faces * cc[0, 1]])
+        data_edge['coupling_discretization'] = cc
+
+        return cc
+
+#------------------------------------------------------------------------------#
+
+class TpfaCouplingDFN(AbstractCoupling):
+
+    def __init__(self, solver):
+        self.solver = solver
+
+    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
+        """
+        Computes the coupling terms for the faces between cells in g_h and g_l
+        using the two-point flux approximation.
+
+        Parameters:
+            g_h and g_l: grid structures of the higher and lower dimensional
+                subdomains, respectively.
+            data_h and data_l: the corresponding data dictionaries. Assumed
+                to contain both permeability values ('perm') and apertures
+                ('apertures') for each of the cells in the grids.
+
+        Returns:
+            cc: Discretization matrices for the coupling terms assembled
+                in a csc.sparse matrix.
+        """
+
+        k_h = data_h['param'].get_tensor(self.solver)
+        a_h = data_h['param'].get_aperture()
+
+        dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
+
+        # Obtain the cells and face signs of the higher dimensional grid
+        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
+        faces, cells_h, sgn_h = sps.find(g_h.cell_faces)
+        ind = np.unique(faces, return_index=True)[1]
+        sgn_h = sgn_h[ind]
+        cells_h = cells_h[ind]
+
+        cells_h, sgn_h = cells_h[faces_h], sgn_h[faces_h]
+
+        # The procedure for obtaining the face transmissibilities of the higher
+        # grid is analougous to the one used in the discretize function of the
+        # Tpfa class.
+        n = g_h.face_normals[:, faces_h]
+        n *= sgn_h
+        perm_h = k_h.perm[:, :, cells_h]
+        fc_cc_h = g_h.face_centers[::, faces_h] - g_h.cell_centers[::, cells_h]
+
+        nk_h = perm_h * n
+        nk_h = nk_h.sum(axis=1)
+        if data_edge.get('Aavatsmark_transmissibilities', False):
+            dist_face_cell_h = np.linalg.norm(fc_cc_h, 2, axis=0)
+            t_face_h = np.linalg.norm(nk_h, 2, axis=0)
+        else:
+            nk_h *= fc_cc_h
+            t_face_h = nk_h.sum(axis=0)
+            dist_face_cell_h = np.power(fc_cc_h, 2).sum(axis=0)
+
+        # Account for the apertures
+        t_face_h = t_face_h * a_h[cells_h]
+        t = np.divide(t_face_h, dist_face_cell_h)
 
         # Create the block matrix for the contributions
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof]

@@ -1,12 +1,18 @@
 import warnings
 import numpy as np
+from scipy import sparse as sps
+from itertools import islice
 
-from porepy.fracs import meshing
+from porepy.grids import grid, grid_bucket
+from porepy.fracs import meshing, split_grid
+from porepy.fracs.fractures import Fracture, FractureNetwork
+from porepy.utils.setmembership import unique_columns_tol
+from porepy.utils.sort_points import sort_point_pairs
 
 #------------------------------------------------------------------------------#
 
 def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
-             return_domain=False, **kwargs):
+             return_domain=False, tol=1e-8, **kwargs):
     """
     Create the grid bucket from a set of fractures stored in a csv file and a
     domain. In the csv file, we assume the following structure:
@@ -29,7 +35,7 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
         is returned.
 
     """
-    pts, edges = fractures_from_csv(f_name, **kwargs)
+    pts, edges = fractures_from_csv(f_name, tol=tol, **kwargs)
     f_set = np.array([pts[:, e] for e in edges.T])
 
     # Define the domain as bounding-box if not defined
@@ -44,7 +50,7 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
 
 #------------------------------------------------------------------------------#
 
-def fractures_from_csv(f_name, tagcols=None, **kwargs):
+def fractures_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
     """ Read csv file with fractures to obtain fracture description.
 
     Create the grid bucket from a set of fractures stored in a csv file and a
@@ -101,9 +107,54 @@ def fractures_from_csv(f_name, tagcols=None, **kwargs):
     if tagcols is not None:
         edges = np.vstack((edges, data[:, tagcols].T))
 
+    pts, _, old_2_new = unique_columns_tol(pts, tol=tol)
+    edges[:2] = old_2_new[edges[:2]]
+
+    to_remove = np.where(edges[0, :] == edges[1, :])[0]
+    edges = np.delete(edges, to_remove, axis=1)
+
+    assert np.all(np.diff(edges[:2], axis=0) != 0)
+
     return pts, edges.astype(np.int)
 
-#------------------------------------------------------------------
+#------------------------------------------------------------------------------#
+
+def read_dfn(file_name, file_inters=None, conforming=True, tol=None,
+             vtk_name=None, **kwargs):
+    """ Read the fractures and (possible) intersection from files.
+    The fractures are in a .fab file, as specified by FracMan.
+    The intersection are specified in the function intersection_dfn.
+
+    Parameters:
+        file_name (str): Path to .fab file.
+        file_intersections (str): Optional path to intersection file.
+        conforming (boolean): If True, the mesh will be conforming along 1d
+            intersections.
+        vtk_name (str): Gives the possibility to export the network in a vtu
+            file. Consider the suffix of the file as ".vtu".
+        **kwargs: Parameters passed to gmsh.
+
+    Returns:
+        gb (GridBucket): The grid bucket.
+
+    """
+    fracs, tf, sgn = from_fab(file_name)
+    fractures = [Fracture(f) for f in fracs]
+    if tol is not None:
+        network = FractureNetwork(fractures, tol=tol)
+    else:
+        network = FractureNetwork(fractures)
+
+    if vtk_name is not None:
+        network.to_vtk(vtk_name)
+
+    if file_inters is None:
+        return meshing.dfn(network, conforming, **kwargs)
+    else:
+        inters = intersection_dfn(file_inters, fractures)
+        return meshing.dfn(network, conforming, inters, **kwargs)
+
+#------------------------------------------------------------------------------#
 
 def from_fab(f_name):
     """ Read fractures from a .fab file, as specified by FracMan.
@@ -159,7 +210,8 @@ def from_fab(f_name):
             if is_tess:
                 ids, num_vert = line.split()
             else:
-                ids, num_vert, t = line.split()
+                ids, num_vert, t = line.split()[:3]
+
                 trans.append(float(t))
 
             ids = int(ids)
@@ -179,7 +231,7 @@ def from_fab(f_name):
             fracs.append(vert)
             fracture_ids.append(ids)
 
-    with open('DFN.fab', 'r') as f:
+    with open(f_name, 'r') as f:
         for line in f:
             if line.strip() == 'BEGIN FORMAT':
                 # Read the format section, but disregard the information for
@@ -196,13 +248,229 @@ def from_fab(f_name):
                 fracs, frac_ids, trans = read_fractures(f, is_tess=False)
             elif line.strip() == 'BEGIN TESSFRACTURE':
                 # Read tess_fractures
-                tess_fracs, tess_frac_ids, tess_sgn = read_fractures(f, is_tess=True)
+                tess_fracs, tess_frac_ids, tess_sgn = \
+                                        read_fractures(f, is_tess=True)
             elif line.strip()[:5] == 'BEGIN':
                 # Check for keywords not yet implemented.
                 raise ValueError('Unknown section type ' + line)
 
     return fracs, tess_fracs, tess_sgn
 
+#------------------------------------------------------------------------------#
+
+def intersection_dfn(file_name, fractures):
+    """ Read the fracture intersections from file.
+    NOTE: We assume that the fracture id in the file starts from 1. The file
+    format is as follow:
+    x_0 y_0 x_1 y_1 frac_id0 frac_id1
+
+    Parameters:
+        file_name (str): Path to file.
+        fractures (either Fractures, or a FractureNetwork).
+
+    Returns:
+        intersections (list of lists): Each item corresponds to an
+            intersection between two fractures. In each sublist, the first two
+            indices gives fracture ids (refering to order in fractures). The third
+            item is a numpy array representing intersection coordinates.
+    """
+    class DummyFracture(object):
+        def __init__(self, index):
+            self.index = index
+
+    inter_from_file = np.atleast_2d(np.loadtxt(file_name))
+    intersections = np.empty((inter_from_file.shape[0], 3), dtype=np.object)
+
+    for line, intersection in zip(inter_from_file, intersections):
+        intersection[0] = DummyFracture(int(line[6])-1)
+        intersection[1] = DummyFracture(int(line[7])-1)
+        intersection[2] = np.array(line[:6]).reshape((3,-1), order='F')
+    return intersections
+
+#------------------------------------------------------------------------------#
+
+def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
+
+    #TODO: tag tip faces
+
+    offset_name = kwargs.get('offset_name', 1)
+    folder += "/"
+    g_2d = np.empty(num_fractures, dtype=np.object)
+    gb = grid_bucket.GridBucket()
+
+    global_node_id = 0
+    for f_id in np.arange(num_fractures):
+        post = "_F" + str(f_id+offset_name) + "_" + str(case_id) + ".txt"
+        nodes_2d, face_nodes_2d, cell_faces_2d = _dfn_grid_2d(folder, post, **kwargs)
+        g_2d[f_id] = grid.Grid(2, nodes_2d, face_nodes_2d, cell_faces_2d,
+                               "fracture_" + str(f_id) + "_" + str(case_id))
+
+        bnd_faces = g_2d[f_id].get_boundary_faces()
+        g_2d[f_id].add_face_tag(bnd_faces, grid.FaceTag.DOMAIN_BOUNDARY)
+
+        g_2d[f_id].global_point_ind = np.arange(g_2d[f_id].num_nodes) + \
+                                      global_node_id
+        global_node_id += g_2d[f_id].num_nodes
+
+    gb.add_nodes(g_2d)
+
+    for f_id in np.arange(num_fractures):
+        post = "_F" + str(f_id+offset_name) + "_" + str(case_id) + ".txt"
+
+        face_name = kwargs.get("face_name", "Faces")
+        face_file_name = folder + face_name + post
+
+        with open(face_file_name, 'r') as f:
+            skip_lines = int(f.readline().split()[0]) + 1
+            lines = np.array(f.readlines()[skip_lines:])
+            conn = np.atleast_2d([np.fromstring(l, dtype=np.int, sep=' ') \
+                                                                for l in lines])
+            # Consider only the new intersections
+            conn = conn[conn[:, 2] > f_id, :]
+
+            for g_id in np.unique(conn[:, 2]):
+                other_f_id = g_id-1
+                mask = conn[:, 2] == g_id
+
+                nodes_id = _nodes_faces_2d(g_2d[f_id], conn[mask, 0])
+                nodes_1d, face_nodes_1d, cell_faces_1d = _dfn_grid_1d(g_2d[f_id], nodes_id)
+                g_1d = grid.Grid(1, nodes_1d, face_nodes_1d, cell_faces_1d,
+                                 "intersection_" + str(f_id) + \
+                                 "_" + str(g_id-1) + "_" + str(case_id))
+
+                print(nodes_id)
+                print(g_2d[f_id].global_point_ind[nodes_id])
+                global_point_ind = g_2d[f_id].global_point_ind[nodes_id]
+                g_1d.global_point_ind = global_point_ind
+
+                nodes_id = _nodes_faces_2d(g_2d[other_f_id], conn[mask, 1])
+                for g, _ in gb: # TODO: better access
+                    if g is g_2d[other_f_id]:
+                        g.global_point_ind[nodes_id] = global_point_ind
+                        break
+
+                gb.add_nodes(g_1d)
+
+                shape = (g_1d.num_cells, g_2d[f_id].num_faces)
+                data = np.ones(g_1d.num_cells, dtype=np.bool)
+                face_cells = sps.csc_matrix((data, (np.arange(g_1d.num_cells),
+                                                    conn[mask, 0])), shape)
+                gb.add_edge([g_2d[f_id], g_1d], face_cells)
+
+                shape = (g_1d.num_cells, g_2d[other_f_id].num_faces)
+                face_cells = sps.csc_matrix((data, (np.arange(g_1d.num_cells),
+                                                    conn[mask, 1])), shape)
+                gb.add_edge([g_2d[other_f_id], g_1d], face_cells)
+
+    gb.compute_geometry()
+    # Split the grids.
+    split_grid.split_fractures(gb, offset=0.1)
+    return gb
+
+#------------------------------------------------------------------------------#
+
+def _dfn_grid_2d(folder, post, **kwargs):
+
+    cell_name = kwargs.get("cell_name", "Cells")
+    cell_file_name = folder + cell_name + post
+
+    # Read the cells and construct the cell_faces matrix
+    with open(cell_file_name, 'r') as f:
+        num_cells, num_faces_cells = map(int, f.readline().split())
+        cell_faces_data = np.empty(num_faces_cells, dtype=np.int)
+        cell_faces_indptr = np.zeros(num_cells+1, dtype=np.int)
+        cell_faces_indices = np.empty(num_faces_cells, dtype=np.int)
+
+        lines = list(islice(f, num_cells))
+        pos = 0
+        for cell_id, line in enumerate(lines):
+            data = np.fromstring(line, dtype=np.int, sep=' ')
+            cell_faces_indptr[cell_id+1] = pos+data.size
+            index = slice(pos, pos+data.size)
+            cell_faces_indices[index] = np.abs(data)
+            cell_faces_data[index] = 2*(data > 0)-1
+            pos += data.size
+
+        cell_faces = sps.csc_matrix((cell_faces_data,
+                                     cell_faces_indices,
+                                     cell_faces_indptr))
+        del cell_faces_data, cell_faces_indptr, cell_faces_indices
+
+    face_name = kwargs.get("face_name", "Faces")
+    face_file_name = folder + face_name + post
+
+    # Read the faces and construct the face_nodes matrix
+    with open(face_file_name, 'r') as f:
+        num_faces, num_nodes_faces = map(int, f.readline().split())
+        face_nodes_indices = np.empty(num_nodes_faces, dtype=np.int)
+
+        lines = list(islice(f, num_faces))
+        pos = 0
+        for face_id, line in enumerate(lines):
+            data = np.fromstring(line, dtype=np.int, sep=' ')
+            index = slice(pos, pos+data.size)
+            face_nodes_indices[index] = data
+            pos += data.size
+
+        face_nodes_indptr = np.hstack((np.arange(0, 2*num_faces, 2),
+                                       2*num_faces))
+        face_nodes = sps.csc_matrix((np.ones(num_nodes_faces, dtype=np.bool),
+                                     face_nodes_indices,
+                                     face_nodes_indptr))
+        del face_nodes_indices, face_nodes_indptr
+
+    node_name = kwargs.get("node_name", "Vertexes")
+    node_file_name = folder + node_name + post
+
+    with open(node_file_name, 'r') as f:
+        num_nodes = int(f.readline())
+
+        nodes = np.empty((3, num_nodes))
+        lines = list(islice(f, num_nodes))
+        for node_id, line in enumerate(lines):
+            nodes[:, node_id] = np.fromstring(line, dtype=np.float, sep=' ')
+
+    return nodes, face_nodes, cell_faces
+
+#------------------------------------------------------------------------------#
+
+def _nodes_faces_2d(grid_2d, faces_2d_id):
+
+    nodes_id = np.empty((2, faces_2d_id.size), dtype=np.int)
+    for cell_id, face_2d_id in enumerate(faces_2d_id):
+        index = slice(grid_2d.face_nodes.indptr[face_2d_id],
+                      grid_2d.face_nodes.indptr[face_2d_id+1])
+        nodes_id[:, cell_id] = grid_2d.face_nodes.indices[index]
+
+    nodes_id = sort_point_pairs(nodes_id, is_circular=False)
+    return np.hstack((nodes_id[0, :], nodes_id[1, -1]))
+
+#------------------------------------------------------------------------------#
+
+def _dfn_grid_1d(grid_2d, nodes_id):
+
+    num_faces = nodes_id.size
+    num_cells = num_faces-1
+
+    cell_faces_indptr = 2*np.arange(num_faces)
+    cell_faces_indices = np.vstack((np.arange(num_cells),
+                                    np.arange(1, num_cells+1))
+                                  ).ravel('F')
+    cell_faces_data = np.ones(2*num_cells)
+    cell_faces_data[::2] *= -1
+
+    cell_faces = sps.csc_matrix((cell_faces_data,
+                                 cell_faces_indices,
+                                 cell_faces_indptr))
+    del cell_faces_data, cell_faces_indptr, cell_faces_indices
+
+    face_nodes = sps.csc_matrix((np.ones(num_faces+1, dtype=np.bool),
+                                 np.arange(num_faces+1),
+                                 np.arange(num_faces+1)))
+
+    return grid_2d.nodes[:, nodes_id], face_nodes, cell_faces
+
+#------------------------------------------------------------------------------#
 
 def bounding_box(pts, overlap=0):
     """ Obtain a bounding box for a point cloud.

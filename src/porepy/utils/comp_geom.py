@@ -473,6 +473,10 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True,
     NotImplementedError if a 3D point array is provided.
 
     """
+    # Sanity check of input specification edge endpoints
+    assert np.all(np.diff(edges[:2], axis=0) != 0), 'Found point edge before'\
+        'removal of intersections'
+
     # Use a non-standard naming convention for the logger to
     logger = logging.getLogger(__name__ + '.remove_edge_crossings')
 
@@ -1297,7 +1301,8 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
     poly_1_rot = rot_p_1.dot(poly_1)
 
     # Sanity check: The points should lay on a plane
-    assert np.all(np.abs(poly_1_rot[2]) < tol)
+    assert np.amax(np.abs(poly_1_rot[2]))/np.amax(np.abs(poly_1_rot[:2])) < tol
+
     # Drop the z-coordinate
     poly_1_xy = poly_1_rot[:2]
 
@@ -1433,8 +1438,9 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
             isect, _, _ = setmembership.unique_columns_tol(isect, tol=tol)
         return isect
 
+#------------------------------------------------------------------------------#
 
-def is_planar(pts, normal=None):
+def is_planar(pts, normal=None, tol=1e-5):
     """ Check if the points lie on a plane.
 
     Parameters:
@@ -1450,15 +1456,60 @@ def is_planar(pts, normal=None):
     if normal is None:
         normal = compute_normal(pts)
     else:
-        normal = normal / np.linalg.norm(normal)
+        normal = normal.flatten() / np.linalg.norm(normal)
 
-    check = np.array([np.isclose(np.dot(normal, pts[:, 0] - p), 0) \
-                      for p in pts[:, 1:].T], dtype=np.bool)
-    return np.all(check)
+    check_all = np.zeros(pts.shape[1]-1, dtype=np.bool)
+
+    for idx, p in enumerate(pts[:, 1:].T):
+        den = np.linalg.norm(pts[:, 0] - p)
+        dotprod = np.dot(normal, (pts[:, 0] - p)/(den if den else 1))
+        check_all[idx] = np.isclose(dotprod, 0, atol=tol, rtol=0)
+
+    return np.all(check_all)
 
 #------------------------------------------------------------------------------#
 
-def project_plane_matrix(pts, normal=None):
+def is_point_in_cell(poly, p, if_make_planar=True):
+    """
+    Check whatever a point is inside a cell. Note a similar behaviour could be
+    reached using the function is_inside_polygon, however the current
+    implementation deals with concave cells as well. Not sure which is the best,
+    in term of performances, for convex cells.
+
+    Parameters:
+        poly (np.ndarray, 3xn): vertexes of polygon. The segments are formed by
+            connecting subsequent columns of poly.
+        p (np.array, 3x1): Point to be tested.
+    if_make_planar (optional, default True): The cell needs to lie on (s, t)
+        plane. If not already done, this flag need to be used.
+
+    Return:
+        boolean, if the point is inside the cell. If a point is on the boundary
+        of the cell the result may be either True or False.
+    """
+    p.shape = (3, 1)
+    if if_make_planar:
+        R = project_plane_matrix(poly)
+        poly = np.dot(R, poly)
+        p = np.dot(R, p)
+
+    j = poly.shape[1]-1
+    is_odd = False
+
+    for i in np.arange(poly.shape[1]):
+        if (poly[1, i] < p[1] and poly[1, j] >= p[1]) \
+           or \
+           (poly[1, j] < p[1] and poly[1, i] >= p[1]):
+            if (poly[0, i]+(p[1]-poly[1, i])/(poly[1, j]-poly[1, i])\
+                *(poly[0,j]-poly[0, i])) < p[0]:
+                is_odd = not is_odd
+        j = i
+
+    return is_odd
+
+#------------------------------------------------------------------------------#
+
+def project_plane_matrix(pts, normal=None, tol=1e-5, reference=[0, 0, 1]):
     """ Project the points on a plane using local coordinates.
 
     The projected points are computed by a dot product.
@@ -1468,6 +1519,10 @@ def project_plane_matrix(pts, normal=None):
     pts (np.ndarray, 3xn): the points.
     normal: (optional) the normal of the plane, otherwise three points are
         required.
+    tol: (optional, float) tolerance to assert the planarity of the cloud of
+        points. Default value 1e-5.
+    reference: (optional, np.array, 3x1) reference vector to compute the angles.
+        Default value [0, 0, 1].
 
     Returns:
     np.ndarray, 3x3, projection matrix.
@@ -1477,11 +1532,42 @@ def project_plane_matrix(pts, normal=None):
     if normal is None:
         normal = compute_normal(pts)
     else:
-        normal = normal / np.linalg.norm(normal)
+        normal = np.asarray(normal)
+        normal = normal.flatten() / np.linalg.norm(normal)
 
-    reference = np.array([0., 0., 1.])
+    assert is_planar(pts, normal, tol)
+
+    reference = np.asarray(reference, dtype=np.float)
     angle = np.arccos(np.dot(normal, reference))
     vect = np.cross(normal, reference)
+    return rot(angle, vect)
+
+#------------------------------------------------------------------------------#
+
+def project_line_matrix(pts, tangent=None, tol=1e-5, reference=[0, 0, 1]):
+    """ Project the points on a line using local coordinates.
+
+    The projected points are computed by a dot product.
+    example: np.dot( R, pts )
+
+    Parameters:
+    pts (np.ndarray, 3xn): the points.
+    tangent: (optional) the tangent unit vector of the plane, otherwise two
+        points are required.
+
+    Returns:
+    np.ndarray, 3x3, projection matrix.
+
+    """
+
+    if tangent is None:
+        tangent = compute_tangent(pts)
+    else:
+        tangent = tangent.flatten() / np.linalg.norm(tangent)
+
+    reference = np.asarray(reference, dtype=np.float)
+    angle = np.arccos(np.dot(tangent, reference))
+    vect = np.cross(tangent, reference)
     return rot(angle, vect)
 
 #------------------------------------------------------------------------------#
@@ -1633,7 +1719,7 @@ def is_collinear(pts, tol=1e-5):
     pt0 = pts[:, 0]
     pt1 = pts[:, 1]
 
-    dist = 0
+    dist = 1
     for i in np.arange(pts.shape[1]):
         for j in np.arange(i+1, pts.shape[1]):
             dist = max(dist, np.linalg.norm(pts[:, i] - pts[:, j]))
@@ -1644,7 +1730,7 @@ def is_collinear(pts, tol=1e-5):
 
 #------------------------------------------------------------------------------#
 
-def map_grid(g):
+def map_grid(g, tol=1e-5):
     """ If a 2d or a 1d grid is passed, the function return the cell_centers,
     face_normals, and face_centers using local coordinates. If a 3d grid is
     passed nothing is applied. The return vectors have a reduced number of rows.
@@ -1672,12 +1758,17 @@ def map_grid(g):
                np.ones(3, dtype=bool), nodes
 
     if g.dim == 1 or g.dim == 2:
-        v = compute_normal(g.nodes) if g.dim == 2 else compute_tangent(g.nodes)
-        R = project_plane_matrix(g.nodes, v)
+
+        if g.dim == 2:
+            R = project_plane_matrix(g.nodes)
+        else:
+            R = project_line_matrix(g.nodes)
+
         face_centers = np.dot(R, face_centers)
-        dim = np.logical_not(np.isclose(np.sum(np.abs(face_centers.T-
-                                                      face_centers[:, 0]),
-                                               axis=0), 0))
+
+        check = np.sum(np.abs(face_centers.T - face_centers[:, 0]), axis=0)
+        check /= np.sum(check)
+        dim = np.logical_not(np.isclose(check, 0, atol=tol, rtol=0))
         assert g.dim == np.sum(dim)
         face_centers = face_centers[dim, :]
         cell_centers = np.dot(R, cell_centers)[dim, :]

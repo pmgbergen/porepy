@@ -14,8 +14,12 @@ class AbstractCoupling(object):
 
     #------------------------------------------------------------------------------#
 
-    def __init__(self, solver):
-        self.solver = solver
+    def __init__(self, discr=None, discr_ndof=None):
+
+        if discr_ndof is None:
+            self.discr_ndof = discr.ndof
+        else:
+            self.discr_ndof = discr_ndof
 
 #------------------------------------------------------------------------------#
 
@@ -77,7 +81,7 @@ class AbstractCoupling(object):
         """
 
         # Retrieve the number of degrees of both grids
-        dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
+        dof = np.array([self.discr_ndof(g_h), self.discr_ndof(g_l)])
 
         # Create the block matrix for the contributions
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])

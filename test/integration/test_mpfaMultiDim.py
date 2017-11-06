@@ -1,6 +1,6 @@
 import numpy as np
 
-from porepy.numerics.fv.mpfa import MpfaMultiDim
+from porepy.numerics.fv.mpfa import MpfaMixDim
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
@@ -39,11 +39,11 @@ def test_uniform_flow_cart_2d():
     gb = setup_cart_2d(np.array([10, 10]))
 
     # Python inverter is most efficient for small problems
-    flux_discr = MpfaMultiDim('flow')
+    flux_discr = MpfaMixDim('flow')
     A, rhs = flux_discr.matrix_rhs(gb)
     p = np.linalg.solve(A.A, rhs)
 
-    flux_discr.solver.split(gb, 'pressure', p)
+    flux_discr.split(gb, 'pressure', p)
     for g, d in gb:
         pressure = d['pressure']
         pressure_analytic = g.cell_centers[1]

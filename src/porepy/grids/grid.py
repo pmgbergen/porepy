@@ -168,6 +168,7 @@ class Grid(object):
     def __str__(self):
         """ Implementation of __str__
         """
+        s = str()
 
         # Special treatment of point grids.
         if 'PointGrid' in self.name:
@@ -612,7 +613,7 @@ class Grid(object):
         """
         bd_faces = np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel('F')
                                == 1).ravel('F')
-        self.add_face_tag(bd_faces, FaceTag.BOUNDARY)
+        self.add_face_tag(bd_faces, FaceTag.BOUNDARY | FaceTag.DOMAIN_BOUNDARY)
 
     def cell_diameters(self, cn=None):
         """
@@ -693,6 +694,12 @@ class Grid(object):
 
         return c2c
 
+    def bounding_box(self):
+        """
+        Return the bounding box of the grid.
+        """
+        return np.amin(self.nodes, axis=1), np.amax(self.nodes, axis=1)
+
     def closest_cell(self, p):
         """ For a set of points, find closest cell by cell center.
 
@@ -703,7 +710,7 @@ class Grid(object):
         Returns:
             np.ndarray of ints: For each point, index of the cell with center
                 closest to the point.
-	"""
+    """
         dim_p = p.shape[0]
         if p.shape[0] < 3:
             z = np.zeros((3 - p.shape[0], p.shape[1]))
