@@ -2380,13 +2380,25 @@ class FractureNetwork(object):
 
         writer.write_geo(file_name)
 
+    def fracture_to_plane(self, frac_num):
+        """ Project fracture vertexes and intersection points to the natural
+        plane of the fracture.
 
-    def on_domain_boundary(self, edges, edge_tags):
-        """
-        Finds edges and points on boundary, to avoid that these
-        are gridded. Points  introduced by intersections
-        of subdomain boundaries and real fractures remain physical
-        (to maintain contact between split fracture lines).
+        Parameters:
+            frac_num (int): Index of fracture.
+
+        Returns:
+            np.ndarray (2xn_pt): 2d coordinates of the fracture vertexes.
+            np.ndarray (2xn_isect): 2d coordinates of fracture intersection
+                points.
+            np.ndarray: Index of intersecting fractures.
+            np.ndarray, 3x3: Rotation matrix into the natural plane.
+            np.ndarray, 3x1. 3d coordinates of the fracture center.
+
+            The 3d coordinates of the frature can be recovered by
+                p_3d = cp + rot.T.dot(np.vstack((p_2d,
+                                                 np.zeros(p_2d.shape[1]))))
+
         """
         isect = self.intersections_of_fracture(frac_num)
 
@@ -2413,6 +2425,16 @@ class FractureNetwork(object):
             if tmp_p.shape[1] > 0:
                 assert np.max(np.abs(tmp_p[2])) < self.tol
                 ip = np.append(ip, tmp_p[:2], axis=1)
+
+        return p_2d, ip, other_frac, rot, cp
+
+    def on_domain_boundary(self, edges, edge_tags):
+        """
+        Finds edges and points on boundary, to avoid that these
+        are gridded. Points  introduced by intersections
+        of subdomain boundaries and real fractures remain physical
+        (to maintain contact between split fracture lines).
+        """
 
         constants = GmshConstants()
         # Obtain current tags on fractures
