@@ -12,7 +12,7 @@ from porepy.grids.grid import FaceTag
 
 from porepy.numerics.mixed_dim import coupler
 from porepy.numerics.vem import dual, dual_coupling
-from porepy.numerics.fv.transport import upwind, upwind_coupling
+from porepy.numerics.fv.transport import upwind
 from porepy.numerics.fv import tpfa
 
 from porepy.params.bc import BoundaryCondition
@@ -181,7 +181,7 @@ diffusion_discr = tpfa.Tpfa(physics="transport")
 # Assign parameters
 add_data_advection_diffusion(gb, domain, tol)
 
-advection_coupling_conditions = upwind_coupling.UpwindCoupling(advection_discr)
+advection_coupling_conditions = upwind.UpwindCoupling(advection_discr)
 advection_coupler = coupler.Coupler(
     advection_discr, advection_coupling_conditions)
 U, rhs_u = advection_coupler.matrix_rhs(gb)

@@ -86,7 +86,7 @@ def test_one_fracture_intersected_by_two(**kwargs):
     # Add some parameters for grid size
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
               2}
-    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
+    mesh_size = {'mode': 'constant', 'value': 0.4, 'bound_value': 1}
 
     kwargs['mesh_size'] = mesh_size
     grids = meshing.simplex_grid([f_1, f_2, f_3], domain, **kwargs)

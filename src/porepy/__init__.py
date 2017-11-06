@@ -38,7 +38,7 @@ from porepy.numerics.vem.dual_coupling import DualCoupling
 
 # Transport related
 from porepy.numerics.fv.transport.upwind import Upwind
-from porepy.numerics.fv.transport.upwind_coupling import UpwindCoupling
+from porepy.numerics.fv.transport.upwind import UpwindCoupling
 from porepy.numerics.fv.mass_matrix import MassMatrix, InvMassMatrix
 
 # Grids
