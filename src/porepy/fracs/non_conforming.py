@@ -118,6 +118,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
 
     return new_grid, global_ind_offset, g_in_combined, h_in_combined
 
+
 def update_global_point_ind(grid_list, old_ind, new_ind):
     """ Update global point indices in a list of grids.
 
@@ -133,3 +134,58 @@ def update_global_point_ind(grid_list, old_ind, new_ind):
     for g in grid_list:
         ismem, o2n = ismember_rows(old_ind, g.global_point_ind)
         g.global_point_ind[o2n] = new_ind[ismem]
+
+
+def update_face_nodes(g, delete_faces, num_new_faces, new_node_offset,
+                      nodes_per_face=None):
+    """ Update face-node map by deleting and inserting new faces.
+
+    The method deletes specified faces, adds new ones towards the end. It does
+    nothing to adjust the face-node relation for remaining faces.
+
+    The code assumes a constant number of nodes per face.
+
+    Parameters:
+        g (grid): Grid to have its faces modified. Should have fields
+            face_nodes and num_faces.
+        delete_faces (np.array): Index of faces to be deleted.
+        num_new_faces (int): Number of new faces to create.
+        new_node_offset (int): Offset index of the new fractures.
+        nodes_per_face (int, optional): Number of nodes per face, assumed equal
+            for all faces. Defaults to g.dim, that is, simplex grids
+
+    Returns:
+        np.array: Index of the new faces.
+
+    """
+
+    if nodes_per_face is None:
+        nodes_per_face = g.dim
+
+    # Indices of new nodes.
+    new_face_nodes = np.tile(np.arange(num_new_faces), (nodes_per_face, 1)) \
+                    + np.arange(nodes_per_face).reshape((nodes_per_face, 1))
+    # Offset the numbering: The new nodes are inserted after all outside nodes
+    new_face_nodes = new_node_offset + new_face_nodes
+    # Number of new faces in mesh
+    ind_new_face = g.num_faces - delete_faces.size + np.arange(num_new_faces)
+
+    ## Modify face-node map
+    # First obtain face-node relation as a matrix. Thankfully, we know the
+    # number of nodes per face.
+    fn = g.face_nodes.indices.reshape((nodes_per_face, g.num_faces), order='F')
+    # Delete old faces
+    fn = np.delete(fn, delete_faces, axis=1)
+    # Add new face-nodes
+    fn = np.append(fn, new_face_nodes, axis=1)
+
+    indices = fn.flatten(order='F')
+
+    # Trivial updates of data and indptr. Fortunately, this is 2d
+    data = np.ones(fn.size, dtype=np.bool)
+    indptr = np.arange(0, fn.size+1, nodes_per_face)
+    g.face_nodes = sps.csc_matrix((data, indices, indptr))
+    g.num_faces = int(fn.size / nodes_per_face)
+    assert g.face_nodes.indices.max() < g.nodes.shape[1]
+
+    return ind_new_face
