@@ -3,6 +3,10 @@ A module for representation and manipulations of fractures and fracture sets.
 
 The model relies heavily on functions in the computational geometry library.
 
+Known issues:
+The subdomain partitioning may lead to addition of unwanted intersection points,
+see FractureNetwork.on_domain_boundary.
+
 """
 # Import of 'standard' external packages
 import warnings
@@ -372,8 +376,6 @@ class Fracture(object):
         # segment of the other.
 
         # Compute intersections, with both polygons as first argument
-        # Do not include boundary points of the polygons here, these will be
-        # processed later
         isect_self_other = cg.polygon_segment_intersect(self.p, other.p,
                                                         tol=tol,
                                                         include_bound_pt=True)
@@ -680,7 +682,7 @@ class Fracture(object):
                 has_segment = True
                 poly_ext, o2n, _ = setmembership.unique_columns_tol(
                     np.hstack((poly, ip_unique)), tol=tol)
-                non_vertex = list(o2n[-2:] >= num_pt)
+                non_vertex += list(o2n[-2:] >= num_pt)
 
                 # No need to deal with non_vertex here, there should be no more
                 # intersections (convex, non-overlapping polygons).
@@ -781,6 +783,7 @@ class Fracture(object):
         z0 = np.minimum(z0_box, min_coord[2] - 10 * tol)
         z1 = np.maximum(z1_box, max_coord[2] + 10 * tol)
 
+
         def outside_box(p, bound_i):
             # Helper function to test if points are outside the bounding box
             relative = np.amax(np.linalg.norm(p, axis=0))
@@ -806,8 +809,12 @@ class Fracture(object):
         # For each plane, we keep the fixed coordinate to the value specified
         # by the box, and extend the two others to cover segments that run
         # through the extension of the plane only.
+
+        # Move these to FractureNetwork.impose_external_boundary.
+        # Doesn't immediately work. Depend on the fracture.
         west = Fracture(np.array([[x0_box, x0_box, x0_box, x0_box],
-                                  [y0, y1, y1, y0], [z0, z0, z1, z1]]),
+                                  [y0, y1, y1, y0],
+                                  [z0, z0, z1, z1]]),
                         check_convexity=False)
         east = Fracture(np.array([[x1_box, x1_box, x1_box, x1_box],
                                   [y0, y1, y1, y0],
@@ -821,10 +828,12 @@ class Fracture(object):
                                    [y1_box, y1_box, y1_box, y1_box],
                                    [z0, z0, z1, z1]]),
                          check_convexity=False)
-        bottom = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+        bottom = Fracture(np.array([[x0, x1, x1, x0],
+                                    [y0, y0, y1, y1],
                                     [z0_box, z0_box, z0_box, z0_box]]),
                           check_convexity=False)
-        top = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+        top = Fracture(np.array([[x0, x1, x1, x0],
+                                 [y0, y0, y1, y1],
                                  [z1_box, z1_box, z1_box, z1_box]]),
                        check_convexity=False)
         # Collect in a list to allow iteration
@@ -1076,6 +1085,14 @@ class Intersection(object):
 
 
 class FractureNetwork(object):
+    """
+    Collection of Fractures with geometrical information. Facilitates
+    computation of intersections of the fracture. Also incorporates the
+    bounding box as six boundary fractures and the possibility to impose
+    additional gridding constraints through subdomain boundaries. To ensure
+    that all fractures lie within the box, call impose_external_boundary()
+    _after_ all fractures and subdomains have been specified.
+    """
 
     def __init__(self, fractures=None, verbose=0, tol=1e-4):
 
@@ -1093,6 +1110,9 @@ class FractureNetwork(object):
         # Initialize mesh size parameters as empty
         self.h_min = None
         self.h_ideal = None
+
+        # Assign an empty tag dictionary
+        self.tags = {}
 
         # No auxiliary points have been added
         self.auxiliary_points_added = False
@@ -1783,6 +1803,48 @@ class FractureNetwork(object):
             f.plot_frame(ax)
         return fig
 
+        for i, f_1 in enumerate(self._fractures):
+            for j, f_2 in enumerate(self._fractures[i + 1:]):
+                d = np.Inf
+                for p_1 in f_1.points():
+                    for p_2 in f_2.points():
+                        d = np.minimum(d, cg.dist_point_pointset(p_1, p_2)[0])
+                p_2_p[i, i + j + 1] = d
+
+                d = np.Inf
+                for s_1 in f_1.segments():
+                    for s_2 in f_2.segments():
+                        d = np.minimum(d,
+                                       cg.distance_segment_segment(s_1[:, 0],
+                                                                   s_1[:, 1],
+                                                                   s_2[:, 0],
+                                                                   s_2[:, 1]))
+                s_2_s[i, i + j + 1] = d
+
+        return p_2_p, s_2_s
+
+    def add_subdomain_boundaries(self, vertexes):
+        """
+        Adds subdomain boundaries to the fracture network. These are
+        intended to ensure the partitioning of the matrix along the planes
+        they define.
+        Parameters:
+            vertexes: either a Fracture or a
+            np.array([[x0, x1, x2, x3],
+                      [y0, y1, y2, y3],
+                      [z0, z1, z2, z3]])
+        """
+        subdomain_tags = self.tags.get('subdomain',
+                                       [False]*len(self._fractures))
+        for f in vertexes:
+            if not hasattr(f, 'p') or not isinstance(f.p, np.ndarray):
+                # np.array to Fracture:
+                f = Fracture(f)
+            # Add the fake fracture and its tag to the network:
+            self.add(f)
+            subdomain_tags.append(True)
+
+        self.tags['subdomain'] = subdomain_tags
 
     def impose_external_boundary(self, box=None, truncate_fractures=True):
         """
@@ -1826,6 +1888,10 @@ class FractureNetwork(object):
         # fractures outside the box
         self.domain = box
 
+        #Create fractures of box here.
+        #Store them self._fractures so that split_intersections work
+        #keep track of which fractures are really boundaries - perhaps attribute is_proxy?
+
         if truncate_fractures:
             # Keep track of fractures that are completely outside the domain.
             # These will be deleted.
@@ -1848,6 +1914,57 @@ class FractureNetwork(object):
             # points at the end of the manipulations
             for f in self._fractures:
                 assert f.p.shape[1] >= 3
+
+
+        self._make_bounding_planes(box)
+
+    def _make_bounding_planes(self, box):
+        """
+        Translate the bounding box into fractures. Tag them as boundaries.
+        For now limited to a box consisting of six planes.
+        """
+        x0 = box['xmin']
+        x1 = box['xmax']
+        y0 = box['ymin']
+        y1 = box['ymax']
+        z0 = box['zmin']
+        z1 = box['zmax']
+        west = Fracture(np.array([[x0, x0, x0, x0],
+                                  [y0, y1, y1, y0],
+                                  [z0, z0, z1, z1]]),
+                        check_convexity=False)
+        east = Fracture(np.array([[x1, x1, x1, x1],
+                                  [y0, y1, y1, y0],
+                                  [z0, z0, z1, z1]]),
+                        check_convexity=False)
+        south = Fracture(np.array([[x0, x1, x1, x0],
+                                   [y0, y0, y0, y0],
+                                   [z0, z0, z1, z1]]),
+                         check_convexity=False)
+        north = Fracture(np.array([[x0, x1, x1, x0],
+                                   [y1, y1, y1, y1],
+                                   [z0, z0, z1, z1]]),
+                         check_convexity=False)
+        bottom = Fracture(np.array([[x0, x1, x1, x0],
+                                    [y0, y0, y1, y1],
+                                    [z0, z0, z0, z0]]),
+                          check_convexity=False)
+        top = Fracture(np.array([[x0, x1, x1, x0],
+                                 [y0, y0, y1, y1],
+                                 [z1, z1, z1, z1]]),
+                       check_convexity=False)
+        # Collect in a list to allow iteration
+        bound_planes = [west, east, south, north, bottom, top]
+        boundary_tags = self.tags.get('boundary',
+                                       [False]*len(self._fractures))
+
+        # Add the boundaries to the fracture network and tag them.
+        for f in bound_planes:
+            self.add(f)
+            boundary_tags.append(True)
+        self.tags['boundary'] = boundary_tags
+
+
 
 
     def _classify_edges(self, polygon_edges):
@@ -2197,17 +2314,32 @@ class FractureNetwork(object):
                give a DFN-type mesh.
 
         """
+        # Extract geometrical information.
         p = self.decomposition['points']
         edges = self.decomposition['edges']
-        edges_2_fracs = self.decomposition['edges_2_frac']
-
         poly = self._poly_2_segment()
+        # Obtain tags, and set default values (corresponding to real fractures)
+        # for untagged fractures.
+        frac_tags = self.tags
+        frac_tags['subdomain'] = frac_tags.get('subdomain', []) + \
+                                [False]*(len(self._fractures)
+                                        -len(frac_tags.get('subdomain', [])))
+        frac_tags['boundary'] = frac_tags.get('boundary', []) + \
+                                [False]*(len(self._fractures)
+                                        -len(frac_tags.get('boundary', [])))
 
         edge_tags, intersection_points = self._classify_edges(poly)
-        edges = np.vstack((self.decomposition['edges'], edge_tags))
 
+        # All intersection lines and points on boundaries are non-physical in 3d.
+        # I.e., they are assigned boundary conditions, but are not gridded. Hence:
+        # Remove the points and edges at the boundary
+        point_tags, edge_tags = self.on_domain_boundary(edges, edge_tags)
+        edges = np.vstack((self.decomposition['edges'], edge_tags))
+        int_pts_on_boundary = np.isin(intersection_points, np.where(point_tags))
+        intersection_points = intersection_points[np.logical_not(int_pts_on_boundary)]
         self.zero_d_pt = intersection_points
 
+        # Obtain mesh size parameters
         if 'mesh_size' in kwargs.keys():
             # Legacy option, this should be removed.
             print('Using old version of mesh size determination')
@@ -2236,12 +2368,67 @@ class FractureNetwork(object):
         else:
             meshing_algorithm = None
 
+        # Initialize and run the gmsh writer:
         writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
                             intersection_points=intersection_points,
                             mesh_size_bound=mesh_size_bound,
                             mesh_size=mesh_size, tolerance=gmsh_tolerance,
                             edges_2_frac=self.decomposition['line_in_frac'],
-                            meshing_algorithm=meshing_algorithm)
-
+                            meshing_algorithm=meshing_algorithm,
+                            fracture_tags=frac_tags)
 
         writer.write_geo(file_name)
+
+
+    def on_domain_boundary(self, edges, edge_tags):
+        """
+        Finds edges and points on boundary, to avoid that these
+        are gridded. Points  introduced by intersections
+        of subdomain boundaries and real fractures remain physical
+        (to maintain contact between split fracture lines).
+        """
+
+        constants = GmshConstants()
+        # Obtain current tags on fractures
+        boundary_polygons = np.where(self.tags.get('boundary',
+                                [False]*len(self._fractures)))[0]
+        subdomain_polygons = np.where(self.tags.get('subdomain'
+                                [False]*len(self._fractures)))[0]
+        # ... on the points...
+        point_tags = np.zeros(self.decomposition['points'].shape[1])
+        # and the mapping between fractures and edges.
+        edges_2_frac = self.decomposition['edges_2_frac']
+
+        # Loop on edges to tag according to following rules:
+        #     Edge is on the boundary:
+        #         Tag it and the points it consists of as boundary entities.
+        #     Edge is caused by the presence of subdomain boundaries
+        #     (Note: one fracture may still be involved):
+        #         Tag it as auxiliary
+        for e, e2f in enumerate(edges_2_frac):
+            if any(np.in1d(e2f, boundary_polygons)):
+                edge_tags[e] = constants.DOMAIN_BOUNDARY_TAG
+                point_tags[edges[:,e]] = constants.DOMAIN_BOUNDARY_TAG
+                continue
+            subdomain_parents = np.in1d(e2f, subdomain_polygons)
+            if any(subdomain_parents) and e2f.size - sum(subdomain_parents) < 2:
+                # Intersection of at most one fracture with one (or more)
+                # subdomain boundaries.
+                edge_tags[e] = constants.AUXILIARY_TAG
+
+        # Tag points caused solely by subdomain plane intersection as
+        # auxiliary. Note that points involving at least one real fracture
+        # are kept as physical fracture points. This is to avoid connectivity
+        # loss along real fracture intersections.
+        for p in np.unique(edges):
+            es = np.where(edges==p)[1]
+            sds = []
+            for e in es:
+                sds.append(edges_2_frac[e])
+            sds = np.unique(np.concatenate(sds))
+            subdomain_parents = np.in1d(sds, subdomain_polygons)
+            if all(subdomain_parents) and sum(subdomain_parents) > 2:
+                point_tags[p] = constants.AUXILIARY_TAG
+
+        return point_tags, edge_tags
+
