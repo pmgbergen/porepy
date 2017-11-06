@@ -1,3 +1,14 @@
+""" Implementation of a coupler of discretizations for mixed-dimensional
+problems.
+
+The class Coupler act as a general purpose coupler for various discretizations
+(for now assuming the same disrcetization is applied on all grids). The actual
+discretization is constructed by a Solver (within each grid) and an
+AbstractCoupler (between grids). In practice, an extension of the two classes
+is needed. The Coupler acts as a bookkeeper that knows the global numbering,
+and puts submatrices in their right places.
+
+"""
 import numpy as np
 import scipy.sparse as sps
 
@@ -121,10 +132,7 @@ class Coupler(object):
         values: array, global solution.
 
         """
-        dofs = np.empty(gb.size(), dtype=int)
-        for _, d in gb:
-            dofs[d['node_number']] = d['dof']
-        dofs = np.r_[0, np.cumsum(dofs)]
+        dofs = self._dof_start_of_grids(gb)
 
         gb.add_node_prop(key)
         for g, d in gb:
@@ -147,11 +155,8 @@ class Coupler(object):
         -------
         values: (ndarray) the values stored in the bucket as an array
         """
-        self.ndof(gb)
-        dofs = np.empty(gb.size(), dtype=int)
-        for _, d in gb:
-            dofs[d['node_number']] = d['dof']
-        dofs = np.r_[0, np.cumsum(dofs)]
+
+        dofs = self._dof_start_of_grids(gb)
         values = np.zeros(dofs[-1])
 
         for g, d in gb:
@@ -160,3 +165,27 @@ class Coupler(object):
 
         return values
 #------------------------------------------------------------------------------#
+
+    def _dof_start_of_grids(self ,gb):
+        " Helper method to get first global dof for all grids. "
+        self.ndof(gb)
+        dofs = np.empty(gb.size(), dtype=int)
+        for _, d in gb:
+            dofs[d['node_number']] = d['dof']
+        return np.r_[0, np.cumsum(dofs)]
+#------------------------------------------------------------------------------#
+
+    def dof_of_grid(self, gb, g):
+        """ Obtain global indices of dof associated with a given grid.
+
+        Parameters:
+            gb: Grid_bucket representation of mixed-dimensional data.
+            g: Grid, one member of gb.
+
+        Returns:
+            np.array of ints: Indices of all dof for the given grid
+
+        """
+        dof_list = self._dof_start_of_grids(gb)
+        nn = gb.node_props(g)['node_number']
+        return np.arange(dof_list[nn], dof_list[nn+1])

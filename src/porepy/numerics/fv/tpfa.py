@@ -16,6 +16,7 @@ from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 from porepy.numerics.fv import fvutils
+from porepy.grids.grid import Grid
 
 #------------------------------------------------------------------------------
 
