@@ -1,4 +1,11 @@
 import numpy as np
+""" Module containing super class for all single-domain solvers.
+
+In reality, this is kind of a contract (in the Java sense), there is
+implementation, but the methods are meant to guide the implementation of
+solvers, with an eye to the needs of mixed-dimensional couplings.
+
+"""
 
 class Solver(object):
 
