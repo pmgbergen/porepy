@@ -117,3 +117,19 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     new_grid.global_point_ind = new_global_pts
 
     return new_grid, global_ind_offset, g_in_combined, h_in_combined
+
+def update_global_point_ind(grid_list, old_ind, new_ind):
+    """ Update global point indices in a list of grids.
+
+    The method replaces indices in the attribute global_point_ind in the grid.
+    The update is done in place.
+
+    Parameters:
+        grid_list (list of grids): Grids to be updated.
+        old_ind (np.array): Old global indices, to be replaced.
+        new_ind (np.array): New indices.
+
+    """
+    for g in grid_list:
+        ismem, o2n = ismember_rows(old_ind, g.global_point_ind)
+        g.global_point_ind[o2n] = new_ind[ismem]
