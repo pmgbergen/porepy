@@ -20,7 +20,7 @@ from porepy.fracs import meshing  # split_grid
 
 from porepy.numerics.mixed_dim import coupler
 import copy
-from porepy.numerics.fv import mpfa, tpfa_coupling, tpfa
+from porepy.numerics.fv import mpfa, tpfa
 from porepy.numerics.mixed_dim import condensation
 
 #------------------------------------------------------------------------------#
@@ -92,11 +92,8 @@ if __name__ == '__main__':
     add_data(gb)
 
     # Choose and define the solvers and coupler
-    solver = mpfa.Mpfa()
-    # solver = tpfa.Tpfa()
-    coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
-    solver_coupler = coupler.Coupler(solver, coupling_conditions)
-    A, b = solver_coupler.matrix_rhs(gb)
+    solver = mpfa.MpfaMultiDim()
+    A, b = solver.matrix_rhs(gb)
     p = sps.linalg.spsolve(A.copy(), b)
 
     # Solve the problem without 0d grids.
@@ -112,9 +109,9 @@ if __name__ == '__main__':
     gb.add_node_props(["p", "p_condensation"])
     gb_r.add_node_props(["p_reduced"])
 
-    solver_coupler.split(gb, "p_condensation", p_full_condensation)
-    solver_coupler.split(gb_r, "p_reduced", p_reduced)
-    solver_coupler.split(gb, "p", p)
+    solver.split(gb, "p_condensation", p_full_condensation)
+    solver.split(gb_r, "p_reduced", p_reduced)
+    solver.split(gb, "p", p)
 
     max_p, min_p, normalization, error_norm = np.zeros(1), np.zeros(1), 0, 0
     for g, d in gb:
