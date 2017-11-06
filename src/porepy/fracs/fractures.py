@@ -2238,7 +2238,7 @@ class FractureNetwork(object):
         plane of the fracture.
 
         """
-        isect = self.get_intersections(frac_num)
+        isect = self.intersections_of_fracture(frac_num)
 
         frac = self._fractures[frac_num]
         cp = frac.center.reshape((-1, 1))
@@ -2258,7 +2258,7 @@ class FractureNetwork(object):
 
         other_frac = np.empty(0, dtype=np.int)
 
-        for i in isect[0]:
+        for i in isect:
             tmp_p = rot_translate(i.coord)
             if tmp_p.shape[1] > 0:
                 assert np.max(np.abs(tmp_p[2])) < self.tol
