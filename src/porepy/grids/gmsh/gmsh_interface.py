@@ -18,7 +18,7 @@ class GmshWriter(object):
     def __init__(self, pts, lines, polygons=None, domain=None, nd=None,
                  mesh_size=None, mesh_size_bound=None, line_type=None,
                  intersection_points=None, tolerance=None, edges_2_frac=None,
-                 meshing_algorithm=None):
+                 meshing_algorithm=None, fracture_tags=None):
         """
 
         :param pts: np.ndarary, Points
@@ -41,6 +41,9 @@ class GmshWriter(object):
 
         if domain is not None:
             self.domain = domain
+
+        if fracture_tags is not None:
+            self.polygon_tags = fracture_tags
 
         self.mesh_size = mesh_size
         self.mesh_size_bound = mesh_size_bound
@@ -66,9 +69,9 @@ class GmshWriter(object):
                 s += self.__write_boundary_2d()
             s += self.__write_fractures_compartments_2d()
         elif self.nd == 3:
+            s += self.__write_lines()
             if self.domain is not None:
                 s += self.__write_boundary_3d()
-            s += self.__write_lines()
             s += self.__write_polygons()
 
         s += self.__write_physical_points()
@@ -147,62 +150,29 @@ class GmshWriter(object):
         return s
 
     def __write_boundary_3d(self):
-        # Write the bounding box in 3D
-        # Pull out bounding coordinates
-        xmin = str(self.domain['xmin']) + ', '
-        xmax = str(self.domain['xmax']) + ', '
-        ymin = str(self.domain['ymin']) + ', '
-        ymax = str(self.domain['ymax']) + ', '
-        zmin = str(self.domain['zmin'])  # + ', '
-        zmax = str(self.domain['zmax'])  # + ', '
-
-        # Add mesh size on boundary points if these are provided
-        if self.mesh_size_bound is not None:
-            zmin += ', '
-            zmax += ', '
-            h = str(self.mesh_size_bound) + '};'
-        else:
-            h = '};'
         ls = '\n'
+        s = '// Start domain specification'+ls
+        # Write surfaces:
+        s += self.__write_polygons(boundary=True)
 
-        constants = gridding_constants.GmshConstants()
-        s = '// Define bounding box \n'
-
-        # Points in bottom of box
-        s += 'p_bound_000 = newp; Point(p_bound_000) = {'
-        s += xmin + ymin + zmin + h + ls
-        s += 'p_bound_100 = newp; Point(p_bound_100) = {'
-        s += xmax + ymin + zmin + h + ls
-        s += 'p_bound_110 = newp; Point(p_bound_110) = {'
-        s += xmax + ymax + zmin + h + ls
-        s += 'p_bound_010 = newp; Point(p_bound_010) = {'
-        s += xmin + ymax + zmin + h + ls
-        s += ls
-
-        # Lines connecting points
-        s += 'bound_line_1 = newl; Line(bound_line_1) = { p_bound_000,' \
-            + 'p_bound_100};' + ls
-        s += 'bound_line_2 = newl; Line(bound_line_2) = { p_bound_100,' \
-            + 'p_bound_110};' + ls
-        s += 'bound_line_3 = newl; Line(bound_line_3) = { p_bound_110,' \
-            + 'p_bound_010};' + ls
-        s += 'bound_line_4 = newl; Line(bound_line_4) = { p_bound_010,' \
-            + 'p_bound_000};' + ls
-        s += 'bottom_loop = newll;' + ls
-        s += 'Line Loop(bottom_loop) = {bound_line_1, bound_line_2, ' \
-            + 'bound_line_3, bound_line_4};' + ls
-        s += 'bottom_surf = news;' + ls
-        s += 'Plane Surface(bottom_surf) = {bottom_loop};' + ls
-
-        dz = self.domain['zmax'] - self.domain['zmin']
-        s += 'Extrude {0, 0, ' + str(dz) + '} {Surface{bottom_surf}; }' + ls
+        # Make a box out of them
+        s += 'domain_loop = newsl;' + ls
+        s += 'Surface Loop(domain_loop) = {'
+        for pi in range(len(self.polygons[0])):
+            if self.polygon_tags['boundary'][pi]:
+                s += 'auxiliary_' + str(pi) + ','
+        s = s[:-1]
+        s += '};' + ls
+        s += 'Volume(1) = {domain_loop};' + ls
         s += 'Physical Volume(\"' + \
-            constants.PHYSICAL_NAME_DOMAIN + '\") = {1};' + ls
-        s += '// End of domain specification ' + ls + ls
+             gridding_constants.GmshConstants().PHYSICAL_NAME_DOMAIN + \
+             '\") = {1};' + ls
 
+        s += '// End of domain specification\n\n'
         return s
 
-    def __write_points(self):
+
+    def __write_points(self, boundary=False):
         p = self.pts
         num_p = p.shape[1]
         if p.shape[0] == 2:
@@ -244,7 +214,8 @@ class GmshWriter(object):
                     s += constants.PHYSICAL_NAME_FRACTURE_LINE
                 else:
                     # This is a line that need not be physical (recognized by
-                    # the parser of output from gmsh).
+                    # the parser of output from gmsh). Applies to boundary and
+                    # subdomain boundary lines.
                     s += constants.PHYSICAL_NAME_AUXILIARY_LINE
 
                 s += si + '\") = {frac_line_' + si + '};' + ls
@@ -253,16 +224,37 @@ class GmshWriter(object):
         s += '// End of line specification ' + ls + ls
         return s
 
-    def __write_polygons(self):
-
+    def __write_polygons(self, boundary=False):
+        """
+        Writes either all fractures or all boundary planes.
+        """
         constants = gridding_constants.GmshConstants()
+        bound_tags = self.polygon_tags.get('boundary',
+                                       [False]*len(self.polygons[0]))
+        subd_tags = self.polygon_tags.get('subdomain',
+                                       [False]*len(self.polygons[0]))
+
         ls = '\n'
-        s = '// Start fracture specification' + ls
+        # Name boundary or fracture
+        f_or_b = 'auxiliary' if boundary else 'fracture'
+        if not boundary:
+            s = '// Start fracture specification' + ls
+        else:
+            s = ''
         for pi in range(len(self.polygons[0])):
+            if bound_tags[pi] != boundary:
+                continue
+            # Check if the polygon is a subdomain boundary, i.e., auxiliary
+            # polygon.
+            auxiliary = subd_tags[pi]
+            if auxiliary:
+                # Keep track of "fake fractures", i.e., subdomain
+                # boundaries.
+                f_or_b = 'auxiliary'
             p = self.polygons[0][pi].astype('int')
             reverse = self.polygons[1][pi]
             # First define line loop
-            s += 'frac_loop_' + str(pi) + ' = newll; '
+            s += 'frac_loop_' + str(pi) + ' = newll; ' + ls
             s += 'Line Loop(frac_loop_' + str(pi) + ') = { '
             for i, li in enumerate(p):
                 if reverse[i]:
@@ -273,21 +265,31 @@ class GmshWriter(object):
 
             s += '};' + ls
 
+            n = f_or_b + '_'
             # Then the surface
-            s += 'fracture_' + str(pi) + ' = news; '
-            s += 'Plane Surface(fracture_' + str(pi) + ') = {frac_loop_' \
+            s += n + str(pi) + ' = news; '
+            s += 'Plane Surface(' + n + str(pi) + ') = {frac_loop_' \
                 + str(pi) + '};' + ls
-            s += 'Physical Surface(\"' + constants.PHYSICAL_NAME_FRACTURES \
-                 + str(pi) + '\") = {fracture_' + str(pi) + '};' + ls
-            if self.domain is not None:
-                s += 'Surface{fracture_' + str(pi) + '} In Volume{1};' + ls + ls
+
+            if bound_tags[pi] or auxiliary:
+                # Domain boundary or "fake fracture" = subdomain boundary
+                s += 'Physical Surface(\"' + constants.PHYSICAL_NAME_AUXILIARY \
+                      + str(pi) + '\") = {auxiliary_' + str(pi) + '};' + ls
+
+            else:
+                # Normal fracture
+                s += 'Physical Surface(\"' + constants.PHYSICAL_NAME_FRACTURES \
+                     + str(pi) + '\") = {fracture_' + str(pi) + '};' + ls
+                if self.domain is not None:
+                    s += 'Surface{' + n + str(pi) + '} In Volume{1};' + ls + ls
 
             for li in self.e2f[pi]:
-                s += 'Line{frac_line_' + str(li) + '} In Surface{fracture_'
+                s += 'Line{frac_line_' + str(li) + '} In Surface{' + n
                 s += str(pi) + '};' + ls
             s += ls
 
-        s += '// End of fracture specification' + ls + ls
+        if not boundary:
+            s += '// End of fracture specification' + ls + ls
 
         return s
 
@@ -306,10 +308,7 @@ class GmshWriter(object):
     def __write_meshing_algorithm(self):
         # See: http://www.manpagez.com/info/gmsh/gmsh-2.4.0/gmsh_76.php
         if self.meshing_algorithm is None:
-            if self.nd == 2:
-                return "\nMesh.Algorithm = 1;"
-            elif self.nd == 3:
-                return ""
+            return ""
         else:
             return "\nMesh.Algorithm = " + str(self.meshing_algorithm) + ";"
 
@@ -486,6 +485,7 @@ def run_gmsh(in_file, out_file, dims, **kwargs):
         cmd = path_to_gmsh + ' -2 ' + in_file + ' -o ' + out_file + opts
     else:
         cmd = path_to_gmsh + ' -3 ' + in_file + ' -o ' + out_file + opts
+
     status = os.system(cmd)
 
     return status

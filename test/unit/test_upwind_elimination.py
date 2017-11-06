@@ -9,15 +9,16 @@ from porepy.params import bc, tensor
 from porepy.params.data import Parameters
 
 from porepy.numerics.fv import tpfa, fvutils
+from porepy.numerics.fv.transport import upwind
 from porepy.numerics.fv.source import IntegralMultiDim
-from porepy.numerics.fv.transport import upwind, upwind_coupling
+from porepy.numerics.fv.transport import upwind
 from porepy.numerics.mixed_dim import coupler, condensation
 #------------------------------------------------------------------------------#
 
 
 class BasicsTest(unittest.TestCase):
     """
-    Tests for the elimination fluxes. 
+    Tests for the elimination fluxes.
     """
 
 #------------------------------------------------------------------------------#
@@ -61,7 +62,7 @@ class BasicsTest(unittest.TestCase):
                     raise ValueError('Grid not found')
 
         tol = 1e-3
-        solver = tpfa.TpfaMultiDim()
+        solver = tpfa.TpfaMixDim()
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
@@ -87,8 +88,8 @@ class BasicsTest(unittest.TestCase):
             bc_val = np.zeros(g.num_faces)
             bc_dir = bound_faces[right]
             bc_neu = bound_faces[left]
-            bc_val[bc_dir] = g.face_centers[0, bc_dir]
-            bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
+            bc_val[bc_dir] = g.face_centers[0,bc_dir]
+            bc_val[bc_neu] = -g.face_areas[bc_neu]*a_dim
 
             param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val('flow', bc_val)
@@ -123,26 +124,23 @@ class BasicsTest(unittest.TestCase):
             g_h = gb.sorted_nodes_of_edge(e)[1]
             d['param'] = Parameters(g_h)
 
+
         A, rhs = solver.matrix_rhs(gb)
         # p = sps.linalg.spsolve(A,rhs)
-        _, p_red, _, _ = condensation.solve_static_condensation(
-            A, rhs, gb, dim=0)
-        coupling = coupler.Coupler(solver)
-        #coupling.split(gb, "p", p)
-
+        _, p_red, _, _ = condensation.solve_static_condensation(\
+                                                    A, rhs, gb, dim=0)
         dim_to_remove = 0
         gb_r, elimination_data = gb.duplicate_without_dimension(dim_to_remove)
         condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
 
-        coupling.split(gb_r, "p", p_red)
+        solver.split(gb_r, "p", p_red)
 
-        # fvutils.compute_discharges(gb)
+        #fvutils.compute_discharges(gb)
         fvutils.compute_discharges(gb_r)
 
         #------Transport------#
         advection_discr = upwind.Upwind(physics="transport")
-        advection_coupling_conditions = upwind_coupling.UpwindCoupling(
-            advection_discr)
+        advection_coupling_conditions = upwind.UpwindCoupling(advection_discr)
         advection_coupler = coupler.Coupler(
             advection_discr, advection_coupling_conditions)
         #U, rhs_u = advection_coupler.matrix_rhs(gb)
@@ -160,9 +158,9 @@ class BasicsTest(unittest.TestCase):
         U_known, rhs_known, theta_known, deltaT_known = known_for_elimination()
         tol = 1e-7
         assert(np.isclose(deltaT, deltaT_known, tol, tol))
-        assert((np.amax(np.absolute(U_r - U_known))) < tol)
-        assert((np.amax(np.absolute(rhs_u_r - rhs_known))) < tol)
-        assert((np.amax(np.absolute(theta_r - theta_known))) < tol)
+        assert((np.amax(np.absolute(U_r-U_known))) < tol)
+        assert((np.amax(np.absolute(rhs_u_r-rhs_known))) < tol)
+        assert((np.amax(np.absolute(theta_r-theta_known))) < tol)
 
 #------------------------------------------------------------------------------#
 # Left out due to problems with fracture face id: not the same each time the grids

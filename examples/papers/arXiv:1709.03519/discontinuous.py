@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.viz import plot_grid, exporter
+from porepy.viz import exporter
 from porepy.fracs import meshing
 
 from porepy.params import tensor
@@ -40,10 +40,24 @@ def define_data(g):
     outer = np.logical_or.reduce((top, bot, left, right))
     inner = np.logical_not(outer)
 
+    inner_faces = b_faces[inner]
+    inner_plus = np.zeros(g.num_faces, dtype=np.bool)
+    inner_minus = np.zeros(g.num_faces, dtype=np.bool)
+
+    faces, _, sgn = sps.find(g.cell_faces)
+    sgn = sgn[np.unique(faces, return_index=True)[1]]
+    for face in inner_faces:
+        normal = sgn[face]*g.face_normals[:, face]
+        if normal[1] > 0:
+            inner_minus[face] = True
+        else:
+            inner_plus[face] = True
+
     labels = np.array(['dir'] * b_faces.size)
 
     bc_val = np.zeros(g.num_faces)
-    bc_val[b_faces[inner]] = 1
+    bc_val[inner_plus] = 1
+    bc_val[inner_minus] = -1
 
     param.set_bc("flow", BoundaryCondition(g, b_faces, labels))
     param.set_bc_val("flow", bc_val)
@@ -63,16 +77,18 @@ def glue_tips(partition, gb, g):
 
 #------------------------------------------------------------------------------#
 
-folder = '/home/elle/ANIGMA/porepy/examples/exampleXX/'
+folder = './'
 file_name = 'geometry.geo'
-if_coarse = True
+if_coarse = False
 
 gb = meshing.from_gmsh(folder + file_name, dim=2)
 g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
+g_fine = g.copy()
 
 if if_coarse:
     partition = co.create_aggregations(g, weight=1)
     glue_tips(partition, gb, g)
+    partition = co.reorder_partition(partition)
     co.generate_coarse_grid(g, partition)
 
 # Choose and define the solvers and coupler
@@ -88,7 +104,13 @@ P0u = solver.project_u(g, u, data)
 
 diams = g.cell_diameters()
 print( "diam", np.amin(diams), np.average(diams), np.amax(diams) )
-exporter.export_vtk(g, 'vem', {"p": p, "P0u": P0u}, binary=False,
-                    folder='continuous')
+
+folder = 'discontinuous'
+data = {"p": p, "P0u": P0u}
+exporter.export_vtk(g, 'vem', data, binary=False, folder=folder)
+
+if if_coarse:
+    data = {'partition': partition, 'p': p[partition]}
+    exporter.export_vtk(g_fine, 'sub_grid', data, binary=False, folder=folder)
 
 #------------------------------------------------------------------------------#
