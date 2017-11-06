@@ -67,10 +67,9 @@ class GmshWriter(object):
                 s += self.__write_boundary_2d()
             s += self.__write_fractures_compartments_2d()
         elif self.nd == 3:
+            s += self.__write_lines()
             if self.domain is not None:
                 s += self.__write_boundary_3d()
-            s += self.__write_lines()
-            s += self.__write_boundary_3d()
             s += self.__write_polygons()
 
         s += self.__write_physical_points()
