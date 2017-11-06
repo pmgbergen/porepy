@@ -1,3 +1,11 @@
+""" Module contains super class for all coupling conditions between grids
+in mixed-dimensional problems.
+
+The class partly acts as an interface (Java-style), with some methods that are
+not implemented, but rather intended as a guide for the development of
+concrete couplers.
+
+"""
 import numpy as np
 import scipy.sparse as sps
 
