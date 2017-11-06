@@ -377,8 +377,6 @@ class Fracture(object):
         # segment of the other.
 
         # Compute intersections, with both polygons as first argument
-        # Do not include boundary points of the polygons here, these will be
-        # processed later
         isect_self_other = cg.polygon_segment_intersect(self.p, other.p,
                                                         tol=tol,
                                                         include_bound_pt=True)
@@ -657,7 +655,7 @@ class Fracture(object):
         num_pt = poly.shape[1]
         num_pt_other = other_poly.shape[1]
 
-
+            
         # Loop over all intersections, process information
         for bi in isect_bound:
 
@@ -685,7 +683,7 @@ class Fracture(object):
                 has_segment = True
                 poly_ext, o2n, _ = setmembership.unique_columns_tol(
                     np.hstack((poly, ip_unique)), tol=tol)
-                non_vertex = list(o2n[-2:] >= num_pt)
+                non_vertex += list(o2n[-2:] >= num_pt)
 
                 # No need to deal with non_vertex here, there should be no more
                 # intersections (convex, non-overlapping polygons).
@@ -709,7 +707,7 @@ class Fracture(object):
         # Now, if any segment has been found more than once, it cuts two
         # segments of the other polygon.
         cuts_two = np.any(num_occ > 1)
-
+        
         # Return a unique version of bound_pt
         # No need to uniquify unless there is more than one point.
         if bound_pt.shape[1] > 1:
@@ -815,7 +813,8 @@ class Fracture(object):
         # Move these to FractureNetwork.impose_external_boundary.
         # Doesn't immediately work. Depend on the fracture.
         west = Fracture(np.array([[x0_box, x0_box, x0_box, x0_box],
-                                  [y0, y1, y1, y0], [z0, z0, z1, z1]]),
+                                  [y0, y1, y1, y0],
+                                  [z0, z0, z1, z1]]),
                         check_convexity=False)
         east = Fracture(np.array([[x1_box, x1_box, x1_box, x1_box],
                                   [y0, y1, y1, y0],
@@ -829,10 +828,12 @@ class Fracture(object):
                                    [y1_box, y1_box, y1_box, y1_box],
                                    [z0, z0, z1, z1]]),
                          check_convexity=False)
-        bottom = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+        bottom = Fracture(np.array([[x0, x1, x1, x0],
+                                    [y0, y0, y1, y1],
                                     [z0_box, z0_box, z0_box, z0_box]]),
                           check_convexity=False)
-        top = Fracture(np.array([[x0, x1, x1, x0], [y0, y0, y1, y1],
+        top = Fracture(np.array([[x0, x1, x1, x0],
+                                 [y0, y0, y1, y1],
                                  [z1_box, z1_box, z1_box, z1_box]]),
                        check_convexity=False)
         # Collect in a list to allow iteration
