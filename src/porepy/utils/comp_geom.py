@@ -1469,13 +1469,17 @@ def is_planar(pts, normal=None, tol=1e-5):
 
 #------------------------------------------------------------------------------#
 
-def is_point_in_cell(pts, pt, if_make_planar=True):
+def is_point_in_cell(poly, p, if_make_planar=True):
     """
-    Check whatever a point is inside a cell.
+    Check whatever a point is inside a cell. Note a similar behaviour could be
+    reached using the function is_inside_polygon, however the current
+    implementation deals with concave cells as well. Not sure which is the best,
+    in term of performances, for convex cells.
 
     Parameters:
-    pts (np.ndarray, 3xn): list of ordered point that define the cell
-    pt (np.array, 3): point to be checked
+        poly (np.ndarray, 3xn): vertexes of polygon. The segments are formed by
+            connecting subsequent columns of poly.
+        p (np.array, 3x1): Point to be tested.
     if_make_planar (optional, default True): The cell needs to lie on (s, t)
         plane. If not already done, this flag need to be used.
 
@@ -1483,21 +1487,21 @@ def is_point_in_cell(pts, pt, if_make_planar=True):
         boolean, if the point is inside the cell. If a point is on the boundary
         of the cell the result may be either True or False.
     """
-    pt.shape = (3, 1)
+    p.shape = (3, 1)
     if if_make_planar:
-        R = project_plane_matrix(pts)
-        pts = np.dot(R, pts)
-        pt = np.dot(R, pt)
+        R = project_plane_matrix(poly)
+        poly = np.dot(R, poly)
+        p = np.dot(R, p)
 
-    j = pts.shape[1]-1
+    j = poly.shape[1]-1
     is_odd = False
 
-    for i in np.arange(pts.shape[1]):
-        if (pts[1, i] < pt[1] and pts[1, j] >= pt[1]) \
+    for i in np.arange(poly.shape[1]):
+        if (poly[1, i] < p[1] and poly[1, j] >= p[1]) \
            or \
-           (pts[1, j] < pt[1] and pts[1, i] >= pt[1]):
-            if (pts[0, i]+(pt[1]-pts[1, i])/(pts[1, j]-pts[1, i])\
-                *(pts[0,j]-pts[0, i])) < pt[0]:
+           (poly[1, j] < p[1] and poly[1, i] >= p[1]):
+            if (poly[0, i]+(p[1]-poly[1, i])/(poly[1, j]-poly[1, i])\
+                *(poly[0,j]-poly[0, i])) < p[0]:
                 is_odd = not is_odd
         j = i
 
