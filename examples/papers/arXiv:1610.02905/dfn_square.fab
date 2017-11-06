@@ -1,0 +1,34 @@
+BEGIN FORMAT
+    Format = Ascii
+    XAxis = East
+    Scale = 100.0
+    No_Fractures = 2
+    No_TessFractures = 0
+    No_Nodes = 8
+    No_Properties = 1
+END FORMAT
+
+BEGIN PROPERTIES
+    Prop1    =    (Real*4)    "Transmissivity"
+END PROPERTIES
+
+BEGIN SETS
+END SETS
+
+BEGIN FRACTURE
+1 4 1
+1 0 0 -1
+2 0 1 -1
+3 0 1  1
+4 0 0  1
+0 -1 -1 -1
+2 4 1
+1 -1 0 0
+2 -1 1 0
+3  1 1 0
+4  1 0 0
+0 -1 -1 -1
+END FRACTURE
+
+BEGIN TESSFRACTURE
+END TESSFRACTURE

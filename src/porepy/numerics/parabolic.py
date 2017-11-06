@@ -101,14 +101,12 @@ class ParabolicProblem():
 
     def advective_disc(self):
         'Discretization of term v * \nabla T'
-        advection_discr = upwind.Upwind(physics=self.physics)
-        advection_coupling = upwind.UpwindCoupling(advection_discr)
-        advection_solver = coupler.Coupler(advection_discr, advection_coupling)
+        advection_solver = upwind.UpwindMixDim(physics=self.physics)
         return advection_solver
 
     def diffusive_disc(self):
         'Discretization of term \nabla K \nabla T'
-        diffusive_discr = tpfa.TpfaMultiDim(physics=self.physics)
+        diffusive_discr = tpfa.TpfaMixDim(physics=self.physics)
         return diffusive_discr
 
     def source_disc(self):
@@ -258,7 +256,7 @@ class ParabolicData():
         return self._g
 
     def _set_data(self):
-        '''Create a Parameter object and assign data based on the returned 
+        '''Create a Parameter object and assign data based on the returned
         values from the functions (e.g., self.source(t))
         '''
         if 'param' not in self._data:

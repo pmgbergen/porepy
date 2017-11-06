@@ -112,6 +112,8 @@ def export_vtk_single(g, name, data, binary, time_step):
 #------------------------------------------------------------------------------#
 
 def export_vtk_gb(gb, name, data, binary, time_step, folder):
+    if data is not None:
+        data = np.atleast_1d(data).tolist()
     assert isinstance(gb, grid_bucket.GridBucket)
     assert isinstance(data, list) or data is None
     gb.assign_node_ordering(overwrite_existing=False)
@@ -149,110 +151,114 @@ def export_pvd_gb(filename, gb):
 #------------------------------------------------------------------------------#
 
 def export_vtk_grid(g, name, data, binary):
-    if g.dim == 0: return
-    if g.dim == 1: gVTK = export_vtk_1d( g )
-    if g.dim == 2: gVTK = export_vtk_2d( g )
-    if g.dim == 3: gVTK = export_vtk_3d( g )
-    write_vtk( gVTK, name, data, binary )
+    if g.dim == 0:
+        return
+    elif g.dim == 1:
+        gVTK = export_vtk_1d(g)
+    elif g.dim == 2:
+        gVTK = export_vtk_2d(g)
+    elif g.dim == 3:
+        gVTK = export_vtk_3d(g)
+    write_vtk(gVTK, name, data, binary)
 
 #------------------------------------------------------------------------------#
 
-def export_vtk_1d( g ):
+def export_vtk_1d(g):
     cell_nodes = g.cell_nodes()
-    nodes, cells, _  = sps.find( cell_nodes )
+    nodes, cells, _  = sps.find(cell_nodes)
     gVTK = vtk.vtkUnstructuredGrid()
 
-    for c in np.arange( g.num_cells ):
+    for c in np.arange(g.num_cells):
         loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
         ptsId = nodes[loc]
         fsVTK = vtk.vtkIdList()
-        [ fsVTK.InsertNextId( p ) for p in ptsId ]
+        [fsVTK.InsertNextId(p) for p in ptsId]
 
-        gVTK.InsertNextCell( vtk.VTK_LINE, fsVTK )
+        gVTK.InsertNextCell(vtk.VTK_LINE, fsVTK)
 
     ptsVTK = vtk.vtkPoints()
     if g.nodes.shape[0] == 1:
-        [ ptsVTK.InsertNextPoint( node, 0., 0. ) for node in g.nodes.T ]
+        [ptsVTK.InsertNextPoint(node, 0., 0.) for node in g.nodes.T]
     if g.nodes.shape[0] == 2:
-        [ ptsVTK.InsertNextPoint( node[0], node[1], 0. ) for node in g.nodes.T ]
+        [ptsVTK.InsertNextPoint(node[0], node[1], 0.) for node in g.nodes.T]
     else:
-        [ ptsVTK.InsertNextPoint( *node ) for node in g.nodes.T ]
-    gVTK.SetPoints( ptsVTK )
+        [ptsVTK.InsertNextPoint(*node) for node in g.nodes.T]
+    gVTK.SetPoints(ptsVTK)
 
     return gVTK
 
 #------------------------------------------------------------------------------#
 
-def export_vtk_2d( g ):
-    faces_cells, _, _ = sps.find( g.cell_faces )
-    nodes_faces, _, _ = sps.find( g.face_nodes )
+def export_vtk_2d(g):
+    faces_cells, _, _ = sps.find(g.cell_faces)
+    nodes_faces, _, _ = sps.find(g.face_nodes)
 
     gVTK = vtk.vtkUnstructuredGrid()
 
-    for c in np.arange( g.num_cells ):
+    for c in np.arange(g.num_cells):
         loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-        ptsId = np.array( [ nodes_faces[ g.face_nodes.indptr[f]: \
-                                         g.face_nodes.indptr[f+1] ]
-                          for f in faces_cells[loc] ] ).T
-        ptsId = sort_points.sort_point_pairs( ptsId )[0,:]
+        ptsId = np.array([nodes_faces[g.face_nodes.indptr[f]:\
+                                      g.face_nodes.indptr[f+1]]
+                          for f in faces_cells[loc]]).T
+        ptsId = sort_points.sort_point_pairs(ptsId)[0,:]
 
         fsVTK = vtk.vtkIdList()
-        [ fsVTK.InsertNextId( p ) for p in ptsId ]
+        [fsVTK.InsertNextId(p) for p in ptsId]
 
-        gVTK.InsertNextCell( vtk.VTK_POLYGON, fsVTK )
+        gVTK.InsertNextCell(vtk.VTK_POLYGON, fsVTK)
 
     ptsVTK = vtk.vtkPoints()
     if g.nodes.shape[0] == 2:
-        [ ptsVTK.InsertNextPoint( node[0], node[1], 0. ) for node in g.nodes.T ]
+        [ptsVTK.InsertNextPoint(node[0], node[1], 0.) for node in g.nodes.T]
     else:
-        [ ptsVTK.InsertNextPoint( *node ) for node in g.nodes.T ]
-    gVTK.SetPoints( ptsVTK )
+        [ptsVTK.InsertNextPoint(*node ) for node in g.nodes.T]
+    gVTK.SetPoints(ptsVTK)
 
     return gVTK
 
 #------------------------------------------------------------------------------#
 
-def export_vtk_3d( g ):
-    faces_cells, cells, _ = sps.find( g.cell_faces )
-    nodes_faces, faces, _ = sps.find( g.face_nodes )
+def export_vtk_3d(g):
+    faces_cells, cells, _ = sps.find(g.cell_faces)
+    nodes_faces, faces, _ = sps.find(g.face_nodes)
     gVTK = vtk.vtkUnstructuredGrid()
 
-    for c in np.arange( g.num_cells ):
+    for c in np.arange(g.num_cells):
         loc_c = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
         fs = faces_cells[loc_c]
         fsVTK = vtk.vtkIdList()
-        fsVTK.InsertNextId( fs.shape[0] ) # Number faces that make up the cell
+        fsVTK.InsertNextId(fs.shape[0]) # Number faces that make up the cell
         for f in fs:
             loc_f = slice(g.face_nodes.indptr[f], g.face_nodes.indptr[f+1])
             ptsId = nodes_faces[loc_f]
-            mask = sort_points.sort_point_plane( g.nodes[:, ptsId], \
-                                                 g.face_centers[:, f], \
-                                                 g.face_normals[:, f] )
-            fsVTK.InsertNextId( ptsId.shape[0] ) # Number of points in face
-            [ fsVTK.InsertNextId( p ) for p in ptsId[mask] ]
+            mask = sort_points.sort_point_plane(g.nodes[:, ptsId],\
+                                                g.face_centers[:, f],\
+                                                g.face_normals[:, f])
+            fsVTK.InsertNextId(ptsId.shape[0]) # Number of points in face
+            [fsVTK.InsertNextId(p) for p in ptsId[mask]]
 
-        gVTK.InsertNextCell( vtk.VTK_POLYHEDRON, fsVTK )
+        gVTK.InsertNextCell(vtk.VTK_POLYHEDRON, fsVTK)
 
     ptsVTK = vtk.vtkPoints()
-    [ ptsVTK.InsertNextPoint( *node ) for node in g.nodes.T ]
-    gVTK.SetPoints( ptsVTK )
+    [ptsVTK.InsertNextPoint(*node) for node in g.nodes.T]
+    gVTK.SetPoints(ptsVTK)
 
     return gVTK
 
 #------------------------------------------------------------------------------#
 
-def write_vtk( gVTK, name, data = None, binary = True ):
+def write_vtk(gVTK, name, data=None, binary=True):
     writer = vtk.vtkXMLUnstructuredGridWriter()
-    writer.SetInputData( gVTK )
-    writer.SetFileName( name )
+    writer.SetInputData(gVTK)
+    writer.SetFileName(name)
 
     if data is not None:
-        for name, data in data.items():
-            dataVTK = ns.numpy_to_vtk( data.ravel(order='F'), deep = True, \
-                                       array_type = vtk.VTK_DOUBLE )
-            dataVTK.SetName( str( name ) )
-            dataVTK.SetNumberOfComponents( 1 if data.ndim == 1 else 3 )
-            gVTK.GetCellData().AddArray( dataVTK )
+        for name, values in data.items():
+            dataVTK = ns.numpy_to_vtk(values.ravel(order='F'), deep = True, \
+                                      array_type = vtk.VTK_DOUBLE)
+            dataVTK.SetName(str(name))
+            dataVTK.SetNumberOfComponents(1 if values.ndim == 1 else 3)
+            gVTK.GetCellData().AddArray(dataVTK)
 
     if not binary: writer.SetDataModeToAscii()
     writer.Update()

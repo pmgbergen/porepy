@@ -2,10 +2,34 @@ from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 
-
-from porepy.numerics.mixed_dim.solver import Solver
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
+from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
+#------------------------------------------------------------------------------#
+
+class UpwindMixDim(SolverMixDim):
+
+    def __init__(self, physics='transport'):
+        self.physics = physics
+
+        self.discr = Upwind(self.physics)
+        self.discr_ndof = self.discr.ndof
+        self.coupling_conditions = UpwindCoupling(self.discr)
+
+        self.solver = Coupler(self.discr, self.coupling_conditions)
+
+    def cfl(self, gb):
+        deltaT = gb.apply_function(self.discr.cfl,
+                                   self.coupling_conditions.cfl).data
+        return np.amin(deltaT)
+
+    def outflow(self, gb):
+        def bind(g, d):
+            return self.discr.outflow(g, d), np.zeros(g.num_cells)
+        return Coupler(self.discr, solver_fct=bind).matrix_rhs(gb)[0]
+
+#------------------------------------------------------------------------------#
 
 class Upwind(Solver):
     """
@@ -234,22 +258,82 @@ class Upwind(Solver):
         assert beta.size == 3
 
         if g.dim == 0:
-            return np.atleast_1d(np.dot(g.face_normals.ravel('F'), face_apertures * beta))
+            dot_prod = np.dot(g.face_normals.ravel('F'), face_apertures * beta)
+            return np.atleast_1d(dot_prod)
 
         return np.array([np.dot(n, a * beta)
                          for n, a in zip(g.face_normals.T, face_apertures)])
 
 #------------------------------------------------------------------------------#
-    
-    
-class UpwindCoupling(AbstractCoupling):
-    """
-    Coupling discretization for the Upwind.
-    """
+
+    def outflow(self, g, data):
+        if g.dim == 0:
+            return sps.csr_matrix([0])
+
+        param = data['param']
+        discharge = param.get_discharge()
+        bc = param.get_bc(self)
+        bc_val = param.get_bc_val(self)
+
+        has_bc = not(bc is None or bc_val is None)
+
+        # Compute the face flux respect to the real direction of the normals
+        indices = g.cell_faces.indices
+        flow_faces = g.cell_faces.copy()
+        flow_faces.data *= discharge[indices]
+
+        # Retrieve the faces boundary and their numeration in the flow_faces
+        # We need to impose no-flow for the inflow faces without boundary
+        # condition
+        mask = np.unique(indices, return_index=True)[1]
+        bc_neu = g.get_domain_boundary_faces()
+
+        if has_bc:
+            # If boundary conditions are imposed remove the faces from this
+            # procedure.
+            bc_dir = np.where(bc.is_dir)[0]
+            bc_neu = np.setdiff1d(bc_neu, bc_dir, assume_unique=True)
+            bc_dir = mask[bc_dir]
+
+            # Remove Dirichlet inflow
+            inflow = flow_faces.copy()
+
+            inflow.data[bc_dir] = inflow.data[bc_dir].clip(max=0)
+            flow_faces.data[bc_dir] = flow_faces.data[bc_dir].clip(min=0)
+
+        # Remove all Neumann
+        bc_neu = mask[bc_neu]
+        flow_faces.data[bc_neu] = 0
+
+        # Determine the outflow faces
+        if_faces = flow_faces.copy()
+        if_faces.data = np.sign(if_faces.data)
+
+        outflow_faces = if_faces.indices[if_faces.data > 0]
+        outflow_faces = np.intersect1d(outflow_faces,
+                                       g.get_domain_boundary_faces(),
+                                       assume_unique=True)
+
+        # va tutto bene se ho neumann omogeneo
+        # gli outflow sono positivi
+
+        if_outflow_faces = if_faces.copy()
+        if_outflow_faces.data[:] = 0
+        if_outflow_faces.data[np.in1d(if_faces.indices, outflow_faces)] = 1
+
+        if_outflow_cells = if_outflow_faces.transpose() * flow_faces
+        if_outflow_cells.tocsr()
+
+        return if_outflow_cells
+
 #------------------------------------------------------------------------------#
 
-    def __init__(self, solver):
-        self.solver = solver
+class UpwindCoupling(AbstractCoupling):
+
+#------------------------------------------------------------------------------#
+
+    def __init__(self, discr):
+        self.discr_ndof = discr.ndof
 
 #------------------------------------------------------------------------------#
 
@@ -319,17 +403,15 @@ class UpwindCoupling(AbstractCoupling):
         # Compute the inflow from the higher to the lower dimensional grid
         cc[0, 1] = sps.coo_matrix((discharge.clip(max=0), (cells_h, cells_l)),
                                       shape=(dof[0], dof[1]))
-            
+
         cc[1, 1] = sps.dia_matrix((diag_cc11, 0), shape=(dof[1], dof[1]))
 
         cc[0, 0] = sps.dia_matrix((diag_cc00, 0), shape=(dof[0], dof[0]))
 
-        
         if data_h['node_number'] == data_l['node_number']:
             # All contributions to be returned to the same block of the
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0,1))])
-            
         return cc
 
 #------------------------------------------------------------------------------#
@@ -371,7 +453,7 @@ class UpwindCoupling(AbstractCoupling):
             not_zero = ~np.isclose(np.zeros(discharge.shape), discharge, atol = 0)
             if not np.any(not_zero):
                 return np.Inf
-            
+
             diff = g_h.cell_centers[:,cells_h]-g_l.cell_centers[:,cells_l]
             dist = np.linalg.norm(diff, 2, axis=0)
 
@@ -381,9 +463,8 @@ class UpwindCoupling(AbstractCoupling):
             apt_h = aperture_h[cells_h]
             apt_l = aperture_l[cells_l]
             coeff = np.minimum(phi_h,phi_l)*np.minimum(apt_h,apt_l)
-            
             return np.amin(np.abs(np.divide(dist, discharge)) * coeff)
-        
+
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
 

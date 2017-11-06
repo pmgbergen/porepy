@@ -16,7 +16,7 @@ from porepy.viz.exporter import export_vtk
 
 class Elliptic():
     '''
-    Class for solving an incompressible flow problem: 
+    Class for solving an incompressible flow problem:
     \nabla K \nabla p = q,
     where K is the second order permeability tenser, p the fluid pressure
     and q sinks and sources.
@@ -34,7 +34,7 @@ class Elliptic():
              Returns: the pressure p.
              Sets attributes: self.p
     step(): Same as solve, but without reassemble of the matrices
-    reassemble(): Assembles the lhs matrix and rhs array. 
+    reassemble(): Assembles the lhs matrix and rhs array.
             Returns: lhs, rhs.
             Sets attributes: self.lhs, self.rhs
     source_disc(): Defines the discretization of the source term.
@@ -49,7 +49,7 @@ class Elliptic():
                     name: (string) The keyword assigned to the pressure
     discharge(): Calls split('p'). Then calculate the discharges over each
                  face in the grids and between edges in the GridBucket
-    save(): calls split('p'). Then export the pressure to a vtk file to the 
+    save(): calls split('p'). Then export the pressure to a vtk file to the
             folder self.parameters['folder_name'] with file name
             self.parameters['file_name']
     '''
@@ -93,7 +93,7 @@ class Elliptic():
 
     def flux_disc(self):
         if isinstance(self.grid(), GridBucket):
-            diffusive_discr = tpfa.TpfaMultiDim(physics=self.physics)
+            diffusive_discr = tpfa.TpfaMixDim(physics=self.physics)
         else:
             diffusive_discr = tpfa.Tpfa(physics=self.physics)
         return diffusive_discr
@@ -127,10 +127,10 @@ class Elliptic():
 
 class EllipticData():
     '''
-    Class for setting data to an incompressible flow problem: 
+    Class for setting data to an incompressible flow problem:
     \nabla K \nabla p = q,
     where K is the second order permeability tenser, p the fluid pressure
-    and q sinks and sources. This class creates a Parameter object and 
+    and q sinks and sources. This class creates a Parameter object and
     assigns the data to this object by calling EllipticData's functions.
 
     To change the default values create a class that inherits from EllipticData.

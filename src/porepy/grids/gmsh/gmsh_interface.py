@@ -36,8 +36,10 @@ class GmshWriter(object):
         else:
             self.nd = nd
 
-        if domain is not None:
-            self.domain = domain
+        self.lchar = mesh_size
+        self.lchar_bound = mesh_size_bound
+
+        self.domain = domain
         if fracture_tags is not None:
             self.polygon_tags = fracture_tags
 
@@ -61,11 +63,13 @@ class GmshWriter(object):
         s += self.__write_points()
 
         if self.nd == 2:
-            s += self.__write_boundary_2d()
+            if self.domain is not None:
+                s += self.__write_boundary_2d()
             s += self.__write_fractures_compartments_2d()
         elif self.nd == 3:
             s += self.__write_lines()
-            s += self.__write_boundary_3d()
+            if self.domain is not None:
+                s += self.__write_boundary_3d()
             s += self.__write_polygons()
 
         s += self.__write_physical_points()
@@ -161,7 +165,7 @@ class GmshWriter(object):
         s += 'Physical Volume(\"' + \
              gridding_constants.GmshConstants().PHYSICAL_NAME_DOMAIN + \
              '\") = {1};' + ls
-       
+
         s += '// End of domain specification\n\n'
         return s
 
@@ -227,7 +231,7 @@ class GmshWriter(object):
                                        [False]*len(self.polygons[0]))
         subd_tags = self.polygon_tags.get('subdomain',
                                        [False]*len(self.polygons[0]))
-        
+
         ls = '\n'
         # Name boundary or fracture
         f_or_b = 'auxiliary' if boundary else 'fracture'
@@ -248,7 +252,7 @@ class GmshWriter(object):
             p = self.polygons[0][pi].astype('int')
             reverse = self.polygons[1][pi]
             # First define line loop
-            s += 'frac_loop_' + str(pi) + ' = newll; '
+            s += 'frac_loop_' + str(pi) + ' = newll; ' + ls
             s += 'Line Loop(frac_loop_' + str(pi) + ') = { '
             for i, li in enumerate(p):
                 if reverse[i]:
@@ -264,17 +268,18 @@ class GmshWriter(object):
             s += n + str(pi) + ' = news; '
             s += 'Plane Surface(' + n + str(pi) + ') = {frac_loop_' \
                 + str(pi) + '};' + ls
-            
+
             if bound_tags[pi] or auxiliary:
                 # Domain boundary or "fake fracture" = subdomain boundary
                 s += 'Physical Surface(\"' + constants.PHYSICAL_NAME_AUXILIARY \
                       + str(pi) + '\") = {auxiliary_' + str(pi) + '};' + ls
-            
+
             else:
                 # Normal fracture
                 s += 'Physical Surface(\"' + constants.PHYSICAL_NAME_FRACTURES \
                      + str(pi) + '\") = {fracture_' + str(pi) + '};' + ls
-                s += 'Surface{' + n + str(pi) + '} In Volume{1};' + ls + ls
+                if self.domain is not None:
+                    s += 'Surface{' + n + str(pi) + '} In Volume{1};' + ls + ls
 
             for li in self.e2f[pi]:
                 s += 'Line{frac_line_' + str(li) + '} In Surface{' + n
@@ -301,10 +306,7 @@ class GmshWriter(object):
     def __write_meshing_algorithm(self):
         # See: http://www.manpagez.com/info/gmsh/gmsh-2.4.0/gmsh_76.php
         if self.meshing_algorithm is None:
-            if self.nd == 2:
-                return "\nMesh.Algorithm = 1;"
-            elif self.nd == 3:
-                return ""
+            return ""
         else:
             return "\nMesh.Algorithm = " + str(self.meshing_algorithm) + ";"
 
@@ -481,6 +483,7 @@ def run_gmsh(in_file, out_file, dims, **kwargs):
         cmd = path_to_gmsh + ' -2 ' + in_file + ' -o ' + out_file + opts
     else:
         cmd = path_to_gmsh + ' -3 ' + in_file + ' -o ' + out_file + opts
+
     status = os.system(cmd)
 
     return status

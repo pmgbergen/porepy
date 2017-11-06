@@ -11,7 +11,7 @@ from porepy.grids import structured
 from porepy.grids.grid import FaceTag
 
 from porepy.numerics.mixed_dim import coupler
-from porepy.numerics.vem import dual, dual_coupling
+from porepy.numerics.vem import dual
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics.fv import tpfa
 
@@ -148,24 +148,22 @@ internal_flag = FaceTag.FRACTURE
 [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
 # Choose and define the solvers and coupler
-darcy_discr = dual.DualVEM(physics="flow")
+darcy = dual.DualVEMMixDim("flow")
 
 # Assign parameters
 add_data_darcy(gb, domain, tol)
 
-darcy_coupling_conditions = dual_coupling.DualCoupling(darcy_discr)
-darcy_coupler = coupler.Coupler(darcy_discr, darcy_coupling_conditions)
-A, b = darcy_coupler.matrix_rhs(gb)
+A, b = darcy.matrix_rhs(gb)
 
 up = sps.linalg.spsolve(A, b)
-darcy_coupler.split(gb, "up", up)
+darcy.split(gb, "up", up)
 
 gb.add_node_props(["p", "P0u"])
 for g, d in gb:
-    discharge = darcy_discr.extract_u(g, d["up"])
+    discharge = darcy.discr.extract_u(g, d["up"])
     d['param'].set_discharge(discharge)
-    d["p"] = darcy_discr.extract_p(g, d["up"])
-    d["P0u"] = darcy_discr.project_u(g, discharge, d)
+    d["p"] = darcy.discr.extract_p(g, d["up"])
+    d["P0u"] = darcy.discr.project_u(g, discharge, d)
 
 if do_save:
     exporter.export_vtk(gb, 'darcy', ["p", "P0u"], folder=export_folder)
@@ -175,24 +173,18 @@ if do_save:
 for g, d in gb:
     g.face_tags = d['face_tags']
 
-advection_discr = upwind.Upwind(physics="transport")
-diffusion_discr = tpfa.Tpfa(physics="transport")
+physics = 'transport'
+advection = upwind.UpwindMixDim(physics)
+diffusion = tpfa.TpfaMixDim(physics)
 
 # Assign parameters
 add_data_advection_diffusion(gb, domain, tol)
 
-advection_coupling_conditions = upwind.UpwindCoupling(advection_discr)
-advection_coupler = coupler.Coupler(
-    advection_discr, advection_coupling_conditions)
-U, rhs_u = advection_coupler.matrix_rhs(gb)
-
-diffusion_coupling_conditions = tpfa.TpfaCoupling(diffusion_discr)
-diffusion_coupler = coupler.Coupler(
-    diffusion_discr, diffusion_coupling_conditions)
-D, rhs_d = diffusion_coupler.matrix_rhs(gb)
+U, rhs_u = advection.matrix_rhs(gb)
+D, rhs_d = diffusion.matrix_rhs(gb)
 
 theta = sps.linalg.spsolve(D + U, rhs_u + rhs_d)
-diffusion_coupler.split(gb, "temperature", theta)
+diffusion.split(gb, "temperature", theta)
 
 if do_save:
     exporter.export_vtk(gb, 'advection_diffusion', [

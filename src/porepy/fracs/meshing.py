@@ -12,6 +12,9 @@ import warnings
 import time
 
 from porepy.fracs import structured, simplex, split_grid
+from porepy.fracs.fractures import Intersection
+from porepy import FractureNetwork
+from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.grid import FaceTag
 from porepy.utils import setmembership, mcolon
@@ -132,6 +135,72 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
 
 #------------------------------------------------------------------------------#
 
+def dfn(fracs, conforming, intersections=None, **kwargs):
+    """
+
+    Parameters:
+        fracs (either Fractures, or a FractureNetwork).
+        conforming (boolean): If True, the mesh will be conforming along 1d
+            intersections.
+        intersections (list of lists, optional): Each item corresponds to an
+            intersection between two fractures. In each sublist, the first two
+            indices gives fracture ids (refering to order in fracs). The third
+            item is a numpy array representing intersection coordinates. If no
+            intersections provided, intersections will be detected using
+            function in FractureNetwork.
+        **kwargs: Parameters passed to gmsh.
+
+    """
+
+    if isinstance(fracs, FractureNetwork) \
+       or isinstance(frac, FractureNetwork_full):
+        network = fracs
+    else:
+        network = FractureNetwork(fracs)
+
+    if intersections is not None:
+        network.intersections = [Intersection(*i) for i in intersections]
+    else:
+        network.find_intersections()
+
+    if conforming:
+        grids = simplex.triangle_grid_embedded(network, find_isect=False,
+                                               **kwargs)
+        tag_faces(grids, check_highest_dim=False)
+    else:
+
+        grid_list = []
+        neigh_list = []
+
+        for fi in range(len(network._fractures)):
+            # Rotate fracture vertexes and intersection points
+            fp, ip, other_frac, rot, cp = network.fracture_to_plane(fi)
+
+            f_lines = np.reshape(np.arange(ip.shape[1]), (2, -1), order='F')
+            frac_dict = {'points': ip, 'edges': f_lines}
+            grids = simplex.triangle_grid(frac_dict, fp, verbose=False,
+                                          **kwargs)
+
+            irot = rot.T
+
+            # Loop over grids, rotate back again to 3d coordinates
+            for gl in grids:
+                for g in gl:
+                    g.nodes = irot.dot(g.nodes) + cp
+
+            assert len(grids[0]) == 1, 'Fracture should be covered by single'\
+                'mesh'
+
+            grid_list.append(grids)
+            neigh_list.append(other_frac)
+        return grid_list, neigh_list
+
+    gb = assemble_in_bucket(grids)
+    gb.compute_geometry()
+    split_grid.split_fractures(gb)
+    return gb
+
+#------------------------------------------------------------------------------#
 
 def from_gmsh(file_name, dim, **kwargs):
     """
@@ -158,7 +227,12 @@ def from_gmsh(file_name, dim, **kwargs):
     """
     # Call relevant method, depending on grid dimensions.
     if dim == 2:
-        grids = simplex.triangle_grid_from_gmsh(file_name, **kwargs)
+        if file_name.endswith('.geo'):
+            simplex.triangle_grid_run_gmsh(file_name, **kwargs)
+            grids = simplex.triangle_grid_from_gmsh(file_name, **kwargs)
+        elif file_name.endswith('.msh'):
+            grids = simplex.triangle_grid_from_gmsh(file_name, **kwargs)
+
 #    elif dim == 3:
 #        grids = simplex.tetrahedral_grid_from_gmsh(file_name, **kwargs)
 #   NOTE: function simplex.tetrahedral_grid needs to be split as did for
@@ -252,7 +326,7 @@ def cart_grid(fracs, nx, **kwargs):
     return gb
 
 
-def tag_faces(grids):
+def tag_faces(grids, check_highest_dim=True):
     """
     Tag faces of grids. Three different tags are given to different types of
     faces:
@@ -263,38 +337,51 @@ def tag_faces(grids):
             lower dim grid).
         TIP: A boundary face that is not on the domain boundary, nor
             coupled to a lower domentional domain.
+
+    Parameters:
+        grids (list): List of grids to be tagged. Sorted per dimension.
+        check_highest_dim (boolean, default=True): If true, we require there is
+            a single mesh in the highest dimension. The test is useful, but
+            should be waived for dfn meshes.
+
     """
 
+    for gs in grids:
+        for g in gs:
+            g.remove_face_tag([True] * g.num_faces, FaceTag.DOMAIN_BOUNDARY)
+
     # Assume only one grid of highest dimension
-    assert len(grids[0]) == 1, 'Must be exactly'\
-        '1 grid of dim: ' + str(len(grids))
-    g_h = grids[0][0]
-    bnd_faces = g_h.get_boundary_faces()
-    g_h.add_face_tag(bnd_faces, FaceTag.DOMAIN_BOUNDARY)
-    bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
-    bnd_nodes = np.unique(bnd_nodes)
-    for g_dim in grids[1:-1]:
-        for g in g_dim:
-            # We find the global nodes of all boundary faces
-            bnd_faces_l = g.get_boundary_faces()
-            indptr = g.face_nodes.indptr
-            fn_loc = mcolon.mcolon(
-                indptr[bnd_faces_l], indptr[bnd_faces_l + 1])
-            nodes_loc = g.face_nodes.indices[fn_loc]
-            # Convert to global numbering
-            nodes_glb = g.global_point_ind[nodes_loc]
-            # We then tag each node as a tip node if it is not a global
-            # boundary node
-            is_tip = np.in1d(nodes_glb, bnd_nodes, invert=True)
-            # We reshape the nodes such that each column equals the nodes of
-            # one face. If a face only contains global boundary nodes, the
-            # local face is also a boundary face. Otherwise, we add a TIP tag.
-            n_per_face = nodes_per_face(g)
-            is_tip = np.any(is_tip.reshape(
-                (n_per_face, bnd_faces_l.size), order='F'), axis=0)
-            g.add_face_tag(bnd_faces_l[is_tip], FaceTag.TIP)
-            g.add_face_tag(bnd_faces_l[is_tip == False],
-                           FaceTag.DOMAIN_BOUNDARY)
+    if check_highest_dim:
+        assert len(grids[0]) == 1, 'Must be exactly'\
+            '1 grid of dim: ' + str(len(grids))
+
+    for g_h in np.atleast_1d(grids[0]):
+        bnd_faces = g_h.get_boundary_faces()
+        g_h.add_face_tag(bnd_faces, FaceTag.DOMAIN_BOUNDARY)
+        bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
+        bnd_nodes = np.unique(bnd_nodes)
+        for g_dim in grids[1:-1]:
+            for g in g_dim:
+                # We find the global nodes of all boundary faces
+                bnd_faces_l = g.get_boundary_faces()
+                indptr = g.face_nodes.indptr
+                fn_loc = mcolon.mcolon(
+                    indptr[bnd_faces_l], indptr[bnd_faces_l + 1])
+                nodes_loc = g.face_nodes.indices[fn_loc]
+                # Convert to global numbering
+                nodes_glb = g.global_point_ind[nodes_loc]
+                # We then tag each node as a tip node if it is not a global
+                # boundary node
+                is_tip = np.in1d(nodes_glb, bnd_nodes, invert=True)
+                # We reshape the nodes such that each column equals the nodes of
+                # one face. If a face only contains global boundary nodes, the
+                # local face is also a boundary face. Otherwise, we add a TIP tag.
+                n_per_face = nodes_per_face(g)
+                is_tip = np.any(is_tip.reshape(
+                    (n_per_face, bnd_faces_l.size), order='F'), axis=0)
+                g.add_face_tag(bnd_faces_l[is_tip], FaceTag.TIP)
+                g.add_face_tag(bnd_faces_l[is_tip == False],
+                               FaceTag.DOMAIN_BOUNDARY)
 
 
 def nodes_per_face(g):
