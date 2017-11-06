@@ -1515,6 +1515,10 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=[0, 0, 1]):
     pts (np.ndarray, 3xn): the points.
     normal: (optional) the normal of the plane, otherwise three points are
         required.
+    tol: (optional, float) tolerance to assert the planarity of the cloud of
+        points. Default value 1e-5.
+    reference: (optional, np.array, 3x1) reference vector to compute the angles.
+        Default value [0, 0, 1].
 
     Returns:
     np.ndarray, 3x3, projection matrix.
