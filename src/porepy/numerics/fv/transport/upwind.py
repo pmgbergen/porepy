@@ -408,12 +408,10 @@ class UpwindCoupling(AbstractCoupling):
 
         cc[0, 0] = sps.dia_matrix((diag_cc00, 0), shape=(dof[0], dof[0]))
 
-
         if data_h['node_number'] == data_l['node_number']:
             # All contributions to be returned to the same block of the
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0,1))])
-
         return cc
 
 #------------------------------------------------------------------------------#
@@ -451,7 +449,7 @@ class UpwindCoupling(AbstractCoupling):
             # More or less same as below, except we have cell_cells in the place
             # of face_cells (see grid_bucket.duplicate_without_dimension).
             phi_h = data_h['param'].get_porosity()
-            cells_h, cells_l = data_edge['face_cells'].nonzero()
+            cells_l, cells_h = data_edge['face_cells'].nonzero()
             not_zero = ~np.isclose(np.zeros(discharge.shape), discharge, atol = 0)
             if not np.any(not_zero):
                 return np.Inf
@@ -465,7 +463,6 @@ class UpwindCoupling(AbstractCoupling):
             apt_h = aperture_h[cells_h]
             apt_l = aperture_l[cells_l]
             coeff = np.minimum(phi_h,phi_l)*np.minimum(apt_h,apt_l)
-
             return np.amin(np.abs(np.divide(dist, discharge)) * coeff)
 
         # Recover the information for the grid-grid mapping

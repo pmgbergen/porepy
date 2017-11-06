@@ -68,8 +68,24 @@ def create_2d_grids(pts, cells, **kwargs):
             frac_num[i] = poly_2_frac[int(pn[offset + 1:])]
             gmsh_num[i] = pn_ind
 
+        # Counter for boundary and auxiliary planes
+        count_bound_and_aux = 0
         for fi in np.unique(frac_num):
-            loc_num = np.where(frac_num == fi)[0]
+            # This loop should only produce grids on surfaces that are actually fractures
+            # Fractures are identified with physical names
+            # a) Either give seperate physical name to non-fractures (e.g. AUX_POLYGON)
+            # b) OR: Pass a list of which fractures (numbers) are really not fractures
+            # b) is simpler, a) is better (long term)
+            # If a) is chosen, you may need to be careful with         
+            
+            pn = phys_names[phys_name_ind_tri[fi]]
+            plane_type = pn[:pn.rfind('_')]
+            
+            if plane_type != 'FRACTURE':
+                count_bound_and_aux += 1
+                continue
+            
+            loc_num = np.where(frac_num == fi-count_bound_and_aux)[0]
             loc_gmsh_num = gmsh_num[loc_num]
 
             loc_tri_glob_ind = np.empty((0, 3))
@@ -91,7 +107,7 @@ def create_2d_grids(pts, cells, **kwargs):
             # Associate a fracture id (corresponding to the ordering of the
             # frature planes in the original fracture list provided by the
             # user)
-            g.frac_num = fi
+            g.frac_num = fi - count_bound_and_aux
 
             # Append to list of 2d grids
             g_2d.append(g)
@@ -118,6 +134,9 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
     # There will be up to three types of physical lines: intersections (between
     # fractures), fracture tips, and auxiliary lines (to be disregarded)
 
+    # All intersection lines and points on boundaries are non-physical in 3d.
+    # I.e., they are assigned boundary conditions, but are not gridded.
+
     g_1d = []
 
     # If there are no fracture intersections, we return empty lists
@@ -143,7 +162,7 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
         assert loc_line_pts.size > 1
 
         line_type = pn[:offset_index]
-
+        
         if line_type == gmsh_const.PHYSICAL_NAME_FRACTURE_TIP[:-1]:
             gmsh_tip_num.append(i)
 
@@ -167,6 +186,9 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
 def create_0d_grids(pts, cells):
     # Find 0-d grids (points)
     # We know the points are 1d, so squeeze the superflous dimension
+
+    # All intersection lines and points on boundaries are non-physical in 3d.
+    # I.e., they are assigned boundary conditions, but are not gridded.
     g_0d = []
     if 'vertex' in cells:
         point_cells = cells['vertex'].ravel()

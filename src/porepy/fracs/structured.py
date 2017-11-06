@@ -130,20 +130,29 @@ def cart_grid_3d(fracs, nx, physdims=None):
            'xmax': physdims[0], 'ymax': physdims[1], 'zmax': physdims[2]}
     network.impose_external_boundary(box)
 
-    # Find intersections and split them
+    # Find intersections and split them.
     network.find_intersections()
     network.split_intersections()
 
+    # Extract geometrical network information.
     pts = network.decomposition['points']
     edges = network.decomposition['edges']
     poly = network._poly_2_segment()
+    # And tags identifying points and edges corresponding to normal
+    # fractures, domain boundaries and subdomain boundaries. Only the
+    # entities corresponding to normal fractures should actually be gridded.
     edge_tags, intersection_points = network._classify_edges(poly)
-    edges = np.vstack((edges, edge_tags))
     const = constants.GmshConstants()
+    auxiliary_points, edge_tags = network.on_domain_boundary(edges, edge_tags)
+    bound_and_aux = np.array([const.DOMAIN_BOUNDARY_TAG, const.AUXILIARY_TAG])
+    edges = np.vstack((edges, edge_tags))
 
+    # Loop through the edges to make 1D grids. Ommit the auxiliary edges. 
     for e in np.ravel(np.where(edges[2] == const.FRACTURE_INTERSECTION_LINE_TAG)):
         # We find the start and end point of each fracture intersection (1D
         # grid) and then the corresponding global node index.
+        if np.isin(edge_tags[e], bound_and_aux):
+            continue
         s_pt = pts[:, edges[0, e]]
         e_pt = pts[:, edges[1, e]]
         nodes = _find_nodes_on_line(g_3d, nx, s_pt, e_pt)
@@ -155,8 +164,10 @@ def cart_grid_3d(fracs, nx, physdims=None):
 
     # Create 0D grids
     # Here we also use the intersection information from the FractureNetwork
-    # class.
+    # class. No grids for auxiliary points.
     for p in intersection_points:
+        if auxiliary_points[p]:
+            continue
         node = np.argmin(cg.dist_point_pointset(pts[:, p], g_3d.nodes))
         assert np.allclose(g_3d.nodes[:, node], pts[:, p])
         g = point_grid.PointGrid(g_3d.nodes[:, node])
