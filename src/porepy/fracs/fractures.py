@@ -20,11 +20,6 @@ import sympy
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
 try:
-    import triangle
-except ImportError:
-    warnings.warn('The triangle module is not available. Gridding of fracture'
-                  ' networks will not work')
-try:
     import vtk
     import vtk.util.numpy_support as vtk_np
 except ImportError:
