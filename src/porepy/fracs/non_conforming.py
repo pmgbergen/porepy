@@ -13,6 +13,7 @@ from porepy import Fracture, FractureNetwork
 
 from porepy.fracs import importer
 from porepy.fracs import simplex, meshing, split_grid
+from porepy.utils.matrix_compression import rldecode
 
 
 import porepy.utils.comp_geom as cg
@@ -190,8 +191,9 @@ def update_face_nodes(g, delete_faces, num_new_faces, new_node_offset,
 
     return ind_new_face
 
+
 def update_cell_faces(g, delete_faces, new_faces, in_combined, cell_1d,
-                      fn_orig, node_coord_orig):
+                      fn_orig, node_coord_orig, tol=1e-4):
     """ Replace faces in a cell-face map.
 
     If faces have been refined (or otherwise modified), it is necessary to
@@ -210,13 +212,17 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, cell_1d,
     Switching the order into 3, 2, 1 is okay, but, say, 1, 3, 2 will create
     problems.
 
+    It is also tacitly assumed that each cell has at most one face deleted.
+    Changing this may not be difficult, but has not been prioritized so far.
+
     The function has been tested in 2d only, reliability in 3d is unknown,
     but doubtful.
 
     Parameters:
         g (grid): To be updated.
-        delete_faces (np.ndarray): Faces to be deleted.
-        new_faces (np.ndarray): Index of new faces.
+        delete_faces (np.ndarray): Faces to be deleted, as found in
+            g.cell_faces
+        new_faces (np.ndarray): Index of new faces, as found in g.face_nodes
         in_combined (np.ndarray): Map between old and new faces.
             delete_faces[i] is replaced by
             new_faces[in_combined[i]:in_combined[i+1]].
@@ -225,8 +231,12 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, cell_1d,
             update of faces.
         node_coord_orig (np.ndarray): Node coordinates of orginal grid,
             before update of nodes.
+        tol (double, defaults to 1e-4): Small tolerance, used to compare
+            coordinates of points.
 
     """
+
+    #
 
     nodes_per_face = g.dim
 
@@ -293,7 +303,7 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, cell_1d,
         # cf[i] is specific face
         # cf_2_f[cf[i]] maps to deleted face along fracture
         # outermost is one-to-many map from deleted to new faces.
-        new_faces = deleted_2_new_faces[cf_2_f[cf[i]]]
+        new_faces_loc = deleted_2_new_faces[cf_2_f[cf[i]]]
 
         # Index of the replaced face
         ci = cf[i]
@@ -308,7 +318,7 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, cell_1d,
         # Note use of original coordinates here.
         ci_coord = node_coord_orig[:, fn_orig[:, ci]]
         # Coordinates of the nodes of the first new face
-        fi_coord = g.nodes[:, fn[:, new_faces[0]]]
+        fi_coord = g.nodes[:, fn[:, new_faces_loc[0]]]
 
         # Distance between the new nodes and the first node of the old face.
         dist = cg.dist_point_pointset(ci_coord[:, 0], fi_coord)
@@ -318,17 +328,18 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, cell_1d,
         # faces were defined from the second to the first node. Switch order.
         # This will create trouble if one of the new faces are very small.
         if dist.min() > length_face * tol:
-            new_faces = new_faces[::-1]
+            new_faces_loc = new_faces_loc[::-1]
 
         # Replace the cell-face relation for this cell.
         # At the same time (stupid!) also adjust indices of the surviving
         # faces.
         new_cf[cell] = np.hstack((face_adjustment[new_cf[cell][:tr].ravel()],
-                                  new_faces,
+                                  new_faces_loc,
                                   face_adjustment[new_cf[cell][tr+1:].ravel()]))
         # Also replicate directions of normal vectors
         new_sgn[cell] = np.hstack((new_sgn[cell][:tr].ravel(),
-                                  np.tile(new_sgn[cell][tr], new_faces.size),
+                                  np.tile(new_sgn[cell][tr],
+                                          new_faces_loc.size),
                                   new_sgn[cell][tr+1:].ravel()))
 
     # Adjust face index of cells that have no contact with the updated faces
