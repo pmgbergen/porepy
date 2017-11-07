@@ -189,3 +189,160 @@ def update_face_nodes(g, delete_faces, num_new_faces, new_node_offset,
     assert g.face_nodes.indices.max() < g.nodes.shape[1]
 
     return ind_new_face
+
+def update_cell_faces(g, delete_faces, new_faces, in_combined, cell_1d,
+                      fn_orig, node_coord_orig):
+    """ Replace faces in a cell-face map.
+
+    If faces have been refined (or otherwise modified), it is necessary to
+    update the cell-face relation as well. This function does so, while taking
+    care that the (implicit) mapping between cells and nodes is ordered so that
+    geometry computation still works.
+
+    The changes of g.cell_faces are done in-place.
+
+    It is assumed that the new faces that replace an old are ordered along the
+    common line. E.g. if a face with node coordinates (0, 0) and (3, 0) is
+    replaced by three new faces of unit length, they should be ordered as
+    1. (0, 0) - (1, 0)
+    2. (1, 0) - (2, 0)
+    3. (2, 0) - (3, 0)
+    Switching the order into 3, 2, 1 is okay, but, say, 1, 3, 2 will create
+    problems.
+
+    The function has been tested in 2d only, reliability in 3d is unknown,
+    but doubtful.
+
+    Parameters:
+        g (grid): To be updated.
+        delete_faces (np.ndarray): Faces to be deleted.
+        new_faces (np.ndarray): Index of new faces.
+        in_combined (np.ndarray): Map between old and new faces.
+            delete_faces[i] is replaced by
+            new_faces[in_combined[i]:in_combined[i+1]].
+        cell_1d
+        fn_orig (np.ndarray): Face-node relation of the orginial grid, before
+            update of faces.
+        node_coord_orig (np.ndarray): Node coordinates of orginal grid,
+            before update of nodes.
+
+    """
+
+    nodes_per_face = g.dim
+
+    cell_faces = g.cell_faces
+
+    # Mapping from new
+    deleted_2_new_faces = np.empty(in_combined.size - 1, dtype=object)
+    for i in range(deleted_2_new_faces.size):
+        deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i],
+                                                     in_combined[i+1])]
+
+    # The cell-face relations
+    cf = cell_faces.indices
+    indptr = cell_faces.indptr
+
+    # Find elements in the cell-face relation that are also along the
+    # intersection, and should be replaced
+    hit = np.where(np.in1d(cf, delete_faces))[0]
+
+    # Mapping from cell_face of 2d grid to cells in 1d grid. Can be combined
+    # with deleted_2_new_faces to match new and old faces
+    # Safeguarding (or stupidity?): Only faces along 1d grid have non-negative
+    # index, but we should never hit any of the other elements
+    cf_2_f = -np.ones(delete_faces.max()+1, dtype=np.int)
+    cf_2_f[delete_faces] = cell_1d
+
+    # Map from faces, as stored in cell_faces,to the corresponding cells
+    face_2_cell = rldecode(np.arange(indptr.size), np.diff(indptr))
+
+    # The cell-face map will go from 3 faces per cell to an arbitrary number.
+    # Split mapping into list of arrays to prepare for this
+    new_cf = [cf[indptr[i]:indptr[i+1]] for i in range(g.num_cells)]
+    # Similar treatment of direction of normal vectors
+    new_sgn = [g.cell_faces.data[indptr[i]:indptr[i+1]] \
+                   for i in range(g.num_cells)]
+
+    # Create mapping to adjust face indices for deletions
+    tmp = np.arange(cf.max()+1)
+    adjust_deleted = np.zeros_like(tmp)
+    adjust_deleted[delete_faces] = 1
+    face_adjustment = tmp - np.cumsum(adjust_deleted)
+
+    # Face-node relations as array
+    fn = g.face_nodes.indices.reshape((nodes_per_face, g.num_faces), order='F')
+
+    # Collect indices of cells that have one of their faces on the fracture.
+    hit_cell = []
+
+    for i in hit:
+        # The loop variable refers to indices in the face-cell map. Get cell
+        # number.
+        cell = face_2_cell[i]
+        hit_cell.append(cell)
+        # For this cell, find where in the cell-face map the fracture face is
+        # placed.
+        tr = np.where(new_cf[cell] == cf[i])[0]
+        # There should be only one face on the fracture
+        assert tr.size == 1
+        tr = tr[0]
+
+        # Implementation note: If we ever get negative indices here, something
+        # has gone wrong related to cf_2_f, see above.
+        # Digestion of loop: i (in hit) refers to elements in cell-face
+        # cf[i] is specific face
+        # cf_2_f[cf[i]] maps to deleted face along fracture
+        # outermost is one-to-many map from deleted to new faces.
+        new_faces = deleted_2_new_faces[cf_2_f[cf[i]]]
+
+        # Index of the replaced face
+        ci = cf[i]
+
+        # We need to sort the new face-cell relation so that the edges defined
+        # by cell-face-> face_nodes form a closed, non-intersecting loop. If
+        # this is not the case, geometry computation will go wrong.
+        # By assumption, the new faces are defined so that their nodes are
+        # contiguous along the line of the old face.
+
+        # Coordinates of the nodes of the replaced face.
+        # Note use of original coordinates here.
+        ci_coord = node_coord_orig[:, fn_orig[:, ci]]
+        # Coordinates of the nodes of the first new face
+        fi_coord = g.nodes[:, fn[:, new_faces[0]]]
+
+        # Distance between the new nodes and the first node of the old face.
+        dist = cg.dist_point_pointset(ci_coord[:, 0], fi_coord)
+        # Length of the old face.
+        length_face = cg.dist_point_pointset(ci_coord[:, 0], ci_coord[:, 1])[0]
+        # If the minimum distance is larger than a (scaled) tolerance, the new
+        # faces were defined from the second to the first node. Switch order.
+        # This will create trouble if one of the new faces are very small.
+        if dist.min() > length_face * tol:
+            new_faces = new_faces[::-1]
+
+        # Replace the cell-face relation for this cell.
+        # At the same time (stupid!) also adjust indices of the surviving
+        # faces.
+        new_cf[cell] = np.hstack((face_adjustment[new_cf[cell][:tr].ravel()],
+                                  new_faces,
+                                  face_adjustment[new_cf[cell][tr+1:].ravel()]))
+        # Also replicate directions of normal vectors
+        new_sgn[cell] = np.hstack((new_sgn[cell][:tr].ravel(),
+                                  np.tile(new_sgn[cell][tr], new_faces.size),
+                                  new_sgn[cell][tr+1:].ravel()))
+
+    # Adjust face index of cells that have no contact with the updated faces
+    for i in np.setdiff1d(np.arange(len(new_cf)), hit_cell):
+        new_cf[i] = face_adjustment[new_cf[i]]
+
+    # New pointer structure for cell-face relations
+    num_cell_face = np.array([new_cf[i].size for i in range(len(new_cf))])
+    indptr_new = np.hstack((0, np.cumsum(num_cell_face)))
+
+    ind = np.concatenate(new_cf)
+    data = np.concatenate(new_sgn)
+    # All faces in the cell-face relation should be referred to by 1 or 2 cells
+    assert np.bincount(ind).max() <= 2
+    assert np.all(np.bincount(ind) > 0)
+
+    g.cell_faces = sps.csc_matrix((data, ind, indptr_new))
