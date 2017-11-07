@@ -513,7 +513,8 @@ class Fracture(object):
 
         assert bp.shape[1] == int_points.shape[1], """
             Please file an issue on GitHub, containing this message, and the
-            coordinates of the two polygons.
+            coordinates of the two polygons. Then you can delete this
+            assertion, no harmed caused.
 
             This test is inserted to
             look for redundancies in the intersection algorithm. If this never
