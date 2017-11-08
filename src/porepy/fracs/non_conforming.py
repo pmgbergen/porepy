@@ -121,6 +121,7 @@ def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids):
     combined_1d, global_ind_offset, g_in_combined, h_in_combined,\
         g_sort, h_sort = merge_1d_grids(g_1d, h_1d, global_ind_offset)
 
+    # First update fields for first grid
     fn_orig = np.reshape(g.face_nodes.indices, (2, g.num_faces), order='F')
     node_coord_orig = g.nodes.copy()
     new_nodes, delete_faces, global_ind_offset =\
@@ -475,6 +476,9 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
         deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i],
                                                      in_combined[i+1])]
 
+    # Now that we have mapping from old to new faces, also update face tags
+    update_face_tags(g, delete_faces, deleted_2_new_faces)
+
     # The cell-face relations
     cf = cell_faces.indices
     indptr = cell_faces.indptr
@@ -584,3 +588,25 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
     assert np.all(np.bincount(ind) > 0)
 
     g.cell_faces = sps.csc_matrix((data, ind, indptr_new))
+
+
+def update_face_tags(g, delete_faces, new_faces):
+    """ Update the face_tags of a cell.
+
+    Delete tags for old faces, and add new tags for their replacements.
+
+    Parameters:
+        g (grid): To be modified
+        delete_faces (np.array or list): Faces to be deleted.
+        new_faces (list of list): For each item in delete_faces, a list of new
+            replacement faces.
+
+    """
+    tags = g.face_tags.copy()
+    tags = np.delete(tags, delete_faces)
+    num_new = np.array([len(new_faces[i]) for i in range(len(new_faces))])
+    new_tags = np.zeros(num_new.sum(), dtype=np.uint8)
+    divides = np.hstack((0, np.cumsum(num_new)))
+    for i, d in enumerate(delete_faces):
+        new_tags[divides[i] : divides[i+1]] = g.face_tags[d]
+    g.face_tags = np.hstack((tags, new_tags))
