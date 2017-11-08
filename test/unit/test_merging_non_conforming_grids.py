@@ -324,6 +324,46 @@ class TestMeshMerging(unittest.TestCase):
                                 [0, 0, 1, 1, 1]], dtype=np.bool).T
         assert np.allclose(np.abs(g.cell_faces.toarray()), cf_expected)
 
+    def test_update_tag_simple(self):
+        tags = np.arange(3)
+        g = TagClass(tags)
+        delete_face = [0]
+        new_face = [[2]]
+        non_conforming.update_face_tags(g, delete_face, new_face)
+
+        known_tag = np.array([1, 2, 0])
+        assert np.allclose(known_tag, g.face_tags)
+
+    def test_update_tag_one_to_many(self):
+        tags = np.arange(3)
+        g = TagClass(tags)
+        delete_face = [0]
+        new_face = [[2, 3]]
+        non_conforming.update_face_tags(g, delete_face, new_face)
+
+        known_tag = np.array([1, 2, 0, 0])
+        assert np.allclose(known_tag, g.face_tags)
+
+    def test_update_tag_two_to_many(self):
+        tags = np.arange(3)
+        g = TagClass(tags)
+        delete_face = [0, 2]
+        new_face = [[2, 3], [4]]
+        non_conforming.update_face_tags(g, delete_face, new_face)
+
+        known_tag = np.array([1, 0, 0, 2])
+        assert np.allclose(known_tag, g.face_tags)
+
+    def test_update_tag_pure_deletion(self):
+        tags = np.arange(3)
+        g = TagClass(tags)
+        delete_face = [0]
+        new_face = [[]]
+        non_conforming.update_face_tags(g, delete_face, new_face)
+
+        known_tag = np.array([1, 2])
+        assert np.allclose(known_tag, g.face_tags)
+
     if __name__ == '__main__':
         unittest.main()
 
@@ -345,3 +385,9 @@ class MockGrid():
 
         self.num_nodes = self.face_nodes.shape[0]
         self.nodes = np.zeros((3, self.num_nodes))
+
+class TagClass():
+    def __init__(self, tags):
+        self.face_tags = tags
+
+
