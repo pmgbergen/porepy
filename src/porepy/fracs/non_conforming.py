@@ -62,6 +62,52 @@ def init_global_ind(gl):
     return list_of_grids, global_ind_offset
 
 
+def process_intersections(grids, intersections, global_ind_offset,
+                          list_of_grids):
+    """ Loop over all intersections, combined two and two grids.
+    """
+
+    # All connections will be hit upon twice, one from each intersecting fracture.
+    # Keep track of which connections have been treated, and can be skipped.
+    num_frac = len(grids)
+    isect_is_processed = sps.lil_matrix((num_frac, num_frac), dtype=np.bool)
+
+    grid_1d_list = []
+
+    # Loop over all fractures
+    for frac_ind, frac in enumerate(grids):
+
+        # Pick out the 2d grid of this fracture
+        g = grids[frac_ind][0][0]
+
+        # Loop over all 1d grids in this fracture
+        for ind_1d, g_1d in enumerate(frac[1]):
+
+            # Find index and grid of the other fracture of this intersection
+            other_frac_ind = intersections[frac_ind][ind_1d]
+            h = grids[other_frac_ind][0][0]
+
+            # Check if we have treated this intersection before
+            row = g.frac_num
+            col = h.frac_num
+            if isect_is_processed[row, col]:
+                continue
+            else:
+                # Mark the connection as treated
+                isect_is_processed[row, col] = True
+                isect_is_processed[col, row] = True
+
+            # Find the 1d grid of this intersection, as created from the other fracture
+            g_in_other = \
+                np.where(intersections[other_frac_ind] == frac_ind)[0][0]
+            h_1d = grids[other_frac_ind][1][g_in_other]
+            g_1d.compute_geometry()
+            h_1d.compute_geometry()
+            g_new_1d, global_ind_offset = combine_grids(g, g_1d, h, h_1d,
+                                                        global_ind_offset,
+                                                        list_of_grids)
+            grid_1d_list.append(g_new_1d)
+
 
 def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids):
 
