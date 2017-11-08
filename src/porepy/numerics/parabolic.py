@@ -111,7 +111,7 @@ class ParabolicProblem():
 
     def source_disc(self):
         'Discretization of source term, q'
-        return source.IntegralMultiDim(physics=self.physics)
+        return source.IntegralMixDim(physics=self.physics)
 
     def space_disc(self):
         '''Space discretization. Returns the discretization terms that should be
