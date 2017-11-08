@@ -8,7 +8,7 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.numerics.fv import mpfa, fvutils
+from porepy.numerics.fv import mpfa, fvutils, source
 
 from porepy.utils import comp_geom as cg
 from porepy.utils import sort_points
@@ -144,7 +144,12 @@ def main(id_problem, tol=1e-5, N_pts=1000):
 
     # Choose and define the solvers and coupler
     solver = mpfa.MpfaDFN(gb.dim_max(), 'flow')
-    p = sps.linalg.spsolve(*solver.matrix_rhs(gb))
+    A, b_flux = solver.matrix_rhs(gb)
+    solver_source = source.IntegralDFN(gb.dim_max(), 'flow')
+    _, b_source = solver_source.matrix_rhs(gb)
+
+    p = sps.linalg.spsolve(A, b_flux+b_source)
+
     solver.split(gb, "p", p)
 
     exporter.export_vtk(gb, file_export, ["p"], folder=folder_export)
