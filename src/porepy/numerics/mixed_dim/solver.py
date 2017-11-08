@@ -50,8 +50,6 @@ class Solver(object):
 #------------------------------------------------------------------------------#
 
 class SolverMixDim():
-    def __init__(self, physics):
-        raise NotImplementedError("Method not implemented")
 
     def matrix_rhs(self, gb):
         return self.solver.matrix_rhs(gb)
@@ -61,4 +59,5 @@ class SolverMixDim():
 
     def ndof(self, gb):
         return np.sum([self.discr_ndof(g) for g,_ in gb])
+
 #------------------------------------------------------------------------------#

@@ -5,7 +5,7 @@ Discretization of the flux term of an equation.
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.mixed_dim.solver import Solver
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 
 
@@ -13,10 +13,10 @@ class Integral(Solver):
     '''
     Discretization of the integrated source term
     int q * dx
-    over each grid cell. 
+    over each grid cell.
 
     All this function does is returning a zero lhs and
-    rhs = param.get_source.physics. 
+    rhs = param.get_source.physics.
     '''
 
     def __init__(self, physics='flow'):
@@ -33,21 +33,44 @@ class Integral(Solver):
         assert sources.size == g.num_cells, 'There should be one soure value for each cell'
         return lhs, sources
 
+#------------------------------------------------------------------------------
 
-class IntegralMultiDim(Solver):
+class IntegralMixDim(SolverMixDim):
     def __init__(self, physics='flow'):
         self.physics = physics
-        discr = Integral(self.physics)
-        self.solver = Coupler(discr)
-        Solver.__init__(self)
 
-    def ndof(self, gb):
-        ndof = 0
-        for g, _ in gb:
-            ndof += g.num_cells
+        self.discr = Integral(self.physics)
+        self.discr_ndof = self.discr.ndof
+        self.coupling_conditions = None
 
-    def matrix_rhs(self, gb):
-        return self.solver.matrix_rhs(gb)
+        self.solver = Coupler(self.discr)
+        SolverMixDim.__init__(self)
 
-    def split(self, gb, names, var):
-        return self.solver.split(gb, names, var)
+#------------------------------------------------------------------------------
+
+class IntegralDFN(SolverMixDim):
+    def __init__(self, dim_max, physics='flow'):
+        # NOTE: There is no flow along the intersections of the fractures.
+
+        self.physics = physics
+        self.dim_max = dim_max
+
+        self.discr = Integral(self.physics)
+        self.coupling_conditions = None
+
+        kwargs = {"discr_ndof": self.discr.ndof,
+                  "discr_fct": self.__matrix_rhs__}
+        self.solver = Coupler(coupling = None, **kwargs)
+        SolverMixDim.__init__(self)
+
+    def __matrix_rhs__(self, g, data):
+        # The highest dimensional problem compute the matrix and rhs, the lower
+        # dimensional problem and empty matrix. For the latter, the size of the
+        # matrix is the number of cells.
+        if g.dim == self.dim_max:
+            return self.discr.matrix_rhs(g, data)
+        else:
+            ndof = self.discr.ndof(g)
+            return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
+
+#------------------------------------------------------------------------------
