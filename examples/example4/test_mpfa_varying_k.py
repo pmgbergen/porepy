@@ -8,8 +8,7 @@ from porepy.params.data import Parameters
 
 from porepy.grids import structured, simplex
 
-from porepy.numerics.fv import mpfa
-from porepy.numerics.fv import source
+from porepy.numerics.fv import mpfa, source
 
 #------------------------------------------------------------------------------#
 

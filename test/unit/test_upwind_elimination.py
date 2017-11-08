@@ -10,7 +10,7 @@ from porepy.params.data import Parameters
 
 from porepy.numerics.fv import tpfa, fvutils
 from porepy.numerics.fv.transport import upwind
-from porepy.numerics.fv.source import IntegralMultiDim
+from porepy.numerics.fv.source import IntegralMixDim
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics.mixed_dim import coupler, condensation
 #------------------------------------------------------------------------------#
@@ -145,7 +145,7 @@ class BasicsTest(unittest.TestCase):
             advection_discr, advection_coupling_conditions)
         #U, rhs_u = advection_coupler.matrix_rhs(gb)
         U_r, rhs_u_r = advection_coupler.matrix_rhs(gb_r)
-        _, rhs_src_r = IntegralMultiDim(physics='transport').matrix_rhs(gb_r)
+        _, rhs_src_r = IntegralMixDim(physics='transport').matrix_rhs(gb_r)
         rhs_u_r = rhs_u_r + rhs_src_r
         deltaT = np.amin(gb_r.apply_function(advection_discr.cfl,
                                              advection_coupling_conditions.cfl).data)

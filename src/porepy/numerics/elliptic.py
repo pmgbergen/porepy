@@ -86,7 +86,7 @@ class Elliptic():
 
     def source_disc(self):
         if isinstance(self.grid(), GridBucket):
-            source_discr = source.IntegralMultiDim(physics=self.physics)
+            source_discr = source.IntegralMixDim(physics=self.physics)
         else:
             source_discr = source.Integral(physics=self.physics)
         return source_discr
