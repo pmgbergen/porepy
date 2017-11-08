@@ -26,6 +26,43 @@ from porepy import TensorGrid
 
 
 
+def init_global_ind(gl):
+    """ Initialize a global indexing of nodes to a set of local grids.
+
+    Parameters:
+        gl (triple list): Outer: One per fracture, middle: dimension, inner:
+            grids within the dimension.
+
+    Returns:
+        list (Grid): Single list representation of all grids. Fractures and
+            dimensions will be mixed up.
+        int: Global number of nodes.
+
+    """
+
+    list_of_grids = []
+
+    # The global point index is for the moment set within each fracture
+    # (everybody start at 0). Adjust this.
+    global_ind_offset = 0
+    # Loop over fractures
+    for frac_ind , f in enumerate(gl):
+        # The 2d grid is the only item in the middle list
+        f[0][0].frac_num = frac_ind
+
+        # Loop over dimensions within the fracture
+        for gd in f:
+            # Loop over grids within the dimension
+            for g in gd:
+                g.global_point_ind += global_ind_offset
+                list_of_grids.append(g)
+        # Increase the offset with the total number of nodes on this fracture
+        global_ind_offset += f[0][0].num_nodes
+
+    return list_of_grids, global_ind_offset
+
+
+
 def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids):
 
     combined_1d, global_ind_offset, g_in_combined, h_in_combined,\
