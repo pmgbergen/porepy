@@ -44,6 +44,7 @@ class MpfaDFN(SolverMixDim):
         kwargs = {"discr_ndof": self.discr.ndof,
                   "discr_fct": self.__matrix_rhs__}
         self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
+        SolverMixDim.__init__(self)
 
     def __matrix_rhs__(self, g, data):
         # The highest dimensional problem compute the matrix and rhs, the lower
