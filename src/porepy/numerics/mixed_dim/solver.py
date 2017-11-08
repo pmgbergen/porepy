@@ -51,6 +51,9 @@ class Solver(object):
 
 class SolverMixDim():
 
+    def __init__(self):
+        pass
+
     def matrix_rhs(self, gb):
         return self.solver.matrix_rhs(gb)
 
