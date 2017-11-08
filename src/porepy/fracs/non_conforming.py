@@ -24,6 +24,12 @@ from porepy.fracs import meshing
 from porepy import TensorGrid
 
 
+def merge_grids(grids, intersections):
+    """ Main method of module, merge all grids
+    """
+    list_of_grids, global_ind_offset = init_global_ind(grids)
+    process_intersections(grids, intersections, global_ind_offset,
+                          list_of_grids)
 
 
 def init_global_ind(gl):
