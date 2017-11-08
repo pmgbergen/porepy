@@ -28,9 +28,16 @@ def merge_grids(grids, intersections):
     """ Main method of module, merge all grids
     """
     list_of_grids, global_ind_offset = init_global_ind(grids)
-    process_intersections(grids, intersections, global_ind_offset,
+    grids_1d = process_intersections(grids, intersections, global_ind_offset,
                           list_of_grids)
-    return list_of_grids
+    grid_list_by_dim = [[], [], []]
+
+    grid_list_by_dim[1] = grids_1d
+
+    for g in grids:
+        grid_list_by_dim[0].append(g[0][0])
+
+    return grid_list_by_dim
 
 
 def init_global_ind(gl):
@@ -114,6 +121,7 @@ def process_intersections(grids, intersections, global_ind_offset,
                                                         global_ind_offset,
                                                         list_of_grids)
             grid_1d_list.append(g_new_1d)
+    return grid_1d_list
 
 
 def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids):
