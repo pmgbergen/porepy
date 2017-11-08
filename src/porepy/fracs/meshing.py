@@ -39,7 +39,7 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
         consist of a (nd x n) array describing fracture vertices. The
         fractures may be intersecting.
     domain (dict): Domain specification, determined by xmin, xmax, ...
-    subdomains (list of np.ndarray or list of Fractures): One list item 
+    subdomains (list of np.ndarray or list of Fractures): One list item
         for each fracture, same format as fracs. Specifies internal boundaries
         for the gridding. Only available in 3D.
     **kwargs: May contain fracture tags, options for gridding, etc.
@@ -168,7 +168,7 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
     """
 
     if isinstance(fracs, FractureNetwork) \
-       or isinstance(frac, FractureNetwork_full):
+       or isinstance(fracs, FractureNetwork_full):
         network = fracs
     else:
         network = FractureNetwork(fracs)
