@@ -146,6 +146,95 @@ def update_global_point_ind(grid_list, old_ind, new_ind):
         g.global_point_ind[o2n] = new_ind[ismem]
 
 
+def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
+                 list_of_grids):
+    """ Update a 2d grid to conform to a new grid along a 1d line.
+
+    Intended use: A 1d mesh that is embedded in a 2d mesh (along a fracture)
+    has been updated / refined. This function then updates the node information
+    in the 2d grid.
+
+    Parameters:
+        g (grid, dim==2): Main grid to update. Has faces along a fracture.
+        g_1d (grid, dim==1): Original line grid along the fracture.
+        new_grid_1d (grid, dim==1): New line grid, formed by merging two
+            coinciding, but non-matching grids along a fracture.
+        this_in_combined (np.ndarray): Which nodes in the new grid are also in
+            the old one, as returned by merge_1d_grids().
+        sort_ind (np.ndarray): Sorting indices of the coordinates of the old
+            grid, as returned by merge_1d_grids().
+        list_of_grids (list): Grids for all dimensions.
+
+    Returns:
+
+
+    """
+    nodes_per_face = 2
+    # Face-node relation for the grid, in terms of local and global indices
+    fn = g.face_nodes.indices.reshape((nodes_per_face, g.num_faces), order='F')
+    fn_glob = g.global_point_ind[fn]
+
+    # Mappings between faces in 2d grid and cells in 1d
+    # 2d faces along the 1d grid will be deleted.
+    delete_faces, cell_1d  = meshing.obtain_interdim_mappings(g_1d, fn_glob,
+                                                              nodes_per_face)
+
+    # All 1d cells should be identified with 2d faces
+    assert cell_1d.size == g_1d.num_cells, """ Failed to find mapping between
+        1d cells and 2d faces"""
+
+    # The nodes of identified faces on the 2d grid will be deleted
+    delete_nodes = np.unique(fn[:, delete_faces])
+
+    # Nodes to be added will have indicies towards the end
+    num_nodes_orig = g.num_nodes
+    num_delete_nodes = delete_nodes.size
+    num_nodes_not_on_fracture = num_nodes_orig - num_delete_nodes
+
+    # Define indices of new nodes.
+    new_nodes = num_nodes_orig - delete_nodes.size\
+                + np.arange(new_grid_1d.num_nodes)
+
+    # Adjust node indices in the face-node relation
+    # First, map nodes between 1d and 2d grids. Use sort_ind here to map
+    # indices of g_1d to the same order as the new grid
+    _, node_map_1d_2d = ismember_rows(g_1d.global_point_ind[sort_ind],
+                                      g.global_point_ind[delete_nodes])
+    tmp = np.arange(g.num_nodes)
+    adjustment = np.zeros_like(tmp)
+    adjustment[delete_nodes] = 1
+    node_adjustment = tmp - np.cumsum(adjustment)
+    # Nodes along the 1d grid are deleted and inserted again. Let the
+    # adjutsment point to the restored nodes
+    node_adjustment[delete_nodes[node_map_1d_2d[sort_ind]]] =\
+        g.num_nodes - num_delete_nodes + this_in_combined
+
+    g.face_nodes.indices = node_adjustment[g.face_nodes.indices]
+
+
+    # Update node coordinates and global indices for 2d mesh
+    g.nodes = np.hstack((g.nodes, new_grid_1d.nodes))
+
+    new_global_points = new_grid_1d.global_point_ind
+    g.global_point_ind = np.append(g.global_point_ind, new_global_points)
+
+    # Global index of deleted points
+    old_global_pts = g.global_point_ind[delete_nodes]
+    # Update any occurences of the old points in other grids. When sewing
+    # together a DFN grid, this may involve more and more updates as common
+    # nodes are found along intersections.
+    update_global_point_ind(list_of_grids, old_global_pts,
+                            new_global_pts[this_in_combined[node_map_1d_2d]])
+
+    # Delete old nodes
+    g.nodes = np.delete(g.nodes, delete_nodes, axis=1)
+    g.global_point_ind = np.delete(g.global_point_ind, delete_nodes)
+
+    g.num_nodes = g.nodes.shape[1]
+    return new_nodes, num_nodes_not_on_fracture, delete_faces,
+         old_global_points,
+
+
 def update_face_nodes(g, delete_faces, num_new_faces, new_node_offset,
                       nodes_per_face=None):
     """ Update face-node map by deleting and inserting new faces.
