@@ -20,11 +20,6 @@ import sympy
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
 try:
-    import triangle
-except ImportError:
-    warnings.warn('The triangle module is not available. Gridding of fracture'
-                  ' networks will not work')
-try:
     import vtk
     import vtk.util.numpy_support as vtk_np
 except ImportError:
@@ -518,7 +513,8 @@ class Fracture(object):
 
         assert bp.shape[1] == int_points.shape[1], """
             Please file an issue on GitHub, containing this message, and the
-            coordinates of the two polygons.
+            coordinates of the two polygons. Then you can delete this
+            assertion, no harmed caused.
 
             This test is inserted to
             look for redundancies in the intersection algorithm. If this never

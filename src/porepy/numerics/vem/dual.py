@@ -86,8 +86,10 @@ class DualVEMDFN(SolverMixDim):
 
         self.coupling_conditions = DualCouplingDFN(self.__ndof__)
 
-        kwargs = {"discr_ndof": self.__ndof__, "discr_fct": self.__matrix_rhs__}
+        kwargs = {"discr_ndof": self.__ndof__,
+                  "discr_fct": self.__matrix_rhs__}
         self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
+        SolverMixDim.__init__(self)
 
     def extract_u(self, gb, up, u):
         for g, d in gb:

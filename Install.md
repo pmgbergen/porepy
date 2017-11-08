@@ -1,6 +1,9 @@
 # Setting up a PorePy environment
 Installation of PorePy itself should be straightforward, using pip.
+In practice, installing from source is the preferred option to get the newest version of the code.
+
 To get the code fully working requires a few more steps, as described below.
+We also strongly recommend using a virtual environment for your PorePy install.
 
 ## Installation on Linux
 Instructions are found on the GitHub webpage. Simply type `pip install porepy`.
@@ -31,9 +34,9 @@ The location of the gmsh file is specific for each user's setup, and is therefor
 Instead, to get the path to the gmsh executable, PorePy assumes there is a file called `porepy_config.py` somewhere in `$PYTHONPATH`. 
 So, open a file called `porepy_config.py`, and place the line
 
-	config = {'gmsh_path': path/to/where/you/put/the/gmsh/executable/}
+	config = {'gmsh_path': 'path/to/where/you/put/the/gmsh/executable/'}
 
-To read more about the config system, see `porepy.utils.read_config.py`.
+Note that the path should be set as a string. To read more about the config system, see `porepy.utils.read_config.py`.
 
 # Fast unique arrays
 Improvements in Numpy's unique function, introduced in numpy version 1.13, can in certain cases speed up PorePy's performance immensely

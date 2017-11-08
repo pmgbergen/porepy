@@ -6,6 +6,5 @@ sympy >= 1.0
 matplotlib >= 1.0
 future
 enum34 >= 1.1.6
-triangle >= 1.0.0;platform_system=="Linux"
 pymetis >= 2016.2;platform_system=="Linux"
 cython >= 0.23;platform_system=="Linux"
