@@ -147,7 +147,7 @@ def update_global_point_ind(grid_list, old_ind, new_ind):
 
 
 def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
-                 list_of_grids):
+                 global_ind_offset, list_of_grids):
     """ Update a 2d grid to conform to a new grid along a 1d line.
 
     Intended use: A 1d mesh that is embedded in a 2d mesh (along a fracture)
@@ -220,6 +220,8 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
 
     # Global index of deleted points
     old_global_pts = g.global_point_ind[delete_nodes]
+    new_global_pts = global_ind_offset + np.arange(new_grid_1d.num_nodes)
+
     # Update any occurences of the old points in other grids. When sewing
     # together a DFN grid, this may involve more and more updates as common
     # nodes are found along intersections.
@@ -231,8 +233,7 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
     g.global_point_ind = np.delete(g.global_point_ind, delete_nodes)
 
     g.num_nodes = g.nodes.shape[1]
-    return new_nodes, num_nodes_not_on_fracture, delete_faces,
-         old_global_points,
+    return new_nodes, delete_faces, global_ind_offset
 
 
 def update_face_nodes(g, delete_faces, num_new_faces, new_node_offset,
@@ -249,7 +250,7 @@ def update_face_nodes(g, delete_faces, num_new_faces, new_node_offset,
             face_nodes and num_faces.
         delete_faces (np.array): Index of faces to be deleted.
         num_new_faces (int): Number of new faces to create.
-        new_node_offset (int): Offset index of the new fractures.
+        new_node_offset (int): Offset index of the new nodes.
         nodes_per_face (int, optional): Number of nodes per face, assumed equal
             for all faces. Defaults to g.dim, that is, simplex grids
 
@@ -290,8 +291,8 @@ def update_face_nodes(g, delete_faces, num_new_faces, new_node_offset,
     return ind_new_face
 
 
-def update_cell_faces(g, delete_faces, new_faces, in_combined, cell_1d,
-                      fn_orig, node_coord_orig, tol=1e-4):
+def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
+                      node_coord_orig, tol=1e-4):
     """ Replace faces in a cell-face map.
 
     If faces have been refined (or otherwise modified), it is necessary to
@@ -324,7 +325,6 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, cell_1d,
         in_combined (np.ndarray): Map between old and new faces.
             delete_faces[i] is replaced by
             new_faces[in_combined[i]:in_combined[i+1]].
-        cell_1d
         fn_orig (np.ndarray): Face-node relation of the orginial grid, before
             update of faces.
         node_coord_orig (np.ndarray): Node coordinates of orginal grid,
@@ -359,7 +359,7 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, cell_1d,
     # Safeguarding (or stupidity?): Only faces along 1d grid have non-negative
     # index, but we should never hit any of the other elements
     cf_2_f = -np.ones(delete_faces.max()+1, dtype=np.int)
-    cf_2_f[delete_faces] = cell_1d
+    cf_2_f[delete_faces] = np.arange(delete_faces.size)
 
     # Map from faces, as stored in cell_faces,to the corresponding cells
     face_2_cell = rldecode(np.arange(indptr.size), np.diff(indptr))
