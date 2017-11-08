@@ -2417,6 +2417,11 @@ class FractureNetwork(object):
         other_frac = np.empty(0, dtype=np.int)
 
         for i in isect:
+            if i.first.index == frac_num:
+                other_frac = np.append(other_frac, i.second.index)
+            else:
+                other_frac = np.append(other_frac, i.first.index)
+
             tmp_p = rot_translate(i.coord)
             if tmp_p.shape[1] > 0:
                 assert np.max(np.abs(tmp_p[2])) < self.tol
