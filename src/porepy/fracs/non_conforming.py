@@ -44,8 +44,16 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
         TensorGrid: New tensor grid, containing the combined node definition.
         int: New global ind offset, increased by the number of cells in the
             combined grid.
-        np.array (int): Indices of common nodes of g and the new grid.
-        np.array (int): Indices of common nodes of h and the new grid.
+        np.array (int): Indices of common nodes (after sorting) of g and the
+            new grid.
+        np.array (int): Indices of common nodes (after sorting) of h and the
+            new grid.
+        np.array (int): Permutation indices that sort the node coordinates of
+            g. The common indices between g and the new grid are found as
+            new_grid.nodes[:, g_in_combined] = g.nodes[:, sorted]
+        np.array (int): Permutation indices that sort the node coordinates of
+            h. The common indices between h and the new grid are found as
+            new_grid.nodes[:, h_in_combined] = h.nodes[:, sorted]
 
     """
 
@@ -117,7 +125,8 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     # Assign global indices to 1d mesh
     new_grid.global_point_ind = new_global_pts
 
-    return new_grid, global_ind_offset, g_in_combined, h_in_combined
+    return new_grid, global_ind_offset, g_in_combined, h_in_combined, g_sort,\
+         h_sort
 
 
 def update_global_point_ind(grid_list, old_ind, new_ind):
