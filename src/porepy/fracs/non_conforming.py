@@ -30,6 +30,7 @@ def merge_grids(grids, intersections):
     list_of_grids, global_ind_offset = init_global_ind(grids)
     process_intersections(grids, intersections, global_ind_offset,
                           list_of_grids)
+    return list_of_grids
 
 
 def init_global_ind(gl):
