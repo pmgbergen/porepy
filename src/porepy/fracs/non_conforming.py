@@ -24,6 +24,45 @@ from porepy.fracs import meshing
 from porepy import TensorGrid
 
 
+
+
+def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids):
+
+    combined_1d, global_ind_offset, g_in_combined, h_in_combined,\
+        g_sort, h_sort = merge_1d_grids(g_1d, h_1d, global_ind_offset)
+
+    fn_orig = np.reshape(g.face_nodes.indices, (2, g.num_faces), order='F')
+    node_coord_orig = g.nodes.copy()
+    new_nodes, delete_faces, global_ind_offset =\
+        update_nodes(g, g_1d, combined_1d, g_in_combined, g_sort,
+                     global_ind_offset, list_of_grids)
+
+    num_new_faces = combined_1d.num_cells
+    new_nodes_offset = new_nodes[0]
+    new_faces = update_face_nodes(g, delete_faces, num_new_faces,
+                                  new_nodes_offset)
+
+    update_cell_faces(g, delete_faces, new_faces, g_in_combined, fn_orig,
+                      node_coord_orig)
+
+    # Then updates for the second grid
+    fn_orig = np.reshape(h.face_nodes.indices, (2, h.num_faces), order='F')
+    node_coord_orig = h.nodes.copy()
+    new_nodes, delete_faces, global_ind_offset =\
+        update_nodes(h, h_1d, combined_1d, h_in_combined, h_sort,
+                     global_ind_offset, list_of_grids)
+
+    new_nodes_offset = new_nodes[0]
+    new_faces = update_face_nodes(h, delete_faces, num_new_faces,
+                                  new_nodes_offset)
+
+    update_cell_faces(h, delete_faces, new_faces, h_in_combined, fn_orig,
+                      node_coord_orig)
+
+
+    return combined_1d, global_ind_offset
+
+
 def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     """ Merge two 1d grids with non-matching nodes to a single grid.
 
