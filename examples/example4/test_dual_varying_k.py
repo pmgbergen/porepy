@@ -9,7 +9,7 @@ from porepy.params.data import Parameters
 from porepy.grids import structured, simplex
 from porepy.grids import coarsening as co
 
-from porepy.numerics.vem import dual, source
+from porepy.numerics.vem import vem_dual, vem_source
 
 #------------------------------------------------------------------------------#
 
@@ -79,10 +79,10 @@ def main(N):
     data = add_data(g)
 
     # Choose and define the solvers
-    solver_flow = dual.DualVEM('flow')
+    solver_flow = vem_dual.DualVEM('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(g, data)
 
-    solver_source = source.Integral('flow')
+    solver_source = vem_source.Integral('flow')
     A_source, b_source = solver_source.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
