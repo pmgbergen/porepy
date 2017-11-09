@@ -29,8 +29,9 @@ class Integral(Solver):
     def matrix_rhs(self, g, data):
         param = data['param']
         sources = param.get_source(self)
-        lhs = sps.csc_matrix((g.num_cells, g.num_cells))
-        assert sources.size == g.num_cells, 'There should be one soure value for each cell'
+        lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
+        assert sources.size == self.ndof(g), \
+                                 'There should be one soure value for each cell'
         return lhs, sources
 
 #------------------------------------------------------------------------------
