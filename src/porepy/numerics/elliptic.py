@@ -144,7 +144,7 @@ class Elliptic():
 class DualElliptic(Elliptic):
 
     def __init__(self, gb, data=None, physics='flow'):
-        super(DualElliptic, self).__init__(gb, data, physics)
+        Elliptic.__init__(self, gb, data, physics)
 
         self.discharge_name = str()
         self.projected_discharge_name = str()
