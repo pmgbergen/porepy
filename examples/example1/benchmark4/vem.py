@@ -11,9 +11,7 @@ from porepy.params.data import Parameters
 from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
-from porepy.numerics.vem import dual
-
-from porepy.utils.errors import error
+from porepy.numerics.vem import vem_dual, vem_source
 
 #------------------------------------------------------------------------------#
 
@@ -91,10 +89,13 @@ exporter.export_vtk(gb, 'grid', folder='vem')
 add_data(gb, domain)
 
 # Choose and define the solvers and coupler
-solver = dual.DualVEMMixDim("flow")
-A, b = solver.matrix_rhs(gb)
+solver_flow = vem_dual.DualVEMMixDim('flow')
+A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-up = sps.linalg.spsolve(A, b)
+solver_source = vem_source.IntegralMixDim('flow')
+A_source, b_source = solver_source.matrix_rhs(gb)
+
+up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
 solver.split(gb, "up", up)
 
 gb.add_node_props(["discharge", "p", "P0u"])
