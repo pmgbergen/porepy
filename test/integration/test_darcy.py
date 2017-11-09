@@ -10,7 +10,7 @@ from porepy.params import tensor, bc
 
 class BasicsTest(unittest.TestCase):
 
-    #------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
     def test_mono_equals_multi(self):
         """
@@ -45,6 +45,7 @@ class BasicsTest(unittest.TestCase):
         p_mult = problem_mult.solve()
 
         assert np.allclose(p_mono, p_mult)
+
 #------------------------------------------------------------------------------#
 
     def test_elliptic_uniform_flow_cart(self):
@@ -64,7 +65,7 @@ class BasicsTest(unittest.TestCase):
         """
         Unstructured simplex grid. Note that the solution depends
         on the grid quality. Also sensitive to the way in which
-        the tpfa half transmissibilities are computed. 
+        the tpfa half transmissibilities are computed.
         """
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
         problem = elliptic.Elliptic(gb)
