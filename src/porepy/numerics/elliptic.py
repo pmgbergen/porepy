@@ -8,7 +8,7 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.numerics.fv import tpfa, source, fvutils
-import porepy.numerics.vem as vem
+from porepy.numerics.vem import vem_dual, vem_source
 from porepy.grids.grid_bucket import GridBucket
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
@@ -64,7 +64,6 @@ class Elliptic():
         self.lhs = []
         self.rhs = []
         self.x = []
-        self.is_x_split = False
 
         self.parameters = {'file_name': physics}
         self.parameters['folder_name'] = 'results'
@@ -152,15 +151,15 @@ class DualElliptic(Elliptic):
 
     def source_disc(self):
         if self.is_GridBucket:
-            return vem.source.IntegralMixDim(physics=self.physics)
+            return vem_source.IntegralMixDim(physics=self.physics)
         else:
-            return vem.source.Integral(physics=self.physics)
+            return vem_source.Integral(physics=self.physics)
 
     def flux_disc(self):
         if self.is_GridBucket:
-            return vem.dual.DualVEMMixDim(physics=self.physics)
+            return vem_dual.DualVEMMixDim(physics=self.physics)
         else:
-            return vem.dual.DualVEM(physics=self.physics)
+            return vem_dual.DualVEM(physics=self.physics)
 
     def pressure(self, pressure_name='pressure'):
         self.pressure_name = pressure_name
@@ -178,7 +177,7 @@ class DualElliptic(Elliptic):
                                                         for _, d in self._gb]
         else:
             discharge = self._flux_disc.extract_u(self._gb, self.x)
-            self._data['param'].set_discharge(dischage)
+            self._data['param'].set_discharge(discharge)
             self._data[self.discharge_name] = discharge
 
     def project_discharge(self, projected_discharge_name="P0u"):
@@ -187,8 +186,9 @@ class DualElliptic(Elliptic):
             self._flux_disc.project_u(self._gb, self.discharge_name,
                                       self.projected_discharge_name)
         else:
+            discharge = self._data[self.discharge_name]
             projected_discharge = self._flux_disc.project_u(self._gb,
-                                                     self.discharge, self._data)
+                                                          discharge, self._data)
             self._data[self.projected_discharge_name] = projected_discharge
 
 #------------------------------------------------------------------------------#
