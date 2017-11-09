@@ -3,7 +3,7 @@ import scipy.sparse as sps
 
 from porepy.numerics.fv import fvutils
 from porepy.grids import structured, simplex
-
+from porepy.params.data import Parameters
 
 def test_block_matrix_inverters_full_blocks():
     """
@@ -130,3 +130,20 @@ def test_block_matrix_invertes_sparse_blocks():
             # we consider this okay, and do not fail the test. This behavior
             # may change in the future.
             pass
+
+
+def test_compute_discharge_mono_grid():
+    g = structured.CartGrid([1, 1])
+    flux = sps.csc_matrix((4, 1))
+    bound_flux = sps.csc_matrix(np.array([[0,0,0,3],[5,0,0,0],[1,0,0,0],[3,0,0,0]]))
+    data = {'param': Parameters(g)}
+    bc_val = np.array([1,2,3,4])
+    data['param'].set_bc_val('flow', bc_val)
+    data['flux'] = flux
+    data['bound_flux'] = bound_flux
+    data['p'] = np.array([3.14])
+    fvutils.compute_discharges(g, data=data)
+    dis = data['param'].discharge
+
+    dis_true = flux * data['p'] +  bound_flux * bc_val
+    assert np.allclose(dis, dis_true)

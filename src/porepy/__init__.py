@@ -31,7 +31,7 @@ from porepy.numerics.fv.mpfa import Mpfa, MpfaMixDim
 from porepy.numerics.fv.biot import Biot
 
 # Virtual elements, elliptic
-from porepy.numerics.vem.dual import DualVEM, DualVEMMixDim
+from porepy.numerics.vem.vem_dual import DualVEM, DualVEMMixDim
 from porepy.numerics.vem.hybrid import HybridDualVEM
 
 # Transport related

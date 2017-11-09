@@ -15,7 +15,7 @@ from porepy.params.bc import BoundaryCondition
 from porepy.params import tensor
 from porepy.params.data import Parameters
 
-from porepy.numerics.vem import dual
+from porepy.numerics.vem import vem_dual, vem_source
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics.fv import mass_matrix
 from porepy.viz.exporter import export_vtk, export_pvd
@@ -162,11 +162,14 @@ class BasicsTest( unittest.TestCase ):
         param.set_bc_val("flow", bc_val)
 
         # Darcy solver
-        solver = dual.DualVEM("flow")
         data = {'param': param}
-        D, rhs = solver.matrix_rhs(g, data)
+        solver = vem_dual.DualVEM("flow")
+        D_flow, b_flow = solver.matrix_rhs(g, data)
 
-        up = sps.linalg.spsolve(D, rhs)
+        solver_source = vem_source.Integral('flow')
+        D_source, b_source = solver_source.matrix_rhs(g, data)
+
+        up = sps.linalg.spsolve(D_flow+D_source, b_flow+b_source)
 
         p, u = solver.extract_p(g, up), solver.extract_u(g, up)
         P0u = solver.project_u(g, u, data)
