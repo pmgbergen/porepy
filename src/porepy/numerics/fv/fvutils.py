@@ -10,7 +10,7 @@ import scipy.sparse as sps
 
 from porepy.utils import matrix_compression, mcolon
 from porepy.params.data import Parameters
-
+from porepy.grids.grid_bucket import GridBucket
 
 class SubcellTopology(object):
     """
@@ -960,7 +960,14 @@ def compute_discharges(gb, physics='flow', p_name='p', data=None):
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
     if not isinstance(gb, GridBucket):
-        gb = (gb, data)
+        pa = data['param']
+        if data.get('flux') is not None:
+            dis = data['flux'] * data[p_name] + data['bound_flux'] \
+                               * pa.get_bc_val(physics)
+        else:
+            dis = np.zeros(g.num_faces)
+        pa.set_discharge(dis)
+        return
 
     for g, d in gb:
         if g.dim > 0:
@@ -971,8 +978,6 @@ def compute_discharges(gb, physics='flow', p_name='p', data=None):
             else:
                 dis = np.zeros(g.num_faces)
             pa.set_discharge(dis)
-    if not isinstance(gb, GridBucket):
-        return
 
     for e, data in gb.edges_props():
         # According to the sorting convention, g2 is the higher dimensional grid,
