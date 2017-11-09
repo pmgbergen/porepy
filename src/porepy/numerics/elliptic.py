@@ -33,7 +33,7 @@ class Elliptic():
     Functions:
     solve(): Calls reassemble and solves the linear system.
              Returns: the pressure p.
-             Sets attributes: self.solution
+             Sets attributes: self.x
     step(): Same as solve, but without reassemble of the matrices
     reassemble(): Assembles the lhs matrix and rhs array.
             Returns: lhs, rhs.
@@ -44,7 +44,7 @@ class Elliptic():
             Returns Flux discretization object (E.g., Tpfa)
     grid(): Returns: the Grid or GridBucket
     data(): Returns: Data dictionary
-    split(name): Assignes the solution self.solution to the data dictionary at each
+    split(name): Assignes the solution self.x to the data dictionary at each
                  node in the GridBucket.
                  Parameters:
                     name: (string) The keyword assigned to the pressure
