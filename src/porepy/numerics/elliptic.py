@@ -8,6 +8,7 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.numerics.fv import tpfa, source, fvutils
+import porepy.numerics.vem as vem
 from porepy.grids.grid_bucket import GridBucket
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
@@ -32,7 +33,7 @@ class Elliptic():
     Functions:
     solve(): Calls reassemble and solves the linear system.
              Returns: the pressure p.
-             Sets attributes: self.p
+             Sets attributes: self.solution
     step(): Same as solve, but without reassemble of the matrices
     reassemble(): Assembles the lhs matrix and rhs array.
             Returns: lhs, rhs.
@@ -43,7 +44,7 @@ class Elliptic():
             Returns Flux discretization object (E.g., Tpfa)
     grid(): Returns: the Grid or GridBucket
     data(): Returns: Data dictionary
-    split(name): Assignes the pressure self.p to the data dictionary at each
+    split(name): Assignes the solution self.solution to the data dictionary at each
                  node in the GridBucket.
                  Parameters:
                     name: (string) The keyword assigned to the pressure
@@ -57,17 +58,23 @@ class Elliptic():
     def __init__(self, gb, data=None, physics='flow'):
         self.physics = physics
         self._gb = gb
+        self.is_GridBucket = isinstance(self._gb, GridBucket)
         self._data = data
+
         self.lhs = []
         self.rhs = []
-        self.p = np.zeros(self.flux_disc().ndof(self.grid()))
+        self.x = []
+        self.is_x_split = False
+
         self.parameters = {'file_name': physics}
         self.parameters['folder_name'] = 'results'
 
+        self._flux_disc = self.flux_disc()
+        self._source_disc = self.source_disc()
+
     def solve(self):
-        self.lhs, self.rhs = self.reassemble()
-        self.p = sps.linalg.spsolve(self.lhs, self.rhs)
-        return self.p
+        self.x = sps.linalg.spsolve(*self.reassemble())
+        return self.x
 
     def step(self):
         return self.solve()
@@ -77,33 +84,30 @@ class Elliptic():
         reassemble matrices. This must be called between every time step to
         update the rhs of the system.
         """
-        lhs_flux, rhs_flux = self._discretize(self.flux_disc())
-        lhs_source, rhs_source = self._discretize(self.source_disc())
+        lhs_flux, rhs_flux = self._discretize(self._flux_disc)
+        lhs_source, rhs_source = self._discretize(self._source_disc)
         assert lhs_source.nnz == 0, 'Source lhs different from zero!'
         self.lhs = lhs_flux
         self.rhs = rhs_flux + rhs_source
         return self.lhs, self.rhs
 
     def source_disc(self):
-        if isinstance(self.grid(), GridBucket):
-            source_discr = source.IntegralMixDim(physics=self.physics)
+        if self.is_GridBucket:
+            return source.IntegralMixDim(physics=self.physics)
         else:
-            source_discr = source.Integral(physics=self.physics)
-        return source_discr
+            return source.Integral(physics=self.physics)
 
     def flux_disc(self):
-        if isinstance(self.grid(), GridBucket):
-            diffusive_discr = tpfa.TpfaMixDim(physics=self.physics)
+        if self.is_GridBucket:
+            return tpfa.TpfaMixDim(physics=self.physics)
         else:
-            diffusive_discr = tpfa.Tpfa(physics=self.physics)
-        return diffusive_discr
+            return tpfa.Tpfa(physics=self.physics)
 
     def _discretize(self, discr):
-        if isinstance(self.grid(), GridBucket):
-            lhs, rhs = discr.matrix_rhs(self.grid())
+        if self.is_GridBucket:
+            return discr.matrix_rhs(self.grid())
         else:
-            lhs, rhs = discr.matrix_rhs(self.grid(), self.data())
-        return lhs, rhs
+            return discr.matrix_rhs(self.grid(), self.data())
 
     def grid(self):
         return self._gb
@@ -111,19 +115,83 @@ class Elliptic():
     def data(self):
         return self._data
 
-    def split(self, name):
-        self.flux_disc().split(self.grid(), name, self.p)
+    def split(self, x_name='solution'):
+        self.x_name = x_name
+        self._flux_disc.split(self.grid(), self.x_name, self.x)
 
-    def discharge(self):
-        self.split('p')
-        fvutils.compute_discharges(self.grid())
+    def pressure(self, pressure_name='pressure'):
+        self.pressure_name = pressure_name
+        if self.is_GridBucket:
+            self.split(self.pressure_name)
+        else:
+            self._data[self.pressure_name] = self.x
 
-    def save(self, save_every=None):
-        self.split('p')
-        folder = self.parameters['folder_name']
-        f_name = self.parameters['file_name']
-        export_vtk(self.grid(), f_name, ['p'], folder=folder)
+    def discharge(self, discharge_name='discharge'):
+        if self.is_GridBucket:
+            fvutils.compute_discharges(self.grid(), self.physics,\
+                                       self.pressure_name)
+        else:
+            pass
 
+    def save(self, variables, save_every=None):
+        folder_name = self.parameters['folder_name']
+        file_name = self.parameters['file_name']
+        if not self.is_GridBucket:
+            variables = {k: self._data[k] for k in variables if k in self._data}
+        export_vtk(self.grid(), file_name, variables, folder=folder_name)
+
+#------------------------------------------------------------------------------#
+
+class DualElliptic(Elliptic):
+
+    def __init__(self, gb, data=None, physics='flow'):
+        super(DualElliptic, self).__init__(gb, data, physics)
+
+        self.discharge_name = str()
+        self.projected_discharge_name = str()
+
+    def source_disc(self):
+        if self.is_GridBucket:
+            return vem.source.IntegralMixDim(physics=self.physics)
+        else:
+            return vem.source.Integral(physics=self.physics)
+
+    def flux_disc(self):
+        if self.is_GridBucket:
+            return vem.dual.DualVEMMixDim(physics=self.physics)
+        else:
+            return vem.dual.DualVEM(physics=self.physics)
+
+    def pressure(self, pressure_name='pressure'):
+        self.pressure_name = pressure_name
+        if self.is_GridBucket:
+            self._flux_disc.extract_p(self._gb, self.x_name, self.pressure_name)
+        else:
+            pressure = self._flux_disc.extract_p(self._gb, self.x)
+            self._data[self.pressure_name] = pressure
+
+    def discharge(self, discharge_name="discharge"):
+        self.discharge_name = discharge_name
+        if self.is_GridBucket:
+            self._flux_disc.extract_u(self._gb, self.x_name, self.discharge_name)
+            [d['param'].set_discharge(d[self.discharge_name]) \
+                                                        for _, d in self._gb]
+        else:
+            discharge = self._flux_disc.extract_u(self._gb, self.x)
+            self._data['param'].set_discharge(dischage)
+            self._data[self.discharge_name] = discharge
+
+    def project_discharge(self, projected_discharge_name="P0u"):
+        self.projected_discharge_name = projected_discharge_name
+        if self.is_GridBucket:
+            self._flux_disc.project_u(self._gb, self.discharge_name,
+                                      self.projected_discharge_name)
+        else:
+            projected_discharge = self._flux_disc.project_u(self._gb,
+                                                     self.discharge, self._data)
+            self._data[self.projected_discharge_name] = projected_discharge
+
+#------------------------------------------------------------------------------#
 
 class EllipticData():
     '''
