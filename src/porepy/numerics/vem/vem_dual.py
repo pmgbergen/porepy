@@ -30,14 +30,17 @@ class DualVEMMixDim(SolverMixDim):
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
     def extract_u(self, gb, up, u):
+        gb.add_node_props([u])
         for g, d in gb:
             d[u] = self.discr.extract_u(g, d[up])
 
     def extract_p(self, gb, up, p):
+        gb.add_node_props([p])
         for g, d in gb:
             d[p] = self.discr.extract_p(g, d[up])
 
     def project_u(self, gb, u, P0u):
+        gb.add_node_props([P0u])
         for g, d in gb:
             d[P0u] = self.discr.project_u(g, d[u], d)
 
@@ -346,12 +349,11 @@ class DualVEM(Solver):
         assert not bool(bc is None) != bool(bc_val is None)
 
         rhs = np.zeros(self.ndof(g))
-        is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
-                          np.ones(g.num_cells, dtype=np.bool)))
-
-        rhs[is_p] = -f
         if bc is None:
             return rhs
+
+        is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
+                          np.ones(g.num_cells, dtype=np.bool)))
 
         if np.any(bc.is_dir):
             is_dir = np.where(bc.is_dir)[0]
