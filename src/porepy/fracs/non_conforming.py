@@ -603,6 +603,8 @@ def update_face_tags(g, delete_faces, new_faces):
 
     Delete tags for old faces, and add new tags for their replacements.
 
+    If the grid has no face_tags, no change is done
+
     Parameters:
         g (grid): To be modified
         delete_faces (np.array or list): Faces to be deleted.
@@ -610,11 +612,12 @@ def update_face_tags(g, delete_faces, new_faces):
             replacement faces.
 
     """
-    tags = g.face_tags.copy()
-    tags = np.delete(tags, delete_faces)
-    num_new = np.array([len(new_faces[i]) for i in range(len(new_faces))])
-    new_tags = np.zeros(num_new.sum(), dtype=np.uint8)
-    divides = np.hstack((0, np.cumsum(num_new)))
-    for i, d in enumerate(delete_faces):
-        new_tags[divides[i] : divides[i+1]] = g.face_tags[d]
-    g.face_tags = np.hstack((tags, new_tags))
+    if hasattr(g, 'face_tags'):
+        tags = g.face_tags.copy()
+        tags = np.delete(tags, delete_faces)
+        num_new = np.array([len(new_faces[i]) for i in range(len(new_faces))])
+        new_tags = np.zeros(num_new.sum(), dtype=np.uint8)
+        divides = np.hstack((0, np.cumsum(num_new)))
+        for i, d in enumerate(delete_faces):
+            new_tags[divides[i] : divides[i+1]] = g.face_tags[d]
+        g.face_tags = np.hstack((tags, new_tags))
