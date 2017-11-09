@@ -31,12 +31,26 @@ class BasicsTest(unittest.TestCase):
             bc_val[right] = 1
             return bc_val
 
+        def bc_labels(g):
+            bound_faces = g.get_boundary_faces()
+            bound_face_centers = g.face_centers[:, bound_faces]
+            left = bound_face_centers[0] < 1e-6
+            right = bound_face_centers[0] > 10 - 1e-6
+
+            labels = np.array(['neu'] * bound_faces.size)
+            labels[np.logical_or(right, left)] = 'dir'
+            bc_labels = bc.BoundaryCondition(g, bound_faces, labels)
+
+            return bc_labels
+
         param_g.set_bc_val('flow', bc_val(g))
+        param_g.set_bc('flow', bc_labels(g))
 
         gb.add_node_props(['param'])
         for sub_g, d in gb:
             d['param'] = Parameters(sub_g)
             d['param'].set_bc_val('flow', bc_val(g))
+            d['param'].set_bc('flow', bc_labels(sub_g))
 
         problem_mono = elliptic.Elliptic(g, {'param': param_g})
         problem_mult = elliptic.Elliptic(gb)
