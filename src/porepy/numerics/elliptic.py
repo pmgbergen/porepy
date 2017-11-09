@@ -130,7 +130,9 @@ class Elliptic():
             fvutils.compute_discharges(self.grid(), self.physics,\
                                        self.pressure_name)
         else:
-            pass
+            fvutils.compute_discharges(self.grid(), self.physics,\
+                                       self.pressure_name,
+                                       self._data)
 
     def save(self, variables, save_every=None):
         folder_name = self.parameters['folder_name']
