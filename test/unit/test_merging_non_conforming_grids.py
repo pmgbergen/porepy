@@ -580,6 +580,429 @@ class TestMeshMerging(unittest.TestCase):
         assert ismem.sum() == g_1d.num_nodes
         assert np.allclose(g3.nodes[:, maps], g_1d.nodes)
 
+    def test_merge_two_grids_hanging_node(self):
+        # Merge three grids, where a central cell share one face each with the two
+        # other. Importantly, one node will be involved in both shared faces.
+        data = np.ones(10)
+        rows = np.array([0, 1, 1, 2, 2, 3, 3, 0, 3, 1])
+        cols = np.array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4])
+        fn_1 = sps.coo_matrix((data, (rows, cols)))
+
+        data = np.ones(6)
+        rows = np.array([0, 1, 1, 2, 2, 0])
+        cols = np.array([0, 0, 1, 1, 2, 2])
+        fn_2 = sps.coo_matrix((data, (rows, cols)))
+
+        data = np.ones(6)
+        rows = np.array([0, 4, 3, 1, 2, 4])
+        cols = np.array([0, 0, 0, 1, 1, 1])
+        cf_1 = sps.coo_matrix((data, (rows, cols)))
+
+        data = np.ones(3)
+        rows = np.array([0, 1, 2])
+        cols = np.array([0, 0, 0])
+        cf_2 = sps.coo_matrix((data, (rows, cols)))
+
+
+        nodes_1 = np.array([[0, 1, 2, 1], [0, 0, 0, 1], [0, 0, 0, 0]])
+        nodes_2 = np.array([[0, 2, 1], [0, 0, -1], [0, 0, 0]])
+
+        # Central grid
+        g1 = MockGrid(2, num_faces=5, face_nodes=fn_1, cell_faces=cf_1, num_cells=2,
+                      nodes=nodes_1)
+        # First neighboring grid
+        g2 = MockGrid(2, num_faces=3, face_nodes=fn_2, cell_faces=cf_2, num_cells=1,
+                      nodes=nodes_2)
+        # First 1d grid, as seen from g1
+        g_11 = TensorGrid(np.array([0, 1, 2]))
+        g_11.global_point_ind = np.arange(3)
+        # Second 1d grid, as seen from g1
+
+        # First 1d grid, as seen from g2
+        g_22 = TensorGrid(np.array([0, 2]))
+        g_22.global_point_ind = np.arange(2)
+        # Second 1d grid, as seen from g3
+
+        gl = [[[g1], [g_11]], [[g2], [g_22]]]
+        intersections = [np.array([1]), np.array([0])]
+
+        list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
+        grid_list_1d = non_conforming.process_intersections(gl, intersections,
+                                                            glob_ind,
+                                                            list_of_grids)
+        assert len(grid_list_1d) == 1
+
+        g_1d = grid_list_1d[0]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
+        ismem, maps = ismember_rows(g_1d.global_point_ind, g2.global_point_ind)
+
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(g2.nodes[:, maps], g_1d.nodes)
+
+
+    def test_merge_three_grids_hanging_node_shared_node(self):
+        # Merge three grids, where a central cell share one face each with the two
+        # other. Importantly, one node will be involved in both shared faces.
+        data = np.ones(10)
+        rows = np.array([0, 1, 1, 2, 2, 3, 3, 0, 3, 1])
+        cols = np.array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4])
+        fn_1 = sps.coo_matrix((data, (rows, cols)))
+
+        data = np.ones(6)
+        rows = np.array([0, 1, 1, 2, 2, 0])
+        cols = np.array([0, 0, 1, 1, 2, 2])
+        fn_2 = sps.coo_matrix((data, (rows, cols)))
+
+        data = np.ones(6)
+        rows = np.array([0, 4, 3, 1, 2, 4])
+        cols = np.array([0, 0, 0, 1, 1, 1])
+        cf_1 = sps.coo_matrix((data, (rows, cols)))
+
+        data = np.ones(3)
+        rows = np.array([0, 1, 2])
+        cols = np.array([0, 0, 0])
+        cf_2 = sps.coo_matrix((data, (rows, cols)))
+
+
+        nodes_1 = np.array([[0, 1, 2, 1], [0, 0, 0, 1], [0, 0, 0, 0]])
+        nodes_2 = np.array([[0, 2, 1], [0, 0, -1], [0, 0, 0]])
+        nodes_3 = np.array([[0, 1, 0], [0, 1, 1], [0, 0, 0]])
+        # Central grid
+        g1 = MockGrid(2, num_faces=5, face_nodes=fn_1, cell_faces=cf_1, num_cells=2,
+                      nodes=nodes_1)
+        # First neighboring grid
+        g2 = MockGrid(2, num_faces=3, face_nodes=fn_2, cell_faces=cf_2, num_cells=1,
+                      nodes=nodes_2)
+        g3 = MockGrid(2, num_faces=3, face_nodes=fn_2, cell_faces=cf_2, num_cells=1,
+                      nodes=nodes_3)
+
+        # First 1d grid, as seen from g1
+        g_11 = TensorGrid(np.array([0, 1, 2]))
+        g_11.global_point_ind = np.arange(3)
+        # Second 1d grid, as seen from g1
+        g_13 = TensorGrid(np.array([0, 1]))
+        g_13.nodes = np.array([[0, 1], [0, 1], [0, 0]])
+        # Point indices adjusted according to ordering in nodes_1
+        g_13.global_point_ind = np.array([0, 3])
+
+        # First 1d grid, as seen from g2
+        g_22 = TensorGrid(np.array([0, 2]))
+        g_22.global_point_ind = np.arange(2)
+        # Second 1d grid, as seen from g3
+        g_33 = TensorGrid(np.array([0, 1]))
+        g_33.nodes = np.array([[0, 1], [0, 1], [0, 0]])
+        g_33.global_point_ind = np.arange(2)
+
+        gl = [[[g1], [g_11, g_13]], [[g2], [g_22]], [[g3], [g_33]]]
+        intersections = [np.array([1, 2]), np.array([0]), np.array([0])]
+
+        list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
+        grid_list_1d = non_conforming.process_intersections(gl, intersections,
+                                                            glob_ind,
+                                                            list_of_grids)
+        assert len(grid_list_1d) == 2
+
+        g_1d = grid_list_1d[0]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
+        ismem, maps = ismember_rows(g_1d.global_point_ind, g2.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(g2.nodes[:, maps], g_1d.nodes)
+
+        g_1d = grid_list_1d[1]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
+        ismem, maps = ismember_rows(g_1d.global_point_ind, g3.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(g3.nodes[:, maps], g_1d.nodes)
+
+    def test_merge_three_grids_internal_intersection_no_hanging_node(self):
+        # Merge three grids, where a central cell share one face each with the two
+        # other. Importantly, one node will be involved in both shared faces.
+        data = np.ones(16)
+        rows = np.array([0, 1, 1, 2, 0, 3, 0, 4, 1, 3, 1, 4, 2, 3, 2, 4])
+        cols = np.array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7])
+        fn = sps.coo_matrix((data, (rows, cols)))
+
+        data = np.ones(12)
+        rows = np.array([0, 5, 3, 1, 7, 5, 0, 2, 4, 1, 4, 6])
+        cols = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3])
+        cf = sps.coo_matrix((data, (rows, cols)))
+
+        nodes_1 = np.array([[-1, 0, 1, 0, 0], [0, 0, 0, -1, 1], [0, 0, 0, 0, 0]])
+        nodes_2 = np.array([[-1, 0, 1, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, -1, 1]])
+        nodes_3 = np.array([[0, 0, 0, 0, 0], [-1, 0, 1, 0, 0], [0, 0, 0, -1, 1]])
+        # Central grid
+        gxy = MockGrid(2, num_faces=8, face_nodes=fn, cell_faces=cf, num_cells=4,
+                      nodes=nodes_1)
+        # First neighboring grid
+        gxz = MockGrid(2, num_faces=8, face_nodes=fn, cell_faces=cf, num_cells=4,
+                      nodes=nodes_2)
+        gyz = MockGrid(2, num_faces=8, face_nodes=fn, cell_faces=cf, num_cells=4,
+                      nodes=nodes_3)
+
+        # First 1d grid, as seen from g1
+        g_1x = TensorGrid(np.array([0, 1, 2]))
+        g_1x.nodes = np.array([[-1, 0, 1], [0, 0, 0], [0, 0, 0]])
+        g_1x.global_point_ind = np.array([2, 0, 1])
+        # Third 1d grid, as seen from g1
+        g_1y = TensorGrid(np.array([0, 1, 2]))
+        g_1y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
+        # Point indices adjusted according to ordering in nodes_1
+        g_1y.global_point_ind = np.array([3, 1, 4])
+
+        # First 1d grid, as seen from g2
+        g_2x = TensorGrid(np.array([0, 1, 2]))
+        g_2x.nodes = np.array([[-1, 0, 1], [0, 0, 0], [0, 0, 0]])
+        g_2x.global_point_ind = np.arange(3)
+        # Third 1d grid, as seen from g2
+        g_2z = TensorGrid(np.array([0, 1, 2]))
+        g_2z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
+        # Point indices adjusted according to ordering in nodes_1
+        g_2z.global_point_ind = np.array([3, 1, 4])
+
+        g_3y = TensorGrid(np.array([0, 1, 2]))
+        g_3y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
+        g_3y.global_point_ind = np.arange(3)
+        # Second 1d grid, as seen from g1
+        g_3z = TensorGrid(np.array([0, 1, 2]))
+        g_3z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
+        # Point indices adjusted according to ordering in nodes_1
+        g_3z.global_point_ind = np.array([3, 1, 4])
+
+
+        gl = [[[gxy], [g_1x, g_1y]], [[gxz], [g_2x, g_2z]], [[gyz], [g_3y, g_3z]]]
+        intersections = [np.array([1, 2]), np.array([0, 2]), np.array([0, 1])]
+
+        list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
+        grid_list_1d = non_conforming.process_intersections(gl, intersections,
+                                                            glob_ind,
+                                                            list_of_grids)
+        assert len(grid_list_1d) == 3
+
+        g_1d = grid_list_1d[0]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+
+        g_1d = grid_list_1d[1]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+
+        g_1d = grid_list_1d[2]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+
+
+    def test_merge_three_grids_internal_intersection_no_hanging_node_reverse_order(self):
+        # Merge three grids, where a central cell share one face each with the two
+        # other. Importantly, one node will be involved in both shared faces.
+        data = np.ones(16)
+        rows = np.array([0, 1, 1, 2, 0, 3, 0, 4, 1, 3, 1, 4, 2, 3, 2, 4])
+        cols = np.array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7])
+        fn = sps.coo_matrix((data, (rows, cols)))
+
+        data = np.ones(12)
+        rows = np.array([0, 5, 3, 1, 7, 5, 0, 2, 4, 1, 4, 6])
+        cols = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3])
+        cf = sps.coo_matrix((data, (rows, cols)))
+
+        nodes_1 = np.array([[-1, 0, 1, 0, 0], [0, 0, 0, -1, 1], [0, 0, 0, 0, 0]])
+        nodes_2 = np.array([[-1, 0, 1, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, -1, 1]])
+        nodes_3 = np.array([[0, 0, 0, 0, 0], [-1, 0, 1, 0, 0], [0, 0, 0, -1, 1]])
+        # Central grid
+        gxy = MockGrid(2, num_faces=8, face_nodes=fn, cell_faces=cf, num_cells=4,
+                      nodes=nodes_1)
+        # First neighboring grid
+        gxz = MockGrid(2, num_faces=8, face_nodes=fn, cell_faces=cf, num_cells=4,
+                      nodes=nodes_2)
+        gyz = MockGrid(2, num_faces=8, face_nodes=fn, cell_faces=cf, num_cells=4,
+                      nodes=nodes_3)
+
+        # First 1d grid, as seen from g1
+        g_1x = TensorGrid(np.array([0, 1, 2]))
+        g_1x.nodes = np.array([[1, -1, 0], [0, 0, 0], [0, 0, 0]])
+        g_1x.global_point_ind = np.array([2, 0, 1])
+        g_1x.face_nodes.indices = np.array([1, 2, 0])
+        # Third 1d grid, as seen from g1
+        g_1y = TensorGrid(np.array([0, 1, 2]))
+        g_1y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
+        # Point indices adjusted according to ordering in nodes_1
+        g_1y.global_point_ind = np.array([3, 1, 4])
+
+        # First 1d grid, as seen from g2
+        g_2x = TensorGrid(np.array([0, 1, 2]))
+        g_2x.nodes = np.array([[-1, 0, 1], [0, 0, 0], [0, 0, 0]])
+        g_2x.global_point_ind = np.arange(3)
+        # Third 1d grid, as seen from g2
+        g_2z = TensorGrid(np.array([0, 1, 2]))
+        g_2z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
+        # Point indices adjusted according to ordering in nodes_1
+        g_2z.global_point_ind = np.array([3, 1, 4])
+
+        g_3y = TensorGrid(np.array([0, 1, 2]))
+        g_3y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
+        g_3y.global_point_ind = np.arange(3)
+        # Second 1d grid, as seen from g1
+        g_3z = TensorGrid(np.array([0, 1, 2]))
+        g_3z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
+        # Point indices adjusted according to ordering in nodes_1
+        g_3z.global_point_ind = np.array([3, 1, 4])
+
+
+        gl = [[[gxy], [g_1x, g_1y]], [[gxz], [g_2x, g_2z]], [[gyz], [g_3y, g_3z]]]
+        intersections = [np.array([1, 2]), np.array([0, 2]), np.array([0, 1])]
+
+        list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
+        grid_list_1d = non_conforming.process_intersections(gl, intersections,
+                                                            glob_ind,
+                                                            list_of_grids)
+        assert len(grid_list_1d) == 3
+
+        g_1d = grid_list_1d[0]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+
+        g_1d = grid_list_1d[1]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+
+        g_1d = grid_list_1d[2]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+
+
+    def test_merge_three_grids_internal_intersection_hanging_node(self):
+        # Merge three grids, where a central cell share one face each with the two
+        # other. Importantly, one node will be involved in both shared faces.
+        data = np.ones(20)
+        rows = np.array([0, 1, 1, 2, 2, 3, 0, 4, 0, 5, 1, 4, 2, 4, 2, 5, 3, 4, 3, 5])
+        cols = np.array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9])
+        fn_1 = sps.coo_matrix((data, (rows, cols)))
+
+        data = np.ones(15)
+        rows = np.array([0, 5, 3, 1, 5, 6, 0, 4, 7, 2, 6, 8, 2, 7, 9])
+        cols = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4])
+        cf_1 = sps.coo_matrix((data, (rows, cols)))
+
+
+        data = np.ones(16)
+        rows = np.array([0, 1, 1, 2, 0, 3, 0, 4, 1, 3, 1, 4, 2, 3, 2, 4])
+        cols = np.array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7])
+        fn_2 = sps.coo_matrix((data, (rows, cols)))
+
+        data = np.ones(12)
+        rows = np.array([0, 5, 3, 1, 7, 5, 0, 2, 4, 1, 4, 6])
+        cols = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3])
+        cf_2 = sps.coo_matrix((data, (rows, cols)))
+
+        nodes_1 = np.array([[-1, -0.5, 0, 1, 0, 0],
+                            [0, 0, 0, 0, -1, 1],
+                            [0, 0, 0, 0, 0, 0]])
+        nodes_2 = np.array([[-1, 0, 1, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, -1, 1]])
+        nodes_3 = np.array([[0, 0, 0, 0, 0], [-1, 0, 1, 0, 0], [0, 0, 0, -1, 1]])
+        # Central grid
+        gxy = MockGrid(2, num_faces=10, face_nodes=fn_1, cell_faces=cf_1, num_cells=5,
+                      nodes=nodes_1)
+        # First neighboring grid
+        gxz = MockGrid(2, num_faces=8, face_nodes=fn_2, cell_faces=cf_2,
+                       num_cells=4, nodes=nodes_2)
+        gyz = MockGrid(2, num_faces=8, face_nodes=fn_2, cell_faces=cf_2, num_cells=4,
+                      nodes=nodes_3)
+
+        # First 1d grid, as seen from g1
+        g_1x = TensorGrid(np.array([0, 1, 2, 3]))
+        g_1x.nodes = np.array([[-1, -0.5, 0, 1], [0, 0, 0, 0], [0, 0, 0, 0]])
+        g_1x.global_point_ind = np.arange(4)
+        # Third 1d grid, as seen from g1
+        g_1y = TensorGrid(np.array([0, 1, 2]))
+        g_1y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
+        # Point indices adjusted according to ordering in nodes_1
+        g_1y.global_point_ind = np.array([4, 2, 5])
+
+        # First 1d grid, as seen from g2
+        g_2x = TensorGrid(np.array([0, 1, 2]))
+        g_2x.nodes = np.array([[-1, 0, 1], [0, 0, 0], [0, 0, 0]])
+        g_2x.global_point_ind = np.arange(3)
+        # Third 1d grid, as seen from g2
+        g_2z = TensorGrid(np.array([0, 1, 2]))
+        g_2z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
+        # Point indices adjusted according to ordering in nodes_1
+        g_2z.global_point_ind = np.array([3, 1, 4])
+
+        g_3y = TensorGrid(np.array([0, 1, 2]))
+        g_3y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
+        g_3y.global_point_ind = np.arange(3)
+        # Second 1d grid, as seen from g1
+        g_3z = TensorGrid(np.array([0, 1, 2]))
+        g_3z.nodes = np.array([[0, 0, 0], [0, 0, 0], [-1, 0, 1]])
+        # Point indices adjusted according to ordering in nodes_1
+        g_3z.global_point_ind = np.array([3, 1, 4])
+
+
+        gl = [[[gxz], [g_2z, g_2x]], [[gyz], [g_3z, g_3y]], [[gxy], [g_1x, g_1y]]]
+        intersections = [np.array([1, 2]), np.array([0, 2]), np.array([0, 1])]
+
+        list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
+        grid_list_1d = non_conforming.process_intersections(gl, intersections,
+                                                            glob_ind,
+                                                            list_of_grids)
+        assert len(grid_list_1d) == 3
+
+        g_1d = grid_list_1d[0]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+
+        g_1d = grid_list_1d[1]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+
+        g_1d = grid_list_1d[2]
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+
+        ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
+        assert ismem.sum() == g_1d.num_nodes
+        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+
 
 
     if __name__ == '__main__':
