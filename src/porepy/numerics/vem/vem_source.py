@@ -1,5 +1,5 @@
 '''
-Discretization of the flux term of an equation.
+Discretization of the source term of an equation.
 '''
 
 import numpy as np
@@ -16,7 +16,7 @@ class Integral(Solver):
     over each grid cell.
 
     All this function does is returning a zero lhs and
-    rhs = param.get_source.physics.
+    rhs = - param.get_source.physics in a saddle point fashion.
     '''
 
     def __init__(self, physics='flow'):
@@ -24,15 +24,22 @@ class Integral(Solver):
         Solver.__init__(self)
 
     def ndof(self, g):
-        return g.num_cells
+        return g.num_cells + g.num_faces
 
     def matrix_rhs(self, g, data):
         param = data['param']
         sources = param.get_source(self)
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
-        assert sources.size == self.ndof(g), \
+        assert sources.size == g.num_cells, \
                                  'There should be one soure value for each cell'
-        return lhs, sources
+
+        rhs = np.zeros(self.ndof(g))
+        is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
+                          np.ones(g.num_cells, dtype=np.bool)))
+
+        rhs[is_p] = -sources
+
+        return lhs, rhs
 
 #------------------------------------------------------------------------------
 

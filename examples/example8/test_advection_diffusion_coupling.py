@@ -11,7 +11,7 @@ from porepy.grids import structured
 from porepy.grids.grid import FaceTag
 
 from porepy.numerics.mixed_dim import coupler
-from porepy.numerics.vem import dual
+from porepy.numerics.vem import vem_dual, vem_source
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics.fv import tpfa
 
@@ -147,15 +147,17 @@ for g, d in gb:
 internal_flag = FaceTag.FRACTURE
 [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
-# Choose and define the solvers and coupler
-darcy = dual.DualVEMMixDim("flow")
-
 # Assign parameters
 add_data_darcy(gb, domain, tol)
 
-A, b = darcy.matrix_rhs(gb)
+# Choose and define the solvers and coupler
+darcy = vem_dual.DualVEMMixDim('flow')
+A_flow, b_flow = darcy.matrix_rhs(gb)
 
-up = sps.linalg.spsolve(A, b)
+solver_source = vem_source.IntegralMixDim('flow')
+A_source, b_source = solver_source.matrix_rhs(gb)
+
+up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
 darcy.split(gb, "up", up)
 
 gb.add_node_props(["p", "P0u"])

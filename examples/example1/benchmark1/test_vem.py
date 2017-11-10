@@ -11,9 +11,7 @@ from porepy.params.data import Parameters
 from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
-from porepy.numerics.vem import dual
-
-from porepy.utils.errors import error
+from porepy.numerics.vem import vem_dual, vem_source
 
 #------------------------------------------------------------------------------#
 
@@ -111,16 +109,19 @@ def main(kf, description, is_coarse=False, if_export=False):
     add_data(gb, domain, kf)
 
     # Choose and define the solvers and coupler
-    solver = dual.DualVEMMixDim('flow')
-    A, b = solver.matrix_rhs(gb)
+    solver_flow = vem_dual.DualVEMMixDim('flow')
+    A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    up = sps.linalg.spsolve(A, b)
-    solver.split(gb, "up", up)
+    solver_source = vem_source.IntegralMixDim('flow')
+    A_source, b_source = solver_source.matrix_rhs(gb)
+
+    up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+    solver_flow.split(gb, "up", up)
 
     gb.add_node_props(["discharge", "p", "P0u"])
-    solver.extract_u(gb, "up", "discharge")
-    solver.extract_p(gb, "up", "p")
-    solver.project_u(gb, "discharge", "P0u")
+    solver_flow.extract_u(gb, "up", "discharge")
+    solver_flow.extract_p(gb, "up", "p")
+    solver_flow.project_u(gb, "discharge", "P0u")
 
     if if_export:
         exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem_' + description)
