@@ -39,8 +39,7 @@ class GmshWriter(object):
         self.lchar = mesh_size
         self.lchar_bound = mesh_size_bound
 
-        if domain is not None:
-            self.domain = domain
+        self.domain = domain
 
         if fracture_tags is not None:
             self.polygon_tags = fracture_tags

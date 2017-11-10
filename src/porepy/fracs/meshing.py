@@ -11,7 +11,7 @@ import scipy.sparse as sps
 import warnings
 import time
 
-from porepy.fracs import structured, simplex, split_grid
+from porepy.fracs import structured, simplex, split_grid, non_conforming
 from porepy.fracs.fractures import Intersection
 from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
@@ -39,7 +39,7 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
         consist of a (nd x n) array describing fracture vertices. The
         fractures may be intersecting.
     domain (dict): Domain specification, determined by xmin, xmax, ...
-    subdomains (list of np.ndarray or list of Fractures): One list item 
+    subdomains (list of np.ndarray or list of Fractures): One list item
         for each fracture, same format as fracs. Specifies internal boundaries
         for the gridding. Only available in 3D.
     **kwargs: May contain fracture tags, options for gridding, etc.
@@ -156,19 +156,14 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
             function in FractureNetwork.
         **kwargs: Parameters passed to gmsh.
 
-    Returns (read carefully, either or here):
+    Returns:
         GridBucket (if conforming is True): Mixed-dimensional mesh that
             represents all fractures, and intersection poitns and line.
-        list of list of grids (if conforming is false): List of meshes created.
-            One list item per dimension, each item may contain several grids
-            (e.g. one per fracture).
-        list of list (if conforming is false): For each fracture, a list of
-            indices of intersecting fractures.
 
     """
 
     if isinstance(fracs, FractureNetwork) \
-       or isinstance(frac, FractureNetwork_full):
+       or isinstance(fracs, FractureNetwork_full):
         network = fracs
     else:
         network = FractureNetwork(fracs)
@@ -183,11 +178,6 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
     if conforming:
         grids = simplex.triangle_grid_embedded(network, find_isect=False,
                                                **kwargs)
-        tag_faces(grids, check_highest_dim=False)
-        gb = assemble_in_bucket(grids)
-        gb.compute_geometry()
-        split_grid.split_fractures(gb)
-        return gb
     else:
 
         grid_list = []
@@ -215,7 +205,15 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
 
             grid_list.append(grids)
             neigh_list.append(other_frac)
-        return grid_list, neigh_list
+
+        grids = non_conforming.merge_grids(grid_list, neigh_list)
+
+    tag_faces(grids, check_highest_dim=False)
+    gb = assemble_in_bucket(grids)
+    gb.compute_geometry()
+    split_grid.split_fractures(gb)
+    return gb
+
 
 #------------------------------------------------------------------------------#
 
