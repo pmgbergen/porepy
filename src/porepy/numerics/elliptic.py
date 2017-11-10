@@ -183,6 +183,8 @@ class DualElliptic(Elliptic):
             self._data[self.discharge_name] = discharge
 
     def project_discharge(self, projected_discharge_name="P0u"):
+        if self.discharge_name is str():
+            self.discharge()
         self.projected_discharge_name = projected_discharge_name
         if self.is_GridBucket:
             self._flux_disc.project_u(self._gb, self.discharge_name,
