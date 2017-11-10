@@ -120,6 +120,9 @@ def process_intersections(grids, intersections, global_ind_offset,
             g_new_1d, global_ind_offset = combine_grids(g, g_1d, h, h_1d,
                                                         global_ind_offset,
                                                         list_of_grids)
+            # Append the new 1d grid to the general list of grids, so that it
+            # will have its global point indices updated as we go.
+            list_of_grids.append(g_new_1d)
             grid_1d_list.append(g_new_1d)
     return grid_1d_list
 
@@ -310,7 +313,7 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
     nodes_per_face = 2
     # Face-node relation for the grid, in terms of local and global indices
     fn = g.face_nodes.indices.reshape((nodes_per_face, g.num_faces), order='F')
-    fn_glob = g.global_point_ind[fn]
+    fn_glob = np.sort(g.global_point_ind[fn], axis=0)
 
     # Mappings between faces in 2d grid and cells in 1d
     # 2d faces along the 1d grid will be deleted.
@@ -336,7 +339,7 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
     # Adjust node indices in the face-node relation
     # First, map nodes between 1d and 2d grids. Use sort_ind here to map
     # indices of g_1d to the same order as the new grid
-    _, node_map_1d_2d = ismember_rows(g_1d.global_point_ind[sort_ind],
+    _, node_map_1d_2d = ismember_rows(g_1d.global_point_ind,
                                       g.global_point_ind[delete_nodes])
     tmp = np.arange(g.num_nodes)
     adjustment = np.zeros_like(tmp)
@@ -358,13 +361,13 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
 
     # Global index of deleted points
     old_global_pts = g.global_point_ind[delete_nodes]
-    new_global_pts = global_ind_offset + np.arange(new_grid_1d.num_nodes)
+
 
     # Update any occurences of the old points in other grids. When sewing
     # together a DFN grid, this may involve more and more updates as common
     # nodes are found along intersections.
     update_global_point_ind(list_of_grids, old_global_pts,
-                            new_global_pts[this_in_combined[node_map_1d_2d]])
+                            new_global_points[this_in_combined[node_map_1d_2d]])
 
     # Delete old nodes
     g.nodes = np.delete(g.nodes, delete_nodes, axis=1)
