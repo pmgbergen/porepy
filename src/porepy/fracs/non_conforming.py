@@ -323,9 +323,12 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
     adjustment[delete_nodes] = 1
     node_adjustment = tmp - np.cumsum(adjustment)
     # Nodes along the 1d grid are deleted and inserted again. Let the
-    # adjutsment point to the restored nodes
-    node_adjustment[delete_nodes[node_map_1d_2d[sort_ind]]] =\
-        g.num_nodes - num_delete_nodes + this_in_combined
+    # adjutsment point to the restored nodes.
+    # node_map_1d_2d maps from ordering in delete_nodes to ordering of 1d
+    # points (old_grid). this_in_combined then maps further to the ordering of
+    # the new 1d grid
+    node_adjustment[delete_nodes] =\
+        g.num_nodes - num_delete_nodes + this_in_combined[node_map_1d_2d]
 
     g.face_nodes.indices = node_adjustment[g.face_nodes.indices]
 
