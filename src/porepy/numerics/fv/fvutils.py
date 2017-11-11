@@ -10,7 +10,7 @@ import scipy.sparse as sps
 
 from porepy.utils import matrix_compression, mcolon
 from porepy.params.data import Parameters
-
+from porepy.grids.grid_bucket import GridBucket
 
 class SubcellTopology(object):
     """
@@ -937,9 +937,9 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
 #------------------------------------------------------------------------------
 
 
-def compute_discharges(gb, physics='flow', p_name='p'):
+def compute_discharges(gb, physics='flow', p_name='p', data=None):
     """
-    Computes discharges over all faces in the entire grid bucket given
+    Computes discharges over all faces in the entire grid /grid bucket given
     pressures for all nodes, provided as node properties.
 
     Parameter:
@@ -959,6 +959,15 @@ def compute_discharges(gb, physics='flow', p_name='p'):
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
+    if not isinstance(gb, GridBucket):
+        pa = data['param']
+        if data.get('flux') is not None:
+            dis = data['flux'] * data[p_name] + data['bound_flux'] \
+                               * pa.get_bc_val(physics)
+        else:
+            dis = np.zeros(g.num_faces)
+        pa.set_discharge(dis)
+        return
 
     for g, d in gb:
         if g.dim > 0:
