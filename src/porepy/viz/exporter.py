@@ -231,9 +231,9 @@ def export_vtk_3d(g):
         for f in fs:
             loc_f = slice(g.face_nodes.indptr[f], g.face_nodes.indptr[f+1])
             ptsId = nodes_faces[loc_f]
-            mask = sort_points.sort_point_plane(g.nodes[:, ptsId],\
-                                                g.face_centers[:, f],\
-                                                g.face_normals[:, f])
+            mask = _sort_points_3d(g.nodes[:, ptsId],
+                                   g.face_centers[:, f],
+                                   g.face_normals[:, f]/g.face_areas[f])
             fsVTK.InsertNextId(ptsId.shape[0]) # Number of points in face
             [fsVTK.InsertNextId(p) for p in ptsId[mask]]
 
@@ -293,3 +293,31 @@ def make_file_name(name, time_step=None, node_number=None):
             return name + "_" + grid + "_" + time + extension
 
 #------------------------------------------------------------------------------#
+
+def _sort_points_3d(nodes, center, normal):
+     """ Helper function to sort points on faces.
+
+     This function is copied from utils.sort_point.sort_point_plane() and
+     subfunctions, but has been modified to speed up calculations.
+     """
+
+     # Cut-down version of cg.project_plane_matrix()
+     reference = np.array([0., 0., 1])
+     angle = np.arccos(np.dot(normal, reference))
+     vect = np.cross(normal, reference)
+
+     # Cut-down version of cg.rot()
+     W = np.array( [[       0., -vect[2],  vect[1]],
+                    [  vect[2],       0., -vect[0]],
+                    [ -vect[1],  vect[0],       0. ]])
+     R = np.identity(3) + np.sin(angle)*W + \
+           (1.-np.cos(angle)) * np.linalg.matrix_power(W, 2)
+     # pts is now a npt x 3 matrix
+     pts = np.array([R.dot(nodes[:, i]) for i in range(nodes.shape[1])])
+     center = R.dot(center)
+
+     # Distance from projected points to center
+     delta = np.array([pts[i] - center for i in range(pts.shape[0])])[:, :2]
+     nrm = np.sqrt(delta[:, 0]**2 + delta[:, 1]**2)
+     delta = delta/nrm[:, np.newaxis]
+     return np.argsort(np.arctan2(delta[:, 0], delta[:, 1]))
