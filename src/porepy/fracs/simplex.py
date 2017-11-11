@@ -88,7 +88,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
                 frac_list.append(f)
             else:
                 # Convert the fractures from numpy representation to our 3D
-                # fracture data structure. 
+                # fracture data structure.
                 frac_list.append(fractures.Fracture(f))
 
         # Combine the fractures into a network
@@ -99,13 +99,14 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     # Impose external boundary. If box is None, a domain size somewhat larger
     # than the network will be assigned.
     network.impose_external_boundary(box)
-    
     # Find intersections and split them, preparing the way for dumping the
     # network to gmsh
     if not network.has_checked_intersections:
         network.find_intersections()
     else:
         print('Use existing intersections')
+
+    start_time = time.time()
 
     # If fields h_ideal and h_min are provided, try to estimate mesh sizes.
     h_ideal = kwargs.get('h_ideal', None)

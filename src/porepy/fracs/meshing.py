@@ -8,10 +8,9 @@ generators etc.
 """
 import numpy as np
 import scipy.sparse as sps
-import warnings
 import time
 
-from porepy.fracs import structured, simplex, split_grid
+from porepy.fracs import structured, simplex, split_grid, non_conforming, utils
 from porepy.fracs.fractures import Intersection
 from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
@@ -39,7 +38,7 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
         consist of a (nd x n) array describing fracture vertices. The
         fractures may be intersecting.
     domain (dict): Domain specification, determined by xmin, xmax, ...
-    subdomains (list of np.ndarray or list of Fractures): One list item 
+    subdomains (list of np.ndarray or list of Fractures): One list item
         for each fracture, same format as fracs. Specifies internal boundaries
         for the gridding. Only available in 3D.
     **kwargs: May contain fracture tags, options for gridding, etc.
@@ -136,7 +135,13 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
 #------------------------------------------------------------------------------#
 
 def dfn(fracs, conforming, intersections=None, **kwargs):
-    """
+    """ Create a mesh of a DFN model, that is, only of fractures.
+
+    The mesh can eihter be conforming along fracture intersections, or each
+    fracture is meshed independently. The latter case will typically require
+    some sort of sewing together external to this funciton.
+
+    TODO: What happens if we give in a non-connected network?
 
     Parameters:
         fracs (either Fractures, or a FractureNetwork).
@@ -150,14 +155,20 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
             function in FractureNetwork.
         **kwargs: Parameters passed to gmsh.
 
+    Returns:
+        GridBucket (if conforming is True): Mixed-dimensional mesh that
+            represents all fractures, and intersection poitns and line.
+
     """
 
     if isinstance(fracs, FractureNetwork) \
-       or isinstance(frac, FractureNetwork_full):
+       or isinstance(fracs, FractureNetwork_full):
         network = fracs
     else:
         network = FractureNetwork(fracs)
 
+    # Populate intersections in FractureNetowrk, or find intersections if not
+    # provided.
     if intersections is not None:
         network.intersections = [Intersection(*i) for i in intersections]
     else:
@@ -166,7 +177,6 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
     if conforming:
         grids = simplex.triangle_grid_embedded(network, find_isect=False,
                                                **kwargs)
-        tag_faces(grids, check_highest_dim=False)
     else:
 
         grid_list = []
@@ -178,6 +188,7 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
 
             f_lines = np.reshape(np.arange(ip.shape[1]), (2, -1), order='F')
             frac_dict = {'points': ip, 'edges': f_lines}
+            # Create mesh on this fracture surface.
             grids = simplex.triangle_grid(frac_dict, fp, verbose=False,
                                           **kwargs)
 
@@ -193,12 +204,15 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
 
             grid_list.append(grids)
             neigh_list.append(other_frac)
-        return grid_list, neigh_list
 
+        grids = non_conforming.merge_grids(grid_list, neigh_list)
+
+    tag_faces(grids, check_highest_dim=False)
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
     split_grid.split_fractures(gb)
     return gb
+
 
 #------------------------------------------------------------------------------#
 
@@ -439,7 +453,7 @@ def assemble_in_bucket(grids, **kwargs):
             fn = np.sort(fn, axis=0)
 
             for lg in grids[dim + 1]:
-                cell_2_face, cell = obtain_interdim_mappings(
+                cell_2_face, cell = utils.obtain_interdim_mappings(
                     lg, fn, n_per_face, **kwargs)
                 face_cells = sps.csc_matrix(
                     (np.ones(cell.size, dtype=bool), (cell, cell_2_face)),
@@ -452,46 +466,3 @@ def assemble_in_bucket(grids, **kwargs):
     return bucket
 
 
-def obtain_interdim_mappings(lg, fn, n_per_face,
-                             ensure_matching_face_cell=True, **kwargs):
-    """
-    Find mappings between faces in higher dimension and cells in the lower
-    dimension
-
-    Parameters:
-        lg: Lower dimensional grid.
-        fn: Higher dimensional face-node relation.
-        n_per_face: Number of nodes per face in the higher-dimensional grid.
-        ensure_matching_face_cell: Boolean, defaults to True. If True, an
-            assertion is made that all lower-dimensional cells corresponds to a
-            higher dimensional cell.
-
-    """
-    if lg.dim > 0:
-        cn_loc = lg.cell_nodes().indices.reshape((n_per_face,
-                                                  lg.num_cells),
-                                                 order='F')
-        cn = lg.global_point_ind[cn_loc]
-        cn = np.sort(cn, axis=0)
-    else:
-        cn = np.array([lg.global_point_ind])
-        # We also know that the higher-dimensional grid has faces
-        # of a single node. This sometimes fails, so enforce it.
-        if cn.ndim == 1:
-            fn = fn.ravel()
-    is_mem, cell_2_face = setmembership.ismember_rows(
-        cn.astype(np.int32), fn.astype(np.int32), sort=False)
-    # An element in cell_2_face gives, for all cells in the
-    # lower-dimensional grid, the index of the corresponding face
-    # in the higher-dimensional structure.
-    if not (np.all(is_mem) or np.all(~is_mem)):
-        if ensure_matching_face_cell:
-            raise ValueError(
-                '''Either all cells should have a corresponding face in a higher
-            dim grid or no cells should have a corresponding face in a higher
-            dim grid. This likely is related to gmsh behavior. ''')
-        else:
-            warnings.warn('''Found inconsistency between cells and higher
-                          dimensional faces. Continuing, fingers crossed''')
-    low_dim_cell = np.where(is_mem)[0]
-    return cell_2_face, low_dim_cell
