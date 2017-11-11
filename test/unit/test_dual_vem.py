@@ -5,7 +5,7 @@ from porepy.grids import structured, simplex
 from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
-from porepy.numerics.vem import dual
+from porepy.numerics.vem import vem_dual as dual
 import porepy.utils.comp_geom as cg
 
 #------------------------------------------------------------------------------#
