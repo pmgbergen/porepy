@@ -9,21 +9,13 @@ Created on Sun Nov  5 11:17:04 2017
 import numpy as np
 import scipy.sparse as sps
 
-from porepy import Fracture, FractureNetwork
-
-from porepy.fracs import importer
-from porepy.fracs import simplex, split_grid
 from porepy.utils.matrix_compression import rldecode
-from porepy.utils.setmembership import unique_columns_tol
-from porepy.fracs import utils as fracutils
-
-
-import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import unique_columns_tol, ismember_rows
-import porepy
-
-from porepy.fracs import meshing
 from porepy import TensorGrid
+
+from porepy.fracs import utils as fracutils
+import porepy.utils.comp_geom as cg
+
 
 
 def merge_grids(grids, intersections):
