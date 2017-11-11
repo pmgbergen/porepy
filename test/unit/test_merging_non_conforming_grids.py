@@ -27,30 +27,22 @@ class TestMeshMerging(unittest.TestCase):
     def test_merge_1d_grids_equal_nodes(self):
         g = TensorGrid(np.array([0, 1, 2]))
         g.compute_geometry()
-        h, offset, g_in_comb, g_in_comb , _, _ =\
+        h, offset, g_in_comb, g_in_comb , g_sort, _ =\
             non_conforming.merge_1d_grids(g, g, global_ind_offset=0, tol=1e-4)
 
-        known_in_comb = np.array([0, 1, 2])
-
-        assert np.allclose(g.nodes, h.nodes)
-        assert offset == 3
-        assert np.allclose(known_in_comb, g_in_comb)
+        assert np.allclose(h.nodes[:, g_in_comb], g.nodes[:, g_sort])
 
     def test_merge_1d_grids_partly_equal_nodes(self):
         g = TensorGrid(np.array([0, 1, 2]))
         h = TensorGrid(np.array([0, 0.5, 1, 2]))
         g.compute_geometry()
         h.compute_geometry()
-        gh, offset, g_in_comb, h_in_comb , _, _=\
+        gh, offset, g_in_comb, h_in_comb , g_sort, h_sort=\
             non_conforming.merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4)
 
-        known_nodes = np.array([0, 0.5, 1, 2])
-        known_g_in_comb = np.array([0, 2, 3])
-        known_h_in_comb = np.array([0, 1, 2, 3])
-        assert np.allclose(known_nodes, gh.nodes[0])
-        assert offset == 4
-        assert np.allclose(known_g_in_comb, g_in_comb)
-        assert np.allclose(known_h_in_comb, h_in_comb)
+        assert np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort])
+        assert np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort])
+
 
     def test_merge_1d_grids_unequal_nodes(self):
         # Unequal nodes along the x-axis
@@ -58,16 +50,11 @@ class TestMeshMerging(unittest.TestCase):
         h = TensorGrid(np.array([0, 0.5, 2]))
         g.compute_geometry()
         h.compute_geometry()
-        gh, offset, g_in_comb, h_in_comb , _, _ =\
+        gh, offset, g_in_comb, h_in_comb , g_sort, h_sort=\
             non_conforming.merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4)
 
-        known_nodes = np.array([0, 0.5, 1, 2])
-        known_g_in_comb = np.array([0, 2, 3])
-        known_h_in_comb = np.array([0, 1, 3])
-        assert np.allclose(known_nodes, gh.nodes[0])
-        assert offset == 4
-        assert np.allclose(known_g_in_comb, g_in_comb)
-        assert np.allclose(known_h_in_comb, h_in_comb)
+        assert np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort])
+        assert np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort])
 
     def test_merge_1d_grids_rotation(self):
         #1d grids rotated
@@ -78,17 +65,29 @@ class TestMeshMerging(unittest.TestCase):
         h.nodes = np.array([[0, 0, 0], [0.5, 0.5, 0.5], [2, 2, 2]]).T
         h.compute_geometry()
 
-        gh, offset, g_in_comb, h_in_comb , _, _ =\
+        gh, offset, g_in_comb, h_in_comb , g_sort, h_sort =\
             non_conforming.merge_1d_grids(g, h, global_ind_offset=0)
+        assert np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort])
+        assert np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort])
 
-        known_nodes = np.array([[0, 0, 0], [0.5, 0.5, 0.5], [1, 1, 1],
-                                [2, 2, 2]]).T
-        known_g_in_comb = np.array([0, 2, 3])
-        known_h_in_comb = np.array([0, 1, 3])
-        assert np.allclose(known_nodes, gh.nodes[0])
-        assert offset == 4
-        assert np.allclose(known_g_in_comb, g_in_comb)
-        assert np.allclose(known_h_in_comb, h_in_comb)
+    def test_merge_1d_permuted_nodes(self):
+        g = TensorGrid(np.array([0, 1, 2]))
+        g.nodes = np.array([[1, -1, 0], [0, 0, 0], [0, 0, 0]])
+        g.global_point_ind = np.array([2, 0, 1])
+        g.face_nodes.indices = np.array([1, 2, 0])
+
+        h = TensorGrid(np.array([-1, 0, 1]))
+        h.global_point_ind = np.array([0, 1, 2])
+        g.compute_geometry()
+        h.compute_geometry()
+        c, *rest = non_conforming.merge_1d_grids(g, h)
+
+        ismem, maps = ismember_rows(c.global_point_ind, g.global_point_ind)
+        assert ismem.sum() == c.num_nodes
+        assert np.allclose(g.nodes[:, maps], c.nodes)
+        ismem, maps = ismember_rows(c.global_point_ind, h.global_point_ind)
+        assert ismem.sum() == c.num_nodes
+        assert np.allclose(h.nodes[:, maps], c.nodes)
 
     def test_update_face_nodes_equal_2d(self):
         data = np.ones(4)
@@ -421,15 +420,13 @@ class TestMeshMerging(unittest.TestCase):
                                                             list_of_grids)
 
         g_1d = grid_list_1d[0]
-        ismem, maps = ismember_rows(g1.global_point_ind, g_1d.global_point_ind)
+        ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
         assert ismem.sum() == g_1d.num_nodes
-        n1 = nodes_1[:, maps]
-        assert np.allclose(n1[:, maps], g_1d.nodes)
+        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
 
-        ismem, maps = ismember_rows(g2.global_point_ind, g_1d.global_point_ind)
+        ismem, maps = ismember_rows(g_1d.global_point_ind, g2.global_point_ind)
         assert ismem.sum() == g_1d.num_nodes
-        n2 = nodes_2[:, maps]
-        assert np.allclose(n2[:, maps], g_1d.nodes)
+        assert np.allclose(g2.nodes[:, maps], g_1d.nodes)
 
     def test_merge_three_grids_no_common_point(self):
         # Merge three grids: One in the mid
@@ -748,7 +745,7 @@ class TestMeshMerging(unittest.TestCase):
         # First 1d grid, as seen from g1
         g_1x = TensorGrid(np.array([0, 1, 2]))
         g_1x.nodes = np.array([[-1, 0, 1], [0, 0, 0], [0, 0, 0]])
-        g_1x.global_point_ind = np.array([2, 0, 1])
+        g_1x.global_point_ind = np.array([0, 1, 2])
         # Third 1d grid, as seen from g1
         g_1y = TensorGrid(np.array([0, 1, 2]))
         g_1y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
@@ -837,9 +834,9 @@ class TestMeshMerging(unittest.TestCase):
 
         # First 1d grid, as seen from g1
         g_1x = TensorGrid(np.array([0, 1, 2]))
-        g_1x.nodes = np.array([[1, -1, 0], [0, 0, 0], [0, 0, 0]])
-        g_1x.global_point_ind = np.array([2, 0, 1])
-        g_1x.face_nodes.indices = np.array([1, 2, 0])
+        g_1x.nodes = np.array([[1, 0, -1], [0, 0, 0], [0, 0, 0]])
+        g_1x.global_point_ind = np.array([2, 1, 0])
+        #g_1x.face_nodes.indices = np.array([1, 2, 0])
         # Third 1d grid, as seen from g1
         g_1y = TensorGrid(np.array([0, 1, 2]))
         g_1y.nodes = np.array([[0, 0, 0], [-1, 0, 1], [0, 0, 0]])
