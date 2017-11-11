@@ -483,9 +483,20 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
 
     # Mapping from new
     deleted_2_new_faces = np.empty(in_combined.size - 1, dtype=object)
-    for i in range(deleted_2_new_faces.size):
-        deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i],
-                                                     in_combined[i+1])]
+
+    # The nodes in the original 1d grid was sorted either in the same way, or
+    # in the oposite order of the new grid. In the latter case, we need to
+    # reverse the order of in_combined to reconstruct the old face-node
+    # relations
+    if in_combined[0] < in_combined[-1]:
+        for i in range(deleted_2_new_faces.size):
+            deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i],
+                                                         in_combined[i+1])]
+    else:
+        for i in range(deleted_2_new_faces.size):
+            deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i+1],
+                                                         in_combined[i])]
+
 
     # Now that we have mapping from old to new faces, also update face tags
     update_face_tags(g, delete_faces, deleted_2_new_faces)
