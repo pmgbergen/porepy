@@ -5,10 +5,11 @@ Various methods to refine a grid.
 
 Created on Sat Nov 11 17:06:37 2017
 
-@author: Eirik Keilegavlens
+@author: Eirik Keilegavlen
 """
 import numpy as np
 
+from porepy.grids.structured import TensorGrid
 
 def distort_grid_1d(g, ratio=0.1):
      """ Randomly distort internal nodes in a 1d grid.
@@ -24,6 +25,8 @@ def distort_grid_1d(g, ratio=0.1):
                neighboring nodes. The ratio will multiply the chosen
                distortion. Should be less than 1 to preserve grid topology.
 
+     Returns:
+          grid: With distorted nodes
      """
      g.compute_geometry()
      r = ratio * (0.5 - np.random.random(g.num_nodes - 2))
@@ -32,4 +35,23 @@ def distort_grid_1d(g, ratio=0.1):
      nrm = np.linalg.norm(direction)
      g.nodes[:, 1:-1] += r * direction / nrm
      g.compute_geometry()
+     return g
 
+def refine_grid_1d(g, ratio=2):
+     """ Refine cells in a 1d grid.
+
+     Note: The method cannot refine without
+     """
+
+     num_new = g.num_cells * ratio + 1
+     x = np.zeros((3, num_new))
+     x[:, 0 :: ratio] = g.nodes
+     for i in range(1, ratio):
+          x[:, i::ratio] = (i * g.nodes[:, :-1] + \
+                            (ratio-i) * g.nodes[:, 1:])/ratio
+
+     g = TensorGrid(x[0])
+     g.nodes = x
+     g.compute_geometry()
+
+     return g
