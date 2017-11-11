@@ -123,7 +123,6 @@ def process_intersections(grids, intersections, global_ind_offset,
                                                         list_of_grids)
             # Append the new 1d grid to the general list of grids, so that it
             # will have its global point indices updated as we go.
-            list_of_grids.append(g_new_1d)
             grid_1d_list.append(g_new_1d)
     return grid_1d_list
 
@@ -317,8 +316,8 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
     # Adjust node indices in the face-node relation
     # First, map nodes between 1d and 2d grids. Use sort_ind here to map
     # indices of g_1d to the same order as the new grid
-    _, node_map_1d_2d = ismember_rows(g_1d.global_point_ind,
-                                      g.global_point_ind[delete_nodes])
+    _, node_map_1d_2d = ismember_rows(g.global_point_ind[delete_nodes],
+                                      g_1d.global_point_ind)
     tmp = np.arange(g.num_nodes)
     adjustment = np.zeros_like(tmp)
     adjustment[delete_nodes] = 1
@@ -344,6 +343,10 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
     # Update any occurences of the old points in other grids. When sewing
     # together a DFN grid, this may involve more and more updates as common
     # nodes are found along intersections.
+
+    # The new grid should also be added to the list, if it is not there before
+    if not new_grid_1d in list_of_grids:
+        list_of_grids.append(new_grid_1d)
     update_global_point_ind(list_of_grids, old_global_pts,
                             new_global_points[this_in_combined[node_map_1d_2d]])
 
