@@ -12,9 +12,10 @@ import scipy.sparse as sps
 from porepy import Fracture, FractureNetwork
 
 from porepy.fracs import importer
-from porepy.fracs import simplex, meshing, split_grid
+from porepy.fracs import simplex, split_grid
 from porepy.utils.matrix_compression import rldecode
 from porepy.utils.setmembership import unique_columns_tol
+from porepy.fracs import utils as fracutils
 
 
 import porepy.utils.comp_geom as cg
@@ -294,8 +295,8 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
 
     # Mappings between faces in 2d grid and cells in 1d
     # 2d faces along the 1d grid will be deleted.
-    delete_faces, cell_1d  = meshing.obtain_interdim_mappings(g_1d, fn_glob,
-                                                              nodes_per_face)
+    delete_faces, cell_1d  = fracutils.obtain_interdim_mappings(g_1d, fn_glob,
+                                                                nodes_per_face)
 
     # All 1d cells should be identified with 2d faces
     assert cell_1d.size == g_1d.num_cells, """ Failed to find mapping between

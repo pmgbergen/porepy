@@ -8,10 +8,9 @@ generators etc.
 """
 import numpy as np
 import scipy.sparse as sps
-import warnings
 import time
 
-from porepy.fracs import structured, simplex, split_grid, non_conforming
+from porepy.fracs import structured, simplex, split_grid, non_conforming, utils
 from porepy.fracs.fractures import Intersection
 from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
@@ -454,7 +453,7 @@ def assemble_in_bucket(grids, **kwargs):
             fn = np.sort(fn, axis=0)
 
             for lg in grids[dim + 1]:
-                cell_2_face, cell = obtain_interdim_mappings(
+                cell_2_face, cell = utils.obtain_interdim_mappings(
                     lg, fn, n_per_face, **kwargs)
                 face_cells = sps.csc_matrix(
                     (np.ones(cell.size, dtype=bool), (cell, cell_2_face)),
@@ -467,46 +466,3 @@ def assemble_in_bucket(grids, **kwargs):
     return bucket
 
 
-def obtain_interdim_mappings(lg, fn, n_per_face,
-                             ensure_matching_face_cell=True, **kwargs):
-    """
-    Find mappings between faces in higher dimension and cells in the lower
-    dimension
-
-    Parameters:
-        lg: Lower dimensional grid.
-        fn: Higher dimensional face-node relation.
-        n_per_face: Number of nodes per face in the higher-dimensional grid.
-        ensure_matching_face_cell: Boolean, defaults to True. If True, an
-            assertion is made that all lower-dimensional cells corresponds to a
-            higher dimensional cell.
-
-    """
-    if lg.dim > 0:
-        cn_loc = lg.cell_nodes().indices.reshape((n_per_face,
-                                                  lg.num_cells),
-                                                 order='F')
-        cn = lg.global_point_ind[cn_loc]
-        cn = np.sort(cn, axis=0)
-    else:
-        cn = np.array([lg.global_point_ind])
-        # We also know that the higher-dimensional grid has faces
-        # of a single node. This sometimes fails, so enforce it.
-        if cn.ndim == 1:
-            fn = fn.ravel()
-    is_mem, cell_2_face = setmembership.ismember_rows(
-        cn.astype(np.int32), fn.astype(np.int32), sort=False)
-    # An element in cell_2_face gives, for all cells in the
-    # lower-dimensional grid, the index of the corresponding face
-    # in the higher-dimensional structure.
-    if not (np.all(is_mem) or np.all(~is_mem)):
-        if ensure_matching_face_cell:
-            raise ValueError(
-                '''Either all cells should have a corresponding face in a higher
-            dim grid or no cells should have a corresponding face in a higher
-            dim grid. This likely is related to gmsh behavior. ''')
-        else:
-            warnings.warn('''Found inconsistency between cells and higher
-                          dimensional faces. Continuing, fingers crossed''')
-    low_dim_cell = np.where(is_mem)[0]
-    return cell_2_face, low_dim_cell
