@@ -14,6 +14,7 @@ from porepy import Fracture, FractureNetwork
 from porepy.fracs import importer
 from porepy.fracs import simplex, meshing, split_grid
 from porepy.utils.matrix_compression import rldecode
+from porepy.utils.setmembership import unique_columns_tol
 
 
 import porepy.utils.comp_geom as cg
@@ -198,76 +199,53 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
 
     """
 
-    # Rotate meshes into natural 1d coordinates.
-    _, _, _, g_rot, g_rot_dim, g_node = cg.map_grid(g)
-    _, _, _, h_rot, h_rot_dim, h_node = cg.map_grid(h)
+    # Nodes of the two 1d grids, combine them
+    gp = g.nodes
+    hp = h.nodes
+    combined = np.hstack((gp, hp))
 
-    # Do a sorting of 1d coordinates
-    g_sort = np.argsort(g_node[0])
-    h_sort = np.argsort(h_node[0])
-    gx = g_node[0][g_sort]
-    hx = h_node[0][h_sort]
-    # Translate h grid so that their starting point are the same.
-    # Might not be necessary, depending on how map_grid is behaving, but we do
-    # it anyhow.
-    hx += (gx[0]-hx[0])
+    num_g = gp.shape[1]
+    num_h = hp.shape[1]
 
-    # Sanity test: End points of 1d grids should be equal
-    assert np.abs(gx[0] - hx[0]) < tol
-    assert np.abs(gx[-1] - hx[-1]) < tol
+    # Keep track of where we put the indices of the original grids
+    g_in_full = np.arange(num_g)
+    h_in_full = num_g + np.arange(num_h)
 
-    # Combined coordinates along 1d line
-    combined = np.hstack((gx[0], gx[1:-1], hx[1:-1], gx[-1]))
-    combined_sort = np.argsort(combined)
+    # Uniquify points
+    combined_unique, _, new_2_old = unique_columns_tol(combined, tol=tol)
+    # Follow locations of the original grid points
+    g_in_unique = new_2_old[g_in_full]
+    h_in_unique = new_2_old[h_in_full]
 
-    # We know where we put the coordinates of g grid, find out where they ended
-    # after sorting
-    g_ind = np.hstack((0, 1 + np.arange(gx.size-2), combined.size-1))
-    g_in_combined = np.where(np.in1d(combined_sort, g_ind))[0]
+    # The combined nodes must be sorted along their natural line.
+    # Find the dimension with the largest spatial extension, and sort those
+    # coordinates
+    max_coord = combined_unique.max(axis=1)
+    min_coord = combined_unique.min(axis=1)
+    dx = max_coord - min_coord
+    sort_dim = np.argmax(dx)
 
-    # Similar with the h grid
-    h_ind = np.hstack((0, g_ind[-2] + 1 + np.arange(hx.size-2),
-                       combined.size-1))
-    h_in_combined = np.where(np.in1d(combined_sort, h_ind))[0]
+    sort_ind = np.argsort(combined_unique[sort_dim])
+    combined_sorted = combined_unique[:, sort_ind]
 
-    combined_nodes = combined[combined_sort]
-    # Use unique nodes along the line
-    combined_nodes, all_2_unique, unique_2_all \
-        = unique_columns_tol(combined_nodes, tol)
-    combined_nodes = combined_nodes[0]
+    # Follow the position of the orginial nodes through sorting
+    _, g_sorted = ismember_rows(g_in_unique, sort_ind)
+    _, h_sorted = ismember_rows(h_in_unique, sort_ind)
 
-    # Update maps between grids
-    g_in_combined = unique_2_all[g_in_combined]
-    h_in_combined = unique_2_all[h_in_combined]
+    num_new_grid = combined_sorted.shape[1]
 
-    # Create a new 1d grid. Default coordinates for now, will be changed
-    new_grid = TensorGrid(combined_nodes)
+    # Create a new 1d grid.
+    # First use a 1d coordinate to initialize topology
+    new_grid = TensorGrid(np.arange(num_new_grid))
+    # Then set the right, 3d coordinates
+    new_grid.nodes = combined_sorted
 
-    # Distance along combined nodes
-    d_cn = combined_nodes[-1] - combined_nodes[0]
-    # Normalized length along line
-    t = (combined_nodes - combined_nodes[0]) / d_cn
+    # Set global point indices
+    new_grid.global_point_ind = global_ind_offset + np.arange(num_new_grid)
+    global_ind_offset += num_new_grid
 
-    # Find the start node - can be first or last in g
-    # The vector along the line is recovered from g
-    if combined_sort[0] == 0:
-        d_real = g.nodes[:, -1] - g.nodes[:, 0]
-        start_node = g.nodes[:, 0].reshape((-1, 1))
-    else:
-        d_real = g.nodes[:, 0] - g.nodes[:, -1]
-        start_node = g[:, -1].reshape((-1, 1))
-    # We can finally set the nodes of the 1d grid
-    new_grid.nodes = start_node + t * d_real.reshape((-1, 1))
-
-    # Define global points indices to new nodes
-    new_global_pts = global_ind_offset + np.arange(new_grid.num_nodes)
-    global_ind_offset += new_global_pts.size
-
-    # Assign global indices to 1d mesh
-    new_grid.global_point_ind = new_global_pts
-
-    return new_grid, global_ind_offset, g_in_combined, h_in_combined, g_sort,\
-         h_sort
+    return new_grid, global_ind_offset, g_sorted, h_sorted, np.arange(num_g),\
+           np.arange(num_h)
 
 
 def update_global_point_ind(grid_list, old_ind, new_ind):
