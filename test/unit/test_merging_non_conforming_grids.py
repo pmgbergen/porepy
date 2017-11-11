@@ -80,7 +80,7 @@ class TestMeshMerging(unittest.TestCase):
         h.global_point_ind = np.array([0, 1, 2])
         g.compute_geometry()
         h.compute_geometry()
-        c, *rest = non_conforming.merge_1d_grids(g, h)
+        c, _, _, _, _, _ = non_conforming.merge_1d_grids(g, h)
 
         ismem, maps = ismember_rows(c.global_point_ind, g.global_point_ind)
         assert ismem.sum() == c.num_nodes
