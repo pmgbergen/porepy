@@ -6,7 +6,7 @@ line 79.
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.viz import exporter
+from porepy.viz.exporter import Exporter
 from porepy.fracs import importer
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
@@ -88,7 +88,7 @@ def write_network(file_name):
 
 #------------------------------------------------------------------------------#
 
-def main(kf, description, multi_point):
+def main(kf, description, multi_point, if_export=False):
 
     # Define the geometry and produce the meshes
     mesh_kwargs = {}
@@ -121,7 +121,10 @@ def main(kf, description, multi_point):
     # Store the solution
     gb.add_node_props(["p"])
     solver.split(gb, "p", p)
-    exporter.export_vtk(gb, 'fv', ["p"], folder='fv_blocking')
+
+    if if_export:
+        save = Exporter(gb, "fv", folder="fv_"+description)
+        save.write_vtk(["p"])
 
 #------------------------------------------------------------------------------#
 
