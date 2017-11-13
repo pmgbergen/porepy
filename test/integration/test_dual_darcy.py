@@ -80,6 +80,9 @@ class BasicsTest(unittest.TestCase):
         problem_mono.project_discharge('P0u')
         problem_mult.project_discharge('P0u')
 
+        problem_mono.save(['p', 'P0u'])
+        problem_mult.save(['p', 'P0u'])
+
         assert np.allclose(problem_mono.data()['P0u'],
                            problem_mult.grid().node_prop(g_gb, 'P0u'))
 
