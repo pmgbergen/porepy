@@ -116,6 +116,8 @@ def ismember_rows(a, b, sort=True, simple_version=False):
         sa = a
         sb = b
 
+    b = np.atleast_1d(b)
+    a = np.atleast_1d(a)
     num_a = a.shape[-1]
 
     if simple_version:

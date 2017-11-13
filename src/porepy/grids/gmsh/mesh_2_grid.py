@@ -76,15 +76,15 @@ def create_2d_grids(pts, cells, **kwargs):
             # a) Either give seperate physical name to non-fractures (e.g. AUX_POLYGON)
             # b) OR: Pass a list of which fractures (numbers) are really not fractures
             # b) is simpler, a) is better (long term)
-            # If a) is chosen, you may need to be careful with         
-            
+            # If a) is chosen, you may need to be careful with
+
             pn = phys_names[phys_name_ind_tri[fi]]
             plane_type = pn[:pn.rfind('_')]
-            
+
             if plane_type != 'FRACTURE':
                 count_bound_and_aux += 1
                 continue
-            
+
             loc_num = np.where(frac_num == fi-count_bound_and_aux)[0]
             loc_gmsh_num = gmsh_num[loc_num]
 
@@ -162,7 +162,7 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
         assert loc_line_pts.size > 1
 
         line_type = pn[:offset_index]
-        
+
         if line_type == gmsh_const.PHYSICAL_NAME_FRACTURE_TIP[:-1]:
             gmsh_tip_num.append(i)
 
@@ -194,7 +194,7 @@ def create_0d_grids(pts, cells):
         point_cells = cells['vertex'].ravel()
         for pi in point_cells:
             g = point_grid.PointGrid(pts[pi])
-            g.global_point_ind = np.asarray(pi)
+            g.global_point_ind = np.atleast_1d(np.asarray(pi))
             g_0d.append(g)
     return g_0d
 
