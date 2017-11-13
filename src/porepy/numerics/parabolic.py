@@ -8,7 +8,7 @@ from porepy.numerics.fv import fvutils, tpfa, mass_matrix, source
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics import pde_solver
 from porepy.numerics.mixed_dim import coupler
-from porepy.viz.exporter import export_vtk, export_pvd
+from porepy.viz.exporter import Exporter
 
 
 class ParabolicProblem():
@@ -60,15 +60,17 @@ class ParabolicProblem():
     problem.solve()
     '''
 
-    def __init__(self, gb, physics='transport'):
+    def __init__(self, gb, physics='transport', **kwargs):
         self._gb = gb
         self.physics = physics
         self._data = dict()
         self._set_data()
         self._solver = self.solver()
         self._solver.parameters['store_results'] = True
-        self.parameters = {'file_name': physics}
-        self.parameters['folder_name'] = 'results'
+
+        file_name = kwargs.get('file_name', str(physics))
+        folder_name = kwargs.get('folder_name', 'results')
+        self.exporter = Exporter(self._gb, file_name, folder_name)
 
     def data(self):
         'Get data dictionary'
@@ -150,18 +152,13 @@ class ParabolicProblem():
         'Saves the solution'
         variables = self.data()[self.physics][::save_every]
         times = np.array(self.data()['times'])[::save_every]
-        folder = self.parameters['folder_name']
-        f_name = self.parameters['file_name']
 
         for i, p in enumerate(variables):
             self.time_disc().split(self.grid(), self.physics, p)
             data_to_plot = [self.physics]
-            export_vtk(
-                self.grid(), f_name, data_to_plot, time_step=i, folder=folder)
+            self.exporter.write_vtk(data_to_plot, time_step=i)
 
-        export_pvd(
-            self.grid(), self.parameters['file_name'], times, folder=folder)
-
+        self.exporter.write_pvd(times)
 
 class ParabolicData():
     '''

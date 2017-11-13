@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.viz import exporter
+from porepy.viz.exporter import Exporter
 from porepy.fracs import importer
 
 from porepy.params import tensor
@@ -124,7 +124,8 @@ def main(kf, description, is_coarse=False, if_export=False):
     solver_flow.project_u(gb, "discharge", "P0u")
 
     if if_export:
-        exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem_' + description)
+        save = Exporter(gb, "vem", folder="vem_"+description)
+        save.write_vtk(["p", "P0u"])
 
 #------------------------------------------------------------------------------#
 

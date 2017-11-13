@@ -18,7 +18,7 @@ from porepy.params.data import Parameters
 from porepy.numerics.vem import vem_dual, vem_source
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics.fv import mass_matrix
-from porepy.viz.exporter import export_vtk, export_pvd
+from porepy.viz.exporter import Exporter
 
 #------------------------------------------------------------------------------#
 
@@ -62,6 +62,7 @@ class BasicsTest( unittest.TestCase ):
         time = np.empty(Nt)
         folder = 'example0'
         production = np.zeros(Nt)
+        save = Exporter(g, "conc_EE", folder)
         for i in np.arange(Nt):
 
             # Update the solution
@@ -69,10 +70,10 @@ class BasicsTest( unittest.TestCase ):
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
             time[i] = data['deltaT']*i
             if if_export:
-                export_vtk(g, "conc_EE", {"conc": conc}, time_step=i, folder=folder)
+                save.write_vtk({"conc": conc}, time_step=i)
 
         if if_export:
-            export_pvd(g, "conc_EE", time, folder=folder)
+            save.write_pvd(time)
 
         known = 1.09375
         assert np.sum(production) == known
@@ -113,6 +114,7 @@ class BasicsTest( unittest.TestCase ):
         Nt = int(T / data['deltaT'])
         time = np.empty(Nt)
         folder = 'example1'
+        save = Exporter(g, "conc_IE", folder)
         for i in np.arange( Nt ):
 
             # Update the solution
@@ -120,10 +122,10 @@ class BasicsTest( unittest.TestCase ):
             conc = IE_solver(M.dot(conc) + rhs)
             time[i] = data['deltaT']*i
             if if_export:
-                export_vtk(g, "conc_IE", {"conc": conc}, time_step=i, folder=folder)
+                save.write_vtk({"conc": conc}, time_step=i)
 
         if if_export:
-            export_pvd(g, "conc_IE", time, folder=folder)
+            save.write_pvd(time)
 
         known = np.array([0.99969927, 0.99769441, 0.99067741, 0.97352474,
                           0.94064879, 0.88804726, 0.81498958, 0.72453722,
@@ -139,6 +141,7 @@ class BasicsTest( unittest.TestCase ):
         #######################
         T = 2
         Nx, Ny = 10, 10
+        folder = 'example2'
         def funp_ex(pt): return -np.sin(pt[0])*np.sin(pt[1])-pt[0]
 
         g = structured.CartGrid([Nx, Ny], [1, 1])
@@ -174,8 +177,10 @@ class BasicsTest( unittest.TestCase ):
         p, u = solver.extract_p(g, up), solver.extract_u(g, up)
         P0u = solver.project_u(g, u, data)
 
+        save = Exporter(g, "darcy", folder)
+
         if if_export:
-            export_vtk(g, "darcy", {"p": p, "P0u": P0u})
+            save.write_vtk({"p": p, "P0u": P0u})
 
         # Discharge
         param.set_discharge(u)
@@ -203,17 +208,17 @@ class BasicsTest( unittest.TestCase ):
         # Loop over the time
         Nt = int(T / data['deltaT'])
         time = np.empty(Nt)
-        folder = 'example2'
+        save.change_name("conc_darcy")
         for i in np.arange( Nt ):
 
             # Update the solution
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
             time[i] = data['deltaT']*i
             if if_export:
-                export_vtk(g, "conc_darcy", {"conc": conc}, time_step=i, folder=folder)
+                save.write_vtk({"conc": conc}, time_step=i)
 
         if if_export:
-            export_pvd(g, "conc_darcy", time, folder=folder)
+            save.write_pvd(time)
 
         known = \
              np.array([  9.63168200e-01,   8.64054875e-01,   7.25390695e-01,
