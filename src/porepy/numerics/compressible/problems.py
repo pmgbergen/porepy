@@ -8,8 +8,6 @@ from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.params.data import Parameters
 from porepy.params import tensor
 from porepy.params import bc
-from porepy.viz.exporter import export_vtk, export_pvd
-
 
 class SlightlyCompressible(ParabolicProblem):
     '''
@@ -35,8 +33,8 @@ class SlightlyCompressible(ParabolicProblem):
     problem.solve()
    '''
 
-    def __init__(self, gb, physics='flow'):
-        ParabolicProblem.__init__(self, gb, physics)
+    def __init__(self, gb, physics='flow', **kwargs):
+        ParabolicProblem.__init__(self, gb, physics, **kwargs)
 
     def space_disc(self):
         return self.diffusive_disc(), self.source_disc()
@@ -74,7 +72,7 @@ class SlightlyCompressibleData(ParabolicData):
         compressibility: (float) the compressibility of the fluid
         permeability: (tensor.SecondOrder) The permeability tensor for the rock.
                       Setting the permeability is equivalent to setting
-                      the ParabolicData.diffusivity() function. 
+                      the ParabolicData.diffusivity() function.
     Example:
     # We set an inflow and outflow boundary condition by overloading the
     # bc_val term
