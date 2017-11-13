@@ -59,6 +59,13 @@ class IntegralMixDim(SolverMixDim):
 class IntegralDFN(SolverMixDim):
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
+        # In this case a mixed solver is considered. We assume only two
+        # (contiguous) dimensions active. In the higher dimensional grid the
+        # physical problem is discretise with a vem solver and in the lower
+        # dimensional grid Lagrange multiplier are used to "glue" the velocity
+        # dof at the interface between the fractures.
+        # For this reason the matrix_rhs and ndof need to be carefully taking
+        # care.
 
         self.physics = physics
         self.dim_max = dim_max
