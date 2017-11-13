@@ -11,7 +11,7 @@ from porepy.params.data import Parameters
 
 class BasicsTest(unittest.TestCase):
 
-    #------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
     def test_elliptic_data_default_values(self):
         """
