@@ -58,6 +58,10 @@ class Exporter():
         self.binary = kwargs.get('binary', True)
 
         self.is_GridBucket = isinstance(self.gb, grid_bucket.GridBucket)
+        self.is_not_vtk = 'vtk' not in sys.modules:
+
+        if self.is_not_vtk:
+            return
 
         if self.is_GridBucket:
             self.gb_VTK = np.empty(self.gb.size(), dtype=np.object)
@@ -100,7 +104,7 @@ class Exporter():
         grid: (optional) in case of changing grid set a new one.
 
         """
-        if 'vtk' not in sys.modules:
+        if self.is_not_vtk:
             return
 
         if self.fixed_grid and grid is not None:
@@ -130,6 +134,9 @@ class Exporter():
         time: vector of times.
 
         """
+        if self.is_not_vtk:
+            return
+
         o_file = open(self._make_folder(self.folder, self.name)+".pvd", 'w')
         b = 'LittleEndian' if sys.byteorder == 'little' else 'BigEndian'
         c = ' compressor="vtkZLibDataCompressor"'
