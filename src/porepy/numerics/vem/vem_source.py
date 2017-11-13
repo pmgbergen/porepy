@@ -66,10 +66,19 @@ class IntegralDFN(SolverMixDim):
         self.discr = Integral(self.physics)
         self.coupling_conditions = None
 
-        kwargs = {"discr_ndof": self.discr.ndof,
+        kwargs = {"discr_ndof": self.__ndof__,
                   "discr_fct": self.__matrix_rhs__}
         self.solver = Coupler(coupling = None, **kwargs)
         SolverMixDim.__init__(self)
+
+    def __ndof__(self, g):
+        # The highest dimensional problem has the standard number of dof
+        # associated with the solver. For the lower dimensional problems, the
+        # number of dof is the number of cells.
+        if g.dim == self.dim_max:
+            return self.discr.ndof(g)
+        else:
+            return g.num_cells
 
     def __matrix_rhs__(self, g, data):
         # The highest dimensional problem compute the matrix and rhs, the lower
@@ -78,7 +87,7 @@ class IntegralDFN(SolverMixDim):
         if g.dim == self.dim_max:
             return self.discr.matrix_rhs(g, data)
         else:
-            ndof = self.discr.ndof(g)
+            ndof = self.__ndof__(g)
             return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
 
 #------------------------------------------------------------------------------
