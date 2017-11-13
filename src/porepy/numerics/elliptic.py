@@ -114,7 +114,7 @@ class Elliptic():
         print('Linear solver')
         ls = LSFactory()
         if self.rhs.size <  max_direct:
-             self.x = sps.linalg.spsolve(*self.reassemble())
+            self.x = ls.direct(*self.reassemble())
         else:
 #            precond = self._setup_preconditioner()
             precond = ls.ilu(self.lhs)
@@ -279,7 +279,9 @@ class DualElliptic(Elliptic):
         other block solvers are needed. TODO.
 
         """
-        self.x = sps.linalg.spsolve(*self.reassemble())
+        ls = LSFactory()
+        self.x = ls.direct(*self.reassemble())
+        return self.x
 
     def pressure(self, pressure_name='pressure'):
         self.pressure_name = pressure_name
