@@ -58,7 +58,7 @@ class Exporter():
         self.binary = kwargs.get('binary', True)
 
         self.is_GridBucket = isinstance(self.gb, grid_bucket.GridBucket)
-        self.is_not_vtk = 'vtk' not in sys.modules:
+        self.is_not_vtk = 'vtk' not in sys.modules
 
         if self.is_not_vtk:
             return
