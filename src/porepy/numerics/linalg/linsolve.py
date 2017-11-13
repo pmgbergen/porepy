@@ -76,19 +76,27 @@ class Factory():
         return iA.solve
 
 
-    def direct(self, A):
+    def direct(self, A, rhs=None):
         """ Wrapper around spsolve from scipy.sparse.linalg.
         Confer that function for documetnation.
 
         Parameters:
             A: Matrix to be factorized
+            rhs (optional): Right hand side vector. If not provided, a funciton
+                to solve with the given A is returned instead.
+
         Returns:
-            scipy.sparse.LinearOperator: Ready to be used as a preconditioner.
+            Either scipy.sparse.LinearOperator: Ready to be used as a
+                preconditioner, or the solution A^-1 b
 
         """
         def solve(b):
             return spl.spsolve(A, b)
-        return solve
+
+        if rhs is None:
+            return solve
+        else:
+            return solve(rhs)
 
 
     def gmres(self, A):
