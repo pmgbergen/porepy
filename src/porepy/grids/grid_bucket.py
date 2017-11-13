@@ -943,7 +943,7 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def bounding_box(self):
+    def bounding_box(self, as_dict=False):
         """
         Return the bounding box of the grid bucket.
         """
@@ -953,7 +953,15 @@ class GridBucket(object):
         for i, g in enumerate(self.graph):
             c_0s[:, i], c_1s[:, i] = g.bounding_box()
 
-        return np.amin(c_0s, axis=1), np.amax(c_1s, axis=1)
+        min_vals = np.amin(c_0s, axis=1)
+        max_vals = np.amax(c_1s, axis=1)
+
+        if as_dict:
+            return {'xmin': min_vals[0], 'xmax': max_vals[0],
+                    'ymin': min_vals[1], 'ymax': max_vals[1],
+                    'zmin': min_vals[2], 'zmax': max_vals[2]}
+        else:
+            return min_vals, max_vals
 
 #------------------------------------------------------------------------------#
 
