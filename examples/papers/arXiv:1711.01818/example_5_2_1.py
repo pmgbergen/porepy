@@ -3,7 +3,7 @@ import scipy.sparse as sps
 import os
 import sys
 
-from porepy.viz import exporter
+from porepy.viz.exporter import Exporter
 from porepy.fracs import importer
 
 from porepy.params import tensor
@@ -13,7 +13,7 @@ from porepy.params.data import Parameters
 from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
-from porepy.numerics.vem import dual
+from porepy.numerics.vem import vem_dual, vem_source
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics.fv import tpfa, mass_matrix
 
@@ -163,21 +163,23 @@ for g, d in gb:
 internal_flag = FaceTag.FRACTURE
 [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
-# Choose and define the solvers and coupler
-darcy = dual.DualVEMMixDim("flow")
-
 # Assign parameters
 add_data_darcy(gb, domain, tol)
 
-A, b = darcy.matrix_rhs(gb)
+# Choose and define the solvers and coupler
+solver_flow = vem_dual.DualVEMMixDim('flow')
+A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-up = sps.linalg.spsolve(A, b)
-darcy.split(gb, "up", up)
+solver_source = vem_source.IntegralMixDim('flow')
+A_source, b_source = solver_source.matrix_rhs(gb)
+
+up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+solver_flow.split(gb, "up", up)
 
 gb.add_node_props(["p", "P0u", "discharge"])
-darcy.extract_u(gb, "up", "discharge")
-darcy.extract_p(gb, "up", "p")
-darcy.project_u(gb, "discharge", "P0u")
+solver_flow.extract_u(gb, "up", "discharge")
+solver_flow.extract_p(gb, "up", "p")
+solver_flow.project_u(gb, "discharge", "P0u")
 
 # compute the flow rate
 total_flow_rate = 0
@@ -189,8 +191,8 @@ for g, d in gb:
         flow_rate = d['discharge'][bound_faces[left]]
         total_flow_rate += np.sum(flow_rate)
 
-exporter.export_vtk(gb, 'darcy', ["p", "P0u"], folder=export_folder,
-                    binary=False)
+save = Exporter(gb, 'darcy', export_folder, binary=False)
+save.write_vtk(["p", "P0u"])
 
 #################################################################
 
@@ -226,6 +228,7 @@ i_export = 0
 step_to_export = np.empty(0)
 
 production = np.zeros(Nt)
+save.change_name("theta")
 
 for i in np.arange(Nt):
     print("Time step", i, " of ", Nt, " time ", i*deltaT, " deltaT ", deltaT)
@@ -236,13 +239,11 @@ for i in np.arange(Nt):
     if i%export_every == 0:
         print("Export solution at", i)
         advection.split(gb, "theta", theta)
-
-        exporter.export_vtk(gb, file_name, ["theta"], time_step=i_export,
-                            binary=False, folder=export_folder)
+        save.write_vtk(["theta"], i_export)
         step_to_export = np.r_[step_to_export, i]
         i_export += 1
 
-exporter.export_pvd(gb, file_name, step_to_export*deltaT, folder=export_folder)
+save.write_pvd(step_to_export*deltaT)
 
 times = deltaT*np.arange(Nt)
 np.savetxt(export_folder + '/production.txt', (times, np.abs(production)),
