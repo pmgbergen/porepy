@@ -122,16 +122,22 @@ class Elliptic():
 
         # Solve
         tic = time.time()
-        logger.info('Linear solver')
         ls = LSFactory()
         if self.rhs.size <  max_direct:
+            logger.info('Solve linear system using direct solver')
             self.x = ls.direct(*self.reassemble())
         else:
-#            precond = self._setup_preconditioner()
-            precond = ls.ilu(self.lhs)
+            logger.info('Solve linear system using GMRES')
+            precond = self._setup_preconditioner()
+#            precond = ls.ilu(self.lhs)
             slv = ls.gmres(self.lhs)
             self.x, info = slv(self.rhs, M=precond, callback=callback,
                                maxiter=10000, restart=1000)
+            if info == 0:
+                logger.info('GMRES succeeded.')
+            else:
+                logger.error('GMRES failed with status ' + str(info))
+
         logger.info('Done. Elapsed time ' + str(time.time() - tic))
         return self.x
 
