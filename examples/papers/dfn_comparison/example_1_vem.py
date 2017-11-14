@@ -20,7 +20,7 @@ def main(id_problem, is_coarse=False, tol=1e-5, if_export=False):
     gb = example_1_create_grid.create(0.5/float(id_problem), tol)
 
     if is_coarse:
-        co.coarsen(gb, 'by_volume')
+        co.coarsen(gb, 'by_tpfa')
 
     if if_export:
         save = Exporter(gb, "vem", folder_export)
@@ -68,8 +68,8 @@ def main(id_problem, is_coarse=False, tol=1e-5, if_export=False):
 #------------------------------------------------------------------------------#
 
 num_simu = 25
-is_coarse = False
+is_coarse = True
 for i in np.arange(num_simu):
-    main(i+1, is_coarse)
+    main(i+1, is_coarse, if_export=True)
 
 #------------------------------------------------------------------------------#
