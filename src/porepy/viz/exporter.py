@@ -450,69 +450,70 @@ def _point_ind(cell_ptr, face_ptr, face_cells, nodes_faces, nodes,
 
     return cell_nodes
 
-@numba.jit("i4[:](i4[:],i4[:],i4[:],i4[:],f8[:,:],f8[:,:],f8[:,:],i4[:])",
-           nopython=True, nogil=False)
-def _point_ind_numba(cell_ptr, face_ptr, faces_cells, nodes_faces,
-                     nodes, fc, normals, num_cell_nodes):
-    """ Implementation note: This turned out to be less than pretty, and quite
-    a bit more explicit than the corresponding pure python implementation.
-    The process was basically to circumvent whatever statements numba did not
-    like. Not sure about why this ended so, but there you go.
-    """
-    cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int32)
-    counter = 0
-    fc.astype(numba.float64)
-    for ci in range(cell_ptr.size - 1):
-        loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
-        for fi in faces_cells[loc_c]:
-            loc_f = np.arange(face_ptr[fi], face_ptr[fi+1])
-            ptsId = nodes_faces[loc_f]
-            num_p_loc = ptsId.size
-            nodes_loc = np.zeros((3, num_p_loc))
-            for iter1 in range(num_p_loc):
-                nodes_loc[:, iter1] = nodes[:, ptsId[iter1]]
-#            # Sort points. Cut-down version of
-#            # sort_points.sort_points_plane() and subfunctions
-            reference = np.array([0., 0., 1])
-            angle = np.arccos(np.dot(normals[:, fi], reference))
-            # Hand code cross product, not supported by current numba version
-            vect = np.array([  normals[1, fi] * reference[2]\
-                             - normals[2, fi] * reference[1],
-                               normals[2, fi] * reference[0]\
-                             - normals[0, fi] * reference[2],
-                               normals[0, fi] * reference[1]\
-                             - normals[1, fi] * reference[0]
-                             ], dtype=np.float64)
-##            # Cut-down version of cg.rot()
-            W = np.array( [       0., -vect[2],  vect[1],
-                             vect[2],       0., -vect[0],
-                            -vect[1],  vect[0],       0. ]).reshape((3, 3))
-            R = np.identity(3) + np.sin(angle)*W.reshape((3, 3)) + \
-            ((1.-np.cos(angle)) * np.linalg.matrix_power(W, 2).ravel()).reshape((3, 3))
-##            # pts is now a npt x 3 matrix
-            num_p = nodes_loc.shape[1]
-            pts = np.zeros((3, num_p))
-            fc_loc = fc[:, fi]
-            center = np.zeros(3)
-            for i in range(3):
-                center[i] = R[i, 0] * fc_loc[0] + R[i, 1] * fc_loc[1] + \
-                            R[i, 2] * fc_loc[2]
-            for i in range(num_p):
-                for j in range(3):
-                    pts[j, i] = R[j, 0] * nodes_loc[0, i]\
-                              + R[j, 1] * nodes_loc[1, i] + \
-                              + R[j, 2] * nodes_loc[2, i]
-##            # Distance from projected points to center
-            delta = pts - center
-            nrm = np.sqrt(delta[0]**2 + delta[1]**2)
-            for i in range(num_p):
-                delta[:, i] = delta[:, i] / nrm[i]
-##
-            argsort = np.argsort(np.arctan2(delta[0], delta[1]))
-            cell_nodes[counter:(counter+num_p_loc)] = ptsId[argsort]
-            counter += num_p_loc
+if 'numba' in sys.modules:
+    @numba.jit("i4[:](i4[:],i4[:],i4[:],i4[:],f8[:,:],f8[:,:],f8[:,:],i4[:])",
+               nopython=True, nogil=False)
+    def _point_ind_numba(cell_ptr, face_ptr, faces_cells, nodes_faces,
+                         nodes, fc, normals, num_cell_nodes):
+        """ Implementation note: This turned out to be less than pretty, and quite
+        a bit more explicit than the corresponding pure python implementation.
+        The process was basically to circumvent whatever statements numba did not
+        like. Not sure about why this ended so, but there you go.
+        """
+        cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int32)
+        counter = 0
+        fc.astype(numba.float64)
+        for ci in range(cell_ptr.size - 1):
+            loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
+            for fi in faces_cells[loc_c]:
+                loc_f = np.arange(face_ptr[fi], face_ptr[fi+1])
+                ptsId = nodes_faces[loc_f]
+                num_p_loc = ptsId.size
+                nodes_loc = np.zeros((3, num_p_loc))
+                for iter1 in range(num_p_loc):
+                    nodes_loc[:, iter1] = nodes[:, ptsId[iter1]]
+    #            # Sort points. Cut-down version of
+    #            # sort_points.sort_points_plane() and subfunctions
+                reference = np.array([0., 0., 1])
+                angle = np.arccos(np.dot(normals[:, fi], reference))
+                # Hand code cross product, not supported by current numba version
+                vect = np.array([  normals[1, fi] * reference[2]\
+                                 - normals[2, fi] * reference[1],
+                                   normals[2, fi] * reference[0]\
+                                 - normals[0, fi] * reference[2],
+                                   normals[0, fi] * reference[1]\
+                                 - normals[1, fi] * reference[0]
+                                 ], dtype=np.float64)
+    ##            # Cut-down version of cg.rot()
+                W = np.array( [       0., -vect[2],  vect[1],
+                                 vect[2],       0., -vect[0],
+                                -vect[1],  vect[0],       0. ]).reshape((3, 3))
+                R = np.identity(3) + np.sin(angle)*W.reshape((3, 3)) + \
+                ((1.-np.cos(angle)) * np.linalg.matrix_power(W, 2).ravel()).reshape((3, 3))
+    ##            # pts is now a npt x 3 matrix
+                num_p = nodes_loc.shape[1]
+                pts = np.zeros((3, num_p))
+                fc_loc = fc[:, fi]
+                center = np.zeros(3)
+                for i in range(3):
+                    center[i] = R[i, 0] * fc_loc[0] + R[i, 1] * fc_loc[1] + \
+                                R[i, 2] * fc_loc[2]
+                for i in range(num_p):
+                    for j in range(3):
+                        pts[j, i] = R[j, 0] * nodes_loc[0, i]\
+                                  + R[j, 1] * nodes_loc[1, i] + \
+                                  + R[j, 2] * nodes_loc[2, i]
+    ##            # Distance from projected points to center
+                delta = pts - center
+                nrm = np.sqrt(delta[0]**2 + delta[1]**2)
+                for i in range(num_p):
+                    delta[:, i] = delta[:, i] / nrm[i]
+    ##
+                argsort = np.argsort(np.arctan2(delta[0], delta[1]))
+                cell_nodes[counter:(counter+num_p_loc)] = ptsId[argsort]
+                counter += num_p_loc
 
-    return cell_nodes
+        return cell_nodes
 
 
 #------------------------------------------------------------------------------#
