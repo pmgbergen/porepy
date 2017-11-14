@@ -200,6 +200,38 @@ class Elliptic():
                                        self.pressure_name,
                                        self._data)
 
+    def permeability(self, perm_names=['kxx', 'kyy', 'kzz']):
+        """ Assign permeability to self._data, ready for export to vtk.
+
+        For the moment, we only dump the main diagonals of the permeabliity.
+        Extensions should be trivial if needed.
+
+        Parameters:
+            perm_names (list): Which components to export. Defaults to kxx,
+                kyy and xzz.
+
+        """
+
+        def get_ind(n):
+            if n == 'kxx':
+                return 0
+            elif n == 'kyy':
+                return 1
+            elif n == 'kzz':
+                return 2
+            else:
+                raise ValueError('Unknown perm keyword ' + n)
+
+        for n in perm_names:
+            ind = get_ind(n)
+            if self.is_GridBucket:
+                for _, d in self.grid():
+                    d[n] = d['param'].get_permeability().perm[ind, ind, :]
+            else:
+                self._data[n] = self._data['param'].get_permeability()\
+                                        .perm[ind, ind, :]
+
+
     def save(self, variables=None, save_every=None):
         if variables is None:
             self.exporter.write_vtk()
