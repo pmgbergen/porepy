@@ -1,8 +1,12 @@
 import numpy as np
-import scipy.sparse as sps
+import logging
 
 from porepy.grids.grid_bucket import GridBucket
 from porepy.numerics.linalg.linsolve import Factory as LSFactory
+
+
+logger = logging.getLogger(__name__)
+
 
 class AbstractSolver(object):
     """
@@ -54,13 +58,18 @@ class AbstractSolver(object):
         """
         Solve problem.
         """
+        nt = np.ceil(self.T / self.dt)
+        logger.info('Time stepping using ' + str(nt) + ' steps')
         t = self.dt
+        counter = 0
         while t < self.T + 1e-14:
-            if self.parameters['verbose']:
-                print('solving time step: ', t)
+            logger.info('Step ' + str(counter) + ' out of ' + str(nt))
+            counter += 1
             self.update(t)
             self.reassemble()
             self.step()
+            logger.debug('Maximum value ' + str(self.p.max()) +\
+                         ', minimum value ' + str(self.p.min()))
             t += self.dt
         self.update(t)
         return self.data
