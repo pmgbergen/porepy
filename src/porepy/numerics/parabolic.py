@@ -1,14 +1,16 @@
 import numpy as np
-import scipy.sparse as sps
+import logging
+import time
 
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
-from porepy.fracs import meshing
-from porepy.numerics.fv import fvutils, tpfa, mass_matrix, source
+from porepy.numerics.fv import tpfa, mass_matrix, source
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics import pde_solver
 from porepy.numerics.mixed_dim import coupler
 from porepy.viz.exporter import Exporter
+
+logger = logging.getLogger(__name__)
 
 
 class ParabolicProblem():
@@ -70,7 +72,11 @@ class ParabolicProblem():
 
         file_name = kwargs.get('file_name', str(physics))
         folder_name = kwargs.get('folder_name', 'results')
+
+        logger.info('Create exporter')
+        tic = time.time()
         self.exporter = Exporter(self._gb, file_name, folder_name)
+        logger.info('Done. Elapsed time: ' + str(time.time() - tic))
 
     def data(self):
         'Get data dictionary'
@@ -82,7 +88,11 @@ class ParabolicProblem():
 
     def solve(self):
         'Solve problem'
-        return self._solver.solve()
+        tic = time.time()
+        logger.info('Solve problem')
+        s = self._solver.solve()
+        logger.info('Done. Elapsed time: ' + str(time.time() - tic))
+        return s
 
     def step(self):
         'Take one time step'
