@@ -2,7 +2,7 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.grids.grid_bucket import GridBucket
-
+from porepy.numerics.linalg.linsolve import Factory as LSFactory
 
 class AbstractSolver(object):
     """
@@ -69,7 +69,8 @@ class AbstractSolver(object):
         """
         Take one time step
         """
-        self.p = sps.linalg.spsolve(self.lhs, self.rhs)
+        ls = LSFactory()
+        self.p = ls.direct(self.lhs, self.rhs)
         return self.p
 
     def update(self, t):
