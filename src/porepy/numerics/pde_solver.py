@@ -58,10 +58,10 @@ class AbstractSolver(object):
         """
         Solve problem.
         """
-        nt = np.ceil(self.T / self.dt)
+        nt = np.ceil(self.T / self.dt).astype(np.int)
         logger.info('Time stepping using ' + str(nt) + ' steps')
         t = self.dt
-        counter = 0
+        counter = 1
         while t < self.T + 1e-14:
             logger.info('Step ' + str(counter) + ' out of ' + str(nt))
             counter += 1
