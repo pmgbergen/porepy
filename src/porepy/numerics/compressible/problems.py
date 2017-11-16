@@ -1,13 +1,10 @@
 import numpy as np
-import scipy.sparse as sps
 
-from porepy.grids import structured
-from porepy.numerics.parabolic import *
-from porepy.numerics.fv import tpfa, mass_matrix, fvutils
+from porepy.numerics.parabolic import ParabolicProblem, ParabolicData
+from porepy.numerics.fv import mass_matrix, fvutils
 from porepy.numerics.mixed_dim.coupler import Coupler
-from porepy.params.data import Parameters
 from porepy.params import tensor
-from porepy.params import bc
+
 
 class SlightlyCompressible(ParabolicProblem):
     '''
