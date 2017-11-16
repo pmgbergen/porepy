@@ -231,6 +231,13 @@ class Elliptic():
                 self._data[n] = self._data['param'].get_permeability()\
                                         .perm[ind, ind, :]
 
+    def porosity(self, poro_name='porosity'):
+        if self.is_GridBucket:
+            for _, d in self.grid():
+                d[poro_name] = d['param'].get_porosity()
+        else:
+            self._data[poro_name] = self._data['param'].get_porosity()
+
 
     def save(self, variables=None, save_every=None):
         if variables is None:
