@@ -51,7 +51,7 @@ def main(id_problem, is_coarse=False, tol=1e-5, if_export=False):
     only_max_dim = lambda g: g.dim==gb.dim_max()
     diam = gb.diameter(only_max_dim)
     error_pressure = example_1_data.error_pressure(gb, "p")
-    error_discharge = 0 #example_1_data.error_discharge(gb, "P0u")
+    error_discharge = example_1_data.error_discharge(gb, "P0u")
     print("h=", diam, "- err(p)=", error_pressure, "- err(P0u)=", error_discharge)
 
     with open(file_name_error, 'a') as f:
@@ -69,7 +69,8 @@ def main(id_problem, is_coarse=False, tol=1e-5, if_export=False):
 
 num_simu = 25
 is_coarse = True
+if_export = False
 for i in np.arange(num_simu):
-    main(i+1, is_coarse, if_export=True)
+    main(i+1, is_coarse, if_export=if_export)
 
 #------------------------------------------------------------------------------#
