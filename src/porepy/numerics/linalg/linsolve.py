@@ -200,7 +200,7 @@ class Factory():
                 return ml.solve(b, residuals=res, accel='gmres', cycle='V')
 
         if as_precond:
-            M_x = lambda x: ml.solve(x, tol=1e-20, maxiter=20)
+            M_x = lambda x: ml.solve(x, tol=1e-20, maxiter=10)
             return spl.LinearOperator(A.shape, M_x)
         else:
             return solve
