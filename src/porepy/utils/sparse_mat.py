@@ -70,6 +70,9 @@ def merge_matrices(A, B, lines):
         if lines.size != B.shape[0]:
             raise ValueError('B.shape[0] must equal size of lines')
 
+    if np.unique(lines).shape != lines.shape:
+        raise ValueError('Can only merge unique lines')
+
     indptr = A.indptr
     indices = A.indices
     data = A.data
