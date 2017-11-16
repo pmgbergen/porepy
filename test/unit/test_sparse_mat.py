@@ -59,11 +59,13 @@ class TestSparseMath(unittest.TestCase):
         cols_0 = sparse_mat.slice_indices(A, np.array([0]))
         cols_1 = sparse_mat.slice_indices(A, 1)
         cols_2 = sparse_mat.slice_indices(A, 2)
+        cols_split = sparse_mat.slice_indices(A, np.array([0, 2]))
         cols0_2 = sparse_mat.slice_indices(A, np.array([0, 1, 2]))
 
         assert cols_0.size == 0
         assert cols_1 == np.array([0])
         assert cols_2 == np.array([2])
+        assert np.all(cols_split == np.array([2]))
         assert np.all(cols0_2 == np.array([0, 2]))
 
     def test_csc_slice(self):
@@ -74,11 +76,13 @@ class TestSparseMath(unittest.TestCase):
         rows_0 = sparse_mat.slice_indices(A, np.array([0], dtype=int))
         rows_1 = sparse_mat.slice_indices(A, 1)
         rows_2 = sparse_mat.slice_indices(A, 2)
+        cols_split = sparse_mat.slice_indices(A, np.array([0, 2]))
         rows0_2 = sparse_mat.slice_indices(A, np.array([0, 1, 2]))
 
         assert rows_0 == np.array([1])
         assert rows_1.size == 0
         assert rows_2 == np.array([2])
+        assert np.all(cols_split == np.array([1, 2]))
         assert np.all(rows0_2 == np.array([1, 2]))
 
     #------------------ Test sliced_mat() -----------------------
