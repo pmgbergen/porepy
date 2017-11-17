@@ -8,6 +8,7 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spl
 import time
+import logging
 
 from porepy.numerics.fv import tpfa, source, fvutils
 from porepy.numerics.vem import vem_dual, vem_source
@@ -16,6 +17,10 @@ from porepy.grids.grid_bucket import GridBucket
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
 from porepy.viz.exporter import Exporter
+
+
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 
 class Elliptic():
@@ -71,7 +76,11 @@ class Elliptic():
 
         file_name = kwargs.get('file_name', physics)
         folder_name = kwargs.get('folder_name', 'results')
+
+        tic = time.time()
+        logger.info('Create exporter')
         self.exporter = Exporter(self._gb, file_name, folder_name)
+        logger.info('Elapsed time: ' + str(time.time() - tic))
 
         self._flux_disc = self.flux_disc()
         self._source_disc = self.source_disc()
@@ -107,23 +116,29 @@ class Elliptic():
 
         # Discretize
         tic = time.time()
-        print('Discretize')
+        logger.info('Discretize')
         self.lhs, self.rhs = self.reassemble()
-        print('Done. Elapsed time ' + str(time.time() - tic))
+        logger.info('Done. Elapsed time ' + str(time.time() - tic))
 
         # Solve
         tic = time.time()
-        print('Linear solver')
         ls = LSFactory()
         if self.rhs.size <  max_direct:
+            logger.info('Solve linear system using direct solver')
             self.x = ls.direct(*self.reassemble())
         else:
-#            precond = self._setup_preconditioner()
-            precond = ls.ilu(self.lhs)
+            logger.info('Solve linear system using GMRES')
+            precond = self._setup_preconditioner()
+#            precond = ls.ilu(self.lhs)
             slv = ls.gmres(self.lhs)
             self.x, info = slv(self.rhs, M=precond, callback=callback,
                                maxiter=10000, restart=1000)
-        print('Done. Elapsed time ' + str(time.time() - tic))
+            if info == 0:
+                logger.info('GMRES succeeded.')
+            else:
+                logger.error('GMRES failed with status ' + str(info))
+
+        logger.info('Done. Elapsed time ' + str(time.time() - tic))
         return self.x
 
     def step(self):
