@@ -1075,6 +1075,14 @@ class Intersection(object):
         else:
             return self.first
 
+    def on_boundary_of_fracture(self, i):
+        if self.first == i:
+            return self.bound_first
+        elif self.second == i:
+            return self.bound_second
+        else:
+            raise ValueError('Fracture ' + str(i) + ' is not in intersection')
+
 #----------------------------------------------------------------------------
 
 
