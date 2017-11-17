@@ -132,7 +132,7 @@ class Elliptic():
 #            precond = ls.ilu(self.lhs)
             slv = ls.gmres(self.lhs)
             self.x, info = slv(self.rhs, M=precond, callback=callback,
-                               maxiter=10000, restart=1000)
+                               maxiter=10000, restart=1500, tol=1e-8)
             if info == 0:
                 logger.info('GMRES succeeded.')
             else:
