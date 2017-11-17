@@ -16,7 +16,10 @@ from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.grid import FaceTag
+from porepy.grids.structured import TensorGrid
 from porepy.utils import setmembership, mcolon
+from porepy.utils import comp_geom as cg
+
 
 
 def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0, **kwargs):
@@ -193,11 +196,28 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
                                           **kwargs)
 
             irot = rot.T
-
             # Loop over grids, rotate back again to 3d coordinates
             for gl in grids:
                 for g in gl:
                     g.nodes = irot.dot(g.nodes) + cp
+
+            # Nodes of main (fracture) grid, in 3d coordinates1
+            main_nodes = grids[0][0].nodes
+            # Loop over intersections, check if the intersection is on the
+            # boundary of this fracture.
+            for ind, isect in enumerate(network.intersections_of_fracture(fi)):
+                of = network._fractures[isect.get_other_fracture[fi]].p
+                if isect.on_boundary_of_fracture(fi):
+                    dist, _, _ = cg.dist_points_polygon(main_nodes, of)
+                    hit = np.argwhere(dist < 1e-4)[0]
+                    nodes_1d = main_nodes[:, hit]
+
+                    assert cg.is_collinear(nodes_1d)
+                    sort_ind = cg.argsort_point_on_line(nodes_1d)
+                    g_aux = TensorGrid(np.arange(nodes_1d))
+                    g_aux.nodes = nodes_1d[:, sort_ind]
+                    grids[1].insert(ind, g_aux)
+
 
             assert len(grids[0]) == 1, 'Fracture should be covered by single'\
                 'mesh'
