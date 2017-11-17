@@ -35,10 +35,8 @@ except ImportError:
 # Import of internally developed packages.
 from porepy.utils import comp_geom as cg
 from porepy.utils import setmembership, sort_points
-from porepy.grids import simplex
 from porepy.grids.gmsh.gmsh_interface import GmshWriter
 from porepy.grids.constants import GmshConstants
-from porepy.fracs.utils import determine_mesh_size
 
 
 # Module-wide logger
@@ -2341,8 +2339,7 @@ class FractureNetwork(object):
             # Legacy option, this should be removed.
             print('Using old version of mesh size determination')
             mesh_size, mesh_size_bound = \
-                determine_mesh_size(self.decomposition['points'],
-                                    **kwargs['mesh_size'])
+                self._determine_mesh_size(**kwargs['mesh_size'])
         else:
             mesh_size, mesh_size_bound = self._determine_mesh_size()
 
