@@ -1,6 +1,7 @@
 import sys, os
 import numpy as np
 import scipy.sparse as sps
+import logging
 
 try:
     import vtk
@@ -8,9 +9,18 @@ try:
 except ImportError:
     import warnings
     warnings.warn("No vtk module loaded.")
+try:
+    import numba
+except ImportError:
+    warnings.warn('Numba not available. Export may be slow for large grids')
 
-from porepy.grids import grid, grid_bucket
+from porepy.grids import grid_bucket
 from porepy.utils import sort_points
+
+
+# Module-wide logger
+logger = logging.getLogger(__name__)
+
 
 class Exporter():
     def __init__(self, grid, name, folder=None, **kwargs):
@@ -67,6 +77,8 @@ class Exporter():
             self.gb_VTK = np.empty(self.gb.size(), dtype=np.object)
         else:
             self.gb_VTK = None
+
+        self.has_numba = 'numba' in sys.modules
 
         if self.fixed_grid:
             self._update_gb_VTK()
@@ -277,31 +289,9 @@ class Exporter():
 #------------------------------------------------------------------------------#
 
     def _export_vtk_3d(self, g):
-        faces_cells, cells, _ = sps.find(g.cell_faces)
-        nodes_faces, faces, _ = sps.find(g.face_nodes)
-        gVTK = vtk.vtkUnstructuredGrid()
-
-        for c in np.arange(g.num_cells):
-            loc_c = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-            fs = faces_cells[loc_c]
-            fsVTK = vtk.vtkIdList()
-            fsVTK.InsertNextId(fs.shape[0]) # Number faces that make up the cell
-            for f in fs:
-                loc_f = slice(g.face_nodes.indptr[f], g.face_nodes.indptr[f+1])
-                ptsId = nodes_faces[loc_f]
-                mask = self._sort_points_3d(g.nodes[:, ptsId],
-                                            g.face_centers[:, f],
-                                           g.face_normals[:, f]/g.face_areas[f])
-                fsVTK.InsertNextId(ptsId.shape[0]) # Number of points in face
-                [fsVTK.InsertNextId(p) for p in ptsId[mask]]
-
-            gVTK.InsertNextCell(vtk.VTK_POLYHEDRON, fsVTK)
-
-        ptsVTK = vtk.vtkPoints()
-        [ptsVTK.InsertNextPoint(*node) for node in g.nodes.T]
-        gVTK.SetPoints(ptsVTK)
-
-        return gVTK
+        # This functionality became rather complex, with possible use of numba.
+        # Decided to dump this to a separate file.
+        return self._define_gvtk_3d(g)
 
 #------------------------------------------------------------------------------#
 
@@ -366,32 +356,164 @@ class Exporter():
 
 #------------------------------------------------------------------------------#
 
-    def _sort_points_3d(self, nodes, center, normal):
-        """ Helper function to sort points on faces.
+    def _define_gvtk_3d(self, g):
+        gVTK = vtk.vtkUnstructuredGrid()
 
-        This function is copied from utils.sort_point.sort_point_plane() and
-        subfunctions, but has been modified to speed up calculations.
+        faces_cells, cells, _ = sps.find(g.cell_faces)
+        nodes_faces, faces, _ = sps.find(g.face_nodes)
+
+        cptr = g.cell_faces.indptr
+        fptr = g.face_nodes.indptr
+        face_per_cell = np.diff(cptr)
+        nodes_per_face = np.diff(fptr)
+
+        # Total number of nodes to be written in the face-node relation
+        num_cell_nodes = np.array([nodes_per_face[i] \
+                                   for i in g.cell_faces.indices])
+
+        n = g.nodes
+        fc = g.face_centers
+        normal_vec = g.face_normals / g.face_areas
+
+        # Use numba if available, unless the problem is very small, in which
+        # case the pure python version probably is faster than combined compile
+        # and runtime for numba
+        # The number 1000 here is somewhat random.
+        if self.has_numba and g.num_cells > 1000:
+            logger.info('Construct 3d grid information using numba')
+            cell_nodes = _point_ind_numba(cptr, fptr, faces_cells, nodes_faces,
+                                          n, fc, normal_vec, num_cell_nodes)
+        else:
+            logger.info('Construct 3d grid information using pure python')
+            cell_nodes = _point_ind(cptr, fptr, faces_cells, nodes_faces, n,
+                                    fc, normal_vec, num_cell_nodes)
+        # implementation note: I did not even try feeding this to numba, my
+        # guess is that it will not like the vtk specific stuff.
+        node_counter = 0
+        face_counter = 0
+        for c in np.arange(g.num_cells):
+            fsVTK = vtk.vtkIdList()
+            fsVTK.InsertNextId(face_per_cell[c]) # Number faces that make up the cell
+            for f in range(face_per_cell[c]):
+                fi = g.cell_faces.indices[face_counter]
+                fsVTK.InsertNextId(nodes_per_face[fi]) # Number of points in face
+                for ni in range(nodes_per_face[fi]):
+                    fsVTK.InsertNextId(cell_nodes[node_counter])
+                    node_counter += 1
+                face_counter += 1
+
+            gVTK.InsertNextCell(vtk.VTK_POLYHEDRON, fsVTK)
+
+        ptsVTK = vtk.vtkPoints()
+        [ptsVTK.InsertNextPoint(*node) for node in g.nodes.T]
+        gVTK.SetPoints(ptsVTK)
+
+        return gVTK
+
+
+def _point_ind(cell_ptr, face_ptr, face_cells, nodes_faces, nodes,
+               fc, normals, num_cell_nodes):
+    cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int)
+    counter = 0
+    for ci in range(cell_ptr.size - 1):
+        loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
+
+        for fi in face_cells[loc_c]:
+            loc_f = slice(face_ptr[fi], face_ptr[fi+1])
+            ptsId = nodes_faces[loc_f]
+            num_p_loc = ptsId.size
+            nodes_loc = nodes[:, ptsId]
+            # Sort points. Cut-down version of
+            # sort_points.sort_points_plane() and subfunctions
+            reference = np.array([0., 0., 1])
+            angle = np.arccos(np.dot(normals[:, fi], reference))
+            vect = np.cross(normals[:, fi], reference)
+            # Cut-down version of cg.rot()
+            W = np.array( [[       0., -vect[2],  vect[1]],
+                           [  vect[2],       0., -vect[0]],
+                           [ -vect[1],  vect[0],       0. ]])
+            R = np.identity(3) + np.sin(angle)*W + \
+                  (1.-np.cos(angle)) * np.linalg.matrix_power(W, 2)
+            # pts is now a npt x 3 matrix
+            pts = np.array([R.dot(nodes_loc[:, i])\
+                                  for i in range(nodes_loc.shape[1])])
+            center = R.dot(fc[:, fi])
+            # Distance from projected points to center
+            delta = np.array([pts[i] - center\
+                              for i in range(pts.shape[0])])[:, :2]
+            nrm = np.sqrt(delta[:, 0]**2 + delta[:, 1]**2)
+            delta = delta / nrm[:, np.newaxis]
+
+            argsort = np.argsort(np.arctan2(delta[:, 0], delta[:, 1]))
+            cell_nodes[counter:(counter+num_p_loc)] = ptsId[argsort]
+            counter += num_p_loc
+
+    return cell_nodes
+
+if 'numba' in sys.modules:
+    @numba.jit("i4[:](i4[:],i4[:],i4[:],i4[:],f8[:,:],f8[:,:],f8[:,:],i4[:])",
+               nopython=True, nogil=False)
+    def _point_ind_numba(cell_ptr, face_ptr, faces_cells, nodes_faces,
+                         nodes, fc, normals, num_cell_nodes):
+        """ Implementation note: This turned out to be less than pretty, and quite
+        a bit more explicit than the corresponding pure python implementation.
+        The process was basically to circumvent whatever statements numba did not
+        like. Not sure about why this ended so, but there you go.
         """
+        cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int32)
+        counter = 0
+        fc.astype(numba.float64)
+        for ci in range(cell_ptr.size - 1):
+            loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
+            for fi in faces_cells[loc_c]:
+                loc_f = np.arange(face_ptr[fi], face_ptr[fi+1])
+                ptsId = nodes_faces[loc_f]
+                num_p_loc = ptsId.size
+                nodes_loc = np.zeros((3, num_p_loc))
+                for iter1 in range(num_p_loc):
+                    nodes_loc[:, iter1] = nodes[:, ptsId[iter1]]
+    #            # Sort points. Cut-down version of
+    #            # sort_points.sort_points_plane() and subfunctions
+                reference = np.array([0., 0., 1])
+                angle = np.arccos(np.dot(normals[:, fi], reference))
+                # Hand code cross product, not supported by current numba version
+                vect = np.array([  normals[1, fi] * reference[2]\
+                                 - normals[2, fi] * reference[1],
+                                   normals[2, fi] * reference[0]\
+                                 - normals[0, fi] * reference[2],
+                                   normals[0, fi] * reference[1]\
+                                 - normals[1, fi] * reference[0]
+                                 ], dtype=np.float64)
+    ##            # Cut-down version of cg.rot()
+                W = np.array( [       0., -vect[2],  vect[1],
+                                 vect[2],       0., -vect[0],
+                                -vect[1],  vect[0],       0. ]).reshape((3, 3))
+                R = np.identity(3) + np.sin(angle)*W.reshape((3, 3)) + \
+                ((1.-np.cos(angle)) * np.linalg.matrix_power(W, 2).ravel()).reshape((3, 3))
+    ##            # pts is now a npt x 3 matrix
+                num_p = nodes_loc.shape[1]
+                pts = np.zeros((3, num_p))
+                fc_loc = fc[:, fi]
+                center = np.zeros(3)
+                for i in range(3):
+                    center[i] = R[i, 0] * fc_loc[0] + R[i, 1] * fc_loc[1] + \
+                                R[i, 2] * fc_loc[2]
+                for i in range(num_p):
+                    for j in range(3):
+                        pts[j, i] = R[j, 0] * nodes_loc[0, i]\
+                                  + R[j, 1] * nodes_loc[1, i] + \
+                                  + R[j, 2] * nodes_loc[2, i]
+    ##            # Distance from projected points to center
+                delta = pts - center
+                nrm = np.sqrt(delta[0]**2 + delta[1]**2)
+                for i in range(num_p):
+                    delta[:, i] = delta[:, i] / nrm[i]
+    ##
+                argsort = np.argsort(np.arctan2(delta[0], delta[1]))
+                cell_nodes[counter:(counter+num_p_loc)] = ptsId[argsort]
+                counter += num_p_loc
 
-        # Cut-down version of cg.project_plane_matrix()
-        reference = np.array([0., 0., 1])
-        angle = np.arccos(np.dot(normal, reference))
-        vect = np.cross(normal, reference)
+        return cell_nodes
 
-        # Cut-down version of cg.rot()
-        W = np.array( [[       0., -vect[2],  vect[1]],
-                       [  vect[2],       0., -vect[0]],
-                       [ -vect[1],  vect[0],       0. ]])
-        R = np.identity(3) + np.sin(angle)*W + \
-              (1.-np.cos(angle)) * np.linalg.matrix_power(W, 2)
-        # pts is now a npt x 3 matrix
-        pts = np.array([R.dot(nodes[:, i]) for i in range(nodes.shape[1])])
-        center = R.dot(center)
-
-        # Distance from projected points to center
-        delta = np.array([pts[i] - center for i in range(pts.shape[0])])[:, :2]
-        nrm = np.sqrt(delta[:, 0]**2 + delta[:, 1]**2)
-        delta = delta/nrm[:, np.newaxis]
-        return np.argsort(np.arctan2(delta[:, 0], delta[:, 1]))
 
 #------------------------------------------------------------------------------#

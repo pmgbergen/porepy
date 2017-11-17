@@ -9,11 +9,13 @@ Created on Thu Nov  2 19:08:28 2017
 """
 import numpy as np
 import scipy.sparse.linalg as spl
+import logging
 
 try:
     import pyamg
 except ImportError:
     " Could not import the pyamg package. pyamg sover will not be available."
+logger = logging.getLogger(__name__)
 
 
 class IterCounter(object):
@@ -28,7 +30,7 @@ class IterCounter(object):
     def __call__(self, rk=None):
         self.niter += 1
         if self._disp:
-            print('iter %3i\trk = %s' % (self.niter, str(rk)))
+            logger.info('iter %3i\trk = %s' % (self.niter, str(rk)))
 
 class Factory():
     """ Factory class for linear solver functionality. The intention is to
@@ -198,7 +200,8 @@ class Factory():
                 return ml.solve(b, residuals=res, accel='gmres', cycle='V')
 
         if as_precond:
-            return ml.aspreconditioner(cycle='V')
+            M_x = lambda x: ml.solve(x, tol=1e-20, maxiter=20)
+            return spl.LinearOperator(A.shape, M_x)
         else:
             return solve
 
