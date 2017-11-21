@@ -1712,8 +1712,7 @@ def is_collinear(pts, tol=1e-5):
 
     """
 
-    assert pts.shape[1] > 1
-    if pts.shape[1] == 2:
+    if pts.shape[1] == 1 or pts.shape[1] == 2:
         return True
 
     pt0 = pts[:, 0]
@@ -2342,7 +2341,8 @@ def argsort_point_on_line(pts, tol=1e-5):
     Returns:
         argsort: the indexes of the points
     """
-    assert pts.shape[1] > 1
+    if pts.shape[1] == 1:
+        return np.array([0])
     assert is_collinear(pts, tol)
     delta = np.tile(pts[:, 0], (pts.shape[1], 1)).T - pts
     return np.argsort(np.abs(np.einsum('ij,ij->j', delta, delta)))
