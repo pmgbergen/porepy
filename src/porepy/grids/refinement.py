@@ -8,8 +8,10 @@ Created on Sat Nov 11 17:06:37 2017
 @author: Eirik Keilegavlen
 """
 import numpy as np
+import scipy.sparse as sps
 
 from porepy.grids.structured import TensorGrid
+from porepy.utils import comp_geom as cg
 
 def distort_grid_1d(g, ratio=0.1):
      """ Randomly distort internal nodes in a 1d grid.
@@ -37,24 +39,43 @@ def distort_grid_1d(g, ratio=0.1):
      g.compute_geometry()
      return g
 
-def refine_grid_1d(g, ratio=2):
-     """ Refine cells in a 1d grid.
+def refine_grid_1d(g, ratio=2, return_map_nodes=False):
+    """ Refine cells in a 1d grid.
 
-     Note: The method cannot refine without
-     """
+    Note: The method cannot refine without
+    """
+    nodes, cells, _ = sps.find(g.cell_nodes())
 
-     num_new = g.num_cells * ratio + 1
-     x = np.zeros((3, num_new))
-     x[:, 0 :: ratio] = g.nodes
-     for i in range(1, ratio):
-          x[:, i::ratio] = (i * g.nodes[:, :-1] + \
-                            (ratio-i) * g.nodes[:, 1:])/float(ratio)
+    # To consider also the case of intersections
+    num_new = (ratio-1)*g.num_cells
+    x = np.zeros((3, num_new))
+    theta = np.arange(1, ratio)/float(ratio)
+    pos = 0
 
-     g = TensorGrid(x[0])
-     g.nodes = x
-     g.compute_geometry()
+    for c in np.arange(g.num_cells):
+        mask = cells == c
+        start, end = nodes[mask]
+        x_loc = g.nodes[:, start, np.newaxis]*theta + \
+                g.nodes[:, end, np.newaxis]*(1-theta)
+        x[:, pos:(pos+ratio-1)] = x_loc
+        pos += ratio-1
 
-     return g
+    x = np.hstack((g.nodes, x))
+
+    g = TensorGrid(x[0, :])
+    map_nodes = cg.argsort_point_on_line(x)
+    g.nodes = x[:, map_nodes]
+    g.compute_geometry()
+
+    from porepy.viz import plot_grid
+    plot_grid.plot_grid(g, alpha=0, info="fc")
+
+    if return_map_nodes:
+        return g, np.argsort(map_nodes)[:nodes.size]
+    else:
+        return g
+
+#------------------------------------------------------------------------------#
 
 def new_grid_1d(g, num_nodes):
 
@@ -69,3 +90,5 @@ def new_grid_1d(g, num_nodes):
     g.compute_geometry()
 
     return g
+
+#------------------------------------------------------------------------------#
