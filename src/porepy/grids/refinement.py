@@ -48,10 +48,24 @@ def refine_grid_1d(g, ratio=2):
      x[:, 0 :: ratio] = g.nodes
      for i in range(1, ratio):
           x[:, i::ratio] = (i * g.nodes[:, :-1] + \
-                            (ratio-i) * g.nodes[:, 1:])/ratio
+                            (ratio-i) * g.nodes[:, 1:])/float(ratio)
 
      g = TensorGrid(x[0])
      g.nodes = x
      g.compute_geometry()
 
      return g
+
+def new_grid_1d(g, num_nodes):
+
+    theta = np.linspace(0, 1, num_nodes)
+    start, end = g.get_boundary_nodes()
+
+    nodes = g.nodes[:, start, np.newaxis]*theta + \
+            g.nodes[:, end, np.newaxis]*(1.-theta)
+
+    g = TensorGrid(nodes[0, :])
+    g.nodes = nodes
+    g.compute_geometry()
+
+    return g
