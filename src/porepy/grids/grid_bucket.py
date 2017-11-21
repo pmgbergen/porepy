@@ -330,6 +330,8 @@ class GridBucket(object):
         if grid_pairs is None:
             assert prop is None or not isinstance(prop, list)
         else:
+            grid_pairs = np.atleast_2d(grid_pairs)
+            prop = np.atleast_1d(prop)
             assert len(grid_pairs) == len(prop)
 
         # networkx.set_edge_attributes(self.graph, key, None)
