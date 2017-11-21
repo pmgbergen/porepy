@@ -587,14 +587,14 @@ class DualCoupling(AbstractCoupling):
         dof, cc = self.create_block_matrix(g_h, g_l)
 
         # Recover the information for the grid-grid mapping
-        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
+        cells_l, faces_h, weigths = sps.find(data_edge['face_cells'])
         faces, cells_h, sign = sps.find(g_h.cell_faces)
         ind = np.unique(faces, return_index=True)[1]
         sign = sign[ind][faces_h]
         cells_h = cells_h[ind][faces_h]
 
         # Compute the off-diagonal terms
-        dataIJ, I, J = sign, g_l.num_faces+cells_l, faces_h
+        dataIJ, I, J = sign*weigths, g_l.num_faces+cells_l, faces_h
         cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
         cc[0, 1] = cc[1, 0].T
 
