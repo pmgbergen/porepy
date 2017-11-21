@@ -1729,6 +1729,31 @@ def is_collinear(pts, tol=1e-5):
 
 #------------------------------------------------------------------------------#
 
+def make_collinear(pts):
+    """
+    Given a set of points, return them aligned on a line.
+    Useful to enforce collinearity for almost collinear points. The order of the
+    points remain the same.
+    NOTE: The first point in the list has to be on the extrema of the line.
+
+    Parameter:
+        pts: (3 x num_pts) the input points.
+
+    Return:
+        pts: (3 x num_pts) the corrected points.
+    """
+    assert pts.shape[1] > 1
+
+    delta = pts - np.tile(pts[:, 0], (pts.shape[1], 1)).T
+    dist = np.sqrt(np.einsum('ij,ij->j', delta, delta))
+    end = np.argmax(dist)
+
+    dist /= dist[end]
+
+    return pts[:, 0, np.newaxis]*(1-dist) + pts[:, end, np.newaxis]*dist
+
+#------------------------------------------------------------------------------#
+
 def map_grid(g, tol=1e-5):
     """ If a 2d or a 1d grid is passed, the function return the cell_centers,
     face_normals, and face_centers using local coordinates. If a 3d grid is
