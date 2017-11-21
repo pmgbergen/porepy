@@ -104,19 +104,19 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def edges_props_of_node(self, n):
+    def edges_props_of_node(self, node):
         """
         Iterator over the edges of the specific node.
 
         Parameters:
-            n: A node in the graph.
+            node: A node in the graph.
 
         Yields:
             core.grid.edges: The edge (pair of grids) associated with an edge.
             data: The dictionary storing all information in this edge.
 
         """
-        for e in self.graph.edges([n]):
+        for e in self.graph.edges([node]):
             yield e, self.edge_props(e)
 
 #------------------------------------------------------------------------------#
