@@ -60,15 +60,14 @@ def refine_grid_1d(g, ratio=2, return_map_nodes=False):
         x[:, pos:(pos+ratio-1)] = x_loc
         pos += ratio-1
 
+    face_tags = np.hstack((g.face_tags, np.zeros(x.shape[1], dtype=np.int)))
     x = np.hstack((g.nodes, x))
 
     g = TensorGrid(x[0, :])
     map_nodes = cg.argsort_point_on_line(x)
     g.nodes = x[:, map_nodes]
+    g.face_tags = face_tags[map_nodes]
     g.compute_geometry()
-
-    from porepy.viz import plot_grid
-    plot_grid.plot_grid(g, alpha=0, info="fc")
 
     if return_map_nodes:
         return g, np.argsort(map_nodes)[:nodes.size]
