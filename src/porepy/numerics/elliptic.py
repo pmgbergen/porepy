@@ -6,13 +6,21 @@ porepy github: https://github.com/pmgbergen/porepy
 '''
 import numpy as np
 import scipy.sparse as sps
+import scipy.sparse.linalg as spl
+import time
+import logging
 
 from porepy.numerics.fv import tpfa, source, fvutils
 from porepy.numerics.vem import vem_dual, vem_source
+from porepy.numerics.linalg.linsolve import Factory as LSFactory
 from porepy.grids.grid_bucket import GridBucket
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
-from porepy.viz.exporter import export_vtk
+from porepy.viz.exporter import Exporter
+
+
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 
 class Elliptic():
@@ -51,11 +59,12 @@ class Elliptic():
     discharge(): Calls split('p'). Then calculate the discharges over each
                  face in the grids and between edges in the GridBucket
     save(): calls split('p'). Then export the pressure to a vtk file to the
-            folder self.parameters['folder_name'] with file name
-            self.parameters['file_name']
+            folder kwargs['folder_name'] with file name
+            kwargs['file_name'], default values are 'results' for the folder and
+            physics for the file name.
     '''
 
-    def __init__(self, gb, data=None, physics='flow'):
+    def __init__(self, gb, data=None, physics='flow', **kwargs):
         self.physics = physics
         self._gb = gb
         self.is_GridBucket = isinstance(self._gb, GridBucket)
@@ -65,14 +74,71 @@ class Elliptic():
         self.rhs = []
         self.x = []
 
-        self.parameters = {'file_name': physics}
-        self.parameters['folder_name'] = 'results'
+        file_name = kwargs.get('file_name', physics)
+        folder_name = kwargs.get('folder_name', 'results')
+
+        tic = time.time()
+        logger.info('Create exporter')
+        self.exporter = Exporter(self._gb, file_name, folder_name)
+        logger.info('Elapsed time: ' + str(time.time() - tic))
 
         self._flux_disc = self.flux_disc()
         self._source_disc = self.source_disc()
 
-    def solve(self):
-        self.x = sps.linalg.spsolve(*self.reassemble())
+    def solve(self, max_direct=40000, callback=False, **kwargs):
+        """ Reassemble and solve linear system.
+
+        After the funtion has been called, the attributes lhs and rhs are
+        updated according to the parameter states. Also, the attribute x
+        gives the pressure given the current state.
+
+        TODO: Provide an option to save solver information if multiple
+        systems are to be solved with the same left hand side.
+
+        The function attempts to set up the best linear solver based on the
+        system size. The setup and parameter choices here are still
+        experimental.
+
+        Parameters:
+            max_direct (int): Maximum number of unknowns where a direct solver
+                is applied. If a direct solver can be applied this is usually
+                the most efficient option. However, if the system size is
+                too large compared to available memory, a direct solver becomes
+                extremely slow.
+            callback (boolean, optional): If True iteration information will be
+                output when an iterative solver is applied (system size larger
+                than max_direct)
+
+        Returns:
+            np.array: Pressure state.
+
+        """
+
+        # Discretize
+        tic = time.time()
+        logger.info('Discretize')
+        self.lhs, self.rhs = self.reassemble()
+        logger.info('Done. Elapsed time ' + str(time.time() - tic))
+
+        # Solve
+        tic = time.time()
+        ls = LSFactory()
+        if self.rhs.size <  max_direct:
+            logger.info('Solve linear system using direct solver')
+            self.x = ls.direct(*self.reassemble())
+        else:
+            logger.info('Solve linear system using GMRES')
+            precond = self._setup_preconditioner()
+#            precond = ls.ilu(self.lhs)
+            slv = ls.gmres(self.lhs)
+            self.x, info = slv(self.rhs, M=precond, callback=callback,
+                               maxiter=10000, restart=1000)
+            if info == 0:
+                logger.info('GMRES succeeded.')
+            else:
+                logger.error('GMRES failed with status ' + str(info))
+
+        logger.info('Done. Elapsed time ' + str(time.time() - tic))
         return self.x
 
     def step(self):
@@ -134,12 +200,73 @@ class Elliptic():
                                        self.pressure_name,
                                        self._data)
 
-    def save(self, variables, save_every=None):
-        folder_name = self.parameters['folder_name']
-        file_name = self.parameters['file_name']
-        if not self.is_GridBucket:
-            variables = {k: self._data[k] for k in variables if k in self._data}
-        export_vtk(self.grid(), file_name, variables, folder=folder_name)
+    def save(self, variables=None, save_every=None):
+        if variables is None:
+            self.exporter.write_vtk()
+        else:
+            if not self.is_GridBucket:
+                variables = {k: self._data[k] for k in variables \
+                                                             if k in self._data}
+            self.exporter.write_vtk(variables)
+
+    ### Helper functions for linear solve below
+    def _setup_preconditioner(self):
+        solvers, ind, not_ind = self._assign_solvers()
+
+        def precond(r):
+            x = np.zeros_like(r)
+            for s, i, ni in zip(solvers, ind, not_ind):
+                x[i] += s(r[i])
+            return x
+        def precond_mult(r):
+            x = np.zeros_like(r)
+            A = self.lhs
+            for s, i, ni in zip(solvers, ind, not_ind):
+                r_i = r[i] - A[i, :][:, ni] * x[ni]
+                x[i] += s(r_i)
+            return x
+
+        M = lambda r: precond(r)
+        return spl.LinearOperator(self.lhs.shape, M)
+
+
+    def _assign_solvers(self):
+        mat, ind = self._obtain_submatrix()
+        all_ind = np.arange(self.rhs.size)
+        not_ind = [np.setdiff1d(all_ind, i) for i in ind]
+
+        factory = LSFactory()
+        num_mat = len(mat)
+        solvers = np.empty(num_mat, dtype=np.object)
+        for i, A in enumerate(mat):
+            sz = A.shape[0]
+            if sz < 5000:
+                solvers[i] = factory.direct(A)
+            else:
+                # amg solver is pyamg is installed, if not ilu
+                try:
+                    solvers[i] = factory.amg(A, as_precond=True)
+                except ImportError:
+                    solvers[i] = factory.ilu(A)
+
+        return solvers, ind, not_ind
+
+
+    def _obtain_submatrix(self):
+
+        if isinstance(self.grid(), GridBucket):
+            gb = self.grid()
+            fd = self.flux_disc()
+            mat = []
+            sub_ind = []
+            for g, _ in self.grid():
+                ind = fd.solver.dof_of_grid(gb, g)
+                A = self.lhs[ind, :][:, ind]
+                mat.append(A)
+                sub_ind.append(ind)
+            return mat, sub_ind
+        else:
+            return [self.lhs], [np.arange(self.grid().num_cells)]
 
 #------------------------------------------------------------------------------#
 
@@ -162,6 +289,17 @@ class DualElliptic(Elliptic):
             return vem_dual.DualVEMMixDim(physics=self.physics)
         else:
             return vem_dual.DualVEM(physics=self.physics)
+
+    def solve(self):
+        """ Discretize and solve linear system by a direct solver.
+
+        The saddle point structure of the dual discretization implies that
+        other block solvers are needed. TODO.
+
+        """
+        ls = LSFactory()
+        self.x = ls.direct(*self.reassemble())
+        return self.x
 
     def pressure(self, pressure_name='pressure'):
         self.pressure_name = pressure_name
