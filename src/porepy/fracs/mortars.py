@@ -27,10 +27,32 @@ Created on Sat Nov 11 16:22:36 2017
 """
 
 import numpy as np
+import scipy.sparse as sps
 
 from porepy.fracs import non_conforming
 from porepy.utils.matrix_compression import rldecode
 
+#------------------------------------------------------------------------------#
+
+def update_gb_1d(gb, gs_1d, hs_1d):
+
+    gs_1d = np.atleast_1d(gs_1d)
+    hs_1d = np.atleast_1d(hs_1d)
+
+    assert gs_1d.size == hs_1d.size
+
+    for g, h in zip(gs_1d, hs_1d):
+        weights, new_cells, old_cells = match_grids_1d(h, g)
+        split_matrix = sps.csr_matrix((weights, (new_cells, old_cells)))
+
+        for g_2d in gb.node_neighbors(g, lambda _g: _g.dim > g.dim):
+            face_cells = gb.edge_prop((g_2d, g), "face_cells")[0]
+            face_cells = split_matrix * face_cells
+            gb.add_edge_prop("face_cells", (g_2d, g), face_cells)
+
+    gb.update_nodes(gs_1d, hs_1d)
+
+#------------------------------------------------------------------------------#
 
 def match_grids_1d(new_1d, old_1d):
      """ Obtain mappings between the cells of non-matching 1d grids.
