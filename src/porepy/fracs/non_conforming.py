@@ -230,7 +230,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     # First use a 1d coordinate to initialize topology
     new_grid = TensorGrid(np.arange(num_new_grid))
     # Then set the right, 3d coordinates
-    new_grid.nodes = combined_sorted
+    new_grid.nodes = cg.make_collinear(combined_sorted)
 
     # Set global point indices
     new_grid.global_point_ind = global_ind_offset + np.arange(num_new_grid)
