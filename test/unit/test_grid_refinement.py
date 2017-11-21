@@ -37,7 +37,7 @@ class TestGridRefinement1d(unittest.TestCase):
 
 #------------------------------------------------------------------------------#
 
-    def test_refinement_grid_1d_in_gb_uniform(self):
+    def test_refinement_grid_1d_in_gb_uniform_ratio_2(self):
         f1 = np.array([[0, 1], [.5, .5]])
         ratio = 2
 
@@ -59,6 +59,44 @@ class TestGridRefinement1d(unittest.TestCase):
                             0.  ,  0.,  0.,  0.25,  0.  ],
                           [ 0.  ,  0.,  0.,  0.  ,  0.  ,  0.,  0.,  0.,  0.25,
                             0.  ,  0.,  0.,  0.25,  0.  ]])
+
+        for _, d in gb.edges_props():
+            assert np.allclose(d["face_cells"].todense(), known_face_cells)
+
+#------------------------------------------------------------------------------#
+
+    def test_refinement_grid_1d_in_gb_uniform_ratio_3(self):
+        f1 = np.array([[0, 1], [.5, .5]])
+        ratio = 3
+
+        gb = meshing.cart_grid([f1], [2, 2], **{'physdims': [1, 1]})
+        gb.compute_geometry()
+        gb.assign_node_ordering()
+
+        gs_1d = np.array(gb.grids_of_dimension(1))
+        hs_1d = np.array([refinement.refine_grid_1d(g, ratio) for g in gs_1d])
+
+        mortars.update_gb_1d(gb, gs_1d, hs_1d)
+
+        known_face_cells = \
+                    np.array([[ 0.,  0.,  0.        ,  0.        ,  0.        ,
+                                0.,  0.,  0.        ,  0.        ,  0.16666667,
+                                0.,  0.,  0.        ,  0.16666667],
+                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
+                                0.,  0.,  0.        ,  0.        ,  0.16666667,
+                                0.,  0.,  0.        ,  0.16666667],
+                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
+                                0.,  0.,  0.        ,  0.        ,  0.16666667,
+                                0.,  0.,  0.        ,  0.16666667],
+                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
+                                0.,  0.,  0.        ,  0.16666667,  0.        ,
+                                0.,  0.,  0.16666667,  0.        ],
+                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
+                                0.,  0.,  0.        ,  0.16666667,  0.        ,
+                                0.,  0.,  0.16666667,  0.        ],
+                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
+                                0.,  0.,  0.        ,  0.16666667,  0.        ,
+                                0.,  0.,  0.16666667,  0.        ]])
 
         for _, d in gb.edges_props():
             assert np.allclose(d["face_cells"].todense(), known_face_cells)
@@ -93,3 +131,42 @@ class TestGridRefinement1d(unittest.TestCase):
             assert np.allclose(d["face_cells"].todense(), known_face_cells)
 
 #------------------------------------------------------------------------------#
+
+    def test_coarse_grid_1d_in_gb(self):
+        f1 = np.array([[0, 1], [.5, .5]])
+        num_nodes = 4
+
+        gb = meshing.cart_grid([f1], [4, 2], **{'physdims': [1, 1]})
+        gb.compute_geometry()
+        gb.assign_node_ordering()
+
+        gs_1d = np.array(gb.grids_of_dimension(1))
+        hs_1d = np.array([refinement.new_grid_1d(g, num_nodes) for g in gs_1d])
+
+        mortars.update_gb_1d(gb, gs_1d, hs_1d)
+
+        known_face_cells = \
+     np.array([[ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
+                 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
+                 0.        ,  0.        ,  0.        ,  0.        ,  0.25      ,
+                 0.08333333,  0.        ,  0.        ,  0.        ,  0.        ,
+                 0.        ,  0.        ,  0.25      ,  0.08333333,  0.        ,
+                 0.        ],
+               [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
+                 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
+                 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
+                 0.16666667,  0.16666667,  0.        ,  0.        ,  0.        ,
+                 0.        ,  0.        ,  0.        ,  0.16666667,  0.16666667,
+                 0.        ],
+               [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
+                 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
+                 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
+                 0.        ,  0.08333333,  0.25      ,  0.        ,  0.        ,
+                 0.        ,  0.        ,  0.        ,  0.        ,  0.08333333,
+                 0.25      ]])
+
+        for _, d in gb.edges_props():
+            assert np.allclose(d["face_cells"].todense(), known_face_cells)
+
+#------------------------------------------------------------------------------#
+
