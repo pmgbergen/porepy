@@ -188,6 +188,7 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
         for fi in range(len(network._fractures)):
             # Rotate fracture vertexes and intersection points
             fp, ip, other_frac, rot, cp = network.fracture_to_plane(fi)
+            frac_i = network[fi]
 
             f_lines = np.reshape(np.arange(ip.shape[1]), (2, -1), order='F')
             frac_dict = {'points': ip, 'edges': f_lines}
@@ -203,19 +204,22 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
 
             # Nodes of main (fracture) grid, in 3d coordinates1
             main_nodes = grids[0][0].nodes
+            main_global_point_ind = grids[0][0].global_point_ind
             # Loop over intersections, check if the intersection is on the
             # boundary of this fracture.
             for ind, isect in enumerate(network.intersections_of_fracture(fi)):
-                of = network._fractures[isect.get_other_fracture[fi]].p
-                if isect.on_boundary_of_fracture(fi):
-                    dist, _, _ = cg.dist_points_polygon(main_nodes, of)
-                    hit = np.argwhere(dist < 1e-4)[0]
+                of = isect.get_other_fracture(frac_i)
+                if isect.on_boundary_of_fracture(frac_i):
+                    dist, _, _ = cg.dist_points_polygon(main_nodes, of.p)
+                    hit = np.argwhere(dist < 1e-4).reshape((1, -1))[0]
                     nodes_1d = main_nodes[:, hit]
+                    global_point_ind = main_global_point_ind[hit]
 
                     assert cg.is_collinear(nodes_1d)
                     sort_ind = cg.argsort_point_on_line(nodes_1d)
-                    g_aux = TensorGrid(np.arange(nodes_1d))
+                    g_aux = TensorGrid(np.arange(nodes_1d.shape[1]))
                     g_aux.nodes = nodes_1d[:, sort_ind]
+                    g_aux.global_point_ind = global_point_ind[sort_ind]
                     grids[1].insert(ind, g_aux)
 
 
