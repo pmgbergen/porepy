@@ -218,13 +218,20 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def node_neighbors(self, n):
+    def node_neighbors(self, node, cond=None):
         """
+        Parameters:
+            node: the node
+            cond: (default None) if given a condition to filter the neighbors
+                nodes.
         Return:
-            list of networkx.node: Neighbors of node n
+            list of networkx.node: Neighbors of node 'node'
 
         """
-        return self.graph.neighbors(n)
+        if cond is None:
+            return self.graph.neighbors(node)
+        else:
+            return [g for g in self.graph.neighbors(node) if cond(g)]
 
 #------------------------------------------------------------------------------#
 
