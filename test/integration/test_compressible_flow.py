@@ -79,7 +79,7 @@ class UnitSquareInjectionMultiDim(problems.SlightlyCompressible):
         set_sub_problems(g)
         self.g = g
         # Initialize base class
-        problems.SlightlyCompressible.__init__(self, 'flow')
+        problems.SlightlyCompressible.__init__(self, self.g, 'flow')
 
     #--------grid function--------
 
