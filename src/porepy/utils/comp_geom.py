@@ -524,8 +524,8 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True,
         b = -(end_x - start_x)
 
         # Midpoint of this edge
-        xm = (start_x[edge_counter] + end_x[edge_counter]) / 2
-        ym = (start_y[edge_counter] + end_y[edge_counter]) / 2
+        xm = (start_x[edge_counter] + end_x[edge_counter]) / 2.
+        ym = (start_y[edge_counter] + end_y[edge_counter]) / 2.
 
         # For all lines, find which side of line i it's two endpoints are.
         # If c1 and c2 have different signs, they will be on different sides
