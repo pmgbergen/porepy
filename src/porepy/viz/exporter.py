@@ -504,7 +504,9 @@ if 'numba' in sys.modules:
                                   + R[j, 1] * nodes_loc[1, i] + \
                                   + R[j, 2] * nodes_loc[2, i]
     ##            # Distance from projected points to center
-                delta = pts - center
+                delta = 0*pts
+                for i in range(num_p):
+                    delta[:, i] = pts[:, i] - center
                 nrm = np.sqrt(delta[0]**2 + delta[1]**2)
                 for i in range(num_p):
                     delta[:, i] = delta[:, i] / nrm[i]
