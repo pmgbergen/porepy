@@ -373,7 +373,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         # Refer to unique edges if necessary
         if edges_unique.shape[1] < edges.shape[1]:
             # Copy tags
-            edges = np.vstack((edges_unique, edges[2, new_2_old]))
+            edges = np.vstack((edges_unique, edges[2:, new_2_old]))
             # Also signify that we have carried out this operation.
             split_type = [split_type, 8]
 
