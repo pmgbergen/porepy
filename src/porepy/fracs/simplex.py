@@ -280,6 +280,7 @@ def triangle_grid(fracs, domain, **kwargs):
 
     # File name for communication with gmsh
     file_name = kwargs.get('file_name', 'gmsh_frac_file')
+    kwargs.pop('file_name', str())
 
     tol = kwargs.get('tol', 1e-4)
 
