@@ -296,7 +296,7 @@ class Parameters(object):
         if hasattr(self, '_source_mechanics'):
             return self._source_mechanics
         else:
-            return np.zeros(self._num_cells * self._dim)
+            return np.zeros(self._num_cells * self.dim)
     source_mechanics = property(get_source_mechanics)
 
 #-------------------- Permeability, conductivity, ---------------------
