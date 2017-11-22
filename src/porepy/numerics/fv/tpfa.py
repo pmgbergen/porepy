@@ -97,19 +97,9 @@ class Tpfa(Solver):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a two-point flux approximation.
-        The name of data in the input dictionary (data) are:
-        k : second_order_tensor
-            Permeability defined cell-wise. If not given a identity permeability
-            is assumed and a warning arised.
-        f : array (self.g.num_cells)
-            Scalar source term defined cell-wise. If not given a zero source
-            term is assumed and a warning arised.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
 
+        To set a source see the source.Integral discretization class
+ 
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -165,11 +155,6 @@ class Tpfa(Solver):
             tensor : second_order_tensor
                 Permeability defined cell-wise. If not given a identity permeability
                 is assumed and a warning arised.
-            source : array (self.g.num_cells)
-                Scalar source term defined cell-wise. Given as net inn/out-flow, i.e.
-                should already have been multiplied with the cell sizes. Positive
-                values are considered innflow. If not given a zero source
-                term is assumed and a warning arised.
             bc : boundary conditions (optional)
             bc_val : dictionary (optional)
                 Values of the boundary conditions. The dictionary has at most the
