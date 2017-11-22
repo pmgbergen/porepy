@@ -539,6 +539,7 @@ class Fracture(object):
             on_boundary_other = other_segment or \
                                     point_on_segment(bound_pt_other, other.p)
 
+            logger.info('An L-intersection is found from self_segment')
             return bound_pt, on_boundary_self, on_boundary_other
         # Cover the case of a segment - essentially an L-intersection
         if other_segment:
@@ -554,6 +555,7 @@ class Fracture(object):
             on_boundary_self = self_segment or \
                                    point_on_segment(bound_pt_self, self.p)
             on_boundary_other = other_segment
+            logger.info('An L-intersection is found from other_segment')
             return bound_pt, on_boundary_self, on_boundary_other
 
         # Case where one boundary segment of one fracture cuts through two
@@ -569,6 +571,7 @@ class Fracture(object):
             bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt,
                                                                tol=tol)
 
+            logger.info('A T-intersection is found from self_cuts')
             return bound_pt, on_boundary_self, on_boundary_other
         elif other_cuts_through:
             on_boundary_self = False
@@ -581,6 +584,7 @@ class Fracture(object):
             bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt,
                                                                tol=tol)
 
+            logger.info('A T-intersection is found from other_cuts')
             return bound_pt, on_boundary_self, on_boundary_other
 
         bound_pt = np.hstack((int_points, bound_pt_self))
@@ -1201,9 +1205,11 @@ class FractureNetwork(object):
         for i, first in enumerate(self._fractures):
             for j in range(i + 1, len(self._fractures)):
                 second = self._fractures[j]
+                logger.info('Processing fracture %i and %i', i, j)
                 isect, bound_first, bound_second = first.intersects(second,
                                                                     self.tol)
-                if len(isect) > 0:
+                if np.array(isect).size > 0:
+                    logger.info('Found an intersection between %i and %i', i, j)
                     # Let the intersection know whether both intersection
                     # points lies on the boundary of each fracture
                     self.intersections.append(Intersection(first, second,
