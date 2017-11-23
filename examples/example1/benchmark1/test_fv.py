@@ -99,7 +99,7 @@ def main(kf, description, multi_point, if_export=False):
 
     file_name = 'network_geiger.csv'
     write_network(file_name)
-    gb = importer.from_csv(file_name, mesh_kwargs, domain)
+    gb = importer.mesh_from_csv(file_name, mesh_kwargs, domain)
     gb.compute_geometry()
     gb.assign_node_ordering()
 
