@@ -533,10 +533,8 @@ class Parameters(object):
             Identification of physical regime. Either discretization object
             with attribute 'physics' or a str.
 
-        val : BoundaryCondition, representing
-            flow/pressure equation y if physics equals 'flow'
-            transport equation if physics equals 'transport'
-            elasticity if physics equals 'mechanics'
+        val : np.array: Value for boundary condition, as specified by the
+            relevant numerical method.
 
         """
         physics = self._get_physics(obj)
