@@ -11,7 +11,7 @@ from porepy.utils.sort_points import sort_point_pairs
 
 #------------------------------------------------------------------------------#
 
-def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
+def mesh_from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
              return_domain=False, tol=1e-8, **kwargs):
     """
     Create the grid bucket from a set of fractures stored in a csv file and a
@@ -35,7 +35,7 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
         is returned.
 
     """
-    pts, edges = fractures_from_csv(f_name, tol=tol, **kwargs)
+    pts, edges = lines_from_csv(f_name, tol=tol, **kwargs)
     f_set = np.array([pts[:, e] for e in edges.T])
 
     # Define the domain as bounding-box if not defined
@@ -50,7 +50,7 @@ def from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
 
 #------------------------------------------------------------------------------#
 
-def fractures_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
+def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
     """ Read csv file with fractures to obtain fracture description.
 
     Create the grid bucket from a set of fractures stored in a csv file and a
