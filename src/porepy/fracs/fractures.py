@@ -326,6 +326,13 @@ class Fracture(object):
         min_other = other.p.min(axis=1)
         max_other = other.p.max(axis=1)
 
+        # Account for a tolerance in the following test
+        max_self *= 1+np.sign(max_self)*tol
+        min_self *= 1-np.sign(min_self)*tol
+
+        max_other *= 1+np.sign(max_other)*tol
+        min_other *= 1-np.sign(min_other)*tol
+
         if np.any(max_self < min_other) or np.any(min_self > max_other):
             return int_points, on_boundary_self, on_boundary_other
 
@@ -555,6 +562,7 @@ class Fracture(object):
             on_boundary_self = self_segment or \
                                    point_on_segment(bound_pt_self, self.p)
             on_boundary_other = other_segment
+
             logger.info('An L-intersection is found from other_segment')
             return bound_pt, on_boundary_self, on_boundary_other
 
