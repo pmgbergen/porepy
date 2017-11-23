@@ -240,6 +240,10 @@ class Tpfa(Solver):
         # Return harmonic average
         t = 1 / np.bincount(fi, weights=1 / t_face)
 
+        # Save values for use in recovery of boundary face pressures
+        t_full = t.copy()
+        sgn_full = np.bincount(fi, sgn)
+
         # Move Neumann faces to Neumann transmissibility
         bndr_ind = g.get_boundary_faces()
         t_b = np.zeros(g.num_faces)
@@ -259,6 +263,23 @@ class Tpfa(Solver):
 
         data['flux'] = flux
         data['bound_flux'] = bound_flux
+
+        # Next, construct operator to reconstruct pressure on boundaries
+        # Fields for data storage
+        v_cell = np.zeros(fi.size)
+        v_face = np.zeros(g.num_faces)
+        # On Dirichlet faces, simply recover boundary condition
+        v_face[bnd.is_dir] = 1
+        # On Neumann faces, the, use half-transmissibilities
+        v_face[bnd.is_neu] = -sgn_full[bnd.is_neu]/t_full[bnd.is_neu]
+        v_cell[bnd.is_neu[fi]] = 1
+
+        bound_pressure_cell = sps.coo_matrix((v_cell, (fi, ci)),
+                                             (g.num_faces, g.num_cells))
+        bound_pressure_face = sps.dia_matrix((v_face, 0),
+                                             (g.num_faces, g.num_faces))
+        data['bound_pressure_cell'] = bound_pressure_cell
+        data['bound_pressure_face'] = bound_pressure_face
 
 #------------------------------------------------------------------------------
 
