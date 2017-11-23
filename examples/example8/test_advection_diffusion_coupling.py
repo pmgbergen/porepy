@@ -136,7 +136,7 @@ mesh_kwargs['mesh_size'] = {'mode': 'constant',
 
 domain = {'xmin': -0.2, 'xmax': 1.2, 'ymin': -0.2, 'ymax': 1.2}
 print(folder)
-gb = importer.from_csv(folder + 'network.csv', mesh_kwargs, domain)
+gb = importer.mesh_from_csv(folder + 'network.csv', mesh_kwargs, domain)
 gb.compute_geometry()
 gb.assign_node_ordering()
 
