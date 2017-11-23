@@ -2,7 +2,7 @@
 import os, sys, glob
 
 
-def run_test():
+def run_all():
     os.chdir('../../tutorials')
     failed = False
     for file in glob.glob('*.ipynb'):
@@ -34,4 +34,4 @@ def remove_plots(fn):
                 and line.strip()[:8] != 'frac_viz':
                 f.write(line)
 
-run_test()
+run_all()
