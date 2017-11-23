@@ -8,7 +8,7 @@ from porepy.params import tensor, bc
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.fv import tpfa, mass_matrix, source
 from porepy.numerics.fv.transport import upwind
-from porepy.numerics import pde_solver
+from porepy.numerics import time_stepper
 from porepy.numerics.mixed_dim import coupler
 from porepy.viz.exporter import Exporter
 
@@ -111,7 +111,7 @@ class ParabolicModel():
 
     def solver(self):
         'Initiate solver'
-        return pde_solver.Implicit(self)
+        return time_stepper.Implicit(self)
 
     def advective_disc(self):
         'Discretization of fluid_density*fluid_specific_heat * v * \nabla T'
