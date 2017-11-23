@@ -13,6 +13,7 @@ before install:
 install:
   - sudo apt-get update
   - pip install -r requirements-dev.txt
+  - pip install jupyter
   - pip install .
   - pip freeze
   
