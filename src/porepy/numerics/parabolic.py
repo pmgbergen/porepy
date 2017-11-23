@@ -13,7 +13,7 @@ from porepy.viz.exporter import Exporter
 logger = logging.getLogger(__name__)
 
 
-class ParabolicProblem():
+class ParabolicModel():
     '''
     Base class for solving general pde problems. This class solves equations of
     the type:
@@ -170,7 +170,7 @@ class ParabolicProblem():
 
         self.exporter.write_pvd(times)
 
-class ParabolicData():
+class ParabolicDataAssigner():
     '''
     Base class for assigning valid data to a grid.
     Init:

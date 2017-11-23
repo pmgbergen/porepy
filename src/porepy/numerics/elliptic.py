@@ -23,7 +23,7 @@ from porepy.viz.exporter import Exporter
 logger = logging.getLogger(__name__)
 
 
-class Elliptic():
+class EllipticModel():
     '''
     Class for solving an incompressible flow problem:
     \nabla K \nabla p = q,
@@ -309,10 +309,10 @@ class Elliptic():
 
 #------------------------------------------------------------------------------#
 
-class DualElliptic(Elliptic):
+class DualEllipticModel(EllipticModel):
 
     def __init__(self, gb, data=None, physics='flow'):
-        Elliptic.__init__(self, gb, data, physics)
+        EllipticModel.__init__(self, gb, data, physics)
 
         self.discharge_name = str()
         self.projected_discharge_name = str()
@@ -374,7 +374,7 @@ class DualElliptic(Elliptic):
 
 #------------------------------------------------------------------------------#
 
-class EllipticData():
+class EllipticDataAssigner():
     '''
     Class for setting data to an incompressible flow problem:
     \nabla K \nabla p = q,
