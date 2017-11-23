@@ -7,6 +7,9 @@ python:
   - "3.5"
   - "3.6"
 
+before install:
+  - chmod +x ./test/regression/run_cron_test.sh
+
 install:
   - sudo apt-get update
   - pip install -r requirements-dev.txt
