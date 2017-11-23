@@ -131,6 +131,56 @@ class Parameters(object):
         self._fluid_compr = val
     fluid_compr = property(get_fluid_compr, set_fluid_compr)
 
+#----------- Fluid density - treated as constant for now
+    def get_fluid_density(self):
+        if hasattr(self, '_fluid_density'):
+            return self._fluid_density
+        else:
+            return 1
+    def set_fluid_density(self, val):
+        if val < 0:
+            raise ValueError('Fluid density should be non-negative')
+        self._fluid_density = val
+    fluid_density = property(get_fluid_density, set_fluid_density)
+
+#----------- Fluid specific heat - treated as constant for now
+    def get_fluid_specific_heat(self):
+        if hasattr(self, '_fluid_specific_heat'):
+            return self._fluid_specific_heat
+        else:
+            return 1
+    def set_fluid_specific_heat(self, val):
+        if val < 0:
+            raise ValueError('Fluid specific heat should be non-negative')
+        self._fluid_specific_heat = val
+    fluid_specific_heat = property(get_fluid_specific_heat,
+                                   set_fluid_specific_heat)
+
+#----------- rock density - treated as constant for now
+    def get_rock_density(self):
+        if hasattr(self, '_rock_density'):
+            return self._rock_density
+        else:
+            return 1
+    def set_rock_density(self, val):
+        if val < 0:
+            raise ValueError('rock density should be non-negative')
+        self._rock_density = val
+    rock_density = property(get_rock_density, set_rock_density)
+
+#----------- rock specific heat - treated as constant for now
+    def get_rock_specific_heat(self):
+        if hasattr(self, '_rock_specific_heat'):
+            return self._rock_specific_heat
+        else:
+            return 1
+    def set_rock_specific_heat(self, val):
+        if val < 0:
+            raise ValueError('rock specific heat should be non-negative')
+        self._rock_specific_heat = val
+    rock_specific_heat = property(get_rock_specific_heat,
+                                   set_rock_specific_heat)
+
 #-------------------- Cell-wise quantities below here --------------------
 
 #------------------ Aperture -----------------
