@@ -109,10 +109,10 @@ def main(kf, description, is_coarse=False, if_export=False):
     add_data(gb, domain, kf)
 
     # Choose and define the solvers and coupler
-    solver_flow = vem_dual.DualVEMMixDim('flow')
+    solver_flow = vem_dual.DualVEMMixedDim('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = vem_source.IntegralMixDim('flow')
+    solver_source = vem_source.IntegralMixedDim('flow')
     A_source, b_source = solver_source.matrix_rhs(gb)
 
     up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)

@@ -35,7 +35,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = tpfa.TpfaMixDim(physics='flow')
+        solver = tpfa.TpfaMixedDim(physics='flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
@@ -109,7 +109,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = mpfa.MpfaMixDim(physics='flow')
+        solver = mpfa.MpfaMixedDim(physics='flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
@@ -206,7 +206,7 @@ class BasicsTest( unittest.TestCase ):
                     raise ValueError('Grid not found')
 
         tol = 1e-3
-        solver = tpfa.TpfaMixDim('flow')
+        solver = tpfa.TpfaMixedDim('flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
