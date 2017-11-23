@@ -1,9 +1,11 @@
 import numpy as np
 import logging
 import time
+import scipy.sparse as sps
 
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
+from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.fv import tpfa, mass_matrix, source
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics import pde_solver
@@ -112,7 +114,47 @@ class ParabolicModel():
         return pde_solver.Implicit(self)
 
     def advective_disc(self):
-        'Discretization of term v * \nabla T'
+        'Discretization of fluid_density*fluid_specific_heat * v * \nabla T'
+
+        class WeightedUpwindDisc(upwind.Upwind):
+            def __init__(self):
+                self.physics = 'transport'
+
+            def matrix_rhs(self, g, data):
+                lhs, rhs = upwind.Upwind.matrix_rhs(self, g, data)
+                factor = data['param'].fluid_specific_heat\
+                       * data['param'].fluid_density
+                lhs *= factor
+                rhs *= factor
+                return lhs, rhs
+
+        class WeightedUpwindCoupler(upwind.UpwindCoupling):
+            def __init__(self, discr):
+                self.physics = 'transport'
+                upwind.UpwindCoupling.__init__(self, discr)
+
+            def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
+                cc = upwind.UpwindCoupling.matrix_rhs(self, g_h, g_l, data_h,
+                                                      data_l, data_edge)
+                factor = data_h['param'].fluid_specific_heat \
+                       * data_h['param'].fluid_density
+                return cc * factor
+
+        class WeightedUpwindMixedDim(upwind.UpwindMixDim):
+
+            def __init__(self):
+                self.physics = 'transport'
+
+                self.discr = WeightedUpwindDisc()
+                self.discr_ndof = self.discr.ndof
+                self.coupling_conditions = WeightedUpwindCoupler(self.discr)
+
+                self.solver = coupler.Coupler(self.discr,
+                                             self.coupling_conditions)
+
+        multi_dim_discr = WeightedUpwindMixedDim()
+        return multi_dim_discr
+
         advection_solver = upwind.UpwindMixDim(physics=self.physics)
         return advection_solver
 
@@ -132,10 +174,32 @@ class ParabolicModel():
 
     def time_disc(self):
         """
-        Returns the flux discretization.
+        Returns the time discretization.
         """
-        mass_matrix_discr = mass_matrix.MassMatrix(physics=self.physics)
-        multi_dim_discr = coupler.Coupler(mass_matrix_discr)
+        class TimeDisc(mass_matrix.MassMatrix):
+            def __init__(self, deltaT):
+                self.deltaT = deltaT
+
+            def matrix_rhs(self, g, data):
+                ndof = g.num_cells
+                aperture = data['param'].get_aperture()
+                coeff = g.cell_volumes * aperture / self.deltaT
+
+                factor_fluid = data['param'].fluid_specific_heat\
+                             * data['param'].fluid_density\
+                             * data['param'].porosity
+                factor_rock = data['param'].rock_specific_heat\
+                             * data['param'].rock_density\
+                             * (1 - data['param'].porosity)
+                factor = sps.dia_matrix((factor_fluid + factor_rock, 0),
+                                        shape=(ndof, ndof))
+
+                lhs = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
+                rhs = np.zeros(ndof)
+                return factor * lhs, factor * rhs
+
+        single_dim_discr = TimeDisc(self.time_step())
+        multi_dim_discr = coupler.Coupler(single_dim_discr)
         return multi_dim_discr
 
     def initial_condition(self):
@@ -187,6 +251,10 @@ class ParabolicDataAssigner():
         porosity(): porosity of each cell
         diffusivity(): second order diffusivity tensor
         aperture(): the aperture of each cell
+        rock_specific_heat(): Specific heat of the rock. Constant.
+        fluid_specific_heat(): Specific heat of the fluid. Constant.
+        rock_density(): Density of the rock. Constant.
+        fluid_density(): Density of the fluid. Constant.
         data(): returns data dictionary
         grid(): returns the grid g
 
@@ -254,6 +322,30 @@ class ParabolicDataAssigner():
         Parameter class value is used'''
         return None
 
+    def rock_specific_heat(self):
+        """ Returns *constant* specific heat capacity of rock. If None is
+        returned, default Parameter class value is used.
+        """
+        return None
+
+    def fluid_specific_heat(self):
+        """ Returns *constant* specific heat capacity of fluid. If None is
+        returned, default Parameter class value is used.
+        """
+        return None
+
+    def rock_density(self):
+        """ Returns *constant* density of rock. If None is
+        returned, default Parameter class value is used.
+        """
+        return None
+
+    def fluid_density(self):
+        """ Returns *constant* density of fluid. If None is
+        returned, default Parameter class value is used.
+        """
+        return None
+
     def data(self):
         'Returns data dictionary'
         return self._data
@@ -277,3 +369,12 @@ class ParabolicDataAssigner():
             self._data['param'].set_porosity(self.porosity())
         if self.aperture() is not None:
             self._data['param'].set_aperture(self.aperture())
+        if self.rock_specific_heat() is not None:
+            self._data['param'].set_rock_specific_heat(self.rock_specific_heat())
+        if self.fluid_specific_heat() is not None:
+            self._data['param'].set_fluid_specfic_heat(self.fluid_specific_heat())
+        if self.rock_density() is not None:
+            self._data['param'].set_rock_density(self.rock_density())
+        if self.fluid_density() is not None:
+            self._data['param'].set_fluid_density(self.fluid_density())
+
