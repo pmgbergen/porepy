@@ -24,7 +24,7 @@ class BasicsTest( unittest.TestCase ):
 
         tol = 1e-3
         gb.add_node_props(['param'])
-        solver = upwind.UpwindMixDim('transport')
+        solver = upwind.UpwindMixedDim('transport')
 
         for g, d in gb:
             param = Parameters(g)
@@ -85,7 +85,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = upwind.UpwindMixDim('transport')
+        solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:
@@ -168,7 +168,7 @@ class BasicsTest( unittest.TestCase ):
                     raise ValueError('Grid not found')
 
         tol = 1e-3
-        solver = upwind.UpwindMixDim('transport')
+        solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:
@@ -239,7 +239,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = upwind.UpwindMixDim('transport')
+        solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:
@@ -302,7 +302,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = upwind.UpwindMixDim('transport')
+        solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:
@@ -411,7 +411,7 @@ class BasicsTest( unittest.TestCase ):
                 pass
 
         tol = 1e-3
-        solver = upwind.UpwindMixDim('transport')
+        solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:
@@ -470,7 +470,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
         gb.compute_geometry()
 
-        solver = upwind.UpwindMixDim('transport')
+        solver = upwind.UpwindMixedDim('transport')
 
         gb.add_node_props(['param'])
 
@@ -519,7 +519,7 @@ class BasicsTest( unittest.TestCase ):
         gb.assign_node_ordering()
         gb.compute_geometry()
 
-        solver = upwind.UpwindMixDim('transport')
+        solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
 
         for g, d in gb:

@@ -140,7 +140,7 @@ class ParabolicModel():
                        * data_h['param'].fluid_density
                 return cc * factor
 
-        class WeightedUpwindMixedDim(upwind.UpwindMixDim):
+        class WeightedUpwindMixedDim(upwind.UpwindMixedDim):
 
             def __init__(self):
                 self.physics = 'transport'
@@ -155,17 +155,14 @@ class ParabolicModel():
         multi_dim_discr = WeightedUpwindMixedDim()
         return multi_dim_discr
 
-        advection_solver = upwind.UpwindMixDim(physics=self.physics)
-        return advection_solver
-
     def diffusive_disc(self):
         'Discretization of term \nabla K \nabla T'
-        diffusive_discr = tpfa.TpfaMixDim(physics=self.physics)
+        diffusive_discr = tpfa.TpfaMixedDim(physics=self.physics)
         return diffusive_discr
 
     def source_disc(self):
         'Discretization of source term, q'
-        return source.IntegralMixDim(physics=self.physics)
+        return source.IntegralMixedDim(physics=self.physics)
 
     def space_disc(self):
         '''Space discretization. Returns the discretization terms that should be

@@ -49,7 +49,7 @@ class Solver(object):
 
 #------------------------------------------------------------------------------#
 
-class SolverMixDim():
+class SolverMixedDim():
 
     def __init__(self):
         pass

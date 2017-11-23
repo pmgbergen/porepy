@@ -158,13 +158,13 @@ class EllipticModel():
 
     def source_disc(self):
         if self.is_GridBucket:
-            return source.IntegralMixDim(physics=self.physics)
+            return source.IntegralMixedDim(physics=self.physics)
         else:
             return source.Integral(physics=self.physics)
 
     def flux_disc(self):
         if self.is_GridBucket:
-            return tpfa.TpfaMixDim(physics=self.physics)
+            return tpfa.TpfaMixedDim(physics=self.physics)
         else:
             return tpfa.Tpfa(physics=self.physics)
 
@@ -319,13 +319,13 @@ class DualEllipticModel(EllipticModel):
 
     def source_disc(self):
         if self.is_GridBucket:
-            return vem_source.IntegralMixDim(physics=self.physics)
+            return vem_source.IntegralMixedDim(physics=self.physics)
         else:
             return vem_source.Integral(physics=self.physics)
 
     def flux_disc(self):
         if self.is_GridBucket:
-            return vem_dual.DualVEMMixDim(physics=self.physics)
+            return vem_dual.DualVEMMixedDim(physics=self.physics)
         else:
             return vem_dual.DualVEM(physics=self.physics)
 
