@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from porepy.numerics.parabolic import ParabolicProblem, ParabolicData
+from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
 from porepy.numerics.pde_solver import *
 from porepy.grids import structured
 from porepy.fracs import meshing
@@ -20,7 +20,7 @@ class TestBase(unittest.TestCase):
         self.gb = meshing.cart_grid(f_set, [4, 4, 4], physdims=[1, 1, 1])
         self.gb.add_node_props(['problem'])
         for g, d in self.gb:
-            d['problem'] = ParabolicData(g, d)
+            d['problem'] = ParabolicDataAssigner(g, d)
 
     def test_implicit_solver(self):
         '''Inject 1 in cell 0. Test that rhs and pressure solution
@@ -89,10 +89,10 @@ class TestBase(unittest.TestCase):
 ###############################################################################
 
 
-class UnitSquareInjectionMultiDim(ParabolicProblem):
+class UnitSquareInjectionMultiDim(ParabolicModel):
     def __init__(self, gb):
         # Initialize base class
-        ParabolicProblem.__init__(self, gb)
+        ParabolicModel.__init__(self, gb)
 
     def space_disc(self):
         return self.source_disc()

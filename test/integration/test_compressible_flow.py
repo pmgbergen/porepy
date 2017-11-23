@@ -25,14 +25,14 @@ class TestCompressibleFlow(unittest.TestCase):
 ###############################################################################
 
 
-class MatrixDomain(problems.SlightlyCompressibleData):
+class MatrixDomain(problems.SlightlyCompressibleDataAssigner):
     def __init__(self, g, d):
-        problems.SlightlyCompressibleData.__init__(self, g, d)
+        problems.SlightlyCompressibleDataAssigner.__init__(self, g, d)
 
 
-class FractureDomain(problems.SlightlyCompressibleData):
+class FractureDomain(problems.SlightlyCompressibleDataAssigner):
     def __init__(self, g, d):
-        problems.SlightlyCompressibleData.__init__(self, g, d)
+        problems.SlightlyCompressibleDataAssigner.__init__(self, g, d)
         aperture = np.power(0.001, 3 - g.dim)
         self.data()['param'].set_aperture(aperture)
 
@@ -64,7 +64,7 @@ def set_sub_problems(gb):
             raise ValueError('Unkown grid-dimension %d' % g.dim)
 
 
-class UnitSquareInjectionMultiDim(problems.SlightlyCompressible):
+class UnitSquareInjectionMultiDim(problems.SlightlyCompressibleModel):
 
     def __init__(self):
 
@@ -79,7 +79,7 @@ class UnitSquareInjectionMultiDim(problems.SlightlyCompressible):
         set_sub_problems(g)
         self.g = g
         # Initialize base class
-        problems.SlightlyCompressible.__init__(self, self.g, 'flow')
+        problems.SlightlyCompressibleModel.__init__(self, self.g, 'flow')
 
     #--------grid function--------
 

@@ -1,12 +1,12 @@
 import numpy as np
 
-from porepy.numerics.parabolic import ParabolicProblem, ParabolicData
+from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
 from porepy.numerics.fv import mass_matrix, fvutils
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.params import tensor
 
 
-class SlightlyCompressible(ParabolicProblem):
+class SlightlyCompressibleModel(ParabolicModel):
     '''
     Inherits from ParabolicProblem
     This class solves equations of the type:
@@ -31,7 +31,7 @@ class SlightlyCompressible(ParabolicProblem):
    '''
 
     def __init__(self, gb, physics='flow', **kwargs):
-        ParabolicProblem.__init__(self, gb, physics, **kwargs)
+        ParabolicModel.__init__(self, gb, physics, **kwargs)
 
     def space_disc(self):
         return self.diffusive_disc(), self.source_disc()
@@ -56,7 +56,7 @@ class SlightlyCompressible(ParabolicProblem):
         fvutils.compute_discharges(self.grid())
 
 
-class SlightlyCompressibleData(ParabolicData):
+class SlightlyCompressibleDataAssigner(ParabolicDataAssigner):
     '''
     Inherits from ParabolicData
     Base class for assigning valid data for a slighly compressible problem.
@@ -89,10 +89,10 @@ class SlightlyCompressibleData(ParabolicData):
     '''
 
     def __init__(self, g, data, physics='flow'):
-        ParabolicData.__init__(self, g, data, physics)
+        ParabolicDataAssigner.__init__(self, g, data, physics)
 
     def _set_data(self):
-        ParabolicData._set_data(self)
+        ParabolicDataAssigner._set_data(self)
         self.data()['compressibility'] = self.compressibility()
 
     def compressibility(self):
