@@ -2,7 +2,8 @@ import unittest
 import numpy as np
 
 from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
-from porepy.numerics.pde_solver import *
+from porepy.numerics.time_stepper import Implicit, Explicit, BDF2
+from porepy.numerics.time_stepper import CrankNicolson
 from porepy.grids import structured
 from porepy.fracs import meshing
 from porepy.params import tensor
