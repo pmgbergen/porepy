@@ -31,6 +31,7 @@ before_script:
 
 script: 
   - python setup.py test
+  - ./test/regression/run_cron_test.sh
 
 after_success:
   - coveralls
