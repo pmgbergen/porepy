@@ -20,7 +20,7 @@ def run_all():
             print('********************\n')
             failed = True
         cmd_delete = 'rm ' + new_file
-        os.system(cmd_delete)
+        #os.system(cmd_delete)
 
     assert not failed
 
@@ -30,8 +30,14 @@ def remove_plots(fn):
 
     with open(fn, 'w') as f:
         for line in content:
-            if line.strip()[:9] != 'plot_grid' and line.strip()[:4] != 'plt.'\
-                and line.strip()[:8] != 'frac_viz':
-                f.write(line)
+            if line.strip()[:9] == 'plot_grid':
+                continue
+            if line.strip()[:4] == 'plt.':
+                continue
+            if line.strip()[:8] == 'frac_viz':
+                continue
+            if line.strip()[:11] == 'get_ipython':
+                continue
+            f.write(line)
 
 run_all()
