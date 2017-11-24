@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from porepy.numerics.compressible import problems
+from porepy.numerics import compressible
 from porepy.grids import structured
 from porepy.fracs import meshing
 from porepy.params import tensor
@@ -25,14 +25,14 @@ class TestCompressibleFlow(unittest.TestCase):
 ###############################################################################
 
 
-class MatrixDomain(problems.SlightlyCompressibleData):
+class MatrixDomain(compressible.SlightlyCompressibleDataAssigner):
     def __init__(self, g, d):
-        problems.SlightlyCompressibleData.__init__(self, g, d)
+        compressible.SlightlyCompressibleDataAssigner.__init__(self, g, d)
 
 
-class FractureDomain(problems.SlightlyCompressibleData):
+class FractureDomain(compressible.SlightlyCompressibleDataAssigner):
     def __init__(self, g, d):
-        problems.SlightlyCompressibleData.__init__(self, g, d)
+        compressible.SlightlyCompressibleDataAssigner.__init__(self, g, d)
         aperture = np.power(0.001, 3 - g.dim)
         self.data()['param'].set_aperture(aperture)
 
@@ -64,7 +64,7 @@ def set_sub_problems(gb):
             raise ValueError('Unkown grid-dimension %d' % g.dim)
 
 
-class UnitSquareInjectionMultiDim(problems.SlightlyCompressible):
+class UnitSquareInjectionMultiDim(compressible.SlightlyCompressibleModel):
 
     def __init__(self):
 
@@ -79,7 +79,7 @@ class UnitSquareInjectionMultiDim(problems.SlightlyCompressible):
         set_sub_problems(g)
         self.g = g
         # Initialize base class
-        problems.SlightlyCompressible.__init__(self, self.g, 'flow')
+        compressible.SlightlyCompressibleModel.__init__(self, self.g, 'flow')
 
     #--------grid function--------
 
