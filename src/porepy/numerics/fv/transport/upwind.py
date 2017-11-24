@@ -2,13 +2,13 @@ from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 #------------------------------------------------------------------------------#
 
-class UpwindMixDim(SolverMixDim):
+class UpwindMixedDim(SolverMixedDim):
 
     def __init__(self, physics='transport'):
         self.physics = physics
