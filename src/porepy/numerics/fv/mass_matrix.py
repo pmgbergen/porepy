@@ -1,12 +1,12 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 
 #------------------------------------------------------------------------------#
 
-class MassMatrixMixDim(SolverMixDim):
+class MassMatrixMixedDim(SolverMixedDim):
 
     def __init__(self, physics='flow'):
         self.physics = physics
@@ -83,7 +83,7 @@ class MassMatrix(Solver):
 
 ##########################################################################
 
-class InvMassMatrixMixDim(SolverMixDim):
+class InvMassMatrixMixDim(SolverMixedDim):
 
     def __init__(self, physics='flow'):
         self.physics = physics

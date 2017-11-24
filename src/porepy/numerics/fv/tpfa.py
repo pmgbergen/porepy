@@ -11,7 +11,7 @@ import scipy.sparse as sps
 
 from porepy.params import tensor
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
@@ -20,7 +20,7 @@ from porepy.grids.grid import Grid
 
 #------------------------------------------------------------------------------
 
-class TpfaMixDim(SolverMixDim):
+class TpfaMixedDim(SolverMixedDim):
     def __init__(self, physics='flow'):
         self.physics = physics
 
@@ -32,7 +32,7 @@ class TpfaMixDim(SolverMixDim):
 
 #------------------------------------------------------------------------------
 
-class TpfaDFN(SolverMixDim):
+class TpfaDFN(SolverMixedDim):
 
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
@@ -46,7 +46,7 @@ class TpfaDFN(SolverMixDim):
         kwargs = {"discr_ndof": self.discr.ndof,
                   "discr_fct": self.__matrix_rhs__}
         self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
-        SolverMixDim.__init__(self)
+        SolverMixedDim.__init__(self)
 
     def __matrix_rhs__(self, g, data):
         # The highest dimensional problem compute the matrix and rhs, the lower
@@ -99,7 +99,7 @@ class Tpfa(Solver):
         order elliptic equation using a FV method with a two-point flux approximation.
 
         To set a source see the source.Integral discretization class
- 
+
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
