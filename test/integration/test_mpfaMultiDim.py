@@ -1,6 +1,6 @@
 import numpy as np
 
-from porepy.numerics.fv.mpfa import MpfaMixDim
+from porepy.numerics.fv.mpfa import MpfaMixedDim
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
@@ -39,7 +39,7 @@ def test_uniform_flow_cart_2d():
     gb = setup_cart_2d(np.array([10, 10]))
 
     # Python inverter is most efficient for small problems
-    flux_discr = MpfaMixDim('flow')
+    flux_discr = MpfaMixedDim('flow')
     A, rhs = flux_discr.matrix_rhs(gb)
     p = np.linalg.solve(A.A, rhs)
 

@@ -1,13 +1,14 @@
 import numpy as np
 import unittest
 
-from porepy.numerics.parabolic import *
+from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
 from porepy.numerics import elliptic
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
 from porepy.params.units import *
 from porepy.grids.grid import FaceTag
+from porepy.numerics.fv import fvutils
 
 
 class BasicsTest(unittest.TestCase):
@@ -103,9 +104,9 @@ class BasicsTest(unittest.TestCase):
             assert np.all(const_temp)
 
 
-class SourceProblem(ParabolicProblem):
+class SourceProblem(ParabolicModel):
     def __init__(self, g):
-        ParabolicProblem.__init__(self, g)
+        ParabolicModel.__init__(self, g)
 
     def space_disc(self):
         return self.source_disc()
@@ -114,9 +115,9 @@ class SourceProblem(ParabolicProblem):
         return 0.5
 
 
-class SourceAdvectiveProblem(ParabolicProblem):
+class SourceAdvectiveProblem(ParabolicModel):
     def __init__(self, g):
-        ParabolicProblem.__init__(self, g)
+        ParabolicModel.__init__(self, g)
 
     def space_disc(self):
         return self.source_disc(), self.advective_disc()
@@ -125,9 +126,9 @@ class SourceAdvectiveProblem(ParabolicProblem):
         return 0.5
 
 
-class SourceAdvectiveDiffusiveProblem(ParabolicProblem):
+class SourceAdvectiveDiffusiveProblem(ParabolicModel):
     def __init__(self, g):
-        ParabolicProblem.__init__(self, g)
+        ParabolicModel.__init__(self, g)
 
     def space_disc(self):
         return self.source_disc(), self.advective_disc(), self.diffusive_disc()
@@ -166,9 +167,9 @@ def source(g, t):
     return value
 
 
-class MatrixDomain(ParabolicData):
+class MatrixDomain(ParabolicDataAssigner):
     def __init__(self, g, d, physics='transport'):
-        ParabolicData.__init__(self, g, d, physics)
+        ParabolicDataAssigner.__init__(self, g, d, physics)
 
     def initial_condition(self):
         return 10 * np.ones(self.grid().num_cells)
@@ -215,7 +216,7 @@ def solve_elliptic_problem(gb):
     for e, d in gb.edges_props():
         g_h = gb.sorted_nodes_of_edge(e)[1]
         d['param'] = Parameters(g_h)
-    flux = elliptic.Elliptic(gb)
+    flux = elliptic.EllipticModel(gb)
     p = flux.solve()
     flux.split('p')
     fvutils.compute_discharges(gb)

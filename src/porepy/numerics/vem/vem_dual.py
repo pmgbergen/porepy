@@ -10,7 +10,7 @@ import scipy.sparse as sps
 
 from porepy.params import tensor
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
@@ -18,7 +18,7 @@ from porepy.utils import comp_geom as cg
 
 #------------------------------------------------------------------------------#
 
-class DualVEMMixDim(SolverMixDim):
+class DualVEMMixedDim(SolverMixedDim):
 
     def __init__(self, physics='flow'):
         self.physics = physics
@@ -78,7 +78,7 @@ class DualVEMMixDim(SolverMixDim):
 
 #------------------------------------------------------------------------------#
 
-class DualVEMDFN(SolverMixDim):
+class DualVEMDFN(SolverMixedDim):
 
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
@@ -92,7 +92,7 @@ class DualVEMDFN(SolverMixDim):
         kwargs = {"discr_ndof": self.__ndof__,
                   "discr_fct": self.__matrix_rhs__}
         self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
-        SolverMixDim.__init__(self)
+        SolverMixedDim.__init__(self)
 
     def extract_u(self, gb, up, u):
         for g, d in gb:

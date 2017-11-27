@@ -54,8 +54,8 @@ class BasicsTest(unittest.TestCase):
             d['param'].set_bc_val('flow', bc_val(sub_g))
             d['param'].set_bc('flow', bc_labels(sub_g))
 
-        problem_mono = elliptic.DualElliptic(g, {'param': param_g})
-        problem_mult = elliptic.DualElliptic(gb)
+        problem_mono = elliptic.DualEllipticModel(g, {'param': param_g})
+        problem_mult = elliptic.DualEllipticModel(gb)
 
         up_mono = problem_mono.solve()
         up_mult = problem_mult.solve()
@@ -90,7 +90,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_elliptic_uniform_flow_cart(self):
         gb = setup_2d_1d([10, 10])
-        problem = elliptic.DualElliptic(gb)
+        problem = elliptic.DualEllipticModel(gb)
         problem.solve()
         problem.split()
         problem.pressure('pressure')
@@ -110,7 +110,7 @@ class BasicsTest(unittest.TestCase):
         the tpfa half transmissibilities are computed.
         """
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
-        problem = elliptic.DualElliptic(gb)
+        problem = elliptic.DualEllipticModel(gb)
         problem.solve()
         problem.split()
         problem.pressure('pressure')
@@ -125,7 +125,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_elliptic_dirich_neumann_source_sink_cart(self):
         gb = setup_3d(np.array([4, 4, 4]), simplex_grid=False)
-        problem = elliptic.DualElliptic(gb)
+        problem = elliptic.DualEllipticModel(gb)
         problem.solve()
         problem.split()
         problem.pressure('pressure')
