@@ -11,12 +11,15 @@ import logging
 import time
 import numpy as np
 from sympy import geometry as geom
+import shapely
 
 from porepy.utils import setmembership
 
 
 # Module level logger
 logger = logging.getLogger(__name__)
+
+shapely.speedups.enable()
 
 #-----------------------------------------------------------------------------
 #
@@ -2348,6 +2351,91 @@ def argsort_point_on_line(pts, tol=1e-5):
     return np.argsort(np.abs(np.einsum('ij,ij->j', delta, delta)))
 
 #------------------------------------------------------------------------------#
+
+def intersect_triangulations(p_1, p_2, t_1, t_2):
+    """ Compute intersection of two triangle tessalation of a surface.
+
+    The function will identify partly overlapping triangles between t_1 and
+    t_2, and compute their common area. If parts of domain 1 or 2 is covered by
+    one tessalation only, this will simply be ignored by the function.
+
+    Implementation note: The function relies on the intersection algorithm in
+    shapely.geometry.Polygon. It may be possible to extend the functionality
+    to other cell shapes. This would require more general data structures, but
+    should not be too much of an effort.
+
+    Parameters:
+        p_1 (np.array, 2 x n_p1): Points in first tessalation.
+        p_2 (np.array, 2 x n_p2): Points in second tessalation.
+        t_1 (np.array, 3 x n_tri_1): Triangles in first tessalation, referring
+            to indices in p_1.
+        t_2 (np.array, 3 x n_tri_1): Triangles in first tessalation, referring
+            to indices in p_1.
+
+    Returns:
+        list of tuples: Each representing an overlap. The tuple contains index
+            of the overlapping triangles in the first and second tessalation,
+            and their common area.
+
+    """
+    n_1 = t_1.shape[1]
+    n_2 = t_2.shape[1]
+    t_1 = t_1.T
+    t_2 = t_2.T
+
+    # Find x and y coordinates of the triangles of first tessalation
+    x_1 = p_1[0, t_1]
+    y_1 = p_1[1, t_1]
+    # Same with second tessalation
+    x_2 = p_2[0, t_2]
+    y_2 = p_2[1, t_2]
+
+    intersections = []
+
+    # Bounding box of each triangle for first and second tessalation
+    min_x_1 = np.min(x_1, axis=1)
+    max_x_1 = np.max(x_1, axis=1)
+    min_y_1 = np.min(y_1, axis=1)
+    max_y_1 = np.max(y_1, axis=1)
+
+    min_x_2 = np.min(x_2, axis=1)
+    max_x_2 = np.max(x_2, axis=1)
+    min_y_2 = np.min(y_2, axis=1)
+    max_y_2 = np.max(y_2, axis=1)
+
+    # Represent the second tessalation using a Polygon from the shapely package
+    poly_2 = [shapely.geometry.Polygon([(x_2[j, 0], y_2[j, 0]),
+                                        (x_2[j, 1], y_2[j, 1]),
+                                        (x_2[j, 2], y_2[j, 2])
+                                        ]) for j in range(n_2)]
+
+    # Loop over all triangles in first tessalation, look for overlapping
+    # members in second tessalation
+    for i in range(n_1):
+        # Polygon representation of the first triangle.
+        poly_1 = shapely.geometry.Polygon([(x_1[i, 0], y_1[i, 0]),
+                                           (x_1[i, 1], y_1[i, 1]),
+                                           (x_1[i, 2], y_1[i, 2])
+                                           ])
+        # Find triangles in the second tessalation that are outside the
+        # bounding box of this triangle.
+        right = np.squeeze(np.where(min_x_2 > max_x_1[i]))
+        left = np.squeeze(np.where(max_x_2 < min_x_1[i]))
+        above = np.squeeze(np.where(min_y_2 > max_y_1[i]))
+        below = np.squeeze(np.where(max_y_2 < min_y_1[i]))
+
+        # Candidates for intersection are only elements not outside
+        outside = np.unique(np.hstack((right, left, above, below)))
+        candidates = np.setdiff1d(np.arange(n_2), outside, assume_unique=True)
+
+        # Loop over remaining candidates, call upon shapely to find
+        # intersection
+        for j in candidates:
+            isect = poly_1.intersection(poly_2[j])
+            if isinstance(isect, shapely.geometry.Polygon):
+                intersections.append((i, j, isect.area))
+    return intersections
+
 
 if __name__ == "__main__":
     import doctest
