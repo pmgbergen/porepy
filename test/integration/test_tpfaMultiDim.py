@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy.numerics.fv.tpfa import TpfaMixDim
+from porepy.numerics.fv.tpfa import TpfaMixedDim
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
@@ -63,7 +63,7 @@ class BasicsTest(unittest.TestCase):
         gb = setup_2d_1d(np.array([10, 10]))
 
         # Python inverter is most efficient for small problems
-        flux_discr = TpfaMixDim('flow')
+        flux_discr = TpfaMixedDim('flow')
         A, rhs = flux_discr.matrix_rhs(gb)
         p = np.linalg.solve(A.A, rhs)
 
@@ -76,7 +76,7 @@ class BasicsTest(unittest.TestCase):
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
 
         # Python inverter is most efficient for small problems
-        flux_discr = TpfaMixDim('flow')
+        flux_discr = TpfaMixedDim('flow')
         A, rhs = flux_discr.matrix_rhs(gb)
         p = np.linalg.solve(A.A, rhs)
 

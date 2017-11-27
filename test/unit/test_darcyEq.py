@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy.numerics.elliptic import EllipticData
+from porepy.numerics.elliptic import EllipticDataAssigner
 from porepy.grids import simplex
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
@@ -21,7 +21,7 @@ class BasicsTest(unittest.TestCase):
         g = simplex.TetrahedralGrid(p)
         param = Parameters(g)
         elliptic_data = dict()
-        EllipticData(g, elliptic_data)
+        EllipticDataAssigner(g, elliptic_data)
         elliptic_param = elliptic_data['param']
 
         check_parameters(elliptic_param, param)
@@ -52,9 +52,9 @@ class BasicsTest(unittest.TestCase):
         param.set_source('flow', source)
         # Define EllipticData class
 
-        class Data(EllipticData):
+        class Data(EllipticDataAssigner):
             def __init__(self, g, data):
-                EllipticData.__init__(self, g, data)
+                EllipticDataAssigner.__init__(self, g, data)
 
             def bc(self):
                 return bc_cond
