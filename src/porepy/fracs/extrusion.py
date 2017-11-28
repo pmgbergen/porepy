@@ -282,9 +282,12 @@ def disc_radius_center(lengths, p0, p1, theta=None):
         # Angles of pi/2 will read to point contacts that cannot be handled
         # of the FractureNetwork. Point contacts also make little physical
         # sense, so we vaoid them.
-        hit = np.abs(rnd - 0.5) < 0.1
-        rnd[hit] += 0.1
-        theta = np.pi * (0.1 + 0.8 * rnd)
+        limit = 0.3
+        hit = rnd > 1-limit
+        rnd[hit] -= limit
+        hit = rnd < limit
+        rnd[hit] += limit
+        theta = np.pi * (limit + (1-2*limit) * rnd)
 
     radius = 0.5 * lengths / np.sin(theta)
 
@@ -335,10 +338,10 @@ def discs_from_exposure(pt, edges, exposure_angle=None, **kwargs):
         exposure_angle[hit] = exposure_angle[hit] + 0.01
 
         # Angles of 0 and pi give infinite fractures.
-        hit = exposure_angle < 0.05
-        exposure_angle[hit] = 0.05
-        hit = np.pi - exposure_angle < 0.05
-        exposure_angle[hit] = 0.05
+        hit = exposure_angle < 0.2
+        exposure_angle[hit] = 0.2
+        hit = np.pi - exposure_angle < 0.2
+        exposure_angle[hit] = 0.2
 
     radius, center, ang = disc_radius_center(lengths, p0, p1, exposure_angle)
 

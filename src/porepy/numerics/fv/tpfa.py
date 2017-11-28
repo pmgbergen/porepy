@@ -11,7 +11,7 @@ import scipy.sparse as sps
 
 from porepy.params import tensor
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
@@ -20,7 +20,7 @@ from porepy.grids.grid import Grid
 
 #------------------------------------------------------------------------------
 
-class TpfaMixDim(SolverMixDim):
+class TpfaMixedDim(SolverMixedDim):
     def __init__(self, physics='flow'):
         self.physics = physics
 
@@ -32,7 +32,7 @@ class TpfaMixDim(SolverMixDim):
 
 #------------------------------------------------------------------------------
 
-class TpfaDFN(SolverMixDim):
+class TpfaDFN(SolverMixedDim):
 
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
@@ -46,7 +46,7 @@ class TpfaDFN(SolverMixDim):
         kwargs = {"discr_ndof": self.discr.ndof,
                   "discr_fct": self.__matrix_rhs__}
         self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
-        SolverMixDim.__init__(self)
+        SolverMixedDim.__init__(self)
 
     def __matrix_rhs__(self, g, data):
         # The highest dimensional problem compute the matrix and rhs, the lower
@@ -97,18 +97,8 @@ class Tpfa(Solver):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a two-point flux approximation.
-        The name of data in the input dictionary (data) are:
-        k : second_order_tensor
-            Permeability defined cell-wise. If not given a identity permeability
-            is assumed and a warning arised.
-        f : array (self.g.num_cells)
-            Scalar source term defined cell-wise. If not given a zero source
-            term is assumed and a warning arised.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
+
+        To set a source see the source.Integral discretization class
 
         Parameters
         ----------
@@ -165,11 +155,6 @@ class Tpfa(Solver):
             tensor : second_order_tensor
                 Permeability defined cell-wise. If not given a identity permeability
                 is assumed and a warning arised.
-            source : array (self.g.num_cells)
-                Scalar source term defined cell-wise. Given as net inn/out-flow, i.e.
-                should already have been multiplied with the cell sizes. Positive
-                values are considered innflow. If not given a zero source
-                term is assumed and a warning arised.
             bc : boundary conditions (optional)
             bc_val : dictionary (optional)
                 Values of the boundary conditions. The dictionary has at most the
