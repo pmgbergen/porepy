@@ -387,7 +387,7 @@ def create_fracture(center, radius, dip, strike, extra_points):
     # Add the points on the exposed surface. This creates an unequal
     # distribution of the points, but it is the only hard information we have
     # on the fracture
-    f.add_points(extra_points, check_convexity=False)
+    f.add_points(extra_points, check_convexity=False, enforce_pt_tol=0.01)
     # Not sure if f still shoudl be EllipticFracture here, or if we should
     # create a new fracture with the same point distribution.
     return f

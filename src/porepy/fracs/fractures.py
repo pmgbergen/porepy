@@ -141,7 +141,7 @@ class Fracture(object):
 
         return sort_ind
 
-    def add_points(self, p, check_convexity=True, tol=1e-4):
+    def add_points(self, p, check_convexity=True, tol=1e-4, enforce_pt_tol=None):
         """
         Add a point to the polygon with ccw sorting enforced.
 
@@ -160,11 +160,23 @@ class Fracture(object):
             boolean, true if the resulting polygon is convex.
 
         """
+
+        to_enforce = np.hstack((np.zeros(self.p.shape[1], dtype=np.bool),
+                                np.ones(p.shape[1], dtype=np.bool)))
         self.p = np.hstack((self.p, p))
         self.p, _, _ = setmembership.unique_columns_tol(self.p, tol=tol)
 
         # Sort points to ccw
-        self.p = self.p[:, self.points_2_ccw()]
+        mask = self.points_2_ccw()
+
+        if enforce_pt_tol is not None:
+            to_enforce = np.where(to_enforce[mask])[0]
+            dist = cg.dist_pointset(self.p)
+            dist /= np.amax(dist)
+            np.fill_diagonal(dist, np.inf)
+            mask = np.where(dist < enforce_pt_tol)[0]
+            mask = np.setdiff1d(mask, to_enforce, assume_unique=True)
+            self.remove_points(mask)
 
         if check_convexity:
             return self.check_convexity() and self.is_planar(tol)
