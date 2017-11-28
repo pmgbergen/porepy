@@ -23,7 +23,7 @@ from porepy.viz.exporter import Exporter
 logger = logging.getLogger(__name__)
 
 
-class Elliptic():
+class EllipticModel():
     '''
     Class for solving an incompressible flow problem:
     \nabla K \nabla p = q,
@@ -132,7 +132,7 @@ class Elliptic():
 #            precond = ls.ilu(self.lhs)
             slv = ls.gmres(self.lhs)
             self.x, info = slv(self.rhs, M=precond, callback=callback,
-                               maxiter=10000, restart=1000)
+                               maxiter=10000, restart=1500, tol=1e-8)
             if info == 0:
                 logger.info('GMRES succeeded.')
             else:
@@ -158,13 +158,13 @@ class Elliptic():
 
     def source_disc(self):
         if self.is_GridBucket:
-            return source.IntegralMixDim(physics=self.physics)
+            return source.IntegralMixedDim(physics=self.physics)
         else:
             return source.Integral(physics=self.physics)
 
     def flux_disc(self):
         if self.is_GridBucket:
-            return tpfa.TpfaMixDim(physics=self.physics)
+            return tpfa.TpfaMixedDim(physics=self.physics)
         else:
             return tpfa.Tpfa(physics=self.physics)
 
@@ -199,6 +199,45 @@ class Elliptic():
             fvutils.compute_discharges(self.grid(), self.physics,\
                                        self.pressure_name,
                                        self._data)
+
+    def permeability(self, perm_names=['kxx', 'kyy', 'kzz']):
+        """ Assign permeability to self._data, ready for export to vtk.
+
+        For the moment, we only dump the main diagonals of the permeabliity.
+        Extensions should be trivial if needed.
+
+        Parameters:
+            perm_names (list): Which components to export. Defaults to kxx,
+                kyy and xzz.
+
+        """
+
+        def get_ind(n):
+            if n == 'kxx':
+                return 0
+            elif n == 'kyy':
+                return 1
+            elif n == 'kzz':
+                return 2
+            else:
+                raise ValueError('Unknown perm keyword ' + n)
+
+        for n in perm_names:
+            ind = get_ind(n)
+            if self.is_GridBucket:
+                for _, d in self.grid():
+                    d[n] = d['param'].get_permeability().perm[ind, ind, :]
+            else:
+                self._data[n] = self._data['param'].get_permeability()\
+                                        .perm[ind, ind, :]
+
+    def porosity(self, poro_name='porosity'):
+        if self.is_GridBucket:
+            for _, d in self.grid():
+                d[poro_name] = d['param'].get_porosity()
+        else:
+            self._data[poro_name] = self._data['param'].get_porosity()
+
 
     def save(self, variables=None, save_every=None):
         if variables is None:
@@ -270,23 +309,23 @@ class Elliptic():
 
 #------------------------------------------------------------------------------#
 
-class DualElliptic(Elliptic):
+class DualEllipticModel(EllipticModel):
 
     def __init__(self, gb, data=None, physics='flow'):
-        Elliptic.__init__(self, gb, data, physics)
+        EllipticModel.__init__(self, gb, data, physics)
 
         self.discharge_name = str()
         self.projected_discharge_name = str()
 
     def source_disc(self):
         if self.is_GridBucket:
-            return vem_source.IntegralMixDim(physics=self.physics)
+            return vem_source.IntegralMixedDim(physics=self.physics)
         else:
             return vem_source.Integral(physics=self.physics)
 
     def flux_disc(self):
         if self.is_GridBucket:
-            return vem_dual.DualVEMMixDim(physics=self.physics)
+            return vem_dual.DualVEMMixedDim(physics=self.physics)
         else:
             return vem_dual.DualVEM(physics=self.physics)
 
@@ -335,7 +374,7 @@ class DualElliptic(Elliptic):
 
 #------------------------------------------------------------------------------#
 
-class EllipticData():
+class EllipticDataAssigner():
     '''
     Class for setting data to an incompressible flow problem:
     \nabla K \nabla p = q,

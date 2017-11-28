@@ -96,7 +96,7 @@ def main(kf, description, is_coarse=False, if_export=False):
 
     file_name = 'network_geiger.csv'
     write_network(file_name)
-    gb = importer.from_csv(file_name, mesh_kwargs, domain)
+    gb = importer.mesh_from_csv(file_name, mesh_kwargs, domain)
     gb.compute_geometry()
     if is_coarse:
         co.coarsen(gb, 'by_volume')
@@ -109,10 +109,10 @@ def main(kf, description, is_coarse=False, if_export=False):
     add_data(gb, domain, kf)
 
     # Choose and define the solvers and coupler
-    solver_flow = vem_dual.DualVEMMixDim('flow')
+    solver_flow = vem_dual.DualVEMMixedDim('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = vem_source.IntegralMixDim('flow')
+    solver_source = vem_source.IntegralMixedDim('flow')
     A_source, b_source = solver_source.matrix_rhs(gb)
 
     up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)

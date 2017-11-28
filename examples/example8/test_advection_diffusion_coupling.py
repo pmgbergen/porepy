@@ -136,7 +136,7 @@ mesh_kwargs['mesh_size'] = {'mode': 'constant',
 
 domain = {'xmin': -0.2, 'xmax': 1.2, 'ymin': -0.2, 'ymax': 1.2}
 print(folder)
-gb = importer.from_csv(folder + 'network.csv', mesh_kwargs, domain)
+gb = importer.mesh_from_csv(folder + 'network.csv', mesh_kwargs, domain)
 gb.compute_geometry()
 gb.assign_node_ordering()
 
@@ -151,10 +151,10 @@ internal_flag = FaceTag.FRACTURE
 add_data_darcy(gb, domain, tol)
 
 # Choose and define the solvers and coupler
-darcy = vem_dual.DualVEMMixDim('flow')
+darcy = vem_dual.DualVEMMixedDim('flow')
 A_flow, b_flow = darcy.matrix_rhs(gb)
 
-solver_source = vem_source.IntegralMixDim('flow')
+solver_source = vem_source.IntegralMixedDim('flow')
 A_source, b_source = solver_source.matrix_rhs(gb)
 
 up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
@@ -176,8 +176,8 @@ for g, d in gb:
     g.face_tags = d['face_tags']
 
 physics = 'transport'
-advection = upwind.UpwindMixDim(physics)
-diffusion = tpfa.TpfaMixDim(physics)
+advection = upwind.UpwindMixedDim(physics)
+diffusion = tpfa.TpfaMixedDim(physics)
 
 # Assign parameters
 add_data_advection_diffusion(gb, domain, tol)
