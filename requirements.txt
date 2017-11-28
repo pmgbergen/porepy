@@ -8,4 +8,3 @@ future
 pymetis >= 2016.2;platform_system=="Linux"
 cython >= 0.23;platform_system=="Linux"
 six
-shapely[vectorized]
