@@ -12,13 +12,13 @@ from porepy.grids import partition
 from porepy.params import tensor, bc, data
 from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.fv.tpfa import TpfaCoupling, TpfaCouplingDFN
 
 #------------------------------------------------------------------------------
 
-class MpfaMixDim(SolverMixDim):
+class MpfaMixedDim(SolverMixedDim):
     def __init__(self, physics='flow'):
         self.physics = physics
 
@@ -30,7 +30,7 @@ class MpfaMixDim(SolverMixDim):
 
 #------------------------------------------------------------------------------
 
-class MpfaDFN(SolverMixDim):
+class MpfaDFN(SolverMixedDim):
 
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
