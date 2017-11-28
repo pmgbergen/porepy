@@ -19,7 +19,10 @@ from porepy.utils import setmembership
 # Module level logger
 logger = logging.getLogger(__name__)
 
-shapely.speedups.enable()
+try:
+    shapely.speedups.enable()
+except AttributeError:
+    pass
 
 #-----------------------------------------------------------------------------
 #
