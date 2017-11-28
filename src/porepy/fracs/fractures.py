@@ -2165,7 +2165,6 @@ class FractureNetwork(object):
 
         """
 
-
         if self.auxiliary_points_added:
             print('Auxiliary points already added. Returning.')
         else:
@@ -2250,18 +2249,6 @@ class FractureNetwork(object):
                         if d_1 > h_min and d_2 > h_min:
                             np.insert(f.p, (si+1)%nfp, cp_f[:, mi], axis=1)
 
-
-    def distance_point_segment(self):
-        pass
-
-    def distance_segment_segment(self):
-        # What happens if two segments are close?
-        pass
-
-    def proximate_fractures(self):
-        # Find fractures with center distance less than the sum of their major
-        # axis + 2 * force length
-        return fracture_pairs
 
     def to_vtk(self, file_name, data=None, binary=True):
         """
