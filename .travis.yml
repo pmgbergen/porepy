@@ -15,7 +15,7 @@ install:
   - pip install -r requirements-dev.txt
   - pip install jupyter
   - pip install .
-  - pipr install shapely[vectorized]
+  - pip install shapely[vectorized]
   - pip freeze
   
   # Show all packages, for debugging
