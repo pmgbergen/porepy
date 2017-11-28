@@ -1234,7 +1234,6 @@ def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
         intersections are found, an empty list is returned.
 
     """
-
     l_1 = poly_1.shape[1]
     ind_1 = np.append(np.arange(l_1), 0)
     l_2 = poly_2.shape[1]
@@ -1391,10 +1390,23 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
                 # somewhat generous with the definition of the intersection.
                 # Therefore, allow for intersections that are slightly outside
                 # the polygon, and use the projection onto the polygon.
-                dist, cp, ins = dist_points_polygon(_to3D(p_00),
-                                                    _to3D(poly_1_xy))
-                if (dist[0] < tol and include_bound_pt) or dist[0] < 1e-12:
+
+                start = np.arange(poly_1_xy.shape[1])
+                end = np.r_[np.arange(1, poly_1_xy.shape[1]), 0]
+
+                poly_1_to3D = _to3D(poly_1_xy)
+                p_00_to3D = _to3D(p_00)
+                dist, cp = dist_points_segments(p_00_to3D,
+                                                poly_1_to3D[:, start],
+                                                poly_1_to3D[:, end])
+                mask = np.where(dist[0] < tol)[0]
+                if mask.size > 0:
+                    cp = cp[0].T[:, mask]
                     isect = np.hstack((isect, irot.dot(cp) + center_1))
+                else:
+                    dist, cp, ins = dist_points_polygon(p_00_to3D, poly_1_to3D)
+                    if (dist[0] < tol and include_bound_pt) or dist[0] < 1e-12:
+                        isect = np.hstack((isect, irot.dot(cp) + center_1))
 
             elif np.abs(pt_1[2]) < tol and np.abs(pt_2[2]) < tol:
                 # The segment lies completely within the polygon plane.
