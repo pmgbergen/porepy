@@ -2366,6 +2366,61 @@ def distance_point_segment(pt, start, end):
 
     return np.sqrt(np.dot(dx, dx)), dx + pt
 
+#----------------------------------------------------------------------------#
+
+def snap_points_to_segments(p_edges, edges, tol, p_to_snap=None):
+    """
+    Snap points in the proximity of lines to the lines.
+
+    Note that if two vertices of two edges are close, they may effectively
+    be co-located by the snapping. Thus, the modified point set may have
+    duplicate coordinates.
+
+    Parameters:
+        p_edges (np.ndarray, nd x npt): Points defining endpoints of segments
+        edges (np.ndarray, 2 x nedges): Connection between lines in p_edges.
+            If edges.shape[0] > 2, the extra rows are ignored.
+        tol (double): Tolerance for snapping, points that are closer will be
+            snapped.
+        p_to_snap (np.ndarray, nd x npt_snap, optional): The points to snap. If
+            not provided, p_edges will be snapped, that is, the lines will be
+            modified.
+
+    Returns:
+        np.ndarray (nd x n_pt_snap): A copy of p_to_snap (or p_edges) with
+            modified coordinates.
+
+    """
+
+    if p_to_snap is None:
+        p_to_snap = p_edges
+        mod_edges = True
+    else:
+        mod_edges = False
+
+    pn = p_to_snap.copy()
+
+    nl = edges.shape[1]
+    for ei in range(nl):
+
+        # Find start and endpoint of this segment.
+        # If we modify the edges themselves (mod_edges==True), we should use
+        # the updated point coordinates. If not, we risk trouble for almost
+        # coinciding vertexes.
+        if mod_edges:
+            p_start = pn[:, edges[0, ei]].reshape((-1, 1))
+            p_end = pn[:, edges[1, ei]].reshape((-1, 1))
+        else:
+            p_start = p_edges[:, edges[0, ei]].reshape((-1, 1))
+            p_end = p_edges[:, edges[1, ei]].reshape((-1, 1))
+        d_segment, cp = dist_points_segments(pn, p_start, p_end)
+        hit = np.argwhere(d_segment[:, 0] < tol)
+        for i in hit:
+            if mod_edges and (i == edges[0, ei] or i == edges[1, ei]):
+                continue
+            pn[:, i] = cp[i, 0, :].reshape((-1, 1))
+    return pn
+
 #------------------------------------------------------------------------------#
 
 def argsort_point_on_line(pts, tol=1e-5):
