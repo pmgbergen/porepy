@@ -231,6 +231,18 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
 
         grids = non_conforming.merge_grids(grid_list, neigh_list)
 
+        print('\n')
+        for g_set in grids:
+            if len(g_set) > 0:
+                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
+                    '-d grids with '
+                num = 0
+                for g in g_set:
+                    num += g.num_cells
+                s += str(num) + ' cells'
+                print(s)
+        print('\n')
+
     tag_faces(grids, check_highest_dim=False)
     gb = assemble_in_bucket(grids)
     gb.compute_geometry()
