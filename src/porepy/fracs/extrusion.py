@@ -308,7 +308,8 @@ def disc_radius_center(lengths, p0, p1, theta=None):
 
     return radius, np.vstack((mid_point, depth)), theta
 
-def discs_from_exposure(pt, edges, exposure_angle=None, **kwargs):
+def discs_from_exposure(pt, edges, exposure_angle=None,
+                        outcrop_consistent=True, **kwargs):
     """ Create fracture discs based on exposed lines in an outrcrop.
 
     The outcrop is assumed to be in the xy-plane. The returned disc will be
@@ -326,6 +327,11 @@ def discs_from_exposure(pt, edges, exposure_angle=None, **kwargs):
            and pi will be modified to avoid unphysical extruded fractures.  If
            not provided, random values will be drawn. Measured in radians.
            Should be between 0 and pi.
+        outcrop_consistent (boolean, optional): If True (default), points will
+            be added at the outcrop surface z=0. This is necessary for the
+            3D network to be consistent with the outcrop, but depending on
+            the location of the points of the fracture polygon, it may result
+            in very small edges.
 
     Returns:
         list of Fracture: One per fracture trace.
@@ -356,15 +362,16 @@ def discs_from_exposure(pt, edges, exposure_angle=None, **kwargs):
 
     fracs = []
 
-    for i in range(num_fracs):
-        z = 2 * center[2, i]
-        extra_point_depth = np.array([0, 0, z, z])
-        extra_points = np.vstack((np.vstack((p0[:, i], p1[:, i], p0[:, i],
-                                             p1[:, i])).T,
-                                  extra_point_depth))
+    if outcrop_consistent:
+        for i in range(num_fracs):
+            z = 2 * center[2, i]
+            extra_point_depth = np.array([0, 0, z, z])
+            extra_points = np.vstack((np.vstack((p0[:, i], p1[:, i], p0[:, i],
+                                                 p1[:, i])).T,
+                                      extra_point_depth))
 
-        fracs.append(create_fracture(center[:, i], radius[i], np.pi/2,
-                                     strike_angle[i], extra_points))
+            fracs.append(create_fracture(center[:, i], radius[i], np.pi/2,
+                                         strike_angle[i], extra_points))
     return fracs, ang
 
 
