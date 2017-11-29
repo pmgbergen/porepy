@@ -1521,7 +1521,8 @@ def is_point_in_cell(poly, p, if_make_planar=True):
 
 #------------------------------------------------------------------------------#
 
-def project_plane_matrix(pts, normal=None, tol=1e-5, reference=[0, 0, 1]):
+def project_plane_matrix(pts, normal=None, tol=1e-5, reference=[0, 0, 1],
+                         check_planar=True):
     """ Project the points on a plane using local coordinates.
 
     The projected points are computed by a dot product.
@@ -1547,7 +1548,8 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=[0, 0, 1]):
         normal = np.asarray(normal)
         normal = normal.flatten() / np.linalg.norm(normal)
 
-    assert is_planar(pts, normal, tol)
+    if check_planar:
+        assert is_planar(pts, normal, tol)
 
     reference = np.asarray(reference, dtype=np.float)
     angle = np.arccos(np.dot(normal, reference))
