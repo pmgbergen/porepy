@@ -104,6 +104,35 @@ RUN wget https://bootstrap.pypa.io/get-pip.py && \
     pip3 install --no-cache-dir matplotlib && \
     rm -rf /tmp/*
 
+RUN wget http://prdownloads.sourceforge.net/tcl/tcl8.6.6-src.tar.gz && tar -zxvf tcl8.6.6-src.tar.gz &&\
+    cd tcl8.6.6/unix && ./configure && make && make install &&\
+    rm -rf /tmp/*
+
+
+RUN wget http://prdownloads.sourceforge.net/tcl/tk8.6.6-src.tar.gz && tar -zxvf tk8.6.6-src.tar.gz &&\
+    cd tk8.6.6/unix && ./configure && make && make install &&\
+    rm -rf /tmp/*
+
+
+RUN wget http://www.vtk.org/files/release/7.0/VTK-7.0.0.tar.gz && tar -zxvf VTK-7.0.0.tar.gz &&\
+    cd VTK-7.0.0 &&\
+    mkdir build &&\
+    cd build  &&\
+    cmake \
+   -DCMAKE_BUILD_TYPE:STRING=Release \
+   -DBUILD_TESTING:BOOL=OFF \
+   -DVTK_WRAP_PYTHON:BOOL=ON \
+   -DVTK_WRAP_PYTHON_SIP:BOOL=ON \
+   -DVTK_WRAP_TCL:BOOL=ON \
+   -DVTK_PYTHON_VERSION:STRING=3 \
+   -DVTK_USE_TK:BOOL=ON \
+    .. &&\
+    make && \
+    cd Wrapping/Python &&\
+    make && \
+    make install &&\
+    rm -rf /tmp/*
+
 ENV GMSH_VERSION 2.11.0
 RUN wget http://gmsh.info/bin/Linux/gmsh-${GMSH_VERSION}-Linux64.tgz &&\
     tar xf gmsh-${GMSH_VERSION}-Linux64.tgz && \
