@@ -268,7 +268,7 @@ def triangle_grid(fracs, domain, **kwargs):
     Parameters
     ----------
     fracs: (dictionary) Two fields: points (2 x num_points) np.ndarray,
-        lines (2 x num_lines) connections between points, defines fractures.
+        edges (2 x num_lines) connections between points, defines fractures.
     box: (dictionary) keys xmin, xmax, ymin, ymax, [together bounding box
         for the domain]
     **kwargs: To be explored.
@@ -317,6 +317,14 @@ def triangle_grid(fracs, domain, **kwargs):
     lines[:2] = old_2_new[lines[:2]]
     to_remove = np.where(lines[0, :] == lines[1, :])[0]
     lines = np.delete(lines, to_remove, axis=1)
+
+    # In some cases the fractures and boundaries impose the same constraint
+    # twice, although it is not clear why. Avoid this by uniquifying the lines.
+    # This may disturb the line tags in lines[2], but we should not be
+    # dependent on those.
+    li = np.sort(lines[:2], axis=0)
+    li_unique, new_2_old, old_2_new = unique_columns_tol(li)
+    lines = lines[:, new_2_old]
 
     assert np.all(np.diff(lines[:2], axis=0) != 0)
 
