@@ -15,18 +15,18 @@ ENV LC_ALL=C.UTF-8 \
     LANG=C.UTF-8 \
     LANGUAGE=C.UTF-8
 
-COPY set-home-permissions.sh /etc/my_init.d/set-home-permissions.sh
+COPY set-home-permission.sh /etc/my_init.d/set-home-permission.sh
 RUN useradd -m -s /bin/bash -G sudo,docker_env porepy && \
     echo "porepy:docker" | chpasswd && \
     echo "porepy ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
     touch /etc/service/syslog-forwarder/down && \
-    echo "cat /home/fenics/WELCOME" >> /home/porepy/.bashrc && \
-    chmod +x /etc/my_init.d/set-home-permissions.sh && \
+    echo "cat /home/porepy/WELCOME" >> /home/porepy/.bashrc && \
+    chmod +x /etc/my_init.d/set-home-permission.sh && \
     ldconfig
 RUN echo "/usr/local/lib/python3/dist-packages" >> /usr/local/lib/python3.5/dist-packages/debian-ubuntu-sitepath-fix.pth
 RUN touch /etc/service/syslog-forwarder/down
 
-SER porepy
+USER porepy
 ENV POREPY_HOME /home/porepy
 RUN touch $POREPY_HOME/.sudo_as_admin_successful && \
     mkdir $POREPY_HOME/shared
@@ -102,10 +102,9 @@ RUN wget https://bootstrap.pypa.io/get-pip.py && \
     pip3 install --no-cache-dir jupyter && \
     pip3 install --no-cache-dir sympy && \
     pip3 install --no-cache-dir matplotlib && \
-    pip3 install --no-cache-dir https://bitbucket.org/mpi4py/mpi4py/downloads/mpi4py-${MPI4PY_VERSION}.tar.gz && \
     rm -rf /tmp/*
 
-ENV GMSH_VERSION 2.11
+ENV GMSH_VERSION 2.11.0
 RUN wget http://gmsh.info/bin/Linux/gmsh-${GMSH_VERSION}-Linux64.tgz &&\
     tar xf gmsh-${GMSH_VERSION}-Linux64.tgz && \
     cp gmsh-${GMSH_VERSION}-Linux/bin/gmsh /usr/local/bin/gmsh && \
