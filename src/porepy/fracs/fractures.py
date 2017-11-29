@@ -2122,7 +2122,7 @@ class FractureNetwork(object):
             else:
                 mesh_size_bound = None
             return mesh_size, mesh_size_bound
-        elif mode == 'distance':
+        elif mode == 'distance' or mode == 'weighted':
             if self.h_min is None or self.h_ideal is None:
                 print('Found no information on mesh sizes. Returning')
                 return None, None
