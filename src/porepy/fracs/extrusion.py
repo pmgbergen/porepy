@@ -24,10 +24,13 @@ KNOWN ISSUES:
 """
 import numpy as np
 import warnings
+import logging
 
 from porepy.utils import comp_geom as cg
 from porepy.fracs.fractures import EllipticFracture, Fracture
 
+
+logger = logging.getLogger()
 
 def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None,
                            **kwargs):
@@ -51,19 +54,24 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None,
         list of Fracture: Fracture planes.
 
     """
+    logging.info('Extrusion recieved ' + str(edges.shape[1]) + ' lines')
     assert edges.shape[0] == 2, 'Edges have two endpoints'
     edges = np.vstack((edges, np.arange(edges.shape[1], dtype=np.int)))
 
     # identify crossings
+    logging.info('Identify crossings')
     split_pt, split_edges = cg.remove_edge_crossings(pt, edges, **kwargs)
+    logging.info('Fractures composed of ' + str(split_edges.shape[0]) + 'branches')
 
     # Find t-intersections
     abutment_pts, prim_frac, sec_frac, other_pt = t_intersections(split_edges)
+    logging.info('Found ' + str(prim_frac.size) + ' T-intersections')
 
     # Calculate fracture lengths
     lengths = fracture_length(pt, edges)
 
     # Extrude to fracture discs
+    logging.info('Create discs from exposure')
     fractures, extrude_ang = discs_from_exposure(pt, edges, **kwargs)
 
     p0 = pt[:, edges[0]]
@@ -71,6 +79,7 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None,
     exposure = p1 - p0
 
     # Impose incline.
+    logging.info('Impose incline')
     rot_ang = impose_inlcine(fractures, exposure, p0, frac_family=family,
                              **kwargs)
 
