@@ -137,7 +137,7 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
 
 #------------------------------------------------------------------------------#
 
-def dfn(fracs, conforming, intersections=None, **kwargs):
+def dfn(fracs, conforming, intersections=None, keep_geo=False, **kwargs):
     """ Create a mesh of a DFN model, that is, only of fractures.
 
     The mesh can eihter be conforming along fracture intersections, or each
@@ -192,6 +192,9 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
 
             f_lines = np.reshape(np.arange(ip.shape[1]), (2, -1), order='F')
             frac_dict = {'points': ip, 'edges': f_lines}
+            if keep_geo:
+                file_name = 'frac_mesh_' + str(fi)
+                kwargs['file_name'] = file_name
             # Create mesh on this fracture surface.
             grids = simplex.triangle_grid(frac_dict, fp, verbose=False,
                                           **kwargs)
