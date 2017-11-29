@@ -41,6 +41,23 @@ To get the most current version, install from github:
 Finally to install PorePy
 
 	pip install .
+	
+### Docker
+Alternatively, a way to run the porepy library is to use our prebuilt and high-performance Docker images.
+Docker containers are extremely lightweight, secure, and are based on open standards that run on all major Linux distributions, macOS and Microsoft Windows platforms.
+
+Install Docker for your platform by following [these instructions](https://docs.docker.com/engine/getstarted/step_one/).
+If using the Docker Toolbox (macOS versions < 10.10 or Windows versions < 10), make sure you run all commands inside the Docker Quickstart Terminal.
+
+Now we will pull the docker.io/pmgbergen/porepy with tag py27 image from cloud infrastructure:
+```bash
+>  docker pull docker.io/pmgbergen/porepy:py27
+```
+Docker will pull the py27 tag of the image pmgbergen/porepy from docker.io based on python 2.7. The download is around 4.085 GB. The  image is a great place to start experimenting with porepy and includes all dependencies already compiled for you.
+Once the download is complete you can start porepy for the first time. Just run:
+```bash
+>  docker run -ti  docker.io/pmgbergen/porepy:py27
+```
 
 or for editable installs into the user directory:
 
