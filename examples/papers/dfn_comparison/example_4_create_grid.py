@@ -21,7 +21,7 @@ def create(conforming, tol=1e-4):
 
     extrusion_kwargs = {}
     extrusion_kwargs['tol'] = tol
-    extrusion_kwargs['exposure_angle'] = np.pi/3.*np.ones(edges.shape[1])
+    extrusion_kwargs['exposure_angle'] = np.pi/4.*np.ones(edges.shape[1])
     # Added an option not to include the points on the exposed surface. This
     # reduces cell refinement somewhat, but setting it True should also be okay
     extrusion_kwargs['outcrop_consistent'] = True
@@ -29,9 +29,13 @@ def create(conforming, tol=1e-4):
     fractures = extrusion.fractures_from_outcrop(snap_pts, edges, **extrusion_kwargs)
     network = FractureNetwork(fractures, tol=tol)
     #network.to_vtk(folder_export+"network.vtu")
+    bounding_box = {'xmin': -800, 'xmax': 600, 'ymin': 100, 'ymax': 1500,
+                    'zmin': -100, 'zmax': 1000}
+    network.impose_external_boundary(bounding_box, truncate_fractures=True,
+                                     keep_box=False)
 
     mesh_kwargs = {}
-    h = 50
+    h = 30
     mesh_kwargs['mesh_size'] = {'mode': 'weighted', # 'distance'
                                 'value': h, 'bound_value': h, 'tol': tol}
 
