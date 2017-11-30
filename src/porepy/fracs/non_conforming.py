@@ -467,26 +467,12 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
     # relations
     if in_combined[0] < in_combined[-1]:
         for i in range(deleted_2_new_faces.size):
-            if in_combined[i] == in_combined[i+1]:
-                deleted_2_new_faces[i] = new_faces[in_combined[i]]
-            else:
-                deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i],
-                                                             in_combined[i+1])]
-#            assert deleted_2_new_faces[i].size > 0, \
-#                str(i)+" "+str(in_combined[i])+" "+str(in_combined[i+1])+\
-#                " "+str(np.arange(in_combined[i], in_combined[i+1]))
+            deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i],
+                                                         in_combined[i+1])]
     else:
         for i in range(deleted_2_new_faces.size):
-            if in_combined[i] == in_combined[i+1]:
-                print(new_faces)
-                deleted_2_new_faces[i] = new_faces[in_combined[i]]
-            else:
-                deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i+1],
-                                                             in_combined[i])]
-#            assert deleted_2_new_faces[i].size > 0, \
-#                str(i)+" "+str(in_combined[i+1])+" "+str(in_combined[i])+\
-#                " "+str(np.arange(in_combined[i+1], in_combined[i]))
-
+            deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i+1],
+                                                         in_combined[i])]
 
     # Now that we have mapping from old to new faces, also update face tags
     update_face_tags(g, delete_faces, deleted_2_new_faces)
@@ -561,10 +547,6 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
         # Note use of original coordinates here.
         ci_coord = node_coord_orig[:, fn_orig[:, ci]]
         # Coordinates of the nodes of the first new face
-        if new_faces_loc.size == 0:
-            print(deleted_2_new_faces, cf_2_f[cf[i]])
-            input()
-            continue
         fi_coord = g.nodes[:, fn[:, new_faces_loc[0]]]
 
         # Distance between the new nodes and the first node of the old face.
