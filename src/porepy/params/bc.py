@@ -64,6 +64,8 @@ class BoundaryCondition(object):
             assert cond is not None
             if not np.all(np.in1d(faces, bf)):
                 raise ValueError('Give boundary condition only on the boundary')
+            if isinstance(cond, str):
+                cond = [cond] * faces.size
             if faces.size != len(cond):
                 raise ValueError('One BC per face')
 
