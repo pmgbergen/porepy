@@ -362,16 +362,18 @@ def discs_from_exposure(pt, edges, exposure_angle=None,
 
     fracs = []
 
-    if outcrop_consistent:
-        for i in range(num_fracs):
-            z = 2 * center[2, i]
+    for i in range(num_fracs):
+        z = 2 * center[2, i]
+        if outcrop_consistent:
             extra_point_depth = np.array([0, 0, z, z])
             extra_points = np.vstack((np.vstack((p0[:, i], p1[:, i], p0[:, i],
                                                  p1[:, i])).T,
                                       extra_point_depth))
+        else:
+            extra_points = np.zeros((3, 0))
 
-            fracs.append(create_fracture(center[:, i], radius[i], np.pi/2,
-                                         strike_angle[i], extra_points))
+        fracs.append(create_fracture(center[:, i], radius[i], np.pi/2,
+                                     strike_angle[i], extra_points))
     return fracs, ang
 
 
