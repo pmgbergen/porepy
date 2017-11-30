@@ -887,22 +887,6 @@ class Fracture(object):
 
                 # The next step is to decide whether and how to move the
                 # intersection points.
-
-                # If all intersection points are outside, and on the same side
-                # of the box for all of the active dimensions, convexity of the
-                # polygon implies that the whole fracture is outside the
-                # bounding box. We signify this by setting self.p empty.
-                if np.any(np.all(isect[active_dims] < \
-                          box_array[active_dims, 0], axis=1), axis=0):
-                    self.p = np.empty((3, 0))
-                    # No need to consider other boundary planes
-                    break
-                if np.any(np.all(isect[active_dims] > \
-                          box_array[active_dims, 1], axis=1), axis=0):
-                    self.p = np.empty((3, 0))
-                    # No need to consider other boundary planes
-                    break
-
                 # The intersection points will lay on the bounding box on one
                 # of the dimensions (that of bf, specified by xyz_01_box), but
                 # may be outside the box for the other sides (xyz_01). We thus
