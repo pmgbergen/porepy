@@ -181,7 +181,9 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
         network.intersections = [Intersection(*i) for i in intersections]
     else:
         logger.warn('FractureNetwork find intersections in DFN')
+        tic = time.time()
         network.find_intersections()
+        logger.warn('Done. Elapsed time ' + str(time.time() - tic))
 
     if conforming:
         logger.warn('Create conforming mesh for DFN network')
@@ -189,6 +191,7 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
                                                **kwargs)
     else:
         logger.warn('Create non-conforming mesh for DFN network')
+        tic = time.time()
         grid_list = []
         neigh_list = []
 
@@ -241,7 +244,11 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
             grid_list.append(grids)
             neigh_list.append(other_frac)
 
+        logger.warn('Finished creating grids. Elapsed time ' + str(time.time() - tic))
+        logger.warn('Merge grids')
+        tic = time.time()
         grids = non_conforming.merge_grids(grid_list, neigh_list)
+        logger.warn('Done. Elapsed time ' + str(time.time() - tic))
 
         print('\n')
         for g_set in grids:
@@ -256,9 +263,18 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
         print('\n')
 
     tag_faces(grids, check_highest_dim=False)
+    logger.warn('Assemble in bucket')
+    tic = time.time()
     gb = assemble_in_bucket(grids)
+    logger.warn('Done. Elapsed time ' + str(time.time() - tic))
+    logger.warn('Compute geometry')
+    tic = time.time()
     gb.compute_geometry()
+    logger.warn('Done. Elapsed time ' + str(time.time() - tic))
+    logger.warn('Split fractures')
+    tic = time.time()
     split_grid.split_fractures(gb)
+    logger.warn('Done. Elapsed time ' + str(time.time() - tic))
     return gb
 
 
