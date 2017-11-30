@@ -1,71 +1,51 @@
 import numpy as np
-import scipy.sparse as sps
-import logging
-import sys
 
-from porepy.viz.exporter import Exporter
 from porepy.fracs import importer
 from porepy.fracs import extrusion
-from porepy.fracs.fractures import Fracture, FractureNetwork
+from porepy.fracs.fractures import FractureNetwork
 from porepy.fracs import meshing
 import porepy.utils.comp_geom as cg
 
 #------------------------------------------------------------------------------#
-root = logging.getLogger()
-root.setLevel(logging.DEBUG)
 
-if not root.hasHandlers():
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
+def create(conforming, tol=1e-4):
 
-    root.addHandler(ch)
+    csv_folder = "./"
+    csv_file = "example_4_outcrop.csv"
+    pts, edges = importer.lines_from_csv(csv_folder+csv_file)
 
-folder_export = 'viz/'
-file_export = 'vem'
-tol = 1e-4
-tol_frac = 1e-4
+    # A tolerance of 1 seems to be sufficient to recover the T-intersections, but
+    # I might have missed some, though, so take a look at the network and modify
+    # if necessary.
+    snap_pts = cg.snap_points_to_segments(pts, edges, tol=1)
 
-root.info('Read lines from csv')
-csv_folder = "/home/elle/ANIGMA/anigma/fracgen_topology/"
-csv_file = "original_porepy.csv"
-pts, edges = importer.lines_from_csv(csv_folder+csv_file)
-root.info('Done')
+    extrusion_kwargs = {}
+    extrusion_kwargs['tol'] = tol
+    extrusion_kwargs['exposure_angle'] = np.pi/3.*np.ones(edges.shape[1])
+    # Added an option not to include the points on the exposed surface. This
+    # reduces cell refinement somewhat, but setting it True should also be okay
+    extrusion_kwargs['outcrop_consistent'] = True
 
-# A tolerance of 1 seems to be sufficient to recover the T-intersections, but
-# I might have missed some, though, so take a look at the network and modify
-# if necessary.
-snap_pts = cg.snap_points_to_segments(pts, edges, tol=1)
+    fractures = extrusion.fractures_from_outcrop(snap_pts, edges, **extrusion_kwargs)
+    network = FractureNetwork(fractures, tol=tol)
+    #network.to_vtk(folder_export+"network.vtu")
 
-extrusion_kwargs = {}
-extrusion_kwargs['tol'] = tol_frac
-extrusion_kwargs['exposure_angle'] = np.pi/3.*np.ones(edges.shape[1])
-# Added an option not to include the points on the exposed surface. This
-# reduces cell refinement somewhat, but setting it True should also be okay
-extrusion_kwargs['outcrop_consistent'] = True
+    mesh_kwargs = {}
+    h = 50
+    mesh_kwargs['mesh_size'] = {'mode': 'weighted', # 'distance'
+                                'value': h, 'bound_value': h, 'tol': tol}
 
-fractures = extrusion.fractures_from_outcrop(snap_pts, edges, **extrusion_kwargs)
-network = FractureNetwork(fractures, tol=tol)
-network.to_vtk(folder_export+"network.vtu")
+    if conforming:
+        # Change h_ideal and h_min at will here, but I ran into trouble with h_min < 1.
+        gb = meshing.dfn(network, conforming=True, h_ideal=100, h_min=5)
+    else:
+        # Switch conforming=True to get conforming meshes
+        gb = meshing.dfn(network, conforming=False, **mesh_kwargs, keep_geo=True)
 
-mesh_kwargs = {}
-h = 50
-mesh_kwargs['mesh_size'] = {'mode': 'weighted', # 'distance'
-                            'value': h, 'bound_value': h, 'tol': tol}
+    gb.remove_nodes(lambda g: g.dim == 0)
+    gb.compute_geometry()
+    gb.assign_node_ordering()
 
-# Switch conforming=True to get conforming meshes
-gb = meshing.dfn(network, conforming=False, **mesh_kwargs, keep_geo=True)
-# Change h_ideal and h_min at will here, but I ran into trouble with h_min < 1.
-#gb = meshing.dfn(network, conforming=True, h_ideal=100, h_min=5)
-
-
-gb.remove_nodes(lambda g: g.dim == 0)
-gb.compute_geometry()
-gb.assign_node_ordering()
-
-save = Exporter(gb, file_export, folder_export)
-save.write_vtk()
-
+    return gb
 
 #------------------------------------------------------------------------------#
