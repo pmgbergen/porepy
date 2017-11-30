@@ -74,7 +74,14 @@ RUN apt-get -qq update && \
         libcln-dev \
         libmpfr-dev \       
 	wget \
-        bash-completion && \
+	libfltk1.3-dev \
+        libfreetype6-dev \
+        libgl1-mesa-dev \
+        liblapack-dev \
+        libxi-dev \
+        libxmu-dev \
+        mesa-common-dev \
+        bash-completion  \
     git lfs install && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
