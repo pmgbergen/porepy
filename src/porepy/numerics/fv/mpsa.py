@@ -191,7 +191,7 @@ class FracturedMpsa(Mpsa):
 
         bc_val = data['param'].get_bc_val(self)
         A = sps.vstack((A_e, L))
-        rhs = -np.hstack((b_e * bc_val, b_l * bc_val))
+        rhs = np.hstack((b_e * bc_val, b_l * bc_val))
         return A, rhs
 
     def traction(self, g, data, sol):
@@ -301,7 +301,7 @@ class FracturedMpsa(Mpsa):
 
         # Discretize with normal mpsa
         self.discretize(g, data, **kwargs)
-        stress = data['stress'], bound_stress = data['bound_stress']
+        stress, bound_stress = data['stress'], data['bound_stress']
         # Create A and rhs
         div = fvutils.vector_divergence(g)
         a = div * stress
@@ -315,9 +315,9 @@ class FracturedMpsa(Mpsa):
         else:
             raise NotImplementedError('not implemented given faces')
 
-        int_b_left = mcolon(
+        int_b_left = mcolon.mcolon(
             g.dim * frac_faces_left, g.dim * frac_faces_left + g.dim)
-        int_b_right = mcolon(
+        int_b_right = mcolon.mcolon(
             g.dim * frac_faces_right, g.dim * frac_faces_right + g.dim)
         int_b_ind = np.ravel((int_b_left, int_b_right), 'C')
 
@@ -345,14 +345,14 @@ class FracturedMpsa(Mpsa):
         A = sps.vstack((sps.hstack((a, b_internal)),
                         internal_stress), format='csr')
         # negative sign since we have moved b_external from lhs to rhs
-        d_b = b_external
+        d_b = -b_external
         # sps.csr_matrix((int_b_left.size, g.num_faces * g.dim))
         d_t = sgn_left * bound_stress_external[int_b_left] \
             + sgn_right * bound_stress_external[int_b_right]
 
         b_matrix = sps.vstack((d_b, d_t), format='csr')
         data['b_e'] = b_matrix
-        data['A_e'] = A_e
+        data['A_e'] = A
 
 
     def given_traction(self, g, stress, bound_stress, faces=None, **kwargs):
@@ -364,9 +364,9 @@ class FracturedMpsa(Mpsa):
         else:
             raise NotImplementedError('not implemented given faces')
 
-        int_b_left = mcolon(
+        int_b_left = mcolon.mcolon(
             g.dim * frac_faces_left, g.dim * frac_faces_left + g.dim)
-        int_b_right = mcolon(
+        int_b_right = mcolon.mcolon(
             g.dim * frac_faces_right, g.dim * frac_faces_right + g.dim)
         int_b_ind = np.ravel((int_b_left, int_b_right), 'C')
 
@@ -402,9 +402,9 @@ class FracturedMpsa(Mpsa):
         else:
             raise NotImplementedError('not implemented given faces')
 
-        int_b_left = mcolon(
+        int_b_left = mcolon.mcolon(
             g.dim * frac_faces_left, g.dim * frac_faces_left + g.dim)
-        int_b_right = mcolon(
+        int_b_right = mcolon.mcolon(
             g.dim * frac_faces_right, g.dim * frac_faces_right + g.dim)
         int_b_ind = np.ravel((int_b_left, int_b_right), 'C')
 
@@ -414,8 +414,6 @@ class FracturedMpsa(Mpsa):
                         sps.identity(int_b_left.size),
                         -sps.identity(int_b_right.size)))
 
-        # Need a minus sign in front of b_external since this is moved from lhs to
-        # rhs
         d_f = sps.csr_matrix((np.ones(int_b_left.size),
                               (np.arange(int_b_left.size), int_b_left)),
                              (int_b_left.size, g.num_faces * g.dim))
