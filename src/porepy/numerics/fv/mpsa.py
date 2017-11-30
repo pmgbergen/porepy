@@ -41,28 +41,20 @@ class Mpsa(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data):
+    def matrix_rhs(self, g, data, discretize=True):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point stress
         approximation.
-        The name of data in the input dictionary (data) are:
-        stiffness : tensor.FourthOrder
-            Stress tensor defined cell-wise.
-        source : array (self.g.dim * self.g.num_cells)
-            Vector body force term defined cell-wise. Given as stress, i.e.
-            should already been multiplied with the cell sizes.  If not given a
-            zero source body stress term is assumed and a warning arised.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
 
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
+        data: dictionary to store the data. For details on necessary keywords,
+            see method discretize()
+        discretize (boolean, optional): default True. Whether to discetize
+            prior to matrix assembly. If False, data should already contain
+            discretization.
 
         Return
         ------
@@ -73,16 +65,54 @@ class Mpsa(Solver):
             source term.
         """
         param = data['param']
-        c = param.get_tensor(self)
-        bnd = param.get_bc(self)
-        bc_val = param.get_bc_val(self)
-        f = param.get_source(self)
 
-        stress, bound_stress = mpsa(g, c, bnd)
+        if discretize:
+            self.discretize(g, data)
         div = fvutils.vector_divergence(g)
+        stress = data['stress']
+        bound_stress = data['bound_stress']
         M = div * stress
 
+        f = data['param'].get_source(self)
+        bc_val = data['param'].get_bc_val(self)
+
         return M, self.rhs(g, bound_stress, bc_val, f)
+
+#------------------------------------------------------------------------------#
+
+    def discretize(self, g, data):
+        """
+        Discretize the vector elliptic equation by the multi-point stress
+
+        The method computes fluxes over faces in terms of displacements in
+        adjacent cells (defined as the two cells sharing the face).
+
+        The name of data in the input dictionary (data) are:
+        param : Parameter(Class). Contains the following parameters:
+            tensor : fourth_order_tensor
+                Permeability defined cell-wise. If not given a identity permeability
+                is assumed and a warning arised.
+            bc : boundary conditions (optional)
+            bc_val : dictionary (optional)
+                Values of the boundary conditions. The dictionary has at most the
+                following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
+                conditions, respectively.
+            apertures : (np.ndarray) (optional) apertures of the cells for scaling of
+                the face normals.
+
+        Parameters
+        ----------
+        g : grid, or a subclass, with geometry fields computed.
+        data: dictionary to store the data.
+        """
+
+        c = data['param'].get_tensor(self)
+        bnd = data['param'].get_bc(self)
+
+        stress, bound_stress = mpsa(g, c, bnd)
+
+        data['stress'] = stress
+        data['bound_stress'] = bound_stress
 
 #------------------------------------------------------------------------------#
 

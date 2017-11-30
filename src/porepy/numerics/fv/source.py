@@ -5,7 +5,7 @@ Discretization of the flux term of an equation.
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixDim
+from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 
 
@@ -36,7 +36,7 @@ class Integral(Solver):
 
 #------------------------------------------------------------------------------
 
-class IntegralMixDim(SolverMixDim):
+class IntegralMixedDim(SolverMixedDim):
     def __init__(self, physics='flow'):
         self.physics = physics
 
@@ -45,11 +45,11 @@ class IntegralMixDim(SolverMixDim):
         self.coupling_conditions = None
 
         self.solver = Coupler(self.discr)
-        SolverMixDim.__init__(self)
+        SolverMixedDim.__init__(self)
 
 #------------------------------------------------------------------------------
 
-class IntegralDFN(SolverMixDim):
+class IntegralDFN(SolverMixedDim):
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
 
@@ -62,7 +62,7 @@ class IntegralDFN(SolverMixDim):
         kwargs = {"discr_ndof": self.discr.ndof,
                   "discr_fct": self.__matrix_rhs__}
         self.solver = Coupler(coupling = None, **kwargs)
-        SolverMixDim.__init__(self)
+        SolverMixedDim.__init__(self)
 
     def __matrix_rhs__(self, g, data):
         # The highest dimensional problem compute the matrix and rhs, the lower

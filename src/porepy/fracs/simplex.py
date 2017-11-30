@@ -140,7 +140,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
             print('Gmsh failed with status ' + str(gmsh_status))
 
     pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
-    
+
     # Invert phys_names dictionary to map from physical tags to corresponding
     # physical names
     phys_names = {v: k for k, v in phys_names.items()}
@@ -182,6 +182,19 @@ def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network.geo',
 
     if find_isect:
         network.find_intersections()
+
+    # If fields h_ideal and h_min are provided, try to estimate mesh sizes.
+    h_ideal = kwargs.get('h_ideal', None)
+    h_min = kwargs.get('h_min', None)
+    if h_ideal is not None and h_min is not None:
+        network.insert_auxiliary_points(h_ideal, h_min)
+        # In this case we need to recompute intersection decomposition anyhow.
+        network.split_intersections()
+
+    if not hasattr(network, 'decomposition'):
+        network.split_intersections()
+    else:
+        print('Use existing decomposition')
 
     pts, cells, cell_info, phys_names = _run_gmsh(f_name, network,
                                                   in_3d=False, **kwargs)
@@ -255,7 +268,7 @@ def triangle_grid(fracs, domain, **kwargs):
     Parameters
     ----------
     fracs: (dictionary) Two fields: points (2 x num_points) np.ndarray,
-        lines (2 x num_lines) connections between points, defines fractures.
+        edges (2 x num_lines) connections between points, defines fractures.
     box: (dictionary) keys xmin, xmax, ymin, ymax, [together bounding box
         for the domain]
     **kwargs: To be explored.
@@ -280,6 +293,7 @@ def triangle_grid(fracs, domain, **kwargs):
 
     # File name for communication with gmsh
     file_name = kwargs.get('file_name', 'gmsh_frac_file')
+    kwargs.pop('file_name', str())
 
     tol = kwargs.get('tol', 1e-4)
 
@@ -303,6 +317,14 @@ def triangle_grid(fracs, domain, **kwargs):
     lines[:2] = old_2_new[lines[:2]]
     to_remove = np.where(lines[0, :] == lines[1, :])[0]
     lines = np.delete(lines, to_remove, axis=1)
+
+    # In some cases the fractures and boundaries impose the same constraint
+    # twice, although it is not clear why. Avoid this by uniquifying the lines.
+    # This may disturb the line tags in lines[2], but we should not be
+    # dependent on those.
+    li = np.sort(lines[:2], axis=0)
+    li_unique, new_2_old, old_2_new = unique_columns_tol(li)
+    lines = lines[:, new_2_old]
 
     assert np.all(np.diff(lines[:2], axis=0) != 0)
 

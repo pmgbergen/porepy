@@ -99,7 +99,7 @@ def main(kf, description, multi_point, if_export=False):
 
     file_name = 'network_geiger.csv'
     write_network(file_name)
-    gb = importer.from_csv(file_name, mesh_kwargs, domain)
+    gb = importer.mesh_from_csv(file_name, mesh_kwargs, domain)
     gb.compute_geometry()
     gb.assign_node_ordering()
 
@@ -108,9 +108,9 @@ def main(kf, description, multi_point, if_export=False):
 
     # Choose discretization and define the solver
     if multi_point:
-        solver = mpfa.MpfaMixDim('flow')
+        solver = mpfa.MpfaMixedDim('flow')
     else:
-        solver = tpfa.TpfaMixDim('flow')
+        solver = tpfa.TpfaMixedDim('flow')
 
     # Discretize
     A, b = solver.matrix_rhs(gb)

@@ -11,3 +11,4 @@ pytest-cov
 pytest-runner >= 2.0
 coverage
 coveralls
+six
