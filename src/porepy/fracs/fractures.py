@@ -2384,7 +2384,11 @@ class FractureNetwork(object):
             meshing_algorithm = None
 
         # Initialize and run the gmsh writer:
-        writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
+        if in_3d:
+            dom = self.domain
+        else:
+            dom = None
+        writer = GmshWriter(p, edges, polygons=poly, domain=dom,
                             intersection_points=intersection_points,
                             mesh_size_bound=mesh_size_bound,
                             mesh_size=mesh_size, tolerance=gmsh_tolerance,
