@@ -1,12 +1,11 @@
 import numpy as np
-import scipy.sparse as sps
+import logging
 
-from porepy.grids import structured
 from porepy.grids.grid_bucket import GridBucket
-from porepy.params.data import Parameters
-from porepy.params import tensor
-from porepy.params import bc
-from porepy.numerics.mixed_dim.solver import Solver
+from porepy.numerics.linalg.linsolve import Factory as LSFactory
+
+
+logger = logging.getLogger(__name__)
 
 
 class AbstractSolver(object):
@@ -59,13 +58,18 @@ class AbstractSolver(object):
         """
         Solve problem.
         """
+        nt = np.ceil(self.T / self.dt).astype(np.int)
+        logger.info('Time stepping using ' + str(nt) + ' steps')
         t = self.dt
+        counter = 1
         while t < self.T + 1e-14:
-            if self.parameters['verbose']:
-                print('solving time step: ', t)
+            logger.info('Step ' + str(counter) + ' out of ' + str(nt))
+            counter += 1
             self.update(t)
             self.reassemble()
             self.step()
+            logger.debug('Maximum value ' + str(self.p.max()) +\
+                         ', minimum value ' + str(self.p.min()))
             t += self.dt
         self.update(t)
         return self.data
@@ -74,7 +78,8 @@ class AbstractSolver(object):
         """
         Take one time step
         """
-        self.p = sps.linalg.spsolve(self.lhs, self.rhs)
+        ls = LSFactory()
+        self.p = ls.direct(self.lhs, self.rhs)
         return self.p
 
     def update(self, t):
