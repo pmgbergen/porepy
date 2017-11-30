@@ -9,6 +9,7 @@ generators etc.
 import numpy as np
 import scipy.sparse as sps
 import time
+import logging
 
 from porepy.fracs import structured, simplex, split_grid, non_conforming, utils
 from porepy.fracs.fractures import Intersection
@@ -21,6 +22,7 @@ from porepy.utils import setmembership, mcolon
 from porepy.utils import comp_geom as cg
 
 
+logger = logging.getLogger()
 
 def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0, **kwargs):
     """
@@ -172,20 +174,26 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, **kwargs):
 
     # Populate intersections in FractureNetowrk, or find intersections if not
     # provided.
+
     if intersections is not None:
+        logger.warn('FractureNetwork use pre-computed intersections')
         network.intersections = [Intersection(*i) for i in intersections]
     else:
+        logger.warn('FractureNetwork find intersections in DFN')
         network.find_intersections()
 
     if conforming:
+        logger.warn('Create conforming mesh for DFN network')
         grids = simplex.triangle_grid_embedded(network, find_isect=False,
                                                **kwargs)
     else:
-
+        logger.warn('Create non-conforming mesh for DFN network')
         grid_list = []
         neigh_list = []
 
+
         for fi in range(len(network._fractures)):
+            logger.info('Meshing of fracture ' + str(fi))
             # Rotate fracture vertexes and intersection points
             fp, ip, other_frac, rot, cp = network.fracture_to_plane(fi)
             frac_i = network[fi]
