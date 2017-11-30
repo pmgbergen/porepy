@@ -1875,7 +1875,8 @@ class FractureNetwork(object):
 
         self.tags['subdomain'] = subdomain_tags
 
-    def impose_external_boundary(self, box=None, truncate_fractures=True):
+    def impose_external_boundary(self, box=None, truncate_fractures=True,
+                                 keep_box=True):
         """
         Set an external boundary for the fracture set.
 
@@ -1945,9 +1946,9 @@ class FractureNetwork(object):
                 assert f.p.shape[1] >= 3
 
 
-        self._make_bounding_planes(box)
+        self._make_bounding_planes(box, keep_box)
 
-    def _make_bounding_planes(self, box):
+    def _make_bounding_planes(self, box, keep_box=True):
         """
         Translate the bounding box into fractures. Tag them as boundaries.
         For now limited to a box consisting of six planes.
@@ -1988,12 +1989,11 @@ class FractureNetwork(object):
                                        [False]*len(self._fractures))
 
         # Add the boundaries to the fracture network and tag them.
-        for f in bound_planes:
-            self.add(f)
-            boundary_tags.append(True)
+        if keep_box:
+            for f in bound_planes:
+                self.add(f)
+                boundary_tags.append(True)
         self.tags['boundary'] = boundary_tags
-
-
 
 
     def _classify_edges(self, polygon_edges):
