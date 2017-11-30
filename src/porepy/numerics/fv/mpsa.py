@@ -179,12 +179,8 @@ class FracturedMpsa(Mpsa):
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        param = data['param']
-        constit = param.get_tensor(self.physics)
-        bound = param.get_bc(self.physics)
-        bc_val = param.get_bc_val(self.physics)
         if discretize:
-            self.discretize_fractures(g, constit, bound)
+            self.discretize_fractures(g, data)
 
         stress = data['stress']
         bound_stress = data['bound_stress']
@@ -193,6 +189,7 @@ class FracturedMpsa(Mpsa):
 
         L, b_l = self.given_displacement(g, stress, bound_stress)
 
+        bc_val = data['param'].get_bc_val(self)
         A = sps.vstack((A_e, L))
         rhs = -np.hstack((b_e * bc_val, b_l * bc_val))
         return A, rhs
@@ -298,7 +295,7 @@ class FracturedMpsa(Mpsa):
 
         frac_faces = g.has_face_tag(FaceTag.FRACTURE)
 
-        bound = data['param'].get_boundary_faces(self)
+        bound = data['param'].get_bc(self)
         assert np.all(bound.is_dir[frac_faces]), \
             'fractures must be set as dirichlet boundary faces'
 
