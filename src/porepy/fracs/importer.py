@@ -43,7 +43,7 @@ def dfm_from_csv(file_name, tol=1e-4, **mesh_kwargs):
         domain = {'xmin': domain[0], 'xmax': domain[3], 'ymin': domain[1],
                   'ymax': domain[4], 'zmin': domain[2], 'zmax': domain[5]}
 
-        for i, row in enumerate(spam_reader):
+        for row in spam_reader:
             # Read the points
             pts = np.asarray(row, dtype=np.float)
             assert pts.size % 3 == 0

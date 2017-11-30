@@ -311,8 +311,8 @@ class EllipticModel():
 
 class DualEllipticModel(EllipticModel):
 
-    def __init__(self, gb, data=None, physics='flow'):
-        EllipticModel.__init__(self, gb, data, physics)
+    def __init__(self, gb, data=None, physics='flow', **kwargs):
+        EllipticModel.__init__(self, gb, data, physics, **kwargs)
 
         self.discharge_name = str()
         self.projected_discharge_name = str()
