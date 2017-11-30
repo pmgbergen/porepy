@@ -2,12 +2,63 @@ import warnings
 import numpy as np
 from scipy import sparse as sps
 from itertools import islice
+import csv
 
 from porepy.grids import grid, grid_bucket
 from porepy.fracs import meshing, split_grid
 from porepy.fracs.fractures import Fracture, FractureNetwork
 from porepy.utils.setmembership import unique_columns_tol
 from porepy.utils.sort_points import sort_point_pairs
+
+#------------------------------------------------------------------------------#
+
+def dfm_from_csv(file_name, tol=1e-4, **mesh_kwargs):
+    """
+    Create the grid bucket from a set of 3d fractures stored in a csv file and
+    domain. In the csv file, we assume the following structure
+    - first line describes the domain as a rectangle with
+      X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
+    - the other lines descibe the N fractures as a list of points
+      P0_X, P0_Y, P0_Z, ...,PN_X, PN_Y, PN_Z
+
+    Parameters:
+        file_name: name of the file
+        tol: (optional) tolerance for the methods
+        mesh_kwargs: kwargs for the gridding, see meshing.simplex_grid
+
+    Return:
+        gb: the grid bucket
+    """
+
+    # The first line of the csv file defines the bounding box for the domain
+
+    frac_list = []
+    # Extract the data from the csv file
+    with open(file_name, 'r') as csv_file:
+        spam_reader = csv.reader(csv_file, delimiter=',')
+
+        # Read the domain first
+        domain = np.asarray(next(spam_reader), dtype=np.float)
+        assert domain.size == 6
+        domain = {'xmin': domain[0], 'xmax': domain[3], 'ymin': domain[1],
+                  'ymax': domain[4], 'zmin': domain[2], 'zmax': domain[5]}
+
+        for i, row in enumerate(spam_reader):
+            # Read the points
+            pts = np.asarray(row, dtype=np.float)
+            assert pts.size % 3 == 0
+            frac_list.append(Fracture(pts.reshape((3,-1), order='F')))
+
+    # Create the network
+    network = FractureNetwork(frac_list, tol=tol)
+    network.impose_external_boundary(domain)
+
+    # Find intersections, and split these
+    network.find_intersections()
+    network.split_intersections()
+
+    gb = meshing.simplex_grid(frac_list, domain, network, **mesh_kwargs)
+    return gb, domain
 
 #------------------------------------------------------------------------------#
 
