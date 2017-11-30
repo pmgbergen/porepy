@@ -203,8 +203,14 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     g_in_full = np.arange(num_g)
     h_in_full = num_g + np.arange(num_h)
 
+    # The tolerance should not be larger than the smallest distance between
+    # two points on any of the grids.
+    diff_gp = np.min(cg.dist_pointset(gp, True))
+    diff_hp = np.min(cg.dist_pointset(hp, True))
+    min_diff = np.minimum(tol, 0.5*np.minimum(diff_gp, diff_hp))
+
     # Uniquify points
-    combined_unique, _, new_2_old = unique_columns_tol(combined, tol=tol)
+    combined_unique, _, new_2_old = unique_columns_tol(combined, tol=min_diff)
     # Follow locations of the original grid points
     g_in_unique = new_2_old[g_in_full]
     h_in_unique = new_2_old[h_in_full]

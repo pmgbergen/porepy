@@ -887,22 +887,6 @@ class Fracture(object):
 
                 # The next step is to decide whether and how to move the
                 # intersection points.
-
-                # If all intersection points are outside, and on the same side
-                # of the box for all of the active dimensions, convexity of the
-                # polygon implies that the whole fracture is outside the
-                # bounding box. We signify this by setting self.p empty.
-                if np.any(np.all(isect[active_dims] < \
-                          box_array[active_dims, 0], axis=1), axis=0):
-                    self.p = np.empty((3, 0))
-                    # No need to consider other boundary planes
-                    break
-                if np.any(np.all(isect[active_dims] > \
-                          box_array[active_dims, 1], axis=1), axis=0):
-                    self.p = np.empty((3, 0))
-                    # No need to consider other boundary planes
-                    break
-
                 # The intersection points will lay on the bounding box on one
                 # of the dimensions (that of bf, specified by xyz_01_box), but
                 # may be outside the box for the other sides (xyz_01). We thus
@@ -1875,7 +1859,8 @@ class FractureNetwork(object):
 
         self.tags['subdomain'] = subdomain_tags
 
-    def impose_external_boundary(self, box=None, truncate_fractures=True):
+    def impose_external_boundary(self, box=None, truncate_fractures=True,
+                                 keep_box=True):
         """
         Set an external boundary for the fracture set.
 
@@ -1945,9 +1930,9 @@ class FractureNetwork(object):
                 assert f.p.shape[1] >= 3
 
 
-        self._make_bounding_planes(box)
+        self._make_bounding_planes(box, keep_box)
 
-    def _make_bounding_planes(self, box):
+    def _make_bounding_planes(self, box, keep_box=True):
         """
         Translate the bounding box into fractures. Tag them as boundaries.
         For now limited to a box consisting of six planes.
@@ -1988,12 +1973,11 @@ class FractureNetwork(object):
                                        [False]*len(self._fractures))
 
         # Add the boundaries to the fracture network and tag them.
-        for f in bound_planes:
-            self.add(f)
-            boundary_tags.append(True)
+        if keep_box:
+            for f in bound_planes:
+                self.add(f)
+                boundary_tags.append(True)
         self.tags['boundary'] = boundary_tags
-
-
 
 
     def _classify_edges(self, polygon_edges):
@@ -2384,7 +2368,11 @@ class FractureNetwork(object):
             meshing_algorithm = None
 
         # Initialize and run the gmsh writer:
-        writer = GmshWriter(p, edges, polygons=poly, domain=self.domain,
+        if in_3d:
+            dom = self.domain
+        else:
+            dom = None
+        writer = GmshWriter(p, edges, polygons=poly, domain=dom,
                             intersection_points=intersection_points,
                             mesh_size_bound=mesh_size_bound,
                             mesh_size=mesh_size, tolerance=gmsh_tolerance,
