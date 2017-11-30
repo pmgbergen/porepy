@@ -139,7 +139,8 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
 
 #------------------------------------------------------------------------------#
 
-def dfn(fracs, conforming, intersections=None, keep_geo=False, **kwargs):
+def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
+        **kwargs):
     """ Create a mesh of a DFN model, that is, only of fractures.
 
     The mesh can eihter be conforming along fracture intersections, or each
@@ -222,12 +223,12 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, **kwargs):
                 of = isect.get_other_fracture(frac_i)
                 if isect.on_boundary_of_fracture(frac_i):
                     dist, _, _ = cg.dist_points_polygon(main_nodes, of.p)
-                    hit = np.argwhere(dist < 1e-4).reshape((1, -1))[0]
+                    hit = np.argwhere(dist < tol).reshape((1, -1))[0]
                     nodes_1d = main_nodes[:, hit]
                     global_point_ind = main_global_point_ind[hit]
 
-                    assert cg.is_collinear(nodes_1d)
-                    sort_ind = cg.argsort_point_on_line(nodes_1d)
+                    assert cg.is_collinear(nodes_1d, tol=tol)
+                    sort_ind = cg.argsort_point_on_line(nodes_1d, tol=tol)
                     g_aux = TensorGrid(np.arange(nodes_1d.shape[1]))
                     g_aux.nodes = nodes_1d[:, sort_ind]
                     g_aux.global_point_ind = global_point_ind[sort_ind]
