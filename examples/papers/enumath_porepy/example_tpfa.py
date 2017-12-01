@@ -47,7 +47,7 @@ def add_data(gb, domain, tol):
             else:
                 kxx = kf_low
 
-        perm = tensor.SecondOrder(g.dim, kxx*np.ones(g.num_cells))
+        perm = tensor.SecondOrder(3, kxx*np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))
