@@ -81,6 +81,7 @@ RUN apt-get -qq update && \
         libxi-dev \
         libxmu-dev \
         mesa-common-dev \
+	build-essential \
         bash-completion  &&\
     git lfs install && \
     apt-get clean && \
