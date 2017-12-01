@@ -18,7 +18,7 @@ from porepy.numerics import elliptic
 def add_data(gb, domain, tol):
     gb.add_node_props(['param', 'if_tangent', 'frac_num'])
 
-    apert = 1e-2
+    apert = 1e-3
 
     km = 1
     kf_low = 1e-4
