@@ -82,6 +82,10 @@ RUN apt-get -qq update && \
         libxmu-dev \
         mesa-common-dev \
 	build-essential \
+        man \
+        mpich \
+        nano \
+        pkg-config \
         bash-completion  &&\
     git lfs install && \
     apt-get clean && \
@@ -91,13 +95,13 @@ RUN apt-get -qq update && \
     apt-get -y --with-new-pkgs \
         -o Dpkg::Options::="--force-confold" upgrade && \
     apt-get -y install \
-        python-dev python3-dev \
-        python-flufl.lock python3-flufl.lock \
-        python-numpy python3-numpy \
-        python-ply python3-ply \
-        python-pytest python3-pytest \
-        python-scipy python3-scipy \
-        python-six python3-six \
+        python3-dev \
+        python3-flufl.lock \
+        python3-numpy \
+        python3-ply \
+        python3-pytest \
+        python3-scipy \
+        python3-six \
         python-subprocess32 \
         python-urllib3  python3-urllib3 && \
     apt-get clean && \
@@ -128,12 +132,30 @@ RUN wget http://www.vtk.org/files/release/7.0/VTK-7.0.0.tar.gz && tar -zxvf VTK-
     cd build  &&\
     cmake \
    -DCMAKE_BUILD_TYPE:STRING=Release \
+   -DBUILD_SHARED_LIBS:BOOL=ON \
+   -DVTK_Group_Imaging:BOOL=ON \
+   -DVTK_Group_MPI:BOOL=ON \
+   -DVTK_Group_Views:BOOL=ON \
+   -DVTK_Group_Tk:BOOL=ON \
    -DBUILD_TESTING:BOOL=OFF \
    -DVTK_WRAP_PYTHON:BOOL=ON \
    -DVTK_WRAP_PYTHON_SIP:BOOL=ON \
-   -DVTK_WRAP_TCL:BOOL=ON \
+   -DModule_vtkRenderingParallel:BOOL=ON \
+   -DModule_vtkInfovisBoost:BOOL=ON \
+   -DModule_vtkInfovisBoostGraphAlgorithms:BOOL=ON \
+   -DModule_vtkRenderingFreeTypeFontConfig:BOOL=ON \
+   -DModule_vtkRenderingMatplotlib:BOOL=ON \
+   -DModule_vtkIOXdmf2:BOOL=ON \
+   -DVTK_USE_SYSTEM_FREETYPE:BOOL=ON \
+   -DVTK_USE_SYSTEM_LIBXML2:BOOL=ON \
+   -DVTK_RENDERING_BACKEND:STRING=OpenGL2 \
+   -DVTK_WRAP_PYTHON:BOOL=ON \
+   -DVTK_LEGACY_REMOVE:BOOL=ON \
+   -DVTK_USE_CXX11_FEATURES=ON \
    -DVTK_PYTHON_VERSION:STRING=3 \
-   -DVTK_USE_TK:BOOL=ON \
+   -DPYTHON_EXECUTABLE:PATH=$(which python) \
+   -DPYTHON_LIBRARY:PATH=/usr/lib/x86_64-linux-gnu/libpython3.5m.so.1 \
+   -DPYTHON_INCLUDE_DIR:PATH=/usr/include/python3.5m \
     .. &&\
     make && \
     cd Wrapping/Python &&\
