@@ -37,7 +37,7 @@ COPY WELCOME $POREPY_HOME/WELCOME
 
 WORKDIR /home/porepy
 USER root
-ENTRYPOINT ["/sbin/my_init","--quiet","--","/sbin/setuser","porepy","/bin/bash","-l","-c"]
+ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
 CMD ["/bin/bash","-i"]
 
 WORKDIR /tmp
@@ -147,19 +147,23 @@ RUN wget http://gmsh.info/bin/Linux/gmsh-${GMSH_VERSION}-Linux64.tgz &&\
     cp gmsh-${GMSH_VERSION}-Linux/bin/gmsh /usr/local/bin/gmsh && \
     rm -rf /tmp/*
 
-WORKDIR $POROPY_HOME
-RUN chwon -R poropy:poropy $POROPY_HOME
 
-USER poropy
-RUN  mkdir -p $POROPY_HOME/.config/matplotlib &&\
-     git clone https://github.com/pmgbergen/porepy.git $POREPY_HOME/porepy-src &&\
-     cd porepy-src &&\
-     pip3 install -r requirements-dev.txt && \
-     echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py && \
-     python setup.py install 
-RUN  python setup.py test 
+RUN id porepy
+RUN chown -R porepy:porepy /home
+
+WORKDIR $POREPY_HOME
+RUN  mkdir -p $POREPY_HOME/.config/matplotlib 
+COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
+
+USER porepy
+RUN    git clone https://github.com/pmgbergen/porepy.git $POREPY_HOME/porepy-src &&\
+    cd porepy-src &&\
+    echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py
+
+# && \
+     #python3 setup.py install 
+#RUN  python3 setup.py test 
  
-COPY matplotlibrc $POROPY_HOME/.config/matplotlib/matplotlibrc
-      
+     
 	
 
