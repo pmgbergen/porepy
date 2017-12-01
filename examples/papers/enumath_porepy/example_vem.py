@@ -17,9 +17,9 @@ from porepy.numerics import elliptic
 #------------------------------------------------------------------------------#
 
 def add_data(gb, domain, tol):
-    gb.add_node_props(['param', 'if_tangent', 'frac_num'])
+    gb.add_node_props(['param', 'is_tangential', 'frac_num'])
 
-    apert = 1e-2
+    apert = 1e-3
 
     km = 1
     kf_low = 1e-4
@@ -29,31 +29,35 @@ def add_data(gb, domain, tol):
     for g, d in gb:
 
         param = Parameters(g)
-        d['if_tangent'] = True
+
+        aperture = np.power(apert, gb.dim_max() - g.dim)
+        param.set_aperture(aperture)
+
+        d['is_tangential'] = True
         if g.dim == 3:
-            kxx = km
+            kxx = km * np.ones(g.num_cells)
             d['frac_num'] = -1*np.ones(g.num_cells)
+            perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kxx, kzz=kxx)
         elif g.dim == 2:
             d['frac_num'] = g.frac_num*np.ones(g.num_cells)
             if g.frac_num == special_fracture:
-                kxx = kf_high
+                kxx = kf_high * np.ones(g.num_cells)
             else:
-                kxx = kf_low
+                kxx = kf_low * np.ones(g.num_cells)
+            perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kxx, kzz=1)
         else: # g.dim == 1
             neigh = gb.node_neighbors(g, only_higher=True)
             d['frac_num'] = -1*np.ones(g.num_cells)
             frac_num = np.array([gh.frac_num for gh in neigh])
             if np.any(frac_num == special_fracture):
-                kxx = kf_high
+                kxx = kf_high * np.ones(g.num_cells)
             else:
-                kxx = kf_low
+                kxx = kf_low * np.ones(g.num_cells)
+            perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=1, kzz=1)
 
-        perm = tensor.SecondOrder(g.dim, kxx*np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))
-
-        param.set_aperture(np.power(apert, gb.dim_max() - g.dim))
 
         bound_faces = g.get_domain_boundary_faces()
         if bound_faces.size != 0:
@@ -88,12 +92,13 @@ def add_data(gb, domain, tol):
             kxx = kf_high
         else:
             kxx = kf_low
-        d['kn'] = kxx / gb.node_prop(g_l, 'param').get_aperture()
+        aperture = gb.node_prop(g_l, 'param').get_aperture()
+        d['kn'] = kxx / aperture
 
 #------------------------------------------------------------------------------#
 
 tol = 1e-6
-coarse = True
+coarse = False
 
 problem_kwargs = {}
 problem_kwargs['file_name'] = 'solution'
