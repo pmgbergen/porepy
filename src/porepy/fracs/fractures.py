@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 class Fracture(object):
 
     def __init__(self, points, index=None, check_convexity=True):
-        self.p = points.astype(np.double)
+        self.p = np.asarray(points)
         # Ensure the points are ccw
         self.points_2_ccw()
         self.compute_centroid()
@@ -1010,6 +1010,7 @@ class EllipticFracture(Fracture):
                                         np.pi/6)
 
         """
+        center = np.asarray(center)
         if center.ndim == 1:
             center = center.reshape((-1, 1))
         self.center = center
