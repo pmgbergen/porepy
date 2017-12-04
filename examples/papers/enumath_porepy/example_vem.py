@@ -14,12 +14,13 @@ from porepy.grids import coarsening
 
 from porepy.numerics import elliptic
 
+
 #------------------------------------------------------------------------------#
 
 def add_data(gb, domain, tol):
     gb.add_node_props(['param', 'is_tangential', 'frac_num'])
 
-    apert = 1e-3
+    apert = 1e-2
 
     km = 1
     kf_low = 1e-4
@@ -50,7 +51,10 @@ def add_data(gb, domain, tol):
             d['frac_num'] = -1*np.ones(g.num_cells)
             frac_num = np.array([gh.frac_num for gh in neigh])
             if np.any(frac_num == special_fracture):
-                kxx = kf_high * np.ones(g.num_cells)
+                if np.any(frac_num == 1):
+                    kxx = kf_high * np.ones(g.num_cells)
+                else:
+                    kxx = kf_low * np.ones(g.num_cells)
             else:
                 kxx = kf_low * np.ones(g.num_cells)
             perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=1, kzz=1)
@@ -89,7 +93,12 @@ def add_data(gb, domain, tol):
         if g_h.dim == gb.dim_max() and g_l.frac_num == special_fracture:
             kxx = kf_high
         elif g_h.dim < gb.dim_max() and g_h.frac_num == special_fracture:
-            kxx = kf_high
+            neigh = gb.node_neighbors(g_l, only_higher=True)
+            frac_num = np.array([gh.frac_num for gh in neigh])
+            if np.any(frac_num == 1):
+                kxx = kf_high
+            else:
+                kxx = kf_low
         else:
             kxx = kf_low
         aperture = gb.node_prop(g_l, 'param').get_aperture()
@@ -107,7 +116,7 @@ if coarse:
 else:
     problem_kwargs['folder_name'] = 'vem'
 
-h = 0.08
+h = 0.08 #0.08
 #vem vem_coarse
 grid_kwargs = {}
 grid_kwargs['mesh_size'] = {'mode': 'constant', 'value': h, 'bound_value': h,
@@ -131,7 +140,20 @@ problem.solve()
 problem.split()
 
 problem.pressure('pressure')
+problem.discharge('discharge')
 problem.project_discharge('P0u')
 problem.save(['pressure', 'P0u', 'frac_num'])
 
 #------------------------------------------------------------------------------#
+
+from example_advective import AdvectiveModel, AdvectiveModelData
+
+problem_kwargs['file_name'] = 'transport'
+
+for g, d in gb:
+    d['problem'] = AdvectiveModelData(g, d, domain, tol)
+
+advective = AdvectiveModel(gb, **problem_kwargs)
+advective.solve()
+advective.save()
+

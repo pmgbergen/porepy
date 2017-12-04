@@ -18,7 +18,7 @@ from porepy.numerics import elliptic
 def add_data(gb, domain, tol):
     gb.add_node_props(['param', 'if_tangent', 'frac_num'])
 
-    apert = 1e-3
+    apert = 1e-2
 
     km = 1
     kf_low = 1e-4
@@ -43,7 +43,10 @@ def add_data(gb, domain, tol):
             d['frac_num'] = -1*np.ones(g.num_cells)
             frac_num = np.array([gh.frac_num for gh in neigh])
             if np.any(frac_num == special_fracture):
-                kxx = kf_high
+                if np.any(frac_num == 1):
+                    kxx = kf_high * np.ones(g.num_cells)
+                else:
+                    kxx = kf_low * np.ones(g.num_cells)
             else:
                 kxx = kf_low
 
@@ -103,6 +106,19 @@ problem.solve()
 problem.split()
 
 problem.pressure('pressure')
+problem.discharge('discharge')
 problem.save(['pressure', 'frac_num'])
 
 #------------------------------------------------------------------------------#
+
+from example_advective import AdvectiveModel, AdvectiveModelData
+
+problem_kwargs['file_name'] = 'transport'
+
+for g, d in gb:
+    d['problem'] = AdvectiveModelData(g, d, domain, tol)
+
+advective = AdvectiveModel(gb, **problem_kwargs)
+advective.solve()
+advective.save()
+
