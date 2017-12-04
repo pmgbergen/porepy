@@ -16,6 +16,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import sympy
+import csv
 
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
@@ -2301,6 +2302,7 @@ class FractureNetwork(object):
 
         writer.Update()
 
+
     def to_gmsh(self, file_name, in_3d=True, **kwargs):
         """ Write the fracture network as input for mesh generation by gmsh.
 
@@ -2381,6 +2383,32 @@ class FractureNetwork(object):
                             fracture_tags=frac_tags)
 
         writer.write_geo(file_name)
+
+    def to_csv(self, file_name, domain=None):
+        """
+        Save the 3d network on a csv file with comma , as separator.
+        Note: the file is overwritten if present.
+        The format is
+        - if domain is given the first line describes the domain as a rectangle
+          X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
+        - the other lines descibe the N fractures as a list of points
+          P0_X, P0_Y, P0_Z, ...,PN_X, PN_Y, PN_Z
+
+        Parameters:
+            file_name: name of the file
+            domain: (optional) the bounding box of the problem
+        """
+
+        with open(file_name, 'w') as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=',')
+
+            # if the domain (as bounding box) is defined save it
+            if domain is not None:
+                order = ['xmin', 'ymin', 'zmin', 'xmax', 'ymax', 'zmax']
+                csv_writer.writerow([domain[o] for o in order])
+
+            # write all the fractures
+            [csv_writer.writerow(f.p.ravel(order='F')) for f in self._fractures]
 
     def fracture_to_plane(self, frac_num):
         """ Project fracture vertexes and intersection points to the natural
