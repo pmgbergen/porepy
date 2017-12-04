@@ -985,6 +985,8 @@ def compute_discharges(gb, physics='flow', p_name='p', data=None):
         g1, g2 = gb.sorted_nodes_of_edge(e)
 
         if  g1.dim != g2.dim and data['face_cells'] is not None:
+            if not 'param' in data:
+               data['param'] = Parameters(g2)
             pa = data['param']
             coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
             pressures = gb.nodes_prop([g2, g1], p_name)
