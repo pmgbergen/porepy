@@ -2410,6 +2410,39 @@ class FractureNetwork(object):
             # write all the fractures
             [csv_writer.writerow(f.p.ravel(order='F')) for f in self._fractures]
 
+    def to_fab(self, file_name):
+        """
+        Save the 3d network on a fab file, as specified by FracMan.
+
+        The filter is based on the .fab-files needed at the time of writing, and
+        may not cover all options available.
+
+        Parameters:
+            file_name (str): File name.
+        """
+        # function to write a numpy matrix as string
+        def to_file(p):
+            return "\n\t\t".join(" ".join(map(str, x)) for x in p)
+
+        with open(file_name, 'w') as f:
+            # write the first part of the file, some information are fake
+            num_frac = len(self._fractures)
+            num_nodes = np.sum([frac.p.shape[1] for frac in self._fractures])
+            f.write("BEGIN FORMAT\n\tFormat = Ascii\n\tXAxis = East\n"+\
+                    "\tScale = 100.0\n\tNo_Fractures = "+str(num_frac)+"\n"+\
+                    "\tNo_TessFractures = 0\n\tNo_Nodes = "+str(num_nodes)+"\n"+\
+                    "\tNo_Properties = 0\nEND FORMAT\n\n")
+
+            # start to write the fractures
+            f.write("BEGIN FRACTURE\n")
+            for frac_pos, frac in enumerate(self._fractures):
+                f.write("\t"+str(frac_pos)+" "+str(frac.p.shape[1])+" 1\n\t\t")
+                p = np.concatenate((np.atleast_2d(np.arange(frac.p.shape[1])),
+                                    frac.p), axis=0).T
+                f.write(to_file(p)+"\n")
+                f.write("\t0 -1 -1 -1\n")
+            f.write("END FRACTURE")
+
     def fracture_to_plane(self, frac_num):
         """ Project fracture vertexes and intersection points to the natural
         plane of the fracture.
