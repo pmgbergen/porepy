@@ -166,13 +166,17 @@ class BasicsTest(unittest.TestCase):
         u_f = solver.extract_frac_u(g, u)
         u_c = solver.extract_u(g, u)
         u_c = u_c.reshape((3, -1), order='F')
+        T = solver.traction(g, data, u)
 
         top_cells = g.cell_centers[2] > 1
 
         u_left = u_f[:round(u_f.size/2)]
         u_right = u_f[round(u_f.size/2):]
 
+
+
         assert np.allclose(u_left, 1)
         assert np.allclose(u_right, 0)        
         assert np.allclose(u_c[:, top_cells], 1)
         assert np.allclose(u_c[:, ~top_cells], 0)        
+        assert np.allclose(T, 0)

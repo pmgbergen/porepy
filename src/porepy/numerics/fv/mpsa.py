@@ -215,10 +215,10 @@ class FracturedMpsa(Mpsa):
         cell_disp = self.extract_u(g, sol)
 
         frac_faces = np.ravel(np.where(g.has_face_tag(FaceTag.FRACTURE)))
-        frac_ind = mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
+        frac_ind = mcolon.mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
 
         frac_faces = (g.frac_pairs).ravel('C')
-        frac_ind = mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
+        frac_ind = mcolon.mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
 
         bc_val[frac_ind] = frac_disp
 
