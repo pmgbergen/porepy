@@ -37,6 +37,7 @@ COPY WELCOME $POREPY_HOME/WELCOME
 
 USER root
 ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
+#ENTRYPOINT ["/sbin/my_init","--quiet","--","/sbin/setuser","porepy","/bin/bash","-l","-c"]
 CMD ["/bin/bash","-i"]
 
 RUN id porepy
@@ -48,15 +49,23 @@ RUN apt-get -qq update && \
     apt-get -y install curl && \
     curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash && \
     apt-get update -y; apt-get install -y --force-yes --fix-missing --no-install-recommends curl git git-lfs unzip tree subversion vim cmake bison g++ gfortran openmpi-bin pkg-config wget \
-    libpcre3-dev bison flex swig libglu1-mesa pyqt4-dev-tools  bash-completion  &&\
+    libpcre3-dev bison flex swig libglu1-mesa libxcursor-dev libxft-dev libxinerama-dev libmed1v5 libpng12-0 liboce-foundation10 liboce-modeling10  pyqt5-dev-tools  bash-completion  &&\
     git lfs install && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /tmp
 
+ENV GMSH_VERSION 2.11.0
+RUN wget http://gmsh.info/bin/Linux/gmsh-${GMSH_VERSION}-Linux64.tgz &&\
+    tar xf gmsh-${GMSH_VERSION}-Linux64.tgz && \
+    cp gmsh-${GMSH_VERSION}-Linux/bin/gmsh /usr/local/bin/gmsh && \
+    rm -rf /tmp/*
+WORKDIR $POREPY_HOME
+USER porepy
+
 RUN cd /tmp  && \
-    wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh  && \
+    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh  && \
     chmod +x miniconda.sh && \
     bash miniconda.sh -b -p /usr/local/miniconda && \
     rm /tmp/*
@@ -69,35 +78,34 @@ RUN  hash -r  && \
     conda config --set always_yes yes --set changeps1 no  && \
     conda update -q conda  
 RUN  conda info -a  && \
-    conda create --yes -n test python="3.5";
+    conda create --yes -n porepy python="3.5";
 
-RUN /bin/bash -c 'source  activate test'  
-RUN    conda install --yes numpy scipy matplotlib pip3 nose &&\
+RUN /bin/bash -c 'source  activate porepy'  
+RUN    conda install --yes numpy scipy matplotlib pip nose &&\
        conda install --yes -c clinicalgraphics vtk=7.1.0 && \
-    pip3 install setuptools && \
-    pip3 install enum34 && \
-    pip3 install numpy-stl && \
-    pip3 install coveralls && \
-    pip3 install coverage
-
-ENV GMSH_VERSION 2.11.0
-RUN wget http://gmsh.info/bin/Linux/gmsh-${GMSH_VERSION}-Linux64.tgz &&\
-    tar xf gmsh-${GMSH_VERSION}-Linux64.tgz && \
-    cp gmsh-${GMSH_VERSION}-Linux/bin/gmsh /usr/local/bin/gmsh && \
-    rm -rf /tmp/*
+    pip install setuptools && \
+    pip install enum34 && \
+    pip install numpy-stl && \
+    pip install coveralls && \
+    pip install coverage &&\
+    pip install numba cython 
 
 
-WORKDIR $POREPY_HOME
 RUN  mkdir -p $POREPY_HOME/.config/matplotlib 
 COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
 
-USER porepy
-RUN    git clone https://github.com/pmgbergen/porepy.git $POREPY_HOME/porepy-src &&\
+RUN /bin/bash -c ' export PATH=/usr/local/miniconda/bin:$PATH  && source activate porepy'
+
+RUN  git clone https://github.com/pmgbergen/porepy.git $POREPY_HOME/porepy-src &&\
     cd porepy-src &&\
-    echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py  && \
-    python setup.py install && \
-    python setup.py test 
+    echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py #&& \
+    #echo "which python" && \
+    #pip install -r requirements-dev.txt    --no-cache-dir 
+    #&& \  
+    #python setup.py test 
  
-     
+   
+	
+   
 	
 
