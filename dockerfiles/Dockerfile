@@ -8,7 +8,6 @@ RUN apt-get update && \
     apt-get -y install locales sudo && \
     echo "C.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen && \
-    apt-get update -y; apt-get install -y --force-yes --fix-missing --no-install-recommends curl git unzip tree subversion vim cmake bison g++ gfortran openmpi-bin pkg-config wget libpcre3-dev bison flex swig libglu1-mesa pyqt4-dev-tools  && \ 
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set locale environment
@@ -48,46 +47,8 @@ RUN apt-get -qq update && \
         -o Dpkg::Options::="--force-confold" upgrade && \
     apt-get -y install curl && \
     curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash && \
-    apt-get -y install \
-        bison \
-        ccache \
-        cmake \
-        doxygen \
-        flex \
-        g++ \
-        gfortran \
-        git \
-        git-lfs \ 
-        libboost-filesystem-dev \
-        libboost-iostreams-dev \
-        libboost-math-dev \
-        libboost-program-options-dev \
-        libboost-system-dev \
-        libboost-thread-dev \
-        libboost-timer-dev \
-        libeigen3-dev \
-        liblapack-dev \
-        libmpich-dev \
-        libopenblas-dev \
-        libpcre3-dev \
-        libhdf5-mpich-dev \
-        libgmp-dev \
-        libcln-dev \
-        libmpfr-dev \       
-	wget \
-	libfltk1.3-dev \
-        libfreetype6-dev \
-        libgl1-mesa-dev \
-        liblapack-dev \
-        libxi-dev \
-        libxmu-dev \
-        mesa-common-dev \
-	build-essential \
-        man \
-        mpich \
-        nano \
-        pkg-config \
-        bash-completion  &&\
+    apt-get update -y; apt-get install -y --force-yes --fix-missing --no-install-recommends curl git git-lfs unzip tree subversion vim cmake bison g++ gfortran openmpi-bin pkg-config wget \
+    libpcre3-dev bison flex swig libglu1-mesa pyqt4-dev-tools  bash-completion  &&\
     git lfs install && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
