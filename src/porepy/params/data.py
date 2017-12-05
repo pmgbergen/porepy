@@ -239,97 +239,32 @@ class Parameters(object):
 #------------------ slip_distance -----------------
 
 #------------------------------------
-    def get_slip_distance(self, obj):
-        """ Pick out slip distance on fracture faces
-
-        Discretization methods should access this method.
-
-        Parameters:
-
-        obj : Solver
-            Discretization object. Should have attribute 'physics'.
-
-        Returns:
-
-        slip_distance, for
-            elasticity if physics equals 'mechanics'
-            If the slip_distance is not specified, zero slip will
-            be assigned.
+    def get_slip_distance(self, default=0):
+        """ double or array-like
+        face-wise representation of slip distance. Set as either a np.ndarary, or a
+        scalar (uniform) value. Always returned as np.ndarray.
         """
-        physics = self._get_physics(obj)
+        if not hasattr(self, '_slip_distance'):
+            return default * np.ones(self._num_faces * self.dim)
 
-        if physics == 'flow':
-            return self.get_slip_distance_flow()
-        elif physics == 'transport':
-            return self.get_slip_distance_transport()
-        elif physics == 'mechanics':
-            return self.get_slip_distance_mechanics()
+        if isinstance(self._slip_distance, np.ndarray):
+            # Hope that the user did not initialize as array with wrong size
+            return self._slip_distance
         else:
-            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
-                             % (physics, self.known_physics))
+            return self._slip_distance * np.ones(self._num_faces * self.dim)
 
-    def set_slip_distance(self, obj, val):
+
+    def set_slip_distance(self, val):
         """ Set physics-specific slip_distance
 
         Parameters:
 
-        obj: Solver or str
-            Identification of physical regime. Either discretization object
-            with attribute 'physics' or a str.
-
-        val : slip distance, representing
-            flow/pressure equation y if physics equals 'flow'
-            transport equation if physics equals 'transport'
-            elasticity if physics equals 'mechanics'
-
+        val : slip distance, representing the difference in slip between left
+              and right fracture faces
         """
-        physics = self._get_physics(obj)
+        self._slip_distance = val
 
-        if physics == 'flow':
-            self._slip_distance_flow = val
-        elif physics == 'transport':
-            self._slip_distance_transport = val
-        elif physics == 'mechanics':
-            self._slip_distance_mechanics = val
-        else:
-            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
-                             % (physics, self.known_physics))
-
-    def get_slip_distance_flow(self):
-        """ ndarray
-        face wise slip distance, represented as a ndarray.
-        Solvers should rather access get_slip_distance().
-        """
-        if hasattr(self, '_slip_distance_flow'):
-            return self._bc_val_flow
-        else:
-            return np.zeros(self._num_faces)
-
-    slip_distance_flow = property(get_slip_distance_flow)
-
-    def get_slip_distance_transport(self):
-        """ ndarray
-        face wise slip distance, represented as a ndarray.
-        Solvers should rather access get_slip_distance().
-        """
-        if hasattr(self, '_slip_distance_transport'):
-            return self._slip_distance_transport
-        else:
-            return np.zeros(self._num_faces)
-
-    slip_distance_transport = property(get_slip_distance_transport)
-
-    def get_slip_distance_mechanics(self):
-        """ ndarray
-        face wise slip distance, represented as a ndarray.
-        Solvers should rather access get_slip_distance().
-        """
-        if hasattr(self, '_slip_distance_mechanics'):
-            return self._slip_distance_mechanics
-        else:
-            return np.zeros(self._num_faces * self.dim)
-    slip_distance_mechanics = property(get_slip_distance_mechanics)
-
+    slip_distance = property(get_slip_distance, set_slip_distance)
 
 
 #---------------- Discharge -------------------------------------------------

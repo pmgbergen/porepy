@@ -41,7 +41,7 @@ class BasicsTest(unittest.TestCase):
         data['param'].set_bc('mechanics', bound)
 
         slip = np.ones(g.dim * g.num_faces)
-        data['param'].set_slip_distance('mechanics', slip)
+        data['param'].set_slip_distance(slip)
 
         solver = StaticModel(g, data)
         solver.solve()

@@ -57,7 +57,7 @@ class BasicsTest(unittest.TestCase):
         frac_bnd = g.has_face_tag(FaceTag.FRACTURE)
         frac_slip[:, frac_bnd] = np.ones((g.dim, np.sum(frac_bnd)))
 
-        data['param'].set_slip_distance('mechanics', frac_slip.ravel('F'))
+        data['param'].set_slip_distance(frac_slip.ravel('F'))
 
         solver = mpsa.FracturedMpsa()        
 
@@ -123,7 +123,7 @@ class BasicsTest(unittest.TestCase):
 
         data['param'].set_bc('mechanics', bound)
         data['param'].set_bc_val('mechanics', bc_val.ravel('F'))
-        data['param'].set_slip_distance('mechanics', frac_slip.ravel('F'))
+        data['param'].set_slip_distance(frac_slip.ravel('F'))
         solver = mpsa.FracturedMpsa()        
 
         A, b = solver.matrix_rhs(g, data)
@@ -187,7 +187,7 @@ class BasicsTest(unittest.TestCase):
 
         data['param'].set_bc('mechanics', bound)
         data['param'].set_bc_val('mechanics', bc_val.ravel('F'))
-        data['param'].set_slip_distance('mechanics', frac_slip.ravel('F'))
+        data['param'].set_slip_distance(frac_slip.ravel('F'))
 
         solver = mpsa.FracturedMpsa()        
 
