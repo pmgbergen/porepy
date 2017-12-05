@@ -9,6 +9,7 @@ generators etc.
 import numpy as np
 import scipy.sparse as sps
 import time
+import logging
 
 from porepy.fracs import structured, simplex, split_grid, non_conforming, utils
 from porepy.fracs.fractures import Intersection
@@ -16,8 +17,12 @@ from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.grid import FaceTag
+from porepy.grids.structured import TensorGrid
 from porepy.utils import setmembership, mcolon
+from porepy.utils import comp_geom as cg
 
+
+logger = logging.getLogger()
 
 def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0, **kwargs):
     """
@@ -134,7 +139,8 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
 
 #------------------------------------------------------------------------------#
 
-def dfn(fracs, conforming, intersections=None, **kwargs):
+def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
+        **kwargs):
     """ Create a mesh of a DFN model, that is, only of fractures.
 
     The mesh can eihter be conforming along fracture intersections, or each
@@ -169,35 +175,68 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
 
     # Populate intersections in FractureNetowrk, or find intersections if not
     # provided.
+
     if intersections is not None:
+        logger.warn('FractureNetwork use pre-computed intersections')
         network.intersections = [Intersection(*i) for i in intersections]
     else:
+        logger.warn('FractureNetwork find intersections in DFN')
+        tic = time.time()
         network.find_intersections()
+        logger.warn('Done. Elapsed time ' + str(time.time() - tic))
 
     if conforming:
+        logger.warn('Create conforming mesh for DFN network')
         grids = simplex.triangle_grid_embedded(network, find_isect=False,
                                                **kwargs)
     else:
-
+        logger.warn('Create non-conforming mesh for DFN network')
+        tic = time.time()
         grid_list = []
         neigh_list = []
 
+
         for fi in range(len(network._fractures)):
+            logger.info('Meshing of fracture ' + str(fi))
             # Rotate fracture vertexes and intersection points
             fp, ip, other_frac, rot, cp = network.fracture_to_plane(fi)
+            frac_i = network[fi]
 
             f_lines = np.reshape(np.arange(ip.shape[1]), (2, -1), order='F')
             frac_dict = {'points': ip, 'edges': f_lines}
+            if keep_geo:
+                file_name = 'frac_mesh_' + str(fi)
+                kwargs['file_name'] = file_name
             # Create mesh on this fracture surface.
             grids = simplex.triangle_grid(frac_dict, fp, verbose=False,
                                           **kwargs)
 
             irot = rot.T
-
             # Loop over grids, rotate back again to 3d coordinates
             for gl in grids:
                 for g in gl:
                     g.nodes = irot.dot(g.nodes) + cp
+
+            # Nodes of main (fracture) grid, in 3d coordinates1
+            main_nodes = grids[0][0].nodes
+            main_global_point_ind = grids[0][0].global_point_ind
+            # Loop over intersections, check if the intersection is on the
+            # boundary of this fracture.
+            for ind, isect in enumerate(network.intersections_of_fracture(fi)):
+                of = isect.get_other_fracture(frac_i)
+                if isect.on_boundary_of_fracture(frac_i):
+                    dist, _, _ = cg.dist_points_polygon(main_nodes, of.p)
+                    hit = np.argwhere(dist < tol).reshape((1, -1))[0]
+                    nodes_1d = main_nodes[:, hit]
+                    global_point_ind = main_global_point_ind[hit]
+
+                    assert cg.is_collinear(nodes_1d, tol=tol)
+                    sort_ind = cg.argsort_point_on_line(nodes_1d, tol=tol)
+                    g_aux = TensorGrid(np.arange(nodes_1d.shape[1]))
+                    g_aux.nodes = nodes_1d[:, sort_ind]
+                    g_aux.global_point_ind = global_point_ind[sort_ind]
+                    grids[1].insert(ind, g_aux)
+
 
             assert len(grids[0]) == 1, 'Fracture should be covered by single'\
                 'mesh'
@@ -205,12 +244,37 @@ def dfn(fracs, conforming, intersections=None, **kwargs):
             grid_list.append(grids)
             neigh_list.append(other_frac)
 
+        logger.warn('Finished creating grids. Elapsed time ' + str(time.time() - tic))
+        logger.warn('Merge grids')
+        tic = time.time()
         grids = non_conforming.merge_grids(grid_list, neigh_list)
+        logger.warn('Done. Elapsed time ' + str(time.time() - tic))
+
+        print('\n')
+        for g_set in grids:
+            if len(g_set) > 0:
+                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
+                    '-d grids with '
+                num = 0
+                for g in g_set:
+                    num += g.num_cells
+                s += str(num) + ' cells'
+                print(s)
+        print('\n')
 
     tag_faces(grids, check_highest_dim=False)
+    logger.warn('Assemble in bucket')
+    tic = time.time()
     gb = assemble_in_bucket(grids)
+    logger.warn('Done. Elapsed time ' + str(time.time() - tic))
+    logger.warn('Compute geometry')
+    tic = time.time()
     gb.compute_geometry()
+    logger.warn('Done. Elapsed time ' + str(time.time() - tic))
+    logger.warn('Split fractures')
+    tic = time.time()
     split_grid.split_fractures(gb)
+    logger.warn('Done. Elapsed time ' + str(time.time() - tic))
     return gb
 
 
