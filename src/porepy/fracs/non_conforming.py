@@ -18,12 +18,12 @@ import porepy.utils.comp_geom as cg
 
 
 
-def merge_grids(grids, intersections):
+def merge_grids(grids, intersections, tol=1e-4):
     """ Main method of module, merge all grids
     """
     list_of_grids, global_ind_offset = init_global_ind(grids)
     grids_1d = process_intersections(grids, intersections, global_ind_offset,
-                          list_of_grids)
+                                     list_of_grids, tol)
     grid_list_by_dim = [[], [], []]
 
     grid_list_by_dim[1] = grids_1d
@@ -71,7 +71,7 @@ def init_global_ind(gl):
 
 
 def process_intersections(grids, intersections, global_ind_offset,
-                          list_of_grids):
+                          list_of_grids, tol):
     """ Loop over all intersections, combined two and two grids.
     """
 
@@ -113,17 +113,17 @@ def process_intersections(grids, intersections, global_ind_offset,
             h_1d.compute_geometry()
             g_new_1d, global_ind_offset = combine_grids(g, g_1d, h, h_1d,
                                                         global_ind_offset,
-                                                        list_of_grids)
+                                                        list_of_grids, tol)
             # Append the new 1d grid to the general list of grids, so that it
             # will have its global point indices updated as we go.
             grid_1d_list.append(g_new_1d)
     return grid_1d_list
 
 
-def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids):
+def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids, tol):
 
     combined_1d, global_ind_offset, g_in_combined, h_in_combined,\
-        g_sort, h_sort = merge_1d_grids(g_1d, h_1d, global_ind_offset)
+        g_sort, h_sort = merge_1d_grids(g_1d, h_1d, global_ind_offset, tol)
 
     # First update fields for first grid
     fn_orig = np.reshape(g.face_nodes.indices, (2, g.num_faces), order='F')
@@ -203,8 +203,14 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     g_in_full = np.arange(num_g)
     h_in_full = num_g + np.arange(num_h)
 
+    # The tolerance should not be larger than the smallest distance between
+    # two points on any of the grids.
+    diff_gp = np.min(cg.dist_pointset(gp, True))
+    diff_hp = np.min(cg.dist_pointset(hp, True))
+    min_diff = np.minimum(tol, 0.5*np.minimum(diff_gp, diff_hp))
+
     # Uniquify points
-    combined_unique, _, new_2_old = unique_columns_tol(combined, tol=tol)
+    combined_unique, _, new_2_old = unique_columns_tol(combined, tol=min_diff)
     # Follow locations of the original grid points
     g_in_unique = new_2_old[g_in_full]
     h_in_unique = new_2_old[h_in_full]
@@ -230,7 +236,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     # First use a 1d coordinate to initialize topology
     new_grid = TensorGrid(np.arange(num_new_grid))
     # Then set the right, 3d coordinates
-    new_grid.nodes = combined_sorted
+    new_grid.nodes = cg.make_collinear(combined_sorted)
 
     # Set global point indices
     new_grid.global_point_ind = global_ind_offset + np.arange(num_new_grid)

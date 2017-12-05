@@ -14,7 +14,7 @@ import logging
 try:
     import pyamg
 except ImportError:
-    " Could not import the pyamg package. pyamg sover will not be available."
+    " Could not import the pyamg package. pyamg solver will not be available."
 logger = logging.getLogger(__name__)
 
 

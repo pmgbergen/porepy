@@ -417,7 +417,8 @@ class TestMeshMerging(unittest.TestCase):
         list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
         grid_list_1d = non_conforming.process_intersections(gl, intersections,
                                                             glob_ind,
-                                                            list_of_grids)
+                                                            list_of_grids,
+                                                            tol=1e-4)
 
         g_1d = grid_list_1d[0]
         ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
@@ -490,7 +491,8 @@ class TestMeshMerging(unittest.TestCase):
         list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
         grid_list_1d = non_conforming.process_intersections(gl, intersections,
                                                             glob_ind,
-                                                            list_of_grids)
+                                                            list_of_grids,
+                                                            tol=1e-4)
         assert len(grid_list_1d) == 2
 
         g_1d = grid_list_1d[0]
@@ -558,7 +560,8 @@ class TestMeshMerging(unittest.TestCase):
         list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
         grid_list_1d = non_conforming.process_intersections(gl, intersections,
                                                             glob_ind,
-                                                            list_of_grids)
+                                                            list_of_grids,
+                                                            tol=1e-4)
         assert len(grid_list_1d) == 2
 
         g_1d = grid_list_1d[0]
@@ -626,7 +629,8 @@ class TestMeshMerging(unittest.TestCase):
         list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
         grid_list_1d = non_conforming.process_intersections(gl, intersections,
                                                             glob_ind,
-                                                            list_of_grids)
+                                                            list_of_grids,
+                                                            tol=1e-4)
         assert len(grid_list_1d) == 1
 
         g_1d = grid_list_1d[0]
@@ -698,7 +702,8 @@ class TestMeshMerging(unittest.TestCase):
         list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
         grid_list_1d = non_conforming.process_intersections(gl, intersections,
                                                             glob_ind,
-                                                            list_of_grids)
+                                                            list_of_grids,
+                                                            tol=1e-4)
         assert len(grid_list_1d) == 2
 
         g_1d = grid_list_1d[0]
@@ -778,7 +783,8 @@ class TestMeshMerging(unittest.TestCase):
         list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
         grid_list_1d = non_conforming.process_intersections(gl, intersections,
                                                             glob_ind,
-                                                            list_of_grids)
+                                                            list_of_grids,
+                                                            tol=1e-4)
         assert len(grid_list_1d) == 3
 
         g_1d = grid_list_1d[0]
@@ -869,7 +875,8 @@ class TestMeshMerging(unittest.TestCase):
         list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
         grid_list_1d = non_conforming.process_intersections(gl, intersections,
                                                             glob_ind,
-                                                            list_of_grids)
+                                                            list_of_grids,
+                                                            tol=1e-4)
         assert len(grid_list_1d) == 3
 
         g_1d = grid_list_1d[0]
@@ -972,7 +979,8 @@ class TestMeshMerging(unittest.TestCase):
         list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
         grid_list_1d = non_conforming.process_intersections(gl, intersections,
                                                             glob_ind,
-                                                            list_of_grids)
+                                                            list_of_grids,
+                                                            tol=1e-4)
         assert len(grid_list_1d) == 3
 
         g_1d = grid_list_1d[0]
