@@ -270,7 +270,7 @@ class Grid(object):
         "Compute 2D geometry, with method motivated by similar MRST function"
 
         if is_embedded:
-            R = cg.project_plane_matrix(self.nodes)
+            R = cg.project_plane_matrix(self.nodes, check_planar=False)
             self.nodes = np.dot(R, self.nodes)
 
         fn = self.face_nodes.indices
