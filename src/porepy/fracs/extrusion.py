@@ -14,6 +14,8 @@ consistent with the exposed line.
 
 No attempts are made to create fractures that do not cross the confined plane.
 
+For more information, see the tutorial on fracture extrusion.
+
 KNOWN ISSUES:
     * When the extrusion is applied with rotations relative to outcrop plane,
       two fractures may meet in a point only. A warning is issued in this case.

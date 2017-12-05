@@ -14,8 +14,8 @@ class DarcyAndTransport():
         """ 
         Solve both problems. 
         """
-        self.flow.reassemble()
         p = self.flow.step()
+        self.flow.pressure()
         self.flow.discharge()
 
         s = self.transport.solve()
