@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 class Fracture(object):
 
     def __init__(self, points, index=None, check_convexity=True):
-        self.p = np.asarray(points)
+        self.p = np.asarray(points, dtype=np.float)
         # Ensure the points are ccw
         self.points_2_ccw()
         self.compute_centroid()
