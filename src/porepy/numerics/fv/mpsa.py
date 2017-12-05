@@ -187,11 +187,20 @@ class FracturedMpsa(Mpsa):
         b_e = data['b_e']
         A_e = data['A_e']
 
-        L, b_l = self.given_displacement(g, stress, bound_stress)
+        L, b_l = self.given_slip_distance(g, stress, bound_stress)
 
         bc_val = data['param'].get_bc_val(self)
+        
+        frac_faces = np.matlib.repmat(g.has_face_tag(FaceTag.FRACTURE), 3, 1)
+        assert np.all(bc_val[frac_faces.ravel('F')] == 0), \
+            '''Fracture should have zero boundary condition. Set slip by
+               Parameters.set_slip_distance'''
+
+        slip_distance = data['param'].get_slip_distance(self)        
+        
         A = sps.vstack((A_e, L))
-        rhs = np.hstack((b_e * bc_val, b_l * bc_val))
+        rhs = np.hstack((b_e * bc_val, b_l * slip_distance))
+
         return A, rhs
 
     def traction(self, g, data, sol):
@@ -296,6 +305,12 @@ class FracturedMpsa(Mpsa):
         frac_faces = g.has_face_tag(FaceTag.FRACTURE)
 
         bound = data['param'].get_bc(self)
+        is_dir  = bound.is_dir
+        if not np.all(is_dir[frac_faces]):
+            is_dir[frac_faces] = True
+
+        bound = bc.BoundaryCondition(g, is_dir, 'dir')
+        
         assert np.all(bound.is_dir[frac_faces]), \
             'fractures must be set as dirichlet boundary faces'
 
@@ -347,10 +362,11 @@ class FracturedMpsa(Mpsa):
         # negative sign since we have moved b_external from lhs to rhs
         d_b = -b_external
         # sps.csr_matrix((int_b_left.size, g.num_faces * g.dim))
-        d_t = sgn_left * bound_stress_external[int_b_left] \
-            + sgn_right * bound_stress_external[int_b_right]
+        d_t = -sgn_left * bound_stress_external[int_b_left] \
+             - sgn_right * bound_stress_external[int_b_right]
 
         b_matrix = sps.vstack((d_b, d_t), format='csr')
+                
         data['b_e'] = b_matrix
         data['A_e'] = A
 
@@ -393,7 +409,7 @@ class FracturedMpsa(Mpsa):
 
         return L, d_t
 
-    def given_displacement(self, g, stress, bound_stress, faces=None):
+    def given_slip_distance(self, g, stress, bound_stress, faces=None):
         # we find the matrix indices of the fracture
         if faces is None:
             frac_faces = g.frac_pairs
