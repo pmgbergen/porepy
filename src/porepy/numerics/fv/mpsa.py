@@ -196,7 +196,7 @@ class FracturedMpsa(Mpsa):
             '''Fracture should have zero boundary condition. Set slip by
                Parameters.set_slip_distance'''
 
-        slip_distance = data['param'].get_slip_distance(self)        
+        slip_distance = data['param'].get_slip_distance()        
         
         A = sps.vstack((A_e, L))
         rhs = np.hstack((b_e * bc_val, b_l * slip_distance))
