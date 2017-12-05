@@ -35,26 +35,29 @@ class BasicsTest(unittest.TestCase):
         
         A, b = solver.matrix_rhs(g, data)
         u = np.linalg.solve(A.A, b)
+        T = solver.traction(g, data, u)
+
         assert np.all(np.abs(u) < 1e-10)
+        assert np.all(np.abs(T) < 1e-10)
 
     def test_unit_slip(self):
         """
-        test if fractures are glued together it behaves as no fracture
+        test unit slip of fractures
         """
         frac = np.array([[1,1,1], [1,2,1], [2,2,1], [2,1,1]]).T
         physdims = np.array([3,3,2])
-
         g = meshing.cart_grid([frac], [3,3,2], physdims=physdims).grids_of_dimension(3)[0]
 
         data = {'param': Parameters(g)}
         bound = bc.BoundaryCondition(g, g.get_boundary_faces(), 'dir') 
 
-        bc_val = np.zeros((g.dim, g.num_faces))
-        frac_bnd = g.has_face_tag(FaceTag.FRACTURE)
-        bc_val[:, frac_bnd] = np.ones((g.dim, np.sum(frac_bnd)))
-
         data['param'].set_bc('mechanics', bound)
-        data['param'].set_bc_val('mechanics', bc_val.ravel('F'))
+
+        frac_slip = np.zeros((g.dim, g.num_faces))
+        frac_bnd = g.has_face_tag(FaceTag.FRACTURE)
+        frac_slip[:, frac_bnd] = np.ones((g.dim, np.sum(frac_bnd)))
+
+        data['param'].set_slip_distance('mechanics', frac_slip.ravel('F'))
 
         solver = mpsa.FracturedMpsa()        
 
@@ -65,12 +68,21 @@ class BasicsTest(unittest.TestCase):
         u_c = solver.extract_u(g, u)
         u_c = u_c.reshape((3, -1), order='F')
 
+        # obtain fracture faces and cells
         frac_faces = g.frac_pairs
         frac_left = frac_faces[0]
         frac_right = frac_faces[1]
 
         cell_left = np.ravel(np.argwhere(g.cell_faces[frac_left, : ])[:, 1])
         cell_right = np.ravel(np.argwhere(g.cell_faces[frac_right, : ])[:, 1])
+
+        # Test traction
+        T = solver.traction(g, data, u)
+        T = T.reshape((3, -1),order='F')
+        T_left = T[:, frac_left]
+        T_right = T[:, frac_right]
+
+        assert np.allclose(T_left, T_right)
 
         # we have u_lhs - u_rhs = 1 so u_lhs should be positive
         assert np.all(u_c[:, cell_left] > 0)
@@ -85,12 +97,10 @@ class BasicsTest(unittest.TestCase):
         assert np.allclose(u_right, -0.5)
 
 
-    def test_non_zero_bc(self):
+    def test_non_zero_bc_val(self):
         """
-        test domain cut in two. We place 1 dirichlet on top. zero dirichlet on
-        bottom and 0 neumann on sides. Further we place 1 displacement on
-        fracture. this should give us displacement 1 on top cells and 0 on 
-        bottom cells and zero traction on all faces
+        We mixed bc_val on domain boundary and fracture displacement in
+        x-direction.
         """
         frac = np.array([[1,1,1], [1,2,1], [2,2,1], [2,1,1]]).T
         physdims = np.array([3,3,2])
@@ -101,16 +111,19 @@ class BasicsTest(unittest.TestCase):
 
         # Define boundary conditions 
         bc_val = np.zeros((g.dim, g.num_faces))
+        frac_slip = np.zeros((g.dim, g.num_faces))        
+
         frac_bnd = g.has_face_tag(FaceTag.FRACTURE)
         dom_bnd = g.has_face_tag(FaceTag.DOMAIN_BOUNDARY)        
-        bc_val[0, frac_bnd] = np.ones(np.sum(frac_bnd))
+
+        frac_slip[0, frac_bnd] = np.ones(np.sum(frac_bnd))
         bc_val[:, dom_bnd] = g.face_centers[:, dom_bnd]
 
         bound = bc.BoundaryCondition(g, g.get_boundary_faces(), 'dir')
 
         data['param'].set_bc('mechanics', bound)
         data['param'].set_bc_val('mechanics', bc_val.ravel('F'))
-
+        data['param'].set_slip_distance('mechanics', frac_slip.ravel('F'))
         solver = mpsa.FracturedMpsa()        
 
         A, b = solver.matrix_rhs(g, data)
@@ -119,6 +132,19 @@ class BasicsTest(unittest.TestCase):
         u_f = solver.extract_frac_u(g, u)
         u_c = solver.extract_u(g, u)
         u_c = u_c.reshape((3, -1), order='F')
+
+        # Test traction
+        frac_faces = g.frac_pairs
+        frac_left = frac_faces[0]
+        frac_right = frac_faces[1]
+
+        T = solver.traction(g, data, u)
+        T = T.reshape((3, -1),order='F')
+        T_left = T[:, frac_left]
+        T_right = T[:, frac_right]
+
+        assert np.allclose(T_left, T_right)
+
 
         # we have u_lhs - u_rhs = 1 so u_lhs should be positive
         u_left = u_f[:round(u_f.size/2)]
@@ -134,14 +160,17 @@ class BasicsTest(unittest.TestCase):
 
     def test_domain_cut_in_two(self):
         """
-        test if fractures are glued together it behaves as no fracture
+        test domain cut in two. We place 1 dirichlet on top. zero dirichlet on
+        bottom and 0 neumann on sides. Further we place 1 displacement on
+        fracture. this should give us displacement 1 on top cells and 0 on 
+        bottom cells and zero traction on all faces
         """
+
         frac = np.array([[0,0,1], [0,3,1], [3,3,1], [3,0,1]]).T
         g = meshing.cart_grid([frac], [3,3,2]).grids_of_dimension(3)[0]
         data = {'param': Parameters(g)}
 
         tol = 1e-6
-        bc_val = np.zeros((g.dim, g.num_faces))
         frac_bnd = g.has_face_tag(FaceTag.FRACTURE)
         top = g.face_centers[2] > 2 - tol
         bot = g.face_centers[2] < tol
@@ -150,13 +179,15 @@ class BasicsTest(unittest.TestCase):
         
         bound = bc.BoundaryCondition(g, dir_bound, 'dir') 
 
-        bc_val[:, frac_bnd] = np.ones(np.sum(frac_bnd))
+        bc_val = np.zeros((g.dim, g.num_faces))
         bc_val[:, top] = np.ones((g.dim, np.sum(top)))
-
+        frac_slip = np.zeros((g.dim, g.num_faces))
+        frac_slip[:, frac_bnd] = np.ones(np.sum(frac_bnd))
 
 
         data['param'].set_bc('mechanics', bound)
         data['param'].set_bc_val('mechanics', bc_val.ravel('F'))
+        data['param'].set_slip_distance('mechanics', frac_slip.ravel('F'))
 
         solver = mpsa.FracturedMpsa()        
 
