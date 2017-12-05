@@ -30,6 +30,42 @@ To get the most current version, install from github:
 	pip install -r requirements.txt
 
 	pip install .
+	
+### Docker
+Alternatively, a way to run the porepy library is to use our prebuilt and high-performance Docker images.
+Docker containers are extremely lightweight, secure, and are based on open standards that run on all major Linux distributions, macOS and Microsoft Windows platforms.
+
+Install Docker for your platform by following [these instructions](https://docs.docker.com/engine/getstarted/step_one/).
+If using the Docker Toolbox (macOS versions < 10.10 or Windows versions < 10), make sure you run all commands inside the Docker Quickstart Terminal.
+
+Now we will pull the docker.io/pmgbergen/porepy image from cloud infrastructure:
+```bash
+>  docker pull docker.io/pmgbergen/porepy:latest
+```
+Docker will pull the latest tag of the image pmgbergen/porepy from docker.io. The download is around nb GB. The  image is a great place to start experimenting with porepy and includes all dependencies already compiled for you.
+Once the download is complete you can start porepy for the first time. Just run:
+```bash
+>  docker run -ti  docker.io/pmgbergen/porepy:latest
+```
+To facilitate the devoloping, using the text editor,version control and other tools already installed on your computers,
+it is possible to share files from the host into the container:
+
+```bash
+>  docker run -ti -v $(pwd):/home/porepy/shared  pmgbergen/porepy:latest
+```
+To allow the X11 forwarding in the container, on Linux system just run:
+
+```bash
+>  docker run -ti --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix  -v $(pwd):/home/porepy/shared  pmgbergen/porepy:latest
+```
+
+For Windows system, you need to install Cygwin/X version and running the command in Cygwin terminal. While for mac system, you need to install xquartz. 
+# For Developing/ enhance Docker
+If you would like to compile Docker for developing porpose. You could associate this github repo with docker cloud service for deployment. Alternatively, on you own machine on terminal (Linux) or on Docker terminal (Mac/Win) you just run:
+```bash
+> cd  dockerfiles && docker build . --tag porepy:develop
+```
+The tag of your container will be "porepy" and the version "develop".
 
 # (Semi-) Optional packages
 To function optimally, PorePy should have access to the pypi packages:
