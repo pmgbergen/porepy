@@ -61,8 +61,7 @@ RUN wget http://gmsh.info/bin/Linux/gmsh-${GMSH_VERSION}-Linux64.tgz &&\
     tar xf gmsh-${GMSH_VERSION}-Linux64.tgz && \
     cp gmsh-${GMSH_VERSION}-Linux/bin/gmsh /usr/local/bin/gmsh && \
     rm -rf /tmp/*
-WORKDIR $POREPY_HOME
-USER porepy
+USER root
 
 RUN cd /tmp  && \
     wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh  && \
@@ -70,10 +69,11 @@ RUN cd /tmp  && \
     bash miniconda.sh -b -p /usr/local/miniconda && \
     rm /tmp/*
 ENV PATH=/usr/local/miniconda/bin:$PATH
-
+USER porepy
 RUN echo "PATH=/usr/local/miniconda/bin:$PATH" >> ~/.profile
 RUN /bin/bash -c 'source  ~/.profile'
 
+USER root
 RUN  hash -r  && \
     conda config --set always_yes yes --set changeps1 no  && \
     conda update -q conda  
@@ -94,15 +94,21 @@ RUN    conda install --yes numpy scipy matplotlib pip nose &&\
 RUN  mkdir -p $POREPY_HOME/.config/matplotlib 
 COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
 
+
+COPY dependencies.txt $POROPY_HOME/.dependencies
+RUN pip install --no-cache-dir -r $POROPY_HOME/.dependencies
+
+USER porepy
+WORKDIR $POREPY_HOME
 RUN /bin/bash -c ' export PATH=/usr/local/miniconda/bin:$PATH  && source activate porepy'
+
+
 
 RUN  git clone https://github.com/pmgbergen/porepy.git $POREPY_HOME/porepy-src &&\
     cd porepy-src &&\
-    echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py #&& \
-    #echo "which python" && \
-    #pip install -r requirements-dev.txt    --no-cache-dir 
-    #&& \  
-    #python setup.py test 
+    echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py &&\
+    python setup.py install --user
+
  
    
 	
