@@ -128,6 +128,10 @@ gb.compute_geometry()
 if coarse:
     coarsening.coarsen(gb, 'by_volume')
 
+gb.add_node_props(['face_tags'])
+for g, d in gb:
+    d['face_tags'] = g.face_tags.copy()
+
 internal_flag = FaceTag.FRACTURE
 [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
@@ -145,6 +149,9 @@ problem.project_discharge('P0u')
 problem.save(['pressure', 'P0u', 'frac_num'])
 
 #------------------------------------------------------------------------------#
+
+for g, d in gb:
+    g.face_tags = d['face_tags']
 
 from example_advective import AdvectiveModel, AdvectiveModelData
 
