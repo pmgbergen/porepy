@@ -8,6 +8,7 @@ RUN apt-get update && \
     apt-get -y install locales sudo && \
     echo "C.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen && \
+    apt-get update -y; apt-get install -y --force-yes --fix-missing --no-install-recommends curl git unzip tree subversion vim cmake bison g++ gfortran openmpi-bin pkg-config wget libpcre3-dev bison flex swig libglu1-mesa pyqt4-dev-tools  && \ 
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set locale environment
@@ -35,12 +36,12 @@ VOLUME /home/porepy/shared
 # Print something nice on entry.
 COPY WELCOME $POREPY_HOME/WELCOME
 
-WORKDIR /home/porepy
 USER root
 ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
 CMD ["/bin/bash","-i"]
 
-WORKDIR /tmp
+RUN id porepy
+RUN chown -R porepy:porepy /home
 
 RUN apt-get -qq update && \
     apt-get -y --with-new-pkgs \
@@ -91,77 +92,32 @@ RUN apt-get -qq update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN apt-get -qq update && \
-    apt-get -y --with-new-pkgs \
-        -o Dpkg::Options::="--force-confold" upgrade && \
-    apt-get -y install \
-        python3-dev \
-        python3-flufl.lock \
-        python3-numpy \
-        python3-ply \
-        python3-pytest \
-        python3-scipy \
-        python3-six \
-        python-subprocess32 \
-        python-urllib3  python3-urllib3 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+WORKDIR /tmp
 
-# Install setuptools
-RUN wget https://bootstrap.pypa.io/get-pip.py && \
-    python3 get-pip.py && \
-    pip3 install --no-cache-dir setuptools && \
-    pip3 install --no-cache-dir jupyter && \
-    pip3 install --no-cache-dir sympy && \
-    pip3 install --no-cache-dir matplotlib && \
-    rm -rf /tmp/*
+RUN cd /tmp  && \
+    wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh  && \
+    chmod +x miniconda.sh && \
+    bash miniconda.sh -b -p /usr/local/miniconda && \
+    rm /tmp/*
+ENV PATH=/usr/local/miniconda/bin:$PATH
 
-RUN wget http://prdownloads.sourceforge.net/tcl/tcl8.6.6-src.tar.gz && tar -zxvf tcl8.6.6-src.tar.gz &&\
-    cd tcl8.6.6/unix && ./configure && make && make install &&\
-    rm -rf /tmp/*
+RUN echo "PATH=/usr/local/miniconda/bin:$PATH" >> ~/.profile
+RUN /bin/bash -c 'source  ~/.profile'
 
+RUN  hash -r  && \
+    conda config --set always_yes yes --set changeps1 no  && \
+    conda update -q conda  
+RUN  conda info -a  && \
+    conda create --yes -n test python="3.5";
 
-RUN wget http://prdownloads.sourceforge.net/tcl/tk8.6.6-src.tar.gz && tar -zxvf tk8.6.6-src.tar.gz &&\
-    cd tk8.6.6/unix && ./configure && make && make install &&\
-    rm -rf /tmp/*
-
-
-RUN wget http://www.vtk.org/files/release/7.0/VTK-7.0.0.tar.gz && tar -zxvf VTK-7.0.0.tar.gz &&\
-    cd VTK-7.0.0 &&\
-    mkdir build &&\
-    cd build  &&\
-    cmake \
-   -DCMAKE_BUILD_TYPE:STRING=Release \
-   -DBUILD_SHARED_LIBS:BOOL=ON \
-   -DVTK_Group_Imaging:BOOL=ON \
-   -DVTK_Group_MPI:BOOL=ON \
-   -DVTK_Group_Views:BOOL=ON \
-   -DVTK_Group_Tk:BOOL=ON \
-   -DBUILD_TESTING:BOOL=OFF \
-   -DVTK_WRAP_PYTHON:BOOL=ON \
-   -DVTK_WRAP_PYTHON_SIP:BOOL=ON \
-   -DModule_vtkRenderingParallel:BOOL=ON \
-   -DModule_vtkInfovisBoost:BOOL=ON \
-   -DModule_vtkInfovisBoostGraphAlgorithms:BOOL=ON \
-   -DModule_vtkRenderingFreeTypeFontConfig:BOOL=ON \
-   -DModule_vtkRenderingMatplotlib:BOOL=ON \
-   -DModule_vtkIOXdmf2:BOOL=ON \
-   -DVTK_USE_SYSTEM_FREETYPE:BOOL=ON \
-   -DVTK_USE_SYSTEM_LIBXML2:BOOL=ON \
-   -DVTK_RENDERING_BACKEND:STRING=OpenGL2 \
-   -DVTK_WRAP_PYTHON:BOOL=ON \
-   -DVTK_LEGACY_REMOVE:BOOL=ON \
-   -DVTK_USE_CXX11_FEATURES=ON \
-   -DVTK_PYTHON_VERSION:STRING=3 \
-   -DPYTHON_EXECUTABLE:PATH=$(which python) \
-   -DPYTHON_LIBRARY:PATH=/usr/lib/x86_64-linux-gnu/libpython3.5m.so.1 \
-   -DPYTHON_INCLUDE_DIR:PATH=/usr/include/python3.5m \
-    .. &&\
-    make && \
-    cd Wrapping/Python &&\
-    make && \
-    make install &&\
-    rm -rf /tmp/*
+RUN /bin/bash -c 'source  activate test'  
+RUN    conda install --yes numpy scipy matplotlib pip3 nose &&\
+       conda install --yes -c clinicalgraphics vtk=7.1.0 && \
+    pip3 install setuptools && \
+    pip3 install enum34 && \
+    pip3 install numpy-stl && \
+    pip3 install coveralls && \
+    pip3 install coverage
 
 ENV GMSH_VERSION 2.11.0
 RUN wget http://gmsh.info/bin/Linux/gmsh-${GMSH_VERSION}-Linux64.tgz &&\
@@ -170,9 +126,6 @@ RUN wget http://gmsh.info/bin/Linux/gmsh-${GMSH_VERSION}-Linux64.tgz &&\
     rm -rf /tmp/*
 
 
-RUN id porepy
-RUN chown -R porepy:porepy /home
-
 WORKDIR $POREPY_HOME
 RUN  mkdir -p $POREPY_HOME/.config/matplotlib 
 COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
@@ -180,11 +133,9 @@ COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
 USER porepy
 RUN    git clone https://github.com/pmgbergen/porepy.git $POREPY_HOME/porepy-src &&\
     cd porepy-src &&\
-    echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py
-
-# && \
-     #python3 setup.py install 
-#RUN  python3 setup.py test 
+    echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py  && \
+    python setup.py install && \
+    python setup.py test 
  
      
 	
