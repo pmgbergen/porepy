@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.sparse as sps
-import logging
 
 from porepy.viz import exporter
 from porepy.fracs import importer
@@ -9,9 +8,9 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
-
 from porepy.numerics import elliptic
+
+from example_advective import AdvectiveModel, AdvectiveModelData
 
 #------------------------------------------------------------------------------#
 
@@ -82,43 +81,46 @@ def add_data(gb, domain, tol):
 
 #------------------------------------------------------------------------------#
 
-tol = 1e-6
+def main():
+    tol = 1e-6
 
-problem_kwargs = {}
-problem_kwargs['file_name'] = 'solution'
-problem_kwargs['folder_name'] = 'tpfa'
+    problem_kwargs = {}
+    problem_kwargs['file_name'] = 'solution'
+    problem_kwargs['folder_name'] = 'tpfa'
 
-h = 0.08
-grid_kwargs = {}
-grid_kwargs['mesh_size'] = {'mode': 'constant', 'value': h, 'bound_value': h,
-                            'tol': tol}
+    h = 0.08
+    grid_kwargs = {}
+    grid_kwargs['mesh_size'] = {'mode': 'constant', 'value': h, 'bound_value': h,
+                                'tol': tol}
 
-file_dfm = 'dfm.csv'
-gb, domain = importer.dfm_from_csv(file_dfm, tol, **grid_kwargs)
-gb.compute_geometry()
+    file_dfm = 'dfm.csv'
+    gb, domain = importer.dfm_from_csv(file_dfm, tol, **grid_kwargs)
+    gb.compute_geometry()
 
-problem = elliptic.EllipticModel(gb, **problem_kwargs)
+    problem = elliptic.EllipticModel(gb, **problem_kwargs)
 
-# Assign parameters
-add_data(gb, domain, tol)
+    # Assign parameters
+    add_data(gb, domain, tol)
 
-problem.solve()
-problem.split()
+    problem.solve()
+    problem.split()
 
-problem.pressure('pressure')
-problem.discharge('discharge')
-problem.save(['pressure', 'frac_num'])
+    problem.pressure('pressure')
+    problem.discharge('discharge')
+    problem.save(['pressure', 'frac_num'])
+
+    problem_kwargs['file_name'] = 'transport'
+
+    for g, d in gb:
+        d['problem'] = AdvectiveModelData(g, d, domain, tol)
+
+    advective = AdvectiveModel(gb, **problem_kwargs)
+    advective.solve()
+    advective.save()
 
 #------------------------------------------------------------------------------#
 
-from example_advective import AdvectiveModel, AdvectiveModelData
+if __name__ == "__main__":
+    main()
 
-problem_kwargs['file_name'] = 'transport'
-
-for g, d in gb:
-    d['problem'] = AdvectiveModelData(g, d, domain, tol)
-
-advective = AdvectiveModel(gb, **problem_kwargs)
-advective.solve()
-advective.save()
-
+#------------------------------------------------------------------------------#
