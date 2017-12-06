@@ -71,11 +71,9 @@ RUN cd /tmp  && \
 ENV PATH=/usr/local/miniconda/bin:$PATH
 RUN chown -R porepy:porepy /usr/local/miniconda
 
-USER porepy
 RUN echo "PATH=/usr/local/miniconda/bin:$PATH" >> ~/.profile
 RUN /bin/bash -c 'source  ~/.profile'
 
-USER root
 RUN  hash -r  && \
     conda config --set always_yes yes --set changeps1 no  && \
     conda update -q conda  
@@ -103,8 +101,6 @@ RUN pip install --no-cache-dir -r $POROPY_HOME/.dependencies
 USER porepy
 WORKDIR $POREPY_HOME
 RUN /bin/bash -c ' export PATH=/usr/local/miniconda/bin:$PATH  && source activate porepy'
-
-
 
 RUN  git clone https://github.com/pmgbergen/porepy.git $POREPY_HOME/porepy-src &&\
     cd porepy-src &&\
