@@ -14,6 +14,7 @@ from porepy.grids import coarsening
 
 from porepy.numerics import elliptic
 
+from example_advective import AdvectiveModel, AdvectiveModelData
 
 #------------------------------------------------------------------------------#
 
@@ -106,61 +107,63 @@ def add_data(gb, domain, tol):
 
 #------------------------------------------------------------------------------#
 
-tol = 1e-6
-coarse = False
+def main(coarse):
+    tol = 1e-6
 
-problem_kwargs = {}
-problem_kwargs['file_name'] = 'solution'
-if coarse:
-    problem_kwargs['folder_name'] = 'vem_coarse'
-else:
-    problem_kwargs['folder_name'] = 'vem'
+    problem_kwargs = {}
+    problem_kwargs['file_name'] = 'solution'
+    if coarse:
+        problem_kwargs['folder_name'] = 'vem_coarse'
+    else:
+        problem_kwargs['folder_name'] = 'vem'
 
-h = 0.08 #0.08
-#vem vem_coarse
-grid_kwargs = {}
-grid_kwargs['mesh_size'] = {'mode': 'constant', 'value': h, 'bound_value': h,
-                            'tol': tol}
+    h = 0.08
+    grid_kwargs = {}
+    grid_kwargs['mesh_size'] = {'mode': 'constant', 'value': h, 'bound_value': h,
+                                'tol': tol}
 
-file_dfm = 'dfm.csv'
-gb, domain = importer.dfm_from_csv(file_dfm, tol, **grid_kwargs)
-gb.compute_geometry()
-if coarse:
-    coarsening.coarsen(gb, 'by_volume')
+    file_dfm = 'dfm.csv'
+    gb, domain = importer.dfm_from_csv(file_dfm, tol, **grid_kwargs)
+    gb.compute_geometry()
+    if coarse:
+        coarsening.coarsen(gb, 'by_volume')
 
-gb.add_node_props(['face_tags'])
-for g, d in gb:
-    d['face_tags'] = g.face_tags.copy()
+    gb.add_node_props(['face_tags'])
+    for g, d in gb:
+        d['face_tags'] = g.face_tags.copy()
 
-internal_flag = FaceTag.FRACTURE
-[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+    internal_flag = FaceTag.FRACTURE
+    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
-problem = elliptic.DualEllipticModel(gb, **problem_kwargs)
+    problem = elliptic.DualEllipticModel(gb, **problem_kwargs)
 
-# Assign parameters
-add_data(gb, domain, tol)
+    # Assign parameters
+    add_data(gb, domain, tol)
 
-problem.solve()
-problem.split()
+    problem.solve()
+    problem.split()
 
-problem.pressure('pressure')
-problem.discharge('discharge')
-problem.project_discharge('P0u')
-problem.save(['pressure', 'P0u', 'frac_num'])
+    problem.pressure('pressure')
+    problem.discharge('discharge')
+    problem.project_discharge('P0u')
+    problem.save(['pressure', 'P0u', 'frac_num'])
+
+    for g, d in gb:
+        g.face_tags = d['face_tags']
+
+    problem_kwargs['file_name'] = 'transport'
+
+    for g, d in gb:
+        d['problem'] = AdvectiveModelData(g, d, domain, tol)
+
+    advective = AdvectiveModel(gb, **problem_kwargs)
+    advective.solve()
+    advective.save()
 
 #------------------------------------------------------------------------------#
 
-for g, d in gb:
-    g.face_tags = d['face_tags']
+if __name__ == "__main__":
+    main(coarse=False)
+    main(coarse=True)
 
-from example_advective import AdvectiveModel, AdvectiveModelData
-
-problem_kwargs['file_name'] = 'transport'
-
-for g, d in gb:
-    d['problem'] = AdvectiveModelData(g, d, domain, tol)
-
-advective = AdvectiveModel(gb, **problem_kwargs)
-advective.solve()
-advective.save()
-
+#------------------------------------------------------------------------------#
