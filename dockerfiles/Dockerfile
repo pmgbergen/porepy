@@ -89,7 +89,7 @@ RUN    conda install --yes numpy scipy matplotlib pip nose &&\
     pip install coveralls && \
     pip install coverage &&\
     pip install numba cython  &&\
-    pip install jupyter ipython pdb 
+    pip install jupyter ipython pdbpp 
 
 RUN  mkdir -p $POREPY_HOME/.config/matplotlib 
 COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
@@ -101,6 +101,7 @@ RUN pip install --no-cache-dir -r $POROPY_HOME/.dependencies
 USER porepy
 WORKDIR $POREPY_HOME
 RUN /bin/bash -c ' export PATH=/usr/local/miniconda/bin:$PATH  && source activate porepy'
+RUN echo "PATH=/usr/local/miniconda/bin:$PATH" >> ~/.profile
 
 RUN  git clone https://github.com/pmgbergen/porepy.git $POREPY_HOME/porepy-src &&\
     cd porepy-src &&\
