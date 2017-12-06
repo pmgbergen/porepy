@@ -49,9 +49,17 @@ RUN apt-get -qq update && \
     apt-get -y install curl && \
     curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash && \
     apt-get update -y; apt-get install -y --force-yes --fix-missing --no-install-recommends curl git git-lfs unzip tree subversion vim cmake bison g++ gfortran openmpi-bin pkg-config wget \
-    libpcre3-dev bison flex swig libglu1-mesa libxcursor-dev libxft-dev libxinerama-dev libmed1v5 libpng12-0 liboce-foundation10 liboce-modeling10  pyqt5-dev-tools  bash-completion  &&\
+    libpcre3-dev bison flex swig libglu1-mesa libxcursor-dev libxft-dev libxinerama-dev libmed1v5 libpng12-0 liboce-foundation10 liboce-modeling10  pyqt5-dev-tools  bash-completion libxt6  &&\
     git lfs install && \
     apt-get clean && \
+    #linking 
+    ln -s /usr/lib/x86_64-linux-gnu/libGLU.so.1 /usr/lib/libGLU.so.1 &&\
+    ln -s /usr/lib/x86_64-linux-gnu/libSM.so.6 /usr/lib/libSM.so.6 && \
+    ln -s /usr/lib/x86_64-linux-gnu/libICE.so.6 /usr/lib/libICE.so.6  && \
+    ln -s /usr/lib/x86_64-linux-gnu/libX11.so.6 /usr/lib/libX11.so.6  && \
+    ln -s /usr/lib/x86_64-linux-gnu/libXext.so.6 /usr/lib/libXext.so.6  && \
+    ln -s /usr/lib/x86_64-linux-gnu/libXt.so.6 /usr/lib/libXt.so.6  && \
+    ln -s /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 /usr/lib/libGL.so.1 &&\  
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /tmp
@@ -64,6 +72,7 @@ RUN wget http://gmsh.info/bin/Linux/gmsh-${GMSH_VERSION}-Linux64.tgz &&\
 USER root
 
 RUN cd /tmp  && \
+#    wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh  && \
     wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh  && \
     chmod +x miniconda.sh && \
     bash miniconda.sh -b -p /usr/local/miniconda && \
@@ -76,13 +85,13 @@ RUN /bin/bash -c 'source  ~/.profile'
 
 RUN  hash -r  && \
     conda config --set always_yes yes --set changeps1 no  && \
-    conda update -q conda  
+   conda update -q conda  
 RUN  conda info -a  && \
-    conda create --yes -n porepy python="3.5";
+    conda create --yes -n porepy python="3.6";
 
 RUN /bin/bash -c 'source  activate porepy'  
-RUN    conda install --yes numpy scipy matplotlib pip nose &&\
-       conda install --yes -c clinicalgraphics vtk=7.1.0 && \
+RUN   conda install --yes numpy scipy matplotlib pip nose sip &&\
+    conda install -c https://conda.anaconda.org/clinicalgraphics vtk &&\
     pip install setuptools && \
     pip install enum34 && \
     pip install numpy-stl && \
