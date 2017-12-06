@@ -69,6 +69,8 @@ RUN cd /tmp  && \
     bash miniconda.sh -b -p /usr/local/miniconda && \
     rm /tmp/*
 ENV PATH=/usr/local/miniconda/bin:$PATH
+RUN chown -R porepy:porepy /usr/local/miniconda
+
 USER porepy
 RUN echo "PATH=/usr/local/miniconda/bin:$PATH" >> ~/.profile
 RUN /bin/bash -c 'source  ~/.profile'
@@ -88,8 +90,8 @@ RUN    conda install --yes numpy scipy matplotlib pip nose &&\
     pip install numpy-stl && \
     pip install coveralls && \
     pip install coverage &&\
-    pip install numba cython 
-
+    pip install numba cython  &&\
+    pip install jupyter ipython pdb 
 
 RUN  mkdir -p $POREPY_HOME/.config/matplotlib 
 COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
@@ -107,7 +109,7 @@ RUN /bin/bash -c ' export PATH=/usr/local/miniconda/bin:$PATH  && source activat
 RUN  git clone https://github.com/pmgbergen/porepy.git $POREPY_HOME/porepy-src &&\
     cd porepy-src &&\
     echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py &&\
-    python setup.py install --user
+    python setup.py install 
 
  
    
