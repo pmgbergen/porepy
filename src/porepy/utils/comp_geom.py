@@ -373,7 +373,7 @@ def _split_edge(vertices, edges, edge_ind, new_pt, **kwargs):
         # Refer to unique edges if necessary
         if edges_unique.shape[1] < edges.shape[1]:
             # Copy tags
-            edges = np.vstack((edges_unique, edges[2, new_2_old]))
+            edges = np.vstack((edges_unique, edges[2:, new_2_old]))
             # Also signify that we have carried out this operation.
             split_type = [split_type, 8]
 
@@ -524,8 +524,8 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True,
         b = -(end_x - start_x)
 
         # Midpoint of this edge
-        xm = (start_x[edge_counter] + end_x[edge_counter]) / 2
-        ym = (start_y[edge_counter] + end_y[edge_counter]) / 2
+        xm = (start_x[edge_counter] + end_x[edge_counter]) / 2.
+        ym = (start_y[edge_counter] + end_y[edge_counter]) / 2.
 
         # For all lines, find which side of line i it's two endpoints are.
         # If c1 and c2 have different signs, they will be on different sides
@@ -1234,7 +1234,6 @@ def polygon_boundaries_intersect(poly_1, poly_2, tol=1e-8):
         intersections are found, an empty list is returned.
 
     """
-
     l_1 = poly_1.shape[1]
     ind_1 = np.append(np.arange(l_1), 0)
     l_2 = poly_2.shape[1]
@@ -1391,10 +1390,23 @@ def polygon_segment_intersect(poly_1, poly_2, tol=1e-8, include_bound_pt=True):
                 # somewhat generous with the definition of the intersection.
                 # Therefore, allow for intersections that are slightly outside
                 # the polygon, and use the projection onto the polygon.
-                dist, cp, ins = dist_points_polygon(_to3D(p_00),
-                                                    _to3D(poly_1_xy))
-                if (dist[0] < tol and include_bound_pt) or dist[0] < 1e-12:
+
+                start = np.arange(poly_1_xy.shape[1])
+                end = np.r_[np.arange(1, poly_1_xy.shape[1]), 0]
+
+                poly_1_to3D = _to3D(poly_1_xy)
+                p_00_to3D = _to3D(p_00)
+                dist, cp = dist_points_segments(p_00_to3D,
+                                                poly_1_to3D[:, start],
+                                                poly_1_to3D[:, end])
+                mask = np.where(dist[0] < tol)[0]
+                if mask.size > 0:
+                    cp = cp[0].T[:, mask]
                     isect = np.hstack((isect, irot.dot(cp) + center_1))
+                else:
+                    dist, cp, ins = dist_points_polygon(p_00_to3D, poly_1_to3D)
+                    if (dist[0] < tol and include_bound_pt) or dist[0] < 1e-12:
+                        isect = np.hstack((isect, irot.dot(cp) + center_1))
 
             elif np.abs(pt_1[2]) < tol and np.abs(pt_2[2]) < tol:
                 # The segment lies completely within the polygon plane.
@@ -1509,7 +1521,8 @@ def is_point_in_cell(poly, p, if_make_planar=True):
 
 #------------------------------------------------------------------------------#
 
-def project_plane_matrix(pts, normal=None, tol=1e-5, reference=[0, 0, 1]):
+def project_plane_matrix(pts, normal=None, tol=1e-5, reference=[0, 0, 1],
+                         check_planar=True):
     """ Project the points on a plane using local coordinates.
 
     The projected points are computed by a dot product.
@@ -1535,7 +1548,8 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=[0, 0, 1]):
         normal = np.asarray(normal)
         normal = normal.flatten() / np.linalg.norm(normal)
 
-    assert is_planar(pts, normal, tol)
+    if check_planar:
+        assert is_planar(pts, normal, tol)
 
     reference = np.asarray(reference, dtype=np.float)
     angle = np.arccos(np.dot(normal, reference))
@@ -1712,8 +1726,7 @@ def is_collinear(pts, tol=1e-5):
 
     """
 
-    assert pts.shape[1] > 1
-    if pts.shape[1] == 2:
+    if pts.shape[1] == 1 or pts.shape[1] == 2:
         return True
 
     pt0 = pts[:, 0]
@@ -1727,6 +1740,31 @@ def is_collinear(pts, tol=1e-5):
     coll = np.array([np.linalg.norm(np.cross(p - pt0, pt1 - pt0)) \
              for p in pts[:, 1:-1].T])/dist
     return np.allclose(coll, np.zeros(coll.size), atol=tol, rtol=0)
+
+#------------------------------------------------------------------------------#
+
+def make_collinear(pts):
+    """
+    Given a set of points, return them aligned on a line.
+    Useful to enforce collinearity for almost collinear points. The order of the
+    points remain the same.
+    NOTE: The first point in the list has to be on the extrema of the line.
+
+    Parameter:
+        pts: (3 x num_pts) the input points.
+
+    Return:
+        pts: (3 x num_pts) the corrected points.
+    """
+    assert pts.shape[1] > 1
+
+    delta = pts - np.tile(pts[:, 0], (pts.shape[1], 1)).T
+    dist = np.sqrt(np.einsum('ij,ij->j', delta, delta))
+    end = np.argmax(dist)
+
+    dist /= dist[end]
+
+    return pts[:, 0, np.newaxis]*(1-dist) + pts[:, end, np.newaxis]*dist
 
 #------------------------------------------------------------------------------#
 
@@ -2330,6 +2368,61 @@ def distance_point_segment(pt, start, end):
 
     return np.sqrt(np.dot(dx, dx)), dx + pt
 
+#----------------------------------------------------------------------------#
+
+def snap_points_to_segments(p_edges, edges, tol, p_to_snap=None):
+    """
+    Snap points in the proximity of lines to the lines.
+
+    Note that if two vertices of two edges are close, they may effectively
+    be co-located by the snapping. Thus, the modified point set may have
+    duplicate coordinates.
+
+    Parameters:
+        p_edges (np.ndarray, nd x npt): Points defining endpoints of segments
+        edges (np.ndarray, 2 x nedges): Connection between lines in p_edges.
+            If edges.shape[0] > 2, the extra rows are ignored.
+        tol (double): Tolerance for snapping, points that are closer will be
+            snapped.
+        p_to_snap (np.ndarray, nd x npt_snap, optional): The points to snap. If
+            not provided, p_edges will be snapped, that is, the lines will be
+            modified.
+
+    Returns:
+        np.ndarray (nd x n_pt_snap): A copy of p_to_snap (or p_edges) with
+            modified coordinates.
+
+    """
+
+    if p_to_snap is None:
+        p_to_snap = p_edges
+        mod_edges = True
+    else:
+        mod_edges = False
+
+    pn = p_to_snap.copy()
+
+    nl = edges.shape[1]
+    for ei in range(nl):
+
+        # Find start and endpoint of this segment.
+        # If we modify the edges themselves (mod_edges==True), we should use
+        # the updated point coordinates. If not, we risk trouble for almost
+        # coinciding vertexes.
+        if mod_edges:
+            p_start = pn[:, edges[0, ei]].reshape((-1, 1))
+            p_end = pn[:, edges[1, ei]].reshape((-1, 1))
+        else:
+            p_start = p_edges[:, edges[0, ei]].reshape((-1, 1))
+            p_end = p_edges[:, edges[1, ei]].reshape((-1, 1))
+        d_segment, cp = dist_points_segments(pn, p_start, p_end)
+        hit = np.argwhere(d_segment[:, 0] < tol)
+        for i in hit:
+            if mod_edges and (i == edges[0, ei] or i == edges[1, ei]):
+                continue
+            pn[:, i] = cp[i, 0, :].reshape((-1, 1))
+    return pn
+
 #------------------------------------------------------------------------------#
 
 def argsort_point_on_line(pts, tol=1e-5):
@@ -2342,7 +2435,8 @@ def argsort_point_on_line(pts, tol=1e-5):
     Returns:
         argsort: the indexes of the points
     """
-    assert pts.shape[1] > 1
+    if pts.shape[1] == 1:
+        return np.array([0])
     assert is_collinear(pts, tol)
     delta = np.tile(pts[:, 0], (pts.shape[1], 1)).T - pts
     return np.argsort(np.abs(np.einsum('ij,ij->j', delta, delta)))

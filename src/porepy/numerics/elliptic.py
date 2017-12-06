@@ -125,7 +125,7 @@ class EllipticModel():
         ls = LSFactory()
         if self.rhs.size <  max_direct:
             logger.info('Solve linear system using direct solver')
-            self.x = ls.direct(*self.reassemble())
+            self.x = ls.direct(self.lhs,self.rhs)
         else:
             logger.info('Solve linear system using GMRES')
             precond = self._setup_preconditioner()

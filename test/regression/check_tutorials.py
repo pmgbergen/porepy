@@ -38,6 +38,12 @@ def remove_plots(fn):
                 continue
             if line.strip()[:11] == 'get_ipython':
                 continue
+            if 'vtk' in line:
+                continue
+            if 'Exporter' in line:
+                continue
+            if 'import plot_grid' in line:
+                continue
             f.write(line)
 
 run_all()

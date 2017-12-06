@@ -405,7 +405,10 @@ def invert_diagonal_blocks(mat, s, method=None):
 
     # Variable to check if we have tried and failed with numba
     try_cython = False
-    if method == 'numba' or method is None:
+    # Do not use numba for small systems due to compiling overhead. If the
+    # application is inversion of transmissibility systems in mpfa,
+    # s.shape[0] = number of nodes of the grid.
+    if method == 'numba' or (method is None and s.shape[0] > 4000):
         try:
             inv_vals = invert_diagonal_blocks_numba(mat, s)
         except:
@@ -417,8 +420,9 @@ def invert_diagonal_blocks(mat, s, method=None):
             inv_vals = invert_diagonal_blocks_cython(mat, s)
         except ImportError as e:
             raise e
-    elif method == 'python':
+    elif method == 'python' or (method is None and s.shape[0] <= 4000):
         inv_vals = invert_diagonal_blocks_python(mat, s)
+
 
     ia = block_diag_matrix(inv_vals, s)
     return ia
