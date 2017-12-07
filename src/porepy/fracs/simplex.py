@@ -175,8 +175,42 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
 
     return grids
 
-def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network.geo',
-                           **kwargs):
+def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
+                           h_ideal=None, h_min=None, **kwargs):
+    """ Create triangular (2D) grid of a domain embedded in 3D space, without
+    meshing the 3D volume.
+
+    The resulting grid can be used in a DFN model. The grid will be fully
+    conforming along intersections between fractures.
+
+    This function produces a set of grids for fractures and lower-dimensional
+    objects, but it does nothing to merge the grids. To create a GridBucket,
+    use the function fracs.meshing.dfn instead, with the option
+    conforming=True.
+
+    To set the mesh size, use parameters h_ideal and h_min, to represent the
+    ideal and minimal mesh size sent to gmsh. For more details, see the gmsh
+    manual on how to set mesh sizes.
+
+    Parameters:
+        network (FractureNetwork): To be meshed.
+        find_isect (boolean, optional): If True (default), the network will
+            search for intersections among fractures. Set False if
+            network.find_intersections() already has been called.
+        f_name (str, optional): Filename for communication with gmsh.
+            The config file for gmsh will be f_name.geo, with the grid output
+            to f_name.msh. Defaults to dfn_network.
+        h_ideal (double, optional): Target mesh size sent to gmsh. If not
+            provided, gmsh will do its best to decide on the mesh size.
+        h_min (double, optional): Minimal mesh size sent to gmsh. If not
+            provided, gmsh will do its best to decide on the mesh size.
+        **kwargs: Arguments sent to gmsh etc.
+
+    Returns:
+        list (length 3): For each dimension (2 -> 0), a list of all grids in
+            that dimension.
+
+    """
 
     verbose = 1
 
@@ -184,8 +218,6 @@ def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network.geo',
         network.find_intersections()
 
     # If fields h_ideal and h_min are provided, try to estimate mesh sizes.
-    h_ideal = kwargs.get('h_ideal', None)
-    h_min = kwargs.get('h_min', None)
     if h_ideal is not None and h_min is not None:
         network.insert_auxiliary_points(h_ideal, h_min)
         # In this case we need to recompute intersection decomposition anyhow.
@@ -224,6 +256,9 @@ def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network.geo',
 def _run_gmsh(file_name, network, **kwargs):
 
     verbose = kwargs.get('verbose', 1)
+    if file_name[-4:] == '.geo' or file_name[-4:] == '.msh':
+        file_name = file_name[:-4]
+
     in_file = file_name + '.geo'
     out_file = file_name + '.msh'
 
