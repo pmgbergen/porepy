@@ -37,9 +37,15 @@ To get the most current version, install from github:
 	cd porepy
 
 	pip install -r requirements.txt
+	
+Finally to install PorePy
 
 	pip install .
 
+or for editable installs into the user directory:
+
+	pip install --user -e .
+	
 # (Semi-) Optional packages
 To function optimally, PorePy should have access to the pypi packages:
 *  `pymetis` (for mesh partitioning). Will be installed on Linux (not so on Windows, to avoid installation issues for the core package in the case where no C compiler is available).
