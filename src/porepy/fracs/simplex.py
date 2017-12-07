@@ -143,7 +143,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
 
     # Invert phys_names dictionary to map from physical tags to corresponding
     # physical names
-    phys_names = {v: k for k, v in phys_names.items()}
+    phys_names = {v[0]: k for k, v in phys_names.items()}
 
     # Call upon helper functions to create grids in various dimensions.
     # The constructors require somewhat different information, reflecting the
@@ -286,7 +286,7 @@ def _run_gmsh(file_name, network, **kwargs):
 
     # Invert phys_names dictionary to map from physical tags to corresponding
     # physical names
-    phys_names = {v: k for k, v in phys_names.items()}
+    phys_names = {v[0]: k for k, v in phys_names.items()}
 
     return pts, cells, cell_info, phys_names
 
@@ -449,8 +449,10 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
     pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
 
     # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names
-    phys_names = {v: k for k, v in phys_names.items()}
+    # physical names.
+    # As of meshio 1.10, the value of the physical name is defined as a numpy
+    # array, with the first item being the tag, the second the dimension.
+    phys_names = {v[0]: k for k, v in phys_names.items()}
 
     # Constants used in the gmsh.geo-file
     const = constants.GmshConstants()
