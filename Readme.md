@@ -12,6 +12,11 @@ PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the Uni
 # Reproduce results from papers and preprints
 Runscripts for most, if not all, papers that uses porepy is available at [here](https://github.com/pmgbergen/porepy/tree/develop/examples/papers).
 
+# Citing
+If you use PorePy in your research, we ask you to cite the following publication
+
+E. Keilegavlen, A. Fumagalli, R. Berge, I. Stefansson, I. Berre: PorePy: An Open-Source Simulation Tool for Flow and Transport in Deformable Fractured Rocks. [arXiv:1712.00460](https://arxiv.org/abs/1712.00460)
+
 # Installation
 PorePy depends on `numpy`, `scipy` and `networkx`, and (for the moment) also on `meshio`, `sympy` and `matplotlib`. The latter packages may be droped / changed later. To install (on Linux, probably also OSX), use
 
@@ -19,7 +24,8 @@ PorePy depends on `numpy`, `scipy` and `networkx`, and (for the moment) also on 
 
 We recommend installing from source (see below), rather than pulling from pypi. Installation by pip on Windows may cause problems with buliding the requirements (`numpy` etc) unless conda is used.
 
-For more detailed install instructions, including how to access GMSH (for meshing), see [Install](https://github.com/pmgbergen/porepy/blob/develop/LICENSE.md) .
+For more detailed install instructions, including how to access GMSH (for meshing), see 
+[Install](https://github.com/pmgbergen/porepy/blob/develop/LICENSE.md).
 
 PorePy is developed under Python 3. It should also be compatible with Python 2.7, however, apart from unit testing, it is not being used with Python 2, so be cautious.
 
@@ -31,9 +37,15 @@ To get the most current version, install from github:
 	cd porepy
 
 	pip install -r requirements.txt
+	
+Finally to install PorePy
 
 	pip install .
 
+or for editable installs into the user directory:
+
+	pip install --user -e .
+	
 # (Semi-) Optional packages
 To function optimally, PorePy should have access to the pypi packages:
 *  `pymetis` (for mesh partitioning). Will be installed on Linux (not so on Windows, to avoid installation issues for the core package in the case where no C compiler is available).
