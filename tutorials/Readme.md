@@ -16,3 +16,5 @@ In addition to the tutorials contained herein, we are working on providing more 
 * **mpsa**: Set up and solve a mechanics problem using the multi-point stress approximation method
 
 * **meshing_of_fractures**: Define fractures and fracture networks in 3d domain, construct meshes in multiple dimensions, create mixed-dimensional representation of the grid.
+
+* **fracture_extrusion**: Simple functionality to extrude a 3d fracture network from a 2d outcrop.
