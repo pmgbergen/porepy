@@ -95,13 +95,13 @@ ENV CONDA_PREFIX /usr/local/conda/envs/porepy
 
 RUN conda info -a 
 
-RUN conda install --yes numpy scipy matplotlib pip nose sip &&\
+RUN conda install --yes numpy scipy matplotlib pip nose sip llvmlite numba &&\
     conda install -c https://conda.anaconda.org/clinicalgraphics vtk &&\
     pip install setuptools && \
     pip install numpy-stl && \
     pip install coveralls && \
     pip install coverage &&\
-    pip install numba cython  &&\
+    pip install cython  &&\
     pip install jupyter ipython pdbpp 
 
 
