@@ -155,6 +155,7 @@ class FracturedMpsa(Mpsa):
         num_fracs = np.sum(g.has_face_tag(FaceTag.FRACTURE))
         return g.dim * (g.num_cells + num_fracs)
 
+
     def matrix_rhs(self, g, data, discretize=True):
         """
         Return the matrix and right-hand side for a discretization of a second
@@ -198,7 +199,7 @@ class FracturedMpsa(Mpsa):
 
         slip_distance = data['param'].get_slip_distance()        
         
-        A = sps.vstack((A_e, L))
+        A = sps.vstack((A_e, L), format='csr')
         rhs = np.hstack((b_e * bc_val, b_l * slip_distance))
 
         return A, rhs
