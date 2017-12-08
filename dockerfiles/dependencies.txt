@@ -1,5 +1,5 @@
-meshio == 1.9.4
-networkx >= 1.10
+meshio == 1.10
+networkx == 1.10
 numpy >= 1.10
 scipy >= 0.17
 sympy >= 1.0
