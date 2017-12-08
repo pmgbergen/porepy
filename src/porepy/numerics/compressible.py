@@ -55,6 +55,13 @@ class SlightlyCompressibleModel(ParabolicModel):
         self.diffusive_disc().split(self.grid(), 'p', self._solver.p)
         fvutils.compute_discharges(self.grid())
 
+    def pressure(self, pressure_name='pressure'):
+        self.pressure_name = pressure_name
+        if self.is_GridBucket:
+            self.split(self.pressure_name)
+        else:
+            self._data[self.pressure_name] = self._solver.p
+
 
 class SlightlyCompressibleDataAssigner(ParabolicDataAssigner):
     '''
