@@ -11,6 +11,7 @@ from porepy.numerics.fv.transport import upwind
 from porepy.numerics import time_stepper
 from porepy.numerics.mixed_dim import coupler
 from porepy.viz.exporter import Exporter
+from porepy.grids.grid_bucket import GridBucket
 
 logger = logging.getLogger(__name__)
 
@@ -64,21 +65,29 @@ class ParabolicModel():
     problem.solve()
     '''
 
-    def __init__(self, gb, physics='transport', **kwargs):
+    def __init__(self, gb, physics='transport',time_step=1.0, end_time=1.0, **kwargs):
         self._gb = gb
+        self.is_GridBucket = isinstance(self._gb, GridBucket)
         self.physics = physics
         self._data = dict()
+        self._time_step = time_step
+        self._end_time = end_time
         self._set_data()
+
         self._solver = self.solver()
-        self._solver.parameters['store_results'] = True
+        self._solver.parameters['store_results'] = False
 
         file_name = kwargs.get('file_name', str(physics))
         folder_name = kwargs.get('folder_name', 'results')
+
 
         logger.info('Create exporter')
         tic = time.time()
         self.exporter = Exporter(self._gb, file_name, folder_name)
         logger.info('Done. Elapsed time: ' + str(time.time() - tic))
+
+        self.x_name = 'solution'
+        self._time_disc = self.time_disc()
 
     def data(self):
         'Get data dictionary'
@@ -103,7 +112,11 @@ class ParabolicModel():
     def update(self, t):
         'Update parameters to time t'
         for g, d in self.grid():
-            d['problem'].update(t)
+            d[self.physics + '_data'].update(t)
+
+    def split(self, x_name='solution'):
+        self.x_name = x_name
+        self._time_disc.split(self.grid(), self.x_name, self._solver.p)
 
     def reassemble(self):
         'Reassemble matrices and rhs'
@@ -202,7 +215,7 @@ class ParabolicModel():
     def initial_condition(self):
         'Returns initial condition for global variable'
         for _, d in self.grid():
-            d[self.physics] = d['problem'].initial_condition()
+            d[self.physics] = d[self.physics + '_data'].initial_condition()
 
         global_variable = self.time_disc().merge(self.grid(), self.physics)
         return global_variable
@@ -213,23 +226,20 @@ class ParabolicModel():
 
     def time_step(self):
         'Returns the time step'
-        return 1.0
+        return self._time_step
 
     def end_time(self):
         'Returns the end time'
-        return 1.0
+        return self._end_time
 
-    def save(self, save_every=1):
-        'Saves the solution'
-        variables = self.data()[self.physics][::save_every]
-        times = np.array(self.data()['times'])[::save_every]
-
-        for i, p in enumerate(variables):
-            self.time_disc().split(self.grid(), self.physics, p)
-            data_to_plot = [self.physics]
-            self.exporter.write_vtk(data_to_plot, time_step=i)
-
-        self.exporter.write_pvd(times)
+    def save(self, variables=None, time=None, save_every=None):
+        if variables is None:
+            self.exporter.write_vtk()
+        else:
+            if not self.is_GridBucket:
+                variables = {k: self._data[k] for k in variables \
+                                                             if k in self._data}
+            self.exporter.write_vtk(variables, time_step=time)
 
 class ParabolicDataAssigner():
     '''
