@@ -3,7 +3,7 @@ from porepy.grids import coarsening as co
 
 def create(id_problem, is_coarse=False, mesh_size=0.05, tol=1e-5):
 
-    folder = '/home/elle/Dropbox/Work/tipetut/test2/simple_geometry/'
+    folder = '/home/elle/Dropbox/Work/tipetut/test2/X_geometry/'
     file_name = folder + 'DFN_' + str(id_problem) + '.fab'
     file_intersections = folder + 'TRACES_' + str(id_problem) + '.dat'
 

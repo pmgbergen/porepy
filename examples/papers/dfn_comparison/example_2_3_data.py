@@ -1,12 +1,16 @@
 import numpy as np
+import scipy.sparse as sps
 
 from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
+from porepy.utils import comp_geom as cg
+from porepy.utils import sort_points
+
 #------------------------------------------------------------------------------#
 
-def add_data(gb, domain, direction, tol):
+def add_data(gb, tol):
     """
     Define the permeability, apertures, boundary conditions
     """
@@ -20,37 +24,26 @@ def add_data(gb, domain, direction, tol):
 
             # Permeability
             kxx = np.ones(g.num_cells)
-            param.set_tensor("flow", tensor.SecondOrder(3, kxx))
+            param.set_tensor("flow", tensor.SecondOrder(g.dim, kxx))
 
             # Source term
             param.set_source("flow", np.zeros(g.num_cells))
 
             # Boundaries
-            bound_faces = g.get_boundary_faces()
+            bound_faces = g.get_domain_boundary_faces()
             if bound_faces.size != 0:
                 bound_face_centers = g.face_centers[:, bound_faces]
 
-                if direction == 'left_right':
-                    left = bound_face_centers[0, :] < domain['xmin'] + tol
-                    right = bound_face_centers[0, :] > domain['xmax'] - tol
-                    bc_dir = np.logical_or(left, right)
-                    bc_one = right
-                elif direction == 'bottom_top':
-                    bottom = bound_face_centers[2, :] < domain['zmin'] + tol
-                    top = bound_face_centers[2, :] > domain['zmax'] - tol
-                    bc_dir = np.logical_or(top, bottom)
-                    bc_one = top
-                elif direction == 'back_front':
-                    back = bound_face_centers[1, :] < domain['ymin'] + tol
-                    front = bound_face_centers[1, :] > domain['ymax'] - tol
-                    bc_dir = np.logical_or(back, front)
-                    bc_one = front
+                bottom = bound_face_centers[2, :] < -0.5 + tol
+                top = bound_face_centers[2, :] > 0.5 - tol
+                front = bound_face_centers[1, :] < 0 + tol
 
                 labels = np.array(['neu'] * bound_faces.size)
-                labels[bc_dir] = 'dir'
+                labels[np.logical_or(bottom, top)] = 'dir'
+                labels[front] = 'dir'
 
                 bc_val = np.zeros(g.num_faces)
-                bc_val[bound_faces[bc_one]] = 1
+                bc_val[bound_faces[front]] = 1
 
                 param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
                 param.set_bc_val("flow", bc_val)
@@ -60,6 +53,7 @@ def add_data(gb, domain, direction, tol):
 
         d['param'] = param
 
+    # Assign coupling discharge
     gb.add_edge_props(['param', 'Aavatsmark_transmissibilities'])
     for e, d in gb.edges_props():
         g_h = gb.sorted_nodes_of_edge(e)[1]
@@ -68,25 +62,55 @@ def add_data(gb, domain, direction, tol):
 
 #------------------------------------------------------------------------------#
 
-def compute_flow_rate(gb, direction, domain, tol):
+def plot_over_line(gb, pts, name, tol):
+
+    values = np.zeros(pts.shape[1])
+    is_found = np.zeros(pts.shape[1], dtype=np.bool)
+
+    for g, d in gb:
+        if g.dim < gb.dim_max():
+            continue
+
+        if not cg.is_planar(np.hstack((g.nodes, pts)), tol=1e-4):
+            continue
+
+        faces_cells, _, _ = sps.find(g.cell_faces)
+        nodes_faces, _, _ = sps.find(g.face_nodes)
+
+        normal = cg.compute_normal(g.nodes)
+        for c in np.arange(g.num_cells):
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+            pts_id_c = np.array([nodes_faces[g.face_nodes.indptr[f]:\
+                                                g.face_nodes.indptr[f+1]]
+                                                   for f in faces_cells[loc]]).T
+            pts_id_c = sort_points.sort_point_pairs(pts_id_c)[0, :]
+            pts_c = g.nodes[:, pts_id_c]
+
+            mask = np.where(np.logical_not(is_found))[0]
+            if mask.size == 0:
+                break
+            check = np.zeros(mask.size, dtype=np.bool)
+            last = False
+            for i, pt in enumerate(pts[:, mask].T):
+                check[i] = cg.is_point_in_cell(pts_c, pt)
+                if last and not check[i]:
+                    break
+            is_found[mask] = check
+            values[mask[check]] = d[name][c]
+
+    return values
+
+#------------------------------------------------------------------------------#
+
+def compute_flow_rate(gb, tol):
 
     total_flow_rate = 0
     for g, d in gb:
         bound_faces = g.get_domain_boundary_faces()
-
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
-
-            if direction == 'left_right':
-                right = bound_face_centers[0, :] > domain['xmax'] - tol
-                mask = right
-            elif direction == 'bottom_top':
-                top = bound_face_centers[2, :] > domain['zmax'] - tol
-                mask = top
-            elif direction == 'back_front':
-                front = bound_face_centers[1, :] > domain['ymax'] - tol
-                mask = front
-
+            mask = np.logical_or(bound_face_centers[2, :] < -0.5 + tol,
+                                 bound_face_centers[2, :] >  0.5 - tol)
             flow_rate = d['param'].get_discharge()[bound_faces[mask]]
             total_flow_rate += np.sum(flow_rate)
 
@@ -95,25 +119,15 @@ def compute_flow_rate(gb, direction, domain, tol):
 
 #------------------------------------------------------------------------------#
 
-def compute_flow_rate_vem(gb, direction, domain, tol):
+def compute_flow_rate_vem(gb, tol):
 
     total_flow_rate = 0
     for g, d in gb:
         bound_faces = g.get_domain_boundary_faces()
-
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
-
-            if direction == 'left_right':
-                right = bound_face_centers[0, :] > domain['xmax'] - tol
-                mask = right
-            elif direction == 'bottom_top':
-                top = bound_face_centers[2, :] > domain['zmax'] - tol
-                mask = top
-            elif direction == 'back_front':
-                front = bound_face_centers[1, :] > domain['ymax'] - tol
-                mask = front
-
+            mask = np.logical_or(bound_face_centers[2, :] < -0.5 + tol,
+                                 bound_face_centers[2, :] >  0.5 - tol)
             flow_rate = d['discharge'][bound_faces[mask]]
             total_flow_rate += np.sum(flow_rate)
 

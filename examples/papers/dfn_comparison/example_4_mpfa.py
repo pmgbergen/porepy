@@ -4,10 +4,7 @@ import pickle
 
 from porepy.viz.exporter import Exporter
 
-from porepy.grids.grid import FaceTag
-#from porepy.grids import coarsening as co
-
-from porepy.numerics.vem import vem_dual, vem_source
+from porepy.numerics.fv import mpfa, fvutils, source
 
 #import example_4_create_grid
 import example_4_data
@@ -21,37 +18,30 @@ def main(grid_name, direction):
     folder_grids = '/home/elle/Dropbox/Work/tipetut/'
     gb = pickle.load(open(folder_grids+grid_name, 'rb'))
 
-    folder_export = './example_4_vem_'+grid_name+'_'+direction+'/'
+    folder_export = './example_4_mpfa_'+grid_name+'_'+direction+'/'
 
     domain = {'xmin': -800, 'xmax': 600,
               'ymin': 100, 'ymax': 1500,
               'zmin': -100, 'zmax': 1000}
 
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
     example_4_data.add_data(gb, domain, direction, tol)
 
     # Choose and define the solvers and coupler
-    solver_flow = vem_dual.DualVEMDFN(gb.dim_max(), 'flow')
-    A_flow, b_flow = solver_flow.matrix_rhs(gb)
+    solver_flux = mpfa.MpfaDFN(gb.dim_max(), 'flow')
+    A_flux, b_flux = solver_flux.matrix_rhs(gb)
 
-    solver_source = vem_source.IntegralDFN(gb.dim_max(), 'flow')
+    solver_source = source.IntegralDFN(gb.dim_max(), 'flow')
     A_source, b_source = solver_source.matrix_rhs(gb)
 
-    up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
-    solver_flow.split(gb, "up", up)
-
-    gb.add_node_props(["discharge", "p", "P0u"])
-    solver_flow.extract_u(gb, "up", "discharge")
-    solver_flow.extract_p(gb, "up", "p")
-    solver_flow.project_u(gb, "discharge", "P0u")
+    p = sps.linalg.spsolve(A_flux+A_source, b_flux+b_source)
+    solver_flux.split(gb, "p", p)
 
     save = Exporter(gb, file_export, folder_export)
-    save.write_vtk(["p", "P0u"])
+    save.write_vtk(["p"])
 
     # compute the flow rate
-    diam, flow_rate = example_4_data.compute_flow_rate_vem(gb, direction, domain, tol)
+    fvutils.compute_discharges(gb, 'flow')
+    diam, flow_rate = example_4_data.compute_flow_rate(gb, direction, domain, tol)
     np.savetxt(folder_export+"flow_rate.txt", (diam, flow_rate))
 
     # compute the number of cells
