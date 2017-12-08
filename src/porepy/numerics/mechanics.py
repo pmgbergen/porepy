@@ -108,12 +108,13 @@ class StaticModel():
         # Discretize
         tic = time.time()
         logger.info('Discretize')
-        self.lhs, self.rhs = self.reassemble()
+        self.lhs, self.rhs = self.reassemble(**kwargs)
         logger.info('Done. Elapsed time ' + str(time.time() - tic))
 
         # Solve
         tic = time.time()
         ls = LSFactory()
+
         if self.rhs.size <  max_direct:
             logger.info('Solve linear system using direct solver')
             self.x = ls.direct(self.lhs,self.rhs)
@@ -132,22 +133,19 @@ class StaticModel():
         logger.info('Done. Elapsed time ' + str(time.time() - tic))
         return self.x
 
-    def step(self):
-        return self.solve()
+    def step(self, **kwargs):
+        return self.solve(**kwargs)
 
-    def reassemble(self):
+    def reassemble(self, discretize=True):
         """
         reassemble matrices. This must be called between every time step to
         update the rhs of the system.
         """
-        self.lhs, self.rhs = self._discretize(self._stress_disc)
+        self.lhs, self.rhs = self._stress_disc.matrix_rhs(self.grid(), self.data(), discretize)
         return self.lhs, self.rhs
 
     def stress_disc(self):
         return mpsa.FracturedMpsa(physics=self.physics)
-
-    def _discretize(self, discr):
-        return discr.matrix_rhs(self.grid(), self.data())
 
     def grid(self):
         return self._gb
@@ -169,15 +167,21 @@ class StaticModel():
         T = self._stress_disc.traction(self.grid(),
                                        self._data,
                                        self.x)
-        self._data[traction_name] = T.reshape((self.grid().dim, -1), order='F')
+        T = T.reshape((self.grid().dim, -1), order='F')
+        T_b = np.zeros(T.shape)
+        sigma = self._data['param'].get_background_stress(self.physics)
+        normals = self.grid().face_normals
+        for i in range(normals.shape[1]):
+             T_b[:, i] = np.dot(normals[:, i], sigma)
+        self._data[traction_name] = T + T_b
 
-    def save(self, variables=None):
+    def save(self, variables=None, time_step=None):
         if variables is None:
             self.exporter.write_vtk()
         else: 
             variables = {k: self._data[k] for k in variables \
                          if k in self._data}
-            self.exporter.write_vtk(variables)
+            self.exporter.write_vtk(variables, time_step=time_step)
 
     ### Helper functions for linear solve below
     def _setup_preconditioner(self):
@@ -224,3 +228,65 @@ class StaticModel():
 
     def _obtain_submatrix(self):
             return [self.lhs], [np.arange(self.grid().num_cells)]
+
+
+#------------------------------------------------------------------------------#
+class StaticDataAssigner():
+    '''
+    Class for setting data to a linear elastic static problem:
+    \nabla \sigma = 0,
+    This class creates a Parameter object and assigns the data to this object
+    by calling StaticDataAssigner's functions.
+
+    To change the default values create a class that inherits from StaticDataAssigner.
+    Then overload the values you whish to change.
+
+    Parameters in Init:
+    gb: (Grid) a grid object 
+    data: (dictionary) Dictionary which Parameter will be added to with keyword
+          'param'
+    physics: (string): defaults to 'mechanics'
+
+    Functions that assign data to Parameter class:
+        bc(): defaults to neumann boundary condition
+             Returns: (Object) boundary condition
+        bc_val(): defaults to 0
+             returns: (ndarray) boundary condition values
+        stress_tensor(): defaults to 1
+             returns: (tensor.FourthOrder) Stress tensor
+
+    Utility functions:
+        grid(): returns: the grid
+
+    '''
+
+    def __init__(self, g, data, physics='mechanics'):
+        self._g = g
+        self._data = data
+
+        self.physics = physics
+        self._set_data()
+
+    def bc(self):
+        return bc.BoundaryCondition(self.grid())
+
+    def bc_val(self):
+        return np.zeros(self.grid().dim * self.grid().num_faces)
+
+    def background_stress(self):
+        sigma = -np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
+        return sigma
+
+    def data(self):
+        return self._data
+
+    def grid(self):
+        return self._g
+
+    def _set_data(self):
+        if 'param' not in self._data:
+            self._data['param'] = Parameters(self.grid())
+        self._data['param'].set_tensor(self.physics, self.stress_tensor())
+        self._data['param'].set_bc(self.physics, self.bc())
+        self._data['param'].set_bc_val(self.physics, self.bc_val())
+        self._data['param'].set_background_stress(self.physics, self.background_stress())        
