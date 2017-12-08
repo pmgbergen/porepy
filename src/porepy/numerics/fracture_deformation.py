@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 
-class FrictionSlip():
+class FrictionSlipModel():
     '''
     Class for solving a frictional slip problem:
     
@@ -73,8 +73,12 @@ class FrictionSlip():
         logger.info('Elapsed time: ' + str(time.time() - tic))
 
         self.x = np.zeros((3, gb.num_faces))
+        self.d_n = np.zeros(gb.num_faces)
+
         self.is_slipping = np.zeros(gb.num_faces, dtype=np.bool)
+
         self.slip_name = 'slip_distance'
+        self.aperture_name = 'aperture_change'
 
     def solve(self):
         """ Reassemble and solve linear system.
@@ -108,6 +112,7 @@ class FrictionSlip():
 
         frac_faces = self._gb.frac_pairs
         fi = frac_faces[1]
+        fi_left = frac_faces[0]
         T_n, T_s, n, t = self.normal_shear_traction(fi)
 
         assert np.all(T_s > -1e-10)
@@ -116,19 +121,29 @@ class FrictionSlip():
         # Here we need to multiply T_n with -1 as we want the absolute value,
         # and all the normal tractions should be negative.
         p = self._data['face_pressure'][fi]
-        sigma_n = -T_n - p
 
-        new_slip = T_s - self.mu(fi, self.is_slipping[fi]) * sigma_n >1e-5 * self._data['param'].shear_modulus
+        sigma_n = -T_n - p
+        assert np.all(sigma_n > 0 )
+        new_slip = T_s - self.mu(fi, self.is_slipping[fi]) * sigma_n >1e-5 * self._data['rock'].MU
        
         self.is_slipping[fi] = self.is_slipping[fi] | new_slip
         excess_shear = np.abs(T_s) - self.mu(fi, self.is_slipping[fi]) * sigma_n
+        if np.any(self.is_slipping[fi]):
+            print('excess_shear max: ',
+                  np.max(excess_shear[self.is_slipping[fi]]/self._data['rock'].MU))
+            print('excess_shear min: ',
+                  np.min(excess_shear[self.is_slipping[fi]]/self._data['rock'].MU))
+        shear_stiffness = np.sqrt(self._gb.face_areas[fi]) / (self._data['rock'].MU)
+        slip_d = excess_shear * shear_stiffness * self.gamma() * new_slip
 
-        shear_stiffness = np.sqrt(self._gb.face_areas[fi]) / (self._data['param'].shear_modulus)
-        slip_d = excess_shear * shear_stiffness * self.gamma * new_slip
-
-        slip_vec = t * slip_d + n * self.fracture_dialation(slip_d)
-
-        self.x[:, fi] += slip_vec
+        # We also add the values to the left cells so that when we average the
+        # face values to obtain a cell value, it will equal the face value
+        self.d_n[fi] += self.fracture_dilation(slip_d)
+        self.d_n[fi_left] += self.fracture_dilation(slip_d)
+        slip_vec =  -t * slip_d #- n * slip_d #self.fracture_dilation(slip_d)
+        
+        self.x[:, fi] = slip_vec
+        self.x[:, fi_left] -= slip_vec
 
         return new_slip
 
@@ -141,9 +156,7 @@ class FrictionSlip():
 
         assert self._gb.dim == 3
         T = self._data['traction'].copy()
-        T_area = np.ones((self._gb.dim, self._gb.num_faces))
-        T_area *= self._gb.face_areas
-        T = T / T_area.ravel('F')
+        T = T / self._gb.face_areas
 
         sgn = sign_of_faces(self._gb, fi)
         #sgn_test = g.cell_faces[fi, ci]
@@ -152,11 +165,6 @@ class FrictionSlip():
         T = sgn * T[:, fi]
         normals = sgn * self._gb.face_normals[:, fi] / self._gb.face_areas[fi]
         assert np.allclose(np.sqrt(np.sum(normals**2, axis=0)), 1)
-
-        # T_b = np.zeros(T.shape)
-        # sigma = self.background_stress()
-        # for i in range(normals.shape[1]):
-        #     T_b[:, i] = np.dot(normals[:, i], sigma)
 
         T_n = np.sum(T * normals, axis=0)
         tangents = T - T_n * normals
@@ -184,18 +192,18 @@ class FrictionSlip():
 
         return T_n, T_s, normals, tangents
 
-    def fracture_dialation(self, distance):
-        phi = 3 * np.pi / 180
+    def fracture_dilation(self, distance):
+        phi = 1 * np.pi / 180
         return distance * np.tan(phi)
 
     def mu(self, faces, slip_faces=[]):
-        mu_d = 0.4
+        mu_d = 0.55
         mu_ = 0.6 * np.ones(faces.size)
         mu_[slip_faces] = mu_d
         return mu_
 
     def gamma(self):
-        return 3
+        return 2
 
     def step(self):
         return self.solve()
@@ -210,6 +218,10 @@ class FrictionSlip():
         self.slip_name = slip_name
         self._data[self.slip_name] = self.x
 
+    def aperture_change(self, aperture_name='apperture_change'):
+        self.aperture_name = aperture_name
+        self._data[self.aperture_name] = self.d_n
+
     def save(self, variables=None, save_every=None):
         if variables is None:
             self.exporter.write_vtk()
@@ -220,7 +232,24 @@ class FrictionSlip():
 
 
 #------------------------------------------------------------------------------#
+class FrictionSlipDataAssigner():
+    def __init__(self, g, data, physics='slip'):
+        self._g = g
+        self._data = data
+        self.physics = physics
+        self._set_data()
 
+    def data(self):
+        return self._data
+
+    def grid(self):
+        return self._g
+
+    def _set_data(self):
+        if 'param' not in self._data:
+            self._data['param'] = Parameters(self.grid())
+
+#-----------------------------------------------------------------------------#
 
 def sign_of_faces(g, faces):
     IA = np.argsort(faces)
