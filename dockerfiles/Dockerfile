@@ -35,11 +35,12 @@ VOLUME /home/porepy/shared
 # Print something nice on entry.
 COPY WELCOME $POREPY_HOME/WELCOME
 
-USER root
+WORKDIR /home/porepy
 ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
 #ENTRYPOINT ["/sbin/my_init","--quiet","--","/sbin/setuser","porepy","/bin/bash","-l","-c"]
 CMD ["/bin/bash","-i"]
 
+USER root
 RUN id porepy
 RUN chown -R porepy:porepy /home
 
@@ -72,25 +73,33 @@ RUN wget http://gmsh.info/bin/Linux/gmsh-${GMSH_VERSION}-Linux64.tgz &&\
 USER root
 
 RUN cd /tmp  && \
+#     wget https://repo.continuum.io/archive/Anaconda3-5.0.1-Linux-x86_64.sh -O anaconda.sh &&\
 #    wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh  && \
-    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh  && \
-    chmod +x miniconda.sh && \
-    bash miniconda.sh -b -p /usr/local/miniconda && \
+    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O conda.sh  && \
+    chmod +x conda.sh && \
+    bash conda.sh -b -p /usr/local/conda && \
     rm /tmp/*
-ENV PATH=/usr/local/miniconda/bin:$PATH
-RUN chown -R porepy:porepy /usr/local/miniconda
+ENV PATH=/usr/local/conda/bin:$PATH
+#RUN chown -R porepy:porepy /usr/local/anaconda
 
-RUN echo "PATH=/usr/local/miniconda/bin:$PATH" >> ~/.profile
+RUN echo "PATH=/usr/local/conda/bin:$PATH" >> ~/.profile
 RUN /bin/bash -c 'source  ~/.profile'
 
 RUN  hash -r  && \
     conda config --set always_yes yes --set changeps1 no  && \
    conda update -q conda  
 RUN  conda info -a  && \
-    conda create --yes -n porepy python="3.6";
+    conda create --yes -n porepy python="2.7";
+RUN /bin/bash -c 'source activate porepy'
 
-RUN /bin/bash -c 'source  activate porepy'  
-RUN   conda install --yes numpy scipy matplotlib pip nose sip &&\
+ENV PATH /usr/local/conda/envs/porepy/bin:$PATH
+ENV CONDA_DEFAULT_ENV porepy
+ENV CONDA_PREFIX /usr/local/conda/envs/porepy
+
+
+RUN conda info -a 
+
+RUN conda install --yes numpy scipy matplotlib pip nose sip &&\
     conda install -c https://conda.anaconda.org/clinicalgraphics vtk &&\
     pip install setuptools && \
     pip install enum34 && \
@@ -100,6 +109,8 @@ RUN   conda install --yes numpy scipy matplotlib pip nose sip &&\
     pip install numba cython  &&\
     pip install jupyter ipython pdbpp 
 
+
+WORKDIR $POREPY_HOME
 RUN  mkdir -p $POREPY_HOME/.config/matplotlib 
 COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
 
@@ -107,18 +118,20 @@ COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
 COPY dependencies.txt $POROPY_HOME/.dependencies
 RUN pip install --no-cache-dir -r $POROPY_HOME/.dependencies
 
-USER porepy
-WORKDIR $POREPY_HOME
-RUN /bin/bash -c ' export PATH=/usr/local/miniconda/bin:$PATH  && source activate porepy'
-RUN echo "PATH=/usr/local/miniconda/bin:$PATH" >> ~/.profile
+#RUN /bin/bash -c ' export PATH=/usr/local/anaconda/bin:$PATH  && source activate porepy'
+#RUN echo "PATH=/usr/local/anaconda/bin:$PATH" >> ~/.profile
+#RUN /bin/bash -c "source ~/.profile"
 
-RUN  git clone https://github.com/pmgbergen/porepy.git $POREPY_HOME/porepy-src &&\
+RUN  git clone https://github.com/pmgbergen/porepy.git porepy-src &&\
     cd porepy-src &&\
     echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py &&\
     python setup.py install 
 
+USER porepy
+
+RUN export PATH=/usr/local/conda/bin:$PATH &&\
+    /bin/bash -c 'source activate porepy'
  
-   
 	
    
 	
