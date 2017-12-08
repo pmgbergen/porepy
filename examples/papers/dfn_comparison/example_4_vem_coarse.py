@@ -5,7 +5,7 @@ import pickle
 from porepy.viz.exporter import Exporter
 
 from porepy.grids.grid import FaceTag
-#from porepy.grids import coarsening as co
+from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import vem_dual, vem_source
 
@@ -20,8 +20,9 @@ def main(grid_name, direction):
 
     folder_grids = '/home/elle/Dropbox/Work/tipetut/'
     gb = pickle.load(open(folder_grids+grid_name, 'rb'))
+    co.coarsen(gb, 'by_volume')
 
-    folder_export = './example_4_vem_'+grid_name+'_'+direction+'/'
+    folder_export = './example_4_vem_coarse_'+grid_name+'_'+direction+'/'
 
     domain = {'xmin': -800, 'xmax': 600,
               'ymin': 100, 'ymax': 1500,

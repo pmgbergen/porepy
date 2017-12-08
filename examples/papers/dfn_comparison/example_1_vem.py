@@ -15,12 +15,15 @@ import example_1_data
 
 def main(id_problem, is_coarse=False, tol=1e-5, if_export=False):
 
-    folder_export = "example_1_vem_coarse/"
-    file_name_error = folder_export + "vem_error.txt"
     gb = example_1_create_grid.create(0.5/float(id_problem), tol)
 
     if is_coarse:
         co.coarsen(gb, 'by_tpfa')
+        folder_export = "example_1_vem_coarse/"
+    else:
+        folder_export = "example_1_vem/"
+
+    file_name_error = folder_export + "vem_error.txt"
 
     if if_export:
         save = Exporter(gb, "vem", folder_export)
@@ -68,9 +71,12 @@ def main(id_problem, is_coarse=False, tol=1e-5, if_export=False):
 #------------------------------------------------------------------------------#
 
 num_simu = 25
-is_coarse = True
 if_export = False
+
 for i in np.arange(num_simu):
-    main(i+1, is_coarse, if_export=if_export)
+    main(i+1, is_coarse=True, if_export=if_export)
+
+for i in np.arange(num_simu):
+    main(i+1, is_coarse=False, if_export=if_export)
 
 #------------------------------------------------------------------------------#
