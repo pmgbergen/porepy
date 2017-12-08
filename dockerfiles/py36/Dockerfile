@@ -98,7 +98,6 @@ RUN conda info -a
 RUN conda install --yes numpy scipy matplotlib pip nose sip &&\
     conda install -c https://conda.anaconda.org/clinicalgraphics vtk &&\
     pip install setuptools && \
-    pip install enum34 && \
     pip install numpy-stl && \
     pip install coveralls && \
     pip install coverage &&\
