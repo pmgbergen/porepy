@@ -111,7 +111,7 @@ RUN  mkdir -p $POREPY_HOME/.config/matplotlib
 COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
 
 
-COPY dependencies.txt $POROPY_HOME/.dependencies
+COPY dependencies $POROPY_HOME/.dependencies
 RUN pip install --no-cache-dir -r $POROPY_HOME/.dependencies
 
 RUN  git clone https://github.com/pmgbergen/porepy.git porepy-src &&\
