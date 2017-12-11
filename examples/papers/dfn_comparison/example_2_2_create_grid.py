@@ -11,7 +11,7 @@ def create(id_problem, is_coarse=False, mesh_size=0.09, tol=1e-5):
                                 'value': mesh_size,
                                 'bound_value': 1}
 
-    gb = importer.read_dfn(file_name, file_intersections, tol=tol, **mesh_kwargs)
+    gb = importer.dfn_3d_from_fab(file_name, file_intersections, tol=tol, **mesh_kwargs)
     gb.remove_nodes(lambda g: g.dim == 0)
     gb.compute_geometry()
     if is_coarse:

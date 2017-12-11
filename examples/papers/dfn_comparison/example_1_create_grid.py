@@ -10,7 +10,7 @@ def create(mesh_size, tol):
     file_name = 'analytical/DFN.fab'
     file_intersections = 'analytical/TRACES.dat'
 
-    gb = importer.read_dfn(file_name, file_intersections, tol=tol, **mesh_kwargs)
+    gb = importer.dfn_3d_from_fab(file_name, file_intersections, tol=tol, **mesh_kwargs)
     gb.remove_nodes(lambda g: g.dim == 0)
     gb.compute_geometry()
     gb.assign_node_ordering()
