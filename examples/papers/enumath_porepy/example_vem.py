@@ -73,7 +73,7 @@ def main(coarse):
                                 'tol': tol}
 
     file_dfm = 'dfm.csv'
-    gb, domain = importer.dfm_from_csv(file_dfm, tol, **grid_kwargs)
+    gb, domain = importer.dfm_3d_from_csv(file_dfm, tol, **grid_kwargs)
     gb.compute_geometry()
     if coarse:
         coarsening.coarsen(gb, 'by_volume')
