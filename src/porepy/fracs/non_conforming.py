@@ -567,10 +567,6 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
         # Note use of original coordinates here.
         ci_coord = node_coord_orig[:, fn_orig[:, ci]]
         # Coordinates of the nodes of the first new face
-        if new_faces_loc.size == 0:
-            print(deleted_2_new_faces, cf_2_f[cf[i]])
-            input()
-            continue
         fi_coord = g.nodes[:, fn[:, new_faces_loc[0]]]
 
         # Distance between the new nodes and the first node of the old face.
