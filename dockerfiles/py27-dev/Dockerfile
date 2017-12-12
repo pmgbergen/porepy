@@ -12,7 +12,8 @@ RUN apt-get -qq update && \
     libpcre3-dev bison flex swig libglu1-mesa libxcursor-dev libxft-dev libxinerama-dev libmed1v5 libpng12-0 liboce-foundation10 liboce-modeling10  pyqt5-dev-tools  bash-completion libxt6  &&\
     git lfs install && \
     apt-get clean && \
-    #linking 
+    git lfs install && \
+   #linking 
     ln -s /usr/lib/x86_64-linux-gnu/libGLU.so.1 /usr/lib/libGLU.so.1 &&\
     ln -s /usr/lib/x86_64-linux-gnu/libSM.so.6 /usr/lib/libSM.so.6 && \
     ln -s /usr/lib/x86_64-linux-gnu/libICE.so.6 /usr/lib/libICE.so.6  && \
@@ -20,9 +21,7 @@ RUN apt-get -qq update && \
     ln -s /usr/lib/x86_64-linux-gnu/libXext.so.6 /usr/lib/libXext.so.6  && \
     ln -s /usr/lib/x86_64-linux-gnu/libXt.so.6 /usr/lib/libXt.so.6  && \
     ln -s /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 /usr/lib/libGL.so.1 &&\  
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* 
 
 WORKDIR /tmp
 
@@ -38,9 +37,8 @@ RUN cd /tmp  && \
     bash conda.sh -b -p /home/porepy/.conda && \
     rm /tmp/*
 
-RUN id porepy
-RUN chown -R porepy:porepy /home
-
+RUN id porepy &&\
+     chown -R porepy:porepy /home
 
 USER porepy
 
@@ -48,7 +46,7 @@ ENV PATH=/home/porepy/.conda/bin:$PATH
 
 
 RUN echo "PATH=/home/porepy/.conda/bin:$PATH" >> ~/.profile && \
-     /bin/bash -c -l "source  ~/.profile"
+    /bin/bash -c -l "source  ~/.profile"
 
 RUN  hash -r  && \
     conda config --set always_yes yes --set changeps1 no  && \
@@ -56,7 +54,6 @@ RUN  hash -r  && \
     conda info -a  && \
     conda create --yes -n porepy python="2.7"
 RUN /bin/bash -c -l "source activate porepy"
-
 ENV PATH /home/porepy/.conda/envs/porepy/bin:$PATH
 ENV CONDA_DEFAULT_ENV porepy
 ENV CONDA_PREFIX /home/porepy/.conda/envs/porepy
@@ -82,7 +79,6 @@ COPY dependencies $POROPY_HOME/.dependencies
 RUN pip install --no-cache-dir -r $POROPY_HOME/.dependencies
 RUN /bin/bash -c -l "echo 'source activate porepy'>>~/.profile" && \
     /bin/bash -c -l "echo 'PYTHONPATH=/home/porepy/conda/envs/porepy/lib/python2.7/site-packages:$PYTHONPATH'>>~/.profile"
-
 COPY install $POREPY_HOME
 RUN  sudo chmod +x install
    
