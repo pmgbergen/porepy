@@ -40,7 +40,6 @@ USER root
 ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
 CMD ["/bin/bash","-i"]
 
-
 RUN apt-get -qq update && \
     apt-get -y --with-new-pkgs \
         -o Dpkg::Options::="--force-confold" upgrade && \
