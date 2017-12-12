@@ -462,7 +462,7 @@ if 'numba' in sys.modules:
         """
         cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int32)
         counter = 0
-        fc.astype(numba.float64)
+        fc.astype(np.float64)
         for ci in range(cell_ptr.size - 1):
             loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
             for fi in faces_cells[loc_c]:
