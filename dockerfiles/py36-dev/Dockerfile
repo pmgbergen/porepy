@@ -1,6 +1,5 @@
 FROM docker.io/pmgbergen/porepylib:base 
 MAINTAINER dbaroli <davide.baroli@uni.lu>
-
 USER root
 
 
@@ -24,6 +23,7 @@ RUN apt-get -qq update && \
     ln -s /usr/lib/x86_64-linux-gnu/libXt.so.6 /usr/lib/libXt.so.6  && \
     ln -s /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 /usr/lib/libGL.so.1 &&\  
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* 
+
 
 WORKDIR /tmp
 
