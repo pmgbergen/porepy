@@ -3,9 +3,6 @@ MAINTAINER dbaroli <davide.baroli@uni.lu>
 
 USER root
 
-ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
-CMD ["/bin/bash","-i"]
-
 
 
 RUN apt-get -qq update && \
@@ -17,7 +14,8 @@ RUN apt-get -qq update && \
     libpcre3-dev bison flex swig libglu1-mesa libxcursor-dev libxft-dev libxinerama-dev libmed1v5 libpng12-0 liboce-foundation10 liboce-modeling10  pyqt5-dev-tools  bash-completion libxt6  &&\
     git lfs install && \
     apt-get clean && \
-    #linking 
+    git lfs install && \
+   #linking 
     ln -s /usr/lib/x86_64-linux-gnu/libGLU.so.1 /usr/lib/libGLU.so.1 &&\
     ln -s /usr/lib/x86_64-linux-gnu/libSM.so.6 /usr/lib/libSM.so.6 && \
     ln -s /usr/lib/x86_64-linux-gnu/libICE.so.6 /usr/lib/libICE.so.6  && \
@@ -25,7 +23,7 @@ RUN apt-get -qq update && \
     ln -s /usr/lib/x86_64-linux-gnu/libXext.so.6 /usr/lib/libXext.so.6  && \
     ln -s /usr/lib/x86_64-linux-gnu/libXt.so.6 /usr/lib/libXt.so.6  && \
     ln -s /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 /usr/lib/libGL.so.1 &&\  
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* 
 
 WORKDIR /tmp
 
