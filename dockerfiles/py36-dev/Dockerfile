@@ -1,36 +1,19 @@
 FROM phusion/baseimage:0.9.22
 MAINTAINER dbaroli <davide.baroli@uni.lu>
-
 # Get Ubuntu updates
 USER root
+RUN apt-get update && \
+    apt-get upgrade -y -o Dpkg::Options::="--force-confold" && \
+    apt-get -y install locales sudo && \
+    echo "C.UTF-8 UTF-8" > /etc/locale.gen && \
+    locale-gen && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Set locale environment
 ENV LC_ALL=C.UTF-8 \
     LANG=C.UTF-8 \
     LANGUAGE=C.UTF-8
 
-RUN apt-get update -y && \
-    apt-get upgrade -y -o Dpkg::Options::="--force-confold"  && \
-    apt-get -y install locales sudo  && \
-    echo "C.UTF-8 UTF-8" > /etc/locale.gen && \
-    locale-gen && \
-    update-locale LANG=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 && \
-    apt-get install -y --force-yes --fix-missing --no-install-recommends curl && \
-    curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash   && \
-    apt-get install -y --force-yes \   
-    git git-lfs unzip tree subversion vim cmake bison g++ gfortran openmpi-bin pkg-config wget \
-    libpcre3-dev bison flex swig libglu1-mesa libxcursor-dev libxft-dev libxinerama-dev libmed1v5 libpng12-0 liboce-foundation10 liboce-modeling10  pyqt5-dev-tools  bash-completion libxt6  &&\
-    apt-get clean && \
-    git lfs install && \
-    #linking 
-    ln -s /usr/lib/x86_64-linux-gnu/libGLU.so.1 /usr/lib/libGLU.so.1 &&\
-    ln -s /usr/lib/x86_64-linux-gnu/libSM.so.6 /usr/lib/libSM.so.6 && \
-    ln -s /usr/lib/x86_64-linux-gnu/libICE.so.6 /usr/lib/libICE.so.6  && \
-    ln -s /usr/lib/x86_64-linux-gnu/libX11.so.6 /usr/lib/libX11.so.6  && \
-    ln -s /usr/lib/x86_64-linux-gnu/libXext.so.6 /usr/lib/libXext.so.6  && \
-    ln -s /usr/lib/x86_64-linux-gnu/libXt.so.6 /usr/lib/libXt.so.6  && \
-    ln -s /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 /usr/lib/libGL.so.1 &&\  
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* 
-
-# Set locale environment
 COPY set-home-permission.sh /etc/my_init.d/set-home-permission.sh
 RUN useradd -m -s /bin/bash -G sudo,docker_env porepy && \
     echo "porepy:docker" | chpasswd && \
@@ -38,9 +21,9 @@ RUN useradd -m -s /bin/bash -G sudo,docker_env porepy && \
     touch /etc/service/syslog-forwarder/down && \
     echo "cat /home/porepy/WELCOME" >> /home/porepy/.bashrc && \
     chmod +x /etc/my_init.d/set-home-permission.sh && \
-    ldconfig  && \
-    echo "/usr/local/lib/python3/dist-packages" >> /usr/local/lib/python3.5/dist-packages/debian-ubuntu-sitepath-fix.pth && \
-    touch /etc/service/syslog-forwarder/down
+    ldconfig
+RUN echo "/usr/local/lib/python3/dist-packages" >> /usr/local/lib/python3.5/dist-packages/debian-ubuntu-sitepath-fix.pth
+RUN touch /etc/service/syslog-forwarder/down
 
 USER porepy
 ENV POREPY_HOME /home/porepy
@@ -54,6 +37,27 @@ COPY WELCOME $POREPY_HOME/WELCOME
 WORKDIR /home/porepy
 ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
 CMD ["/bin/bash","-i"]
+
+
+
+RUN apt-get -qq update && \
+    apt-get -y --with-new-pkgs \
+        -o Dpkg::Options::="--force-confold" upgrade && \
+    apt-get -y install curl && \
+    curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash && \
+    apt-get update -y; apt-get install -y --force-yes --fix-missing --no-install-recommends curl git git-lfs unzip tree subversion vim cmake bison g++ gfortran openmpi-bin pkg-config wget \
+    libpcre3-dev bison flex swig libglu1-mesa libxcursor-dev libxft-dev libxinerama-dev libmed1v5 libpng12-0 liboce-foundation10 liboce-modeling10  pyqt5-dev-tools  bash-completion libxt6  &&\
+    git lfs install && \
+    apt-get clean && \
+    #linking 
+    ln -s /usr/lib/x86_64-linux-gnu/libGLU.so.1 /usr/lib/libGLU.so.1 &&\
+    ln -s /usr/lib/x86_64-linux-gnu/libSM.so.6 /usr/lib/libSM.so.6 && \
+    ln -s /usr/lib/x86_64-linux-gnu/libICE.so.6 /usr/lib/libICE.so.6  && \
+    ln -s /usr/lib/x86_64-linux-gnu/libX11.so.6 /usr/lib/libX11.so.6  && \
+    ln -s /usr/lib/x86_64-linux-gnu/libXext.so.6 /usr/lib/libXext.so.6  && \
+    ln -s /usr/lib/x86_64-linux-gnu/libXt.so.6 /usr/lib/libXt.so.6  && \
+    ln -s /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 /usr/lib/libGL.so.1 &&\  
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 USER root
 WORKDIR /tmp
