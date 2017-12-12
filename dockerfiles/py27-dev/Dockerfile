@@ -13,7 +13,6 @@ RUN apt-get -qq update && \
     git lfs install && \
     apt-get clean && \
     git lfs install && \
-   #linking 
     ln -s /usr/lib/x86_64-linux-gnu/libGLU.so.1 /usr/lib/libGLU.so.1 &&\
     ln -s /usr/lib/x86_64-linux-gnu/libSM.so.6 /usr/lib/libSM.so.6 && \
     ln -s /usr/lib/x86_64-linux-gnu/libICE.so.6 /usr/lib/libICE.so.6  && \
@@ -21,7 +20,8 @@ RUN apt-get -qq update && \
     ln -s /usr/lib/x86_64-linux-gnu/libXext.so.6 /usr/lib/libXext.so.6  && \
     ln -s /usr/lib/x86_64-linux-gnu/libXt.so.6 /usr/lib/libXt.so.6  && \
     ln -s /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 /usr/lib/libGL.so.1 &&\  
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* 
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
 
 WORKDIR /tmp
 
@@ -37,8 +37,8 @@ RUN cd /tmp  && \
     bash conda.sh -b -p /home/porepy/.conda && \
     rm /tmp/*
 
-RUN id porepy &&\
-     chown -R porepy:porepy /home
+RUN id porepy
+RUN chown -R porepy:porepy /home
 
 USER porepy
 
@@ -46,7 +46,7 @@ ENV PATH=/home/porepy/.conda/bin:$PATH
 
 
 RUN echo "PATH=/home/porepy/.conda/bin:$PATH" >> ~/.profile && \
-    /bin/bash -c -l "source  ~/.profile"
+   /bin/bash -c -l "source  ~/.profile"
 
 RUN  hash -r  && \
     conda config --set always_yes yes --set changeps1 no  && \
