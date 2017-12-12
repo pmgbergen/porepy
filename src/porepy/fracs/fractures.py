@@ -1886,7 +1886,7 @@ class FractureNetwork(object):
 
         """
         if box is None:
-            OVERLAP = 0.05
+            OVERLAP = 0.15
             cmin = np.ones((3, 1)) * float('inf')
             cmax = -np.ones((3, 1)) * float('inf')
             for f in self._fractures:
