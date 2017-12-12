@@ -38,6 +38,7 @@ WORKDIR /home/porepy
 ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
 CMD ["/bin/bash","-i"]
 
+USER root
 
 
 RUN apt-get -qq update && \
@@ -60,7 +61,6 @@ RUN apt-get -qq update && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 
-USER root
 RUN id porepy
 RUN chown -R porepy:porepy /home
 
