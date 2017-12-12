@@ -38,7 +38,7 @@ WORKDIR /home/porepy
 ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
 CMD ["/bin/bash","-i"]
 
-
+USER root
 
 RUN apt-get -qq update && \
     apt-get -y --with-new-pkgs \
