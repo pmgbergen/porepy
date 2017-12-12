@@ -38,6 +38,7 @@ WORKDIR /home/porepy
 ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
 CMD ["/bin/bash","-i"]
 
+USER root
 
 
 RUN apt-get -qq update && \
@@ -59,7 +60,6 @@ RUN apt-get -qq update && \
     ln -s /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 /usr/lib/libGL.so.1 &&\  
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-USER root
 WORKDIR /tmp
 
 ENV GMSH_VERSION 2.11.0
