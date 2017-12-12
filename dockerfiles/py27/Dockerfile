@@ -69,31 +69,36 @@ RUN wget http://gmsh.info/bin/Linux/gmsh-${GMSH_VERSION}-Linux64.tgz &&\
     tar xf gmsh-${GMSH_VERSION}-Linux64.tgz && \
     cp gmsh-${GMSH_VERSION}-Linux/bin/gmsh /usr/local/bin/gmsh && \
     rm -rf /tmp/*
-USER root
 
 RUN cd /tmp  && \
     wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O conda.sh  && \
     chmod +x conda.sh && \
-    bash conda.sh -b -p /usr/local/conda && \
+    bash conda.sh -b -p /home/porepy/.conda && \
     rm /tmp/*
-ENV PATH=/usr/local/conda/bin:$PATH
 
-RUN echo "PATH=/usr/local/conda/bin:$PATH" >> ~/.profile
-RUN /bin/bash -c 'source  ~/.profile'
+RUN id porepy &&\
+     chown -R porepy:porepy /home
+
+
+USER porepy
+
+ENV PATH=/home/porepy/.conda/bin:$PATH
+
+
+RUN echo "PATH=/home/porepy/.conda/bin:$PATH" >> ~/.profile && \
+     /bin/bash -c -l 'source  ~/.profile'
 
 RUN  hash -r  && \
     conda config --set always_yes yes --set changeps1 no  && \
-   conda update -q conda  
-RUN  conda info -a  && \
-    conda create --yes -n porepy python="2.7";
+   conda update -q conda   && \
+    conda info -a  && \
+    conda create --yes -n porepy python="2.7"
 RUN /bin/bash -c -l 'source activate porepy'
 
-ENV PATH /usr/local/conda/envs/porepy/bin:$PATH
+ENV PATH /home/porepy/.conda/envs/porepy/bin:$PATH
 ENV CONDA_DEFAULT_ENV porepy
-ENV CONDA_PREFIX /usr/local/conda/envs/porepy
+ENV CONDA_PREFIX /home/porepy/.conda/envs/porepy
 
-
-RUN conda info -a 
 
 RUN conda install --yes numpy scipy matplotlib pip nose sip &&\
     conda install -c https://conda.anaconda.org/clinicalgraphics vtk &&\
@@ -113,24 +118,14 @@ COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
 
 COPY dependencies $POROPY_HOME/.dependencies
 RUN pip install --no-cache-dir -r $POROPY_HOME/.dependencies
+RUN /bin/bash -c -l 'echo "source activate porepy">>~/.profile' &&\
+    /bin/bash -c -l 'echo "PYTHONPATH=/home/porepy/conda/envs/porepy/lib/python2.7/site-packages:$PYTHONPATH">>~/.profile' 
 
 RUN  git clone https://github.com/pmgbergen/porepy.git porepy-src &&\
     cd porepy-src &&\
     echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py &&\
+    /bin/bash -c -l 'echo "PYTHONPATH=/home/porepy/porepy-src:$PYTHONPATH">>~/.profile'  &&\
+     /bin/bash -c -l 'source ~/.profile' && \
     python setup.py install 
-
-RUN /bin/bash -c -l 'echo "export PATH=/usr/local/conda/bin:$PATH" >> ~/.profile'  &&\
-    /bin/bash -c -l 'echo "source activate porepy">>~/.profile' && \
-    /bin/bash -c -l 'echo "export PYTHONPATH=/usr/local/conda/envs/porepy/lib/python2.7/site-packages:/home/porepy/porepy-src" >>~/.profile'  
-
-
-USER porepy
-
-RUN /bin/bash -c -l 'echo "export PATH=/usr/local/conda/bin:$PATH" >> ~/.profile'  &&\
-    /bin/bash -c -l 'echo "source activate porepy">>~/.profile' && \
-    /bin/bash -c -l 'echo "export PYTHONPATH=/usr/local/conda/envs/porepy/lib/python2.7/site-packages:/home/porepy/porepy-src" >>~/.profile'  
-
-	
-   
-	
-
+    
+    
