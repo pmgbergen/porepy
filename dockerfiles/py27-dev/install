@@ -1,47 +1,45 @@
 #!/bin/bash
+set -e
 
 if [ -z "$POREPY_SRC_DIR" ]; then
     echo "POREPY_SRC_DIR must be defined" >&2
     exit -1
+    else
+    echo "POREPY_SRC_DIR"
 fi
 
 if [ -z "$POREPY_BRANCH" ]; then
     echo "POREPY_BRANCH must be defined" >&2
     exit -1
+    else
+    echo "POREPY_BRANCH"
 fi
 
 
-
-
 function pull () {
-	# add location of config file
-	PYTHONPATH=$POREPY_SRC/porepy:$PYTHONPATH
-	echo "POREPY-BUILDER: Pulling porepy..."
-	if [-d $POREPY_SRC_DIR/porepy]; then
-		cd  $POREPY_SRC_DIR/porepy
-		git pull
-	else
-		git clone https://github.com/pmgbergen/porepy.git
-		cd $POREYPY_SRC_DIR/porepy
-           	git checkout ${POREPY_BRANCH}
-	fi
+        # add location of config file
+        PYTHONPATH=$POREPY_SRC_DIR/porepy:$PYTHONPATH
+        echo "POREPY-BUILDER: Pulling porepy..."
+        cd $POREPY_SRC_DIR
+        if [ -d porepy ]; then
+                cd porepy
+                git pull
+        else
+                git clone https://github.com/pmgbergen/porepy.git
+                cd  porepy
+                git checkout ${POREPY_BRANCH}
+        fi
 }
 
 
 function install(){
-	
-	cd $POREPY_SRC_DIR/porepy
-	
-	python setupy.py install
+
+        cd  $POREPY_SRC_DIR/porepy
+        python setup.py install
 
 }
 
 
 
-function test(){
-	cd $POREPY_SRC_DIR/porepy
-	pytest
-}
-
-	
-            	
+pull
+install
