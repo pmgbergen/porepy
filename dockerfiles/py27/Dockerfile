@@ -1,6 +1,5 @@
 FROM phusion/baseimage:0.9.22
 MAINTAINER dbaroli <davide.baroli@uni.lu>
-
 # Get Ubuntu updates
 USER root
 RUN apt-get update && \
@@ -39,9 +38,7 @@ WORKDIR /home/porepy
 ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
 CMD ["/bin/bash","-i"]
 
-USER root
-RUN id porepy
-RUN chown -R porepy:porepy /home
+
 
 RUN apt-get -qq update && \
     apt-get -y --with-new-pkgs \
@@ -61,7 +58,7 @@ RUN apt-get -qq update && \
     ln -s /usr/lib/x86_64-linux-gnu/libXt.so.6 /usr/lib/libXt.so.6  && \
     ln -s /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 /usr/lib/libGL.so.1 &&\  
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
+    
 WORKDIR /tmp
 
 ENV GMSH_VERSION 2.11.0
