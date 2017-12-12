@@ -35,10 +35,10 @@ VOLUME /home/porepy/shared
 COPY WELCOME $POREPY_HOME/WELCOME
 
 WORKDIR /home/porepy
+USER root
 ENTRYPOINT ["sudo","/sbin/my_init","--quiet","--","sudo","-u","porepy","/bin/bash","-l","-c"]
 CMD ["/bin/bash","-i"]
 
-USER root
 
 
 RUN apt-get -qq update && \
