@@ -6,6 +6,14 @@ python:
   - "2.7"
   - "3.5"
   - "3.6"
+  
+matrix:
+  include:
+    - python: '3.5'
+    - python: '3.6'
+    
+  allow_failures:
+    - python: '2.7'
 
 before install:
   - chmod +x ./test/regression/run_cron_test.sh
