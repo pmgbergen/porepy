@@ -27,7 +27,7 @@ class StaticModel():
 
     Parameters in Init:
     gb: (Grid) a grid object.
-    data: (dictionary) Defaults to None. Only used if gb is a Grid. Should
+    data: (dictionary) dictionary of dat. Should
           contain a Parameter class with the keyword 'Param'
     physics: (string): defaults to 'mechanics'
 
@@ -52,7 +52,7 @@ class StaticModel():
             physics for the file name.
     '''
 
-    def __init__(self, gb, data=None, physics='mechanics', **kwargs):
+    def __init__(self, gb, data, physics='mechanics', **kwargs):
         self.physics = physics
         self._gb = gb
         if not isinstance(self._gb, Grid):
@@ -83,9 +83,6 @@ class StaticModel():
         After the funtion has been called, the attributes lhs and rhs are
         updated according to the parameter states. Also, the attribute x
         gives the pressure given the current state.
-
-        TODO: Provide an option to save solver information if multiple
-        systems are to be solved with the same left hand side.
 
         The function attempts to set up the best linear solver based on the
         system size. The setup and parameter choices here are still
@@ -134,6 +131,9 @@ class StaticModel():
         return self.x
 
     def step(self, **kwargs):
+        """
+        Calls self.solve(**kwargs)
+        """
         return self.solve(**kwargs)
 
     def reassemble(self, discretize=True):
@@ -145,25 +145,85 @@ class StaticModel():
         return self.lhs, self.rhs
 
     def stress_disc(self):
+        """
+        Define the stress discretization. 
+        Returns:
+            FracturedMpsa (Solver object)
+        """
         return mpsa.FracturedMpsa(physics=self.physics)
 
     def grid(self):
+        """
+        get the model grid
+        Returns:
+            gb (Grid object)
+        """
         return self._gb
 
     def data(self):
+        """
+        get data
+        Returns:
+            data (Dictionary)
+        """
         return self._data
 
     def displacement(self, displacement_name='displacement'):
+        """
+        Save the cell displacement to the data dictionary. The displacement
+        will be saved as a (3,  self.grid().num_cells) array
+        Parameters: 
+        -----------
+        displacement_name:    (string) Defaults to 'displacement'. Defines the
+                              keyword for the saved displacement in the data
+                              dictionary
+        Returns:
+        --------
+        d:  (ndarray) the displacement as a (3, self.grid().num_cells) array
+        """
+
         self.displacement_name = displacement_name
         d = self._stress_disc.extract_u(self.grid(), self.x)
-        self._data[self.displacement_name] = d.reshape((3, -1),order='F')
+        d = d.reshape((3, -1),order='F')
+        self._data[self.displacement_name] = d
+        return d
 
     def frac_displacement(self, frac_displacement_name='frac_displacement'):
+        """
+        Save the fracture displacement to the data dictionary. This is the 
+        displacement on the fracture facers. The displacement
+        will be saved as a (3,  self.grid().num_cells) array
+        Parameters: 
+        -----------
+        frac_displacement_name: 
+            (string) Defaults to 'frac_displacement'. Defines the keyword for
+            the saved displacement in the data dictionary
+
+        Returns:
+        --------
+        d:  (ndarray) the displacement of size (3, #number of fracture faces)
+        """
         self.frac_displacement_name =frac_displacement_name
-        self._data[self.frac_displacement_name] = \
-            self._stress_disc.extract_frac_u(self.grid(), self.x)
+        d = self._stress_disc.extract_frac_u(self.grid(), self.x)
+        d = d.reshape((3, -1),order='F')
+        self._data[self.frac_displacement_name] = d
+        return d
 
     def traction(self, traction_name='traction'):
+        """
+        Save the  traction on faces to the data dictionary. This is the 
+        area scaled traction on the fracture facers. The displacement
+        will be saved as a (3,  self.grid().num_cells) array
+        Parameters: 
+        -----------
+        traction_name
+            (string) Defaults to 'traction'. Defines the keyword for the
+            saved traction in the data dictionary
+
+        Returns:
+        --------
+        d:  (ndarray) the traction as a (3, self.grid().num_faces) array
+        """
         T = self._stress_disc.traction(self.grid(),
                                        self._data,
                                        self.x)
@@ -176,6 +236,18 @@ class StaticModel():
         self._data[traction_name] = T + T_b
 
     def save(self, variables=None, time_step=None):
+        """
+        Save the result as vtk. 
+
+        Parameters:
+        ----------
+        variables: (list) Optional, defaults to None. If None, only the grid
+            will be exported. A list of strings where each element defines a
+            keyword in the data dictionary to be saved.
+        time_step: (float) optinal, defaults to None. The time step of the
+            variable(s) that is saved
+        """
+
         if variables is None:
             self.exporter.write_vtk()
         else: 
@@ -238,8 +310,8 @@ class StaticDataAssigner():
     This class creates a Parameter object and assigns the data to this object
     by calling StaticDataAssigner's functions.
 
-    To change the default values create a class that inherits from StaticDataAssigner.
-    Then overload the values you whish to change.
+    To change the default values, create a class that inherits from
+    StaticDataAssigner. Then overload the values you whish to change.
 
     Parameters in Init:
     gb: (Grid) a grid object 
