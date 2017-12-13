@@ -62,7 +62,7 @@ class AbstractSolver(object):
         logger.warning('Time stepping using ' + str(nt) + ' steps')
         t = self.dt
         counter = 1
-        while t < self.T + 1e-14:
+        while t < self.T *(1 + 1e-14):
             logger.warning('Step ' + str(counter) + ' out of ' + str(nt))
             counter += 1
             self.update(t)
