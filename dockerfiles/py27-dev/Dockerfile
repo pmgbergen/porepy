@@ -61,9 +61,6 @@ RUN apt-get -qq update && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 
-RUN id porepy
-RUN chown -R porepy:porepy /home
-
 
 WORKDIR /tmp
 
@@ -79,8 +76,8 @@ RUN cd /tmp  && \
     bash conda.sh -b -p /home/porepy/.conda && \
     rm /tmp/*
 
-RUN id porepy &&\
-     chown -R porepy:porepy /home
+RUN id porepy
+RUN chown -R porepy:porepy /home
 
 
 USER porepy
