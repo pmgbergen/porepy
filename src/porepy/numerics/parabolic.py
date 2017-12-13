@@ -369,7 +369,7 @@ class ParabolicDataAssigner():
         if self.rock_specific_heat() is not None:
             self._data['param'].set_rock_specific_heat(self.rock_specific_heat())
         if self.fluid_specific_heat() is not None:
-            self._data['param'].set_fluid_specfic_heat(self.fluid_specific_heat())
+            self._data['param'].set_fluid_specific_heat(self.fluid_specific_heat())
         if self.rock_density() is not None:
             self._data['param'].set_rock_density(self.rock_density())
         if self.fluid_density() is not None:
