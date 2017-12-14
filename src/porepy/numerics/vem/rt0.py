@@ -7,6 +7,7 @@
 import warnings
 import numpy as np
 import scipy.sparse as sps
+import scipy.linalg as linalg
 
 from porepy.params import tensor
 
@@ -284,6 +285,13 @@ class RT0(Solver):
 
         nodes, _, _ = sps.find(g.face_nodes)
 
+        size_HB = g.dim*(g.dim+1)
+        HB = np.zeros((size_HB, size_HB))
+        for it in np.arange(0, size_HB, g.dim):
+            HB += np.diagflat(np.ones(size_HB-it), it)
+        HB += HB.T
+        HB /= np.math.factorial(g.dim+2)*np.math.factorial(g.dim)
+
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
@@ -302,7 +310,7 @@ class RT0(Solver):
 
             # Compute the H_div-mass local matrix
             A = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c],
-                              g.cell_volumes[c], coord_loc, sign[loc], g.dim)
+                              g.cell_volumes[c], coord_loc, sign[loc], g.dim, HB)
 
             # Save values for Hdiv-mass local matrix in the global structure
             cols = np.tile(faces_loc, (faces_loc.size, 1))
@@ -498,7 +506,7 @@ class RT0(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def massHdiv(self, K, c_volume, coord, sign, dim):
+    def massHdiv(self, K, c_volume, coord, sign, dim, HB):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
@@ -518,12 +526,7 @@ class RT0(Solver):
         # Allow short variable names in this function
         # pylint: disable=invalid-name
 
-        size_M = dim*(dim+1)
-        M = np.zeros((size_M, size_M))
-        for it in np.arange(0, size_M, dim):
-            M += np.diagflat(np.ones(size_M-it), it)
-        M += M.T
-        M /= np.math.factorial(dim+2)*dim*c_volume # to check in 3d
+        K = linalg.block_diag(*([K]*(dim+1)))/c_volume
 
         coord = coord[0:dim, :]
         N = coord.flatten('F').reshape((-1, 1))*np.ones((1, dim+1))-\
@@ -531,7 +534,7 @@ class RT0(Solver):
 
         C = np.diagflat(sign)
 
-        return np.dot(C.T, np.dot(N.T, np.dot(M, np.dot(N, C))))
+        return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(K, np.dot(N, C)))))
 
 #------------------------------------------------------------------------------#
 
