@@ -750,6 +750,8 @@ class GridBucket(object):
         """
 
         [g.compute_geometry(is_embedded=is_embedded) for g, _ in self]
+        [d['mortar'].compute_geometry() for _, d in self.edges_props() \
+                                                             if d.get('mortar')]
 
 #------------------------------------------------------------------------------#
 
