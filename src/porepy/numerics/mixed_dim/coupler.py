@@ -111,6 +111,7 @@ class Coupler(object):
         return matrix, rhs
 
 #------------------------------------------------------------------------------#
+
     def matrix_rhs(self, gb, matrix_format="csr"):
         """
         Return the matrix and righ-hand side for a suitable discretization, where
@@ -135,9 +136,10 @@ class Coupler(object):
         matrix, rhs = self.initialize_matrix_rhs(gb)
 
         # Loop over the grids and compute the problem matrix
-        for g, data in gb:
-            pos = data['node_number']
-            matrix[pos, pos], rhs[pos] = self.discr_fct(g, data)
+        for g, d in gb:
+            pos = d['node_number']
+            matrix[pos, pos], rhs[pos] = self.discr_fct(g, d)
+
 
         # Handle special case of 1-element grids, that give 0-d arrays
         rhs = np.array([np.atleast_1d(a) for a in tuple(rhs)])
@@ -148,13 +150,16 @@ class Coupler(object):
 
         # Loop over the edges of the graph (pair of connected grids) to compute
         # the coupling conditions
-        for e, data in gb.edges_props():
+        for e, d in gb.edges_props():
             g_l, g_h = gb.sorted_nodes_of_edge(e)
-            pos_l, pos_h = gb.nodes_prop([g_l, g_h], 'node_number')
-            idx = np.ix_([pos_h, pos_l], [pos_h, pos_l])
+            pos_l, pos_h = d['node_number']
+            pos_m = d['edge_number'] + gb.num_graph_nodes()
+            idx = np.ix_([pos_h, pos_l, pos_m], [pos_h, pos_l, pos_m])
 
             data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
-            matrix[idx] += self.coupling_fct(g_h, g_l, data_h, data_l, data)
+            cc = self.coupling_fct(g_h, g_l, data_h, data_l, d)
+
+            matrix[idx] += cc
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
@@ -181,6 +186,7 @@ class Coupler(object):
             d[key] = values[slice(dofs[i], dofs[i + 1])]
 
 #------------------------------------------------------------------------------#
+
     def merge(self, gb, key):
         """
         Merge the stored split function stored in the grid bucket to a vector.
@@ -214,6 +220,7 @@ class Coupler(object):
         for _, d in gb:
             dofs[d['node_number']] = d['dof']
         return np.r_[0, np.cumsum(dofs)]
+
 #------------------------------------------------------------------------------#
 
     def dof_of_grid(self, gb, g):
@@ -230,3 +237,5 @@ class Coupler(object):
         dof_list = self._dof_start_of_grids(gb)
         nn = gb.node_props(g)['node_number']
         return np.arange(dof_list[nn], dof_list[nn+1])
+
+#------------------------------------------------------------------------------#
