@@ -54,13 +54,37 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def size(self):
+    def num_graph_nodes(self):
         """
-        Returns:
-            int: Number of nodes in the grid.
+        Return the total number of nodes (physical meshes) in the graph.
+        Return:
+            int: Number of nodes in the graph.
 
         """
         return self.graph.number_of_nodes()
+
+#------------------------------------------------------------------------------#
+
+    def num_graph_edges(self):
+        """
+        Return the total number of edge in the graph.
+        Return:
+            int: Number of edges in the graph.
+
+        """
+        return self.graph.number_of_edges()
+
+#------------------------------------------------------------------------------#
+
+    def size(self):
+        """
+        Return the total number of nodes (physical meshes) plus the total number
+        of edges in the graph. It is the size of the graph.
+        Return:
+            int: Number of nodes and edges in the graph.
+
+        """
+        return self.num_graph_nodes()+self.num_graph_edges()
 
 #------------------------------------------------------------------------------#
 
@@ -405,7 +429,6 @@ class GridBucket(object):
 
         """
         return tuple([key in self.graph.node[g] for g in gs])
-
 
 #------------------------------------------------------------------------------#
 
@@ -867,7 +890,7 @@ class GridBucket(object):
                 ordered by 'node_number'.
 
         """
-        values = np.empty(self.size())
+        values = np.empty(self.num_graph_nodes())
         for g, d in self:
             values[d['node_number']] = fct(g, d)
         return values
@@ -904,7 +927,8 @@ class GridBucket(object):
             idx += 1
 
         # Upper triangular matrix
-        return sps.coo_matrix((values, (i, j)), (self.size(), self.size()))
+        return sps.coo_matrix((values, (i, j)), (self.num_graph_nodes(),
+                                                 self.num_graph_nodes()))
 
 #------------------------------------------------------------------------------#
 
@@ -956,8 +980,8 @@ class GridBucket(object):
         """
         Return the bounding box of the grid bucket.
         """
-        c_0s = np.empty((3, self.size()))
-        c_1s = np.empty((3, self.size()))
+        c_0s = np.empty((3, self.num_graph_nodes()))
+        c_1s = np.empty((3, self.num_graph_nodes()))
 
         for i, g in enumerate(self.graph):
             c_0s[:, i], c_1s[:, i] = g.bounding_box()
@@ -1049,7 +1073,7 @@ class GridBucket(object):
 #------------------------------------------------------------------------------#
 
     def __repr__(self):
-        s = 'Grid bucket containing ' + str(self.size()) + ' grids:\n'
+        s = 'Grid bucket containing ' + str(self.num_graph_nodes()) + ' grids:\n'
         num = 0
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
             gl = self.grids_of_dimension(dim)
