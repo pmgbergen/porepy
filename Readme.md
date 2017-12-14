@@ -48,13 +48,7 @@ or for editable installs into the user directory:
 	
 
 # Using Docker
-Alternatively, a way to run the porepy library is to use our prebuilt and high-performance Docker images.
-Docker containers are extremely lightweight, secure, and are based on open standards that run on all major Linux distributions, macOS and Microsoft Windows platforms.
-
-Install Docker for your platform by following [these instructions](https://docs.docker.com/engine/getstarted/step_one/).
-If using the Docker Toolbox (macOS versions < 10.10 or Windows versions < 10), make sure you run all commands inside the Docker Quickstart Terminal.
-
-Now we will pull the docker.io/pmgbergen/porepylib with tag py27 image from cloud infrastructure:
+A docker image is available, courtesy of Davide Baroli. To pull the docker.io/pmgbergen/porepylib with tag py27 image from cloud infrastructure:
 ```bash
 >  docker pull docker.io/pmgbergen/porepylib:py27
 ```
