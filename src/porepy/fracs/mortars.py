@@ -34,22 +34,46 @@ from porepy.utils.matrix_compression import rldecode
 
 #------------------------------------------------------------------------------#
 
-def update_gb_1d(gb, gs_1d, hs_1d):
+def refine_mortar_grid(mg, mg_new):
 
-    gs_1d = np.atleast_1d(gs_1d)
-    hs_1d = np.atleast_1d(hs_1d)
+    if mg.dim == 0:
+        return
+    elif mg.dim == 1:
+        split_matrix = split_matrix_1d(mg, mg_new)
+    elif mg.dim == 2:
+        split_matrix = split_matrix_2d(mg, mg_new)
+    else:
+        raise ValueError
 
-    assert gs_1d.size == hs_1d.size
+    mg.update_geometry(mg_new.nodes, mg_new.cell_nodes())
+    mg.refine_mortar(split_matrix)
 
-    for g, h in zip(gs_1d, hs_1d):
-        weights, new_cells, old_cells = match_grids_1d(h, g)
-        split_matrix = sps.csr_matrix((weights, (new_cells, old_cells)))
+#------------------------------------------------------------------------------#
 
-        for g_2d in gb.node_neighbors(g, lambda _g: _g.dim > g.dim):
-            face_cells = split_matrix * gb.edge_prop((g_2d, g), "face_cells")[0]
-            gb.add_edge_prop("face_cells", (g_2d, g), face_cells)
+def refine_co_dimensional_grid(mg, g):
 
-    gb.update_nodes(gs_1d, hs_1d)
+    if mg.dim == 0:
+        return
+    elif mg.dim == 1:
+        split_matrix = split_matrix_1d(mg, g)
+    elif mg.dim == 2:
+        split_matrix = split_matrix_2d(mg, g)
+    else:
+        raise ValueError
+
+    mg.refine_low(split_matrix)
+
+#------------------------------------------------------------------------------#
+
+def split_matrix_1d(g_old, g_new):
+    weights, new_cells, old_cells = match_grids_1d(g_new, g_old)
+    return sps.csr_matrix((weights, (new_cells, old_cells)))
+
+#------------------------------------------------------------------------------#
+
+def split_matrix_2d():
+    return None
+
 
 #------------------------------------------------------------------------------#
 
