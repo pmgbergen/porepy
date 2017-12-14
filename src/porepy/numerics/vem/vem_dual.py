@@ -14,6 +14,8 @@ from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
+from porepy.grids import grid, mortar_grid
+
 from porepy.utils import comp_geom as cg
 
 #------------------------------------------------------------------------------#
@@ -149,18 +151,25 @@ class DualVEM(Solver):
         """
         Return the number of degrees of freedom associated to the method.
         In this case number of faces (velocity dofs) plus the number of cells
-        (pressure dof).
+        (pressure dof). If a mortar grid is given the number of dof are equal to
+        the number of cells, we are considering an inter-dimensional interface
+        with flux variable as mortars.
 
         Parameter
         ---------
-        g: grid, or a subclass.
+        g: grid.
 
         Return
         ------
         dof: the number of degrees of freedom.
 
         """
-        return g.num_cells + g.num_faces
+        if isinstance(g, grid.Grid):
+            return g.num_cells + g.num_faces
+        elif isinstance(g, mortar_grid.MortarGrid):
+            return g.num_cells
+        else:
+            raise ValueError
 
 #------------------------------------------------------------------------------#
 
