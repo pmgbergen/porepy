@@ -10,6 +10,7 @@ Created on Sat Nov 11 17:06:37 2017
 import numpy as np
 import scipy.sparse as sps
 
+from porepy.grids.grid import Grid
 from porepy.grids.structured import TensorGrid
 from porepy.utils import comp_geom as cg
 
@@ -39,7 +40,7 @@ def distort_grid_1d(g, ratio=0.1):
      g.compute_geometry()
      return g
 
-def refine_grid_1d(g, ratio=2, return_map_nodes=False):
+def refine_grid_1d(g, ratio=2):
     """ Refine cells in a 1d grid.
 
     Note: The method cannot refine without
@@ -47,32 +48,44 @@ def refine_grid_1d(g, ratio=2, return_map_nodes=False):
     nodes, cells, _ = sps.find(g.cell_nodes())
 
     # To consider also the case of intersections
-    num_new = (ratio-1)*g.num_cells
+    num_new = (ratio-1)*g.num_cells+g.num_nodes
     x = np.zeros((3, num_new))
     theta = np.arange(1, ratio)/float(ratio)
     pos = 0
+    shift = 0
+
+    cell_nodes = g.cell_nodes()
+    if_add = np.r_[1, np.ediff1d(cell_nodes.indices)].astype(np.bool)
+
+    indices = np.empty(0, dtype=np.int)
+    ind = np.vstack((np.arange(ratio), np.arange(ratio)+1)).flatten('F')
 
     for c in np.arange(g.num_cells):
-        mask = cells == c
-        start, end = nodes[mask]
-        x_loc = g.nodes[:, start, np.newaxis]*theta + \
-                g.nodes[:, end, np.newaxis]*(1-theta)
-        x[:, pos:(pos+ratio-1)] = x_loc
+        loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
+        start, end = cell_nodes.indices[loc]
+        if_add_loc = if_add[loc]
+        indices = np.r_[indices, shift+ind]
+
+        if if_add_loc[0]:
+            x[:, pos:(pos+1)] = g.nodes[:, start, np.newaxis]
+            pos += 1
+
+        x[:, pos:(pos+ratio-1)] = g.nodes[:, start, np.newaxis]*theta + \
+                                  g.nodes[:, end, np.newaxis]*(1-theta)
         pos += ratio-1
+        shift += ratio+2-np.sum(if_add_loc)
 
-    face_tags = np.hstack((g.face_tags, np.zeros(x.shape[1], dtype=np.int)))
-    x = np.hstack((g.nodes, x))
+        if if_add_loc[1]:
+            x[:, pos:(pos+1)] = g.nodes[:, end, np.newaxis]
+            pos += 1
 
-    g = TensorGrid(x[0, :])
-    map_nodes = cg.argsort_point_on_line(x)
-    g.nodes = x[:, map_nodes]
-    g.face_tags = face_tags[map_nodes]
+    face_nodes = sps.identity(x.shape[1], format='csc')
+    cell_faces = sps.csc_matrix((np.ones(indices.size, dtype=np.bool),
+                                 indices, np.arange(0, indices.size+1, 2)))
+    g = Grid(1, x, face_nodes, cell_faces, "Refined 1d grid")
     g.compute_geometry()
 
-    if return_map_nodes:
-        return g, np.argsort(map_nodes)[:nodes.size]
-    else:
-        return g
+    return g
 
 #------------------------------------------------------------------------------#
 
