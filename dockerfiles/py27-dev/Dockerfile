@@ -48,14 +48,14 @@ ENV PATH=/home/porepy/.conda/bin:$PATH
 
 
 RUN echo "PATH=/home/porepy/.conda/bin:$PATH" >> ~/.profile && \
-     /bin/bash -c -l 'source  ~/.profile'
+     /bin/bash -c -l "source  ~/.profile"
 
 RUN  hash -r  && \
     conda config --set always_yes yes --set changeps1 no  && \
    conda update -q conda   && \
     conda info -a  && \
     conda create --yes -n porepy python="2.7"
-RUN /bin/bash -c -l 'source activate porepy'
+RUN /bin/bash -c -l "source activate porepy"
 
 ENV PATH /home/porepy/.conda/envs/porepy/bin:$PATH
 ENV CONDA_DEFAULT_ENV porepy
@@ -80,8 +80,8 @@ COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
 
 COPY dependencies $POROPY_HOME/.dependencies
 RUN pip install --no-cache-dir -r $POROPY_HOME/.dependencies
-RUN /bin/bash -c -l 'echo "source activate porepy">>~/.profile' &&
-    /bin/bash -c -l 'echo "PYTHONPATH=/home/porepy/conda/envs/porepy/lib/python2.7/site-packages:$PYTHONPATH">>~/.profile'
+RUN /bin/bash -c -l "echo 'source activate porepy'>>~/.profile" &&
+    /bin/bash -c -l "echo 'PYTHONPATH=/home/porepy/conda/envs/porepy/lib/python2.7/site-packages:$PYTHONPATH'>>~/.profile"
 
 COPY install $POREPY_HOME
 RUN  sudo chmod +x install
