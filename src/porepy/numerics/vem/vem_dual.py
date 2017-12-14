@@ -593,7 +593,8 @@ class DualCoupling(AbstractCoupling):
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        dof, cc = self.create_block_matrix(g_h, g_l)
+        g_m = data_edge['mortar']
+        dof, cc = self.create_block_matrix([g_h, g_l, g_m])
 
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, weigths = sps.find(data_edge['face_cells'])
