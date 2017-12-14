@@ -9,7 +9,7 @@ import numpy as np
 import unittest
 
 from porepy.grids.structured import TensorGrid
-from porepy.grids import refinement
+from porepy.grids import refinement, mortar_grid
 from porepy.fracs import meshing, mortars
 
 class TestGridRefinement1d(unittest.TestCase):
@@ -170,3 +170,57 @@ class TestGridRefinement1d(unittest.TestCase):
 
 #------------------------------------------------------------------------------#
 
+    def test_mortar_grid_1d(self):
+        from porepy.viz import plot_grid
+
+        f1 = np.array([[0, 1], [.5, .5]])
+
+        gb = meshing.cart_grid([f1], [2, 2], **{'physdims': [1, 1]})
+        gb.compute_geometry()
+        gb.assign_node_ordering()
+
+        #plot_grid.plot_grid(gb, alpha=0, info='f')
+
+        for e, d in gb.edges_props():
+
+            mg = d['mortar']
+            mg_new = refinement.refine_grid_1d(mg, ratio=2)
+            mortars.refine_mortar_grid(mg, mg_new)
+
+            # refine the 1d-physical grid
+            g_old = gb.sorted_nodes_of_edge(e)[0]
+            g_new = refinement.refine_grid_1d(g_old, ratio=3)
+            gb.update_nodes(g_old, g_new)
+            mortars.refine_co_dimensional_grid(mg, g_new)
+
+        #plot_grid.plot_grid(gb, alpha=0, info='c')
+
+        from porepy.params.data import Parameters
+        from porepy.params.bc import BoundaryCondition
+        from porepy.grids.grid import FaceTag
+
+        internal_flag = FaceTag.FRACTURE
+        [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+
+        gb.add_node_props(['param'])
+        for g, d in gb:
+            param = Parameters(g)
+            bound_faces = g.get_domain_boundary_faces()
+            labels = np.array(['dir'] * bound_faces.size)
+            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+            d['param'] = param
+
+        gb.add_edge_prop('kn')
+        for e, d in gb.edges_props():
+            gn = gb.sorted_nodes_of_edge(e)
+            d['kn'] = np.ones(gn[0].num_cells)
+
+        from porepy.numerics.vem import vem_dual, vem_source
+        # Choose and define the solvers and coupler
+        solver_flow = vem_dual.DualVEMMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+
+
+
+TestGridRefinement1d().test_mortar_grid_1d()
