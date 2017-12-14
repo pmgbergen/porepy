@@ -15,7 +15,7 @@ import scipy.sparse as sps
 
 class Coupler(object):
 
-    #------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
     def __init__(self, discr=None, coupling=None, **kwargs):
 
@@ -47,8 +47,9 @@ class Coupler(object):
     def ndof(self, gb):
         """
         Store in the grid bucket the number of degrees of freedom associated to
-        the method.
-        It requires the key "dof" in the grid bucket as reserved.
+        the method included the mortar variables.
+        It requires the key "dof" in the grid bucket as reserved for the nodes
+        and for the edges.
 
         Parameter
         ---------
@@ -58,6 +59,10 @@ class Coupler(object):
         gb.add_node_prop('dof')
         for g, d in gb:
             d['dof'] = self.discr_ndof(g)
+
+        gb.add_edge_prop('dof')
+        for _, d in gb.edges_props():
+            d['dof'] = d['mortar'].num_cells
 
 #------------------------------------------------------------------------------#
 
