@@ -19,37 +19,32 @@ logger = logging.getLogger(__name__)
 
 class FrictionSlipModel():
     '''
-    Class for solving a frictional slip problem:
+    Class for solving a frictional slip problem: T_s <= mu * (T_n -p)
     
 
     Parameters in Init:
-    gb: (Grid /GridBucket) a grid or grid bucket object. If gb = GridBucket
-        a Parameter class should be added to each grid bucket data node with
-        keyword 'param'.
-    data: (dictionary) Defaults to None. Only used if gb is a Grid. Should
-          contain a Parameter class with the keyword 'Param'
-    physics: (string): defaults to 'flow'
+    gb: (Grid) a Grid Object.
+    data: (dictionary) Should contain a Parameter class with the keyword
+        'Param'
+    physics: (string): defaults to 'slip'
 
     Functions:
     solve(): Calls reassemble and solves the linear system.
-             Returns: the pressure p.
-             Sets attributes: self.x
-    step(): Same as solve, but without reassemble of the matrices
-    reassemble(): Assembles the lhs matrix and rhs array.
-            Returns: lhs, rhs.
-            Sets attributes: self.lhs, self.rhs
-    source_disc(): Defines the discretization of the source term.
-            Returns Source discretization object
-    flux_disc(): Defines the discretization of the flux term.
-            Returns Flux discretization object (E.g., Tpfa)
+             Returns: new slip if T_s > mu * (T_n - p)
+             Sets attributes: self.x, self.is_slipping, self.d_n
+    step(): Same as solve
+    normal_shear_traction(): project the traction into the corresponding
+                             normal and shear components
     grid(): Returns: the Grid or GridBucket
     data(): Returns: Data dictionary
-    split(name): Assignes the solution self.x to the data dictionary at each
-                 node in the GridBucket.
-                 Parameters:
-                    name: (string) The keyword assigned to the pressure
-    discharge(): Calls split('p'). Then calculate the discharges over each
-                 face in the grids and between edges in the GridBucket
+    fracture_dilation(slip_distance): Returns: the amount of dilation for given
+                                               slip distance
+    slip_distance(): saves the slip distance to the data dictionary and
+                     returns it
+    aperture_change(): saves the aperture change to the data dictionary and
+                       returns it
+    mu(faces): returns: the coefficient of friction
+    gamma(): returns: the numerical step length parameter
     save(): calls split('p'). Then export the pressure to a vtk file to the
             folder kwargs['folder_name'] with file name
             kwargs['file_name'], default values are 'results' for the folder and
@@ -81,32 +76,30 @@ class FrictionSlipModel():
         self.aperture_name = 'aperture_change'
 
     def solve(self):
-        """ Reassemble and solve linear system.
+        """ Linearize and solve corresponding system
 
-        After the funtion has been called, the attributes lhs and rhs are
-        updated according to the parameter states. Also, the attribute x
-        gives the pressure given the current state.
+        First, the function calculate if the slip-criterion is satisfied for
+        each face: T_s <= mu * (T_n - p).
+        If this is violated, the fracture is slipping. It estimates the slip
+        in direction of shear traction as:
+        d += T_s - mu(T_n - p) * sqrt(face_area) / G.
 
-        TODO: Provide an option to save solver information if multiple
-        systems are to be solved with the same left hand side.
+        Stores this result in self.x which is a ndarray of dimension
+        (3, number of faces). Also updates the ndarray self.is_slipping to
+        True for any face that violated the slip-criterion.
 
-        The function attempts to set up the best linear solver based on the
-        system size. The setup and parameter choices here are still
-        experimental.
-
-        Parameters:
-            max_direct (int): Maximum number of unknowns where a direct solver
-                is applied. If a direct solver can be applied this is usually
-                the most efficient option. However, if the system size is
-                too large compared to available memory, a direct solver becomes
-                extremely slow.
-            callback (boolean, optional): If True iteration information will be
-                output when an iterative solver is applied (system size larger
-                than max_direct)
+        Requires the following keywords in the data dictionary:
+        'face_pressure': (ndarray) size equal number of faces in the grid.
+                         Only the pressure on the fracture faces are used, and
+                         should be equivalent to the pressure in the
+                        pressure in the corresponding lower dimensional cells.
+        'traction': (ndarray) size (3, number_of_faces). This should be the 
+                    area scaled traction on each face.
+        'rock': a Rock Object with shear stiffness Rock.MU defined.
 
         Returns:
-            np.array: Pressure state.
-
+            new_slip (bool) returns True if the slip vector was violated for
+                     any faces
         """
         assert self._gb.dim == 3, 'only support for 3D (yet)'
 
@@ -142,12 +135,31 @@ class FrictionSlipModel():
         self.d_n[fi_left] += self.fracture_dilation(slip_d)
         slip_vec =  -t * slip_d #- n * slip_d #self.fracture_dilation(slip_d)
         
-        self.x[:, fi] = slip_vec
+        self.x[:, fi] += slip_vec
         self.x[:, fi_left] -= slip_vec
 
         return new_slip
 
     def normal_shear_traction(self, faces=None):
+        """
+        Project the traction vector into the normal and tangential components
+        as seen from the fractures. 
+        Requires that the data dictionary has keyword:
+        traction:  (ndarray) size (3, number of faces). giving the area
+                   weighted traction on each face.
+        
+        Returns:
+        --------
+        T_n:  (ndarray) size (number of fracture_cells) the normal traction on
+              each fracture.
+        T_s:  (ndarray) size (number of fracture_cells) the shear traction on
+              each fracture.
+        normals: (ndarray) size (3, number of fracture_cells) normal vector,
+            i.e., the direction of normal traction
+        tangents: (ndarray) size (3, number of fracture_cells) tangential
+            vector, i.e., the direction of shear traction
+        """
+
         if faces is None:
             frac_faces = self._gb.frac_pairs
             fi = frac_faces[1]
@@ -161,7 +173,6 @@ class FrictionSlipModel():
         sgn = sign_of_faces(self._gb, fi)
         #sgn_test = g.cell_faces[fi, ci]
 
-        T = T.reshape((3, -1), order='F')
         T = sgn * T[:, fi]
         normals = sgn * self._gb.face_normals[:, fi] / self._gb.face_areas[fi]
         assert np.allclose(np.sqrt(np.sum(normals**2, axis=0)), 1)
@@ -172,7 +183,7 @@ class FrictionSlipModel():
 
         tangents = tangents / np.sqrt(np.sum(tangents**2, axis=0))
         assert np.allclose(T, T_n * normals + T_s * tangents)
-        # TESTING
+        # Sanity check:
         frac_faces = self._gb.frac_pairs
         trac = self._data['traction'].copy()
         fi_left = frac_faces[0]
@@ -193,36 +204,107 @@ class FrictionSlipModel():
         return T_n, T_s, normals, tangents
 
     def fracture_dilation(self, distance):
+        """
+        defines the fracture dilation as a function of slip distance
+        Parameters:
+        ----------
+        distance: (ndarray) the slip distances
+
+        Returns:
+        ---------
+        dilation: (ndarray) the corresponding normal displacement of fractures.
+        """
+
         phi = 1 * np.pi / 180
         return distance * np.tan(phi)
 
     def mu(self, faces, slip_faces=[]):
+        """
+        Coefficient of friction.
+        Parameters:
+        ----------
+        faces: (ndarray) indexes of fracture faces
+        slip_faces: (ndarray) optional, defaults to []. Indexes of faces that
+                    are slipping ( will be given a dynamic friciton).
+        returns:
+        mu: (ndarray) the coefficient of each fracture face.
+        """
         mu_d = 0.55
         mu_ = 0.6 * np.ones(faces.size)
         mu_[slip_faces] = mu_d
         return mu_
 
     def gamma(self):
+        """
+        Numerical step length parameter. Defines of far a fracture violating 
+        the slip-condition should slip.
+        """
         return 2
 
     def step(self):
+        """
+        calls self.solve()
+        """
         return self.solve()
 
     def grid(self):
+        """
+        returns model grid
+        """
         return self._gb
 
     def data(self):
+        """
+        returns data
+        """
         return self._data
 
     def slip_distance(self, slip_name='slip_distance'):
+        """
+        Save the slip distance to the data dictionary. The slip distance
+        will be saved as a (3, self.grid().num_faces) array
+        Parameters: 
+        -----------
+        slip_name:    (string) Defaults to 'slip_distance'. Defines the
+                               keyword for the saved slip distance in the data
+                               dictionary
+        Returns:
+        --------
+        d:  (ndarray) the slip distance as a (3, self.grid().num_faces) array
+        """
         self.slip_name = slip_name
         self._data[self.slip_name] = self.x
+        return self.x
 
     def aperture_change(self, aperture_name='apperture_change'):
+        """
+        Save the aperture change to the data dictionary. The aperture change
+        will be saved as a (self.grid().num_faces) array
+        Parameters: 
+        -----------
+        slip_name:    (string) Defaults to 'aperture_name'. Defines the
+                               keyword for the saved aperture change in the data
+                               dictionary
+        Returns:
+        --------
+        d:  (ndarray) the change in aperture as a (self.grid().num_faces) array
+        """
         self.aperture_name = aperture_name
         self._data[self.aperture_name] = self.d_n
+        return self.d_n
 
     def save(self, variables=None, save_every=None):
+        """
+        Save the result as vtk. 
+
+        Parameters:
+        ----------
+        variables: (list) Optional, defaults to None. If None, only the grid
+            will be exported. A list of strings where each element defines a
+            keyword in the data dictionary to be saved.
+        time_step: (float) optinal, defaults to None. The time step of the
+            variable(s) that is saved
+        """
         if variables is None:
             self.exporter.write_vtk()
         else:
@@ -233,6 +315,33 @@ class FrictionSlipModel():
 
 #------------------------------------------------------------------------------#
 class FrictionSlipDataAssigner():
+    '''
+    Class for setting data to a slip problem:
+    T_s <= mu (T_n - p)
+    This class creates a Parameter object and assigns the data to this object
+    by calling FricitonSlipDataAssigner's functions.
+
+    To change the default values, create a class that inherits from
+    FrictionSlipDataAssigner. Then overload the values you whish to change.
+
+    Parameters in Init:
+    gb: (Grid) a grid object 
+    data: (dictionary) Dictionary which Parameter will be added to with keyword
+          'param'
+    physics: (string): defaults to 'mechanics'
+
+    Functions that assign data to Parameter class:
+        bc(): defaults to neumann boundary condition
+             Returns: (Object) boundary condition
+        bc_val(): defaults to 0
+             returns: (ndarray) boundary condition values
+        stress_tensor(): defaults to 1
+             returns: (tensor.FourthOrder) Stress tensor
+
+    Utility functions:
+        grid(): returns: the grid
+
+    '''
     def __init__(self, g, data, physics='slip'):
         self._g = g
         self._data = data
@@ -252,6 +361,17 @@ class FrictionSlipDataAssigner():
 #-----------------------------------------------------------------------------#
 
 def sign_of_faces(g, faces):
+    """
+    returns the sign of faces as defined by g.cell_faces. 
+    Parameters:
+    g: (Grid Object)
+    faces: (ndarray) indices of faces that you want to know the sign for. The 
+           faces must be boundary faces.
+
+    Returns:
+    sgn: (ndarray) the sign of the faces
+    """
+
     IA = np.argsort(faces)
     IC = np.argsort(IA)
 
