@@ -66,6 +66,51 @@ class Coupler(object):
 
 #------------------------------------------------------------------------------#
 
+    def initialize_matrix_rhs(self, gb):
+        """
+        Initialize the block global matrix. Including the part for the mortars.
+        We assume that the first (0:gb.num_graph_nodes()) blocks are reserved for
+        the physical domains, while the last (gb.num_graph_nodes() +
+        0:gb.num_graph_edges()) are reserved for the mortar coupling
+
+        Parameter:
+            gb: grid bucket.
+        Return:
+            matrix: the block global matrix.
+            rhs: the global right-hand side.
+        """
+        # Initialize the global matrix and rhs to store the local problems
+        matrix = np.empty((gb.size(), gb.size()), dtype=np.object)
+        rhs = np.empty(gb.size(), dtype=np.object)
+        for g_i, d_i in gb:
+            pos_i = d_i['node_number']
+            rhs[pos_i] = np.zeros(d_i['dof'])
+            for g_j, d_j in gb:
+                pos_j = d_j['node_number']
+                matrix[pos_i, pos_j] = sps.coo_matrix((d_i['dof'], d_j['dof']))
+
+        # Initialize the mortar matrices
+        for e, d in gb.edges_props():
+            pos_i, pos_j = d['node_number']
+            pos_m = d['edge_number'] + gb.num_graph_nodes()
+
+            gs = gb.sorted_nodes_of_edge(e)
+            dof_i, dof_j = gb.nodes_prop(gs, 'dof')
+            dof_m = d['dof']
+
+            matrix[pos_i, pos_m] = sps.coo_matrix((dof_i, dof_m))
+            matrix[pos_m, pos_i] = sps.coo_matrix((dof_m, dof_i))
+
+            matrix[pos_j, pos_m] = sps.coo_matrix((dof_j, dof_m))
+            matrix[pos_m, pos_j] = sps.coo_matrix((dof_m, dof_j))
+
+            matrix[pos_m, pos_m] = sps.coo_matrix((dof_m, dof_m))
+
+            rhs[pos_m] =  np.zeros(dof_m)
+
+        return matrix, rhs
+
+#------------------------------------------------------------------------------#
     def matrix_rhs(self, gb, matrix_format="csr"):
         """
         Return the matrix and righ-hand side for a suitable discretization, where
@@ -87,16 +132,7 @@ class Coupler(object):
         rhs: array right-hand side of the problem.
         """
         self.ndof(gb)
-
-        # Initialize the global matrix and rhs to store the local problems
-        matrix = np.empty((gb.size(), gb.size()), dtype=np.object)
-        rhs = np.empty(gb.size(), dtype=np.object)
-        for g_i, d_i in gb:
-            pos_i = d_i['node_number']
-            rhs[pos_i] = np.empty(d_i['dof'])
-            for g_j, d_j in gb:
-                pos_j = d_j['node_number']
-                matrix[pos_i, pos_j] = sps.coo_matrix((d_i['dof'], d_j['dof']))
+        matrix, rhs = self.initialize_matrix_rhs(gb)
 
         # Loop over the grids and compute the problem matrix
         for g, data in gb:
