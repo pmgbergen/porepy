@@ -80,7 +80,7 @@ COPY matplotlibsrc $POROPY_HOME/.config/matplotlib/matplotlibrc
 
 COPY dependencies $POROPY_HOME/.dependencies
 RUN pip install --no-cache-dir -r $POROPY_HOME/.dependencies
-RUN /bin/bash -c -l "echo 'source activate porepy'>>~/.profile" &&
+RUN /bin/bash -c -l "echo 'source activate porepy'>>~/.profile" && \
     /bin/bash -c -l "echo 'PYTHONPATH=/home/porepy/conda/envs/porepy/lib/python2.7/site-packages:$PYTHONPATH'>>~/.profile"
 
 COPY install $POREPY_HOME
