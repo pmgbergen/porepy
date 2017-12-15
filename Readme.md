@@ -59,6 +59,8 @@ Once the download is complete you can start porepy for the first time. Just run:
 ```
 The image is auto-deployed at each push in the branch "develop".
 
+For more details see the [docker md](./Docker.md).
+
 # (Semi-) Optional packages
 To function optimally, PorePy should have access to the pypi packages:
 *  `pymetis` (for mesh partitioning). Will be installed on Linux (not so on Windows, to avoid installation issues for the core package in the case where no C compiler is available).
@@ -78,5 +80,8 @@ Confer the [tutorials](https://github.com/pmgbergen/porepy/tree/develop/tutorial
 
 # Problems
 Create an [issue](https://github.com/pmgbergen/porepy/issues)
+
+# License
+See [license md](./LICENSE.md).
 
 
