@@ -14,7 +14,7 @@ import example_2_2_data
 
 def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000, if_export=False):
 
-    folder_export = 'example_2_2_vem/' + str(id_problem) + "/"
+    folder_export = 'example_2_2_vem_coarse/' + str(id_problem) + "/"
     file_export = 'vem'
 
     gb = example_2_2_create_grid.create(id_problem, is_coarse=is_coarse, tol=tol)
@@ -59,7 +59,7 @@ def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000, if_export=False):
 #------------------------------------------------------------------------------#
 
 num_simu = 44
-is_coarse = False
+is_coarse = True
 for i in np.arange(num_simu):
     main(i+1, is_coarse, if_export=True)
 

@@ -2415,7 +2415,8 @@ class FractureNetwork(object):
             return rot.dot(pts - cp)
 
         p = rot_translate(frac.p)
-        assert np.max(np.abs(p[2])) < self.tol
+        assert np.max(np.abs(p[2])) < self.tol, str(np.max(np.abs(p[2]))) + \
+                " " + str(self.tol)
         p_2d = p[:2]
 
         # Intersection points, in 2d coordinates

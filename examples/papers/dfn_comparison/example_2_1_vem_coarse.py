@@ -7,23 +7,23 @@ from porepy.grids.grid import FaceTag
 
 from porepy.numerics.vem import vem_dual, vem_source
 
-import example_2_2_create_grid
-import example_2_2_data
+import example_2_1_create_grid
+import example_2_1_data
 
 #------------------------------------------------------------------------------#
 
 def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000, if_export=False):
 
-    folder_export = 'example_2_2_vem/' + str(id_problem) + "/"
+    folder_export = 'example_2_1_vem_coarse/' + str(id_problem) + "/"
     file_export = 'vem'
 
-    gb = example_2_2_create_grid.create(id_problem, is_coarse=is_coarse, tol=tol)
+    gb = example_2_1_create_grid.create(id_problem, is_coarse=is_coarse, tol=tol)
 
     internal_flag = FaceTag.FRACTURE
     [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
     # Assign parameters
-    example_2_2_data.add_data(gb, tol)
+    example_2_1_data.add_data(gb, tol)
 
     # Choose and define the solvers and coupler
     solver_flow = vem_dual.DualVEMDFN(gb.dim_max(), 'flow')
@@ -45,21 +45,21 @@ def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000, if_export=False):
         save.write_vtk(["p", "P0u"])
 
     b_box = gb.bounding_box()
-    y_range = np.linspace(b_box[0][1]+tol, b_box[1][1]-tol, N_pts)
-    pts = np.stack((1.5*np.ones(N_pts), y_range, 0.5*np.ones(N_pts)))
-    values = example_2_2_data.plot_over_line(gb, pts, 'p', tol)
+    z_range = np.linspace(b_box[0][2]+tol, b_box[1][2]-tol, N_pts)
+    pts = np.stack((0.5*np.ones(N_pts), 0.5*np.ones(N_pts), z_range))
+    values = example_2_1_data.plot_over_line(gb, pts, 'p', tol)
 
-    arc_length = y_range - b_box[0][1]
+    arc_length = z_range - b_box[0][2]
     np.savetxt(folder_export+"plot_over_line.txt", (arc_length, values))
 
     # compute the flow rate
-    diam, flow_rate = example_2_2_data.compute_flow_rate_vem(gb, tol)
+    diam, flow_rate = example_2_1_data.compute_flow_rate_vem(gb, tol)
     np.savetxt(folder_export+"flow_rate.txt", (diam, flow_rate))
 
 #------------------------------------------------------------------------------#
 
-num_simu = 44
-is_coarse = False
+num_simu = 21
+is_coarse = True
 for i in np.arange(num_simu):
     main(i+1, is_coarse, if_export=True)
 
