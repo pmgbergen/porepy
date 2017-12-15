@@ -34,11 +34,11 @@ class BasicsTest(unittest.TestCase):
 
         for sub_g, d in gb:
             if sub_g.dim == 2:
-                d['problem'] = InjectionDomain(sub_g, d)
+                d['transport_data'] = InjectionDomain(sub_g, d)
             else:
-                d['problem'] = MatrixDomain(sub_g, d)
+                d['transport_data'] = MatrixDomain(sub_g, d)
 
-        problem = SourceProblem(gb)
+        problem = SourceProblem(gb, physics='transport')
         problem.solve()
         dE = change_in_energy(problem)
         assert np.abs(dE - 10) < 1e-6
@@ -52,9 +52,9 @@ class BasicsTest(unittest.TestCase):
 
         for sub_g, d in self.gb3d:
             if sub_g.dim == 2:
-                d['problem'] = InjectionDomain(sub_g, d)
+                d['transport_data'] = InjectionDomain(sub_g, d)
             else:
-                d['problem'] = MatrixDomain(sub_g, d)
+                d['transport_data'] = MatrixDomain(sub_g, d)
 
         problem = SourceProblem(self.gb3d)
         problem.solve()
@@ -66,9 +66,9 @@ class BasicsTest(unittest.TestCase):
 
         for g, d in self.gb3d:
             if g.dim == 2:
-                d['problem'] = InjectionDomain(g, d)
+                d['transport_data'] = InjectionDomain(g, d)
             else:
-                d['problem'] = MatrixDomain(g, d)
+                d['transport_data'] = MatrixDomain(g, d)
         solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveProblem(self.gb3d)
         problem.solve()
@@ -79,9 +79,9 @@ class BasicsTest(unittest.TestCase):
         delete_node_data(self.gb3d)
         for g, d in self.gb3d:
             if g.dim == 2:
-                d['problem'] = InjectionDomain(g, d)
+                d['transport_data'] = InjectionDomain(g, d)
             else:
-                d['problem'] = MatrixDomain(g, d)
+                d['transport_data'] = MatrixDomain(g, d)
         solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveDiffusiveProblem(self.gb3d)
         problem.solve()
@@ -92,9 +92,9 @@ class BasicsTest(unittest.TestCase):
         delete_node_data(self.gb3d)
         for g, d in self.gb3d:
             if g.dim == 2:
-                d['problem'] = InjectionDomain(g, d)
+                d['transport_data'] = InjectionDomain(g, d)
             else:
-                d['problem'] = MatrixDomain(g, d)
+                d['transport_data'] = MatrixDomain(g, d)
         solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveDiffusiveDirBound(self.gb3d)
         problem.solve()
@@ -105,8 +105,8 @@ class BasicsTest(unittest.TestCase):
 
 
 class SourceProblem(ParabolicModel):
-    def __init__(self, g):
-        ParabolicModel.__init__(self, g)
+    def __init__(self, g, physics='transport'):
+        ParabolicModel.__init__(self, g, physics=physics)
 
     def space_disc(self):
         return self.source_disc()
@@ -116,8 +116,8 @@ class SourceProblem(ParabolicModel):
 
 
 class SourceAdvectiveProblem(ParabolicModel):
-    def __init__(self, g):
-        ParabolicModel.__init__(self, g)
+    def __init__(self, g, physics='transport'):
+        ParabolicModel.__init__(self, g, physics=physics)
 
     def space_disc(self):
         return self.source_disc(), self.advective_disc()
@@ -127,8 +127,8 @@ class SourceAdvectiveProblem(ParabolicModel):
 
 
 class SourceAdvectiveDiffusiveProblem(ParabolicModel):
-    def __init__(self, g):
-        ParabolicModel.__init__(self, g)
+    def __init__(self, g, physics='transport'):
+        ParabolicModel.__init__(self, g, physics=physics)
 
     def space_disc(self):
         return self.source_disc(), self.advective_disc(), self.diffusive_disc()
@@ -138,8 +138,8 @@ class SourceAdvectiveDiffusiveProblem(ParabolicModel):
 
 
 class SourceAdvectiveDiffusiveDirBound(SourceAdvectiveDiffusiveProblem):
-    def __init__(self, g):
-        SourceAdvectiveDiffusiveProblem.__init__(self, g)
+    def __init__(self, g, physics='transport'):
+        SourceAdvectiveDiffusiveProblem.__init__(self, g, physics=physics)
 
     def bc(self):
         dir_faces = self.grid().has_face_tag(FaceTag.DOMAIN_BOUNDARY)
@@ -194,7 +194,7 @@ def change_in_energy(problem):
         problem.grid(), 'T', problem._solver.p)
     for g, d in problem.grid():
         p = d['T']
-        p0 = d['problem'].initial_condition()
+        p0 = d['transport_data'].initial_condition()
         V = g.cell_volumes * d['param'].get_aperture()
         dE += np.sum((p - p0) * V)
 
