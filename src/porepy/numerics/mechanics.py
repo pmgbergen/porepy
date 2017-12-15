@@ -27,8 +27,8 @@ class StaticModel():
 
     Parameters in Init:
     gb: (Grid) a grid object.
-    data: (dictionary) dictionary of dat. Should
-          contain a Parameter class with the keyword 'Param'
+    data (dictionary): dictionary of data. Should contain a Parameter class
+                       with the keyword 'Param'
     physics: (string): defaults to 'mechanics'
 
     Functions:
@@ -230,9 +230,12 @@ class StaticModel():
         T = T.reshape((self.grid().dim, -1), order='F')
         T_b = np.zeros(T.shape)
         sigma = self._data['param'].get_background_stress(self.physics)
-        normals = self.grid().face_normals
-        for i in range(normals.shape[1]):
-             T_b[:, i] = np.dot(normals[:, i], sigma)
+        if np.any(sigma):
+            normals = self.grid().face_normals
+            for i in range(normals.shape[1]):
+                T_b[:, i] = np.dot(normals[:, i], sigma)
+        else:
+            T_b = 0
         self._data[traction_name] = T + T_b
 
     def save(self, variables=None, time_step=None):
@@ -314,9 +317,9 @@ class StaticDataAssigner():
     StaticDataAssigner. Then overload the values you whish to change.
 
     Parameters in Init:
-    gb: (Grid) a grid object 
-    data: (dictionary) Dictionary which Parameter will be added to with keyword
-          'param'
+    gb (Grid): a grid object 
+    data (dictionary): Dictionary which Parameter will be added to with keyword
+                       'param'
     physics: (string): defaults to 'mechanics'
 
     Functions that assign data to Parameter class:
@@ -348,6 +351,9 @@ class StaticDataAssigner():
     def background_stress(self):
         sigma = -np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
         return sigma
+
+    def stress_tensor(self):
+        return None
 
     def data(self):
         return self._data
