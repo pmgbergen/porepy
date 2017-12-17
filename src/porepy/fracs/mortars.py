@@ -31,6 +31,7 @@ import scipy.sparse as sps
 
 from porepy.fracs import non_conforming
 from porepy.utils.matrix_compression import rldecode
+import porepy.utils.comp_geom as cg
 
 #------------------------------------------------------------------------------#
 
@@ -142,3 +143,36 @@ def match_grids_1d(new_1d, old_1d):
     weights /= old_1d.cell_volumes[old_in_full]
     return weights, new_in_full, old_in_full
 
+
+def match_grids_2d(g, h):
+    """ Match two simplex tessalations to identify overlapping cells.
+
+    The overlaps are identified by the cell index of the two overlapping cells,
+    and their common area.
+
+    Parameters:
+        g: simplex grid of dimension 2.
+        h: simplex grid of dimension 2.
+
+    Returns:
+        np.array: Areas of overlapping region.
+        np.array: Index of overlapping cell in the first grid.
+        np.array: Index of overlapping cell in the second grid.
+
+    """
+    cn_g = g.cell_nodes().indices.reshape((g.dim+1, g.num_cells), order='F')
+    cn_h = h.cell_nodes().indices.reshape((h.dim+1, h.num_cells), order='F')
+
+    isect = cg.intersect_triangulations(g.nodes[:2], h.nodes[:2], cn_g, cn_h)
+
+    num = len(isect)
+    g_ind = np.zeros(num)
+    h_ind = np.zeros(num)
+    vals = np.zeros(num)
+
+    for ind, i in enumerate(isect):
+        g_ind[ind] = i[0]
+        h_ind[ind] = i[1]
+        vals[ind] = i[2]
+
+    return vals, g_ind, h_ind
