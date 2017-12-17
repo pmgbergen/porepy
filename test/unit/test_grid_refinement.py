@@ -184,14 +184,20 @@ class TestGridRefinement1d(unittest.TestCase):
         for e, d in gb.edges_props():
 
             mg = d['mortar']
-            mg_new = refinement.refine_grid_1d(mg, ratio=2)
-            mortars.refine_mortar_grid(mg, mg_new)
+            # devo farlo per ogni side
+            new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=4) \
+                              for s, g in mg.side_grids.items()}
+
+            mortars.refine_mortar(mg, new_side_grids)
+            mg.compute_geometry()
 
             # refine the 1d-physical grid
-            g_old = gb.sorted_nodes_of_edge(e)[0]
-            g_new = refinement.refine_grid_1d(g_old, ratio=3)
-            gb.update_nodes(g_old, g_new)
-            mortars.refine_co_dimensional_grid(mg, g_new)
+            old_g = gb.sorted_nodes_of_edge(e)[0]
+            new_g = refinement.new_grid_1d(old_g, num_nodes=5)
+            new_g.compute_geometry()
+
+            gb.update_nodes(old_g, new_g)
+            mortars.refine_co_dimensional_grid(mg, new_g)
 
         #plot_grid.plot_grid(gb, alpha=0, info='c')
 
