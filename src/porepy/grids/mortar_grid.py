@@ -20,6 +20,18 @@ from porepy.utils import matrix_compression, mcolon
 
 from porepy.utils import comp_geom as cg
 
+class SideTag(np.uint8, Enum):
+    """
+    FaceTag contains the following types:
+        NONE: None of the below
+        LEFT: Left part of the domain
+        RIGHT: Right part of the domain
+    """
+    NONE = 0
+    LEFT = 1
+    RIGHT = 2
+    WHOLE = np.iinfo(type(NONE)).max
+
 class MortarGrid(object):
     """
     Parent class for all grids.
@@ -75,7 +87,7 @@ class MortarGrid(object):
 
     """
 
-    def __init__(self, dim, nodes, cell_nodes, face_cells, name=''):
+    def __init__(self, dim, side_grids, face_cells, name=''):
         """Initialize the grid
 
         See class documentation for further description of parameters.
@@ -87,54 +99,35 @@ class MortarGrid(object):
         cell_nodes (sps.csc_matrix): Cell-node relations
         name (str): Name of grid
         """
+
         assert dim >= 0 and dim < 3
+        assert np.all([g.dim == dim for g in side_grids.values()])
+
         self.dim = dim
+        self.side_grids = side_grids
+        self.sides = np.array(self.side_grids.keys)
 
         if isinstance(name, list):
             self.name = name
         else:
             self.name = [name]
 
-        self.update_geometry(nodes, cell_nodes)
+        num_cells = list(self.side_grids.values())[0].num_cells
 
         # face_cells mapping from the higher dimensional grid to the mortar grid
         # also here we assume that, in the beginning the mortar grids are equal
         # to the co-dimensional grid
         cells, faces, data = sps.find(face_cells)
-        cells[faces > np.median(faces)] += cell_nodes.shape[1]
+        cells[faces > np.median(faces)] += num_cells
 
-        shape = (self.num_cells, face_cells.shape[1])
+        shape = (num_cells*self.num_sides(), face_cells.shape[1])
         self.high_to_mortar = sps.csc_matrix((data.astype(np.float),
                                              (cells, faces)), shape=shape)
 
         # cell_cells mapping from the mortar grid to the lower dimensional grid
-        self.mortar_to_low = sps.identity(self.num_cells, dtype=np.float,
-                                          format='csc')
+        identity = sps.identity(num_cells)
+        self.mortar_to_low = sps.bmat([[identity], [identity]], format='csc')
 
-#    def copy(self):
-#        """
-#        Create a deep copy of the grid.
-#
-#        Returns:
-#            grid: A deep copy of self. All attributes will also be copied.
-#
-#        """
-#        h = Grid(self.dim, self.nodes.copy(), self.face_nodes.copy(),
-#                 self.cell_faces.copy(), self.name)
-#        if hasattr(self, 'cell_volumes'):
-#            h.cell_volumes = self.cell_volumes.copy()
-#        if hasattr(self, 'cell_centers'):
-#            h.cell_centers = self.cell_centers.copy()
-#        if hasattr(self, 'face_centers'):
-#            h.face_centers = self.face_centers.copy()
-#        if hasattr(self, 'face_normals'):
-#            h.face_normals = self.face_normals.copy()
-#        if hasattr(self, 'face_areas'):
-#            h.face_areas = self.face_areas.copy()
-#        if hasattr(self, 'face_tags'):
-#            h.face_tags = self.face_tags.copy()
-#        return h
-#
     def __repr__(self):
         """
         Implementation of __repr__
@@ -156,18 +149,10 @@ class MortarGrid(object):
         """
         s = str()
 
-        # Special treatment of point grids.
-        if 'PointGrid' in self.name:
-            n = self.nodes
-            s = 'Point grid.\n' + \
-                'Coordinate: (' + str(n[0]) + ', ' + str(n[1]) + \
-                ', ' + str(n[2]) + ')\n'
-            return s
+        s+= "".join(['Side '+str(s)+' with grid:\n'+str(g) for s, g in
+                                                       self.side_grids.items()])
 
-        # More or less uniform treatment of the types of grids.
-        s += 'Number of cells ' + str(self.num_cells) + '\n' + \
-             'Number of nodes ' + str(self.num_nodes) + '\n' + \
-             'Mapping from the faces of the higher dimensional grid to' + \
+        s += 'Mapping from the faces of the higher dimensional grid to' + \
              ' the cells of the mortar grid.\nRows indicate the mortar' + \
              ' cell id, columns indicate the (higher dimensional) face id' + \
              '\n' + str(self.high_to_mortar) + '\n' + \
@@ -178,138 +163,25 @@ class MortarGrid(object):
 
         return s
 
-    def update_geometry(self, nodes, cell_nodes):
+    def compute_geometry(self):
+        [g.compute_geometry(is_embedded=True) for g in self.side_grids.values()]
 
-        self.nodes = np.hstack((nodes, nodes))
-        self._cell_nodes = sps.bmat([[cell_nodes, None],
-                                     [None, cell_nodes]], format='csc')
+    def refine_mortar(self, side_matrix):
+        matrix = np.empty((self.num_sides(), self.num_sides()), dtype=np.object)
+        for pos, (side, _) in enumerate(self.side_grids.items()):
+            matrix[pos, pos] = side_matrix[side]
 
-        # Infer bookkeeping from size of parameters
-        self.num_nodes = self.nodes.shape[1]
-        self.num_cells = self._cell_nodes.shape[1]
-
-        self.compute_geometry()
-
-    def refine_mortar(self, matrix):
-        matrix = sps.bmat([[matrix, None], [None, matrix]])
+        matrix = sps.bmat(matrix)
         self.mortar_to_low = matrix * self.mortar_to_low
         self.high_to_mortar = matrix * self.high_to_mortar
 
-    def refine_low(self, matrix):
-        self.mortar_to_low = sps.bmat([[matrix.T], [matrix.T]])
 
-    def compute_geometry(self):
-        """Compute geometric quantities for the grid.
+    def refine_low(self, side_matrix):
+        matrix = np.empty((self.num_sides(), 1), dtype=np.object)
+        for pos, (side, _) in enumerate(self.side_grids.items()):
+            matrix[pos, 0] = side_matrix[side]
 
-        This method initializes class variables describing the grid
-        geometry, see class documentation for details.
+        self.mortar_to_low = sps.bmat(matrix, format='csc')
 
-        The method could have been called from the constructor, however,
-        in cases where the grid is modified after the initial construction (
-        say, grid refinement), this may lead to costly, unnecessary
-        computations.
-        """
-
-        self.name.append('Compute geometry')
-
-        if self.dim == 0:
-            self.__compute_geometry_0d()
-        elif self.dim == 1:
-            self.__compute_geometry_1d()
-        else:
-            self.__compute_geometry_2d()
-
-    def __compute_geometry_0d(self):
-        "Compute 0D geometry"
-
-        self.cell_volumes = np.ones(1)
-        self.cell_centers = self.nodes
-
-    def __compute_geometry_1d(self):
-        "Compute 1D geometry"
-
-        cn = self._cell_nodes.indices
-        x1 = self.nodes[:, cn[::2]]
-        x2 = self.nodes[:, cn[1::2]]
-
-        self.cell_volumes = np.linalg.norm(x1 - x2, axis=0)
-        self.cell_centers = 0.5 * (x1 + x2)
-
-    def __compute_geometry_2d(self):
-        "Compute 2D geometry, with method motivated by similar MRST function"
-
-        TO_FIX
-        R = cg.project_plane_matrix(self.nodes, check_planar=False)
-        self.nodes = np.dot(R, self.nodes)
-
-        fn = self.face_nodes.indices
-        edge1 = fn[::2]
-        edge2 = fn[1::2]
-
-        xe1 = self.nodes[:, edge1]
-        xe2 = self.nodes[:, edge2]
-
-        edge_length_x = xe2[0] - xe1[0]
-        edge_length_y = xe2[1] - xe1[1]
-        edge_length_z = xe2[2] - xe1[2]
-        self.face_areas = np.sqrt(np.power(edge_length_x, 2) +
-                                  np.power(edge_length_y, 2) +
-                                  np.power(edge_length_z, 2))
-        self.face_centers = 0.5 * (xe1 + xe2)
-        n = edge_length_z.shape[0]
-        self.face_normals = np.vstack(
-            (edge_length_y, -edge_length_x, np.zeros(n)))
-
-        cell_faces, cellno = self.cell_faces.nonzero()
-        cx = np.bincount(cellno, weights=self.face_centers[0, cell_faces])
-        cy = np.bincount(cellno, weights=self.face_centers[1, cell_faces])
-        cz = np.bincount(cellno, weights=self.face_centers[2, cell_faces])
-        self.cell_centers = np.vstack((cx, cy, cz)) / np.bincount(cellno)
-
-        a = xe1[:, cell_faces] - self.cell_centers[:, cellno]
-        b = xe2[:, cell_faces] - self.cell_centers[:, cellno]
-
-        sub_volumes = 0.5 * np.abs(a[0] * b[1] - a[1] * b[0])
-        self.cell_volumes = np.bincount(cellno, weights=sub_volumes)
-
-        sub_centroids = (self.cell_centers[:, cellno] + 2 *
-                         self.face_centers[:, cell_faces]) / 3
-
-        ccx = np.bincount(cellno, weights=sub_volumes * sub_centroids[0])
-        ccy = np.bincount(cellno, weights=sub_volumes * sub_centroids[1])
-        ccz = np.bincount(cellno, weights=sub_volumes * sub_centroids[2])
-
-        self.cell_centers = np.vstack((ccx, ccy, ccz)) / self.cell_volumes
-
-        # Ensure that normal vector direction corresponds with sign convention
-        # in self.cellFaces
-        def nrm(u):
-            return np.sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2])
-
-        [fi, ci, val] = sps.find(self.cell_faces)
-        _, idx = np.unique(fi, return_index=True)
-        sgn = val[idx]
-        fc = self.face_centers[:, fi[idx]]
-        cc = self.cell_centers[:, ci[idx]]
-        v = fc - cc
-        # Prolong the vector from cell to face center in the direction of the
-        # normal vector. If the prolonged vector is shorter, the normal should
-        # flipped
-        vn = v + nrm(v) * self.face_normals[:, fi[idx]] * 0.001
-        flip = np.logical_or(np.logical_and(nrm(v) > nrm(vn), sgn > 0),
-                             np.logical_and(nrm(v) < nrm(vn), sgn < 0))
-        self.face_normals[:, flip] *= -1
-
-        self.nodes = np.dot(R.T, self.nodes)
-        self.cell_centers = np.dot(R.T, self.cell_centers)
-
-    def cell_nodes(self):
-        """
-        Obtain mapping between cells and nodes.
-
-        Returns:
-            sps.csc_matrix, size num_nodes x num_cells: Value 1 indicates a
-                connection between cell and node.
-
-        """
-        return self._cell_nodes
+    def num_sides(self):
+        return len(self.side_grids)

@@ -34,32 +34,44 @@ from porepy.utils.matrix_compression import rldecode
 
 #------------------------------------------------------------------------------#
 
-def refine_mortar_grid(mg, mg_new):
+def refine_mortar(mg, new_side_grids):
 
-    if mg.dim == 0:
-        return
-    elif mg.dim == 1:
-        split_matrix = split_matrix_1d(mg, mg_new)
-    elif mg.dim == 2:
-        split_matrix = split_matrix_2d(mg, mg_new)
-    else:
-        raise ValueError
+    split_matrix = {}
 
-    mg.update_geometry(mg_new.nodes, mg_new.cell_nodes())
+    for side, g in mg.side_grids.items():
+        new_g = new_side_grids[side]
+        assert g.dim == new_g.dim
+
+        if g.dim == 0:
+            return
+        elif g.dim == 1:
+            split_matrix[side] = split_matrix_1d(g, new_g)
+        elif g.dim == 2:
+            split_matrix[side] = split_matrix_2d(g, new_g)
+        else:
+            raise ValueError
+
+        mg.side_grids[side] = new_g.copy()
+
     mg.refine_mortar(split_matrix)
 
 #------------------------------------------------------------------------------#
 
-def refine_co_dimensional_grid(mg, g):
+def refine_co_dimensional_grid(mg, new_g):
 
-    if mg.dim == 0:
-        return
-    elif mg.dim == 1:
-        split_matrix = split_matrix_1d(mg, g)
-    elif mg.dim == 2:
-        split_matrix = split_matrix_2d(mg, g)
-    else:
-        raise ValueError
+    split_matrix = {}
+
+    for side, g in mg.side_grids.items():
+        assert g.dim == new_g.dim
+
+        if mg.dim == 0:
+            return
+        elif mg.dim == 1:
+            split_matrix[side] = split_matrix_1d(g, new_g).T
+        elif mg.dim == 2:
+            split_matrix[side] = split_matrix_2d(g, new_g).T
+        else:
+            raise ValueError
 
     mg.refine_low(split_matrix)
 
@@ -73,7 +85,6 @@ def split_matrix_1d(g_old, g_new):
 
 def split_matrix_2d():
     return None
-
 
 #------------------------------------------------------------------------------#
 
@@ -109,7 +120,6 @@ def match_grids_1d(new_1d, old_1d):
     combined, _, new_ind, old_ind, _, _ = \
          non_conforming.merge_1d_grids(new_1d, old_1d)
     combined.compute_geometry()
-
     weights = combined.cell_volumes
 
     switch_new = new_ind[0] > new_ind[-1]
