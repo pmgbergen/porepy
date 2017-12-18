@@ -108,8 +108,6 @@ class MortarGrid(object):
 
         """
         s = 'Mortar grid with history ' + ', '.join(self.name) + '\n' + \
-            'Number of cells ' + str(self.num_cells) + '\n' + \
-            'Number of nodes ' + str(self.num_nodes) + '\n' + \
             'Dimension ' + str(self.dim) + '\n' + \
             'Face_cells mapping from the higher dimensional grid to the mortar grid\n' + \
             str(self.high_to_mortar) + '\n' + \
