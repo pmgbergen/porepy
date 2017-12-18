@@ -36,49 +36,95 @@ import porepy.utils.comp_geom as cg
 #------------------------------------------------------------------------------#
 
 def refine_mortar(mg, new_side_grids):
+    """
+    Update the maps in the mortar class when the mortar grids are changed.
+    The update of the mortar grid is in-place.
+
+    It is asumed that the grids are aligned, with common start and endpoints.
+
+    Parameters:
+        mg (MortarGrid): the mortar grid class to be updated
+        new_side_grids (dictionary): for each SideTag key a new grid to be
+            updated in the mortar grid class.
+    """
 
     split_matrix = {}
 
+    # For each side we compute the mapping between the old and the new mortar
+    # grids, we store them in a dictionary with SideTag as key.
     for side, g in mg.side_grids.items():
         new_g = new_side_grids[side]
         assert g.dim == new_g.dim
 
         if g.dim == 0:
+            # Nothing to do
             return
         elif g.dim == 1:
             split_matrix[side] = split_matrix_1d(g, new_g)
         elif g.dim == 2:
             split_matrix[side] = split_matrix_2d(g, new_g)
         else:
+            # No 3d mortar grid
             raise ValueError
 
         mg.side_grids[side] = new_g.copy()
 
+    # Update the mortar grid class
     mg.refine_mortar(split_matrix)
 
 #------------------------------------------------------------------------------#
 
 def refine_co_dimensional_grid(mg, new_g):
+    """
+    Update the maps in the mortar class when the lower dimensional grid is
+    changed. The update of the lower dimensional grid in the grid bucket needs
+    to be done outside.
+
+    It is asumed that the grids are aligned, with common start and endpoints.
+
+    Parameters:
+        mg (MortarGrid): the mortar grid class to be updated
+        new_g (Grid): the new lower dimensional grid
+    """
 
     split_matrix = {}
 
+    # For each side we compute the mapping between the new lower dimensional
+    # grid and the mortar grid, we store them in a dictionary with SideTag as key.
     for side, g in mg.side_grids.items():
         assert g.dim == new_g.dim
 
         if mg.dim == 0:
+            # Nothing to do
             return
         elif mg.dim == 1:
             split_matrix[side] = split_matrix_1d(g, new_g).T
         elif mg.dim == 2:
             split_matrix[side] = split_matrix_2d(g, new_g).T
         else:
+            # No 3d mortar grid
             raise ValueError
 
+    # Update the mortar grid class
     mg.refine_low(split_matrix)
 
 #------------------------------------------------------------------------------#
 
 def split_matrix_1d(g_old, g_new):
+    """
+    By calling matching grid the function compute the cell mapping between two
+    different grids.
+
+    It is asumed that the two grids are aligned, with common start and
+    endpoints.
+
+    Parameters:
+        g_old (Grid): the first (old) grid
+        g_new (Grid): the second (new) grid
+    Return:
+        csr matrix: representing the cell mapping. The entries are the relative
+            cell measure between the two grids.
+    """
     weights, new_cells, old_cells = match_grids_1d(g_new, g_old)
     return sps.csr_matrix((weights, (new_cells, old_cells)))
 
@@ -143,6 +189,7 @@ def match_grids_1d(new_1d, old_1d):
     weights /= old_1d.cell_volumes[old_in_full]
     return weights, new_in_full, old_in_full
 
+#------------------------------------------------------------------------------#
 
 def match_grids_2d(g, h):
     """ Match two simplex tessalations to identify overlapping cells.
@@ -176,3 +223,5 @@ def match_grids_2d(g, h):
         vals[ind] = i[2]
 
     return vals, g_ind, h_ind
+
+#------------------------------------------------------------------------------#
