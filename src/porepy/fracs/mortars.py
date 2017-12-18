@@ -130,8 +130,22 @@ def split_matrix_1d(g_old, g_new):
 
 #------------------------------------------------------------------------------#
 
-def split_matrix_2d():
-    return None
+def split_matrix_2d(g_old, g_new):
+    """
+    By calling matching grid the function compute the cell mapping between two
+    different grids.
+
+    It is asumed that the two grids are aligned, with common boundary.
+
+    Parameters:
+        g_old (Grid): the first (old) grid
+        g_new (Grid): the second (new) grid
+    Return:
+        csr matrix: representing the cell mapping. The entries are the relative
+            cell measure between the two grids.
+    """
+    weights, new_cells, old_cells = match_grids_2d(g_new, g_old)
+    return sps.csr_matrix((weights, (new_cells, old_cells)))
 
 #------------------------------------------------------------------------------#
 
