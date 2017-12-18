@@ -88,9 +88,9 @@ class BasicsTest( unittest.TestCase ):
 
         for _, d in gb:
             if d['node_number'] == 0:
-                assert np.allclose( d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose( d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
 
         assert np.allclose(p, p_known, rtol, atol)
 
@@ -164,9 +164,9 @@ class BasicsTest( unittest.TestCase ):
         for _, d in gb:
 
             if d['node_number'] == 0:
-                assert np.allclose( d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose( d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
 
         assert np.allclose(p, p_known, rtol, atol)
 
@@ -274,19 +274,19 @@ class BasicsTest( unittest.TestCase ):
         atol = rtol
         for g, d in gb:
             if d['node_number'] == 0:
-                assert np.allclose(  d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose(  d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
             if d['node_number'] == 2:
-                assert np.allclose( d['param'].get_discharge(), d_2, rtol, atol)
+                assert np.allclose( d['discharge'], d_2, rtol, atol)
         for g, d in gb_r:
 
             if d['node_number'] == 0:
-                assert np.allclose(  d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose(  d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
             if d['node_number'] == 2:
-                assert np.allclose( d['param'].get_discharge(), d_2, rtol, atol)
+                assert np.allclose( d['discharge'], d_2, rtol, atol)
 
         # ... edge fluxes ...
         d_01, d_10, d_02, d_20, d_13, d_23 = coupling_fluxes_2d_1d_cross_no_el()
@@ -298,15 +298,15 @@ class BasicsTest( unittest.TestCase ):
             if pa is not None:
 
                 if node_numbers == (0,1):
-                    assert np.allclose( pa.get_discharge(), d_01, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_10, rtol, atol)
+                    assert np.allclose( data['discharge'], d_01, rtol, atol) or \
+                        np.allclose( data['discharge'], d_10, rtol, atol)
                 if node_numbers == (0,2):
-                    assert np.allclose( pa.get_discharge(), d_02, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_20, rtol, atol)
+                    assert np.allclose( data['discharge'], d_02, rtol, atol) or \
+                        np.allclose( data['discharge'], d_20, rtol, atol)
                 if node_numbers == (1,3):
-                    assert np.allclose( pa.get_discharge(), d_13, rtol, atol)
+                    assert np.allclose( data['discharge'], d_13, rtol, atol)
                 if node_numbers == (2,3):
-                    assert np.allclose( pa.get_discharge(), d_23, rtol, atol)
+                    assert np.allclose( data['discharge'], d_23, rtol, atol)
 
         d_11,d_21,d_22 = coupling_fluxes_2d_1d_cross_with_el()
         for e, data in gb_r.edges_props():
@@ -316,17 +316,17 @@ class BasicsTest( unittest.TestCase ):
             if pa is not None:
 
                 if node_numbers == (0,1):
-                    assert np.allclose( pa.get_discharge(), d_01, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_10, rtol, atol)
+                    assert np.allclose( data['discharge'], d_01, rtol, atol) or \
+                        np.allclose( data['discharge'], d_10, rtol, atol)
                 if node_numbers == (0,2):
-                    assert np.allclose( pa.get_discharge(), d_02, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_20, rtol, atol)
+                    assert np.allclose( data['discharge'], d_02, rtol, atol) or \
+                        np.allclose( data['discharge'], d_20, rtol, atol)
                 if node_numbers == (1,1):
-                    assert np.allclose( pa.get_discharge(), d_11, rtol, atol)
+                    assert np.allclose( data['discharge'], d_11, rtol, atol)
                 if node_numbers == (2,1):
-                    assert np.allclose( pa.get_discharge(), d_21, rtol, atol)
+                    assert np.allclose( data['discharge'], d_21, rtol, atol)
                 if node_numbers == (2,2):
-                    assert np.allclose( pa.get_discharge(), d_22, rtol, atol)
+                    assert np.allclose( data['discharge'], d_22, rtol, atol)
         # ... and pressures
         tol = 1e-10
         assert((np.amax(np.absolute(p-p_cond))) < tol)
