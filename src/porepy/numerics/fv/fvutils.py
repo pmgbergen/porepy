@@ -941,7 +941,7 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
 #------------------------------------------------------------------------------
 
 
-def compute_discharges(gb, physics='flow', p_name='p', data=None):
+def compute_discharges(gb, physics='flow',d_name='discharge', p_name='p', data=None):
     """
     Computes discharges over all faces in the entire grid /grid bucket given
     pressures for all nodes, provided as node properties.
@@ -955,13 +955,14 @@ def compute_discharges(gb, physics='flow', p_name='p', data=None):
             and the following edge property field for all connected grids:
         'coupling_flux': Discretization of the coupling fluxes.
     Returns:
-        gb, the same grid bucket with the added field 'discharge' added to all
-        node data fields. Note that the fluxes between grids will be added only
-        at the gb edge, not at the node fields. The sign of the discharges
-        correspond to the directions of the normals, in the edge/coupling case
-        those of the higher grid. For edges beteween grids of equal dimension,
-        there is an implicit assumption that all normals point from the second
-        to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
+        gb, the same grid bucket with the added field 'discharge'(overwritten
+        by d_name) added to all node data fields. Note that the fluxes between
+        grids will be added only at the gb edge, not at the node fields. The
+        sign of the discharges correspond to the directions of the normals, in
+        the edge/coupling case those of the higher grid. For edges beteween
+        grids of equal dimension, there is an implicit assumption that all
+        normals point from the second to the first of the sorted grids
+        (gb.sorted_nodes_of_edge(e)).
     """
     if not isinstance(gb, GridBucket):
         pa = data['param']
@@ -970,7 +971,7 @@ def compute_discharges(gb, physics='flow', p_name='p', data=None):
                                * pa.get_bc_val(physics)
         else:
             dis = np.zeros(g.num_faces)
-        pa.set_discharge(dis)
+        data[d_name] = dis
         return
 
     for g, d in gb:
@@ -981,34 +982,32 @@ def compute_discharges(gb, physics='flow', p_name='p', data=None):
                                    * pa.get_bc_val(physics)
             else:
                 dis = np.zeros(g.num_faces)
-            pa.set_discharge(dis)
+            d[d_name] = dis
 
-    for e, data in gb.edges_props():
+    for e, d in gb.edges_props():
         # According to the sorting convention, g2 is the higher dimensional grid,
         # the one to who's faces the fluxes correspond
         g1, g2 = gb.sorted_nodes_of_edge(e)
 
-        if  g1.dim != g2.dim and data['face_cells'] is not None:
-            if not 'param' in data:
-               data['param'] = Parameters(g2)
-            pa = data['param']
+        if  g1.dim != g2.dim and d['face_cells'] is not None:
+            pa = d['param']
             coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
             pressures = gb.nodes_prop([g2, g1], p_name)
             dis = coupling_flux * np.concatenate(pressures)
-            pa.set_discharge(dis)
+            d[d_name] = dis
 
 
-        elif g1.dim == g2.dim and data['face_cells'] is not None:
+        elif g1.dim == g2.dim and d['face_cells'] is not None:
             try:
-                pa = data['param']
+                pa = d['param']
             except KeyError:
                 pa = Parameters(g2)
-                data['param'] = pa
+                d['param'] = pa
             # g2 is now only the "higher", but still the one defining the faces
             # (cell-cells connections) in the sense that the normals are assumed
             # outward from g2, "pointing towards the g1 cells". Note that in
             # general, there are g2.num_cells x g1.num_cells connections/"faces".
-            cc = data['face_cells']
+            cc = d['face_cells']
             cells_1, cells_2 = cc.nonzero()
             coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
 
@@ -1020,4 +1019,4 @@ def compute_discharges(gb, physics='flow', p_name='p', data=None):
             dis = contribution_2-contribution_1
             # Store flux at the edge only. This means that the flux will remain
             # zero in the data of both g1 and g2
-            pa.set_discharge(np.ravel(dis))
+            d[d_name] = np.ravel(dis)

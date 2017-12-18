@@ -118,9 +118,9 @@ def add_data_advection_diffusion(gb, domain, tol):
     gb.add_edge_prop('param')
     for e, d in gb.edges_props():
         g_h = gb.sorted_nodes_of_edge(e)[1]
-        discharge = gb.node_prop(g_h, 'param').get_discharge()
+        discharge = gb.node_prop(g_h, 'discharge')
         d['param'] = Parameters(g_h)
-        d['param'].set_discharge(discharge)
+        d['discharge'] = discharge
 
 #------------------------------------------------------------------------------#
 
@@ -162,7 +162,7 @@ darcy.split(gb, "up", up)
 gb.add_node_props(["p", "P0u"])
 for g, d in gb:
     discharge = darcy.discr.extract_u(g, d["up"])
-    d['param'].set_discharge(discharge)
+    d['discharge'] = discharge
     d["p"] = darcy.discr.extract_p(g, d["up"])
     d["P0u"] = darcy.discr.project_u(g, discharge, d)
 

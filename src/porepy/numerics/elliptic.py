@@ -352,21 +352,8 @@ class DualEllipticModel(EllipticModel):
         self.discharge_name = discharge_name
         if self.is_GridBucket:
             self._flux_disc.extract_u(self._gb, self.x_name, self.discharge_name)
-
-            # Assign discharge
-            for _, d in self._gb:
-                d['param'].set_discharge(d[self.discharge_name])
-
-            for e, d in self._gb.edges_props():
-                g = self._gb.sorted_nodes_of_edge(e)[1]
-                discharge = self._gb.node_prop(g, 'param').get_discharge()
-                if not 'param' in d:
-                    d['param'] = Parameters(g)
-                d['param'].set_discharge(discharge)
-
         else:
             discharge = self._flux_disc.extract_u(self._gb, self.x)
-            self._data['param'].set_discharge(discharge)
             self._data[self.discharge_name] = discharge
 
     def project_discharge(self, projected_discharge_name="P0u"):
