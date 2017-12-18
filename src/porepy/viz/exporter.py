@@ -89,6 +89,10 @@ class Exporter():
         if self.fixed_grid:
             self._update_gb_VTK()
 
+        self.map_type = {np.dtype('bool'): vtk.VTK_CHAR,
+                         np.dtype('int64'): vtk.VTK_INT,
+                         np.dtype('float64'): vtk.VTK_DOUBLE}
+
 #------------------------------------------------------------------------------#
 
     def change_name(self, name):
@@ -201,12 +205,13 @@ class Exporter():
 
         for g, d in self.gb:
             if g.dim > 0:
+                ones = np.ones(g.num_cells, dtype=np.int)
                 d['file_name'] = self._make_file_name(self.name, time_step,
                                                                d['node_number'])
                 file_name = self._make_folder(self.folder, d['file_name'])
-                d['grid_dim'] = np.tile(g.dim, g.num_cells)
-                d['is_mortar'] = np.zeros(g.num_cells)
-                d['mortar_side'] = SideTag.NONE*np.ones(g.num_cells)
+                d['grid_dim'] = g.dim*ones
+                d['is_mortar'] = np.zeros(g.num_cells, dtype = np.bool)
+                d['mortar_side'] = int(SideTag.NONE)*ones
                 dic_data = self.gb.node_props_of_keys(g, data)
                 g_VTK = self.gb_VTK[d['node_number']]
                 self._write_vtk(dic_data, file_name, g_VTK)
@@ -222,14 +227,14 @@ class Exporter():
             for side, g in mg.side_grids.items():
                 if g.dim == 0:
                     continue
-
+                ones = np.ones(g.num_cells, dtype=np.int)
                 d['file_name'][side] = self._make_file_name_mortar(self.name,
                                           time_step, d['edge_number'], side)
                 file_name = self._make_folder(self.folder,
                                               d['file_name'][side])
-                d['grid_dim'][side] = np.tile(g.dim, g.num_cells)
-                d['is_mortar'][side] = np.ones(g.num_cells)
-                d['mortar_side'][side] = int(side)*np.ones(g.num_cells)
+                d['grid_dim'][side] = g.dim*ones
+                d['is_mortar'][side] = ones.astype(np.bool)
+                d['mortar_side'][side] = int(side)*ones
                 dic_data = {'grid_dim': d['grid_dim'][side],
                             'is_mortar': d['is_mortar'][side],
                             'mortar_side': d['mortar_side'][side]}
@@ -342,8 +347,10 @@ class Exporter():
 
         if data is not None:
             for name_field, values_field in data.items():
+                print(values_field.dtype)
                 dataVTK = ns.numpy_to_vtk(values_field.ravel(order='F'),
-                                          deep=True, array_type=vtk.VTK_DOUBLE)
+                                          deep=True,
+                                   array_type=self.map_type[values_field.dtype])
                 dataVTK.SetName(str(name_field))
                 dataVTK.SetNumberOfComponents(1 if values_field.ndim == 1 else 3)
                 g_VTK.GetCellData().AddArray(dataVTK)
