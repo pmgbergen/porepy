@@ -46,6 +46,8 @@ class MortarGrid(object):
 
     """
 
+#------------------------------------------------------------------------------#
+
     def __init__(self, dim, side_grids, face_cells, name=''):
         """Initialize the mortar grid
 
@@ -73,6 +75,9 @@ class MortarGrid(object):
         else:
             self.name = [name]
 
+        self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
+        self.cell_volumes = np.hstack([g.cell_volumes \
+                                             for g in self.side_grids.values()])
 
         # face_cells mapping from the higher dimensional grid to the mortar grid
         # also here we assume that, in the beginning the mortar grids are equal
@@ -102,6 +107,8 @@ class MortarGrid(object):
         identity = sps.identity(num_cells)
         self.mortar_to_low = sps.bmat([[identity], [identity]], format='csc')
 
+#------------------------------------------------------------------------------#
+
     def __repr__(self):
         """
         Implementation of __repr__
@@ -115,6 +122,8 @@ class MortarGrid(object):
             str(self.mortar_to_low)
 
         return s
+
+#------------------------------------------------------------------------------#
 
     def __str__(self):
         """ Implementation of __str__
@@ -135,12 +144,16 @@ class MortarGrid(object):
 
         return s
 
+#------------------------------------------------------------------------------#
+
     def compute_geometry(self):
         """
         Compute the geometry of the mortar grids.
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
         [g.compute_geometry(is_embedded=True) for g in self.side_grids.values()]
+
+#------------------------------------------------------------------------------#
 
     def refine_mortar(self, side_matrix):
         """
@@ -166,6 +179,11 @@ class MortarGrid(object):
         self.mortar_to_low = matrix * self.mortar_to_low
         self.high_to_mortar = matrix * self.high_to_mortar
 
+        self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
+        self.cell_volumes = np.hstack([g.cell_volumes \
+                                             for g in self.side_grids.values()])
+
+#------------------------------------------------------------------------------#
 
     def refine_low(self, side_matrix):
         """
@@ -188,6 +206,8 @@ class MortarGrid(object):
         # Update the mortar_to_low map. No need to update the high_to_mortar.
         self.mortar_to_low = sps.bmat(matrix, format='csc')
 
+#------------------------------------------------------------------------------#
+
     def num_sides(self):
         """
         Shortcut to compute the number of sides, usually 2.
@@ -196,3 +216,5 @@ class MortarGrid(object):
             Number of sides.
         """
         return len(self.side_grids)
+
+#------------------------------------------------------------------------------#
