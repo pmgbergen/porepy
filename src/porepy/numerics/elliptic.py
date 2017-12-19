@@ -76,10 +76,11 @@ class EllipticModel():
 
         file_name = kwargs.get('file_name', physics)
         folder_name = kwargs.get('folder_name', 'results')
+        mesh_kw = kwargs.get('mesh_kw', {})
 
         tic = time.time()
         logger.info('Create exporter')
-        self.exporter = Exporter(self._gb, file_name, folder_name)
+        self.exporter = Exporter(self._gb, file_name, folder_name, **mesh_kw)
         logger.info('Elapsed time: ' + str(time.time() - tic))
 
         self._flux_disc = self.flux_disc()
