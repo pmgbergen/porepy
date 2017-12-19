@@ -121,11 +121,6 @@ class FrictionSlipModel():
        
         self.is_slipping[fi] = self.is_slipping[fi] | new_slip
         excess_shear = np.abs(T_s) - self.mu(fi, self.is_slipping[fi]) * sigma_n
-        if np.any(self.is_slipping[fi]):
-            print('excess_shear max: ',
-                  np.max(excess_shear[self.is_slipping[fi]]/self._data['rock'].MU))
-            print('excess_shear min: ',
-                  np.min(excess_shear[self.is_slipping[fi]]/self._data['rock'].MU))
         shear_stiffness = np.sqrt(self._gb.face_areas[fi]) / (self._data['rock'].MU)
         slip_d = excess_shear * shear_stiffness * self.gamma() * new_slip
 

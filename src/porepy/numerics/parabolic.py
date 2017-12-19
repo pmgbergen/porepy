@@ -69,7 +69,7 @@ class ParabolicModel():
         self._gb = gb
         self.is_GridBucket = isinstance(self._gb, GridBucket)
         self.physics = physics
-        self._data = dict()
+        self._data = kwargs.get('data', dict())
         self._time_step = time_step
         self._end_time = end_time
         self._set_data()
@@ -94,9 +94,12 @@ class ParabolicModel():
         return self._data
 
     def _set_data(self):
-        for _, d in self.grid():
-            d['deltaT'] = self.time_step()
-
+        if self.is_GridBucket:
+            for _, d in self.grid():
+                d['deltaT'] = self.time_step()
+        else:
+            self.data()['deltaT'] = self.time_step()
+    
     def solve(self):
         'Solve problem'
         tic = time.time()
@@ -214,10 +217,12 @@ class ParabolicModel():
 
     def initial_condition(self):
         'Returns initial condition for global variable'
-        for _, d in self.grid():
-            d[self.physics] = d[self.physics + '_data'].initial_condition()
-
-        global_variable = self.time_disc().merge(self.grid(), self.physics)
+        if self.is_GridBucket:
+            for _, d in self.grid():
+                d[self.physics] = d[self.physics + '_data'].initial_condition()
+            global_variable = self.time_disc().merge(self.grid(), self.physics)
+        else:
+            global_variable = self._data[self.physics + '_data'].initial_condition()
         return global_variable
 
     def grid(self):
