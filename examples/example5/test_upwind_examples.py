@@ -37,7 +37,7 @@ class BasicsTest( unittest.TestCase ):
 
         advect = upwind.Upwind("transport")
         param = Parameters(g)
-        param.set_discharge(advect.discharge(g, [1, 0, 0]))
+        dis = advect.discharge(g, [1, 0, 0])
 
         b_faces = g.get_boundary_faces()
         bc = BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
@@ -45,7 +45,7 @@ class BasicsTest( unittest.TestCase ):
         param.set_bc("transport", bc)
         param.set_bc_val("transport", bc_val)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge':dis}
         data['deltaT'] = advect.cfl(g, data)
 
         U, rhs = advect.matrix_rhs(g, data)
@@ -91,7 +91,7 @@ class BasicsTest( unittest.TestCase ):
 
         advect = upwind.Upwind("transport")
         param = Parameters(g)
-        param.set_discharge(advect.discharge(g, [1, 0, 0]))
+        dis = advect.discharge(g, [1, 0, 0])
 
         b_faces = g.get_boundary_faces()
         bc = BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
@@ -99,7 +99,7 @@ class BasicsTest( unittest.TestCase ):
         param.set_bc("transport", bc)
         param.set_bc_val("transport", bc_val)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         data['deltaT'] = advect.cfl(g, data)
 
         U, rhs = advect.matrix_rhs(g, data)
@@ -183,7 +183,7 @@ class BasicsTest( unittest.TestCase ):
             save.write_vtk({"p": p, "P0u": P0u})
 
         # Discharge
-        param.set_discharge(u)
+        dis = u
 
         # Boundaries
         bc = BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
@@ -191,7 +191,7 @@ class BasicsTest( unittest.TestCase ):
         param.set_bc("transport", bc)
         param.set_bc_val("transport", bc_val)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
 
         # Advect solver
         advect = upwind.Upwind("transport")

@@ -96,7 +96,7 @@ def main(kf, description, is_coarse=False, if_export=False):
 
     file_name = 'network_geiger.csv'
     write_network(file_name)
-    gb = importer.mesh_from_csv(file_name, mesh_kwargs, domain)
+    gb = importer.dfm_2d_from_csv(file_name, mesh_kwargs, domain)
     gb.compute_geometry()
     if is_coarse:
         co.coarsen(gb, 'by_volume')

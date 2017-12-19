@@ -31,7 +31,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discr.discharge(g, [0, 1, 0], aperture))
+            d['discharge'] = solver.discr.discharge(g, [0, 1, 0], aperture)
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -55,9 +55,9 @@ class BasicsTest( unittest.TestCase ):
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            discharge = gb.node_prop(g_h, 'discharge')
             d['param'] = Parameters(g_h)
-            d['param'].set_discharge(discharge)
+            d['discharge'] = discharge
 
         U, rhs = solver.matrix_rhs(gb)
         deltaT = solver.cfl(gb)
@@ -93,7 +93,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discr.discharge(g, [1, 0, 0], aperture))
+            d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -117,9 +117,9 @@ class BasicsTest( unittest.TestCase ):
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            discharge = gb.node_prop(g_h,'discharge')
             d['param'] = Parameters(g_h)
-            d['param'].set_discharge(discharge)
+            d['discharge'] = discharge
 
         U, rhs = solver.matrix_rhs(gb)
         deltaT = solver.cfl(gb)
@@ -176,7 +176,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discr.discharge(g, [1, 0, 0], aperture))
+            d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -200,9 +200,9 @@ class BasicsTest( unittest.TestCase ):
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            discharge = gb.node_prop(g_h,'discharge')
             d['param'] = Parameters(g_h)
-            d['param'].set_discharge(discharge)
+            d['discharge'] = discharge
 
         U, rhs = solver.matrix_rhs(gb)
         deltaT = solver.cfl(gb)
@@ -247,7 +247,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discr.discharge(g, [0, 0, 1], aperture))
+            d['discharge'] = solver.discr.discharge(g, [0, 0, 1], aperture)
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -271,9 +271,9 @@ class BasicsTest( unittest.TestCase ):
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            discharge = gb.node_prop(g_h,'discharge')
             d['param'] = Parameters(g_h)
-            d['param'].set_discharge(discharge)
+            d['discharge'] = discharge
 
         U, rhs = solver.matrix_rhs(gb)
         deltaT = solver.cfl(gb)
@@ -310,7 +310,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discr.discharge(g, [1, 0, 0], aperture))
+            d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -334,9 +334,9 @@ class BasicsTest( unittest.TestCase ):
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            discharge = gb.node_prop(g_h,'discharge')
             d['param'] = Parameters(g_h)
-            d['param'].set_discharge(discharge)
+            d['discharge'] = discharge
 
         U, rhs = solver.matrix_rhs(gb)
         deltaT = solver.cfl(gb)
@@ -419,7 +419,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discr.discharge(g, [1, 0, 0], aperture))
+            d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
 
             bound_faces = g.get_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -443,9 +443,9 @@ class BasicsTest( unittest.TestCase ):
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            discharge = gb.node_prop(g_h,'discharge')
             d['param'] = Parameters(g_h)
-            d['param'].set_discharge(discharge)
+            d['discharge'] = discharge
 
         U, rhs = solver.matrix_rhs(gb)
         deltaT = solver.cfl(gb)
@@ -478,7 +478,7 @@ class BasicsTest( unittest.TestCase ):
             param = Parameters(g)
             aperture = np.ones(g.num_cells)*np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discr.discharge(g, [2, 0, 0], aperture))
+            d['discharge'] = solver.discr.discharge(g, [2, 0, 0], aperture)
 
             bf = g.get_boundary_faces()
             bc = BoundaryCondition(g, bf, bf.size * ['neu'])
@@ -489,9 +489,9 @@ class BasicsTest( unittest.TestCase ):
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            discharge = gb.node_prop(g_h,'discharge')
             d['param'] = Parameters(g_h)
-            d['param'].set_discharge(discharge)
+            d['discharge'] = discharge
 
         M = solver.matrix_rhs(gb)[0].todense()
 
@@ -527,7 +527,7 @@ class BasicsTest( unittest.TestCase ):
 
             aperture = np.ones(g.num_cells)*np.power(1e-1, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            param.set_discharge(solver.discr.discharge(g, [1, 1, 0], aperture))
+            d['discharge'] = solver.discr.discharge(g, [1, 1, 0], aperture)
 
             bound_faces = g.get_domain_boundary_faces()
             labels = np.array(['dir'] * bound_faces.size)
@@ -543,9 +543,9 @@ class BasicsTest( unittest.TestCase ):
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'param').get_discharge()
+            discharge = gb.node_prop(g_h,'discharge')
             d['param'] = Parameters(g_h)
-            d['param'].set_discharge(discharge)
+            d['discharge'] = discharge
 
         M, rhs = solver.matrix_rhs(gb)
 

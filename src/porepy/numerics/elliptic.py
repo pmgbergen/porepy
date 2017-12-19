@@ -113,32 +113,32 @@ class EllipticModel():
             np.array: Pressure state.
 
         """
-
+        logger.error('Solve elliptic model')
         # Discretize
         tic = time.time()
-        logger.info('Discretize')
+        logger.warning('Discretize')
         self.lhs, self.rhs = self.reassemble()
-        logger.info('Done. Elapsed time ' + str(time.time() - tic))
+        logger.warning('Done. Elapsed time ' + str(time.time() - tic))
 
         # Solve
         tic = time.time()
         ls = LSFactory()
         if self.rhs.size <  max_direct:
-            logger.info('Solve linear system using direct solver')
+            logger.warning('Solve linear system using direct solver')
             self.x = ls.direct(self.lhs,self.rhs)
         else:
-            logger.info('Solve linear system using GMRES')
+            logger.warning('Solve linear system using GMRES')
             precond = self._setup_preconditioner()
 #            precond = ls.ilu(self.lhs)
             slv = ls.gmres(self.lhs)
             self.x, info = slv(self.rhs, M=precond, callback=callback,
                                maxiter=10000, restart=1500, tol=1e-8)
             if info == 0:
-                logger.info('GMRES succeeded.')
+                logger.warning('GMRES succeeded.')
             else:
-                logger.error('GMRES failed with status ' + str(info))
+                logger.warning('GMRES failed with status ' + str(info))
 
-        logger.info('Done. Elapsed time ' + str(time.time() - tic))
+        logger.warning('Done. Elapsed time ' + str(time.time() - tic))
         return self.x
 
     def step(self):
@@ -311,8 +311,8 @@ class EllipticModel():
 
 class DualEllipticModel(EllipticModel):
 
-    def __init__(self, gb, data=None, physics='flow'):
-        EllipticModel.__init__(self, gb, data, physics)
+    def __init__(self, gb, data=None, physics='flow', **kwargs):
+        EllipticModel.__init__(self, gb, data, physics, **kwargs)
 
         self.discharge_name = str()
         self.projected_discharge_name = str()
@@ -352,11 +352,8 @@ class DualEllipticModel(EllipticModel):
         self.discharge_name = discharge_name
         if self.is_GridBucket:
             self._flux_disc.extract_u(self._gb, self.x_name, self.discharge_name)
-            [d['param'].set_discharge(d[self.discharge_name]) \
-                                                        for _, d in self._gb]
         else:
             discharge = self._flux_disc.extract_u(self._gb, self.x)
-            self._data['param'].set_discharge(discharge)
             self._data[self.discharge_name] = discharge
 
     def project_discharge(self, projected_discharge_name="P0u"):
