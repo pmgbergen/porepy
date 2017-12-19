@@ -61,7 +61,7 @@ class Exporter():
         "change_name".
 
         NOTE: the following names are reserved for data exporting: grid_dim,
-        is_mortar, mortar_side
+        is_mortar, mortar_side, cell_id
 
         """
 
@@ -201,7 +201,7 @@ class Exporter():
 
         self.gb.assign_node_ordering(overwrite_existing=False)
         self.gb.add_node_props(['grid_dim', 'file_name', 'is_mortar',
-                                'mortar_side'])
+                                'mortar_side', 'cell_id'])
 
         for g, d in self.gb:
             if g.dim > 0:
@@ -210,20 +210,22 @@ class Exporter():
                                                                d['node_number'])
                 file_name = self._make_folder(self.folder, d['file_name'])
                 d['grid_dim'] = g.dim*ones
-                d['is_mortar'] = np.zeros(g.num_cells, dtype = np.bool)
+                d['is_mortar'] = np.zeros(g.num_cells, dtype=np.bool)
                 d['mortar_side'] = int(SideTag.NONE)*ones
+                d['cell_id'] = np.arange(g.num_cells, dtype=np.int)
                 dic_data = self.gb.node_props_of_keys(g, data)
                 g_VTK = self.gb_VTK[d['node_number']]
                 self._write_vtk(dic_data, file_name, g_VTK)
 
         self.gb.add_edge_props(['grid_dim', 'file_name', 'is_mortar',
-                                'mortar_side'])
+                                'mortar_side', 'cell_id'])
         for _, d in self.gb.edges_props():
             mg = d['mortar']
             d['file_name'] = {}
             d['grid_dim'] = {}
             d['is_mortar'] = {}
             d['mortar_side'] = {}
+            d['cell_id'] = {}
             for side, g in mg.side_grids.items():
                 if g.dim == 0:
                     continue
@@ -235,9 +237,11 @@ class Exporter():
                 d['grid_dim'][side] = g.dim*ones
                 d['is_mortar'][side] = ones.astype(np.bool)
                 d['mortar_side'][side] = int(side)*ones
+                d['cell_id'][side] = np.arange(g.num_cells, dtype=np.int)
                 dic_data = {'grid_dim': d['grid_dim'][side],
                             'is_mortar': d['is_mortar'][side],
-                            'mortar_side': d['mortar_side'][side]}
+                            'mortar_side': d['mortar_side'][side],
+                            'cell_id': d['cell_id'][side]}
                 g_VTK = self.mg_VTK[d['edge_number']][side]
                 self._write_vtk(dic_data, file_name, g_VTK)
 
@@ -347,7 +351,6 @@ class Exporter():
 
         if data is not None:
             for name_field, values_field in data.items():
-                print(values_field.dtype)
                 dataVTK = ns.numpy_to_vtk(values_field.ravel(order='F'),
                                           deep=True,
                                    array_type=self.map_type[values_field.dtype])
