@@ -1886,7 +1886,7 @@ class FractureNetwork(object):
 
         """
         if box is None:
-            OVERLAP = 0.05
+            OVERLAP = 0.15
             cmin = np.ones((3, 1)) * float('inf')
             cmax = -np.ones((3, 1)) * float('inf')
             for f in self._fractures:
@@ -2415,7 +2415,8 @@ class FractureNetwork(object):
             return rot.dot(pts - cp)
 
         p = rot_translate(frac.p)
-        assert np.max(np.abs(p[2])) < self.tol
+        assert np.max(np.abs(p[2])) < self.tol, str(np.max(np.abs(p[2]))) + \
+                " " + str(self.tol)
         p_2d = p[:2]
 
         # Intersection points, in 2d coordinates

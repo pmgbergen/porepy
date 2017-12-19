@@ -218,13 +218,30 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def node_neighbors(self, n):
+    def node_neighbors(self, node, only_higher=False, only_lower=False):
         """
+        Parameters:
+            node: node in the graph, grid
+            only_higher: consider only the higher dimensional neighbors
+            only_lower: consider only the lower dimensional neighbors
         Return:
-            list of networkx.node: Neighbors of node n
+            list of networkx.node: Neighbors of node 'node'
 
         """
-        return self.graph.neighbors(n)
+        neigh = np.array(self.graph.neighbors(node))
+
+        if not only_higher and not only_lower:
+            return neigh
+        elif only_higher and only_lower:
+            return np.empty(0)
+        elif only_higher:
+            # Find the neighbours that are higher dimensional
+            is_high = np.array([w.dim > node.dim for w in neigh])
+            return neigh[is_high]
+        else:
+            # Find the neighbours that are higher dimensional
+            is_low = np.array([w.dim < node.dim for w in neigh])
+            return neigh[is_low]
 
 #------------------------------------------------------------------------------#
 

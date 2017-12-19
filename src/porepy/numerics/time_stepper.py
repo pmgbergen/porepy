@@ -59,11 +59,11 @@ class AbstractSolver(object):
         Solve problem.
         """
         nt = np.ceil(self.T / self.dt).astype(np.int)
-        logger.info('Time stepping using ' + str(nt) + ' steps')
+        logger.warning('Time stepping using ' + str(nt) + ' steps')
         t = self.dt
         counter = 1
-        while t < self.T + 1e-14:
-            logger.info('Step ' + str(counter) + ' out of ' + str(nt))
+        while t < self.T *(1 + 1e-14):
+            logger.warning('Step ' + str(counter) + ' out of ' + str(nt))
             counter += 1
             self.update(t)
             self.reassemble()

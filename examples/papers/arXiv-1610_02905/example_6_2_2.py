@@ -130,7 +130,7 @@ mesh_kwargs['mesh_size'] = {'mode': 'constant',
 
 file_name = 'dfn_square.fab'
 file_intersections = 'traces_square.dat'
-gb = importer.read_dfn(file_name, file_intersections, tol=1e-5, **mesh_kwargs)
+gb = importer.dfn_3d_from_fab(file_name, file_intersections, tol=1e-5, **mesh_kwargs)
 gb.remove_nodes(lambda g: g.dim == 0)
 gb.compute_geometry()
 #co.coarsen(gb, 'by_volume')

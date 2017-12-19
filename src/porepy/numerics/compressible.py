@@ -4,7 +4,7 @@ from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
 from porepy.numerics.fv import mass_matrix, fvutils
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.params import tensor
-
+from porepy.grids.grid_bucket import GridBucket
 
 class SlightlyCompressibleModel(ParabolicModel):
     '''
@@ -31,6 +31,7 @@ class SlightlyCompressibleModel(ParabolicModel):
    '''
 
     def __init__(self, gb, physics='flow', **kwargs):
+        self.is_GridBucket = isinstance(gb, GridBucket)
         ParabolicModel.__init__(self, gb, physics, **kwargs)
 
     def space_disc(self):
@@ -51,9 +52,15 @@ class SlightlyCompressibleModel(ParabolicModel):
         multi_dim_discr = Coupler(single_dim_discr)
         return multi_dim_discr
 
-    def discharge(self):
-        self.diffusive_disc().split(self.grid(), 'p', self._solver.p)
-        fvutils.compute_discharges(self.grid())
+    def pressure(self, pressure_name='pressure'):
+        if self.is_GridBucket:
+            self._solver.split(pressure_name)
+        else:
+            self._data[pressure_name] = self._solver.x
+
+    def discharge(self, d_name='discharge', p_name='pressure'):
+        self.pressure(p_name)
+        fvutils.compute_discharges(self.grid(),d_name=d_name, p_name=p_name)
 
     def pressure(self, pressure_name='pressure'):
         self.pressure_name = pressure_name
