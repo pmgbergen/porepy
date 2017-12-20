@@ -114,8 +114,11 @@ class ParabolicModel():
 
     def update(self, t):
         'Update parameters to time t'
-        for g, d in self.grid():
-            d[self.physics + '_data'].update(t)
+        if self.is_GridBucket:
+            for g, d in self.grid():
+                d[self.physics + '_data'].update(t)
+        else:
+            self.data()[self.physics + '_data'].update(t)
 
     def split(self, x_name='solution'):
         self.x_name = x_name
@@ -168,18 +171,27 @@ class ParabolicModel():
                 self.solver = coupler.Coupler(self.discr,
                                              self.coupling_conditions)
 
-        multi_dim_discr = WeightedUpwindMixedDim()
-        return multi_dim_discr
+        if self.is_GridBucket:
+            upwind_discr = WeightedUpwindMixedDim()
+        else:
+            upwind_discr = WeightedUpwindDisc()
+        return upwind_discr
 
     def diffusive_disc(self):
         'Discretization of term \nabla K \nabla T'
-        diffusive_discr = tpfa.TpfaMixedDim(physics=self.physics)
+        if self.is_GridBucket:
+            diffusive_discr = tpfa.TpfaMixedDim(physics=self.physics)
+        else:
+            diffusive_discr = tpfa.Tpfa(physics=self.physics)
         return diffusive_discr
 
     def source_disc(self):
         'Discretization of source term, q'
-        return source.IntegralMixedDim(physics=self.physics)
-
+        if self.is_GridBucket:
+            return source.IntegralMixedDim(physics=self.physics)
+        else:
+            return source.Integral(physics=self.physics)
+        
     def space_disc(self):
         '''Space discretization. Returns the discretization terms that should be
         used in the model'''
@@ -212,8 +224,11 @@ class ParabolicModel():
                 return factor * lhs, factor * rhs
 
         single_dim_discr = TimeDisc(self.time_step())
-        multi_dim_discr = coupler.Coupler(single_dim_discr)
-        return multi_dim_discr
+        if self.is_GridBucket:
+            time_discretization = coupler.Coupler(single_dim_discr)
+        else:
+            time_discretization = TimeDisc(self.time_step())
+        return time_discretization
 
     def initial_condition(self):
         'Returns initial condition for global variable'

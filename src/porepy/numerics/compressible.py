@@ -48,9 +48,10 @@ class SlightlyCompressibleModel(ParabolicModel):
             def matrix_rhs(self, g, data):
                 lhs, rhs = mass_matrix.MassMatrix.matrix_rhs(self, g, data)
                 return lhs * data['compressibility'], rhs * data['compressibility']
-        single_dim_discr = TimeDisc(self.time_step())
-        multi_dim_discr = Coupler(single_dim_discr)
-        return multi_dim_discr
+        time_discretization = TimeDisc(self.time_step())
+        if self.is_GridBucket:
+            time_discretization = Coupler(time_discretization)
+        return time_discretization
 
     def pressure(self, pressure_name='pressure'):
         if self.is_GridBucket:
