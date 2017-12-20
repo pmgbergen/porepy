@@ -87,9 +87,9 @@ class BasicsTest(unittest.TestCase):
         # we have u_lhs - u_rhs = 1 so u_lhs should be positive
         assert np.all(u_c[:, cell_left] > 0)
         assert np.all(u_c[:, cell_right] < 0)
-        
-        u_left = u_f[:round(u_f.size/2)]
-        u_right = u_f[round(u_f.size/2):]
+        mid_ind = round(u_f.size/2)
+        u_left = u_f[:mid_ind]
+        u_right = u_f[mid_ind:]
         assert np.all(np.abs(u_left - u_right - 1) < 1e-10)
 
         # fracture displacement should be symetric since everything else is symetric
@@ -147,8 +147,9 @@ class BasicsTest(unittest.TestCase):
 
 
         # we have u_lhs - u_rhs = 1 so u_lhs should be positive
-        u_left = u_f[:round(u_f.size/2)]
-        u_right = u_f[round(u_f.size/2):]
+        mid_ind = round(u_f.size/2)
+        u_left = u_f[:mid_ind]
+        u_right = u_f[mid_ind:]
 
         true_diff = np.atleast_2d(np.array([1,0,0])).T
         u_left = u_left.reshape((3, -1), order='F')
@@ -201,8 +202,9 @@ class BasicsTest(unittest.TestCase):
 
         top_cells = g.cell_centers[2] > 1
 
-        u_left = u_f[:round(u_f.size/2)]
-        u_right = u_f[round(u_f.size/2):]
+        mid_ind = round(u_f.size/2)
+        u_left = u_f[:mid_ind]
+        u_right = u_f[mid_ind:]
 
 
 
