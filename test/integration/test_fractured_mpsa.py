@@ -87,7 +87,7 @@ class BasicsTest(unittest.TestCase):
         # we have u_lhs - u_rhs = 1 so u_lhs should be positive
         assert np.all(u_c[:, cell_left] > 0)
         assert np.all(u_c[:, cell_right] < 0)
-        mid_ind = round(u_f.size/2)
+        mid_ind = int(round(u_f.size/2))
         u_left = u_f[:mid_ind]
         u_right = u_f[mid_ind:]
         assert np.all(np.abs(u_left - u_right - 1) < 1e-10)
@@ -147,7 +147,7 @@ class BasicsTest(unittest.TestCase):
 
 
         # we have u_lhs - u_rhs = 1 so u_lhs should be positive
-        mid_ind = round(u_f.size/2)
+        mid_ind = int(round(u_f.size/2))
         u_left = u_f[:mid_ind]
         u_right = u_f[mid_ind:]
 
@@ -202,7 +202,7 @@ class BasicsTest(unittest.TestCase):
 
         top_cells = g.cell_centers[2] > 1
 
-        mid_ind = round(u_f.size/2)
+        mid_ind = int(round(u_f.size/2))
         u_left = u_f[:mid_ind]
         u_right = u_f[mid_ind:]
 
