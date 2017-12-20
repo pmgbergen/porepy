@@ -15,6 +15,7 @@ except ImportError:
     warnings.warn('Numba not available. Export may be slow for large grids')
 
 from porepy.grids import grid_bucket
+from porepy.grids.mortar_grid import SideTag
 from porepy.utils import sort_points
 
 
@@ -59,6 +60,9 @@ class Exporter():
         In the case of different physics, change the file name with
         "change_name".
 
+        NOTE: the following names are reserved for data exporting: grid_dim,
+        is_mortar, mortar_side, cell_id
+
         """
 
         self.gb = grid
@@ -74,14 +78,20 @@ class Exporter():
             return
 
         if self.is_GridBucket:
-            self.gb_VTK = np.empty(self.gb.size(), dtype=np.object)
+            self.gb_VTK = np.empty(self.gb.num_graph_nodes(), dtype=np.object)
+            self.mg_VTK = np.empty(self.gb.num_graph_edges(), dtype=np.object)
         else:
             self.gb_VTK = None
+            self.mg_VTK = None
 
         self.has_numba = 'numba' in sys.modules
 
         if self.fixed_grid:
             self._update_gb_VTK()
+
+        self.map_type = {np.dtype('bool'): vtk.VTK_CHAR,
+                         np.dtype('int64'): vtk.VTK_INT,
+                         np.dtype('float64'): vtk.VTK_DOUBLE}
 
 #------------------------------------------------------------------------------#
 
@@ -186,18 +196,53 @@ class Exporter():
         assert isinstance(data, list) or data is None
         data = list() if data is None else data
         data.append('grid_dim')
+        data.append('is_mortar')
+        data.append('mortar_side')
 
         self.gb.assign_node_ordering(overwrite_existing=False)
-        self.gb.add_node_props(['grid_dim', 'file_name'])
+        self.gb.add_node_props(['grid_dim', 'file_name', 'is_mortar',
+                                'mortar_side', 'cell_id'])
 
         for g, d in self.gb:
             if g.dim > 0:
+                ones = np.ones(g.num_cells, dtype=np.int)
                 d['file_name'] = self._make_file_name(self.name, time_step,
                                                                d['node_number'])
                 file_name = self._make_folder(self.folder, d['file_name'])
-                d['grid_dim'] = np.tile(g.dim, g.num_cells)
+                d['grid_dim'] = g.dim*ones
+                d['is_mortar'] = np.zeros(g.num_cells, dtype=np.bool)
+                d['mortar_side'] = int(SideTag.NONE)*ones
+                d['cell_id'] = np.arange(g.num_cells, dtype=np.int)
                 dic_data = self.gb.node_props_of_keys(g, data)
                 g_VTK = self.gb_VTK[d['node_number']]
+                self._write_vtk(dic_data, file_name, g_VTK)
+
+        self.gb.add_edge_props(['grid_dim', 'file_name', 'is_mortar',
+                                'mortar_side', 'cell_id'])
+        for _, d in self.gb.edges_props():
+            mg = d['mortar']
+            d['file_name'] = {}
+            d['grid_dim'] = {}
+            d['is_mortar'] = {}
+            d['mortar_side'] = {}
+            d['cell_id'] = {}
+            for side, g in mg.side_grids.items():
+                if g.dim == 0:
+                    continue
+                ones = np.ones(g.num_cells, dtype=np.int)
+                d['file_name'][side] = self._make_file_name_mortar(self.name,
+                                          time_step, d['edge_number'], side)
+                file_name = self._make_folder(self.folder,
+                                              d['file_name'][side])
+                d['grid_dim'][side] = g.dim*ones
+                d['is_mortar'][side] = ones.astype(np.bool)
+                d['mortar_side'][side] = int(side)*ones
+                d['cell_id'][side] = np.arange(g.num_cells, dtype=np.int)
+                dic_data = {'grid_dim': d['grid_dim'][side],
+                            'is_mortar': d['is_mortar'][side],
+                            'mortar_side': d['mortar_side'][side],
+                            'cell_id': d['cell_id'][side]}
+                g_VTK = self.mg_VTK[d['edge_number']][side]
                 self._write_vtk(dic_data, file_name, g_VTK)
 
         name = self._make_folder(self.folder, self.name)+".pvd"
@@ -216,6 +261,10 @@ class Exporter():
         o_file.write(header)
         fm = '\t<DataSet group="" part="" file="%s"/>\n'
         [o_file.write( fm % d['file_name'] ) for g, d in self.gb if g.dim!=0]
+        for _, d in self.gb.edges_props():
+            for side, g in d['mortar'].side_grids.items():
+                if g.dim > 0:
+                    o_file.write( fm % d['file_name'][side] )
         o_file.write('</Collection>\n'+'</VTKFile>')
         o_file.close()
 
@@ -303,7 +352,8 @@ class Exporter():
         if data is not None:
             for name_field, values_field in data.items():
                 dataVTK = ns.numpy_to_vtk(values_field.ravel(order='F'),
-                                          deep=True, array_type=vtk.VTK_DOUBLE)
+                                          deep=True,
+                                   array_type=self.map_type[values_field.dtype])
                 dataVTK.SetName(str(name_field))
                 dataVTK.SetNumberOfComponents(1 if values_field.ndim == 1 else 3)
                 g_VTK.GetCellData().AddArray(dataVTK)
@@ -322,6 +372,11 @@ class Exporter():
         if self.is_GridBucket:
             for g, d in self.gb:
                 self.gb_VTK[d['node_number']] = self._export_vtk_grid(g)
+            for _, d in self.gb.edges_props():
+                side_grids_VTK = {}
+                for side, g in d['mortar'].side_grids.items():
+                    side_grids_VTK[side] = self._export_vtk_grid(g)
+                self.mg_VTK[d['edge_number']] = side_grids_VTK
         else:
             self.gb_VTK = self._export_vtk_grid(self.gb)
 
@@ -353,6 +408,28 @@ class Exporter():
             else:
                 time = str(time_step).zfill(padding)
                 return name + "_" + grid + "_" + time + extension
+
+#------------------------------------------------------------------------------#
+
+    def _make_file_name_mortar(self, name, time_step=None, edge_number=None,
+                               side=None):
+
+        extension = ".vtu"
+        mortar = "_mortar_"+str(int(side))
+        padding = 6
+        if edge_number is None: # normal grid
+            if time_step is None:
+                return name + mortar + extension
+            else:
+                time = str(time_step).zfill(padding)
+                return name + "_" + time + mortar + extension
+        else: # part of a grid bucket
+            grid = str(edge_number).zfill(padding)
+            if time_step is None:
+                return name + "_" + grid + mortar + extension
+            else:
+                time = str(time_step).zfill(padding)
+                return name + "_" + grid + "_" + time + mortar + extension
 
 #------------------------------------------------------------------------------#
 

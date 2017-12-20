@@ -593,25 +593,43 @@ class DualCoupling(AbstractCoupling):
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        g_m = data_edge['mortar']
-        dof, cc = self.create_block_matrix([g_h, g_l, g_m])
+        mg = data_edge['mortar']
+        dof, cc = self.create_block_matrix([g_h, g_l, mg])
 
         # Recover the information for the grid-grid mapping
-        cells_l, faces_h, weigths = sps.find(data_edge['face_cells'])
-        faces, cells_h, sign = sps.find(g_h.cell_faces)
-        ind = np.unique(faces, return_index=True)[1]
-        sign = sign[ind][faces_h]
-        cells_h = cells_h[ind][faces_h]
+        cells_h2m, faces_h2m, weigths_h2m = sps.find(mg.high_to_mortar)
+        faces_h, cells_h, sign_h = sps.find(g_h.cell_faces)
+        ind_faces_h = np.unique(faces_h, return_index=True)[1]
+        sign_h = sign_h[ind_faces_h][faces_h2m]
+        cells_h = cells_h[ind_faces_h][faces_h2m]
 
-        # Compute the off-diagonal terms
-        dataIJ, I, J = sign*weigths, g_l.num_faces+cells_l, faces_h
-        cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
-        cc[0, 1] = cc[1, 0].T
+        # Compute the mortar variables rows
+        dataIJ, I, J = np.multiply(sign_h, weigths_h2m), cells_h2m, faces_h2m
+        cc[2, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[2], dof[0]))
+        cc[2, 2] = -sps.diags(mg.cell_volumes)
 
-        # Compute the diagonal terms
-        dataIJ = 1./(g_h.face_areas[faces_h] * aperture_h[cells_h] * k[cells_l])
-        I, J = faces_h, faces_h
-        cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
+        # Compute the high dimensional grid coupled to mortar grid term
+        dataIJ = 1e-3*np.multiply(sign_h, np.divide(weigths_h2m, aperture_h[cells_h]))
+        # * k[cells_l]) is the 1e-3 for now :)
+        I, J = faces_h2m, cells_h2m
+        cc[0, 2] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[2]))
+
+        cells_m2l, cells_l2m, weigths_m2l = sps.find(mg.mortar_to_low)
+
+        # Map the faces of the high dimensional grid to the cells of the low
+        # dimensional grid. the weight needs to be considered as well.
+        faces_h2l = faces_h2m[cells_h2m][cells_m2l]
+        sign_h2l = sign_h[cells_h2m][cells_m2l]
+        dataIJ, I, J = sign_h2l, faces_h2l, g_l.num_faces+cells_l2m
+        # in data ci devo mettere entrabe le mappe high_to_mortar e
+        # mortar_to_low
+        cc[0, 1] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[1]))
+
+        # Coupling term representing the flux from the high to the lower
+        # dimensional grids, represented as source term. In the mortar approach
+        # the flux are the mortar variables (cell_volumes weighed)
+        dataIJ, I, J = -mg.cell_volumes, g_l.num_faces+cells_l2m, cells_m2l
+        cc[1, 2] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[2]))
 
         return cc
 
