@@ -988,26 +988,18 @@ def compute_discharges(gb, physics='flow',d_name='discharge', p_name='p', data=N
         # According to the sorting convention, g2 is the higher dimensional grid,
         # the one to who's faces the fluxes correspond
         g1, g2 = gb.sorted_nodes_of_edge(e)
+        try:
+            pa = d['param']
+        except KeyError:
+            pa = Parameters(g2)
+            d['param'] = pa
 
-        if  g1.dim != g2.dim and data['face_cells'] is not None:
-            try:
-                pa = data['param']
-            except KeyError:
-                pa = Parameters(g2)
-                data['param'] = pa
-                
+        if  g1.dim != g2.dim and d['face_cells'] is not None:
             coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
             pressures = gb.nodes_prop([g2, g1], p_name)
             dis = coupling_flux * np.concatenate(pressures)
             d[d_name] = dis
-
-
         elif g1.dim == g2.dim and d['face_cells'] is not None:
-            try:
-                pa = d['param']
-            except KeyError:
-                pa = Parameters(g2)
-                d['param'] = pa
             # g2 is now only the "higher", but still the one defining the faces
             # (cell-cells connections) in the sense that the normals are assumed
             # outward from g2, "pointing towards the g1 cells". Note that in
