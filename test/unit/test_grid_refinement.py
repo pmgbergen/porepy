@@ -48,7 +48,7 @@ class TestGridRefinement1d(unittest.TestCase):
         gs_1d = np.array(gb.grids_of_dimension(1))
         hs_1d = np.array([refinement.refine_grid_1d(g, ratio) for g in gs_1d])
 
-        mortars.update_gb_1d(gb, gs_1d, hs_1d)
+        gb.update_nodes(gs_1d, hs_1d)
 
         known_face_cells = \
                 np.array([[ 0.  ,  0.,  0.,  0.  ,  0.  ,  0.,  0.,  0.,  0.  ,
@@ -76,7 +76,7 @@ class TestGridRefinement1d(unittest.TestCase):
         gs_1d = np.array(gb.grids_of_dimension(1))
         hs_1d = np.array([refinement.refine_grid_1d(g, ratio) for g in gs_1d])
 
-        mortars.update_gb_1d(gb, gs_1d, hs_1d)
+        gb.update_nodes(gs_1d, hs_1d)
 
         known_face_cells = \
                     np.array([[ 0.,  0.,  0.        ,  0.        ,  0.        ,
@@ -114,7 +114,7 @@ class TestGridRefinement1d(unittest.TestCase):
         gs_1d = np.array(gb.grids_of_dimension(1))
         hs_1d = np.array([refinement.new_grid_1d(g, num_nodes) for g in gs_1d])
 
-        mortars.update_gb_1d(gb, gs_1d, hs_1d)
+        gb.update_nodes(gs_1d, hs_1d)
 
         known_face_cells = \
                     np.array([[ 0.,  0.,  0.        ,  0.        ,  0.        ,
@@ -143,7 +143,7 @@ class TestGridRefinement1d(unittest.TestCase):
         gs_1d = np.array(gb.grids_of_dimension(1))
         hs_1d = np.array([refinement.new_grid_1d(g, num_nodes) for g in gs_1d])
 
-        mortars.update_gb_1d(gb, gs_1d, hs_1d)
+        gb.update_nodes(gs_1d, hs_1d)
 
         known_face_cells = np.array([\
                [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
@@ -171,7 +171,6 @@ class TestGridRefinement1d(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_mortar_grid_1d(self):
-        from porepy.viz import plot_grid
 
         f1 = np.array([[0, 1], [.5, .5]])
 
@@ -179,48 +178,248 @@ class TestGridRefinement1d(unittest.TestCase):
         gb.compute_geometry()
         gb.assign_node_ordering()
 
-        #plot_grid.plot_grid(gb, alpha=0, info='f')
+        for e, d in gb.edges_props():
+
+            high_to_mortar_known = np.matrix([[ 0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  0.,
+                                                0.,  1.,  0.,  0.,
+                                                0.,  0.],
+                                              [ 0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  0.,
+                                                1.,  0.,  0.,  0.,
+                                                0.,  0.],
+                                              [ 0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  0.,
+                                                0.,  1.],
+                                              [ 0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  0.,
+                                                1.,  0.]])
+            mortar_to_low_known = np.matrix([[ 1.,  0.],
+                                             [ 0.,  1.],
+                                             [ 1.,  0.],
+                                             [ 0.,  1.]])
+
+            mg = d['mortar']
+            assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
+            assert np.allclose(mortar_to_low_known, mg.mortar_to_low.todense())
+
+#------------------------------------------------------------------------------#
+
+    def test_mortar_grid_1d_equally_refine_mortar_grids(self):
+
+        f1 = np.array([[0, 1], [.5, .5]])
+
+        gb = meshing.cart_grid([f1], [2, 2], **{'physdims': [1, 1]})
+        gb.compute_geometry()
+        gb.assign_node_ordering()
 
         for e, d in gb.edges_props():
 
             mg = d['mortar']
-            mg_new = refinement.refine_grid_1d(mg, ratio=2)
-            mortars.refine_mortar_grid(mg, mg_new)
+            new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=4) \
+                              for s, g in mg.side_grids.items()}
+
+            mortars.refine_mortar(mg, new_side_grids)
+
+            high_to_mortar_known = 1./3.*np.matrix([
+        [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0.,  0.],
+        [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  1.,  1.,  0.,  0.,  0.,  0.],
+        [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0.],
+        [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  2.,  0.],
+        [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  1.,  1.],
+        [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  2.]])
+
+            mortar_to_low_known = 1./3.*np.matrix([[ 0.,  2.],
+                                                   [ 1.,  1.],
+                                                   [ 2.,  0.],
+                                                   [ 0.,  2.],
+                                                   [ 1.,  1.],
+                                                   [ 2.,  0.]])
+
+            assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
+            assert np.allclose(mortar_to_low_known, mg.mortar_to_low.todense())
+
+#------------------------------------------------------------------------------#
+
+    def test_mortar_grid_1d_unequally_refine_mortar_grids(self):
+
+        f1 = np.array([[0, 1], [.5, .5]])
+
+        gb = meshing.cart_grid([f1], [2, 2], **{'physdims': [1, 1]})
+        gb.compute_geometry()
+        gb.assign_node_ordering()
+
+        for e, d in gb.edges_props():
+
+            mg = d['mortar']
+            new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=int(s)+3) \
+                              for s, g in mg.side_grids.items()}
+
+            mortars.refine_mortar(mg, new_side_grids)
+
+            high_to_mortar_known = np.matrix(
+                                        [[ 0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.66666667,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ],
+                                         [ 0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.33333333,
+                                           0.33333333,  0.        ,  0.        ,
+                                           0.        ,  0.        ],
+                                         [ 0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.66666667,  0.        ,  0.        ,
+                                           0.        ,  0.        ],
+                                         [ 0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.5       ,  0.        ],
+                                         [ 0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.5       ,  0.        ],
+                                         [ 0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.5       ],
+                                         [ 0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.        ,  0.        ,
+                                           0.        ,  0.5       ]])
+            mortar_to_low_known = np.matrix([[ 0.        ,  0.66666667],
+                                             [ 0.33333333,  0.33333333],
+                                             [ 0.66666667,  0.        ],
+                                             [ 0.        ,  0.5       ],
+                                             [ 0.        ,  0.5       ],
+                                             [ 0.5       ,  0.        ],
+                                             [ 0.5       ,  0.        ]])
+
+            assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
+            assert np.allclose(mortar_to_low_known, mg.mortar_to_low.todense())
+
+#------------------------------------------------------------------------------#
+
+    def test_mortar_grid_1d_refine_1d_grid(self):
+
+        f1 = np.array([[0, 1], [.5, .5]])
+
+        gb = meshing.cart_grid([f1], [2, 2], **{'physdims': [1, 1]})
+        gb.compute_geometry()
+        gb.assign_node_ordering()
+
+        for e, d in gb.edges_props():
 
             # refine the 1d-physical grid
-            g_old = gb.sorted_nodes_of_edge(e)[0]
-            g_new = refinement.refine_grid_1d(g_old, ratio=3)
-            gb.update_nodes(g_old, g_new)
-            mortars.refine_co_dimensional_grid(mg, g_new)
+            old_g = gb.sorted_nodes_of_edge(e)[0]
+            new_g = refinement.new_grid_1d(old_g, num_nodes=5)
+            new_g.compute_geometry()
 
-        #plot_grid.plot_grid(gb, alpha=0, info='c')
+            gb.update_nodes(old_g, new_g)
+            mg = d['mortar']
+            mortars.refine_co_dimensional_grid(mg, new_g)
 
-        from porepy.params.data import Parameters
-        from porepy.params.bc import BoundaryCondition
-        from porepy.grids.grid import FaceTag
+            high_to_mortar_known = np.matrix([[ 0.,  0.,  0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  1.,  0.,  0.,
+                                                0.,  0.],
+                                              [ 0.,  0.,  0.,  0.,  0.,  0.,
+                                                0.,  0.,  1.,  0.,  0.,  0.,
+                                                0.,  0.],
+                                              [ 0.,  0.,  0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  0.,  0.,  0.,
+                                                0.,  1.],
+                                              [ 0.,  0.,  0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  0.,  0.,  0.,
+                                                1.,  0.]])
+            mortar_to_low_known = np.matrix([[ 0. ,  0. ,  0.5,  0.5],
+                                             [ 0.5,  0.5,  0. ,  0. ],
+                                             [ 0. ,  0. ,  0.5,  0.5],
+                                             [ 0.5,  0.5,  0. ,  0. ]])
 
-        internal_flag = FaceTag.FRACTURE
-        [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+            assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
+            assert np.allclose(mortar_to_low_known, mg.mortar_to_low.todense())
 
-        gb.add_node_props(['param'])
-        for g, d in gb:
-            param = Parameters(g)
-            bound_faces = g.get_domain_boundary_faces()
-            labels = np.array(['dir'] * bound_faces.size)
-            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
-            d['param'] = param
+#------------------------------------------------------------------------------#
 
-        gb.add_edge_prop('kn')
+    def test_mortar_grid_1d_refine_1d_grid_2(self):
+
+        f1 = np.array([[0, 1], [.5, .5]])
+
+        gb = meshing.cart_grid([f1], [2, 2], **{'physdims': [1, 1]})
+        gb.compute_geometry()
+        gb.assign_node_ordering()
+
         for e, d in gb.edges_props():
-            gn = gb.sorted_nodes_of_edge(e)
-            d['kn'] = np.ones(gn[0].num_cells)
 
-        from porepy.numerics.vem import vem_dual, vem_source
-        # Choose and define the solvers and coupler
-        solver_flow = vem_dual.DualVEMMixedDim('flow')
-        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+            # refine the 1d-physical grid
+            old_g = gb.sorted_nodes_of_edge(e)[0]
+            new_g = refinement.new_grid_1d(old_g, num_nodes=4)
+            new_g.compute_geometry()
 
+            gb.update_nodes(old_g, new_g)
+            mg = d['mortar']
+            mortars.refine_co_dimensional_grid(mg, new_g)
 
+            high_to_mortar_known = np.matrix([[ 0.,  0.,  0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  1.,  0.,  0.,
+                                                0.,  0.],
+                                              [ 0.,  0.,  0.,  0.,  0.,  0.,
+                                                0.,  0.,  1.,  0.,  0.,  0.,
+                                                0.,  0.],
+                                              [ 0.,  0.,  0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  0.,  0.,  0.,
+                                                0.,  1.],
+                                              [ 0.,  0.,  0.,  0.,  0.,  0.,
+                                                0.,  0.,  0.,  0.,  0.,  0.,
+                                                1.,  0.]])
+            mortar_to_low_known = 1./3.*np.matrix([[ 0.,  1.,  2.],
+                                                   [ 2.,  1.,  0.],
+                                                   [ 0.,  1.,  2.],
+                                                   [ 2.,  1.,  0.]])
 
+            assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
+            assert np.allclose(mortar_to_low_known, mg.mortar_to_low.todense())
 
-TestGridRefinement1d().test_mortar_grid_1d()
+#------------------------------------------------------------------------------#
+
+    def test_mortar_grid_2d(self):
+
+        f = np.array([[ 0,  1,  1,  0],
+                      [ 0,  0,  1,  1],
+                      [.5, .5, .5, .5]])
+        gb = meshing.cart_grid([f], [2]*3, **{'physdims': [1]*3})
+        gb.compute_geometry()
+        gb.assign_node_ordering()
+
+        for e, d in gb.edges_props():
+
+            mg = d['mortar']
+            indices_known = np.array([0, 1, 2, 3, 4, 5, 6, 7])
+            assert np.array_equal(mg.high_to_mortar.indices, indices_known)
+
+            indptr_known = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                     0, 1, 2, 3, 4, 4, 4, 4, 4, 5, 6, 7, 8])
+            assert np.array_equal(mg.high_to_mortar.indptr, indptr_known)
+
+            data_known = np.array([ 1.,  1.,  1.,  1.,  1.,  1.,  1.,  1.])
+            assert np.array_equal(mg.high_to_mortar.data, data_known)
+
+            indices_known = np.array([0, 4, 1, 5, 2, 6, 3, 7])
+            assert np.array_equal(mg.mortar_to_low.indices, indices_known)
+
+            indptr_known = np.array([0, 2, 4, 6, 8])
+            assert np.array_equal(mg.mortar_to_low.indptr, indptr_known)
+
+            data_known = np.array([ 1.,  1.,  1.,  1.,  1.,  1.,  1.,  1.])
+            assert np.array_equal(mg.mortar_to_low.data, data_known)
+
+#------------------------------------------------------------------------------#

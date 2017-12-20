@@ -12,7 +12,6 @@ and puts submatrices in their right places.
 import numpy as np
 import scipy.sparse as sps
 
-
 class Coupler(object):
 
 #------------------------------------------------------------------------------#
@@ -89,7 +88,8 @@ class Coupler(object):
                 pos_j = d_j['node_number']
                 matrix[pos_i, pos_j] = sps.coo_matrix((d_i['dof'], d_j['dof']))
 
-        # Initialize the mortar matrices
+        # Initialize the mortar matrices, in this case we see the mortar grids
+        # as a single grid
         for e, d in gb.edges_props():
             pos_i, pos_j = d['node_number']
             pos_m = d['edge_number'] + gb.num_graph_nodes()
@@ -140,7 +140,6 @@ class Coupler(object):
             pos = d['node_number']
             matrix[pos, pos], rhs[pos] = self.discr_fct(g, d)
 
-
         # Handle special case of 1-element grids, that give 0-d arrays
         rhs = np.array([np.atleast_1d(a) for a in tuple(rhs)])
 
@@ -165,7 +164,7 @@ class Coupler(object):
 
 #------------------------------------------------------------------------------#
 
-    def split(self, gb, key, values):
+    def split(self, gb, key, values, mortar_key='mortar_solution'):
         """
         Store in the grid bucket the vector, split in the function, solution of
         the problem. The values are extracted from the global solution vector
@@ -174,8 +173,11 @@ class Coupler(object):
         Parameters
         ----------
         gb : grid bucket with geometry fields computed.
-        key: new name of the solution to be stored in the grid bucket.
+        key: new name of the solution to be stored in the nodes of the grid
+            bucket.
         values: array, global solution.
+        mortar_key: (optional) new name of the mortar solution to be stored in
+            the edges of the grid bucket
 
         """
         dofs = self._dof_start_of_grids(gb)
@@ -184,6 +186,11 @@ class Coupler(object):
         for g, d in gb:
             i = d['node_number']
             d[key] = values[slice(dofs[i], dofs[i + 1])]
+
+        gb.add_edge_prop(mortar_key)
+        for e, d in gb.edges_props():
+            i = d['edge_number'] + gb.num_graph_nodes()
+            d[mortar_key] = values[slice(dofs[i], dofs[i + 1])]
 
 #------------------------------------------------------------------------------#
 
@@ -211,6 +218,7 @@ class Coupler(object):
             values[slice(dofs[i], dofs[i + 1])] = d[key]
 
         return values
+
 #------------------------------------------------------------------------------#
 
     def _dof_start_of_grids(self ,gb):

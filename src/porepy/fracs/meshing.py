@@ -17,7 +17,7 @@ from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.grid import FaceTag
-from porepy.grids.mortar_grid import MortarGrid
+from porepy.grids.mortar_grid import MortarGrid, SideTag
 from porepy.grids.structured import TensorGrid
 from porepy.utils import setmembership, mcolon
 from porepy.utils import comp_geom as cg
@@ -542,7 +542,7 @@ def create_mortar_grids(gb):
     # loop on all the nodes and create the mortar grids
     for e, d in gb.edges_props():
         lg = gb.sorted_nodes_of_edge(e)[0]
-        mg = MortarGrid(lg.dim, lg.nodes, lg.cell_nodes(), d['face_cells'])
-        d['mortar'] = mg
+        side_g = {SideTag.LEFT:  lg.copy(), SideTag.RIGHT: lg.copy()}
+        d['mortar'] = MortarGrid(lg.dim, side_g, d['face_cells'])
 
 #------------------------------------------------------------------------------#
