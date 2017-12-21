@@ -127,6 +127,7 @@ class Grid(object):
 
         # Add tag for the boundary faces
         self.face_tags = np.tile(FaceTag.NONE, self.num_faces)
+        # self.initiate_face_tags() **taggekladd
         self.update_boundary_face_tag()
 
     def copy(self):
@@ -573,6 +574,7 @@ class Grid(object):
 
         """
         return self.__indices(self.has_not_face_tag(FaceTag.BOUNDARY))
+        #return self.__indices(np.logical_not(self.face_tags['boundary'])
 
     def get_boundary_faces(self):
         """
@@ -583,6 +585,8 @@ class Grid(object):
 
         """
         return self.__indices(self.has_face_tag(FaceTag.BOUNDARY))
+        #return self.__indices(self.face_tags['boundary'])
+
 
     def get_domain_boundary_faces(self):
         """
@@ -607,6 +611,14 @@ class Grid(object):
         second = self.face_nodes.indptr[b_faces + 1]
         return np.unique(self.face_nodes.indices[mcolon.mcolon(first, second)])
 
+    def initiate_face_tags(self):
+        """
+        Initiate the default face tags to false arrays of length self.num_faces
+        """
+        v = np.tile(0, self.num_faces)
+        self.face_tags = {'boundary': v, 'domain_boundary': v, 'fracture': v,
+                          'tip': v}
+
     def update_boundary_face_tag(self):
         """ Tag faces on the boundary of the grid with boundary tag.
 
@@ -614,6 +626,8 @@ class Grid(object):
         bd_faces = np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel('F')
                                == 1).ravel('F')
         self.add_face_tag(bd_faces, FaceTag.BOUNDARY | FaceTag.DOMAIN_BOUNDARY)
+        ### self.face_tags['boundary'][bd_faces] = 1
+        #self.face_tags['domain_boundary'][bd_faces] = 1 **taggekladd
 
     def cell_diameters(self, cn=None):
         """

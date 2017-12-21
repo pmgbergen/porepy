@@ -427,7 +427,7 @@ def tag_faces(grids, check_highest_dim=True):
     for gs in grids:
         for g in gs:
             g.remove_face_tag([True] * g.num_faces, FaceTag.DOMAIN_BOUNDARY)
-
+            # g.face_tags['domain_boundary'] = np.zeros(g.num_faces) **taggekladd
     # Assume only one grid of highest dimension
     if check_highest_dim:
         assert len(grids[0]) == 1, 'Must be exactly'\
@@ -436,6 +436,7 @@ def tag_faces(grids, check_highest_dim=True):
     for g_h in np.atleast_1d(grids[0]):
         bnd_faces = g_h.get_boundary_faces()
         g_h.add_face_tag(bnd_faces, FaceTag.DOMAIN_BOUNDARY)
+        # g_h.face_tags['domain_boundary'][bnd_faces] = True**taggekladd
         bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
         bnd_nodes = np.unique(bnd_nodes)
         for g_dim in grids[1:-1]:
@@ -458,8 +459,12 @@ def tag_faces(grids, check_highest_dim=True):
                 is_tip = np.any(is_tip.reshape(
                     (n_per_face, bnd_faces_l.size), order='F'), axis=0)
                 g.add_face_tag(bnd_faces_l[is_tip], FaceTag.TIP)
+
                 g.add_face_tag(bnd_faces_l[is_tip == False],
                                FaceTag.DOMAIN_BOUNDARY)
+                #g.face_tags['tip'][bnd_faces_l[is_tip]] = True **taggekladd
+                #g.face_tags['domain_boundary'][bnd_faces_l[is_tip == False ]]
+                #    = True **taggekladd
 
 
 def nodes_per_face(g):
@@ -503,7 +508,12 @@ def assemble_in_bucket(grids, **kwargs):
     # Create bucket
     bucket = GridBucket()
     [bucket.add_nodes(g_d) for g_d in grids]
-
+#    for g in grids:
+#        tags = {'boundary_face': g.face_tags['boundary_face'],
+#                'domain_boundary_face': g.face_tags['domain_boundary_face'],
+#                'fracture_tip_face': g.face_tags['tip'],
+#                'fracture_face': g.face_tags['fracture']}
+#        bucket.add_node_props(['tags'], g, [tags])**taggekladd
     # We now find the face_cell mapings.
     for dim in range(len(grids) - 1):
         for hg in grids[dim]:
