@@ -332,6 +332,9 @@ class BasicsTest( unittest.TestCase ):
         assert((np.amax(np.absolute(p-p_cond))) < tol)
         assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
 
+    if __name__ == '__main__':
+        unittest.main()
+
 #------------------------------------------------------------------------------#
 # Left out due to problems with fracture face id: not the same each time the grids
 # are generated.

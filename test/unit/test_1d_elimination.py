@@ -1,6 +1,6 @@
 """
-Tests for the static condensation. 
-Darcy problems are discretized (TPFA) and then solved both with and without the 
+Tests for the static condensation.
+Darcy problems are discretized (TPFA) and then solved both with and without the
 condensation.
 Solutions are then compared, so failures will probably be due to the condensation
 itself or reorderings in the grid buckets.
@@ -32,11 +32,11 @@ class BasicsTest( unittest.TestCase ):
         """
         f1 = np.array([[0, 1],
                        [.5, .5]])
-        
+
         gb = meshing.cart_grid( [f1], [2, 2], **{'physdims': [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
-            
+
         tol = 1e-3
         solver = tpfa.Tpfa()
         gb.add_node_props(['param'])
@@ -67,28 +67,28 @@ class BasicsTest( unittest.TestCase ):
             bc_neu = bound_faces[left]
             bc_val[bc_dir] = g.face_centers[0,bc_dir]
             bc_val[bc_neu] = -g.face_areas[bc_neu]*a_dim
-            
+
             param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val(solver, bc_val)
             d['param'] = param
-                
+
         coupling_conditions = tpfa.TpfaCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         A, rhs = solver_coupler.matrix_rhs(gb)
-        
+
         p = sps.linalg.spsolve(A, rhs)
         p_cond, _, _, _ = condensation.solve_static_condensation(\
                                                                  A, rhs, gb, dim=1)
-        
+
         solver_coupler.split(gb, "p", p)
         solver_coupler.split(gb, "p_cond", p_cond)
-                
+
         tol = 1e-10
-        assert((np.amax(np.absolute(p-p_cond))) < tol)        
+        assert((np.amax(np.absolute(p-p_cond))) < tol)
         assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
 
 
-#------------------------------------------------------------------------------#  
+#------------------------------------------------------------------------------#
 
 
     def test_1d_elimination_3d_2d_1d(self):
@@ -138,7 +138,7 @@ class BasicsTest( unittest.TestCase ):
 
             d['param'] = param
 
-       
+
 
         coupling_conditions = tpfa.TpfaCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
@@ -147,12 +147,14 @@ class BasicsTest( unittest.TestCase ):
         p = sps.linalg.spsolve(A, rhs)
         p_cond, _, _, _ = condensation.solve_static_condensation(\
                                                                  A, rhs, gb, dim=1)
-        
+
         solver_coupler.split(gb, "p", p)
         solver_coupler.split(gb, "p_cond", p_cond)
-        
+
         tol = 1e-5
-        assert((np.amax(np.absolute(p-p_cond))) < tol)        
+        assert((np.amax(np.absolute(p-p_cond))) < tol)
         assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#
+    if __name__ == '__main__':
+        unittest.main()
