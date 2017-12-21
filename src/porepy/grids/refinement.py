@@ -12,9 +12,11 @@ import scipy.sparse as sps
 
 from porepy.grids.grid import Grid
 from porepy.grids.structured import TensorGrid
+from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.utils import comp_geom as cg
 
-def distort_grid_1d(g, ratio=0.1):
+
+def distort_grid_1d(g, ratio=0.1, fixed_nodes=None):
      """ Randomly distort internal nodes in a 1d grid.
 
      The boundary nodes are left untouched.
@@ -27,10 +29,21 @@ def distort_grid_1d(g, ratio=0.1):
                moved at most half the distance in towards any of its
                neighboring nodes. The ratio will multiply the chosen
                distortion. Should be less than 1 to preserve grid topology.
+          fixed_nodes (np.array): Index of nodes to keep fixed under
+              distortion. Boundary nodes will always be fixed, even if not
+              expli)itly included as fixed_node
 
      Returns:
           grid: With distorted nodes
+
      """
+     if fixed_nodes is None:
+         fixed_nodes = np.array([0, g.num_nodes-1], dtype=np.int)
+     else:
+         # Ensure that boundary nodes are also fixed
+         fixed_nodes = np.hstack((fixed_nodes, np.array([0, g.num_nodes - 1])))
+         fixed_nodes = np.unique(fixed_nodes).astype(np.int)
+
      g.compute_geometry()
      r = ratio * (0.5 - np.random.random(g.num_nodes - 2))
      r *= np.minimum(g.cell_volumes[:-1], g.cell_volumes[1:])

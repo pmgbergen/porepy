@@ -12,6 +12,24 @@ from porepy.grids.structured import TensorGrid
 from porepy.grids import refinement, mortar_grid
 from porepy.fracs import meshing, mortars
 
+
+class TestGridPerturbation(unittest.TestCase):
+
+    def test_grid_perturbation_1d_bound_nodes_fixed(self):
+        g = TensorGrid(np.array([0, 1, 2]))
+        h = refinement.distort_grid_1d(g)
+        assert np.allclose(g.nodes[:, [0, 2]], h.nodes[:, [0, 2]])
+
+    def test_grid_perturbation_1d_internal_and_bound_nodes_fixed(self):
+        g = TensorGrid(np.arange(4))
+        h = refinement.distort_grid_1d(g, fixed_nodes=[0, 1, 3])
+        assert np.allclose(g.nodes[:, [0, 1, 3]], h.nodes[:, [0, 1, 3]])
+
+    def test_grid_perturbation_1d_internal_nodes_fixed(self):
+        g = TensorGrid(np.arange(4))
+        h = refinement.distort_grid_1d(g, fixed_nodes=[1])
+        assert np.allclose(g.nodes[:, [0, 1, 3]], h.nodes[:, [0, 1, 3]])
+
 class TestGridRefinement1d(unittest.TestCase):
 
     def test_refinement_grid_1d_uniform(self):
