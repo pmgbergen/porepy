@@ -166,9 +166,11 @@ class Mpfa(Solver):
         bnd = param.get_bc(self)
         a = param.aperture
 
-        trm, bound_flux = mpfa(g, k, bnd, apertures=a)
+        trm, bound_flux, bp_cell, bp_face = mpfa(g, k, bnd, apertures=a)
         data['flux'] = trm
         data['bound_flux'] = bound_flux
+        data['bound_pressure_cell'] = bp_cell
+        data['bound_pressure_face'] = bp_face
 
 #------------------------------------------------------------------------------#
 
@@ -223,6 +225,11 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
             will be fluxes induced by the prescribed pressure. Incorporation as
             a right hand side in linear system by multiplication with
             divergence operator.
+        scipy.sparse.csr_matrix (shape num_faces, num_cells): Used to recover
+            pressure on boundary faces. Contribution from computed cell
+            pressures only; contribution from faces (below) also needed.
+        scipy.sparse.csr_matrix (shape num_faces, num_faces): Used to recover
+            pressure on boundary faces. Contribution from boundary conditions.
 
     Example:
         # Set up a Cartesian grid
@@ -233,7 +240,7 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
         bound_faces = g.get_boundary_faces().ravel()
         bnd = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
         # Discretization
-        flux, bound_flux = mpfa(g, k, bnd)
+        flux, bound_flux, bp_cell, bp_face = mpfa(g, k, bnd)
         # Source in the middle of the domain
         q = np.zeros(g.num_cells)
         q[12] = 1
@@ -247,7 +254,10 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
         # Assemble the right hand side and solve
         rhs = q + div * bound_flux * bound_vals
         x = sps.linalg.spsolve(A, rhs)
+        # Recover flux
         f = flux * x - bound_flux * bound_vals
+        # Recover boundary pressure
+        bp = bp_cell * x + bp_face * bound_vals
 
     """
 
@@ -256,8 +266,9 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
         # entire grid.
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
-        flux, bound_flux = _mpfa_local(
-            g, k, bnd, eta=eta, inverter=inverter, apertures=apertures)
+        flux, bound_flux, bound_pressure_cell, bound_pressure_face \
+            = _mpfa_local(g, k, bnd, eta=eta, inverter=inverter,
+                          apertures=apertures)
     else:
         # Estimate number of partitions necessary based on prescribed memory
         # usage
@@ -276,6 +287,8 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
         # unique).
         flux = sps.csr_matrix(g.num_faces, g.num_cells)
         bound_flux = sps.csr_matrix(g.num_faces, g.num_faces)
+        bound_pressure_cell = sps.csr_matrix(g.num_faces, g.num_cells)
+        bound_pressure_face = sps.csr_matrix(g.num_faces, g.num_faces)
 
         cn = g.cell_nodes()
 
@@ -292,20 +305,24 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
             active_nodes = np.squeeze(np.where((cn * active_cells) > 0))
 
             # Perform local discretization.
-            loc_flux, loc_bound_flux, loc_faces \
+            loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_faces \
                 = mpfa_partial(g, k, bnd, eta=eta, inverter=inverter,
                                nodes=active_nodes)
 
             # Eliminate contribution from faces already covered
             loc_flux[face_covered, :] *= 0
             loc_bound_flux[face_covered, :] *= 0
+            loc_bp_cell[face_covered, :] *= 0
+            loc_bp_face[face_covered, :] *= 0
 
             face_covered[loc_faces] = 1
 
             flux += loc_flux
             bound_flux += loc_bound_flux
+            bound_pressure_cell += loc_bp_cell
+            bound_pressure_face += loc_bp_face
 
-    return flux, bound_flux
+    return flux, bound_flux, bound_pressure_cell, bound_pressure_face
 
 #------------------------------------------------------------------------------
 
@@ -391,14 +408,17 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
     loc_bnd = bc.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
 
     # Discretization of sub-problem
-    flux_loc, bound_flux_loc = _mpfa_local(sub_g, loc_k, loc_bnd,
-                                           eta=eta, inverter=inverter, apertures=apertures)
+    flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face\
+        = _mpfa_local(sub_g, loc_k, loc_bnd, eta=eta, inverter=inverter,
+                      apertures=apertures)
 
     # Map to global indices
     face_map, cell_map = fvutils.map_subgrid_to_grid(g, l2g_faces, l2g_cells,
                                                      is_vector=False)
     flux_glob = face_map * flux_loc * cell_map
     bound_flux_glob = face_map * bound_flux_loc * face_map.transpose()
+    bound_pressure_cell_glob = face_map * bound_pressure_cell * cell_map
+    bound_pressure_face_glob = face_map * bound_pressure_face * face_map.T
 
     # By design of mpfa, and the subgrids, the discretization will update faces
     # outside the active faces. Kill these.
@@ -406,8 +426,11 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
                            assume_unique=True)
     flux_glob[outside, :] = 0
     bound_flux_glob[outside, :] = 0
+    bound_pressure_cell_glob[outside, :] = 0
+    bound_pressure_face_glob[outside, :] = 0
 
-    return flux_glob, bound_flux_glob, active_faces
+    return flux_glob, bound_flux_glob, bound_pressure_cell_glob,\
+             bound_pressure_face_glob, active_faces
 
 
 def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
@@ -543,6 +566,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     nk_grad = bound_exclusion.exclude_dirichlet(nk_grad)
     nk_cell = bound_exclusion.exclude_dirichlet(nk_cell)
     # No pressure condition for Neumann boundary faces
+    pr_cont_grad_all = pr_cont_grad
     pr_cont_grad = bound_exclusion.exclude_neumann(pr_cont_grad)
     pr_cont_cell = bound_exclusion.exclude_neumann(pr_cont_cell)
 
@@ -563,30 +587,71 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
 
     num_nk_cell = nk_cell.shape[0]
     num_pr_cont_grad = pr_cont_grad.shape[0]
-    del nk_grad, pr_cont_grad
+    del nk_grad
 
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
 
     del grad_eqs
-    darcy_igrad = darcy * cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
-                                                                         size_of_blocks,
-                                                                         method=inverter) \
-        * rows2blk_diag
+    igrad = cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
+                                                           size_of_blocks,
+                                                           method=inverter) \
+          * rows2blk_diag
 
-    del grad, cols2blk_diag, rows2blk_diag, darcy
+    del grad, cols2blk_diag, rows2blk_diag
 
-    flux = hf2f * darcy_igrad * (-sps.vstack([nk_cell, pr_cont_cell]))
+    flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, pr_cont_cell]))
 
-    del nk_cell, pr_cont_cell
     ####
     # Boundary conditions
     rhs_bound = _create_bound_rhs(bnd, bound_exclusion,
                                   subcell_topology, sgn_unique, g,
                                   num_nk_cell, num_pr_cont_grad)
     # Discretization of boundary values
-    bound_flux = hf2f * darcy_igrad * rhs_bound
+    bound_flux = hf2f * darcy * igrad * rhs_bound
 
-    return flux, bound_flux
+    # Below here, fields necessary for reconstruction of boundary pressures
+
+    # Diagonal matrix that divides by number of sub-faces per face
+    half_face_per_face = sps.dia_matrix((1./(hf2f * np.ones(hf2f.shape[1])),
+                                         [0]), shape=(g.num_faces,
+                                                      g.num_faces))
+
+    # Contribution to face pressure from sub-cell gradients, calculated as
+    # gradient times distance. Then further map to faces, and divide by number
+    # of contributions per face
+    dp = half_face_per_face * hf2f * pr_cont_grad_all * igrad * \
+            (-sps.vstack([nk_cell, pr_cont_cell]))
+
+    # Internal faces, and boundary faces with a Dirichle condition do not need
+    # information on the gradient.
+    # Implementation note: This can be expanded to pressure recovery also
+    # on internal faces by including them here, and below.
+    remove_not_neumann = sps.dia_matrix((bnd.is_neu.astype(np.int), 0),
+                                         shape=(g.num_faces, g.num_faces))
+    dp = remove_not_neumann * dp
+
+    # We also need pressure in the cell next to the boundary face.
+    bound_faces = g.get_boundary_faces()
+    # A trick to get the boundary face: We know that one element is -1 (e.g.
+    # outside the domain). Add 1, sum cell indices (will only contain the
+    # internal cell; the one outside is now zero), and then subtract 1 again.
+    bound_cells = np.sum(g.cell_face_as_dense()[:, bound_faces]+1, axis=0) - 1
+    cell_contrib = sps.coo_matrix((np.ones_like(bound_faces),
+                                   (bound_faces, bound_cells)),
+                                   shape=(g.num_faces, g.num_cells))
+    cell_contrib = remove_not_neumann * cell_contrib
+
+    bound_pressure_cell = dp + cell_contrib
+
+    bound_pressure_face_neu = half_face_per_face * hf2f * pr_cont_grad_all * igrad * rhs_bound
+    # For Dirichlet faces, simply recover the boundary condition
+    bound_pressure_face_dir = sps.dia_matrix((bnd.is_dir.astype(np.int), 0),
+                                            shape=(g.num_faces, g.num_faces))
+
+    bound_pressure_face = bound_pressure_face_dir\
+                        + remove_not_neumann * bound_pressure_face_neu
+
+    return flux, bound_flux, bound_pressure_cell, bound_pressure_face
 
 
 #----------------------------------------------------------------------------#

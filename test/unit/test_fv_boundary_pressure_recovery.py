@@ -399,6 +399,30 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         assert np.allclose(bound_p[g.get_boundary_faces()],
                            -g.face_centers[0, g.get_boundary_faces()])
 
+    def test_linear_pressure_dirichlet_conditions_perturbed_grid(self):
+        g = self.grid()
+        g.nodes[:2] = g.nodes[:2] + np.random.random((2, g.num_nodes))
+        g.compute_geometry()
+        param = Parameters(g)
+
+        bf = g.get_boundary_faces()
+        bc_type = bf.size * ['dir']
+        bound = bc.BoundaryCondition(g, bf, bc_type)
+
+        fd = Mpfa()
+        param.set_bc(fd, bound)
+
+        bc_val = 1 * g.face_centers[0] + 2 * g.face_centers[1]
+        param.set_bc_val(fd, bc_val)
+        data = {'param': param}
+
+        A, b = fd.matrix_rhs(g, data)
+        p = spl.spsolve(A, b)
+
+        bound_p = data['bound_pressure_cell'] * p\
+                + data['bound_pressure_face'] * bc_val
+        assert np.allclose(bound_p[g.get_boundary_faces()],
+                           bc_val[g.get_boundary_faces()])
 
 
     if __name__ == '__main__':
