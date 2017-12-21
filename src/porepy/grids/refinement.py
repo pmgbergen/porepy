@@ -100,9 +100,82 @@ def refine_grid_1d(g, ratio=2):
 
     return g
 
+def refine_triangle_grid(g):
+    """ Uniform refinement of triangle grid, all cells are split into four
+    subcells by combining existing nodes and face centrers.
+
+    Implementation note: It should be fairly straighforward to extend the
+    function to 3D simplex grids as well. The loop over face combinations
+    extends straightforwardly, but obtaining the node in the corner defined
+    by faces may be a bit tricky.
+
+    Parameters:
+        g TriangleGrid. To be refined.
+
+    Returns:
+        TriangleGrid: New grid, with nd+2 times as many cells as g.
+        np.array: Mapping from new to old cells.
+
+    """
+    # g needs to have face centers
+    if not hasattr(g, 'face_centers'):
+        g.compute_geometry()
+    nd = g.dim
+
+    # Construct dense versions of face-node and cell-face maps.
+    # This will crash if a non-simplex grid is provided.
+    fn = g.face_nodes.indices.reshape((nd, g.num_faces), order='F')
+    cf = g.cell_faces.indices.reshape((nd+1, g.num_cells), order='F')
+
+    new_nodes = np.hstack((g.nodes, g.face_centers))
+    offset = g.num_nodes
+
+    # Combinations of faces per cell
+    binom = ((0, 1), (1, 2), (2, 0))
+
+    # Holder for new tessalation.
+    new_tri = np.empty(shape=(nd+1, g.num_cells, nd+2), dtype=np.int)
+
+    # Loop over combinations
+    for ti, b in enumerate(binom):
+        # Find face-nodes of these faces. Each column corresponds to a single cell.
+        # There should be one duplicate in each column (since this is 2D)
+        loc_n = np.vstack((fn[:, cf[b[0]]], fn[:, cf[b[1]]]))
+        # Find the duplicate: First sort along column, then take diff along column
+        # and look for zero.
+        # Implementation note: To extend to 3D, also require that np.gradient
+        # is zero (that function should be able to do this).
+        loc_n.sort(axis=0)
+        equal = np.argwhere(np.diff(loc_n, axis=0) == 0)
+        # equal is now 2xnum_cells. To pick out the right elements, consider
+        # the raveled index, and construct the corresponding raveled array
+        equal_n = loc_n.ravel()[np.ravel_multi_index(equal.T, loc_n.shape)]
+
+        # Define node combination. Both nodes associated with a face have their
+        # offset adjusted.
+        new_tri[:, :, ti] = np.vstack((equal_n, offset + cf[b[0]],
+                                       offset + cf[b[1]]))
+
+    # Create final triangle by combining faces only
+    new_tri[:, :, -1] = offset + cf
+
+    # Reshape into 2d array
+    new_tri = new_tri.reshape((nd+1, (nd+2) * g.num_cells))
+
+    # The new grid inherits the history of the old one.
+    name = g.name.copy()
+    name.append('Refinement')
+
+    # Also create mapping from refined to parent cells
+    parent = np.tile(np.arange(g.num_cells), g.dim+2)
+
+    return TriangleGrid(new_nodes, tri=new_tri, name=name), parent
+
 #------------------------------------------------------------------------------#
 
 def new_grid_1d(g, num_nodes):
+    """ EK: This needs a better name!
+    """
 
     theta = np.linspace(0, 1, num_nodes)
     start, end = g.get_boundary_nodes()

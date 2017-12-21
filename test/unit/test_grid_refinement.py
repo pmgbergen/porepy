@@ -5,7 +5,9 @@ Created on Sat Nov 11 17:25:01 2017
 
 @author: Eirik Keilegavlens
 """
+from __future__ import division
 import numpy as np
+import scipy.sparse as sps
 import unittest
 
 from porepy.grids.structured import TensorGrid
@@ -52,6 +54,83 @@ class TestGridRefinement1d(unittest.TestCase):
         assert np.allclose(h.nodes, np.array([[0, 1, 2, 4, 6],
                                               [0, 1, 2, 4, 6],
                                               [0, 1, 2, 4, 6]]))
+
+class TestGridRefinement2dSimplex(unittest.TestCase):
+
+    class OneCellGrid():
+        def __init__(self):
+            self.nodes = np.array([[0, 1, 0], [0, 0, 1]])
+            self.cell_faces = sps.csc_matrix(np.array([[1], [1], [1]]))
+            self.face_nodes = sps.csc_matrix(np.array([[1, 0, 1],
+                                                       [0, 1, 1],
+                                                       [1, 1, 0]]))
+            self.face_centers = np.array([[0.5, 0.5, 0], [0, 0.5, 0.5]])
+            self.num_faces = 3
+            self.num_cells = 1
+            self.num_nodes = 3
+            self.dim = 2
+            self.name = ['OneGrid']
+
+    class TwoCellsGrid():
+        def __init__(self):
+            self.nodes = np.array([[0, 1, 1, 0], [0, 0, 1, 1]])
+            self.cell_faces = sps.csc_matrix(np.array([[1, 0, 0, 1, 1],
+                                                       [0, 1, 1, 0, 1]]).T)
+            self.face_nodes = sps.csc_matrix(np.array([[1, 1, 0, 0],
+                                                       [0, 1, 1, 0],
+                                                       [0, 0, 1, 1],
+                                                       [1, 0, 0, 1],
+                                                       [0, 1, 0, 1]]).T)
+            self.face_centers = np.array([[0.5, 1, 0.5, 0, 0.5],
+                                          [0, 0.5, 1, 0.5, 0.5]])
+            self.num_faces = 5
+            self.num_cells = 2
+            self.num_nodes = 4
+            self.dim = 2
+            self.name = ['TwoGrid']
+
+    def compare_arrays(self, a1, a2):
+        def cmp(a, b):
+            for i in range(a.shape[1]):
+                assert np.sum(np.sum((a[:, i].reshape((-1, 1)) - b)**2,
+                                      axis=0) < 1e-5) == 1
+        cmp(a1, a2)
+        cmp(a2, a1)
+
+    def test_refinement_single_cell(self):
+        g = self.OneCellGrid()
+        h, parent = refinement.refine_triangle_grid(g)
+        h.compute_geometry()
+
+        assert h.num_cells == 4
+        assert h.num_faces == 9
+        assert h.num_nodes == 6
+        assert h.cell_volumes.sum() == 0.5
+        assert np.allclose(h.cell_volumes, 1/8)
+
+        known_nodes = np.array([[0, 0.5, 1, 0.5, 0, 0],
+                                [0, 0, 0, 0.5, 1, 0.5]])
+        self.compare_arrays(h.nodes[:2], known_nodes)
+        assert np.all(parent == 0)
+
+    def test_refinement_two_cells(self):
+        g = self.TwoCellsGrid()
+        h, parent = refinement.refine_triangle_grid(g)
+        h.compute_geometry()
+
+        assert h.num_cells == 8
+        assert h.num_faces == 16
+        assert h.num_nodes == 9
+        assert h.cell_volumes.sum() == 1
+        assert np.allclose(h.cell_volumes, 1/8)
+
+        known_nodes = np.array([[0, 0.5, 1, 0.5, 0, 0, 1, 1, 0.5],
+                                [0, 0, 0, 0.5, 1, 0.5, 0.5, 1, 1]])
+        self.compare_arrays(h.nodes[:2], known_nodes)
+        assert np.sum(parent == 0) == 4
+        assert np.sum(parent == 1) == 4
+        assert np.allclose(np.bincount(parent, h.cell_volumes), 0.5)
+
 #------------------------------------------------------------------------------#
 
 class TestRefinementGridBucket(unittest.TestCase):
