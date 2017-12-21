@@ -62,8 +62,15 @@ class BoundaryCondition(object):
         if faces is not None:
             # Validate arguments
             assert cond is not None
+            if faces.dtype==bool:
+                if faces.size != self.num_faces:
+                    raise ValueError('''When giving logical faces, the size of
+                                        array must match number of faces''')
+                faces = np.argwhere(faces)
             if not np.all(np.in1d(faces, bf)):
                 raise ValueError('Give boundary condition only on the boundary')
+            if isinstance(cond, str):
+                cond = [cond] * faces.size
             if faces.size != len(cond):
                 raise ValueError('One BC per face')
 

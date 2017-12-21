@@ -83,6 +83,20 @@ class TestGettersAndSetters(unittest.TestCase):
             p.set_fluid_compr(-1)
 
 #####
+    def test_background_stress_default(self):
+        p = Parameters(self.g)
+        self.assertTrue(np.allclose(p.background_stress_mechanics, 0))
+        for name in p.known_physics:
+            self.assertTrue(np.allclose(p.get_background_stress(name), 0))
+
+    def test_background_stress_setter(self):
+        p = Parameters(self.g)
+        for name in p.known_physics:
+            p.set_background_stress(name, 0.5 * np.ones((3,3)))
+        self.assertTrue(np.allclose(p.background_stress_mechanics, 0.5))
+        for name in p.known_physics:
+                self.assertTrue(np.allclose(p.get_background_stress(name), 0.5))
+#####
 
     def _validate_ap(self, p, val=1):
         self.assertTrue(np.allclose(p.aperture, val * self.v))
