@@ -11,9 +11,8 @@ class TestCompressibleFlow(unittest.TestCase):
 
     def test_3d_Fracture_problem(self):
         problem = UnitSquareInjectionMultiDim()
-        solution = problem.solve()
-        p = solution['flow'][-1]
-        problem.time_disc().split(problem.grid(), 'pressure', p)
+        problem.solve()
+        problem.pressure('pressure')
         for g, d in problem.grid():
             if g.dim == 3:
                 pT = d['pressure']
@@ -52,14 +51,14 @@ class IntersectionDomain(FractureDomain):
 
 
 def set_sub_problems(gb):
-    gb.add_node_props(['problem'])
+    gb.add_node_props(['flow_data'])
     for g, d in gb:
         if g.dim == 3:
-            d['problem'] = MatrixDomain(g, d)
+            d['flow_data'] = MatrixDomain(g, d)
         elif g.dim == 2 or g.dim == 1:
-            d['problem'] = FractureDomain(g, d)
+            d['flow_data'] = FractureDomain(g, d)
         elif g.dim == 0:
-            d['problem'] = IntersectionDomain(g, d)
+            d['flow_data'] = IntersectionDomain(g, d)
         else:
             raise ValueError('Unkown grid-dimension %d' % g.dim)
 

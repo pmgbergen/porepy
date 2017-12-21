@@ -48,9 +48,10 @@ class SlightlyCompressibleModel(ParabolicModel):
             def matrix_rhs(self, g, data):
                 lhs, rhs = mass_matrix.MassMatrix.matrix_rhs(self, g, data)
                 return lhs * data['compressibility'], rhs * data['compressibility']
-        single_dim_discr = TimeDisc(self.time_step())
-        multi_dim_discr = Coupler(single_dim_discr)
-        return multi_dim_discr
+        time_discretization = TimeDisc(self.time_step())
+        if self.is_GridBucket:
+            time_discretization = Coupler(time_discretization)
+        return time_discretization
 
     def pressure(self, pressure_name='pressure'):
         if self.is_GridBucket:
@@ -61,6 +62,13 @@ class SlightlyCompressibleModel(ParabolicModel):
     def discharge(self, d_name='discharge', p_name='pressure'):
         self.pressure(p_name)
         fvutils.compute_discharges(self.grid(),d_name=d_name, p_name=p_name)
+
+    def pressure(self, pressure_name='pressure'):
+        self.pressure_name = pressure_name
+        if self.is_GridBucket:
+            self.split(self.pressure_name)
+        else:
+            self._data[self.pressure_name] = self._solver.p
 
 
 class SlightlyCompressibleDataAssigner(ParabolicDataAssigner):
