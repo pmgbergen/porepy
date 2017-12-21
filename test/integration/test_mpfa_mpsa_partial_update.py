@@ -16,7 +16,7 @@ class TestPartialMPFA(unittest.TestCase):
         g.compute_geometry()
         perm = PermTensor(g.dim, np.ones(g.num_cells))
         bnd = bc.BoundaryCondition(g)
-        flux, bound_flux = mpfa.mpfa(g, perm, bnd, inverter='python')
+        flux, bound_flux, _, _ = mpfa.mpfa(g, perm, bnd, inverter='python')
         return g, perm, bnd, flux, bound_flux
 
     def test_inner_cell_node_keyword(self):
@@ -27,7 +27,7 @@ class TestPartialMPFA(unittest.TestCase):
         nodes_of_cell = np.array([14, 15, 20, 21])
         faces_of_cell = np.array([14, 15, 42, 47])
 
-        partial_flux, partial_bound, active_faces \
+        partial_flux, partial_bound, _, _, active_faces \
                 = mpfa.mpfa_partial(g, perm, bnd, nodes=nodes_of_cell,
                                     inverter='python')
 
@@ -53,7 +53,7 @@ class TestPartialMPFA(unittest.TestCase):
         inner_cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
         faces_of_cell = np.array([12, 13, 40, 45])
-        partial_flux, partial_bound, active_faces \
+        partial_flux, partial_bound, _, _, active_faces \
             = mpfa.mpfa_partial(g, perm, bnd, nodes=nodes_of_cell,
                                 inverter='python')
 
@@ -80,7 +80,7 @@ class TestPartialMPFA(unittest.TestCase):
         g = CartGrid([3, 3])
         g.compute_geometry()
 
-        # Assign random permeabilities, for good measure 
+        # Assign random permeabilities, for good measure
         np.random.seed(42)
         kxx = np.random.random(g.num_cells)
         kyy = np.random.random(g.num_cells)
@@ -99,7 +99,7 @@ class TestPartialMPFA(unittest.TestCase):
             ind = np.zeros(g.num_cells)
             ind[ci] = 1
             nodes = np.squeeze(np.where(cn * ind > 0))
-            partial_flux, partial_bound, active_faces = \
+            partial_flux, partial_bound, _, _, active_faces = \
                     mpfa.mpfa_partial(g, perm, bnd, nodes=nodes,
                                       inverter='python')
 
@@ -111,7 +111,8 @@ class TestPartialMPFA(unittest.TestCase):
             flux += partial_flux
             bound_flux += partial_bound
 
-        flux_full, bound_flux_full = mpfa.mpfa(g, perm, bnd, inverter='python')
+        flux_full, bound_flux_full, _, _ = mpfa.mpfa(g, perm, bnd,
+                                                     inverter='python')
 
         assert (flux_full - flux).max() < 1e-8
         assert (flux_full - flux).min() > -1e-8
@@ -189,8 +190,8 @@ class TestPartialMPSA():
         assert np.max(np.abs(diff_stress[faces_of_cell])) == 0
         assert np.max(np.abs(diff_bound[faces_of_cell])) == 0
 
-        # Only the faces of the central cell should be non-zero. 
-        # Zero out these ones, and the entire 
+        # Only the faces of the central cell should be non-zero.
+        # Zero out these ones, and the entire
         partial_stress[faces_of_cell, :] = 0
         partial_bound[faces_of_cell, :] = 0
         assert np.max(np.abs(partial_stress.data)) == 0
