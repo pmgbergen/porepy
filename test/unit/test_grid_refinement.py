@@ -34,9 +34,9 @@ class TestGridRefinement1d(unittest.TestCase):
         assert np.allclose(h.nodes, np.array([[0, 1, 2, 4, 6],
                                               [0, 1, 2, 4, 6],
                                               [0, 1, 2, 4, 6]]))
-
 #------------------------------------------------------------------------------#
 
+class TestRefinementGridBucket(unittest.TestCase):
     def test_refinement_grid_1d_in_gb_uniform_ratio_2(self):
         f1 = np.array([[0, 1], [.5, .5]])
         ratio = 2
@@ -170,6 +170,7 @@ class TestGridRefinement1d(unittest.TestCase):
 
 #------------------------------------------------------------------------------#
 
+class TestRefinementMortarGrid(unittest.TestCase):
     def test_mortar_grid_1d(self):
 
         f1 = np.array([[0, 1], [.5, .5]])
@@ -422,4 +423,5 @@ class TestGridRefinement1d(unittest.TestCase):
             data_known = np.array([ 1.,  1.,  1.,  1.,  1.,  1.,  1.,  1.])
             assert np.array_equal(mg.mortar_to_low.data, data_known)
 
-#------------------------------------------------------------------------------#
+    if __name__ == '__main__':
+        unittest.main()
