@@ -133,7 +133,7 @@ class BasicsTest(unittest.TestCase):
         gb_r, elimination_data = gb.duplicate_without_dimension(dim_to_remove)
         condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
 
-        solver.split(gb_r, "p", p_red)
+        solver.split(gb_r, "pressure", p_red)
 
         #fvutils.compute_discharges(gb)
         fvutils.compute_discharges(gb_r)
@@ -143,17 +143,13 @@ class BasicsTest(unittest.TestCase):
         advection_coupling_conditions = upwind.UpwindCoupling(advection_discr)
         advection_coupler = coupler.Coupler(
             advection_discr, advection_coupling_conditions)
-        #U, rhs_u = advection_coupler.matrix_rhs(gb)
         U_r, rhs_u_r = advection_coupler.matrix_rhs(gb_r)
         _, rhs_src_r = IntegralMixedDim(physics='transport').matrix_rhs(gb_r)
         rhs_u_r = rhs_u_r + rhs_src_r
         deltaT = np.amin(gb_r.apply_function(advection_discr.cfl,
                                              advection_coupling_conditions.cfl).data)
 
-        #theta = sps.linalg.spsolve(U, rhs_u )
         theta_r = sps.linalg.spsolve(U_r, rhs_u_r)
-        #coupling.split(gb, 'theta', theta)
-        #coupling.split(gb_r, 'theta', theta_r)
 
         U_known, rhs_known, theta_known, deltaT_known = known_for_elimination()
         tol = 1e-7
