@@ -195,7 +195,7 @@ class EllipticModel():
     def discharge(self, discharge_name='discharge'):
         if self.is_GridBucket:
             fvutils.compute_discharges(self.grid(), self.physics,\
-                                       self.pressure_name)
+                                       p_name=self.pressure_name)
         else:
             fvutils.compute_discharges(self.grid(), self.physics,\
                                        self.pressure_name,
