@@ -244,3 +244,44 @@ def match_grids_2d(g, h):
     return vals, g_ind, h_ind
 
 #------------------------------------------------------------------------------#
+
+def replace_grids_in_bucket(gb, g_map, mg_map):
+    """ Replace grids and / or mortar grids in a grid_bucket. Recompute mortar
+    mappings as needed.
+
+    NOTE: These are implementation notes for an unfinished implementation.
+
+    Parameters:
+        gb (GridBucket): To be updated.
+        g_map (dictionary): Grids to replace. Keys are grids in the old bucket,
+            values are their replacements.
+        mg_map (dictionary): Mortar grids to replace. Keys are EITHER related
+            to mortar grids, or to edges. Probably, mg is most relevant, the we
+            need to identify the right edge shielded from user.
+
+    Returns:
+        GridBucket: New grid bucket, with all relevant replacements. Not sure
+            how deep the copy should be - clearly a new graph, nodes and edges
+            replaced, but can we keep untouched grids?
+
+    """
+    # NOTE: Is this a deep copy?
+    gb = gb.copy()
+
+    nodes_to_process = []
+    edges_to_process = []
+
+    for k, v in g_map.items():
+        gb.update_nodes(v, k)
+        nodes_to_process.append(v)
+        for e, _ in gb.edges_props_of_node(v):
+            edges_to_process.append(e)
+
+    # Not sure if this is the best solution here.
+    for e, d in gb.edges():
+        mg_e = d['mortar_grid']
+        if mg_e in mg_map.keys():
+            d['mortar_grid'] = mg_map[mg_e]
+            edges_to_process.append(e)
+            nodes_to_process.append()
+    # Next step: Loop over nodes and edges to process, and update mortar maps as needed.
