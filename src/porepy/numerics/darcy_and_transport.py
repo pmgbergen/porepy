@@ -4,6 +4,7 @@ import logging
 import scipy.sparse as sps
 from porepy.numerics.mixed_dim import condensation as SC
 
+logger = logging.getLogger(__name__)
 
 class DarcyAndTransport():
     """
@@ -21,6 +22,8 @@ class DarcyAndTransport():
     def __init__(self, flow, transport):
         self.flow = flow
         self.transport = transport
+        if not hasattr(self.flow, 'el'):
+            self.flow.el = False
 
     def solve(self):
         """
@@ -32,14 +35,15 @@ class DarcyAndTransport():
             SC.compute_elimination_fluxes(self.flow.full_grid, self.flow.grid(), self.flow.el_data)
         self.flow.discharge()
         s = self.transport.solve()
-        return p, s['transport']
+        return p, s[self.transport.physics]
 
     def save(self, export_every=1):
         """
         Save for visualization.
         """
         self.flow.save(variables=[self.flow.pressure_name])
-        self.transport.save(save_every=export_every)
+        self.transport.split(x_name='transport')
+        self.transport.save(['transport'], save_every=export_every)
 
 
 class static_flow_IE_solver(AbstractSolver):
