@@ -407,6 +407,9 @@ class TestRefinementMortarGrid(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_mortar_grid_1d_refine_1d_grid(self):
+        """ Refine the lower-dimensional grid so that it is matching with the
+        higher dimensional grid.
+        """
 
         f1 = np.array([[0, 1], [.5, .5]])
 
@@ -444,10 +447,11 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
             assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
             assert np.allclose(mortar_to_low_known, mg.mortar_to_low.todense())
-
 #------------------------------------------------------------------------------#
 
     def test_mortar_grid_1d_refine_1d_grid_2(self):
+        """ Refine the 1D grid so that it is no longer matching the 2D grid.
+        """
 
         f1 = np.array([[0, 1], [.5, .5]])
 
