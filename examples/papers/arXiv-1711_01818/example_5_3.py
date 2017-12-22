@@ -19,14 +19,15 @@ from porepy.numerics.fv import tpfa, mass_matrix
 
 #------------------------------------------------------------------------------#
 
+
 def add_data_darcy(gb, domain, tol):
     gb.add_node_props(['param', 'if_tangent'])
 
     apert = 1e-2
 
-    km = 7.5*1e-10 #2.5*1e-11
+    km = 7.5 * 1e-10  # 2.5*1e-11
 
-    kf = 5*1e-5
+    kf = 5 * 1e-5
 
     for g, d in gb:
 
@@ -37,7 +38,7 @@ def add_data_darcy(gb, domain, tol):
         else:
             kxx = kf
 
-        perm = tensor.SecondOrder(g.dim, kxx*np.ones(g.num_cells))
+        perm = tensor.SecondOrder(g.dim, kxx * np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))
@@ -57,7 +58,7 @@ def add_data_darcy(gb, domain, tol):
             labels[boundary] = ['dir']
 
             bc_val = np.zeros(g.num_faces)
-            p = np.abs(domain['zmax'] - domain['zmin'])*1e3*9.81
+            p = np.abs(domain['zmax'] - domain['zmin']) * 1e3 * 9.81
             bc_val[bound_faces[bottom]] = p
 
             param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
@@ -75,6 +76,7 @@ def add_data_darcy(gb, domain, tol):
         d['kn'] = kf / gb.node_prop(g, 'param').get_aperture()
 
 #------------------------------------------------------------------------------#
+
 
 def add_data_advection(gb, domain, tol):
 
@@ -118,15 +120,16 @@ def add_data_advection(gb, domain, tol):
 
 #------------------------------------------------------------------------------#
 
+
 sys.path.append('../../example3')
 import soultz_grid
 
 export_folder = 'example_5_3_coarse'
 tol = 1e-6
 
-T = 40*np.pi*1e7
+T = 40 * np.pi * 1e7
 Nt = 100
-deltaT = T/Nt
+deltaT = T / Nt
 export_every = 5
 if_coarse = True
 
@@ -139,9 +142,9 @@ mesh_kwargs['mesh_size'] = {'mode': 'constant',
 mesh_kwargs['num_fracs'] = 20
 mesh_kwargs['num_points'] = 10
 mesh_kwargs['file_name'] = 'soultz_fracs'
-domain = {'xmin':-1200, 'xmax': 500,
-          'ymin':-600,  'ymax': 600,
-          'zmin':600,   'zmax':5500}
+domain = {'xmin': -1200, 'xmax': 500,
+          'ymin': -600,  'ymax': 600,
+          'zmin': 600,   'zmax': 5500}
 mesh_kwargs['domain'] = domain
 
 print("create soultz grid")
@@ -173,9 +176,9 @@ A, b = darcy.matrix_rhs(gb)
 up = sps.linalg.spsolve(A, b)
 darcy.split(gb, "up", up)
 
-gb.add_node_props(["p", "P0u", "discharge"])
+gb.add_node_props(['pressure', "P0u", "discharge"])
 darcy.extract_u(gb, "up", "discharge")
-darcy.extract_p(gb, "up", "p")
+darcy.extract_p(gb, "up", 'pressure')
 darcy.project_u(gb, "discharge", "P0u")
 
 # compute the flow rate
@@ -189,7 +192,7 @@ for g, d in gb:
         total_flow_rate += np.sum(flow_rate)
 
 print("total flow rate", total_flow_rate)
-exporter.export_vtk(gb, 'darcy', ["p", "P0u"], folder=export_folder)
+exporter.export_vtk(gb, 'darcy', ['pressure', "P0u"], folder=export_folder)
 
 #################################################################
 
@@ -229,10 +232,10 @@ production = np.zeros(Nt)
 for i in np.arange(Nt):
     print("Time step", i, " of ", Nt)
     # Update the solution
-    production[i] = np.sum(OF.dot(theta))/total_flow_rate
+    production[i] = np.sum(OF.dot(theta)) / total_flow_rate
     theta = IE_solver(M.dot(theta) + rhs)
 
-    if i%export_every == 0:
+    if i % export_every == 0:
         print("Export solution at", i)
         advection.split(gb, "theta", theta)
         exporter.export_vtk(gb, file_name, ["theta"], time_step=i_export,
@@ -240,8 +243,9 @@ for i in np.arange(Nt):
         step_to_export = np.r_[step_to_export, i]
         i_export += 1
 
-exporter.export_pvd(gb, file_name, step_to_export*deltaT, folder=export_folder)
+exporter.export_pvd(gb, file_name, step_to_export *
+                    deltaT, folder=export_folder)
 
-np.savetxt(export_folder + '/production.txt', (deltaT*np.arange(Nt),
+np.savetxt(export_folder + '/production.txt', (deltaT * np.arange(Nt),
                                                np.abs(production)),
            delimiter=',')

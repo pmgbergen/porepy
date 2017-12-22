@@ -88,8 +88,8 @@ class BasicsTest(unittest.TestCase):
             bc_val = np.zeros(g.num_faces)
             bc_dir = bound_faces[right]
             bc_neu = bound_faces[left]
-            bc_val[bc_dir] = g.face_centers[0,bc_dir]
-            bc_val[bc_neu] = -g.face_areas[bc_neu]*a_dim
+            bc_val[bc_dir] = g.face_centers[0, bc_dir]
+            bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
 
             param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val('flow', bc_val)
@@ -124,18 +124,17 @@ class BasicsTest(unittest.TestCase):
             g_h = gb.sorted_nodes_of_edge(e)[1]
             d['param'] = Parameters(g_h)
 
-
         A, rhs = solver.matrix_rhs(gb)
         # p = sps.linalg.spsolve(A,rhs)
-        _, p_red, _, _ = condensation.solve_static_condensation(\
-                                                    A, rhs, gb, dim=0)
+        _, p_red, _, _ = condensation.solve_static_condensation(
+            A, rhs, gb, dim=0)
         dim_to_remove = 0
         gb_r, elimination_data = gb.duplicate_without_dimension(dim_to_remove)
         condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
 
         solver.split(gb_r, "pressure", p_red)
 
-        #fvutils.compute_discharges(gb)
+        # fvutils.compute_discharges(gb)
         fvutils.compute_discharges(gb_r)
 
         #------Transport------#
@@ -154,9 +153,9 @@ class BasicsTest(unittest.TestCase):
         U_known, rhs_known, theta_known, deltaT_known = known_for_elimination()
         tol = 1e-7
         assert(np.isclose(deltaT, deltaT_known, tol, tol))
-        assert((np.amax(np.absolute(U_r-U_known))) < tol)
-        assert((np.amax(np.absolute(rhs_u_r-rhs_known))) < tol)
-        assert((np.amax(np.absolute(theta_r-theta_known))) < tol)
+        assert((np.amax(np.absolute(U_r - U_known))) < tol)
+        assert((np.amax(np.absolute(rhs_u_r - rhs_known))) < tol)
+        assert((np.amax(np.absolute(theta_r - theta_known))) < tol)
 
 #------------------------------------------------------------------------------#
 # Left out due to problems with fracture face id: not the same each time the grids
@@ -251,7 +250,7 @@ class BasicsTest(unittest.TestCase):
 #         solver_coupler = coupler.Coupler(solver, coupling_conditions)
 #         A, rhs = solver_coupler.matrix_rhs(gb)
 #         p = sps.linalg.spsolve(A, rhs)
-#         solver_coupler.split(gb, "p", p)
+#         solver_coupler.split(gb, 'pressure', p)
 #         coupling_conditions.compute_discharges(gb)
 
 
