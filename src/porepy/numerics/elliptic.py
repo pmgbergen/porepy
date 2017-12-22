@@ -56,9 +56,9 @@ class EllipticModel():
                  node in the GridBucket.
                  Parameters:
                     name: (string) The keyword assigned to the pressure
-    discharge(): Calls split('p'). Then calculate the discharges over each
+    discharge(): Calls split('pressure'). Then calculate the discharges over each
                  face in the grids and between edges in the GridBucket
-    save(): calls split('p'). Then export the pressure to a vtk file to the
+    save(): calls split('pressure'). Then export the pressure to a vtk file to the
             folder kwargs['folder_name'] with file name
             kwargs['file_name'], default values are 'results' for the folder and
             physics for the file name.
@@ -124,9 +124,9 @@ class EllipticModel():
         # Solve
         tic = time.time()
         ls = LSFactory()
-        if self.rhs.size <  max_direct:
+        if self.rhs.size < max_direct:
             logger.warning('Solve linear system using direct solver')
-            self.x = ls.direct(self.lhs,self.rhs)
+            self.x = ls.direct(self.lhs, self.rhs)
         else:
             logger.warning('Solve linear system using GMRES')
             precond = self._setup_preconditioner()
@@ -194,10 +194,10 @@ class EllipticModel():
 
     def discharge(self, discharge_name='discharge'):
         if self.is_GridBucket:
-            fvutils.compute_discharges(self.grid(), self.physics,\
+            fvutils.compute_discharges(self.grid(), self.physics,
                                        p_name=self.pressure_name)
         else:
-            fvutils.compute_discharges(self.grid(), self.physics,\
+            fvutils.compute_discharges(self.grid(), self.physics,
                                        self.pressure_name,
                                        self._data)
 
@@ -230,7 +230,7 @@ class EllipticModel():
                     d[n] = d['param'].get_permeability().perm[ind, ind, :]
             else:
                 self._data[n] = self._data['param'].get_permeability()\
-                                        .perm[ind, ind, :]
+                    .perm[ind, ind, :]
 
     def porosity(self, poro_name='porosity'):
         if self.is_GridBucket:
@@ -239,17 +239,16 @@ class EllipticModel():
         else:
             self._data[poro_name] = self._data['param'].get_porosity()
 
-
     def save(self, variables=None, save_every=None):
         if variables is None:
             self.exporter.write_vtk()
         else:
             if not self.is_GridBucket:
-                variables = {k: self._data[k] for k in variables \
-                                                             if k in self._data}
+                variables = {k: self._data[k] for k in variables
+                             if k in self._data}
             self.exporter.write_vtk(variables)
 
-    ### Helper functions for linear solve below
+    # Helper functions for linear solve below
     def _setup_preconditioner(self):
         solvers, ind, not_ind = self._assign_solvers()
 
@@ -258,6 +257,7 @@ class EllipticModel():
             for s, i, ni in zip(solvers, ind, not_ind):
                 x[i] += s(r[i])
             return x
+
         def precond_mult(r):
             x = np.zeros_like(r)
             A = self.lhs
@@ -266,9 +266,8 @@ class EllipticModel():
                 x[i] += s(r_i)
             return x
 
-        M = lambda r: precond(r)
+        def M(r): return precond(r)
         return spl.LinearOperator(self.lhs.shape, M)
-
 
     def _assign_solvers(self):
         mat, ind = self._obtain_submatrix()
@@ -291,7 +290,6 @@ class EllipticModel():
 
         return solvers, ind, not_ind
 
-
     def _obtain_submatrix(self):
 
         if isinstance(self.grid(), GridBucket):
@@ -309,6 +307,7 @@ class EllipticModel():
             return [self.lhs], [np.arange(self.grid().num_cells)]
 
 #------------------------------------------------------------------------------#
+
 
 class DualEllipticModel(EllipticModel):
 
@@ -344,7 +343,8 @@ class DualEllipticModel(EllipticModel):
     def pressure(self, pressure_name='pressure'):
         self.pressure_name = pressure_name
         if self.is_GridBucket:
-            self._flux_disc.extract_p(self._gb, self.x_name, self.pressure_name)
+            self._flux_disc.extract_p(
+                self._gb, self.x_name, self.pressure_name)
         else:
             pressure = self._flux_disc.extract_p(self._gb, self.x)
             self._data[self.pressure_name] = pressure
@@ -352,7 +352,8 @@ class DualEllipticModel(EllipticModel):
     def discharge(self, discharge_name="discharge"):
         self.discharge_name = discharge_name
         if self.is_GridBucket:
-            self._flux_disc.extract_u(self._gb, self.x_name, self.discharge_name)
+            self._flux_disc.extract_u(
+                self._gb, self.x_name, self.discharge_name)
         else:
             discharge = self._flux_disc.extract_u(self._gb, self.x)
             self._data[self.discharge_name] = discharge
@@ -367,10 +368,11 @@ class DualEllipticModel(EllipticModel):
         else:
             discharge = self._data[self.discharge_name]
             projected_discharge = self._flux_disc.project_u(self._gb,
-                                                          discharge, self._data)
+                                                            discharge, self._data)
             self._data[self.projected_discharge_name] = projected_discharge
 
 #------------------------------------------------------------------------------#
+
 
 class EllipticDataAssigner():
     '''

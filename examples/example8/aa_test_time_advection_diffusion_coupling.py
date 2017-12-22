@@ -21,6 +21,7 @@ from porepy.utils.errors import error
 
 #------------------------------------------------------------------------------#
 
+
 def add_data_darcy(gb, domain, tol, a):
     gb.add_node_props(['param'])
 
@@ -70,6 +71,7 @@ def add_data_darcy(gb, domain, tol, a):
 
 #------------------------------------------------------------------------------#
 
+
 def add_data_advection_diffusion(gb, domain, tol, a):
 
     for g, d in gb:
@@ -118,6 +120,7 @@ def add_data_advection_diffusion(gb, domain, tol, a):
 
 #------------------------------------------------------------------------------#
 
+
 folder = os.path.dirname(os.path.realpath(__file__)) + "/"
 export_folder = folder + 'heat'
 tol = 1e-3
@@ -151,11 +154,11 @@ A, b = darcy.matrix_rhs(gb)
 up = sps.linalg.spsolve(A, b)
 darcy.split(gb, "up", up)
 
-gb.add_node_props(["p", "P0u", "u"])
+gb.add_node_props(['pressure', "P0u", "u"])
 for g, d in gb:
     d['u'] = darcy.discr.extract_u(g, d["up"])
     d['param'].set_discharge(d['u'])
-    d["p"] = darcy.discr.extract_p(g, d["up"])
+    d['pressure'] = darcy.discr.extract_p(g, d["up"])
     d["P0u"] = darcy.discr.project_u(g, d['u'], d)
 
 # compute the flow rate
@@ -169,7 +172,7 @@ for g, d in gb:
         total_flow_rate += np.sum(flow_rate)
 
 print("total flow rate", total_flow_rate)
-exporter.export_vtk(gb, 'darcy', ["p", "P0u"], folder=export_folder)
+exporter.export_vtk(gb, 'darcy', ['pressure', "P0u"], folder=export_folder)
 
 #################################################################
 
@@ -194,7 +197,7 @@ D, rhs_d = diffusion.matrix_rhs(gb)
 M, _ = mass.matrix_rhs(gb)
 OF = advection.outflow(gb)
 
-rhs = rhs_u # + rhs_d
+rhs = rhs_u  # + rhs_d
 
 # Perform an LU factorization to speedup the solver
 IE_solver = sps.linalg.factorized((M + U).tocsc())
@@ -214,10 +217,10 @@ production = np.zeros(Nt)
 for i in np.arange(Nt):
     print("Time step", i, " of ", Nt)
     # Update the solution
-    production[i] = np.sum(OF.dot(theta))/total_flow_rate
+    production[i] = np.sum(OF.dot(theta)) / total_flow_rate
     theta = IE_solver(M.dot(theta) + rhs)
 
-    if i%export_every == 0:
+    if i % export_every == 0:
         print("Export solution at", i)
         diffusion.split(gb, "theta", theta)
         exporter.export_vtk(gb, file_name, ["theta"], time_step=i_export,
@@ -225,11 +228,13 @@ for i in np.arange(Nt):
         step_to_export = np.r_[step_to_export, i]
         i_export += 1
 
-    exporter.export_vtk(gb, "theta", ["theta"], time_step=i, folder=export_folder)
+    exporter.export_vtk(gb, "theta", ["theta"],
+                        time_step=i, folder=export_folder)
 
 #print(production, np.cumsum(production))
-exporter.export_pvd(gb, file_name, step_to_export*deltaT, folder=export_folder)
+exporter.export_pvd(gb, file_name, step_to_export *
+                    deltaT, folder=export_folder)
 
 print(production)
 # Consistency check
-#assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 19.8455019189)
+#assert np.isclose(np.sum(error.norm_L2(g, d['pressure']) for g, d in gb), 19.8455019189)
