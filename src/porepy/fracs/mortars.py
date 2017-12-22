@@ -80,13 +80,16 @@ def refine_co_dimensional_grid(mg, new_g):
     changed. The update of the lower dimensional grid in the grid bucket needs
     to be done outside.
 
-    It is asumed that the grids are aligned, with common start and endpoints.
+    It is asumed that the grids are aligned (cover the same domain), with
+    common start and endpoints. However, 1D grids need not be oriented in the
+    same direction (e.g. from 'left' to 'right'), and no restrictions are
+    placed on nodes on the 2D grid.
 
     Parameters:
         mg (MortarGrid): the mortar grid class to be updated
-        new_g (Grid): the new lower dimensional grid
-    """
+        new_g (Grid): the new lower dimensional grid.
 
+    """
     split_matrix = {}
 
     # For each side we compute the mapping between the new lower dimensional
@@ -116,7 +119,7 @@ def split_matrix_1d(g_old, g_new):
     different grids.
 
     It is asumed that the two grids are aligned, with common start and
-    endpoints.
+    endpoints. However, their nodes can be ordered in oposite directions.
 
     Parameters:
         g_old (Grid): the first (old) grid
@@ -124,6 +127,7 @@ def split_matrix_1d(g_old, g_new):
     Return:
         csr matrix: representing the cell mapping. The entries are the relative
             cell measure between the two grids.
+
     """
     weights, new_cells, old_cells = match_grids_1d(g_new, g_old)
     return sps.csr_matrix((weights, (new_cells, old_cells)))
@@ -135,7 +139,7 @@ def split_matrix_2d(g_old, g_new):
     By calling matching grid the function compute the cell mapping between two
     different grids.
 
-    It is asumed that the two grids are aligned, with common boundary.
+    It is asumed that the two grids have common boundary.
 
     Parameters:
         g_old (Grid): the first (old) grid
@@ -143,6 +147,7 @@ def split_matrix_2d(g_old, g_new):
     Return:
         csr matrix: representing the cell mapping. The entries are the relative
             cell measure between the two grids.
+
     """
     weights, new_cells, old_cells = match_grids_2d(g_new, g_old)
     return sps.csr_matrix((weights, (new_cells, old_cells)))
