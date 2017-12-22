@@ -35,7 +35,7 @@ from porepy.numerics.mixed_dim import coupler
 
 #------------------------------------------------------------------------------#
 
-#def darcy_dualVEM_coupling_example0(**kwargs):
+# def darcy_dualVEM_coupling_example0(**kwargs):
 #    #######################
 #    # Simple 2d Darcy problem with known exact solution
 #    #######################
@@ -91,15 +91,15 @@ from porepy.numerics.mixed_dim import coupler
 #
 #    solver_coupler.split(gb, "up", sps.linalg.spsolve(A, b))
 #
-#    gb.add_node_props(["u", "p", "P0u"])
+#    gb.add_node_props(["u", 'pressure', "P0u"])
 #    for g, d in gb:
 #        d["u"] = solver.extractU(g, d["up"])
-#        d["p"] = solver.extractP(g, d["up"])
+#        d['pressure'] = solver.extractP(g, d["up"])
 #        d["P0u"] = solver.projectU(g, d["u"], d)
 #
-#    if kwargs['visualize']: plot_grid(gb, "p", "P0u")
+#    if kwargs['visualize']: plot_grid(gb, 'pressure', "P0u")
 #
-#    export_vtk(gb, "grid", ["p", "P0u"])
+#    export_vtk(gb, "grid", ['pressure', "P0u"])
 #
 ##    norms = np.array([error.norm_L2(g, p), error.norm_L2(g, P0u)])
 ##    norms_known = np.array([0.041554943620853595, 0.18738227880674516])
@@ -107,7 +107,7 @@ from porepy.numerics.mixed_dim import coupler
 
 #------------------------------------------------------------------------------#
 
-#def darcy_dualVEM_coupling_example1(**kwargs):
+# def darcy_dualVEM_coupling_example1(**kwargs):
 #    #######################
 #    # Simple 2d Darcy problem with known exact solution
 #    #######################
@@ -164,15 +164,15 @@ from porepy.numerics.mixed_dim import coupler
 #    up = sps.linalg.spsolve(A, b)
 #    solver_coupler.split(gb, "up", up)
 #
-#    gb.add_node_props(["u", "p", "P0u"])
+#    gb.add_node_props(["u", 'pressure', "P0u"])
 #    for g, d in gb:
 #        d["u"] = solver.extractU(g, d["up"])
-#        d["p"] = solver.extractP(g, d["up"])
+#        d['pressure'] = solver.extractP(g, d["up"])
 #        d["P0u"] = solver.projectU(g, d["u"], d)
 #
-#    if kwargs['visualize']: plot_grid(gb, "p", "P0u")
+#    if kwargs['visualize']: plot_grid(gb, 'pressure', "P0u")
 #
-#    export_vtk(gb, "grid", ["p", "P0u"])
+#    export_vtk(gb, "grid", ['pressure', "P0u"])
 #
 ##    norms = np.array([error.norm_L2(g, p), error.norm_L2(g, P0u)])
 ##    norms_known = np.array([0.041554943620853595, 0.18738227880674516])
@@ -214,8 +214,8 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     # Need to remove the boundary flag explicity from the fracture face,
     # because of the mix formulation
     internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) \
-                                        for g, _ in gb if g.dim == gb.dim_max()]
+    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag)
+     for g, _ in gb if g.dim == gb.dim_max()]
 
     if kwargs['visualize']:
         plot_grid(gb, info="f", alpha=0)
@@ -234,8 +234,8 @@ def darcy_dualVEM_coupling_example2(**kwargs):
 
         b_faces_neu = np.setdiff1d(b_faces, b_faces_dir, assume_unique=True)
         b_faces = np.hstack((b_faces_dir, b_faces_neu))
-        b_faces_label = np.hstack((['dir']*b_faces_dir.size,
-                                   ['neu']*b_faces_neu.size))
+        b_faces_label = np.hstack((['dir'] * b_faces_dir.size,
+                                   ['neu'] * b_faces_neu.size))
         d['bc'] = bc.BoundaryCondition(g, b_faces, b_faces_label)
         d['bc_val'] = {'dir': b_faces_dir_cond,
                        'neu': np.zeros(b_faces_neu.size)}
@@ -244,7 +244,7 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     for e, d in gb.edges_props():
         g_l = gb.sorted_nodes_of_edge(e)[0]
         c = g_l.cell_centers[2, :] > -0.5
-        d['kn'] = (np.ones(g_l.num_cells) + c.astype('float')*(-1+1e-2))
+        d['kn'] = (np.ones(g_l.num_cells) + c.astype('float') * (-1 + 1e-2))
 
     solver = dual.DualVEM()
     coupling_conditions = dual_coupling.DualCoupling(solver)
@@ -254,16 +254,16 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     up = sps.linalg.spsolve(A, b)
     solver_coupler.split(gb, "up", up)
 
-    gb.add_node_props(["u", "p", "P0u"])
+    gb.add_node_props(["u", 'pressure', "P0u"])
     for g, d in gb:
         d["u"] = solver.extractU(g, d["up"])
-        d["p"] = solver.extractP(g, d["up"])
+        d['pressure'] = solver.extractP(g, d["up"])
         d["P0u"] = solver.projectU(g, d["u"], d)
 
     if kwargs['visualize']:
-        plot_grid(gb, "p", "P0u")
+        plot_grid(gb, 'pressure', "P0u")
 
-    export_vtk(gb, "grid", ["p", "P0u"])
+    export_vtk(gb, "grid", ['pressure', "P0u"])
 
 #    norms = np.array([error.norm_L2(g, p), error.norm_L2(g, P0u)])
 #    norms_known = np.array([0.041554943620853595, 0.18738227880674516])
