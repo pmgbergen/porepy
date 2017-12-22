@@ -9,8 +9,9 @@ import scipy.sparse as sps
 from porepy.params.data import Parameters
 
 
-def solve_static_condensation(A, rhs, gb, dim=0, condensation_inverter=sps.linalg.inv,
-        system_inverter=sps.linalg.spsolve):
+def solve_static_condensation(a, rhs, gb, dim=0,
+                              condensation_inverter=sps.linalg.inv,
+                              system_inverter=sps.linalg.spsolve):
     """
     A call to this function uses a static condensation to solve a linear
     problem without the degrees of freedom related to grids of dimension dim.
