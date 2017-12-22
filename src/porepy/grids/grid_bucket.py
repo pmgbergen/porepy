@@ -132,6 +132,8 @@ class GridBucket(object):
         """
         Iterator over the edges of the specific node.
 
+        IMPLEMENTATION NOTE: RENAME EDGES_OF_NODE
+
         Parameters:
             node: A node in the graph.
 
@@ -198,6 +200,8 @@ class GridBucket(object):
         """
         Obtain the vertices of an edge.
 
+        IMPLEMENTATION NOTE: MERGE WITH SORTED_NODES_OF_EDGE
+
         Parameters:
             e: An edge in the graph.
 
@@ -214,6 +218,8 @@ class GridBucket(object):
         """
         Obtain the grids subject to a condition.
 
+        IMPLEMENTATION NOTE: EXAMPLE NEEDED
+
         Parameters:
             cond: Predicate to select a grid.
 
@@ -227,12 +233,13 @@ class GridBucket(object):
 
     def update_nodes(self, new, old):
         """
-        Update the grids givin the old and new values. The edges are updated
+        Update the grids given the old and new values. The edges are updated
         accordingly.
 
         Parameters:
             new: List of the new grids, it can be a single element
             old: List of the old grids, it can be a single element
+
         """
         new = np.atleast_1d(new)
         old = np.atleast_1d(old)
