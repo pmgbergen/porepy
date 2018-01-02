@@ -10,7 +10,7 @@ from porepy.utils.half_space import half_space_int
 from porepy.utils import sparse_mat
 from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
-from porepy.grids.grid import Grid, Face
+from porepy.grids.grid import Grid, FaceTag
 
 
 def split_fractures(bucket, **kwargs):
