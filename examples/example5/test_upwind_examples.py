@@ -10,7 +10,7 @@ import unittest
 
 import scipy.sparse as sps
 
-from porepy.grids import structured, simplex
+from porepy.grids import structured
 from porepy.params.bc import BoundaryCondition
 from porepy.params import tensor
 from porepy.params.data import Parameters
@@ -45,7 +45,7 @@ class BasicsTest( unittest.TestCase ):
         param.set_bc("transport", bc)
         param.set_bc_val("transport", bc_val)
 
-        data = {'param': param, 'discharge':dis}
+        data = {'param': param, 'discharge': dis}
         data['deltaT'] = advect.cfl(g, data)
 
         U, rhs = advect.matrix_rhs(g, data)
