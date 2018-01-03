@@ -117,25 +117,27 @@ def face_on_side(g, side, tol=1e-8):
             xm = g.nodes[0].min()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) <
                                               tol)))
-        if s == 'east' or s == 'xmax':
+        elif s == 'east' or s == 'xmax':
             xm = g.nodes[0].max()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) <
                                               tol)))
-        if s == 'south' or s == 'ymin':
+        elif s == 'south' or s == 'ymin':
             xm = g.nodes[1].min()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) <
                                               tol)))
-        if s == 'north' or s == 'ymax':
+        elif s == 'north' or s == 'ymax':
             xm = g.nodes[1].max()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) <
                                               tol)))
-        if s == 'bottom' or s == 'zmin':
+        elif s == 'bottom' or s == 'bot' or s == 'zmin':
             xm = g.nodes[2].min()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) <
                                               tol)))
-        if s == 'top' or s == 'zmax':
+        elif s == 'top' or s == 'zmax':
             xm = g.nodes[2].max()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) <
                                               tol)))
+        else:
+            raise ValueError('Unknow face side')
     return faces
 
