@@ -107,16 +107,16 @@ class FrictionSlipModel():
         fi = frac_faces[1]
         fi_left = frac_faces[0]
         T_n, T_s, n, t = self.normal_shear_traction(fi)
-
+        
         assert np.all(T_s > -1e-10)
         assert np.all(T_n < 0), 'Must have a normal force on the fracture'
+
         # we find the effective normal stress on the fracture face.
         # Here we need to multiply T_n with -1 as we want the absolute value,
         # and all the normal tractions should be negative.
-        p = self._data['face_pressure'][fi]
-
-        sigma_n = -T_n - p
+        sigma_n = -T_n - self._data['face_pressure'][fi]
         assert np.all(sigma_n > 0 )
+
         new_slip = T_s - self.mu(fi, self.is_slipping[fi]) * sigma_n >1e-5 * self._data['rock'].MU
        
         self.is_slipping[fi] = self.is_slipping[fi] | new_slip
@@ -128,7 +128,8 @@ class FrictionSlipModel():
         # face values to obtain a cell value, it will equal the face value
         self.d_n[fi] += self.fracture_dilation(slip_d)
         self.d_n[fi_left] += self.fracture_dilation(slip_d)
-        slip_vec =  -t * slip_d #- n * slip_d #self.fracture_dilation(slip_d)
+        assert np.all(self.d_n[fi] >-1e-6)
+        slip_vec =  -t * slip_d - n * self.d_n[fi] #self.fracture_dilation(slip_d)
         
         self.x[:, fi] += slip_vec
         self.x[:, fi_left] -= slip_vec
@@ -175,8 +176,8 @@ class FrictionSlipModel():
         T_n = np.sum(T * normals, axis=0)
         tangents = T - T_n * normals
         T_s = np.sqrt(np.sum(tangents**2, axis=0))
-
         tangents = tangents / np.sqrt(np.sum(tangents**2, axis=0))
+        assert np.allclose(np.sqrt(np.sum(tangents**2, axis=0)), 1)
         assert np.allclose(T, T_n * normals + T_s * tangents)
         # Sanity check:
         frac_faces = self._gb.frac_pairs

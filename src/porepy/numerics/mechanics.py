@@ -364,7 +364,8 @@ class StaticDataAssigner():
     def _set_data(self):
         if 'param' not in self._data:
             self._data['param'] = Parameters(self.grid())
-        self._data['param'].set_tensor(self.physics, self.stress_tensor())
         self._data['param'].set_bc(self.physics, self.bc())
         self._data['param'].set_bc_val(self.physics, self.bc_val())
         self._data['param'].set_background_stress(self.physics, self.background_stress())        
+        if self.stress_tensor() is not None:
+            self._data['param'].set_tensor(self.physics, self.stress_tensor())
