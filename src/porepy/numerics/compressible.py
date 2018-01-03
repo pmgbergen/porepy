@@ -6,6 +6,7 @@ from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.params import tensor
 from porepy.grids.grid_bucket import GridBucket
 
+
 class SlightlyCompressibleModel(ParabolicModel):
     '''
     Inherits from ParabolicProblem
@@ -17,7 +18,7 @@ class SlightlyCompressibleModel(ParabolicModel):
     - physics (string) Physics key word. See Parameters class for valid physics
 
     functions:
-    discharge(): computes the discharges and saves it in the grid bucket as 'p'
+    discharge(): computes the discharges and saves it in the grid bucket as 'pressure'
     Also see functions from ParabolicProblem
 
     Example:
@@ -61,7 +62,7 @@ class SlightlyCompressibleModel(ParabolicModel):
 
     def discharge(self, d_name='discharge', p_name='pressure'):
         self.pressure(p_name)
-        fvutils.compute_discharges(self.grid(),d_name=d_name, p_name=p_name)
+        fvutils.compute_discharges(self.grid(), d_name=d_name, p_name=p_name)
 
     def pressure(self, pressure_name='pressure'):
         self.pressure_name = pressure_name

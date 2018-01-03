@@ -218,7 +218,7 @@ def solve_elliptic_problem(gb):
         d['param'] = Parameters(g_h)
     flux = elliptic.EllipticModel(gb)
     p = flux.solve()
-    flux.split('p')
+    flux.split('pressure')
     fvutils.compute_discharges(gb)
 
 
