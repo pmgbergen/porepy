@@ -302,6 +302,8 @@ class Exporter():
 
         if data is not None:
             for name_field, values_field in data.items():
+                if values_field is None:
+                    continue
                 dataVTK = ns.numpy_to_vtk(values_field.ravel(order='F'),
                                           deep=True, array_type=vtk.VTK_DOUBLE)
                 dataVTK.SetName(str(name_field))
