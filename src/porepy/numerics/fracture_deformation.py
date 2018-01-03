@@ -16,7 +16,6 @@ from porepy.viz.exporter import Exporter
 logger = logging.getLogger(__name__)
 
 
-
 class FrictionSlipModel():
     '''
     Class for solving a frictional slip problem: T_s <= mu * (T_n -p)
@@ -45,7 +44,7 @@ class FrictionSlipModel():
                        returns it
     mu(faces): returns: the coefficient of friction
     gamma(): returns: the numerical step length parameter
-    save(): calls split('p'). Then export the pressure to a vtk file to the
+    save(): calls split('pressure'). Then export the pressure to a vtk file to the
             folder kwargs['folder_name'] with file name
             kwargs['file_name'], default values are 'results' for the folder and
             physics for the file name.
@@ -116,12 +115,15 @@ class FrictionSlipModel():
         # and all the normal tractions should be negative.
         sigma_n = -T_n - self._data['face_pressure'][fi]
         assert np.all(sigma_n > 0 )
+        new_slip = T_s - \
+            self.mu(fi, self.is_slipping[fi]) * \
+            sigma_n > 1e-5 * self._data['rock'].MU
 
-        new_slip = T_s - self.mu(fi, self.is_slipping[fi]) * sigma_n >1e-5 * self._data['rock'].MU
-       
         self.is_slipping[fi] = self.is_slipping[fi] | new_slip
-        excess_shear = np.abs(T_s) - self.mu(fi, self.is_slipping[fi]) * sigma_n
-        shear_stiffness = np.sqrt(self._gb.face_areas[fi]) / (self._data['rock'].MU)
+        excess_shear = np.abs(
+            T_s) - self.mu(fi, self.is_slipping[fi]) * sigma_n
+        shear_stiffness = np.sqrt(
+            self._gb.face_areas[fi]) / (self._data['rock'].MU)
         slip_d = excess_shear * shear_stiffness * self.gamma() * new_slip
 
         # We also add the values to the left cells so that when we average the
@@ -193,7 +195,7 @@ class FrictionSlipModel():
             import pdb
             pdb.set_trace()
 
-        assert np.allclose(T_left, -T_right)#, atol=1e-6 * np.max(np.abs(T_left)))
+        assert np.allclose(T_left, -T_right)
 
         # TESTING DONE
 
@@ -304,7 +306,7 @@ class FrictionSlipModel():
         if variables is None:
             self.exporter.write_vtk()
         else:
-            variables = {k: self._data[k] for k in variables \
+            variables = {k: self._data[k] for k in variables
                          if k in self._data}
             self.exporter.write_vtk(variables)
 
@@ -338,6 +340,7 @@ class FrictionSlipDataAssigner():
         grid(): returns: the grid
 
     '''
+
     def __init__(self, g, data, physics='slip'):
         self._g = g
         self._data = data
@@ -355,6 +358,7 @@ class FrictionSlipDataAssigner():
             self._data['param'] = Parameters(self.grid())
 
 #-----------------------------------------------------------------------------#
+
 
 def sign_of_faces(g, faces):
     """

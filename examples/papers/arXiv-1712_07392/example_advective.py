@@ -5,6 +5,7 @@ from porepy.numerics import time_stepper
 
 from porepy.params.bc import BoundaryCondition
 
+
 class AdvectiveModel(parabolic.ParabolicModel):
     '''
     Inherits from ParabolicProblem
@@ -14,7 +15,7 @@ class AdvectiveModel(parabolic.ParabolicModel):
     - gb (Grid/GridBucket) Grid or grid bucket for the problem
     - physics (string) Physics key word. See Parameters class for valid physics
     functions:
-    discharge(): computes the discharges and saves it in the grid bucket as 'p'
+    discharge(): computes the discharges and saves it in the grid bucket as 'pressure'
     Also see functions from ParabolicProblem
     Example:
     # We create a problem with standard data
@@ -36,6 +37,7 @@ class AdvectiveModel(parabolic.ParabolicModel):
 
     def end_time(self):
         return 3
+
 
 class AdvectiveModelData(parabolic.ParabolicDataAssigner):
     def __init__(self, g, data, domain, tol):
