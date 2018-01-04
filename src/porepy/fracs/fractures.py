@@ -1582,6 +1582,15 @@ class FractureNetwork(object):
             # Add the new points towards the end of the list.
             all_p = np.hstack((all_p, p_add_3d))
 
+            new_all_p, _, ia = setmembership.unique_columns_tol(all_p,
+                                                                self.tol)
+
+            # Handle case where the new point is already represented in the
+            # global list of points.
+            if new_all_p.shape[1] < all_p.shape[1]:
+                all_p = new_all_p
+                p_ind_exp = ia[p_ind_exp]
+
             # The ordering of the global edge list bears no significance. We
             # therefore plan to delete all edges (new and old), and add new
             # ones.
