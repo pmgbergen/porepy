@@ -131,7 +131,7 @@ class FrictionSlipModel():
         self.d_n[fi] += self.fracture_dilation(slip_d)
         self.d_n[fi_left] += self.fracture_dilation(slip_d)
         assert np.all(self.d_n[fi] >-1e-6)
-        slip_vec =  -t * slip_d - n * self.d_n[fi] #self.fracture_dilation(slip_d)
+        slip_vec =  -t * slip_d - n * self.fracture_dilation(slip_d)
         
         self.x[:, fi] += slip_vec
         self.x[:, fi_left] -= slip_vec
