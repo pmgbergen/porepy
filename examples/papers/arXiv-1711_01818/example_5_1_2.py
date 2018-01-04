@@ -142,26 +142,26 @@ A, b = solver.matrix_rhs(gb)
 up = sps.linalg.spsolve(A, b)
 solver.split(gb, "up", up)
 
-gb.add_node_props(["discharge", "p", "P0u"])
+gb.add_node_props(["discharge", 'pressure', "P0u"])
 solver.extract_u(gb, "up", "discharge")
-solver.extract_p(gb, "up", "p")
+solver.extract_p(gb, "up", 'pressure')
 solver.project_u(gb, "discharge", "P0u")
 
-exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='example_5_1_2')
+exporter.export_vtk(gb, 'vem', ['pressure', "P0u"], folder='example_5_1_2')
 
 # This part is very slow and not optimized, it's just to obtain the plots once.
 b_box = gb.bounding_box()
 N_pts = 1000
 y_range = np.linspace(b_box[0][1] + tol, b_box[1][1] - tol, N_pts)
 pts = np.stack((625 * np.ones(N_pts), y_range, np.zeros(N_pts)))
-values = plot_over_line(gb, pts, 'p', tol)
+values = plot_over_line(gb, pts, 'pressure', tol)
 
 arc_length = y_range - b_box[0][1]
 np.savetxt("example_5_1_2/vem_x_625.csv", (arc_length, values))
 
 x_range = np.linspace(b_box[0][0] + tol, b_box[1][0] - tol, N_pts)
 pts = np.stack((x_range, 500 * np.ones(N_pts), np.zeros(N_pts)))
-values = plot_over_line(gb, pts, 'p', tol)
+values = plot_over_line(gb, pts, 'pressure', tol)
 
 arc_length = x_range - b_box[0][0]
 np.savetxt("example_5_1_2/vem_y_500.csv", (arc_length, values))

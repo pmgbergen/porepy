@@ -33,19 +33,19 @@ def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000, if_export=False):
     up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
     solver_flow.split(gb, "up", up)
 
-    gb.add_node_props(["discharge", "p", "P0u"])
+    gb.add_node_props(["discharge", 'pressure', "P0u"])
     solver_flow.extract_u(gb, "up", "discharge")
-    solver_flow.extract_p(gb, "up", "p")
+    solver_flow.extract_p(gb, "up", 'pressure')
     solver_flow.project_u(gb, "discharge", "P0u")
 
     if if_export:
         save = Exporter(gb, file_export, folder_export)
-        save.write_vtk(["p", "P0u"])
+        save.write_vtk(['pressure', "P0u"])
 
     b_box = gb.bounding_box()
     y_range = np.linspace(b_box[0][1] + tol, b_box[1][1] - tol, N_pts)
     pts = np.stack((1.5 * np.ones(N_pts), y_range, 0.5 * np.ones(N_pts)))
-    values = example_2_2_data.plot_over_line(gb, pts, 'p', tol)
+    values = example_2_2_data.plot_over_line(gb, pts, 'pressure', tol)
 
     arc_length = y_range - b_box[0][1]
     np.savetxt(folder_export + "plot_over_line.txt", (arc_length, values))

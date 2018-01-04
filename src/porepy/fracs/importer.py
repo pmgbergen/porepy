@@ -33,7 +33,7 @@ def dfm_3d_from_csv(file_name, tol=1e-4, **mesh_kwargs):
     """
     frac_list, network, domain = network_3d_from_csv(file_name)
 
-    gb = meshing.simplex_grid(frac_list, domain, network, **mesh_kwargs)
+    gb = meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
     return gb, domain
 
 #------------------------------------------------------------------------------#
@@ -47,6 +47,8 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
       X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
     - the other lines descibe the N fractures as a list of points
       P0_X, P0_Y, P0_Z, ...,PN_X, PN_Y, PN_Z
+
+    Lines that start with a # are ignored.
 
     Parameters:
         file_name: name of the file
@@ -74,21 +76,22 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
                       'ymax': domain[4], 'zmin': domain[2], 'zmax': domain[5]}
 
         for row in spam_reader:
+            # If the line starts with a '#', we consider this a comment
+            if row[0][0] == '#':
+                continue
+
             # Read the points
             pts = np.asarray(row, dtype=np.float)
             assert pts.size % 3 == 0
+
+            # Skip empty lines. Useful if the file ends with a blank line.
+            if pts.size == 0:
+                continue
+
             frac_list.append(Fracture(pts.reshape((3, -1), order='F')))
 
     # Create the network
     network = FractureNetwork(frac_list, tol=tol)
-
-    # Cut the fractures due to the domain
-    if has_domain:
-        network.impose_external_boundary(domain)
-
-    # Find intersections, and split these
-    network.find_intersections()
-    network.split_intersections()
 
     if has_domain:
         return frac_list, network, domain

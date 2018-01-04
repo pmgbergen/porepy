@@ -128,17 +128,19 @@ def main(kf, description, mesh_size):
     up = sps.linalg.spsolve(A, b)
     solver.split(gb, "up", up)
 
-    gb.add_node_props(["discharge", "p", "P0u"])
+    gb.add_node_props(["discharge", 'pressure', "P0u"])
     solver.extract_u(gb, "up", "discharge")
-    solver.extract_p(gb, "up", "p")
+    solver.extract_p(gb, "up", 'pressure')
     solver.project_u(gb, "discharge", "P0u")
 
-    exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder=folder, binary=False)
+    exporter.export_vtk(
+        gb, 'vem', ['pressure', "P0u"], folder=folder, binary=False)
 
     if if_coarse:
         partition = partition[gb.grids_of_dimension(gb.dim_max())[0]]
-        p = np.array([d['p'] for g, d in gb if g.dim == gb.dim_max()]).ravel()
-        data = {'partition': partition, 'p': p[partition]}
+        p = np.array([d['pressure']
+                      for g, d in gb if g.dim == gb.dim_max()]).ravel()
+        data = {'partition': partition, 'pressure': p[partition]}
         exporter.export_vtk(g_fine, 'sub_grid', data, binary=False,
                             folder=folder)
 

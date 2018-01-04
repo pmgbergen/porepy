@@ -86,7 +86,7 @@ class BasicsTest(unittest.TestCase):
         p_cond, _, _, _ = condensation.solve_static_condensation(
             A, rhs, gb, dim=0)
 
-        solver_coupler.split(gb, "pressure", p)
+        solver_coupler.split(gb, 'pressure', p)
         solver_coupler.split(gb, "p_cond", p_cond)
 
         tol = 1e-10
@@ -159,7 +159,7 @@ class BasicsTest(unittest.TestCase):
         p_cond, _, _, _ = condensation.solve_static_condensation(
             A, rhs, gb, dim=0)
 
-        solver_coupler.split(gb, "pressure", p)
+        solver_coupler.split(gb, 'pressure', p)
         solver_coupler.split(gb, "p_cond", p_cond)
 
         tol = 1e-10
@@ -270,7 +270,7 @@ class BasicsTest(unittest.TestCase):
         p_cond, _, _, _ = condensation.solve_static_condensation(
             A, rhs, gb, dim=0)
 
-        solver_coupler.split(gb, "pressure", p)
+        solver_coupler.split(gb, 'pressure', p)
         solver_coupler.split(gb, "p_cond", p_cond)
 
         tol = 1e-10
