@@ -1,50 +1,57 @@
 """
 Methods for tag handling. The following primary applications are intended:
-    --Grid tags, stored in the data field of the grid bucket. Typically fields
-    are cell, face or node tags, lists of length g.num_cell etc. The entries
+    --Grid tags, stored in the grids and data fields of the grid bucket.
+    Geometry tags are stored in the grids, typical fields
+    are cell, face or node tags, lists of length g.num_cell etc. Other
+    information is storad in the data fields. The entries
     of the lists should be boolean or integers. Examples:
-        data['tags']['fracture_faces'] = [0, 1, 1, 0, 1, 1]
-        data['tags']['fracture_face_ids'] = [0, 1, 2, 0, 1, 2]
+        g.tags['fracture_faces'] = [0, 1, 1, 0, 1, 1]
+        g.tags['fracture_face_ids'] = [0, 1, 2, 0, 1, 2]
+
     for a grid with two immersed fractures (neighbour to faces (1 and 4) and
-    (2 and 5), respectively).
+    (2 and 5), respectively). If the wells are located in cells 1 and 3, this
+    may be tagged in the data as e.g.
+        data['well_cells'] = [0 1 0 -1]
+
     --Fracture network tags, stored in the fracture network field .tags. One
     list entry for each fracture:
         network.tags['fracture_id'] = [1,2]
     --
 """
 import numpy as np
-import warnings
+
+
 def append_tags(tags, kws, appendices):
-        for i, kw in enumerate(kws):
-            tags[kw] = np.append(tags[kw], appendices[i])
+    for i, kw in enumerate(kws):
+        tags[kw] = np.append(tags[kw], appendices[i])
 
-#------------------------------------------------------------------------------#
-# The tags below are the dictionary values, i.e. to be called as f(tag['key'])
-def add_face_tag(old_tags, f, new_tags):
+
+def standard_face_tags():
+    keys = ['fracture_faces', 'boundary_faces',
+            'tip_faces', 'domain_boundary_faces']
+    return keys
+
+
+def extract(all_tags, indices, keys=None):
     """
-    Equivalent to or for logicals. Else: use with care.
+    Extracts only the values of indices (e.g. a face subset) for the given
+    keys. Any unspecified keys are left untouched (e.g. all node tags). If
+    keys=None, the extraction is performed on all fields.
     """
-    old_tags[f] = np.amax(old_tags[f], old_tags)
+    if keys is None:
+        keys = all_tags.keys()
+    new_tags = all_tags.copy()
+    for k in keys:
+        new_tags[k] = all_tags[k][indices]
+    return new_tags
 
-def remove_face_tag(self, f, tag):
-    self.face_tags[f] = np.bitwise_and(
-        self.face_tags[f], np.bitwise_not(tag))
 
-def remove_face_tag_if_tag(self, tag, if_tag):
-    f = self.has_face_tag(if_tag)
-    self.face_tags[f] = np.bitwise_and(
-        self.face_tags[f], np.bitwise_not(tag))
-
-def remove_face_tag_if_not_tag(self, tag, if_tag):
-    f = self.has_not_face_tag(if_tag)
-    self.face_tags[f] = np.bitwise_and(
-        self.face_tags[f], np.bitwise_not(tag))
-
-def has_face_tag(self, tag):
-    return np.bitwise_and(self.face_tags, tag).astype(np.bool)
-
-def has_not_face_tag(self, tag):
-    return np.bitwise_not(self.has_face_tag(tag))
-
-def has_only_face_tag(self, tag):
-    return self.face_tags == tag
+def add_tags(parent, new_tags):
+    """
+    Add new tags (as a premade dictionary) to the tags of the parent object
+    (usually a grid). Values corresponding to keys existing in both
+    dictionaries (parent.tags and new_tags) will be decided by those in
+    new_tags.
+    """
+    old_tags = getattr(parent, 'tags', {})
+    parent.tags = {**old_tags, **new_tags}

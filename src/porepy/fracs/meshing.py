@@ -16,13 +16,13 @@ from porepy.fracs.fractures import Intersection
 from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
-from porepy.grids.grid import FaceTag
 from porepy.grids.structured import TensorGrid
-from porepy.utils import setmembership, mcolon
+from porepy.utils import mcolon
 from porepy.utils import comp_geom as cg
 
 
 logger = logging.getLogger()
+
 
 def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0, **kwargs):
     """
@@ -54,14 +54,14 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
         lower dim grids. The higher dim fracture faces are split in two,
         and on the edges of the GridBucket graph the mapping from lower dim
         cells to higher dim faces are stored as 'face_cells'. Each face is
-        given a FaceTag depending on the type:
-           NONE: None of the below (i.e. an internal face)
-           DOMAIN_BOUNDARY: All faces that lie on the domain boundary
+        given boolean tags depending on the type:
+           domain_boundary_faces: All faces that lie on the domain boundary
                (i.e. should be given a boundary condition).
-           FRACTURE: All faces that are split (i.e. has a connection to a
+           fracture_faces: All faces that are split (i.e. has a connection to a
                lower dim grid).
-           TIP: A boundary face that is not on the domain boundary, nor
+           tip_faces: A boundary face that is not on the domain boundary, nor
                coupled to a lower domentional domain.
+        The union of the above three is the tag boundary_faces.
 
     Examples
     --------
@@ -99,7 +99,8 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
         frac_dic = {'points': f_pts, 'edges': f_lines}
         grids = simplex.triangle_grid(frac_dic, domain, **kwargs)
     elif ndim == 3:
-        grids = simplex.tetrahedral_grid(fracs, domain, network, subdomains, **kwargs)
+        grids = simplex.tetrahedral_grid(
+            fracs, domain, network, subdomains, **kwargs)
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
 
@@ -138,6 +139,7 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
     return gb
 
 #------------------------------------------------------------------------------#
+
 
 def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
         **kwargs):
@@ -195,7 +197,6 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
         grid_list = []
         neigh_list = []
 
-
         for fi in range(len(network._fractures)):
             logger.info('Meshing of fracture ' + str(fi))
             # Rotate fracture vertexes and intersection points
@@ -237,14 +238,14 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
                     g_aux.global_point_ind = global_point_ind[sort_ind]
                     grids[1].insert(ind, g_aux)
 
-
             assert len(grids[0]) == 1, 'Fracture should be covered by single'\
                 'mesh'
 
             grid_list.append(grids)
             neigh_list.append(other_frac)
 
-        logger.warn('Finished creating grids. Elapsed time ' + str(time.time() - tic))
+        logger.warn('Finished creating grids. Elapsed time ' +
+                    str(time.time() - tic))
         logger.warn('Merge grids')
         tic = time.time()
         grids = non_conforming.merge_grids(grid_list, neigh_list)
@@ -359,14 +360,14 @@ def cart_grid(fracs, nx, **kwargs):
         lower dim grids. The higher dim fracture faces are split in two,
         and on the edges of the GridBucket graph the mapping from lower dim
         cells to higher dim faces are stored as 'face_cells'. Each face is
-        given a FaceTag depending on the type:
-           NONE: None of the below (i.e. an internal face)
-           DOMAIN_BOUNDARY: All faces that lie on the domain boundary
+        given boolean tags depending on the type:
+           domain_boundary_faces: All faces that lie on the domain boundary
                (i.e. should be given a boundary condition).
-           FRACTURE: All faces that are split (i.e. has a connection to a
+           fracture_faces: All faces that are split (i.e. has a connection to a
                lower dim grid).
-           TIP: A boundary face that is not on the domain boundary, nor
+           tip_faces: A boundary face that is not on the domain boundary, nor
                coupled to a lower domentional domain.
+        The union of the above three is the tag boundary_faces.
 
     Examples
     --------
@@ -426,8 +427,8 @@ def tag_faces(grids, check_highest_dim=True):
 
     for gs in grids:
         for g in gs:
-            g.remove_face_tag([True] * g.num_faces, FaceTag.DOMAIN_BOUNDARY)
-            # g.face_tags['domain_boundary'] = np.zeros(g.num_faces) **taggekladd
+            g.tags['domain_boundary_faces'] = np.zeros(
+                g.num_faces, dtype=bool)
     # Assume only one grid of highest dimension
     if check_highest_dim:
         assert len(grids[0]) == 1, 'Must be exactly'\
@@ -435,8 +436,7 @@ def tag_faces(grids, check_highest_dim=True):
 
     for g_h in np.atleast_1d(grids[0]):
         bnd_faces = g_h.get_boundary_faces()
-        g_h.add_face_tag(bnd_faces, FaceTag.DOMAIN_BOUNDARY)
-        # g_h.face_tags['domain_boundary'][bnd_faces] = True**taggekladd
+        g_h.tags['domain_boundary_faces'][bnd_faces] = True
         bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
         bnd_nodes = np.unique(bnd_nodes)
         for g_dim in grids[1:-1]:
@@ -458,13 +458,9 @@ def tag_faces(grids, check_highest_dim=True):
                 n_per_face = nodes_per_face(g)
                 is_tip = np.any(is_tip.reshape(
                     (n_per_face, bnd_faces_l.size), order='F'), axis=0)
-                g.add_face_tag(bnd_faces_l[is_tip], FaceTag.TIP)
 
-                g.add_face_tag(bnd_faces_l[is_tip == False],
-                               FaceTag.DOMAIN_BOUNDARY)
-                #g.face_tags['tip'][bnd_faces_l[is_tip]] = True **taggekladd
-                #g.face_tags['domain_boundary'][bnd_faces_l[is_tip == False ]]
-                #    = True **taggekladd
+                g.tags['tip_faces'][bnd_faces_l[is_tip]] = True
+                g.tags['domain_boundary_faces'][bnd_faces_l[is_tip == False]] = True
 
 
 def nodes_per_face(g):
@@ -508,12 +504,7 @@ def assemble_in_bucket(grids, **kwargs):
     # Create bucket
     bucket = GridBucket()
     [bucket.add_nodes(g_d) for g_d in grids]
-#    for g in grids:
-#        tags = {'boundary_face': g.face_tags['boundary_face'],
-#                'domain_boundary_face': g.face_tags['domain_boundary_face'],
-#                'fracture_tip_face': g.face_tags['tip'],
-#                'fracture_face': g.face_tags['fracture']}
-#        bucket.add_node_props(['tags'], g, [tags])**taggekladd
+
     # We now find the face_cell mapings.
     for dim in range(len(grids) - 1):
         for hg in grids[dim]:
@@ -538,5 +529,3 @@ def assemble_in_bucket(grids, **kwargs):
                     bucket.add_edge([hg, lg], face_cells)
 
     return bucket
-
-

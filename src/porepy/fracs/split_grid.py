@@ -4,13 +4,11 @@ Module for splitting a grid at the fractures.
 
 import numpy as np
 from scipy import sparse as sps
-import warnings
 
 from porepy.utils.half_space import half_space_int
-from porepy.utils import sparse_mat
+from porepy.utils import sparse_mat, tags
 from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
-from porepy.grids.grid import Grid, FaceTag
 
 
 def split_fractures(bucket, **kwargs):
@@ -198,12 +196,9 @@ def duplicate_faces(gh, face_cells):
     # anyway.
     frac_id = face_cells.nonzero()[1]
     frac_id = np.unique(frac_id)
-    rem = gh.has_face_tag(FaceTag.BOUNDARY)[frac_id]
-    gh.add_face_tag(frac_id[rem], FaceTag.FRACTURE)
-    gh.remove_face_tag(frac_id, FaceTag.TIP)
-#    rem = gh.face_tags['boundary'][frac_id]
-#    gh.face_tags['fracture'][frac_id[rem]] = True
-#    gh.face_tags['tip'][frac_id] = False
+    rem = gh.tags['boundary_faces'][frac_id]
+    gh.tags['fracture_faces'][frac_id[rem]] = True
+    gh.tags['tip_faces'][frac_id] = False
 
     frac_id = frac_id[~rem]
     if frac_id.size == 0:
@@ -240,16 +235,14 @@ def duplicate_faces(gh, face_cells):
 
     # Not sure if this still does the correct thing. Might have to
     # send in a logical array instead of frac_id.
-    gh.add_face_tag(frac_id, FaceTag.FRACTURE | FaceTag.BOUNDARY)
-    gh.remove_face_tag(frac_id, FaceTag.TIP)
-    gh.face_tags = np.append(gh.face_tags, gh.face_tags[frac_id])
-#    gh.face_tags['fracture'][frac_id] = True
-#    gh.face_tags['boundary'][frac_id] = True
-#    gh.face_tags['tip'][frac_id] = False
-#    update_fields = ['fracture', 'boundary', 'tip', 'domain_boundary']
-#    for i, kw in enumerate(update_fields):
-#        update_values[i] = gh.face_tags[kw][frac_id] taggekladd
-#    tags.append_tags(gh.face_tags, update_fields, update_values)
+    gh.tags['fracture_faces'][frac_id] = True
+    gh.tags['boundary_faces'][frac_id] = True
+    gh.tags['tip_faces'][frac_id] = False
+    update_fields = tags.standard_face_tags()
+    update_values = [[]] * len(update_fields)
+    for i, key in enumerate(update_fields):
+        update_values[i] = gh.tags[key][frac_id]
+    tags.append_tags(gh.tags, update_fields, update_values)
 
     return frac_id
 
@@ -364,10 +357,9 @@ def remove_faces(g, face_id, rem_cell_faces=True):
     g.face_areas = g.face_areas[keep]
     g.face_centers = g.face_centers[:, keep]
     # Not sure if still works
-    g.face_tags = g.face_tags[keep]
-#    update_fields = ['fracture', 'boundary', 'tip', 'domain_boundary']
-#    for i, kw in enumerate(update_fields):
-#        g-face_tags[kw] = gh.face_tags[kw][keep] taggekladd
+    update_fields = tags.standard_face_tags()
+    for key in update_fields:
+        g.tags[key] = g.tags[key][keep]
 
     if rem_cell_faces:
         g.cell_faces = g.cell_faces[keep, :]
