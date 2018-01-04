@@ -5,7 +5,6 @@ from porepy.numerics.mechanics import StaticModel
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import bc
-from porepy.grids.grid import FaceTag
 
 
 class BasicsTest(unittest.TestCase):
@@ -14,7 +13,7 @@ class BasicsTest(unittest.TestCase):
         """
         if nothing is touched nothing should happen
         """
-        f = np.array([[0,0,1], [0,1,1],[1,1,1], [1,0,1]]).T
+        f = np.array([[0, 0, 1], [0, 1, 1], [1, 1, 1], [1, 0, 1]]).T
         g = meshing.cart_grid([f], [4, 4, 2]).grids_of_dimension(3)[0]
         data = {'param': Parameters(g)}
 
@@ -27,13 +26,12 @@ class BasicsTest(unittest.TestCase):
         assert np.all(d == 0)
         assert np.all(data['T'] == 0)
 
-
     def test_unit_slip(self):
         """
         Unit slip of fractures
         """
 
-        f = np.array([[0,0,1], [0,2,1],[2,2,1], [2,0,1]]).T
+        f = np.array([[0, 0, 1], [0, 2, 1], [2, 2, 1], [2, 0, 1]]).T
         g = meshing.cart_grid([f], [2, 2, 2]).grids_of_dimension(3)[0]
         data = {'param': Parameters(g)}
 
@@ -58,8 +56,8 @@ class BasicsTest(unittest.TestCase):
         frac_left = frac_faces[0]
         frac_right = frac_faces[1]
 
-        cell_left = np.ravel(np.argwhere(g.cell_faces[frac_left, : ])[:, 1])
-        cell_right = np.ravel(np.argwhere(g.cell_faces[frac_right, : ])[:, 1])
+        cell_left = np.ravel(np.argwhere(g.cell_faces[frac_left, :])[:, 1])
+        cell_right = np.ravel(np.argwhere(g.cell_faces[frac_right, :])[:, 1])
 
         # Test traction
         solver.traction('T')
@@ -73,8 +71,6 @@ class BasicsTest(unittest.TestCase):
         assert np.all(d_c[:, cell_right] < 0)
 
         # Test fracture displacement
-        u_left = data['d_f'][:, :int(round(data['d_f'].shape[1]/2))]
-        u_right = data['d_f'][:, int(round(data['d_f'].shape[1]/2)):]
+        u_left = data['d_f'][:, :int(round(data['d_f'].shape[1] / 2))]
+        u_right = data['d_f'][:, int(round(data['d_f'].shape[1] / 2)):]
         assert np.all(np.abs(u_left - u_right - 1) < 1e-10)
-
-
