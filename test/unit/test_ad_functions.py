@@ -37,7 +37,7 @@ class AdFunctionTest(unittest.TestCase):
         jac = np.dot(np.diag(np.exp(val)),J.A)
         assert np.all(b.val == np.exp(val)) and np.all(b.jac == jac)
 
-    def teste_exp_scalar_times_ad_var(self):
+    def test_exp_scalar_times_ad_var(self):
         val = np.array([1,2,3])
         J = sps.diags(np.array([1,1,1]))
         a = Ad_array(val, J)
@@ -46,4 +46,44 @@ class AdFunctionTest(unittest.TestCase):
         jac = c * sps.diags(np.exp(c * val)) * J
         
         assert np.allclose(b.val, np.exp(c * val)) and np.allclose(b.jac.A, jac.A)
+        assert np.all(a.val == [1,2,3]) and np.all(a.jac.A == J.A)
+
+    def test_log_scalar(self):
+        a = Ad_array(2, 0)
+        b = af.log(a)
+        assert b.val == np.log(2) and b.jac == 0
+        assert a.val == 2 and a.jac == 0
+
+    def test_log_advar(self):
+        a = Ad_array(2,3)
+        b = af.log(a)
+        assert b.val == np.log(2) and b.jac == 1/2 * 3
+        assert a.val==2 and a.jac == 3
+
+    def test_log_vector(self):
+        val = np.array([1, 2, 3])
+        J = np.array([[3, 2, 1], [5, 6, 1], [2, 3, 5]])
+        a = Ad_array(val, J)
+        b = af.log(a)
+        jac = np.dot(np.diag(1 / val), J)
+        
+        assert np.all(b.val == np.log(val)) and np.all(b.jac == jac)
+
+    def test_log_sparse_jac(self):
+        val = np.array([1, 2, 3])
+        J = sps.csc_matrix(np.array([[3, 2, 1], [5, 6, 1], [2, 3, 5]]))
+        a = Ad_array(val, J)
+        b = af.log(a)
+        jac = np.dot(np.diag(1 / val), J.A)
+        assert np.all(b.val == np.log(val)) and np.all(b.jac == jac)
+
+    def test_log_scalar_times_ad_var(self):
+        val = np.array([1,2,3])
+        J = sps.diags(np.array([1,1,1]))
+        a = Ad_array(val, J)
+        c = 2
+        b = af.log(c * a)
+        jac = sps.diags(1 / val) * J
+        
+        assert np.allclose(b.val, np.log(c * val)) and np.allclose(b.jac.A, jac.A)
         assert np.all(a.val == [1,2,3]) and np.all(a.jac.A == J.A)
