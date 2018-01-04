@@ -46,6 +46,8 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
     - the other lines descibe the N fractures as a list of points
       P0_X, P0_Y, P0_Z, ...,PN_X, PN_Y, PN_Z
 
+    Lines that start with a # are ignored.
+
     Parameters:
         file_name: name of the file
         has_domain: if the first line in the csv file specify the domain
@@ -72,9 +74,18 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
                       'ymax': domain[4], 'zmin': domain[2], 'zmax': domain[5]}
 
         for row in spam_reader:
+            # If the line starts with a '#', we consider this a comment
+            if row[0][0] == '#':
+                continue
+
             # Read the points
             pts = np.asarray(row, dtype=np.float)
             assert pts.size % 3 == 0
+
+            # Skip empty lines. Useful if the file ends with a blank line.
+            if pts.size == 0:
+                continue
+
             frac_list.append(Fracture(pts.reshape((3,-1), order='F')))
 
     # Create the network
