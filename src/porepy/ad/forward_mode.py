@@ -33,7 +33,7 @@ class Ad_array():
             jac = self.jac * other
         else:
             val = self.val * other.val
-            jac = self.l_jac_mul(other.val) + other.l_jac_mul(self.val)
+            jac = self.diagvec_mul_jac(other.val) + other.diagvec_mul_jac(self.val)
         return Ad_array(val, jac)
 
     def __rmul__(self, other):
@@ -48,11 +48,11 @@ class Ad_array():
     def __pow__(self, other):
         if not isinstance(other, Ad_array):
             val = self.val**other
-            jac = self.l_jac_mul(other * self.val**(other - 1))
+            jac = self.diagvec_mul_jac(other * self.val**(other - 1))
         else:
             val = self.val**other.val
-            jac = self.l_jac_mul(other.val * self.val**(other.val - 1)) \
-                + other.l_jac_mul(self.val **other.val * np.log(self.val))
+            jac = self.diagvec_mul_jac(other.val * self.val**(other.val - 1)) \
+                + other.diagvec_mul_jac(self.val **other.val * np.log(self.val))
         return Ad_array(val, jac)
 
     def __truediv__(self, other):
@@ -76,14 +76,14 @@ class Ad_array():
             b.jac = self.jac
         return b
 
-    def l_jac_mul(self, a):
+    def diagvec_mul_jac(self, a):
         try:
             A = sps.diags(a)
         except TypeError:
             A = a
         return A * self.jac
 
-    def r_jac_mul(self, a):
+    def jac_mul_diagvec(self, a):
         try:
             A = sps.diags(a)
         except TypeError:
