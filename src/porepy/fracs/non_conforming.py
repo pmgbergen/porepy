@@ -610,7 +610,7 @@ def update_face_tags(g, delete_faces, new_faces):
 
     Delete tags for old faces, and add new tags for their replacements.
 
-    If the grid has no face_tags, no change is done
+    If the grid has no face tags, no change is done
 
     Parameters:
         g (grid): To be modified
