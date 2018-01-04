@@ -105,8 +105,3 @@ def _cast(variables):
         else:
             out_var = Ad_array(variables)
     return out_var
-        
-
-a = Ad_array(1,1)
-b = 2
-c = a + b
