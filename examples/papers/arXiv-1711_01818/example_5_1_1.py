@@ -8,13 +8,13 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import dual
 from porepy.utils import comp_geom as cg
 
 #------------------------------------------------------------------------------#
+
 
 def add_data(gb, domain, kf):
     """
@@ -47,7 +47,7 @@ def add_data(gb, domain, kf):
         param.set_aperture(np.ones(g.num_cells) * aperture)
 
         # Boundaries
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.get_domain_boundary_faces()
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -59,7 +59,7 @@ def add_data(gb, domain, kf):
 
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces[left]] = -aperture \
-                                        * g.face_areas[bound_faces[left]]
+                * g.face_areas[bound_faces[left]]
             bc_val[bound_faces[right]] = 1
 
             param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
@@ -79,6 +79,7 @@ def add_data(gb, domain, kf):
 
 #------------------------------------------------------------------------------#
 
+
 def write_network(file_name):
     network = "FID,START_X,START_Y,END_X,END_Y\n"
     network += "0,0,0.5,1,0.5\n"
@@ -92,6 +93,7 @@ def write_network(file_name):
 
 #------------------------------------------------------------------------------#
 
+
 def main(kf, description, mesh_size):
     mesh_kwargs = {}
     mesh_kwargs['mesh_size'] = {'mode': 'constant',
@@ -100,7 +102,7 @@ def main(kf, description, mesh_size):
     domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
     if_coarse = True
 
-    folder='example_5_1_1_' + description
+    folder = 'example_5_1_1_' + description
 
     file_name = 'network_geiger.csv'
     write_network(file_name)
@@ -115,9 +117,6 @@ def main(kf, description, mesh_size):
         co.generate_coarse_grid(gb, partition)
 
     gb.assign_node_ordering()
-
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
     # Assign parameters
     add_data(gb, domain, kf)
@@ -143,29 +142,32 @@ def main(kf, description, mesh_size):
         exporter.export_vtk(g_fine, 'sub_grid', data, binary=False,
                             folder=folder)
 
-    print("diam", gb.diameter(lambda g: g.dim==gb.dim_max()))
-    print("num_cells 2d", gb.num_cells(lambda g: g.dim==2))
-    print("num_cells 1d", gb.num_cells(lambda g: g.dim==1))
+    print("diam", gb.diameter(lambda g: g.dim == gb.dim_max()))
+    print("num_cells 2d", gb.num_cells(lambda g: g.dim == 2))
+    print("num_cells 1d", gb.num_cells(lambda g: g.dim == 1))
 
 #------------------------------------------------------------------------------#
+
 
 def vem_blocking():
     kf = 1e-4
     mesh_size = 0.035 / np.array([1, 2, 4])
 
     for i in np.arange(mesh_size.size):
-        main(kf, "blocking_"+str(i), mesh_size[i])
+        main(kf, "blocking_" + str(i), mesh_size[i])
 
 #------------------------------------------------------------------------------#
+
 
 def vem_permeable():
     kf = 1e4
     mesh_size = 0.035 / np.array([1, 2, 4])
 
     for i in np.arange(mesh_size.size):
-        main(kf, "permeable_"+str(i), mesh_size[i])
+        main(kf, "permeable_" + str(i), mesh_size[i])
 
 #------------------------------------------------------------------------------#
+
 
 vem_blocking()
 vem_permeable()

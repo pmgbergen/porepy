@@ -15,9 +15,9 @@ def setup_2d_1d(nx, simplex_grid=False):
         gb = meshing.cart_grid(fracs, nx, physdims=[1, 1])
     else:
         mesh_kwargs = {}
-        mesh_size = .3
+        mesh_size = .08
         mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': mesh_size, 'bound_value': 2*mesh_size}
+                            'value': mesh_size, 'bound_value': 1*mesh_size}
         domain = {'xmin': 0, 'ymin': 0, 'xmax':1, 'ymax':1}
         gb = meshing.simplex_grid(fracs, domain,**mesh_kwargs)
 
@@ -33,10 +33,11 @@ def setup_2d_1d(nx, simplex_grid=False):
         param.set_tensor('flow', perm)
         param.set_aperture(a)
         if g.dim == 2:
-            bound_faces = g.get_boundary_faces()
+            bound_faces = g.get_domain_boundary_faces()
             bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
                                          ['dir'] * bound_faces.size)
-            bc_val = g.face_centers[1]
+            bc_val = np.zeros(g.num_faces)
+            bc_val[bound_faces] = g.face_centers[1,bound_faces]
             param.set_bc('flow', bound)
             param.set_bc_val('flow', bc_val)
         d['param'] = param
@@ -54,7 +55,8 @@ def check_pressures(gb):
         pressure = d['pressure']
         pressure_analytic = g.cell_centers[1]
         p_diff = pressure - pressure_analytic
-        assert np.max(np.abs(p_diff)) < 0.033
+        assert np.max(np.abs(p_diff)) < 2e-2
+
 
 class BasicsTest(unittest.TestCase):
 

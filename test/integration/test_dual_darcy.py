@@ -3,15 +3,15 @@ import unittest
 
 from porepy.numerics import elliptic
 from porepy.grids.structured import CartGrid
-from porepy.grids.grid import FaceTag
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
+from porepy.utils import tags
 
 
 class BasicsTest(unittest.TestCase):
 
-#------------------------------------------------------------------------------#
+    #------------------------------------------------------------------------------#
 
     def test_mono_equals_multi(self):
         """
@@ -34,7 +34,7 @@ class BasicsTest(unittest.TestCase):
             return bc_val
 
         def bc_labels(g):
-            bound_faces = g.get_boundary_faces()
+            bound_faces = g.get_domain_boundary_faces()
             bound_face_centers = g.face_centers[:, bound_faces]
             left = bound_face_centers[0] < 1e-6
             right = bound_face_centers[0] > 10 - 1e-6
@@ -141,6 +141,7 @@ class BasicsTest(unittest.TestCase):
 
 #------------------------------------------------------------------------------#
 
+
 def setup_3d(nx, simplex_grid=False):
     f1 = np.array(
         [[0.2, 0.2, 0.8, 0.8], [0.2, 0.8, 0.8, 0.2], [0.5, 0.5, 0.5, 0.5]])
@@ -158,9 +159,6 @@ def setup_3d(nx, simplex_grid=False):
                                     'value': mesh_size, 'bound_value': 2 * mesh_size}
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
         gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
-
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
     gb.add_node_props(['param'])
     for g, d in gb:
@@ -196,6 +194,7 @@ def setup_3d(nx, simplex_grid=False):
 
 #------------------------------------------------------------------------------#
 
+
 def setup_2d_1d(nx, simplex_grid=False):
     frac1 = np.array([[0.2, 0.8], [0.5, 0.5]])
     frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])
@@ -213,9 +212,6 @@ def setup_2d_1d(nx, simplex_grid=False):
     gb.compute_geometry()
     gb.assign_node_ordering()
 
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
     gb.add_node_props(['param'])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
@@ -226,10 +222,11 @@ def setup_2d_1d(nx, simplex_grid=False):
         param.set_tensor('flow', perm)
         param.set_aperture(a)
         if g.dim == 2:
-            bound_faces = g.get_boundary_faces()
+            bound_faces = g.get_domain_boundary_faces()
             bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
                                          ['dir'] * bound_faces.size)
-            bc_val = g.face_centers[1]
+            bc_val = np.zeros(g.num_faces)
+            bc_val[bound_faces] = g.face_centers[1, bound_faces]
             param.set_bc('flow', bound)
             param.set_bc_val('flow', bc_val)
         d['param'] = param
@@ -243,24 +240,25 @@ def setup_2d_1d(nx, simplex_grid=False):
 
 #------------------------------------------------------------------------------#
 
+
 def elliptic_dirich_neumann_source_sink_cart_ref_3d():
     p_ref = \
-            np.array([  1.12612408, -10.44575   , -18.21089071, -21.7313788 ,
-                       -1.64733896, -11.68522994, -19.65108784, -22.70209994,
-                       -2.46050104, -13.07136257, -21.06707504, -23.66942273,
-                       -2.49465073, -12.70131007, -20.25343208, -23.5515183 ,
-                       -2.10125633, -12.72123638, -21.06957633, -24.37000057,
-                       -2.83315597, -13.77682234, -24.53350194, -25.88570125,
-                       -3.64680989, -17.38985286, -28.34027307, -27.46735567,
-                       -3.35449112, -15.09334279, -23.79378233, -26.83132116,
-                       -4.07091283, -16.21653586, -25.30091244, -28.87240343,
-                       -4.44070969, -17.12486388, -28.75574562, -30.46663996,
-                       -5.16346912, -20.7431062 , -32.72835189, -32.4244607 ,
-                       -4.89893689, -18.56531854, -28.50788954, -32.60763571,
-                       -7.49402606, -21.6895137 , -31.15162219, -35.43782529,
-                       -7.74799483, -22.45132443, -32.65315461, -36.77044405,
-                       -8.13594619, -23.81413333, -34.55191292, -39.01167853,
-                       -8.13415535, -23.6740419 , -34.7528843 , -43.04584746])
+        np.array([1.12612408, -10.44575, -18.21089071, -21.7313788,
+                  -1.64733896, -11.68522994, -19.65108784, -22.70209994,
+                  -2.46050104, -13.07136257, -21.06707504, -23.66942273,
+                  -2.49465073, -12.70131007, -20.25343208, -23.5515183,
+                  -2.10125633, -12.72123638, -21.06957633, -24.37000057,
+                  -2.83315597, -13.77682234, -24.53350194, -25.88570125,
+                  -3.64680989, -17.38985286, -28.34027307, -27.46735567,
+                  -3.35449112, -15.09334279, -23.79378233, -26.83132116,
+                  -4.07091283, -16.21653586, -25.30091244, -28.87240343,
+                  -4.44070969, -17.12486388, -28.75574562, -30.46663996,
+                  -5.16346912, -20.7431062, -32.72835189, -32.4244607,
+                  -4.89893689, -18.56531854, -28.50788954, -32.60763571,
+                  -7.49402606, -21.6895137, -31.15162219, -35.43782529,
+                  -7.74799483, -22.45132443, -32.65315461, -36.77044405,
+                  -8.13594619, -23.81413333, -34.55191292, -39.01167853,
+                  -8.13415535, -23.6740419, -34.7528843, -43.04584746])
     return p_ref
 
 #------------------------------------------------------------------------------#

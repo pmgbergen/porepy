@@ -8,7 +8,6 @@ from porepy.fracs import importer
 
 from porepy.params import tensor
 from porepy.grids import structured
-from porepy.grids.grid import FaceTag
 
 from porepy.numerics.mixed_dim import coupler
 from porepy.numerics.vem import vem_dual, vem_source
@@ -19,6 +18,8 @@ from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
 from porepy.utils.errors import error
+from porepy.utils import tags
+
 
 #------------------------------------------------------------------------------#
 
@@ -90,7 +91,7 @@ def add_data_advection_diffusion(gb, domain, tol):
             g.cell_volumes * param.get_aperture()
         param.set_source("transport", source)
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.get_domain_boundary_faces()
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -139,13 +140,6 @@ gb = importer.dfm_2d_from_csv(folder + 'network.csv', mesh_kwargs, domain)
 gb.compute_geometry()
 gb.assign_node_ordering()
 
-gb.add_node_props(['face_tags'])
-for g, d in gb:
-    d['face_tags'] = g.face_tags.copy()
-
-internal_flag = FaceTag.FRACTURE
-[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
 # Assign parameters
 add_data_darcy(gb, domain, tol)
 
@@ -156,7 +150,7 @@ A_flow, b_flow = darcy.matrix_rhs(gb)
 solver_source = vem_source.IntegralMixedDim('flow')
 A_source, b_source = solver_source.matrix_rhs(gb)
 
-up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 darcy.split(gb, "up", up)
 
 gb.add_node_props(["p", "P0u"])
@@ -170,9 +164,6 @@ if do_save:
     exporter.export_vtk(gb, 'darcy', ["p", "P0u"], folder=export_folder)
 
 #################################################################
-
-for g, d in gb:
-    g.face_tags = d['face_tags']
 
 physics = 'transport'
 advection = upwind.UpwindMixedDim(physics)

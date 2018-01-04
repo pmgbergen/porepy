@@ -19,7 +19,7 @@ def setup_cart_2d(nx):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm =tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrder(g.dim, kxx)
 
     return g, perm
 
@@ -79,7 +79,8 @@ def test_laplacian_stencil_cart_2d():
 def test_uniform_flow_cart_2d():
     # Structured Cartesian grid
     g, perm = setup_cart_2d(np.array([10, 10]))
-    bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
+    bound_faces = np.argwhere(
+        np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
     bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), [
                                  'dir'] * bound_faces.size)
 
@@ -103,7 +104,7 @@ def test_uniform_flow_cart_2d_structured_pert():
     g.nodes[0, 4] = 1.5
     g.compute_geometry()
 
-    bound_faces = g.get_boundary_faces()
+    bound_faces = g.get_domain_boundary_faces()
     bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), [
                                  'dir'] * bound_faces.size)
 
@@ -137,7 +138,8 @@ def test_uniform_flow_cart_2d_pert():
     g.nodes[2, :] = 0
     g.compute_geometry()
 
-    bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
+    bound_faces = np.argwhere(
+        np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
     bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), [
                                  'dir'] * bound_faces.size)
 

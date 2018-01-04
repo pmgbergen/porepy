@@ -1,6 +1,6 @@
 """
-Tests for the static condensation. 
-Darcy problems are discretized (TPFA) and then solved both with and without the 
+Tests for the static condensation.
+Darcy problems are discretized (TPFA) and then solved both with and without the
 condensation.
 Solutions are then compared, so failures will probably be due to the condensation
 itself or reorderings in the grid buckets.
@@ -20,9 +20,10 @@ from porepy.utils.errors import error
 
 #------------------------------------------------------------------------------#
 
-class BasicsTest( unittest.TestCase ):
 
-#------------------------------------------------------------------------------#
+class BasicsTest(unittest.TestCase):
+
+    #------------------------------------------------------------------------------#
 
     def test_0d_elimination_2d_1d_cross(self):
         """
@@ -35,10 +36,10 @@ class BasicsTest( unittest.TestCase ):
         f2 = np.array([[.5, .5],
                        [0, 1]])
 
-        gb = meshing.cart_grid( [f1, f2], [2, 2], **{'physdims': [1, 1]})
+        gb = meshing.cart_grid([f1, f2], [2, 2], **{'physdims': [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
-        
+
         tol = 1e-3
         solver = tpfa.Tpfa()
         gb.add_node_props(['param'])
@@ -47,52 +48,51 @@ class BasicsTest( unittest.TestCase ):
             param = Parameters(g)
 
             a_dim = np.power(a, gb.dim_max() - g.dim)
-            aperture = np.ones(g.num_cells)*a_dim
+            aperture = np.ones(g.num_cells) * a_dim
             param.set_aperture(aperture)
 
-            kxx = np.ones(g.num_cells) * np.power(1e3, g.dim<gb.dim_max())
-            #print(kxx, 'dim', g.dim)
-            p = tensor.SecondOrder(3,kxx,kyy=kxx,kzz=kxx)
-            #print(p.perm)
+            kxx = np.ones(g.num_cells) * np.power(1e3, g.dim < gb.dim_max())
+
+            p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
             param.set_tensor('flow', p)
-            bound_faces = g.get_boundary_faces()
-            bound_face_centers = g.face_centers[:, bound_faces]
+            bound_faces = g.get_domain_boundary_faces()
+            if bound_faces.size != 0:
+                bound_face_centers = g.face_centers[:, bound_faces]
 
-            right = bound_face_centers[0, :] > 1 - tol
-            left = bound_face_centers[0, :] < tol
+                right = bound_face_centers[0, :] > 1 - tol
+                left = bound_face_centers[0, :] < tol
 
-            labels = np.array(['neu'] * bound_faces.size)
-            labels[right] = ['dir']
+                labels = np.array(['neu'] * bound_faces.size)
+                labels[right] = ['dir']
 
-            bc_val = np.zeros(g.num_faces)
-            bc_dir = bound_faces[right]
-            bc_neu = bound_faces[left]
-            bc_val[bc_dir] = g.face_centers[0,bc_dir]
-            bc_val[bc_neu] = -g.face_areas[bc_neu]*a_dim
-            
-            param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+                bc_val = np.zeros(g.num_faces)
+                bc_dir = bound_faces[right]
+                bc_neu = bound_faces[left]
+                bc_val[bc_dir] = g.face_centers[0, bc_dir]
+                bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
 
+                param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
+                param.set_bc_val(solver, bc_val)
+            else:
+                param.set_bc("flow", bc.BoundaryCondition(
+                                g, np.empty(0), np.empty(0)))
             d['param'] = param
-
-       
 
         coupling_conditions = tpfa.TpfaCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         A, rhs = solver_coupler.matrix_rhs(gb)
 
-        
-        
         p = sps.linalg.spsolve(A, rhs)
-        p_cond, _, _, _ = condensation.solve_static_condensation(\
-                                                                A, rhs, gb, dim=0)
-        
-        solver_coupler.split(gb, "p", p)
+        p_cond, _, _, _ = condensation.solve_static_condensation(
+            A, rhs, gb, dim=0)
+
+        solver_coupler.split(gb, "pressure", p)
         solver_coupler.split(gb, "p_cond", p_cond)
-                
+
         tol = 1e-10
-        assert((np.amax(np.absolute(p-p_cond))) < tol)        
-        assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
+        assert((np.amax(np.absolute(p - p_cond))) < tol)
+        assert(np.sum(error.error_L2(
+            g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#
 
@@ -107,10 +107,10 @@ class BasicsTest( unittest.TestCase ):
         f3 = np.array([[.25, .25],
                        [0, 1]])
 
-        gb = meshing.cart_grid( [f1, f2, f3], [4, 2], **{'physdims': [1, 1]})
+        gb = meshing.cart_grid([f1, f2, f3], [4, 2], **{'physdims': [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
-        
+
         tol = 1e-3
         solver = tpfa.Tpfa()
         gb.add_node_props(['param'])
@@ -119,91 +119,90 @@ class BasicsTest( unittest.TestCase ):
             param = Parameters(g)
 
             a_dim = np.power(a, gb.dim_max() - g.dim)
-            aperture = np.ones(g.num_cells)*a_dim
+            aperture = np.ones(g.num_cells) * a_dim
             param.set_aperture(aperture)
 
-            kxx = np.ones(g.num_cells) * np.power(1e3, g.dim<gb.dim_max())
-            #print(kxx, 'dim', g.dim)
-            p = tensor.SecondOrder(3,kxx,kyy=kxx,kzz=kxx)
-            #print(p.perm)
+            kxx = np.ones(g.num_cells) * np.power(1e3, g.dim < gb.dim_max())
+
+            p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
+
             param.set_tensor('flow', p)
-            bound_faces = g.get_boundary_faces()
-            bound_face_centers = g.face_centers[:, bound_faces]
+            bound_faces = g.get_domain_boundary_faces()
+            if bound_faces.size != 0:
 
-            right = bound_face_centers[0, :] > 1 - tol
-            left = bound_face_centers[0, :] < tol
+                bound_face_centers = g.face_centers[:, bound_faces]
 
-            labels = np.array(['neu'] * bound_faces.size)
-            labels[right] = ['dir']
+                right = bound_face_centers[0, :] > 1 - tol
+                left = bound_face_centers[0, :] < tol
 
-            bc_val = np.zeros(g.num_faces)
-            bc_dir = bound_faces[right]
-            bc_neu = bound_faces[left]
-            bc_val[bc_dir] = g.face_centers[0,bc_dir]
-            bc_val[bc_neu] = -g.face_areas[bc_neu]*a_dim
-            
-            param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+                labels = np.array(['neu'] * bound_faces.size)
+                labels[right] = ['dir']
 
+                bc_val = np.zeros(g.num_faces)
+                bc_dir = bound_faces[right]
+                bc_neu = bound_faces[left]
+                bc_val[bc_dir] = g.face_centers[0, bc_dir]
+                bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
+
+                param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
+                param.set_bc_val(solver, bc_val)
+            else:
+                param.set_bc("flow", bc.BoundaryCondition(
+                                g, np.empty(0), np.empty(0)))
             d['param'] = param
-
-       
 
         coupling_conditions = tpfa.TpfaCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         A, rhs = solver_coupler.matrix_rhs(gb)
 
-        
-        
         p = sps.linalg.spsolve(A, rhs)
-        p_cond, _, _, _ = condensation.solve_static_condensation(\
-                                                                A, rhs, gb, dim=0)
-        
-        solver_coupler.split(gb, "p", p)
+        p_cond, _, _, _ = condensation.solve_static_condensation(
+            A, rhs, gb, dim=0)
+
+        solver_coupler.split(gb, "pressure", p)
         solver_coupler.split(gb, "p_cond", p_cond)
-        
+
         tol = 1e-10
-        assert((np.amax(np.absolute(p-p_cond))) < tol)        
-        assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
+        assert((np.amax(np.absolute(p - p_cond))) < tol)
+        assert(np.sum(error.error_L2(
+            g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#
-   
-
 
     def test_0d_elimination_3d_2d_1d_0d(self):
         """
         3d case with a single 0d grid.
         """
-        f1 = np.array([[ 0,  1,  1,  0],
-                       [ 0,  0,  1,  1],
+        f1 = np.array([[0,  1,  1,  0],
+                       [0,  0,  1,  1],
                        [.5, .5, .5, .5]])
         f2 = np.array([[.5, .5, .5, .5],
-                       [ 0,  1,  1,  0],
-                       [ 0,  0,  1,  1]])
-        f3 = np.array([[ 0,  1,  1,  0],
+                       [0,  1,  1,  0],
+                       [0,  0,  1,  1]])
+        f3 = np.array([[0,  1,  1,  0],
                        [.5, .5, .5, .5],
-                       [ 0,  0,  1,  1]])
+                       [0,  0,  1,  1]])
 
         gb = meshing.cart_grid([f1, f2, f3], [2, 2, 2],
                                **{'physdims': [1, 1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
 
-        cell_centers1 = np.array([[ 0.25 , 0.75 , 0.25 , 0.75],
-                                  [ 0.25 , 0.25 , 0.75 , 0.75],
-                                  [ 0.5  , 0.5  , 0.5  , 0.5 ]])
-        cell_centers2 = np.array([[ 0.5  , 0.5  , 0.5  , 0.5 ],
-                                  [ 0.25 , 0.25 , 0.75 , 0.75],
-                                  [ 0.75 , 0.25 , 0.75 , 0.25]])
-        cell_centers3 = np.array([[ 0.25 , 0.75 , 0.25 , 0.75],
-                                  [ 0.5  , 0.5  , 0.5  , 0.5 ],
-                                  [ 0.25 , 0.25 , 0.75 , 0.75]])
-        cell_centers4 = np.array([[ 0.5 ], [ 0.25], [ 0.5 ]])
-        cell_centers5 = np.array([[ 0.5 ], [ 0.75], [ 0.5 ]])
-        cell_centers6 = np.array([[ 0.75], [ 0.5 ], [ 0.5 ]])
-        cell_centers7 = np.array([[ 0.25], [ 0.5 ], [ 0.5 ]])
-        cell_centers8 = np.array([[ 0.5 ], [ 0.5 ], [ 0.25]])
-        cell_centers9 = np.array([[ 0.5 ], [ 0.5 ], [ 0.75]])
+        cell_centers1 = np.array([[0.25, 0.75, 0.25, 0.75],
+                                  [0.25, 0.25, 0.75, 0.75],
+                                  [0.5, 0.5, 0.5, 0.5]])
+        cell_centers2 = np.array([[0.5, 0.5, 0.5, 0.5],
+                                  [0.25, 0.25, 0.75, 0.75],
+                                  [0.75, 0.25, 0.75, 0.25]])
+        cell_centers3 = np.array([[0.25, 0.75, 0.25, 0.75],
+                                  [0.5, 0.5, 0.5, 0.5],
+                                  [0.25, 0.25, 0.75, 0.75]])
+        cell_centers4 = np.array([[0.5], [0.25], [0.5]])
+        cell_centers5 = np.array([[0.5], [0.75], [0.5]])
+        cell_centers6 = np.array([[0.75], [0.5], [0.5]])
+        cell_centers7 = np.array([[0.25], [0.5], [0.5]])
+        cell_centers8 = np.array([[0.5], [0.5], [0.25]])
+        cell_centers9 = np.array([[0.5], [0.5], [0.75]])
 
         for g, d in gb:
             if np.allclose(g.cell_centers[:, 0], cell_centers1[:, 0]):
@@ -235,44 +234,48 @@ class BasicsTest( unittest.TestCase ):
         for g, d in gb:
             param = Parameters(g)
 
-            aperture = np.ones(g.num_cells)*np.power(a, gb.dim_max() - g.dim)
+            aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
 
-            p = tensor.SecondOrder(3,np.ones(g.num_cells)* np.power(1e3, g.dim<gb.dim_max()))
+            p = tensor.SecondOrder(3, np.ones(
+                g.num_cells) * np.power(1e3, g.dim < gb.dim_max()))
             param.set_tensor('flow', p)
-            bound_faces = g.get_boundary_faces()
-            bound_face_centers = g.face_centers[:, bound_faces]
+            bound_faces = g.get_domain_boundary_faces()
+            if bound_faces.size != 0:
 
-            left = bound_face_centers[0, :] > 1 - tol
-            right = bound_face_centers[0, :] < tol
+                bound_face_centers = g.face_centers[:, bound_faces]
 
-            labels = np.array(['neu'] * bound_faces.size)
-            labels[np.logical_or(left, right)] = ['dir']
+                left = bound_face_centers[0, :] > 1 - tol
+                right = bound_face_centers[0, :] < tol
 
-            bc_val = np.zeros(g.num_faces)
-            bc_dir = bound_faces[np.logical_or(left, right)]
-            bc_val[bc_dir] = g.face_centers[0,bc_dir]
+                labels = np.array(['neu'] * bound_faces.size)
+                labels[np.logical_or(left, right)] = ['dir']
 
-            param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+                bc_val = np.zeros(g.num_faces)
+                bc_dir = bound_faces[np.logical_or(left, right)]
+                bc_val[bc_dir] = g.face_centers[0, bc_dir]
 
+                param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
+                param.set_bc_val(solver, bc_val)
+            else:
+                param.set_bc("flow", bc.BoundaryCondition(
+                                g, np.empty(0), np.empty(0)))
             d['param'] = param
-
-       
 
         coupling_conditions = tpfa.TpfaCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         A, rhs = solver_coupler.matrix_rhs(gb)
 
         p = sps.linalg.spsolve(A, rhs)
-        p_cond, _, _, _ = condensation.solve_static_condensation(\
-                                                                A, rhs, gb, dim=0)
-        
-        solver_coupler.split(gb, "p", p)
+        p_cond, _, _, _ = condensation.solve_static_condensation(
+            A, rhs, gb, dim=0)
+
+        solver_coupler.split(gb, "pressure", p)
         solver_coupler.split(gb, "p_cond", p_cond)
-        
+
         tol = 1e-10
-        assert((np.amax(np.absolute(p-p_cond))) < tol)        
-        assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
+        assert((np.amax(np.absolute(p - p_cond))) < tol)
+        assert(np.sum(error.error_L2(
+            g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#
