@@ -87,3 +87,36 @@ class AdFunctionTest(unittest.TestCase):
         
         assert np.allclose(b.val, np.log(c * val)) and np.allclose(b.jac.A, jac.A)
         assert np.all(a.val == [1,2,3]) and np.all(a.jac.A == J.A)
+
+    def test_sign_no_advar(self):
+        a = np.array([1, -10, 3, -np.pi])
+        sign = af.sign(a)
+        assert np.all(sign == [1, -1, 1, -1])
+
+    def test_sign_advar(self):
+        a = Ad_array(np.array([1, -10, 3, -np.pi]), np.eye(4))
+        sign = af.sign(a)
+        assert np.all(sign == [1, -1, 1, -1])
+        assert np.allclose(a.val, [1,-10,3,-np.pi]) and np.allclose(a.jac, np.eye(4))
+        
+    def test_abs_no_advar(self):
+        a = np.array([1, -10, 3, -np.pi])
+        a_abs = af.abs(a)
+        assert np.allclose(a_abs, [1, 10, 3, np.pi])
+        assert np.allclose(a, [1, -10, 3, -np.pi])
+
+    def test_abs_advar(self):
+        J = np.array([[1, -1, -np.pi, 3], [0,0,0,0], [1,2,-3.2, 4], [4,2,300000, 1]])
+        a = Ad_array(np.array([1, -10, 3, -np.pi]), J)
+        a_abs = af.abs(a)
+        J_abs = np.array([[1, -1, -np.pi, 3],
+                          [0, 0, 0, 0],
+                          [1, 2, -3.2, 4],
+                          [-4, -2, -300000, -1]])
+
+        assert np.allclose(J,np.array([[1, -1, -np.pi, 3],
+                                       [0,0,0,0],
+                                       [1,2,-3.2, 4],
+                                       [4,2,300000, 1]]))
+        assert np.allclose(a_abs.val, [1, 10, 3, np.pi])
+        assert np.allclose(a_abs.jac, J_abs)        
