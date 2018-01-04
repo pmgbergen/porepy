@@ -135,7 +135,10 @@ class Upwind(Solver):
         if has_bc:
             # If boundary conditions are imposed remove the faces from this
             # procedure.
-            bc_dir = np.where(bc.is_dir)[0]
+            # For primal-like discretizations, internal boundaries
+            # are handled by assigning Neumann conditions.
+            is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
+            bc_dir = np.where(is_dir)[0]
             bc_neu = np.setdiff1d(bc_neu, bc_dir, assume_unique=True)
             bc_dir = mask[bc_dir]
 
