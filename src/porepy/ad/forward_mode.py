@@ -37,12 +37,11 @@ class Ad_array():
         return Ad_array(val, jac)
 
     def __rmul__(self, other):
-        if not isinstance(other, Ad_array): # other is scalar
-            val = other * self.val
-            jac = other * self.jac
-            return Ad_array(val, jac)
-        val =  other.val * self.val
-        jac = other.val * self.jac + self.val * other.jac
+        if isinstance(other, Ad_array):
+            # other is Ad_var, so should have called __mul__
+            raise RuntimeError('Somthing went horrible wrong')
+        val = other * self.val
+        jac = other * self.jac
         return Ad_array(val, jac)
 
     def __pow__(self, other):
