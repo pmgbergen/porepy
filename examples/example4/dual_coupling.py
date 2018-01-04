@@ -25,8 +25,6 @@ from porepy.numerics.vem import dual, dual_coupling
 from porepy.viz.plot_grid import plot_grid
 from porepy.viz.exporter import export_vtk
 
-from porepy.grids.grid import FaceTag
-
 from porepy.grids.coarsening import *
 from porepy.fracs import meshing
 
@@ -35,7 +33,7 @@ from porepy.numerics.mixed_dim import coupler
 
 #------------------------------------------------------------------------------#
 
-#def darcy_dualVEM_coupling_example0(**kwargs):
+# def darcy_dualVEM_coupling_example0(**kwargs):
 #    #######################
 #    # Simple 2d Darcy problem with known exact solution
 #    #######################
@@ -47,8 +45,6 @@ from porepy.numerics.mixed_dim import coupler
 #
 #    # Need to remove the boundary flag explicity from the fracture face,
 #    # because of the mix formulation
-#    internal_flag = FaceTag.FRACTURE | FaceTag.TIP
-#    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 #
 #    if kwargs['visualize']: plot_grid(gb, info="all", alpha=0)
 #
@@ -107,7 +103,7 @@ from porepy.numerics.mixed_dim import coupler
 
 #------------------------------------------------------------------------------#
 
-#def darcy_dualVEM_coupling_example1(**kwargs):
+# def darcy_dualVEM_coupling_example1(**kwargs):
 #    #######################
 #    # Simple 2d Darcy problem with known exact solution
 #    #######################
@@ -120,12 +116,7 @@ from porepy.numerics.mixed_dim import coupler
 #    gb = meshing.cart_grid([f0, f1], [Nx, Ny], physdims=[2, 1])
 #    gb.remove_nodes(lambda g: g.dim == gb.dim_max())
 #    gb.assign_node_ordering()
-#
-#    # Need to remove the boundary flag explicity from the fracture face,
-#    # because of the mix formulation
-#    internal_flag = FaceTag.FRACTURE | FaceTag.TIP
-#    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-#
+##
 #    if kwargs['visualize']: plot_grid(gb, info="cfo", alpha=0)
 #
 #    # devo mettere l'apertura indicata come a
@@ -211,12 +202,6 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     print([g.num_faces for g, _ in gb])
     gb.assign_node_ordering()
 
-    # Need to remove the boundary flag explicity from the fracture face,
-    # because of the mix formulation
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) \
-                                        for g, _ in gb if g.dim == gb.dim_max()]
-
     if kwargs['visualize']:
         plot_grid(gb, info="f", alpha=0)
 
@@ -226,7 +211,7 @@ def darcy_dualVEM_coupling_example2(**kwargs):
         d['perm'] = tensor.SecondOrder(g.dim, kxx)
         d['source'] = np.zeros(g.num_cells)
 
-        b_faces = g.get_boundary_faces()
+        b_faces = g.get_domain_boundary_faces()
         b_faces_dir = b_faces[np.bitwise_or(g.face_centers[1, b_faces] == -1,
                                             g.face_centers[0, b_faces] == -1)]
 
@@ -234,8 +219,8 @@ def darcy_dualVEM_coupling_example2(**kwargs):
 
         b_faces_neu = np.setdiff1d(b_faces, b_faces_dir, assume_unique=True)
         b_faces = np.hstack((b_faces_dir, b_faces_neu))
-        b_faces_label = np.hstack((['dir']*b_faces_dir.size,
-                                   ['neu']*b_faces_neu.size))
+        b_faces_label = np.hstack((['dir'] * b_faces_dir.size,
+                                   ['neu'] * b_faces_neu.size))
         d['bc'] = bc.BoundaryCondition(g, b_faces, b_faces_label)
         d['bc_val'] = {'dir': b_faces_dir_cond,
                        'neu': np.zeros(b_faces_neu.size)}
@@ -244,7 +229,7 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     for e, d in gb.edges_props():
         g_l = gb.sorted_nodes_of_edge(e)[0]
         c = g_l.cell_centers[2, :] > -0.5
-        d['kn'] = (np.ones(g_l.num_cells) + c.astype('float')*(-1+1e-2))
+        d['kn'] = (np.ones(g_l.num_cells) + c.astype('float') * (-1 + 1e-2))
 
     solver = dual.DualVEM()
     coupling_conditions = dual_coupling.DualCoupling(solver)

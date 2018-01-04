@@ -2,7 +2,6 @@ import unittest
 import numpy as np
 
 from porepy.fracs import structured, meshing
-from porepy.grids.grid import FaceTag
 
 
 class TestFaceTags(unittest.TestCase):
@@ -42,10 +41,10 @@ class TestFaceTags(unittest.TestCase):
         b_tags_1d = np.sum(f_tags_2d + d_tags_2d +
                            t_tags_2d, axis=0).astype(bool)
         b_tags_2d = (f_tags_2d + d_tags_2d + t_tags_2d).astype(bool)
-        assert np.all(g_2d.has_face_tag(FaceTag.TIP) == t_tags_2d)
-        assert np.all(g_2d.has_face_tag(FaceTag.FRACTURE) == f_tags_2d)
-        assert np.all(g_2d.has_face_tag(FaceTag.DOMAIN_BOUNDARY) == d_tags_2d)
-        assert np.all(g_2d.has_face_tag(FaceTag.BOUNDARY) == b_tags_2d)
+        assert np.all(g_2d.tags['tip_faces'] == t_tags_2d)
+        assert np.all(g_2d.tags['fracture_faces'] == f_tags_2d)
+        assert np.all(g_2d.tags['domain_boundary_faces'] == d_tags_2d)
+        assert np.all(g_2d.tags['boundary_faces'] == b_tags_2d)
 
         # 1D grids:
         for g_1d in grids.grids_of_dimension(1):
@@ -60,8 +59,7 @@ class TestFaceTags(unittest.TestCase):
             b_tags_1d = np.sum(f_tags_1d + d_tags_1d +
                                t_tags_1d, axis=0).astype(bool)
 
-            assert np.all(g_1d.has_face_tag(FaceTag.TIP) == t_tags_1d)
-            assert np.all(g_1d.has_face_tag(FaceTag.FRACTURE) == f_tags_1d)
-            assert np.all(g_1d.has_face_tag(
-                FaceTag.DOMAIN_BOUNDARY) == d_tags_1d)
-            assert np.all(g_1d.has_face_tag(FaceTag.BOUNDARY) == b_tags_1d)
+            assert np.all(g_1d.tags['tip_faces'] == t_tags_1d)
+            assert np.all(g_1d.tags['fracture_faces'] == f_tags_1d)
+            assert np.all(g_1d.tags['domain_boundary_faces'] == d_tags_1d)
+            assert np.all(g_1d.tags['boundary_faces'] == b_tags_1d)

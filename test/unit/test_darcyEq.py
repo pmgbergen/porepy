@@ -11,7 +11,7 @@ from porepy.params.data import Parameters
 
 class BasicsTest(unittest.TestCase):
 
-#------------------------------------------------------------------------------#
+    #------------------------------------------------------------------------------#
 
     def test_elliptic_data_default_values(self):
         """
@@ -34,7 +34,7 @@ class BasicsTest(unittest.TestCase):
         g = simplex.TetrahedralGrid(p)
         # Set values
         bc_val = np.pi * np.ones(g.num_faces)
-        dir_faces = g.get_boundary_faces()
+        dir_faces = g.get_domain_boundary_faces()
         bc_cond = bc.BoundaryCondition(g, dir_faces, ['dir'] * dir_faces.size)
         porosity = 1 / np.pi * np.ones(g.num_cells)
         apperture = 0.5 * np.ones(g.num_cells)
