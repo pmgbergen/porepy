@@ -383,9 +383,14 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
     # Then pick boundary condition on those faces.
     if loc_bound_ind.size > 0:
         # We could have avoided to explicitly define Neumann conditions,
-        # since these are default
-        is_dir = bnd.is_dir[l2g_faces[loc_bound_ind]]
-        is_neu = bnd.is_neu[l2g_faces[loc_bound_ind]]
+        # since these are default.
+        # For primal-like discretizations like the MPFA, internal boundaries
+        # are handled by assigning Neumann conditions.
+        is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
+        is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
+
+        is_dir = is_dir[l2g_faces[loc_bound_ind]]
+        is_neu = is_neu[l2g_faces[loc_bound_ind]]
 
         loc_cond[is_dir] = 'dir'
     loc_bnd = bc.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
@@ -768,23 +773,27 @@ def _create_bound_rhs(bnd, bound_exclusion,
     rhs_bound: Matrix that can be multiplied with inverse block matrix to get
                basis functions for boundary values
     """
+    # For primal-like discretizations like the MPFA, internal boundaries
+    # are handled by assigning Neumann conditions.
+    is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
+    is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
 
     fno = subcell_topology.fno_unique
-    num_neu = np.sum(bnd.is_neu[fno])
-    num_dir = np.sum(bnd.is_dir[fno])
+    num_neu = np.sum(is_neu[fno])
+    num_dir = np.sum(is_dir[fno])
     num_bound = num_neu + num_dir
 
     # Neumann boundary conditions
     # Find Neumann faces, exclude Dirichlet faces (since these are excluded
     # from the right hand side linear system), and do necessary formating.
     neu_ind = np.argwhere(bound_exclusion.exclude_dirichlet(
-        bnd.is_neu[fno].astype('int64'))).ravel('F')
+        is_neu[fno].astype('int64'))).ravel('F')
     # We also need to map the respective Neumann and Dirichlet half-faces to
     # the global half-face numbering (also interior faces). The latter should
     # not have Dirichlet and Neumann excluded (respectively), and thus we need
     # new fields
-    neu_ind_all = np.argwhere(bnd.is_neu[fno].astype('int')).ravel('F')
-    dir_ind_all = np.argwhere(bnd.is_dir[fno].astype('int')).ravel('F')
+    neu_ind_all = np.argwhere(is_neu[fno].astype('int')).ravel('F')
+    dir_ind_all = np.argwhere(is_dir[fno].astype('int')).ravel('F')
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order='F')
 
     # For the Neumann boundary conditions, we define the value as seen from
@@ -804,7 +813,7 @@ def _create_bound_rhs(bnd, bound_exclusion,
 
     # Dirichlet boundary conditions
     dir_ind = np.argwhere(bound_exclusion.exclude_neumann(
-        bnd.is_dir[fno].astype('int64'))).ravel('F')
+        is_dir[fno].astype('int64'))).ravel('F')
     if dir_ind.size > 0:
         dir_cell = sps.coo_matrix((sgn[dir_ind_all], (dir_ind, num_neu +
                                                       np.arange(dir_ind.size))),

@@ -225,13 +225,18 @@ class Tpfa(Solver):
         # Return harmonic average
         t = 1 / np.bincount(fi, weights=1 / t_face)
 
+
+        # For primal-like discretizations like the TPFA, internal boundaries
+        # are handled by assigning Neumann conditions.
+        is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
+        is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
         # Move Neumann faces to Neumann transmissibility
         bndr_ind = g.get_boundary_faces()
         t_b = np.zeros(g.num_faces)
-        t_b[bnd.is_dir] = -t[bnd.is_dir]
-        t_b[bnd.is_neu] = 1
+        t_b[is_dir] = -t[is_dir]
+        t_b[is_neu] = 1
         t_b = t_b[bndr_ind]
-        t[np.logical_or(bnd.is_neu, is_not_active)] = 0
+        t[np.logical_or(is_neu, is_not_active)] = 0
         # Create flux matrix
         flux = sps.coo_matrix((t[fi] * sgn, (fi, ci)))
 

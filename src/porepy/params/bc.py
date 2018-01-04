@@ -2,6 +2,7 @@
 """ Module for representation and handling of boundary conditions.
 
 """
+import warnings
 import numpy as np
 
 
@@ -53,17 +54,26 @@ class BoundaryCondition(object):
         # Find boundary faces
         bf = g.get_boundary_faces()
 
+        # Keep track of internal boundaries.
+        self.is_internal = g.tags['fracture_faces']
+
         self.is_neu = np.zeros(self.num_faces, dtype=bool)
         self.is_dir = np.zeros(self.num_faces, dtype=bool)
 
-        # By default, all faces are Neumann.
+        # By default, all boundary faces are Neumann.
         self.is_neu[bf] = True
 
         if faces is not None:
             # Validate arguments
             assert cond is not None
             if not np.all(np.in1d(faces, bf)):
-                raise ValueError('Give boundary condition only on the boundary')
+                raise ValueError('Give boundary condition only on the \
+                                 boundary')
+            domain_boundary_and_tips = np.argwhere(np.logical_or(
+                    g.tags['domain_boundary_faces'], g.tags['tip_faces']))
+            if not np.all(np.in1d(faces, domain_boundary_and_tips)):
+                warnings.warn('You are now specifying conditions on internal \
+                              boundaries. Be very careful!')
             if faces.size != len(cond):
                 raise ValueError('One BC per face')
 
