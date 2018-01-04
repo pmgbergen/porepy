@@ -87,15 +87,15 @@ from porepy.numerics.mixed_dim import coupler
 #
 #    solver_coupler.split(gb, "up", sps.linalg.spsolve(A, b))
 #
-#    gb.add_node_props(["u", "p", "P0u"])
+#    gb.add_node_props(["u", 'pressure', "P0u"])
 #    for g, d in gb:
 #        d["u"] = solver.extractU(g, d["up"])
-#        d["p"] = solver.extractP(g, d["up"])
+#        d['pressure'] = solver.extractP(g, d["up"])
 #        d["P0u"] = solver.projectU(g, d["u"], d)
 #
-#    if kwargs['visualize']: plot_grid(gb, "p", "P0u")
+#    if kwargs['visualize']: plot_grid(gb, 'pressure', "P0u")
 #
-#    export_vtk(gb, "grid", ["p", "P0u"])
+#    export_vtk(gb, "grid", ['pressure', "P0u"])
 #
 ##    norms = np.array([error.norm_L2(g, p), error.norm_L2(g, P0u)])
 ##    norms_known = np.array([0.041554943620853595, 0.18738227880674516])
@@ -155,15 +155,15 @@ from porepy.numerics.mixed_dim import coupler
 #    up = sps.linalg.spsolve(A, b)
 #    solver_coupler.split(gb, "up", up)
 #
-#    gb.add_node_props(["u", "p", "P0u"])
+#    gb.add_node_props(["u", 'pressure', "P0u"])
 #    for g, d in gb:
 #        d["u"] = solver.extractU(g, d["up"])
-#        d["p"] = solver.extractP(g, d["up"])
+#        d['pressure'] = solver.extractP(g, d["up"])
 #        d["P0u"] = solver.projectU(g, d["u"], d)
 #
-#    if kwargs['visualize']: plot_grid(gb, "p", "P0u")
+#    if kwargs['visualize']: plot_grid(gb, 'pressure', "P0u")
 #
-#    export_vtk(gb, "grid", ["p", "P0u"])
+#    export_vtk(gb, "grid", ['pressure', "P0u"])
 #
 ##    norms = np.array([error.norm_L2(g, p), error.norm_L2(g, P0u)])
 ##    norms_known = np.array([0.041554943620853595, 0.18738227880674516])
@@ -239,16 +239,16 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     up = sps.linalg.spsolve(A, b)
     solver_coupler.split(gb, "up", up)
 
-    gb.add_node_props(["u", "p", "P0u"])
+    gb.add_node_props(["u", 'pressure', "P0u"])
     for g, d in gb:
         d["u"] = solver.extractU(g, d["up"])
-        d["p"] = solver.extractP(g, d["up"])
+        d['pressure'] = solver.extractP(g, d["up"])
         d["P0u"] = solver.projectU(g, d["u"], d)
 
     if kwargs['visualize']:
-        plot_grid(gb, "p", "P0u")
+        plot_grid(gb, 'pressure', "P0u")
 
-    export_vtk(gb, "grid", ["p", "P0u"])
+    export_vtk(gb, "grid", ['pressure', "P0u"])
 
 #    norms = np.array([error.norm_L2(g, p), error.norm_L2(g, P0u)])
 #    norms_known = np.array([0.041554943620853595, 0.18738227880674516])

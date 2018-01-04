@@ -1,7 +1,3 @@
-import numpy as np
-import scipy.sparse as sps
-import os
-import sys
 
 from porepy.viz.exporter import Exporter
 from porepy.fracs import importer

@@ -98,16 +98,16 @@ if __name__ == '__main__':
     gb_r, _ = gb.duplicate_without_dimension(0)
 
     # Add the solutions to data fields in the grid buckets
-    gb.add_node_props(["p", "p_condensation"])
+    gb.add_node_props(['pressure', "p_condensation"])
     gb_r.add_node_props(["p_reduced"])
 
     solver.split(gb, "p_condensation", p_full_condensation)
     solver.split(gb_r, "p_reduced", p_reduced)
-    solver.split(gb, "p", p)
+    solver.split(gb, 'pressure', p)
 
     max_p, min_p, normalization, error_norm = np.zeros(1), np.zeros(1), 0, 0
     for g, d in gb:
-        p1, p2 = d["p"], d["p_condensation"]
+        p1, p2 = d['pressure'], d["p_condensation"]
         error_norm += sum(np.power(p1 - p2, 2) *
                           g.cell_volumes * d['param'].apertures)
         normalization += sum(g.cell_volumes)
@@ -121,3 +121,6 @@ if __name__ == '__main__':
 #
 #    export_vtk(gb, "grid_mpfa", ["p", "p_condensation"], folder="simu")
 #    export_vtk(gb_r, "grid_mpfa_r", ["p_reduced"], folder="simu")
+
+    export_vtk(gb, "grid_mpfa", ['pressure', "p_condensation"], folder="simu")
+    export_vtk(gb_r, "grid_mpfa_r", ["p_reduced"], folder="simu")

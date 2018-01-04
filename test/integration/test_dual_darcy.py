@@ -64,12 +64,12 @@ class BasicsTest(unittest.TestCase):
 
         g_gb = next(problem_mult.grid().nodes())
 
-        problem_mono.pressure('p')
+        problem_mono.pressure('pressure')
         problem_mult.split()
-        problem_mult.pressure('p')
+        problem_mult.pressure('pressure')
 
-        assert np.allclose(problem_mono.data()['p'],
-                           problem_mult.grid().node_prop(g_gb, 'p'))
+        assert np.allclose(problem_mono.data()['pressure'],
+                           problem_mult.grid().node_prop(g_gb, 'pressure'))
 
         problem_mono.discharge('u')
         problem_mult.discharge('u')
@@ -80,8 +80,8 @@ class BasicsTest(unittest.TestCase):
         problem_mono.project_discharge('P0u')
         problem_mult.project_discharge('P0u')
 
-        problem_mono.save(['p', 'P0u'])
-        problem_mult.save(['p', 'P0u'])
+        problem_mono.save(['pressure', 'P0u'])
+        problem_mult.save(['pressure', 'P0u'])
 
         assert np.allclose(problem_mono.data()['P0u'],
                            problem_mult.grid().node_prop(g_gb, 'P0u'))

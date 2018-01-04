@@ -121,7 +121,7 @@ def error_p(gb):
             continue
         frac_id = d['node_number']
         sol = np.array([sol_f[frac_id](*pt) for pt in g.cell_centers.T])
-        d["err"] = d["p"] - sol
+        d["err"] = d['pressure'] - sol
         error += np.sum(np.power(d["err"], 2) * g.cell_volumes)
 
     return np.sqrt(error)
@@ -156,14 +156,14 @@ A, b = solver.matrix_rhs(gb)
 up = sps.linalg.spsolve(A, b)
 solver.split(gb, "up", up)
 
-gb.add_node_props(["discharge", "p", "P0u", "err"])
+gb.add_node_props(["discharge", 'pressure', "P0u", "err"])
 solver.extract_u(gb, "up", "discharge")
-solver.extract_p(gb, "up", "p")
+solver.extract_p(gb, "up", 'pressure')
 solver.project_u(gb, "discharge", "P0u")
 
 diam = gb.diameter(lambda g: g.dim == gb.dim_max())
 print("h=", diam, "- err(p)=", error_p(gb))
 
-exporter.export_vtk(gb, 'vem', ["p", "err", "P0u"], folder='vem')
+exporter.export_vtk(gb, 'vem', ['pressure', "err", "P0u"], folder='vem')
 
 #------------------------------------------------------------------------------#

@@ -146,11 +146,11 @@ A, b = darcy.matrix_rhs(gb)
 up = sps.linalg.spsolve(A, b)
 darcy.split(gb, "up", up)
 
-gb.add_node_props(["p", "P0u", "u"])
+gb.add_node_props(['pressure', "P0u", "u"])
 for g, d in gb:
     d['u'] = darcy.discr.extract_u(g, d["up"])
     d['param'].set_discharge(d['u'])
-    d["p"] = darcy.discr.extract_p(g, d["up"])
+    d['pressure'] = darcy.discr.extract_p(g, d["up"])
     d["P0u"] = darcy.discr.project_u(g, d['u'], d)
 
 # compute the flow rate
@@ -164,7 +164,7 @@ for g, d in gb:
         total_flow_rate += np.sum(flow_rate)
 
 print("total flow rate", total_flow_rate)
-exporter.export_vtk(gb, 'darcy', ["p", "P0u"], folder=export_folder)
+exporter.export_vtk(gb, 'darcy', ['pressure', "P0u"], folder=export_folder)
 
 #################################################################
 
@@ -226,4 +226,4 @@ exporter.export_pvd(gb, file_name, step_to_export *
 
 print(production)
 # Consistency check
-#assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 19.8455019189)
+#assert np.isclose(np.sum(error.norm_L2(g, d['pressure']) for g, d in gb), 19.8455019189)

@@ -19,9 +19,9 @@ class TestBase(unittest.TestCase):
         f_set = [f_1, f_2, f_3]
 
         self.gb = meshing.cart_grid(f_set, [4, 4, 4], physdims=[1, 1, 1])
-        self.gb.add_node_props(['problem'])
+        self.gb.add_node_props(['transport_data'])
         for g, d in self.gb:
-            d['problem'] = ParabolicDataAssigner(g, d)
+            d['transport_data'] = ParabolicDataAssigner(g, d)
 
     def test_implicit_solver(self):
         '''Inject 1 in cell 0. Test that rhs and pressure solution

@@ -117,14 +117,14 @@ def main(kf, description, is_coarse=False, if_export=False):
     up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
     solver_flow.split(gb, "up", up)
 
-    gb.add_node_props(["discharge", "p", "P0u"])
+    gb.add_node_props(["discharge", 'pressure', "P0u"])
     solver_flow.extract_u(gb, "up", "discharge")
-    solver_flow.extract_p(gb, "up", "p")
+    solver_flow.extract_p(gb, "up", 'pressure')
     solver_flow.project_u(gb, "discharge", "P0u")
 
     if if_export:
         save = Exporter(gb, "vem", folder="vem_" + description)
-        save.write_vtk(["p", "P0u"])
+        save.write_vtk(['pressure', "P0u"])
 
 #------------------------------------------------------------------------------#
 

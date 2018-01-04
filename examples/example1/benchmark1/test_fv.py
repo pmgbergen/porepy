@@ -16,6 +16,7 @@ from porepy.utils.errors import error
 
 #------------------------------------------------------------------------------#
 
+
 def add_data(gb, domain, kf, mesh_value):
     """
     Define the permeability, apertures, boundary conditions and sources
@@ -29,12 +30,12 @@ def add_data(gb, domain, kf, mesh_value):
 
         # Assign apertures
         a_dim = np.power(a, gb.dim_max() - g.dim)
-        aperture = np.ones(g.num_cells)*a_dim
+        aperture = np.ones(g.num_cells) * a_dim
         param.set_aperture(aperture)
 
         # Permeability
         # Use fracture value in the fractures, i.e., the lower dimensional grids
-        k_frac = np.power(kf, g.dim<gb.dim_max())
+        k_frac = np.power(kf, g.dim < gb.dim_max())
         p = tensor.SecondOrder(3, np.ones(g.num_cells) * k_frac)
         param.set_tensor('flow', p)
         param.set_tensor('flow', p)
@@ -76,6 +77,7 @@ def add_data(gb, domain, kf, mesh_value):
 
 #------------------------------------------------------------------------------#
 
+
 def write_network(file_name):
     network = "FID,START_X,START_Y,END_X,END_Y\n"
     network += "0,0,0.5,1,0.5\n"
@@ -88,6 +90,7 @@ def write_network(file_name):
         text_file.write(network)
 
 #------------------------------------------------------------------------------#
+
 
 def main(kf, description, multi_point, if_export=False):
 
@@ -120,14 +123,15 @@ def main(kf, description, multi_point, if_export=False):
     p = sps.linalg.spsolve(A, b)
 
     # Store the solution
-    gb.add_node_props(["p"])
-    solver.split(gb, "p", p)
+    gb.add_node_props(['pressure'])
+    solver.split(gb, 'pressure', p)
 
     if if_export:
-        save = Exporter(gb, "fv", folder="fv_"+description)
-        save.write_vtk(["p"])
+        save = Exporter(gb, "fv", folder="fv_" + description)
+        save.write_vtk(['pressure'])
 
 #------------------------------------------------------------------------------#
+
 
 def test_fv_blocking():
     kf = 1e-4
@@ -135,17 +139,20 @@ def test_fv_blocking():
 
 #------------------------------------------------------------------------------#
 
+
 def test_fv_permeable():
     kf = 1e4
     main(kf, "permeable", multi_point=False)
 
 #------------------------------------------------------------------------------#
 
+
 def test_mpfa_blocking():
     kf = 1e-4
     main(kf, "blocking", multi_point=True)
 
 #------------------------------------------------------------------------------#
+
 
 def test_mpfa_permeable():
     kf = 1e4

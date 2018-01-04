@@ -18,3 +18,4 @@ Some examples may be outdated, but kept for historical or other reasons. These w
 * [example6](example6) Coarsening of grids into polyhedral shapes.
 * [example7](example7) Mixed-dimensional coupling with finite volume methods.
 * [example8](example8) VEM for internal boundary.
+* [example9](example9) Couple PorePy to Third party modules: Using google tangent to solve compressible flow
