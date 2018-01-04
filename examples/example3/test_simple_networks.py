@@ -308,3 +308,8 @@ def test_geiger_3d_partial():
     mesh_size = {'mode': 'constant', 'value': .4, 'bound_value': 1}
     kwargs = {'mesh_size': mesh_size, 'return_expected': True}
     meshing.simplex_grid([f_1, f_2, f_3, f_4, f_5], domain, **kwargs)
+
+def test_issue_90():
+    f_1 = np.array([[0,0,0], [1,0,0],[1,1,0], [0,1,0]]).T
+    f_2 = np.array([[0,0,1], [0,0,-1], [1,1,-1]]).T
+    meshing.simplex_grid([f_1, f_2])
