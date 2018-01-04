@@ -53,5 +53,7 @@ def add_tags(parent, new_tags):
     dictionaries (parent.tags and new_tags) will be decided by those in
     new_tags.
     """
-    old_tags = getattr(parent, 'tags', {})
-    parent.tags = {**old_tags, **new_tags}
+    old_tags = getattr(parent, 'tags', {}).copy()
+    nt = dict(old_tags)
+    nt.update(new_tags)
+    parent.tags = nt
