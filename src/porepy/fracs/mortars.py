@@ -268,6 +268,7 @@ def replace_grids_in_bucket(gb, g_map, mg_map):
     # NOTE: Is this a deep copy?
     gb = gb.copy()
 
+    #
     nodes_to_process = []
     edges_to_process = []
 
@@ -283,5 +284,8 @@ def replace_grids_in_bucket(gb, g_map, mg_map):
         if mg_e in mg_map.keys():
             d['mortar_grid'] = mg_map[mg_e]
             edges_to_process.append(e)
-            nodes_to_process.append()
+            g_l, g_h = gb.sorted_nodes_of_edges(e)
+            nodes_to_process.append(g_l)
+            nodes_to_process.append(g_h)
     # Next step: Loop over nodes and edges to process, and update mortar maps as needed.
+
