@@ -609,7 +609,7 @@ class DualCoupling(AbstractCoupling):
 
         # Projection matrix from hight/lower grid to mortar
         hat_P = mg.high_to_mortar
-        check_P = mg.mortar_to_low
+        check_P = mg.low_to_mortar
 
         # Velocity degree of freedom matrix
         U = sps.diags(sign_h/g_h.face_areas[faces_h])
@@ -627,8 +627,6 @@ class DualCoupling(AbstractCoupling):
         # Compute the high dimensional grid coupled to mortar grid term
         cc[0, 2] = sps.bmat([[Eta*A.T], [sps.csr_matrix(shape).T]])
 
-        # in data ci devo mettere entrabe le mappe high_to_mortar e
-        # mortar_to_low
         A = U*hat_P.T*M*check_P
         shape = (g_h.num_cells, g_l.num_faces)
         cc[0, 1] = sps.bmat([[None, A], [sps.csr_matrix(shape), None]])

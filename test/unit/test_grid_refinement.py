@@ -294,14 +294,14 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                                 0.,  0.,  0.,  0.,
                                                 0.,  0.,  0.,  0.,
                                                 1.,  0.]])
-            mortar_to_low_known = np.matrix([[ 1.,  0.],
+            low_to_mortar_known = np.matrix([[ 1.,  0.],
                                              [ 0.,  1.],
                                              [ 1.,  0.],
                                              [ 0.,  1.]])
 
             mg = d['mortar']
             assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
-            assert np.allclose(mortar_to_low_known, mg.mortar_to_low.todense())
+            assert np.allclose(low_to_mortar_known, mg.low_to_mortar.todense())
 
 #------------------------------------------------------------------------------#
 
@@ -329,7 +329,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
         [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  1.,  1.],
         [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  2.]])
 
-            mortar_to_low_known = 1./3.*np.matrix([[ 0.,  2.],
+            low_to_mortar_known = 1./3.*np.matrix([[ 0.,  2.],
                                                    [ 1.,  1.],
                                                    [ 2.,  0.],
                                                    [ 0.,  2.],
@@ -337,7 +337,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                                    [ 2.,  0.]])
 
             assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
-            assert np.allclose(mortar_to_low_known, mg.mortar_to_low.todense())
+            assert np.allclose(low_to_mortar_known, mg.low_to_mortar.todense())
 
 #------------------------------------------------------------------------------#
 
@@ -393,7 +393,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                            0.        ,  0.        ,  0.        ,
                                            0.        ,  0.        ,  0.        ,
                                            0.        ,  0.5       ]])
-            mortar_to_low_known = np.matrix([[ 0.        ,  0.66666667],
+            low_to_mortar_known = np.matrix([[ 0.        ,  0.66666667],
                                              [ 0.33333333,  0.33333333],
                                              [ 0.66666667,  0.        ],
                                              [ 0.        ,  0.5       ],
@@ -402,7 +402,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                              [ 0.5       ,  0.        ]])
 
             assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
-            assert np.allclose(mortar_to_low_known, mg.mortar_to_low.todense())
+            assert np.allclose(low_to_mortar_known, mg.low_to_mortar.todense())
 
 #------------------------------------------------------------------------------#
 
@@ -440,13 +440,13 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                               [ 0.,  0.,  0.,  0.,  0.,  0.,
                                                 0.,  0.,  0.,  0.,  0.,  0.,
                                                 1.,  0.]])
-            mortar_to_low_known = np.matrix([[ 0. ,  0. ,  0.5,  0.5],
+            low_to_mortar_known = np.matrix([[ 0. ,  0. ,  0.5,  0.5],
                                              [ 0.5,  0.5,  0. ,  0. ],
                                              [ 0. ,  0. ,  0.5,  0.5],
                                              [ 0.5,  0.5,  0. ,  0. ]])
 
             assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
-            assert np.allclose(mortar_to_low_known, mg.mortar_to_low.todense())
+            assert np.allclose(low_to_mortar_known, mg.low_to_mortar.todense())
 #------------------------------------------------------------------------------#
 
     def test_mortar_grid_1d_refine_1d_grid_2(self):
@@ -482,13 +482,13 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                               [ 0.,  0.,  0.,  0.,  0.,  0.,
                                                 0.,  0.,  0.,  0.,  0.,  0.,
                                                 1.,  0.]])
-            mortar_to_low_known = 1./3.*np.matrix([[ 0.,  1.,  2.],
+            low_to_mortar_known = 1./3.*np.matrix([[ 0.,  1.,  2.],
                                                    [ 2.,  1.,  0.],
                                                    [ 0.,  1.,  2.],
                                                    [ 2.,  1.,  0.]])
 
             assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
-            assert np.allclose(mortar_to_low_known, mg.mortar_to_low.todense())
+            assert np.allclose(low_to_mortar_known, mg.low_to_mortar.todense())
 
 #------------------------------------------------------------------------------#
 
@@ -516,13 +516,13 @@ class TestRefinementMortarGrid(unittest.TestCase):
             assert np.array_equal(mg.high_to_mortar.data, data_known)
 
             indices_known = np.array([0, 4, 1, 5, 2, 6, 3, 7])
-            assert np.array_equal(mg.mortar_to_low.indices, indices_known)
+            assert np.array_equal(mg.low_to_mortar.indices, indices_known)
 
             indptr_known = np.array([0, 2, 4, 6, 8])
-            assert np.array_equal(mg.mortar_to_low.indptr, indptr_known)
+            assert np.array_equal(mg.low_to_mortar.indptr, indptr_known)
 
             data_known = np.array([ 1.,  1.,  1.,  1.,  1.,  1.,  1.,  1.])
-            assert np.array_equal(mg.mortar_to_low.data, data_known)
+            assert np.array_equal(mg.low_to_mortar.data, data_known)
 
     if __name__ == '__main__':
         unittest.main()
