@@ -35,10 +35,19 @@ class TestGridRefinement1d(unittest.TestCase):
 
         for e, d in gb.edges_props():
             mg = d['mortar']
-            new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=N[0]+1) \
+            new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=N[0]+5) \
                               for s, g in mg.side_grids.items()}
 
             mortars.refine_mortar(mg, new_side_grids)
+
+            # refine the 1d-physical grid
+            old_g = gb.sorted_nodes_of_edge(e)[0]
+            new_g = refinement.new_grid_1d(old_g, num_nodes=N[0]-5)
+            new_g.compute_geometry()
+
+            gb.update_nodes(old_g, new_g)
+            mg = d['mortar']
+            mortars.refine_co_dimensional_grid(mg, new_g)
 
 #        from porepy.viz import plot_grid
 #        plot_grid.plot_grid(gb, alpha=0, info='cfo')
@@ -56,7 +65,8 @@ class TestGridRefinement1d(unittest.TestCase):
             aperture = np.power(1e-3, gb.dim_max() - g.dim)
             param.set_aperture(aperture*np.ones(g.num_cells))
 
-            mask = g.cell_centers[1, :] < 0.3
+            mask = np.logical_and(g.cell_centers[1, :] < 0.3,
+                                  g.cell_centers[0, :] < 0.3)
             source = np.zeros(g.num_cells)
             source[mask] = g.cell_volumes[mask]*aperture
             param.set_source("flow", source)
