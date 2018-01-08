@@ -605,7 +605,7 @@ class DualCoupling(AbstractCoupling):
         sign_h = sign_h[ind_faces_h]
 
         # Mortar mass matrix
-        M = sps.diags(mg.cell_volumes)
+        M = sps.diags(1/mg.cell_volumes)
 
         # Projection matrix from hight/lower grid to mortar
         hat_P = mg.high_to_mortar
