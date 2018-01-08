@@ -99,7 +99,7 @@ class ParabolicModel():
                 d['deltaT'] = self.time_step()
         else:
             self.data()['deltaT'] = self.time_step()
-    
+
     def solve(self):
         'Solve problem'
         tic = time.time()
@@ -191,7 +191,7 @@ class ParabolicModel():
             return source.IntegralMixedDim(physics=self.physics)
         else:
             return source.Integral(physics=self.physics)
-        
+
     def space_disc(self):
         '''Space discretization. Returns the discretization terms that should be
         used in the model'''
@@ -252,14 +252,22 @@ class ParabolicModel():
         'Returns the end time'
         return self._end_time
 
-    def save(self, variables=None, time=None, save_every=None):
+    def save(self, variables=None, save_every=1):
         if variables is None:
             self.exporter.write_vtk()
         else:
             if not self.is_GridBucket:
                 variables = {k: self._data[k] for k in variables \
                                                              if k in self._data}
-            self.exporter.write_vtk(variables, time_step=time)
+
+            time = self._solver.data['times'][::save_every].copy()
+
+            for time_step, current_time in enumerate(time):
+                for v in variables:
+                    v_data = self._solver.data[self.physics][time_step]
+                    self._time_disc.split(self.grid(), v, v_data)
+                self.exporter.write_vtk(variables, time_step=time_step)
+            self.exporter.write_pvd(time)
 
 class ParabolicDataAssigner():
     '''
