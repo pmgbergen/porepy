@@ -42,8 +42,7 @@ class DarcyAndTransport():
         Save for visualization.
         """
         self.flow.save(variables=[self.flow.pressure_name])
-        self.transport.split(x_name='transport')
-        self.transport.save(['transport'], save_every=export_every)
+        self.transport.save([self.transport.physics], save_every=export_every)
 
 
 class static_flow_IE_solver(AbstractSolver):
