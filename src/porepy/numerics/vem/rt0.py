@@ -14,6 +14,7 @@ from porepy.params import tensor
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
+from porepy.numerics.vem import vem_dual
 
 from porepy.utils import comp_geom as cg
 
@@ -26,7 +27,7 @@ class RT0MixedDim(SolverMixedDim):
 
         self.discr = RT0(self.physics)
         self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = DualCoupling(self.discr)
+        self.coupling_conditions = vem_dual.DualCoupling(self.discr)
 
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
@@ -44,96 +45,6 @@ class RT0MixedDim(SolverMixedDim):
         gb.add_node_props([P0u])
         for g, d in gb:
             d[P0u] = self.discr.project_u(g, d[u], d)
-
-    def check_conservation(self, gb, u, conservation):
-        """
-        Assert if the local conservation of mass is preserved for the grid
-        bucket.
-        Parameters
-        ----------
-        gb: grid bucket, or a subclass.
-        u : string name of the velocity in the data associated to gb.
-        conservation: string name for the conservation of mass.
-        """
-        for g, d in gb:
-            d[conservation] = self.discr.check_conservation(g, d[u])
-
-        # add to the lower dimensional grids the contribution from the higher
-        # dimensional grids
-        for e, data in gb.edges_props():
-            g_l, g_h = gb.sorted_nodes_of_edge(e)
-
-            cells_l, faces_h, _ = sps.find(data['face_cells'])
-            faces, cells_h, sign = sps.find(g_h.cell_faces)
-            ind = np.unique(faces, return_index=True)[1]
-            sign = sign[ind][faces_h]
-
-            conservation_l = gb.node_prop(g_l, conservation)
-            u_h = sign*gb.node_prop(g_h, u)[faces_h]
-
-            for c_l, u_f in zip(cells_l, u_h):
-                conservation_l[c_l] -= u_f
-
-        for g, d in gb:
-            print(np.amax(np.abs(d[conservation])))
-
-#------------------------------------------------------------------------------#
-
-class RT0DFN(SolverMixedDim):
-
-    def __init__(self, dim_max, physics='flow'):
-        # NOTE: There is no flow along the intersections of the fractures.
-
-        self.physics = physics
-        self.dim_max = dim_max
-        self.discr = RT0(self.physics)
-
-        self.coupling_conditions = DualCouplingDFN(self.__ndof__)
-
-        kwargs = {"discr_ndof": self.__ndof__,
-                  "discr_fct": self.__matrix_rhs__}
-        self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
-        SolverMixedDim.__init__(self)
-
-    def extract_u(self, gb, up, u):
-        for g, d in gb:
-            if g.dim == self.dim_max:
-                d[u] = self.discr.extract_u(g, d[up])
-            else:
-                d[u] = np.zeros(g.num_faces)
-
-    def extract_p(self, gb, up, p):
-        for g, d in gb:
-            if g.dim == self.dim_max:
-                d[p] = self.discr.extract_p(g, d[up])
-            else:
-                d[p] = d[up]
-
-    def project_u(self, gb, u, P0u):
-        for g, d in gb:
-            if g.dim == self.dim_max:
-                d[P0u] = self.discr.project_u(g, d[u], d)
-            else:
-                d[P0u] = np.zeros((3, g.num_cells))
-
-    def __ndof__(self, g):
-        # The highest dimensional problem has the standard number of dof
-        # associated with the solver. For the lower dimensional problems, the
-        # number of dof is the number of cells.
-        if g.dim == self.dim_max:
-            return self.discr.ndof(g)
-        else:
-            return g.num_cells
-
-    def __matrix_rhs__(self, g, data):
-        # The highest dimensional problem compute the matrix and rhs, the lower
-        # dimensional problem and empty matrix. For the latter, the size of the
-        # matrix is the number of cells.
-        if g.dim == self.dim_max:
-            return self.discr.matrix_rhs(g, data)
-        else:
-            ndof = self.__ndof__(g)
-            return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
 
 #------------------------------------------------------------------------------#
 
@@ -168,7 +79,7 @@ class RT0(Solver):
     def matrix_rhs(self, g, data):
         """
         Return the matrix and righ-hand side for a discretization of a second
-        order elliptic equation using dual virtual element method.
+        order elliptic equation using RT0-P0 method.
         The name of data in the input dictionary (data) are:
         perm : second_order_tensor
             Permeability defined cell-wise.
@@ -205,11 +116,11 @@ class RT0(Solver):
 
         data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
 
-        D, rhs = dual.matrix_rhs(g, data)
+        D, rhs = rt0.matrix_rhs(g, data)
         up = sps.linalg.spsolve(D, rhs)
-        u = dual.extract_u(g, up)
-        p = dual.extract_p(g, up)
-        P0u = dual.project_u(g, u, perm)
+        u = rt0.extract_u(g, up)
+        p = rt0.extract_p(g, up)
+        P0u = rt0.project_u(g, u, perm)
 
         """
         M, bc_weight = self.matrix(g, data, bc_weight=True)
@@ -220,7 +131,7 @@ class RT0(Solver):
     def matrix(self, g, data, bc_weight=False):
         """
         Return the matrix for a discretization of a second order elliptic equation
-        using dual virtual element method. See self.matrix_rhs for a detaild
+        using RT0-P0 method. See self.matrix_rhs for a detaild
         description.
 
         Additional parameter:
@@ -344,7 +255,7 @@ class RT0(Solver):
     def rhs(self, g, data, bc_weight=1):
         """
         Return the righ-hand side for a discretization of a second order elliptic
-        equation using dual virtual element method. See self.matrix_rhs for a detaild
+        equation using RT0-P0 method. See self.matrix_rhs for a detaild
         description.
 
         Additional parameter:
@@ -389,7 +300,7 @@ class RT0(Solver):
 #------------------------------------------------------------------------------#
 
     def extract_u(self, g, up):
-        """  Extract the velocity from a dual virtual element solution.
+        """  Extract the velocity from a RT0-P0 solution.
 
         Parameters
         ----------
@@ -409,7 +320,7 @@ class RT0(Solver):
 #------------------------------------------------------------------------------#
 
     def extract_p(self, g, up):
-        """  Extract the pressure from a dual virtual element solution.
+        """  Extract the pressure from a RT0-P0 solution.
 
         Parameters
         ----------
@@ -429,7 +340,7 @@ class RT0(Solver):
 #------------------------------------------------------------------------------#
 
     def project_u(self, g, u, data):
-        """  Project the velocity computed with a dual vem solver to obtain a
+        """  Project the velocity computed with a RT0-P0 solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
         Parameters
@@ -484,28 +395,6 @@ class RT0(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def check_conservation(self, g, u):
-        """
-        Return the local conservation of mass in the cells.
-        Parameters
-        ----------
-        g: grid, or a subclass.
-        u : array (g.num_faces) velocity at each face.
-        """
-        faces, cells, sign = sps.find(g.cell_faces)
-        index = np.argsort(cells)
-        faces, sign = faces[index], sign[index]
-
-        conservation = np.empty(g.num_cells)
-        for c in np.arange(g.num_cells):
-            # For the current cell retrieve its faces
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-            conservation[c] = np.sum(u[faces[loc]]*sign[loc])
-
-        return conservation
-
-#------------------------------------------------------------------------------#
-
     def massHdiv(self, K, c_volume, coord, sign, dim, HB):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
@@ -535,115 +424,5 @@ class RT0(Solver):
         C = np.diagflat(sign)
 
         return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(K, np.dot(N, C)))))
-
-#------------------------------------------------------------------------------#
-
-class DualCoupling(AbstractCoupling):
-
-#------------------------------------------------------------------------------#
-
-    def __init__(self, discr):
-        self.discr_ndof = discr.ndof
-
-#------------------------------------------------------------------------------#
-
-    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
-        """
-        Construct the matrix (and right-hand side) for the coupling conditions.
-        Note: the right-hand side is not implemented now.
-
-        Parameters:
-            g_h: grid of higher dimension
-            g_l: grid of lower dimension
-            data_h: dictionary which stores the data for the higher dimensional
-                grid
-            data_l: dictionary which stores the data for the lower dimensional
-                grid
-            data: dictionary which stores the data for the edges of the grid
-                bucket
-
-        Returns:
-            cc: block matrix which store the contribution of the coupling
-                condition. See the abstract coupling class for a more detailed
-                description.
-        """
-        # pylint: disable=invalid-name
-
-        # Normal permeability and aperture of the intersection
-        k = 2*data_edge['kn'] # TODO: need to be handled in a different way
-        aperture_h = data_h['param'].get_aperture()
-
-        # Retrieve the number of degrees of both grids
-        # Create the block matrix for the contributions
-        dof, cc = self.create_block_matrix(g_h, g_l)
-
-        # Recover the information for the grid-grid mapping
-        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
-        faces, cells_h, sign = sps.find(g_h.cell_faces)
-        ind = np.unique(faces, return_index=True)[1]
-        sign = sign[ind][faces_h]
-        cells_h = cells_h[ind][faces_h]
-
-        # Compute the off-diagonal terms
-        dataIJ, I, J = sign, g_l.num_faces+cells_l, faces_h
-        cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
-        cc[0, 1] = cc[1, 0].T
-
-        # Compute the diagonal terms
-        dataIJ = 1./(g_h.face_areas[faces_h] * aperture_h[cells_h] * k[cells_l])
-        I, J = faces_h, faces_h
-        cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
-
-        return cc
-
-#------------------------------------------------------------------------------#
-
-class DualCouplingDFN(AbstractCoupling):
-
-#------------------------------------------------------------------------------#
-
-    def __init__(self, discr_ndof):
-
-        self.discr_ndof = discr_ndof
-
-#------------------------------------------------------------------------------#
-
-    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
-        """
-        Construct the matrix (and right-hand side) for the coupling conditions
-        of a DFN. We use the Lagrange multiplier to impose continuity of the
-        normal fluxes at the intersections.
-        Note: the right-hand side is not implemented now.
-
-        Parameters:
-            g_h: grid of higher dimension
-            g_l: grid of lower dimension
-            data_h: Not used but kept for consistency
-            data_l: Not used but kept for consistency
-            data: Not used but kept for consistency
-
-        Returns:
-            cc: block matrix which store the contribution of the coupling
-                condition. See the abstract coupling class for a more detailed
-                description.
-        """
-        # pylint: disable=invalid-name
-
-        # Retrieve the number of degrees of both grids
-        # Create the block matrix for the contributions
-        dof, cc = self.create_block_matrix(g_h, g_l)
-
-        # Recover the information for the grid-grid mapping
-        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
-        faces, cells_h, sign = sps.find(g_h.cell_faces)
-        ind = np.unique(faces, return_index=True)[1]
-        sign = sign[ind][faces_h]
-
-        # Compute the off-diagonal terms
-        dataIJ, I, J = sign, cells_l, faces_h
-        cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
-        cc[0, 1] = cc[1, 0].T
-
-        return cc
 
 #------------------------------------------------------------------------------#
