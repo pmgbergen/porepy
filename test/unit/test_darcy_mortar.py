@@ -34,7 +34,7 @@ class TestGridRefinement1d(unittest.TestCase):
         gb.assign_node_ordering()
 
         for e, d in gb.edges_props():
-            mg = d['mortar']
+            mg = d['mortar_grid']
             new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=N[0]+5) \
                               for s, g in mg.side_grids.items()}
 
@@ -46,7 +46,7 @@ class TestGridRefinement1d(unittest.TestCase):
             new_g.compute_geometry()
 
             gb.update_nodes(old_g, new_g)
-            mg = d['mortar']
+            mg = d['mortar_grid']
             mortars.refine_co_dimensional_grid(mg, new_g)
 
 #        from porepy.viz import plot_grid

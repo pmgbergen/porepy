@@ -593,7 +593,7 @@ class DualCoupling(AbstractCoupling):
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        mg = data_edge['mortar']
+        mg = data_edge['mortar_grid']
         dof, cc = self.create_block_matrix([g_h, g_l, mg])
 
         # Recover the information for the grid-grid mapping

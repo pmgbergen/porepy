@@ -220,7 +220,7 @@ class Exporter():
         self.gb.add_edge_props(['grid_dim', 'file_name', 'is_mortar',
                                 'mortar_side', 'cell_id'])
         for _, d in self.gb.edges_props():
-            mg = d['mortar']
+            mg = d['mortar_grid']
             d['file_name'] = {}
             d['grid_dim'] = {}
             d['is_mortar'] = {}
@@ -262,7 +262,7 @@ class Exporter():
         fm = '\t<DataSet group="" part="" file="%s"/>\n'
         [o_file.write( fm % d['file_name'] ) for g, d in self.gb if g.dim!=0]
         for _, d in self.gb.edges_props():
-            for side, g in d['mortar'].side_grids.items():
+            for side, g in d['mortar_grid'].side_grids.items():
                 if g.dim > 0:
                     o_file.write( fm % d['file_name'][side] )
         o_file.write('</Collection>\n'+'</VTKFile>')
@@ -374,7 +374,7 @@ class Exporter():
                 self.gb_VTK[d['node_number']] = self._export_vtk_grid(g)
             for _, d in self.gb.edges_props():
                 side_grids_VTK = {}
-                for side, g in d['mortar'].side_grids.items():
+                for side, g in d['mortar_grid'].side_grids.items():
                     side_grids_VTK[side] = self._export_vtk_grid(g)
                 self.mg_VTK[d['edge_number']] = side_grids_VTK
         else:
