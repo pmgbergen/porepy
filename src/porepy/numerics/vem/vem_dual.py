@@ -636,7 +636,7 @@ class DualCoupling(AbstractCoupling):
         # the flux are the mortar variables (cell_volumes weighed)
         A = (M*check_P).T
         shape = (g_l.num_faces, A.shape[1])
-        cc[1, 2] = sps.bmat([[A], [sps.csr_matrix(shape)]])
+        cc[1, 2] = sps.bmat([[sps.csr_matrix(shape)], [A]])
 
         return cc
 
