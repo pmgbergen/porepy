@@ -10,7 +10,7 @@ Created on Sat Nov 11 17:06:37 2017
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.grids.grid import Grid
+from porepy.grids.grid import Grid, FaceTag
 from porepy.grids.structured import TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.utils import comp_geom as cg
@@ -72,6 +72,7 @@ def refine_grid_1d(g, ratio=2):
 
     indices = np.empty(0, dtype=np.int)
     ind = np.vstack((np.arange(ratio), np.arange(ratio)+1)).flatten('F')
+    nd = np.r_[np.diff(cell_nodes.indices)[1::2], 0]
 
     for c in np.arange(g.num_cells):
         loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
@@ -86,7 +87,7 @@ def refine_grid_1d(g, ratio=2):
         x[:, pos:(pos+ratio-1)] = g.nodes[:, start, np.newaxis]*theta + \
                                   g.nodes[:, end, np.newaxis]*(1-theta)
         pos += ratio-1
-        shift += ratio+2-np.sum(if_add_loc)
+        shift += ratio+(2-np.sum(if_add_loc)*(1-nd[c]))-nd[c]
 
         if if_add_loc[1]:
             x[:, pos:(pos+1)] = g.nodes[:, end, np.newaxis]
