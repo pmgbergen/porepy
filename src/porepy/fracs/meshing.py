@@ -128,6 +128,10 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
         print('Split fractures')
         tm_split = time.time()
     split_grid.split_fractures(gb, **kwargs)
+
+    # create mortar grids
+    create_mortar_grids(gb)
+
     if verbose > 0:
         print('Done. Elapsed time ' + str(time.time() - tm_split))
     gb.assign_node_ordering()
