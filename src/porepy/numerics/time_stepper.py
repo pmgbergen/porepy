@@ -191,16 +191,34 @@ class Explicit(AbstractSolver):
     def __init__(self, problem):
         AbstractSolver.__init__(self, problem)
 
-    def solve(self):
+    def solve(self, save_as=None, save_every=1):
         """
         Solve problem.
         """
         t = 0.0
+        counter = 0
+        # Save initial condition
+        if not save_as is None:
+            self.problem.split(save_as)
+            self.problem.exporter.write_vtk([save_as], time_step=counter)
+            times = [0.0]
+
         while t < self.T - self.dt + 1e-14:
             self.update(t)
             self.reassemble()
             self.step()
+            # Save time step
+            if not save_as is None and np.mod(counter, save_every)==0:
+                logger.info('Saving solution')
+                self.problem.split(save_as)
+                self.problem.exporter.write_vtk([save_as], time_step=counter)
+                times.append(t)
+                logger.info('Finished saving')
             t += self.dt
+
+        # Write pvd
+        if not save_as is None:
+            self.problem.exporter.write_pvd(np.asarray(times))
 
         return self.data
 
