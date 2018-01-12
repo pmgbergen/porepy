@@ -128,6 +128,10 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
         print('Split fractures')
         tm_split = time.time()
     split_grid.split_fractures(gb, **kwargs)
+
+    # create mortar grids
+    create_mortar_grids(gb)
+
     if verbose > 0:
         print('Done. Elapsed time ' + str(time.time() - tm_split))
     gb.assign_node_ordering()
@@ -538,11 +542,11 @@ def assemble_in_bucket(grids, **kwargs):
 
 def create_mortar_grids(gb):
 
-    gb.add_edge_prop('mortar')
+    gb.add_edge_prop('mortar_grid')
     # loop on all the nodes and create the mortar grids
     for e, d in gb.edges_props():
         lg = gb.sorted_nodes_of_edge(e)[0]
         side_g = {SideTag.LEFT:  lg.copy(), SideTag.RIGHT: lg.copy()}
-        d['mortar'] = MortarGrid(lg.dim, side_g, d['face_cells'])
+        d['mortar_grid'] = MortarGrid(lg.dim, side_g, d['face_cells'])
 
 #------------------------------------------------------------------------------#

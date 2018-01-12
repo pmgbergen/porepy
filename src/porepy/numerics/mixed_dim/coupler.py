@@ -61,7 +61,7 @@ class Coupler(object):
 
         gb.add_edge_prop('dof')
         for _, d in gb.edges_props():
-            d['dof'] = d['mortar'].num_cells
+            d['dof'] = d['mortar_grid'].num_cells
 
 #------------------------------------------------------------------------------#
 
