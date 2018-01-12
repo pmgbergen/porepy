@@ -272,6 +272,7 @@ class TpfaCoupling(AbstractCoupling):
 
     def __init__(self, solver):
         self.solver = solver
+        self.discr_ndof = solver.ndof
 
     def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
         """
@@ -301,8 +302,6 @@ class TpfaCoupling(AbstractCoupling):
                 in a csc.sparse matrix.
         """
 
-        k_l = data_l['param'].get_tensor(self.solver)
-        k_h = data_h['param'].get_tensor(self.solver)
         a_l = data_l['param'].get_aperture()
         a_h = data_h['param'].get_aperture()
 
@@ -310,96 +309,84 @@ class TpfaCoupling(AbstractCoupling):
 
         # Obtain the cells and face signs of the higher dimensional grid
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
+        # Full cell-face map on the higher dimension
         faces, cells_h, sgn_h = sps.find(g_h.cell_faces)
-        ind = np.unique(faces, return_index=True)[1]
+        # Obtain indices to uniquify faces
+        # Is this necessary, considering we do
+        _, ind = np.unique(faces, return_index=True)
         sgn_h = sgn_h[ind]
         cells_h = cells_h[ind]
-
+        # Restrict to faces on the faces
         cells_h, sgn_h = cells_h[faces_h], sgn_h[faces_h]
 
-        # The procedure for obtaining the face transmissibilities of the higher
-        # grid is in the main analougous to the one used in the discretize function
-        # of the Tpfa class.
-        n = g_h.face_normals[:, faces_h]
-        n *= sgn_h
-        perm_h = k_h.perm[:, :, cells_h]
+        # Mortar data structure.
+        mg = data_edge['mortar_grid']
+        mortar_size = mg.num_cells
 
-        # Compute the distance between face center and cell center. If specified
-        # (edgewise), the face centroid is shifted half an aperture in the normal
-        # direction of the fracture. Unless matrix cell size approaches the
-        # aperture, this has minimal impact.
-        if data_edge.get('aperture_correction', False):
-            apt_dim = np.divide(a_l[cells_l], a_h[cells_h])
-            fc_corrected = g_h.face_centers[::,faces_h].copy()-apt_dim/2*n
-            fc_cc_h = fc_corrected - g_h.cell_centers[::,cells_h]
-        else:
-            fc_cc_h = g_h.face_centers[::, faces_h] - g_h.cell_centers[::, cells_h]
+        # Restriction operator form internal faces to half faces
+        data = np.ones(faces_h, dtype=np.int)
+        # NOTE: These indices need to be shuffled to account for numbering of mortar variables.
+        rows = np.arange(faces_h.size, dtype=np.int)
 
-        nk_h = perm_h * n
-        nk_h = nk_h.sum(axis=1)
-        if data_edge.get('Aavatsmark_transmissibilities', False):
-            dist_face_cell_h = np.linalg.norm(fc_cc_h, 2, axis=0)
-            t_face_h = np.linalg.norm(nk_h, 2, axis=0)
-        else:
-            nk_h *= fc_cc_h
-            t_face_h = nk_h.sum(axis=0)
-            dist_face_cell_h = np.power(fc_cc_h, 2).sum(axis=0)
+        # Matrices for reconstruction of face pressures.
+        # Contribution from cell center values
+        bound_pressure_cc_h = data_h['bound_pressure_cell']
+        # Contribution from boundary value
+        bound_pressure_face_h = data_h['bound_pressure_face']
 
-        # Account for the apertures
-        t_face_h = t_face_h * a_h[cells_h]
-        # and compute the matrix side half transmissibilities
-        t_face_h = np.divide(t_face_h, dist_face_cell_h)
+        # Discretization of boundary conditions
+        bound_flux_h = data_h['bound_flux']
 
-        # For the lower dimension some simplifications can be made, due to the
-        # alignment of the face normals and (normal) permeabilities of the
-        # cells. First, the normal component of the permeability of the lower
-        # dimensional cells must be found. While not provided in g_l, the
-        # normal of these faces is the same as that of the corresponding higher
-        # dimensional face, up to a sign.
-        n1 = n[np.newaxis, :, :]
-        n2 = n[:, np.newaxis, :]
-        n1n2 = n1 * n2
+        div_h = fvutils.scalar_divergence(g_h)
 
-        normal_perm = np.einsum(
-            'ij...,ij...', n1n2, k_l.perm[:, :, cells_l])
-        # The area has been multiplied in twice, not once as above, through n1
-        # and n2
-        normal_perm = np.divide(normal_perm, g_h.face_areas[faces_h])
+        # Projection from mortar grid to upper dimension
+        Pi_h_mg = mg.high_to_mortar
+        # Projection from mortar grid to lower dimension
+        Pi_mg_l = mg.low_to_mortar
 
-        # Account for aperture contribution to face area
-        t_face_l = a_h[cells_h] * normal_perm
-
-        # And use it for face-center cell-center distance
-        t_face_l = np.divide(
-            t_face_l, 0.5 * np.divide(a_l[cells_l], a_h[cells_h]))
-
-        # Assemble face transmissibilities for the two dimensions and compute
-        # harmonic average
-        t_face = np.array([t_face_h, t_face_l])
-        t = t_face.prod(axis=0) / t_face.sum(axis=0)
-
+        dof, cc = self.create_block_matrix([g_h, g_l, mg])
         # Create the block matrix for the contributions
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof]
-                      ).reshape((2, 2))
+                      ).reshape((3, 3))
 
-        # Compute the off-diagonal terms
-        dataIJ, I, J = -t, cells_l, cells_h
-        cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
-        cc[0, 1] = cc[1, 0].T
+        k = data_edge['kn']
+        # The aperture is a diagonal matrix in the lower dimensional grid,
+        # then mapped to the mortar grid.
+        kappa = sps.dia_matrix((Pi_mg_l * k, 0), shape=(mg.num_cells,
+                                                        mg.num_cells))
 
-        # Compute the diagonal terms
-        dataIJ, I, J = t, cells_h, cells_h
-        cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
-        I, J = cells_l, cells_l
-        cc[1, 1] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[1]))
+        face_areas_h = sps.dia_matrix((g_h.face_areas, 0),
+                                      shape=(g_h.num_faces, g_h.num_faces))
 
-        # Save the flux discretization for back-computation of fluxes
-        cells2faces = sps.csr_matrix((sgn_h, (faces_h, cells_h)),
-                                     (g_h.num_faces, g_h.num_cells))
+        # Contribution from mortar variable to conservation in the higher domain
+        # TODO: Check scaling
+        # Acts as a boundary condition, treat with standard boundary discretization
+        cc[0, 2] = div_h * bound_flux_h * face_areas_h * Pi_h_mg.T
+        # Acts as a source term.
+        cc[1, 2] = -Pi_mg_l.T * sps.dia_matrix((mg.cell_volumes, 0),
+                                              shape=(mortar_size, mortar_size))
 
-        data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
-                                                 cells2faces * cc[0, 1]])
-        data_edge['coupling_discretization'] = cc
+        # Governing equation for the inter-dimensional flux law.
+        # Equation on the form
+        #   \lambda = \kappa (p_h - p_l), with
+
+        # The trace of the pressure from the higher dimension is composed of the cell center pressure,
+        # and a contribution from the boundary flux, represented by the mortar flux
+        # Cell center contribution, mapped to the mortar grid
+        cc[2, 0] = kappa * Pi_h_mg * bound_pressure_cc_h
+        # Contribution from mortar variable
+        cc[2, 2] = kappa * Pi_h_mg * bound_pressure_face_h * Pi_h_mg.T
+
+        # Contribution from the lower dimensional pressure
+        cc[2, 1] = -kappa * Pi_mg_l
+
+        # Contribution from the \lambda term, moved to the right hand side
+        cc[2, 2] += -sps.dia_matrix((np.ones(mortar_size), 0),
+                                    shape=(mortar_size, mortar_size))
+
+#        data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
+#                                                 cells2faces * cc[0, 1]])
+#        data_edge['coupling_discretization'] = cc
 
         return cc
 
