@@ -245,7 +245,7 @@ def match_grids_2d(g, h):
 
 #------------------------------------------------------------------------------#
 
-def replace_grids_in_bucket(gb, g_map, mg_map):
+def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
     """ Replace grids and / or mortar grids in a grid_bucket. Recompute mortar
     mappings as needed.
 
@@ -265,27 +265,34 @@ def replace_grids_in_bucket(gb, g_map, mg_map):
             replaced, but can we keep untouched grids?
 
     """
-    # NOTE: Is this a deep copy?
-    gb = gb.copy()
+    #gb = gb.copy() nope it's not workign with this
 
-    #
-    nodes_to_process = []
-    edges_to_process = []
+    for g_old, g_new in g_map.items():
+        gb.update_nodes(g_old, g_new)
 
-    for k, v in g_map.items():
-        gb.update_nodes(v, k)
-        nodes_to_process.append(v)
-        for e, _ in gb.edges_props_of_node(v):
-            edges_to_process.append(e)
+        for e, d in gb.edges_props_of_node(g_new):
+            mg = d['mortar_grid']
+            if mg.dim == g_new.dim:
+                refine_co_dimensional_grid(mg, g_new)
+            else:
+                pass
 
-    # Not sure if this is the best solution here.
-    for e, d in gb.edges():
-        mg_e = d['mortar_grid']
-        if mg_e in mg_map.keys():
-            d['mortar_grid'] = mg_map[mg_e]
-            edges_to_process.append(e)
-            g_l, g_h = gb.sorted_nodes_of_edges(e)
-            nodes_to_process.append(g_l)
-            nodes_to_process.append(g_h)
+    for mg_old, mg_new in mg_map.items():
+        refine_mortar(mg_old, mg_new)
+
+
+#    for e, d in gb.edges_props():
+#        print(d['mortar_grid'])
+
+#    # Not sure if this is the best solution here.
+#    for e, d in gb.edges():
+#        mg_e = d['mortar_grid']
+#        if mg_e in mg_map.keys():
+#            d['mortar_grid'] = mg_map[mg_e]
+#            edges_to_process.append(e)
+#            nodes_to_process.append()
+
+    return gb
     # Next step: Loop over nodes and edges to process, and update mortar maps as needed.
 
+#------------------------------------------------------------------------------#

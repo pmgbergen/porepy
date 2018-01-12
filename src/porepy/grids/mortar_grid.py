@@ -37,7 +37,7 @@ class MortarGrid(object):
             num_faces x num_cells. In the beginning we assume matching grids,
             but it can be modified by calling refine_mortar(). The matrix
             elements represent the ratio between the geometrical objects.
-        mortar_to_low (sps.csc-matrix): Cell-cell relationships between the
+        low_to_mortar (sps.csc-matrix): Cell-cell relationships between the
             mortar grids and the low dimensional grid. Matrix size:
             num_cells x num_cells. Matrix elements represent the ratio between
             the geometrical objects.
@@ -52,7 +52,7 @@ class MortarGrid(object):
         """Initialize the mortar grid
 
         See class documentation for further description of parameters.
-        The high_to_mortar and mortar_to_low are identity mapping.
+        The high_to_mortar and low_to_mortar are identity mapping.
 
         Parameters
         ----------
@@ -105,7 +105,7 @@ class MortarGrid(object):
         # It is composed by two identity matrices since we are assuming matching
         # grids here.
         identity = sps.identity(num_cells)
-        self.mortar_to_low = sps.bmat([[identity], [identity]], format='csc')
+        self.low_to_mortar = sps.bmat([[identity], [identity]], format='csc')
 
 #------------------------------------------------------------------------------#
 
@@ -119,7 +119,7 @@ class MortarGrid(object):
             'Face_cells mapping from the higher dimensional grid to the mortar grid\n' + \
             str(self.high_to_mortar) + '\n' + \
             'Cell_cells mapping from the mortar grid to the lower dimensional grid\n' + \
-            str(self.mortar_to_low)
+            str(self.low_to_mortar)
 
         return s
 
@@ -140,7 +140,7 @@ class MortarGrid(object):
              'Mapping from the cells of the mortar grid to the cells' + \
              ' of the lower dimensional grid.\nRows indicate the mortar' + \
              ' cell id, columns indicate the (lower dimensional) cell id' + \
-             '\n' + str(self.mortar_to_low)
+             '\n' + str(self.low_to_mortar)
 
         return s
 
@@ -157,7 +157,7 @@ class MortarGrid(object):
 
     def refine_mortar(self, side_matrix):
         """
-        Update the mortar_to_low and high_to_mortar maps when the mortar grids
+        Update the low_to_mortar and high_to_mortar maps when the mortar grids
         are changed.
 
         Parameter:
@@ -173,10 +173,10 @@ class MortarGrid(object):
         for pos, (side, _) in enumerate(self.side_grids.items()):
             matrix[pos, pos] = side_matrix[side]
 
-        # Once the global matrix is constructed the new mortar_to_low and
+        # Once the global matrix is constructed the new low_to_mortar and
         # high_to_mortar maps are updated.
         matrix = sps.bmat(matrix)
-        self.mortar_to_low = matrix * self.mortar_to_low
+        self.low_to_mortar = matrix * self.low_to_mortar
         self.high_to_mortar = matrix * self.high_to_mortar
 
         self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
@@ -187,7 +187,7 @@ class MortarGrid(object):
 
     def refine_low(self, side_matrix):
         """
-        Update the mortar_to_low map when the lower dimensional grid is changed.
+        Update the low_to_mortar map when the lower dimensional grid is changed.
 
         Parameter:
             side_matrix (dict): for each SideTag key a matrix representing the
@@ -203,8 +203,8 @@ class MortarGrid(object):
         for pos, (side, _) in enumerate(self.side_grids.items()):
             matrix[pos, 0] = side_matrix[side]
 
-        # Update the mortar_to_low map. No need to update the high_to_mortar.
-        self.mortar_to_low = sps.bmat(matrix, format='csc')
+        # Update the low_to_mortar map. No need to update the high_to_mortar.
+        self.low_to_mortar = sps.bmat(matrix, format='csc')
 
 #------------------------------------------------------------------------------#
 
