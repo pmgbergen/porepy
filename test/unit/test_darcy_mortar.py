@@ -14,11 +14,13 @@ from porepy.grids import refinement, mortar_grid
 from porepy.fracs import meshing, mortars
 
 from porepy.params.data import Parameters
+from porepy.params import bc
 from porepy.params.bc import BoundaryCondition
 from porepy.grids.grid import FaceTag
 from porepy.params import tensor
 
 from porepy.numerics.vem import vem_dual, vem_source
+from porepy.numerics.fv import tpfa
 
 class TestGridRefinement1d(unittest.TestCase):
 
@@ -287,6 +289,84 @@ class TestGridRefinement1d(unittest.TestCase):
 
 
 #------------------------------------------------------------------------------#
+
+class TestMortar1dSingleFracture(unittest.TestCase):
+
+    def set_param_uniform_flow(self, gb):
+        # Set up flow field with uniform flow in y-direction
+        gb.add_node_props(['param'])
+        for g, d in gb:
+            param = Parameters(g)
+
+            perm = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+            param.set_tensor("flow", perm)
+
+            aperture = np.power(1e-3, gb.dim_max() - g.dim)
+            param.set_aperture(aperture*np.ones(g.num_cells))
+
+            if g.dim == 2:
+                bound_faces = bc.face_on_side(g, 'ymin')[0]
+                b_val = np.zeros(g.num_faces)
+                labels = np.array(['dir'] * bound_faces.size)
+                param.set_bc("flow", bc.BoundaryCondition(g, bound_faces, labels))
+                bound_faces = bc.face_on_side(g, 'ymax')[0]
+                labels = np.array(['dir'] * bound_faces.size)
+                param.set_bc("flow", bc.BoundaryCondition(g, bound_faces, labels))
+                b_val[bound_faces] = 1
+                param.set_bc_val("flow", b_val)
+
+            d['param'] = param
+
+        gb.add_edge_prop('kn')
+        for e, d in gb.edges_props():
+            gn = gb.sorted_nodes_of_edge(e)
+            aperture = np.power(1e-3, gb.dim_max() - gn[0].dim)
+            d['kn'] = np.ones(gn[0].num_cells)
+
+    def set_grids(self, N, num_nodes_mortar, num_nodes_1d):
+        f1 = np.array([[0, 1], [.5, .5]])
+
+        gb = meshing.cart_grid([f1], N, **{'physdims': [1, 1]})
+        gb.compute_geometry()
+        gb.assign_node_ordering()
+
+        for e, d in gb.edges_props():
+            mg = d['mortar_grid']
+            new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=num_nodes_mortar) \
+                              for s, g in mg.side_grids.items()}
+
+            mortars.refine_mortar(mg, new_side_grids)
+
+            # refine the 1d-physical grid
+            old_g = gb.sorted_nodes_of_edge(e)[0]
+            new_g = refinement.new_grid_1d(old_g, num_nodes=num_nodes_1d)
+            new_g.compute_geometry()
+
+            gb.update_nodes(old_g, new_g)
+            mg = d['mortar_grid']
+            mortars.refine_co_dimensional_grid(mg, new_g)
+        return gb
+
+    def test_fv_matching_grids(self):
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
+        self.set_param_uniform_flow(gb)
+
+        solver_flow = tpfa.TpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "pressure", p)
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_prop(g_2d, 'pressure')
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        assert np.allclose(p_2d, g_2d.cell_centers[1])
+
+        g_1d = gb.grids_of_dimension(2)[0]
+        p_1d = gb.node_prop(g_1d, 'pressure')
+        # NOTE: This will not be entirely correct,
+        assert np.allclose(p_1d, g_1d.cell_centers[1])
+
+        # TODO: Add check that mortar flux scales with mortar area
 
 #TestGridRefinement1d().test_mortar_grid_darcy()
 #TestGridRefinement1d().test_mortar_grid_darcy_2_fracs()
