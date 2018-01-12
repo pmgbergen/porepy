@@ -197,8 +197,6 @@ class Explicit(AbstractSolver):
         """
         t = 0.0
         while t < self.T - self.dt + 1e-14:
-            if self.parameters['verbose']:
-                print('solving time step: ', t)
             self.update(t)
             self.reassemble()
             self.step()
