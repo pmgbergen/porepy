@@ -270,7 +270,6 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
             replaced, but can we keep untouched grids?
 
     """
-    # NOTE: Is this a deep copy?
     #gb = gb.copy() nope it's not workign with this
 
     for g_old, g_new in g_map.items():
