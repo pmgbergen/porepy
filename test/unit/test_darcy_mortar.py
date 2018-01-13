@@ -288,6 +288,86 @@ class TestGridRefinement1d(unittest.TestCase):
 
 #------------------------------------------------------------------------------#
 
+    def test_3d(self):
+        f_1 = np.array([[  0,   0,   1, 1],
+                        [  0,   1,   1, 0],
+                        [0.5, 0.5, 0.5, 0.5]])
+
+        domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1,
+                  'zmin': 0, 'zmax': 1}
+        h = 0.125
+        gb = meshing.simplex_grid([f_1], domain, h_ideal=h, h_min=h)
+        gb.compute_geometry()
+
+        np.random.seed(seed=20)
+        g_map = {}
+        for g, _ in gb:
+            if g.dim == 2:
+                g_map[g] = g.copy()
+                pos = np.random.random_sample(g.num_nodes)
+                g_map[g].nodes[0, :] *= (1+0.01*pos)
+                g_map[g].compute_geometry()
+
+        gb = mortars.replace_grids_in_bucket(gb, g_map)
+        gb.assign_node_ordering()
+
+        internal_flag = FaceTag.FRACTURE
+        [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+
+        gb.add_node_props(['param'])
+        for g, d in gb:
+            param = Parameters(g)
+
+            perm = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+            param.set_tensor("flow", perm)
+
+            aperture = np.power(1e-3, gb.dim_max() - g.dim)
+            param.set_aperture(aperture*np.ones(g.num_cells))
+
+            mask = np.logical_and.reduce(tuple([g.cell_centers[0, :] < 0.3,
+                                                g.cell_centers[1, :] < 0.3,
+                                                g.cell_centers[2, :] < 0.3]))
+            source = np.zeros(g.num_cells)
+            source[mask] = 100*g.cell_volumes[mask]*aperture
+            param.set_source("flow", source)
+
+            bound_faces = g.get_domain_boundary_faces()
+            if bound_faces.size == 0:
+                bc =  BoundaryCondition(g, np.empty(0), np.empty(0))
+                param.set_bc("flow", bc)
+            else:
+                labels = np.array(['dir'] * bound_faces.size)
+                param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+                param.set_bc_val("flow", np.zeros(g.num_faces))
+
+            d['param'] = param
+
+        gb.add_edge_prop('kn')
+        for e, d in gb.edges_props():
+            gn = gb.sorted_nodes_of_edge(e)
+            aperture = np.power(1e-3, gb.dim_max() - gn[0].dim)
+            d['kn'] = np.ones(gn[0].num_cells) / aperture
+
+        # Choose and define the solvers and coupler
+        solver_flow = vem_dual.DualVEMMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+        np.set_printoptions(linewidth=500)
+
+        solver_source = vem_source.IntegralMixedDim('flow')
+        A_source, b_source = solver_source.matrix_rhs(gb)
+
+        up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+        solver_flow.split(gb, "up", up)
+
+        solver_flow.extract_p(gb, "up", "p")
+
+        from porepy.viz.exporter import Exporter
+        save = Exporter(gb, "vem", folder="3d")
+        save.write_vtk(["p"])
+
+#------------------------------------------------------------------------------#
+
 #TestGridRefinement1d().test_mortar_grid_darcy()
 #TestGridRefinement1d().test_mortar_grid_darcy_2_fracs()
-TestGridRefinement1d().wietse()
+#TestGridRefinement1d().wietse()
+TestGridRefinement1d().test_3d()
