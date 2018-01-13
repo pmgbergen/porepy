@@ -11,7 +11,9 @@ import logging
 import time
 import numpy as np
 from sympy import geometry as geom
-import shapely
+
+import shapely.geometry as shapely_geometry
+import shapely.speedups as shapely_speedups
 
 from porepy.utils import setmembership
 
@@ -20,7 +22,7 @@ from porepy.utils import setmembership
 logger = logging.getLogger(__name__)
 
 try:
-    shapely.speedups.enable()
+    shapely_speedups.enable()
 except AttributeError:
     pass
 
@@ -2501,7 +2503,7 @@ def intersect_triangulations(p_1, p_2, t_1, t_2):
     max_y_2 = np.max(y_2, axis=1)
 
     # Represent the second tessalation using a Polygon from the shapely package
-    poly_2 = [shapely.geometry.Polygon([(x_2[j, 0], y_2[j, 0]),
+    poly_2 = [shapely_geometry.Polygon([(x_2[j, 0], y_2[j, 0]),
                                         (x_2[j, 1], y_2[j, 1]),
                                         (x_2[j, 2], y_2[j, 2])
                                         ]) for j in range(n_2)]
@@ -2510,7 +2512,7 @@ def intersect_triangulations(p_1, p_2, t_1, t_2):
     # members in second tessalation
     for i in range(n_1):
         # Polygon representation of the first triangle.
-        poly_1 = shapely.geometry.Polygon([(x_1[i, 0], y_1[i, 0]),
+        poly_1 = shapely_geometry.Polygon([(x_1[i, 0], y_1[i, 0]),
                                            (x_1[i, 1], y_1[i, 1]),
                                            (x_1[i, 2], y_1[i, 2])
                                            ])
@@ -2529,7 +2531,7 @@ def intersect_triangulations(p_1, p_2, t_1, t_2):
         # intersection
         for j in candidates:
             isect = poly_1.intersection(poly_2[j])
-            if isinstance(isect, shapely.geometry.Polygon):
+            if isinstance(isect, shapely_geometry.Polygon):
                 intersections.append((i, j, isect.area))
     return intersections
 
