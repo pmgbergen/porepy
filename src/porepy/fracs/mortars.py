@@ -210,38 +210,43 @@ def match_grids_1d(new_1d, old_1d):
 
 #------------------------------------------------------------------------------#
 
-def match_grids_2d(g, h):
+def match_grids_2d(new_g, old_g):
     """ Match two simplex tessalations to identify overlapping cells.
 
     The overlaps are identified by the cell index of the two overlapping cells,
-    and their common area.
+    and their weighted common area.
 
     Parameters:
-        g: simplex grid of dimension 2.
-        h: simplex grid of dimension 2.
+        new_g: simplex grid of dimension 2.
+        old_g: simplex grid of dimension 2.
 
     Returns:
-        np.array: Areas of overlapping region.
+        np.array: Ratio of cell volume in the common grid and the original grid.
         np.array: Index of overlapping cell in the first grid.
         np.array: Index of overlapping cell in the second grid.
 
     """
-    cn_g = g.cell_nodes().indices.reshape((g.dim+1, g.num_cells), order='F')
-    cn_h = h.cell_nodes().indices.reshape((h.dim+1, h.num_cells), order='F')
+    shape = (new_g.dim+1, new_g.num_cells)
+    cn_new_g = new_g.cell_nodes().indices.reshape(shape, order='F')
 
-    isect = cg.intersect_triangulations(g.nodes[:2], h.nodes[:2], cn_g, cn_h)
+    shape = (old_g.dim+1, old_g.num_cells)
+    cn_old_g = old_g.cell_nodes().indices.reshape(shape, order='F')
+
+    isect = cg.intersect_triangulations(new_g.nodes[:2], old_g.nodes[:2],
+                                        cn_new_g, cn_old_g)
 
     num = len(isect)
-    g_ind = np.zeros(num)
-    h_ind = np.zeros(num)
-    vals = np.zeros(num)
+    new_g_ind = np.zeros(num, dtype=np.int)
+    old_g_ind = np.zeros(num, dtype=np.int)
+    weights = np.zeros(num)
 
     for ind, i in enumerate(isect):
-        g_ind[ind] = i[0]
-        h_ind[ind] = i[1]
-        vals[ind] = i[2]
+        new_g_ind[ind] = i[0]
+        old_g_ind[ind] = i[1]
+        weights[ind] = i[2]
 
-    return vals, g_ind, h_ind
+    weights /= old_g.cell_volumes[old_g_ind]
+    return weights, new_g_ind, old_g_ind
 
 #------------------------------------------------------------------------------#
 
