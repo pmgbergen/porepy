@@ -305,13 +305,13 @@ class TestMortar1dSingleFracture(unittest.TestCase):
             param.set_aperture(aperture*np.ones(g.num_cells))
 
             if g.dim == 2:
-                bound_faces = bc.face_on_side(g, 'ymin')[0]
                 b_val = np.zeros(g.num_faces)
+                bound_faces = bc.face_on_side(g, ['ymin', 'ymax'])
+                bound_faces = np.hstack((bound_faces[0], bound_faces[1]))
                 labels = np.array(['dir'] * bound_faces.size)
                 param.set_bc("flow", bc.BoundaryCondition(g, bound_faces, labels))
+
                 bound_faces = bc.face_on_side(g, 'ymax')[0]
-                labels = np.array(['dir'] * bound_faces.size)
-                param.set_bc("flow", bc.BoundaryCondition(g, bound_faces, labels))
                 b_val[bound_faces] = 1
                 param.set_bc_val("flow", b_val)
 
