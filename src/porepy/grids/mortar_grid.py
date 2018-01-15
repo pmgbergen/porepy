@@ -70,6 +70,8 @@ class MortarGrid(object):
         self.side_grids = side_grids
         self.sides = np.array(self.side_grids.keys)
 
+        assert self.num_sides() == 1 or self.num_sides() == 2
+
         if isinstance(name, list):
             self.name = name
         else:
@@ -78,6 +80,7 @@ class MortarGrid(object):
         self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
         self.cell_volumes = np.hstack([g.cell_volumes \
                                              for g in self.side_grids.values()])
+
 
         # face_cells mapping from the higher dimensional grid to the mortar grid
         # also here we assume that, in the beginning the mortar grids are equal
@@ -95,7 +98,8 @@ class MortarGrid(object):
         # side_grids.
         num_cells = list(self.side_grids.values())[0].num_cells
         cells, faces, data = sps.find(face_cells)
-        cells[faces > np.median(faces)] += num_cells
+        if self.num_sides == 2:
+            cells[faces > np.median(faces)] += num_cells
 
         shape = (num_cells*self.num_sides(), face_cells.shape[1])
         self.high_to_mortar = sps.csc_matrix((data.astype(np.float),
@@ -104,8 +108,8 @@ class MortarGrid(object):
         # cell_cells mapping from the mortar grid to the lower dimensional grid.
         # It is composed by two identity matrices since we are assuming matching
         # grids here.
-        identity = sps.identity(num_cells)
-        self.low_to_mortar = sps.bmat([[identity], [identity]], format='csc')
+        identity = [[sps.identity(num_cells)]]*self.num_sides()
+        self.low_to_mortar = sps.bmat(identity, format='csc')
 
 #------------------------------------------------------------------------------#
 
@@ -170,8 +174,11 @@ class MortarGrid(object):
         # diagonal matrix, where in each block we have the mapping between the
         # (relative to side) old grid and the new one.
         matrix = np.empty((self.num_sides(), self.num_sides()), dtype=np.object)
-        for pos, (side, _) in enumerate(self.side_grids.items()):
-            matrix[pos, pos] = side_matrix[side]
+
+        # Loop on all the side grids, if not given an identity matrix is
+        # considered
+        for pos, (side, g) in enumerate(self.side_grids.items()):
+            matrix[pos, pos] = side_matrix.get(side, sps.identity(g.num_cells))
 
         # Once the global matrix is constructed the new low_to_mortar and
         # high_to_mortar maps are updated.

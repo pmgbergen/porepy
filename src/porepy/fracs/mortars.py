@@ -52,8 +52,8 @@ def refine_mortar(mg, new_side_grids):
 
     # For each side we compute the mapping between the old and the new mortar
     # grids, we store them in a dictionary with SideTag as key.
-    for side, g in mg.side_grids.items():
-        new_g = new_side_grids[side]
+    for side, new_g in new_side_grids.items():
+        g = mg.side_grids[side]
         assert g.dim == new_g.dim
 
         if g.dim == 0:
