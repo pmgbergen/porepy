@@ -108,7 +108,7 @@ def split_faces(gh, face_cells):
     """
     gh.frac_pairs = np.zeros((2, 0), dtype=np.int32)
     for i in range(len(face_cells)):
-        # We first we duplicate faces along tagged faces. The duplicate
+        # We first duplicate faces along tagged faces. The duplicate
         # faces will share the same nodes as the original faces,
         # however, the new faces are not yet added to the cell_faces map
         # (to save computation).
@@ -134,8 +134,37 @@ def split_faces(gh, face_cells):
             right = np.arange(gh.num_faces - face_id.size, gh.num_faces)
             gh.frac_pairs = np.hstack(
                 (gh.frac_pairs, np.vstack((left, right))))
-
     return face_cells
+
+
+def split_certain_faces(gh, face_cells, faces):
+        # We first we duplicate faces along tagged faces. The duplicate
+        # faces will share the same nodes as the original faces,
+        # however, the new faces are not yet added to the cell_faces map
+        # (to save computation).
+        face_id = duplicate_certain_faces(gh, face_cells, faces)
+        face_cells = update_face_cells(face_cells, face_id, 0)
+        if face_id.size == 0:
+            return
+
+        # We now set the cell_faces map based on which side of the
+        # fractures the cells lie. We assume that all fractures are
+        # flat surfaces and pick the normal of the first face as
+        # a normal for the whole fracture.
+        n = np.reshape(gh.face_normals[:, face_id[0]], (3, 1))
+        n = n / np.linalg.norm(n)
+        x0 = np.reshape(gh.face_centers[:, face_id[0]], (3, 1))
+        flag = update_cell_connectivity(gh, face_id, n, x0)
+
+        if flag == 0:
+            # if flag== 0 we added left and right faces (if it is -1 no faces
+            # was added and we don't have left and right face pairs.
+            # we now add the new faces to the frac_pair array.
+            left = face_id
+            right = np.arange(gh.num_faces - face_id.size, gh.num_faces)
+            gh.frac_pairs = np.hstack(
+                (gh.frac_pairs, np.vstack((left, right))))
+        return face_cells
 
 
 def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
@@ -196,6 +225,14 @@ def duplicate_faces(gh, face_cells):
     # anyway.
     frac_id = face_cells.nonzero()[1]
     frac_id = np.unique(frac_id)
+    frac_id = duplicate_certain_faces(gh, face_cells, frac_id)
+    return frac_id
+
+
+def duplicate_certain_faces(gh, face_cells, frac_id):
+    """
+    Duplicate faces of gh specified by frac_id.
+    """
     rem = gh.tags['boundary_faces'][frac_id]
     gh.tags['fracture_faces'][frac_id[rem]] = True
     gh.tags['tip_faces'][frac_id] = False
@@ -268,8 +305,8 @@ def update_face_cells(face_cells, face_id, i):
 
 def update_cell_connectivity(g, face_id, normal, x0):
     """
-    After the faces in a grid is duplicated, we update the cell connectivity list.
-    Cells on the right side of the fracture does not change, but the cells
+    After the faces in a grid are duplicated, we update the cell connectivity list.
+    Cells on the right side of the fracture do not change, but the cells
     on the left side are attached to the face duplicates. We assume that all
     faces that have been duplicated lie in the same plane. This plane is
     described by a normal and a point, x0. We attach cell on the left side of the
@@ -357,8 +394,7 @@ def remove_faces(g, face_id, rem_cell_faces=True):
     g.face_areas = g.face_areas[keep]
     g.face_centers = g.face_centers[:, keep]
     # Not sure if still works
-    update_fields = tags.standard_face_tags()
-    for key in update_fields:
+    for key in tags.standard_face_tags():
         g.tags[key] = g.tags[key][keep]
 
     if rem_cell_faces:
@@ -450,6 +486,12 @@ def duplicate_nodes(g, nodes, offset):
         g.nodes = np.insert(g.nodes, [t_node] * new_nodes.shape[1],
                             new_nodes, axis=1)
 
+        new_point_ind = np.array([g.global_point_ind[t_node]]*new_nodes.shape[1])
+        g.global_point_ind = np.delete(g.global_point_ind, t_node)
+        g.global_point_ind = np.insert(g.global_point_ind,
+                                       [t_node] * new_point_ind.shape[0],
+                                       new_point_ind, axis=0)
+
     # Transform back to csc format and fix node ordering.
     g.face_nodes = g.face_nodes.tocsc()
     g.face_nodes.indices = g.face_nodes.indices[iv]  # For fast row operation
@@ -512,7 +554,7 @@ def find_cell_color(g, cells):
 def avg_normal(g, faces):
     """
     Calculates the average face normal of a set of faces. The average normal
-    is only constructed from the boundary faces, that is, a face thatbelongs
+    is only constructed from the boundary faces, that is, a face that belongs
     to exactly one cell. If a face is not a boundary face, it will be ignored.
     The faces normals are fliped such that they point out of the cells.
 
