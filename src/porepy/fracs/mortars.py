@@ -272,6 +272,10 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
     """
     #gb = gb.copy() nope it's not workign with this
 
+    # refine the mortar grids when specified
+    for mg_old, mg_new in mg_map.items():
+        update_mortar_grid(mg_old, mg_new)
+
     # refine the grids when specified
     for g_old, g_new in g_map.items():
         gb.update_nodes(g_old, g_new)
@@ -284,8 +288,6 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
             else:
                 pass
 
-    for mg_old, mg_new in mg_map.items():
-        refine_mortar(mg_old, mg_new)
 
 
 #    for e, d in gb.edges_props():
