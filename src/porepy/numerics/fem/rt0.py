@@ -167,7 +167,7 @@ class RT0(Solver):
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
+        c_centers, f_normals, f_centers, R, dim, node_coords = cg.map_grid(g)
 
         if not data.get('is_tangential', False):
                 # Rotate the permeability tensor and delete last dimension
@@ -178,17 +178,9 @@ class RT0(Solver):
                     k.perm = np.delete(k.perm, (remove_dim), axis=0)
                     k.perm = np.delete(k.perm, (remove_dim), axis=1)
 
-        # In the virtual cell approach the cell diameters should involve the
-        # apertures, however to keep consistency with the hybrid-dimensional
-        # approach and with the related hypotheses we avoid.
-        diams = g.cell_diameters()
-        # Weight for the stabilization term
-        weight = np.power(diams, 2-g.dim)
-
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
-        size = np.sum(np.square(g.cell_faces.indptr[1:]-\
-                                g.cell_faces.indptr[:-1]))
+        size = np.power(g.dim+1, 2)*g.num_cells
         I = np.empty(size, dtype=np.int)
         J = np.empty(size, dtype=np.int)
         dataIJ = np.empty(size)
@@ -217,7 +209,7 @@ class RT0(Solver):
                                 np.setdiff1d(nodes_loc, f, assume_unique=True) \
                                     for f in face_nodes_loc]).flatten()
 
-            coord_loc = g.nodes[:, opposite_node]
+            coord_loc = node_coords[:, opposite_node]
 
             # Compute the H_div-mass local matrix
             A = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c],
