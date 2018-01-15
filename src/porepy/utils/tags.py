@@ -57,3 +57,15 @@ def add_tags(parent, new_tags):
     nt = dict(old_tags)
     nt.update(new_tags)
     parent.tags = nt
+
+def add_node_tags_from_face_tags(gb, tag_base):
+    """
+    Set domain boundary tags for all nodes at at least one domain boundary
+    face. The tag base should exist for all faces of all grids, and may e.g.
+    be domain_boundary.
+    """
+    for g, _ in gb:
+        nodes = g.face_nodes[:, g.tags[tag_base + '_faces']].nonzero()[0]
+        t = np.zeros(g.num_nodes, dtype=bool)
+        t[np.unique(nodes)] = True
+        g.tags[tag_base + '_nodes'] = t
