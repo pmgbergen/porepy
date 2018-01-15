@@ -465,7 +465,7 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
     # Mapping from new
     deleted_2_new_faces = np.empty(in_combined.size - 1, dtype=object)
 
-    # The nodes in the original 1d grid was sorted either in the same way, or
+    # The nodes in the original 1d grid were sorted either in the same way, or
     # in the oposite order of the new grid. In the latter case, we need to
     # reverse the order of in_combined to reconstruct the old face-node
     # relations

@@ -7,7 +7,6 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.grids.gmsh import mesh_2_grid
-from porepy.grids import constants
 from porepy.fracs import fractures
 from porepy.utils import half_space
 from porepy.grids import structured, point_grid, constants
@@ -147,7 +146,7 @@ def cart_grid_3d(fracs, nx, physdims=None):
     bound_and_aux = np.array([const.DOMAIN_BOUNDARY_TAG, const.AUXILIARY_TAG])
     edges = np.vstack((edges, edge_tags))
 
-    # Loop through the edges to make 1D grids. Ommit the auxiliary edges. 
+    # Loop through the edges to make 1D grids. Ommit the auxiliary edges.
     for e in np.ravel(np.where(edges[2] == const.FRACTURE_INTERSECTION_LINE_TAG)):
         # We find the start and end point of each fracture intersection (1D
         # grid) and then the corresponding global node index.
@@ -293,7 +292,7 @@ def _create_embedded_2d_grid(loc_coord, glob_id):
 
 def _find_nodes_on_line(g, nx, s_pt, e_pt):
     """
-    We have the start and end point of the fracture. From this we find the 
+    We have the start and end point of the fracture. From this we find the
     start and end node and use the structure of the cartesian grid to find
     the intermediate nodes.
     """
