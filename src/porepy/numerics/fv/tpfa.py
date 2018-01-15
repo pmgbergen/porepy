@@ -378,15 +378,14 @@ class TpfaCoupling(AbstractCoupling):
         # Cell center contribution, mapped to the mortar grid
         cc[2, 0] = kappa * Pi_h_mg * bound_pressure_cc_h
         # Contribution from mortar variable
-        cc[2, 2] = kappa * Pi_h_mg * bound_pressure_face_h * Pi_h_mg.T * mortar_div_mat
+        cc[2, 2] += kappa * Pi_h_mg * bound_pressure_face_h * face_areas_h * Pi_h_mg.T
 
         # Contribution from the lower dimensional pressure
         cc[2, 1] = -kappa * Pi_mg_l
 
         # Contribution from the \lambda term, moved to the right hand side
-        #cc[2, 2] += -sps.dia_matrix((np.ones(mortar_size), 0),
-        #                            shape=(mortar_size, mortar_size))
-        cc[2, 2] += mortar_div_mat
+        cc[2, 2] -= sps.dia_matrix((np.ones(mortar_size), 0),
+                                    shape=(mortar_size, mortar_size))
 #        data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
 #                                                 cells2faces * cc[0, 1]])
 #        data_edge['coupling_discretization'] = cc
