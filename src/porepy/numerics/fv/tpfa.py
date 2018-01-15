@@ -349,7 +349,7 @@ class TpfaCoupling(AbstractCoupling):
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof]
                       ).reshape((3, 3))
 
-        k = data_edge['kn']
+        k = 2 * data_edge['kn']
         # The aperture is a diagonal matrix in the lower dimensional grid,
         # then mapped to the mortar grid.
         kappa = sps.dia_matrix((Pi_mg_l * k, 0), shape=(mg.num_cells,
