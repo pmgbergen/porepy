@@ -305,8 +305,6 @@ class TpfaCoupling(AbstractCoupling):
         a_l = data_l['param'].get_aperture()
         a_h = data_h['param'].get_aperture()
 
-        dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
-
         # Obtain the cells and face signs of the higher dimensional grid
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
         # Full cell-face map on the higher dimension
@@ -322,11 +320,6 @@ class TpfaCoupling(AbstractCoupling):
         # Mortar data structure.
         mg = data_edge['mortar_grid']
         mortar_size = mg.num_cells
-
-        # Restriction operator form internal faces to half faces
-        data = np.ones(faces_h, dtype=np.int)
-        # NOTE: These indices need to be shuffled to account for numbering of mortar variables.
-        rows = np.arange(faces_h.size, dtype=np.int)
 
         # Matrices for reconstruction of face pressures.
         # Contribution from cell center values
@@ -346,8 +339,6 @@ class TpfaCoupling(AbstractCoupling):
 
         dof, cc = self.create_block_matrix([g_h, g_l, mg])
         # Create the block matrix for the contributions
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof]
-                      ).reshape((3, 3))
 
         k = 2 * data_edge['kn']
         # The aperture is a diagonal matrix in the lower dimensional grid,
@@ -364,7 +355,7 @@ class TpfaCoupling(AbstractCoupling):
         # Contribution from mortar variable to conservation in the higher domain
         # TODO: Check scaling
         # Acts as a boundary condition, treat with standard boundary discretization
-        cc[0, 2] = div_h * bound_flux_h * face_areas_h * Pi_h_mg.T
+        cc[0, 2] = div_h *  bound_flux_h * face_areas_h *  Pi_h_mg.T
         # Acts as a source term.
         cc[1, 2] = -Pi_mg_l.T * sps.dia_matrix((mg.cell_volumes, 0),
                                               shape=(mortar_size, mortar_size))
