@@ -30,29 +30,29 @@ class TestGridRefinement1d(unittest.TestCase):
 
         f1 = np.array([[0, 1], [.5, .5]])
 
-        N = [20, 20] #[1, 2]
+        N = [2, 2] #[1, 2]
         gb = meshing.cart_grid([f1], N, **{'physdims': [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
 
+
+        g_map = {}
+        mg_map = {}
+
+#        for g, d in gb:
+#            if g.dim == 1:
+#                g_map[g] = refinement.new_grid_1d(g, num_nodes=N[0]+2)
+#                g_map[g].compute_geometry()
+
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
-            new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=N[0]+5) \
+            mg_map[mg] = {s: refinement.new_grid_1d(g, num_nodes=N[0]+2) \
                               for s, g in mg.side_grids.items()}
 
-            mortars.refine_mortar(mg, new_side_grids)
+        gb = mortars.replace_grids_in_bucket(gb, g_map, mg_map)
 
-            # refine the 1d-physical grid
-            old_g = gb.sorted_nodes_of_edge(e)[0]
-            new_g = refinement.new_grid_1d(old_g, num_nodes=N[0]-5)
-            new_g.compute_geometry()
-
-            gb.update_nodes(old_g, new_g)
-            mg = d['mortar_grid']
-            mortars.refine_co_dimensional_grid(mg, new_g)
-
-#        from porepy.viz import plot_grid
-#        plot_grid.plot_grid(gb, alpha=0, info='cfo')
+        from porepy.viz import plot_grid
+        plot_grid.plot_grid(gb, alpha=0, info='cfo')
 
         internal_flag = FaceTag.FRACTURE
         [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
