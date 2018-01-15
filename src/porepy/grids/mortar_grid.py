@@ -159,7 +159,7 @@ class MortarGrid(object):
 
 #------------------------------------------------------------------------------#
 
-    def refine_mortar(self, side_matrix):
+    def update_mortar(self, side_matrix):
         """
         Update the low_to_mortar and high_to_mortar maps when the mortar grids
         are changed.
@@ -192,7 +192,7 @@ class MortarGrid(object):
 
 #------------------------------------------------------------------------------#
 
-    def refine_low(self, side_matrix):
+    def update_low(self, side_matrix):
         """
         Update the low_to_mortar map when the lower dimensional grid is changed.
 
@@ -217,7 +217,7 @@ class MortarGrid(object):
 
     def num_sides(self):
         """
-        Shortcut to compute the number of sides, usually 2.
+        Shortcut to compute the number of sides, it has to be 2 or 1.
 
         Return:
             Number of sides.
