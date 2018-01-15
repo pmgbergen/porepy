@@ -399,7 +399,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn)
 
-        g_1d = gb.grids_of_dimension(2)[0]
+        g_1d = gb.grids_of_dimension(1)[0]
         p_1d = gb.node_prop(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn)
@@ -420,7 +420,29 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1])
 
-        g_1d = gb.grids_of_dimension(2)[0]
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_prop(g_1d, 'pressure')
+        # NOTE: This will not be entirely correct,
+        assert np.allclose(p_1d, g_1d.cell_centers[1])
+
+
+    def test_fv_matching_grids_refine_2d_uniform_flow(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2)
+        self.set_param_flow(gb, no_flow=False, kn=kn)
+
+        solver_flow = tpfa.TpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "pressure", p)
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_prop(g_2d, 'pressure')
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        assert np.allclose(p_2d, g_2d.cell_centers[1])
+
+        g_1d = gb.grids_of_dimension(1)[0]
         p_1d = gb.node_prop(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
