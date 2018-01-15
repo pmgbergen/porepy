@@ -483,7 +483,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
         params.set_tensor('flow', k)
         d = {'param': params}
         discr.discretize(g, d)
-        return d['flux'], d['bound_flux']
+        return d['flux'], d['bound_flux'], d['bound_pressure_cell'], d['bound_pressure_face']
     elif g.dim == 0:
         return sps.csr_matrix([0]), 0
 
