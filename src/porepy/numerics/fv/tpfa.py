@@ -373,11 +373,16 @@ class TpfaCoupling(AbstractCoupling):
         # Equation on the form
         #   \lambda = \kappa (p_h - p_l), with
 
+        # Pressure is an intensive property
+        Pi_h_mg_pressure = Pi_h_mg.copy()
+        Pi_h_mg_pressure.data[:] = 1
+
         # The trace of the pressure from the higher dimension is composed of the cell center pressure,
         # and a contribution from the boundary flux, represented by the mortar flux
         # Cell center contribution, mapped to the mortar grid
-        cc[2, 0] = kappa * Pi_h_mg * bound_pressure_cc_h
-        # Contribution from mortar variable
+        cc[2, 0] = kappa * Pi_h_mg_pressure * bound_pressure_cc_h
+        # Contribution from mortar
+        # Should we have Pi_h_mg_pressure here?
         cc[2, 2] += kappa * Pi_h_mg * bound_pressure_face_h * face_areas_h * Pi_h_mg.T
 
         # Contribution from the lower dimensional pressure
