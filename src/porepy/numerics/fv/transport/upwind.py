@@ -63,7 +63,7 @@ class Upwind(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data):
+    def matrix_rhs(self, g, data, d_name='discharge'):
         """
         Return the matrix and righ-hand side for a discretization of a scalar
         linear transport problem using the upwind scheme.
@@ -85,6 +85,7 @@ class Upwind(Solver):
         ----------
         g : grid, or a subclass, with geometry fields computed.
         data: dictionary to store the data.
+        d_name: (string) keyword for data field in data containing the dischages
 
         Return
         ------
@@ -114,7 +115,7 @@ class Upwind(Solver):
             return sps.csr_matrix([0]), [0]
 
         param = data['param']
-        discharge = param.get_discharge()
+        discharge = data[d_name]
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
 
@@ -179,7 +180,7 @@ class Upwind(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def cfl(self, g, data):
+    def cfl(self, g, data, d_name='discharge'):
         """
         Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
@@ -193,6 +194,7 @@ class Upwind(Solver):
         ----------
         g : grid, or a subclass, with geometry fields computed.
         data: dictionary to store the data.
+        d_name: (string) keyword for dischagre file in data dictionary
 
         Return
         ------
@@ -203,7 +205,7 @@ class Upwind(Solver):
             return np.inf
         # Retrieve the data, only "discharge" is mandatory
         param = data['param']
-        discharge = param.get_discharge()
+        discharge = data[d_name]
         aperture = param.get_aperture()
         phi = param.get_porosity()
 
@@ -266,12 +268,12 @@ class Upwind(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def outflow(self, g, data):
+    def outflow(self, g, data, d_name='discharge'):
         if g.dim == 0:
             return sps.csr_matrix([0])
 
         param = data['param']
-        discharge = param.get_discharge()
+        discharge = data[d_name]
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
 
@@ -337,7 +339,7 @@ class UpwindCoupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
+    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge, d_name='discharge'):
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
         Note: the right-hand side is not implemented now.
@@ -359,7 +361,7 @@ class UpwindCoupling(AbstractCoupling):
         """
 
         # Normal component of the velocity from the higher dimensional grid
-        discharge = data_edge['param'].get_discharge()
+        discharge = data_edge[d_name]
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
@@ -416,7 +418,7 @@ class UpwindCoupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
-    def cfl(self, g_h, g_l, data_h, data_l, data_edge):
+    def cfl(self, g_h, g_l, data_h, data_l, data_edge, d_name='discharge'):
         """
         Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
@@ -441,7 +443,7 @@ class UpwindCoupling(AbstractCoupling):
 
         """
         # Retrieve the discharge, which is mandatory
-        discharge = data_edge['param'].get_discharge()
+        discharge = data_edge[d_name]
         aperture_h = data_h['param'].get_aperture()
         aperture_l = data_l['param'].get_aperture()
         phi_l = data_l['param'].get_porosity()

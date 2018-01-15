@@ -74,7 +74,7 @@ class BasicsTest( unittest.TestCase ):
 
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A,rhs)
-        solver.split(gb, "p", p)
+        solver.split(gb, "pressure", p)
         fvutils.compute_discharges(gb)
 
         p_known = np.array([1.7574919 ,  1.25249747,  1.7574919 ,  1.25249747,
@@ -88,9 +88,9 @@ class BasicsTest( unittest.TestCase ):
 
         for _, d in gb:
             if d['node_number'] == 0:
-                assert np.allclose( d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose( d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
 
         assert np.allclose(p, p_known, rtol, atol)
 
@@ -149,7 +149,7 @@ class BasicsTest( unittest.TestCase ):
 
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A, rhs)
-        solver.solver.split(gb, "p", p)
+        solver.solver.split(gb, "pressure", p)
         fvutils.compute_discharges(gb)
 
         p_known = np.array([1.7574919 ,  1.25249747,  1.7574919 ,  1.25249747,
@@ -164,9 +164,9 @@ class BasicsTest( unittest.TestCase ):
         for _, d in gb:
 
             if d['node_number'] == 0:
-                assert np.allclose( d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose( d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
 
         assert np.allclose(p, p_known, rtol, atol)
 
@@ -254,7 +254,7 @@ class BasicsTest( unittest.TestCase ):
                                                     A, rhs, gb, dim=0)
 
         solver.split(gb, "p_cond", p_cond)
-        solver.split(gb, "p", p)
+        solver.split(gb, "pressure", p)
 
         # Make a copy of the grid bucket without the 0d grid
         dim_to_remove = 0
@@ -262,7 +262,7 @@ class BasicsTest( unittest.TestCase ):
         # Compute the flux discretization on the new edges
         condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
         # Compute the discharges from the flux discretizations and computed pressures
-        solver.split(gb_r, "p", p_red)
+        solver.split(gb_r, "pressure", p_red)
         fvutils.compute_discharges(gb)
         fvutils.compute_discharges(gb_r)
 
@@ -274,19 +274,19 @@ class BasicsTest( unittest.TestCase ):
         atol = rtol
         for g, d in gb:
             if d['node_number'] == 0:
-                assert np.allclose(  d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose(  d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
             if d['node_number'] == 2:
-                assert np.allclose( d['param'].get_discharge(), d_2, rtol, atol)
+                assert np.allclose( d['discharge'], d_2, rtol, atol)
         for g, d in gb_r:
 
             if d['node_number'] == 0:
-                assert np.allclose(  d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose(  d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
             if d['node_number'] == 2:
-                assert np.allclose( d['param'].get_discharge(), d_2, rtol, atol)
+                assert np.allclose( d['discharge'], d_2, rtol, atol)
 
         # ... edge fluxes ...
         d_01, d_10, d_02, d_20, d_13, d_23 = coupling_fluxes_2d_1d_cross_no_el()
@@ -298,15 +298,15 @@ class BasicsTest( unittest.TestCase ):
             if pa is not None:
 
                 if node_numbers == (0,1):
-                    assert np.allclose( pa.get_discharge(), d_01, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_10, rtol, atol)
+                    assert np.allclose( data['discharge'], d_01, rtol, atol) or \
+                        np.allclose( data['discharge'], d_10, rtol, atol)
                 if node_numbers == (0,2):
-                    assert np.allclose( pa.get_discharge(), d_02, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_20, rtol, atol)
+                    assert np.allclose( data['discharge'], d_02, rtol, atol) or \
+                        np.allclose( data['discharge'], d_20, rtol, atol)
                 if node_numbers == (1,3):
-                    assert np.allclose( pa.get_discharge(), d_13, rtol, atol)
+                    assert np.allclose( data['discharge'], d_13, rtol, atol)
                 if node_numbers == (2,3):
-                    assert np.allclose( pa.get_discharge(), d_23, rtol, atol)
+                    assert np.allclose( data['discharge'], d_23, rtol, atol)
 
         d_11,d_21,d_22 = coupling_fluxes_2d_1d_cross_with_el()
         for e, data in gb_r.edges_props():
@@ -316,181 +316,22 @@ class BasicsTest( unittest.TestCase ):
             if pa is not None:
 
                 if node_numbers == (0,1):
-                    assert np.allclose( pa.get_discharge(), d_01, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_10, rtol, atol)
+                    assert np.allclose( data['discharge'], d_01, rtol, atol) or \
+                        np.allclose( data['discharge'], d_10, rtol, atol)
                 if node_numbers == (0,2):
-                    assert np.allclose( pa.get_discharge(), d_02, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_20, rtol, atol)
+                    assert np.allclose( data['discharge'], d_02, rtol, atol) or \
+                        np.allclose( data['discharge'], d_20, rtol, atol)
                 if node_numbers == (1,1):
-                    assert np.allclose( pa.get_discharge(), d_11, rtol, atol)
+                    assert np.allclose( data['discharge'], d_11, rtol, atol)
                 if node_numbers == (2,1):
-                    assert np.allclose( pa.get_discharge(), d_21, rtol, atol)
+                    assert np.allclose( data['discharge'], d_21, rtol, atol)
                 if node_numbers == (2,2):
-                    assert np.allclose( pa.get_discharge(), d_22, rtol, atol)
+                    assert np.allclose( data['discharge'], d_22, rtol, atol)
         # ... and pressures
         tol = 1e-10
         assert((np.amax(np.absolute(p-p_cond))) < tol)
-        assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
+        assert(np.sum(error.error_L2(g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
-#------------------------------------------------------------------------------#
-# Left out due to problems with fracture face id: not the same each time the grids
-# are generated.
-#     def test_tpfa_coupling_3d_2d_1d_0d_dir(self):
-#         f1 = np.array([[ 0,  1,  1,  0],
-#                        [ 0,  0,  1,  1],
-#                        [.5, .5, .5, .5]])
-#         f2 = np.array([[.5, .5, .5, .5],
-#                        [ 0,  1,  1,  0],
-#                        [ 0,  0,  1,  1]])
-#         f3 = np.array([[ 0,  1,  1,  0],
-#                        [.5, .5, .5, .5],
-#                        [ 0,  0,  1,  1]])
-
-#         gb = meshing.cart_grid([f1, f2, f3], [2, 2, 2],
-#                                **{'physdims': [1, 1, 1]})
-#         gb.compute_geometry()
-#         gb.assign_node_ordering()
-#         # Remove flag for dual
-#         cell_centers1 = np.array([[ 0.25 , 0.75 , 0.25 , 0.75],
-#                                   [ 0.25 , 0.25 , 0.75 , 0.75],
-#                                   [ 0.5  , 0.5  , 0.5  , 0.5 ]])
-#         cell_centers2 = np.array([[ 0.5  , 0.5  , 0.5  , 0.5 ],
-#                                   [ 0.25 , 0.25 , 0.75 , 0.75],
-#                                   [ 0.75 , 0.25 , 0.75 , 0.25]])
-#         cell_centers3 = np.array([[ 0.25 , 0.75 , 0.25 , 0.75],
-#                                   [ 0.5  , 0.5  , 0.5  , 0.5 ],
-#                                   [ 0.25 , 0.25 , 0.75 , 0.75]])
-#         cell_centers4 = np.array([[ 0.5 ], [ 0.25], [ 0.5 ]])
-#         cell_centers5 = np.array([[ 0.5 ], [ 0.75], [ 0.5 ]])
-#         cell_centers6 = np.array([[ 0.75], [ 0.5 ], [ 0.5 ]])
-#         cell_centers7 = np.array([[ 0.25], [ 0.5 ], [ 0.5 ]])
-#         cell_centers8 = np.array([[ 0.5 ], [ 0.5 ], [ 0.25]])
-#         cell_centers9 = np.array([[ 0.5 ], [ 0.5 ], [ 0.75]])
-
-#         for g, d in gb:
-#             if np.allclose(g.cell_centers[:, 0], cell_centers1[:, 0]):
-#                 d['node_number'] = 1
-#             elif np.allclose(g.cell_centers[:, 0], cell_centers2[:, 0]):
-#                 d['node_number'] = 2
-#             elif np.allclose(g.cell_centers[:, 0], cell_centers3[:, 0]):
-#                 d['node_number'] = 3
-#             elif np.allclose(g.cell_centers[:, 0], cell_centers4[:, 0]):
-#                 d['node_number'] = 4
-#             elif np.allclose(g.cell_centers[:, 0], cell_centers5[:, 0]):
-#                 d['node_number'] = 5
-#             elif np.allclose(g.cell_centers[:, 0], cell_centers6[:, 0]):
-#                 d['node_number'] = 6
-#             elif np.allclose(g.cell_centers[:, 0], cell_centers7[:, 0]):
-#                 d['node_number'] = 7
-#             elif np.allclose(g.cell_centers[:, 0], cell_centers8[:, 0]):
-#                 d['node_number'] = 8
-#             elif np.allclose(g.cell_centers[:, 0], cell_centers9[:, 0]):
-#                 d['node_number'] = 9
-#             else:
-#                 pass
-
-#         tol = 1e-3
-#         solver = tpfa.Tpfa()
-#         gb.add_node_props(['param'])
-
-#         a = 1e-2
-#         for g, d in gb:
-#             param = Parameters(g)
-
-#             aperture = np.ones(g.num_cells)*np.power(a, gb.dim_max() - g.dim)
-#             param.set_aperture(aperture)
-
-#             p = tensor.SecondOrder(3,np.ones(g.num_cells)* np.power(1e3, g.dim<gb.dim_max()))
-#             param.set_tensor('flow', p)
-#             bound_faces = g.get_boundary_faces()
-#             bound_face_centers = g.face_centers[:, bound_faces]
-
-#             left = bound_face_centers[0, :] > 1 - tol
-#             right = bound_face_centers[0, :] < tol
-
-#             labels = np.array(['neu'] * bound_faces.size)
-#             labels[np.logical_or(left, right)] = ['dir']
-
-#             bc_val = np.zeros(g.num_faces)
-#             bc_dir = bound_faces[np.logical_or(left, right)]
-#             bc_val[bc_dir] = g.face_centers[0,bc_dir]
-
-#             param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
-#             param.set_bc_val(solver, bc_val)
-
-#             d['param'] = param
-
-
-
-#         coupling_conditions = tpfa_coupling.TpfaCoupling(solver)
-#         solver_coupler = coupler.Coupler(solver, coupling_conditions)
-#         A, rhs = solver_coupler.matrix_rhs(gb)
-#         p = sps.linalg.spsolve(A, rhs)
-#         solver_coupler.split(gb, "p", p)
-#         coupling_conditions.compute_discharges(gb)
-
-
-#         discharges_known, p_known = \
-#                 discharges_pressure_for_test_tpfa_coupling_3d_2d_1d_0d()
-
-#         rtol = 1e-6
-#         atol = rtol
-
-
-#         for _, d in gb:
-#             n = d['node_number']
-#             if discharges_known[n] is not None:
-#                 assert np.allclose(d['discharge'], discharges_known[n], rtol, atol)
-#         assert np.allclose(p, p_known, rtol, atol)
-
-# #------------------------------------------------------------------------------#
-
-# def discharges_pressure_for_test_tpfa_coupling_3d_2d_1d_0d():
-#     d_4 = np.array([  8.32667268e-17,   0.00000000e+00])
-#     d_0 = np.array([-0.24879143, -0.25120354, -0.24879143, -0.24879143, -0.25120354,
-#                       -0.24879143, -0.24879143, -0.25120354, -0.24879143, -0.24879143,
-#                       -0.25120354, -0.24879143,  0.        ,  0.        , -0.00120606,
-#                       0.00120606,  0.        ,  0.        ,  0.        ,  0.        ,
-#                       -0.00120606,  0.00120606,  0.        ,  0.        ,  0.        ,
-#                       0.        ,  0.        ,  0.        , -0.00120606,  0.00120606,
-#                       -0.00120606,  0.00120606,  0.        ,  0.        ,  0.        ,
-#                       0.        , -0.25120354, -0.25120354, -0.25120354, -0.25120354,
-#                       0.00120606, -0.00120606,  0.00120606, -0.00120606,  0.00120606,
-#                       -0.00120606,  0.00120606, -0.00120606])
-#     d_10 = None
-#     d_3 = np.array([ -4.95170705e+00,  -4.94930682e+00,  -4.95170705e+00,
-#                        -4.95170705e+00,  -4.94930682e+00,  -4.95170705e+00,
-#                        0.00000000e+00,   0.00000000e+00,  -1.18811521e-05,
-#                        1.18811521e-05,   0.00000000e+00,   0.00000000e+00,
-#                        -4.94930682e+00,   1.18811521e-05,  -1.18811521e-05,
-#                        -4.94930682e+00])
-#     d_9 = np.array([  5.55111512e-17,   0.00000000e+00])
-#     d_2 = np.array([  0.00000000e+00,   1.77635684e-15,   0.00000000e+00,
-#                         0.00000000e+00,   0.00000000e+00,   0.00000000e+00,
-#                         0.00000000e+00,   0.00000000e+00,   0.00000000e+00,
-#                         -1.77635684e-15,   0.00000000e+00,   0.00000000e+00,
-#                         0.00000000e+00,  -3.55271368e-15,  -1.77635684e-15,
-#                         -1.77635684e-15])
-#     d_8 = np.array([  0.00000000e+00,  -5.55111512e-17])
-#     d_5 = np.array([ 0.,  0.])
-#     d_1 = np.array([ -4.95170705e+00,  -4.94930682e+00,  -4.95170705e+00,
-#                        -4.95170705e+00,  -4.94930682e+00,  -4.95170705e+00,
-#                        0.00000000e+00,   0.00000000e+00,  -1.18811521e-05,
-#                        1.18811521e-05,   0.00000000e+00,   0.00000000e+00,
-#                        -4.94930682e+00,  -4.94930682e+00,   1.18811521e-05,
-#                        -1.18811521e-05])
-#     d_7 = np.array([ 0.09898637,  0.0990339 ])
-#     d_6 = np.array([ 0.0990339 ,  0.09898637])
-
-#     discharges = [d_0, d_1,d_2, d_3, d_4, d_5, d_6 ,d_7, d_8,d_9, d_10]
-#     pressure = np.array([\
-#         0.24879143,  0.75120857,  0.24879143,  0.75120857,  0.24879143,
-#         0.75120857,  0.24879143,  0.75120857,  0.24758535,  0.75241465,
-#         0.24758535,  0.75241465,  0.5       ,  0.5       ,  0.5       ,
-#         0.5       ,  0.24758535,  0.75241465,  0.24758535,  0.75241465,
-#         0.5       ,  0.5       ,  0.75241525,  0.24758475,  0.5       ,
-#         0.5       ,  0.5       ])
-#     return discharges, pressure
 
 # #------------------------------------------------------------------------------#
 def fluxes_2d_1d_left_right_dir_neu():

@@ -1,0 +1,4 @@
+backend: webagg
+webagg.open_in_browser: False
+webagg.port: 8000
+webagg.port_retries: 1
