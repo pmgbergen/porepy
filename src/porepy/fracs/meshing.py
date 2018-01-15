@@ -546,7 +546,16 @@ def create_mortar_grids(gb):
     # loop on all the nodes and create the mortar grids
     for e, d in gb.edges_props():
         lg = gb.sorted_nodes_of_edge(e)[0]
-        side_g = {SideTag.LEFT:  lg.copy(), SideTag.RIGHT: lg.copy()}
+        # define the number of sides for the mortar grid, we assume only 1 or 2
+        num_sides = np.bincount(d['face_cells'].indices)
+        assert np.all(num_sides == 1) or np.all(num_sides == 2)
+
+        if np.all(num_sides > 1):
+            # we are in a two sides situation
+            side_g = {SideTag.LEFT:  lg.copy(), SideTag.RIGHT: lg.copy()}
+        else:
+            # the tag name is just a place-holder we assume left side
+            side_g = {SideTag.LEFT:  lg.copy()}
         d['mortar_grid'] = MortarGrid(lg.dim, side_g, d['face_cells'])
 
 #------------------------------------------------------------------------------#
