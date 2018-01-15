@@ -256,7 +256,7 @@ class Tpfa(Solver):
         # On Dirichlet faces, simply recover boundary condition
         v_face[bnd.is_dir] = 1
         # On Neumann faces, the, use half-transmissibilities
-        v_face[bnd.is_neu] = -sgn_full[bnd.is_neu]/t_full[bnd.is_neu]
+        v_face[bnd.is_neu] = -1/t_full[bnd.is_neu]
         v_cell[bnd.is_neu[fi]] = 1
 
         bound_pressure_cell = sps.coo_matrix((v_cell, (fi, ci)),
