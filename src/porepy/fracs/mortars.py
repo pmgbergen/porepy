@@ -35,7 +35,7 @@ import porepy.utils.comp_geom as cg
 
 #------------------------------------------------------------------------------#
 
-def refine_mortar(mg, new_side_grids):
+def update_mortar_grid(mg, new_side_grids):
     """
     Update the maps in the mortar class when the mortar grids are changed.
     The update of the mortar grid is in-place.
@@ -70,11 +70,11 @@ def refine_mortar(mg, new_side_grids):
         mg.side_grids[side] = new_g.copy()
 
     # Update the mortar grid class
-    mg.refine_mortar(split_matrix)
+    mg.update_mortar(split_matrix)
 
 #------------------------------------------------------------------------------#
 
-def refine_co_dimensional_grid(mg, new_g):
+def update_physical_grid(mg, new_g):
     """
     Update the maps in the mortar class when the lower dimensional grid is
     changed. The update of the lower dimensional grid in the grid bucket needs
@@ -109,7 +109,7 @@ def refine_co_dimensional_grid(mg, new_g):
             raise ValueError
 
     # Update the mortar grid class
-    mg.refine_low(split_matrix)
+    mg.update_low(split_matrix)
 
 #------------------------------------------------------------------------------#
 
@@ -272,13 +272,15 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
     """
     #gb = gb.copy() nope it's not workign with this
 
+    # refine the grids when specified
     for g_old, g_new in g_map.items():
         gb.update_nodes(g_old, g_new)
 
         for e, d in gb.edges_props_of_node(g_new):
             mg = d['mortar_grid']
             if mg.dim == g_new.dim:
-                refine_co_dimensional_grid(mg, g_new)
+                # update the mortar grid of the same dimension
+                update_physical_grid(mg, g_new)
             else:
                 pass
 
