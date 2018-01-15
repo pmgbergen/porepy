@@ -358,6 +358,9 @@ class TpfaCoupling(AbstractCoupling):
         face_areas_h = sps.dia_matrix((g_h.face_areas, 0),
                                       shape=(g_h.num_faces, g_h.num_faces))
 
+        mortar_div = np.sign((Pi_h_mg * div_h.T).A.sum(axis=1))
+        mortar_div_mat = sps.dia_matrix((mortar_div, 0), shape=(mortar_size, mortar_size))
+
         # Contribution from mortar variable to conservation in the higher domain
         # TODO: Check scaling
         # Acts as a boundary condition, treat with standard boundary discretization
@@ -375,15 +378,15 @@ class TpfaCoupling(AbstractCoupling):
         # Cell center contribution, mapped to the mortar grid
         cc[2, 0] = kappa * Pi_h_mg * bound_pressure_cc_h
         # Contribution from mortar variable
-        cc[2, 2] = kappa * Pi_h_mg * bound_pressure_face_h * Pi_h_mg.T
+        cc[2, 2] = kappa * Pi_h_mg * bound_pressure_face_h * Pi_h_mg.T * mortar_div_mat
 
         # Contribution from the lower dimensional pressure
         cc[2, 1] = -kappa * Pi_mg_l
 
         # Contribution from the \lambda term, moved to the right hand side
-        cc[2, 2] += -sps.dia_matrix((np.ones(mortar_size), 0),
-                                    shape=(mortar_size, mortar_size))
-
+        #cc[2, 2] += -sps.dia_matrix((np.ones(mortar_size), 0),
+        #                            shape=(mortar_size, mortar_size))
+        cc[2, 2] += mortar_div_mat
 #        data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
 #                                                 cells2faces * cc[0, 1]])
 #        data_edge['coupling_discretization'] = cc
