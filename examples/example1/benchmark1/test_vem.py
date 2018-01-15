@@ -15,6 +15,7 @@ from porepy.numerics.vem import vem_dual, vem_source
 
 #------------------------------------------------------------------------------#
 
+
 def add_data(gb, domain, kf):
     """
     Define the permeability, apertures, boundary conditions
@@ -54,7 +55,7 @@ def add_data(gb, domain, kf):
 
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces[left]] = -aperture \
-                                        * g.face_areas[bound_faces[left]]
+                * g.face_areas[bound_faces[left]]
             bc_val[bound_faces[right]] = 1
 
             param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
@@ -74,6 +75,7 @@ def add_data(gb, domain, kf):
 
 #------------------------------------------------------------------------------#
 
+
 def write_network(file_name):
     network = "FID,START_X,START_Y,END_X,END_Y\n"
     network += "0,0,0.5,1,0.5\n"
@@ -87,6 +89,7 @@ def write_network(file_name):
 
 #------------------------------------------------------------------------------#
 
+
 def main(kf, description, is_coarse=False, if_export=False):
     mesh_kwargs = {}
     mesh_kwargs['mesh_size'] = {'mode': 'constant',
@@ -96,7 +99,7 @@ def main(kf, description, is_coarse=False, if_export=False):
 
     file_name = 'network_geiger.csv'
     write_network(file_name)
-    gb = importer.mesh_from_csv(file_name, mesh_kwargs, domain)
+    gb = importer.dfm_2d_from_csv(file_name, mesh_kwargs, domain)
     gb.compute_geometry()
     if is_coarse:
         co.coarsen(gb, 'by_volume')
@@ -115,25 +118,27 @@ def main(kf, description, is_coarse=False, if_export=False):
     solver_source = vem_source.IntegralMixedDim('flow')
     A_source, b_source = solver_source.matrix_rhs(gb)
 
-    up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+    up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
     solver_flow.split(gb, "up", up)
 
-    gb.add_node_props(["discharge", "p", "P0u"])
+    gb.add_node_props(["discharge", 'pressure', "P0u"])
     solver_flow.extract_u(gb, "up", "discharge")
-    solver_flow.extract_p(gb, "up", "p")
+    solver_flow.extract_p(gb, "up", 'pressure')
     solver_flow.project_u(gb, "discharge", "P0u")
 
     if if_export:
-        save = Exporter(gb, "vem", folder="vem_"+description)
-        save.write_vtk(["p", "P0u"])
+        save = Exporter(gb, "vem", folder="vem_" + description)
+        save.write_vtk(['pressure', "P0u"])
 
 #------------------------------------------------------------------------------#
+
 
 def test_vem_blocking():
     kf = 1e-4
     main(kf, "blocking")
 
 #------------------------------------------------------------------------------#
+
 
 def test_vem_permeable():
     kf = 1e4

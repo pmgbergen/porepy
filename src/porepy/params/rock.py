@@ -37,7 +37,7 @@ def lame_from_young_poisson(e, nu):
     lmbda = e * nu / ((1 + nu) * (1 - 2 * nu))
     mu = e / (2 * (1 + nu))
 
-    return lmbda, nu
+    return lmbda, mu
 
 
 class UnitRock(object):
