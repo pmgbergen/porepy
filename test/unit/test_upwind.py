@@ -23,7 +23,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, [2, 0, 0])
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -51,7 +51,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, [-2, 0, 0])
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -79,7 +79,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, [2, 0, 0])
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -111,7 +111,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, [-2, 0, 0])
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -142,7 +142,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, [1, 0, 0])
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -171,7 +171,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, [-1, 0, 0])
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -200,7 +200,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, [-1, 0, 0])
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -234,7 +234,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, [1, 0, 0])
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -270,7 +270,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, np.dot(R, [1, 0, 0]))
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -300,7 +300,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, np.dot(R, [-1, 0, 0]))
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -330,7 +330,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, np.dot(R, [1, 0, 0]))
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -364,7 +364,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, np.dot(R, [-1, 0, 0]))
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -398,7 +398,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, np.dot(R, [1, 0, 0]))
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -429,7 +429,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, np.dot(R, [-1, 0, 0]))
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
@@ -458,7 +458,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, [-2, 0, 0])
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
         bc_val = 3 * np.ones(g.num_faces).ravel('F')
         param.set_bc(solver, bc)
@@ -490,7 +490,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = solver.discharge(g, [-2, 0, 0])
 
-        bf = g.get_domain_boundary_faces()
+        bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         bc_val = np.array([2, 0, 0, -2]).ravel('F')
         param.set_bc(solver, bc)

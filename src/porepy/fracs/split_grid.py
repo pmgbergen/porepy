@@ -196,7 +196,7 @@ def duplicate_faces(gh, face_cells):
     # anyway.
     frac_id = face_cells.nonzero()[1]
     frac_id = np.unique(frac_id)
-    rem = gh.tags['boundary_faces'][frac_id]
+    rem = tags.all_face_tags(gh.tags)[frac_id]
     gh.tags['fracture_faces'][frac_id[rem]] = True
     gh.tags['tip_faces'][frac_id] = False
 
@@ -236,7 +236,6 @@ def duplicate_faces(gh, face_cells):
     # Not sure if this still does the correct thing. Might have to
     # send in a logical array instead of frac_id.
     gh.tags['fracture_faces'][frac_id] = True
-    gh.tags['boundary_faces'][frac_id] = True
     gh.tags['tip_faces'][frac_id] = False
     update_fields = tags.standard_face_tags()
     update_values = [[]] * len(update_fields)

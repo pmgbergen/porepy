@@ -296,7 +296,7 @@ class FracturedMpsa(Mpsa):
         data: dictionary to store the data.
         """
 
-        #    dir_bound = g.get_boundary_faces()
+        #    dir_bound = g.get_all_boundary_faces()
         #    bound = bc.BoundaryCondition(g, dir_bound, ['dir'] * dir_bound.size)
 
         frac_faces = g.tags['fracture_faces']
@@ -498,7 +498,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
         c =tensor.FourthOrder(g.dim, np.ones(g.num_cells))
 
         # Dirirchlet boundary conditions
-        bound_faces = g.get_boundary_faces().ravel()
+        bound_faces = g.get_all_boundary_faces().ravel()
         bnd = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
 
         # Discretization
@@ -651,7 +651,7 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
     loc_c.lmbda = loc_c.lmbda[l2g_cells]
     loc_c.mu = loc_c.mu[l2g_cells]
 
-    glob_bound_face = g.get_boundary_faces()
+    glob_bound_face = g.get_all_boundary_faces()
 
     # Boundary conditions are slightly more complex. Find local faces
     # that are on the global boundary.

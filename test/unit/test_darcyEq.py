@@ -34,7 +34,7 @@ class BasicsTest(unittest.TestCase):
         g = simplex.TetrahedralGrid(p)
         # Set values
         bc_val = np.pi * np.ones(g.num_faces)
-        dir_faces = g.get_domain_boundary_faces()
+        dir_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         bc_cond = bc.BoundaryCondition(g, dir_faces, ['dir'] * dir_faces.size)
         porosity = 1 / np.pi * np.ones(g.num_cells)
         apperture = 0.5 * np.ones(g.num_cells)

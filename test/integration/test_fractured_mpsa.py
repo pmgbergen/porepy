@@ -26,7 +26,7 @@ class BasicsTest(unittest.TestCase):
         g = self.gb3d.grids_of_dimension(3)[0]
 
         data = {'param': Parameters(g)}
-        bound = bc.BoundaryCondition(g, g.get_boundary_faces(), 'dir')
+        bound = bc.BoundaryCondition(g, g.get_all_boundary_faces(), 'dir')
 
         data['param'].set_bc('mechanics', bound)
 
@@ -49,7 +49,7 @@ class BasicsTest(unittest.TestCase):
             [frac], [3, 3, 2], physdims=physdims).grids_of_dimension(3)[0]
 
         data = {'param': Parameters(g)}
-        bound = bc.BoundaryCondition(g, g.get_boundary_faces(), 'dir')
+        bound = bc.BoundaryCondition(g, g.get_all_boundary_faces(), 'dir')
 
         data['param'].set_bc('mechanics', bound)
 
@@ -118,7 +118,7 @@ class BasicsTest(unittest.TestCase):
         frac_slip[0, frac_bnd] = np.ones(np.sum(frac_bnd))
         bc_val[:, dom_bnd] = g.face_centers[:, dom_bnd]
 
-        bound = bc.BoundaryCondition(g, g.get_boundary_faces(), 'dir')
+        bound = bc.BoundaryCondition(g, g.get_all_boundary_faces(), 'dir')
 
         data['param'].set_bc('mechanics', bound)
         data['param'].set_bc_val('mechanics', bc_val.ravel('F'))

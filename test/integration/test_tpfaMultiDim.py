@@ -17,9 +17,9 @@ def setup_2d_1d(nx, simplex_grid=False):
         mesh_kwargs = {}
         mesh_size = .08
         mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': mesh_size, 'bound_value': 1*mesh_size}
-        domain = {'xmin': 0, 'ymin': 0, 'xmax':1, 'ymax':1}
-        gb = meshing.simplex_grid(fracs, domain,**mesh_kwargs)
+                                    'value': mesh_size, 'bound_value': 1 * mesh_size}
+        domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
+        gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
 
     gb.compute_geometry()
     gb.assign_node_ordering()
@@ -33,16 +33,17 @@ def setup_2d_1d(nx, simplex_grid=False):
         param.set_tensor('flow', perm)
         param.set_aperture(a)
         if g.dim == 2:
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
                                          ['dir'] * bound_faces.size)
             bc_val = np.zeros(g.num_faces)
-            bc_val[bound_faces] = g.face_centers[1,bound_faces]
+            bc_val[bound_faces] = g.face_centers[1, bound_faces]
             param.set_bc('flow', bound)
             param.set_bc_val('flow', bc_val)
         d['param'] = param
 
     return gb
+
 
 def check_pressures(gb):
     """

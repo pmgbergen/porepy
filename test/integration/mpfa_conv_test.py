@@ -140,7 +140,7 @@ class MainTester(unittest.TestCase):
 
         # The rest of the function is similar to self.solve.system, see that
         # for comments.
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         flux, bound_flux = mpfa.mpfa(g, perm, bound_cond, inverter='python',
                                      eta=0)
 
@@ -205,7 +205,7 @@ class MainTester(unittest.TestCase):
 
         # Boundary conditions
         xf = g.face_centers
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         char_func_bound = chi(xf[0, bound_faces], xf[1, bound_faces]) * 1
         u_bound = np.zeros((g.dim, g.num_faces))
         u_bound[0, bound_faces] = an_sol.ux_f(xf[0, bound_faces],
@@ -285,7 +285,7 @@ class CartGrid2D(MainTester):
         self.g_lines = g
 
         # Define boundary faces and conditions
-        self.bound_faces = g.get_domain_boundary_faces()
+        self.bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         self.bc = bc.BoundaryCondition(g, self.bound_faces,
                                        ['dir'] * self.bound_faces.size)
 
@@ -697,7 +697,7 @@ class TriangleGrid2D(MainTester):
         self.g_lines = g
 
         # Define boundary faces and conditions
-        self.bound_faces = g.get_domain_boundary_faces()
+        self.bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         self.bc = bc.BoundaryCondition(g, self.bound_faces,
                                        ['dir'] * self.bound_faces.size)
 

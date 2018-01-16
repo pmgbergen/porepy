@@ -51,8 +51,8 @@ class BoundaryCondition(object):
         self.num_faces = g.num_faces
         self.dim = g.dim - 1
 
-        # Find boundary faces
-        bf = g.get_boundary_faces()
+        # Find indices of boundary faces
+        bf = g.get_all_boundary_faces()
 
         # Keep track of internal boundaries.
         self.is_internal = g.tags['fracture_faces']
@@ -66,7 +66,7 @@ class BoundaryCondition(object):
         if faces is not None:
             # Validate arguments
             assert cond is not None
-            if faces.dtype==bool:
+            if faces.dtype == bool:
                 if faces.size != self.num_faces:
                     raise ValueError('''When giving logical faces, the size of
                                         array must match number of faces''')
@@ -75,7 +75,7 @@ class BoundaryCondition(object):
                 raise ValueError('Give boundary condition only on the \
                                  boundary')
             domain_boundary_and_tips = np.argwhere(np.logical_or(
-                    g.tags['domain_boundary_faces'], g.tags['tip_faces']))
+                g.tags['domain_boundary_faces'], g.tags['tip_faces']))
             if not np.all(np.in1d(faces, domain_boundary_and_tips)):
                 warnings.warn('You are now specifying conditions on internal \
                               boundaries. Be very careful!')
@@ -126,28 +126,27 @@ def face_on_side(g, side, tol=1e-8):
         if s == 'west' or s == 'xmin':
             xm = g.nodes[0].min()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) <
-                                              tol)))
+                                             tol)))
         elif s == 'east' or s == 'xmax':
             xm = g.nodes[0].max()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) <
-                                              tol)))
+                                             tol)))
         elif s == 'south' or s == 'ymin':
             xm = g.nodes[1].min()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) <
-                                              tol)))
+                                             tol)))
         elif s == 'north' or s == 'ymax':
             xm = g.nodes[1].max()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) <
-                                              tol)))
+                                             tol)))
         elif s == 'bottom' or s == 'bot' or s == 'zmin':
             xm = g.nodes[2].min()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) <
-                                              tol)))
+                                             tol)))
         elif s == 'top' or s == 'zmax':
             xm = g.nodes[2].max()
             faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) <
-                                              tol)))
+                                             tol)))
         else:
             raise ValueError('Unknow face side')
     return faces
-

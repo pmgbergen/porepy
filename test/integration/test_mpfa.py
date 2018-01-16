@@ -104,7 +104,7 @@ def test_uniform_flow_cart_2d_structured_pert():
     g.nodes[0, 4] = 1.5
     g.compute_geometry()
 
-    bound_faces = g.get_domain_boundary_faces()
+    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
     bound = bc.BoundaryCondition(g, bound_faces.ravel('F'), [
                                  'dir'] * bound_faces.size)
 
