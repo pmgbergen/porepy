@@ -113,6 +113,34 @@ def update_physical_low_grid(mg, new_g):
 
 #------------------------------------------------------------------------------#
 
+def update_physical_high_grid(mg, g_new, g_old, tol):
+
+    split_matrix = {}
+
+    if mg.dim == 0:
+
+        # retrieve the old faces and the corresponding coordinates
+        _, old_faces, _ = sps.find(mg.high_to_mortar)
+        old_nodes = g_old.face_centers[:, old_faces]
+
+        # retrieve the boundary faces and the corresponding coordinates
+        new_faces = g_new.get_boundary_faces()
+        new_nodes = g_new.face_centers[:, new_faces]
+
+        for side, g in mg.side_grids.items():
+            # we assume only one old node
+            mask = cg.dist_point_pointset(old_nodes, new_nodes) < tol
+            new_faces = new_faces[mask]
+
+            shape = (g_old.num_faces, g_new.num_faces)
+            data = np.ones(old_faces.shape)
+            split_matrix[side] = sps.csc_matrix((data, (old_faces, new_faces)),
+                                                                    shape=shape)
+
+    mg.update_high(split_matrix)
+
+#------------------------------------------------------------------------------#
+
 def split_matrix_1d(g_old, g_new):
     """
     By calling matching grid the function compute the cell mapping between two
@@ -286,9 +314,7 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
                 # update the mortar grid of the same dimension
                 update_physical_low_grid(mg, g_new)
             else:
-                pass
-
-
+                update_physical_high_grid(mg, g_new, g_old, tol)
 
 #    for e, d in gb.edges_props():
 #        print(d['mortar_grid'])
