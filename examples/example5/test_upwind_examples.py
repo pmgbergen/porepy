@@ -261,4 +261,3 @@ class BasicsTest(unittest.TestCase):
         assert np.allclose(conc, known)
 
 #------------------------------------------------------------------------------#
-BasicsTest().test_upwind_example0()
