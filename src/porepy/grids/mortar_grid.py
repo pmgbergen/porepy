@@ -98,7 +98,7 @@ class MortarGrid(object):
         # side_grids.
         num_cells = list(self.side_grids.values())[0].num_cells
         cells, faces, data = sps.find(face_cells)
-        if self.num_sides == 2:
+        if self.num_sides() == 2:
             cells[faces > np.median(faces)] += num_cells
 
         shape = (num_cells*self.num_sides(), face_cells.shape[1])
