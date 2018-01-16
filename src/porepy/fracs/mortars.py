@@ -74,7 +74,7 @@ def update_mortar_grid(mg, new_side_grids):
 
 #------------------------------------------------------------------------------#
 
-def update_physical_grid(mg, new_g):
+def update_physical_low_grid(mg, new_g):
     """
     Update the maps in the mortar class when the lower dimensional grid is
     changed. The update of the lower dimensional grid in the grid bucket needs
@@ -284,7 +284,7 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
             mg = d['mortar_grid']
             if mg.dim == g_new.dim:
                 # update the mortar grid of the same dimension
-                update_physical_grid(mg, g_new)
+                update_physical_low_grid(mg, g_new)
             else:
                 pass
 
