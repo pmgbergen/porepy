@@ -2100,7 +2100,7 @@ def dist_pointset(p, max_diag=False):
 
     Parameters:
         p (np.ndarray, 3xn): Points
-        max_diag (boolean, defaults to True): If True, the diagonal values will
+        max_diag (boolean, defaults to False): If True, the diagonal values will
             are set to a large value, rather than 0.
 
     Returns:
