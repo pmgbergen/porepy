@@ -319,8 +319,6 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
                 # update the mortar grid of the same dimension
                 update_physical_low_grid(mg, g_new)
             else: # g_new.dim == mg.dim + 1
-                if g_old.dim == 0:
-                    update_physical_high_grid(mg, g_new, g_old, tol)
 # Road map:
 #                1) Identify faces in g_old that are represented in the mortar grid
 #                    Can be done by mg.high_to_mortar
@@ -335,7 +333,9 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
                 # Update should follow the same lines as below
                 assert g_old.dim < 3, 'Have not implemented refinement of 3d meshes'
 
-                if g_old.dim == 1:
+                if mg.dim == 0:
+                    update_physical_high_grid(mg, g_new, g_old, tol)
+                    continue
                     # Alessio, put your code here, and put the stuff underneath in an else, or a separate function
                     pass
 
