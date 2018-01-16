@@ -75,7 +75,7 @@ def update_mortar_grid(mg, new_side_grids):
 
 #------------------------------------------------------------------------------#
 
-def update_physical_grid(mg, new_g):
+def update_physical_low_grid(mg, new_g):
     """
     Update the maps in the mortar class when the lower dimensional grid is
     changed. The update of the lower dimensional grid in the grid bucket needs
@@ -111,6 +111,34 @@ def update_physical_grid(mg, new_g):
 
     # Update the mortar grid class
     mg.update_low(split_matrix)
+
+#------------------------------------------------------------------------------#
+
+def update_physical_high_grid(mg, g_new, g_old, tol):
+
+    split_matrix = {}
+
+    if mg.dim == 0:
+
+        # retrieve the old faces and the corresponding coordinates
+        _, old_faces, _ = sps.find(mg.high_to_mortar)
+        old_nodes = g_old.face_centers[:, old_faces]
+
+        # retrieve the boundary faces and the corresponding coordinates
+        new_faces = g_new.get_boundary_faces()
+        new_nodes = g_new.face_centers[:, new_faces]
+
+        for side, g in mg.side_grids.items():
+            # we assume only one old node
+            mask = cg.dist_point_pointset(old_nodes, new_nodes) < tol
+            new_faces = new_faces[mask]
+
+            shape = (g_old.num_faces, g_new.num_faces)
+            data = np.ones(old_faces.shape)
+            split_matrix[side] = sps.csc_matrix((data, (old_faces, new_faces)),
+                                                                    shape=shape)
+
+    mg.update_high(split_matrix)
 
 #------------------------------------------------------------------------------#
 
@@ -251,7 +279,7 @@ def match_grids_2d(new_g, old_g):
 
 #------------------------------------------------------------------------------#
 
-def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
+def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
     """ Replace grids and / or mortar grids in a grid_bucket. Recompute mortar
     mappings as needed.
 
@@ -289,7 +317,7 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
             mg = d['mortar_grid']
             if mg.dim == g_new.dim:
                 # update the mortar grid of the same dimension
-                update_physical_grid(mg, g_new)
+                update_physical_low_grid(mg, g_new)
             else: # g_new.dim == mg.dim + 1
 # Road map:
 #                1) Identify faces in g_old that are represented in the mortar grid
@@ -305,7 +333,9 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
                 # Update should follow the same lines as below
                 assert g_old.dim < 3, 'Have not implemented refinement of 3d meshes'
 
-                if g_old.dim == 1:
+                if mg.dim == 0:
+                    update_physical_high_grid(mg, g_new, g_old, tol)
+                    continue
                     # Alessio, put your code here, and put the stuff underneath in an else, or a separate function
 
                 return gb

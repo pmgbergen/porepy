@@ -174,19 +174,37 @@ def refine_triangle_grid(g):
 
 #------------------------------------------------------------------------------#
 
-def new_grid_1d(g, num_nodes):
+def new_grid_1d(g_old, num_nodes, tol=1e-6):
     """ EK: This needs a better name!
     """
 
     theta = np.linspace(0, 1, num_nodes)
-    start, end = g.get_boundary_nodes()
+    start, end = g_old.get_boundary_nodes()
 
-    nodes = g.nodes[:, start, np.newaxis]*theta + \
-            g.nodes[:, end, np.newaxis]*(1.-theta)
+    nodes = g_old.nodes[:, start, np.newaxis]*theta + \
+            g_old.nodes[:, end, np.newaxis]*(1.-theta)
 
     g = TensorGrid(nodes[0, :])
     g.nodes = nodes
     g.compute_geometry()
+
+    # map the tags from the old grid to the new one
+
+    # retrieve the old faces and the corresponding coordinates
+    old_faces = g_old.get_boundary_faces()
+    old_nodes = g_old.face_centers[:, old_faces]
+
+    # retrieve the boundary faces and the corresponding coordinates
+    faces = g.get_boundary_faces()
+    nodes = g.face_centers[:, faces]
+
+    # compute the mapping from the old boundary to the new boundary
+    # we need to go through the coordinates
+    mask = cg.dist_pointset(np.hstack((old_nodes, nodes)), True) < tol
+    mask = mask[:old_faces.shape[0], old_faces.shape[0]:]
+    faces = np.dot(mask, faces)
+
+    g.face_tags[faces] = g_old.face_tags[old_faces]
 
     return g
 
