@@ -32,6 +32,7 @@ import scipy.sparse as sps
 from porepy.fracs import non_conforming
 from porepy.utils.matrix_compression import rldecode
 import porepy.utils.comp_geom as cg
+from porepy.grids.structured import TensorGrid
 
 #------------------------------------------------------------------------------#
 
@@ -298,6 +299,10 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
             replaced, but can we keep untouched grids?
 
     """
+    # Tolerance used in geometric comparisons. May be critical for performance,
+    # in particular for bad grids
+    tol = 1e-4
+
     #gb = gb.copy() nope it's not workign with this
 
     # refine the mortar grids when specified
@@ -313,8 +318,98 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
             if mg.dim == g_new.dim:
                 # update the mortar grid of the same dimension
                 update_physical_low_grid(mg, g_new)
-            else:
-                update_physical_high_grid(mg, g_new, g_old, tol)
+            else: # g_new.dim == mg.dim + 1
+                if g_old.dim == 0:
+                    update_physical_high_grid(mg, g_new, g_old, tol)
+# Road map:
+#                1) Identify faces in g_old that are represented in the mortar grid
+#                    Can be done by mg.high_to_mortar
+#                2)    assert g_old.dim < 3, 'Have not implemented this'
+#                3) with 2), the faces will lie on a line, or in a point (probably special treatment)
+#                4) Find all nodes in g_new on that line *segment*, find all faces in g_new with all nodes on the line
+#                5) Create 1d grids of the relevant nodes from g_new and g_old. Use match_1d_grid for mapping
+#                6) Create mapping between faces from 5)
+#                7) mg.high_to_mortar = mapping_from_6 * mg.high_to-Mortar
+
+                # For now, exclude the case of refinement of 3d grid.
+                # Update should follow the same lines as below
+                assert g_old.dim < 3, 'Have not implemented refinement of 3d meshes'
+
+                if g_old.dim == 1:
+                    # Alessio, put your code here, and put the stuff underneath in an else, or a separate function
+                    pass
+
+                # First create a virtual 1d grid along the line, using nodes from the old grid
+                # Identify faces in the old grid that is on the boundary
+                _, faces_on_boundary, _ = sps.find(mg.high_to_mortar)
+
+                # Find the nodes of those faces
+                faces_on_boundary_ind = np.zeros(g_old.num_faces)
+                faces_on_boundary_ind[faces_on_boundary] = 1
+                nodes_on_boundary = np.where(g_old.face_nodes * faces_on_boundary_ind > 0)[0]
+
+                nodes_1d_old = g_old.nodes[:, nodes_on_boundary]
+                assert cg.is_collinear(nodes_1d_old, tol=tol)
+                sort_ind = cg.argsort_point_on_line(nodes_1d_old, tol=tol)
+                g_aux_old = TensorGrid(np.arange(nodes_1d_old.shape[1]))
+                g_aux_old.nodes = nodes_1d_old[:, sort_ind]
+
+
+                # Then virtual 1d grid for the new grid. This is a bit more involved,
+                # since we need to identify the nodes by their coordinates.
+                # This part will be prone to rounding errors, in particular for
+                # bad cell shapes.
+                nodes_new = g_new.nodes
+
+                # Represent the 1d line by its start and end point, as pulled
+                # from the old 1d grid (known coordinates)
+                start = g_aux_old.nodes[:, 0].reshape((3, 1))
+                end = g_aux_old.nodes[:, -1].reshape((3, 1))
+                # Find distance from the
+                dist, _ = cg.dist_points_segments(nodes_new, start, end)
+                # Look for points in the new grid with a small distance to the
+                # line
+                hit = np.argwhere(dist.ravel() < tol).reshape((1, -1))[0]
+
+                # Depending on geometric tolerance and grid quality, hit
+                # may contain nodes that are close to the 1d line, but not on it
+                # To improve the results, find the
+
+                # We know we are in 2d, thus all faces have two nodes
+                # We can do the same trick in 3d, provided we have simplex grids
+                # but this will fail on Cartesian or polyhedral grids
+                fn = g_new.face_nodes.indices.reshape((2, g_new.num_faces),
+                                                      order='F')
+                fn_in_hit = np.isin(fn, hit)
+                # Faces where all points are found in hit
+                faces_by_hit = np.all(fn_in_hit, axis=0)
+                faces_on_boundary_new = g_new.get_boundary_faces()
+                # Only consider faces both in hit, and that are boundary
+                faces_on_line_new = np.intersect1d(faces_by_hit,
+                                                   faces_on_boundary_new)
+                # We have the new nodes on the line
+                nodes_on_line_new = np.unique(fn[:, faces_on_line_new])
+
+                nodes_1d_new = nodes_new[:, nodes_on_line_new]
+
+                # Create 1d grid from the new nodes
+                assert cg.is_collinear(nodes_1d_new, tol=tol)
+                sort_ind = cg.argsort_point_on_line(nodes_1d_new, tol=tol)
+                g_aux_new = TensorGrid(np.arange(nodes_1d_new.shape[1]))
+                g_aux_new.nodes = nodes_1d_new[:, sort_ind]
+
+                # Match grids, and create mapping between the cells
+                mapping = split_matrix_1d(g_aux_old, g_aux_new)
+
+                # The final ingredient is the mapping from cells in 1d
+                # auxiliary grids faces in 2d. Should be feasible.
+
+
+
+
+
+
+
 
 #    for e, d in gb.edges_props():
 #        print(d['mortar_grid'])

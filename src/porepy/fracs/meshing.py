@@ -546,10 +546,15 @@ def create_mortar_grids(gb):
     # loop on all the nodes and create the mortar grids
     for e, d in gb.edges_props():
         lg = gb.sorted_nodes_of_edge(e)[0]
-        # define the number of sides for the mortar grid, we assume only 1 or 2
+        # d['face_cells'].indices gives mappings into the lower dimensional
+        # cells. Count the number of occurences for each cell.
         num_sides = np.bincount(d['face_cells'].indices)
+        # Each cell should be found either twice (think a regular fracture
+        # that splits a higher dimensional mesh), or once (the lower end of
+        # a T-intersection, or both ends of an L-intersection).
         assert np.all(num_sides == 1) or np.all(num_sides == 2)
 
+        # If all cells are found twice, create two mortar grids
         if np.all(num_sides > 1):
             # we are in a two sides situation
             side_g = {SideTag.LEFT:  lg.copy(), SideTag.RIGHT: lg.copy()}
