@@ -250,7 +250,7 @@ def match_grids_2d(new_g, old_g):
 
 #------------------------------------------------------------------------------#
 
-def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
+def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
     """ Replace grids and / or mortar grids in a grid_bucket. Recompute mortar
     mappings as needed.
 
