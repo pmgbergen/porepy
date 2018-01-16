@@ -406,7 +406,7 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
         g_2d[f_id] = grid.Grid(2, nodes_2d, face_nodes_2d, cell_faces_2d,
                                "fracture_" + str(f_id) + "_" + str(case_id))
 
-        bnd_faces = g_2d[f_id].get_boundary_faces()
+        bnd_faces = g_2d[f_id].get_all_boundary_faces()
         g_2d[f_id].tags['domain_boundary_faces'][bnd_faces] = True
 
         g_2d[f_id].global_point_ind = np.arange(g_2d[f_id].num_nodes) + \

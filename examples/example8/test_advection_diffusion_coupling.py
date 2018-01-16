@@ -40,7 +40,7 @@ def add_data_darcy(gb, domain, tol):
         aperture = np.power(1e-2, gb.dim_max() - g.dim)
         param.set_aperture(np.ones(g.num_cells) * aperture)
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = np.argwhere(g.tags['domain_boundary_faces']).ravel('F')
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -91,7 +91,7 @@ def add_data_advection_diffusion(gb, domain, tol):
             g.cell_volumes * param.get_aperture()
         param.set_source("transport", source)
 
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = np.argwhere(g.tags['domain_boundary_faces']).ravel('F')
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 

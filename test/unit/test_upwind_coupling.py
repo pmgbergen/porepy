@@ -35,7 +35,7 @@ class BasicsTest(unittest.TestCase):
             param.set_aperture(aperture)
             d['discharge'] = solver.discr.discharge(g, [0, 1, 0], aperture)
 
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
                 bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -100,7 +100,7 @@ class BasicsTest(unittest.TestCase):
             param.set_aperture(aperture)
             d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
 
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
                 bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -186,7 +186,7 @@ class BasicsTest(unittest.TestCase):
             param.set_aperture(aperture)
             d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
 
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
                 bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -205,7 +205,7 @@ class BasicsTest(unittest.TestCase):
                 param.set_bc_val('transport', bc_val)
             else:
                 param.set_bc("transport", BoundaryCondition(
-                                            g, np.empty(0), np.empty(0)))
+                    g, np.empty(0), np.empty(0)))
             d['param'] = param
 
         # Assign coupling discharge
@@ -262,7 +262,7 @@ class BasicsTest(unittest.TestCase):
             param.set_aperture(aperture)
             d['discharge'] = solver.discr.discharge(g, [0, 0, 1], aperture)
 
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
                 bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -328,7 +328,7 @@ class BasicsTest(unittest.TestCase):
             param.set_aperture(aperture)
             d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
 
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound_face_centers = g.face_centers[:, bound_faces]
 
             left = bound_face_centers[0, :] < tol
@@ -438,7 +438,7 @@ class BasicsTest(unittest.TestCase):
                 np.power(1e-2, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
             d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
 
                 bound_face_centers = g.face_centers[:, bound_faces]
@@ -501,7 +501,7 @@ class BasicsTest(unittest.TestCase):
             param.set_aperture(aperture)
             d['discharge'] = solver.discr.discharge(g, [2, 0, 0], aperture)
 
-            bf = g.get_domain_boundary_faces()
+            bf = g.tags['domain_boundary_faces'].nonzero()[0]
             bc = BoundaryCondition(g, bf, bf.size * ['neu'])
             param.set_bc('transport', bc)
             d['param'] = param
@@ -551,7 +551,7 @@ class BasicsTest(unittest.TestCase):
             param.set_aperture(aperture)
             d['discharge'] = solver.discr.discharge(g, [1, 1, 0], aperture)
 
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             labels = np.array(['dir'] * bound_faces.size)
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces] = 3

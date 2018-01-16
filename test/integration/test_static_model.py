@@ -17,7 +17,7 @@ class BasicsTest(unittest.TestCase):
         g = meshing.cart_grid([f], [4, 4, 2]).grids_of_dimension(3)[0]
         data = {'param': Parameters(g)}
 
-        bound = bc.BoundaryCondition(g, g.get_boundary_faces(), 'dir')
+        bound = bc.BoundaryCondition(g, g.get_all_boundary_faces(), 'dir')
         data['param'].set_bc('mechanics', bound)
 
         solver = StaticModel(g, data)
@@ -35,7 +35,7 @@ class BasicsTest(unittest.TestCase):
         g = meshing.cart_grid([f], [2, 2, 2]).grids_of_dimension(3)[0]
         data = {'param': Parameters(g)}
 
-        bound = bc.BoundaryCondition(g, g.get_boundary_faces(), 'dir')
+        bound = bc.BoundaryCondition(g, g.get_all_boundary_faces(), 'dir')
         data['param'].set_bc('mechanics', bound)
 
         slip = np.ones(g.dim * g.num_faces)

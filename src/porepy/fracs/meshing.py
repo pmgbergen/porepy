@@ -425,24 +425,23 @@ def tag_faces(grids, check_highest_dim=True):
 
     """
 
-    for gs in grids:
-        for g in gs:
-            g.tags['domain_boundary_faces'] = np.zeros(
-                g.num_faces, dtype=bool)
     # Assume only one grid of highest dimension
     if check_highest_dim:
         assert len(grids[0]) == 1, 'Must be exactly'\
             '1 grid of dim: ' + str(len(grids))
 
     for g_h in np.atleast_1d(grids[0]):
-        bnd_faces = g_h.get_boundary_faces()
-        g_h.tags['domain_boundary_faces'][bnd_faces] = True
+        bnd_faces = g_h.get_all_boundary_faces()
+        domain_boundary_tags = np.zeros(
+            g_h.num_faces, dtype=bool)
+        domain_boundary_tags[bnd_faces] = True
+        g_h.tags['domain_boundary_faces'] = domain_boundary_tags
         bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
         bnd_nodes = np.unique(bnd_nodes)
         for g_dim in grids[1:-1]:
             for g in g_dim:
                 # We find the global nodes of all boundary faces
-                bnd_faces_l = g.get_boundary_faces()
+                bnd_faces_l = g.get_all_boundary_faces()
                 indptr = g.face_nodes.indptr
                 fn_loc = mcolon.mcolon(
                     indptr[bnd_faces_l], indptr[bnd_faces_l + 1])
@@ -460,7 +459,9 @@ def tag_faces(grids, check_highest_dim=True):
                     (n_per_face, bnd_faces_l.size), order='F'), axis=0)
 
                 g.tags['tip_faces'][bnd_faces_l[is_tip]] = True
-                g.tags['domain_boundary_faces'][bnd_faces_l[is_tip == False]] = True
+                domain_boundary_tags = np.zeros(g.num_faces, dtype=bool)
+                domain_boundary_tags[bnd_faces_l[is_tip == False]] = True
+                g.tags['domain_boundary_faces'] = domain_boundary_tags
 
 
 def nodes_per_face(g):

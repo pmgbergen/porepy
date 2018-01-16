@@ -542,8 +542,18 @@ class Grid(object):
             np.ndarray (1D), index of internal nodes.
 
         """
-        return np.setdiff1d(np.arange(self.num_nodes), self.get_boundary_nodes(),
-                            assume_unique=True)
+        internal_nodes = np.setdiff1d(np.arange(self.num_nodes),
+                                      self.get_boundary_nodes(),
+                                      assume_unique=True)
+        return internal_nodes
+
+    def get_all_boundary_faces(self):
+        """
+        Get indices of all faces tagged as either fractures, domain boundary or
+        tip.
+        """
+        all_tags = tags.all_face_tags(self.tags)
+        return self.__indices(all_tags)
 
     def get_internal_faces(self):
         """
@@ -553,27 +563,7 @@ class Grid(object):
             np.ndarray (1d), index of internal faces.
 
         """
-        return self.__indices(np.logical_not(self.tags['bound_faces']))
-
-    def get_boundary_faces(self):
-        """
-        Get boundary faces id of the grid
-
-        Returns:
-            np.ndarray (1d), index of boundary faces
-
-        """
-        return self.__indices(self.tags['boundary_faces'])
-
-    def get_domain_boundary_faces(self):
-        """
-        Get domain boundary faces id of the grid
-
-        Returns:
-            np.ndarray (1d), index of boundary faces
-
-        """
-        return self.__indices(self.tags['domain_boundary_faces'])
+        return self.__indices(np.logical_not(self.get_all_boundary_faces()))
 
     def get_boundary_nodes(self):
         """
@@ -583,7 +573,7 @@ class Grid(object):
             np.ndarray (1d), index of nodes on the boundary
 
         """
-        b_faces = self.get_boundary_faces()
+        b_faces = self.get_all_boundary_faces()
         first = self.face_nodes.indptr[b_faces]
         second = self.face_nodes.indptr[b_faces + 1]
         return np.unique(self.face_nodes.indices[mcolon.mcolon(first, second)])
@@ -594,7 +584,6 @@ class Grid(object):
         """
         bd_faces = np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel('F')
                                == 1).ravel('F')
-        self.tags['boundary_faces'][bd_faces] = True
         self.tags['domain_boundary_faces'][bd_faces] = True
 
     def cell_diameters(self, cn=None):

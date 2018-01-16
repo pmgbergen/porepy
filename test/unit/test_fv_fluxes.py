@@ -49,7 +49,7 @@ class BasicsTest(unittest.TestCase):
             p = tensor.SecondOrder(3, np.ones(
                 g.num_cells) * np.power(1e-3, g.dim < gb.dim_max()))
             param.set_tensor('flow', p)
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound_face_centers = g.face_centers[:, bound_faces]
 
             right = bound_face_centers[0, :] > 1 - tol
@@ -124,7 +124,7 @@ class BasicsTest(unittest.TestCase):
             p = tensor.SecondOrder(3, np.ones(
                 g.num_cells) * np.power(1e-3, g.dim < gb.dim_max()))
             param.set_tensor('flow', p)
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound_face_centers = g.face_centers[:, bound_faces]
 
             right = bound_face_centers[0, :] > 1 - tol
@@ -219,7 +219,7 @@ class BasicsTest(unittest.TestCase):
             p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
             param.set_tensor('flow', p)
 
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
                 bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -235,11 +235,12 @@ class BasicsTest(unittest.TestCase):
                 bc_val[bc_dir] = g.face_centers[0, bc_dir]
                 bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
 
-                param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
+                param.set_bc('flow', bc.BoundaryCondition(
+                    g, bound_faces, labels))
                 param.set_bc_val('flow', bc_val)
             else:
                 param.set_bc("flow", bc.BoundaryCondition(
-                                g, np.empty(0), np.empty(0)))
+                    g, np.empty(0), np.empty(0)))
             d['param'] = param
 
         gb.add_edge_prop('param')
@@ -330,8 +331,9 @@ class BasicsTest(unittest.TestCase):
                     assert np.allclose(data['discharge'], d_22, rtol, atol)
         # ... and pressures
         tol = 1e-10
-        assert((np.amax(np.absolute(p-p_cond))) < tol)
-        assert(np.sum(error.error_L2(g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
+        assert((np.amax(np.absolute(p - p_cond))) < tol)
+        assert(np.sum(error.error_L2(
+            g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 
 # #------------------------------------------------------------------------------#
