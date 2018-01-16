@@ -32,7 +32,9 @@ import scipy.sparse as sps
 from porepy.fracs import non_conforming
 from porepy.utils.matrix_compression import rldecode
 import porepy.utils.comp_geom as cg
+from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 from porepy.grids.structured import TensorGrid
+from porepy.grids import mortar_grid
 
 #------------------------------------------------------------------------------#
 
@@ -137,6 +139,16 @@ def update_physical_high_grid(mg, g_new, g_old, tol):
             data = np.ones(old_faces.shape)
             split_matrix[side] = sps.csc_matrix((data, (old_faces, new_faces)),
                                                                     shape=shape)
+
+    elif mg.dim == 1:
+        # The case is conceptually similar to 0d, but quite a bit more
+        # technical. Implementation is moved to separate function
+        split_matrix = _match_grids_along_line_from_geometry(mg, g_new, g_old, tol)
+
+    else: # should be mg.dim == 2
+        # It should be possible to use essentially the same approach as in 1d,
+        # but this is not yet covered.
+        raise NotImplementedError('Have not yet implemented this.')
 
     mg.update_high(split_matrix)
 
@@ -319,48 +331,40 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
                 # update the mortar grid of the same dimension
                 update_physical_low_grid(mg, g_new)
             else: # g_new.dim == mg.dim + 1
-# Road map:
-#                1) Identify faces in g_old that are represented in the mortar grid
-#                    Can be done by mg.high_to_mortar
-#                2)    assert g_old.dim < 3, 'Have not implemented this'
-#                3) with 2), the faces will lie on a line, or in a point (probably special treatment)
-#                4) Find all nodes in g_new on that line *segment*, find all faces in g_new with all nodes on the line
-#                5) Create 1d grids of the relevant nodes from g_new and g_old. Use match_1d_grid for mapping
-#                6) Create mapping between faces from 5)
-#                7) mg.high_to_mortar = mapping_from_6 * mg.high_to-Mortar
+                update_physical_high_grid(mg, g_new, g_old, tol)
 
-                # For now, exclude the case of refinement of 3d grid.
-                # Update should follow the same lines as below
-                assert g_old.dim < 3, 'Have not implemented refinement of 3d meshes'
+    return gb
 
-                if mg.dim == 0:
-                    update_physical_high_grid(mg, g_new, g_old, tol)
-                    continue
-                    # Alessio, put your code here, and put the stuff underneath in an else, or a separate function
+#----------------- Helper function below
 
-                return gb
-
-def _update_2d_grid(g_new, g_old, mg):
+def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
 
     def cells_from_faces(g, fi):
-        assert False this should preserve relation between f and c
-        # Find cells of faces, specified by face indices
-        i = np.zeros(g.num_faces)
-        i[fi] = 1 + 1
-        cells = np.where((g.cell_faces.T * i) > 0)[0]
-        return cells
+        # Find cells of faces, specified by face indices fi.
+        # It is assumed that fi is on the boundary, e.g. there is a single
+        # cell for each element in fi.
+        f, ci, _ = sps.find(g.cell_faces[fi])
+        assert f.size == fi.size, 'We assume fi are boundary faces'
 
-    def create_1d_from_nodes(nodes)
+        ismem, ind_map = ismember_rows(fi[f], fi, sort=False)
+        assert np.all(ismem)
+        return ci[ind_map]
+
+    def create_1d_from_nodes(nodes):
         assert cg.is_collinear(nodes, tol=tol)
         sort_ind = cg.argsort_point_on_line(nodes, tol=tol)
-        g = TensorGrid(np.arange(nodes.shape[1]))
-        g.nodes = nodes[:, sort_ind]
+        n = nodes[:, sort_ind]
+        unique_nodes, _, _ = unique_columns_tol(n, tol=tol)
+        g = TensorGrid(np.arange(unique_nodes.shape[1]))
+        g.nodes = unique_nodes
+        g.compute_geometry()
         return g
 
     def nodes_of_faces(g, fi):
         f = np.zeros(g.num_faces)
         f[fi] = 1
         nodes = np.where(g.face_nodes * f > 0)[0]
+        return nodes
 
     # First create a virtual 1d grid along the line, using nodes from the old grid
     # Identify faces in the old grid that is on the boundary
@@ -371,7 +375,7 @@ def _update_2d_grid(g_new, g_old, mg):
 
     # Normal vector of the line. Somewhat arbitrarily chosen as the first one.
     # This may be prone to rounding errors.
-    normal = g_old.face_normals[:, faces_on_boundary[0]]
+    normal = g_old.face_normals[:, faces_on_boundary[0]].reshape((3, 1))
 
     # Create first version of 1d grid, we really only need start and endpoint
     g_aux = create_1d_from_nodes(nodes_1d_old)
@@ -384,7 +388,7 @@ def _update_2d_grid(g_new, g_old, mg):
     bound_cells_old = cells_from_faces(g_old, faces_on_boundary)
     assert bound_cells_old.size > 1, 'Have not implemented this. Not difficult though'
     cc_old = g_old.cell_centers[:, bound_cells_old]
-    side_old = np.sign(np.sum(((cc_old - mp) * normal)**2, axis=0))
+    side_old = np.sign(np.sum(((cc_old - mp) * normal), axis=0))
 
     # Find cells on the positive and negative side, relative to the positioning
     # in cells_from_faces
@@ -392,7 +396,19 @@ def _update_2d_grid(g_new, g_old, mg):
     neg_side_old = np.where(side_old < 0)[0]
     assert pos_side_old.size + neg_side_old.size == side_old.size
 
-    both_sizes_old = [pos_side_old, neg_side_old]
+    if mg.num_sides() == 2:
+        # If mg has two sides, each side must map to at least one face in
+        # mg.high_to_mortar. By construction (or assumed construction), the
+        # LEFT side is always added first, and thus the first column is
+        # associated with this mortar grid. Below, we need to know match
+        # positive and negative sides with LEFT and RIGHT. This should do the
+        # trick
+        pos_is_left = side_old[0] > 0
+
+    elif mg.num_sides() == 1:
+        raise NotImplementedError('Not sure about this one')
+
+    both_sides_old = [pos_side_old, neg_side_old]
 
     # Then virtual 1d grid for the new grid. This is a bit more involved,
     # since we need to identify the nodes by their coordinates.
@@ -419,58 +435,49 @@ def _update_2d_grid(g_new, g_old, mg):
                                           order='F')
     fn_in_hit = np.isin(fn, hit)
     # Faces where all points are found in hit
-    faces_by_hit = np.all(fn_in_hit, axis=0)
+    faces_by_hit = np.where(np.all(fn_in_hit, axis=0))[0]
     faces_on_boundary_new = g_new.get_boundary_faces()
     # Only consider faces both in hit, and that are boundary
     faces_on_line_new = np.intersect1d(faces_by_hit,
                                        faces_on_boundary_new)
 
-    bound_cells_new = cells_from_faces(g_new, faces_on_line)
+    bound_cells_new = cells_from_faces(g_new, faces_on_line_new)
     assert bound_cells_new.size > 1, 'Have not implemented this. Not difficult though'
     cc_new = g_new.cell_centers[:, bound_cells_new]
-    side_new = np.sign(np.sum(((cc_old - mp) * normal)**2, axis=0))
+    side_new = np.sign(np.sum(((cc_new - mp) * normal), axis=0))
 
     pos_side_new = np.where(side_new > 0)[0]
     neg_side_new = np.where(side_new < 0)[0]
     assert pos_side_new.size + neg_side_new.size == side_new.size
 
-    both_sizes_new = [pos_side_new, neg_side_new]
+    both_sides_new = [pos_side_new, neg_side_new]
 
-    for so, sn in both_sides:
+    split_matrix = {}
+
+    for i, (so, sn) in enumerate(zip(both_sides_old, both_sides_new)):
         loc_faces = faces_on_boundary[so]
         loc_nodes = nodes_of_faces(g_old, loc_faces)
         g_aux_old = create_1d_from_nodes(g_old.nodes[:, loc_nodes])
 
-
         # We have the new nodes on the line
         nodes_on_line_new = np.unique(fn[:, faces_on_line_new[sn]])
 
-        nodes_1d_new = nodes_new[:, nodes_on_line_new]
+        g_aux_new = create_1d_from_nodes(nodes_new[:, nodes_on_line_new])
 
-        # Create 1d grid from the new nodes
-        assert cg.is_collinear(nodes_1d_new, tol=tol)
-        sort_ind = cg.argsort_point_on_line(nodes_1d_new, tol=tol)
-        g_aux_new = TensorGrid(np.arange(nodes_1d_new.shape[1]))
-        g_aux_new.nodes = nodes_1d_new[:, sort_ind]
-
+        if mg.num_sides() == 2:
+            if pos_is_left:
+                if i == 0:
+                    side = mortar_grid.SideTag.LEFT
+                else:  # i == 1
+                    side = mortar_grid.SideTag.RIGHT
+            else:
+                if i == 0:
+                    side = mortar_grid.SideTag.RIGHT
+                else:  # i == 1
+                    side = mortar_grid.SideTag.LEFT
         # Match grids, and create mapping between the cells
-        # Need to somehow connect this to the sides in the mortar grid
-        mapping_1d = split_matrix_1d(g_aux_old, g_aux_new)
+        split_matrix[side] = split_matrix_1d(g_aux_old, g_aux_new)
 
-
-
-#    for e, d in gb.edges_props():
-#        print(d['mortar_grid'])
-
-#    # Not sure if this is the best solution here.
-#    for e, d in gb.edges():
-#        mg_e = d['mortar_grid']
-#        if mg_e in mg_map.keys():
-#            d['mortar_grid'] = mg_map[mg_e]
-#            edges_to_process.append(e)
-#            nodes_to_process.append()
-
-
-    # Next step: Loop over nodes and edges to process, and update mortar maps as needed.
+    return split_matrix
 
 #------------------------------------------------------------------------------#
