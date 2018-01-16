@@ -307,77 +307,125 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
 
                 if g_old.dim == 1:
                     # Alessio, put your code here, and put the stuff underneath in an else, or a separate function
-                    pass
 
-                # First create a virtual 1d grid along the line, using nodes from the old grid
-                # Identify faces in the old grid that is on the boundary
-                _, faces_on_boundary, _ = sps.find(mg.high_to_mortar)
+                return gb
 
-                # Find the nodes of those faces
-                faces_on_boundary_ind = np.zeros(g_old.num_faces)
-                faces_on_boundary_ind[faces_on_boundary] = 1
-                nodes_on_boundary = np.where(g_old.face_nodes * faces_on_boundary_ind > 0)[0]
+def _update_2d_grid(g_new, g_old, mg):
 
-                nodes_1d_old = g_old.nodes[:, nodes_on_boundary]
-                assert cg.is_collinear(nodes_1d_old, tol=tol)
-                sort_ind = cg.argsort_point_on_line(nodes_1d_old, tol=tol)
-                g_aux_old = TensorGrid(np.arange(nodes_1d_old.shape[1]))
-                g_aux_old.nodes = nodes_1d_old[:, sort_ind]
+    def cells_from_faces(g, fi):
+        assert False this should preserve relation between f and c
+        # Find cells of faces, specified by face indices
+        i = np.zeros(g.num_faces)
+        i[fi] = 1 + 1
+        cells = np.where((g.cell_faces.T * i) > 0)[0]
+        return cells
+
+    def create_1d_from_nodes(nodes)
+        assert cg.is_collinear(nodes, tol=tol)
+        sort_ind = cg.argsort_point_on_line(nodes, tol=tol)
+        g = TensorGrid(np.arange(nodes.shape[1]))
+        g.nodes = nodes[:, sort_ind]
+        return g
+
+    def nodes_of_faces(g, fi):
+        f = np.zeros(g.num_faces)
+        f[fi] = 1
+        nodes = np.where(g.face_nodes * f > 0)[0]
+
+    # First create a virtual 1d grid along the line, using nodes from the old grid
+    # Identify faces in the old grid that is on the boundary
+    _, faces_on_boundary, _ = sps.find(mg.high_to_mortar)
+    # Find the nodes of those faces
+    nodes_on_boundary = nodes_of_faces(g_old, faces_on_boundary)
+    nodes_1d_old = g_old.nodes[:, nodes_on_boundary]
+
+    # Normal vector of the line. Somewhat arbitrarily chosen as the first one.
+    # This may be prone to rounding errors.
+    normal = g_old.face_normals[:, faces_on_boundary[0]]
+
+    # Create first version of 1d grid, we really only need start and endpoint
+    g_aux = create_1d_from_nodes(nodes_1d_old)
+
+    start = g_aux.nodes[:, 0]
+    end = g_aux.nodes[:, -1]
+
+    mp = 0.5 * (start + end).reshape((3, 1))
+
+    bound_cells_old = cells_from_faces(g_old, faces_on_boundary)
+    assert bound_cells_old.size > 1, 'Have not implemented this. Not difficult though'
+    cc_old = g_old.cell_centers[:, bound_cells_old]
+    side_old = np.sign(np.sum(((cc_old - mp) * normal)**2, axis=0))
+
+    # Find cells on the positive and negative side, relative to the positioning
+    # in cells_from_faces
+    pos_side_old = np.where(side_old > 0)[0]
+    neg_side_old = np.where(side_old < 0)[0]
+    assert pos_side_old.size + neg_side_old.size == side_old.size
+
+    both_sizes_old = [pos_side_old, neg_side_old]
+
+    # Then virtual 1d grid for the new grid. This is a bit more involved,
+    # since we need to identify the nodes by their coordinates.
+    # This part will be prone to rounding errors, in particular for
+    # bad cell shapes.
+    nodes_new = g_new.nodes
+
+    # Represent the 1d line by its start and end point, as pulled
+    # from the old 1d grid (known coordinates)
+    # Find distance from the
+    dist, _ = cg.dist_points_segments(nodes_new, start, end)
+    # Look for points in the new grid with a small distance to the
+    # line
+    hit = np.argwhere(dist.ravel() < tol).reshape((1, -1))[0]
+
+    # Depending on geometric tolerance and grid quality, hit
+    # may contain nodes that are close to the 1d line, but not on it
+    # To improve the results, also require that the faces are boundary faces
+
+    # We know we are in 2d, thus all faces have two nodes
+    # We can do the same trick in 3d, provided we have simplex grids
+    # but this will fail on Cartesian or polyhedral grids
+    fn = g_new.face_nodes.indices.reshape((2, g_new.num_faces),
+                                          order='F')
+    fn_in_hit = np.isin(fn, hit)
+    # Faces where all points are found in hit
+    faces_by_hit = np.all(fn_in_hit, axis=0)
+    faces_on_boundary_new = g_new.get_boundary_faces()
+    # Only consider faces both in hit, and that are boundary
+    faces_on_line_new = np.intersect1d(faces_by_hit,
+                                       faces_on_boundary_new)
+
+    bound_cells_new = cells_from_faces(g_new, faces_on_line)
+    assert bound_cells_new.size > 1, 'Have not implemented this. Not difficult though'
+    cc_new = g_new.cell_centers[:, bound_cells_new]
+    side_new = np.sign(np.sum(((cc_old - mp) * normal)**2, axis=0))
+
+    pos_side_new = np.where(side_new > 0)[0]
+    neg_side_new = np.where(side_new < 0)[0]
+    assert pos_side_new.size + neg_side_new.size == side_new.size
+
+    both_sizes_new = [pos_side_new, neg_side_new]
+
+    for so, sn in both_sides:
+        loc_faces = faces_on_boundary[so]
+        loc_nodes = nodes_of_faces(g_old, loc_faces)
+        g_aux_old = create_1d_from_nodes(g_old.nodes[:, loc_nodes])
 
 
-                # Then virtual 1d grid for the new grid. This is a bit more involved,
-                # since we need to identify the nodes by their coordinates.
-                # This part will be prone to rounding errors, in particular for
-                # bad cell shapes.
-                nodes_new = g_new.nodes
+        # We have the new nodes on the line
+        nodes_on_line_new = np.unique(fn[:, faces_on_line_new[sn]])
 
-                # Represent the 1d line by its start and end point, as pulled
-                # from the old 1d grid (known coordinates)
-                start = g_aux_old.nodes[:, 0].reshape((3, 1))
-                end = g_aux_old.nodes[:, -1].reshape((3, 1))
-                # Find distance from the
-                dist, _ = cg.dist_points_segments(nodes_new, start, end)
-                # Look for points in the new grid with a small distance to the
-                # line
-                hit = np.argwhere(dist.ravel() < tol).reshape((1, -1))[0]
+        nodes_1d_new = nodes_new[:, nodes_on_line_new]
 
-                # Depending on geometric tolerance and grid quality, hit
-                # may contain nodes that are close to the 1d line, but not on it
-                # To improve the results, find the
+        # Create 1d grid from the new nodes
+        assert cg.is_collinear(nodes_1d_new, tol=tol)
+        sort_ind = cg.argsort_point_on_line(nodes_1d_new, tol=tol)
+        g_aux_new = TensorGrid(np.arange(nodes_1d_new.shape[1]))
+        g_aux_new.nodes = nodes_1d_new[:, sort_ind]
 
-                # We know we are in 2d, thus all faces have two nodes
-                # We can do the same trick in 3d, provided we have simplex grids
-                # but this will fail on Cartesian or polyhedral grids
-                fn = g_new.face_nodes.indices.reshape((2, g_new.num_faces),
-                                                      order='F')
-                fn_in_hit = np.isin(fn, hit)
-                # Faces where all points are found in hit
-                faces_by_hit = np.all(fn_in_hit, axis=0)
-                faces_on_boundary_new = g_new.get_boundary_faces()
-                # Only consider faces both in hit, and that are boundary
-                faces_on_line_new = np.intersect1d(faces_by_hit,
-                                                   faces_on_boundary_new)
-                # We have the new nodes on the line
-                nodes_on_line_new = np.unique(fn[:, faces_on_line_new])
-
-                nodes_1d_new = nodes_new[:, nodes_on_line_new]
-
-                # Create 1d grid from the new nodes
-                assert cg.is_collinear(nodes_1d_new, tol=tol)
-                sort_ind = cg.argsort_point_on_line(nodes_1d_new, tol=tol)
-                g_aux_new = TensorGrid(np.arange(nodes_1d_new.shape[1]))
-                g_aux_new.nodes = nodes_1d_new[:, sort_ind]
-
-                # Match grids, and create mapping between the cells
-                mapping = split_matrix_1d(g_aux_old, g_aux_new)
-
-                # The final ingredient is the mapping from cells in 1d
-                # auxiliary grids faces in 2d. Should be feasible.
-
-
-
-
-
+        # Match grids, and create mapping between the cells
+        # Need to somehow connect this to the sides in the mortar grid
+        mapping_1d = split_matrix_1d(g_aux_old, g_aux_new)
 
 
 
@@ -392,7 +440,7 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}):
 #            edges_to_process.append(e)
 #            nodes_to_process.append()
 
-    return gb
+
     # Next step: Loop over nodes and edges to process, and update mortar maps as needed.
 
 #------------------------------------------------------------------------------#
