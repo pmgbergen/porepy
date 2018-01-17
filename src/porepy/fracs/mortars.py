@@ -191,6 +191,7 @@ def split_matrix_2d(g_old, g_new):
 
     """
     weights, new_cells, old_cells = match_grids_2d(g_new, g_old)
+    # EK: Is it really safe to use csr_matrix here?
     return sps.csr_matrix((weights, (new_cells, old_cells)))
 
 #------------------------------------------------------------------------------#
@@ -341,6 +342,30 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
 
 def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
 
+    # The purpose of this function is to construct a mapping between faces in
+    # the old and new grid. Specifically, we need to match faces that lies on
+    # the 1d segment identified by the mortar grid, and get the right area
+    # weightings when the two grids do not conform.
+    #
+    # The algorithm is technical, partly because we also need to differ between
+    # the left and right side of the segment, as these will belong to different
+    # mortar grids.
+    #
+    # The main steps are:
+    #   1) Identify faces in the old grid along the segment via the existing
+    #      mapping between mortar grid and higher dimensional grid. Use this
+    #      to define the geometry of the segment.
+    #   2) Define positive and negative side of the segment, and split cells
+    #      and faces along the segement according to this criterion.
+    #   3) For all sides (pos, neg), pick out faces in the old and new grid,
+    #      and match them up. Extend the mapping to go from all faces in the
+    #      two grids.
+    #
+    # Known weak points: Identification of geometric objects, in particular
+    # points, is based on a geometric tolerance. For very fine, or bad, grids
+    # this may give trouble.
+
+
     def cells_from_faces(g, fi):
         # Find cells of faces, specified by face indices fi.
         # It is assumed that fi is on the boundary, e.g. there is a single
@@ -353,6 +378,8 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
         return ci[ind_map]
 
     def create_1d_from_nodes(nodes):
+        # From a set of nodes, create a 1d grid. duplicate nodes are removed
+        # and we verify that the nodes are indeed colinear
         assert cg.is_collinear(nodes, tol=tol)
         sort_ind = cg.argsort_point_on_line(nodes, tol=tol)
         n = nodes[:, sort_ind]
@@ -360,35 +387,75 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
         g = TensorGrid(np.arange(unique_nodes.shape[1]))
         g.nodes = unique_nodes
         g.compute_geometry()
-        return g
+        return g, sort_ind
 
     def nodes_of_faces(g, fi):
+        # Find nodes of a set of faces.
         f = np.zeros(g.num_faces)
         f[fi] = 1
         nodes = np.where(g.face_nodes * f > 0)[0]
         return nodes
 
+    def face_to_cell_map(g_2d, g_1d, loc_faces, loc_nodes):
+        # Match faces in a 2d grid and cells in a 1d grid by identifying
+        # face-nodes and cell-node relations.
+        # loc_faces are faces in 2d grid that are known to coincide with
+        # cells.
+        # loc_nodes are indices of 2d nodes along the segment, sorted so that
+        # the ordering coincides with nodes in 1d grid
+
+        # face-node relation in higher dimensional grid
+        fn = g_2d.face_nodes.indices.reshape((g_2d.dim, g_2d.num_faces),
+                                             order='F')
+        # Reduce to faces along segment
+        fn_loc = fn[:, loc_faces]
+        # Mapping from global (2d) indices to the local indices used in 1d
+        # grid. This also account for a sorting of the nodes, so that the
+        # nodes.
+        ind_map = np.zeros(g_2d.num_faces)
+        ind_map[loc_nodes] = np.arange(loc_nodes.size)
+        # Face-node in local indices
+        fn_loc = ind_map[fn_loc]
+        # Handle special case
+        if loc_faces.size == 1:
+            fn_loc = fn_loc.reshape((2, 1))
+
+        # Cell-node relation in 1d
+        cn = g_1d.cell_nodes().indices.reshape((2, g_1d.num_cells), order='F')
+
+        # Find cell index of each face
+        ismem, ind = ismember_rows(fn_loc, cn)
+        # Quality check, the grids should be conforming
+        assert np.all(ismem)
+        return ind
+
     # First create a virtual 1d grid along the line, using nodes from the old grid
     # Identify faces in the old grid that is on the boundary
-    _, faces_on_boundary, _ = sps.find(mg.high_to_mortar)
+    _, faces_on_boundary_old, _ = sps.find(mg.high_to_mortar)
     # Find the nodes of those faces
-    nodes_on_boundary = nodes_of_faces(g_old, faces_on_boundary)
-    nodes_1d_old = g_old.nodes[:, nodes_on_boundary]
+    nodes_on_boundary_old = nodes_of_faces(g_old, faces_on_boundary_old)
+    nodes_1d_old = g_old.nodes[:, nodes_on_boundary_old]
 
     # Normal vector of the line. Somewhat arbitrarily chosen as the first one.
     # This may be prone to rounding errors.
-    normal = g_old.face_normals[:, faces_on_boundary[0]].reshape((3, 1))
+    normal = g_old.face_normals[:, faces_on_boundary_old[0]].reshape((3, 1))
 
     # Create first version of 1d grid, we really only need start and endpoint
-    g_aux = create_1d_from_nodes(nodes_1d_old)
+    g_aux, _ = create_1d_from_nodes(nodes_1d_old)
 
+    # Start, end and midpoint
     start = g_aux.nodes[:, 0]
     end = g_aux.nodes[:, -1]
-
     mp = 0.5 * (start + end).reshape((3, 1))
 
-    bound_cells_old = cells_from_faces(g_old, faces_on_boundary)
+    # Find cells in 2d close to the segment
+    bound_cells_old = cells_from_faces(g_old, faces_on_boundary_old)
+    # This may occur if the mortar grid is one sided (T-intersection)
     assert bound_cells_old.size > 1, 'Have not implemented this. Not difficult though'
+    # Vector from midpoint to cell centers. Check which side the cells are on
+    # relative to normal vector.
+    # We are here assuming that the segment is not too curved (due to rounding
+    # errors). Pain to come.
     cc_old = g_old.cell_centers[:, bound_cells_old]
     side_old = np.sign(np.sum(((cc_old - mp) * normal), axis=0))
 
@@ -397,18 +464,6 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
     pos_side_old = np.where(side_old > 0)[0]
     neg_side_old = np.where(side_old < 0)[0]
     assert pos_side_old.size + neg_side_old.size == side_old.size
-
-    if mg.num_sides() == 2:
-        # If mg has two sides, each side must map to at least one face in
-        # mg.high_to_mortar. By construction (or assumed construction), the
-        # LEFT side is always added first, and thus the first column is
-        # associated with this mortar grid. Below, we need to know match
-        # positive and negative sides with LEFT and RIGHT. This should do the
-        # trick
-        pos_is_left = side_old[0] > 0
-
-    elif mg.num_sides() == 1:
-        raise NotImplementedError('Not sure about this one')
 
     both_sides_old = [pos_side_old, neg_side_old]
 
@@ -440,10 +495,11 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
     faces_by_hit = np.where(np.all(fn_in_hit, axis=0))[0]
     faces_on_boundary_new = g_new.get_boundary_faces()
     # Only consider faces both in hit, and that are boundary
-    faces_on_line_new = np.intersect1d(faces_by_hit,
+    faces_on_boundary_new = np.intersect1d(faces_by_hit,
                                        faces_on_boundary_new)
 
-    bound_cells_new = cells_from_faces(g_new, faces_on_line_new)
+    # Cells along the segment, from the new grid
+    bound_cells_new = cells_from_faces(g_new, faces_on_boundary_new)
     assert bound_cells_new.size > 1, 'Have not implemented this. Not difficult though'
     cc_new = g_new.cell_centers[:, bound_cells_new]
     side_new = np.sign(np.sum(((cc_new - mp) * normal), axis=0))
@@ -454,32 +510,63 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
 
     both_sides_new = [pos_side_new, neg_side_new]
 
-    split_matrix = {}
+    # Mapping matrix.
+    matrix = sps.coo_matrix((g_old.num_faces, g_new.num_faces))
 
-    for i, (so, sn) in enumerate(zip(both_sides_old, both_sides_new)):
-        loc_faces = faces_on_boundary[so]
-        loc_nodes = nodes_of_faces(g_old, loc_faces)
-        g_aux_old = create_1d_from_nodes(g_old.nodes[:, loc_nodes])
+    for so, sn in zip(both_sides_old, both_sides_new):
 
-        # We have the new nodes on the line
-        nodes_on_line_new = np.unique(fn[:, faces_on_line_new[sn]])
+        # Pick out faces along boundary in old grid, uniquify nodes, and
+        # define auxiliary grids
+        loc_faces_old = faces_on_boundary_old[so]
+        loc_nodes_old = np.unique(nodes_of_faces(g_old, loc_faces_old))
+        g_aux_old, sort_ind_old =\
+            create_1d_from_nodes(g_old.nodes[:, loc_nodes_old])
 
-        g_aux_new = create_1d_from_nodes(nodes_new[:, nodes_on_line_new])
+        # Similar for new grid
+        loc_faces_new = faces_on_boundary_new[sn]
+        loc_nodes_new = np.unique(fn[:, loc_faces_new])
+        g_aux_new, sort_ind_new =\
+            create_1d_from_nodes(nodes_new[:, loc_nodes_new])
 
-        if mg.num_sides() == 2:
-            if pos_is_left:
-                if i == 0:
-                    side = mortar_grid.SideTag.LEFT
-                else:  # i == 1
-                    side = mortar_grid.SideTag.RIGHT
-            else:
-                if i == 0:
-                    side = mortar_grid.SideTag.RIGHT
-                else:  # i == 1
-                    side = mortar_grid.SideTag.LEFT
-        # Match grids, and create mapping between the cells
-        split_matrix[side] = split_matrix_1d(g_aux_old, g_aux_new)
+        # Map from global faces to faces along segment in old grid
+        n_loc_old = loc_faces_old.size
+        face_map_old = sps.coo_matrix((np.ones(n_loc_old),
+                                       (np.arange(n_loc_old), loc_faces_old)),
+                                      shape=(n_loc_old, g_old.num_faces))
 
-    return split_matrix
+        # Map from global faces to faces along segment in new grid
+        n_loc_new = loc_faces_new.size
+        face_map_new = sps.coo_matrix((np.ones(n_loc_new),
+                                       (np.arange(n_loc_new), loc_faces_new)),
+                                      shape=(n_loc_new, g_new.num_faces))
+
+        # Map from faces along segment in old to new grid. Consists of three
+        # stages: faces in old to cells in 1d version of old, between 1d cells
+        # in old and new, cells in new to faces in new
+
+        # From faces to cells in old grid
+        rows = face_to_cell_map(g_old, g_aux_old, loc_faces_old,
+                                loc_nodes_old[sort_ind_old])
+        cols = np.arange(rows.size)
+        face_to_cell_old = sps.coo_matrix((np.ones(rows.size), (rows, cols)))
+
+        # Mapping between cells in 1d grid
+        weights, new_cells, old_cells = match_grids_1d(g_aux_new, g_aux_old)
+        between_cells = sps.csr_matrix((weights, (old_cells, new_cells)))
+
+        # From faces to cell in new grid
+        rows = face_to_cell_map(g_new, g_aux_new, loc_faces_new,
+                                loc_nodes_new[sort_ind_new])
+        cols = np.arange(rows.size)
+        cell_to_face_new = sps.coo_matrix((np.ones(rows.size), (rows, cols)))
+
+        face_map_segment = face_to_cell_old * between_cells * cell_to_face_new
+
+        face_map = face_map_old.T * face_map_segment * face_map_new
+
+        matrix += face_map
+
+    return matrix.tocsr()
+
 
 #------------------------------------------------------------------------------#
