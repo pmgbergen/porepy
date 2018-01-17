@@ -246,6 +246,8 @@ def match_grids_1d(new_1d, old_1d):
     if switch_old:
          old_in_full = old_in_full.max() - old_in_full
 
+    old_1d.compute_geometry()
+
     weights /= old_1d.cell_volumes[old_in_full]
     return weights, new_in_full, old_in_full
 
