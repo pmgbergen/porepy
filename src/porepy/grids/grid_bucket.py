@@ -249,20 +249,36 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def node_neighbors(self, node, cond=None):
+    def node_neighbors(self, node, only_higher=False, only_lower=False,
+                       cond=None:):
         """
         Parameters:
-            node: the node
+            node: node in the graph, grid
+            only_higher: consider only the higher dimensional neighbors
+            only_lower: consider only the lower dimensional neighbors
             cond: (default None) if given a condition to filter the neighbors
                 nodes.
         Return:
             list of networkx.node: Neighbors of node 'node'
 
         """
-        if cond is None:
-            return self.graph.neighbors(node)
-        else:
+        if cond is not None:
+            assert (not only_higher and not only_lower)
             return [g for g in self.graph.neighbors(node) if cond(g)]
+        neigh = np.array(self.graph.neighbors(node))
+
+        if not only_higher and not only_lower:
+            return neigh
+        elif only_higher and only_lower:
+            return np.empty(0)
+        elif only_higher:
+            # Find the neighbours that are higher dimensional
+            is_high = np.array([w.dim > node.dim for w in neigh])
+            return neigh[is_high]
+        else:
+            # Find the neighbours that are higher dimensional
+            is_low = np.array([w.dim < node.dim for w in neigh])
+            return neigh[is_low]
 
 #------------------------------------------------------------------------------#
 

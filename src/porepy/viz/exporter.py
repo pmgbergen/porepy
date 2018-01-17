@@ -351,6 +351,8 @@ class Exporter():
 
         if data is not None:
             for name_field, values_field in data.items():
+                if values_field is None:
+                    continue
                 dataVTK = ns.numpy_to_vtk(values_field.ravel(order='F'),
                                           deep=True,
                                    array_type=self.map_type[values_field.dtype])
@@ -539,7 +541,7 @@ if 'numba' in sys.modules:
         """
         cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int32)
         counter = 0
-        fc.astype(numba.float64)
+        fc.astype(np.float64)
         for ci in range(cell_ptr.size - 1):
             loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
             for fi in faces_cells[loc_c]:

@@ -20,13 +20,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, [2, 0, 0]))
+        dis = solver.discharge(g, [2, 0, 0])
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -48,13 +48,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, [-2, 0, 0]))
+        dis = solver.discharge(g, [-2, 0, 0])
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -76,13 +76,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, [2, 0, 0]))
+        dis = solver.discharge(g, [2, 0, 0])
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -108,13 +108,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, [-2, 0, 0]))
+        dis = solver.discharge(g, [-2, 0, 0])
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -139,13 +139,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, [1, 0, 0]))
+        dis = solver.discharge(g, [1, 0, 0])
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -168,13 +168,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, [-1, 0, 0]))
+        dis = solver.discharge(g, [-1, 0, 0])
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -197,13 +197,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, [-1, 0, 0]))
+        dis = solver.discharge(g, [-1, 0, 0])
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -231,13 +231,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, [1, 0, 0]))
+        dis = solver.discharge(g, [1, 0, 0])
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -267,13 +267,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, np.dot(R, [1, 0, 0])))
+        dis = solver.discharge(g, np.dot(R, [1, 0, 0]))
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -297,13 +297,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, np.dot(R, [-1, 0, 0])))
+        dis = solver.discharge(g, np.dot(R, [-1, 0, 0]))
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -327,13 +327,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, np.dot(R, [1, 0, 0])))
+        dis = solver.discharge(g, np.dot(R, [1, 0, 0]))
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -361,13 +361,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, np.dot(R, [-1, 0, 0])))
+        dis = solver.discharge(g, np.dot(R, [-1, 0, 0]))
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -395,13 +395,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, np.dot(R, [1, 0, 0])))
+        dis = solver.discharge(g, np.dot(R, [1, 0, 0]))
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -426,13 +426,13 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, np.dot(R, [-1, 0, 0])))
+        dis = solver.discharge(g, np.dot(R, [-1, 0, 0]))
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
         param.set_bc(solver, bc)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M = solver.matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -455,7 +455,7 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, [-2, 0, 0]))
+        dis = solver.discharge(g, [-2, 0, 0])
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -463,7 +463,7 @@ class BasicsTest( unittest.TestCase ):
         param.set_bc(solver, bc)
         param.set_bc_val(solver, bc_val)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M, rhs = solver.matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)
 
@@ -487,7 +487,7 @@ class BasicsTest( unittest.TestCase ):
 
         solver = upwind.Upwind()
         param = Parameters(g)
-        param.set_discharge(solver.discharge(g, [-2, 0, 0]))
+        dis = solver.discharge(g, [-2, 0, 0])
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['neu'])
@@ -495,7 +495,7 @@ class BasicsTest( unittest.TestCase ):
         param.set_bc(solver, bc)
         param.set_bc_val(solver, bc_val)
 
-        data = {'param': param}
+        data = {'param': param, 'discharge': dis}
         M, rhs = solver.matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)
 

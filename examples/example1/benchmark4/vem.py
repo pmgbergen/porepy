@@ -15,6 +15,7 @@ from porepy.numerics.vem import vem_dual, vem_source
 
 #------------------------------------------------------------------------------#
 
+
 def add_data(gb, domain):
     """
     Define the permeability, apertures, boundary conditions
@@ -28,9 +29,9 @@ def add_data(gb, domain):
 
         # Permeability
         if g.dim == 2:
-            perm = tensor.SecondOrder(g.dim, 1e-14*np.ones(g.num_cells))
+            perm = tensor.SecondOrder(g.dim, 1e-14 * np.ones(g.num_cells))
         else:
-            perm = tensor.SecondOrder(g.dim, 1e-8*np.ones(g.num_cells))
+            perm = tensor.SecondOrder(g.dim, 1e-8 * np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         # Source term
@@ -66,9 +67,10 @@ def add_data(gb, domain):
     gb.add_edge_prop('kn')
     for e, d in gb.edges_props():
         gn = gb.sorted_nodes_of_edge(e)
-        d['kn'] = 1e-8*np.ones(gn[0].num_cells)
+        d['kn'] = 1e-8 * np.ones(gn[0].num_cells)
 
 #------------------------------------------------------------------------------#
+
 
 mesh_kwargs = {}
 mesh_kwargs['mesh_size'] = {'mode': 'constant',
@@ -95,12 +97,12 @@ A_flow, b_flow = solver_flow.matrix_rhs(gb)
 solver_source = vem_source.IntegralMixDim('flow')
 A_source, b_source = solver_source.matrix_rhs(gb)
 
-up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 solver.split(gb, "up", up)
 
-gb.add_node_props(["discharge", "p", "P0u"])
+gb.add_node_props(["discharge", 'pressure', "P0u"])
 solver.extract_u(gb, "up", "discharge")
-solver.extract_p(gb, "up", "p")
+solver.extract_p(gb, "up", 'pressure')
 solver.project_u(gb, "discharge", "P0u")
 
-exporter.export_vtk(gb, 'vem', ["p", "P0u"], folder='vem')
+exporter.export_vtk(gb, 'vem', ['pressure', "P0u"], folder='vem')
