@@ -215,20 +215,9 @@ class MortarGrid(object):
 
 #------------------------------------------------------------------------------#
 
-    def update_high(self, side_matrix):
-
-        # In the case of different side ordering between the input data and the
-        # stored we need to remap it. The resulting matrix will be a block
-        # diagonal matrix, where in each block we have the mapping between the
-        # (relative to side) old grid and the new one.
-        matrix = np.empty((self.num_sides(), self.num_sides()), dtype=np.object)
-
-        # Loop on all the side grids, if not given an identity matrix is
-        # considered
-        for pos, (side, g) in enumerate(self.side_grids.items()):
-            matrix[pos, pos] = side_matrix[side]
-
-        self.high_to_mortar = self.high_to_mortar * sps.bmat(matrix)
+    def update_high(self, matrix):
+        # Make a comment here
+        self.high_to_mortar = self.high_to_mortar * matrix
 
 #------------------------------------------------------------------------------#
 
