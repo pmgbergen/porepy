@@ -74,7 +74,7 @@ class BasicsTest( unittest.TestCase ):
 
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A,rhs)
-        solver.split(gb, "p", p)
+        solver.split(gb, "pressure", p)
         fvutils.compute_discharges(gb)
 
         p_known = np.array([1.7574919 ,  1.25249747,  1.7574919 ,  1.25249747,
@@ -88,9 +88,9 @@ class BasicsTest( unittest.TestCase ):
 
         for _, d in gb:
             if d['node_number'] == 0:
-                assert np.allclose( d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose( d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
 
         assert np.allclose(p, p_known, rtol, atol)
 
@@ -149,7 +149,7 @@ class BasicsTest( unittest.TestCase ):
 
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A, rhs)
-        solver.solver.split(gb, "p", p)
+        solver.solver.split(gb, "pressure", p)
         fvutils.compute_discharges(gb)
 
         p_known = np.array([1.7574919 ,  1.25249747,  1.7574919 ,  1.25249747,
@@ -164,9 +164,9 @@ class BasicsTest( unittest.TestCase ):
         for _, d in gb:
 
             if d['node_number'] == 0:
-                assert np.allclose( d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose( d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
 
         assert np.allclose(p, p_known, rtol, atol)
 
@@ -254,7 +254,7 @@ class BasicsTest( unittest.TestCase ):
                                                     A, rhs, gb, dim=0)
 
         solver.split(gb, "p_cond", p_cond)
-        solver.split(gb, "p", p)
+        solver.split(gb, "pressure", p)
 
         # Make a copy of the grid bucket without the 0d grid
         dim_to_remove = 0
@@ -262,7 +262,7 @@ class BasicsTest( unittest.TestCase ):
         # Compute the flux discretization on the new edges
         condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
         # Compute the discharges from the flux discretizations and computed pressures
-        solver.split(gb_r, "p", p_red)
+        solver.split(gb_r, "pressure", p_red)
         fvutils.compute_discharges(gb)
         fvutils.compute_discharges(gb_r)
 
@@ -274,19 +274,19 @@ class BasicsTest( unittest.TestCase ):
         atol = rtol
         for g, d in gb:
             if d['node_number'] == 0:
-                assert np.allclose(  d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose(  d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
             if d['node_number'] == 2:
-                assert np.allclose( d['param'].get_discharge(), d_2, rtol, atol)
+                assert np.allclose( d['discharge'], d_2, rtol, atol)
         for g, d in gb_r:
 
             if d['node_number'] == 0:
-                assert np.allclose(  d['param'].get_discharge(), d_0, rtol, atol)
+                assert np.allclose(  d['discharge'], d_0, rtol, atol)
             if d['node_number'] == 1:
-                assert np.allclose( d['param'].get_discharge(), d_1, rtol, atol)
+                assert np.allclose( d['discharge'], d_1, rtol, atol)
             if d['node_number'] == 2:
-                assert np.allclose( d['param'].get_discharge(), d_2, rtol, atol)
+                assert np.allclose( d['discharge'], d_2, rtol, atol)
 
         # ... edge fluxes ...
         d_01, d_10, d_02, d_20, d_13, d_23 = coupling_fluxes_2d_1d_cross_no_el()
@@ -298,15 +298,15 @@ class BasicsTest( unittest.TestCase ):
             if pa is not None:
 
                 if node_numbers == (0,1):
-                    assert np.allclose( pa.get_discharge(), d_01, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_10, rtol, atol)
+                    assert np.allclose( data['discharge'], d_01, rtol, atol) or \
+                        np.allclose( data['discharge'], d_10, rtol, atol)
                 if node_numbers == (0,2):
-                    assert np.allclose( pa.get_discharge(), d_02, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_20, rtol, atol)
+                    assert np.allclose( data['discharge'], d_02, rtol, atol) or \
+                        np.allclose( data['discharge'], d_20, rtol, atol)
                 if node_numbers == (1,3):
-                    assert np.allclose( pa.get_discharge(), d_13, rtol, atol)
+                    assert np.allclose( data['discharge'], d_13, rtol, atol)
                 if node_numbers == (2,3):
-                    assert np.allclose( pa.get_discharge(), d_23, rtol, atol)
+                    assert np.allclose( data['discharge'], d_23, rtol, atol)
 
         d_11,d_21,d_22 = coupling_fluxes_2d_1d_cross_with_el()
         for e, data in gb_r.edges_props():
@@ -316,21 +316,21 @@ class BasicsTest( unittest.TestCase ):
             if pa is not None:
 
                 if node_numbers == (0,1):
-                    assert np.allclose( pa.get_discharge(), d_01, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_10, rtol, atol)
+                    assert np.allclose( data['discharge'], d_01, rtol, atol) or \
+                        np.allclose( data['discharge'], d_10, rtol, atol)
                 if node_numbers == (0,2):
-                    assert np.allclose( pa.get_discharge(), d_02, rtol, atol) or \
-                        np.allclose( pa.get_discharge(), d_20, rtol, atol)
+                    assert np.allclose( data['discharge'], d_02, rtol, atol) or \
+                        np.allclose( data['discharge'], d_20, rtol, atol)
                 if node_numbers == (1,1):
-                    assert np.allclose( pa.get_discharge(), d_11, rtol, atol)
+                    assert np.allclose( data['discharge'], d_11, rtol, atol)
                 if node_numbers == (2,1):
-                    assert np.allclose( pa.get_discharge(), d_21, rtol, atol)
+                    assert np.allclose( data['discharge'], d_21, rtol, atol)
                 if node_numbers == (2,2):
-                    assert np.allclose( pa.get_discharge(), d_22, rtol, atol)
+                    assert np.allclose( data['discharge'], d_22, rtol, atol)
         # ... and pressures
         tol = 1e-10
         assert((np.amax(np.absolute(p-p_cond))) < tol)
-        assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
+        assert(np.sum(error.error_L2(g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
     if __name__ == '__main__':
         unittest.main()

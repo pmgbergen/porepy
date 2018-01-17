@@ -234,26 +234,37 @@ class Parameters(object):
 
     porosity = property(get_porosity, set_porosity)
 
-#---------------- Discharge -------------------------------------------------
+#-------------------- Face-wise quantities below here --------------------
 
-    def get_discharge(self):
+#------------------ slip_distance -----------------
+
+#------------------------------------
+    def get_slip_distance(self, default=0):
         """ double or array-like
-        Face-wise representation of discharge.
-        Always set and returned as np.ndarray (1 x g.num_faces) for
-        internal grids. For edges between dimensions they may also
-        be grid1.num_cells x grid2.num_cells.
+        face-wise representation of slip distance. Set as either a np.ndarary, or a
+        scalar (uniform) value. Always returned as np.ndarray.
         """
-        if not hasattr(self, '_discharge'):
-            raise ValueError('Discharge not set')
-        return self._discharge
+        if not hasattr(self, '_slip_distance'):
+            return default * np.ones(self._num_faces * self.dim)
 
-    def set_discharge(self, val):
-        if not isinstance(val, np.ndarray):
-            raise ValueError('Only np.ndarray allowed for discharge')
+        if isinstance(self._slip_distance, np.ndarray):
+            # Hope that the user did not initialize as array with wrong size
+            return self._slip_distance
         else:
-            self._discharge = val
+            return self._slip_distance * np.ones(self._num_faces * self.dim)
 
-    discharge = property(get_discharge, set_discharge)
+
+    def set_slip_distance(self, val):
+        """ Set physics-specific slip_distance
+
+        Parameters:
+
+        val : slip distance, representing the difference in slip between left
+              and right fracture faces
+        """
+        self._slip_distance = val
+
+    slip_distance = property(get_slip_distance, set_slip_distance)
 
 
 #----------- Multi-physics (solver-/context-dependent) parameters below -----
@@ -349,6 +360,96 @@ class Parameters(object):
             return np.zeros(self._num_cells * self.dim)
     source_mechanics = property(get_source_mechanics)
 
+#-------------------- Backgound stress, ---------------------
+    def get_background_stress(self, obj):
+        """ Pick out physics-specific background_stress.
+
+        Discretization methods should access this method.
+
+        Parameters:
+
+        obj : Solver or str
+            Identification of physical regime. Either discretization object
+            with attribute 'physics' or a str.
+
+        Returns:
+
+        np.ndarray
+            stress matrix size = (g.dim, g.dim)
+
+        """
+        physics = self._get_physics(obj)
+
+        if physics == 'flow':
+            return self.get_background_stress_flow()
+        elif physics == 'transport':
+            return self.get_background_stress_transport()
+        elif physics == 'mechanics':
+            return self.get_background_stress_mechanics()
+        else:
+            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
+                             % (physics, self.known_physics))
+
+    def set_background_stress(self, obj, val):
+        """ Set physics-specific background_stress
+
+        Parameters:
+
+        obj: Solver or str
+            Identification of physical regime. Either discretization object
+            with attribute 'physics' or a str.
+
+        val: np.ndarray. Size (g.dim, g.dim)
+            background_stress for all cells
+
+        """
+        physics = self._get_physics(obj)
+
+        if physics == 'flow':
+            self._background_stress_flow = val
+        elif physics == 'transport':
+            self._background_stress_transport = val
+        elif physics == 'mechanics':
+            self._background_stress_mechanics = val
+        else:
+            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
+                             % (physics, self.known_physics))
+
+    def get_background_stress_flow(self):
+        """ array_like
+        Cell-wise quantity representing the volume background_stress in a cell. Represent
+        total in/outflow in the cell (integrated over the cell volume).
+        Background_Stresss should be accessed via get_background_stress / set_background_stress
+        """
+        if hasattr(self, '_background_stress_flow'):
+            return self._background_stress_flow
+        else:
+            return np.zeros(self._num_cells)
+
+    background_stress_flow = property(get_background_stress_flow)
+
+    def get_background_stress_transport(self):
+        """ array_like
+        Cell-wise quantity representing the concentration / temperature background_stress
+        in a cell. Represent total in/outflow in the cell (integrated over the
+        cell volume).
+        Background_Stresss should be accessed via get_background_stress / set_background_stress
+        """
+        if hasattr(self, '_background_stress_transport'):
+            return self._background_stress_transport
+        else:
+            return np.zeros(self._num_cells)
+
+    background_stress_transport = property(get_background_stress_transport)
+
+    def get_background_stress_mechanics(self):
+        if hasattr(self, '_background_stress_mechanics'):
+            return self._background_stress_mechanics
+        else:
+            return np.zeros(self._num_cells * self.dim)
+    background_stress_mechanics = property(get_background_stress_mechanics)
+
+
 #-------------------- Permeability, conductivity, ---------------------
 
     def get_tensor(self, obj):
@@ -383,7 +484,7 @@ class Parameters(object):
                              % (physics, self.known_physics))
 
     def set_tensor(self, obj, val):
-        """ Set physics-specific source
+        """ Set physics-specific tensor
 
         Parameters:
 

@@ -80,12 +80,12 @@ class BasicsTest( unittest.TestCase ):
         p_cond, _, _, _ = condensation.solve_static_condensation(\
                                                                  A, rhs, gb, dim=1)
 
-        solver_coupler.split(gb, "p", p)
+        solver_coupler.split(gb, "pressure", p)
         solver_coupler.split(gb, "p_cond", p_cond)
 
         tol = 1e-10
         assert((np.amax(np.absolute(p-p_cond))) < tol)
-        assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
+        assert(np.sum(error.error_L2(g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 
 #------------------------------------------------------------------------------#
@@ -148,12 +148,12 @@ class BasicsTest( unittest.TestCase ):
         p_cond, _, _, _ = condensation.solve_static_condensation(\
                                                                  A, rhs, gb, dim=1)
 
-        solver_coupler.split(gb, "p", p)
+        solver_coupler.split(gb, "pressure", p)
         solver_coupler.split(gb, "p_cond", p_cond)
 
         tol = 1e-5
         assert((np.amax(np.absolute(p-p_cond))) < tol)
-        assert(np.sum(error.error_L2(g, d['p'], d['p_cond']) for g, d in gb) < tol)
+        assert(np.sum(error.error_L2(g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#
     if __name__ == '__main__':

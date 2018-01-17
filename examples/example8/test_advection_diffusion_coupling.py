@@ -118,9 +118,9 @@ def add_data_advection_diffusion(gb, domain, tol):
     gb.add_edge_prop('param')
     for e, d in gb.edges_props():
         g_h = gb.sorted_nodes_of_edge(e)[1]
-        discharge = gb.node_prop(g_h, 'param').get_discharge()
+        discharge = gb.node_prop(g_h, 'discharge')
         d['param'] = Parameters(g_h)
-        d['param'].set_discharge(discharge)
+        d['discharge'] = discharge
 
 #------------------------------------------------------------------------------#
 
@@ -135,8 +135,7 @@ mesh_kwargs['mesh_size'] = {'mode': 'constant',
                             'value': 0.045, 'bound_value': 0.045}
 
 domain = {'xmin': -0.2, 'xmax': 1.2, 'ymin': -0.2, 'ymax': 1.2}
-print(folder)
-gb = importer.mesh_from_csv(folder + 'network.csv', mesh_kwargs, domain)
+gb = importer.dfm_2d_from_csv(folder + 'network.csv', mesh_kwargs, domain)
 gb.compute_geometry()
 gb.assign_node_ordering()
 
@@ -157,18 +156,18 @@ A_flow, b_flow = darcy.matrix_rhs(gb)
 solver_source = vem_source.IntegralMixedDim('flow')
 A_source, b_source = solver_source.matrix_rhs(gb)
 
-up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 darcy.split(gb, "up", up)
 
-gb.add_node_props(["p", "P0u"])
+gb.add_node_props(['pressure', "P0u"])
 for g, d in gb:
     discharge = darcy.discr.extract_u(g, d["up"])
-    d['param'].set_discharge(discharge)
-    d["p"] = darcy.discr.extract_p(g, d["up"])
+    d['discharge'] = discharge
+    d['pressure'] = darcy.discr.extract_p(g, d["up"])
     d["P0u"] = darcy.discr.project_u(g, discharge, d)
 
 if do_save:
-    exporter.export_vtk(gb, 'darcy', ["p", "P0u"], folder=export_folder)
+    exporter.export_vtk(gb, 'darcy', ['pressure', "P0u"], folder=export_folder)
 
 #################################################################
 

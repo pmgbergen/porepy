@@ -46,6 +46,21 @@ or for editable installs into the user directory:
 
 	pip install --user -e .
 	
+
+# Using Docker
+A docker image is available, courtesy of Davide Baroli. To pull the docker.io/pmgbergen/porepylib with tag py27 image from cloud infrastructure:
+```bash
+>  docker pull docker.io/pmgbergen/porepylib:py27
+```
+Docker will pull the py27 tag of the image pmgbergen/porepylib from docker.io based on python 2.7. The download is around 4.085 GB. The  image is a great place to start experimenting with porepy and includes all dependencies already compiled for you.
+Once the download is complete you can start porepy for the first time. Just run:
+```bash
+>  docker run -ti  docker.io/pmgbergen/porepy:py27
+```
+The image is auto-deployed at each push in the branch "develop".
+
+For more details see the [docker md](./Docker.md).
+
 # (Semi-) Optional packages
 To function optimally, PorePy should have access to the pypi packages:
 *  `pymetis` (for mesh partitioning). Will be installed on Linux (not so on Windows, to avoid installation issues for the core package in the case where no C compiler is available).
@@ -65,5 +80,8 @@ Confer the [tutorials](https://github.com/pmgbergen/porepy/tree/develop/tutorial
 
 # Problems
 Create an [issue](https://github.com/pmgbergen/porepy/issues)
+
+# License
+See [license md](./LICENSE.md).
 
 
