@@ -457,7 +457,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
     # Find cells in 2d close to the segment
     bound_cells_old = cells_from_faces(g_old, faces_on_boundary_old)
     # This may occur if the mortar grid is one sided (T-intersection)
-    assert bound_cells_old.size > 1, 'Have not implemented this. Not difficult though'
+#    assert bound_cells_old.size > 1, 'Have not implemented this. Not difficult though'
     # Vector from midpoint to cell centers. Check which side the cells are on
     # relative to normal vector.
     # We are here assuming that the segment is not too curved (due to rounding
@@ -506,7 +506,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
 
     # Cells along the segment, from the new grid
     bound_cells_new = cells_from_faces(g_new, faces_on_boundary_new)
-    assert bound_cells_new.size > 1, 'Have not implemented this. Not difficult though'
+#    assert bound_cells_new.size > 1, 'Have not implemented this. Not difficult though'
     cc_new = g_new.cell_centers[:, bound_cells_new]
     side_new = np.sign(np.sum(((cc_new - mp) * normal), axis=0))
 
