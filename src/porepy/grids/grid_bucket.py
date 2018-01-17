@@ -250,7 +250,7 @@ class GridBucket(object):
 #------------------------------------------------------------------------------#
 
     def node_neighbors(self, node, only_higher=False, only_lower=False,
-                       cond=None:):
+                       cond=None):
         """
         Parameters:
             node: node in the graph, grid
