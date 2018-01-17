@@ -521,6 +521,8 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
 
     for so, sn in zip(both_sides_old, both_sides_new):
 
+        if sn.size == 0 or so.size == 0:
+            continue
         # Pick out faces along boundary in old grid, uniquify nodes, and
         # define auxiliary grids
         loc_faces_old = faces_on_boundary_old[so]
