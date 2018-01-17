@@ -9,16 +9,11 @@ from porepy.fracs import importer
 # geometrical tolerance
 tol = 1e-8
 
-# define the mesh size
-h = 0.15
-grid_kwargs = {}
-grid_kwargs['mesh_size'] = {'mode': 'constant', 'value': h, 'bound_value': h, 'tol': tol}
-
 # first line in the file is the domain boundary, the others the fractures
 file_dfm = 'geiger_3d.csv'
 
 # import the dfm and generete the grids
-gb, domain = importer.dfm_3d_from_csv(file_dfm, tol, **grid_kwargs)
+gb, domain = importer.dfm_3d_from_csv(file_dfm, tol, h_ideal=0.2, h_min=0.1)
 gb.compute_geometry()
 
 
