@@ -13,6 +13,7 @@ import porepy.utils.comp_geom as cg
 
 #------------------------------------------------------------------------------#
 
+
 def dfm_3d_from_csv(file_name, tol=1e-4, **mesh_kwargs):
     """
     Create the grid bucket from a set of 3d fractures stored in a csv file and
@@ -36,6 +37,7 @@ def dfm_3d_from_csv(file_name, tol=1e-4, **mesh_kwargs):
     return gb, domain
 
 #------------------------------------------------------------------------------#
+
 
 def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
     """
@@ -86,7 +88,7 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
             if pts.size == 0:
                 continue
 
-            frac_list.append(Fracture(pts.reshape((3,-1), order='F')))
+            frac_list.append(Fracture(pts.reshape((3, -1), order='F')))
 
     # Create the network
     network = FractureNetwork(frac_list, tol=tol)
@@ -98,7 +100,8 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
 
 #------------------------------------------------------------------------------#
 
-def dfm_2d_from_csv(f_name, mesh_kwargs, domain=None, return_domain=False, \
+
+def dfm_2d_from_csv(f_name, mesh_kwargs, domain=None, return_domain=False,
                     tol=1e-8, **kwargs):
     """
     Create the grid bucket from a set of fractures stored in a csv file and a
@@ -136,6 +139,7 @@ def dfm_2d_from_csv(f_name, mesh_kwargs, domain=None, return_domain=False, \
         return meshing.simplex_grid(f_set, domain, **mesh_kwargs)
 
 #------------------------------------------------------------------------------#
+
 
 def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
     """ Read csv file with fractures to obtain fracture description.
@@ -176,7 +180,7 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
     # Extract the data from the csv file
     data = np.genfromtxt(f_name, **npargs)
     if data.size == 0:
-        return np.empty((2,0)), np.empty((2,0), dtype=np.int)
+        return np.empty((2, 0)), np.empty((2, 0), dtype=np.int)
     data = np.atleast_2d(data)
 
     num_fracs = data.shape[0] if data.size > 0 else 0
@@ -189,8 +193,8 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
     pts = data[:, pt_cols].reshape((-1, 2)).T
 
     # Let the edges correspond to the ordering of the fractures
-    edges = np.vstack((np.arange(0, 2*num_fracs, 2),
-                       np.arange(1, 2*num_fracs, 2)))
+    edges = np.vstack((np.arange(0, 2 * num_fracs, 2),
+                       np.arange(1, 2 * num_fracs, 2)))
     if tagcols is not None:
         edges = np.vstack((edges, data[:, tagcols].T))
 
@@ -205,6 +209,7 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
     return pts, edges.astype(np.int)
 
 #------------------------------------------------------------------------------#
+
 
 def dfn_3d_from_fab(file_name, file_inters=None, conforming=True, tol=None,
                     vtk_name=None, **kwargs):
@@ -237,6 +242,7 @@ def dfn_3d_from_fab(file_name, file_inters=None, conforming=True, tol=None,
         return meshing.dfn(network, conforming, inters, **kwargs)
 
 #------------------------------------------------------------------------------#
+
 
 def network_3d_from_fab(f_name, return_all=False, tol=None):
     """ Read fractures from a .fab file, as specified by FracMan.
@@ -332,7 +338,7 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
             elif line.strip() == 'BEGIN TESSFRACTURE':
                 # Read tess_fractures
                 tess_fracs, tess_frac_ids, tess_sgn = \
-                                        read_fractures(f, is_tess=True)
+                    read_fractures(f, is_tess=True)
             elif line.strip()[:5] == 'BEGIN':
                 # Check for keywords not yet implemented.
                 raise ValueError('Unknown section type ' + line)
@@ -349,6 +355,7 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
         return network
 
 #------------------------------------------------------------------------------#
+
 
 def intersection_dfn_3d(file_name, fractures):
     """ Read the fracture intersections from file.
@@ -374,16 +381,17 @@ def intersection_dfn_3d(file_name, fractures):
     intersections = np.empty((inter_from_file.shape[0], 3), dtype=np.object)
 
     for line, intersection in zip(inter_from_file, intersections):
-        intersection[0] = DummyFracture(int(line[6])-1)
-        intersection[1] = DummyFracture(int(line[7])-1)
-        intersection[2] = np.array(line[:6]).reshape((3,-1), order='F')
+        intersection[0] = DummyFracture(int(line[6]) - 1)
+        intersection[1] = DummyFracture(int(line[7]) - 1)
+        intersection[2] = np.array(line[:6]).reshape((3, -1), order='F')
     return intersections
 
 #------------------------------------------------------------------------------#
 
+
 def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
 
-    #TODO: tag tip faces
+    # TODO: tag tip faces
 
     offset_name = kwargs.get('offset_name', 1)
     folder += "/"
@@ -392,22 +400,23 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
 
     global_node_id = 0
     for f_id in np.arange(num_fractures):
-        post = "_F" + str(f_id+offset_name) + "_" + str(case_id) + ".txt"
-        nodes_2d, face_nodes_2d, cell_faces_2d = _dfn_grid_2d(folder, post, **kwargs)
+        post = "_F" + str(f_id + offset_name) + "_" + str(case_id) + ".txt"
+        nodes_2d, face_nodes_2d, cell_faces_2d = _dfn_grid_2d(
+            folder, post, **kwargs)
         g_2d[f_id] = grid.Grid(2, nodes_2d, face_nodes_2d, cell_faces_2d,
                                "fracture_" + str(f_id) + "_" + str(case_id))
 
-        bnd_faces = g_2d[f_id].get_boundary_faces()
-        g_2d[f_id].add_face_tag(bnd_faces, grid.FaceTag.DOMAIN_BOUNDARY)
+        bnd_faces = g_2d[f_id].get_all_boundary_faces()
+        g_2d[f_id].tags['domain_boundary_faces'][bnd_faces] = True
 
         g_2d[f_id].global_point_ind = np.arange(g_2d[f_id].num_nodes) + \
-                                      global_node_id
+            global_node_id
         global_node_id += g_2d[f_id].num_nodes
 
     gb.add_nodes(g_2d)
 
     for f_id in np.arange(num_fractures):
-        post = "_F" + str(f_id+offset_name) + "_" + str(case_id) + ".txt"
+        post = "_F" + str(f_id + offset_name) + "_" + str(case_id) + ".txt"
 
         face_name = kwargs.get("face_name", "Faces")
         face_file_name = folder + face_name + post
@@ -415,20 +424,21 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
         with open(face_file_name, 'r') as f:
             skip_lines = int(f.readline().split()[0]) + 1
             lines = np.array(f.readlines()[skip_lines:])
-            conn = np.atleast_2d([np.fromstring(l, dtype=np.int, sep=' ') \
-                                                                for l in lines])
+            conn = np.atleast_2d([np.fromstring(l, dtype=np.int, sep=' ')
+                                  for l in lines])
             # Consider only the new intersections
             conn = conn[conn[:, 2] > f_id, :]
 
             for g_id in np.unique(conn[:, 2]):
-                other_f_id = g_id-1
+                other_f_id = g_id - 1
                 mask = conn[:, 2] == g_id
 
                 nodes_id = _nodes_faces_2d(g_2d[f_id], conn[mask, 0])
-                nodes_1d, face_nodes_1d, cell_faces_1d = _dfn_grid_1d(g_2d[f_id], nodes_id)
+                nodes_1d, face_nodes_1d, cell_faces_1d = _dfn_grid_1d(
+                    g_2d[f_id], nodes_id)
                 g_1d = grid.Grid(1, nodes_1d, face_nodes_1d, cell_faces_1d,
-                                 "intersection_" + str(f_id) + \
-                                 "_" + str(g_id-1) + "_" + str(case_id))
+                                 "intersection_" + str(f_id) +
+                                 "_" + str(g_id - 1) + "_" + str(case_id))
 
                 print(nodes_id)
                 print(g_2d[f_id].global_point_ind[nodes_id])
@@ -436,7 +446,7 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
                 g_1d.global_point_ind = global_point_ind
 
                 nodes_id = _nodes_faces_2d(g_2d[other_f_id], conn[mask, 1])
-                for g, _ in gb: # TODO: better access
+                for g, _ in gb:  # TODO: better access
                     if g is g_2d[other_f_id]:
                         g.global_point_ind[nodes_id] = global_point_ind
                         break
@@ -461,6 +471,7 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
 
 #------------------------------------------------------------------------------#
 
+
 def _dfn_grid_2d(folder, post, **kwargs):
 
     cell_name = kwargs.get("cell_name", "Cells")
@@ -470,17 +481,17 @@ def _dfn_grid_2d(folder, post, **kwargs):
     with open(cell_file_name, 'r') as f:
         num_cells, num_faces_cells = map(int, f.readline().split())
         cell_faces_data = np.empty(num_faces_cells, dtype=np.int)
-        cell_faces_indptr = np.zeros(num_cells+1, dtype=np.int)
+        cell_faces_indptr = np.zeros(num_cells + 1, dtype=np.int)
         cell_faces_indices = np.empty(num_faces_cells, dtype=np.int)
 
         lines = list(islice(f, num_cells))
         pos = 0
         for cell_id, line in enumerate(lines):
             data = np.fromstring(line, dtype=np.int, sep=' ')
-            cell_faces_indptr[cell_id+1] = pos+data.size
-            index = slice(pos, pos+data.size)
+            cell_faces_indptr[cell_id + 1] = pos + data.size
+            index = slice(pos, pos + data.size)
             cell_faces_indices[index] = np.abs(data)
-            cell_faces_data[index] = 2*(data > 0)-1
+            cell_faces_data[index] = 2 * (data > 0) - 1
             pos += data.size
 
         cell_faces = sps.csc_matrix((cell_faces_data,
@@ -500,12 +511,12 @@ def _dfn_grid_2d(folder, post, **kwargs):
         pos = 0
         for face_id, line in enumerate(lines):
             data = np.fromstring(line, dtype=np.int, sep=' ')
-            index = slice(pos, pos+data.size)
+            index = slice(pos, pos + data.size)
             face_nodes_indices[index] = data
             pos += data.size
 
-        face_nodes_indptr = np.hstack((np.arange(0, 2*num_faces, 2),
-                                       2*num_faces))
+        face_nodes_indptr = np.hstack((np.arange(0, 2 * num_faces, 2),
+                                       2 * num_faces))
         face_nodes = sps.csc_matrix((np.ones(num_nodes_faces, dtype=np.bool),
                                      face_nodes_indices,
                                      face_nodes_indptr))
@@ -526,12 +537,13 @@ def _dfn_grid_2d(folder, post, **kwargs):
 
 #------------------------------------------------------------------------------#
 
+
 def _nodes_faces_2d(grid_2d, faces_2d_id):
 
     nodes_id = np.empty((2, faces_2d_id.size), dtype=np.int)
     for cell_id, face_2d_id in enumerate(faces_2d_id):
         index = slice(grid_2d.face_nodes.indptr[face_2d_id],
-                      grid_2d.face_nodes.indptr[face_2d_id+1])
+                      grid_2d.face_nodes.indptr[face_2d_id + 1])
         nodes_id[:, cell_id] = grid_2d.face_nodes.indices[index]
 
     nodes_id = sort_point_pairs(nodes_id, is_circular=False)
@@ -539,16 +551,17 @@ def _nodes_faces_2d(grid_2d, faces_2d_id):
 
 #------------------------------------------------------------------------------#
 
+
 def _dfn_grid_1d(grid_2d, nodes_id):
 
     num_faces = nodes_id.size
-    num_cells = num_faces-1
+    num_cells = num_faces - 1
 
-    cell_faces_indptr = 2*np.arange(num_faces)
+    cell_faces_indptr = 2 * np.arange(num_faces)
     cell_faces_indices = np.vstack((np.arange(num_cells),
-                                    np.arange(1, num_cells+1))
-                                  ).ravel('F')
-    cell_faces_data = np.ones(2*num_cells)
+                                    np.arange(1, num_cells + 1))
+                                   ).ravel('F')
+    cell_faces_data = np.ones(2 * num_cells)
     cell_faces_data[::2] *= -1
 
     cell_faces = sps.csc_matrix((cell_faces_data,
@@ -556,9 +569,9 @@ def _dfn_grid_1d(grid_2d, nodes_id):
                                  cell_faces_indptr))
     del cell_faces_data, cell_faces_indptr, cell_faces_indices
 
-    face_nodes = sps.csc_matrix((np.ones(num_faces+1, dtype=np.bool),
-                                 np.arange(num_faces+1),
-                                 np.arange(num_faces+1)))
+    face_nodes = sps.csc_matrix((np.ones(num_faces + 1, dtype=np.bool),
+                                 np.arange(num_faces + 1),
+                                 np.arange(num_faces + 1)))
 
     return grid_2d.nodes[:, nodes_id], face_nodes, cell_faces
 

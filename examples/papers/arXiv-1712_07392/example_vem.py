@@ -5,7 +5,6 @@ import logging
 from porepy.viz import exporter
 from porepy.fracs import importer
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening
 
 from porepy.numerics import elliptic
@@ -18,7 +17,6 @@ from example_advective import AdvectiveModel, AdvectiveModelData
 
 def add_data(gb, domain, tol):
 
-
     extra = {'domain': domain, 'tol': tol, 'special_fracture': 6,
              'aperture': 1e-2, 'gb': gb,
              'km': 1, 'kf_low': 1e-4, 'kf_high': 1e4}
@@ -30,9 +28,9 @@ def add_data(gb, domain, tol):
         d['is_tangential'] = True
 
         if g.dim == 3 or g.dim == 1:
-            d['frac_num'] = -1*np.ones(g.num_cells)
+            d['frac_num'] = -1 * np.ones(g.num_cells)
         else:
-            d['frac_num'] = g.frac_num*np.ones(g.num_cells)
+            d['frac_num'] = g.frac_num * np.ones(g.num_cells)
 
     # Assign coupling permeability
     gb.add_edge_prop('kn')
@@ -57,6 +55,7 @@ def add_data(gb, domain, tol):
 
 #------------------------------------------------------------------------------#
 
+
 def main(coarse):
     tol = 1e-6
 
@@ -78,13 +77,6 @@ def main(coarse):
     if coarse:
         coarsening.coarsen(gb, 'by_volume')
 
-    gb.add_node_props(['face_tags'])
-    for g, d in gb:
-        d['face_tags'] = g.face_tags.copy()
-
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
     problem = elliptic.DualEllipticModel(gb, **problem_kwargs)
 
     # Assign parameters
@@ -98,9 +90,6 @@ def main(coarse):
     problem.project_discharge('P0u')
     problem.save(['pressure', 'P0u', 'frac_num'])
 
-    for g, d in gb:
-        g.face_tags = d['face_tags']
-
     problem_kwargs['file_name'] = 'transport'
 
     for g, d in gb:
@@ -111,6 +100,7 @@ def main(coarse):
     advective.save()
 
 #------------------------------------------------------------------------------#
+
 
 if __name__ == "__main__":
     main(coarse=False)

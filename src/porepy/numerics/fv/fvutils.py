@@ -186,7 +186,7 @@ def compute_dist_face_cell(g, subcell_topology, eta):
                                         blocksz[0], blocksz)
     eta_vec = eta * np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
-    bnd = np.in1d(subcell_topology.fno, g.get_boundary_faces())
+    bnd = np.in1d(subcell_topology.fno, g.get_all_boundary_faces())
     eta_vec[bnd] = 0
     cp = g.face_centers[:, subcell_topology.fno] \
         + eta_vec * (g.nodes[:, subcell_topology.nno] -
@@ -1000,7 +1000,7 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             pressures = gb.nodes_prop([g2, g1], p_name)
             dis = coupling_flux * np.concatenate(pressures)
             d[d_name] = dis
-            
+
         elif g1.dim == g2.dim and d['face_cells'] is not None:
             # g2 is now only the "higher", but still the one defining the faces
             # (cell-cells connections) in the sense that the normals are assumed

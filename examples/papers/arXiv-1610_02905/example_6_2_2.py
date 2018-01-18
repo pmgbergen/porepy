@@ -8,7 +8,6 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import dual
@@ -91,7 +90,7 @@ def add_data(gb, tol):
         param.set_source("flow", g.cell_volumes * source)
 
         # Boundaries
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -146,9 +145,6 @@ gb.compute_geometry()
 gb.assign_node_ordering()
 
 exporter.export_vtk(gb, 'grid', folder='vem')
-
-internal_flag = FaceTag.FRACTURE
-[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
 # Assign parameters
 add_data(gb, tol)
