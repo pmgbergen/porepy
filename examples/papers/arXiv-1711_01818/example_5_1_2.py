@@ -8,7 +8,6 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import dual
@@ -17,6 +16,7 @@ from porepy.utils import comp_geom as cg
 from porepy.utils import sort_points
 
 #------------------------------------------------------------------------------#
+
 
 def add_data(gb, domain):
     """
@@ -32,9 +32,9 @@ def add_data(gb, domain):
         # Permeability
         d['is_tangential'] = True
         if g.dim == 2:
-            kxx = 1e-14*np.ones(g.num_cells)
+            kxx = 1e-14 * np.ones(g.num_cells)
         else:
-            kxx = 1e-8*np.ones(g.num_cells)
+            kxx = 1e-8 * np.ones(g.num_cells)
 
         perm = tensor.SecondOrder(g.dim, kxx)
         param.set_tensor("flow", perm)
@@ -47,7 +47,7 @@ def add_data(gb, domain):
         param.set_aperture(np.ones(g.num_cells) * aperture)
 
         # Boundaries
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -73,9 +73,10 @@ def add_data(gb, domain):
     for e, d in gb.edges_props():
         gn = gb.sorted_nodes_of_edge(e)
         aperture = np.power(a, gb.dim_max() - gn[0].dim)
-        d['kn'] = 1e-10*np.ones(gn[0].num_cells)/aperture
+        d['kn'] = 1e-10 * np.ones(gn[0].num_cells) / aperture
 
 #------------------------------------------------------------------------------#
+
 
 def plot_over_line(gb, pts, name, tol):
 
@@ -94,10 +95,10 @@ def plot_over_line(gb, pts, name, tol):
 
         normal = cg.compute_normal(g.nodes)
         for c in np.arange(g.num_cells):
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-            pts_id_c = np.array([nodes_faces[g.face_nodes.indptr[f]:\
-                                                g.face_nodes.indptr[f+1]]
-                                                   for f in faces_cells[loc]]).T
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+            pts_id_c = np.array([nodes_faces[g.face_nodes.indptr[f]:
+                                             g.face_nodes.indptr[f + 1]]
+                                 for f in faces_cells[loc]]).T
             pts_id_c = sort_points.sort_point_pairs(pts_id_c)[0, :]
             pts_c = g.nodes[:, pts_id_c]
 
@@ -117,6 +118,7 @@ def plot_over_line(gb, pts, name, tol):
 
 ##------------------------------------------------------------------------------#
 
+
 tol = 1e-4
 mesh_kwargs = {}
 mesh_kwargs['mesh_size'] = {'mode': 'weighted',
@@ -129,9 +131,6 @@ gb = importer.from_csv('network.csv', mesh_kwargs, domain)
 gb.compute_geometry()
 co.coarsen(gb, 'by_volume')
 gb.assign_node_ordering()
-
-internal_flag = FaceTag.FRACTURE
-[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
 # Assign parameters
 add_data(gb, domain)
@@ -153,21 +152,21 @@ exporter.export_vtk(gb, 'vem', ['pressure', "P0u"], folder='example_5_1_2')
 # This part is very slow and not optimized, it's just to obtain the plots once.
 b_box = gb.bounding_box()
 N_pts = 1000
-y_range = np.linspace(b_box[0][1]+tol, b_box[1][1]-tol, N_pts)
-pts = np.stack((625*np.ones(N_pts), y_range, np.zeros(N_pts)))
+y_range = np.linspace(b_box[0][1] + tol, b_box[1][1] - tol, N_pts)
+pts = np.stack((625 * np.ones(N_pts), y_range, np.zeros(N_pts)))
 values = plot_over_line(gb, pts, 'pressure', tol)
 
 arc_length = y_range - b_box[0][1]
 np.savetxt("example_5_1_2/vem_x_625.csv", (arc_length, values))
 
-x_range = np.linspace(b_box[0][0]+tol, b_box[1][0]-tol, N_pts)
-pts = np.stack((x_range, 500*np.ones(N_pts), np.zeros(N_pts)))
+x_range = np.linspace(b_box[0][0] + tol, b_box[1][0] - tol, N_pts)
+pts = np.stack((x_range, 500 * np.ones(N_pts), np.zeros(N_pts)))
 values = plot_over_line(gb, pts, 'pressure', tol)
 
 arc_length = x_range - b_box[0][0]
 np.savetxt("example_5_1_2/vem_y_500.csv", (arc_length, values))
 
 
-print("diam", gb.diameter(lambda g: g.dim==gb.dim_max()))
-print("num_cells 2d", gb.num_cells(lambda g: g.dim==2))
-print("num_cells 1d", gb.num_cells(lambda g: g.dim==1))
+print("diam", gb.diameter(lambda g: g.dim == gb.dim_max()))
+print("num_cells 2d", gb.num_cells(lambda g: g.dim == 2))
+print("num_cells 1d", gb.num_cells(lambda g: g.dim == 1))

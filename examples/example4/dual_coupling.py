@@ -25,8 +25,6 @@ from porepy.numerics.vem import dual, dual_coupling
 from porepy.viz.plot_grid import plot_grid
 from porepy.viz.exporter import export_vtk
 
-from porepy.grids.grid import FaceTag
-
 from porepy.grids.coarsening import *
 from porepy.fracs import meshing
 
@@ -47,8 +45,6 @@ from porepy.numerics.mixed_dim import coupler
 #
 #    # Need to remove the boundary flag explicity from the fracture face,
 #    # because of the mix formulation
-#    internal_flag = FaceTag.FRACTURE | FaceTag.TIP
-#    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 #
 #    if kwargs['visualize']: plot_grid(gb, info="all", alpha=0)
 #
@@ -61,7 +57,7 @@ from porepy.numerics.mixed_dim import coupler
 #        d['perm'] = tensor.SecondOrder(g.dim, kxx)
 #        d['source'] = np.zeros(g.num_cells)
 #
-#        b_faces = g.get_boundary_faces()
+#        b_faces = g.get_all_boundary_faces()
 #        b_faces_left = b_faces[g.face_centers[0, b_faces] == 0]
 #        b_faces_right = b_faces[g.face_centers[0, b_faces] == 2]
 #
@@ -120,12 +116,7 @@ from porepy.numerics.mixed_dim import coupler
 #    gb = meshing.cart_grid([f0, f1], [Nx, Ny], physdims=[2, 1])
 #    gb.remove_nodes(lambda g: g.dim == gb.dim_max())
 #    gb.assign_node_ordering()
-#
-#    # Need to remove the boundary flag explicity from the fracture face,
-#    # because of the mix formulation
-#    internal_flag = FaceTag.FRACTURE | FaceTag.TIP
-#    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-#
+##
 #    if kwargs['visualize']: plot_grid(gb, info="cfo", alpha=0)
 #
 #    # devo mettere l'apertura indicata come a
@@ -137,7 +128,7 @@ from porepy.numerics.mixed_dim import coupler
 #        d['source'] = np.zeros(g.num_cells)
 #
 #        if g.dim != 0:
-#            b_faces = g.get_boundary_faces()
+#            b_faces = g.get_all_boundary_faces()
 #            b_faces_dir = np.array([0])
 #            b_faces_dir_cond = g.face_centers[0, b_faces_dir]
 #
@@ -211,12 +202,6 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     print([g.num_faces for g, _ in gb])
     gb.assign_node_ordering()
 
-    # Need to remove the boundary flag explicity from the fracture face,
-    # because of the mix formulation
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag)
-     for g, _ in gb if g.dim == gb.dim_max()]
-
     if kwargs['visualize']:
         plot_grid(gb, info="f", alpha=0)
 
@@ -226,7 +211,7 @@ def darcy_dualVEM_coupling_example2(**kwargs):
         d['perm'] = tensor.SecondOrder(g.dim, kxx)
         d['source'] = np.zeros(g.num_cells)
 
-        b_faces = g.get_boundary_faces()
+        b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         b_faces_dir = b_faces[np.bitwise_or(g.face_centers[1, b_faces] == -1,
                                             g.face_centers[0, b_faces] == -1)]
 

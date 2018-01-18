@@ -98,7 +98,8 @@ class MainTester(unittest.TestCase):
         rewriting of the way analytical solutions are represented).
         """
         # Discretization. Use python inverter for speed
-        flux, bound_flux = mpfa.mpfa(g, k, bound_cond, inverter='python', eta=0)
+        flux, bound_flux = mpfa.mpfa(
+            g, k, bound_cond, inverter='python', eta=0)
         # Set up linear system
         div = fvutils.scalar_divergence(g)
         a = div * flux
@@ -139,7 +140,7 @@ class MainTester(unittest.TestCase):
 
         # The rest of the function is similar to self.solve.system, see that
         # for comments.
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         flux, bound_flux = mpfa.mpfa(g, perm, bound_cond, inverter='python',
                                      eta=0)
 
@@ -204,7 +205,7 @@ class MainTester(unittest.TestCase):
 
         # Boundary conditions
         xf = g.face_centers
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         char_func_bound = chi(xf[0, bound_faces], xf[1, bound_faces]) * 1
         u_bound = np.zeros((g.dim, g.num_faces))
         u_bound[0, bound_faces] = an_sol.ux_f(xf[0, bound_faces],
@@ -284,7 +285,7 @@ class CartGrid2D(MainTester):
         self.g_lines = g
 
         # Define boundary faces and conditions
-        self.bound_faces = g.get_boundary_faces()
+        self.bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         self.bc = bc.BoundaryCondition(g, self.bound_faces,
                                        ['dir'] * self.bound_faces.size)
 
@@ -696,7 +697,7 @@ class TriangleGrid2D(MainTester):
         self.g_lines = g
 
         # Define boundary faces and conditions
-        self.bound_faces = g.get_boundary_faces()
+        self.bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         self.bc = bc.BoundaryCondition(g, self.bound_faces,
                                        ['dir'] * self.bound_faces.size)
 
@@ -727,7 +728,7 @@ class TriangleGrid2D(MainTester):
         bound_cond = self.bc
         bound_faces = self.bound_faces
         perm = 1
-        k = tensor.SecondOrder(2,perm * np.ones(g.num_cells))
+        k = tensor.SecondOrder(2, perm * np.ones(g.num_cells))
 
         u_num, flux_num = self.solve_system_homogeneous_perm(g, bound_cond,
                                                              bound_faces, k,
