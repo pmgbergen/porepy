@@ -2436,18 +2436,32 @@ def snap_points_to_segments(p_edges, edges, tol, p_to_snap=None):
 def argsort_point_on_line(pts, tol=1e-5):
     """
     Return the indexes of the point according to their position on a line.
-    The first point in the list has to be on of the extrema of the line.
 
     Parameters:
         pts: the list of points
     Returns:
         argsort: the indexes of the points
+
     """
     if pts.shape[1] == 1:
         return np.array([0])
     assert is_collinear(pts, tol)
-    delta = np.tile(pts[:, 0], (pts.shape[1], 1)).T - pts
-    return np.argsort(np.abs(np.einsum('ij,ij->j', delta, delta)))
+
+    nd, n_pts = pts.shape
+
+    # Project into single coordinate
+    rot = project_line_matrix(pts)
+    p = rot.dot(pts)
+
+    # Isolate the active coordinate
+
+    mean = np.mean(p, axis=1)
+    p -= mean.reshape((nd, 1))
+
+    dx = p.max(axis=1) - p.min(axis=1)
+    active_dim = np.where(dx > tol)[0]
+    assert active_dim.size == 1, 'Points should be co-linear'
+    return np.argsort(p[active_dim])[0]
 
 #------------------------------------------------------------------------------#
 
