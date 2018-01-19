@@ -169,7 +169,8 @@ def split_matrix_1d(g_old, g_new, tol):
 
     """
     weights, new_cells, old_cells = match_grids_1d(g_new, g_old, tol)
-    return sps.csr_matrix((weights, (new_cells, old_cells)))
+    shape = (g_new.num_cells, g_old.num_cells)
+    return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
 
 #------------------------------------------------------------------------------#
 
@@ -189,8 +190,9 @@ def split_matrix_2d(g_old, g_new, tol):
 
     """
     weights, new_cells, old_cells = match_grids_2d(g_new, g_old, tol)
+    shape = (g_new.num_cells, g_old.num_cells)
     # EK: Is it really safe to use csr_matrix here?
-    return sps.csr_matrix((weights, (new_cells, old_cells)))
+    return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
 
 #------------------------------------------------------------------------------#
 
