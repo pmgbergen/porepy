@@ -587,10 +587,6 @@ class DualCoupling(AbstractCoupling):
         """
         # pylint: disable=invalid-name
 
-        # Normal permeability and aperture of the intersection
-        k = 2*data_edge['kn'] # TODO: need to be handled in a different way
-        aperture_h = data_h['param'].get_aperture()
-
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
         mg = data_edge['mortar_grid']
@@ -605,36 +601,40 @@ class DualCoupling(AbstractCoupling):
         sign_h = sign_h[ind_faces_h]
 
         # Mortar mass matrix
-        M = sps.diags(1/mg.cell_volumes)
+        M = sps.diags(1./mg.cell_volumes)
 
         # Projection matrix from hight/lower grid to mortar
         hat_P = mg.high_to_mortar
         check_P = mg.low_to_mortar
 
         # Velocity degree of freedom matrix
-        U = sps.diags(sign_h/g_h.face_areas[faces_h])
-
-        # Inverse of the normal permability matrix
-        # k[cells_l]) is the 1e-3 for now :)
-        Eta = sps.diags(1e-3/aperture_h[cells_h])
+        U = sps.diags(sign_h)
 
         # Compute the mortar variables rows
-        A = M*hat_P*U
+        A = hat_P*U
         shape = (A.shape[0], g_h.num_cells)
         cc[2, 0] = sps.bmat([[A, sps.csr_matrix(shape)]])
-        cc[2, 2] = -M
+        cc[2, 2] = -sps.identity(mg.num_cells)
 
         # Compute the high dimensional grid coupled to mortar grid term
-        cc[0, 2] = sps.bmat([[Eta*A.T], [sps.csr_matrix(shape).T]])
 
-        A = U*hat_P.T*M*check_P
+        # Normal permeability and aperture of the intersection
+        inv_k = 1./(2.*data_edge['kn'])
+        aperture_h = data_h['param'].get_aperture()
+
+        # Inverse of the normal permability matrix
+        Eta = sps.diags(np.divide(hat_P.T*inv_k, aperture_h[cells_h]))
+
+        cc[0, 2] = sps.bmat([[Eta*(M*A).T], [sps.csr_matrix(shape).T]])
+
+        A = U*hat_P.T*check_P
         shape = (g_h.num_cells, g_l.num_faces)
         cc[0, 1] = sps.bmat([[None, A], [sps.csr_matrix(shape), None]])
 
         # Coupling term representing the flux from the high to the lower
         # dimensional grids, represented as source term. In the mortar approach
         # the flux are the mortar variables (cell_volumes weighed)
-        A = (M*check_P).T
+        A = check_P.T
         shape = (g_l.num_faces, A.shape[1])
         cc[1, 2] = sps.bmat([[sps.csr_matrix(shape)], [A]])
 
