@@ -766,13 +766,11 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def compute_geometry(self, is_embedded=True):
+    def compute_geometry(self):
         """Compute geometric quantities for the grids.
-
-        Note: the flag "is_embedded" is True by default.
         """
 
-        [g.compute_geometry(is_embedded=is_embedded) for g, _ in self]
+        [g.compute_geometry() for g, _ in self]
         [d['mortar'].compute_geometry() for _, d in self.edges_props() \
                                                              if d.get('mortar')]
 

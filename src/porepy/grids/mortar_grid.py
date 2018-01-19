@@ -155,7 +155,7 @@ class MortarGrid(object):
         Compute the geometry of the mortar grids.
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
-        [g.compute_geometry(is_embedded=True) for g in self.side_grids.values()]
+        [g.compute_geometry() for g in self.side_grids.values()]
 
 #------------------------------------------------------------------------------#
 
