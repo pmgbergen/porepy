@@ -38,7 +38,7 @@ from porepy.grids import mortar_grid
 
 #------------------------------------------------------------------------------#
 
-def update_mortar_grid(mg, new_side_grids):
+def update_mortar_grid(mg, new_side_grids, tol):
     """
     Update the maps in the mortar class when the mortar grids are changed.
     The update of the mortar grid is in-place.
@@ -63,9 +63,9 @@ def update_mortar_grid(mg, new_side_grids):
             # Nothing to do
             return
         elif g.dim == 1:
-            split_matrix[side] = split_matrix_1d(g, new_g)
+            split_matrix[side] = split_matrix_1d(g, new_g, tol)
         elif g.dim == 2:
-            split_matrix[side] = split_matrix_2d(g, new_g)
+            split_matrix[side] = split_matrix_2d(g, new_g, tol)
         else:
             # No 3d mortar grid
             raise ValueError
@@ -77,7 +77,7 @@ def update_mortar_grid(mg, new_side_grids):
 
 #------------------------------------------------------------------------------#
 
-def update_physical_low_grid(mg, new_g):
+def update_physical_low_grid(mg, new_g, tol):
     """
     Update the maps in the mortar class when the lower dimensional grid is
     changed. The update of the lower dimensional grid in the grid bucket needs
@@ -104,9 +104,9 @@ def update_physical_low_grid(mg, new_g):
             # Nothing to do
             return
         elif mg.dim == 1:
-            split_matrix[side] = split_matrix_1d(g, new_g).T
+            split_matrix[side] = split_matrix_1d(g, new_g, tol).T
         elif mg.dim == 2:
-            split_matrix[side] = split_matrix_2d(g, new_g).T
+            split_matrix[side] = split_matrix_2d(g, new_g, tol).T
         else:
             # No 3d mortar grid
             raise ValueError
@@ -154,7 +154,7 @@ def update_physical_high_grid(mg, g_new, g_old, tol):
 
 #------------------------------------------------------------------------------#
 
-def split_matrix_1d(g_old, g_new):
+def split_matrix_1d(g_old, g_new, tol):
     """
     By calling matching grid the function compute the cell mapping between two
     different grids.
@@ -170,12 +170,12 @@ def split_matrix_1d(g_old, g_new):
             cell measure between the two grids.
 
     """
-    weights, new_cells, old_cells = match_grids_1d(g_new, g_old)
+    weights, new_cells, old_cells = match_grids_1d(g_new, g_old, tol)
     return sps.csr_matrix((weights, (new_cells, old_cells)))
 
 #------------------------------------------------------------------------------#
 
-def split_matrix_2d(g_old, g_new):
+def split_matrix_2d(g_old, g_new, tol):
     """
     By calling matching grid the function compute the cell mapping between two
     different grids.
@@ -190,13 +190,13 @@ def split_matrix_2d(g_old, g_new):
             cell measure between the two grids.
 
     """
-    weights, new_cells, old_cells = match_grids_2d(g_new, g_old)
+    weights, new_cells, old_cells = match_grids_2d(g_new, g_old, tol)
     # EK: Is it really safe to use csr_matrix here?
     return sps.csr_matrix((weights, (new_cells, old_cells)))
 
 #------------------------------------------------------------------------------#
 
-def match_grids_1d(new_1d, old_1d):
+def match_grids_1d(new_1d, old_1d, tol):
     """ Obtain mappings between the cells of non-matching 1d grids.
 
     The function constructs an refined 1d grid that consists of all nodes
@@ -226,7 +226,7 @@ def match_grids_1d(new_1d, old_1d):
 
     # Create a grid that contains all nodes of both the old and new grids.
     combined, _, new_ind, old_ind, _, _ = \
-         non_conforming.merge_1d_grids(new_1d, old_1d)
+         non_conforming.merge_1d_grids(new_1d, old_1d, tol=tol)
     combined.compute_geometry()
     weights = combined.cell_volumes
 
@@ -254,7 +254,7 @@ def match_grids_1d(new_1d, old_1d):
 
 #------------------------------------------------------------------------------#
 
-def match_grids_2d(new_g, old_g):
+def match_grids_2d(new_g, old_g, tol):
     """ Match two simplex tessalations to identify overlapping cells.
 
     The overlaps are identified by the cell index of the two overlapping cells,
@@ -320,15 +320,9 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
             replaced, but can we keep untouched grids?
 
     """
-    # Tolerance used in geometric comparisons. May be critical for performance,
-    # in particular for bad grids
-    tol = 1e-4
-
-    #gb = gb.copy() nope it's not workign with this
-
     # refine the mortar grids when specified
     for mg_old, mg_new in mg_map.items():
-        update_mortar_grid(mg_old, mg_new)
+        update_mortar_grid(mg_old, mg_new, tol)
 
     # refine the grids when specified
     for g_old, g_new in g_map.items():
@@ -338,7 +332,7 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
             mg = d['mortar_grid']
             if mg.dim == g_new.dim:
                 # update the mortar grid of the same dimension
-                update_physical_low_grid(mg, g_new)
+                update_physical_low_grid(mg, g_new, tol)
             else: # g_new.dim == mg.dim + 1
                 update_physical_high_grid(mg, g_new, g_old, tol)
 
