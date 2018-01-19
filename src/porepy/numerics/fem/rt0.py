@@ -15,6 +15,7 @@ from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 from porepy.numerics.vem import vem_dual
+from porepy.grids import grid, mortar_grid
 
 from porepy.utils import comp_geom as cg
 
@@ -40,11 +41,6 @@ class RT0MixedDim(SolverMixedDim):
         gb.add_node_props([p])
         for g, d in gb:
             d[p] = self.discr.extract_p(g, d[up])
-
-    def project_u(self, gb, u, P0u):
-        gb.add_node_props([P0u])
-        for g, d in gb:
-            d[P0u] = self.discr.project_u(g, d[u], d)
 
 #------------------------------------------------------------------------------#
 
@@ -75,7 +71,12 @@ class RT0(Solver):
         dof: the number of degrees of freedom.
 
         """
-        return g.num_cells + g.num_faces
+        if isinstance(g, grid.Grid):
+            return g.num_cells + g.num_faces
+        elif isinstance(g, mortar_grid.MortarGrid):
+            return g.num_cells
+        else:
+            raise ValueError
 
 #------------------------------------------------------------------------------#
 
@@ -381,8 +382,8 @@ class RT0(Solver):
         """
         # Allow short variable names in this function
         # pylint: disable=invalid-name
-
-        K = linalg.block_diag(*([K]*(dim+1)))/c_volume
+        inv_K = np.linalg.inv(K)
+        inv_K = linalg.block_diag(*([inv_K]*(dim+1)))/c_volume
 
         coord = coord[0:dim, :]
         N = coord.flatten('F').reshape((-1, 1))*np.ones((1, dim+1))-\
@@ -390,6 +391,6 @@ class RT0(Solver):
 
         C = np.diagflat(sign)
 
-        return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(K, np.dot(N, C)))))
+        return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K, np.dot(N, C)))))
 
 #------------------------------------------------------------------------------#
