@@ -322,9 +322,9 @@ class TestMortar1dSingleFracture(unittest.TestCase):
 
         gb.add_edge_prop('kn')
         for e, d in gb.edges_props():
+            mg = d['mortar_grid']
             gn = gb.sorted_nodes_of_edge(e)
-            aperture = np.power(1e-3, gb.dim_max() - gn[0].dim)
-            d['kn'] = kn * np.ones(gn[0].num_cells)
+            d['kn'] = kn * np.ones(mg.num_cells)
 
     def set_grids(self, N, num_nodes_mortar, num_nodes_1d):
         f1 = np.array([[0, 1], [.5, .5]])
@@ -338,7 +338,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
             new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=num_nodes_mortar) \
                               for s, g in mg.side_grids.items()}
 
-            mortars.update_mortar_grid(mg, new_side_grids)
+            mortars.update_mortar_grid(mg, new_side_grids, tol=1e-4)
 
             # refine the 1d-physical grid
             old_g = gb.sorted_nodes_of_edge(e)[0]
@@ -347,7 +347,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
 
             gb.update_nodes(old_g, new_g)
             mg = d['mortar_grid']
-            mortars.update_physical_low_grid(mg, new_g)
+            mortars.update_physical_low_grid(mg, new_g, tol=1e-4)
         return gb
 
     def test_fv_matching_grids_no_flow(self):
@@ -442,7 +442,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_prop(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        assert np.allclose(p_2d, g_2d.cell_centers[1])
+        assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
 
         g_1d = gb.grids_of_dimension(1)[0]
         p_1d = gb.node_prop(g_1d, 'pressure')
