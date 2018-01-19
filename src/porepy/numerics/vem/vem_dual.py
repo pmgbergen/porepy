@@ -177,17 +177,6 @@ class DualVEM(Solver):
         """
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using dual virtual element method.
-        The name of data in the input dictionary (data) are:
-        perm : second_order_tensor
-            Permeability defined cell-wise.
-        source : array (self.g.num_cells)
-            Scalar source term defined cell-wise. If not given a zero source
-            term is assumed and a warning arised.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
 
         Parameters
         ----------
@@ -201,24 +190,6 @@ class DualVEM(Solver):
         rhs: array (g.num_faces+g_num_cells)
             Right-hand side which contains the boundary conditions and the scalar
             source term.
-
-        Examples
-        --------
-        b_faces_neu = ... # id of the Neumann faces
-        b_faces_dir = ... # id of the Dirichlet faces
-        bnd = bc.BoundaryCondition(g, np.hstack((b_faces_dir, b_faces_neu)),
-                                ['dir']*b_faces_dir.size + ['neu']*b_faces_neu.size)
-        bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
-                   'neu': fun_neu(f.face_centers[:, b_faces_neu])}
-
-        data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
-
-        D, rhs = dual.matrix_rhs(g, data)
-        up = sps.linalg.spsolve(D, rhs)
-        u = dual.extract_u(g, up)
-        p = dual.extract_p(g, up)
-        P0u = dual.project_u(g, u, perm)
-
         """
         M, bc_weight = self.matrix(g, data, bc_weight=True)
         return M, self.rhs(g, data, bc_weight)
