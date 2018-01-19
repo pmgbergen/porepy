@@ -207,6 +207,7 @@ class MortarGrid(object):
         # matrix, where in each block we have the mapping between the
         # (relative to side) the new grid and the mortar grid.
         matrix = np.empty((self.num_sides(), 1), dtype=np.object)
+
         for pos, (side, _) in enumerate(self.side_grids.items()):
             matrix[pos, 0] = side_matrix[side]
 
