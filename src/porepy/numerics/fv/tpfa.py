@@ -340,25 +340,23 @@ class TpfaCoupling(AbstractCoupling):
         dof, cc = self.create_block_matrix([g_h, g_l, mg])
         # Create the block matrix for the contributions
 
-        k = 2 * data_edge['kn']
+        k = 2.*data_edge['kn']
+        assert k.size == mortar_size
         # The aperture is a diagonal matrix in the lower dimensional grid,
         # then mapped to the mortar grid.
-        kappa = sps.dia_matrix((Pi_mg_l * k, 0), shape=(mg.num_cells,
-                                                        mg.num_cells))
+        kappa = sps.diags(k)
 
-        face_areas_h = sps.dia_matrix((g_h.face_areas, 0),
-                                      shape=(g_h.num_faces, g_h.num_faces))
+        face_areas_h = sps.diags(g_h.face_areas)
 
         mortar_div = np.sign((Pi_h_mg * div_h.T).A.sum(axis=1))
-        mortar_div_mat = sps.dia_matrix((mortar_div, 0), shape=(mortar_size, mortar_size))
+        mortar_div_mat = sps.diags(mortar_div)
 
         # Contribution from mortar variable to conservation in the higher domain
         # TODO: Check scaling
         # Acts as a boundary condition, treat with standard boundary discretization
         cc[0, 2] = div_h *  bound_flux_h * face_areas_h *  Pi_h_mg.T
         # Acts as a source term.
-        cc[1, 2] = -Pi_mg_l.T * sps.dia_matrix((mg.cell_volumes, 0),
-                                              shape=(mortar_size, mortar_size))
+        cc[1, 2] = -Pi_mg_l.T * sps.diags(mg.cell_volumes)
 
         # Governing equation for the inter-dimensional flux law.
         # Equation on the form
@@ -366,7 +364,8 @@ class TpfaCoupling(AbstractCoupling):
 
         # Pressure is an intensive property
         Pi_h_mg_pressure = Pi_h_mg.copy()
-        Pi_h_mg_pressure.data[:] = 1
+        row_sum = Pi_h_mg_pressure.sum(axis=1).A.ravel()
+        Pi_h_mg_pressure = sps.diags(1./row_sum) * Pi_h_mg_pressure
 
         # The trace of the pressure from the higher dimension is composed of the cell center pressure,
         # and a contribution from the boundary flux, represented by the mortar flux
@@ -374,14 +373,13 @@ class TpfaCoupling(AbstractCoupling):
         cc[2, 0] = kappa * Pi_h_mg_pressure * bound_pressure_cc_h
         # Contribution from mortar
         # Should we have Pi_h_mg_pressure here?
-        cc[2, 2] += kappa * Pi_h_mg * bound_pressure_face_h * face_areas_h * Pi_h_mg.T
+        cc[2, 2] += kappa * Pi_h_mg_pressure * bound_pressure_face_h * face_areas_h * Pi_h_mg.T
 
         # Contribution from the lower dimensional pressure
         cc[2, 1] = -kappa * Pi_mg_l
 
         # Contribution from the \lambda term, moved to the right hand side
-        cc[2, 2] -= sps.dia_matrix((np.ones(mortar_size), 0),
-                                    shape=(mortar_size, mortar_size))
+        cc[2, 2] -= sps.diags(1./mg.cell_volumes)
 #        data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
 #                                                 cells2faces * cc[0, 1]])
 #        data_edge['coupling_discretization'] = cc
@@ -445,7 +443,7 @@ class TpfaCouplingDFN(AbstractCoupling):
             dist_face_cell_h = np.power(fc_cc_h, 2).sum(axis=0)
 
         # Account for the apertures
-        t_face_h = t_face_h * a_h[cells_h]
+        t_face_h = np.multiply(t_face_h, a_h[cells_h])
         t = np.divide(t_face_h, dist_face_cell_h)
 
         # Create the block matrix for the contributions
