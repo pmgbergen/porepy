@@ -130,15 +130,13 @@ def update_physical_high_grid(mg, g_new, g_old, tol):
         new_faces = g_new.get_boundary_faces()
         new_nodes = g_new.face_centers[:, new_faces]
 
-        for side, g in mg.side_grids.items():
-            # we assume only one old node
-            mask = cg.dist_point_pointset(old_nodes, new_nodes) < tol
-            new_faces = new_faces[mask]
+        # we assume only one old node
+        mask = cg.dist_point_pointset(old_nodes, new_nodes) < tol
+        new_faces = new_faces[mask]
 
-            shape = (g_old.num_faces, g_new.num_faces)
-            data = np.ones(old_faces.shape)
-            split_matrix[side] = sps.csc_matrix((data, (old_faces, new_faces)),
-                                                                    shape=shape)
+        shape = (g_old.num_faces, g_new.num_faces)
+        matrix_DIJ = (np.ones(old_faces.shape), (old_faces, new_faces))
+        split_matrix = sps.csc_matrix(matrix_DIJ, shape=shape)
 
     elif mg.dim == 1:
         # The case is conceptually similar to 0d, but quite a bit more
