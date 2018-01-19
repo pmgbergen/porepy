@@ -294,7 +294,7 @@ class BasicsTest( unittest.TestCase ):
         g = structured.CartGrid([2, 1], [1, 1])
         R = cg.rot(np.pi/4., [0,1,0])
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(g.dim, kxx)

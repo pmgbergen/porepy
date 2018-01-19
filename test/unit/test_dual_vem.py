@@ -338,7 +338,7 @@ class BasicsTest( unittest.TestCase ):
         g = structured.CartGrid([2, 1], [1, 1])
         R = cg.rot(np.pi/4., [0,1,0])
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
@@ -382,7 +382,7 @@ class BasicsTest( unittest.TestCase ):
         R = cg.rot(np.pi/3., [1,1,0])
         perm.rotate(R)
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -424,7 +424,7 @@ class BasicsTest( unittest.TestCase ):
         g = simplex.StructuredTriangleGrid([1, 1], [1, 1])
         R = cg.rot(-np.pi/4., [1,1,-1])
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
@@ -477,7 +477,7 @@ class BasicsTest( unittest.TestCase ):
         R = cg.rot(np.pi/3., [1,1,0])
         perm.rotate(R)
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size * ['dir'])

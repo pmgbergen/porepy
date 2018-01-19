@@ -197,7 +197,7 @@ class Grid(object):
 
         return s
 
-    def compute_geometry(self, is_embedded=False):
+    def compute_geometry(self):
         """Compute geometric quantities for the grid.
 
         This method initializes class variables describing the grid
@@ -216,7 +216,7 @@ class Grid(object):
         elif self.dim == 1:
             self.__compute_geometry_1d()
         elif self.dim == 2:
-            self.__compute_geometry_2d(is_embedded)
+            self.__compute_geometry_2d()
         else:
             self.__compute_geometry_3d()
 
@@ -266,12 +266,11 @@ class Grid(object):
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
         self.face_normals[:, flip] *= -1
 
-    def __compute_geometry_2d(self, is_embedded):
+    def __compute_geometry_2d(self):
         "Compute 2D geometry, with method motivated by similar MRST function"
 
-        if is_embedded:
-            R = cg.project_plane_matrix(self.nodes, check_planar=False)
-            self.nodes = np.dot(R, self.nodes)
+        R = cg.project_plane_matrix(self.nodes, check_planar=False)
+        self.nodes = np.dot(R, self.nodes)
 
         fn = self.face_nodes.indices
         edge1 = fn[::2]
@@ -331,11 +330,10 @@ class Grid(object):
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
         self.face_normals[:, flip] *= -1
 
-        if is_embedded:
-            self.nodes = np.dot(R.T, self.nodes)
-            self.face_normals = np.dot(R.T, self.face_normals)
-            self.face_centers = np.dot(R.T, self.face_centers)
-            self.cell_centers = np.dot(R.T, self.cell_centers)
+        self.nodes = np.dot(R.T, self.nodes)
+        self.face_normals = np.dot(R.T, self.face_normals)
+        self.face_centers = np.dot(R.T, self.face_centers)
+        self.cell_centers = np.dot(R.T, self.cell_centers)
 
     def __compute_geometry_3d(self):
         """
