@@ -485,7 +485,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
         discr.discretize(g, d)
         return d['flux'], d['bound_flux'], d['bound_pressure_cell'], d['bound_pressure_face']
     elif g.dim == 0:
-        return sps.csr_matrix([0]), 0
+        return sps.csr_matrix([0]), 0, 0, 0
 
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
