@@ -227,6 +227,11 @@ class Coupler(object):
         dofs = np.empty(gb.size(), dtype=int)
         for _, d in gb:
             dofs[d['node_number']] = d['dof']
+
+        for e, d in gb.edges_props():
+            i = d['edge_number'] + gb.num_graph_nodes()
+            dofs[i] = d['dof']
+
         return np.r_[0, np.cumsum(dofs)]
 
 #------------------------------------------------------------------------------#
