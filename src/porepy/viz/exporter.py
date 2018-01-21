@@ -186,7 +186,7 @@ class Exporter():
 
     def _export_vtk_single(self, data, time_step, g, name):
         name = self._make_file_name(name, time_step)
-        self._write_vtk(data, name, self.gb_VTK)
+        self._write_vtk(data, name, self.gb_VTK, g)
 
 #------------------------------------------------------------------------------#
 
@@ -215,7 +215,7 @@ class Exporter():
                 d['cell_id'] = np.arange(g.num_cells, dtype=np.int)
                 dic_data = self.gb.node_props_of_keys(g, data)
                 g_VTK = self.gb_VTK[d['node_number']]
-                self._write_vtk(dic_data, file_name, g_VTK)
+                self._write_vtk(dic_data, file_name, g_VTK, g)
 
         self.gb.add_edge_props(['grid_dim', 'file_name', 'is_mortar',
                                 'mortar_side', 'cell_id'])
@@ -243,7 +243,7 @@ class Exporter():
                             'mortar_side': d['mortar_side'][side],
                             'cell_id': d['cell_id'][side]}
                 g_VTK = self.mg_VTK[d['edge_number']][side]
-                self._write_vtk(dic_data, file_name, g_VTK)
+                self._write_vtk(dic_data, file_name, g_VTK, g)
 
         name = self._make_folder(self.folder, self.name)+".pvd"
         self._export_pvd_gb(name)
@@ -344,7 +344,7 @@ class Exporter():
 
 #------------------------------------------------------------------------------#
 
-    def _write_vtk(self, data, name, g_VTK):
+    def _write_vtk(self, data, name, g_VTK, g):
         writer = vtk.vtkXMLUnstructuredGridWriter()
         writer.SetInputData(g_VTK)
         writer.SetFileName(name)
@@ -353,12 +353,15 @@ class Exporter():
             for name_field, values_field in data.items():
                 if values_field is None:
                     continue
-                dataVTK = ns.numpy_to_vtk(values_field.ravel(order='F'),
-                                          deep=True,
+                values = values_field.ravel(order='F')
+                dataVTK = ns.numpy_to_vtk(values, deep=True,
                                    array_type=self.map_type[values_field.dtype])
                 dataVTK.SetName(str(name_field))
                 dataVTK.SetNumberOfComponents(1 if values_field.ndim == 1 else 3)
-                g_VTK.GetCellData().AddArray(dataVTK)
+                if g.num_nodes == values.size:
+                    g_VTK.GetPointData().AddArray(dataVTK)
+                else:
+                    g_VTK.GetCellData().AddArray(dataVTK)
 
         if not self.binary:
             writer.SetDataModeToAscii()
