@@ -13,6 +13,19 @@ from porepy.utils import comp_geom as cg
 
 #------------------------------------------------------------------------------#
 
+class P1MixedDim(SolverMixedDim):
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
+        self.discr = P1(self.physics)
+        self.discr_ndof = self.discr.ndof
+        self.coupling_conditions = None
+
+        self.solver = Coupler(self.discr, self.coupling_conditions)
+
+#------------------------------------------------------------------------------#
+
 class P1(Solver):
 
 #------------------------------------------------------------------------------#
