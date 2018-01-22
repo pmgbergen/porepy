@@ -420,7 +420,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_prop(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        assert np.allclose(p_2d, g_2d.cell_centers[1])
+        assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1./kn)
 
         g_1d = gb.grids_of_dimension(1)[0]
         p_1d = gb.node_prop(g_1d, 'pressure')
