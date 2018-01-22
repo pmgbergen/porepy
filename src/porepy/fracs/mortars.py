@@ -553,7 +553,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
         face_to_cell_old = sps.coo_matrix((np.ones(rows.size), (rows, cols)))
 
         # Mapping between cells in 1d grid
-        weights, new_cells, old_cells = match_grids_1d(g_aux_new, g_aux_old)
+        weights, new_cells, old_cells = match_grids_1d(g_aux_new, g_aux_old, tol)
         between_cells = sps.csr_matrix((weights, (old_cells, new_cells)))
 
         # From faces to cell in new grid
