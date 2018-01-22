@@ -302,21 +302,6 @@ class TpfaCoupling(AbstractCoupling):
                 in a csc.sparse matrix.
         """
 
-        a_l = data_l['param'].get_aperture()
-        a_h = data_h['param'].get_aperture()
-
-        # Obtain the cells and face signs of the higher dimensional grid
-        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
-        # Full cell-face map on the higher dimension
-        faces, cells_h, sgn_h = sps.find(g_h.cell_faces)
-        # Obtain indices to uniquify faces
-        # Is this necessary, considering we do
-        _, ind = np.unique(faces, return_index=True)
-        sgn_h = sgn_h[ind]
-        cells_h = cells_h[ind]
-        # Restrict to faces on the faces
-        cells_h, sgn_h = cells_h[faces_h], sgn_h[faces_h]
-
         # Mortar data structure.
         mg = data_edge['mortar_grid']
         mortar_size = mg.num_cells
@@ -352,7 +337,6 @@ class TpfaCoupling(AbstractCoupling):
         mortar_div_mat = sps.diags(mortar_div)
 
         # Contribution from mortar variable to conservation in the higher domain
-        # TODO: Check scaling
         # Acts as a boundary condition, treat with standard boundary discretization
         cc[0, 2] = div_h *  bound_flux_h * face_areas_h *  Pi_h_mg.T
         # Acts as a source term.
@@ -366,6 +350,7 @@ class TpfaCoupling(AbstractCoupling):
         Pi_h_mg_pressure = Pi_h_mg.copy()
         row_sum = Pi_h_mg_pressure.sum(axis=1).A.ravel()
         Pi_h_mg_pressure = sps.diags(1./row_sum) * Pi_h_mg_pressure
+        assert np.allclose(Pi_h_mg_pressure.sum(axis=1).A, 1)
 
         # The trace of the pressure from the higher dimension is composed of the cell center pressure,
         # and a contribution from the boundary flux, represented by the mortar flux
@@ -376,7 +361,12 @@ class TpfaCoupling(AbstractCoupling):
         cc[2, 2] += kappa * Pi_h_mg_pressure * bound_pressure_face_h * face_areas_h * Pi_h_mg.T
 
         # Contribution from the lower dimensional pressure
-        cc[2, 1] = -kappa * Pi_mg_l
+        Pi_mg_l_pressure = Pi_mg_l.copy()
+        row_sum = Pi_mg_l_pressure.sum(axis=1).A.ravel()
+        Pi_mg_l_pressure = sps.diags(1./row_sum) * Pi_mg_l_pressure
+        assert np.allclose(Pi_mg_l_pressure.sum(axis=1).A, 1)
+
+        cc[2, 1] = -kappa * Pi_mg_l_pressure
 
         # Contribution from the \lambda term, moved to the right hand side
         cc[2, 2] -= sps.diags(1./mg.cell_volumes)
