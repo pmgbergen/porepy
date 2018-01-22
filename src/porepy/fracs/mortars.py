@@ -373,7 +373,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
         f, ci, _ = sps.find(g.cell_faces[fi])
         assert f.size == fi.size, 'We assume fi are boundary faces'
 
-        ismem, ind_map = ismember_rows(fi[f], fi, sort=False)
+        ismem, ind_map = ismember_rows(fi, fi[f], sort=False)
         assert np.all(ismem)
         return ci[ind_map]
 
