@@ -67,7 +67,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        old_projection = mg.high_to_mortar.copy()
+        old_projection = mg.high_to_mortar_int.copy()
 
         g_old = gb.grids_of_dimension(2)[0]
         g_new = g_old.copy()
@@ -78,7 +78,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        new_projection = mg.high_to_mortar
+        new_projection = mg.high_to_mortar_int
 
         # The projections should be identical
         assert (old_projection != new_projection).nnz == 0
@@ -95,7 +95,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        old_projection = mg.high_to_mortar.copy()
+        old_projection = mg.high_to_mortar_int.copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
@@ -112,7 +112,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        new_projection = mg.high_to_mortar
+        new_projection = mg.high_to_mortar_int
 
         # Check shape
         assert new_projection.shape[0] == old_projection.shape[0]
@@ -141,7 +141,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        old_projection = mg.high_to_mortar.copy()
+        old_projection = mg.high_to_mortar_int.copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, coarser 2d grid. This is the simplest
@@ -158,7 +158,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        new_projection = mg.high_to_mortar
+        new_projection = mg.high_to_mortar_int
 
         # Check shape
         assert new_projection.shape[0] == old_projection.shape[0]
@@ -191,7 +191,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        old_projection = mg.high_to_mortar.copy()
+        old_projection = mg.high_to_mortar_int.copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
@@ -216,7 +216,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        new_projection = mg.high_to_mortar
+        new_projection = mg.high_to_mortar_int
 
         # Check shape
         assert new_projection.shape[0] == old_projection.shape[0]
@@ -248,7 +248,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        old_projection = mg.high_to_mortar.copy()
+        old_projection = mg.high_to_mortar_int.copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
@@ -273,7 +273,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        new_projection = mg.high_to_mortar
+        new_projection = mg.high_to_mortar_int
 
         # Check shape
         assert new_projection.shape[0] == old_projection.shape[0]
@@ -312,7 +312,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        old_projection = mg.high_to_mortar.copy()
+        old_projection = mg.high_to_mortar_int.copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
@@ -351,7 +351,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        new_projection = mg.high_to_mortar
+        new_projection = mg.high_to_mortar_int
 
         # Check shape
         assert new_projection.shape[0] == old_projection.shape[0]
@@ -385,7 +385,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        old_projection = mg.high_to_mortar.copy()
+        old_projection = mg.high_to_mortar_int.copy()
         g_old = gb.grids_of_dimension(2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
@@ -420,7 +420,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
 
-        new_projection = mg.high_to_mortar
+        new_projection = mg.high_to_mortar_int
 
         # Check shape
         assert new_projection.shape[0] == old_projection.shape[0]
@@ -446,8 +446,6 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         assert np.abs(new_projection[3, 13] - 0.6 < 1e-6)
 
 
-    if __name__ == '__main__':
-        unittest.main()
 
-a = TestGridMappings1d()
-a.test_merge_grids_non_matching()
+if __name__ == '__main__':
+    unittest.main()
