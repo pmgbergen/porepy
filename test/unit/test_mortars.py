@@ -17,7 +17,7 @@ class TestGridMappings1d(unittest.TestCase):
 
      def test_merge_grids_all_common(self):
           g = TensorGrid(np.arange(3))
-          weights, new, old = mortars.match_grids_1d(g, g)
+          weights, new, old = mortars.match_grids_1d(g, g, tol=1e-4)
 
           assert np.allclose(weights, np.ones(2))
           assert np.allclose(old, np.arange(2))
@@ -27,9 +27,12 @@ class TestGridMappings1d(unittest.TestCase):
           g = TensorGrid(np.arange(3))
           h = TensorGrid(np.arange(3))
           h.nodes[0, 1] = 0.5
-          weights, new, old = mortars.match_grids_1d(g, h)
+          weights, new, old = mortars.match_grids_1d(g, h, tol=1e-4)
 
-          assert np.allclose(weights, np.array([0.5, 0.5, 1]))
+          # Weights give mappings from h to g. The first cell in h is
+          # fully within the first cell in g. The second in h is split 1/3
+          # in first of g, 2/3 in second.
+          assert np.allclose(weights, np.array([1, 1./3, 2./3]))
           assert np.allclose(new, np.array([0, 0, 1]))
           assert np.allclose(old, np.array([0, 1, 1]))
 
@@ -37,7 +40,7 @@ class TestGridMappings1d(unittest.TestCase):
           g = TensorGrid(np.arange(3))
           h = TensorGrid(np.arange(3))
           h.nodes = h.nodes[:, ::-1]
-          weights, new, old = mortars.match_grids_1d(g, h)
+          weights, new, old = mortars.match_grids_1d(g, h, tol=1e-4)
 
           assert np.allclose(weights, np.array([1, 1]))
           # In this case, we don't know which ordering the combined grid uses
@@ -446,5 +449,5 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
     if __name__ == '__main__':
         unittest.main()
 
-a = TestReplaceHigherDimensionalGrid()
-a.test_distort_high_dim()
+a = TestGridMappings1d()
+a.test_merge_grids_non_matching()
