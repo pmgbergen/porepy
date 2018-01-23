@@ -20,8 +20,10 @@ from porepy.numerics.fv.mpfa import Mpfa
 
 class TestTpfaBoundaryPressure(unittest.TestCase):
 
-    def grid(self, nx=[2, 2]):
-        g = CartGrid(nx)
+    def grid(self, nx=[2, 2], physdims=None):
+        if physdims is None:
+            physdims = nx
+        g = CartGrid(nx, physdims)
         g.compute_geometry()
         return g
 
@@ -151,6 +153,33 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
                 + data['bound_pressure_face'] * bc_val
         assert np.allclose(bound_p[g.get_boundary_faces()],
                            -g.face_centers[0, g.get_boundary_faces()])
+
+    def test_linear_pressure_part_neumann_conditions_small_domain(self):
+        g = self.grid(physdims=[1, 1])
+        param = Parameters(g)
+
+        bf = g.get_boundary_faces()
+        bc_type = bf.size * ['neu']
+        bc_type[0] = 'dir'
+        bc_type[2] = 'dir'
+        bound = bc.BoundaryCondition(g, bf, bc_type)
+
+        fd = Tpfa()
+        param.set_bc(fd, bound)
+
+        bc_val = np.zeros(g.num_faces)
+        # Set up unit pressure gradient in x-direction
+        bc_val[[2, 5]] = 1
+        param.set_bc_val(fd, bc_val)
+        data = {'param': param}
+
+        A, b = fd.matrix_rhs(g, data)
+        p = spl.spsolve(A, b)
+
+        bound_p = data['bound_pressure_cell'] * p\
+                + data['bound_pressure_face'] * bc_val
+        assert np.allclose(bound_p[g.get_boundary_faces()],
+                           -2*g.face_centers[0, g.get_boundary_faces()])
 
     def test_linear_pressure_part_neumann_conditions_reverse_sign(self):
         g = self.grid()
