@@ -123,7 +123,7 @@ def update_physical_high_grid(mg, g_new, g_old, tol):
     if mg.dim == 0:
 
         # retrieve the old faces and the corresponding coordinates
-        _, old_faces, _ = sps.find(mg.high_to_mortar)
+        _, old_faces, _ = sps.find(mg.high_to_mortar_int)
         old_nodes = g_old.face_centers[:, old_faces]
 
         # retrieve the boundary faces and the corresponding coordinates
@@ -431,7 +431,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
 
     # First create a virtual 1d grid along the line, using nodes from the old grid
     # Identify faces in the old grid that is on the boundary
-    _, faces_on_boundary_old, _ = sps.find(mg.high_to_mortar)
+    _, faces_on_boundary_old, _ = sps.find(mg.high_to_mortar_int)
     # Find the nodes of those faces
     nodes_on_boundary_old = nodes_of_faces(g_old, faces_on_boundary_old)
     nodes_1d_old = g_old.nodes[:, nodes_on_boundary_old]

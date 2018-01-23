@@ -572,11 +572,11 @@ class DualCoupling(AbstractCoupling):
         sign_h = sign_h[ind_faces_h]
 
         # Mortar mass matrix
-        M = sps.diags(1./mg.cell_volumes)
+        inv_M = sps.diags(1./mg.cell_volumes)
 
         # Projection matrix from hight/lower grid to mortar
-        hat_P = mg.high_to_mortar
-        check_P = mg.low_to_mortar
+        hat_P = mg.high_to_mortar_int
+        check_P = mg.low_to_mortar_int
 
         # Velocity degree of freedom matrix
         U = sps.diags(sign_h)
@@ -594,9 +594,10 @@ class DualCoupling(AbstractCoupling):
         aperture_h = data_h['param'].get_aperture()
 
         # Inverse of the normal permability matrix
-        Eta = sps.diags(np.divide(hat_P.T*inv_k, aperture_h[cells_h]))
+        hat_P_avg = mg.high_to_mortar_avg()
+        Eta = sps.diags(np.divide(inv_k, hat_P_avg*aperture_h[cells_h]))
 
-        cc[0, 2] = sps.bmat([[Eta*(M*A).T], [sps.csr_matrix(shape).T]])
+        cc[0, 2] = sps.bmat([[(Eta*inv_M*A).T], [sps.csr_matrix(shape).T]])
 
         A = U*hat_P.T*check_P
         shape = (g_h.num_cells, g_l.num_faces)
