@@ -22,21 +22,20 @@ for _, d in gb.edges_props():
     mg = d['mortar_grid']
     #print(mg.high_to_mortar.shape[0])
 
+if True:
+    frac_list, network, domain = importer.network_3d_from_csv('geiger_3d.csv')
+    # Conforming=False would have been cool here, but that does not split the 1d grids
+    gb_new = meshing.dfn(frac_list, conforming=True, h_ideal=0.05, h_min=0.05)
+
+    gmap = {}
+    for go in gb.grids_of_dimension(2):
+        for gn in gb_new.grids_of_dimension(2):
+            if gn.frac_num == go.frac_num:
+                gmap[go] = gn
 
 
-frac_list, network, domain = importer.network_3d_from_csv('geiger_3d.csv')
-# Conforming=False would have been cool here, but that does not split the 1d grids
-gb_new = meshing.dfn(frac_list, conforming=True, h_ideal=0.1, h_min=0.05)
 
-gmap = {}
-for go in gb.grids_of_dimension(2):
-    for gn in gb_new.grids_of_dimension(2):
-        if gn.frac_num == go.frac_num:
-            gmap[go] = gn
-
-
-
-mortars.replace_grids_in_bucket(gb, gmap)
+    mortars.replace_grids_in_bucket(gb, gmap)
 
 if True:
     # select the permeability depending on the selected test case
@@ -88,28 +87,28 @@ if True:
 
 
 
-for g in gb.grids_of_dimension(2):
-
-    mx = g.nodes.max(axis=1)
-    mi = g.nodes.min(axis=1)
-    dx = mx - mi
-
-    if dx.max() > 0.6:
-        N = [40, 40]
-    elif dx.max() > 0.3:
-        N = [20, 20]
-    elif dx.max() > 0.2:
-        N = [10, 10]
-    else:
-        N = [5, 5]
-
-
-    active = np.where(dx > 1e-4)[0]
-    passive = np.setdiff1d(np.arange(3), active)
-    gn = StructuredTriangleGrid(N, physdims=dx[active])
-    tmp = gn.nodes.copy()
-    gn.nodes[active] = tmp[:2] + mi[active].reshape((2, 1))
-    gn.nodes[passive] = tmp[2] + mi[passive]
-    gn.compute_geometry()
-    gn.frac_num = g.frac_num
-    gmap[g] = gn
+#for g in gb.grids_of_dimension(2):
+#
+#    mx = g.nodes.max(axis=1)
+#    mi = g.nodes.min(axis=1)
+#    dx = mx - mi
+#
+#    if dx.max() > 0.6:
+#        N = [40, 40]
+#    elif dx.max() > 0.3:
+#        N = [20, 20]
+#    elif dx.max() > 0.2:
+#        N = [10, 10]
+#    else:
+#        N = [5, 5]
+#
+#
+#    active = np.where(dx > 1e-4)[0]
+#    passive = np.setdiff1d(np.arange(3), active)
+#    gn = StructuredTriangleGrid(N, physdims=dx[active])
+#    tmp = gn.nodes.copy()
+#    gn.nodes[active] = tmp[:2] + mi[active].reshape((2, 1))
+#    gn.nodes[passive] = tmp[2] + mi[passive]
+#    gn.compute_geometry()
+#    gn.frac_num = g.frac_num
+#    gmap[g] = gn
