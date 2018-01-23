@@ -312,64 +312,64 @@ class TpfaCoupling(AbstractCoupling):
         # Contribution from boundary value
         bound_pressure_face_h = data_h['bound_pressure_face']
 
+        # Recover the information for the grid-grid mapping
+        faces_h, cells_h, _ = sps.find(g_h.cell_faces)
+        ind_faces_h = np.unique(faces_h, return_index=True)[1]
+        cells_h = cells_h[ind_faces_h]
+
         # Discretization of boundary conditions
         bound_flux_h = data_h['bound_flux']
 
         div_h = fvutils.scalar_divergence(g_h)
 
         # Projection from mortar grid to upper dimension
-        Pi_h_mg = mg.high_to_mortar
+        hat_P = mg.high_to_mortar_avg()
         # Projection from mortar grid to lower dimension
-        Pi_mg_l = mg.low_to_mortar
+        check_P = mg.low_to_mortar_avg()
 
         dof, cc = self.create_block_matrix([g_h, g_l, mg])
         # Create the block matrix for the contributions
 
-        k = 2.*data_edge['kn']
-        assert k.size == mortar_size
-        # The aperture is a diagonal matrix in the lower dimensional grid,
-        # then mapped to the mortar grid.
-        kappa = sps.diags(k)
+        # Normal permeability and aperture of the intersection
+        inv_k = 1./(2.*data_edge['kn'])
+        aperture_h = data_h['param'].get_aperture()
+
+        # Inverse of the normal permability matrix
+        Eta = sps.diags(np.divide(inv_k, hat_P*aperture_h[cells_h]))
 
         face_areas_h = sps.diags(g_h.face_areas)
 
-        mortar_div = np.sign((Pi_h_mg * div_h.T).A.sum(axis=1))
+        # Mortar mass matrix
+        M = sps.diags(1./mg.cell_volumes)
+
+        mortar_div = np.sign((hat_P * div_h.T).A.sum(axis=1))
         mortar_div_mat = sps.diags(mortar_div)
 
         # Contribution from mortar variable to conservation in the higher domain
         # Acts as a boundary condition, treat with standard boundary discretization
-        cc[0, 2] = div_h *  bound_flux_h * face_areas_h *  Pi_h_mg.T
+        #cc[0, 2] = div_h *  bound_flux_h * face_areas_h *  hat_P.T
+        cc[0, 2] = div_h *  bound_flux_h *  hat_P.T
         # Acts as a source term.
-        cc[1, 2] = -Pi_mg_l.T * sps.diags(mg.cell_volumes)
+        cc[1, 2] = -check_P.T #* sps.diags(mg.cell_volumes)
 
         # Governing equation for the inter-dimensional flux law.
         # Equation on the form
         #   \lambda = \kappa (p_h - p_l), with
 
-        # Pressure is an intensive property
-        Pi_h_mg_pressure = Pi_h_mg.copy()
-        row_sum = Pi_h_mg_pressure.sum(axis=1).A.ravel()
-        Pi_h_mg_pressure = sps.diags(1./row_sum) * Pi_h_mg_pressure
-        assert np.allclose(Pi_h_mg_pressure.sum(axis=1).A, 1)
-
         # The trace of the pressure from the higher dimension is composed of the cell center pressure,
         # and a contribution from the boundary flux, represented by the mortar flux
         # Cell center contribution, mapped to the mortar grid
-        cc[2, 0] = kappa * Pi_h_mg_pressure * bound_pressure_cc_h
+        cc[2, 0] = hat_P * bound_pressure_cc_h
         # Contribution from mortar
-        # Should we have Pi_h_mg_pressure here?
-        cc[2, 2] += kappa * Pi_h_mg_pressure * bound_pressure_face_h * face_areas_h * Pi_h_mg.T
+        # Should we have hat_P_pressure here?
+        #cc[2, 2] += hat_P * bound_pressure_face_h * face_areas_h * hat_P.T
+        cc[2, 2] += hat_P * bound_pressure_face_h * hat_P.T
 
         # Contribution from the lower dimensional pressure
-        Pi_mg_l_pressure = Pi_mg_l.copy()
-        row_sum = Pi_mg_l_pressure.sum(axis=1).A.ravel()
-        Pi_mg_l_pressure = sps.diags(1./row_sum) * Pi_mg_l_pressure
-        assert np.allclose(Pi_mg_l_pressure.sum(axis=1).A, 1)
-
-        cc[2, 1] = -kappa * Pi_mg_l_pressure
+        cc[2, 1] = -check_P
 
         # Contribution from the \lambda term, moved to the right hand side
-        cc[2, 2] -= sps.diags(1./mg.cell_volumes)
+        cc[2, 2] -= Eta*M
 #        data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
 #                                                 cells2faces * cc[0, 1]])
 #        data_edge['coupling_discretization'] = cc
