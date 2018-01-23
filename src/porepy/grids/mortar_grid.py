@@ -189,6 +189,7 @@ class MortarGrid(object):
         self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
         self.cell_volumes = np.hstack([g.cell_volumes \
                                              for g in self.side_grids.values()])
+        self._check_mappings()
 
 #------------------------------------------------------------------------------#
 
@@ -213,12 +214,14 @@ class MortarGrid(object):
 
         # Update the low_to_mortar_int map. No need to update the high_to_mortar_int.
         self.low_to_mortar_int = sps.bmat(matrix, format='csc')
+        self._check_mappings()
 
 #------------------------------------------------------------------------------#
 
     def update_high(self, matrix):
         # Make a comment here
         self.high_to_mortar_int = self.high_to_mortar_int * matrix
+        self._check_mappings()
 
 #------------------------------------------------------------------------------#
 
@@ -244,3 +247,12 @@ class MortarGrid(object):
         return sps.diags(1./row_sum) * self.low_to_mortar_int
 
 #------------------------------------------------------------------------------#
+
+    def _check_mappings(self, tol=1e-4):
+        row_sum = self.high_to_mortar.sum(axis=1)
+        assert row_sum.min() > tol
+#        assert row_sum.max() < 1 + tol
+
+        row_sum = self.low_to_mortar.sum(axis=1)
+        assert row_sum.min() > tol
+#        assert row_sum.max() < 1 + tol
