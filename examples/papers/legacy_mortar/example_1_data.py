@@ -53,7 +53,7 @@ def add_data(gb, domain, data = {}, tol=1e-5):
         solver = data.get("solver")
         if g.dim == 2:
             kxx = np.ones(g.num_cells) * data.get("km", 1)
-            if solver == "vem" or solver == "rt0":
+            if solver == "vem" or solver == "rt0" or solver == "p1":
                 perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kxx, kzz=1)
             elif solver == "tpfa":
                 perm = tensor.SecondOrder(3, kxx=kxx)
@@ -63,7 +63,7 @@ def add_data(gb, domain, data = {}, tol=1e-5):
             else:
                 kxx = np.ones(g.num_cells) * data.get("kf_high", 1)
 
-            if solver == "vem" or solver == "rt0":
+            if solver == "vem" or solver == "rt0" or solver == "p1":
                 perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=1, kzz=1)
             elif solver == "tpfa":
                 perm = tensor.SecondOrder(3, kxx=kxx)
@@ -102,7 +102,7 @@ def add_data(gb, domain, data = {}, tol=1e-5):
     for e, d in gb.edges_props():
         g_l = gb.sorted_nodes_of_edge(e)[0]
         mg = d['mortar_grid']
-        check_P = mg.low_to_mortar
+        check_P = mg.low_to_mortar_avg()
 
         if g_l.dim == 1:
             if g_l.cell_centers[1, 0] > 0.25 and g_l.cell_centers[1, 0] < 0.55:
