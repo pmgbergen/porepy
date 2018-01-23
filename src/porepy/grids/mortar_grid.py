@@ -249,10 +249,10 @@ class MortarGrid(object):
 #------------------------------------------------------------------------------#
 
     def _check_mappings(self, tol=1e-4):
-        row_sum = self.high_to_mortar.sum(axis=1)
+        row_sum = self.high_to_mortar_int.sum(axis=1)
         assert row_sum.min() > tol
 #        assert row_sum.max() < 1 + tol
 
-        row_sum = self.low_to_mortar.sum(axis=1)
+        row_sum = self.low_to_mortar_int.sum(axis=1)
         assert row_sum.min() > tol
 #        assert row_sum.max() < 1 + tol
