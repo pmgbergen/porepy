@@ -237,6 +237,22 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         assert np.allclose(bound_p[g.get_boundary_faces()],
                            -g.face_centers[0, g.get_boundary_faces()])
 
+    def test_sign_trouble_two_neumann_sides(self):
+        g = CartGrid(np.array([2, 2]), physdims=[2, 2])
+        g.compute_geometry()
+        d = {'param': Parameters(g)}
+        bv = np.zeros(g.num_faces)
+        bv[[0, 3]] = 1
+        bv[[2, 5]] = -1
+        d['param'].set_bc_val('flow', bv)
+        t = Tpfa('flow')
+        A, b = t.matrix_rhs(g, d)
+        x = spl.spsolve(A, b)
+
+        bound_p = d['bound_pressure_cell'] * x\
+                + d['bound_pressure_face'] * bv
+        assert bound_p[0] == x[0] - 0.5
+        assert bound_p[2] == x[1] + 0.5
 
 class TestMpfaBoundaryPressure(unittest.TestCase):
 
@@ -453,6 +469,22 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         assert np.allclose(bound_p[g.get_boundary_faces()],
                            bc_val[g.get_boundary_faces()])
 
+    def test_sign_trouble_two_neumann_sides(self):
+        g = CartGrid(np.array([2, 2]), physdims=[2, 2])
+        g.compute_geometry()
+        d = {'param': Parameters(g)}
+        bv = np.zeros(g.num_faces)
+        bv[[0, 3]] = 1
+        bv[[2, 5]] = -1
+        d['param'].set_bc_val('flow', bv)
+        t = Mpfa('flow')
+        A, b = t.matrix_rhs(g, d)
+        x = spl.spsolve(A, b)
+
+        bound_p = d['bound_pressure_cell'] * x\
+                + d['bound_pressure_face'] * bv
+        assert bound_p[0] == x[0] - 0.5
+        assert bound_p[2] == x[1] + 0.5
 
     if __name__ == '__main__':
         unittest.main()
