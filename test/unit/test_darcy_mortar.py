@@ -20,7 +20,7 @@ from porepy.grids.grid import FaceTag
 from porepy.params import tensor
 
 from porepy.numerics.vem import vem_dual, vem_source
-from porepy.numerics.fv import tpfa
+from porepy.numerics.fv import tpfa, mpfa
 
 class TestGridRefinement1d(unittest.TestCase):
 
@@ -350,7 +350,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
             mortars.update_physical_low_grid(mg, new_g, tol=1e-4)
         return gb
 
-    def test_fv_matching_grids_no_flow(self):
+    def test_tpfa_matching_grids_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=True)
 
@@ -361,7 +361,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         assert np.all(p[:3] == 1)
         assert np.all(p[3:] == 0)
 
-    def test_fv_matching_grids_refine_1d_no_flow(self):
+    def test_tpfa_matching_grids_refine_1d_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
         self.set_param_flow(gb, no_flow=True)
 
@@ -372,7 +372,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         assert np.all(p[:4] == 1)
         assert np.all(p[4:] == 0)
 
-    def test_fv_matching_grids_refine_mortar_no_flow(self):
+    def test_tpfa_matching_grids_refine_mortar_no_flow(self):
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
         self.set_param_flow(gb, no_flow=True)
 
@@ -385,7 +385,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         assert np.all(p[:3] == 1)
         assert np.all(p[3:] == 0)
 
-    def test_fv_matching_grids_uniform_flow(self):
+    def test_tpfa_matching_grids_uniform_flow(self):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
@@ -406,7 +406,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn)
 
-    def test_fv_matching_grids_refine_1d_uniform_flow(self):
+    def test_tpfa_matching_grids_refine_1d_uniform_flow(self):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
@@ -427,7 +427,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
-    def test_fv_matching_grids_refine_mortar_uniform_flow(self):
+    def test_tpfa_matching_grids_refine_mortar_uniform_flow(self):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
@@ -448,7 +448,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
-    def test_fv_matching_grids_refine_2d_uniform_flow(self):
+    def test_tpfa_matching_grids_refine_2d_uniform_flow(self):
 
         kn = 1e4
         gb = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2)
@@ -469,7 +469,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
-    def test_fv_matching_grids_uniform_flow_larger_domain(self):
+    def test_tpfa_matching_grids_uniform_flow_larger_domain(self):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2,
@@ -491,7 +491,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn)
 
-    def test_fv_matching_grids_refine_1d_uniform_flow_larger_domain(self):
+    def test_tpfa_matching_grids_refine_1d_uniform_flow_larger_domain(self):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3,
@@ -513,7 +513,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
-    def test_fv_matching_grids_refine_mortar_uniform_flow_larger_domain(self):
+    def test_tpfa_matching_grids_refine_mortar_uniform_flow_larger_domain(self):
 
         kn = 1e4
         gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2,
@@ -535,7 +535,7 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
-    def test_fv_matching_grids_refine_2d_uniform_flow_larger_domain(self):
+    def test_tpfa_matching_grids_refine_2d_uniform_flow_larger_domain(self):
 
         kn = 1e4
         gb = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2,
@@ -543,6 +543,213 @@ class TestMortar1dSingleFracture(unittest.TestCase):
         self.set_param_flow(gb, no_flow=False, kn=kn)
 
         solver_flow = tpfa.TpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "pressure", p)
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_prop(g_2d, 'pressure')
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_prop(g_1d, 'pressure')
+        # NOTE: This will not be entirely correct,
+        assert np.allclose(p_1d, g_1d.cell_centers[1])
+
+    def test_mpfa_matching_grids_no_flow(self):
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
+        self.set_param_flow(gb, no_flow=True)
+
+        solver_flow = mpfa.MpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        assert np.all(p[:3] == 1)
+        assert np.all(p[3:] == 0)
+
+    def test_mpfa_matching_grids_refine_1d_no_flow(self):
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
+        self.set_param_flow(gb, no_flow=True)
+
+        solver_flow = mpfa.MpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        assert np.all(p[:4] == 1)
+        assert np.all(p[4:] == 0)
+
+    def test_mpfa_matching_grids_refine_mortar_no_flow(self):
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
+        self.set_param_flow(gb, no_flow=True)
+
+        solver_flow = mpfa.MpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+        for e, d in gb.edges_props():
+            mg = d['mortar_grid']
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        assert np.all(p[:3] == 1)
+        assert np.all(p[3:] == 0)
+
+    def test_mpfa_matching_grids_uniform_flow(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2)
+        self.set_param_flow(gb, no_flow=False, kn=kn)
+
+        solver_flow = mpfa.MpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "pressure", p)
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_prop(g_2d, 'pressure')
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn)
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_prop(g_1d, 'pressure')
+        # NOTE: This will not be entirely correct,
+        assert np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn)
+
+    def test_mpfa_matching_grids_refine_1d_uniform_flow(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3)
+        self.set_param_flow(gb, no_flow=False, kn=kn)
+
+        solver_flow = mpfa.MpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "pressure", p)
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_prop(g_2d, 'pressure')
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1./kn)
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_prop(g_1d, 'pressure')
+        # NOTE: This will not be entirely correct,
+        assert np.allclose(p_1d, g_1d.cell_centers[1])
+
+    def test_mpfa_matching_grids_refine_mortar_uniform_flow(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2)
+        self.set_param_flow(gb, no_flow=False, kn=kn)
+
+        solver_flow = mpfa.MpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "pressure", p)
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_prop(g_2d, 'pressure')
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_prop(g_1d, 'pressure')
+        # NOTE: This will not be entirely correct,
+        assert np.allclose(p_1d, g_1d.cell_centers[1])
+
+    def test_mpfa_matching_grids_refine_2d_uniform_flow(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2)
+        self.set_param_flow(gb, no_flow=False, kn=kn)
+
+        solver_flow = mpfa.MpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "pressure", p)
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_prop(g_2d, 'pressure')
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_prop(g_1d, 'pressure')
+        # NOTE: This will not be entirely correct,
+        assert np.allclose(p_1d, g_1d.cell_centers[1])
+
+    def test_mpfa_matching_grids_uniform_flow_larger_domain(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=2,
+                            physdims=[2, 1])
+        self.set_param_flow(gb, no_flow=False, kn=kn)
+
+        solver_flow = mpfa.MpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "pressure", p)
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_prop(g_2d, 'pressure')
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn)
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_prop(g_1d, 'pressure')
+        # NOTE: This will not be entirely correct,
+        assert np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn)
+
+    def test_mpfa_matching_grids_refine_1d_uniform_flow_larger_domain(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=2, num_nodes_1d=3,
+                            physdims=[2, 1])
+        self.set_param_flow(gb, no_flow=False, kn=kn)
+
+        solver_flow = mpfa.MpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "pressure", p)
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_prop(g_2d, 'pressure')
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1./kn)
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_prop(g_1d, 'pressure')
+        # NOTE: This will not be entirely correct,
+        assert np.allclose(p_1d, g_1d.cell_centers[1])
+
+    def test_mpfa_matching_grids_refine_mortar_uniform_flow_larger_domain(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[1, 2], num_nodes_mortar=3, num_nodes_1d=2,
+                            physdims=[2, 1])
+        self.set_param_flow(gb, no_flow=False, kn=kn)
+
+        solver_flow = mpfa.MpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "pressure", p)
+        g_2d = gb.grids_of_dimension(2)[0]
+        p_2d = gb.node_prop(g_2d, 'pressure')
+        # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
+        assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
+
+        g_1d = gb.grids_of_dimension(1)[0]
+        p_1d = gb.node_prop(g_1d, 'pressure')
+        # NOTE: This will not be entirely correct,
+        assert np.allclose(p_1d, g_1d.cell_centers[1])
+
+    def test_mpfa_matching_grids_refine_2d_uniform_flow_larger_domain(self):
+
+        kn = 1e4
+        gb = self.set_grids(N=[2, 2], num_nodes_mortar=2, num_nodes_1d=2,
+                            physdims=[2, 1])
+        self.set_param_flow(gb, no_flow=False, kn=kn)
+
+        solver_flow = mpfa.MpfaMixedDim('flow')
         A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
         p = sps.linalg.spsolve(A_flow, b_flow)
@@ -565,4 +772,4 @@ class TestMortar1dSingleFracture(unittest.TestCase):
 #TestGridRefinement1d().wietse()
 unittest.main()
 a = TestMortar1dSingleFracture()
-a.test_fv_matching_grids_refine_mortar_uniform_flow()
+a.test_mpfa_matching_grids_refine_2d_uniform_flow_larger_domain()
