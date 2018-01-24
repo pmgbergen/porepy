@@ -9,7 +9,7 @@ from porepy.params import tensor
 
 #------------------------------------------------------------------------------#
 
-def create_gb(domain, cells_2d, cells_1d = None, cells_mortar = None, tol=1e-5):
+def create_gb(domain, cells_2d, alpha_1d = None, alpha_mortar = None, tol=1e-5):
 
     mesh_kwargs = {}
     mesh_size = np.sqrt(2/cells_2d)
@@ -20,21 +20,21 @@ def create_gb(domain, cells_2d, cells_1d = None, cells_mortar = None, tol=1e-5):
     gb = importer.dfm_2d_from_csv(file_name, mesh_kwargs, domain)
 
     g_map = {}
-    if cells_1d is not None:
+    if alpha_1d is not None:
         for g, d in gb:
             if g.dim == 1:
-                num_nodes = g.num_nodes+cells_1d#+1
+                num_nodes = int(g.num_nodes*alpha_1d)
                 g_map[g] = refinement.new_grid_1d(g, num_nodes=num_nodes)
                 g_map[g].compute_geometry()
 
     mg_map = {}
-    if cells_mortar is not None:
+    if alpha_mortar is not None:
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
             if mg.dim == 1:
                 mg_map[mg] = {}
                 for s, g in mg.side_grids.items():
-                    num_nodes = g.num_nodes+cells_mortar#+1
+                    num_nodes = int(g.num_nodes*alpha_mortar)
                     mg_map[mg][s] = refinement.new_grid_1d(g, num_nodes=num_nodes)
 
     gb = mortars.replace_grids_in_bucket(gb, g_map, mg_map, tol)
@@ -112,7 +112,8 @@ def add_data(gb, domain, data = {}, tol=1e-5):
         else:
             kxx = data.get("kf_high", 1)
 
-        aperture = check_P * gb.node_prop(g_l, 'param').get_aperture()
-        d['kn'] = kxx * np.ones(mg.num_cells) / aperture
+        gamma = np.power(check_P * gb.node_prop(g_l, 'param').get_aperture(),
+                         1./(gb.dim_max() - g_l.dim))
+        d['kn'] = kxx * np.ones(mg.num_cells) / gamma
 
 #------------------------------------------------------------------------------#
