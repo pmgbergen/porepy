@@ -612,9 +612,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     # Below here, fields necessary for reconstruction of boundary pressures
 
     # Diagonal matrix that divides by number of sub-faces per face
-    half_face_per_face = sps.dia_matrix((1./(hf2f * np.ones(hf2f.shape[1])),
-                                         [0]), shape=(g.num_faces,
-                                                      g.num_faces))
+    half_face_per_face = sps.diags(1./(hf2f * np.ones(hf2f.shape[1])))
 
     # Contribution to face pressure from sub-cell gradients, calculated as
     # gradient times distance. Then further map to faces, and divide by number
@@ -626,8 +624,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     # information on the gradient.
     # Implementation note: This can be expanded to pressure recovery also
     # on internal faces by including them here, and below.
-    remove_not_neumann = sps.dia_matrix((bnd.is_neu.astype(np.int), 0),
-                                         shape=(g.num_faces, g.num_faces))
+    remove_not_neumann = sps.diags(bnd.is_neu.astype(np.int))
     dp = remove_not_neumann * dp
 
     # We also need pressure in the cell next to the boundary face.
@@ -643,10 +640,13 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
 
     bound_pressure_cell = dp + cell_contrib
 
-    bound_pressure_face_neu = half_face_per_face * hf2f * pr_cont_grad_all * igrad * rhs_bound
+    sgn_arr = np.zeros(g.num_faces)
+    sgn_arr[bound_faces] = g.cell_faces[bound_faces].sum(axis=1).A.ravel()
+    sgn_mat = sps.diags(sgn_arr)
+
+    bound_pressure_face_neu = sgn_mat * half_face_per_face * hf2f * pr_cont_grad_all * igrad * rhs_bound
     # For Dirichlet faces, simply recover the boundary condition
-    bound_pressure_face_dir = sps.dia_matrix((bnd.is_dir.astype(np.int), 0),
-                                            shape=(g.num_faces, g.num_faces))
+    bound_pressure_face_dir = sps.diags(bnd.is_dir.astype(np.int))
 
     bound_pressure_face = bound_pressure_face_dir\
                         + remove_not_neumann * bound_pressure_face_neu
