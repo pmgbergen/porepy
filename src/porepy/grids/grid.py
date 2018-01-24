@@ -615,7 +615,7 @@ class Grid(object):
 
     def cell_diameters(self, cn=None):
         """
-        Compute the cell diameters.
+        Compute the cell diameters. If self.dim == 0, return 0
 
         Parameters:
             cn (optional): cell nodes map, previously already computed.
@@ -625,6 +625,8 @@ class Grid(object):
             np.array, num_cells: values of the cell diameter for each cell
 
         """
+        if self.dim == 0:
+            return np.zeros(1)
 
         def comb(n): return np.fromiter(itertools.chain.from_iterable(
             itertools.combinations(n, 2)), n.dtype).reshape((2, -1),
