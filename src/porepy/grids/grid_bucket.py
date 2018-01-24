@@ -771,8 +771,8 @@ class GridBucket(object):
         """
 
         [g.compute_geometry() for g, _ in self]
-        [d['mortar'].compute_geometry() for _, d in self.edges_props() \
-                                                             if d.get('mortar')]
+        [d['mortar_grid'].compute_geometry() for _, d in self.edges_props()\
+                                                        if d.get('mortar_grid')]
 
 #------------------------------------------------------------------------------#
 
