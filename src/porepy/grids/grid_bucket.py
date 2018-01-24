@@ -1002,8 +1002,13 @@ class GridBucket(object):
         """
         if cond is None:
             cond = lambda _: True
-        diam = [np.amax(g.cell_diameters()) for g in self.graph if cond(g)]
-        return np.amax(diam)
+        diam_g = [np.amax(g.cell_diameters()) for g in self.graph if cond(g)]
+
+        diam_mg = [np.amax(d['mortar_grid'].cell_diameters())\
+                                                 for e, d in self.edges_props()\
+                                            if cond(e) and d.get('mortar_grid')]
+
+        return np.amax(np.hstack((diam_g, diam_mg)))
 
 #------------------------------------------------------------------------------#
 
