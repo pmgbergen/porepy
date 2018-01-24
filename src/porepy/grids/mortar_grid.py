@@ -248,6 +248,14 @@ class MortarGrid(object):
 
 #------------------------------------------------------------------------------#
 
+    def cell_diameters(self):
+        diams = np.empty(self.num_sides(), dtype=np.object)
+        for pos, (_, g) in enumerate(self.side_grids.items()):
+            diams[pos] = g.cell_diameters()
+        return np.concatenate(diams).ravel()
+
+#------------------------------------------------------------------------------#
+
     def _check_mappings(self, tol=1e-4):
         row_sum = self.high_to_mortar_int.sum(axis=1)
         assert row_sum.min() > tol
