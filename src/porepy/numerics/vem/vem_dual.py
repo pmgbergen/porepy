@@ -578,6 +578,9 @@ class DualCoupling(AbstractCoupling):
         hat_P = mg.high_to_mortar_int
         check_P = mg.low_to_mortar_int
 
+        hat_P_avg = mg.high_to_mortar_avg()
+        check_P_avg = mg.low_to_mortar_avg()
+
         # Velocity degree of freedom matrix
         U = sps.diags(sign_h)
 
@@ -594,19 +597,19 @@ class DualCoupling(AbstractCoupling):
         aperture_h = data_h['param'].get_aperture()
 
         # Inverse of the normal permability matrix
-        hat_P_avg = mg.high_to_mortar_avg()
         Eta = sps.diags(np.divide(inv_k, hat_P_avg*aperture_h[cells_h]))
 
         cc[0, 2] = sps.bmat([[(Eta*inv_M*A).T], [sps.csr_matrix(shape).T]])
 
-        A = U*hat_P.T*check_P
+        #A = U*hat_P.T*check_P
+        A = U*hat_P_avg.T*check_P
         shape = (g_h.num_cells, g_l.num_faces)
         cc[0, 1] = sps.bmat([[None, A], [sps.csr_matrix(shape), None]])
 
         # Coupling term representing the flux from the high to the lower
         # dimensional grids, represented as source term. In the mortar approach
         # the flux are the mortar variables (cell_volumes weighed)
-        A = check_P.T
+        A = check_P_avg.T
         shape = (g_l.num_faces, A.shape[1])
         cc[1, 2] = sps.bmat([[sps.csr_matrix(shape)], [A]])
 
