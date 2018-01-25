@@ -14,7 +14,7 @@ from porepy.params import tensor
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
-from porepy.numerics.vem import vem_dual
+from porepy.numerics.vem import DualCoupling
 from porepy.grids import grid, mortar_grid
 
 from porepy.utils import comp_geom as cg
@@ -28,7 +28,7 @@ class RT0MixedDim(SolverMixedDim):
 
         self.discr = RT0(self.physics)
         self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = vem_dual.DualCoupling(self.discr)
+        self.coupling_conditions = DualCoupling(self.discr)
 
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
