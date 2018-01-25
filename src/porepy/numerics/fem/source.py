@@ -8,6 +8,20 @@ import scipy.sparse as sps
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 
+#------------------------------------------------------------------------------#
+
+class IntegralMixedDim(SolverMixedDim):
+    def __init__(self, physics='flow'):
+        self.physics = physics
+
+        self.discr = Integral(self.physics)
+        self.discr_ndof = self.discr.ndof
+        self.coupling_conditions = None
+
+        self.solver = Coupler(self.discr)
+        SolverMixedDim.__init__(self)
+
+#------------------------------------------------------------------------------#
 
 class Integral(Solver):
     '''
@@ -45,17 +59,4 @@ class Integral(Solver):
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
         return lhs, rhs
 
-#------------------------------------------------------------------------------
-
-class IntegralMixedDim(SolverMixedDim):
-    def __init__(self, physics='flow'):
-        self.physics = physics
-
-        self.discr = Integral(self.physics)
-        self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = None
-
-        self.solver = Coupler(self.discr)
-        SolverMixedDim.__init__(self)
-
-#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------#
