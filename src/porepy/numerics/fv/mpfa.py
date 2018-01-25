@@ -14,7 +14,7 @@ from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
-from porepy.numerics.fv.tpfa import TpfaCoupling, TpfaCouplingDFN
+from porepy.numerics.fv import TpfaCoupling, TpfaCouplingDFN
 
 #------------------------------------------------------------------------------
 
