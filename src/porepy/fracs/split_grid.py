@@ -137,15 +137,15 @@ def split_faces(gh, face_cells):
     return face_cells
 
 
-def split_certain_faces(gh, face_cells, faces):
+def split_certain_faces(gh, face_cells, faces, cells):
         # We first we duplicate faces along tagged faces. The duplicate
         # faces will share the same nodes as the original faces,
         # however, the new faces are not yet added to the cell_faces map
         # (to save computation).
         face_id = duplicate_certain_faces(gh, face_cells, faces)
-        face_cells = update_face_cells(face_cells, face_id, 0)
+        face_cells = update_face_cells(face_cells, face_id, 0, cells)
         if face_id.size == 0:
-            return
+            return face_cells
 
         # We now set the cell_faces map based on which side of the
         # fractures the cells lie. We assume that all fractures are
@@ -284,10 +284,14 @@ def duplicate_certain_faces(gh, face_cells, frac_id):
     return frac_id
 
 
-def update_face_cells(face_cells, face_id, i):
+def update_face_cells(face_cells, face_id, i, cell_id=None):
     """
     Add duplicate faces to connection map between lower-dim grids
     and higher dim grids. To be run after duplicate_faces.
+    cell_id refers to new lower-dimensional cells, e.g. after fracture
+    propagation. In this case, face_id[i] is the "parent" face of cell_id[i].
+
+    TODO: Consider replacing hstack and vstack by sparse_mat.stack_mat.
     """
     # We duplicated the faces associated with lower-dim grid i.
     # The duplications should also be associated with grid i.
@@ -296,6 +300,18 @@ def update_face_cells(face_cells, face_id, i):
     for j, f_c in enumerate(face_cells):
         if j == i:
             f_c = sps.hstack((f_c, f_c[:, face_id]))
+            if cell_id is not None:
+                # New cells have been added to gl. Append rows to f_c:
+                new_rows = sps.csr_matrix((cell_id.size, f_c.shape[1]),
+                                          dtype=bool)
+                # Add connection between old faces and new cells
+                local_cell_id = cell_id - f_c.shape[0]
+                new_rows[local_cell_id, face_id] = True
+                # And between new faces and new cells
+                new_face_id = np.arange(f_c.shape[1] - face_id.size,
+                                        f_c.shape[1])
+                new_rows[local_cell_id, new_face_id] = True
+                f_c = sps.vstack((f_c.tocsr(), new_rows), format='csc')
         else:
             empty = sps.csc_matrix((f_c.shape[0], face_id.size))
             f_c = sps.hstack((f_c, empty))
@@ -305,13 +321,13 @@ def update_face_cells(face_cells, face_id, i):
 
 def update_cell_connectivity(g, face_id, normal, x0):
     """
-    After the faces in a grid are duplicated, we update the cell connectivity list.
-    Cells on the right side of the fracture do not change, but the cells
+    After the faces in a grid are duplicated, we update the cell connectivity
+    list. Cells on the right side of the fracture do not change, but the cells
     on the left side are attached to the face duplicates. We assume that all
     faces that have been duplicated lie in the same plane. This plane is
-    described by a normal and a point, x0. We attach cell on the left side of the
-    plane to the duplicate of face_id. The cells on the right side is attached
-    to the face frac_id
+    described by a normal and a point, x0. We attach cell on the left side of
+    the plane to the duplicate of face_id. The cell on the right side is
+    attached to the face frac_id.
 
     Parameters:
     ----------

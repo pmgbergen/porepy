@@ -63,7 +63,7 @@ class Coupler(object):
 
     def matrix_rhs(self, gb, matrix_format="csr"):
         """
-        Return the matrix and righ-hand side for a suitable discretization, where
+        Return the matrix and right-hand side for a suitable discretization, where
         a hierarchy of grids are considered. The matrices are stored in the
         global matrix and right-hand side according to the numeration given by
         "node_number".

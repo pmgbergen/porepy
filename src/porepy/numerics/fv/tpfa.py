@@ -153,8 +153,8 @@ class Tpfa(Solver):
         The name of data in the input dictionary (data) are:
         param : Parameter(Class). Contains the following parameters:
             tensor : second_order_tensor
-                Permeability defined cell-wise. If not given a identity permeability
-                is assumed and a warning arised.
+                Permeability defined cell-wise. If not given, a identity
+                permeability is assumed and a warning is issued.
             bc : boundary conditions (optional)
             bc_val : dictionary (optional)
                 Values of the boundary conditions. The dictionary has at most the
