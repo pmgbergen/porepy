@@ -54,7 +54,7 @@ class BasicsTest(unittest.TestCase):
             p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
             # print(p.perm)
             param.set_tensor('flow', p)
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound_face_centers = g.face_centers[:, bound_faces]
 
             right = bound_face_centers[0, :] > 1 - tol
@@ -78,15 +78,16 @@ class BasicsTest(unittest.TestCase):
         A, rhs = solver_coupler.matrix_rhs(gb)
 
         p = sps.linalg.spsolve(A, rhs)
-        p_cond, _, _, _ = condensation.solve_static_condensation(\
-                                                                 A, rhs, gb, dim=1)
+        p_cond, _, _, _ = condensation.solve_static_condensation(
+            A, rhs, gb, dim=1)
 
         solver_coupler.split(gb, "pressure", p)
         solver_coupler.split(gb, "p_cond", p_cond)
 
         tol = 1e-10
-        assert((np.amax(np.absolute(p-p_cond))) < tol)
-        assert(np.sum(error.error_L2(g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
+        assert((np.amax(np.absolute(p - p_cond))) < tol)
+        assert(np.sum(error.error_L2(
+            g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 
 #------------------------------------------------------------------------------#
@@ -121,7 +122,7 @@ class BasicsTest(unittest.TestCase):
             p = tensor.SecondOrder(3, np.ones(
                 g.num_cells) * np.power(1e3, g.dim < gb.dim_max()))
             param.set_tensor('flow', p)
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound_face_centers = g.face_centers[:, bound_faces]
 
             left = bound_face_centers[0, :] > 1 - tol
@@ -144,14 +145,15 @@ class BasicsTest(unittest.TestCase):
         A, rhs = solver_coupler.matrix_rhs(gb)
 
         p = sps.linalg.spsolve(A, rhs)
-        p_cond, _, _, _ = condensation.solve_static_condensation(\
-                                                                 A, rhs, gb, dim=1)
+        p_cond, _, _, _ = condensation.solve_static_condensation(
+            A, rhs, gb, dim=1)
 
         solver_coupler.split(gb, "pressure", p)
         solver_coupler.split(gb, "p_cond", p_cond)
 
         tol = 1e-5
-        assert((np.amax(np.absolute(p-p_cond))) < tol)
-        assert(np.sum(error.error_L2(g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
+        assert((np.amax(np.absolute(p - p_cond))) < tol)
+        assert(np.sum(error.error_L2(
+            g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#

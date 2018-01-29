@@ -41,7 +41,7 @@ def add_data(gb, domain):
         param.set_aperture(np.ones(g.num_cells) * aperture)
 
         # Boundaries
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 

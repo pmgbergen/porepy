@@ -45,7 +45,7 @@ def add_data(g):
     param.set_source("flow", g.cell_volumes * source)
 
     # Boundaries
-    bound_faces = g.get_boundary_faces()
+    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
     bound_face_centers = g.face_centers[:, bound_faces]
 
     labels = np.array(['dir'] * bound_faces.size)

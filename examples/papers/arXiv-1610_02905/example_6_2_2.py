@@ -90,7 +90,7 @@ def add_data(gb, tol):
         param.set_source("flow", g.cell_volumes * source)
 
         # Boundaries
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 

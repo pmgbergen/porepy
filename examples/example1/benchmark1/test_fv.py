@@ -44,7 +44,7 @@ def add_data(gb, domain, kf, mesh_value):
         param.set_source('flow', np.zeros(g.num_cells))
 
         # Boundaries
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -61,9 +61,10 @@ def add_data(gb, domain, kf, mesh_value):
                 left_mid = np.array(np.absolute(g.face_centers[1, bound_faces[left]]
                                                 - 0.5) < mesh_value)
                 bc_val[bound_faces[left]] = - g.face_areas[bound_faces[left]] \
-                                            + left_mid * .5*a
+                    + left_mid * .5 * a
             else:
-                bc_val[bound_faces[left]] = -g.face_areas[bound_faces[left]] * a
+                bc_val[bound_faces[left]] = - \
+                    g.face_areas[bound_faces[left]] * a
 
             bc_val[bound_faces[right]] = np.ones(np.sum(right))
 

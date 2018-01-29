@@ -187,7 +187,7 @@ def compute_dist_face_cell(g, subcell_topology, eta):
                                         blocksz[0], blocksz)
     eta_vec = eta * np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
-    bnd = np.in1d(subcell_topology.fno, g.get_boundary_faces())
+    bnd = np.in1d(subcell_topology.fno, g.get_all_boundary_faces())
     eta_vec[bnd] = 0
     cp = g.face_centers[:, subcell_topology.fno] \
         + eta_vec * (g.nodes[:, subcell_topology.nno] -
@@ -956,6 +956,15 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
         'bc_val': Boundary condition values.
             and the following edge property field for all connected grids:
         'coupling_flux': Discretization of the coupling fluxes.
+    physics (string): defaults to 'flow'. The physic regime
+    d_name (string): defaults to 'discharge'. The keyword which the computed
+                     discharge will be stored by in the dictionary.
+    p_name (string): defaults to 'pressure'. The keyword that the pressure
+                     field is stored by in the dictionary
+    data (dictionary): defaults to None. If gb is mono-dimensional grid the
+                       data dictionary must be given. If gb is a
+                       multi-dimensional grid, this variable has no effect
+                
     Returns:
         gb, the same grid bucket with the added field 'discharge'(overwritten
         by d_name) added to all node data fields. Note that the fluxes between

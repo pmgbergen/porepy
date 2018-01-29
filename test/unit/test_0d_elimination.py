@@ -55,7 +55,7 @@ class BasicsTest(unittest.TestCase):
 
             p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
             param.set_tensor('flow', p)
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
                 bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -71,11 +71,12 @@ class BasicsTest(unittest.TestCase):
                 bc_val[bc_dir] = g.face_centers[0, bc_dir]
                 bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
 
-                param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
+                param.set_bc(solver, bc.BoundaryCondition(
+                    g, bound_faces, labels))
                 param.set_bc_val(solver, bc_val)
             else:
                 param.set_bc("flow", bc.BoundaryCondition(
-                                g, np.empty(0), np.empty(0)))
+                    g, np.empty(0), np.empty(0)))
             d['param'] = param
 
         coupling_conditions = tpfa.TpfaCoupling(solver)
@@ -127,7 +128,7 @@ class BasicsTest(unittest.TestCase):
             p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
 
             param.set_tensor('flow', p)
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
 
                 bound_face_centers = g.face_centers[:, bound_faces]
@@ -144,11 +145,12 @@ class BasicsTest(unittest.TestCase):
                 bc_val[bc_dir] = g.face_centers[0, bc_dir]
                 bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
 
-                param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
+                param.set_bc(solver, bc.BoundaryCondition(
+                    g, bound_faces, labels))
                 param.set_bc_val(solver, bc_val)
             else:
                 param.set_bc("flow", bc.BoundaryCondition(
-                                g, np.empty(0), np.empty(0)))
+                    g, np.empty(0), np.empty(0)))
             d['param'] = param
 
         coupling_conditions = tpfa.TpfaCoupling(solver)
@@ -240,7 +242,7 @@ class BasicsTest(unittest.TestCase):
             p = tensor.SecondOrder(3, np.ones(
                 g.num_cells) * np.power(1e3, g.dim < gb.dim_max()))
             param.set_tensor('flow', p)
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
 
                 bound_face_centers = g.face_centers[:, bound_faces]
@@ -255,11 +257,12 @@ class BasicsTest(unittest.TestCase):
                 bc_dir = bound_faces[np.logical_or(left, right)]
                 bc_val[bc_dir] = g.face_centers[0, bc_dir]
 
-                param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
+                param.set_bc(solver, bc.BoundaryCondition(
+                    g, bound_faces, labels))
                 param.set_bc_val(solver, bc_val)
             else:
                 param.set_bc("flow", bc.BoundaryCondition(
-                                g, np.empty(0), np.empty(0)))
+                    g, np.empty(0), np.empty(0)))
             d['param'] = param
 
         coupling_conditions = tpfa.TpfaCoupling(solver)

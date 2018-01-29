@@ -54,12 +54,6 @@ class SlightlyCompressibleModel(ParabolicModel):
             time_discretization = Coupler(time_discretization)
         return time_discretization
 
-    def pressure(self, pressure_name='pressure'):
-        if self.is_GridBucket:
-            self._solver.split(pressure_name)
-        else:
-            self._data[pressure_name] = self._solver.x
-
     def discharge(self, d_name='discharge', p_name='pressure'):
         self.pressure(p_name)
         fvutils.compute_discharges(self.grid(), d_name=d_name, p_name=p_name)

@@ -34,7 +34,7 @@ class BasicsTest(unittest.TestCase):
             return bc_val
 
         def bc_labels(g):
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound_face_centers = g.face_centers[:, bound_faces]
             left = bound_face_centers[0] < 1e-6
             right = bound_face_centers[0] > 10 - 1e-6
@@ -222,7 +222,7 @@ def setup_2d_1d(nx, simplex_grid=False):
         param.set_tensor('flow', perm)
         param.set_aperture(a)
         if g.dim == 2:
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
                                          ['dir'] * bound_faces.size)
             bc_val = np.zeros(g.num_faces)

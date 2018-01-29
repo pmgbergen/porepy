@@ -39,7 +39,6 @@ def add_data(gb):
         params.set_source('flow', np.zeros(g.num_cells))
 
         # Boundaries
-        bound_faces = g.get_boundary_faces()
         top = np.argwhere(g.face_centers[1, :] > 1 - 1e-5)
         bot = np.argwhere(g.face_centers[1, :] < -1 + 1e-5)
         left = np.argwhere(g.face_centers[0, :] < -1 + 1e-5)
@@ -70,12 +69,12 @@ if __name__ == '__main__':
     f_1 = np.array([[-.8, .8, .8, -.8], [0, 0, 0, 0], [-.8, -.8, .8, .8]])
     f_2 = np.array([[0, 0, 0, 0], [-.8, .8, .8, -.8], [-.8, -.8, .8, .8]])
     f_3 = np.array([[-.8, .8, .8, -.8], [-.8, -.8, .8, .8], [0, 0, 0, 0]])
-    f_1 = [[0,1],[0,1]]
-    f_2 = [[0,.1],[0.2,.1]]
+    f_1 = [[0, 1], [0, 1]]
+    f_2 = [[0, .1], [0.2, .1]]
     f_set = [f_1, f_2, f_3]
     f_set = [f_1, f_2]
     domain = {'xmin': -1, 'xmax': 1,
-              'ymin': -1, 'ymax': 1}#, 'zmin': -1, 'zmax': 1}
+              'ymin': -1, 'ymax': 1}  # , 'zmin': -1, 'zmax': 1}
 
     gb = meshing.simplex_grid(f_set, domain)
     gb.assign_node_ordering()
