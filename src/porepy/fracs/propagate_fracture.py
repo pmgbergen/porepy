@@ -7,19 +7,38 @@ Created on Thu Jan  4 17:32:35 2018
 
 Propagation of fractures. Much in common with (and reuse of) split_grid.
 For now assumes:
-        single growing fracture, not growing into other fractures
+    single fracture
+When this assumption is relieved, some (re)structuring will be needed.
+The structure for multi-fracture propagation may possibly strongly resemble
+that of split_grid.
 """
 import warnings
 import numpy as np
 import scipy.sparse as sps
 from porepy.fracs import split_grid
-from porepy.utils import setmembership, tags, sort_points
+from porepy.utils import setmembership, tags, sort_points, sparse_mat
+from porepy.numerics.mixed_dim.coupler import Coupler
+from porepy.numerics.mixed_dim.solver import SolverMixedDim
+from porepy.numerics.fv import tpfa, mpfa, fvutils
+from porepy.params import bc, tensor
 
 
-def propagate_fracture(gb, gh, gl, faces_h, apertures_l):
+def propagate_fracture(gb, gh, gl, faces_h):
     """
-    Propagate the fracture defined by gl to the higher-dimensional faces.
-
+    Extend the fracture defined by gl to the higher-dimensional faces_h and
+    splits gh along the same faces.
+    Changes to grids done in-place.
+    The call changes:
+        Geometry and connectivity fields of the two grids involved.
+        The face_cells mapping between them
+        Their respective face tags.
+    Also adds the following to node data dictionaries:
+        new_cells and new_faces tags, for use in e.g. local discretization
+        updates.
+        partial_update, a boolean flag indicating that the grids have been
+        updated.
+    These may have to be returned by the function to be handled externally when
+    multiple fractures are implemented.
     """
 
     # Keep track of original information:
@@ -31,33 +50,46 @@ def propagate_fracture(gb, gh, gl, faces_h, apertures_l):
     # helps updating the face tags later:
     tags.add_node_tags_from_face_tags(gb, 'domain_boundary')
 
-    # The new nodes in the lower dimension and their union with the
-    # boundary nodes where the fracture propagates. The former are added to
-    # the global_point_ind of gl:
+    # Get the "involved nodes", i.e., the union between the new nodes in the
+    # lower dimension and the boundary nodes where the fracture propagates.
+    # The former are added to the global_point_ind of gl.
     unique_node_ind_l, unique_node_ind_h = update_nodes(gh, gl, faces_h)
 
-    n_new_faces, new_face_centers = update_connectivity(gl, gh, n_old_nodes_l,
-                                                        unique_node_ind_l,
-                                                        n_old_faces_l,
-                                                        n_old_cells_l,
-                                                        unique_node_ind_h,
-                                                        faces_h)
+    # Update the connectivity matrices (cell_faces and face_nodes) and tag
+    # the lower-dimensional faces, including re-classification of (former) tips
+    # to internal faces, where appropriate.
+    n_new_faces, new_face_centers \
+        = update_connectivity(gl, gh, n_old_nodes_l, unique_node_ind_l,
+                              n_old_faces_l, n_old_cells_l, unique_node_ind_h,
+                              faces_h)
     # Add new faces to gl
     append_face_geometry(gl, n_new_faces, new_face_centers)
     # Same for cells
-    update_cells(gh, gl, faces_h)
-
-    update_permeability(gb, gl, apertures_l)
+    new_cells = update_cells(gh, gl, faces_h)
 
     # Split gh along faces_h
-    split_fracture_extension(gb, gh, gl, faces_h, unique_node_ind_h)
+    split_fracture_extension(gb, gh, gl, faces_h, unique_node_ind_h, new_cells)
+
+    # Store information on which faces and cells have just been added. Note,
+    # we only keep track of the faces and cells from the last propagation call!
+    new_faces_h = gh.frac_pairs[1, np.isin(gh.frac_pairs[0], faces_h)]
+    for g, d in gb:
+        d['partial_update'] = True
+        if g.dim == gb.dim_max():
+            d['new_cells'] = np.empty(0)
+            d['new_faces'] = new_faces_h
+        else:
+            d['new_cells'] = new_cells
+            d['new_faces'] = np.arange(g.num_faces - n_new_faces, g.num_faces)
+    gb.compute_geometry()
 
 
 def update_connectivity(gl, gh, n_old_nodes_l, unique_node_indices_l,
                         n_old_faces_l, n_old_cells_l, unique_nodes_h, faces_h):
     """
-    Update of cell_faces of the lower grid after incertion of new cells at the
-    higher-dimensional faces_h. Should be called after initialization of tags
+    Update of cell_faces of the lower grid after insertion of new cells at the
+    higher-dimensional faces_h. Also tags the faces as domain_boundary or tip
+    Should be called after initialization of tags
     and geometry of gl by append_face_geometry and append_face_tags.
     """
     # Extract immediate information
@@ -178,6 +210,7 @@ def update_connectivity(gl, gh, n_old_nodes_l, unique_node_indices_l,
     gl.face_nodes[:n_old_nodes_l, :n_old_faces_l] = old_face_nodes
     gl.face_nodes[fn_ind_n, fn_ind_f] = True
     # ... and cell_faces
+
     gl.cell_faces = sps.csc_matrix((face_counter_l,
                                     n_old_cells_l + n_new_cells_l))
     gl.cell_faces[0:n_old_faces_l, 0:n_old_cells_l] = old_cell_faces
@@ -199,18 +232,17 @@ def order_preserving_find(a, b):
 
 def update_cells(gh, gl, faces_h):
     """
-    Cell information is inherited directly from the higher-dimensional faces
-    we are splitting. The function updates num_cells, cell_centers and
+    Cell information for gl is inherited directly from the higher-dimensional
+    faces we are splitting. The function updates num_cells, cell_centers and
     cell_volumes.
     """
-    gl.num_cells += faces_h.size
+    n_new_cells = gl.num_cells + faces_h.size
+    new_cells = np.arange(gl.num_cells, n_new_cells)
+    gl.num_cells = n_new_cells
     gl.cell_centers = np.append(gl.cell_centers,
                                 gh.face_centers[:, faces_h], axis=1)
     gl.cell_volumes = np.append(gl.cell_volumes, gh.face_areas[faces_h])
-
-
-def update_permeability(gb, gl, apertures_l):
-    warnings.warn('apertures not updated', )
+    return new_cells
 
 
 def update_nodes(gh, gl, faces_h):
@@ -240,7 +272,7 @@ def update_nodes(gh, gl, faces_h):
 
     # Order preserving find:
     unique_nodes_l = order_preserving_find(unique_global_nodes,
-                                                  gl.global_point_ind)
+                                           gl.global_point_ind)
 
     gl.nodes = np.append(gl.nodes, new_nodes_l, axis=1)
     gl.num_nodes += new_nodes_l.shape[1]
@@ -249,7 +281,8 @@ def update_nodes(gh, gl, faces_h):
 
 def append_face_geometry(g, n_new_faces, new_centers):
     """
-    Appends and updates faces geometry information for new faces.
+    Appends and updates faces geometry information for new faces. Also updates
+    num_faces.
     """
     g.face_normals = np.append(g.face_normals,
                                np.zeros((3, n_new_faces)), axis=1)
@@ -268,7 +301,7 @@ def append_face_tags(g, n_new_faces):
     tags.append_tags(g.tags, keys, new_tags)
 
 
-def split_fracture_extension(bucket, gh, gl, faces_h, nodes_h):
+def split_fracture_extension(bucket, gh, gl, faces_h, nodes_h, cells_l):
     """
     Split the higher-dimensional grid along specified faces. Updates made to
     face_cells of the grid pair and the nodes and faces of the higher-
@@ -278,8 +311,8 @@ def split_fracture_extension(bucket, gh, gl, faces_h, nodes_h):
     bucket      - A grid bucket
     gh          - Higher-dimensional grid to be split along specified faces.
     gl          - Immersed lower-dimensional grid.
-    faces_h     - The higher-dimensional faces to be split. Should be direct
-                    extension of already split faces.
+    faces_h     - The higher-dimensional faces to be split.
+    cells_l     - The corresponding lower-dimensional cells.
     nodes_h     - The corresponding (higher-dimensional) nodes.
     """
 
@@ -289,15 +322,14 @@ def split_fracture_extension(bucket, gh, gl, faces_h, nodes_h):
     # The new faces will share the same nodes and properties (normals,
     # etc.)
 
-    face_cells = split_grid.split_certain_faces(gh, face_cells, faces_h)
-    bucket.add_edge_prop('face_cells', [(gh,gl)], face_cells)
+    face_cells = split_grid.split_certain_faces(gh, face_cells, faces_h,
+                                                cells_l)
+    bucket.add_edge_prop('face_cells', [(gh, gl)], face_cells)
 
     # We now find which lower-dim nodes correspond to which higher-
     # dim nodes. We split these nodes according to the topology of
     # the connected higher-dim cells. At a X-intersection we split
     # the node into four, while at the fracture boundary it is not split.
-
-#    gl_2_gh_nodes = [bucket.target_2_source_nodes(gl, gh)]
 
     split_grid.split_nodes(gh, [gl], [nodes_h])
 
@@ -307,3 +339,30 @@ def split_fracture_extension(bucket, gh, gl, faces_h, nodes_h):
     return bucket
 
 
+def tag_affected_cells_and_faces(gb):
+    """
+    Tag the lower-dimensional cells and higher-dimensional faces which have
+    been affected by the update. Should be the new cells, and both the original
+    (defining the split, see e.g. faces_h in propagate_fracture) and the newly
+    created faces.
+    Assumes only two dimensions.
+    """
+    dh = gb.dim_max()
+    dl = gb.dim_min()
+    gh = gb.grids_of_dimension(dh)[0]
+    gl = gb.grids_of_dimension(dl)[0]
+    dh = gb.node_props(gh)
+    dl = gb.node_props(gl)
+    cells_l = dl['new_cells']
+    faces_h = dh['new_faces']
+    old_faces_h = gh.frac_pairs[0, np.isin(gh.frac_pairs[1], faces_h)]
+    all_faces_h = np.concatenate((old_faces_h, faces_h))
+    t = np.zeros(gh.num_faces, dtype=bool)
+    t[all_faces_h] = True
+    gh.tags['discretize_faces'] = t
+
+    # TODO: Fix tpfa, so that local 1d update is possible (MPFA calls TPFA for
+    # 1d). Once fixed, change to t = np.zeros(...) in this line:
+    t = np.ones(gl.num_cells, dtype=bool)
+    t[cells_l] = True
+    gl.tags['discretize_cells'] = t

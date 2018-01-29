@@ -4,6 +4,7 @@ Created on Fri Mar  4 09:04:16 2016
 
 @author: eke001
 """
+
 from __future__ import division
 import numpy as np
 import scipy.sparse as sps
@@ -784,7 +785,7 @@ def cell_ind_for_partial_update(g, cells=None, faces=None, nodes=None):
         # The central cell (x) is to be updated. The support of MPFA basis
         # functions dictates that the stencil between the central cell and its
         # primary neighbors (o) must be updated, as must the stencil for the
-        # sub-faces between o-cells that shares a vertex with x. Since the
+        # sub-faces between o-cells that share a vertex with x. Since the
         # flux information is stored face-wise (not sub-face), the whole o-o
         # faces must be recomputed, and this involves the secondary neighbors
         # of x (denoted s). This is most easily realized by defining an overlap
@@ -1000,7 +1001,7 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             pressures = gb.nodes_prop([g2, g1], p_name)
             dis = coupling_flux * np.concatenate(pressures)
             d[d_name] = dis
-            
+
         elif g1.dim == g2.dim and d['face_cells'] is not None:
             # g2 is now only the "higher", but still the one defining the faces
             # (cell-cells connections) in the sense that the normals are assumed
@@ -1019,3 +1020,77 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             # Store flux at the edge only. This means that the flux will remain
             # zero in the data of both g1 and g2
             d[d_name] = np.ravel(dis)
+
+
+def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
+        """
+        Appends rows to existing discretizations stored as 'stress' and
+        'bound_stress' in the data dictionary on the nodes. Only applies to the
+        highest dimension (for now, at least). The newly added faces are found
+        from 'new_faces' in the data dictionary.
+        Assumes all new rows and columns should be appended, not inserted to
+        the "interior" of the discretization matrices.
+        g -     grid object
+        d -     corresponding data dictionary
+        kw1 -   keyword for the stored discretization in the data dictionary,
+                e.g. 'flux'
+        kw2 -   keyword for the stored boundary discretization in the data
+                dictionary, e.g. 'bound_flux'
+        """
+        cells = d['new_cells']
+        faces = d['new_faces']
+        n_new_cells = cells.size * k_dof
+        n_new_faces = faces.size * k_dof
+
+        # kw1
+        new_rows = sps.csr_matrix((n_new_faces,
+                                   g.num_cells * k_dof - n_new_cells))
+        new_columns = sps.csr_matrix((g.num_faces * k_dof, n_new_cells))
+        d[kw1] = sps.hstack([sps.vstack([d[kw1], new_rows]),
+                             new_columns], format='csr')
+        # kw2
+        new_rows = sps.csr_matrix((n_new_faces,
+                                   g.num_faces * k_dof - n_new_faces))
+        new_columns = sps.csr_matrix((g.num_faces * k_dof, n_new_faces))
+        d[kw2] = sps.hstack([sps.vstack([d[kw2], new_rows]),
+                             new_columns], format='csr')
+
+
+def partial_discretization(g, data, tensor, bnd, apertures, partial_discr,
+                           physics='flow'):
+    """
+    Perform a partial (local) multi-point discretization on a grid with
+    provided data, tensor and boundary conditions by
+        1)  Appending the existing discretization matrices to the right size
+        according to the added cells and faces.
+        2)  Discretizing on the relevant subgrids by calls to the provided
+        partial discretization function (mpfa_partial or mpsa_partial).
+        3)  Zeroing out the rows corresponding to the updated faces.
+        4)  Inserting the newly computed values to the just deleted rows.
+    """
+    # Get keywords and affected geometry
+    known_physics = ['flow', 'mechanics']
+    assert physics in known_physics
+    if physics == 'flow':
+        kw1, kw2 = 'flux', 'bound_flux'
+        dof_multiplier = 1
+    elif physics == 'mechanics':
+        kw1, kw2 = 'stress', 'bound_stress'
+        dof_multiplier = g.dim
+    cells = g.tags.get('discretize_cells')
+    faces = g.tags.get('discretize_faces')
+    nodes = g.tags.get('discretize_nodes')
+
+    # Update the existing discretization to the right size
+    append_dofs_of_discretization(g, data, kw1, kw2, dof_multiplier)
+    trm, bound_flux, affected_faces = \
+        partial_discr(g, tensor, bnd, cells=cells, faces=faces, nodes=nodes,
+                      apertures=apertures, inverter=None)
+
+    # Account for dof offset for mechanical problem
+    affected_faces = expand_indices_nd(affected_faces, dof_multiplier)
+
+    zero_out_sparse_rows(data[kw1], affected_faces)
+    zero_out_sparse_rows(data[kw2], affected_faces)
+    data[kw1] += trm
+    data[kw2] += bound_flux

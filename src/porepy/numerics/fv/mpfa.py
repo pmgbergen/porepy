@@ -165,10 +165,13 @@ class Mpfa(Solver):
         k = param.get_tensor(self)
         bnd = param.get_bc(self)
         a = param.aperture
-
-        trm, bound_flux = mpfa(g, k, bnd, apertures=a)
-        data['flux'] = trm
-        data['bound_flux'] = bound_flux
+        partial = data.get('partial_update', False)
+        if  not partial:
+            trm, bound_flux = mpfa(g, k, bnd, apertures=a)
+            data['flux'] = trm
+            data['bound_flux'] = bound_flux
+        else:
+            fvutils.partial_discretization(g, data, k, bnd, a, mpfa_partial)
 
 #------------------------------------------------------------------------------#
 
@@ -339,8 +342,8 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
             subgrid computation. Defaults to None.
         nodes (np.array, int, optional): Index of nodes on which to base the
             subgrid computation. Defaults to None.
-        apertures (np.ndarray, float, optional) apertures of the cells for scaling of the face
-            normals. Defaults to None.
+        apertures (np.ndarray, float, optional) apertures of the cells for
+            scaling of the face normals. Defaults to None.
 
         Note that if all of {cells, faces, nodes} are None, empty matrices will
         be returned.
@@ -350,8 +353,8 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
             computed on a subgrid.
         sps.csr_matrix (g,num_faces x g.num_faces): Boundary flux
             discretization, computed on a subgrid
-        np.array (int): Global of the faces where the flux discretization is
-            computed.
+        np.array (int): Global indices of the faces where the flux
+            discretization is computed.
 
     """
     if cells is not None:

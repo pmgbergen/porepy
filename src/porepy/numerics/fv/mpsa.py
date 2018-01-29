@@ -8,6 +8,7 @@ equations tend to become slightly more complex thus, it may be useful to confer
 that module as well.
 
 """
+import warnings
 import numpy as np
 import scipy.sparse as sps
 
@@ -64,8 +65,6 @@ class Mpsa(Solver):
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        param = data['param']
-
         if discretize:
             self.discretize(g, data)
         div = fvutils.vector_divergence(g)
@@ -109,10 +108,15 @@ class Mpsa(Solver):
         c = data['param'].get_tensor(self)
         bnd = data['param'].get_bc(self)
 
-        stress, bound_stress = mpsa(g, c, bnd)
-
-        data['stress'] = stress
-        data['bound_stress'] = bound_stress
+        partial = data.get('partial_update', False)
+        if  not partial:
+            stress, bound_stress = mpsa(g, c, bnd)
+            data['stress'] = stress
+            data['bound_stress'] = bound_stress
+        else:
+            a = data['param'].aperture
+            fvutils.partial_discretization(g, data, c, bnd, a, mpsa_partial,
+                                           physics=self.physics)
 
 #------------------------------------------------------------------------------#
 
@@ -192,7 +196,7 @@ class FracturedMpsa(Mpsa):
 
         bc_val = data['param'].get_bc_val(self)
 
-        frac_faces = np.matlib.repmat(g.tags['fracture_faces'], 3, 1)
+        frac_faces = np.matlib.repmat(g.tags['fracture_faces'], g.dim, 1)
         assert np.all(bc_val[frac_faces.ravel('F')] == 0), \
             '''Fracture should have zero boundary condition. Set slip by
                Parameters.set_slip_distance'''
@@ -271,7 +275,7 @@ class FracturedMpsa(Mpsa):
 
     def discretize_fractures(self, g, data, faces=None, **kwargs):
         """
-        Discretize the vector elliptic equation by the multi-point stress and added 
+        Discretize the vector elliptic equation by the multi-point stress and added
         degrees of freedom on the fracture faces
 
         The method computes fluxes over faces in terms of displacements in
@@ -586,7 +590,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
 
 
 def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
-                 faces=None, nodes=None):
+                 faces=None, nodes=None, apertures=None):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
     of global variable numbers.
@@ -615,6 +619,8 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
             subgrid computation. Defaults to None.
         nodes (np.array, int, optional): Index of nodes on which to base the
             subgrid computation. Defaults to None.
+        apertures (np.array, int, optional): Cell apertures. Defaults to None.
+            Unused for now, added for similarity to mpfa_partial.
 
         Note that if all of {cells, faces, nodes} are None, empty matrices will
         be returned.

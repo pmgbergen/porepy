@@ -27,9 +27,9 @@ class TestPartialMPFA(unittest.TestCase):
         nodes_of_cell = np.array([14, 15, 20, 21])
         faces_of_cell = np.array([14, 15, 42, 47])
 
-        partial_flux, partial_bound, active_faces \
-                = mpfa.mpfa_partial(g, perm, bnd, nodes=nodes_of_cell,
-                                    inverter='python')
+        partial_flux, partial_bound, active_faces  \
+            = mpfa.mpfa_partial(g, perm, bnd, nodes=nodes_of_cell,
+                                inverter='python')
 
         assert faces_of_cell.size == active_faces.size
         assert np.all(np.sort(faces_of_cell) == np.sort(active_faces))
@@ -80,7 +80,7 @@ class TestPartialMPFA(unittest.TestCase):
         g = CartGrid([3, 3])
         g.compute_geometry()
 
-        # Assign random permeabilities, for good measure 
+        # Assign random permeabilities, for good measure
         np.random.seed(42)
         kxx = np.random.random(g.num_cells)
         kyy = np.random.random(g.num_cells)
@@ -100,8 +100,8 @@ class TestPartialMPFA(unittest.TestCase):
             ind[ci] = 1
             nodes = np.squeeze(np.where(cn * ind > 0))
             partial_flux, partial_bound, active_faces = \
-                    mpfa.mpfa_partial(g, perm, bnd, nodes=nodes,
-                                      inverter='python')
+                mpfa.mpfa_partial(g, perm, bnd, nodes=nodes,
+                                  inverter='python')
 
             if np.any(faces_covered):
                 partial_flux[faces_covered, :] *= 0
@@ -149,8 +149,8 @@ class TestPartialMPSA():
         faces_of_cell = np.array([14, 15, 42, 47])
 
         partial_stress, partial_bound, active_faces \
-                = mpsa.mpsa_partial(g, stiffness, bnd, nodes=nodes_of_cell,
-                                    inverter='python')
+            = mpsa.mpsa_partial(g, stiffness, bnd, nodes=nodes_of_cell,
+                                inverter='python')
 
         assert faces_of_cell.size == active_faces.size
         assert np.all(np.sort(faces_of_cell) == np.sort(active_faces))
@@ -176,8 +176,8 @@ class TestPartialMPSA():
         nodes_of_cell = np.array([12, 13, 18, 19])
         faces_of_cell = np.array([12, 13, 40, 45])
         partial_stress, partial_bound, active_faces \
-                = mpsa.mpsa_partial(g, perm, bnd, nodes=nodes_of_cell,
-                                    inverter='python')
+            = mpsa.mpsa_partial(g, perm, bnd, nodes=nodes_of_cell,
+                                inverter='python')
 
         assert faces_of_cell.size == active_faces.size
         assert np.all(np.sort(faces_of_cell) == np.sort(active_faces))
@@ -189,8 +189,8 @@ class TestPartialMPSA():
         assert np.max(np.abs(diff_stress[faces_of_cell])) == 0
         assert np.max(np.abs(diff_bound[faces_of_cell])) == 0
 
-        # Only the faces of the central cell should be non-zero. 
-        # Zero out these ones, and the entire 
+        # Only the faces of the central cell should be non-zero.
+        # Zero out these ones, and the entire
         partial_stress[faces_of_cell, :] = 0
         partial_bound[faces_of_cell, :] = 0
         assert np.max(np.abs(partial_stress.data)) == 0
@@ -224,8 +224,8 @@ class TestPartialMPSA():
             ind[ci] = 1
             nodes = np.squeeze(np.where(cn * ind > 0))
             partial_stress, partial_bound, active_faces = \
-                    mpsa.mpsa_partial(g, stiffness, bnd, nodes=nodes,
-                                      inverter='python')
+                mpsa.mpsa_partial(g, stiffness, bnd, nodes=nodes,
+                                  inverter='python')
 
             if np.any(faces_covered):
                 del_faces = self.expand_indices_nd(np.where(faces_covered)[0],
@@ -237,7 +237,6 @@ class TestPartialMPSA():
             stress += partial_stress
             bound_stress += partial_bound
 
-
         assert (stress_full - stress).max() < 1e-8
         assert (stress_full - stress).min() > -1e-8
         assert (bound_stress - bound_stress_full).max() < 1e-8
@@ -245,4 +244,3 @@ class TestPartialMPSA():
 
     if __name__ == '__main__':
         unittest.main()
-

@@ -16,10 +16,10 @@ def setup_2d_1d(nx, simplex_grid=False):
     else:
         mesh_kwargs = {}
         mesh_size = .08
-        mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': mesh_size, 'bound_value': 1*mesh_size}
-        domain = {'xmin': 0, 'ymin': 0, 'xmax':1, 'ymax':1}
-        gb = meshing.simplex_grid(fracs, domain,**mesh_kwargs)
+        mesh_kwargs['mesh_size'] = {'mode': 'constant', 'value': mesh_size,
+                                    'bound_value': mesh_size}
+        domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
+        gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
 
     gb.compute_geometry()
     gb.assign_node_ordering()
@@ -37,12 +37,13 @@ def setup_2d_1d(nx, simplex_grid=False):
             bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
                                          ['dir'] * bound_faces.size)
             bc_val = np.zeros(g.num_faces)
-            bc_val[bound_faces] = g.face_centers[1,bound_faces]
+            bc_val[bound_faces] = g.face_centers[1, bound_faces]
             param.set_bc('flow', bound)
             param.set_bc_val('flow', bc_val)
         d['param'] = param
 
     return gb
+
 
 def check_pressures(gb):
     """

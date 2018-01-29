@@ -31,7 +31,6 @@ class BasicsTest(unittest.TestCase):
 
         tol = 1e-3
         solver = tpfa.Tpfa(physics='flow')
-        #solver = tpfa.Tpfa(physics='flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
