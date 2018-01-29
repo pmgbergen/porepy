@@ -307,62 +307,6 @@ class RT0(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def project_u(self, g, u, data):
-        """  Project the velocity computed with a RT0-P0 solver to obtain a
-        piecewise constant vector field, one triplet for each cell.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        u : array (g.num_faces) Velocity at each face.
-
-        Return
-        ------
-        P0u : ndarray (3, g.num_faces) Velocity at each cell.
-
-        """
-        # Allow short variable names in backend function
-        # pylint: disable=invalid-name
-
-        if g.dim == 0:
-            return np.zeros(3).reshape((3, 1))
-
-        # The velocity field already has permeability effects incorporated,
-        # thus we assign a unit permeability to be passed to self.massHdiv
-        k = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
-        param = data['param']
-        a = param.get_aperture()
-
-        faces, cells, sign = sps.find(g.cell_faces)
-        index = np.argsort(cells)
-        faces, sign = faces[index], sign[index]
-
-        c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
-
-        # In the virtual cell approach the cell diameters should involve the
-        # apertures, however to keep consistency with the hybrid-dimensional
-        # approach and with the related hypotheses we avoid.
-        diams = g.cell_diameters()
-
-        P0u = np.zeros((3, g.num_cells))
-
-        for c in np.arange(g.num_cells):
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-            faces_loc = faces[loc]
-
-            Pi_s = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
-                                 g.cell_volumes[c], f_centers[:, faces_loc],
-                                 f_normals[:, faces_loc], sign[loc],
-                                 diams[c])[1]
-
-            # extract the velocity for the current cell
-            P0u[dim, c] = np.dot(Pi_s, u[faces_loc]) / diams[c] * a[c]
-            P0u[:, c] = np.dot(R.T, P0u[:, c])
-
-        return P0u
-
-#------------------------------------------------------------------------------#
-
     def massHdiv(self, K, c_volume, coord, sign, dim, HB):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
