@@ -270,8 +270,7 @@ def match_grids_2d(new_g, old_g, tol):
         np.array: Index of overlapping cell in the second grid.
 
     """
-    def proj_pts(p):
-        cc = np.mean(p, axis=1).reshape((3, 1))
+    def proj_pts(p, cc):
         rot = cg.project_plane_matrix(p - cc)
         return rot.dot(p - cc)[:2]
 
@@ -280,9 +279,9 @@ def match_grids_2d(new_g, old_g, tol):
 
     shape = (old_g.dim+1, old_g.num_cells)
     cn_old_g = old_g.cell_nodes().indices.reshape(shape, order='F')
-
-    isect = cg.intersect_triangulations(proj_pts(new_g.nodes),
-                                        proj_pts(old_g.nodes), cn_new_g,
+    cc = np.mean(new_g.nodes, axis=1).reshape((3, 1))
+    isect = cg.intersect_triangulations(proj_pts(new_g.nodes, cc),
+                                        proj_pts(old_g.nodes, cc), cn_new_g,
                                         cn_old_g)
 
     num = len(isect)
