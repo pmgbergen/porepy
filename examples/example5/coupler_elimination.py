@@ -33,8 +33,7 @@ def add_data_transport(gb):
 
     gb.add_node_props(['bc', 'bc_val', 'discharge', 'apertures'])
     for g, d in gb:
-        b_faces = g.get_domain_boundary_faces()
-        print(g.face_centers.shape)
+        b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         index = np.nonzero(
             abs(g.face_centers[:, b_faces]) == np.ones([3, b_faces.size]))[1]
         b_faces = b_faces[index]

@@ -37,7 +37,7 @@ def add_data_darcy(gb, domain, tol):
 
         param.set_aperture(np.power(apert, gb.dim_max() - g.dim))
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -97,7 +97,7 @@ def add_data_advection(gb, domain, tol):
         param.set_porosity(1)
         param.set_discharge(d['discharge'])
 
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -176,7 +176,7 @@ solver_flow.project_u(gb, "discharge", "P0u")
 # compute the flow rate
 total_flow_rate = 0
 for g, d in gb:
-    bound_faces = g.get_boundary_faces()
+    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
     if bound_faces.size != 0:
         bound_face_centers = g.face_centers[:, bound_faces]
         left = bound_face_centers[0, :] < domain['xmin'] + tol

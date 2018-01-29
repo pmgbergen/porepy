@@ -20,6 +20,7 @@ from porepy.grids.grid import Grid
 
 #------------------------------------------------------------------------------
 
+
 class TpfaMixedDim(SolverMixedDim):
     def __init__(self, physics='flow'):
         self.physics = physics
@@ -31,6 +32,7 @@ class TpfaMixedDim(SolverMixedDim):
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
 #------------------------------------------------------------------------------
+
 
 class TpfaDFN(SolverMixedDim):
 
@@ -45,7 +47,7 @@ class TpfaDFN(SolverMixedDim):
 
         kwargs = {"discr_ndof": self.discr.ndof,
                   "discr_fct": self.__matrix_rhs__}
-        self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
+        self.solver = Coupler(coupling=self.coupling_conditions, **kwargs)
         SolverMixedDim.__init__(self)
 
     def __matrix_rhs__(self, g, data):
@@ -59,6 +61,7 @@ class TpfaDFN(SolverMixedDim):
             return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
 
 #------------------------------------------------------------------------------
+
 
 class Tpfa(Solver):
     """ Discretize elliptic equations by a two-point flux approximation.
@@ -219,19 +222,17 @@ class Tpfa(Solver):
             t_face = nk.sum(axis=0)
             dist_face_cell = np.power(fc_cc, 2).sum(axis=0)
 
-
         t_face = np.divide(t_face, dist_face_cell)
 
         # Return harmonic average
         t = 1 / np.bincount(fi, weights=1 / t_face)
-
 
         # For primal-like discretizations like the TPFA, internal boundaries
         # are handled by assigning Neumann conditions.
         is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
         is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
         # Move Neumann faces to Neumann transmissibility
-        bndr_ind = g.get_boundary_faces()
+        bndr_ind = g.get_all_boundary_faces()
         t_b = np.zeros(g.num_faces)
         t_b[is_dir] = -t[is_dir]
         t_b[is_neu] = 1
@@ -251,6 +252,7 @@ class Tpfa(Solver):
         data['bound_flux'] = bound_flux
 
 #------------------------------------------------------------------------------
+
 
 class TpfaCoupling(AbstractCoupling):
 
@@ -314,10 +316,12 @@ class TpfaCoupling(AbstractCoupling):
         # aperture, this has minimal impact.
         if data_edge.get('aperture_correction', False):
             apt_dim = np.divide(a_l[cells_l], a_h[cells_h])
-            fc_corrected = g_h.face_centers[::,faces_h].copy()-apt_dim/2*n
-            fc_cc_h = fc_corrected - g_h.cell_centers[::,cells_h]
+            fc_corrected = g_h.face_centers[::,
+                                            faces_h].copy() - apt_dim / 2 * n
+            fc_cc_h = fc_corrected - g_h.cell_centers[::, cells_h]
         else:
-            fc_cc_h = g_h.face_centers[::, faces_h] - g_h.cell_centers[::, cells_h]
+            fc_cc_h = g_h.face_centers[::, faces_h] - \
+                g_h.cell_centers[::, cells_h]
 
         nk_h = perm_h * n
         nk_h = nk_h.sum(axis=1)
@@ -388,6 +392,7 @@ class TpfaCoupling(AbstractCoupling):
         return cc
 
 #------------------------------------------------------------------------------#
+
 
 class TpfaCouplingDFN(AbstractCoupling):
 

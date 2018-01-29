@@ -329,45 +329,45 @@ class TestMeshMerging(unittest.TestCase):
     def test_update_tag_simple(self):
         n_tags = 3
         g = TagClass(n_tags)
-        g.tags['tip_faces'] = [True, False, False]
+        g.tags['tip_faces'] = np.array([True, False, False])
         delete_face = [0]
         new_face = [[2]]
         non_conforming.update_face_tags(g, delete_face, new_face)
 
-        known_tag = [False, False, True]#np.array([1, 2, 0])
+        known_tag = np.array([False, False, True])#np.array([1, 2, 0])
         assert np.allclose(known_tag, g.tags['tip_faces'])
 
     def test_update_tag_one_to_many(self):
         n_tags = 3
         g = TagClass(n_tags)
-        g.tags['tip_faces'] = [True, False, False]
+        g.tags['tip_faces'] = np.array([True, False, False])
         delete_face = [0]
         new_face = [[2, 3]]
         non_conforming.update_face_tags(g, delete_face, new_face)
 
-        known_tag = [False, False, True, True]#np.array([1, 2, 0, 0])
+        known_tag = np.array([False, False, True, True])#np.array([1, 2, 0, 0])
         assert np.allclose(known_tag, g.tags['tip_faces'])
 
     def test_update_tag_two_to_many(self):
         n_tags = 3
         g = TagClass(n_tags)
-        g.tags['tip_faces'] = [True, False, False]
+        g.tags['tip_faces'] = np.array([True, False, False])
         delete_face = [0, 2]
         new_face = [[2, 3], [4]]
         non_conforming.update_face_tags(g, delete_face, new_face)
 
-        known_tag = [False, True, True, False]#np.array([1, 0, 0, 2])
+        known_tag = np.array([False, True, True, False])#np.array([1, 0, 0, 2])
         assert np.allclose(known_tag, g.tags['tip_faces'])
 
     def test_update_tag_pure_deletion(self):
         n_tags = 3
         g = TagClass(n_tags)
-        g.tags['tip_faces'] = [False, True, False]
+        g.tags['tip_faces'] = np.array([False, True, False])
         delete_face = [0]
         new_face = [[]]
         non_conforming.update_face_tags(g, delete_face, new_face)
 
-        known_tag = [True, False] #np.array([1, 2])
+        known_tag = np.array([True, False]) #np.array([1, 2])
         assert np.allclose(known_tag, g.tags['tip_faces'])
 
     def test_global_ind_assignment(self):

@@ -18,6 +18,7 @@ from porepy.numerics.fv.tpfa import TpfaCoupling, TpfaCouplingDFN
 
 #------------------------------------------------------------------------------
 
+
 class MpfaMixedDim(SolverMixedDim):
     def __init__(self, physics='flow'):
         self.physics = physics
@@ -29,6 +30,7 @@ class MpfaMixedDim(SolverMixedDim):
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
 #------------------------------------------------------------------------------
+
 
 class MpfaDFN(SolverMixedDim):
 
@@ -43,7 +45,7 @@ class MpfaDFN(SolverMixedDim):
 
         kwargs = {"discr_ndof": self.discr.ndof,
                   "discr_fct": self.__matrix_rhs__}
-        self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
+        self.solver = Coupler(coupling=self.coupling_conditions, **kwargs)
         SolverMixDim.__init__(self)
 
     def __matrix_rhs__(self, g, data):
@@ -57,6 +59,7 @@ class MpfaDFN(SolverMixedDim):
             return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
 
 #------------------------------------------------------------------------------
+
 
 class Mpfa(Solver):
 
@@ -233,7 +236,7 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
         k = tensor.SecondOrder(g.dim, np.ones(g.num_cells))
         g.compute_geometry()
         # Dirirchlet boundary conditions
-        bound_faces = g.get_boundary_faces().ravel()
+        bound_faces = g.tags['domain_boundary_faces'].ravel()
         bnd = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
         # Discretization
         flux, bound_flux = mpfa(g, k, bnd)
@@ -271,7 +274,7 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
         part = partition.partition(g, num_part)
 
         # Boundary faces on the main grid
-        glob_bound_face = g.get_boundary_faces()
+        glob_bound_face = g.get_all_boundary_faces()
 
         # Empty fields for flux and bound_flux. Will be expanded as we go.
         # Implementation note: It should be relatively straightforward to
@@ -311,6 +314,7 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
     return flux, bound_flux
 
 #------------------------------------------------------------------------------
+
 
 def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
                  nodes=None, apertures=None):
@@ -377,7 +381,7 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
     loc_k = k.copy()
     loc_k.perm = loc_k.perm[::, ::, l2g_cells]
 
-    glob_bound_face = g.get_boundary_faces()
+    glob_bound_face = g.get_all_boundary_faces()
 
     # Boundary conditions are slightly more complex. Find local faces
     # that are on the global boundary.

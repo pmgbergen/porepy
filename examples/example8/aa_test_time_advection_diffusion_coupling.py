@@ -37,7 +37,7 @@ def add_data_darcy(gb, domain, tol, a):
         aperture = np.power(a, gb.dim_max() - g.dim)
         param.set_aperture(np.ones(g.num_cells) * aperture)
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -86,7 +86,7 @@ def add_data_advection_diffusion(gb, domain, tol, a):
         source = np.zeros(g.num_cells)
         param.set_source("transport", source)
 
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -156,7 +156,7 @@ for g, d in gb:
 # compute the flow rate
 total_flow_rate = 0
 for g, d in gb:
-    bound_faces = g.get_boundary_faces()
+    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
     if bound_faces.size != 0:
         bound_face_centers = g.face_centers[:, bound_faces]
         left = bound_face_centers[0, :] < domain['xmin'] + tol

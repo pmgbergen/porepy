@@ -141,13 +141,13 @@ class SourceAdvectiveDiffusiveDirBound(SourceAdvectiveDiffusiveProblem):
         SourceAdvectiveDiffusiveProblem.__init__(self, g, physics=physics)
 
     def bc(self):
-        dir_faces = self.grid().get_domain_boundary_faces()
+        dir_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         bc_cond = bc.BoundaryCondition(
             self.grid(), dir_faces, ['dir'] * dir_faces.size)
         return bc_cond
 
     def bc_val(self, t):
-        dir_faces = self.grid().get_domain_boundary_faces()
+        dir_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         val = np.zeros(self.grid().num_faces)
         val[dir_faces] = 10 * PASCAL
         return val
@@ -204,7 +204,7 @@ def solve_elliptic_problem(gb):
             d['param'].set_source(
                 'flow', source(g, 0.0))
 
-        dir_bound = g.get_domain_boundary_faces()
+        dir_bound = g.tags['domain_boundary_faces'].nonzero()[0]
         bc_cond = bc.BoundaryCondition(
             g, dir_bound, ['dir'] * dir_bound.size)
         d['param'].set_bc('flow', bc_cond)
