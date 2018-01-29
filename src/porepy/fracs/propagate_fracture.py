@@ -156,7 +156,6 @@ def update_connectivity(gl, gh, n_old_nodes_l, unique_node_indices_l,
         # The existing faces are no longer tips (but internal). The new faces
         # are tips (or on the domain boundary).
         gl.tags['tip_faces'][existing_faces_l] = False
-        gl.tags['boundary_faces'][existing_faces_l] = False
         n_new_local_faces_l = np.sum(~exist)
 
         new_face_indices_l = np.arange(face_counter_l,
@@ -172,7 +171,6 @@ def update_connectivity(gl, gh, n_old_nodes_l, unique_node_indices_l,
         gl.tags['tip_faces'][new_face_indices_l] = ~domain_boundary_faces
         gl.tags['domain_boundary_faces'][new_face_indices_l] \
             = domain_boundary_faces
-        gl.tags['boundary_faces'][new_face_indices_l] = True
         # Add the new faces
         all_faces_l = np.append(all_faces_l, faces_l[:, ~exist], axis=1)
         # Find indices of face_nodes to be updated.
