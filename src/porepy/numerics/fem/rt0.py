@@ -169,7 +169,7 @@ class RT0(Solver):
         for it in np.arange(0, size_HB, g.dim):
             HB += np.diagflat(np.ones(size_HB-it), it)
         HB += HB.T
-        HB /= np.math.factorial(g.dim+2)*np.math.factorial(g.dim)
+        HB /= g.dim*g.dim*(g.dim+1)*(g.dim+2)
 
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
