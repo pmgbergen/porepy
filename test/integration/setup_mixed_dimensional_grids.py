@@ -1,5 +1,5 @@
+import warnings
 import numpy as np
-
 from porepy.fracs import meshing
 from porepy.params import bc, tensor
 from porepy.params.data import Parameters
@@ -36,92 +36,12 @@ def grid_3d_2d(nx=[2, 2, 2], fracture_x=1):
     return gb
 
 
-def setup_flow_2d_1d(nx=[2, 2], fracture_x=1):
+def setup_flow(nx=[2, 2], fracture_x=1):
     """
     Set up a simple grid bucket with minimal parameters and BCs for a flow
     problem simulation (top to bottom).
     """
-    gb = grid_2d_1d(nx, fracture_x)
-    kf = 1e-3
-    gb.add_node_props(['param'])
-    a = 1e-2
-    physics = 'flow'
-    for g, d in gb:
-        param = Parameters(g)
-
-        aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
-        param.set_aperture(aperture)
-
-        p = tensor.SecondOrder(3, np.ones(g.num_cells)
-                               * np.power(kf, g.dim < gb.dim_max()))
-        param.set_tensor(physics, p)
-
-        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
-        if bound_faces.size > 0:
-            bound_face_centers = g.face_centers[:, bound_faces]
-
-            top = bound_face_centers[1, :] > 1 - 0.1 / nx[1]
-            bottom = bound_face_centers[1, :] < 0.1 / nx[1]
-
-            labels = np.array(['neu'] * bound_faces.size)
-            labels[np.logical_or(top, bottom)] = ['dir']
-
-            bc_val = np.zeros(g.num_faces)
-            bc_dir = bound_faces[np.logical_or(top, bottom)]
-            bc_val[bc_dir] = g.face_centers[1, bc_dir]
-
-            param.set_bc(physics, bc.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(physics, bc_val)
-
-        d['param'] = param
-    return gb
-
-
-def setup_flow_3d_2d(nx=[2, 2, 2], fracture_x=1):
-    """
-    Set up a simple grid bucket with minimal parameters and BCs for a flow
-    problem simulation (top to bottom).
-    """
-    gb = grid_3d_2d(nx, fracture_x)
-    kf = 1e-3
-    gb.add_node_props(['param'])
-    a = 1e-2
-    for g, d in gb:
-        param = Parameters(g)
-
-        aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
-        param.set_aperture(aperture)
-
-        p = tensor.SecondOrder(3, np.ones(g.num_cells)
-                               * np.power(kf, g.dim < gb.dim_max()))
-        param.set_tensor('flow', p)
-
-        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
-        if bound_faces.size > 0:
-            bound_face_centers = g.face_centers[:, bound_faces]
-
-            top = bound_face_centers[1, :] > 1 - 0.1 / nx[1]
-            bottom = bound_face_centers[1, :] < 0.1 / nx[1]
-
-            labels = np.array(['neu'] * bound_faces.size)
-            labels[np.logical_or(top, bottom)] = ['dir']
-
-            bc_val = np.zeros(g.num_faces)
-            bc_dir = bound_faces[np.logical_or(top, bottom)]
-            bc_val[bc_dir] = g.face_centers[1, bc_dir]
-
-            param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val('flow', bc_val)
-
-        d['param'] = param
-    return gb
-
-
-def setup_flow(nx=[2, 2], fracture_x=1, dim_max=2):
-    """
-    Set up a simple grid bucket with minimal parameters and BCs for a flow
-    problem simulation (top to bottom).
-    """
+    dim_max = len(nx)
     if dim_max == 2:
         gb = grid_2d_1d(nx, fracture_x)
     else:
@@ -143,7 +63,7 @@ def set_bc_flow(gb):
     a = 1e-2
     kf = 1e-3
     physics = 'flow'
-    eps = 1e-10
+    eps = 1e-1
     for g, d in gb:
         param = d['param']
 
@@ -172,11 +92,12 @@ def set_bc_flow(gb):
             param.set_bc_val(physics, bc_val)
 
 
-def setup_mech(nx=[2, 2], fracture_x=1, dim_max=2):
+def setup_mech(nx=[2, 2], fracture_x=1):
     """
     Set up a simple grid bucket with minimal parameters and BCs for a
     mechanical simulation.
     """
+    dim_max = len(nx)
     if dim_max == 2:
         gb = grid_2d_1d(nx, fracture_x)
     else:
@@ -204,7 +125,7 @@ def set_bc_mech(gb):
         aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
         param.set_aperture(aperture)
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.get_all_boundary_faces()
         if bound_faces.size > 0:
             bc_val = np.zeros(g.num_faces * g.dim)
             param.set_bc(physics, bc.BoundaryCondition(g, bound_faces, 'dir'))

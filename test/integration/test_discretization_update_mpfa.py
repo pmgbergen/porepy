@@ -34,10 +34,10 @@ class BasicsTest(unittest.TestCase):
         """
         physics = 'flow'
         n_cells = [4, 4]
-        gb_1 = setup_gb.setup_flow_2d_1d(n_cells, .75)
-        gb_2 = setup_gb.setup_flow_2d_1d(n_cells, .25)
-        gb_3 = setup_gb.setup_flow_2d_1d(n_cells, .50)
-        gb_4 = setup_gb.setup_flow_2d_1d(n_cells, .25)
+        gb_1 = setup_gb.setup_flow(n_cells, .75)
+        gb_2 = setup_gb.setup_flow(n_cells, .25)
+        gb_3 = setup_gb.setup_flow(n_cells, .50)
+        gb_4 = setup_gb.setup_flow(n_cells, .25)
 
         flux_discr = MpfaMixedDim(physics)
 
@@ -80,10 +80,10 @@ class BasicsTest(unittest.TestCase):
         """
         physics = 'flow'
         n_cells = [4, 4, 4]
-        gb_1 = setup_gb.setup_flow_3d_2d(n_cells, .75)
-        gb_2 = setup_gb.setup_flow_3d_2d(n_cells, .25)
-        gb_3 = setup_gb.setup_flow_3d_2d(n_cells, .50)
-        gb_4 = setup_gb.setup_flow_3d_2d(n_cells, .25)
+        gb_1 = setup_gb.setup_flow(n_cells, .75)
+        gb_2 = setup_gb.setup_flow(n_cells, .25)
+        gb_3 = setup_gb.setup_flow(n_cells, .50)
+        gb_4 = setup_gb.setup_flow(n_cells, .25)
 
         flux_discr = MpfaMixedDim(physics)
 

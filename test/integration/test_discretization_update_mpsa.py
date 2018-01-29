@@ -117,10 +117,10 @@ class BasicsTest(unittest.TestCase):
         """
         n_cells = [4, 4, 4]
         dim_max = 3
-        gb_1 = setup_gb.setup_mech(n_cells, .75, 3)
-        gb_2 = setup_gb.setup_mech(n_cells, .25, 3)
-        gb_3 = setup_gb.setup_mech(n_cells, .50, 3)
-        gb_4 = setup_gb.setup_mech(n_cells, .25, 3)
+        gb_1 = setup_gb.setup_mech(n_cells, .75)
+        gb_2 = setup_gb.setup_mech(n_cells, .25)
+        gb_3 = setup_gb.setup_mech(n_cells, .50)
+        gb_4 = setup_gb.setup_mech(n_cells, .25)
 
         discr = Mpsa()
 
@@ -164,8 +164,8 @@ class BasicsTest(unittest.TestCase):
         """
         n_cells = [8, 8, 8]
         dim_max = 3
-        gb_1 = setup_gb.setup_mech(n_cells, .75, 3)
-        gb_2 = setup_gb.setup_mech(n_cells, .25, 3)
+        gb_1 = setup_gb.setup_mech(n_cells, .75)
+        gb_2 = setup_gb.setup_mech(n_cells, .25)
 
         discr = Mpsa()
 
