@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
 import unittest
+import warnings
 
 from porepy.ad.forward_mode import Ad_array
 
@@ -21,7 +22,7 @@ class AdTest(unittest.TestCase):
         assert np.allclose(c.val, 13) and np.allclose(c.jac, 4.0)
         assert a.val == 4 and np.allclose(a.jac, 1.0)
         assert b.val == 9 and b.jac==3
-        
+
     def test_add_var_with_scal(self):
         a = Ad_array(3, 2)
         b = 3
@@ -121,25 +122,29 @@ class AdTest(unittest.TestCase):
         assert np.all(A == np.array([[1,2,3],[4,5,6],[7,8,9]]))
 
     def test_mul_sps_advar(self):
-        J = np.array([[1,3,1],[5,0,0],[5,1,2]])
+        J = np.array([[[1,3,1],[5,0,0],[5,1,2]]])
         x = Ad_array(np.array([1,2,3]), J)
         A = sps.csc_matrix(np.array([[1,2,3],[4,5,6],[7,8,9]]))
         f = A * x
+        
         assert np.all(f.val == [14,32,50])
-        assert np.all(f.jac == A*J)
+        assert np.all(f.jac == A*J[0])
 
     def test_mul_advar_vectors(self):
         Ja = sps.csc_matrix(np.array([[1,3,1],[5,0,0],[5,1,2]]))
-        Jb = np.array([[1,0,0],[0,1,0],[0,0,1]])
-        a = Ad_array(np.array([1,2,3]), Ja)
-        b = Ad_array(np.array([1,1,1]), Jb)
+        Jb = sps.csc_matrix(np.array([[1,0,0],[0,1,0],[0,0,1]]))
+        a = Ad_array(np.array([1,2,3]), [Ja])
+        b = Ad_array(np.array([1,1,1]), [Jb])
         A = sps.csc_matrix(np.array([[1,2,3],[4,5,6],[7,8,9]]))
-        f = A*a + b
-
-        jac  = A*Ja + Jb
-        assert np.all(f.val == [15, 33, 51])
-        assert np.all(A*Ja + Jb)
         
+        f = A*a + b
+        jac  = A*Ja + Jb
+
+        assert np.all(f.val == [15, 33, 51])
+        assert np.sum(f.jac[0] != A*Ja + Jb) == 0
+        assert len(f.jac) == 1
+        assert np.sum(Ja != sps.csc_matrix(np.array([[1,3,1],[5,0,0],[5,1,2]]))) == 0
+        assert np.sum(Jb != sps.csc_matrix(np.array([[1,0,0],[0,1,0],[0,0,1]]))) == 0
     def test_power_advar_scalar(self):
         a = Ad_array(2, 3)
         b = a**2

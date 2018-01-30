@@ -2,11 +2,37 @@ import numpy as np
 import scipy.sparse as sps
 
 
+def initAdArrays(variables):
+    if not isinstance(variables, list):
+        try:
+            num_val = variables.size
+        except AttributeError:
+            num_val = 1
+        return Ad_array(variables, [sps.diags(np.ones(num_val))])
+
+    num_val = [v.size for v in variables]
+    ad_arrays = []
+    for i, val in enumerate(variables):
+        # initiate zero jacobian
+        n = num_val[i]
+        jac = np.array([sps.csc_matrix((n, m)) for m in num_val])
+        # set jacobian of variable i to I
+        jac[i] = sps.diags(np.ones(num_val[i]))
+        # initiate Ad_array
+        ad_arrays.append(Ad_array(val, jac))
+
+    return ad_arrays
+
 class Ad_array():
 
     def __init__(self, val=1.0, jac=0.0):
         self.val = val
-        self.jac = jac
+        if np.isscalar(jac):
+            self.jac = np.array([jac])
+        elif isinstance(jac, list):
+            self.jac = np.array(jac)
+        else:
+            self.jac = jac
 
     def __add__(self, other):
         b = _cast(other)
@@ -41,7 +67,7 @@ class Ad_array():
             # other is Ad_var, so should have called __mul__
             raise RuntimeError('Somthing went horrible wrong')
         val = other * self.val
-        jac = other * self.jac
+        jac = self._mat_mul_jac(other)
         return Ad_array(val, jac)
 
     def __pow__(self, other):
@@ -80,7 +106,11 @@ class Ad_array():
             A = sps.diags(a)
         except TypeError:
             A = a
-        return A * self.jac
+
+        if isinstance(self.jac, np.ndarray):
+            return np.array([A * J for J in self.jac])
+        else:
+            return A * self.jac
 
     def jac_mul_diagvec(self, a):
         try:
@@ -89,6 +119,8 @@ class Ad_array():
             A = a
         return self.jac * A
     
+    def _mat_mul_jac(self, other):
+        return np.array([other * J for J in self.jac])
 
 def _cast(variables):
     if isinstance(variables, list):
