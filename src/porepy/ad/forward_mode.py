@@ -56,7 +56,10 @@ class Ad_array():
     def __mul__(self, other):
         if not isinstance(other, Ad_array): # other is scalar
             val = self.val * other
-            jac = self.jac * other
+            if isinstance(other, np.ndarray):
+                jac = self.jac_mul_diagvec(other)
+            else:
+                jac = self._jac_mul_other(other)
         else:
             val = self.val * other.val
             jac = self.diagvec_mul_jac(other.val) + other.diagvec_mul_jac(self.val)
@@ -67,7 +70,7 @@ class Ad_array():
             # other is Ad_var, so should have called __mul__
             raise RuntimeError('Somthing went horrible wrong')
         val = other * self.val
-        jac = self._mat_mul_jac(other)
+        jac = self._other_mul_jac(other)
         return Ad_array(val, jac)
 
     def __pow__(self, other):
@@ -117,10 +120,20 @@ class Ad_array():
             A = sps.diags(a)
         except TypeError:
             A = a
-        return self.jac * A
+        if isinstance(self.jac, np.ndarray):
+            return np.array([J * A for J in self.jac])
+        else:
+            return self.jac * A
     
-    def _mat_mul_jac(self, other):
+    def full_jac(self):
+        return sps.hstack(self.jac[:])
+
+    def _other_mul_jac(self, other):
         return np.array([other * J for J in self.jac])
+
+    def _jac_mul_other(self, other):
+        return np.array([J * other for J in self.jac])
+
 
 def _cast(variables):
     if isinstance(variables, list):
