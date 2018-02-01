@@ -30,6 +30,44 @@ class TpfaMixedDim(SolverMixedDim):
 
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
+    def discretize(self, gb):
+        """
+        Discretize the mixed dimensional second order elliptic equation using
+        two-point flux.
+
+        The method computes fluxes over faces in terms of pressures in adjacent
+        cells (defined as the two cells sharing the face). Further the flux
+        between two different dimensions is calculated based on the pressure in
+        the two neighboring cells (defined as the higher and lower dimensional
+        cell where the lower dimensional cell correspond the the face of the 
+        higher dimensional cell).
+
+        Parameters is a GridBucket with the following fields defined for each
+        grid:
+        param : Parameter(Class). Contains the following parameters:
+            tensor : second_order_tensor
+                Permeability defined cell-wise. If not given a identity permeability
+                is assumed and a warning arised.
+            bc : boundary conditions (optional)
+            bc_val : dictionary (optional)
+                Values of the boundary conditions. The dictionary has at most the
+                following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
+                conditions, respectively.
+            apertures : (np.ndarray) (optional) apertures of the cells for scaling of
+                the face normals.
+
+        Stores the discretization of each grid in the corresponding data
+        dictionary with keyword ['flux'] and ['bound_flux'], and the coupling flux
+        is stored in the edge dictionary with keyword ['coupling_flux']
+        """
+        for g, d in self.gb:
+            self.discr.discretize(g, d)
+
+        for e, d in self.gb.edges_props():
+            g_l, g_h = gb.sorted_nodes_of_edge(e)
+            data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
+            self.coupling_conditions.discretize(g_h, g_l, data_h, data_l, d)
+
 #------------------------------------------------------------------------------
 
 class TpfaDFN(SolverMixedDim):
@@ -252,7 +290,7 @@ class TpfaCoupling(AbstractCoupling):
     def __init__(self, solver):
         self.solver = solver
 
-    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
+    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge, discretize=True):
         """
         Computes the coupling terms for the faces between cells in g_h and g_l
         using the two-point flux approximation.
@@ -263,6 +301,10 @@ class TpfaCoupling(AbstractCoupling):
             data_h and data_l: the corresponding data dictionaries. Assumed
                 to contain both permeability values ('perm') and apertures
                 ('apertures') for each of the cells in the grids.
+            discretize: Optinal, defaults to True. If set to False
+                self.discretize will be called, overwriting
+                data_edge['coupling_flux'] and data_edge['coupling_discretization']
+                with the calculated tpfa discretization. 
 
         Two hidden options (intended as "advanced" options that one should
         normally not care about):
@@ -279,7 +321,16 @@ class TpfaCoupling(AbstractCoupling):
             cc: Discretization matrices for the coupling terms assembled
                 in a csc.sparse matrix.
         """
+        if discretize:
+            self.discretize(g_h, g_l, data_h, data_l, data_edge)
+        return data_edge['coupling_discretization']
 
+    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        """
+        Discretize the coupling terms for the faces between cells in g_h and g_l
+        using the two-point flux approximation. See TpfaCoupling.matrix_rhs for 
+        more info.
+        """
         k_l = data_l['param'].get_tensor(self.solver)
         k_h = data_h['param'].get_tensor(self.solver)
         a_l = data_l['param'].get_aperture()
@@ -380,7 +431,6 @@ class TpfaCoupling(AbstractCoupling):
                                                  cells2faces * cc[0, 1]])
         data_edge['coupling_discretization'] = cc
 
-        return cc
 
 #------------------------------------------------------------------------------#
 
