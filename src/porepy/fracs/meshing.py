@@ -17,6 +17,7 @@ from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.grid import FaceTag
+from porepy.grids.mortar_grid import MortarGrid, SideTag
 from porepy.grids.structured import TensorGrid
 from porepy.utils import setmembership, mcolon
 from porepy.utils import comp_geom as cg
@@ -127,6 +128,10 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
         print('Split fractures')
         tm_split = time.time()
     split_grid.split_fractures(gb, **kwargs)
+
+    # create mortar grids
+    create_mortar_grids(gb)
+
     if verbose > 0:
         print('Done. Elapsed time ' + str(time.time() - tm_split))
     gb.assign_node_ordering()
@@ -400,6 +405,10 @@ def cart_grid(fracs, nx, **kwargs):
 
     # Split grid.
     split_grid.split_fractures(gb, **kwargs)
+
+    # create mortar grids
+    create_mortar_grids(gb)
+
     gb.assign_node_ordering()
     return gb
 
@@ -529,4 +538,29 @@ def assemble_in_bucket(grids, **kwargs):
 
     return bucket
 
+#------------------------------------------------------------------------------#
 
+def create_mortar_grids(gb):
+
+    gb.add_edge_prop('mortar_grid')
+    # loop on all the nodes and create the mortar grids
+    for e, d in gb.edges_props():
+        lg = gb.sorted_nodes_of_edge(e)[0]
+        # d['face_cells'].indices gives mappings into the lower dimensional
+        # cells. Count the number of occurences for each cell.
+        num_sides = np.bincount(d['face_cells'].indices)
+        # Each cell should be found either twice (think a regular fracture
+        # that splits a higher dimensional mesh), or once (the lower end of
+        # a T-intersection, or both ends of an L-intersection).
+        assert np.all(num_sides == 1) or np.all(num_sides == 2)
+
+        # If all cells are found twice, create two mortar grids
+        if np.all(num_sides > 1):
+            # we are in a two sides situation
+            side_g = {SideTag.LEFT:  lg.copy(), SideTag.RIGHT: lg.copy()}
+        else:
+            # the tag name is just a place-holder we assume left side
+            side_g = {SideTag.LEFT:  lg.copy()}
+        d['mortar_grid'] = MortarGrid(lg.dim, side_g, d['face_cells'])
+
+#------------------------------------------------------------------------------#

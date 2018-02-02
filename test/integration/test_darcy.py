@@ -107,6 +107,9 @@ class BasicsTest(unittest.TestCase):
                 assert np.allclose(d['pressure'], p_ref)
         return gb
 
+    if __name__ == '__main__':
+        unittest.main()
+
 
 def setup_3d(nx, simplex_grid=False):
     f1 = np.array(

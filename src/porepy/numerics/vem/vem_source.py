@@ -8,40 +8,7 @@ import scipy.sparse as sps
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 
-
-class Integral(Solver):
-    '''
-    Discretization of the integrated source term
-    int q * dx
-    over each grid cell.
-
-    All this function does is returning a zero lhs and
-    rhs = - param.get_source.physics in a saddle point fashion.
-    '''
-
-    def __init__(self, physics='flow'):
-        self.physics = physics
-        Solver.__init__(self)
-
-    def ndof(self, g):
-        return g.num_cells + g.num_faces
-
-    def matrix_rhs(self, g, data):
-        param = data['param']
-        sources = param.get_source(self)
-        lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
-        assert sources.size == g.num_cells, \
-                                 'There should be one soure value for each cell'
-
-        rhs = np.zeros(self.ndof(g))
-        is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
-                          np.ones(g.num_cells, dtype=np.bool)))
-
-        rhs[is_p] = -sources
-
-        return lhs, rhs
-
-#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------#
 
 class IntegralMixedDim(SolverMixedDim):
     def __init__(self, physics='flow'):
@@ -54,7 +21,7 @@ class IntegralMixedDim(SolverMixedDim):
         self.solver = Coupler(self.discr)
         SolverMixedDim.__init__(self)
 
-#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------#
 
 class IntegralDFN(SolverMixedDim):
     def __init__(self, dim_max, physics='flow'):
@@ -97,4 +64,38 @@ class IntegralDFN(SolverMixedDim):
             ndof = self.__ndof__(g)
             return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
 
-#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------#
+
+class Integral(Solver):
+    '''
+    Discretization of the integrated source term
+    int q * dx
+    over each grid cell.
+
+    All this function does is returning a zero lhs and
+    rhs = - param.get_source.physics in a saddle point fashion.
+    '''
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
+        Solver.__init__(self)
+
+    def ndof(self, g):
+        return g.num_cells + g.num_faces
+
+    def matrix_rhs(self, g, data):
+        param = data['param']
+        sources = param.get_source(self)
+        lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
+        assert sources.size == g.num_cells, \
+                                 'There should be one soure value for each cell'
+
+        rhs = np.zeros(self.ndof(g))
+        is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
+                          np.ones(g.num_cells, dtype=np.bool)))
+
+        rhs[is_p] = -sources
+
+        return lhs, rhs
+
+#------------------------------------------------------------------------------#

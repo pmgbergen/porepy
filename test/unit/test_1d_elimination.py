@@ -156,3 +156,5 @@ class BasicsTest( unittest.TestCase ):
         assert(np.sum(error.error_L2(g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#
+    if __name__ == '__main__':
+        unittest.main()

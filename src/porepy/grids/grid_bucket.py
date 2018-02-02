@@ -54,13 +54,37 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def size(self):
+    def num_graph_nodes(self):
         """
-        Returns:
-            int: Number of nodes in the grid.
+        Return the total number of nodes (physical meshes) in the graph.
+        Return:
+            int: Number of nodes in the graph.
 
         """
         return self.graph.number_of_nodes()
+
+#------------------------------------------------------------------------------#
+
+    def num_graph_edges(self):
+        """
+        Return the total number of edge in the graph.
+        Return:
+            int: Number of edges in the graph.
+
+        """
+        return self.graph.number_of_edges()
+
+#------------------------------------------------------------------------------#
+
+    def size(self):
+        """
+        Return the total number of nodes (physical meshes) plus the total number
+        of edges in the graph. It is the size of the graph.
+        Return:
+            int: Number of nodes and edges in the graph.
+
+        """
+        return self.num_graph_nodes()+self.num_graph_edges()
 
 #------------------------------------------------------------------------------#
 
@@ -104,19 +128,21 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def edges_props_of_node(self, n):
+    def edges_props_of_node(self, node):
         """
         Iterator over the edges of the specific node.
 
+        IMPLEMENTATION NOTE: RENAME EDGES_OF_NODE
+
         Parameters:
-            n: A node in the graph.
+            node: A node in the graph.
 
         Yields:
             core.grid.edges: The edge (pair of grids) associated with an edge.
             data: The dictionary storing all information in this edge.
 
         """
-        for e in self.graph.edges([n]):
+        for e in self.graph.edges([node]):
             yield e, self.edge_props(e)
 
 #------------------------------------------------------------------------------#
@@ -174,6 +200,8 @@ class GridBucket(object):
         """
         Obtain the vertices of an edge.
 
+        IMPLEMENTATION NOTE: MERGE WITH SORTED_NODES_OF_EDGE
+
         Parameters:
             e: An edge in the graph.
 
@@ -190,6 +218,8 @@ class GridBucket(object):
         """
         Obtain the grids subject to a condition.
 
+        IMPLEMENTATION NOTE: EXAMPLE NEEDED
+
         Parameters:
             cond: Predicate to select a grid.
 
@@ -203,12 +233,13 @@ class GridBucket(object):
 
     def update_nodes(self, new, old):
         """
-        Update the grids givin the old and new values. The edges are updated
+        Update the grids given the old and new values. The edges are updated
         accordingly.
 
         Parameters:
             new: List of the new grids, it can be a single element
             old: List of the old grids, it can be a single element
+
         """
         new = np.atleast_1d(new)
         old = np.atleast_1d(old)
@@ -218,16 +249,22 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def node_neighbors(self, node, only_higher=False, only_lower=False):
+    def node_neighbors(self, node, only_higher=False, only_lower=False,
+                       cond=None):
         """
         Parameters:
             node: node in the graph, grid
             only_higher: consider only the higher dimensional neighbors
             only_lower: consider only the lower dimensional neighbors
+            cond: (default None) if given a condition to filter the neighbors
+                nodes.
         Return:
             list of networkx.node: Neighbors of node 'node'
 
         """
+        if cond is not None:
+            assert (not only_higher and not only_lower)
+            return [g for g in self.graph.neighbors(node) if cond(g)]
         neigh = np.array(self.graph.neighbors(node))
 
         if not only_higher and not only_lower:
@@ -347,6 +384,8 @@ class GridBucket(object):
         if grid_pairs is None:
             assert prop is None or not isinstance(prop, list)
         else:
+            grid_pairs = np.atleast_2d(grid_pairs)
+            prop = np.atleast_1d(prop)
             assert len(grid_pairs) == len(prop)
 
         # networkx.set_edge_attributes(self.graph, key, None)
@@ -413,7 +452,6 @@ class GridBucket(object):
 
         """
         return tuple([key in self.graph.node[g] for g in gs])
-
 
 #------------------------------------------------------------------------------#
 
@@ -666,6 +704,14 @@ class GridBucket(object):
                 n['node_number'] = counter
                 counter += 1
 
+        self.add_edge_props(['node_number', 'edge_number'])
+        counter = 0
+        for e, d in self.edges_props():
+            gs = self.sorted_nodes_of_edge(e)
+            d['node_number'] = np.asarray(self.nodes_prop(gs, 'node_number'))
+            d['edge_number'] = counter
+            counter += 1
+
 #------------------------------------------------------------------------------#
 
     def update_node_ordering(self, removed_number):
@@ -720,13 +766,13 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
-    def compute_geometry(self, is_embedded=True):
+    def compute_geometry(self):
         """Compute geometric quantities for the grids.
-
-        Note: the flag "is_embedded" is True by default.
         """
 
-        [g.compute_geometry(is_embedded=is_embedded) for g, _ in self]
+        [g.compute_geometry() for g, _ in self]
+        [d['mortar_grid'].compute_geometry() for _, d in self.edges_props()\
+                                                        if d.get('mortar_grid')]
 
 #------------------------------------------------------------------------------#
 
@@ -875,7 +921,7 @@ class GridBucket(object):
                 ordered by 'node_number'.
 
         """
-        values = np.empty(self.size())
+        values = np.empty(self.num_graph_nodes())
         for g, d in self:
             values[d['node_number']] = fct(g, d)
         return values
@@ -912,7 +958,8 @@ class GridBucket(object):
             idx += 1
 
         # Upper triangular matrix
-        return sps.coo_matrix((values, (i, j)), (self.size(), self.size()))
+        return sps.coo_matrix((values, (i, j)), (self.num_graph_nodes(),
+                                                 self.num_graph_nodes()))
 
 #------------------------------------------------------------------------------#
 
@@ -955,8 +1002,13 @@ class GridBucket(object):
         """
         if cond is None:
             cond = lambda _: True
-        diam = [np.amax(g.cell_diameters()) for g in self.graph if cond(g)]
-        return np.amax(diam)
+        diam_g = [np.amax(g.cell_diameters()) for g in self.graph if cond(g)]
+
+        diam_mg = [np.amax(d['mortar_grid'].cell_diameters())\
+                                                 for e, d in self.edges_props()\
+                                            if cond(e) and d.get('mortar_grid')]
+
+        return np.amax(np.hstack((diam_g, diam_mg)))
 
 #------------------------------------------------------------------------------#
 
@@ -964,8 +1016,8 @@ class GridBucket(object):
         """
         Return the bounding box of the grid bucket.
         """
-        c_0s = np.empty((3, self.size()))
-        c_1s = np.empty((3, self.size()))
+        c_0s = np.empty((3, self.num_graph_nodes()))
+        c_1s = np.empty((3, self.num_graph_nodes()))
 
         for i, g in enumerate(self.graph):
             c_0s[:, i], c_1s[:, i] = g.bounding_box()
@@ -1057,7 +1109,7 @@ class GridBucket(object):
 #------------------------------------------------------------------------------#
 
     def __repr__(self):
-        s = 'Grid bucket containing ' + str(self.size()) + ' grids:\n'
+        s = 'Grid bucket containing ' + str(self.num_graph_nodes()) + ' grids:\n'
         num = 0
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
             gl = self.grids_of_dimension(dim)
