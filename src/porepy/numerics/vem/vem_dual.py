@@ -14,6 +14,8 @@ from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
+from porepy.grids import grid, mortar_grid
+
 from porepy.utils import comp_geom as cg
 
 #------------------------------------------------------------------------------#
@@ -149,18 +151,25 @@ class DualVEM(Solver):
         """
         Return the number of degrees of freedom associated to the method.
         In this case number of faces (velocity dofs) plus the number of cells
-        (pressure dof).
+        (pressure dof). If a mortar grid is given the number of dof are equal to
+        the number of cells, we are considering an inter-dimensional interface
+        with flux variable as mortars.
 
         Parameter
         ---------
-        g: grid, or a subclass.
+        g: grid.
 
         Return
         ------
         dof: the number of degrees of freedom.
 
         """
-        return g.num_cells + g.num_faces
+        if isinstance(g, grid.Grid):
+            return g.num_cells + g.num_faces
+        elif isinstance(g, mortar_grid.MortarGrid):
+            return g.num_cells
+        else:
+            raise ValueError
 
 #------------------------------------------------------------------------------#
 
@@ -168,17 +177,6 @@ class DualVEM(Solver):
         """
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using dual virtual element method.
-        The name of data in the input dictionary (data) are:
-        perm : second_order_tensor
-            Permeability defined cell-wise.
-        source : array (self.g.num_cells)
-            Scalar source term defined cell-wise. If not given a zero source
-            term is assumed and a warning arised.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
 
         Parameters
         ----------
@@ -192,24 +190,6 @@ class DualVEM(Solver):
         rhs: array (g.num_faces+g_num_cells)
             Right-hand side which contains the boundary conditions and the scalar
             source term.
-
-        Examples
-        --------
-        b_faces_neu = ... # id of the Neumann faces
-        b_faces_dir = ... # id of the Dirichlet faces
-        bnd = bc.BoundaryCondition(g, np.hstack((b_faces_dir, b_faces_neu)),
-                                ['dir']*b_faces_dir.size + ['neu']*b_faces_neu.size)
-        bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
-                   'neu': fun_neu(f.face_centers[:, b_faces_neu])}
-
-        data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
-
-        D, rhs = dual.matrix_rhs(g, data)
-        up = sps.linalg.spsolve(D, rhs)
-        u = dual.extract_u(g, up)
-        p = dual.extract_p(g, up)
-        P0u = dual.project_u(g, u, perm)
-
         """
         M, bc_weight = self.matrix(g, data, bc_weight=True)
         return M, self.rhs(g, data, bc_weight)
@@ -578,30 +558,60 @@ class DualCoupling(AbstractCoupling):
         """
         # pylint: disable=invalid-name
 
-        # Normal permeability and aperture of the intersection
-        k = 2*data_edge['kn'] # TODO: need to be handled in a different way
-        aperture_h = data_h['param'].get_aperture()
-
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        dof, cc = self.create_block_matrix(g_h, g_l)
+        mg = data_edge['mortar_grid']
+        dof, cc = self.create_block_matrix([g_h, g_l, mg])
 
         # Recover the information for the grid-grid mapping
-        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
-        faces, cells_h, sign = sps.find(g_h.cell_faces)
-        ind = np.unique(faces, return_index=True)[1]
-        sign = sign[ind][faces_h]
-        cells_h = cells_h[ind][faces_h]
+        faces_h, cells_h, sign_h = sps.find(g_h.cell_faces)
+        ind_faces_h = np.unique(faces_h, return_index=True)[1]
 
-        # Compute the off-diagonal terms
-        dataIJ, I, J = sign, g_l.num_faces+cells_l, faces_h
-        cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
-        cc[0, 1] = cc[1, 0].T
+        faces_h = faces_h[ind_faces_h]
+        cells_h = cells_h[ind_faces_h]
+        sign_h = sign_h[ind_faces_h]
 
-        # Compute the diagonal terms
-        dataIJ = 1./(g_h.face_areas[faces_h] * aperture_h[cells_h] * k[cells_l])
-        I, J = faces_h, faces_h
-        cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
+        # Mortar mass matrix
+        inv_M = sps.diags(1./mg.cell_volumes)
+
+        # Projection matrix from hight/lower grid to mortar
+        hat_P = mg.high_to_mortar_int
+        check_P = mg.low_to_mortar_int
+
+        hat_P_avg = mg.high_to_mortar_avg()
+        check_P_avg = mg.low_to_mortar_avg()
+
+        # Velocity degree of freedom matrix
+        U = sps.diags(sign_h)
+
+        # Compute the mortar variables rows
+        A = hat_P*U
+        shape = (A.shape[0], g_h.num_cells)
+        cc[2, 0] = sps.bmat([[A, sps.csr_matrix(shape)]])
+        cc[2, 2] = -sps.identity(mg.num_cells)
+
+        # Compute the high dimensional grid coupled to mortar grid term
+
+        # Normal permeability and aperture of the intersection
+        inv_k = 1./(2.*data_edge['kn'])
+        aperture_h = data_h['param'].get_aperture()
+
+        # Inverse of the normal permability matrix
+        Eta = sps.diags(np.divide(inv_k, hat_P_avg*aperture_h[cells_h]))
+
+        cc[0, 2] = sps.bmat([[(Eta*inv_M*A).T], [sps.csr_matrix(shape).T]])
+
+        #A = U*hat_P.T*check_P
+        A = U*hat_P_avg.T*check_P
+        shape = (g_h.num_cells, g_l.num_faces)
+        cc[0, 1] = sps.bmat([[None, A], [sps.csr_matrix(shape), None]])
+
+        # Coupling term representing the flux from the high to the lower
+        # dimensional grids, represented as source term. In the mortar approach
+        # the flux are the mortar variables (cell_volumes weighed)
+        A = check_P_avg.T
+        shape = (g_l.num_faces, A.shape[1])
+        cc[1, 2] = sps.bmat([[sps.csr_matrix(shape)], [A]])
 
         return cc
 

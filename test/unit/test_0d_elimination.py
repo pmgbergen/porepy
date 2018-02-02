@@ -1,6 +1,6 @@
 """
-Tests for the static condensation. 
-Darcy problems are discretized (TPFA) and then solved both with and without the 
+Tests for the static condensation.
+Darcy problems are discretized (TPFA) and then solved both with and without the
 condensation.
 Solutions are then compared, so failures will probably be due to the condensation
 itself or reorderings in the grid buckets.
@@ -148,7 +148,6 @@ class BasicsTest(unittest.TestCase):
         coupling_conditions = tpfa.TpfaCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         A, rhs = solver_coupler.matrix_rhs(gb)
-
         p = sps.linalg.spsolve(A, rhs)
         p_cond, _, _, _ = condensation.solve_static_condensation(
             A, rhs, gb, dim=0)
@@ -269,3 +268,5 @@ class BasicsTest(unittest.TestCase):
             g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#
+    if __name__ == '__main__':
+        unittest.main()
