@@ -60,10 +60,10 @@ class TpfaMixedDim(SolverMixedDim):
         dictionary with keyword ['flux'] and ['bound_flux'], and the coupling flux
         is stored in the edge dictionary with keyword ['coupling_flux']
         """
-        for g, d in self.gb:
+        for g, d in gb:
             self.discr.discretize(g, d)
 
-        for e, d in self.gb.edges_props():
+        for e, d in gb.edges_props():
             g_l, g_h = gb.sorted_nodes_of_edge(e)
             data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
             self.coupling_conditions.discretize(g_h, g_l, data_h, data_l, d)
@@ -79,6 +79,7 @@ class TpfaDFN(SolverMixedDim):
         self.dim_max = dim_max
 
         self.discr = Tpfa(self.physics)
+
         self.coupling_conditions = TpfaCouplingDFN(self.discr)
 
         kwargs = {"discr_ndof": self.discr.ndof,
