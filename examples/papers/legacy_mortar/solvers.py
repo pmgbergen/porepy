@@ -73,7 +73,7 @@ def solve_p1(gb, folder):
     p = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
     solver_flow.split(gb, "pressure", p)
 
-    save = Exporter(gb, "sol", folder=folder)
+    save = Exporter(gb, "sol", folder=folder, simplicial=True)
     save.write_vtk(["pressure"])
 
 #------------------------------------------------------------------------------#
