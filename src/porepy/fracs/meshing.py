@@ -25,7 +25,7 @@ from porepy.utils import comp_geom as cg
 
 logger = logging.getLogger()
 
-def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0, **kwargs):
+def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs):
     """
     Main function for grid generation. Creates a fractured simiplex grid in 2
     or 3 dimensions.
@@ -81,6 +81,8 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
         ndim = 2
     else:
         raise ValueError('simplex_grid only supported for 2 or 3 dimensions')
+
+    verbose = kwargs.get('verbose', 0)
 
     if verbose > 0:
         print('Construct mesh')
