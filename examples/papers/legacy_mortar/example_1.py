@@ -1,75 +1,40 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.viz.exporter import Exporter
-
+from porepy.grids.grid import Grid
 from porepy.fracs import mortars
-from porepy.grids.grid import FaceTag, Grid
-from porepy.numerics.vem import vem_source
-from porepy.numerics.fem import rt0
 
 import example_1_data
+import solvers
 
 #------------------------------------------------------------------------------#
 
-def solve_rt0(gb, folder):
+def reference_solution():
 
-    # Choose and define the solvers and coupler
-    solver_flow = rt0.RT0MixedDim('flow')
-    A_flow, b_flow = solver_flow.matrix_rhs(gb)
-
-    solver_source = vem_source.IntegralMixedDim('flow')
-    A_source, b_source = solver_source.matrix_rhs(gb)
-
-    up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
-    solver_flow.split(gb, "up", up)
-
-    solver_flow.extract_p(gb, "up", "pressure")
-
-    save = Exporter(gb, "sol", folder=folder)
-    save.write_vtk(["pressure"])
-
-#------------------------------------------------------------------------------#
-
-if __name__ == "__main__":
-
-    domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
-    data = {"kf_high": 1e2, "kf_low": 1e-2, "aperture": 1e-2}
-    tol = 1e-8
-
-    # Compute the reference solution with the VEM
+    # Compute the reference solution with the RT0
     cells_2d = 100000
-    data["solver"] = "rt0"
-    gb_ref = example_1_data.create_gb(domain, cells_2d, tol=tol)
-
-    # only when solving for the vem case
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb_ref]
-
-    example_1_data.add_data(gb_ref, domain, data, tol)
+    solver = "rt0"
+    gb_ref = example_1_data.create_gb(cells_2d)
+    example_1_data.add_data(gb_ref, solver)
     folder = "example_1_reference"
-    solve_rt0(gb_ref, folder)
+    solvers.solve_rt0(gb_ref, folder)
+    return gb_ref
 
-    N = 5
-    data["solver"] = "rt0"
-    f = open(data["solver"]+"_error.txt", "w")
+#------------------------------------------------------------------------------#
+
+def convergence_test(N, gb_ref, solver, solver_fct):
+
+    f = open(solver+"_error.txt", "w")
     for i in np.arange(N):
 
         cells_2d = 200*4**i
         alpha_1d = None
-        alpha_mortar = 0.5
-        gb = example_1_data.create_gb(domain, cells_2d, alpha_1d, alpha_mortar, tol)
+        alpha_mortar = 0.75
+        gb = example_1_data.create_gb(cells_2d, alpha_1d, alpha_mortar)
 
-        # only when solving for the dual case
-        internal_flag = FaceTag.FRACTURE
-        [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
-        example_1_data.add_data(gb, domain, data, tol)
-        folder = "example_1_"+data["solver"]+"_"+str(i)
-        solve_rt0(gb, folder)
+        example_1_data.add_data(gb, solver)
+        folder = "example_1_"+solver+"_"+str(i)
+        solver_fct(gb, folder)
 
         error_0d = 0
         ref_0d = 0
@@ -98,7 +63,8 @@ if __name__ == "__main__":
 
                 for idx, (side, g_ref) in enumerate(mg_ref.side_grids.items()):
                     g = mg.side_grids[side]
-                    Pi_ref[idx, idx] = mortars.split_matrix_1d(g, g_ref, tol)
+                    Pi_ref[idx, idx] = mortars.split_matrix_1d(g, g_ref,
+                                                           example_1_data.tol())
 
                 Pi_ref = sps.bmat(Pi_ref, format='csc')
 
