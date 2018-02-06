@@ -18,7 +18,7 @@ from porepy.fracs.fractures import Fracture
 from porepy.params.data import Parameters
 from porepy.params import bc
 from porepy.params.bc import BoundaryCondition
-from porepy.grids.grid import FaceTag
+from porepy.grids.grid import FaceTag, Grid
 from porepy.params import tensor
 
 
@@ -769,57 +769,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
 #-----------------------------------------------------------------------------#
 
-class TestMortar2DSimplexGrid(unittest.TestCase):
-
-    def grid_2d(self):
-        nodes = np.array([[0, 0, 0], [1, 0, 0], [1, 0.5, 0], [0.5, 0.5, 0],
-                          [0, 0.5, 0],
-                          [0, 0.5, 0], [0.5, 0.5, 0], [1, 0.5, 0], [1, 1, 0],
-                          [0, 1, 0]]).T
-        cn = np.array([[0, 3, 4], [0, 1, 3], [1, 2, 3],
-                       [5, 6, 9], [6, 8, 9], [6, 7, 8]])
-        g = TriangleGrid(nodes, cn)
-        fn = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 0], [0, 3], [3, 1],
-                       [5, 6], [6, 7], [7, 8], [8, 9], [9, 5], [9, 6], [6, 8]]).T
-        cf = np.array([[3, 4, 5], [0, 6, 5], [1, 2, 6],
-                       [7, 12, 11], [12, 13, 10], [8, 9, 13]]).T
-        cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel('F')
-        face_nodes = sps.csc_matrix((np.ones_like(cols),
-                                     (fn.ravel('F'), cols)))
-
-        cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel('F')
-        cell_faces = sps.csc_matrix((np.ones_like(cols),
-                                     (cf.ravel('F'), cols)))
-
-        g.face_nodes = face_nodes
-        g.cell_faces = cell_faces
-        g.num_faces = face_nodes.shape[1]
-        g.num_nodes = nodes.shape[1]
-        g.num_cells = cell_faces.shape[1]
-        g.compute_geometry()
-        return g
-
-    def grid_1d(self):
-        g = TensorGrid(np.array([0, 1]))
-        g.nodes = np.array([[0, 1], [0.5, 0.5], 0, 0])
-        g.compute_geometry()
-        return g
-
-    def setup_bucket(self):
-        g2 = self.grid_2d()
-        g1 = self.grid_1d()
-        gb = meshing.assemble_in_bucket([[g2], [g1]])
-
-        gb.add_edge_prop('face_cells')
-        for e, d in gb.edges_props():
-            a = np.zeros((g2.num_faces, g1.num_cells))
-            a[2, 1] = 1
-            a[3, 0] = 1
-            a[7, 0] = 1
-            a[8, 1] = 1
-            d['face_cells'] = sps.csc_matrix(a.T)
-        meshing.create_mortar_grids(gb)
-        return gb
 
 #-----------------------------------------------------------------------------#
 
@@ -1173,6 +1122,120 @@ class TestMortar3D(unittest.TestCase):
 
         # TODO: Add check that mortar flux scales with mortar area
 
+
+class TestMortar2DSimplexGrid(unittest.TestCase):
+
+    def grid_2d(self):
+        nodes = np.array([[0, 0, 0], [1, 0, 0], [1, 0.5, 0], [0.5, 0.5, 0],
+                          [0, 0.5, 0],
+                          [0, 0.5, 0], [0.5, 0.5, 0], [1, 0.5, 0], [1, 1, 0],
+                          [0, 1, 0]]).T
+
+        fn = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 0], [0, 3], [3, 1],
+                       [5, 6], [6, 7], [7, 8], [8, 9], [9, 5], [9, 6], [6, 8]]).T
+        cf = np.array([[3, 4, 5], [0, 6, 5], [1, 2, 6],
+                       [7, 12, 11], [12, 13, 10], [8, 9, 13]]).T
+        cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel('F')
+        face_nodes = sps.csc_matrix((np.ones_like(cols),
+                                     (fn.ravel('F'), cols)))
+
+        cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel('F')
+        cell_faces = sps.csc_matrix((np.ones_like(cols),
+                                     (cf.ravel('F'), cols)))
+
+        g = Grid(2, nodes, face_nodes, cell_faces, 'TriangleGrid')
+        g.compute_geometry()
+        g.global_point_ind = np.arange(nodes.shape[1])
+
+        return g
+
+    def grid_1d(self):
+        g = TensorGrid(np.array([0, 1, 2]))
+        g.nodes = np.array([[0, 0.5, 1], [0.5, 0.5, 0.5], [0, 0, 0]])
+        g.compute_geometry()
+        g.global_point_ind = np.arange(g.num_nodes)
+        return g
+
+    def setup(self):
+        g2 = self.grid_2d()
+        g1 = self.grid_1d()
+        gb = meshing.assemble_in_bucket([[g2], [g1]])
+
+        gb.add_edge_prop('face_cells')
+        for e, d in gb.edges_props():
+            a = np.zeros((g2.num_faces, g1.num_cells))
+            a[2, 1] = 1
+            a[3, 0] = 1
+            a[7, 0] = 1
+            a[8, 1] = 1
+            d['face_cells'] = sps.csc_matrix(a.T)
+        meshing.create_mortar_grids(gb)
+
+        gb.assign_node_ordering()
+
+        self.set_params(gb)
+        return gb
+
+    def set_params(self, gb):
+
+
+        for g, d in gb:
+            param = Parameters(g)
+
+            perm = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+            param.set_tensor("flow", perm)
+
+            aperture = np.power(1e-3, gb.dim_max() - g.dim)
+            param.set_aperture(aperture*np.ones(g.num_cells))
+            if g.dim == 2:
+                yf = g.face_centers[1]
+                bound_faces = [np.where(np.abs(yf) < 1e-4)[0],
+                               np.where(np.abs(yf-1) < 1e-4)[0]]
+                bound_faces = np.hstack((bound_faces[0], bound_faces[1]))
+                bound_faces = np.array([0, 10])
+                labels = np.array(['dir'] * bound_faces.size)
+                param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+
+                bv = np.zeros(g.num_faces)
+                bound_faces = np.where(np.abs(yf-1) < 1e-4)[0]
+                bound_faces = 10
+                bv[bound_faces] = 1
+                param.set_bc_val("flow", bv)
+
+            d['param'] = param
+
+        gb.add_edge_prop('kn')
+        kn = 1e7
+        for e, d in gb.edges_props():
+            mg = d['mortar_grid']
+            d['kn'] = kn * np.ones(mg.num_cells)
+
+    def verify_cv(self, gb, tol=1e-5):
+        # The tolerance level here is a bit touchy: With an unstructured grid,
+        # and with the flux between subdomains computed as differences between
+        # point pressures, uniform flow may not be reproduced if the meshes
+        # are not matching (one may get lucky, though). Thus the coarse error
+        # tolerance. The current value turned out to be sufficient for all
+        # tests considered herein.
+        for g in gb.nodes():
+            p = gb.node_prop(g, 'pressure')
+
+#                print(g.cell_centers[1])
+            assert np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol)
+
+    def run_mpfa(self, gb):
+        solver_flow = mpfa.MpfaMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        p = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "pressure", p)
+
+    def test_mpfa_one_frac(self):
+        gb = self.setup()
+        self.run_mpfa(gb)
+        self.verify_cv(gb)
+
+
 #TestGridRefinement1d().test_mortar_grid_darcy()
 #TestGridRefinement1d().test_mortar_grid_darcy_2_fracs()
 #TestGridRefinement1d().wietse()
@@ -1180,7 +1243,8 @@ class TestMortar3D(unittest.TestCase):
 #a = TestMortar2DSimplexGridWithGridBucket()
 #a.test_mpfa_one_frac()
 a = TestMortar2DSimplexGrid()
-a.grid_2d()
+gb = a.setup()
+a.test_mpfa_one_frac()
 #a.test_vem_one_frac_coarsen_2d()
 #a.test_mpfa_1_frac_no_refinement()
 #a.test_mpfa_one_frac_refine_mg()
