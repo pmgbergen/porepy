@@ -99,18 +99,22 @@ def add_data(gb, domain, solver, case):
 def b_pressure(g):
 
     b_faces = g.get_domain_boundary_faces()
+    null = np.zeros(b_faces.size, dtype=np.bool)
     if b_faces.size == 0:
-        return np.empty(0), np.empty(0), np.empty(0)
+        return null, null, null
     else:
         b_face_centers = g.face_centers[:, b_faces]
 
-        val = 0.5 - tol()
-        b_in = np.logical_and.reduce(tuple(b_face_centers[i, :] < val \
-                                                             for i in range(3)))
+        b_in = b_face_centers[2, :] < tol()
+        b_out = b_face_centers[2, :] > 1 - tol()
 
-        val = 0.75 + tol()
-        b_out = np.logical_and.reduce(tuple(b_face_centers[i, :] > val \
-                                                             for i in range(3)))
+#        val = 0.5 - tol()
+#        b_in = np.logical_and.reduce(tuple(b_face_centers[i, :] < val \
+#                                                             for i in range(3)))
+#
+#        val = 0.75 + tol()
+#        b_out = np.logical_and.reduce(tuple(b_face_centers[i, :] > val \
+#                                                             for i in range(3)))
         return np.logical_or(b_in, b_out), b_in, b_out
 
 #------------------------------------------------------------------------------#
