@@ -67,7 +67,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     """
 
     # Verbosity level
-    verbose = kwargs.get('verbose', 1)
+    verbose = kwargs.get('verbose', 0)
 
     # File name for communication with gmsh
     file_name = kwargs.pop('file_name', 'gmsh_frac_file')
@@ -75,21 +75,22 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     if network is None:
 
         frac_list = []
-        for f in fracs:
-            # Input can be either numpy arrays or predifined fractures. As a
-            # guide, we treat f as a fracture if it has an attribute p which is
-            # a numpy array.
-            # If f turns out not to be a fracture, strange errors will result
-            # as the further program tries to access non-existing methods.
-            # The correct treatment here would be several
-            # isinstance-statements, but that became less than elegant. To
-            # revisit.
-            if hasattr(f, 'p') and isinstance(f.p, np.ndarray):
-                frac_list.append(f)
-            else:
-                # Convert the fractures from numpy representation to our 3D
-                # fracture data structure.
-                frac_list.append(fractures.Fracture(f))
+        if fracs is not None:
+            for f in fracs:
+                # Input can be either numpy arrays or predifined fractures. As a
+                # guide, we treat f as a fracture if it has an attribute p which is
+                # a numpy array.
+                # If f turns out not to be a fracture, strange errors will result
+                # as the further program tries to access non-existing methods.
+                # The correct treatment here would be several
+                # isinstance-statements, but that became less than elegant. To
+                # revisit.
+                if hasattr(f, 'p') and isinstance(f.p, np.ndarray):
+                    frac_list.append(f)
+                else:
+                    # Convert the fractures from numpy representation to our 3D
+                    # fracture data structure.
+                    frac_list.append(fractures.Fracture(f))
 
         # Combine the fractures into a network
         network = fractures.FractureNetwork(frac_list, verbose=verbose,
@@ -104,7 +105,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     if not network.has_checked_intersections:
         network.find_intersections()
     else:
-        print('Use existing intersections')
+        if verbose:
+            print('Use existing intersections')
 
     start_time = time.time()
 
@@ -119,7 +121,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     if not hasattr(network, 'decomposition'):
         network.split_intersections()
     else:
-        print('Use existing decomposition')
+        if verbose:
+            print('Use existing decomposition')
 
     in_file = file_name + '.geo'
     out_file = file_name + '.msh'
