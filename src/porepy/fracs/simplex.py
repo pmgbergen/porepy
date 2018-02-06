@@ -67,7 +67,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     """
 
     # Verbosity level
-    verbose = kwargs.get('verbose', 1)
+    verbose = kwargs.get('verbose', 0)
 
     # File name for communication with gmsh
     file_name = kwargs.pop('file_name', 'gmsh_frac_file')
@@ -105,7 +105,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     if not network.has_checked_intersections:
         network.find_intersections()
     else:
-        print('Use existing intersections')
+        if verbose:
+            print('Use existing intersections')
 
     start_time = time.time()
 
@@ -120,7 +121,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     if not hasattr(network, 'decomposition'):
         network.split_intersections()
     else:
-        print('Use existing decomposition')
+        if verbose:
+            print('Use existing decomposition')
 
     in_file = file_name + '.geo'
     out_file = file_name + '.msh'
