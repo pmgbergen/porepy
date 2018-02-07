@@ -36,6 +36,7 @@ class Exporter():
         fixed_grid: (optional) in a time dependent simulation specify if the
             grid changes in time or not. The default is True.
         binary: export in binary format, default is True.
+        simplicial: consider only simplicial elements (triangles and tetra)
 
         How to use:
         If you need to export a single grid:
@@ -70,6 +71,7 @@ class Exporter():
         self.folder = folder
         self.fixed_grid = kwargs.get('fixed_grid', True)
         self.binary = kwargs.get('binary', True)
+        self.simplicial = kwargs.get('simplicial', False)
 
         self.is_GridBucket = isinstance(self.gb, grid_bucket.GridBucket)
         self.is_not_vtk = 'vtk' not in sys.modules
@@ -324,7 +326,10 @@ class Exporter():
             fsVTK = vtk.vtkIdList()
             [fsVTK.InsertNextId(p) for p in ptsId]
 
-            gVTK.InsertNextCell(vtk.VTK_POLYGON, fsVTK)
+            if self.simplicial:
+                gVTK.InsertNextCell(vtk.VTK_TRIANGLE, fsVTK)
+            else:
+                gVTK.InsertNextCell(vtk.VTK_POLYGON, fsVTK)
 
         ptsVTK = vtk.vtkPoints()
         if g.nodes.shape[0] == 2:
@@ -474,17 +479,29 @@ class Exporter():
         node_counter = 0
         face_counter = 0
         for c in np.arange(g.num_cells):
-            fsVTK = vtk.vtkIdList()
-            fsVTK.InsertNextId(face_per_cell[c]) # Number faces that make up the cell
-            for f in range(face_per_cell[c]):
-                fi = g.cell_faces.indices[face_counter]
-                fsVTK.InsertNextId(nodes_per_face[fi]) # Number of points in face
-                for ni in range(nodes_per_face[fi]):
-                    fsVTK.InsertNextId(cell_nodes[node_counter])
-                    node_counter += 1
-                face_counter += 1
+            if self.simplicial:
+                loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+                ptsId = np.array([nodes_faces[g.face_nodes.indptr[f]:\
+                                              g.face_nodes.indptr[f+1]]
+                                  for f in faces_cells[loc]]).T
+                ptsId = np.unique(ptsId)
+                fsVTK = vtk.vtkIdList()
+                [fsVTK.InsertNextId(p) for p in ptsId]
 
-            gVTK.InsertNextCell(vtk.VTK_POLYHEDRON, fsVTK)
+                gVTK.InsertNextCell(vtk.VTK_TETRA, fsVTK)
+            else:
+                fsVTK = vtk.vtkIdList()
+                # Number faces that make up the cell
+                fsVTK.InsertNextId(face_per_cell[c])
+                for f in range(face_per_cell[c]):
+                    fi = g.cell_faces.indices[face_counter]
+                    fsVTK.InsertNextId(nodes_per_face[fi]) # Number of points in face
+                    for ni in range(nodes_per_face[fi]):
+                        fsVTK.InsertNextId(cell_nodes[node_counter])
+                        node_counter += 1
+                    face_counter += 1
+
+                gVTK.InsertNextCell(vtk.VTK_POLYHEDRON, fsVTK)
 
         ptsVTK = vtk.vtkPoints()
         [ptsVTK.InsertNextPoint(*node) for node in g.nodes.T]

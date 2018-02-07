@@ -115,8 +115,9 @@ def add_data(gb, domain, solver, case):
 def b_pressure(g):
 
     b_faces = g.get_domain_boundary_faces()
+    null = np.zeros(b_faces.size, dtype=np.bool)
     if b_faces.size == 0:
-        return np.empty(0), np.empty(0), np.empty(0)
+        return null, null, null
     else:
         b_face_centers = g.face_centers[:, b_faces]
 
