@@ -98,8 +98,9 @@ def main(kf, description, multi_point, if_export=False):
     # Define the geometry and produce the meshes
     mesh_kwargs = {}
     mesh_size = 0.045
-    mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                'value': mesh_size, 'bound_value': mesh_size}
+    mesh_kwargs = {'mesh_mode': 'constant',
+                   'h_ideal': mesh_size, 'h_min': 1 / 3 * mesh_size}
+
     domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
 
     file_name = 'network_geiger.csv'

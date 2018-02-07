@@ -145,12 +145,8 @@ deltaT = T / Nt
 export_every = 1
 if_coarse = True
 
-mesh_kwargs = {}
-mesh_kwargs['mesh_size'] = {'mode': 'weighted',
-                            'value': 500,
-                            'bound_value': 500,
-                            'tol': tol}
-
+mesh_kwargs = {'mesh_mode': 'weighted', 'h_ideal': 500, 'h_min': 100,
+               'mesh_tol': tol}
 domain = {'xmin': 0, 'xmax': 700, 'ymin': 0, 'ymax': 600}
 gb = importer.from_csv('network.csv', mesh_kwargs, domain)
 gb.compute_geometry()

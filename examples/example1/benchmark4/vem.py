@@ -72,8 +72,10 @@ def add_data(gb, domain):
 
 
 mesh_kwargs = {}
-mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 10, 'bound_value': 10}
+mesh_size = 10
+mesh_kwargs = {'mesh_mode': 'constant',
+               'h_ideal': mesh_size, 'h_min': 1 / 3 * mesh_size}
+
 
 domain = {'xmin': 0, 'xmax': 700, 'ymin': 0, 'ymax': 600}
 gb = importer.from_csv('network.csv', mesh_kwargs, domain)

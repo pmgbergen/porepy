@@ -91,8 +91,9 @@ def write_network(file_name):
 
 def main(kf, description, is_coarse=False, if_export=False):
     mesh_kwargs = {}
-    mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                'value': 0.045, 'bound_value': 0.045}
+    mesh_size = 0.045
+    mesh_kwargs = {'mesh_mode': 'constant',
+                   'h_ideal': mesh_size, 'h_min': 1 / 3 * mesh_size}
 
     domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
 

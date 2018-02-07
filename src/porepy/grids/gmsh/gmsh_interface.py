@@ -16,9 +16,9 @@ class GmshWriter(object):
     """
 
     def __init__(self, pts, lines, polygons=None, domain=None, nd=None,
-                 mesh_size=None, mesh_size_bound=None, line_type=None,
-                 intersection_points=None, tolerance=None, edges_2_frac=None,
-                 meshing_algorithm=None, fracture_tags=None):
+                 mesh_size=None, line_type=None, intersection_points=None,
+                 tolerance=None, edges_2_frac=None, meshing_algorithm=None,
+                 fracture_tags=None):
         """
 
         :param pts: np.ndarary, Points
@@ -37,7 +37,6 @@ class GmshWriter(object):
             self.nd = nd
 
         self.lchar = mesh_size
-        self.lchar_bound = mesh_size_bound
 
         self.domain = domain
 
@@ -45,7 +44,6 @@ class GmshWriter(object):
             self.polygon_tags = fracture_tags
 
         self.mesh_size = mesh_size
-        self.mesh_size_bound = mesh_size_bound
 
         # Points that should be decleared physical (intersections between 3
         # fractures)

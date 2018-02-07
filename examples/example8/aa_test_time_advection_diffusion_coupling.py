@@ -126,8 +126,8 @@ tol = 1e-3
 a = 1e-2
 
 mesh_kwargs = {}
-mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 0.045, 'bound_value': 0.025}
+mesh_kwargs = {'mesh_mode': 'constant',
+               'h_ideal': 0.025, 'h_min': 0.01}
 
 domain = {'xmin': -0.2, 'xmax': 1.2, 'ymin': -0.2, 'ymax': 1.2}
 gb = importer.from_csv(folder + 'network.csv', mesh_kwargs, domain)

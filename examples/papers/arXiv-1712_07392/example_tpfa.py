@@ -15,6 +15,7 @@ from example_advective import AdvectiveModel, AdvectiveModelData
 
 #------------------------------------------------------------------------------#
 
+
 def add_data(gb, domain, tol):
 
     extra = {'domain': domain, 'tol': tol, 'special_fracture': 6,
@@ -26,11 +27,12 @@ def add_data(gb, domain, tol):
         d['problem'] = TPFAModelData(g, d, **extra)
 
         if g.dim == 3 or g.dim == 1:
-            d['frac_num'] = -1*np.ones(g.num_cells)
+            d['frac_num'] = -1 * np.ones(g.num_cells)
         else:
-            d['frac_num'] = g.frac_num*np.ones(g.num_cells)
+            d['frac_num'] = g.frac_num * np.ones(g.num_cells)
 
 #------------------------------------------------------------------------------#
+
 
 def main():
     tol = 1e-6
@@ -41,8 +43,7 @@ def main():
 
     h = 0.08
     grid_kwargs = {}
-    grid_kwargs['mesh_size'] = {'mode': 'constant', 'value': h, 'bound_value': h,
-                                'tol': tol}
+    grid_kwargs = {'mesh_mode': 'constant', 'h_ideal': h, 'h_min': 1 / 3 * h}
 
     file_dfm = 'dfm.csv'
     gb, domain = importer.dfm_3d_from_csv(file_dfm, tol, **grid_kwargs)
@@ -70,6 +71,7 @@ def main():
     advective.save()
 
 #------------------------------------------------------------------------------#
+
 
 if __name__ == "__main__":
     main()

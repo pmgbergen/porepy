@@ -2,7 +2,7 @@
 This folder contains examples of PorePy from papers, presentations, code developments, etc.
 
 # Example maintanence
-We try to keep the up to date as the code evolves, but cannot always manage this.
+We try to keep the examples up to date as the code evolves, but cannot always manage this.
 Examples stored in files named test_something.py are part of the test suite, and are thus monitored regularly.
 Examples that for one reason or another are not part of the test suite should still run; let us know if not.
 Some examples may be outdated, but kept for historical or other reasons. These will be marked with an git commit id to a version of the code where the example works.
@@ -19,3 +19,4 @@ Some examples may be outdated, but kept for historical or other reasons. These w
 * [example7](example7) Mixed-dimensional coupling with finite volume methods.
 * [example8](example8) VEM for internal boundary.
 * [example9](example9) Couple PorePy to Third party modules: Using google tangent to solve compressible flow
+
