@@ -35,9 +35,8 @@ class BasicsTest(unittest.TestCase):
                        [0, 1]])
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
         mesh_size = 0.4
-        mesh_kwargs = {}
-        mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                    'value': mesh_size, 'bound_value': mesh_size}
+        mesh_kwargs = {'mesh_mode': 'constant',
+                       'h_ideal': mesh_size, 'h_min': 1 / 2 * mesh_size}
         gb = meshing.cart_grid([f1, f2], [2, 2], **{'physdims': [1, 1]})
         #gb = meshing.simplex_grid( [f1, f2],domain,**mesh_kwargs)
         gb.compute_geometry()
@@ -158,6 +157,8 @@ class BasicsTest(unittest.TestCase):
         assert((np.amax(np.absolute(theta_r - theta_known))) < tol)
 
 # #------------------------------------------------------------------------------#
+
+
 def fluxes_2d_1d_left_right_dir_neu():
     d_0 = np.array([5.00000000e-01,   5.04994426e-01,   5.04994950e-01,
                     5.00000000e-01,   5.04994426e-01,   5.04994950e-01,
