@@ -308,6 +308,7 @@ def triangle_grid(fracs, domain, **kwargs):
         for the domain]
     **kwargs: To be explored.
 
+
     Returns
     -------
     list (length 3): For each dimension (2 -> 0), a list of all grids in
@@ -387,13 +388,11 @@ def triangle_grid(fracs, domain, **kwargs):
     intersections = __find_intersection_points(lines_split)
 
     # Gridding size
-    if 'mesh_size' in kwargs.keys():
-        mesh_size, mesh_size_bound, pts_split, lines_split = \
-            utils.determine_mesh_size(pts_split, lines_split,
-                                      **kwargs['mesh_size'])
+    if 'h_ideal' in kwargs.keys():
+        mesh_size, pts_split, lines_split = \
+            utils.determine_mesh_size(pts_split, lines_split, **kwargs)
     else:
         mesh_size = None
-        mesh_size_bound = None
 
     # gmsh options
 
@@ -402,8 +401,7 @@ def triangle_grid(fracs, domain, **kwargs):
     # Create a writer of gmsh .geo-files
     gw = gmsh_interface.GmshWriter(
         pts_split, lines_split, domain=domain, mesh_size=mesh_size,
-        mesh_size_bound=mesh_size_bound, intersection_points=intersections,
-        meshing_algorithm=meshing_algorithm)
+        intersection_points=intersections, meshing_algorithm=meshing_algorithm)
     gw.write_geo(in_file)
 
     triangle_grid_run_gmsh(file_name, **kwargs)

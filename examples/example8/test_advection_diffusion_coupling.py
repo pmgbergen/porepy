@@ -132,8 +132,8 @@ export_folder = folder + 'advection_diffusion_coupling'
 tol = 1e-3
 
 mesh_kwargs = {}
-mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 0.045, 'bound_value': 0.045}
+mesh_kwargs = {'mesh_mode': 'constant',
+               'h_ideal': 0.045, 'h_min': 0.015}
 
 domain = {'xmin': -0.2, 'xmax': 1.2, 'ymin': -0.2, 'ymax': 1.2}
 gb = importer.dfm_2d_from_csv(folder + 'network.csv', mesh_kwargs, domain)

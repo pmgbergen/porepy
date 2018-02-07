@@ -19,7 +19,7 @@ def determine_mesh_size(pts, lines=None, **kwargs):
     See the gmsh manual for further details.
 
     """
-    mode = kwargs.get('mode', 'constant')
+    mode = kwargs.get('mesh_mode', 'constant')
 
     if mode == 'weighted':
         return __weighted_determine_mesh_size(pts, lines, **kwargs)
@@ -32,31 +32,26 @@ def determine_mesh_size(pts, lines=None, **kwargs):
 
 def __constant_determine_mesh_size(pts, lines, **kwargs):
     num_pts = pts.shape[1]
-    val = kwargs.get('value', None)
-    bound_val = kwargs.get('bound_value', None)
+    val = kwargs.get('h_ideal', None)
 
     if val is not None:
         mesh_size = val * np.ones(num_pts)
     else:
         mesh_size = None
 
-    if bound_val is not None:
-        mesh_size_bound = bound_val
-    else:
-        mesh_size_bound = None
 
     if lines is None:
-        return mesh_size, mesh_size_bound
+        return mesh_size
     else:
-        return mesh_size, mesh_size_bound, pts, lines
+        return mesh_size, pts, lines
 
 #------------------------------------------------------------------------------#
 
 def __weighted_determine_mesh_size(pts, lines, **kwargs):
     num_pts = pts.shape[1]
-    val = kwargs.get('value', 1)
-    bound_val = kwargs.get('bound_value', None)
-    tol = kwargs.get('tol', 1e-5)
+    h_ideal = kwargs.get('h_ideal', 1)
+    h_min = kwargs.get('h_min', None)
+    tol = kwargs.get('mesh_tol', 1e-5)
 
     # Compute the lenght of each pair of points (fractures + domain boundary)
     pts_id = lines[:2, :]
@@ -67,11 +62,10 @@ def __weighted_determine_mesh_size(pts, lines, **kwargs):
     # Loop on all the points and consider the minimum between the pairs of points
     # lengths associated to the single point and the value input by the user
     for i, pt_id in enumerate(pts_id.T):
-        distances = np.array([dist_pts[pt_id], [dist[i]]*2, [val]*2])
+        distances = np.array([dist_pts[pt_id], [dist[i]]*2, [h_ideal]*2])
         dist_pts[pt_id] = np.amin(distances, axis=0)
 
     num_pts = pts.shape[1]
-    num_lines = lines.shape[1]
     pts_extra = np.empty((2, 0))
     dist_extra = np.empty(0)
     pts_id_extra = np.empty(0, dtype=np.int)
@@ -91,7 +85,7 @@ def __weighted_determine_mesh_size(pts, lines, **kwargs):
             dist, pt_int = cg.distance_point_segment(pt, start, end)
             # If the distance is small than the input value we need to consider
             # it
-            if dist < val and not np.isclose(dist, 0.):
+            if dist < h_ideal and not np.isclose(dist, 0.):
                 dist_pts[pt_id] = min(dist_pts[pt_id], dist)
 
                 dist_start = np.linalg.norm(pt_int - start)
@@ -101,7 +95,7 @@ def __weighted_determine_mesh_size(pts, lines, **kwargs):
                 # endings of the line is greater than the distance computed
                 # then we need to keep the point to balance the grid generation.
                 if dist < dist_start and dist < dist_end:
-                    dist_extra = np.r_[dist_extra, min(dist, val)]
+                    dist_extra = np.r_[dist_extra, min(dist, h_ideal)]
                     pts_extra = np.c_[pts_extra, pt_int]
                     pts_id_extra = np.r_[pts_id_extra, line[3]]
 
@@ -176,7 +170,7 @@ def __weighted_determine_mesh_size(pts, lines, **kwargs):
         mesh_size_pt1 = dist_pts[seg[0]]
         mesh_size_pt2 = dist_pts[seg[1]]
         dist = np.linalg.norm(pts[:, seg[0]] - pts[:, seg[1]])
-        if (mesh_size_pt1 >= relax*val and mesh_size_pt2 >= relax*val) \
+        if (mesh_size_pt1 >= relax*h_ideal and mesh_size_pt2 >= relax*h_ideal) \
            or \
            (relax*dist <= 2*mesh_size_pt1 and relax*dist <= 2*mesh_size_pt2):
             lines = np.c_[lines, seg]
@@ -184,7 +178,7 @@ def __weighted_determine_mesh_size(pts, lines, **kwargs):
             pt_id = pts.shape[1]
             new_pt = 0.5*(pts[:, seg[0]] + pts[:, seg[1]])
             pts = np.c_[pts, new_pt]
-            mesh_size = np.amin([val, dist/2.])
+            mesh_size = np.amin([h_ideal, dist/2.])
 
             for old_seg in old_lines.T:
                 start, end = old_pts[:, old_seg[0]], old_pts[:, old_seg[1]]
@@ -199,8 +193,10 @@ def __weighted_determine_mesh_size(pts, lines, **kwargs):
             lines = np.c_[lines, [seg[0], pt_id, seg[2], seg[3]],
                                  [pt_id, seg[1], seg[2], seg[3]]]
 
+    if h_min is not None:
+        dist_pts[dist_pts < h_min] = h_min
 
-    return dist_pts, bound_val, pts, lines
+    return dist_pts, pts, lines
 
 #------------------------------------------------------------------------------#
 

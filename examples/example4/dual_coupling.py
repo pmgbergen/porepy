@@ -184,8 +184,8 @@ def darcy_dualVEM_coupling_example2(**kwargs):
 
 #    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
     mesh_size = {'mode': 'constant', 'value': 5, 'bound_value': 10}
-    mesh_size = {'mode': 'constant', 'value': 0.25, 'bound_value': 10}
-    kwargs['mesh_size'] = mesh_size
+    kwargs = {'mesh_mode': 'constant', 'h_min': 0.25, 'h_ideal': 10}
+
     kwargs['gmsh_path'] = '~/gmsh/bin/gmsh'
 
     gb = meshing.simplex_grid([f_1, f_2], domain, **kwargs)

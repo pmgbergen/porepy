@@ -132,8 +132,8 @@ def error_p(gb):
 tol = 1e-5
 
 mesh_kwargs = {}
-mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 0.25, 'bound_value': 1}
+mesh_kwargs = {'mesh_mode': 'constant',
+               'h_min': 0.25, 'h_ideal': 1}
 
 file_name = 'dfn_square.fab'
 file_intersections = 'traces_square.dat'

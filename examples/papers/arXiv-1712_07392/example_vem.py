@@ -67,9 +67,7 @@ def main(coarse):
         problem_kwargs['folder_name'] = 'vem'
 
     h = 0.08
-    grid_kwargs = {}
-    grid_kwargs['mesh_size'] = {'mode': 'constant', 'value': h, 'bound_value': h,
-                                'tol': tol}
+    grid_kwargs = {'mesh_mode': 'constant', 'h_ideal': h, 'h_min': 1 / 3 * h}
 
     file_dfm = 'dfm.csv'
     gb, domain = importer.dfm_3d_from_csv(file_dfm, tol, **grid_kwargs)

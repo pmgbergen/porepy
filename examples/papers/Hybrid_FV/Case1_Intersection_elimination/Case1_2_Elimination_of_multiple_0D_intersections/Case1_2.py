@@ -59,10 +59,10 @@ class DarcyModelData(EllipticDataAssigner):
         elif np.in1d(self.data['node_number'], [4, 5]):
             k = 1e-4
         elif np.in1d(self.data['node_number'], [11, 13, 14, 15]):
-            k = 2/np.sum(1.0/np.array([1e4, 1e-4]))
+            k = 2 / np.sum(1.0 / np.array([1e4, 1e-4]))
         else:
             k = 1e4
-        return tensor.SecondOrder(3, np.ones(self.grid().num_cells)*k)
+        return tensor.SecondOrder(3, np.ones(self.grid().num_cells) * k)
 
     def bc(self):
         if self.grid().dim < 2:
@@ -117,8 +117,8 @@ def make_grid_bucket():
     """
     mesh_kwargs = {'tol': 1e-7}
     mesh_size = 0.05
-    mesh_kwargs['mesh_size'] = {'mode': 'constant', 'value': mesh_size,
-                                'bound_value': mesh_size}
+    mesh_kwargs = {'mesh_mode': 'constant', 'h_ideal': mesh_size,
+                                'h_min': mesh_size}
 
     domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
 

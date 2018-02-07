@@ -48,6 +48,16 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
         for the gridding. Only available in 3D.
     **kwargs: May contain fracture tags, options for gridding, etc.
 
+    Mesh size is set with:
+
+        mesh_mode:  'constant' or 'weighted', where the latter gives geometry
+            adjusted mesh sizes.
+        h_ideal:    Background mesh size, critical parameter.
+        h_min:      Threshold for minimum mesh size. Not used in the 'constant'
+            mode.
+        mesh_tol:   tolerance for the 'weighted' mode.
+        meshing_algorithm:  passed to gmsh.
+
     Returns
     -------
     GridBucket: A complete bucket where all fractures are represented as

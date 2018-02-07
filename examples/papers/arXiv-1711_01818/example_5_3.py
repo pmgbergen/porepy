@@ -132,12 +132,8 @@ deltaT = T / Nt
 export_every = 5
 if_coarse = True
 
-mesh_kwargs = {}
-mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 75,
-                            'bound_value': 200,
-                            'meshing_algorithm': 4,
-                            'tol': tol}
+mesh_kwargs = {'mode': 'constant', 'h_ideal': 200, 'h_min': 50,
+               'meshing_algorithm': 4, 'mesh_tol': tol}
 mesh_kwargs['num_fracs'] = 20
 mesh_kwargs['num_points'] = 10
 mesh_kwargs['file_name'] = 'soultz_fracs'

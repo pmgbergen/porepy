@@ -155,8 +155,7 @@ def setup_3d(nx, simplex_grid=False):
     else:
         mesh_kwargs = {}
         mesh_size = .3
-        mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                    'value': mesh_size, 'bound_value': 2 * mesh_size}
+        mesh_kwargs = {'h_ideal': mesh_size, 'h_min': 1 / 2 * mesh_size}
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
         gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
 
@@ -204,10 +203,9 @@ def setup_2d_1d(nx, simplex_grid=False):
     else:
         mesh_kwargs = {}
         mesh_size = .3
-        mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                    'value': mesh_size, 'bound_value': 1 * mesh_size}
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
-        gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
+        gb = meshing.simplex_grid(fracs, domain, h_ideal=mesh_size,
+                                  mesh_mode='constant')
 
     gb.compute_geometry()
     gb.assign_node_ordering()

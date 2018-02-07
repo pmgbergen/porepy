@@ -17,7 +17,7 @@ from porepy.fracs.fractures import EllipticFracture
 import time
 import logging
 from examples.papers.Hybrid_FV.utils import gb_error, global_error, \
-                                            edge_params, assign_data
+    edge_params, assign_data
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -31,8 +31,8 @@ def define_grid():
     mesh_kwargs = {}
     h_max = 0.018
     h_min = h_max / 3
-    mesh_kwargs['mesh_size'] = {'mode': 'constant', 'value': h_min,
-                                'bound_value': h_max}
+    mesh_kwargs = {'mesh_mode': 'constant', 'h_ideal': h_max,
+                                'h_min': h_min}
     mesh_kwargs['file_name'] = 'case_4_grid'
 
     domain = {'xmin': 0.2, 'xmax': .8,
