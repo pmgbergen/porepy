@@ -139,9 +139,11 @@ class FracturedMpsa(Mpsa):
     fracture face which describe the fracture deformation.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, given_traction=False, **kwargs):
         Mpsa.__init__(self, **kwargs)
         assert hasattr(self, 'physics'), 'Mpsa must assign physics'
+        self.given_traction_flag = given_traction
+
 
     def ndof(self, g):
         """
@@ -192,7 +194,10 @@ class FracturedMpsa(Mpsa):
         b_e = data['b_e']
         A_e = data['A_e']
 
-        L, b_l = self.given_slip_distance(g, stress, bound_stress)
+        if self.given_traction_flag:
+            L, b_l = self.given_traction(g, stress, bound_stress)
+        else:
+            L, b_l = self.given_slip_distance(g, stress, bound_stress)
 
         bc_val = data['param'].get_bc_val(self)
 
@@ -643,7 +648,13 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
     ind, active_faces = fvutils.cell_ind_for_partial_update(g, cells=cells,
                                                             faces=faces,
                                                             nodes=nodes)
-
+    if (ind.size + active_faces.size) == 0:
+        stress_glob = sps.csr_matrix((g.dim * g.num_faces,
+                                      g.dim * g.num_cells), dtype='float64')
+        bound_stress_glob = sps.csr_matrix((g.dim * g.num_faces,
+                                            g.dim * g.num_faces),
+                                            dtype='float64')
+        return stress_glob, bound_stress_glob, active_faces
     # Extract subgrid, together with mappings between local and global
     # cells
     sub_g, l2g_faces, _ = partition.extract_subgrid(g, ind)
