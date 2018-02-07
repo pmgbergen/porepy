@@ -13,7 +13,7 @@ dimensions only.
 
 import numpy as np
 from porepy.fracs import propagate_fracture
-from porepy.utils import tags
+from porepy.utils import tags, mcolon
 from porepy.utils import setmembership as sm
 from porepy.numerics.fv import fvutils
 
@@ -44,7 +44,8 @@ def propagate_and_update(gb, faces, discr, update_bc, update_apertures):
 
 
 
-def compare_updates(buckets, lh, rh, phys='mechanics', parameters = None):
+def compare_updates(buckets, lh, rh, phys='mechanics', parameters = None,
+                    fractured_mpsa=False):
     """
     Assert equivalence the BCs, parameters and discretizations on different
     buckets. All values are compared to those of the first bucket in buckets.
@@ -89,7 +90,10 @@ def compare_updates(buckets, lh, rh, phys='mechanics', parameters = None):
             compare_bc(g_i, data_0, data_i, face_map, phys=phys)
 
         compare_discretizations(g_i, lh[0], lh[i], rh[0], rh[i],
-                                (cmh[i - 1], cml[i - 1]), phys=phys)
+                                (cmh[i - 1], cml[i - 1]),
+                                (fmh[i - 1], fml[i - 1]),
+                                phys=phys, fractured_mpsa=fractured_mpsa)
+
 
 def compare_parameters(data_0, data_1, face_map=None, cell_map=None,
                        phys='flow', fields=[]):
@@ -132,21 +136,36 @@ def compare_bc(g_1, data_0, data_1, face_map, phys = 'flow'):
 
 
 def compare_discretizations(g_1, lhs_0, lhs_1, rhs_0, rhs_1, cell_maps,
-                            phys='flow'):
+                            face_maps, phys='flow', fractured_mpsa=False):
     """
     Assumes dofs sorted as cell_maps. Not neccessarily true for multiple
     fractures.
     """
+    if fractured_mpsa:
+        # The dofs are at the cell centers
+        dof_map_cells = fvutils.expand_indices_nd(cell_maps[0], g_1.dim)
 
-    if phys == 'mechanics':
+        # and faces on either side of the fracture. Find the order of the g_1
+        # frac faces among the g_0 frac faces.
+        frac_faces_loc = propagate_fracture.order_preserving_find(
+                    face_maps[0], g_1.frac_pairs.ravel('C'))
+        # And expand to the dofs, one for each dimension for each face. For two
+        # faces f0 and f1 in 3d, the order is
+        # u(f0). v(f0), w(f0), u(f1). v(f1), w(f1)
+        frac_indices = fvutils.expand_indices_nd(frac_faces_loc, g_1.dim)
+        # Account for the cells
+        frac_indices += g_1.num_cells * g_1.dim
+        global_dof_map = np.concatenate((dof_map_cells, frac_indices))
+    elif phys == 'mechanics':
         global_dof_map = fvutils.expand_indices_nd(cell_maps[0], g_1.dim)
         global_dof_map = np.array(global_dof_map, dtype=int)
     else:
         global_dof_map = np.concatenate((cell_maps[0],
-                                cell_maps[1] + cell_maps[0].size))
+                                         cell_maps[1] + cell_maps[0].size))
     mapped_lhs = lhs_1[global_dof_map][:, global_dof_map]
     assert np.isclose(np.sum(np.absolute(lhs_0 - mapped_lhs)), 0)
     assert np.all(np.isclose(rhs_0, rhs_1[global_dof_map]))
+
 
 def propagate_simple(gb, faces):
     """

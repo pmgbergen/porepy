@@ -179,8 +179,8 @@ class BasicsTest(unittest.TestCase):
                        [0, 1]])
         mesh_size = 0.4
         mesh_kwargs = {}
-        mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                    'value': mesh_size, 'bound_value': mesh_size}
+        mesh_kwargs = {'mesh_mode': 'constant',
+                       'h_ideal': mesh_size, 'h_min': 1 / 2 * mesh_size}
         gb = meshing.cart_grid([f1, f2], [2, 2], **{'physdims': [1, 1]})
         #gb = meshing.simplex_grid( [f1, f2],domain,**mesh_kwargs)
         gb.compute_geometry()

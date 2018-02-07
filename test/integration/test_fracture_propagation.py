@@ -69,10 +69,10 @@ class BasicsTest(unittest.TestCase):
         4 grown in two steps
         """
 
-        gb_1 = setup_gb.grid_2d_1d([4, 2], .75)
-        gb_2 = setup_gb.grid_2d_1d([4, 2], .25)
-        gb_3 = setup_gb.grid_2d_1d([4, 2], .50)
-        gb_4 = setup_gb.grid_2d_1d([4, 2], .25)
+        gb_1 = setup_gb.grid_2d_1d([4, 2], 0, .75)
+        gb_2 = setup_gb.grid_2d_1d([4, 2], 0, .25)
+        gb_3 = setup_gb.grid_2d_1d([4, 2], 0, .50)
+        gb_4 = setup_gb.grid_2d_1d([4, 2], 0, .25)
         # Split
         propagate_simple(gb_2, [15, 16])
         propagate_simple(gb_3, [16])
@@ -91,10 +91,10 @@ class BasicsTest(unittest.TestCase):
         4 grown in two steps
         """
         # Make buckets
-        gb_1 = setup_gb.grid_3d_2d([4, 2, 2], .75)
-        gb_2 = setup_gb.grid_3d_2d([4, 2, 2], .25)
-        gb_3 = setup_gb.grid_3d_2d([4, 2, 2], .50)
-        gb_4 = setup_gb.grid_3d_2d([4, 2, 2], .25)
+        gb_1 = setup_gb.grid_3d_2d([4, 2, 2], 0, .75)
+        gb_2 = setup_gb.grid_3d_2d([4, 2, 2], 0, .25)
+        gb_3 = setup_gb.grid_3d_2d([4, 2, 2], 0, .50)
+        gb_4 = setup_gb.grid_3d_2d([4, 2, 2], 0, .25)
         # Split
         propagate_simple(gb_2, [53, 54])
         propagate_simple(gb_3, [54])
