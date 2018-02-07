@@ -1558,7 +1558,8 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=[0, 0, 1],
 
 #------------------------------------------------------------------------------#
 
-def project_line_matrix(pts, tangent=None, tol=1e-5, reference=[0, 0, 1]):
+def project_line_matrix(pts, tangent=None, tol=1e-5, reference=[0, 0, 1],
+                        flip_flag=False):
     """ Project the points on a line using local coordinates.
 
     The projected points are computed by a dot product.
@@ -1568,6 +1569,8 @@ def project_line_matrix(pts, tangent=None, tol=1e-5, reference=[0, 0, 1]):
     pts (np.ndarray, 3xn): the points.
     tangent: (optional) the tangent unit vector of the plane, otherwise two
         points are required.
+    flip_flag: if True, the 180 degree rotation matrix is returned if tangent
+        and reference are antiparallel.
 
     Returns:
     np.ndarray, 3x3, projection matrix.
@@ -1582,6 +1585,17 @@ def project_line_matrix(pts, tangent=None, tol=1e-5, reference=[0, 0, 1]):
     reference = np.asarray(reference, dtype=np.float)
     angle = np.arccos(np.dot(tangent, reference))
     vect = np.cross(tangent, reference)
+    if angle == np.pi and flip_flag:
+        # Cross product does not distinguish between parallel and
+        # antiparallel vectors. In the latter case, a 180 degree rotation
+        # is sought after. This is obtained by
+        if not np.all(np.isclose(reference[:2], 0)):
+            reference = [0, 0, 1]
+        elif not np.all(np.isclose(reference[1:], 0)):
+            reference = [1, 0, 0]
+        R = project_line_matrix(pts, tangent, tol, reference=reference)
+        vect = np.dot(R, reference)
+
     return rot(angle, vect)
 
 #------------------------------------------------------------------------------#
