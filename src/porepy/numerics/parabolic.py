@@ -75,7 +75,7 @@ class ParabolicModel():
         self._set_data()
 
         self._solver = self.solver()
-        self._solver.parameters['store_results'] = False
+        self._solver.parameters['store_results'] = True
 
         file_name = kwargs.get('file_name', str(physics))
         folder_name = kwargs.get('folder_name', 'results')
