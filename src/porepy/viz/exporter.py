@@ -124,7 +124,7 @@ class Exporter():
         elif not self.fixed_grid and grid is not None:
             self.gb = grid
             self.is_GridBucket = isinstance(self.gb, grid_bucket.GridBucket)
-            self._update_gVTK()
+            self._update_gb_VTK()
 
         if self.is_GridBucket:
             self._export_vtk_gb(data, time_step)
