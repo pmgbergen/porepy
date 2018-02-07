@@ -5,7 +5,8 @@ from itertools import islice
 import csv
 
 from porepy.grids import grid, grid_bucket
-from porepy.fracs import meshing, split_grid
+from porepy.grids.gmsh import gmsh_interface
+from porepy.fracs import meshing, split_grid, simplex
 from porepy.fracs.fractures import Fracture, FractureNetwork
 from porepy.utils.setmembership import unique_columns_tol
 from porepy.utils.sort_points import sort_point_pairs
@@ -204,7 +205,39 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
 
     return pts, edges.astype(np.int)
 
-#------------------------------------------------------------------------------#
+#------------ End of CSV-based functions. Start of gmsh related --------------#
+
+def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
+
+    verbose = kwargs.get('verbose', 1)
+
+    # run gmsh to create .msh file if
+    if file_name[-4:] == '.msh':
+        out_file = file_name
+    else:
+        if file_name[-4:] == '.geo':
+            file_name = file_name[:-4]
+        in_file = file_name + '.geo'
+        out_file = file_name + '.msh'
+
+        gmsh_opts = kwargs.get('gmsh_opts', {})
+        gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
+        gmsh_opts['-v'] = gmsh_verbose
+        gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=dim,
+                                              **gmsh_opts)
+        if verbose:
+            print('Gmsh finished with status ' + str(gmsh_status))
+
+    if dim == 2:
+        raise NotImplementedError()
+    elif dim ==3:
+        assert network is not None, '''Need access to the network used to
+            produce the .geo file'''
+        grids = simplex.tetrahedral_grid_from_gmsh(out_file, network, **kwargs)
+        return meshing.convert_grid_list_to_bucket(grids, **kwargs)
+
+
+#------------ End of gmsh-based functions, start of fab related --------------#
 
 def dfn_3d_from_fab(file_name, file_inters=None, conforming=True, tol=None,
                     vtk_name=None, **kwargs):
