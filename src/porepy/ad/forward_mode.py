@@ -57,7 +57,7 @@ class Ad_array():
         if not isinstance(other, Ad_array): # other is scalar
             val = self.val * other
             if isinstance(other, np.ndarray):
-                jac = self.jac_mul_diagvec(other)
+                jac = self.diagvec_mul_jac(other)
             else:
                 jac = self._jac_mul_other(other)
         else:
