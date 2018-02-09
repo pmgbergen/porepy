@@ -132,6 +132,18 @@ class AdTest(unittest.TestCase):
         assert np.all(f.val == sol) and np.all(f.jac[0] == jac)
         assert np.all(x.val == np.array([1,2,3])) and np.all(x.jac[0] == np.diag([3,2,1]))
 
+    def test_advar_m_mul_vec_n(self):
+        x =  Ad_array(np.array([1,2,3]), [sps.diags([3,2,1])])
+        vec = np.array([1, 2])
+        R = sps.csc_matrix(np.array([[1, 0, 1], [0, 1, 0]]))
+        y = R * x
+        z = y * vec
+        Jy = np.array([[1, 0, 3], [0, 2, 0]])
+        Jz = np.array([[1, 0, 3], [0, 4, 0]])
+        assert np.all(y.val == [4, 2])
+        assert np.sum(y.full_jac().A - Jy) == 0
+        assert np.all(z.val == [4, 4])
+        assert np.sum(z.full_jac().A - Jz) == 0
 
     def test_mul_sps_advar(self):
         J = np.array([[[1,3,1],[5,0,0],[5,1,2]]])
