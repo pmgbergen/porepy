@@ -38,7 +38,7 @@ class AdTest(unittest.TestCase):
         x, y = initAdArrays([np.array([1]), np.array([2])])
         z1 = exp(x) + y
         z2 = exp(y) + x
-
+        
         z = concatenate((z1, z2))
 
         val = np.array([np.exp(1) + 2, np.exp(2) + 1])

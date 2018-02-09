@@ -764,6 +764,65 @@ class GridBucket(object):
             node_source.astype(np.int32), node_target.astype(np.int32))
         return trg_2_src_nodes
 
+    def cell_global2loc(self):
+        """
+        Create a global to local cell-mapping.
+
+        cell_global2loc(..) add a keyword cell_global2local to each node in the
+        GridBucket which is a sparse matrix R which restrict the global cell
+        number, to local cell number. I.e., R*global_cell_vector
+        equals the local cell ordering of that node. For the GridBucket:
+
+                                   0 1 4 2 3
+                                   - - x - -
+
+        where - represent 1D cells and x a 0D cell, and the numbers above is the
+        global cell ordering, cell_global2loc will give out the two matrices
+        R_1 = [[1,0,0,0,0],
+               [0,1,0,0,0],
+               [0,0,1,0,0],
+               [0,0,0,1,0]]
+        R_0 = [[0,0,0,0,1]]        
+        
+        If the GridBucket has mortar grids on the edges, a corresponding
+        restriction from global mortar cells to local mortar cells will be
+        made.
+        """
+        
+        # Create node restriction
+        self.add_node_prop('cell_global2loc')
+        for g, d in self:
+            pos_i = d['node_number']
+            mat = np.empty(self.num_graph_nodes(), dtype=np.object)
+            # first initial empty matrix
+            for g_j, d_j in self:
+                pos_j = d_j['node_number']
+                mat[pos_j] = sps.coo_matrix((g.num_cells, g_j.num_cells))
+
+            # overwrite the local matrix for grid g
+            mat[pos_i] = sps.eye(g.num_cells)
+            d['cell_global2loc'] = sps.hstack(mat, 'csr')
+
+        # create mortar restriction
+        for _, d in self.edges_props():
+            if not d.get('mortar_grid'):
+                continue
+            gm = d['mortar_grid']
+            pos_i = d['edge_number']
+            mat = np.empty(self.num_graph_edges(), dtype=np.object)
+            # first initial empty matrix
+            for _, d_j in self.edges_props():
+                gm_j = d_j['mortar_grid']
+                pos_j = d_j['edge_number']
+                mat[pos_j] = sps.coo_matrix((gm.num_cells, gm_j.num_cells))
+
+            # overwrite the local matrix for grid g
+            mat[pos_i] = sps.eye(gm.num_cells)
+            
+            d['cell_global2loc'] = sps.hstack(mat, 'csr')
+            
+            
+        
 #------------------------------------------------------------------------------#
 
     def compute_geometry(self):
@@ -1049,6 +1108,27 @@ class GridBucket(object):
         if cond is None:
             cond = lambda _: True
         return np.sum([g.num_cells for g in self.graph if cond(g)])
+
+#------------------------------------------------------------------------------#
+
+    def num_mortar_cells(self, cond=None):
+        """
+        Compute the total number of mortar cells of the grid bucket, considering
+        a loop on all mortar grids. It is possible to specify a condition based
+        on the grid to select some of them.
+
+        Parameter:
+            cond: optional, predicate with a grid as input.
+
+        Return:
+            num_cells: the total number of cells of the grid bucket.
+        """
+        if cond is None:
+            cond = lambda _: True        
+        return np.sum([d['mortar_grid'].num_cells
+                       for _, d in self.edges_props()
+                       if d.get('mortar_grid')
+                       and cond(d['mortar_grid'])])
 
 #------------------------------------------------------------------------------#
 
