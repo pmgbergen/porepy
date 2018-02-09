@@ -81,9 +81,11 @@ class Coupler(object):
         # Initialize the global matrix and rhs to store the local problems
         matrix = np.empty((gb.size(), gb.size()), dtype=np.object)
         rhs = np.empty(gb.size(), dtype=np.object)
+
         for g_i, d_i in gb:
             pos_i = d_i['node_number']
             rhs[pos_i] = np.zeros(d_i['dof'])
+
             for g_j, d_j in gb:
                 pos_j = d_j['node_number']
                 matrix[pos_i, pos_j] = sps.coo_matrix((d_i['dof'], d_j['dof']))
