@@ -131,13 +131,13 @@ class P1(Solver):
         c_centers, f_normals, f_centers, R, dim, node_coords = cg.map_grid(g)
 
         if not data.get('is_tangential', False):
-                # Rotate the permeability tensor and delete last dimension
-                if g.dim < 3:
-                    k = k.copy()
-                    k.rotate(R)
-                    remove_dim = np.where(np.logical_not(dim))[0]
-                    k.perm = np.delete(k.perm, (remove_dim), axis=0)
-                    k.perm = np.delete(k.perm, (remove_dim), axis=1)
+            # Rotate the permeability tensor and delete last dimension
+            if g.dim < 3:
+                k = k.copy()
+                k.rotate(R)
+                remove_dim = np.where(np.logical_not(dim))[0]
+                k.perm = np.delete(k.perm, (remove_dim), axis=0)
+                k.perm = np.delete(k.perm, (remove_dim), axis=1)
 
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
