@@ -536,7 +536,7 @@ class DualCoupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
+    def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
         Note: the right-hand side is not implemented now.
@@ -560,37 +560,31 @@ class DualCoupling(AbstractCoupling):
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        mg = data_edge['mortar_grid']
-        dof, cc = self.create_block_matrix([g_h, g_l, mg])
+        g_m = data_edge['mortar_grid']
+        dof, cc = self.create_block_matrix([g_h, g_l, g_m])
 
         # Recover the information for the grid-grid mapping
         faces_h, cells_h, sign_h = sps.find(g_h.cell_faces)
         ind_faces_h = np.unique(faces_h, return_index=True)[1]
-
-        faces_h = faces_h[ind_faces_h]
         cells_h = cells_h[ind_faces_h]
         sign_h = sign_h[ind_faces_h]
-
-        # Mortar mass matrix
-        inv_M = sps.diags(1./mg.cell_volumes)
-
-        # Projection matrix from hight/lower grid to mortar
-        hat_P = mg.high_to_mortar_int
-        check_P = mg.low_to_mortar_int
-
-        hat_P_avg = mg.high_to_mortar_avg()
-        check_P_avg = mg.low_to_mortar_avg()
 
         # Velocity degree of freedom matrix
         U = sps.diags(sign_h)
 
-        # Compute the mortar variables rows
-        A = hat_P*U
-        shape = (A.shape[0], g_h.num_cells)
-        cc[2, 0] = sps.bmat([[A, sps.csr_matrix(shape)]])
-        cc[2, 2] = -sps.identity(mg.num_cells)
+        shape = (g_h.num_cells, g_m.num_cells)
+        hat_E_int = g_m.mortar_to_high_int()
+        hat_E_int = sps.bmat([[U*hat_E_int], [sps.csr_matrix(shape)]])
 
-        # Compute the high dimensional grid coupled to mortar grid term
+        hat_P_avg = g_m.high_to_mortar_avg()
+        check_P_avg = g_m.low_to_mortar_avg()
+
+        cc[0, 2] = matrix[0, 0] * hat_E_int
+        cc[2, 0] = hat_E_int.T * matrix[0, 0]
+        cc[2, 2] = hat_E_int.T * matrix[0, 0] * hat_E_int
+
+        # Mortar mass matrix
+        inv_M = sps.diags(1./g_m.cell_volumes)
 
         # Normal permeability and aperture of the intersection
         inv_k = 1./(2.*data_edge['kn'])
@@ -599,21 +593,21 @@ class DualCoupling(AbstractCoupling):
         # Inverse of the normal permability matrix
         Eta = sps.diags(np.divide(inv_k, hat_P_avg*aperture_h[cells_h]))
 
-        cc[0, 2] = sps.bmat([[(Eta*inv_M*A).T], [sps.csr_matrix(shape).T]])
+        matrix[2, 2] += inv_M*Eta
 
-        #A = U*hat_P.T*check_P
-        A = U*hat_P_avg.T*check_P
-        shape = (g_h.num_cells, g_l.num_faces)
-        cc[0, 1] = sps.bmat([[None, A], [sps.csr_matrix(shape), None]])
-
-        # Coupling term representing the flux from the high to the lower
-        # dimensional grids, represented as source term. In the mortar approach
-        # the flux are the mortar variables (cell_volumes weighed)
         A = check_P_avg.T
         shape = (g_l.num_faces, A.shape[1])
         cc[1, 2] = sps.bmat([[sps.csr_matrix(shape)], [A]])
+        cc[2, 1] = cc[1, 2].T
 
-        return cc
+        matrix += cc
+        dof = np.where(hat_E_int.sum(axis=1).A.astype(np.bool))[0]
+        norm = np.linalg.norm(matrix[0, 0].diagonal(), np.inf)
+        matrix[0, 0][dof, :] *= 0
+        matrix[0, 0][dof, dof] = norm
+        matrix[0, 2][dof, :] *= 0
+
+        return matrix
 
 #------------------------------------------------------------------------------#
 
