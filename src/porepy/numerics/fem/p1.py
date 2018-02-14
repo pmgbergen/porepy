@@ -331,7 +331,7 @@ class P1Coupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
+    def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
         Note: the right-hand side is not implemented now.
@@ -389,8 +389,6 @@ class P1Coupling(AbstractCoupling):
         cc[0, 2] = -cc[2, 0].T
         cc[1, 2] = -cc[2, 1].T
 
-        return cc
+        return matrix + cc
 
 #------------------------------------------------------------------------------#
-
-

@@ -156,9 +156,7 @@ class Coupler(object):
             idx = np.ix_([pos_h, pos_l, pos_m], [pos_h, pos_l, pos_m])
 
             data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
-            cc = self.coupling_fct(g_h, g_l, data_h, data_l, d)
-
-            matrix[idx] += cc
+            matrix[idx] = self.coupling_fct(matrix[idx], g_h, g_l, data_h, data_l, d)
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 

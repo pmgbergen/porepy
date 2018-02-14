@@ -274,7 +274,7 @@ class TpfaCoupling(AbstractCoupling):
         self.solver = solver
         self.discr_ndof = solver.ndof
 
-    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
+    def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
         """
         Computes the coupling terms for the faces between cells in g_h and g_l
         using the two-point flux approximation.
@@ -374,7 +374,7 @@ class TpfaCoupling(AbstractCoupling):
 #                                                 cells2faces * cc[0, 1]])
 #        data_edge['coupling_discretization'] = cc
 
-        return cc
+        return matrix + cc
 
 #------------------------------------------------------------------------------#
 
