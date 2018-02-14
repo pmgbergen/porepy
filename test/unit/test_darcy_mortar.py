@@ -37,25 +37,27 @@ class TestGridRefinement1d(unittest.TestCase):
         gb = meshing.cart_grid([f1], N, **{'physdims': [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
-
+        tol = 1e-6
 
         g_map = {}
         mg_map = {}
-
-#        for g, d in gb:
-#            if g.dim == 1:
-#                g_map[g] = refinement.new_grid_1d(g, num_nodes=N[0]+2)
-#                g_map[g].compute_geometry()
 
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
             mg_map[mg] = {s: refinement.new_grid_1d(g, num_nodes=N[0]+2) \
                               for s, g in mg.side_grids.items()}
 
-        gb = mortars.replace_grids_in_bucket(gb, g_map, mg_map)
+        gb = mortars.replace_grids_in_bucket(gb, g_map, mg_map, tol)
+        gb.assign_node_ordering()
 
-        from porepy.viz import plot_grid
-        plot_grid.plot_grid(gb, alpha=0, info='cfo')
+
+        np.set_printoptions( linewidth=9999, precision=4)
+        for e, d in gb.edges_props():
+            mg = d['mortar_grid']
+            print(mg.high_to_mortar_int.todense())
+            print(mg.mortar_to_high_int().todense())
+
+
 
         internal_flag = FaceTag.FRACTURE
         [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
@@ -1122,7 +1124,6 @@ class TestMortar3D(unittest.TestCase):
 
         # TODO: Add check that mortar flux scales with mortar area
 
-
 class TestMortar2DSimplexGrid(unittest.TestCase):
 
     def grid_2d(self):
@@ -1237,14 +1238,11 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
 
 #TestGridRefinement1d().test_mortar_grid_darcy()
-#TestGridRefinement1d().test_mortar_grid_darcy_2_fracs()
-#TestGridRefinement1d().wietse()
-#unittest.main()
-#a = TestMortar2DSimplexGridWithGridBucket()
-#a.test_mpfa_one_frac()
 a = TestMortar2DSimplexGrid()
 gb = a.setup()
 a.test_mpfa_one_frac()
+#a = TestMortar2DSimplexGrid()
+#a.grid_2d()
 #a.test_vem_one_frac_coarsen_2d()
 #a.test_mpfa_1_frac_no_refinement()
 #a.test_mpfa_one_frac_refine_mg()

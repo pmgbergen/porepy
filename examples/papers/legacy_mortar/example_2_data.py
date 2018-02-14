@@ -12,7 +12,7 @@ from porepy.params import tensor
 #------------------------------------------------------------------------------#
 
 def tol():
-    return 1e-5
+    return 1e-8
 
 #------------------------------------------------------------------------------#
 
@@ -73,6 +73,8 @@ def add_data(gb, domain, solver, case):
 
     if case == 1:
         kf = 1e4
+        kf = 1e-8
+        kf = 1
     else:
         kf = 1e-4
     data = {'domain': domain, 'aperture': 1e-4, 'km': 1, 'kf': kf}
@@ -137,6 +139,7 @@ def add_data(gb, domain, solver, case):
         check_P = mg.low_to_mortar_avg()
 
         kxx = data["kf"]
+        kxx = 1e-8
         gamma = np.power(check_P * gb.node_prop(g_l, 'param').get_aperture(),
                          1./(gb.dim_max() - g_l.dim))
         d['kn'] = kxx * np.ones(mg.num_cells) / gamma
