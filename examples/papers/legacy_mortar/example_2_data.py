@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 from porepy.grids.grid import FaceTag
 from porepy.fracs import importer
@@ -15,11 +16,55 @@ def tol():
 
 #------------------------------------------------------------------------------#
 
+def geo_file_name(h, prepared):
+    fn = 'geiger_3d_h_' + str(h)
+    if prepared:
+        fn += '_prepared'
+    fn += '.geo'
+    return fn
+
+
 def create_gb(h):
 
-    file_dfm = 'geiger_3d.csv'
-    gb, domain = importer.dfm_3d_from_csv(file_dfm, tol(), h_ideal=h, h_min=h)
+    def str_of_nodes(n):
+        return str(n[0]) + '_' + str(n[1]) + '_' + str(n[2])
+
+    file_csv = 'geiger_3d.csv'
+    file_geo = geo_file_name(h, True)
+    print('Create grid')
+    _, _, domain = importer.network_3d_from_csv(file_csv, tol=tol())
+    network = pickle.load(open('geiger_3d_network', 'rb'))
+    gb = importer.dfm_from_gmsh(file_geo, 3, network=network, tol=tol())
     gb.compute_geometry()
+    print(gb)
+    gb.add_edge_prop('edge_id')
+    for e, d in gb.edges_props():
+        g_l, g_h = gb.sorted_nodes_of_edge(e)
+        if g_l.dim == 2:
+            d['edge_id'] = g_l.frac_num
+        elif g_l.dim == 1:
+            f1 = g_h.frac_num
+            g_neigh = gb.node_neighbors(g_l, only_higher=True)
+            assert g_neigh.size == 2
+            for g in g_neigh:
+                if g.frac_num != g_h.frac_num:
+                    f2 = g.frac_num
+            min_coord = g_l.nodes.min(axis=1)
+            max_coord = g_l.nodes.max(axis=1)
+            d['edge_id'] = str(f1) + '_' + str(f2) + '_'\
+                + str_of_nodes(min_coord) + '_' +  str_of_nodes(max_coord)
+            g_l.edge_id = d['edge_id']
+
+    for e, d in gb.edges_props():
+        g_l, g_h = gb.sorted_nodes_of_edge(e)
+        if g_h.dim == 1:
+            min_coord = g_h.nodes.min(axis=1)
+            max_coord = g_h.nodes.max(axis=1)
+            coord = g_l.nodes
+            d['edge_id'] = str_of_nodes(min_coord) + '_'\
+                + str_of_nodes(max_coord) + '_' + str_of_nodes(coord)
+
+
     return gb, domain
 
 #------------------------------------------------------------------------------#
@@ -51,7 +96,9 @@ def add_data(gb, domain, solver, case):
             if if_solver:
                 if g.dim == 2:
                     perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kxx, kzz=1)
-                if g.dim == 1:
+                elif g.dim == 1:
+                    perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=1, kzz=1)
+                else:  # g.dim == 0
                     perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=1, kzz=1)
             else:
                 perm = tensor.SecondOrder(3, kxx=kxx)
@@ -105,16 +152,13 @@ def b_pressure(g):
     else:
         b_face_centers = g.face_centers[:, b_faces]
 
-        b_in = b_face_centers[2, :] < tol()
-        b_out = b_face_centers[2, :] > 1 - tol()
+        val = 0.4 - tol()
+        b_in = np.logical_and.reduce(tuple(b_face_centers[i, :] < val \
+                                                             for i in range(3)))
 
-#        val = 0.5 - tol()
-#        b_in = np.logical_and.reduce(tuple(b_face_centers[i, :] < val \
-#                                                             for i in range(3)))
-#
-#        val = 0.75 + tol()
-#        b_out = np.logical_and.reduce(tuple(b_face_centers[i, :] > val \
-#                                                             for i in range(3)))
+        val = 0.8 + tol()
+        b_out = np.logical_and.reduce(tuple(b_face_centers[i, :] > val \
+                                                             for i in range(3)))
         return np.logical_or(b_in, b_out), b_in, b_out
 
 #------------------------------------------------------------------------------#

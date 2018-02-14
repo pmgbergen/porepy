@@ -108,7 +108,6 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
         if verbose:
             print('Use existing intersections')
 
-    start_time = time.time()
 
     # If fields h_ideal and h_min are provided, try to estimate mesh sizes.
     h_ideal = kwargs.get('h_ideal', None)
@@ -135,48 +134,10 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3,
                                           **gmsh_opts)
 
-    if verbose > 0:
-        start_time = time.time()
-        if gmsh_status == 0:
-            print('Gmsh processed file successfully')
-        else:
-            print('Gmsh failed with status ' + str(gmsh_status))
+    if verbose:
+        print('Gmsh status: ' + str(gmsh_status))
 
-    pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
-
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names
-    phys_names = {v[0]: k for k, v in phys_names.items()}
-
-    # Call upon helper functions to create grids in various dimensions.
-    # The constructors require somewhat different information, reflecting the
-    # different nature of the grids.
-    g_3d = mesh_2_grid.create_3d_grids(pts, cells)
-    g_2d = mesh_2_grid.create_2d_grids(
-        pts, cells, is_embedded=True, phys_names=phys_names,
-        cell_info=cell_info, network=network)
-    g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
-    g_0d = mesh_2_grid.create_0d_grids(pts, cells)
-
-    grids = [g_3d, g_2d, g_1d, g_0d]
-
-    if verbose > 0:
-        print('\n')
-        print('Grid creation completed. Elapsed time ' + str(time.time() -
-                                                             start_time))
-        print('\n')
-        for g_set in grids:
-            if len(g_set) > 0:
-                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
-                    '-d grids with '
-                num = 0
-                for g in g_set:
-                    num += g.num_cells
-                s += str(num) + ' cells'
-                print(s)
-        print('\n')
-
-    return grids
+    return tetrahedral_grid_from_gmsh(file_name, network, **kwargs)
 
 def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
                            h_ideal=None, h_min=None, **kwargs):
@@ -486,6 +447,53 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
     return grids
 
 #------------------------------------------------------------------------------#
+
+def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
+
+    start_time = time.time()
+    # Verbosity level
+    verbose = kwargs.get('verbose', 1)
+
+    if file_name.endswith('.msh'):
+        file_name = file_name[:-4]
+    file_name = file_name + '.msh'
+
+    pts, cells, _, cell_info, phys_names = gmsh_io.read(file_name)
+
+    # Invert phys_names dictionary to map from physical tags to corresponding
+    # physical names
+    phys_names = {v[0]: k for k, v in phys_names.items()}
+
+    # Call upon helper functions to create grids in various dimensions.
+    # The constructors require somewhat different information, reflecting the
+    # different nature of the grids.
+    g_3d = mesh_2_grid.create_3d_grids(pts, cells)
+    g_2d = mesh_2_grid.create_2d_grids(
+        pts, cells, is_embedded=True, phys_names=phys_names,
+        cell_info=cell_info, network=network)
+    g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
+    g_0d = mesh_2_grid.create_0d_grids(pts, cells)
+
+    grids = [g_3d, g_2d, g_1d, g_0d]
+
+    if verbose > 0:
+        print('\n')
+        print('Grid creation completed. Elapsed time ' + str(time.time() -
+                                                             start_time))
+        print('\n')
+        for g_set in grids:
+            if len(g_set) > 0:
+                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
+                    '-d grids with '
+                num = 0
+                for g in g_set:
+                    num += g.num_cells
+                s += str(num) + ' cells'
+                print(s)
+        print('\n')
+
+    return grids
+#-----------------------------------------------------------------------------#
 
 def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     """
