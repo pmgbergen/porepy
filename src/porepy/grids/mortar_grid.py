@@ -236,6 +236,11 @@ class MortarGrid(object):
 
 #------------------------------------------------------------------------------#
 
+    def mortar_to_high_int(self):
+        return self.high_to_mortar_avg().T
+
+#------------------------------------------------------------------------------#
+
     def high_to_mortar_avg(self):
         row_sum = self.high_to_mortar_int.sum(axis=1).A.ravel()
         return sps.diags(1./row_sum) * self.high_to_mortar_int
