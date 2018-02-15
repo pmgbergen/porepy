@@ -159,7 +159,7 @@ class Exporter():
         o_file.write(header)
         fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
 
-        time_step = np.arange(time.size)
+        time_step = np.arange(np.atleast_1d(time).size)
 
         if self.is_GridBucket:
             [o_file.write(fm%(time[t],

@@ -73,7 +73,8 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
 
     """
     if domain is None:
-        ndim = 3
+        ndim = fracs[0].shape[0]
+
     elif 'zmax' in domain:
         ndim = 3
     elif 'ymax' in domain:
