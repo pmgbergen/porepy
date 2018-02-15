@@ -10,7 +10,6 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import dual
@@ -45,7 +44,7 @@ def add_data_darcy(gb, domain, tol):
 
         param.set_aperture(np.power(apert, gb.dim_max() - g.dim))
 
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -89,7 +88,7 @@ def add_data_advection(gb, domain, tol):
         param.set_porosity(1)
         param.set_discharge(d['discharge'])
 
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -155,13 +154,8 @@ if if_coarse:
 gb.assign_node_ordering()
 
 print("solve Darcy problem")
-gb.add_node_props(['face_tags', 'cell_id'])
 for g, d in gb:
-    d['face_tags'] = g.face_tags.copy()
     d['cell_id'] = np.arange(g.num_cells)
-
-internal_flag = FaceTag.FRACTURE
-[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
 exporter.export_vtk(gb, 'grid', ['cell_id'], folder=export_folder)
 
@@ -184,7 +178,7 @@ darcy.project_u(gb, "discharge", "P0u")
 # compute the flow rate
 total_flow_rate = 0
 for g, d in gb:
-    bound_faces = g.get_boundary_faces()
+    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
     if bound_faces.size != 0:
         bound_face_centers = g.face_centers[:, bound_faces]
         top = bound_face_centers[2, :] > domain['zmax'] - tol
@@ -196,12 +190,9 @@ exporter.export_vtk(gb, 'darcy', ['pressure', "P0u"], folder=export_folder)
 
 #################################################################
 
-for g, d in gb:
-    g.face_tags = d['face_tags']
-
 physics = 'transport'
-advection = upwind.UpwindMixDim(physics)
-mass = mass_matrix.MassMatrixMixDim(physics)
+advection = upwind.UpwindMixedDim(physics)
+mass = mass_matrix.MassMatrixMixedDim(physics)
 invMass = mass_matrix.InvMassMatrixMixDim(physics)
 
 # Assign parameters

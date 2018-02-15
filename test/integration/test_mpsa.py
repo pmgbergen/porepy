@@ -162,7 +162,7 @@ def test_conservation_of_momentum():
         div = fvutils.vector_divergence(g)
         a = div * stress
 
-        bndr = g.get_boundary_faces()
+        bndr = g.get_all_boundary_faces()
         d_x = np.random.rand(bndr.size)
         d_y = np.random.rand(bndr.size)
         d_bound = np.zeros((g.dim, g.num_faces))

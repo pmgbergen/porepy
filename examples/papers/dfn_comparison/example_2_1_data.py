@@ -10,6 +10,7 @@ from porepy.utils import sort_points
 
 #------------------------------------------------------------------------------#
 
+
 def add_data(gb, tol):
     """
     Define the permeability, apertures, boundary conditions
@@ -30,7 +31,7 @@ def add_data(gb, tol):
             param.set_source("flow", np.zeros(g.num_cells))
 
             # Boundaries
-            bound_faces = g.get_domain_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
                 bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -60,6 +61,7 @@ def add_data(gb, tol):
 
 #------------------------------------------------------------------------------#
 
+
 def plot_over_line(gb, pts, name, tol):
 
     values = np.zeros(pts.shape[1])
@@ -77,10 +79,10 @@ def plot_over_line(gb, pts, name, tol):
 
         normal = cg.compute_normal(g.nodes)
         for c in np.arange(g.num_cells):
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-            pts_id_c = np.array([nodes_faces[g.face_nodes.indptr[f]:\
-                                                g.face_nodes.indptr[f+1]]
-                                                   for f in faces_cells[loc]]).T
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+            pts_id_c = np.array([nodes_faces[g.face_nodes.indptr[f]:
+                                             g.face_nodes.indptr[f + 1]]
+                                 for f in faces_cells[loc]]).T
             pts_id_c = sort_points.sort_point_pairs(pts_id_c)[0, :]
             pts_c = g.nodes[:, pts_id_c]
 
@@ -100,11 +102,12 @@ def plot_over_line(gb, pts, name, tol):
 
 #------------------------------------------------------------------------------#
 
+
 def compute_flow_rate(gb, tol):
 
     total_flow_rate = 0
     for g, d in gb:
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = np.argwhere(g.tags['domain_boundary_faces'])
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
             mask = np.logical_and(bound_face_centers[2, :] > 0.3 + tol,
@@ -112,16 +115,17 @@ def compute_flow_rate(gb, tol):
             flow_rate = d['param'].get_discharge()[bound_faces[mask]]
             total_flow_rate += np.sum(flow_rate)
 
-    diam = gb.diameter(lambda g: g.dim==gb.dim_max())
+    diam = gb.diameter(lambda g: g.dim == gb.dim_max())
     return diam, total_flow_rate
 
 #------------------------------------------------------------------------------#
+
 
 def compute_flow_rate_vem(gb, tol):
 
     total_flow_rate = 0
     for g, d in gb:
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = np.argwhere(g.tags['domain_boundary_faces'])
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
             mask = np.logical_and(bound_face_centers[2, :] > 0.3 + tol,
@@ -129,7 +133,7 @@ def compute_flow_rate_vem(gb, tol):
             flow_rate = d['discharge'][bound_faces[mask]]
             total_flow_rate += np.sum(flow_rate)
 
-    diam = gb.diameter(lambda g: g.dim==gb.dim_max())
+    diam = gb.diameter(lambda g: g.dim == gb.dim_max())
     return diam, total_flow_rate
 
 #------------------------------------------------------------------------------#

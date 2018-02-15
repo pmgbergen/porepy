@@ -51,7 +51,7 @@ def boundary_face_type(g):
     """
     Extract the faces where Dirichlet conditions are to be set.
     """
-    bound_faces = g.get_domain_boundary_faces()
+    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
     bound_face_centers = g.face_centers[:, bound_faces]
     onev = np.ones(bound_face_centers.shape[1])
     dirface1 = np.where(np.array(bound_face_centers[0, :] < 0.25 * onev)

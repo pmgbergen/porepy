@@ -7,14 +7,13 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
-
 from porepy.numerics import elliptic
 from porepy.utils import comp_geom as cg
 
 import create_porepy_grid
 
 #------------------------------------------------------------------------------#
+
 
 def add_data(gb, domain, kf):
     """
@@ -47,7 +46,7 @@ def add_data(gb, domain, kf):
         param.set_aperture(np.ones(g.num_cells) * aperture)
 
         # Boundaries
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -81,12 +80,10 @@ def add_data(gb, domain, kf):
 
 #------------------------------------------------------------------------------#
 
+
 def main():
 
     gb = create_porepy_grid.create(mesh_size=0.01)
-
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
     # Assign parameters
     domain = gb.bounding_box(as_dict=True)
@@ -94,7 +91,7 @@ def main():
     add_data(gb, domain, kf)
 
     # Choose and define the solvers and coupler
-    problem = elliptic.DualElliptic(gb)
+    problem = elliptic.DualEllipticModel(gb)
     problem.solve()
 
     problem.split()
@@ -104,6 +101,7 @@ def main():
     problem.save(["pressure", "P0u"])
 
 #------------------------------------------------------------------------------#
+
 
 if __name__ == "__main__":
     main()

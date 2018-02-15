@@ -44,33 +44,35 @@ def add_data(gb, domain, kf, mesh_value):
         param.set_source('flow', np.zeros(g.num_cells))
 
         # Boundaries
-        bound_faces = g.get_boundary_faces()
-        if bound_faces.size == 0:
-            continue
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+        if bound_faces.size != 0:
+            bound_face_centers = g.face_centers[:, bound_faces]
 
-        bound_face_centers = g.face_centers[:, bound_faces]
+            left = bound_face_centers[0, :] < domain['xmin'] + tol
+            right = bound_face_centers[0, :] > domain['xmax'] - tol
 
-        left = bound_face_centers[0, :] < domain['xmin'] + tol
-        right = bound_face_centers[0, :] > domain['xmax'] - tol
+            labels = np.array(['neu'] * bound_faces.size)
+            labels[right] = 'dir'
 
-        labels = np.array(['neu'] * bound_faces.size)
-        labels[right] = 'dir'
+            bc_val = np.zeros(g.num_faces)
 
-        bc_val = np.zeros(g.num_faces)
+            if g.dim == 2:
+                # Account for the double inflow on the matrix-fracture overlap
+                left_mid = np.array(np.absolute(g.face_centers[1, bound_faces[left]]
+                                                - 0.5) < mesh_value)
+                bc_val[bound_faces[left]] = - g.face_areas[bound_faces[left]] \
+                    + left_mid * .5 * a
+            else:
+                bc_val[bound_faces[left]] = - \
+                    g.face_areas[bound_faces[left]] * a
 
-        if g.dim == 2:
-            # Account for the double inflow on the matrix-fracture overlap
-            left_mid = np.array(np.absolute(g.face_centers[1, bound_faces[left]]
-                                            - 0.5) < mesh_value)
-            bc_val[bound_faces[left]] = -g.face_areas[bound_faces[left]] \
-                + left_mid * .5 * a
+            bc_val[bound_faces[right]] = np.ones(np.sum(right))
+
+            param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
+            param.set_bc_val('flow', bc_val)
         else:
-            bc_val[bound_faces[left]] = -g.face_areas[bound_faces[left]] * a
-
-        bc_val[bound_faces[right]] = np.ones(np.sum(right))
-
-        param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
-        param.set_bc_val('flow', bc_val)
+            param.set_bc("flow", bc.BoundaryCondition(
+                g, np.empty(0), np.empty(0)))
 
         d['param'] = param
 
