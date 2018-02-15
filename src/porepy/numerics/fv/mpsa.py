@@ -14,7 +14,6 @@ import scipy.sparse as sps
 from porepy.numerics.fv import fvutils
 from porepy.utils import matrix_compression, mcolon, sparse_mat
 from porepy.grids import structured, partition
-from porepy.grids.grid import FaceTag
 from porepy.params import tensor, bc
 from porepy.numerics.mixed_dim.solver import Solver
 
@@ -129,11 +128,13 @@ class Mpsa(Solver):
 
 #------------------------------------------------------------------------------#
 
+
 class FracturedMpsa(Mpsa):
     """
     Subclass of MPSA for discretizing a fractured domain. Adds DOFs on each
     fracture face which describe the fracture deformation.
     """
+
     def __init__(self, **kwargs):
         Mpsa.__init__(self, **kwargs)
         assert hasattr(self, 'physics'), 'Mpsa must assign physics'
@@ -152,9 +153,8 @@ class FracturedMpsa(Mpsa):
         dof: the number of degrees of freedom.
 
         """
-        num_fracs = np.sum(g.has_face_tag(FaceTag.FRACTURE))
+        num_fracs = np.sum(g.tags['fracture_faces'])
         return g.dim * (g.num_cells + num_fracs)
-
 
     def matrix_rhs(self, g, data, discretize=True):
         """
@@ -191,14 +191,14 @@ class FracturedMpsa(Mpsa):
         L, b_l = self.given_slip_distance(g, stress, bound_stress)
 
         bc_val = data['param'].get_bc_val(self)
-        
-        frac_faces = np.matlib.repmat(g.has_face_tag(FaceTag.FRACTURE), 3, 1)
+
+        frac_faces = np.matlib.repmat(g.tags['fracture_faces'], 3, 1)
         assert np.all(bc_val[frac_faces.ravel('F')] == 0), \
             '''Fracture should have zero boundary condition. Set slip by
                Parameters.set_slip_distance'''
 
-        slip_distance = data['param'].get_slip_distance()        
-        
+        slip_distance = data['param'].get_slip_distance()
+
         A = sps.vstack((A_e, L), format='csr')
         rhs = np.hstack((b_e * bc_val, b_l * slip_distance))
 
@@ -219,13 +219,14 @@ class FracturedMpsa(Mpsa):
         T : array (g.dim * g.num_faces)
             traction on each face
 
-        """        
+        """
         bc_val = data['param'].get_bc_val(self.physics).copy()
         frac_disp = self.extract_frac_u(g, sol)
         cell_disp = self.extract_u(g, sol)
 
         frac_faces = (g.frac_pairs).ravel('C')
-        frac_ind = mcolon.mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
+        frac_ind = mcolon.mcolon(
+            g.dim * frac_faces, g.dim * frac_faces + g.dim)
 
         bc_val[frac_ind] = frac_disp
 
@@ -295,20 +296,18 @@ class FracturedMpsa(Mpsa):
         data: dictionary to store the data.
         """
 
-
-
-        #    dir_bound = g.get_boundary_faces()
+        #    dir_bound = g.get_all_boundary_faces()
         #    bound = bc.BoundaryCondition(g, dir_bound, ['dir'] * dir_bound.size)
 
-        frac_faces = g.has_face_tag(FaceTag.FRACTURE)
+        frac_faces = g.tags['fracture_faces']
 
         bound = data['param'].get_bc(self)
-        is_dir  = bound.is_dir
+        is_dir = bound.is_dir
         if not np.all(is_dir[frac_faces]):
             is_dir[frac_faces] = True
 
         bound = bc.BoundaryCondition(g, is_dir, 'dir')
-        
+
         assert np.all(bound.is_dir[frac_faces]), \
             'fractures must be set as dirichlet boundary faces'
 
@@ -361,13 +360,12 @@ class FracturedMpsa(Mpsa):
         d_b = -b_external
         # sps.csr_matrix((int_b_left.size, g.num_faces * g.dim))
         d_t = -sgn_left * bound_stress_external[int_b_left] \
-             - sgn_right * bound_stress_external[int_b_right]
+            - sgn_right * bound_stress_external[int_b_right]
 
         b_matrix = sps.vstack((d_b, d_t), format='csr')
-                
+
         data['b_e'] = b_matrix
         data['A_e'] = A
-
 
     def given_traction(self, g, stress, bound_stress, faces=None, **kwargs):
         # we find the matrix indices of the fracture
@@ -500,7 +498,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
         c =tensor.FourthOrder(g.dim, np.ones(g.num_cells))
 
         # Dirirchlet boundary conditions
-        bound_faces = g.get_boundary_faces().ravel()
+        bound_faces = g.get_all_boundary_faces().ravel()
         bnd = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
 
         # Discretization
@@ -533,8 +531,9 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
         # For the moment nothing to do here, just call main mpfa method for the
         # entire grid.
         # TODO: We may want to estimate the memory need, and give a warning if
-        # this seems excessive 
-        stress, bound_stress = _mpsa_local(g, constit, bound, eta=eta, inverter=inverter)
+        # this seems excessive
+        stress, bound_stress = _mpsa_local(
+            g, constit, bound, eta=eta, inverter=inverter)
     else:
         # Estimate number of partitions necessary based on prescribed memory
         # usage
@@ -549,7 +548,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
         # Empty fields for stress and bound_stress. Will be expanded as we go.
         # Implementation note: It should be relatively straightforward to
         # estimate the memory need of stress (face_nodes -> node_cells ->
-        # unique). 
+        # unique).
         stress = sps.csr_matrix((g.num_faces * g.dim, g.num_cells * g.dim))
         bound_stress = sps.csr_matrix((g.num_faces * g.dim,
                                        g.num_faces * g.dim))
@@ -570,7 +569,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
 
             # Perform local discretization.
             loc_stress, loc_bound_stress, loc_faces \
-                = mpsa_partial(g, constit, bound, eta=eta, inverter=inverter, 
+                = mpsa_partial(g, constit, bound, eta=eta, inverter=inverter,
                                nodes=active_nodes)
 
             # Eliminate contribution from faces already covered
@@ -586,7 +585,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
     return stress, bound_stress
 
 
-def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None, 
+def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
                  faces=None, nodes=None):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
@@ -652,7 +651,7 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
     loc_c.lmbda = loc_c.lmbda[l2g_cells]
     loc_c.mu = loc_c.mu[l2g_cells]
 
-    glob_bound_face = g.get_boundary_faces()
+    glob_bound_face = g.get_all_boundary_faces()
 
     # Boundary conditions are slightly more complex. Find local faces
     # that are on the global boundary.
@@ -669,7 +668,7 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
 
     # Discretization of sub-problem
     stress_loc, bound_stress_loc = _mpsa_local(sub_g, loc_c, loc_bnd,
-                                           eta=eta, inverter=inverter)
+                                               eta=eta, inverter=inverter)
 
     face_map, cell_map = fvutils.map_subgrid_to_grid(g, l2g_faces, l2g_cells,
                                                      is_vector=True)
@@ -687,6 +686,7 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
     fvutils.zero_out_sparse_rows(bound_stress_glob, eliminate_ind)
 
     return stress_glob, bound_stress_glob, active_faces
+
 
 def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
     """
@@ -769,7 +769,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
 
     # Output should be on face-level (not sub-face)
     hf2f = fvutils.map_hf_2_f(subcell_topology.fno_unique,
-                   	      subcell_topology.subfno_unique, nd)
+                              subcell_topology.subfno_unique, nd)
 
     # Stress discretization
     stress = hf2f * hook_igrad * rhs_cells
@@ -784,7 +784,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
 
 
 def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
-                      inverter):
+                    inverter):
     """
     This is the function where the real discretization takes place. It contains
     the parts that are common for elasticity and poro-elasticity, and was thus
@@ -884,7 +884,7 @@ def _estimate_peak_memory_mpsa(g):
     nd = g.dim
     num_cell_nodes = g.cell_nodes().sum(axis=1).A
 
-    # Number of unknowns around a vertex: nd^2 per cell that share the vertex 
+    # Number of unknowns around a vertex: nd^2 per cell that share the vertex
     # for pressure gradients, and one per cell (cell center pressure)
     num_grad_unknowns = nd**2 * num_cell_nodes
 
@@ -963,7 +963,7 @@ def _split_stiffness_matrix(constit):
     # necessary
     csym = 0 * constit.copy().c
     casym = constit.copy().c
-    
+
     # The copy constructor for the stiffness matrix will represent all
     # dimensions as 3d. If dim==2, delete the redundant rows and columns
     if dim == 2 and csym.shape[0] == 9:
@@ -1502,4 +1502,3 @@ def _sign_matrix(g, faces):
     sgn = sps.diags(sgn_d, 0)
 
     return sgn
-

@@ -48,7 +48,7 @@ class AdvectiveModelData(parabolic.ParabolicDataAssigner):
     def bc_val(self, t):
 
         bc_val = np.zeros(self.grid().num_faces)
-        bound_faces = self.grid().get_domain_boundary_faces()
+        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size == 0:
             return bc_val
 
@@ -60,7 +60,7 @@ class AdvectiveModelData(parabolic.ParabolicDataAssigner):
 
     def bc(self):
 
-        bound_faces = self.grid().get_domain_boundary_faces()
+        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size == 0:
             return BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
 

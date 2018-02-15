@@ -75,6 +75,7 @@ class ParabolicModel():
         self._set_data()
 
         self._solver = self.solver()
+
         logger.info('Create exporter')
         tic = time.time()
         file_name = kwargs.get('file_name', 'solution')

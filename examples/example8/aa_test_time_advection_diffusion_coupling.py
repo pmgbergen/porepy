@@ -10,7 +10,6 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import dual
@@ -38,7 +37,7 @@ def add_data_darcy(gb, domain, tol, a):
         aperture = np.power(a, gb.dim_max() - g.dim)
         param.set_aperture(np.ones(g.num_cells) * aperture)
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -87,7 +86,7 @@ def add_data_advection_diffusion(gb, domain, tol, a):
         source = np.zeros(g.num_cells)
         param.set_source("transport", source)
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -136,13 +135,6 @@ gb.compute_geometry()
 #co.coarsen(gb, 'by_volume')
 gb.assign_node_ordering()
 
-gb.add_node_props(['face_tags'])
-for g, d in gb:
-    d['face_tags'] = g.face_tags.copy()
-
-internal_flag = FaceTag.FRACTURE
-[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
 # Choose and define the solvers and coupler
 darcy = dual.DualVEMMixDim("flow")
 
@@ -164,7 +156,7 @@ for g, d in gb:
 # compute the flow rate
 total_flow_rate = 0
 for g, d in gb:
-    bound_faces = g.get_boundary_faces()
+    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
     if bound_faces.size != 0:
         bound_face_centers = g.face_centers[:, bound_faces]
         left = bound_face_centers[0, :] < domain['xmin'] + tol
@@ -176,14 +168,11 @@ exporter.export_vtk(gb, 'darcy', ['pressure', "P0u"], folder=export_folder)
 
 #################################################################
 
-for g, d in gb:
-    g.face_tags = d['face_tags']
-
 physics = 'transport'
-advection = upwind.UpwindMixDim(physics)
-diffusion = tpfa.TpfaMixDim(physics)
-mass = mass_matrix.MassMatrixMixDim(physics)
-invMass = mass_matrix.InvMassMatrixMixDim(physics)
+advection = upwind.UpwindMixedDim(physics)
+diffusion = tpfa.TpfaMixedDim(physics)
+mass = mass_matrix.MassMatrixMixedDim(physics)
+invMass = mass_matrix.InvMassMatrixMixedDim(physics)
 
 # Assign parameters
 add_data_advection_diffusion(gb, domain, tol, a)

@@ -14,18 +14,19 @@ from porepy.utils.errors import error
 
 #------------------------------------------------------------------------------#
 
+
 def add_data(g, advection):
     """
     Define the permeability, apertures, boundary conditions
     """
 
-    b_faces = g.get_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
+    b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+    bnd = bc.BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
     bnd_val = np.zeros(g.num_faces)
 
     beta_n = advection.beta_n(g, [1, 0, 0])
 
-    kxx = 1e-2*np.ones(g.num_cells)
+    kxx = 1e-2 * np.ones(g.num_cells)
     diffusion = second_order_tensor.SecondOrderTensor(g.dim, kxx)
 
     f = np.ones(g.num_cells) * g.cell_volumes
@@ -38,6 +39,7 @@ def add_data(g, advection):
 #------------------------------------------------------------------------------#
 
 # the f is considered twice, we guess that non-homogeneous Neumann as well.
+
 
 Nx = Ny = 20
 g = structured.CartGrid([Nx, Ny], [1, 1])
@@ -55,4 +57,3 @@ D, rhs_d = diffusion.matrix_rhs(g, data)
 theta = sps.linalg.spsolve(D + U, rhs_u + rhs_d)
 
 exporter.export_vtk(g, "advection_diffusion", {"theta": theta})
-

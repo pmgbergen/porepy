@@ -310,8 +310,13 @@ class DualVEM(Solver):
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
         # assign the Neumann boundary conditions
-        if bc and np.any(bc.is_neu):
-            is_neu = np.hstack((bc.is_neu,
+        # For dual discretizations, internal boundaries
+        # are handled by assigning Dirichlet conditions. THus, we remove them
+        # from the is_neu (where they belong by default) and add them in
+        # is_dir.
+        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
+        if bc and np.any(is_neu):
+            is_neu = np.hstack((is_neu,
                                 np.zeros(g.num_cells, dtype=np.bool)))
             M[is_neu, :] *= 0
             M[is_neu, is_neu] = norm
@@ -354,15 +359,22 @@ class DualVEM(Solver):
 
         is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
                           np.ones(g.num_cells, dtype=np.bool)))
-
-        if np.any(bc.is_dir):
-            is_dir = np.where(bc.is_dir)[0]
+        # For dual discretizations, internal boundaries
+        # are handled by assigning Dirichlet conditions. Thus, we remove them
+        # from the is_neu (where they belong by default). As the dirichlet
+        # values are simply added to the rhs, and the internal Dirichlet
+        # conditions on the fractures SHOULD be homogeneous, we exclude them
+        # from the dirichlet condition as well.
+        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
+        is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
+        if np.any(is_dir):
+            is_dir = np.where(is_dir)[0]
             faces, _, sign = sps.find(g.cell_faces)
             sign = sign[np.unique(faces, return_index=True)[1]]
             rhs[is_dir] += -sign[is_dir] * bc_val[is_dir]
 
-        if np.any(bc.is_neu):
-            is_neu = np.where(bc.is_neu)[0]
+        if np.any(is_neu):
+            is_neu = np.where(is_neu)[0]
             rhs[is_neu] = bc_weight * bc_val[is_neu]
 
         return rhs

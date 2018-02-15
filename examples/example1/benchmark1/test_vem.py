@@ -8,7 +8,6 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import vem_dual, vem_source
@@ -43,7 +42,7 @@ def add_data(gb, domain, kf):
         param.set_aperture(np.ones(g.num_cells) * aperture)
 
         # Boundaries
-        bound_faces = g.get_domain_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -104,9 +103,6 @@ def main(kf, description, is_coarse=False, if_export=False):
     if is_coarse:
         co.coarsen(gb, 'by_volume')
     gb.assign_node_ordering()
-
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
     # Assign parameters
     add_data(gb, domain, kf)
