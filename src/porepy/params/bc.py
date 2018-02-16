@@ -4,8 +4,9 @@ Created on Mon Feb 29 14:30:22 2016
 
 @author: eke001
 """
-
 import numpy as np
+import warnings
+
 
 class BoundaryCondition(object):
 
@@ -70,8 +71,21 @@ class BoundaryCondition(object):
         if faces is not None:
             # Validate arguments
             assert cond is not None
+            if faces.dtype == bool:
+                if faces.size != self.num_faces:
+                    raise ValueError('''When giving logical faces, the size of
+                                        array must match number of faces''')
+                faces = np.argwhere(faces)
             if not np.all(np.in1d(faces, bf)):
-                raise ValueError('Give boundary condition only on the boundary')
+                raise ValueError('Give boundary condition only on the \
+                                 boundary')
+            domain_boundary_and_tips = np.argwhere(np.logical_or(
+                g.tags['domain_boundary_faces'], g.tags['tip_faces']))
+            if not np.all(np.in1d(faces, domain_boundary_and_tips)):
+                warnings.warn('You are now specifying conditions on internal \
+                              boundaries. Be very careful!')
+            if isinstance(cond, str):
+                cond = [cond] * faces.size
             if faces.size != len(cond):
                 raise ValueError('One BC per face')
 
@@ -84,7 +98,6 @@ class BoundaryCondition(object):
                     self.is_neu[faces[l]] = False
                 else:
                     raise ValueError('Boundary should be Dirichlet or Neumann')
-
 
 class BoundaryConditionVectorial(object):
 
