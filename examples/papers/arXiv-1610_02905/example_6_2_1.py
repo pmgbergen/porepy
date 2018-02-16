@@ -8,7 +8,6 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import structured, simplex
 from porepy.grids import coarsening as co
 
@@ -18,16 +17,19 @@ from porepy.numerics.vem import dual
 
 #------------------------------------------------------------------------------#
 
+
 def rhs(x, y, z):
-    return 7*z-4*np.sin(np.pi*y)+2*np.pi**2*y**2*np.sin(np.pi*y)-\
-           8*np.pi*y*np.cos(np.pi*y)
+    return 7 * z - 4 * np.sin(np.pi * y) + 2 * np.pi**2 * y**2 * np.sin(np.pi * y) -\
+        8 * np.pi * y * np.cos(np.pi * y)
 
 #------------------------------------------------------------------------------#
+
 
 def solution(x, y, z):
-    return x**2*z+4*y**2*np.sin(np.pi*y)-3*z**3
+    return x**2 * z + 4 * y**2 * np.sin(np.pi * y) - 3 * z**3
 
 #------------------------------------------------------------------------------#
+
 
 def add_data(g):
     """
@@ -40,16 +42,17 @@ def add_data(g):
 
     # Source term
     source = np.array([rhs(*pt) for pt in g.cell_centers.T])
-    param.set_source("flow", g.cell_volumes*source)
+    param.set_source("flow", g.cell_volumes * source)
 
     # Boundaries
-    bound_faces = g.get_boundary_faces()
+    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
     bound_face_centers = g.face_centers[:, bound_faces]
 
     labels = np.array(['dir'] * bound_faces.size)
 
     bc_val = np.zeros(g.num_faces)
-    bc_val[bound_faces] = np.array([solution(*pt) for pt in bound_face_centers.T])
+    bc_val[bound_faces] = np.array([solution(*pt)
+                                    for pt in bound_face_centers.T])
 
     param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
     param.set_bc_val("flow", bc_val)
@@ -58,17 +61,19 @@ def add_data(g):
 
 #------------------------------------------------------------------------------#
 
+
 def error_p(g, p):
 
     sol = np.array([solution(*pt) for pt in g.cell_centers.T])
-    return np.sqrt(np.sum(np.power(np.abs(p - sol), 2)*g.cell_volumes))
+    return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
 
 #------------------------------------------------------------------------------#
+
 
 Nx = Ny = 20
 #g = structured.CartGrid([Nx, Ny], [1, 1])
 g = simplex.StructuredTriangleGrid([Nx, Ny], [1, 1])
-R = cg.rot(np.pi/4., [1,0,0])
+R = cg.rot(np.pi / 4., [1, 0, 0])
 g.nodes = np.dot(R, g.nodes)
 g.compute_geometry(is_embedded=True)
 #co.coarsen(g, 'by_volume')

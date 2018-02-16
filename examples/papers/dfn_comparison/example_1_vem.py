@@ -3,7 +3,6 @@ import scipy.sparse as sps
 
 from porepy.viz.exporter import Exporter
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import vem_dual, vem_source
@@ -12,6 +11,7 @@ import example_1_create_grid
 import example_1_data
 
 #------------------------------------------------------------------------------#
+
 
 def main(id_problem, is_coarse=False, tol=1e-5, if_export=False):
 
@@ -27,9 +27,6 @@ def main(id_problem, is_coarse=False, tol=1e-5, if_export=False):
 
     example_1_data.assign_frac_id(gb)
 
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
     # Assign parameters
     example_1_data.add_data(gb, tol)
 
@@ -43,16 +40,16 @@ def main(id_problem, is_coarse=False, tol=1e-5, if_export=False):
     up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
     solver_flow.split(gb, "up", up)
 
-    gb.add_node_props(["discharge", "p", "P0u", "err"])
+    gb.add_node_props(["discharge", 'pressure', "P0u", "err"])
     solver_flow.extract_u(gb, "up", "discharge")
-    solver_flow.extract_p(gb, "up", "p")
+    solver_flow.extract_p(gb, "up", 'pressure')
     solver_flow.project_u(gb, "discharge", "P0u")
 
     only_max_dim = lambda g: g.dim==gb.dim_max()
     diam = gb.diameter(only_max_dim)
-    error_pressure = example_1_data.error_pressure(gb, "p")
     error_discharge = 0 #example_1_data.error_discharge(gb, "P0u")
     print("h=", diam, "- err(p)=", error_pressure, "- err(P0u)=", error_discharge)
+    error_pressure = example_1_data.error_pressure(gb, 'pressure')
 
     with open(file_name_error, 'a') as f:
         info = str(gb.num_cells(only_max_dim)) + " " +\
@@ -63,9 +60,10 @@ def main(id_problem, is_coarse=False, tol=1e-5, if_export=False):
         f.write(info)
 
     if if_export:
-        save.write_vtk(["p", "err", "P0u"])
+        save.write_vtk(['pressure', "err", "P0u"])
 
 #------------------------------------------------------------------------------#
+
 
 num_simu = 25
 is_coarse = True

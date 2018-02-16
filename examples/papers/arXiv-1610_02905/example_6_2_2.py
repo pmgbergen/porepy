@@ -8,57 +8,62 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import dual
 
 #------------------------------------------------------------------------------#
 
+
 def source_f1(x, y, z):
 
     if z >= 0:
-        val = 8*y*(1-y)-8*(z-1)*(z-1)
+        val = 8 * y * (1 - y) - 8 * (z - 1) * (z - 1)
     else:
-        val = 8*y*(1-y)-8*(z+1)*(z+1)
+        val = 8 * y * (1 - y) - 8 * (z + 1) * (z + 1)
     return -val
 
 #------------------------------------------------------------------------------#
+
 
 def source_f2(x, y, z):
 
     if x >= 0:
-        val = 8*y*(1-y)-8*(x+1)*(x+1)
+        val = 8 * y * (1 - y) - 8 * (x + 1) * (x + 1)
     else:
-        val = 8*y*(1-y)-8*(x-1)*(x-1)
+        val = 8 * y * (1 - y) - 8 * (x - 1) * (x - 1)
     return -val
 
 #------------------------------------------------------------------------------#
 
+
 def sol_f1(x, y, z):
 
     if z >= 0:
-        val = 4*y*(1-y)*(z-1)*(z-1)
+        val = 4 * y * (1 - y) * (z - 1) * (z - 1)
     else:
-        val = 4*y*(1-y)*(z+1)*(z+1)
+        val = 4 * y * (1 - y) * (z + 1) * (z + 1)
     return val
 
 #------------------------------------------------------------------------------#
+
 
 def sol_f2(x, y, z):
 
     if x >= 0:
-        val = 4*y*(1-y)*(x+1)*(x+1)
+        val = 4 * y * (1 - y) * (x + 1) * (x + 1)
     else:
-        val = 4*y*(1-y)*(x-1)*(x-1)
+        val = 4 * y * (1 - y) * (x - 1) * (x - 1)
     return val
 
 #------------------------------------------------------------------------------#
+
 
 def perm(x, y, z):
     return 1
 
 #------------------------------------------------------------------------------#
+
 
 def add_data(gb, tol):
     """
@@ -82,10 +87,10 @@ def add_data(gb, tol):
         # Source term
         frac_id = d['node_number']
         source = np.array([source_f[frac_id](*pt) for pt in g.cell_centers.T])
-        param.set_source("flow", g.cell_volumes*source)
+        param.set_source("flow", g.cell_volumes * source)
 
         # Boundaries
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -105,6 +110,7 @@ def add_data(gb, tol):
 
 #------------------------------------------------------------------------------#
 
+
 def error_p(gb):
 
     error = 0
@@ -115,12 +121,13 @@ def error_p(gb):
             continue
         frac_id = d['node_number']
         sol = np.array([sol_f[frac_id](*pt) for pt in g.cell_centers.T])
-        d["err"] = d["p"] - sol
-        error += np.sum(np.power(d["err"], 2)*g.cell_volumes)
+        d["err"] = d['pressure'] - sol
+        error += np.sum(np.power(d["err"], 2) * g.cell_volumes)
 
     return np.sqrt(error)
 
 #------------------------------------------------------------------------------#
+
 
 tol = 1e-5
 
@@ -130,16 +137,14 @@ mesh_kwargs['mesh_size'] = {'mode': 'constant',
 
 file_name = 'dfn_square.fab'
 file_intersections = 'traces_square.dat'
-gb = importer.dfn_3d_from_fab(file_name, file_intersections, tol=1e-5, **mesh_kwargs)
+gb = importer.dfn_3d_from_fab(
+    file_name, file_intersections, tol=1e-5, **mesh_kwargs)
 gb.remove_nodes(lambda g: g.dim == 0)
 gb.compute_geometry()
 #co.coarsen(gb, 'by_volume')
 gb.assign_node_ordering()
 
 exporter.export_vtk(gb, 'grid', folder='vem')
-
-internal_flag = FaceTag.FRACTURE
-[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
 # Assign parameters
 add_data(gb, tol)
@@ -151,14 +156,14 @@ A, b = solver.matrix_rhs(gb)
 up = sps.linalg.spsolve(A, b)
 solver.split(gb, "up", up)
 
-gb.add_node_props(["discharge", "p", "P0u", "err"])
+gb.add_node_props(["discharge", 'pressure', "P0u", "err"])
 solver.extract_u(gb, "up", "discharge")
-solver.extract_p(gb, "up", "p")
+solver.extract_p(gb, "up", 'pressure')
 solver.project_u(gb, "discharge", "P0u")
 
-diam = gb.diameter(lambda g: g.dim==gb.dim_max())
+diam = gb.diameter(lambda g: g.dim == gb.dim_max())
 print("h=", diam, "- err(p)=", error_p(gb))
 
-exporter.export_vtk(gb, 'vem', ["p", "err", "P0u"], folder='vem')
+exporter.export_vtk(gb, 'vem', ['pressure', "err", "P0u"], folder='vem')
 
 #------------------------------------------------------------------------------#

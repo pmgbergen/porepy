@@ -19,6 +19,7 @@ import scipy.sparse as sps
 
 from porepy.grids.structured import TensorGrid
 from porepy.fracs import non_conforming
+from porepy.utils import tags
 from porepy.utils.setmembership import ismember_rows
 
 
@@ -326,44 +327,48 @@ class TestMeshMerging(unittest.TestCase):
         assert np.allclose(np.abs(g.cell_faces.toarray()), cf_expected)
 
     def test_update_tag_simple(self):
-        tags = np.arange(3)
-        g = TagClass(tags)
+        n_tags = 3
+        g = TagClass(n_tags)
+        g.tags['tip_faces'] = np.array([True, False, False])
         delete_face = [0]
         new_face = [[2]]
         non_conforming.update_face_tags(g, delete_face, new_face)
 
-        known_tag = np.array([1, 2, 0])
-        assert np.allclose(known_tag, g.face_tags)
+        known_tag = np.array([False, False, True])#np.array([1, 2, 0])
+        assert np.allclose(known_tag, g.tags['tip_faces'])
 
     def test_update_tag_one_to_many(self):
-        tags = np.arange(3)
-        g = TagClass(tags)
+        n_tags = 3
+        g = TagClass(n_tags)
+        g.tags['tip_faces'] = np.array([True, False, False])
         delete_face = [0]
         new_face = [[2, 3]]
         non_conforming.update_face_tags(g, delete_face, new_face)
 
-        known_tag = np.array([1, 2, 0, 0])
-        assert np.allclose(known_tag, g.face_tags)
+        known_tag = np.array([False, False, True, True])#np.array([1, 2, 0, 0])
+        assert np.allclose(known_tag, g.tags['tip_faces'])
 
     def test_update_tag_two_to_many(self):
-        tags = np.arange(3)
-        g = TagClass(tags)
+        n_tags = 3
+        g = TagClass(n_tags)
+        g.tags['tip_faces'] = np.array([True, False, False])
         delete_face = [0, 2]
         new_face = [[2, 3], [4]]
         non_conforming.update_face_tags(g, delete_face, new_face)
 
-        known_tag = np.array([1, 0, 0, 2])
-        assert np.allclose(known_tag, g.face_tags)
+        known_tag = np.array([False, True, True, False])#np.array([1, 0, 0, 2])
+        assert np.allclose(known_tag, g.tags['tip_faces'])
 
     def test_update_tag_pure_deletion(self):
-        tags = np.arange(3)
-        g = TagClass(tags)
+        n_tags = 3
+        g = TagClass(n_tags)
+        g.tags['tip_faces'] = np.array([False, True, False])
         delete_face = [0]
         new_face = [[]]
         non_conforming.update_face_tags(g, delete_face, new_face)
 
-        known_tag = np.array([1, 2])
-        assert np.allclose(known_tag, g.face_tags)
+        known_tag = np.array([True, False]) #np.array([1, 2])
+        assert np.allclose(known_tag, g.tags['tip_faces'])
 
     def test_global_ind_assignment(self):
         data = np.ones(3)
@@ -1038,7 +1043,8 @@ class MockGrid():
 
 
 class TagClass():
-    def __init__(self, tags):
-        self.face_tags = tags
-
-
+    def __init__(self, n_tags):
+        keys = tags.standard_face_tags()
+        values = [np.zeros(n_tags, dtype=bool)
+                  for _ in range(len(keys))]
+        tags.add_tags(self, dict(zip(keys, values)))

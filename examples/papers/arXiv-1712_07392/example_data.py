@@ -7,6 +7,7 @@ from porepy.numerics import elliptic
 
 #------------------------------------------------------------------------------#
 
+
 class DarcyModelData(elliptic.EllipticDataAssigner):
     def __init__(self, g, data, **kwargs):
         self.domain = kwargs['domain']
@@ -26,7 +27,7 @@ class DarcyModelData(elliptic.EllipticDataAssigner):
 
     def bc(self):
 
-        bound_faces = self.grid().get_domain_boundary_faces()
+        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size == 0:
             return BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
 
@@ -45,7 +46,7 @@ class DarcyModelData(elliptic.EllipticDataAssigner):
     def bc_val(self):
 
         bc_val = np.zeros(self.grid().num_faces)
-        bound_faces = self.grid().get_domain_boundary_faces()
+        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size == 0:
             return bc_val
 
@@ -56,6 +57,7 @@ class DarcyModelData(elliptic.EllipticDataAssigner):
         return bc_val
 
 #------------------------------------------------------------------------------#
+
 
 class VEMModelData(DarcyModelData):
 
@@ -74,7 +76,7 @@ class VEMModelData(DarcyModelData):
                 kxx = self.kf_low * np.ones(self.grid().num_cells)
             return tensor.SecondOrder(self.grid().dim, kxx=kxx, kyy=kxx, kzz=1)
 
-        else: # g.dim == 1
+        else:  # g.dim == 1
             neigh = self.gb.node_neighbors(self.grid(), only_higher=True)
             frac_num = np.array([gh.frac_num for gh in neigh])
             if np.any(frac_num == self.special_fracture):
@@ -87,6 +89,7 @@ class VEMModelData(DarcyModelData):
             return tensor.SecondOrder(self.grid().dim, kxx=kxx, kyy=1, kzz=1)
 
 #------------------------------------------------------------------------------#
+
 
 class TPFAModelData(DarcyModelData):
 
@@ -105,7 +108,7 @@ class TPFAModelData(DarcyModelData):
                 kxx = self.kf_low * np.ones(self.grid().num_cells)
             return tensor.SecondOrder(3, kxx)
 
-        else: # g.dim == 1
+        else:  # g.dim == 1
             neigh = self.gb.node_neighbors(self.grid(), only_higher=True)
             frac_num = np.array([gh.frac_num for gh in neigh])
             if np.any(frac_num == self.special_fracture):

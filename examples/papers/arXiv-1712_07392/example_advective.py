@@ -5,6 +5,7 @@ from porepy.numerics import time_stepper
 
 from porepy.params.bc import BoundaryCondition
 
+
 class AdvectiveModel(parabolic.ParabolicModel):
     '''
     Inherits from ParabolicProblem
@@ -14,7 +15,7 @@ class AdvectiveModel(parabolic.ParabolicModel):
     - gb (Grid/GridBucket) Grid or grid bucket for the problem
     - physics (string) Physics key word. See Parameters class for valid physics
     functions:
-    discharge(): computes the discharges and saves it in the grid bucket as 'p'
+    discharge(): computes the discharges and saves it in the grid bucket as 'pressure'
     Also see functions from ParabolicProblem
     Example:
     # We create a problem with standard data
@@ -37,6 +38,7 @@ class AdvectiveModel(parabolic.ParabolicModel):
     def end_time(self):
         return 3
 
+
 class AdvectiveModelData(parabolic.ParabolicDataAssigner):
     def __init__(self, g, data, domain, tol):
         self.domain = domain
@@ -46,7 +48,7 @@ class AdvectiveModelData(parabolic.ParabolicDataAssigner):
     def bc_val(self, t):
 
         bc_val = np.zeros(self.grid().num_faces)
-        bound_faces = self.grid().get_domain_boundary_faces()
+        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size == 0:
             return bc_val
 
@@ -58,7 +60,7 @@ class AdvectiveModelData(parabolic.ParabolicDataAssigner):
 
     def bc(self):
 
-        bound_faces = self.grid().get_domain_boundary_faces()
+        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size == 0:
             return BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
 

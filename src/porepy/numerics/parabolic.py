@@ -11,6 +11,7 @@ from porepy.numerics.fv.transport import upwind
 from porepy.numerics import time_stepper
 from porepy.numerics.mixed_dim import coupler
 from porepy.viz.exporter import Exporter
+from porepy.grids.grid_bucket import GridBucket
 
 logger = logging.getLogger(__name__)
 
@@ -64,35 +65,50 @@ class ParabolicModel():
     problem.solve()
     '''
 
-    def __init__(self, gb, physics='transport', **kwargs):
+    def __init__(self, gb, physics='transport',time_step=1.0, end_time=1.0, **kwargs):
         self._gb = gb
+        self.is_GridBucket = isinstance(self._gb, GridBucket)
         self.physics = physics
-        self._data = dict()
+        self._data = kwargs.get('data', dict())
+        self._time_step = time_step
+        self._end_time = end_time
         self._set_data()
-        self._solver = self.solver()
-        self._solver.parameters['store_results'] = True
 
-        file_name = kwargs.get('file_name', str(physics))
-        folder_name = kwargs.get('folder_name', 'results')
+        self._solver = self.solver()
 
         logger.info('Create exporter')
         tic = time.time()
+        file_name = kwargs.get('file_name', 'solution')
+        folder_name = kwargs.get('folder_name', 'results')
         self.exporter = Exporter(self._gb, file_name, folder_name)
         logger.info('Done. Elapsed time: ' + str(time.time() - tic))
+
+        self.x_name = 'solution'
+        self._time_disc = self.time_disc()
 
     def data(self):
         'Get data dictionary'
         return self._data
 
     def _set_data(self):
-        for _, d in self.grid():
-            d['deltaT'] = self.time_step()
+        if self.is_GridBucket:
+            for _, d in self.grid():
+                d['deltaT'] = self.time_step()
+        else:
+            self.data()['deltaT'] = self.time_step()
 
-    def solve(self):
-        'Solve problem'
+    def solve(self, save_as=None, save_every=1):
+        '''Solve problem
+
+        Arguments:
+        save_as (string), defaults to None. If a string is given, the solution
+                          variable is saved to a vtk-file as save_as
+        save_every (int), defines which time steps to save. save_every=2 will
+                          store every second time step.
+        '''
         tic = time.time()
         logger.info('Solve problem')
-        s = self._solver.solve()
+        s = self._solver.solve(save_as, save_every)
         logger.info('Done. Elapsed time: ' + str(time.time() - tic))
         return s
 
@@ -102,8 +118,15 @@ class ParabolicModel():
 
     def update(self, t):
         'Update parameters to time t'
-        for g, d in self.grid():
-            d['problem'].update(t)
+        if self.is_GridBucket:
+            for g, d in self.grid():
+                d[self.physics + '_data'].update(t)
+        else:
+            self.data()[self.physics + '_data'].update(t)
+
+    def split(self, x_name='solution'):
+        self.x_name = x_name
+        self._time_disc.split(self.grid(), self.x_name, self._solver.p)
 
     def reassemble(self):
         'Reassemble matrices and rhs'
@@ -152,17 +175,26 @@ class ParabolicModel():
                 self.solver = coupler.Coupler(self.discr,
                                              self.coupling_conditions)
 
-        multi_dim_discr = WeightedUpwindMixedDim()
-        return multi_dim_discr
+        if self.is_GridBucket:
+            upwind_discr = WeightedUpwindMixedDim()
+        else:
+            upwind_discr = WeightedUpwindDisc()
+        return upwind_discr
 
     def diffusive_disc(self):
         'Discretization of term \nabla K \nabla T'
-        diffusive_discr = tpfa.TpfaMixedDim(physics=self.physics)
+        if self.is_GridBucket:
+            diffusive_discr = tpfa.TpfaMixedDim(physics=self.physics)
+        else:
+            diffusive_discr = tpfa.Tpfa(physics=self.physics)
         return diffusive_discr
 
     def source_disc(self):
         'Discretization of source term, q'
-        return source.IntegralMixedDim(physics=self.physics)
+        if self.is_GridBucket:
+            return source.IntegralMixedDim(physics=self.physics)
+        else:
+            return source.Integral(physics=self.physics)
 
     def space_disc(self):
         '''Space discretization. Returns the discretization terms that should be
@@ -196,15 +228,20 @@ class ParabolicModel():
                 return factor * lhs, factor * rhs
 
         single_dim_discr = TimeDisc(self.time_step())
-        multi_dim_discr = coupler.Coupler(single_dim_discr)
-        return multi_dim_discr
+        if self.is_GridBucket:
+            time_discretization = coupler.Coupler(single_dim_discr)
+        else:
+            time_discretization = TimeDisc(self.time_step())
+        return time_discretization
 
     def initial_condition(self):
         'Returns initial condition for global variable'
-        for _, d in self.grid():
-            d[self.physics] = d['problem'].initial_condition()
-
-        global_variable = self.time_disc().merge(self.grid(), self.physics)
+        if self.is_GridBucket:
+            for _, d in self.grid():
+                d[self.physics] = d[self.physics + '_data'].initial_condition()
+            global_variable = self.time_disc().merge(self.grid(), self.physics)
+        else:
+            global_variable = self._data[self.physics + '_data'].initial_condition()
         return global_variable
 
     def grid(self):
@@ -213,23 +250,12 @@ class ParabolicModel():
 
     def time_step(self):
         'Returns the time step'
-        return 1.0
+        return self._time_step
 
     def end_time(self):
         'Returns the end time'
-        return 1.0
+        return self._end_time
 
-    def save(self, save_every=1):
-        'Saves the solution'
-        variables = self.data()[self.physics][::save_every]
-        times = np.array(self.data()['times'])[::save_every]
-
-        for i, p in enumerate(variables):
-            self.time_disc().split(self.grid(), self.physics, p)
-            data_to_plot = [self.physics]
-            self.exporter.write_vtk(data_to_plot, time_step=i)
-
-        self.exporter.write_pvd(times)
 
 class ParabolicDataAssigner():
     '''
