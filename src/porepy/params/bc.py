@@ -56,7 +56,10 @@ class BoundaryCondition(object):
         self.bc_type = 'scalar'
 
         # Find boundary faces
-        bf = g.get_boundary_faces()
+        bf = g.get_all_boundary_faces()
+
+        # Keep track of internal boundaries
+        self.is_internal = g.tags['fracture_faces']
 
         self.is_neu = np.zeros(self.num_faces, dtype=bool)
         self.is_dir = np.zeros(self.num_faces, dtype=bool)

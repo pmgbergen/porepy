@@ -1187,7 +1187,7 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
                                * pa.get_bc_val(physics)
         else:
             dis = np.zeros(g.num_faces)
-        pa.set_discharge(dis)
+        data[d_name] = dis
         return
 
     for g, d in gb:
@@ -1198,9 +1198,9 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
                     * pa.get_bc_val(physics)
             else:
                 dis = np.zeros(g.num_faces)
-            pa.set_discharge(dis)
+            d[d_name] = dis
 
-    for e, data in gb.edges_props():
+    for e, d in gb.edges_props():
         # According to the sorting convention, g2 is the higher dimensional grid,
         # the one to who's faces the fluxes correspond
         g1, g2 = gb.sorted_nodes_of_edge(e)
@@ -1214,9 +1214,17 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
             pressures = gb.nodes_prop([g2, g1], p_name)
             dis = coupling_flux * np.concatenate(pressures)
-            pa.set_discharge(dis)
+            d[d_name] = dis
 
         elif g1.dim == g2.dim and d['face_cells'] is not None:
+            # g2 is now only the "higher", but still the one defining the faces
+            # (cell-cells connections) in the sense that the normals are assumed
+            # outward from g2, "pointing towards the g1 cells". Note that in
+            # general, there are g2.num_cells x g1.num_cells connections/"faces".
+            cc = d['face_cells']
+            cells_1, cells_2 = cc.nonzero()
+            coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
+
             pressures = gb.nodes_prop([g2, g1], p_name)
             p2 = pressures[0][cells_2]
             p1 = pressures[1][cells_1]
@@ -1225,4 +1233,4 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             dis = contribution_2 - contribution_1
             # Store flux at the edge only. This means that the flux will remain
             # zero in the data of both g1 and g2
-            pa.set_discharge(np.ravel(dis))
+            d[d_name] = np.ravel(dis)
