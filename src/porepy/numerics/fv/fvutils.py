@@ -1148,12 +1148,8 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
 #------------------------------------------------------------------------------
 
 
-<<<<<<< HEAD
-def compute_discharges(gb, physics='flow', p_name='p', data=None):
-=======
 def compute_discharges(gb, physics='flow', d_name='discharge',
                        p_name='pressure', data=None):
->>>>>>> develop
     """
     Computes discharges over all faces in the entire grid /grid bucket given
     pressures for all nodes, provided as node properties.
