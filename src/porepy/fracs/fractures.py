@@ -470,282 +470,16 @@ class Fracture(object):
                                    %.5f)""", *int_points)
                 return np.empty((3, 0)), on_boundary_self, on_boundary_other
             # None of the intersection points lay on the boundary
-            else:
 
 
-                # The 'interior' points can still be on the boundary (naming
-                # of variables should be updated). The points form a boundary
-                # segment if they all lie on the a single segment of the
-                # fracture.
-                on_boundary_self = point_on_segment(int_points, self.p)
-                on_boundary_other = point_on_segment(int_points, other.p)
-                return int_points, on_boundary_self, on_boundary_other
 
-        # Else, we have boundary intersection, and need to process them
-        bound_pt_self, self_segment, is_vertex_self, self_cuts_through = \
-                self._process_segment_isect(bound_sect_self_other, self.p, tol,
-                                            other.p)
-
-        bound_pt_other, other_segment, is_vertex_other, other_cuts_through = \
-                self._process_segment_isect(bound_sect_other_self, other.p,
-                                            tol, self.p)
-
-        # Run some sanity checks
-
-        # Convex polygons can intersect each other in at most two points (and a
-        # line inbetween)
-        if int_points.shape[1] == 1:
-            # There should be exactly one unique boundary point.
-            bp = np.hstack((bound_pt_self, bound_pt_other))
-            if bp.shape[1] == 0:
-                # The other point on the intersection line must be a vertex.
-                # Brute force search
-                found_vertex = False
-                for self_p in self.p.T:
-                    diff = self_p.reshape((-1, 1)) - other.p
-                    dist = np.sqrt(np.sum(np.power(diff, 2), axis=0))
-                    if np.any(np.isclose(dist, 0, rtol=tol)):
-                        if found_vertex:
-                            raise ValueError('Found > 2 intersection points')
-                        found_vertex = True
-                        int_points = np.hstack((int_points,
-                                                self_p.reshape((-1, 1))))
-
-                # There is not more to say here, simply return
-                return int_points, on_boundary_self, on_boundary_other
-
-            u_bound_pt, _, _ = setmembership.unique_columns_tol(bp, tol=tol)
-            assert u_bound_pt.shape[1] == 1, 'The fractures should be convex'
-
-        # If a segment runs through the polygon, there should be no interior points.
-        # This may be sensitive to tolerances, should be a useful test to gauge
-        # that.
-
-        # Storage for intersection points located on the boundary
-        bound_pt = []
-
-        bp, _, _ = setmembership.unique_columns_tol(np.hstack((int_points,
-                                                               bound_pt_self,
-                                                               bound_pt_other)))
-
-        assert bp.shape[1] == int_points.shape[1], """
-            Please file an issue on GitHub, containing this message, and the
-            coordinates of the two polygons. Then you can delete this
-            assertion, no harmed caused.
-
-            This test is inserted to
-            look for redundancies in the intersection algorithm. If this never
-            kicks in, a lot of the code complexity can be kicked out.
-            Unfortunately, the testing must be done on a somewhat wide range
-            of fractures, thus the assertion is just left standing for a while.
-            Sorry about this! EK"""
-
-        self_segment = point_on_segment(bound_pt_self, self.p)
-        other_segment = point_on_segment(bound_pt_other, other.p)
-
-        # Cover the case of a segment - essentially an L-intersection
-        if self_segment:
-            assert bound_pt_self.shape[1] == 2
-
-            # Depending on whether the intersection points are also vertexes
-            # of the polygons, bound_pt_self and other need not be identical.
-            # Return the uniquified combination of the two
-            bound_pt = np.hstack((bound_pt_other, bound_pt_self))
-            bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt,
-                                                               tol=tol)
-
-            on_boundary_self = self_segment
-            on_boundary_other = other_segment or \
-                                    point_on_segment(bound_pt_other, other.p)
-
-            logger.info('An L-intersection is found from self_segment')
-            return bound_pt, on_boundary_self, on_boundary_other
-        # Cover the case of a segment - essentially an L-intersection
-        if other_segment:
-            assert bound_pt_other.shape[1] == 2
-
-            # Depending on whether the intersection points are also vertexes
-            # of the polygons, bound_pt_self and other need not be identical.
-            # Return the uniquified combination of the two
-            bound_pt = np.hstack((bound_pt_other, bound_pt_self))
-            bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt,
-                                                               tol=tol)
-
-            on_boundary_self = self_segment or \
-                                   point_on_segment(bound_pt_self, self.p)
-            on_boundary_other = other_segment
-
-            logger.info('An L-intersection is found from other_segment')
-            return bound_pt, on_boundary_self, on_boundary_other
-
-        # Case where one boundary segment of one fracture cuts through two
-        # boundary segment (thus the surface) of the other fracture. Gives a
-        # T-type intersection
-        if self_cuts_through:
-            on_boundary_self = True
-            on_boundary_other = False
-            # Depending on whether the intersection points are also vertexes
-            # of the polygons, bound_pt_self and other need not be identical.
-            # Return the uniquified combination of the two
-            bound_pt = np.hstack((bound_pt_other, bound_pt_self))
-            bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt,
-                                                               tol=tol)
-
-            logger.info('A T-intersection is found from self_cuts')
-            return bound_pt, on_boundary_self, on_boundary_other
-        elif other_cuts_through:
-            on_boundary_self = False
-            on_boundary_other = True
-
-            # Depending on whether the intersection points are also vertexes
-            # of the polygons, bound_pt_self and other need not be identical.
-            # Return the uniquified combination of the two
-            bound_pt = np.hstack((bound_pt_other, bound_pt_self))
-            bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt,
-                                                               tol=tol)
-
-            logger.info('A T-intersection is found from other_cuts')
-            return bound_pt, on_boundary_self, on_boundary_other
-
-        bound_pt = np.hstack((int_points, bound_pt_self))
-
-        # Check if there are two boundary points on the same segment. If so,
-        # this is a boundary segment.
-        on_boundary_self = False
-        if bound_pt_self.shape[1] == 2:
-            if bound_sect_self_other[0][0] == bound_sect_self_other[1][0]:
-                on_boundary_self = True
-        on_boundary_other = False
-        if bound_pt_other.shape[1] == 2:
-            if bound_sect_other_self[0][0] == bound_sect_other_self[1][0]:
-                on_boundary_other = True
-        on_boundary_self = point_on_segment(bound_pt_self, self.p)
-        on_boundary_other = point_on_segment(bound_pt_other, other.p)
-        # Special case if a segment is cut as one interior point (by its
-        # vertex), and a boundary point on the same segment, this is a boundary
-        # segment
-        if bound_pt_self.shape[1] == 1:
-            for ind in range(int_points.shape[1]):
-                is_vert, vi = self.is_vertex(int_points[:, ind])
-                seg_i = bound_sect_self_other[0][0]
-                nfp = self.p.shape[1]
-                if is_vert and (vi == seg_i or (seg_i+1) % nfp == vi):
-                    on_boundary_self = True
-        if bound_pt_other.shape[1] == 1:
-            for ind in range(int_points.shape[1]):
-                is_vert, vi = other.is_vertex(int_points[:, ind])
-                seg_i = bound_sect_other_self[0][0]
-                nfp = other.p.shape[1]
-                if is_vert and (vi == seg_i or (seg_i+1) % nfp == vi):
-                    on_boundary_other = True
-
-        bound_pt, _, _ = setmembership.unique_columns_tol(bound_pt, tol=tol)
-        return bound_pt, on_boundary_self, on_boundary_other
-
-    def _process_segment_isect(self, isect_bound, poly, tol, other_poly):
-        """
-        Helper function to interpret result from polygon_boundaries_intersect
-
-        Classify an intersection between segments, from the perspective of a
-        polygon, as:
-        i) Sharing a segment
-        ii) Sharing part of a segment
-        ii) Sharing a point, which coincides with a polygon vertex
-        iii) Sharing a point that splits a segment of the polygn
-
-        Parameters:
-            isect_bound: intersections
-            poly: First (not second!) polygon sent into intersection finder
-
-        """
-        bound_pt = np.empty((3, 0))
-
-        # Boolean indication of a shared segment
-        has_segment = False
-        # Boolean indication of an intersection in a vertex
-        non_vertex = []
-        # Counter for how many times each segment is found
-        num_occ = np.zeros(poly.shape[1])
-
-        # Number of vertexes on the other polygon - used below to identify
-        # whether the intersection coincides with these.
-        num_pt = poly.shape[1]
-        num_pt_other = other_poly.shape[1]
-
-
-        # Loop over all intersections, process information
-        for bi in isect_bound:
-
-            # Index of the intersecting segments
-
-            # Special case: For T-type intersection where the vertexes of one
-            # polygon lies on the segment of the other, they do not count
-            # towards cutting through the segment.
-            expanded = np.hstack((other_poly, bi[2]))
-            other_unique, _, _ = setmembership.unique_columns_tol(expanded,
-                                                              tol=tol)
-            if other_unique.shape[1] > num_pt_other:
-                num_occ[bi[0]] += 1
-
-            # Coordinates of the intersections
-            ip = bi[2]
-
-            # No intersections should have more than two poitns
-            assert ip.shape[1] < 3
-
-            ip_unique, _, _ = setmembership.unique_columns_tol(ip, tol=tol)
-            if ip_unique.shape[1] == 2:
-                # The polygons share a segment, or a
-                bound_pt = np.hstack((bound_pt, ip_unique))
-                has_segment = True
-                poly_ext, o2n, _ = setmembership.unique_columns_tol(
-                    np.hstack((poly, ip_unique)), tol=tol)
-                non_vertex += list(o2n[-2:] >= num_pt)
-
-                # No need to deal with non_vertex here, there should be no more
-                # intersections (convex, non-overlapping polygons).
-            elif ip_unique.shape[1] == 1:
-                # Either a vertex or single intersection point.
-                poly_ext, _, _ = setmembership.unique_columns_tol(
-                    np.hstack((poly, ip_unique)), tol=tol)
-                if poly_ext.shape[1] == poly.shape[1]:
-                    # This is a vertex, we skip it
-                    bound_pt = np.hstack((bound_pt, ip_unique))
-                    non_vertex.append(False)
-                else:
-                    # New point contact
-                    bound_pt = np.hstack((bound_pt, ip_unique))
-                    non_vertex.append(True)
-            else:
-                # This should never happen for convex polygons
-                raise ValueError(
-                    'Should not have more than two intersection points')
-
-        # Now, if any segment has been found more than once, it cuts two
-        # segments of the other polygon.
-        cuts_two = np.any(num_occ > 1)
-
-        # Return a unique version of bound_pt
-        # No need to uniquify unless there is more than one point.
-        if bound_pt.shape[1] > 1:
-            bound_pt, o2n, n2o = \
-                setmembership.unique_columns_tol(bound_pt, tol=tol)
-            non_vertex = np.array([non_vertex[i] for i in o2n])
-
-        assert bound_pt.shape[1] <= 2
-
-        has_segment = False
-        if bound_pt.shape[1] == 2 and not (non_vertex.any()):
-            # We've got two vertexes, let's see if they are a segment
-            ap = np.hstack((poly, bound_pt))
-            rp, o2n, n2o = setmembership.unique_columns_tol(ap, tol=tol)
-            bp_n2o = np.sort(n2o[-2:])
-            if (bp_n2o[0] +1) == bp_n2o[1] or\
-                bp_n2o[0] == 0 and bp_n2o[1] == poly.shape[1]:
-                has_segment = True
-
-
-        return bound_pt, has_segment, non_vertex, cuts_two
+        # The 'interior' points can still be on the boundary (naming
+        # of variables should be updated). The points form a boundary
+        # segment if they all lie on the a single segment of the
+        # fracture.
+        on_boundary_self = point_on_segment(int_points, self.p)
+        on_boundary_other = point_on_segment(int_points, other.p)
+        return int_points, on_boundary_self, on_boundary_other
 
 
     def impose_boundary(self, box, tol):
@@ -1581,6 +1315,15 @@ class FractureNetwork(object):
 
             # Add the new points towards the end of the list.
             all_p = np.hstack((all_p, p_add_3d))
+
+            new_all_p, _, ia = setmembership.unique_columns_tol(all_p,
+                                                                self.tol)
+
+            # Handle case where the new point is already represented in the
+            # global list of points.
+            if new_all_p.shape[1] < all_p.shape[1]:
+                all_p = new_all_p
+                p_ind_exp = ia[p_ind_exp]
 
             # The ordering of the global edge list bears no significance. We
             # therefore plan to delete all edges (new and old), and add new

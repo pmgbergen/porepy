@@ -141,9 +141,9 @@ def test_compute_discharge_mono_grid():
     data['param'].set_bc_val('flow', bc_val)
     data['flux'] = flux
     data['bound_flux'] = bound_flux
-    data['p'] = np.array([3.14])
+    data['pressure'] = np.array([3.14])
     fvutils.compute_discharges(g, data=data)
     dis = data['discharge']
 
-    dis_true = flux * data['p'] +  bound_flux * bc_val
+    dis_true = flux * data['pressure'] +  bound_flux * bc_val
     assert np.allclose(dis, dis_true)

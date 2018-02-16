@@ -4,22 +4,14 @@ intersection cells. The coupling is with TPFA, but for internal discretization o
 the individual domains, one can choose between MPFA and TPFA.
 """
 import numpy as np
-import time
 import scipy.sparse as sps
-from scipy.sparse.linalg import spsolve
 
-from porepy.grids import structured, simplex
 from porepy.params import bc, tensor, data
 
 
-from porepy.viz.exporter import export_vtk
-
-from porepy.grids.coarsening import *
-from porepy.grids import grid_bucket
+#from porepy.viz.exporter import export_vtk
 from porepy.fracs import meshing  # split_grid
 
-from porepy.numerics.mixed_dim import coupler
-import copy
 from porepy.numerics.fv import mpfa, tpfa
 from porepy.numerics.mixed_dim import condensation
 
@@ -47,7 +39,6 @@ def add_data(gb):
         params.set_source('flow', np.zeros(g.num_cells))
 
         # Boundaries
-        bound_faces = g.get_boundary_faces()
         top = np.argwhere(g.face_centers[1, :] > 1 - 1e-5)
         bot = np.argwhere(g.face_centers[1, :] < -1 + 1e-5)
         left = np.argwhere(g.face_centers[0, :] < -1 + 1e-5)
@@ -78,21 +69,21 @@ if __name__ == '__main__':
     f_1 = np.array([[-.8, .8, .8, -.8], [0, 0, 0, 0], [-.8, -.8, .8, .8]])
     f_2 = np.array([[0, 0, 0, 0], [-.8, .8, .8, -.8], [-.8, -.8, .8, .8]])
     f_3 = np.array([[-.8, .8, .8, -.8], [-.8, -.8, .8, .8], [0, 0, 0, 0]])
-
+    f_1 = [[0, 1], [0, 1]]
+    f_2 = [[0, .1], [0.2, .1]]
     f_set = [f_1, f_2, f_3]
-
+    f_set = [f_1, f_2]
     domain = {'xmin': -1, 'xmax': 1,
-              'ymin': -1, 'ymax': 1, 'zmin': -1, 'zmax': 1}
-    # ENDRE DENNE
-    path_to_gmsh = '~/gmsh-2.16.0-Linux/bin/gmsh'
-    gb = meshing.simplex_grid(f_set, domain, gmsh_path=path_to_gmsh)
+              'ymin': -1, 'ymax': 1}  # , 'zmin': -1, 'zmax': 1}
+
+    gb = meshing.simplex_grid(f_set, domain)
     gb.assign_node_ordering()
 
     # Assign parameters
     add_data(gb)
 
     # Choose and define the solvers and coupler
-    solver = mpfa.MpfaMultiDim()
+    solver = mpfa.MpfaMixedDim()
     A, b = solver.matrix_rhs(gb)
     p = sps.linalg.spsolve(A.copy(), b)
 
@@ -106,16 +97,16 @@ if __name__ == '__main__':
     gb_r, _ = gb.duplicate_without_dimension(0)
 
     # Add the solutions to data fields in the grid buckets
-    gb.add_node_props(["p", "p_condensation"])
+    gb.add_node_props(['pressure', "p_condensation"])
     gb_r.add_node_props(["p_reduced"])
 
     solver.split(gb, "p_condensation", p_full_condensation)
     solver.split(gb_r, "p_reduced", p_reduced)
-    solver.split(gb, "p", p)
+    solver.split(gb, 'pressure', p)
 
     max_p, min_p, normalization, error_norm = np.zeros(1), np.zeros(1), 0, 0
     for g, d in gb:
-        p1, p2 = d["p"], d["p_condensation"]
+        p1, p2 = d['pressure'], d["p_condensation"]
         error_norm += sum(np.power(p1 - p2, 2) *
                           g.cell_volumes * d['param'].apertures)
         normalization += sum(g.cell_volumes)
@@ -126,6 +117,9 @@ if __name__ == '__main__':
 
     print('The error of the condensation compared to the full method is ', error_norm)
     assert error_norm < 1e-3
+#
+#    export_vtk(gb, "grid_mpfa", ["p", "p_condensation"], folder="simu")
+#    export_vtk(gb_r, "grid_mpfa_r", ["p_reduced"], folder="simu")
 
-    export_vtk(gb, "grid_mpfa", ["p", "p_condensation"], folder="simu")
+    export_vtk(gb, "grid_mpfa", ['pressure', "p_condensation"], folder="simu")
     export_vtk(gb_r, "grid_mpfa_r", ["p_reduced"], folder="simu")
