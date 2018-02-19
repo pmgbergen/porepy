@@ -208,3 +208,65 @@ class BasicsTest(unittest.TestCase):
         assert np.allclose(u_c[:, top_cells], 1)
         assert np.allclose(u_c[:, ~top_cells], 0)
         assert np.allclose(T, 0)
+
+
+    def test_vectorial_bc(self):
+        """
+        We mixed bc_val on domain boundary and fracture displacement in
+        x-direction.
+        """
+        frac = np.array([[1, 1, 1], [1, 2, 1], [2, 2, 1], [2, 1, 1]]).T
+        physdims = np.array([3, 3, 2])
+
+        g = meshing.cart_grid(
+            [frac], [3, 3, 2], physdims=physdims).grids_of_dimension(3)[0]
+        data = {'param': Parameters(g)}
+
+        # Define boundary conditions
+        bc_val = np.zeros((g.dim, g.num_faces))
+        frac_slip = np.zeros((g.dim, g.num_faces))
+
+        frac_bnd = g.tags['fracture_faces']
+        dom_bnd = g.tags['domain_boundary_faces']
+
+        frac_slip[0, frac_bnd] = np.ones(np.sum(frac_bnd))
+        bc_val[:, dom_bnd] = g.face_centers[:, dom_bnd]
+
+        bound = bc.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), 'dir')
+
+        data['param'].set_bc('mechanics', bound)
+        data['param'].set_bc_val('mechanics', bc_val)
+        data['param'].set_slip_distance(frac_slip.ravel('F'))
+        solver = mpsa.FracturedMpsa()
+
+        A, b = solver.matrix_rhs(g, data)
+        u = np.linalg.solve(A.A, b)
+
+        u_f = solver.extract_frac_u(g, u)
+        u_c = solver.extract_u(g, u)
+        u_c = u_c.reshape((3, -1), order='F')
+
+        # Test traction
+        frac_faces = g.frac_pairs
+        frac_left = frac_faces[0]
+        frac_right = frac_faces[1]
+
+        T = solver.traction(g, data, u)
+        T = T.reshape((3, -1), order='F')
+        T_left = T[:, frac_left]
+        T_right = T[:, frac_right]
+
+        assert np.allclose(T_left, T_right)
+
+        # we have u_lhs - u_rhs = 1 so u_lhs should be positive
+        mid_ind = int(round(u_f.size / 2))
+        u_left = u_f[:mid_ind]
+        u_right = u_f[mid_ind:]
+
+        true_diff = np.atleast_2d(np.array([1, 0, 0])).T
+        u_left = u_left.reshape((3, -1), order='F')
+        u_right = u_right.reshape((3, -1), order='F')
+        assert np.all(np.abs(u_left - u_right - true_diff) < 1e-10)
+
+        # should have a positive displacement for all cells
+        assert np.all(u_c > 0)
