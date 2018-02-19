@@ -12,7 +12,6 @@ import scipy.sparse as sps
 import scipy.spatial as spat
 
 from porepy.grids import structured, simplex
-from porepy.grids.grid import FaceTag
 from porepy.params import bc
 
 from porepy.viz.plot_grid import plot_grid, save_img
@@ -34,8 +33,7 @@ def add_data_transport(gb):
 
     gb.add_node_props(['bc', 'bc_val', 'discharge', 'apertures'])
     for g, d in gb:
-        b_faces = g.get_boundary_faces()
-        print(g.face_centers.shape)
+        b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         index = np.nonzero(
             abs(g.face_centers[:, b_faces]) == np.ones([3, b_faces.size]))[1]
         b_faces = b_faces[index]
@@ -75,15 +73,6 @@ if __name__ == '__main__':
 
     gb = meshing.simplex_grid(f_set, domain, gmsh_path=path_to_gmsh)
     gb.assign_node_ordering()
-
-    # Need to remove the boundary flag explicity from the fracture face,
-    # because of the mix formulation
-    #[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, FaceTag.FRACTURE | FaceTag.TIP)
-    # for g, _ in gb]
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY,  FaceTag.TIP)
-     for g, _ in gb]
-    # g.has_face_tag(FaceTag.BOUNDARY, FaceTag.FRACTURE | FaceTag.TIP) = g.has_face_tag(FaceTag.DOMAIN_BOUNDARY)
-    # plot_grid(gb, info="all", alpha=0)
 
     ################## Transport solver ##################
 

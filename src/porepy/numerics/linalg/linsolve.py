@@ -11,11 +11,13 @@ import numpy as np
 import scipy.sparse.linalg as spl
 import logging
 
+logger = logging.getLogger(__name__)
+
 try:
     import pyamg
 except ImportError:
-    " Could not import the pyamg package. pyamg solver will not be available."
-logger = logging.getLogger(__name__)
+    logger.info(" Could not import the pyamg package. pyamg solver will not be available.")
+
 
 
 class IterCounter(object):
@@ -188,10 +190,15 @@ class Factory():
                 or a solver.
 
         """
+        
+
         if null_space is None:
             null_space = np.ones(A.shape[0])
-
-        ml = pyamg.smoothed_aggregation_solver(A, B=null_space)
+        try:
+            ml = pyamg.smoothed_aggregation_solver(A, B=null_space)
+        except NameError:
+            raise ImportError('Using amg needs requires the pyamg package. pyamg was not imported')
+        
 
         def solve(b, res=None, **kwargs):
             if res is None:

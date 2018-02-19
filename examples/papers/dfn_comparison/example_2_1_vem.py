@@ -1,179 +1,64 @@
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.viz import exporter
-from porepy.fracs import importer
+from porepy.viz.exporter import Exporter
 
-from porepy.params import tensor
-from porepy.params.bc import BoundaryCondition
-from porepy.params.data import Parameters
+from porepy.numerics.vem import vem_dual, vem_source
 
-from porepy.grids.grid import FaceTag
-from porepy.grids import coarsening as co
-
-from porepy.numerics.vem import dual
-
-from porepy.utils import comp_geom as cg
-from porepy.utils import sort_points
+import example_2_1_create_grid
+import example_2_1_data
 
 #------------------------------------------------------------------------------#
 
-def add_data(gb, tol):
-    """
-    Define the permeability, apertures, boundary conditions
-    """
-    gb.add_node_props(['param'])
 
-    for g, d in gb:
-        param = Parameters(g)
+def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000, if_export=False):
 
-        if g.dim == 2:
-            # Permeability
-            kxx = np.ones(g.num_cells)
-            param.set_tensor("flow", tensor.SecondOrder(g.dim, kxx))
-
-            # Source term
-            param.set_source("flow", np.zeros(g.num_cells))
-
-            # Boundaries
-            bound_faces = g.get_domain_boundary_faces()
-            if bound_faces.size != 0:
-                bound_face_centers = g.face_centers[:, bound_faces]
-
-                bottom = bound_face_centers[0, :] < tol
-
-                labels = np.array(['neu'] * bound_faces.size)
-                labels[bottom] = 'dir'
-
-                bc_val = np.zeros(g.num_faces)
-                mask = bound_face_centers[2, :] < 0.3 + tol
-                bc_val[bound_faces[np.logical_and(bottom, mask)]] = 1
-
-                param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
-                param.set_bc_val("flow", bc_val)
-            else:
-                param.set_bc("flow", BoundaryCondition(
-                    g, np.empty(0), np.empty(0)))
-
-        d['param'] = param
-
-#------------------------------------------------------------------------------#
-
-def plot_over_line(gb, pts, name, tol):
-
-    values = np.zeros(pts.shape[1])
-    is_found = np.zeros(pts.shape[1], dtype=np.bool)
-
-    for g, d in gb:
-        if g.dim < gb.dim_max():
-            continue
-
-        if not cg.is_planar(np.hstack((g.nodes, pts)), tol=1e-4):
-            continue
-
-        faces_cells, _, _ = sps.find(g.cell_faces)
-        nodes_faces, _, _ = sps.find(g.face_nodes)
-
-        normal = cg.compute_normal(g.nodes)
-        for c in np.arange(g.num_cells):
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-            pts_id_c = np.array([nodes_faces[g.face_nodes.indptr[f]:\
-                                                g.face_nodes.indptr[f+1]]
-                                                   for f in faces_cells[loc]]).T
-            pts_id_c = sort_points.sort_point_pairs(pts_id_c)[0, :]
-            pts_c = g.nodes[:, pts_id_c]
-
-            mask = np.where(np.logical_not(is_found))[0]
-            if mask.size == 0:
-                break
-            check = np.zeros(mask.size, dtype=np.bool)
-            last = False
-            for i, pt in enumerate(pts[:, mask].T):
-                check[i] = cg.is_point_in_cell(pts_c, pt)
-                if last and not check[i]:
-                    break
-            is_found[mask] = check
-            values[mask[check]] = d[name][c]
-
-    return values
-
-#------------------------------------------------------------------------------#
-
-def compute_flow_rate(gb, tol):
-
-    total_flow_rate = 0
-    for g, d in gb:
-        bound_faces = g.get_domain_boundary_faces()
-        if bound_faces.size != 0:
-            bound_face_centers = g.face_centers[:, bound_faces]
-            mask = np.logical_and(bound_face_centers[2, :] > 0.3 + tol,
-                                  bound_face_centers[0, :] < tol)
-            flow_rate = d['discharge'][bound_faces[mask]]
-            total_flow_rate += np.sum(flow_rate)
-
-    diam = gb.diameter(lambda g: g.dim==gb.dim_max())
-    return diam, total_flow_rate
-
-#------------------------------------------------------------------------------#
-
-def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000):
-
-    folder = '/home/elle/Dropbox/Work/tipetut/test2/simple_geometry/'
-    file_name = folder + 'DFN_' + str(id_problem) + '.fab'
-    file_intersections = folder + 'TRACES_' + str(id_problem) + '.dat'
-
-    folder_export = 'example_2_1_vem_coarse/' + str(id_problem) + "/"
+    folder_export = 'example_2_1_vem/' + str(id_problem) + "/"
     file_export = 'vem'
 
-    mesh_kwargs = {}
-    mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                'value': 0.05, #0.09
-                                'bound_value': 1}
-
-    network_file = folder_export+"network.vtu"
-    gb = importer.read_dfn(file_name, file_intersections, tol=tol,
-                           vtk_name=network_file, **mesh_kwargs)
-    gb.remove_nodes(lambda g: g.dim == 0)
-    gb.compute_geometry()
-    if is_coarse:
-        co.coarsen(gb, 'by_volume')
-    gb.assign_node_ordering()
-
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+    gb = example_2_1_create_grid.create(
+        id_problem, is_coarse=is_coarse, tol=tol)
 
     # Assign parameters
-    add_data(gb, tol)
+    example_2_1_data.add_data(gb, tol)
 
     # Choose and define the solvers and coupler
-    solver = dual.DualVEMDFN(gb.dim_max(), 'flow')
-    up = sps.linalg.spsolve(*solver.matrix_rhs(gb))
-    solver.split(gb, "up", up)
+    solver_flow = vem_dual.DualVEMDFN(gb.dim_max(), 'flow')
+    A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    gb.add_node_props(["discharge", "p", "P0u"])
-    solver.extract_u(gb, "up", "discharge")
-    solver.extract_p(gb, "up", "p")
-    solver.project_u(gb, "discharge", "P0u")
+    solver_source = vem_source.IntegralDFN(gb.dim_max(), 'flow')
+    A_source, b_source = solver_source.matrix_rhs(gb)
 
-    exporter.export_vtk(gb, file_export, ["p", "P0u"], folder=folder_export)
+    up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
+    solver_flow.split(gb, "up", up)
+
+    gb.add_node_props(["discharge", 'pressure', "P0u"])
+    solver_flow.extract_u(gb, "up", "discharge")
+    solver_flow.extract_p(gb, "up", 'pressure')
+    solver_flow.project_u(gb, "discharge", "P0u")
+
+    if if_export:
+        save = Exporter(gb, file_export, folder_export)
+        save.write_vtk(['pressure', "P0u"])
 
     b_box = gb.bounding_box()
-    z_range = np.linspace(b_box[0][2]+tol, b_box[1][2]-tol, N_pts)
-    pts = np.stack((0.5*np.ones(N_pts), 0.5*np.ones(N_pts), z_range))
-    values = plot_over_line(gb, pts, 'p', tol)
+    z_range = np.linspace(b_box[0][2] + tol, b_box[1][2] - tol, N_pts)
+    pts = np.stack((0.5 * np.ones(N_pts), 0.5 * np.ones(N_pts), z_range))
+    values = example_2_1_data.plot_over_line(gb, pts, 'pressure', tol)
 
     arc_length = z_range - b_box[0][2]
-    np.savetxt(folder_export+"plot_over_line.txt", (arc_length, values))
+    np.savetxt(folder_export + "plot_over_line.txt", (arc_length, values))
 
     # compute the flow rate
-    diam, flow_rate = compute_flow_rate(gb, tol)
-    np.savetxt(folder_export+"flow_rate.txt", (diam, flow_rate))
+    diam, flow_rate = example_2_1_data.compute_flow_rate_vem(gb, tol)
+    np.savetxt(folder_export + "flow_rate.txt", (diam, flow_rate))
 
 #------------------------------------------------------------------------------#
 
-num_simu = 20
-is_coarse = True
+
+num_simu = 21
+is_coarse = False
 for i in np.arange(num_simu):
-    main(i+1, is_coarse)
+    main(i + 1, is_coarse, if_export=True)
 
 #------------------------------------------------------------------------------#

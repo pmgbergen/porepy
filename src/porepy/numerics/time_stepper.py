@@ -1,9 +1,9 @@
 import numpy as np
 import logging
+import time
 
 from porepy.grids.grid_bucket import GridBucket
 from porepy.numerics.linalg.linsolve import Factory as LSFactory
-
 
 logger = logging.getLogger(__name__)
 
@@ -52,26 +52,38 @@ class AbstractSolver(object):
         self.lhs = []
         self.rhs = []
 
-        self.parameters = {'store_results': False, 'verbose': False}
-
-    def solve(self):
+    def solve(self, save_as=None, save_every=1):
         """
         Solve problem.
         """
         nt = np.ceil(self.T / self.dt).astype(np.int)
-        logger.info('Time stepping using ' + str(nt) + ' steps')
+        logger.warning('Time stepping using ' + str(nt) + ' steps')
         t = self.dt
-        counter = 1
-        while t < self.T + 1e-14:
-            logger.info('Step ' + str(counter) + ' out of ' + str(nt))
+        counter = 0
+        if not save_as is None:
+            self.problem.split(save_as)
+            self.problem.exporter.write_vtk([save_as], time_step=counter)
+            times = [0.0]
+
+        while t < self.T *(1 + 1e-14):
+            logger.warning('Step ' + str(counter) + ' out of ' + str(nt))
             counter += 1
             self.update(t)
             self.reassemble()
             self.step()
             logger.debug('Maximum value ' + str(self.p.max()) +\
                          ', minimum value ' + str(self.p.min()))
+            if not save_as is None and np.mod(counter, save_every)==0:
+                logger.info('Saving solution')
+                self.problem.split(save_as)
+                self.problem.exporter.write_vtk([save_as], time_step=counter)
+                times.append(t)
+                logger.info('Finished saving')
             t += self.dt
-        self.update(t)
+
+        if not save_as is None:
+            self.problem.exporter.write_pvd(np.asarray(times))
+
         return self.data
 
     def step(self):
@@ -88,10 +100,6 @@ class AbstractSolver(object):
         """
         self.problem.update(t)
         self.p0 = self.p
-        # Store result
-        if self.parameters['store_results'] == True:
-            self.data[self.problem.physics].append(self.p)
-            self.data['times'].append(t - self.dt)
 
     def reassemble(self):
         """
@@ -183,18 +191,34 @@ class Explicit(AbstractSolver):
     def __init__(self, problem):
         AbstractSolver.__init__(self, problem)
 
-    def solve(self):
+    def solve(self, save_as=None, save_every=1):
         """
         Solve problem.
         """
         t = 0.0
+        counter = 0
+        # Save initial condition
+        if not save_as is None:
+            self.problem.split(save_as)
+            self.problem.exporter.write_vtk([save_as], time_step=counter)
+            times = [0.0]
+
         while t < self.T - self.dt + 1e-14:
-            if self.parameters['verbose']:
-                print('solving time step: ', t)
             self.update(t)
             self.reassemble()
             self.step()
+            # Save time step
+            if not save_as is None and np.mod(counter, save_every)==0:
+                logger.info('Saving solution')
+                self.problem.split(save_as)
+                self.problem.exporter.write_vtk([save_as], time_step=counter)
+                times.append(t)
+                logger.info('Finished saving')
             t += self.dt
+
+        # Write pvd
+        if not save_as is None:
+            self.problem.exporter.write_pvd(np.asarray(times))
 
         return self.data
 

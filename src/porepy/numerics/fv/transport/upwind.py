@@ -8,6 +8,7 @@ from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 #------------------------------------------------------------------------------#
 
+
 class UpwindMixedDim(SolverMixedDim):
 
     def __init__(self, physics='transport'):
@@ -30,6 +31,7 @@ class UpwindMixedDim(SolverMixedDim):
         return Coupler(self.discr, solver_fct=bind).matrix_rhs(gb)[0]
 
 #------------------------------------------------------------------------------#
+
 
 class Upwind(Solver):
     """
@@ -63,7 +65,7 @@ class Upwind(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data):
+    def matrix_rhs(self, g, data, d_name='discharge'):
         """
         Return the matrix and righ-hand side for a discretization of a scalar
         linear transport problem using the upwind scheme.
@@ -85,6 +87,7 @@ class Upwind(Solver):
         ----------
         g : grid, or a subclass, with geometry fields computed.
         data: dictionary to store the data.
+        d_name: (string) keyword for data field in data containing the dischages
 
         Return
         ------
@@ -114,7 +117,7 @@ class Upwind(Solver):
             return sps.csr_matrix([0]), [0]
 
         param = data['param']
-        discharge = param.get_discharge()
+        discharge = data[d_name]
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
 
@@ -129,12 +132,15 @@ class Upwind(Solver):
         # We need to impose no-flow for the inflow faces without boundary
         # condition
         mask = np.unique(indices, return_index=True)[1]
-        bc_neu = g.get_boundary_faces()
+        bc_neu = g.get_all_boundary_faces()
 
         if has_bc:
             # If boundary conditions are imposed remove the faces from this
             # procedure.
-            bc_dir = np.where(bc.is_dir)[0]
+            # For primal-like discretizations, internal boundaries
+            # are handled by assigning Neumann conditions.
+            is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
+            bc_dir = np.where(is_dir)[0]
             bc_neu = np.setdiff1d(bc_neu, bc_dir, assume_unique=True)
             bc_dir = mask[bc_dir]
 
@@ -179,7 +185,7 @@ class Upwind(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def cfl(self, g, data):
+    def cfl(self, g, data, d_name='discharge'):
         """
         Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
@@ -193,6 +199,7 @@ class Upwind(Solver):
         ----------
         g : grid, or a subclass, with geometry fields computed.
         data: dictionary to store the data.
+        d_name: (string) keyword for dischagre file in data dictionary
 
         Return
         ------
@@ -203,7 +210,7 @@ class Upwind(Solver):
             return np.inf
         # Retrieve the data, only "discharge" is mandatory
         param = data['param']
-        discharge = param.get_discharge()
+        discharge = data[d_name]
         aperture = param.get_aperture()
         phi = param.get_porosity()
 
@@ -266,12 +273,12 @@ class Upwind(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def outflow(self, g, data):
+    def outflow(self, g, data, d_name='discharge'):
         if g.dim == 0:
             return sps.csr_matrix([0])
 
         param = data['param']
-        discharge = param.get_discharge()
+        discharge = data[d_name]
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
 
@@ -286,7 +293,7 @@ class Upwind(Solver):
         # We need to impose no-flow for the inflow faces without boundary
         # condition
         mask = np.unique(indices, return_index=True)[1]
-        bc_neu = g.get_domain_boundary_faces()
+        bc_neu = g.tags['domain_boundary_faces'].nonzero()[0]
 
         if has_bc:
             # If boundary conditions are imposed remove the faces from this
@@ -310,8 +317,9 @@ class Upwind(Solver):
         if_faces.data = np.sign(if_faces.data)
 
         outflow_faces = if_faces.indices[if_faces.data > 0]
+        domain_boundary_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         outflow_faces = np.intersect1d(outflow_faces,
-                                       g.get_domain_boundary_faces(),
+                                       domain_boundary_faces,
                                        assume_unique=True)
 
         # va tutto bene se ho neumann omogeneo
@@ -328,16 +336,17 @@ class Upwind(Solver):
 
 #------------------------------------------------------------------------------#
 
+
 class UpwindCoupling(AbstractCoupling):
 
-#------------------------------------------------------------------------------#
+    #------------------------------------------------------------------------------#
 
     def __init__(self, discr):
         self.discr_ndof = discr.ndof
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
+    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge, d_name='discharge'):
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
         Note: the right-hand side is not implemented now.
@@ -359,7 +368,7 @@ class UpwindCoupling(AbstractCoupling):
         """
 
         # Normal component of the velocity from the higher dimensional grid
-        discharge = data_edge['param'].get_discharge()
+        discharge = data_edge[d_name]
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
@@ -392,17 +401,19 @@ class UpwindCoupling(AbstractCoupling):
             cells_h = cell_faces_h.nonzero()[1]
 
             diag_cc11 = np.zeros(g_l.num_cells)
-            np.add.at(diag_cc11, cells_l, np.sign(discharge.clip(max=0)) * discharge)
+            np.add.at(diag_cc11, cells_l, np.sign(
+                discharge.clip(max=0)) * discharge)
 
             diag_cc00 = np.zeros(g_h.num_cells)
-            np.add.at(diag_cc00, cells_h, np.sign(discharge.clip(min=0)) * discharge)
+            np.add.at(diag_cc00, cells_h, np.sign(
+                discharge.clip(min=0)) * discharge)
         # Compute the outflow from the higher to the lower dimensional grid
         cc[1, 0] = sps.coo_matrix((-discharge.clip(min=0), (cells_l, cells_h)),
-                                      shape=(dof[1], dof[0]))
+                                  shape=(dof[1], dof[0]))
 
         # Compute the inflow from the higher to the lower dimensional grid
         cc[0, 1] = sps.coo_matrix((discharge.clip(max=0), (cells_h, cells_l)),
-                                      shape=(dof[0], dof[1]))
+                                  shape=(dof[0], dof[1]))
 
         cc[1, 1] = sps.dia_matrix((diag_cc11, 0), shape=(dof[1], dof[1]))
 
@@ -411,12 +422,12 @@ class UpwindCoupling(AbstractCoupling):
         if data_h['node_number'] == data_l['node_number']:
             # All contributions to be returned to the same block of the
             # global matrix in this case
-            cc = np.array([np.sum(cc, axis=(0,1))])
+            cc = np.array([np.sum(cc, axis=(0, 1))])
         return cc
 
 #------------------------------------------------------------------------------#
 
-    def cfl(self, g_h, g_l, data_h, data_l, data_edge):
+    def cfl(self, g_h, g_l, data_h, data_l, data_edge, d_name='discharge'):
         """
         Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
@@ -441,20 +452,21 @@ class UpwindCoupling(AbstractCoupling):
 
         """
         # Retrieve the discharge, which is mandatory
-        discharge = data_edge['param'].get_discharge()
+        discharge = data_edge[d_name]
         aperture_h = data_h['param'].get_aperture()
         aperture_l = data_l['param'].get_aperture()
         phi_l = data_l['param'].get_porosity()
-        if g_h.dim==g_l.dim:
+        if g_h.dim == g_l.dim:
             # More or less same as below, except we have cell_cells in the place
             # of face_cells (see grid_bucket.duplicate_without_dimension).
             phi_h = data_h['param'].get_porosity()
             cells_l, cells_h = data_edge['face_cells'].nonzero()
-            not_zero = ~np.isclose(np.zeros(discharge.shape), discharge, atol = 0)
+            not_zero = ~np.isclose(
+                np.zeros(discharge.shape), discharge, atol=0)
             if not np.any(not_zero):
                 return np.Inf
 
-            diff = g_h.cell_centers[:,cells_h]-g_l.cell_centers[:,cells_l]
+            diff = g_h.cell_centers[:, cells_h] - g_l.cell_centers[:, cells_l]
             dist = np.linalg.norm(diff, 2, axis=0)
 
             # Use minimum of cell values for convenience
@@ -462,14 +474,15 @@ class UpwindCoupling(AbstractCoupling):
             phi_h = phi_h[cells_h]
             apt_h = aperture_h[cells_h]
             apt_l = aperture_l[cells_l]
-            coeff = np.minimum(phi_h,phi_l)*np.minimum(apt_h,apt_l)
+            coeff = np.minimum(phi_h, phi_l) * np.minimum(apt_h, apt_l)
             return np.amin(np.abs(np.divide(dist, discharge)) * coeff)
 
         # Recover the information for the grid-grid mapping
         cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
 
         # Detect and remove the faces which have zero in "discharge"
-        not_zero = ~np.isclose(np.zeros(faces_h.size), discharge[faces_h], atol=0)
+        not_zero = ~np.isclose(np.zeros(faces_h.size),
+                               discharge[faces_h], atol=0)
         if not np.any(not_zero):
             return np.inf
 
@@ -487,7 +500,7 @@ class UpwindCoupling(AbstractCoupling):
         dist = 0.5 * np.divide(aperture_l, aperture_h)
         # Since discharge is multiplied by the aperture, we get rid of it!!!!
         discharge = np.divide(discharge[faces_h],
-                              g_h.face_areas[faces_h]*aperture_h)
+                              g_h.face_areas[faces_h] * aperture_h)
         # deltaT is deltaX/discharge with coefficient
         return np.amin(np.abs(np.divide(dist, discharge)) * phi_l)
 

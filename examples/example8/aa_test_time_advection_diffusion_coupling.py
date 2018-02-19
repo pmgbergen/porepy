@@ -10,7 +10,6 @@ from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.grids.grid import FaceTag
 from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import dual
@@ -20,6 +19,7 @@ from porepy.numerics.fv import tpfa, mass_matrix
 from porepy.utils.errors import error
 
 #------------------------------------------------------------------------------#
+
 
 def add_data_darcy(gb, domain, tol, a):
     gb.add_node_props(['param'])
@@ -37,7 +37,7 @@ def add_data_darcy(gb, domain, tol, a):
         aperture = np.power(a, gb.dim_max() - g.dim)
         param.set_aperture(np.ones(g.num_cells) * aperture)
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -70,6 +70,7 @@ def add_data_darcy(gb, domain, tol, a):
 
 #------------------------------------------------------------------------------#
 
+
 def add_data_advection_diffusion(gb, domain, tol, a):
 
     for g, d in gb:
@@ -85,7 +86,7 @@ def add_data_advection_diffusion(gb, domain, tol, a):
         source = np.zeros(g.num_cells)
         param.set_source("transport", source)
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -118,6 +119,7 @@ def add_data_advection_diffusion(gb, domain, tol, a):
 
 #------------------------------------------------------------------------------#
 
+
 folder = os.path.dirname(os.path.realpath(__file__)) + "/"
 export_folder = folder + 'heat'
 tol = 1e-3
@@ -133,13 +135,6 @@ gb.compute_geometry()
 #co.coarsen(gb, 'by_volume')
 gb.assign_node_ordering()
 
-gb.add_node_props(['face_tags'])
-for g, d in gb:
-    d['face_tags'] = g.face_tags.copy()
-
-internal_flag = FaceTag.FRACTURE
-[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
 # Choose and define the solvers and coupler
 darcy = dual.DualVEMMixDim("flow")
 
@@ -151,17 +146,17 @@ A, b = darcy.matrix_rhs(gb)
 up = sps.linalg.spsolve(A, b)
 darcy.split(gb, "up", up)
 
-gb.add_node_props(["p", "P0u", "u"])
+gb.add_node_props(['pressure', "P0u", "u"])
 for g, d in gb:
     d['u'] = darcy.discr.extract_u(g, d["up"])
     d['param'].set_discharge(d['u'])
-    d["p"] = darcy.discr.extract_p(g, d["up"])
+    d['pressure'] = darcy.discr.extract_p(g, d["up"])
     d["P0u"] = darcy.discr.project_u(g, d['u'], d)
 
 # compute the flow rate
 total_flow_rate = 0
 for g, d in gb:
-    bound_faces = g.get_boundary_faces()
+    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
     if bound_faces.size != 0:
         bound_face_centers = g.face_centers[:, bound_faces]
         left = bound_face_centers[0, :] < domain['xmin'] + tol
@@ -169,18 +164,15 @@ for g, d in gb:
         total_flow_rate += np.sum(flow_rate)
 
 print("total flow rate", total_flow_rate)
-exporter.export_vtk(gb, 'darcy', ["p", "P0u"], folder=export_folder)
+exporter.export_vtk(gb, 'darcy', ['pressure', "P0u"], folder=export_folder)
 
 #################################################################
 
-for g, d in gb:
-    g.face_tags = d['face_tags']
-
 physics = 'transport'
-advection = upwind.UpwindMixDim(physics)
-diffusion = tpfa.TpfaMixDim(physics)
-mass = mass_matrix.MassMatrixMixDim(physics)
-invMass = mass_matrix.InvMassMatrixMixDim(physics)
+advection = upwind.UpwindMixedDim(physics)
+diffusion = tpfa.TpfaMixedDim(physics)
+mass = mass_matrix.MassMatrixMixedDim(physics)
+invMass = mass_matrix.InvMassMatrixMixedDim(physics)
 
 # Assign parameters
 add_data_advection_diffusion(gb, domain, tol, a)
@@ -194,7 +186,7 @@ D, rhs_d = diffusion.matrix_rhs(gb)
 M, _ = mass.matrix_rhs(gb)
 OF = advection.outflow(gb)
 
-rhs = rhs_u # + rhs_d
+rhs = rhs_u  # + rhs_d
 
 # Perform an LU factorization to speedup the solver
 IE_solver = sps.linalg.factorized((M + U).tocsc())
@@ -214,10 +206,10 @@ production = np.zeros(Nt)
 for i in np.arange(Nt):
     print("Time step", i, " of ", Nt)
     # Update the solution
-    production[i] = np.sum(OF.dot(theta))/total_flow_rate
+    production[i] = np.sum(OF.dot(theta)) / total_flow_rate
     theta = IE_solver(M.dot(theta) + rhs)
 
-    if i%export_every == 0:
+    if i % export_every == 0:
         print("Export solution at", i)
         diffusion.split(gb, "theta", theta)
         exporter.export_vtk(gb, file_name, ["theta"], time_step=i_export,
@@ -225,11 +217,13 @@ for i in np.arange(Nt):
         step_to_export = np.r_[step_to_export, i]
         i_export += 1
 
-    exporter.export_vtk(gb, "theta", ["theta"], time_step=i, folder=export_folder)
+    exporter.export_vtk(gb, "theta", ["theta"],
+                        time_step=i, folder=export_folder)
 
 #print(production, np.cumsum(production))
-exporter.export_pvd(gb, file_name, step_to_export*deltaT, folder=export_folder)
+exporter.export_pvd(gb, file_name, step_to_export *
+                    deltaT, folder=export_folder)
 
 print(production)
 # Consistency check
-#assert np.isclose(np.sum(error.norm_L2(g, d['p']) for g, d in gb), 19.8455019189)
+#assert np.isclose(np.sum(error.norm_L2(g, d['pressure']) for g, d in gb), 19.8455019189)

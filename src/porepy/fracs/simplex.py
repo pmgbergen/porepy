@@ -383,7 +383,7 @@ def triangle_grid(fracs, domain, **kwargs):
     # TODO: This operation may leave points that are not referenced by any
     # lines. We should probably delete these.
 
-    # We find the end points that is shared by more than one intersection
+    # We find the end points that are shared by more than one intersection
     intersections = __find_intersection_points(lines_split)
 
     # Gridding size
@@ -535,7 +535,7 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     # Merge the point arrays, compartment points first
     p = np.hstack((dom_p, frac_p))
 
-    # Adjust index of fracture points to account for the compart points
+    # Adjust index of fracture points to account for the compartment points
     frac_l[:2] += dom_p.shape[1]
 
     l = np.hstack((dom_l, frac_l)).astype('int')
