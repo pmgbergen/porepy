@@ -124,7 +124,7 @@ class BoundaryConditionVectorial(object):
         self.bc_type = 'vectorial'
 
         # Find boundary faces
-        bf = g.get_boundary_faces()
+        bf = g.get_all_boundary_faces()
 
         self.is_neu = np.zeros((g.dim, self.num_faces), dtype=bool)
         self.is_dir = np.zeros((g.dim, self.num_faces), dtype=bool)
@@ -136,8 +136,10 @@ class BoundaryConditionVectorial(object):
             assert cond is not None
             if not np.all(np.in1d(faces, bf)):
                 raise ValueError('Give boundary condition only on the boundary')
+            if isinstance(cond, str):
+                cond = [cond] * faces.size
             if faces.size != len(cond):
-                raise ValueError('One BC per face')
+                raise ValueError(str(g.dim) + ' BC per face')
 
             for j in np.arange(faces.size):
                 s = cond[j]
