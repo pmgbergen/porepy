@@ -194,16 +194,12 @@ class FracturedMpsa(Mpsa):
 
         frac_faces = np.matlib.repmat(g.tags['fracture_faces'], 3, 1)
         if data['param'].get_bc(self).bc_type == 'scalar':
-            assert np.all(bc_val[frac_faces.ravel('F')] == 0), \
-                '''Fracture should have zero boundary condition. Set slip by
-                Parameters.set_slip_distance'''
+            frac_faces = frac_faces.ravel('F')
+
         elif data['param'].get_bc(self).bc_type == 'vectorial':
-            assert np.all(bc_val[:, frac_faces.ravel('F')] == 0), \
-                '''Fracture should have zero boundary condition. Set slip by
-                Parameters.set_slip_distance'''
+            bc_val = bc_val.ravel('F')
         else:
-            raise ValueError('Unknow boundary condition type: ' +
-                             data['param'].get_bc(self).bc_type)
+            raise ValueError('Unknown boundary type')
 
         slip_distance = data['param'].get_slip_distance()
 
@@ -233,9 +229,13 @@ class FracturedMpsa(Mpsa):
         cell_disp = self.extract_u(g, sol)
 
         frac_faces = (g.frac_pairs).ravel('C')
+
+
+        if data['param'].get_bc(self).bc_type == 'vectorial':
+            bc_val = bc_val.ravel('F')
+
         frac_ind = mcolon.mcolon(
             g.dim * frac_faces, g.dim * frac_faces + g.dim)
-
         bc_val[frac_ind] = frac_disp
 
         T = data['stress'] * cell_disp + data['bound_stress'] * bc_val
