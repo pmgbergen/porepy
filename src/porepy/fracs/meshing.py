@@ -16,12 +16,13 @@ from porepy.fracs.fractures import Intersection
 from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
-
 from porepy.grids.structured import TensorGrid
 from porepy.utils import mcolon
 from porepy.utils import comp_geom as cg
 
+
 logger = logging.getLogger()
+
 
 def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0, **kwargs):
     """
@@ -72,7 +73,10 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
 
     """
     if domain is None:
-        ndim = fracs[0].shape[0]
+        if fracs is not None:
+            ndim = fracs[0].shape[0]
+        else:
+            ndim = network[0].p.shape[0]
 
     elif 'zmax' in domain:
         ndim = 3
@@ -140,6 +144,7 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
 
 #------------------------------------------------------------------------------#
 
+
 def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
         **kwargs):
     """ Create a mesh of a DFN model, that is, only of fractures.
@@ -196,7 +201,6 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
         grid_list = []
         neigh_list = []
 
-
         for fi in range(len(network._fractures)):
             logger.info('Meshing of fracture ' + str(fi))
             # Rotate fracture vertexes and intersection points
@@ -246,7 +250,6 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
 
         logger.warn('Finished creating grids. Elapsed time ' +
                     str(time.time() - tic))
-
         logger.warn('Merge grids')
         tic = time.time()
         grids = non_conforming.merge_grids(grid_list, neigh_list)
