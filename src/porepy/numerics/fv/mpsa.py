@@ -303,13 +303,17 @@ class FracturedMpsa(Mpsa):
 
         bound = data['param'].get_bc(self)
         is_dir = bound.is_dir
-        if not np.all(is_dir[frac_faces]):
-            is_dir[frac_faces] = True
 
-        bound = bc.BoundaryCondition(g, is_dir, 'dir')
-
-        assert np.all(bound.is_dir[frac_faces]), \
-            'fractures must be set as dirichlet boundary faces'
+        if bound.bc_type == 'scalar':
+            if not np.all(is_dir[frac_faces]):
+                is_dir[frac_faces] = True
+                bound = bc.BoundaryCondition(g, is_dir, 'dir')
+        elif bound.bc_type == 'vectorial':
+            if not np.all(is_dir[:, frac_faces]):
+                is_dir[:, frac_faces] = True
+                bound = bc.BoundaryConditionVectorial(g, is_dir, 'dir')
+        else:
+            raise ValueError('Unknow boundary condition type: ' + bound.bc_type)
 
         # Discretize with normal mpsa
         self.discretize(g, data, **kwargs)
