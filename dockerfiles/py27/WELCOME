@@ -1,0 +1,4 @@
+# porepy project base image
+
+You are seeing this message because the Dockerfile you
+are using did not add its own WELCOME message to the container.

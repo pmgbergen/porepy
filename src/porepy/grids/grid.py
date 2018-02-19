@@ -13,32 +13,11 @@ Acknowledgements:
 from __future__ import division
 import numpy as np
 import itertools
-from enum import Enum
 from scipy import sparse as sps
 
-from porepy.utils import matrix_compression, mcolon
+from porepy.utils import matrix_compression, mcolon, tags
 
 from porepy.utils import comp_geom as cg
-
-class FaceTag(np.uint8, Enum):
-    """
-    FaceTag contains the following types:
-        NONE: None of the below (i.e. an internal face)
-        DOMAIN: Any boundary face. Should be equivalent with
-            g.get_boundary_faces()
-        FRACTURE: All faces that are split (i.e. has a connection to a
-            lower dim grid).
-        TIP: A boundary face that is not on the domain boundary, nor
-            coupled to a lower domentional domain.
-        DOMAIN_BOUNDARY: All faces that lie on the domain boundary
-            (i.e. should be given a boundary condition).
-    """
-    NONE = 0
-    BOUNDARY = 1
-    FRACTURE = 2
-    TIP = 4
-    DOMAIN_BOUNDARY = 8
-    WHOLE = np.iinfo(type(NONE)).max
 
 
 class Grid(object):
@@ -126,7 +105,8 @@ class Grid(object):
         self.num_cells = cell_faces.shape[1]
 
         # Add tag for the boundary faces
-        self.face_tags = np.tile(FaceTag.NONE, self.num_faces)
+        self.tags = {}
+        self.initiate_face_tags()
         self.update_boundary_face_tag()
 
     def copy(self):
@@ -149,8 +129,8 @@ class Grid(object):
             h.face_normals = self.face_normals.copy()
         if hasattr(self, 'face_areas'):
             h.face_areas = self.face_areas.copy()
-        if hasattr(self, 'face_tags'):
-            h.face_tags = self.face_tags.copy()
+        if hasattr(self, 'tags'):
+            h.tags = self.tags.copy()
         return h
 
     def __repr__(self):
@@ -270,7 +250,7 @@ class Grid(object):
         "Compute 2D geometry, with method motivated by similar MRST function"
 
         if is_embedded:
-            R = cg.project_plane_matrix(self.nodes)
+            R = cg.project_plane_matrix(self.nodes, check_planar=False)
             self.nodes = np.dot(R, self.nodes)
 
         fn = self.face_nodes.indices
@@ -372,13 +352,14 @@ class Grid(object):
                                        face_node_ind))).tocsc()
 
         # Define temporary face center as the mean of the face nodes
-        tmp_face_center = self.nodes[:, face_nodes] * edge_2_face / num_nodes_per_face
+        tmp_face_center = self.nodes[:, face_nodes] * \
+            edge_2_face / num_nodes_per_face
         # Associate this value with all the edge of this face
         tmp_face_center = edge_2_face * tmp_face_center.transpose()
 
         # Vector along each edge
         along_edge = self.nodes[:, face_nodes[next_node]] - \
-                     self.nodes[:, face_nodes]
+            self.nodes[:, face_nodes]
         # Vector from face center to start node of each edge
         face_2_node = tmp_face_center.transpose() - self.nodes[:, face_nodes]
 
@@ -403,7 +384,7 @@ class Grid(object):
         # Centers of sub-faces are given by the centroid coordinates,
         # e.g. the mean coordinate of the edge endpoints and the temporary
         # face center
-        sub_centroids = (self.nodes[:, face_nodes] + \
+        sub_centroids = (self.nodes[:, face_nodes] +
                          self.nodes[:, face_nodes[next_node]]
                          + tmp_face_center.transpose()) / 3
 
@@ -418,7 +399,7 @@ class Grid(object):
         # sub-normals, and sum over the components (axis=0).
         # NOTE: There should be a built-in function for this in numpy?
         sub_normals_sign = np.sign(np.sum(sub_normals * (edge_2_face *
-                                          face_normals.transpose()).transpose(),
+                                                         face_normals.transpose()).transpose(),
                                           axis=0))
 
         # Finally, face centers are the area weighted means of centroids of
@@ -561,8 +542,18 @@ class Grid(object):
             np.ndarray (1D), index of internal nodes.
 
         """
-        return np.setdiff1d(np.arange(self.num_nodes), self.get_boundary_nodes(),
-                            assume_unique=True)
+        internal_nodes = np.setdiff1d(np.arange(self.num_nodes),
+                                      self.get_boundary_nodes(),
+                                      assume_unique=True)
+        return internal_nodes
+
+    def get_all_boundary_faces(self):
+        """
+        Get indices of all faces tagged as either fractures, domain boundary or
+        tip.
+        """
+        all_tags = tags.all_face_tags(self.tags)
+        return self.__indices(all_tags)
 
     def get_internal_faces(self):
         """
@@ -572,27 +563,7 @@ class Grid(object):
             np.ndarray (1d), index of internal faces.
 
         """
-        return self.__indices(self.has_not_face_tag(FaceTag.BOUNDARY))
-
-    def get_boundary_faces(self):
-        """
-        Get boundary faces id of the grid
-
-        Returns:
-            np.ndarray (1d), index of boundary faces
-
-        """
-        return self.__indices(self.has_face_tag(FaceTag.BOUNDARY))
-
-    def get_domain_boundary_faces(self):
-        """
-        Get domain boundary faces id of the grid
-
-        Returns:
-            np.ndarray (1d), index of boundary faces
-
-        """
-        return self.__indices(self.has_face_tag(FaceTag.DOMAIN_BOUNDARY))
+        return self.__indices(np.logical_not(self.get_all_boundary_faces()))
 
     def get_boundary_nodes(self):
         """
@@ -602,7 +573,7 @@ class Grid(object):
             np.ndarray (1d), index of nodes on the boundary
 
         """
-        b_faces = self.get_boundary_faces()
+        b_faces = self.get_all_boundary_faces()
         first = self.face_nodes.indptr[b_faces]
         second = self.face_nodes.indptr[b_faces + 1]
         return np.unique(self.face_nodes.indices[mcolon.mcolon(first, second)])
@@ -613,7 +584,7 @@ class Grid(object):
         """
         bd_faces = np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel('F')
                                == 1).ravel('F')
-        self.add_face_tag(bd_faces, FaceTag.BOUNDARY | FaceTag.DOMAIN_BOUNDARY)
+        self.tags['domain_boundary_faces'][bd_faces] = True
 
     def cell_diameters(self, cn=None):
         """
@@ -710,7 +681,7 @@ class Grid(object):
         Returns:
             np.ndarray of ints: For each point, index of the cell with center
                 closest to the point.
-    """
+        """
         dim_p = p.shape[0]
         if p.shape[0] < 3:
             z = np.zeros((3 - p.shape[0], p.shape[1]))
@@ -726,31 +697,11 @@ class Grid(object):
             ci[i] = min_dist(p[:, i].reshape((3, -1)))
         return ci
 
-    def add_face_tag(self, f, tag):
-        self.face_tags[f] = np.bitwise_or(self.face_tags[f], tag)
-
-    def remove_face_tag(self, f, tag):
-        self.face_tags[f] = np.bitwise_and(
-            self.face_tags[f], np.bitwise_not(tag))
-
-    def remove_face_tag_if_tag(self, tag, if_tag):
-        f = self.has_face_tag(if_tag)
-        self.face_tags[f] = np.bitwise_and(
-            self.face_tags[f], np.bitwise_not(tag))
-
-    def remove_face_tag_if_not_tag(self, tag, if_tag):
-        f = self.has_not_face_tag(if_tag)
-        self.face_tags[f] = np.bitwise_and(
-            self.face_tags[f], np.bitwise_not(tag))
-
-    def has_face_tag(self, tag):
-        return np.bitwise_and(self.face_tags, tag).astype(np.bool)
-
-    def has_not_face_tag(self, tag):
-        return np.bitwise_not(self.has_face_tag(tag))
-
-    def has_only_face_tag(self, tag):
-        return self.face_tags == tag
+    def initiate_face_tags(self):
+        keys = tags.standard_face_tags()
+        values = [np.zeros(self.num_faces, dtype=bool)
+                  for _ in range(len(keys))]
+        tags.add_tags(self, dict(zip(keys, values)))
 
     def __indices(self, true_false):
         """ Shorthand for np.argwhere.

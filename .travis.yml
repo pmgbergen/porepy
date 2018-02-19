@@ -1,3 +1,5 @@
+sudo: true
+
 language: python
 
 cache: pip
@@ -6,6 +8,15 @@ python:
   - "2.7"
   - "3.5"
   - "3.6"
+
+matrix:
+  include:
+    - os: linux
+    - python: '3.5'
+    - python: '3.6'
+    
+  allow_failures:
+    - python: '2.7'
 
 before install:
   - chmod +x ./test/regression/run_cron_test.sh
