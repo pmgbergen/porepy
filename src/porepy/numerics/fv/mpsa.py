@@ -193,9 +193,17 @@ class FracturedMpsa(Mpsa):
         bc_val = data['param'].get_bc_val(self)
 
         frac_faces = np.matlib.repmat(g.tags['fracture_faces'], 3, 1)
-        assert np.all(bc_val[frac_faces.ravel('F')] == 0), \
-            '''Fracture should have zero boundary condition. Set slip by
-               Parameters.set_slip_distance'''
+        if data['param'].get_bc(self).bc_type == 'scalar':
+            assert np.all(bc_val[frac_faces.ravel('F')] == 0), \
+                '''Fracture should have zero boundary condition. Set slip by
+                Parameters.set_slip_distance'''
+        elif data['param'].get_bc(self).bc_type == 'vectorial':
+            assert np.all(bc_val[:, frac_faces.ravel('F')] == 0), \
+                '''Fracture should have zero boundary condition. Set slip by
+                Parameters.set_slip_distance'''
+        else:
+            raise ValueError('Unknow boundary condition type: ' +
+                             data['param'].get_bc(self).bc_type)
 
         slip_distance = data['param'].get_slip_distance()
 
