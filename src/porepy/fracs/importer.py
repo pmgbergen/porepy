@@ -6,7 +6,7 @@ import csv
 
 from porepy.grids import grid, grid_bucket
 from porepy.fracs import meshing, split_grid
-from porepy.fracs.fractures import Fracture, FractureNetwork
+from porepy.fracs.fractures import Fracture, FractureNetwork, EllipticFracture
 from porepy.utils.setmembership import unique_columns_tol
 from porepy.utils.sort_points import sort_point_pairs
 import porepy.utils.comp_geom as cg
@@ -14,7 +14,7 @@ import porepy.utils.comp_geom as cg
 #------------------------------------------------------------------------------#
 
 
-def dfm_3d_from_csv(file_name, tol=1e-4, **mesh_kwargs):
+def dfm_3d_from_csv(file_name, tol=1e-4, elliptic_fractures=False, **mesh_kwargs):
     """
     Create the grid bucket from a set of 3d fractures stored in a csv file and
     domain. In the csv file, we assume the following structure
@@ -31,7 +31,10 @@ def dfm_3d_from_csv(file_name, tol=1e-4, **mesh_kwargs):
     Return:
         gb: the grid bucket
     """
-    frac_list, network, domain = network_3d_from_csv(file_name)
+    if elliptic_fractures:
+        frac_list, network, domain = elliptic_network_3d_from_csv(file_name)
+    else:
+        frac_list, network, domain = network_3d_from_csv(file_name)
 
     gb = meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
     return gb, domain
@@ -101,7 +104,84 @@ def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
 #------------------------------------------------------------------------------#
 
 
-def dfm_2d_from_csv(f_name, mesh_kwargs, domain=None, return_domain=False,
+def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=False):
+
+    """
+    Create the fracture network from a set of 3d fractures stored in a csv file and
+    domain. In the csv file, we assume the following structure
+    - first line (optional) describes the domain as a rectangle with
+      X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
+    - the other lines descibe the N fractures as a elliptic fractures:
+      center_x, center_y, center_z, major_axis, minor_axis, major_axis_angle,
+                 strike_angle, dip_angle, num_points.
+     See EllipticFracture for information about the parameters
+
+    Lines that start with a # are ignored.
+
+    Parameters:
+        file_name: name of the file
+        has_domain: if the first line in the csv file specify the domain
+        tol: (optional) tolerance for the methods
+
+    Return:
+        frac_list: the list of fractures
+        network: the fracture network
+        domain: (optional, returned if has_domain==True) the domain
+    """
+
+    # The first line of the csv file defines the bounding box for the domain
+
+    frac_list = []
+    # Extract the data from the csv file
+    with open(file_name, 'r') as csv_file:
+        spam_reader = csv.reader(csv_file, delimiter=',')
+
+        # Read the domain first
+        if has_domain:
+            domain = np.asarray(next(spam_reader), dtype=np.float)
+            assert domain.size == 6
+            domain = {'xmin': domain[0], 'xmax': domain[3], 'ymin': domain[1],
+                      'ymax': domain[4], 'zmin': domain[2], 'zmax': domain[5]}
+
+        for row in spam_reader:
+            # If the line starts with a '#', we consider this a comment
+            if row[0][0] == '#':
+                continue
+
+            # Read the data
+            data = np.asarray(row, dtype=np.float)
+            assert data.size % 9 == 0
+
+            # Skip empty lines. Useful if the file ends with a blank line.
+            if data.size == 0:
+                continue
+            centers = data[0:3]
+            maj_ax = data[3] 
+            min_ax = data[4]
+            maj_ax_ang = data[5] * ( 1 - degrees + degrees * np.pi / 180)
+            strike_ang = data[6] * ( 1 - degrees + degrees * np.pi / 180)
+            dip_ang = data[7] * ( 1 - degrees + degrees * np.pi / 180)
+            num_points = data[8]
+
+            frac_list.append(EllipticFracture(centers,
+                                              maj_ax,
+                                              min_ax,
+                                              maj_ax_ang,
+                                              strike_ang,
+                                              dip_ang,
+                                              num_points))
+    # Create the network
+    network = FractureNetwork(frac_list, tol=tol)
+
+    if has_domain:
+        return frac_list, network, domain
+    else:
+        return frac_list, network
+
+
+#------------------------------------------------------------------------------#
+
+def dfm_2d_from_csv(f_name, mesh_kwargs, domain=None, return_domain=False, \
                     tol=1e-8, **kwargs):
     """
     Create the grid bucket from a set of fractures stored in a csv file and a
