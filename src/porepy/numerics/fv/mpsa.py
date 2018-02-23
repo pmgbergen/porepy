@@ -193,9 +193,13 @@ class FracturedMpsa(Mpsa):
         bc_val = data['param'].get_bc_val(self)
 
         frac_faces = np.matlib.repmat(g.tags['fracture_faces'], 3, 1)
-        assert np.all(bc_val[frac_faces.ravel('F')] == 0), \
-            '''Fracture should have zero boundary condition. Set slip by
-               Parameters.set_slip_distance'''
+        if data['param'].get_bc(self).bc_type == 'scalar':
+            frac_faces = frac_faces.ravel('F')
+
+        elif data['param'].get_bc(self).bc_type == 'vectorial':
+            bc_val = bc_val.ravel('F')
+        else:
+            raise ValueError('Unknown boundary type')
 
         slip_distance = data['param'].get_slip_distance()
 
@@ -225,9 +229,13 @@ class FracturedMpsa(Mpsa):
         cell_disp = self.extract_u(g, sol)
 
         frac_faces = (g.frac_pairs).ravel('C')
+
+
+        if data['param'].get_bc(self).bc_type == 'vectorial':
+            bc_val = bc_val.ravel('F')
+
         frac_ind = mcolon.mcolon(
             g.dim * frac_faces, g.dim * frac_faces + g.dim)
-
         bc_val[frac_ind] = frac_disp
 
         T = data['stress'] * cell_disp + data['bound_stress'] * bc_val
@@ -303,13 +311,17 @@ class FracturedMpsa(Mpsa):
 
         bound = data['param'].get_bc(self)
         is_dir = bound.is_dir
-        if not np.all(is_dir[frac_faces]):
-            is_dir[frac_faces] = True
 
-        bound = bc.BoundaryCondition(g, is_dir, 'dir')
-
-        assert np.all(bound.is_dir[frac_faces]), \
-            'fractures must be set as dirichlet boundary faces'
+        if bound.bc_type == 'scalar':
+            if not np.all(is_dir[frac_faces]):
+                is_dir[frac_faces] = True
+                bound = bc.BoundaryCondition(g, is_dir, 'dir')
+        elif bound.bc_type == 'vectorial':
+            if not np.all(is_dir[:, frac_faces]):
+                is_dir[:, frac_faces] = True
+                bound = bc.BoundaryConditionVectorial(g, is_dir, 'dir')
+        else:
+            raise ValueError('Unknow boundary condition type: ' + bound.bc_type)
 
         # Discretize with normal mpsa
         self.discretize(g, data, **kwargs)
@@ -758,6 +770,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
     bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
     # Most of the work is done by submethod for elasticity (which is common for
     # elasticity and poro-elasticity).
+    
     hook, igrad, rhs_cells, _, _ = mpsa_elasticity(g, constit,
                                                    subcell_topology,
                                                    bound_exclusion, eta,
@@ -772,10 +785,14 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
                               subcell_topology.subfno_unique, nd)
 
     # Stress discretization
-    stress = hf2f * hook_igrad * rhs_cells
+    stress = hf2f * hook_igrad * rhs_cells    
 
     # Right hand side for boundary discretization
-    rhs_bound = create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
+    if bound_exclusion.bc_type == 'scalar':
+        rhs_bound = create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
+    elif bound_exclusion.bc_type == 'vectorial':
+        rhs_bound = create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g)
+
     # Discretization of boundary values
     bound_stress = hf2f * hook_igrad * rhs_bound
     stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
@@ -844,11 +861,13 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
     # Pair the forces from each side
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym)
     ncsym = bound_exclusion.exclude_dirichlet_nd(ncsym)
+    
     num_subfno = subcell_topology.subfno.max() + 1
     hook_cell = sps.coo_matrix((np.zeros(1), (np.zeros(1), np.zeros(1))),
                                shape=(num_subfno * nd,
                                       (np.max(subcell_topology.cno) + 1) *
                                       nd)).tocsr()
+
     hook_cell = bound_exclusion.exclude_dirichlet_nd(hook_cell)
 
     # Book keeping
@@ -859,6 +878,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
                                                               eta,
                                                               num_sub_cells,
                                                               bound_exclusion)
+
 
     grad_eqs = sps.vstack([ncsym, d_cont_grad])
     del ncsym, d_cont_grad
@@ -1183,10 +1203,17 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     # Stack node numbers of equations on top of each other, and sort them to
     # get block-structure. First eliminate node numbers at the boundary, where
     # the equations are either of flux or pressure continuity (not both)
+
     nno_stress = bound_exclusion.exclude_dirichlet(nno)
     nno_displacement = bound_exclusion.exclude_neumann(nno)
-    node_occ = np.hstack((np.tile(nno_stress, nd),
-                          np.tile(nno_displacement, nd)))
+
+    if bound_exclusion.bc_type == 'scalar':
+        node_occ = np.hstack((np.tile(nno_stress, nd),
+                              np.tile(nno_displacement, nd)))
+
+    elif bound_exclusion.bc_type == 'vectorial':
+        node_occ = np.hstack((nno_stress, nno_displacement))
+        
     sorted_ind = np.argsort(node_occ, kind='mergesort')
     rows2blk_diag = sps.coo_matrix((np.ones(sorted_ind.size),
                                     (np.arange(sorted_ind.size),
@@ -1205,11 +1232,10 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
                                      np.arange(sub_cell_index.size)))).tocsr()
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
-
 def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     """
-    Define rhs matrix to get basis functions for incorporates boundary
-    conditions
+    Define rhs matrix to get basis functions for boundary
+    conditions assigned face-wise
 
     Parameters
     ----------
@@ -1264,6 +1290,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
         .ravel('F')
 
     neu_ind_all = np.tile(neu_ind_single_all, nd)
+
     # Some care is needed to compute coefficients in Neumann matrix: sgn is
     # already defined according to the subcell topology [fno], while areas
     # must be drawn from the grid structure, and thus go through fno
@@ -1282,6 +1309,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
         neu_cell = sps.coo_matrix((neu_val.ravel('F'),
                                    (neu_ind, np.arange(neu_ind.size))),
                                   shape=(num_stress, num_bound)).tocsr()
+
     else:
         # Special handling when no elements are found. Not sure if this is
         # necessary, or if it is me being stupid
@@ -1291,10 +1319,13 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     is_dir = bound_exclusion.exclude_neumann(bound.is_dir[fno].astype(
         'int64'))
     dir_ind_single = np.argwhere(is_dir).ravel('F')
+  
     dir_ind = expand_ind(dir_ind_single, nd, is_dir.size)
+    
     # The coefficients in the matrix should be duplicated the same way as
     # the row indices, but with no increment
     dir_val = expand_ind(sgn[dir_ind_single_all], nd, 0)
+
     # Column numbering starts right after the last Neumann column. dir_val
     # is ordered [u_x_1, u_y_1, u_x_2, u_y_2, ...], and dir_ind shuffles this
     # ordering. The final matrix will first have the x-coponent of the displacement
@@ -1315,6 +1346,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     is_bnd = np.hstack((neu_ind_single_all, dir_ind_single_all))
     bnd_ind = fvutils.expand_indices_nd(is_bnd, nd)
+
     bnd_2_all_hf = sps.coo_matrix((np.ones(num_bound),
                                    (np.arange(num_bound), bnd_ind)),
                                   shape=(num_bound, num_subfno * nd))
@@ -1329,6 +1361,229 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     return rhs_bound
 
+def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
+    """
+    Define rhs matrix to get basis functions for boundary
+    conditions assigned component-wise.
+
+    For parameters and return, refer to the above create_bound_rhs
+    
+    """
+    nd = g.dim
+
+    num_stress = bound_exclusion.exclude_dir_x.shape[0] + bound_exclusion.exclude_dir_y.shape[0]
+    num_displ = bound_exclusion.exclude_neu_x.shape[0] + bound_exclusion.exclude_neu_y.shape[0]
+    if nd == 3:
+        num_stress += bound_exclusion.exclude_dir_z.shape[0]
+        num_displ += bound_exclusion.exclude_neu_z.shape[0]
+
+    fno = subcell_topology.fno_unique
+    subfno = subcell_topology.subfno_unique
+    sgn = g.cell_faces[subcell_topology.fno_unique,
+                       subcell_topology.cno_unique].A.ravel('F')
+
+    num_neu = sum(bound.is_neu[0, fno]) + sum(bound.is_neu[1, fno])
+    num_dir = sum(bound.is_dir[0, fno]) + sum(bound.is_dir[1, fno])
+    if nd == 3:
+        num_neu += sum(bound.is_neu[2, fno])
+        num_dir += sum(bound.is_dir[2, fno])
+    
+    num_bound = num_neu + num_dir
+    
+    # Define right hand side for Neumann boundary conditions
+    # First row indices in rhs matrix
+    is_neu_x = bound_exclusion.exclude_dirichlet_x(bound.is_neu[0, fno].astype(
+        'int64'))
+    neu_ind_single_x = np.argwhere(is_neu_x).ravel('F')
+
+    is_neu_y = bound_exclusion.exclude_dirichlet_y(bound.is_neu[1, fno].astype(
+        'int64'))
+    neu_ind_single_y = np.argwhere(is_neu_y).ravel('F')    
+    neu_ind_single_y += is_neu_x.size
+
+    # We also need to account for all half faces, that is, do not exclude
+    # Dirichlet and Neumann boundaries.
+    neu_ind_single_all_x = np.argwhere(bound.is_neu[0, fno].astype('int'))\
+        .ravel('F')
+    neu_ind_single_all_y = np.argwhere(bound.is_neu[1, fno].astype('int'))\
+        .ravel('F')
+
+    neu_ind_all = np.append(neu_ind_single_all_x, [neu_ind_single_all_y])
+
+    # expand the indices
+    # this procedure replaces the method 'expand_ind' in the above
+    # method 'create_bound_rhs'
+
+    # 1 - stack and sort indices
+
+    is_bnd_neu_x = nd * neu_ind_single_all_x
+    is_bnd_neu_y = nd * neu_ind_single_all_y + 1
+
+    is_bnd_neu = np.sort(np.append(is_bnd_neu_x, [is_bnd_neu_y]))
+
+    if nd == 3:
+        is_neu_z = bound_exclusion.exclude_dirichlet_z(bound.is_neu[2, fno].astype(
+        'int64'))
+        neu_ind_single_z = np.argwhere(is_neu_z).ravel('F')
+        neu_ind_single_z += (is_neu_x.size + is_neu_y.size)
+
+        neu_ind_single_all_z = np.argwhere(bound.is_neu[2, fno].astype('int'))\
+        .ravel('F')
+
+        neu_ind_all = np.append(neu_ind_all, [neu_ind_single_all_z])
+
+        is_bnd_neu_z = nd * neu_ind_single_all_z + 2
+        is_bnd_neu = np.sort(np.append(is_bnd_neu, [is_bnd_neu_z]))
+
+    # 2 - find the indices corresponding to the boundary components
+    # having Neumann condtion
+
+    ind_is_bnd_neu_x = np.argwhere(np.isin(is_bnd_neu, is_bnd_neu_x)).ravel('F')
+    ind_is_bnd_neu_y = np.argwhere(np.isin(is_bnd_neu, is_bnd_neu_y)).ravel('F')
+
+    neu_ind_sz = ind_is_bnd_neu_x.size + ind_is_bnd_neu_y.size
+
+    if nd == 3:
+        ind_is_bnd_neu_z = np.argwhere(np.isin(is_bnd_neu, is_bnd_neu_z)).ravel('F')
+        neu_ind_sz += ind_is_bnd_neu_z.size
+
+    # 3 - create the expanded neu_ind array
+
+    neu_ind = np.zeros(neu_ind_sz, dtype='int')
+
+    neu_ind[ind_is_bnd_neu_x] = neu_ind_single_x
+    neu_ind[ind_is_bnd_neu_y] = neu_ind_single_y
+    if nd == 3:
+        neu_ind[ind_is_bnd_neu_z] = neu_ind_single_z
+
+    # Dirichlet, same procedure
+    is_dir_x = bound_exclusion.exclude_neumann_x(bound.is_dir[0, fno].astype(
+        'int64'))
+    dir_ind_single_x = np.argwhere(is_dir_x).ravel('F')
+
+    is_dir_y = bound_exclusion.exclude_neumann_y(bound.is_dir[1, fno].astype(
+        'int64'))
+    dir_ind_single_y = np.argwhere(is_dir_y).ravel('F')
+    dir_ind_single_y += is_dir_x.size
+    
+    dir_ind_single_all_x = np.argwhere(bound.is_dir[0, fno].astype('int'))\
+        .ravel('F')
+    dir_ind_single_all_y = np.argwhere(bound.is_dir[1, fno].astype('int'))\
+        .ravel('F')
+
+    #expand indices
+
+    is_bnd_dir_x = nd * dir_ind_single_all_x
+    is_bnd_dir_y = nd * dir_ind_single_all_y + 1
+
+    is_bnd_dir = np.sort(np.append(is_bnd_dir_x, [is_bnd_dir_y]))
+
+    if nd == 3:
+        is_dir_z = bound_exclusion.exclude_neumann_z(bound.is_dir[2, fno].astype(
+        'int64'))
+        dir_ind_single_z = np.argwhere(is_dir_z).ravel('F')
+        dir_ind_single_z += (is_dir_x.size + is_dir_y.size)
+
+        dir_ind_single_all_z = np.argwhere(bound.is_dir[2, fno].astype('int'))\
+        .ravel('F')
+
+        is_bnd_dir_z = nd * dir_ind_single_all_z + 2
+        is_bnd_dir = np.sort(np.append(is_bnd_dir, [is_bnd_dir_z]))
+
+    ind_is_bnd_dir_x = np.argwhere(np.isin(is_bnd_dir, is_bnd_dir_x)).ravel('F')
+    ind_is_bnd_dir_y = np.argwhere(np.isin(is_bnd_dir, is_bnd_dir_y)).ravel('F')
+
+    dir_ind_sz = ind_is_bnd_dir_x.size + ind_is_bnd_dir_y.size
+
+    if nd == 3:
+        ind_is_bnd_dir_z = np.argwhere(np.isin(is_bnd_dir, is_bnd_dir_z)).ravel('F')
+        dir_ind_sz += ind_is_bnd_dir_z.size
+
+    dir_ind = np.zeros(dir_ind_sz, dtype='int')
+
+    dir_ind[ind_is_bnd_dir_x] = dir_ind_single_x
+    dir_ind[ind_is_bnd_dir_y] = dir_ind_single_y
+
+    if nd == 3:
+        dir_ind[ind_is_bnd_dir_z] = dir_ind_single_z
+
+    # stack together
+    bnd_ind = np.hstack((is_bnd_neu, is_bnd_dir))
+    
+    # Some care is needed to compute coefficients in Neumann matrix: sgn is
+    # already defined according to the subcell topology [fno], while areas
+    # must be drawn from the grid structure, and thus go through fno
+
+    fno_ext = np.tile(fno, nd)
+    num_face_nodes = g.face_nodes.sum(axis=0).A.ravel('F')
+
+    # Coefficients in the matrix. For the Neumann boundary components we set the
+    # value as seen from the outside of the domain. Note that they do not
+    # have to do
+    # so, and we will flip the sign later. This means that a stress [1,1] on a
+    # boundary face pushes(or pulls) the face to the top right corner.
+    neu_val = 1 / num_face_nodes[fno_ext[neu_ind_all]]
+
+    # The columns will be 0:neu_ind.size
+    if neu_ind.size > 0:
+        neu_cell = sps.coo_matrix((neu_val.ravel('F'),
+                                   (neu_ind, np.arange(neu_ind.size))),
+                                  shape=(num_stress, num_bound)).tocsr()
+    else:
+        # Special handling when no elements are found. Not sure if this is
+        # necessary, or if it is me being stupid
+        neu_cell = sps.coo_matrix((num_stress, num_bound)).tocsr()
+
+    # For Dirichlet, the coefficients in the matrix should be duplicated the same way as
+    # the row indices, but with no increment
+
+    dir_val_x = sgn[dir_ind_single_all_x]
+    dir_val_y = sgn[dir_ind_single_all_y]
+
+    dir_val = np.zeros(dir_ind_sz)
+
+    dir_val[ind_is_bnd_dir_x] = dir_val_x
+    dir_val[ind_is_bnd_dir_y] = dir_val_y
+
+    if nd == 3:
+        dir_val_z = sgn[dir_ind_single_all_z]
+        dir_val[ind_is_bnd_dir_z] = dir_val_z
+
+    # Column numbering starts right after the last Neumann column. dir_val
+    # is ordered [u_x_1, u_y_1, u_x_2, u_y_2, ...], and dir_ind shuffles this
+    # ordering. The final matrix will first have the x-coponent of the displacement
+    # for each face, then the y-component, etc.
+    if dir_ind.size > 0:
+        dir_cell = sps.coo_matrix((dir_val, (dir_ind, num_neu +
+                                             np.arange(dir_ind.size))),
+                                  shape=(num_displ, num_bound)).tocsr()
+    else:
+        # Special handling when no elements are found. Not sure if this is
+        # necessary, or if it is me being stupid
+        dir_cell = sps.coo_matrix((num_displ, num_bound)).tocsr()
+
+    num_subfno = np.max(subfno) + 1
+
+    # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
+    # Map these to all half-face indices
+
+    bnd_2_all_hf = sps.coo_matrix((np.ones(num_bound),
+                                   (np.arange(num_bound), bnd_ind)),
+                                  shape=(num_bound, num_subfno * nd))
+
+    # The user of the discretization should now nothing about half faces,
+    # thus map from half face to face indices.
+
+    hf_2_f = fvutils.map_hf_2_f(fno, subfno, nd).transpose()
+
+    # the rows of rhs_bound will be ordered with first the x-component of all
+    # neumann faces, then the y-component of all neumann faces, then the
+    # z-component of all neumann faces. Then we will have the equivalent for
+    # the dirichlet faces.
+
+    rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
+
+    return rhs_bound
 
 def __unique_hooks_law(csym, casym, subcell_topology, nd):
     """
@@ -1455,22 +1710,37 @@ def _zero_neu_rows(g, stress, bound_stress, bnd):
     """
     We zero out all none-diagonal elements for the neumann boundary faces.
     """
-    neu_face_x = g.dim * np.ravel(np.argwhere(bnd.is_neu))
-    if g.dim == 1:
-        neu_face_ind = neu_face_x
-    elif g.dim == 2:
-        neu_face_y = neu_face_x + 1
-        neu_face_ind = np.ravel((neu_face_x, neu_face_y), 'F')
-    elif g.dim == 3:
-        neu_face_y = neu_face_x + 1
-        neu_face_z = neu_face_x + 2
-        neu_face_ind = np.ravel((neu_face_x, neu_face_y, neu_face_z), 'F')
-    else:
-        raise ValueError('Only support for dimension 1, 2, or 3')
-    num_neu = neu_face_ind.size
+    if bnd.bc_type == 'scalar':
+        neu_face_x = g.dim * np.ravel(np.argwhere(bnd.is_neu))
+        if g.dim == 1:
+            neu_face_ind = neu_face_x
+        elif g.dim == 2:
+            neu_face_y = neu_face_x + 1
+            neu_face_ind = np.ravel((neu_face_x, neu_face_y), 'F')
+        elif g.dim == 3:
+            neu_face_y = neu_face_x + 1
+            neu_face_z = neu_face_x + 2
+            neu_face_ind = np.ravel((neu_face_x, neu_face_y, neu_face_z), 'F')
+        else:
+            raise ValueError('Only support for dimension 1, 2, or 3')
+        num_neu = neu_face_ind.size
+
+    elif bnd.bc_type == 'vectorial':
+        neu_face_x = g.dim * np.ravel(np.argwhere(bnd.is_neu[0,:]))
+        neu_face_y = g.dim * np.ravel(np.argwhere(bnd.is_neu[1,:])) + 1
+        neu_face_ind = np.sort(np.append(neu_face_x, [neu_face_y]))
+        if g.dim == 2:
+            pass
+        elif g.dim == 3:
+            neu_face_z = g.dim * np.ravel(np.argwhere(bnd.is_neu[2,:])) + 2
+            neu_face_ind = np.sort(np.append(neu_face_ind, [neu_face_z]))
+        else:
+            raise ValueError('Only support for dimension 1, 2, or 3')
+        num_neu = neu_face_ind.size
 
     if not num_neu:
         return stress, bound_stress
+
     # Frist we zero out the boundary stress. We keep the sign of the diagonal
     # element, however we discard its value (e.g. set it to +-1). The sign
     # should be negative if the nomral vector points outwards and positive if
