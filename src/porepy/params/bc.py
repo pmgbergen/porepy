@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
-""" Module for representation and handling of boundary conditions.
-
 """
-import warnings
+Created on Mon Feb 29 14:30:22 2016
+
+@author: eke001
+"""
 import numpy as np
+import warnings
 
 
 class BoundaryCondition(object):
+
     """ Class to store information on boundary conditions.
 
     The BCs are specified by face number, and can have type Dirichlet or
@@ -51,16 +54,18 @@ class BoundaryCondition(object):
         self.num_faces = g.num_faces
         self.dim = g.dim - 1
 
-        # Find indices of boundary faces
+        self.bc_type = 'scalar'
+
+        # Find boundary faces
         bf = g.get_all_boundary_faces()
 
-        # Keep track of internal boundaries.
+        # Keep track of internal boundaries
         self.is_internal = g.tags['fracture_faces']
 
         self.is_neu = np.zeros(self.num_faces, dtype=bool)
         self.is_dir = np.zeros(self.num_faces, dtype=bool)
 
-        # By default, all boundary faces are Neumann.
+        # By default, all faces are Neumann.
         self.is_neu[bf] = True
 
         if faces is not None:
@@ -91,6 +96,81 @@ class BoundaryCondition(object):
                 elif s.lower() == 'dir':
                     self.is_dir[faces[l]] = True
                     self.is_neu[faces[l]] = False
+                else:
+                    raise ValueError('Boundary should be Dirichlet or Neumann')
+
+class BoundaryConditionVectorial(object):
+
+    """ Class to store information on boundary conditions.
+
+        The BCs are specified by face number and assigned to the single
+        component, and can have type Dirichlet or
+        Neumann (Robin may be included later).
+        NOTE: Currently works for boundary faces aligned with the coordinate
+        system.
+
+        For description of attributes, parameters and constructors,
+        refer to the above class BoundaryCondition.
+
+        NOTE: g.dim > 1 for the procedure to make sense
+
+    """
+
+    def __init__(self, g, faces=None, cond=None):
+
+        self.num_faces = g.num_faces
+        self.dim = g.dim
+
+        self.bc_type = 'vectorial'
+
+        # Find boundary faces
+        bf = g.get_all_boundary_faces()
+
+        self.is_neu = np.zeros((g.dim, self.num_faces), dtype=bool)
+        self.is_dir = np.zeros((g.dim, self.num_faces), dtype=bool)
+
+        self.is_neu[:, bf] = True
+
+        if faces is not None:
+            # Validate arguments
+            assert cond is not None
+            if not np.all(np.in1d(faces, bf)):
+                raise ValueError('Give boundary condition only on the boundary')
+            if isinstance(cond, str):
+                cond = [cond] * faces.size
+            if faces.size != len(cond):
+                raise ValueError(str(g.dim) + ' BC per face')
+
+            for j in np.arange(faces.size):
+                s = cond[j]
+                if s.lower() == 'neu':
+                    pass  # Neumann is already default
+                elif s.lower() == 'dir':
+                    self.is_dir[:, faces[j]] = True
+                    self.is_neu[:, faces[j]] = False
+                elif s.lower() == 'dir_x':
+                    self.is_dir[0, faces[j]] = True
+                    self.is_neu[0, faces[j]] = False
+                    self.is_dir[1, faces[j]] = False
+                    self.is_neu[1, faces[j]] = True
+                    if self.dim == 3:
+                        self.is_dir[2, faces[j]] = False
+                        self.is_neu[2, faces[j]]= True
+                elif s.lower() == 'dir_y':
+                    self.is_dir[0, faces[j]] = False
+                    self.is_dir[1, faces[j]] = True
+                    self.is_neu[0, faces[j]] = True
+                    self.is_neu[1, faces[j]] = False
+                    if self.dim == 3:
+                        self.is_dir[2, faces[j]] = False
+                        self.is_neu[2, faces[j]]= True
+                elif s.lower() == 'dir_z':
+                    self.is_dir[0, faces[j]] = False
+                    self.is_dir[1, faces[j]] = False
+                    self.is_dir[2, faces[j]] = True
+                    self.is_neu[0, faces[j]] = True
+                    self.is_neu[1, faces[j]] = True
+                    self.is_neu[2, faces[j]] = False
                 else:
                     raise ValueError('Boundary should be Dirichlet or Neumann')
 
