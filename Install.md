@@ -37,7 +37,7 @@ The location of the gmsh file is specific for each user's setup, and is therefor
 Instead, to get the path to the gmsh executable, PorePy assumes there is a file called `porepy_config.py` somewhere in `$PYTHONPATH`. 
 So, open a file called `porepy_config.py`, and place the line
 ```python
-config = {'gmsh_path': 'path/of/gmsh/executable'} # example config = {'gmsh_path': '/usr/bin/gmsh'}
+config = {'gmsh_path': 'path/to/gmsh/executable'} # example config = {'gmsh_path': '/usr/bin/gmsh'}
 ```
 Note that the path should be set as a string. To read more about the config system, see `porepy.utils.read_config.py`.
 
