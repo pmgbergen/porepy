@@ -181,6 +181,22 @@ class AdTest(unittest.TestCase):
         jac = -(2 + 3*np.log(4)) / 16384
         assert np.allclose(c.val,4**-8) and np.allclose(c.jac, jac)
 
+    def test_rpower_advar_scalar(self):
+        a = Ad_array(2, 3)
+        b = 2**a
+        assert b.val==4 and b.jac==12 * np.log(2)
+
+    def test_rpower_advar_vector_scalar(self):
+        J = sps.csc_matrix(np.array([[1, 2], [2, 3], [0, 1]]))
+        a = Ad_array(np.array([1, 2, 3]), J)
+        b = 3**a
+        bJac = np.array([[3 * np.log(3) * 1, 3 * np.log(3) * 2],
+                         [9 * np.log(3) * 2, 9 * np.log(3) * 3],
+                         [27 * np.log(3) * 0, 27 * np.log(3) * 1]])
+
+        assert np.all(b.val==[3, 9, 27])
+        assert np.all(b.jac.A==bJac)
+        
     def test_div_advar_scalar(self):
         a = Ad_array(10, 6)
         b = 2

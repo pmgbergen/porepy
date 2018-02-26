@@ -83,6 +83,15 @@ class Ad_array():
                 + other.diagvec_mul_jac(self.val **other.val * np.log(self.val))
         return Ad_array(val, jac)
 
+    def __rpow__(self, other):
+        if isinstance(other, Ad_array):
+            raise ValueError('Somthing went horrible wrong, should' \
+                             'have called __pow__')
+        
+        val = other ** self.val
+        jac = self.diagvec_mul_jac(other**self.val * np.log(other))
+        return Ad_array(val, jac)        
+
     def __truediv__(self, other):
         return self * other**-1
 
