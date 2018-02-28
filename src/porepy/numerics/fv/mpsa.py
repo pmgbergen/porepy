@@ -208,6 +208,53 @@ class FracturedMpsa(Mpsa):
 
         return A, rhs
 
+    def rhs(self, g, data):
+        """
+        Return the matrix and right-hand side for a discretization of a second
+        order elliptic equation using a FV method with a multi-point stress
+        approximation with dofs added on the fracture interfaces.
+
+        Parameters
+        ----------
+        g : grid, or a subclass, with geometry fields computed.
+        data: dictionary to store the data. For details on necessary keywords,
+            see method discretize()
+        discretize (boolean, optional): default True. Whether to discetize
+            prior to matrix assembly. If False, data should already contain
+            discretization.
+
+        Return
+        ------
+        matrix: sparse csr (g.dim * g_num_cells + 2 * {#of fracture faces},
+                            2 * {#of fracture faces})
+            Discretization matrix.
+        rhs: array (g.dim * g_num_cells  + g.dim * num_frac_faces)
+            Right-hand side which contains the boundary conditions and the scalar
+            source term.
+        """
+        stress = data['stress']
+        bound_stress = data['bound_stress']
+        b_e = data['b_e']
+
+        _, b_l = self.given_slip_distance(g, stress, bound_stress)
+
+        bc_val = data['param'].get_bc_val(self)
+
+        frac_faces = np.matlib.repmat(g.tags['fracture_faces'], 3, 1)
+        if data['param'].get_bc(self).bc_type == 'scalar':
+            frac_faces = frac_faces.ravel('F')
+
+        elif data['param'].get_bc(self).bc_type == 'vectorial':
+            bc_val = bc_val.ravel('F')
+        else:
+            raise ValueError('Unknown boundary type')
+
+        slip_distance = data['param'].get_slip_distance()
+
+        rhs = np.hstack((b_e * bc_val, b_l * slip_distance))
+
+        return rhs
+
     def traction(self, g, data, sol):
         """
         Extract the traction on the faces from fractured fv solution.
