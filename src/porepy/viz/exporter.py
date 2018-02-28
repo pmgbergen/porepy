@@ -15,7 +15,7 @@ except ImportError:
     warnings.warn('Numba not available. Export may be slow for large grids')
 
 from porepy.grids import grid_bucket
-from porepy.grids.mortar_grid import SideTag
+from porepy.grids import mortar_grid
 from porepy.utils import sort_points
 
 
@@ -213,7 +213,7 @@ class Exporter():
                 file_name = self._make_folder(self.folder, d['file_name'])
                 d['grid_dim'] = g.dim*ones
                 d['is_mortar'] = np.zeros(g.num_cells, dtype=np.bool)
-                d['mortar_side'] = int(SideTag.NONE)*ones
+                d['mortar_side'] = int(mortar_grid.NONE_SIDE)*ones
                 d['cell_id'] = np.arange(g.num_cells, dtype=np.int)
                 dic_data = self.gb.node_props_of_keys(g, data)
                 g_VTK = self.gb_VTK[d['node_number']]
