@@ -5,18 +5,14 @@ import numpy as np
 from enum import Enum
 from scipy import sparse as sps
 
-class SideTag(np.uint8, Enum):
-    """
-    SideTag contains the following types:
-        NONE: None of the below
-        LEFT: Left part of the domain
-        RIGHT: Right part of the domain
-        WHOLE: All the tags
-    """
-    NONE = 0
-    LEFT = 1
-    RIGHT = 2
-    WHOLE = np.iinfo(type(NONE)).max
+
+# Module level constants, used to define sides of a mortar grid.
+# This is in essence an Enum, but that led to trouble in pickling a GridBucket.
+NONE_SIDE = 0
+LEFT_SIDE = 1
+RIGHT_SIDE = 2
+WHOLE_SIDE = np.iinfo(type(NONE_SIDE)).max
+
 
 class MortarGrid(object):
     """

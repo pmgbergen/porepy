@@ -17,7 +17,7 @@ from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.grid import FaceTag
-from porepy.grids.mortar_grid import MortarGrid, SideTag
+from porepy.grids import mortar_grid
 from porepy.grids.structured import TensorGrid
 from porepy.utils import setmembership, mcolon
 from porepy.utils import comp_geom as cg
@@ -552,10 +552,11 @@ def create_mortar_grids(gb):
         # If all cells are found twice, create two mortar grids
         if np.all(num_sides > 1):
             # we are in a two sides situation
-            side_g = {SideTag.LEFT:  lg.copy(), SideTag.RIGHT: lg.copy()}
+            side_g = {mortar_grid.LEFT_SIDE:  lg.copy(),
+                      mortar_grid.RIGHT_SIDE: lg.copy()}
         else:
             # the tag name is just a place-holder we assume left side
-            side_g = {SideTag.LEFT:  lg.copy()}
-        d['mortar_grid'] = MortarGrid(lg.dim, side_g, d['face_cells'])
+            side_g = {mortar_grid.LEFT_SIDE:  lg.copy()}
+        d['mortar_grid'] = mortar_grid.MortarGrid(lg.dim, side_g, d['face_cells'])
 
 #------------------------------------------------------------------------------#
