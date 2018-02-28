@@ -1638,6 +1638,14 @@ class FractureNetwork(object):
             cmin = cmin[:, 0]
             cmax = cmax[:, 0]
             dx = OVERLAP * (cmax - cmin)
+
+            # If the fractures has no extension along one of the coordinate
+            # (a single fracture aligned with one axis), the domain should
+            # still have an extension.
+            hit = np.where(dx < self.tol)
+            if np.any(hit):
+                dx[hit] = 0.1 * np.max(dx)
+
             box = {'xmin': cmin[0] - dx[0], 'xmax': cmax[0] + dx[0],
                    'ymin': cmin[1] - dx[1], 'ymax': cmax[1] + dx[1],
                    'zmin': cmin[2] - dx[2], 'zmax': cmax[2] + dx[2]}
