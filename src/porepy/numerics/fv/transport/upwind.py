@@ -112,7 +112,7 @@ class Upwind(Solver):
 
         """
         if g.dim == 0:
-            return sps.csr_matrix([0]), [0]
+            return sps.csr_matrix([0]), np.array([0])
 
         param = data['param']
         discharge = data[d_name]
