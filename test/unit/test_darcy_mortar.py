@@ -1092,6 +1092,13 @@ class TestMortar3D(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
 
+    def run_vem(self, gb):
+        solver_flow = vem_dual.DualVEMMixedDim('flow')
+        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+
+        up = sps.linalg.spsolve(A_flow, b_flow)
+        solver_flow.split(gb, "up", up)
+        solver_flow.extract_p(gb, "up", "pressure")
 
     def test_mpfa_no_fracs(self):
         gb = self.setup(num_fracs=0)
@@ -1099,25 +1106,15 @@ class TestMortar3D(unittest.TestCase):
         self.verify_cv(gb)
 
     def test_mpfa_1_frac_no_refinement(self):
-        gb = self.setup(num_fracs=1)
+
 
         if False:
+            gb = self.setup(num_fracs=1)
             self.run_mpfa(gb)
         else:
         # Choose and define the solvers and coupler
-            gb = self.setup(num_fracs=1, remove_tags=True)
-
-            solver_flow = vem_dual.DualVEMMixedDim('flow')
-            A_flow, b_flow = solver_flow.matrix_rhs(gb)
-
-            solver_source = vem_source.IntegralMixedDim('flow')
-            A_source, b_source = solver_source.matrix_rhs(gb)
-
-            up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
-            solver_flow.split(gb, "up", up)
-
-            solver_flow.extract_p(gb, "up", "pressure")
-
+            gb = self.setup(num_fracs=3, remove_tags=True)
+            self.run_vem(gb)
 
         self.verify_cv(gb)
 
@@ -1141,11 +1138,15 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
                                      (fn.ravel('F'), cols)))
 
         cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel('F')
-        cell_faces = sps.csc_matrix((np.ones_like(cols),
+        data = np.array([1, 1, 1, 1, 1, -1, 1, 1, -1,
+                         1, 1, 1, 1, 1, -1, 1, 1, -1])
+        cell_faces = sps.csc_matrix((data,
                                      (cf.ravel('F'), cols)))
 
         g = Grid(2, nodes, face_nodes, cell_faces, 'TriangleGrid')
         g.compute_geometry()
+        #g.face_normals[1, [2, 3]] = -0.5
+        #g.face_normals[1, [7, 8]] = 0.5
         g.global_point_ind = np.arange(nodes.shape[1])
 
         return g
@@ -1189,16 +1190,11 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
             aperture = np.power(1e-3, gb.dim_max() - g.dim)
             param.set_aperture(aperture*np.ones(g.num_cells))
             if g.dim == 2:
-                yf = g.face_centers[1]
-                bound_faces = [np.where(np.abs(yf) < 1e-4)[0],
-                               np.where(np.abs(yf-1) < 1e-4)[0]]
-                bound_faces = np.hstack((bound_faces[0], bound_faces[1]))
                 bound_faces = np.array([0, 10])
                 labels = np.array(['dir'] * bound_faces.size)
                 param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
 
                 bv = np.zeros(g.num_faces)
-                bound_faces = np.where(np.abs(yf-1) < 1e-4)[0]
                 bound_faces = 10
                 bv[bound_faces] = 1
                 param.set_bc_val("flow", bv)
@@ -1238,8 +1234,12 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
 
 #TestGridRefinement1d().test_mortar_grid_darcy()
+
+#unittest.main()
+#gb = a.setup()
+#a = TestMortar3D()
+#a.test_mpfa_1_frac_no_refinement()
 a = TestMortar2DSimplexGrid()
-gb = a.setup()
 a.test_mpfa_one_frac()
 #a = TestMortar2DSimplexGrid()
 #a.grid_2d()

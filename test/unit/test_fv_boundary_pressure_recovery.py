@@ -9,13 +9,16 @@ Created on Thu Nov 23 13:22:41 2017
 import numpy as np
 import unittest
 import scipy.sparse.linalg as spl
+import scipy.sparse as sps
 
 from porepy.grids.structured import CartGrid
 from porepy.grids.simplex import StructuredTriangleGrid
-from porepy.params import bc
+from porepy.grids.grid import Grid
+from porepy.params import bc, tensor
 from porepy.params.data import Parameters
 from porepy.numerics.fv.tpfa import Tpfa
 from porepy.numerics.fv.mpfa import Mpfa
+from porepy.numerics.fv import fvutils
 
 
 class TestTpfaBoundaryPressure(unittest.TestCase):
@@ -486,5 +489,69 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         assert bound_p[0] == x[0] - 0.5
         assert bound_p[2] == x[1] + 0.5
 
-    if __name__ == '__main__':
-        unittest.main()
+class TestMPFASimplexGrid():
+
+    def grid_2d(self):
+        nodes = np.array([[0, 0, 0], [1, 0, 0], [1, 0.5, 0], [0.5, 0.5, 0],
+                          [0, 0.5, 0]]).T
+
+        fn = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 0], [0, 3], [3, 1]]).T
+        cf = np.array([[3, 4, 5], [0, 6, 5], [1, 2, 6]]).T
+        cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel('F')
+        face_nodes = sps.csc_matrix((np.ones_like(cols),
+                                     (fn.ravel('F'), cols)))
+
+        cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel('F')
+        cell_faces = sps.csc_matrix((np.array([1, 1, 1, 1, 1, -1, 1, 1, -1]),
+                                     (cf.ravel('F'), cols)))
+
+        g = Grid(2, nodes, face_nodes, cell_faces, 'TriangleGrid')
+        g.compute_geometry()
+        #g.face_normals[1, [2, 3]] = -0.5
+        #g.face_normals[1, [7, 8]] = 0.5
+        return g
+
+    def set_params(self, g):
+
+
+        param = Parameters(g)
+        d = {'param': param}
+        perm = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+        param.set_tensor("flow", perm)
+
+        bound_faces = np.array([0])
+        #bound_faces = g.get_boundary_faces()
+        labels = np.array(['dir'] * bound_faces.size)
+        param.set_bc("flow", bc.BoundaryCondition(g, bound_faces, labels))
+
+
+        d['param'] = param
+        return d
+
+
+    def test_mpfa(self):
+        g = self.grid_2d()
+        d = self.set_params(g)
+        bv = np.zeros(g.num_faces)
+        bv[0] = 0
+        bv[[2, 3]] = -0.5
+        #bv = np.sum(g.face_centers, axis=0)
+        d['param'].set_bc_val('flow', bv)
+        t = Mpfa('flow')
+        A, b = t.matrix_rhs(g, d)
+
+        x = sps.linalg.spsolve(A, b)
+        div = fvutils.scalar_divergence(g)
+        print(x - g.cell_centers[1])
+        print(x)
+        print(g.face_centers)
+
+
+
+
+
+#if __name__ == '__main__':
+    #unittest.main()
+
+a = TestMPFASimplexGrid()
+a.test_mpfa()
