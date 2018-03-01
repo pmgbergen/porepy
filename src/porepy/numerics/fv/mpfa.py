@@ -644,7 +644,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     sgn_arr[bound_faces] = g.cell_faces[bound_faces].sum(axis=1).A.ravel()
     sgn_mat = sps.diags(sgn_arr)
 
-    bound_pressure_face_neu = sgn_mat * half_face_per_face * hf2f * pr_cont_grad_all * igrad * rhs_bound
+    bound_pressure_face_neu = sgn_mat * half_face_per_face * hf2f * pr_cont_grad_all * igrad * rhs_bound * remove_not_neumann
     # For Dirichlet faces, simply recover the boundary condition
     bound_pressure_face_dir = sps.diags(bnd.is_dir.astype(np.int))
 
