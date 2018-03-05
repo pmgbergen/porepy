@@ -8,17 +8,18 @@ def initAdArrays(variables):
             num_val = variables.size
         except AttributeError:
             num_val = 1
-        return Ad_array(variables, [sps.diags(np.ones(num_val))])
+        return Ad_array(variables, sps.diags(np.ones(num_val)).tocsc())
 
     num_val = [v.size for v in variables]
     ad_arrays = []
     for i, val in enumerate(variables):
         # initiate zero jacobian
         n = num_val[i]
-        jac = np.array([sps.csc_matrix((n, m)) for m in num_val])
+        jac = [sps.csc_matrix((n, m)) for m in num_val]
         # set jacobian of variable i to I
-        jac[i] = sps.diags(np.ones(num_val[i]))
+        jac[i] = sps.diags(np.ones(num_val[i])).tocsc()
         # initiate Ad_array
+        jac = sps.bmat([jac])
         ad_arrays.append(Ad_array(val, jac))
 
     return ad_arrays
@@ -27,13 +28,9 @@ class Ad_array():
 
     def __init__(self, val=1.0, jac=0.0):
         self.val = val
-        if np.isscalar(jac):
-            self.jac = np.array([jac])
-        elif isinstance(jac, list):
-            self.jac = np.array(jac)
-        else:
-            self.jac = jac
+        self.jac = jac
 
+    
     def __add__(self, other):
         b = _cast(other)
         c = Ad_array()
@@ -53,6 +50,7 @@ class Ad_array():
     def __rsub__(self, other):
         return -self.__sub__(other)
 
+    
     def __mul__(self, other):
         if not isinstance(other, Ad_array): # other is scalar
             val = self.val * other
@@ -113,6 +111,7 @@ class Ad_array():
             b.jac = self.jac
         return b
 
+    
     def diagvec_mul_jac(self, a):
         try:
             A = sps.diags(a)
@@ -124,6 +123,7 @@ class Ad_array():
         else:
             return A * self.jac
 
+    
     def jac_mul_diagvec(self, a):
         try:
             A = sps.diags(a)
@@ -135,13 +135,18 @@ class Ad_array():
             return self.jac * A
     
     def full_jac(self):
+        return self.jac
         return sps.hstack(self.jac[:])
 
+    
     def _other_mul_jac(self, other):
-        return np.array([other * J for J in self.jac])
+        return other * self.jac
+#        return np.array([other * J for J in self.jac])
 
+    
     def _jac_mul_other(self, other):
-        return np.array([J * other for J in self.jac])
+        return self.jac * other
+#        return np.array([J * other for J in self.jac])
 
 
 def _cast(variables):
