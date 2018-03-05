@@ -348,7 +348,8 @@ class TpfaCoupling(AbstractCoupling):
         # Contribution from mortar variable to conservation in the higher domain
         # Acts as a boundary condition, treat with standard boundary discretization
         #cc[0, 2] = div_h *  bound_flux_h * face_areas_h *  hat_P.T
-        cc[0, 2] = div_h *  bound_flux_h *  hat_P.T
+        mortar_to_bc = bound_flux_h *  hat_P.T
+        cc[0, 2] = div_h *  mortar_to_bc
         # Acts as a source term.
         cc[1, 2] = -check_P.T #* sps.diags(mg.cell_volumes)
 
@@ -359,7 +360,8 @@ class TpfaCoupling(AbstractCoupling):
         # The trace of the pressure from the higher dimension is composed of the cell center pressure,
         # and a contribution from the boundary flux, represented by the mortar flux
         # Cell center contribution, mapped to the mortar grid
-        cc[2, 0] = hat_P * bound_pressure_cc_h
+        hat_P_to_mortar = hat_P * bound_pressure_cc_h
+        cc[2, 0] = hat_P_to_mortar
         # Contribution from mortar
         # Should we have hat_P_pressure here?
         #cc[2, 2] += hat_P * bound_pressure_face_h * face_areas_h * hat_P.T
@@ -373,6 +375,13 @@ class TpfaCoupling(AbstractCoupling):
 #        data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
 #                                                 cells2faces * cc[0, 1]])
 #        data_edge['coupling_discretization'] = cc
+
+        data_edge['mortar_to_bc'] = mortar_to_bc
+        data_edge['jump'] = -check_P.T
+        data_edge['hat_P_to_mortar'] = hat_P_to_mortar
+        data_edge['check_P_to_mortar'] = -check_P
+        data_edge['mortar_weight'] = cc[2, 2]
+
 
         return matrix + cc
 
