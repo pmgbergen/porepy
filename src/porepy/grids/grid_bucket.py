@@ -273,11 +273,11 @@ class GridBucket(object):
             return np.empty(0)
         elif only_higher:
             # Find the neighbours that are higher dimensional
-            is_high = np.array([w.dim > node.dim for w in neigh])
+            is_high = np.array([w.dim > node.dim for w in neigh], dtype=np.bool)
             return neigh[is_high]
         else:
             # Find the neighbours that are higher dimensional
-            is_low = np.array([w.dim < node.dim for w in neigh])
+            is_low = np.array([w.dim < node.dim for w in neigh], dtype=np.bool)
             return neigh[is_low]
 
 #------------------------------------------------------------------------------#
