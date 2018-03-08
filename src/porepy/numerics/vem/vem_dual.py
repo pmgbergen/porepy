@@ -344,15 +344,17 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         # from the dirichlet condition as well.
         is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
         is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
+
+        faces, _, sign = sps.find(g.cell_faces)
+        sign = sign[np.unique(faces, return_index=True)[1]]
+
         if np.any(is_dir):
             is_dir = np.where(is_dir)[0]
-            faces, _, sign = sps.find(g.cell_faces)
-            sign = sign[np.unique(faces, return_index=True)[1]]
             rhs[is_dir] += -sign[is_dir] * bc_val[is_dir]
 
         if np.any(is_neu):
             is_neu = np.where(is_neu)[0]
-            rhs[is_neu] = bc_weight * bc_val[is_neu]
+            rhs[is_neu] = sign[is_neu] * bc_weight * bc_val[is_neu]
 
         return rhs
 
