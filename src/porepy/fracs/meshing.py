@@ -528,12 +528,11 @@ def assemble_in_bucket(grids, **kwargs):
             for lg in grids[dim + 1]:
                 cell_2_face, cell = utils.obtain_interdim_mappings(
                     lg, fn, n_per_face, **kwargs)
-                face_cells = sps.csc_matrix(
-                    (np.ones(cell.size, dtype=bool), (cell, cell_2_face)),
-                    (lg.num_cells, hg.num_faces))
+                if cell_2_face.size > 0:
+                    face_cells = sps.csc_matrix(
+                        (np.ones(cell.size, dtype=bool), (cell, cell_2_face)),
+                        (lg.num_cells, hg.num_faces))
 
-                # This if may be unnecessary, but better safe than sorry.
-                if face_cells.size > 0:
                     bucket.add_edge([hg, lg], face_cells)
 
     return bucket
