@@ -18,7 +18,7 @@ VEM=True
 file_dfm = 'geiger_3d.csv'
 
 # import the dfm and generate the grids
-gb, domain = importer.dfm_3d_from_csv(file_dfm, tol, h_ideal=0.2, h_min=0.1)
+gb, domain = importer.dfm_3d_from_csv(file_dfm, tol, h_ideal=0.2, h_min=0.2)
 gb.compute_geometry()
 
 for _, d in gb.edges_props():

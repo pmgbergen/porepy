@@ -13,11 +13,13 @@ h_list = [0.2, 0.15, 0.1]
 list_of_solvers = {"tpfa": solve_tpfa, "p1": solve_p1, "mpfa": solve_mpfa,
                    "rt0": solve_rt0, "vem": solve_vem}
 
-#list_of_solvers = {"tpfa": solve_tpfa, "p1": solve_p1}
-#h_list = [0.2, 0.15]
+list_of_solvers = {"mpfa": solve_tpfa, "p1": solve_p1}
+list_of_solvers = {'vem': solve_vem, 'rt0': solve_rt0, 'mpfa': solve_mpfa}
+h_list = [0.2, 0.15, 0.1]
 
 def reference_solution(h=0.1):
     # Compute the reference solution with the RT0
+    print('Reference solution')
     solver = "rt0"
     gb_ref, domain = example_2_data.create_gb(h)
     example_2_data.add_data(gb_ref, domain, solver, case)
@@ -34,7 +36,7 @@ def convergence_test(h_list, list_of_solvers, gb_ref):
         print('Start simulation with ' + solver_name)
         for i, h in enumerate(h_list):
 
-            gb, domain = example_2_data.create_gb(h)
+            gb, domain = example_2_data.create_gb(h, h_dfn=0.99*h)
             example_2_data.add_data(gb, domain, solver_name, case)
             folder = "example_2_"+solver_name
             solver_fct(gb, folder)
