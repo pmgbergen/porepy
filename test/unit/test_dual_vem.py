@@ -1,32 +1,26 @@
 import numpy as np
 import unittest
 
-from porepy.grids import structured, simplex
-from porepy.params import tensor
-from porepy.params.bc import BoundaryCondition
-from porepy.params.data import Parameters
-from porepy.numerics.vem import vem_dual as dual
-import porepy.utils.comp_geom as cg
+import porepy as pp
 
 #------------------------------------------------------------------------------#
 
-
 class BasicsTest(unittest.TestCase):
 
-    #------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
     def test_dual_vem_1d_iso(self):
-        g = structured.CartGrid(3, 1)
+        g = pp.structured.CartGrid(3, 1)
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(3, kxx, kyy=1, kzz=1)
+        perm = pp.SecondOrder(3, kxx, kyy=1, kzz=1)
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
 
-        solver = dual.DualVEM(physics='flow')
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -49,16 +43,16 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_1d_ani(self):
-        g = structured.CartGrid(3, 1)
+        g = pp.structured.CartGrid(3, 1)
         g.compute_geometry()
 
         kxx = np.sin(g.cell_centers[0, :]) + 1
-        perm = tensor.SecondOrder(3, kxx, kyy=1, kzz=1)
+        perm = pp.SecondOrder(3, kxx, kyy=1, kzz=1)
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -84,17 +78,17 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_iso_cart(self):
-        g = structured.CartGrid([2, 1], [1, 1])
+        g = pp.structured.CartGrid([2, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -118,19 +112,19 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_ani_cart(self):
-        g = structured.CartGrid([2, 1], [1, 1])
+        g = pp.structured.CartGrid([2, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
+        perm = pp.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -163,17 +157,17 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_iso_simplex(self):
-        g = simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -205,19 +199,19 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_ani_simplex(self):
-        g = simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
+        perm = pp.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -249,17 +243,17 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_3d_iso_cart(self):
-        g = structured.CartGrid([2, 2, 2], [1, 1, 1])
+        g = pp.structured.CartGrid([2, 2, 2], [1, 1, 1])
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=kxx)
+        perm = pp.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=kxx)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -274,20 +268,20 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_3d_ani_cart(self):
-        g = structured.CartGrid([2, 2, 2], [1, 1, 1])
+        g = pp.structured.CartGrid([2, 2, 2], [1, 1, 1])
         g.compute_geometry()
 
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kzz = g.cell_centers[2, :] + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
+        perm = pp.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -303,20 +297,20 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_1d_iso_line(self):
-        g = structured.CartGrid(3, 1)
-        R = cg.rot(np.pi / 6., [0, 0, 1])
+        g = pp.structured.CartGrid(3, 1)
+        R = pp.cg.rot(np.pi / 6., [0, 0, 1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(3, kxx, kyy=1, kzz=1)
+        perm = pp.SecondOrder(3, kxx, kyy=1, kzz=1)
         perm.rotate(R)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -340,20 +334,20 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_iso_cart_surf(self):
-        g = structured.CartGrid([2, 1], [1, 1])
-        R = cg.rot(np.pi / 4., [0, 1, 0])
+        g = pp.structured.CartGrid([2, 1], [1, 1])
+        R = pp.cg.rot(np.pi / 4., [0, 1, 0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
         perm.rotate(R)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -376,24 +370,24 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_ani_cart_surf(self):
-        g = structured.CartGrid([2, 1], [1, 1])
+        g = pp.structured.CartGrid([2, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
+        perm = pp.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
-        R = cg.rot(np.pi / 3., [1, 1, 0])
+        R = pp.cg.rot(np.pi / 3., [1, 1, 0])
         perm.rotate(R)
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -426,20 +420,20 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_iso_simplex_surf(self):
-        g = simplex.StructuredTriangleGrid([1, 1], [1, 1])
-        R = cg.rot(-np.pi / 4., [1, 1, -1])
+        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        R = pp.cg.rot(-np.pi / 4., [1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
         perm.rotate(R)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()
@@ -471,24 +465,24 @@ class BasicsTest(unittest.TestCase):
 #------------------------------------------------------------------------------#
 
     def test_dual_vem_2d_ani_simplex_surf(self):
-        g = simplex.StructuredTriangleGrid([1, 1], [1, 1])
+        g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
 
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
+        perm = pp.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
-        R = cg.rot(np.pi / 3., [1, 1, 0])
+        R = pp.cg.rot(np.pi / 3., [1, 1, 0])
         perm.rotate(R)
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry(is_embedded=True)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc = BoundaryCondition(g, bf, bf.size * ['dir'])
-        solver = dual.DualVEM(physics='flow')
+        bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
+        solver = pp.DualVEM(physics='flow')
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
         M = solver.matrix(g, {'param': param}).todense()

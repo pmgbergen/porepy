@@ -1,19 +1,8 @@
 import numpy as np
 import scipy.sparse as sps
-
-from porepy.viz.exporter import Exporter
-from porepy.fracs import importer
-
-from porepy.params import tensor
-from porepy.params.bc import BoundaryCondition
-from porepy.params.data import Parameters
-
-from porepy.grids import coarsening as co
-
-from porepy.numerics.vem import vem_dual, vem_source
+import porepy as pp
 
 #------------------------------------------------------------------------------#
-
 
 def add_data(gb, domain, kf):
     """
@@ -24,14 +13,14 @@ def add_data(gb, domain, kf):
     a = 1e-4
 
     for g, d in gb:
-        param = Parameters(g)
+        param = pp.Parameters(g)
 
         # Permeability
         kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
         if g.dim == 2:
-            perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kxx, kzz=1)
+            perm = pp.SecondOrder(g.dim, kxx=kxx, kyy=kxx, kzz=1)
         else:
-            perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=1, kzz=1)
+            perm = pp.SecondOrder(g.dim, kxx=kxx, kyy=1, kzz=1)
         param.set_tensor("flow", perm)
 
         # Source term
@@ -57,10 +46,10 @@ def add_data(gb, domain, kf):
                 * g.face_areas[bound_faces[left]]
             bc_val[bound_faces[right]] = 1
 
-            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("flow", bc_val)
         else:
-            param.set_bc("flow", BoundaryCondition(
+            param.set_bc("flow", pp.BoundaryCondition(
                 g, np.empty(0), np.empty(0)))
 
         d['param'] = param
@@ -98,20 +87,21 @@ def main(kf, description, is_coarse=False, if_export=False):
 
     file_name = 'network_geiger.csv'
     write_network(file_name)
-    gb = importer.dfm_2d_from_csv(file_name, mesh_kwargs, domain)
+    gb = pp.importer.dfm_2d_from_csv(file_name, mesh_kwargs, domain)
     gb.compute_geometry()
     if is_coarse:
-        co.coarsen(gb, 'by_volume')
+        pp.coarsening.coarsen(gb, 'by_volume')
     gb.assign_node_ordering()
 
     # Assign parameters
     add_data(gb, domain, kf)
 
     # Choose and define the solvers and coupler
-    solver_flow = vem_dual.DualVEMMixedDim('flow')
+    solver_flow = pp.DualVEMMixedDim('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = vem_source.IntegralMixedDim('flow')
+    solver_source = pp.DualSourceMixedDim('flow')
+
     A_source, b_source = solver_source.matrix_rhs(gb)
 
     up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
@@ -123,7 +113,7 @@ def main(kf, description, is_coarse=False, if_export=False):
     solver_flow.project_u(gb, "discharge", "P0u")
 
     if if_export:
-        save = Exporter(gb, "vem", folder="vem_" + description)
+        save = pp.Exporter(gb, "vem", folder="vem_" + description)
         save.write_vtk(['pressure', "P0u"])
 
 #------------------------------------------------------------------------------#
@@ -132,6 +122,7 @@ def main(kf, description, is_coarse=False, if_export=False):
 def test_vem_blocking():
     kf = 1e-4
     main(kf, "blocking")
+    main(kf, "blocking", is_coarse=True)
 
 #------------------------------------------------------------------------------#
 
@@ -139,5 +130,6 @@ def test_vem_blocking():
 def test_vem_permeable():
     kf = 1e4
     main(kf, "permeable")
+    main(kf, "permeable_coarse", is_coarse=True)
 
 #------------------------------------------------------------------------------#
