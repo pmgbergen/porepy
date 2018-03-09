@@ -319,9 +319,9 @@ class DualEllipticModel(EllipticModel):
 
     def source_disc(self):
         if self.is_GridBucket:
-            return vem_source.IntegralMixedDim(physics=self.physics)
+            return vem_source.DualSourceMixedDim(physics=self.physics)
         else:
-            return vem_source.Integral(physics=self.physics)
+            return vem_source.DualSource(physics=self.physics)
 
     def flux_disc(self):
         if self.is_GridBucket:

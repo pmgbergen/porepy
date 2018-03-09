@@ -171,7 +171,7 @@ class BasicsTest(unittest.TestCase):
         solver = vem_dual.DualVEM("flow")
         D_flow, b_flow = solver.matrix_rhs(g, data)
 
-        solver_source = vem_source.Integral('flow')
+        solver_source = vem_source.DualSource('flow')
         D_source, b_source = solver_source.matrix_rhs(g, data)
 
         up = sps.linalg.spsolve(D_flow + D_source, b_flow + b_source)

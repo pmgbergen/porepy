@@ -147,7 +147,7 @@ add_data_darcy(gb, domain, tol)
 darcy = vem_dual.DualVEMMixedDim('flow')
 A_flow, b_flow = darcy.matrix_rhs(gb)
 
-solver_source = vem_source.IntegralMixedDim('flow')
+solver_source = vem_source.DualSourceMixedDim('flow')
 A_source, b_source = solver_source.matrix_rhs(gb)
 
 up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
