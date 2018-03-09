@@ -379,9 +379,8 @@ class TpfaCoupling(AbstractCoupling):
         data_edge['mortar_to_bc'] = mortar_to_bc
         data_edge['jump'] = -check_P.T
         data_edge['hat_P_to_mortar'] = hat_P_to_mortar
-        data_edge['check_P_to_mortar'] = -check_P
+        data_edge['check_P_to_mortar'] = check_P
         data_edge['mortar_weight'] = cc[2, 2]
-
 
         return matrix + cc
 
