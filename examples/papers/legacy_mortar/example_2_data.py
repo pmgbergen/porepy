@@ -2,7 +2,7 @@ import numpy as np
 import pickle
 
 from porepy.grids.grid import FaceTag
-from porepy.fracs import importer
+from porepy.fracs import importer, meshing, mortars
 from porepy.params import tensor
 
 from porepy.params.data import Parameters
@@ -24,7 +24,7 @@ def geo_file_name(h, prepared):
     return fn
 
 
-def create_gb(h):
+def create_gb(h, h_dfn=None):
 
     def str_of_nodes(n):
         return str(n[0]) + '_' + str(n[1]) + '_' + str(n[2])
@@ -37,6 +37,31 @@ def create_gb(h):
     gb = importer.dfm_from_gmsh(file_geo, 3, network=network, tol=tol())
     gb.compute_geometry()
     print(gb)
+
+    if h_dfn is not None:
+        frac_list, network, domain = importer.network_3d_from_csv('geiger_3d.csv')
+        # Conforming=False would have been cool here, but that does not split the 1d grids
+        gb_new = meshing.dfn(frac_list, conforming=True, h_ideal=h_dfn,
+                             h_min=h_dfn)
+
+        dom_min = 0
+        dom_max = 1
+        gmap = {}
+        for go in gb.grids_of_dimension(2):
+            for gn in gb_new.grids_of_dimension(2):
+                if gn.frac_num == go.frac_num:
+                    gmap[go] = gn
+                    xf = gn.face_centers
+                    hit = np.logical_or(np.any(np.abs(xf - dom_min) < tol(), axis=0),
+                                        np.any(np.abs(xf - dom_max) < tol(), axis=0))
+                    domain_tag = FaceTag.DOMAIN_BOUNDARY
+                    gn.remove_face_tag_if_tag(domain_tag, domain_tag)
+                    gn.add_face_tag(np.where(hit)[0], domain_tag)
+
+        mortars.replace_grids_in_bucket(gb, gmap)
+
+
+
     gb.add_edge_prop('edge_id')
     for e, d in gb.edges_props():
         g_l, g_h = gb.sorted_nodes_of_edge(e)
