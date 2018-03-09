@@ -89,7 +89,7 @@ def main(N):
     solver_flow = vem_dual.DualVEM('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(g, data)
 
-    solver_source = vem_source.Integral('flow')
+    solver_source = vem_source.DualSource('flow')
     A_source, b_source = solver_source.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
