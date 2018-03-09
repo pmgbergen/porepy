@@ -23,32 +23,41 @@ __version__ = '0.2.3'
 # user can be exposed to should have a shortcut here. Borderline cases will be
 # decided as needed
 
+__all__ = []
+
 # Numerics
 # Control volume, elliptic
 from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.tpfa import Tpfa, TpfaMixedDim
 from porepy.numerics.fv.mpfa import Mpfa, MpfaMixedDim
 from porepy.numerics.fv.biot import Biot
+from porepy.numerics.fv.source import Integral, IntegralMixedDim
 
 # Virtual elements, elliptic
 from porepy.numerics.vem.vem_dual import DualVEM, DualVEMMixedDim
-from porepy.numerics.vem.hybrid import HybridDualVEM
+from porepy.numerics.vem.vem_source import DualSource, DualSourceMixedDim
 
 # Transport related
 from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim
 from porepy.numerics.fv.mass_matrix import MassMatrix, InvMassMatrix
 
-# Grids
-from porepy.grids.structured import CartGrid, TensorGrid
-from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
-from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
+#Grid
+from porepy.grids.grid import Grid
+from porepy.grids.grid_bucket import GridBucket
 
 # Fractures
-from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
-from porepy.fracs import meshing, simplex, structured
+from porepy.fracs.fractures import Fracture, FractureNetwork
 
 # Parameters
-from porepy.params import units
 from porepy.params.bc import BoundaryCondition
-from porepy.params import bc
-#from porepy.params.data import Parameters
+from porepy.params.tensor import SecondOrder, FourthOrder
+from porepy.params.data import Parameters
+
+# Visualization
+from porepy.viz.exporter import Exporter
+
+# Modules
+from porepy.utils import comp_geom as cg
+from porepy.fracs import meshing, importer
+from porepy.grids import structured, simplex, coarsening
+from porepy.params import units
