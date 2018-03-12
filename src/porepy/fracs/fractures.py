@@ -740,6 +740,8 @@ class EllipticFracture(Fracture):
     """
     Subclass of Fractures, representing an elliptic fracture.
 
+    See parent class for description.
+
     """
 
     def __init__(self, center, major_axis, minor_axis, major_axis_angle,
@@ -822,8 +824,43 @@ class EllipticFracture(Fracture):
 
 
 class Intersection(object):
+    """ Class representing the intersection between two fractures.
 
-    def __init__(self, first, second, coord, bound_first=False, bound_second=False):
+    Fractures are identified by their indexes, which is not robust. Apply with
+    care.
+
+    Intersections may be created even for non-intersecting fractures. These are
+    identified by an empty coordinate set. This behavior is unfortunate, but
+    caused by legacy design choices.
+
+    Attributes:
+        first (int): Index of first fracture.
+        second (int): Index of second fracture.
+        coord (np.array, 3xn_pt): End coordinates of intersection line. Should
+            contain up to two points. No points signifies this is an empty
+            intersection.
+        bound_first (boolean): Whether the intersection is on the boundary of
+            the first fracture.
+        bound_second (boolean): Whether the intersection is on the boundary of
+            the second fracture.
+
+    """
+
+    def __init__(self, first, second, coord, bound_first=False,
+                 bound_second=False):
+        """ Initialize Intersection object.
+
+        Parameters:
+            first (int): Index of first fracture in intersection.
+            second (ind): Index of second fracture in intersection.
+            coord (np.arary, 3xn_pt): Index of intersection points. May have
+                from 0 to 2 points.
+            bound_first (boolean, optional). Is intersection on boundary of
+                first fracture? Defaults to false.
+            bound_second (boolean, optional). Is intersection on boundary of
+                second fracture? Defaults to false.
+
+        """
         self.first = first
         self.second = second
         self.coord = coord
@@ -846,12 +883,40 @@ class Intersection(object):
         return s
 
     def get_other_fracture(self, i):
+        """ Get the other based on index.
+
+        Parameters:
+            i (int): Index of a fracture of this intersection.
+
+        Returns:
+            int: Index of the other fracture.
+
+        Raises:
+            ValueError if fracture with index i does not belong to
+                intersection.
+
+        """
+
         if self.first == i:
             return self.second
-        else:
+        elif self.second == i:
             return self.first
+        else:
+            raise ValueError('Fracture ' + str(i) + ' is not in intersection')
 
     def on_boundary_of_fracture(self, i):
+        """ Check if the intersection is on the boundary of a fracture.
+
+        Parameters:
+            i (int): Index of a fracture of this intersection.
+
+        Returns:
+            boolean: True if intersection is on boundary of this intersection.
+
+        Raises:
+            ValueError if fracture with index i does not belong to
+                intersection.
+        """
         if self.first == i:
             return self.bound_first
         elif self.second == i:
