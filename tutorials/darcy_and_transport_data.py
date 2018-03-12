@@ -21,7 +21,7 @@ def assign_data(gb, data_problem, data_class, data_key):
 #------------------------------------------------------------------------------#
 
 def get_dir_boundary(problem):
-    bound_faces = problem.grid().get_domain_boundary_faces()
+    bound_faces = problem.grid().tags['domain_boundary_faces'].nonzero()[0]
     bound_face_centers = problem.grid().face_centers[:, bound_faces]
 
     dir_boundary = {}
@@ -77,7 +77,7 @@ class FlowData(elliptic.EllipticDataAssigner):
             return tensor.SecondOrder(3, self.kf*ones)
 
     def bc(self):
-        bound_faces = self.grid().get_domain_boundary_faces()
+        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         dir_boundary = get_dir_boundary(self)
 
         labels = np.array(['neu']*bound_faces.size)
@@ -87,7 +87,7 @@ class FlowData(elliptic.EllipticDataAssigner):
         return bc.BoundaryCondition(self.grid(), bound_faces, labels)
 
     def bc_val(self):
-        bound_faces = self.grid().get_domain_boundary_faces()
+        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         dir_boundary = get_dir_boundary(self)
 
         bc_val = np.zeros(self.grid().num_faces)
@@ -117,7 +117,7 @@ class TransportData(parabolic.ParabolicDataAssigner):
         parabolic.ParabolicDataAssigner.__init__(self, g, d)
 
     def bc(self):
-        bound_faces = self.grid().get_domain_boundary_faces()
+        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         dir_boundary = get_dir_boundary(self)
 
         labels = np.array(['neu']*bound_faces.size)
@@ -127,7 +127,7 @@ class TransportData(parabolic.ParabolicDataAssigner):
         return bc.BoundaryCondition(self.grid(), bound_faces, labels)
 
     def bc_val(self, t):
-        bound_faces = self.grid().get_domain_boundary_faces()
+        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         dir_boundary = get_dir_boundary(self)
 
         bc_val = np.zeros(self.grid().num_faces)
@@ -152,10 +152,10 @@ class TransportSolver(parabolic.ParabolicModel):
 
     def __init__(self, gb, **data_problem):
 
-        time_step = data_problem['end_time']/data_problem['number_time_steps']
+        time_step = data_problem['end_time'] /\
+                    float(data_problem['number_time_steps'])
         parabolic.ParabolicModel.__init__(self, gb, time_step=time_step,
                                           **data_problem)
-        self._solver.parameters['store_results'] = True
 
     def space_disc(self):
         return self.advective_disc()
