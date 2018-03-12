@@ -13,8 +13,6 @@ import warnings
 import time
 import logging
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import sympy
 
 # Imports of external packages that may not be present at the system. The
@@ -25,12 +23,6 @@ try:
 except ImportError:
     warnings.warn('VTK module is not available. Export of fracture network to\
     vtk will not work.')
-
-try:
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d import Axes3D
-except ImportError:
-    warnings.warn('Matplotlib is not available. Simple plotting will not work')
 
 # Import of internally developed packages.
 from porepy.utils import comp_geom as cg
@@ -737,17 +729,6 @@ class Fracture(object):
         s += str(self.p) + '\n'
         s += 'Center: ' + str(self.center)
         return s
-
-    def plot_frame(self, ax=None):
-
-        if ax is None:
-            fig = plt.figure()
-            ax = fig.gca(projection='3d')
-        x = np.append(self.p[0], self.p[0, 0])
-        y = np.append(self.p[1], self.p[1, 0])
-        z = np.append(self.p[2], self.p[2, 0])
-        ax.plot(x, y, z)
-        return ax
 
 #--------------------------------------------------------------------
 
@@ -1599,35 +1580,6 @@ class FractureNetwork(object):
     def __repr__(self):
         s = 'Fracture set with ' + str(len(self._fractures)) + ' fractures'
         return s
-
-    def plot_fractures(self, ind=None):
-        if ind is None:
-            ind = np.arange(len(self._fractures))
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-        for f in self._fractures:
-            f.plot_frame(ax)
-        return fig
-
-        for i, f_1 in enumerate(self._fractures):
-            for j, f_2 in enumerate(self._fractures[i + 1:]):
-                d = np.Inf
-                for p_1 in f_1.points():
-                    for p_2 in f_2.points():
-                        d = np.minimum(d, cg.dist_point_pointset(p_1, p_2)[0])
-                p_2_p[i, i + j + 1] = d
-
-                d = np.Inf
-                for s_1 in f_1.segments():
-                    for s_2 in f_2.segments():
-                        d = np.minimum(d,
-                                       cg.distance_segment_segment(s_1[:, 0],
-                                                                   s_1[:, 1],
-                                                                   s_2[:, 0],
-                                                                   s_2[:, 1]))
-                s_2_s[i, i + j + 1] = d
-
-        return p_2_p, s_2_s
 
     def add_subdomain_boundaries(self, vertexes):
         """
