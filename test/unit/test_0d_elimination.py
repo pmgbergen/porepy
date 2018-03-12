@@ -1,6 +1,6 @@
 """
-Tests for the static condensation. 
-Darcy problems are discretized (TPFA) and then solved both with and without the 
+Tests for the static condensation.
+Darcy problems are discretized (TPFA) and then solved both with and without the
 condensation.
 Solutions are then compared, so failures will probably be due to the condensation
 itself or reorderings in the grid buckets.
@@ -52,28 +52,31 @@ class BasicsTest(unittest.TestCase):
             param.set_aperture(aperture)
 
             kxx = np.ones(g.num_cells) * np.power(1e3, g.dim < gb.dim_max())
-            #print(kxx, 'dim', g.dim)
+
             p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
-            # print(p.perm)
             param.set_tensor('flow', p)
-            bound_faces = g.get_boundary_faces()
-            bound_face_centers = g.face_centers[:, bound_faces]
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+            if bound_faces.size != 0:
+                bound_face_centers = g.face_centers[:, bound_faces]
 
-            right = bound_face_centers[0, :] > 1 - tol
-            left = bound_face_centers[0, :] < tol
+                right = bound_face_centers[0, :] > 1 - tol
+                left = bound_face_centers[0, :] < tol
 
-            labels = np.array(['neu'] * bound_faces.size)
-            labels[right] = ['dir']
+                labels = np.array(['neu'] * bound_faces.size)
+                labels[right] = ['dir']
 
-            bc_val = np.zeros(g.num_faces)
-            bc_dir = bound_faces[right]
-            bc_neu = bound_faces[left]
-            bc_val[bc_dir] = g.face_centers[0, bc_dir]
-            bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
+                bc_val = np.zeros(g.num_faces)
+                bc_dir = bound_faces[right]
+                bc_neu = bound_faces[left]
+                bc_val[bc_dir] = g.face_centers[0, bc_dir]
+                bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
 
-            param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
-
+                param.set_bc(solver, bc.BoundaryCondition(
+                    g, bound_faces, labels))
+                param.set_bc_val(solver, bc_val)
+            else:
+                param.set_bc("flow", bc.BoundaryCondition(
+                    g, np.empty(0), np.empty(0)))
             d['param'] = param
 
         coupling_conditions = tpfa.TpfaCoupling(solver)
@@ -121,28 +124,33 @@ class BasicsTest(unittest.TestCase):
             param.set_aperture(aperture)
 
             kxx = np.ones(g.num_cells) * np.power(1e3, g.dim < gb.dim_max())
-            #print(kxx, 'dim', g.dim)
+
             p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
-            # print(p.perm)
+
             param.set_tensor('flow', p)
-            bound_faces = g.get_boundary_faces()
-            bound_face_centers = g.face_centers[:, bound_faces]
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+            if bound_faces.size != 0:
 
-            right = bound_face_centers[0, :] > 1 - tol
-            left = bound_face_centers[0, :] < tol
+                bound_face_centers = g.face_centers[:, bound_faces]
 
-            labels = np.array(['neu'] * bound_faces.size)
-            labels[right] = ['dir']
+                right = bound_face_centers[0, :] > 1 - tol
+                left = bound_face_centers[0, :] < tol
 
-            bc_val = np.zeros(g.num_faces)
-            bc_dir = bound_faces[right]
-            bc_neu = bound_faces[left]
-            bc_val[bc_dir] = g.face_centers[0, bc_dir]
-            bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
+                labels = np.array(['neu'] * bound_faces.size)
+                labels[right] = ['dir']
 
-            param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+                bc_val = np.zeros(g.num_faces)
+                bc_dir = bound_faces[right]
+                bc_neu = bound_faces[left]
+                bc_val[bc_dir] = g.face_centers[0, bc_dir]
+                bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
 
+                param.set_bc(solver, bc.BoundaryCondition(
+                    g, bound_faces, labels))
+                param.set_bc_val(solver, bc_val)
+            else:
+                param.set_bc("flow", bc.BoundaryCondition(
+                    g, np.empty(0), np.empty(0)))
             d['param'] = param
 
         coupling_conditions = tpfa.TpfaCoupling(solver)
@@ -234,22 +242,27 @@ class BasicsTest(unittest.TestCase):
             p = tensor.SecondOrder(3, np.ones(
                 g.num_cells) * np.power(1e3, g.dim < gb.dim_max()))
             param.set_tensor('flow', p)
-            bound_faces = g.get_boundary_faces()
-            bound_face_centers = g.face_centers[:, bound_faces]
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+            if bound_faces.size != 0:
 
-            left = bound_face_centers[0, :] > 1 - tol
-            right = bound_face_centers[0, :] < tol
+                bound_face_centers = g.face_centers[:, bound_faces]
 
-            labels = np.array(['neu'] * bound_faces.size)
-            labels[np.logical_or(left, right)] = ['dir']
+                left = bound_face_centers[0, :] > 1 - tol
+                right = bound_face_centers[0, :] < tol
 
-            bc_val = np.zeros(g.num_faces)
-            bc_dir = bound_faces[np.logical_or(left, right)]
-            bc_val[bc_dir] = g.face_centers[0, bc_dir]
+                labels = np.array(['neu'] * bound_faces.size)
+                labels[np.logical_or(left, right)] = ['dir']
 
-            param.set_bc(solver, bc.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val(solver, bc_val)
+                bc_val = np.zeros(g.num_faces)
+                bc_dir = bound_faces[np.logical_or(left, right)]
+                bc_val[bc_dir] = g.face_centers[0, bc_dir]
 
+                param.set_bc(solver, bc.BoundaryCondition(
+                    g, bound_faces, labels))
+                param.set_bc_val(solver, bc_val)
+            else:
+                param.set_bc("flow", bc.BoundaryCondition(
+                    g, np.empty(0), np.empty(0)))
             d['param'] = param
 
         coupling_conditions = tpfa.TpfaCoupling(solver)

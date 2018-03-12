@@ -3,8 +3,6 @@ import scipy.sparse as sps
 
 from porepy.viz.exporter import Exporter
 
-from porepy.grids.grid import FaceTag
-
 from porepy.numerics.vem import vem_dual, vem_source
 
 import example_2_1_create_grid
@@ -20,9 +18,6 @@ def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000, if_export=False):
 
     gb = example_2_1_create_grid.create(
         id_problem, is_coarse=is_coarse, tol=tol)
-
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
     # Assign parameters
     example_2_1_data.add_data(gb, tol)
