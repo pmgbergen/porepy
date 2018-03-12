@@ -76,8 +76,9 @@ class StaticModel():
 
         self.displacement_name = 'displacement'
         self.frac_displacement_name = 'frac_displacement'
+        self.is_factorized = False
 
-    def solve(self, max_direct=40000, callback=False, **kwargs):
+    def solve(self, max_direct=40000, callback=False, discretize=True, **kwargs):
         """ Reassemble and solve linear system.
 
         After the funtion has been called, the attributes lhs and rhs are
@@ -104,17 +105,27 @@ class StaticModel():
         """
         # Discretize
         tic = time.time()
-        logger.info('Discretize')
-        self.lhs, self.rhs = self.reassemble(**kwargs)
-        logger.info('Done. Elapsed time ' + str(time.time() - tic))
-
+        if discretize:
+            logger.info('Discretize')
+            self.lhs, self.rhs = self.reassemble(**kwargs)
+            self.is_factorized = False
+            logger.info('Done. Elapsed time ' + str(time.time() - tic))
+        else:
+            self.rhs = self._stress_disc.rhs(self.grid(), self.data())
         # Solve
         tic = time.time()
         ls = LSFactory()
 
         if self.rhs.size <  max_direct:
             logger.info('Solve linear system using direct solver')
-            self.x = ls.direct(self.lhs,self.rhs)
+            if not self.is_factorized:
+                logger.info('Making LU decomposition')
+                self.lhs = sps.linalg.factorized(self.lhs)
+                self.is_factorized = True
+                logger.info('Done. Elapsed time ' + str(time.time() - tic))
+            logger.info('Solve linear system using direct solver')
+            tic = time.time()
+            self.x = self.lhs(self.rhs)
         else:
             logger.info('Solve linear system using GMRES')
             precond = self._setup_preconditioner()
