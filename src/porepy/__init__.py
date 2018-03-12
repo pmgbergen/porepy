@@ -46,6 +46,9 @@ from porepy.numerics.fv.mass_matrix import MassMatrix, InvMassMatrix
 #Grid
 from porepy.grids.grid import Grid
 from porepy.grids.grid_bucket import GridBucket
+from porepy.grids.structured import CartGrid, TensorGrid
+from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
+from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
 
 # Fractures
 from porepy.fracs.fractures import Fracture, FractureNetwork

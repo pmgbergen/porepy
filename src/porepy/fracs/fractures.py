@@ -1014,7 +1014,10 @@ class FractureNetwork(object):
         """
         ind = np.array([f.index for f in self._fractures])
 
-        f.set_index(np.max(ind) +1)
+        if ind.size > 0:
+            f.set_index(np.max(ind) +1)
+        else:
+            f.set_index(0)
         self._fractures.append(f)
 
     def __getitem__(self, position):
