@@ -542,8 +542,6 @@ class CartGrid2D(MainTester):
                                  -0.61775419, -1.61027696, 1.21720503,
                                  1.24515229])
 
-        print(u_num)
-        print(u_precomp)
         assert np.isclose(u_num, u_precomp, atol=1e-10).all()
         assert np.isclose(flux_num, flux_precomp, atol=1e-10).all()
 
