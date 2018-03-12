@@ -20,7 +20,7 @@ from scipy.sparse.linalg import spsolve
 
 from porepy.grids import structured
 from porepy.params import tensor, bc
-from porepy.utils.errors import error
+from porepy.utils import error
 from porepy.numerics.vem import dual, dual_coupling
 from porepy.viz.plot_grid import plot_grid
 from porepy.viz.exporter import export_vtk

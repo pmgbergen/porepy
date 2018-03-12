@@ -32,10 +32,12 @@ from porepy.numerics.fv.tpfa import Tpfa, TpfaMixedDim
 from porepy.numerics.fv.mpfa import Mpfa, MpfaMixedDim
 from porepy.numerics.fv.biot import Biot
 from porepy.numerics.fv.source import Integral, IntegralMixedDim
+from porepy.numerics.elliptic import EllipticModel, EllipticDataAssigner
 
 # Virtual elements, elliptic
 from porepy.numerics.vem.vem_dual import DualVEM, DualVEMMixedDim
 from porepy.numerics.vem.vem_source import DualSource, DualSourceMixedDim
+from porepy.numerics.elliptic import DualEllipticModel
 
 # Transport related
 from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim
@@ -61,3 +63,5 @@ from porepy.utils import comp_geom as cg
 from porepy.fracs import meshing, importer
 from porepy.grids import structured, simplex, coarsening
 from porepy.params import units
+from porepy.numerics.fv import fvutils
+from porepy.utils import error
