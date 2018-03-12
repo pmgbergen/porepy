@@ -24,7 +24,14 @@ class Integral(Solver):
         Solver.__init__(self)
 
     def ndof(self, g):
-        return g.num_cells
+        if self.physics is 'flow':
+            return g.num_cells
+
+        if self.physics is 'transport':
+            return g.num_cells
+
+        if self.physics is 'mechanics':
+            return g.num_cells * g.dim
 
     def matrix_rhs(self, g, data):
         param = data['param']

@@ -35,7 +35,6 @@ class Biot(Solver):
         """
         return g.num_cells * (1 + g.dim)
 
-
     def matrix_rhs(self, g, data, discretize=True):
         if discretize:
             self.discretize(g, data)
@@ -107,13 +106,13 @@ class Biot(Solver):
 
         d_scaling = data.get('displacement_scaling', 1)
 
-        div_d = np.squeeze(data['param'].biot_alpha * data['div_d'] * d * d_scaling)
+        div_d = np.squeeze(data['param'].biot_alpha *
+                           data['div_d'] * d * d_scaling)
         p_cmpr = data['compr_discr'] * p
 
         mech_rhs = np.zeros(g.dim * g.num_cells)
 
         return np.hstack((mech_rhs, div_d + p_cmpr))
-
 
     def discretize(self, g, data):
         """ Discretize flow and mechanics equations using FV methods.
@@ -163,7 +162,6 @@ class Biot(Solver):
         self._discretize_mech(g, data)
         self._discretize_compr(g, data)
 
-
     def assemble_matrix(self, g, data):
         """ Assemble the poro-elastic system matrix.
 
@@ -197,12 +195,11 @@ class Biot(Solver):
         # Matrix for left hand side
         A_biot = sps.bmat([[A_mech,
                             data['grad_p'] * biot_alpha],
-                            [data['div_d'] * biot_alpha * d_scaling,
-                             data['compr_discr'] \
-                             + dt * A_flow + data['stabilization']]]).tocsr()
+                           [data['div_d'] * biot_alpha * d_scaling,
+                            data['compr_discr']
+                            + dt * A_flow + data['stabilization']]]).tocsr()
 
         return A_biot
-
 
     def _discretize_flow(self, g, data):
 
@@ -270,7 +267,7 @@ class Biot(Solver):
             k = tensor.SecondOrder(g.dim, np.ones(g.num_cells))
 
             # Dirirchlet boundary conditions for mechanics
-            bound_faces = g.get_boundary_faces().ravel()
+            bound_faces = g.get_all_boundary_faces().ravel()
             bnd = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
 
             # Use no boundary conditions for flow, will default to homogeneous
@@ -394,7 +391,6 @@ class Biot(Solver):
         # Discretization of boundary values
         bound_stress = hf2f * hook * igrad * rhs_bound
 
-
         # Face-wise gradient operator. Used for the term grad_p in Biot's
         # equations.
         rows = fvutils.expand_indices_nd(subcell_topology.cno, nd)
@@ -430,8 +426,6 @@ class Biot(Solver):
         data['stabilization'] = stabilization
         data['bound_div_d'] = bound_div_d
 
-
-
     def _face_vector_to_scalar(self, nf, nd):
         """ Create a mapping from vector quantities on faces (stresses) to
         scalar quantities. The mapping is intended for the boundary
@@ -440,13 +434,12 @@ class Biot(Solver):
         Parameters:
             nf (int): Number of faces in the grid
         """
-        rows = np.tile(np.arange(nf), ((nd, 1))).reshape((1, nd*nf),
+        rows = np.tile(np.arange(nf), ((nd, 1))).reshape((1, nd * nf),
                                                          order='F')[0]
 
         cols = fvutils.expand_indices_nd(np.arange(nf), nd)
-        vals = np.ones(nf*nd)
+        vals = np.ones(nf * nd)
         return sps.coo_matrix((vals, (rows, cols))).tocsr()
-
 
     def _subcell_gradient_to_cell_scalar(self, g, cell_node_blocks):
         """ Create a mapping from sub-cell gradients to cell-wise traces of the
@@ -533,7 +526,6 @@ class Biot(Solver):
         else:
             return vals
 
-
     def extractP(self, g, u):
         """ Extract pressure field from solution.
 
@@ -547,7 +539,6 @@ class Biot(Solver):
 
         """
         return u[g.dim * g.num_cells:]
-
 
     def compute_flux(self, g, u, data):
         """ Compute flux field corresponding to a solution.
@@ -594,4 +585,3 @@ class Biot(Solver):
         d = self.extractD(g, u, as_vector=True)
         stress = np.squeeze(stress_discr * d) + (bound_stress * bound_val)
         return stress
-
