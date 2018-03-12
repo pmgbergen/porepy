@@ -60,6 +60,7 @@ from porepy.params.data import Parameters
 
 # Visualization
 from porepy.viz.exporter import Exporter
+from porepy.viz.plot_grid import plot_grid
 
 # Modules
 from porepy.utils import comp_geom as cg
