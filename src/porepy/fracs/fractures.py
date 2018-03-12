@@ -973,12 +973,6 @@ class FractureNetwork(object):
     def __getitem__(self, position):
         return self._fractures[position]
 
-    def get_normal(self, frac):
-        return self._fractures[frac].normal
-
-    def get_center(self, frac):
-        return self._fractures[frac].center
-
     def intersections_of_fracture(self, frac):
         """ Get all known intersections for a fracture.
 
