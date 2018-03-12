@@ -159,7 +159,7 @@ class Exporter():
         o_file.write(header)
         fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
 
-        time_step = np.arange(time.size)
+        time_step = np.arange(np.atleast_1d(time).size)
 
         if self.is_GridBucket:
             [o_file.write(fm%(time[t],
@@ -302,6 +302,8 @@ class Exporter():
 
         if data is not None:
             for name_field, values_field in data.items():
+                if values_field is None:
+                    continue
                 dataVTK = ns.numpy_to_vtk(values_field.ravel(order='F'),
                                           deep=True, array_type=vtk.VTK_DOUBLE)
                 dataVTK.SetName(str(name_field))
@@ -462,7 +464,7 @@ if 'numba' in sys.modules:
         """
         cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int32)
         counter = 0
-        fc.astype(numba.float64)
+        fc.astype(np.float64)
         for ci in range(cell_ptr.size - 1):
             loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
             for fi in faces_cells[loc_c]:

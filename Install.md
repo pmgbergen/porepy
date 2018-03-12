@@ -1,18 +1,22 @@
 # Setting up a PorePy environment
+All developers use the conda distribution of python, and we recommend that conda functionality is applied whenever possible.
+
 Installation of PorePy itself should be straightforward, using pip.
-In practice, installing from source is the preferred option to get the newest version of the code.
+In practice, installing from source is the preferred option to get the newest version of the code - the code hosted on pypi is not always up to date. 
 
 To get the code fully working requires a few more steps, as described below.
-We also strongly recommend using a virtual environment for your PorePy install.
 
 ## Installation on Linux
-Instructions are found on the GitHub webpage. Simply type `pip install porepy`.
+Instructions are found on the GitHub webpage. The best option is to download the source code from github, and install by `pip install porepy`.
 
 ## Intall on Windows
 This is a bit more tricky, since installing the dependencies (e.g. `numpy`, `scipy`) using pip requires access to a compiler.
 The recommended solution (for working with Python on Windows in general, it seems)
-is to install the dependencies using `conda`, and then `pip install porepy`.
-We plan to provide conda install for PorePy as well, but have not come that far yet.
+is to install the dependencies using `conda`, and then `pip install porepy`, preferrably installing from source.
+Most likely, parts of PorePy will not work on Windows due to missing libraries etc. This is not fully clear.
+
+## Docker
+There is also a third-party option using Docker containers. For now this should be considered an experimental option.
 
 ## How about Mac?
 Frankly, we are not sure. None of the devopers use Mac, so testing this has not been a priority.
@@ -24,19 +28,21 @@ To make this work, you need gmsh installed on your system, and PorePy needs to k
 First, visit the [Gmsh webpage](http://gmsh.info) and download a suitable version. 
 Extract, and move the binary (probably located in the subfolder gmsh-x.x.x-Linux/bin or similar) to whereever you prefer.
 
-NOTE: We have experienced that some fracture geometries are best handled by somewhat older versions of Gmsh (2.11 seems to be a good version) - newer versions are often result in error messages. Until this is resolved, we therefore recommend to use Gmsh 2.11 with PorePy.
+NOTE: For complex fracture geometries, our experience is that Gmsh sometimes fails, but the result may depend on which gmsh version is applied. To cope with this, we have ended up switching between Gmsh versions when relevant, always trying to apply an as updated version as possible. The situation is not ideal, but for now this appears to be the best option.
 
 Note to Linux users: Although Gmsh is available through the standard packaging tools, it tends to be hopelessly outdated, 
 and resulted in severe issues for the fracture meshing last time we checked. Use the GMSH web page instead.
 
-
 The location of the gmsh file is specific for each user's setup, and is therefore not included in the library. 
 Instead, to get the path to the gmsh executable, PorePy assumes there is a file called `porepy_config.py` somewhere in `$PYTHONPATH`. 
 So, open a file called `porepy_config.py`, and place the line
-
-	config = {'gmsh_path': 'path/to/where/you/put/the/gmsh/executable/'}
-
+```python
+config = {'gmsh_path': 'path/to/gmsh/executable'} # example config = {'gmsh_path': '/usr/bin/gmsh'}
+```
 Note that the path should be set as a string. To read more about the config system, see `porepy.utils.read_config.py`.
+
+# Other packages
+Others libraries that should be installed are numpy (available on both conda and pip), scipy (conda and pip), networkx (conda and pip, NOTE: version number 1.10, NOT 2 - will be updated), meshio (pip only), sympy (conda and pip). In addition libraries like cython, numba, vtk, pymetis and pyamg should be installed to get full functionality.
 
 # Fast unique arrays
 Improvements in Numpy's unique function, introduced in numpy version 1.13, can in certain cases speed up PorePy's performance immensely

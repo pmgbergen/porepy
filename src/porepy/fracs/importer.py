@@ -2,17 +2,187 @@ import warnings
 import numpy as np
 from scipy import sparse as sps
 from itertools import islice
+import csv
 
 from porepy.grids import grid, grid_bucket
 from porepy.fracs import meshing, split_grid
-from porepy.fracs.fractures import Fracture, FractureNetwork
+from porepy.fracs.fractures import Fracture, FractureNetwork, EllipticFracture
 from porepy.utils.setmembership import unique_columns_tol
 from porepy.utils.sort_points import sort_point_pairs
+import porepy.utils.comp_geom as cg
 
 #------------------------------------------------------------------------------#
 
-def mesh_from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
-             return_domain=False, tol=1e-8, **kwargs):
+
+def dfm_3d_from_csv(file_name, tol=1e-4, elliptic_fractures=False, **mesh_kwargs):
+    """
+    Create the grid bucket from a set of 3d fractures stored in a csv file and
+    domain. In the csv file, we assume the following structure
+    - first line describes the domain as a rectangle with
+      X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
+    - the other lines descibe the N fractures as a list of points
+      P0_X, P0_Y, P0_Z, ...,PN_X, PN_Y, PN_Z
+
+    Parameters:
+        file_name: name of the file
+        tol: (optional) tolerance for the methods
+        mesh_kwargs: kwargs for the gridding, see meshing.simplex_grid
+
+    Return:
+        gb: the grid bucket
+    """
+    if elliptic_fractures:
+        frac_list, network, domain = elliptic_network_3d_from_csv(file_name)
+    else:
+        frac_list, network, domain = network_3d_from_csv(file_name)
+
+    gb = meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
+    return gb, domain
+
+#------------------------------------------------------------------------------#
+
+
+def network_3d_from_csv(file_name, has_domain=True, tol=1e-4):
+    """
+    Create the fracture network from a set of 3d fractures stored in a csv file and
+    domain. In the csv file, we assume the following structure
+    - first line (optional) describes the domain as a rectangle with
+      X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
+    - the other lines descibe the N fractures as a list of points
+      P0_X, P0_Y, P0_Z, ...,PN_X, PN_Y, PN_Z
+
+    Lines that start with a # are ignored.
+
+    Parameters:
+        file_name: name of the file
+        has_domain: if the first line in the csv file specify the domain
+        tol: (optional) tolerance for the methods
+
+    Return:
+        frac_list: the list of fractures
+        network: the fracture network
+        domain: (optional, returned if has_domain==True) the domain
+    """
+
+    # The first line of the csv file defines the bounding box for the domain
+
+    frac_list = []
+    # Extract the data from the csv file
+    with open(file_name, 'r') as csv_file:
+        spam_reader = csv.reader(csv_file, delimiter=',')
+
+        # Read the domain first
+        if has_domain:
+            domain = np.asarray(next(spam_reader), dtype=np.float)
+            assert domain.size == 6
+            domain = {'xmin': domain[0], 'xmax': domain[3], 'ymin': domain[1],
+                      'ymax': domain[4], 'zmin': domain[2], 'zmax': domain[5]}
+
+        for row in spam_reader:
+            # If the line starts with a '#', we consider this a comment
+            if row[0][0] == '#':
+                continue
+
+            # Read the points
+            pts = np.asarray(row, dtype=np.float)
+            assert pts.size % 3 == 0
+
+            # Skip empty lines. Useful if the file ends with a blank line.
+            if pts.size == 0:
+                continue
+
+            frac_list.append(Fracture(pts.reshape((3, -1), order='F')))
+
+    # Create the network
+    network = FractureNetwork(frac_list, tol=tol)
+
+    if has_domain:
+        return frac_list, network, domain
+    else:
+        return frac_list, network
+
+#------------------------------------------------------------------------------#
+
+
+def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=False):
+
+    """
+    Create the fracture network from a set of 3d fractures stored in a csv file and
+    domain. In the csv file, we assume the following structure
+    - first line (optional) describes the domain as a rectangle with
+      X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
+    - the other lines descibe the N fractures as a elliptic fractures:
+      center_x, center_y, center_z, major_axis, minor_axis, major_axis_angle,
+                 strike_angle, dip_angle, num_points.
+     See EllipticFracture for information about the parameters
+
+    Lines that start with a # are ignored.
+
+    Parameters:
+        file_name: name of the file
+        has_domain: if the first line in the csv file specify the domain
+        tol: (optional) tolerance for the methods
+
+    Return:
+        frac_list: the list of fractures
+        network: the fracture network
+        domain: (optional, returned if has_domain==True) the domain
+    """
+
+    # The first line of the csv file defines the bounding box for the domain
+
+    frac_list = []
+    # Extract the data from the csv file
+    with open(file_name, 'r') as csv_file:
+        spam_reader = csv.reader(csv_file, delimiter=',')
+
+        # Read the domain first
+        if has_domain:
+            domain = np.asarray(next(spam_reader), dtype=np.float)
+            assert domain.size == 6
+            domain = {'xmin': domain[0], 'xmax': domain[3], 'ymin': domain[1],
+                      'ymax': domain[4], 'zmin': domain[2], 'zmax': domain[5]}
+
+        for row in spam_reader:
+            # If the line starts with a '#', we consider this a comment
+            if row[0][0] == '#':
+                continue
+
+            # Read the data
+            data = np.asarray(row, dtype=np.float)
+            assert data.size % 9 == 0
+
+            # Skip empty lines. Useful if the file ends with a blank line.
+            if data.size == 0:
+                continue
+            centers = data[0:3]
+            maj_ax = data[3] 
+            min_ax = data[4]
+            maj_ax_ang = data[5] * ( 1 - degrees + degrees * np.pi / 180)
+            strike_ang = data[6] * ( 1 - degrees + degrees * np.pi / 180)
+            dip_ang = data[7] * ( 1 - degrees + degrees * np.pi / 180)
+            num_points = data[8]
+
+            frac_list.append(EllipticFracture(centers,
+                                              maj_ax,
+                                              min_ax,
+                                              maj_ax_ang,
+                                              strike_ang,
+                                              dip_ang,
+                                              num_points))
+    # Create the network
+    network = FractureNetwork(frac_list, tol=tol)
+
+    if has_domain:
+        return frac_list, network, domain
+    else:
+        return frac_list, network
+
+
+#------------------------------------------------------------------------------#
+
+def dfm_2d_from_csv(f_name, mesh_kwargs, domain=None, return_domain=False, \
+                    tol=1e-8, **kwargs):
     """
     Create the grid bucket from a set of fractures stored in a csv file and a
     domain. In the csv file, we assume the following structure:
@@ -41,7 +211,7 @@ def mesh_from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
     # Define the domain as bounding-box if not defined
     if domain is None:
         overlap = kwargs.get('domain_overlap', 0)
-        domain = bounding_box(pts, overlap)
+        domain = cg.bounding_box(pts, overlap)
 
     if return_domain:
         return meshing.simplex_grid(f_set, domain, **mesh_kwargs), domain
@@ -49,6 +219,7 @@ def mesh_from_csv(f_name, mesh_kwargs, domain=None, pause=False,\
         return meshing.simplex_grid(f_set, domain, **mesh_kwargs)
 
 #------------------------------------------------------------------------------#
+
 
 def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
     """ Read csv file with fractures to obtain fracture description.
@@ -89,7 +260,7 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
     # Extract the data from the csv file
     data = np.genfromtxt(f_name, **npargs)
     if data.size == 0:
-        return np.empty((2,0)), np.empty((2,0), dtype=np.int)
+        return np.empty((2, 0)), np.empty((2, 0), dtype=np.int)
     data = np.atleast_2d(data)
 
     num_fracs = data.shape[0] if data.size > 0 else 0
@@ -102,8 +273,8 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
     pts = data[:, pt_cols].reshape((-1, 2)).T
 
     # Let the edges correspond to the ordering of the fractures
-    edges = np.vstack((np.arange(0, 2*num_fracs, 2),
-                       np.arange(1, 2*num_fracs, 2)))
+    edges = np.vstack((np.arange(0, 2 * num_fracs, 2),
+                       np.arange(1, 2 * num_fracs, 2)))
     if tagcols is not None:
         edges = np.vstack((edges, data[:, tagcols].T))
 
@@ -119,11 +290,12 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
 
 #------------------------------------------------------------------------------#
 
-def read_dfn(file_name, file_inters=None, conforming=True, tol=None,
-             vtk_name=None, **kwargs):
+
+def dfn_3d_from_fab(file_name, file_inters=None, conforming=True, tol=None,
+                    vtk_name=None, **kwargs):
     """ Read the fractures and (possible) intersection from files.
     The fractures are in a .fab file, as specified by FracMan.
-    The intersection are specified in the function intersection_dfn.
+    The intersection are specified in the function intersection_dfn_3d.
 
     Parameters:
         file_name (str): Path to .fab file.
@@ -138,12 +310,7 @@ def read_dfn(file_name, file_inters=None, conforming=True, tol=None,
         gb (GridBucket): The grid bucket.
 
     """
-    fracs, tf, sgn = from_fab(file_name)
-    fractures = [Fracture(f) for f in fracs]
-    if tol is not None:
-        network = FractureNetwork(fractures, tol=tol)
-    else:
-        network = FractureNetwork(fractures)
+    network = network_3d_from_fab(file_name, return_all=False, tol=tol)
 
     if vtk_name is not None:
         network.to_vtk(vtk_name)
@@ -151,12 +318,13 @@ def read_dfn(file_name, file_inters=None, conforming=True, tol=None,
     if file_inters is None:
         return meshing.dfn(network, conforming, **kwargs)
     else:
-        inters = intersection_dfn(file_inters, fractures)
+        inters = intersection_dfn_3d(file_inters, fractures)
         return meshing.dfn(network, conforming, inters, **kwargs)
 
 #------------------------------------------------------------------------------#
 
-def from_fab(f_name):
+
+def network_3d_from_fab(f_name, return_all=False, tol=None):
     """ Read fractures from a .fab file, as specified by FracMan.
 
     The filter is based on the .fab-files available at the time of writing, and
@@ -166,12 +334,13 @@ def from_fab(f_name):
         f_name (str): Path to .fab file.
 
     Returns:
-        fracs (list of np.ndarray): Each list element contains fracture
-            vertexes as a nd x n_pt array.
-        tess_fracs (list of np.ndarray): Each list element contains fracture
+        network: the network of fractures
+        tess_fracs (optional returned if return_all==True, list of np.ndarray):
+            Each list element contains fracture
             cut by the domain boundary, represented by vertexes as a nd x n_pt
             array.
-        tess_frac (np.ndarray): For each element in tess_frac, a +-1 defining
+        tess_sgn (optional returned if return_all==True, np.ndarray):
+            For each element in tess_frac, a +-1 defining
             which boundary the fracture is on.
 
     The function also reads in various other information of unknown usefulness,
@@ -249,16 +418,26 @@ def from_fab(f_name):
             elif line.strip() == 'BEGIN TESSFRACTURE':
                 # Read tess_fractures
                 tess_fracs, tess_frac_ids, tess_sgn = \
-                                        read_fractures(f, is_tess=True)
+                    read_fractures(f, is_tess=True)
             elif line.strip()[:5] == 'BEGIN':
                 # Check for keywords not yet implemented.
                 raise ValueError('Unknown section type ' + line)
 
-    return fracs, tess_fracs, tess_sgn
+    fractures = [Fracture(f) for f in fracs]
+    if tol is not None:
+        network = FractureNetwork(fractures, tol=tol)
+    else:
+        network = FractureNetwork(fractures)
+
+    if return_all:
+        return network, tess_fracs, tess_sgn
+    else:
+        return network
 
 #------------------------------------------------------------------------------#
 
-def intersection_dfn(file_name, fractures):
+
+def intersection_dfn_3d(file_name, fractures):
     """ Read the fracture intersections from file.
     NOTE: We assume that the fracture id in the file starts from 1. The file
     format is as follow:
@@ -282,16 +461,17 @@ def intersection_dfn(file_name, fractures):
     intersections = np.empty((inter_from_file.shape[0], 3), dtype=np.object)
 
     for line, intersection in zip(inter_from_file, intersections):
-        intersection[0] = DummyFracture(int(line[6])-1)
-        intersection[1] = DummyFracture(int(line[7])-1)
-        intersection[2] = np.array(line[:6]).reshape((3,-1), order='F')
+        intersection[0] = DummyFracture(int(line[6]) - 1)
+        intersection[1] = DummyFracture(int(line[7]) - 1)
+        intersection[2] = np.array(line[:6]).reshape((3, -1), order='F')
     return intersections
 
 #------------------------------------------------------------------------------#
 
+
 def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
 
-    #TODO: tag tip faces
+    # TODO: tag tip faces
 
     offset_name = kwargs.get('offset_name', 1)
     folder += "/"
@@ -300,22 +480,23 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
 
     global_node_id = 0
     for f_id in np.arange(num_fractures):
-        post = "_F" + str(f_id+offset_name) + "_" + str(case_id) + ".txt"
-        nodes_2d, face_nodes_2d, cell_faces_2d = _dfn_grid_2d(folder, post, **kwargs)
+        post = "_F" + str(f_id + offset_name) + "_" + str(case_id) + ".txt"
+        nodes_2d, face_nodes_2d, cell_faces_2d = _dfn_grid_2d(
+            folder, post, **kwargs)
         g_2d[f_id] = grid.Grid(2, nodes_2d, face_nodes_2d, cell_faces_2d,
                                "fracture_" + str(f_id) + "_" + str(case_id))
 
-        bnd_faces = g_2d[f_id].get_boundary_faces()
-        g_2d[f_id].add_face_tag(bnd_faces, grid.FaceTag.DOMAIN_BOUNDARY)
+        bnd_faces = g_2d[f_id].get_all_boundary_faces()
+        g_2d[f_id].tags['domain_boundary_faces'][bnd_faces] = True
 
         g_2d[f_id].global_point_ind = np.arange(g_2d[f_id].num_nodes) + \
-                                      global_node_id
+            global_node_id
         global_node_id += g_2d[f_id].num_nodes
 
     gb.add_nodes(g_2d)
 
     for f_id in np.arange(num_fractures):
-        post = "_F" + str(f_id+offset_name) + "_" + str(case_id) + ".txt"
+        post = "_F" + str(f_id + offset_name) + "_" + str(case_id) + ".txt"
 
         face_name = kwargs.get("face_name", "Faces")
         face_file_name = folder + face_name + post
@@ -323,20 +504,21 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
         with open(face_file_name, 'r') as f:
             skip_lines = int(f.readline().split()[0]) + 1
             lines = np.array(f.readlines()[skip_lines:])
-            conn = np.atleast_2d([np.fromstring(l, dtype=np.int, sep=' ') \
-                                                                for l in lines])
+            conn = np.atleast_2d([np.fromstring(l, dtype=np.int, sep=' ')
+                                  for l in lines])
             # Consider only the new intersections
             conn = conn[conn[:, 2] > f_id, :]
 
             for g_id in np.unique(conn[:, 2]):
-                other_f_id = g_id-1
+                other_f_id = g_id - 1
                 mask = conn[:, 2] == g_id
 
                 nodes_id = _nodes_faces_2d(g_2d[f_id], conn[mask, 0])
-                nodes_1d, face_nodes_1d, cell_faces_1d = _dfn_grid_1d(g_2d[f_id], nodes_id)
+                nodes_1d, face_nodes_1d, cell_faces_1d = _dfn_grid_1d(
+                    g_2d[f_id], nodes_id)
                 g_1d = grid.Grid(1, nodes_1d, face_nodes_1d, cell_faces_1d,
-                                 "intersection_" + str(f_id) + \
-                                 "_" + str(g_id-1) + "_" + str(case_id))
+                                 "intersection_" + str(f_id) +
+                                 "_" + str(g_id - 1) + "_" + str(case_id))
 
                 print(nodes_id)
                 print(g_2d[f_id].global_point_ind[nodes_id])
@@ -344,7 +526,7 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
                 g_1d.global_point_ind = global_point_ind
 
                 nodes_id = _nodes_faces_2d(g_2d[other_f_id], conn[mask, 1])
-                for g, _ in gb: # TODO: better access
+                for g, _ in gb:  # TODO: better access
                     if g is g_2d[other_f_id]:
                         g.global_point_ind[nodes_id] = global_point_ind
                         break
@@ -369,6 +551,7 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
 
 #------------------------------------------------------------------------------#
 
+
 def _dfn_grid_2d(folder, post, **kwargs):
 
     cell_name = kwargs.get("cell_name", "Cells")
@@ -378,17 +561,17 @@ def _dfn_grid_2d(folder, post, **kwargs):
     with open(cell_file_name, 'r') as f:
         num_cells, num_faces_cells = map(int, f.readline().split())
         cell_faces_data = np.empty(num_faces_cells, dtype=np.int)
-        cell_faces_indptr = np.zeros(num_cells+1, dtype=np.int)
+        cell_faces_indptr = np.zeros(num_cells + 1, dtype=np.int)
         cell_faces_indices = np.empty(num_faces_cells, dtype=np.int)
 
         lines = list(islice(f, num_cells))
         pos = 0
         for cell_id, line in enumerate(lines):
             data = np.fromstring(line, dtype=np.int, sep=' ')
-            cell_faces_indptr[cell_id+1] = pos+data.size
-            index = slice(pos, pos+data.size)
+            cell_faces_indptr[cell_id + 1] = pos + data.size
+            index = slice(pos, pos + data.size)
             cell_faces_indices[index] = np.abs(data)
-            cell_faces_data[index] = 2*(data > 0)-1
+            cell_faces_data[index] = 2 * (data > 0) - 1
             pos += data.size
 
         cell_faces = sps.csc_matrix((cell_faces_data,
@@ -408,12 +591,12 @@ def _dfn_grid_2d(folder, post, **kwargs):
         pos = 0
         for face_id, line in enumerate(lines):
             data = np.fromstring(line, dtype=np.int, sep=' ')
-            index = slice(pos, pos+data.size)
+            index = slice(pos, pos + data.size)
             face_nodes_indices[index] = data
             pos += data.size
 
-        face_nodes_indptr = np.hstack((np.arange(0, 2*num_faces, 2),
-                                       2*num_faces))
+        face_nodes_indptr = np.hstack((np.arange(0, 2 * num_faces, 2),
+                                       2 * num_faces))
         face_nodes = sps.csc_matrix((np.ones(num_nodes_faces, dtype=np.bool),
                                      face_nodes_indices,
                                      face_nodes_indptr))
@@ -434,12 +617,13 @@ def _dfn_grid_2d(folder, post, **kwargs):
 
 #------------------------------------------------------------------------------#
 
+
 def _nodes_faces_2d(grid_2d, faces_2d_id):
 
     nodes_id = np.empty((2, faces_2d_id.size), dtype=np.int)
     for cell_id, face_2d_id in enumerate(faces_2d_id):
         index = slice(grid_2d.face_nodes.indptr[face_2d_id],
-                      grid_2d.face_nodes.indptr[face_2d_id+1])
+                      grid_2d.face_nodes.indptr[face_2d_id + 1])
         nodes_id[:, cell_id] = grid_2d.face_nodes.indices[index]
 
     nodes_id = sort_point_pairs(nodes_id, is_circular=False)
@@ -447,16 +631,17 @@ def _nodes_faces_2d(grid_2d, faces_2d_id):
 
 #------------------------------------------------------------------------------#
 
+
 def _dfn_grid_1d(grid_2d, nodes_id):
 
     num_faces = nodes_id.size
-    num_cells = num_faces-1
+    num_cells = num_faces - 1
 
-    cell_faces_indptr = 2*np.arange(num_faces)
+    cell_faces_indptr = 2 * np.arange(num_faces)
     cell_faces_indices = np.vstack((np.arange(num_cells),
-                                    np.arange(1, num_cells+1))
-                                  ).ravel('F')
-    cell_faces_data = np.ones(2*num_cells)
+                                    np.arange(1, num_cells + 1))
+                                   ).ravel('F')
+    cell_faces_data = np.ones(2 * num_cells)
     cell_faces_data[::2] *= -1
 
     cell_faces = sps.csc_matrix((cell_faces_data,
@@ -464,37 +649,10 @@ def _dfn_grid_1d(grid_2d, nodes_id):
                                  cell_faces_indptr))
     del cell_faces_data, cell_faces_indptr, cell_faces_indices
 
-    face_nodes = sps.csc_matrix((np.ones(num_faces+1, dtype=np.bool),
-                                 np.arange(num_faces+1),
-                                 np.arange(num_faces+1)))
+    face_nodes = sps.csc_matrix((np.ones(num_faces + 1, dtype=np.bool),
+                                 np.arange(num_faces + 1),
+                                 np.arange(num_faces + 1)))
 
     return grid_2d.nodes[:, nodes_id], face_nodes, cell_faces
 
 #------------------------------------------------------------------------------#
-
-def bounding_box(pts, overlap=0):
-    """ Obtain a bounding box for a point cloud.
-
-    Parameters:
-        pts: np.ndarray (nd x npt). Point cloud. nd should be 2 or 3
-        overlap (double, defaults to 0): Extension of the bounding box outside
-            the point cloud. Scaled with extent of the point cloud in the
-            respective dimension.
-
-    Returns:
-        domain (dictionary): Containing keywords xmin, xmax, ymin, ymax, and
-            possibly zmin and zmax (if nd == 3)
-
-    """
-    max_coord = pts.max(axis=1)
-    min_coord = pts.min(axis=1)
-    dx = max_coord - min_coord
-    domain = {'xmin': min_coord[0] - dx[0] * overlap,
-              'xmax': max_coord[0] + dx[0] * overlap,
-              'ymin': min_coord[1] - dx[1] * overlap,
-              'ymax': max_coord[1] + dx[1] * overlap}
-
-    if max_coord.size == 3:
-        domain['zmin'] = min_coord[2] - dx[2] * overlap
-        domain['zmax'] = max_coord[2] + dx[2] * overlap
-    return domain

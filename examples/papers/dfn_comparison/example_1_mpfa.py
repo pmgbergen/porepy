@@ -8,11 +8,12 @@ from porepy.numerics.fv import mpfa, source
 import example_1_create_grid
 import example_1_data
 
+
 def main(id_problem, tol=1e-5, if_export=False):
 
     folder_export = "example_1_mpfa/"
     file_name_error = folder_export + "mpfa_error.txt"
-    gb = example_1_create_grid.create(0.5/float(id_problem), tol)
+    gb = example_1_create_grid.create(0.5 / float(id_problem), tol)
 
     if if_export:
         save = Exporter(gb, "mpfa", folder_export)
@@ -29,27 +30,28 @@ def main(id_problem, tol=1e-5, if_export=False):
     solver_source = source.IntegralDFN(gb.dim_max(), 'flow')
     A_source, b_source = solver_source.matrix_rhs(gb)
 
-    p = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
-    solver_flow.split(gb, "p", p)
+    p = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
+    solver_flow.split(gb, 'pressure', p)
 
-    only_max_dim = lambda g: g.dim==gb.dim_max()
+    def only_max_dim(g): return g.dim == gb.dim_max()
     diam = gb.diameter(only_max_dim)
-    error_pressure = example_1_data.error_pressure(gb, "p")
+    error_pressure = example_1_data.error_pressure(gb, 'pressure')
     print("h=", diam, "- err(p)=", error_pressure)
 
     with open(file_name_error, 'a') as f:
         info = str(gb.num_cells(only_max_dim)) + " " +\
-               str(gb.num_cells(only_max_dim)) + " " +\
-               str(error_pressure) + "\n"
+            str(gb.num_cells(only_max_dim)) + " " +\
+            str(error_pressure) + "\n"
         f.write(info)
 
     if if_export:
-        save.write_vtk(["p", "err"])
+        save.write_vtk(['pressure', "err"])
 
 #------------------------------------------------------------------------------#
 
+
 num_simu = 25
 for i in np.arange(num_simu):
-    main(i+1)
+    main(i + 1)
 
 #------------------------------------------------------------------------------#
