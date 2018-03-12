@@ -16,7 +16,7 @@ from porepy.params import bc, tensor
 from porepy.params.data import Parameters
 from porepy.numerics.fv import tpfa
 from porepy.numerics.mixed_dim import coupler, condensation
-from porepy.utils.errors import error
+from porepy.utils import error
 
 #------------------------------------------------------------------------------#
 

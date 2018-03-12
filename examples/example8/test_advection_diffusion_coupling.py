@@ -17,9 +17,6 @@ from porepy.numerics.fv import tpfa
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.utils.errors import error
-from porepy.utils import tags
-
 
 #------------------------------------------------------------------------------#
 

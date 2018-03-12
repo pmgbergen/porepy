@@ -3,7 +3,7 @@ Utility functions for the run scripts in current folder.
 """
 import numpy as np
 from porepy.numerics.fv.tpfa import TpfaMixedDim
-from porepy.utils.errors.error import error_L2
+from porepy.utils.error import error_L2
 from porepy.numerics.mixed_dim import condensation as SC
 from porepy.params.data import Parameters
 

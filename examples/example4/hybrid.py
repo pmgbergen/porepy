@@ -18,7 +18,7 @@ import scipy.sparse as sps
 
 from porepy.grids import structured, simplex
 from porepy.params import tensor, bc
-from porepy.utils.errors import error
+from porepy.utils import error
 from porepy.numerics.vem import dual, hybrid
 from porepy.viz.plot_grid import plot_grid
 import porepy.utils.comp_geom as cg

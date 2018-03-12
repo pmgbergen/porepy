@@ -3,16 +3,9 @@ import numpy as np
 import scipy.sparse as sps
 import unittest
 
-from porepy.fracs import meshing
-from porepy.utils.errors import error
-from porepy.params import bc, tensor
-from porepy.params.data import Parameters
-
-from porepy.numerics.fv import tpfa, fvutils
-from porepy.numerics.fv.transport import upwind
-from porepy.numerics.fv.source import IntegralMixedDim
-from porepy.numerics.fv.transport import upwind
+import porepy as pp
 from porepy.numerics.mixed_dim import coupler, condensation
+from porepy.numerics.fv.transport import upwind
 #------------------------------------------------------------------------------#
 
 
@@ -38,8 +31,8 @@ class BasicsTest(unittest.TestCase):
         mesh_kwargs = {}
         mesh_kwargs['mesh_size'] = {'mode': 'constant',
                                     'value': mesh_size, 'bound_value': mesh_size}
-        gb = meshing.cart_grid([f1, f2], [2, 2], **{'physdims': [1, 1]})
-        #gb = meshing.simplex_grid( [f1, f2],domain,**mesh_kwargs)
+        gb = pp.meshing.cart_grid([f1, f2], [2, 2], **{'physdims': [1, 1]})
+        #gb = pp.meshing.simplex_grid( [f1, f2],domain,**mesh_kwargs)
         gb.compute_geometry()
         gb.assign_node_ordering()
 
@@ -62,18 +55,18 @@ class BasicsTest(unittest.TestCase):
                     raise ValueError('Grid not found')
 
         tol = 1e-3
-        solver = tpfa.TpfaMixedDim()
+        solver = pp.TpfaMixedDim()
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
-            param = Parameters(g)
+            param = pp.Parameters(g)
 
             a_dim = np.power(a, gb.dim_max() - g.dim)
             aperture = np.ones(g.num_cells) * a_dim
             param.set_aperture(aperture)
 
             kxx = np.ones(g.num_cells) * np.power(1e3, g.dim < gb.dim_max())
-            p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
+            p = pp.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
             param.set_tensor('flow', p)
 
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
@@ -92,7 +85,7 @@ class BasicsTest(unittest.TestCase):
                 bc_val[bc_dir] = g.face_centers[0, bc_dir]
                 bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
 
-                param.set_bc('flow', bc.BoundaryCondition(
+                param.set_bc('flow', pp.BoundaryCondition(
                     g, bound_faces, labels))
                 param.set_bc_val('flow', bc_val)
                 # Transport
@@ -105,13 +98,13 @@ class BasicsTest(unittest.TestCase):
 
                 bc_val = np.zeros(g.num_faces)
 
-                param.set_bc('transport', bc.BoundaryCondition(
+                param.set_bc('transport', pp.BoundaryCondition(
                     g, bound_faces, labels))
                 param.set_bc_val('transport', bc_val)
             else:
-                param.set_bc("transport", bc.BoundaryCondition(
+                param.set_bc("transport", pp.BoundaryCondition(
                     g, np.empty(0), np.empty(0)))
-                param.set_bc("flow", bc.BoundaryCondition(
+                param.set_bc("flow", pp.BoundaryCondition(
                     g, np.empty(0), np.empty(0)))
             # Transport:
             source = g.cell_volumes * a_dim
@@ -122,7 +115,7 @@ class BasicsTest(unittest.TestCase):
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
             g_h = gb.sorted_nodes_of_edge(e)[1]
-            d['param'] = Parameters(g_h)
+            d['param'] = pp.Parameters(g_h)
 
         A, rhs = solver.matrix_rhs(gb)
         # p = sps.linalg.spsolve(A,rhs)
@@ -134,8 +127,8 @@ class BasicsTest(unittest.TestCase):
 
         solver.split(gb_r, "pressure", p_red)
 
-        # fvutils.compute_discharges(gb)
-        fvutils.compute_discharges(gb_r)
+        # pp.fvutils.compute_discharges(gb)
+        pp.fvutils.compute_discharges(gb_r)
 
         #------Transport------#
         advection_discr = upwind.Upwind(physics="transport")
@@ -143,7 +136,7 @@ class BasicsTest(unittest.TestCase):
         advection_coupler = coupler.Coupler(
             advection_discr, advection_coupling_conditions)
         U_r, rhs_u_r = advection_coupler.matrix_rhs(gb_r)
-        _, rhs_src_r = IntegralMixedDim(physics='transport').matrix_rhs(gb_r)
+        _, rhs_src_r = pp.IntegralMixedDim(physics='transport').matrix_rhs(gb_r)
         rhs_u_r = rhs_u_r + rhs_src_r
         deltaT = np.amin(gb_r.apply_function(advection_discr.cfl,
                                              advection_coupling_conditions.cfl).data)
