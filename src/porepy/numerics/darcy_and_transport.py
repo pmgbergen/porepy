@@ -29,8 +29,14 @@ class DarcyAndTransport:
     def solve(self, save_as=None, save_every=1):
         """
         Solve both problems.
+
+        Arguments:
+        save_as (string), defaults to None. If a string is given, the solution
+                          variable is saved to a vtk-file as save_as
+        save_every (int), defines which time steps to save. save_every=2 will
+                          store every second time step.
         """
-        p = self.flow.step()
+        self.flow.step()
         self.flow.pressure()
         if self.flow.el:
             SC.compute_elimination_fluxes(
