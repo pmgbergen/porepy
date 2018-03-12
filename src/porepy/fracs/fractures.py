@@ -146,10 +146,13 @@ class Fracture(object):
         Returns:
             True: if the point is in the vertex set, false if not.
             int: Index of the identical vertex. None if not a vertex.
+
         """
         p = p.reshape((-1, 1))
         ap = np.hstack((p, self.p))
         up, _, ind = setmembership.unique_columns_tol(ap, tol=tol*np.sqrt(3))
+
+        # If uniquifying did not remove any points, it is not a vertex.
         if up.shape[1] == ap.shape[1]:
             return False, None
         else:
