@@ -43,8 +43,40 @@ from porepy.grids.constants import GmshConstants
 logger = logging.getLogger(__name__)
 
 class Fracture(object):
+    """ Class representing a single fracture, as a convex, planar 2D object
+    embedded in 3D space.
+
+    The fracture is defined by its vertexes. It contains various utility
+    methods, mainly intended for use together with the FractureNetwork class.
+
+    Attributes:
+        p (np.ndarray, 3 x npt): Fracture vertices. Will be stored in a CCW
+            order (or CW, depending on which side it is viewed from).
+        orig_p (np.ndarray, 3 x npt): Original fracture vertices, kept in case
+            the fracture geometry for some reason is modified.
+        center (np.ndarray, 3 x 1): Fracture centroid.
+        index (int): Index of fracture. Intended used in FractureNetork.
+            Exact use is not clear (several fractures can be given same index),
+            use with care.
+
+    """
 
     def __init__(self, points, index=None, check_convexity=True):
+        """ Initialize fractures.
+
+        __init__ defines the vertexes of the fracture and sort them to be CCW.
+        Also compute centroid and normal, and check for planarity and
+        convexity.
+
+        Parameters:
+            points (np.ndarray-like, 3 x npt): Vertexes of new fracture. There
+                should be at least 3 points to define a plane.
+            index (int, optional): Index of fracture. Defaults to None.
+            check_convexity (boolean, optional): If True, check if the given
+                points are convex. Defaults to True. Can be skipped if the
+                plane is known to be convex to save time.
+
+        """
         self.p = np.asarray(points, dtype=np.float)
         # Ensure the points are ccw
         self.points_2_ccw()
@@ -60,13 +92,30 @@ class Fracture(object):
             assert self.check_convexity(), 'Points form non-convex polygon'
 
     def set_index(self, i):
+        """ Set index of this fracture.
+
+        Parameters:
+            i (int): Index.
+
+        """
         self.index = i
 
     def __eq__(self, other):
+        """ Equality is defined as two fractures having the same index.
+
+        There are issues with this, behavior may change in the future.
+
+        """
         return self.index == other.index
 
     def copy(self):
         """ Return a deep copy of the fracture.
+
+        Note that the original points (as given when the fracture was
+        initialized) will *not* be preserved.
+
+        Returns:
+            Fracture with the same points.
 
         """
         p = np.copy(self.p)
@@ -119,7 +168,7 @@ class Fracture(object):
         """
         Ensure that the points are sorted in a counter-clockwise order.
 
-        mplementation note:
+        implementation note:
             For now, the ordering of nodes in based on a simple angle argument.
             This will not be robust for general point clouds, but we expect the
             fractures to be regularly shaped in this sense. In particular, we
