@@ -563,7 +563,9 @@ class Grid(object):
             np.ndarray (1d), index of internal faces.
 
         """
-        return self.__indices(np.logical_not(self.get_all_boundary_faces()))
+        return np.setdiff1d(np.arange(self.num_faces),
+                            self.get_all_boundary_faces(),
+                            assume_unique=True)
 
     def get_boundary_nodes(self):
         """
