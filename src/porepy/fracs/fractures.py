@@ -1012,9 +1012,7 @@ class FractureNetwork(object):
             f (Fracture): Fracture to be added.
 
         """
-        ind = np.array(len(self._fractures))
-        for fi, f in enumerate(self._fractures):
-            ind[fi] = f.index
+        ind = np.array([f.index for f in self._fractures])
 
         f.set_index(np.max(ind) +1)
         self._fractures.append(f)
