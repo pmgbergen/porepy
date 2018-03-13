@@ -44,7 +44,7 @@ class FlowData(EllipticDataAssigner):
     def permeability(self):
         kxx = np.ones(self.grid().num_cells) * \
             np.power(1e4, self.grid().dim < 2)
-        return tensor.SecondOrder(3, kxx)
+        return tensor.SecondOrderTensor(3, kxx)
 
     def bc(self):
         # Default values (Neumann) on the vertical fracture and
@@ -76,11 +76,11 @@ def update_perm(gb, k_hor, k_ver, k_intersection):
         if g.dim > 1:
             continue
         if np.isclose(g.cell_centers[0, 0], .5):
-            perm = tensor.SecondOrder(3, k_ver * np.ones(g.num_cells))
+            perm = tensor.SecondOrderTensor(3, k_ver * np.ones(g.num_cells))
         if np.isclose(g.cell_centers[1, 0], .5) and g.dim == 1:
-            perm = tensor.SecondOrder(3, k_hor * np.ones(g.num_cells))
+            perm = tensor.SecondOrderTensor(3, k_hor * np.ones(g.num_cells))
         if g.dim == 0:
-            perm = tensor.SecondOrder(3, k_intersection * np.ones(g.num_cells))
+            perm = tensor.SecondOrderTensor(3, k_intersection * np.ones(g.num_cells))
         d['param'].set_tensor('flow', perm)
 
 

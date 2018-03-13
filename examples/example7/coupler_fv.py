@@ -29,9 +29,9 @@ def add_data(gb):
         # Permeability
         kxx = np.ones(g.num_cells)
         if all(g.cell_centers[0, :] < 0.0001):
-            perm = tensor.SecondOrder(3, kxx / 100, kxx, kxx)
+            perm = tensor.SecondOrderTensor(3, kxx / 100, kxx, kxx)
         else:
-            perm = tensor.SecondOrder(3, kxx * np.power(100, g.dim < 3))
+            perm = tensor.SecondOrderTensor(3, kxx * np.power(100, g.dim < 3))
 
         params.set_tensor('flow', perm)
 

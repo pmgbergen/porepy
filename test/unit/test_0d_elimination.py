@@ -53,7 +53,7 @@ class BasicsTest(unittest.TestCase):
 
             kxx = np.ones(g.num_cells) * np.power(1e3, g.dim < gb.dim_max())
 
-            p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
+            p = tensor.SecondOrderTensor(3, kxx, kyy=kxx, kzz=kxx)
             param.set_tensor('flow', p)
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
@@ -125,7 +125,7 @@ class BasicsTest(unittest.TestCase):
 
             kxx = np.ones(g.num_cells) * np.power(1e3, g.dim < gb.dim_max())
 
-            p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
+            p = tensor.SecondOrderTensor(3, kxx, kyy=kxx, kzz=kxx)
 
             param.set_tensor('flow', p)
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
@@ -239,7 +239,7 @@ class BasicsTest(unittest.TestCase):
             aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
 
-            p = tensor.SecondOrder(3, np.ones(
+            p = tensor.SecondOrderTensor(3, np.ones(
                 g.num_cells) * np.power(1e3, g.dim < gb.dim_max()))
             param.set_tensor('flow', p)
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]

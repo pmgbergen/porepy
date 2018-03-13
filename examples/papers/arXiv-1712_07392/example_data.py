@@ -67,14 +67,14 @@ class VEMModelData(DarcyModelData):
     def permeability(self):
         if self.grid().dim == 3:
             kxx = self.km * np.ones(self.grid().num_cells)
-            return tensor.SecondOrder(self.grid().dim, kxx=kxx, kyy=kxx, kzz=kxx)
+            return tensor.SecondOrderTensor(self.grid().dim, kxx=kxx, kyy=kxx, kzz=kxx)
 
         elif self.grid().dim == 2:
             if self.grid().frac_num == self.special_fracture:
                 kxx = self.kf_high * np.ones(self.grid().num_cells)
             else:
                 kxx = self.kf_low * np.ones(self.grid().num_cells)
-            return tensor.SecondOrder(self.grid().dim, kxx=kxx, kyy=kxx, kzz=1)
+            return tensor.SecondOrderTensor(self.grid().dim, kxx=kxx, kyy=kxx, kzz=1)
 
         else:  # g.dim == 1
             neigh = self.gb.node_neighbors(self.grid(), only_higher=True)
@@ -86,7 +86,7 @@ class VEMModelData(DarcyModelData):
                     kxx = self.kf_low * np.ones(self.grid().num_cells)
             else:
                 kxx = self.kf_low * np.ones(self.grid().num_cells)
-            return tensor.SecondOrder(self.grid().dim, kxx=kxx, kyy=1, kzz=1)
+            return tensor.SecondOrderTensor(self.grid().dim, kxx=kxx, kyy=1, kzz=1)
 
 #------------------------------------------------------------------------------#
 
@@ -99,14 +99,14 @@ class TPFAModelData(DarcyModelData):
     def permeability(self):
         if self.grid().dim == 3:
             kxx = self.km * np.ones(self.grid().num_cells)
-            return tensor.SecondOrder(3, kxx)
+            return tensor.SecondOrderTensor(3, kxx)
 
         elif self.grid().dim == 2:
             if self.grid().frac_num == self.special_fracture:
                 kxx = self.kf_high * np.ones(self.grid().num_cells)
             else:
                 kxx = self.kf_low * np.ones(self.grid().num_cells)
-            return tensor.SecondOrder(3, kxx)
+            return tensor.SecondOrderTensor(3, kxx)
 
         else:  # g.dim == 1
             neigh = self.gb.node_neighbors(self.grid(), only_higher=True)
@@ -118,6 +118,6 @@ class TPFAModelData(DarcyModelData):
                     kxx = self.kf_low * np.ones(self.grid().num_cells)
             else:
                 kxx = self.kf_low * np.ones(self.grid().num_cells)
-            return tensor.SecondOrder(3, kxx)
+            return tensor.SecondOrderTensor(3, kxx)
 
 #------------------------------------------------------------------------------#

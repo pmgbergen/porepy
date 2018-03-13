@@ -28,9 +28,9 @@ def add_data(gb, domain):
 
         # Permeability
         if g.dim == 2:
-            perm = tensor.SecondOrder(g.dim, 1e-14 * np.ones(g.num_cells))
+            perm = tensor.SecondOrderTensor(g.dim, 1e-14 * np.ones(g.num_cells))
         else:
-            perm = tensor.SecondOrder(g.dim, 1e-8 * np.ones(g.num_cells))
+            perm = tensor.SecondOrderTensor(g.dim, 1e-8 * np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         # Source term

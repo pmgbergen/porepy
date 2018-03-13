@@ -32,7 +32,7 @@ def add_data_darcy(gb, domain, tol):
         param = Parameters(g)
 
         kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrderTensor(g.dim, kxx)
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))
@@ -83,7 +83,7 @@ def add_data_advection_diffusion(gb, domain, tol):
         param = d['param']
 
         kxx = 5 * 1e-2 * np.ones(g.num_cells)
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrderTensor(g.dim, kxx)
         param.set_tensor("transport", perm)
 
         # The 0.5 needs to be fixed in a better way

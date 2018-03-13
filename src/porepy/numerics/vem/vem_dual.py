@@ -438,7 +438,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to self.massHdiv
-        k = pp.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+        k = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
         param = data['param']
         a = param.get_aperture()
 

@@ -38,7 +38,7 @@ def add_data(g):
     param = Parameters(g)
 
     # Permeability
-    param.set_tensor("flow", tensor.SecondOrder(g.dim, np.ones(g.num_cells)))
+    param.set_tensor("flow", tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells)))
 
     # Source term
     source = np.array([rhs(*pt) for pt in g.cell_centers.T])

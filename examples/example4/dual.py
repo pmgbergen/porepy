@@ -34,7 +34,7 @@ def darcy_dualVEM_example0(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     f = np.ones(g.num_cells)
 
@@ -69,7 +69,7 @@ def darcy_dualVEM_example1(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     def funP_ex(pt):
         return np.sin(2 * np.pi * pt[0]) * np.sin(2 * np.pi * pt[1])
@@ -125,7 +125,7 @@ def darcy_dualVEM_example2(**kwargs):
     T = cg.tangent_matrix(g.nodes)
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     def funP_ex(pt):
         return np.pi * pt[0] - 6 * pt[1] + np.exp(1) * pt[2] - 4
@@ -174,7 +174,7 @@ def darcy_dualVEM_example3(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     def funP_ex(pt):
         return np.sin(2 * np.pi * pt[0]) * np.sin(2 * np.pi * pt[1])\

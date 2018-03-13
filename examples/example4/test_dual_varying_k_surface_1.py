@@ -42,7 +42,7 @@ def add_data(g):
 
     # Permeability
     kxx = np.array([permeability(*pt) for pt in g.cell_centers.T])
-    param.set_tensor("flow", tensor.SecondOrder(3, kxx))
+    param.set_tensor("flow", tensor.SecondOrderTensor(3, kxx))
 
     # Source term
     source = np.array([rhs(*pt) for pt in g.cell_centers.T])

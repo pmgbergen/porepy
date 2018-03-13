@@ -152,7 +152,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
 
         # Permeability
-        perm = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+        perm = tensor.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         # Source term

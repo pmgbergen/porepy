@@ -73,7 +73,7 @@ class FlowData(EllipticDataAssigner):
         else:
             k = 1
 
-        return tensor.SecondOrder(3, k * np.ones(self.grid().num_cells))
+        return tensor.SecondOrderTensor(3, k * np.ones(self.grid().num_cells))
 
     def bc(self):
         return bc_object(self.grid())

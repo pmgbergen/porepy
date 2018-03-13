@@ -78,7 +78,7 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         p_2 = 0 * p_1
         p_3 = 2 * p_1
         p_4 = 3 * p_1
-        
+
         p_int = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         assert p_int is None
 
@@ -89,7 +89,7 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         p_2 = np.array([-1, 1, 0])
         p_3 = np.array([-1, 0, -1])
         p_4 = np.array([-1, 0, 1])
-        
+
         p_int = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         p_known = np.array([-1, 0, 0]).reshape((-1, 1))
         assert np.allclose(p_int, p_known)
@@ -101,74 +101,74 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         p_2 = 2 * p_1
         p_3 = 0 * p_1
         p_4 = 3 * p_1
-        
+
         p_int = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         p_known_1 = p_1.reshape((-1, 1))
         p_known_2 = p_2.reshape((-1, 1))
         assert np.min(np.sum(np.abs(p_int - p_known_1), axis=0)) < 1e-8
         assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8
-        
+
     def test_segments_overlap_input_order(self):
         # Test the order of inputs
         p_1 = np.ones(3)
         p_2 = 2 * p_1
         p_3 = 0 * p_1
         p_4 = 3 * p_1
-        
+
         p_int_1 = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         p_int_2 = cg.segments_intersect_3d(p_2, p_1, p_3, p_4)
         p_int_3 = cg.segments_intersect_3d(p_1, p_2, p_4, p_3)
         p_int_4 = cg.segments_intersect_3d(p_2, p_1, p_4, p_3)
-            
+
         p_known_1 = p_1.reshape((-1, 1))
         p_known_2 = p_2.reshape((-1, 1))
-        
+
         assert np.min(np.sum(np.abs(p_int_1 - p_known_1), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int_1 - p_known_2), axis=0)) < 1e-8    
+        assert np.min(np.sum(np.abs(p_int_1 - p_known_2), axis=0)) < 1e-8
         assert np.min(np.sum(np.abs(p_int_2 - p_known_1), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int_2 - p_known_2), axis=0)) < 1e-8    
+        assert np.min(np.sum(np.abs(p_int_2 - p_known_2), axis=0)) < 1e-8
         assert np.min(np.sum(np.abs(p_int_3 - p_known_1), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int_3 - p_known_2), axis=0)) < 1e-8    
+        assert np.min(np.sum(np.abs(p_int_3 - p_known_2), axis=0)) < 1e-8
         assert np.min(np.sum(np.abs(p_int_4 - p_known_1), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int_4 - p_known_2), axis=0)) < 1e-8    
+        assert np.min(np.sum(np.abs(p_int_4 - p_known_2), axis=0)) < 1e-8
 
     def test_segments_partly_overlap(self):
         p_1 = np.ones(3)
         p_2 = 3 * p_1
         p_3 = 0 * p_1
         p_4 = 2 * p_1
-        
+
         p_int = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         p_known_1 = p_1.reshape((-1, 1))
         p_known_2 = p_4.reshape((-1, 1))
         assert np.min(np.sum(np.abs(p_int - p_known_1), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8    
-        
-        
+        assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8
+
+
     def test_random_incline(self):
         p_1 = np.random.rand(3)
         p_2 = 3 * p_1
         p_3 = 0 * p_1
         p_4 = 2 * p_1
-        
+
         p_int = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         p_known_1 = p_1.reshape((-1, 1))
         p_known_2 = p_4.reshape((-1, 1))
         assert np.min(np.sum(np.abs(p_int - p_known_1), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8   
-        
+        assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8
+
     def test_segments_aligned_with_axis(self):
         p_1 = np.array([0, 1, 1])
         p_2 = 3 * p_1
         p_3 = 0 * p_1
         p_4 = 2 * p_1
-        
+
         p_int = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         p_known_1 = p_1.reshape((-1, 1))
         p_known_2 = p_4.reshape((-1, 1))
         assert np.min(np.sum(np.abs(p_int - p_known_1), axis=0)) < 1e-8
-        assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8   
-    
+        assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8
+
 
     def test_constant_y_axis(self):
         p_1 = np.array([1, 0, -1])

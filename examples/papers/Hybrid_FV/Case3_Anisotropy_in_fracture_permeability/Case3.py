@@ -81,7 +81,7 @@ class FlowData(EllipticDataAssigner):
         if self.grid().dim == 3:
             kxx = np.ones(self.grid().num_cells) \
                 * np.power(1e4, 3 > self.grid().dim)
-            return tensor.SecondOrder(3, kxx)
+            return tensor.SecondOrderTensor(3, kxx)
         else:
             return anisotropy(self.grid(), d, y)
 
@@ -121,7 +121,7 @@ def anisotropy(g, deg, yfactor):
     kxz = kf * k[0, 2]
     kyz = kf * k[1, 2]
     kzz = kf * k[2, 2]
-    perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy,
+    perm = tensor.SecondOrderTensor(3, kxx=kxx, kyy=kyy,
                               kzz=kzz, kxy=kxy, kxz=kxz, kyz=kyz)
     return perm
 

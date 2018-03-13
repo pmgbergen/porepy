@@ -172,7 +172,7 @@ def setup_2d_1d(nx, simplex_grid=False):
     gb.add_node_props(['param'])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(3, kxx)
+        perm = tensor.SecondOrderTensor(3, kxx)
         a = 0.01 / np.max(nx)
         a = np.power(a, gb.dim_max() - g.dim)
         param = Parameters(g)

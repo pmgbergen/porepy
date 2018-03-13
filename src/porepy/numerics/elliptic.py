@@ -401,7 +401,7 @@ class EllipticDataAssigner():
         apperture(): defaults to 1
              returns: (ndarray) aperture of each cell
         permeability(): defaults to 1
-             returns: (tensor.SecondOrder) Permeabillity tensor
+             returns: (tensor.SecondOrderTensor) Permeabillity tensor
         source(): defaults to 0
              returns: (ndarray) The source and sinks
 
@@ -435,7 +435,7 @@ class EllipticDataAssigner():
 
     def permeability(self):
         kxx = np.ones(self.grid().num_cells)
-        return tensor.SecondOrder(self.grid().dim, kxx)
+        return tensor.SecondOrderTensor(self.grid().dim, kxx)
 
     def source(self):
         return np.zeros(self.grid().num_cells)
