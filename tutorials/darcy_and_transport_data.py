@@ -45,6 +45,17 @@ def get_dir_boundary(problem):
 
 #------------------------------------------------------------------------------#
 
+def compute_outflow(gb):
+    outflow = 0
+    for g, d in gb:
+        boundary_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+        if g.dim > 0 and boundary_faces.size != 0:
+            flow_rate = d['discharge'][boundary_faces]
+            outflow += np.sum(flow_rate[flow_rate > 0])
+    return outflow
+
+#------------------------------------------------------------------------------#
+
 class FlowData(elliptic.EllipticDataAssigner):
     """
     Assign flow problem data to a given grid.
