@@ -18,6 +18,8 @@ KILOGRAM = 1
 GRAM = 1e-3 * KILOGRAM
 
 METER = 1
+CENTIMETER = CENTI * METER
+KILOMETER = KILO * METER
 
 # Pressure related quantities
 DARCY = 9.869233e-13
