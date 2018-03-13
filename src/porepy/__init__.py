@@ -56,7 +56,7 @@ from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
 
 # Fractures
-from porepy.fracs.fractures import Fracture, FractureNetwork
+from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
 
 # Parameters
 from porepy.params.bc import BoundaryCondition
