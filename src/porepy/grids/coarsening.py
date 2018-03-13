@@ -234,7 +234,7 @@ def generate_coarse_grid_gb(gb, subdiv):
         face_map = generate_coarse_grid_single(g, partition, True)
 
         # Update all the face_cells for all the 'edges' connected to the grid
-        for e, d in gb.edges_props_of_node(g):
+        for e, d in gb.edges_of_node(g):
             # The indices that need to be mapped to the new grid
             face_cells = d['face_cells'].tocsr()
             indices = face_cells.indices

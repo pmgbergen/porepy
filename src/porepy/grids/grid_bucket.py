@@ -93,10 +93,11 @@ class GridBucket(object):
         """
 
         if e[0].dim == e[1].dim:
-            if not self.has_nodes_prop(e, 'node_number'):
+            if not ('node_number' in self.graph.node[e[0]] and \
+                'node_number' in self.graph.node[e[1]]):
                 self.assign_node_ordering()
 
-            node_indexes = self.nodes_prop(e, 'node_number')
+            node_indexes = [self.node_props(g, 'node_number') for g in e]
             if node_indexes[0] < node_indexes[1]:
                 return e[0], e[1]
             return e[1], e[0]
@@ -106,6 +107,21 @@ class GridBucket(object):
         else:
             return e[1], e[0]
 
+    def edges_of_node(self, n):
+        """
+        Iterator over the edges of the specific node.
+
+        Parameters:
+            n: A node in the graph.
+
+        Yields:
+            core.grid.edges: The edge (pair of grids) associated with an edge.
+            data: The dictionary storing all information in this edge.
+            object: A dictionary with keys and properties.
+
+        """
+        for e in self.graph.edges([n]):
+            yield e, self.edge_props(e)
 
     def node_neighbors(self, node, only_higher=False, only_lower=False):
         """
@@ -248,20 +264,6 @@ class GridBucket(object):
 
     # ------------ Getters for node and edge properties
 
-    def node_prop(self, g, key):
-        """
-        Getter for a node property of the bucket.
-
-        Parameters:
-            grid (core.grids.grid): The grid associated with the node.
-            key (object): Key for the property to be retrieved.
-
-        Returns:
-            object: The property.
-        """
-        return self.graph.node[g][key]
-
-
     def has_nodes_prop(self, grids, key):
         """
         Test if a key exists for a node property of the bucket, for several nodes.
@@ -279,23 +281,8 @@ class GridBucket(object):
         return tuple([key in self.graph.node[g] for g in grids])
 
 
+    def node_props(self, g, key=None):
 
-    def nodes_prop(self, gs, key):
-        """
-        Getter for a node property of the bucket, for several nodes.
-
-        Parameters:
-            grids (core.grids.grid): The grids associated with the nodes.
-            key (object): Key for the property to be retrieved.
-
-        Returns:
-            object: The property.
-
-        """
-        return tuple([self.graph.node[g][key] for g in gs])
-
-
-    def node_props(self, g):
         """
         Getter for a node property of the bucket.
 
@@ -306,68 +293,12 @@ class GridBucket(object):
             object: A dictionary with keys and properties.
 
         """
-        return self.graph.node[g]
+        if key is None:
+            return self.graph.node[g]
+        else:
+            return self.graph.node[g][key]
 
-
-    def node_props_of_keys(self, g, keys):
-        """
-        Getter for a node property of the bucket.
-
-        Parameters:
-            grid (core.grids.grid): The grid associated with the node.
-            keys (object): Key for the property to be retrieved.
-
-        Returns:
-            object: A dictionary with key and property.
-
-        """
-        return {key: self.graph.node[g][key] for key in keys}
-
-
-    def edges_props_of_node(self, n):
-        """
-        Iterator over the edges of the specific node.
-
-        Parameters:
-            n: A node in the graph.
-
-        Yields:
-            core.grid.edges: The edge (pair of grids) associated with an edge.
-            data: The dictionary storing all information in this edge.
-
-        """
-        for e in self.graph.edges([n]):
-            yield e, self.edge_props(e)
-
-
-    def edge_prop(self, grid_pairs, key):
-        """
-        Getter for an edge property of the bucket.
-
-        Parameters:
-            grid_pairs (list of core.grids.grid): The two grids making up the
-                edge.
-            key (object): Key for the property to be retrieved.
-
-        Returns:
-            object: The property.
-
-        Raises:
-            KeyError if the two grids do not form an edge.
-
-        """
-        prop_list = []
-        for gp in np.atleast_2d(grid_pairs):
-            if tuple(gp) in self.graph.edges():
-                prop_list.append(self.graph.edge[gp[0]][gp[1]][key])
-            elif tuple(gp[::-1]) in self.graph.edges():
-                prop_list.append(self.graph.edge[gp[1]][gp[0]][key])
-            else:
-                raise KeyError('Unknown edge')
-        return np.array(prop_list)
-
-
-    def edge_props(self, gp):
+    def edge_props(self, gp, key=None):
         """
         Getter for an edge properties of the bucket.
 
@@ -384,12 +315,17 @@ class GridBucket(object):
 
         """
         if tuple(gp) in self.graph.edges():
-            return self.graph.edge[gp[0]][gp[1]]
+            if key is None:
+                return self.graph.edge[gp[0]][gp[1]]
+            else:
+                return self.graph.edge[gp[0]][gp[1]][key]
         elif tuple(gp[::-1]) in self.graph.edges():
-            return self.graph.edge[gp[1]][gp[0]]
+            if key is None:
+                return self.graph.edge[gp[1]][gp[0]]
+            else:
+                return self.graph.edge[gp[1]][gp[0]][key]
         else:
             raise KeyError('Unknown edge')
-
 
     def edges_props(self):
         """
@@ -529,7 +465,7 @@ class GridBucket(object):
                 self.add_edge([g0, g1], cell_cells)
 
         # Remove the node and update the ordering of the remaining nodes
-        node_number = self.node_prop(node, 'node_number')
+        node_number = self.node_props(node, 'node_number')
         self.remove_node(node)
         self.update_node_ordering(node_number)
 
@@ -548,8 +484,8 @@ class GridBucket(object):
         grids_of_dim_old = self.grids_of_dimension(dim)
         # The node numbers are copied for each grid, so they can be used to
         # make sure we use the same grids (g and g_old) below.
-        nn_new = gb_copy.nodes_prop(grids_of_dim, 'node_number')
-        nn_old = self.nodes_prop(grids_of_dim_old, 'node_number')
+        nn_new = [gb_copy.node_props(g, 'node_number') for g in grids_of_dim]
+        nn_old = [self.node_props(g, 'node_number') for g in grids_of_dim_old]
         _, old_in_new = setmembership.ismember_rows(np.array(nn_new),
                                                    np.array(nn_old), sort=False)
         neighbours_dict = {}
@@ -658,7 +594,7 @@ class GridBucket(object):
         """
         assert self.has_nodes_prop(nodes,'node_number')
 
-        return sorted(nodes, key = lambda n: self.node_prop( n, 'node_number'))
+        return sorted(nodes, key = lambda n: self.node_props( n, 'node_number'))
 
     # ------------- Miscellaneous functions ---------
 
@@ -799,7 +735,8 @@ class GridBucket(object):
             g_l, g_h = self.nodes_of_edge(e)
             data_l, data_h = self.node_props(g_l), self.node_props(g_h)
 
-            i[idx], j[idx] = self.nodes_prop([g_l, g_h], 'node_number')
+            i[idx] = self.node_props(g_l, 'node_number')
+            j[idx] = self.node_props(g_h, 'node_number')
             values[idx] = fct(g_h, g_l, data_h, data_l, data)
             idx += 1
 

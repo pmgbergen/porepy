@@ -1211,8 +1211,8 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             d['param'] = pa
 
         if g1.dim != g2.dim and d['face_cells'] is not None:
-            coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
-            pressures = gb.nodes_prop([g2, g1], p_name)
+            coupling_flux = gb.edge_props(e, 'coupling_flux')
+            pressures = [gb.node_props(g, p_name) for g in [g2, g1]]
             dis = coupling_flux * np.concatenate(pressures)
             d[d_name] = dis
 
@@ -1225,7 +1225,7 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             cells_1, cells_2 = cc.nonzero()
             coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
 
-            pressures = gb.nodes_prop([g2, g1], p_name)
+            pressures = [gb.node_props(g, p_name) for g in [g2, g1]]
             p2 = pressures[0][cells_2]
             p1 = pressures[1][cells_1]
             contribution_2 = np.multiply(coupling_flux[cc], p2)
