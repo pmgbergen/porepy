@@ -36,7 +36,7 @@ def remove_plots(fn):
                 continue
             if line.strip()[:4] == 'plt.':
                 continue
-            if line.strip()[:8] == 'frac_viz':
+            if line.strip()[:17] == 'pp.plot_fractures':
                 continue
             if line.strip()[:11] == 'get_ipython':
                 continue
