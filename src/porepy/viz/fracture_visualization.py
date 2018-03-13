@@ -54,17 +54,3 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
                  [p[1, c[0, i]], p[1, c[1, i]]], 'o-', color=col[tagmap[i]])
     # Finally set axis
     plt.show()
-
-
-def remove_nodes(g, rem):
-    """
-    Remove nodes from grid.
-    g - a valid grid definition
-    rem - a ndarray of indecies of nodes to be removed
-    """
-    all_rows = np.arange(g.face_nodes.shape[0])
-    rows_to_keep = np.where(np.logical_not(np.in1d(all_rows, rem)))[0]
-    g.face_nodes = g.face_nodes[rows_to_keep,:]
-    g.nodes = g.nodes[:,rows_to_keep]
-    return g
-
