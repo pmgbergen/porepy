@@ -54,6 +54,7 @@ from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
+from porepy.grids.point_grid import PointGrid
 
 # Fractures
 from porepy.fracs.fractures import Fracture, FractureNetwork
