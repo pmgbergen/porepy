@@ -660,7 +660,7 @@ class ExcludeBoundaries(object):
         # Short hand notation
         fno = subcell_topology.fno_unique
         num_subfno = subcell_topology.num_subfno_unique
-                
+
         # Define mappings to exclude boundary values
 
         if self.bc_type == 'scalar':
@@ -750,7 +750,7 @@ class ExcludeBoundaries(object):
                                               shape=(row_dir.size,
                                                       nd * num_subfno)).tocsr()
 
-                
+
     def exclude_dirichlet(self, other):
         """ Mapping to exclude faces/components with Dirichlet boundary conditions from
         local systems.
@@ -771,11 +771,11 @@ class ExcludeBoundaries(object):
             exclude_dir = np.append(self.exclude_dir_x * other, [self.exclude_dir_y * other])
             if self.nd == 3:
                 exclude_dir = np.append(exclude_dir, [self.exclude_dir_z * other])
-                       
+
         return exclude_dir
-                    
+
     def exclude_dirichlet_x(self, other):
-        
+
         """ Mapping to exclude components in the x-direction with Dirichlet boundary conditions from
         local systems.
         NOTE: Currently works for boundary faces aligned with the coordinate system.
@@ -789,10 +789,10 @@ class ExcludeBoundaries(object):
                 Dirichlet conditions eliminated.
 
         """
-            
+
         return self.exclude_dir_x * other
 
-                    
+
     def exclude_dirichlet_y(self, other):
         """ Mapping to exclude components in the y-direction with Dirichlet boundary conditions from
         local systems.
@@ -807,7 +807,7 @@ class ExcludeBoundaries(object):
                 Dirichlet conditions eliminated.
 
         """
-            
+
         return self.exclude_dir_y * other
 
     def exclude_dirichlet_z(self, other):
@@ -824,7 +824,7 @@ class ExcludeBoundaries(object):
                 Dirichlet conditions eliminated.
 
         """
-            
+
         return self.exclude_dir_z * other
 
     def exclude_neumann(self, other):
@@ -839,7 +839,7 @@ class ExcludeBoundaries(object):
             scipy.sparse matrix, with rows corresponding to faces/components with
                 Neumann conditions eliminated.
 
-        """            
+        """
         if self.bc_type == 'scalar':
             exclude_neu = self.exclude_neu * other
 
@@ -847,7 +847,7 @@ class ExcludeBoundaries(object):
             exclude_neu = np.append(self.exclude_neu_x * other, [self.exclude_neu_y * other])
             if self.nd == 3:
                 exclude_neu = np.append(exclude_neu, [self.exclude_neu_z * other])
-                    
+
         return exclude_neu
 
     def exclude_neumann_x(self, other):
@@ -864,10 +864,10 @@ class ExcludeBoundaries(object):
                 Neumann conditions eliminated.
 
         """
-            
+
         return self.exclude_neu_x * other
 
-                    
+
     def exclude_neumann_y(self, other):
         """ Mapping to exclude components in the y-direction with Neumann boundary conditions from
         local systems.
@@ -882,7 +882,7 @@ class ExcludeBoundaries(object):
                 Neumann conditions eliminated.
 
         """
-            
+
         return self.exclude_neu_y * other
 
     def exclude_neumann_z(self, other):
@@ -899,9 +899,9 @@ class ExcludeBoundaries(object):
                 Neumann conditions eliminated.
 
         """
-            
+
         return self.exclude_neu_z * other
-    
+
     def exclude_dirichlet_nd(self, other):
         """ Exclusion of Dirichlet conditions for vector equations (elasticity).
         See above method without _nd suffix for description.
@@ -913,10 +913,10 @@ class ExcludeBoundaries(object):
                                             self.exclude_dir)
 
         elif self.bc_type == 'vectorial':
-            exclude_dirichlet_nd = self.exclude_dir_nd        
+            exclude_dirichlet_nd = self.exclude_dir_nd
 
         return exclude_dirichlet_nd * other
-            
+
     def exclude_neumann_nd(self, other):
         """ Exclusion of Neumann conditions for vector equations (elasticity).
         See above method without _nd suffix for description.
@@ -928,7 +928,7 @@ class ExcludeBoundaries(object):
 
         elif self.bc_type == 'vectorial':
             exclude_neumann_nd = self.exclude_neu_nd
-        
+
         return exclude_neumann_nd * other
 
 #-----------------End of class ExcludeBoundaries-----------------------------
@@ -1170,7 +1170,7 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
     data (dictionary): defaults to None. If gb is mono-dimensional grid the
                        data dictionary must be given. If gb is a
                        multi-dimensional grid, this variable has no effect
-                
+
     Returns:
         gb, the same grid bucket with the added field 'discharge' added to all
         node data fields. Note that the fluxes between grids will be added only
@@ -1203,7 +1203,7 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
     for e, d in gb.edges_props():
         # According to the sorting convention, g2 is the higher dimensional grid,
         # the one to who's faces the fluxes correspond
-        g1, g2 = gb.sorted_nodes_of_edge(e)
+        g1, g2 = gb.nodes_of_edge(e)
         try:
             pa = d['param']
         except KeyError:
