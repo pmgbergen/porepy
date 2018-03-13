@@ -114,7 +114,7 @@ class BasicsTest(unittest.TestCase):
 
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
+            g_h = gb.nodes_of_edge(e)[1]
             d['param'] = pp.Parameters(g_h)
 
         A, rhs = solver.matrix_rhs(gb)

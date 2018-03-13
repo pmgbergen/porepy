@@ -187,7 +187,7 @@ def setup_3d(nx, simplex_grid=False):
 
     gb.add_edge_prop('kn')
     for e, d in gb.edges_props():
-        g = gb.sorted_nodes_of_edge(e)[0]
+        g = gb.nodes_of_edge(e)[0]
         d['kn'] = 1 / gb.node_prop(g, 'param').get_aperture()
 
     return gb
@@ -233,7 +233,7 @@ def setup_2d_1d(nx, simplex_grid=False):
 
     gb.add_edge_prop('kn')
     for e, d in gb.edges_props():
-        g = gb.sorted_nodes_of_edge(e)[0]
+        g = gb.nodes_of_edge(e)[0]
         d['kn'] = 1 / gb.node_prop(g, 'param').get_aperture()
 
     return gb

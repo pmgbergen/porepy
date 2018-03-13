@@ -74,9 +74,11 @@ class GridBucket(object):
 
     # ---------- Navigate within the graph --------
 
-    def sorted_nodes_of_edge(self, e):
+    def nodes_of_edge(self, e):
         """
-        Obtain the vertices of an edge, in ascending order with respect their
+        Obtain the vertices of an edge.
+
+        The nodes will be given in ascending order with respect their
         dimension. If the edge is between grids of the same dimension, the node
         ordering (as defined by assign_node_ordering()) is used. If no ordering
         of nodes exists, assign_node_ordering() will be called by this method.
@@ -103,26 +105,6 @@ class GridBucket(object):
             return e[0], e[1]
         else:
             return e[1], e[0]
-
-
-    def nodes_of_edge(self, e):
-        """
-        Obtain the vertices of an edge.
-
-        Parameters:
-            e: An edge in the graph.
-
-        Returns:
-            dictionary: The first vertex of the edge.
-            dictionary: The second vertex of the edge.
-
-        """
-        return e[0], e[1]
-
-
-
-
-
 
 
     def node_neighbors(self, node, only_higher=False, only_lower=False):
@@ -806,7 +788,7 @@ class GridBucket(object):
             cells 1 and 2 of g1 (second dimension of the array).
         """
         # Sort nodes according to node_number
-        g0, g1 = self.sorted_nodes_of_edge([g0, g1])
+        g0, g1 = self.nodes_of_edge([g0, g1])
 
         # Identify the faces connecting the neighbors to the grid to be removed
         fc1 = self.edge_props([g0, g_l])
@@ -870,7 +852,7 @@ class GridBucket(object):
         # Loop over the edges of the graph (pair of connected nodes)
         idx = 0
         for e, data in self.edges_props():
-            g_l, g_h = self.sorted_nodes_of_edge(e)
+            g_l, g_h = self.nodes_of_edge(e)
             data_l, data_h = self.node_props(g_l), self.node_props(g_h)
 
             i[idx], j[idx] = self.nodes_prop([g_l, g_h], 'node_number')

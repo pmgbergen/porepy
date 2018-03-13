@@ -66,7 +66,7 @@ class BasicsTest(unittest.TestCase):
 
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
+            g_h = gb.nodes_of_edge(e)[1]
             d['param'] = pp.Parameters(g_h)
 
         A, rhs = solver.matrix_rhs(gb)
@@ -141,7 +141,7 @@ class BasicsTest(unittest.TestCase):
 
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
+            g_h = gb.nodes_of_edge(e)[1]
             d['param'] = pp.Parameters(g_h)
 
         A, rhs = solver.matrix_rhs(gb)
@@ -239,7 +239,7 @@ class BasicsTest(unittest.TestCase):
 
         gb.add_edge_prop('param')
         for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
+            g_h = gb.nodes_of_edge(e)[1]
             d['param'] = pp.Parameters(g_h)
 
         A, rhs = solver.matrix_rhs(gb)
@@ -290,7 +290,7 @@ class BasicsTest(unittest.TestCase):
             = coupling_fluxes_2d_1d_cross_no_el()
 
         for e, data in gb.edges_props():
-            g1, g2 = gb.sorted_nodes_of_edge(e)
+            g1, g2 = gb.nodes_of_edge(e)
             pa = data['param']
             node_numbers = gb.nodes_prop([g2, g1], 'node_number')
             if pa is not None:
@@ -308,7 +308,7 @@ class BasicsTest(unittest.TestCase):
 
         d_11, d_21, d_22 = coupling_fluxes_2d_1d_cross_with_el()
         for e, data in gb_r.edges_props():
-            g1, g2 = gb_r.sorted_nodes_of_edge(e)
+            g1, g2 = gb_r.nodes_of_edge(e)
             pa = data['param']
             node_numbers = gb_r.nodes_prop([g2, g1], 'node_number')
             if pa is not None:
