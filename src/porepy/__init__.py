@@ -36,17 +36,28 @@ from porepy.numerics.fv.source import Integral, IntegralMixedDim
 # Virtual elements, elliptic
 from porepy.numerics.vem.vem_dual import DualVEM, DualVEMMixedDim
 from porepy.numerics.vem.vem_source import DualSource, DualSourceMixedDim
+from porepy.numerics.elliptic import DualEllipticModel
 
 # Transport related
 from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim
 from porepy.numerics.fv.mass_matrix import MassMatrix, InvMassMatrix
 
+# Physical models
+from porepy.numerics.elliptic import EllipticModel, EllipticDataAssigner
+from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
+from porepy.numerics.compressible import SlightlyCompressibleModel, SlightlyCompressibleDataAssigner
+from porepy.numerics.mechanics import StaticModel, StaticDataAssigner
+
 #Grid
 from porepy.grids.grid import Grid
 from porepy.grids.grid_bucket import GridBucket
+from porepy.grids.structured import CartGrid, TensorGrid
+from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
+from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
+from porepy.grids.point_grid import PointGrid
 
 # Fractures
-from porepy.fracs.fractures import Fracture, FractureNetwork
+from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
 
 # Parameters
 from porepy.params.bc import BoundaryCondition
@@ -55,9 +66,15 @@ from porepy.params.data import Parameters
 
 # Visualization
 from porepy.viz.exporter import Exporter
+from porepy.viz.plot_grid import plot_grid
+from porepy.viz.fracture_visualization import plot_fractures
 
 # Modules
 from porepy.utils import comp_geom as cg
-from porepy.fracs import meshing, importer
+from porepy.fracs import meshing, importer, extrusion
 from porepy.grids import structured, simplex, coarsening
 from porepy.params import units
+from porepy.numerics.fv import fvutils
+from porepy.utils import error
+
+

@@ -11,7 +11,7 @@ from porepy.numerics.elliptic import EllipticModel, EllipticDataAssigner
 from porepy.fracs import meshing
 
 import matplotlib.pyplot as plt
-from examples.papers.Hybrid_FV.utils import \
+from examples.papers.arXiv_1712_08479.utils import \
     perform_condensation, assign_data, compute_errors
 
 

@@ -563,7 +563,9 @@ class Grid(object):
             np.ndarray (1d), index of internal faces.
 
         """
-        return self.__indices(np.logical_not(self.get_all_boundary_faces()))
+        return np.setdiff1d(np.arange(self.num_faces),
+                            self.get_all_boundary_faces(),
+                            assume_unique=True)
 
     def get_boundary_nodes(self):
         """
@@ -673,6 +675,12 @@ class Grid(object):
 
     def closest_cell(self, p):
         """ For a set of points, find closest cell by cell center.
+
+        If several centers have the same distance, one of them will be
+        returned.
+
+        For dim < 3, no checks are made if the point is in the plane / line
+        of the grid.
 
         Parameters:
             p (np.ndarray, 3xn): Point coordinates. If p.shape[0] < 3,

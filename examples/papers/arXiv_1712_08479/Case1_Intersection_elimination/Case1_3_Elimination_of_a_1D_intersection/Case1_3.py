@@ -16,7 +16,7 @@ from porepy.viz import exporter
 import matplotlib.pyplot as plt
 import matplotlib
 
-from examples.papers.Hybrid_FV.utils import perform_condensation, \
+from examples.papers.arXiv_1712_08479.utils import perform_condensation, \
                                             compute_errors, edge_params, \
                                             assign_data
 from porepy.numerics.darcy_and_transport import static_flow_IE_solver

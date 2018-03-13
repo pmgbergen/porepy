@@ -196,7 +196,7 @@ class Exporter():
                                                                d['node_number'])
                 file_name = self._make_folder(self.folder, d['file_name'])
                 d['grid_dim'] = np.tile(g.dim, g.num_cells)
-                dic_data = self.gb.node_props_of_keys(g, data)
+                dic_data = {k : self.gb.node_props(g, k) for k in data}
                 g_VTK = self.gb_VTK[d['node_number']]
                 self._write_vtk(dic_data, file_name, g_VTK)
 

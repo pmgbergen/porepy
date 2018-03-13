@@ -12,7 +12,6 @@ from porepy.params import bc, tensor
 from porepy.params.data import Parameters
 from porepy.numerics.mixed_dim import coupler
 from porepy.numerics.fv import tpfa, mpfa
-from porepy.utils.errors import error
 
 #------------------------------------------------------------------------------#
 
