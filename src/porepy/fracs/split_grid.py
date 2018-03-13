@@ -74,9 +74,10 @@ def split_fractures(bucket, **kwargs):
         # We split all the faces that are connected to a lower-dim grid.
         # The new faces will share the same nodes and properties (normals,
         # etc.)
-
         face_cells = split_faces(gh, face_cells)
-        bucket.add_edge_prop('face_cells', edges, face_cells)
+        bucket.add_edge_props('face_cells', edges)
+        for e, f in zip(edges, face_cells):
+            bucket.edge_props(e)['face_cells'] = f
 
         # We now find which lower-dim nodes correspond to which higher-
         # dim nodes. We split these nodes according to the topology of

@@ -169,26 +169,24 @@ class GridBucket(object):
 
     # ----------- Adders for node and edge properties (introduce keywords)
 
-    def add_node_prop(self, key, g=None, prop=None):
+    def add_node_props(self, keys, g=None):
         """
         Add a new property to existing nodes in the graph.
 
         Properties can be added either to all nodes, or to selected nodes as
         specified by their grid. In the former case, all nodes will be assigned
-        the property, with None as the default option.
+        the property.
+
+        The property gets value None, other values must be assigned later.
 
         No tests are done on whether the key already exist, values are simply
         overwritten.
 
         Parameters:
-            key (object): Key to the property to be handled.
-            prop (optional, defaults to None): Property to be added.
-            g (list of core.grids.grid, optional): Nodes to be assigned values.
+            keys (object): Key to the property to be handled.
+            g (list of grids.grid, optional): Nodes to be assigned values.
                 Defaults to None, in which case all nodes are assigned the same
                 value.
-            prop (list, or single object, optional): Value to be assigned.
-                Should be either a list with the same length as g, or a single
-                item which is assigned to all nodes. Defaults to None.
 
         Raises:
             ValueError if the key is 'node_number', this is reserved for other
@@ -197,47 +195,23 @@ class GridBucket(object):
         """
 
         # Check that the key is not 'node_number' - this is reserved
-        if key == 'node_number':
+        if 'node_number' in keys:
             raise ValueError('Node number is a reserved key, stay away')
 
         # Do some checks of parameters first
-        if g is None:
-            assert prop is None or not isinstance(prop, list)
-        else:
-            assert len(g) == len(prop)
+        if g is not None and not isinstance(g, list):
+            g = [g]
 
-        # Set default value.
-        networkx.set_node_attributes(self.graph, key, None)
-
-        if prop is not None:
+        for key in np.atleast_1d(keys):
             if g is None:
-                for _, n in self:
-                    n[key] = prop
+                networkx.set_node_attributes(self.graph, key, None)
             else:
-                for v, p in zip(g, prop):
-                    self.graph.node[v][key] = p
-
-    def add_node_props(self, keys):
-        """
-        Add new properties to existing nodes in the graph.
-
-        Properties are be added to all nodes.
-
-        No tests are done on whether the key already exist, values are simply
-        overwritten.
-
-        Parameters:
-            keys (object): Keys to the properties to be handled.
-
-        Raises:
-            ValueError if the key is 'node_number', this is reserved for other
-                purposes. See self.assign_node_ordering() for details.
-
-        """
-        [self.add_node_prop(key) for key in np.atleast_1d(keys)]
+                for h, n in self:
+                    if h in g:
+                        n[key] = None
 
 
-    def add_edge_prop(self, key, grid_pairs=None, prop=None):
+    def add_edge_props(self, keys, grid_pairs=None):
         """
         Associate a property with an edge.
 
@@ -249,58 +223,28 @@ class GridBucket(object):
         overwritten.
 
         Parameters:
-            prop (optional, defaults to None): Property to be added.
             key (object): Key to the property to be handled.
-            g (list of list of core.grids.grid, optional): Grid pairs defining
-                the edges to be assigned. values. Defaults to None, in which
-                case all edges are assigned the same value.
-            prop (list, or single object, optional): Value to be assigned.
-                Should be either a list with the same length as grid_pairs, or
-                a single item which is assigned to all nodes. Defaults to
-                None.
+            grid_pairs (list of list of core.grids.grid, optional): Grid pairs
+                defining the edges to be assigned. values. Defaults to None, in
+                which case all edges are assigned the same value.
 
         Raises:
             KeyError if a grid pair is not an existing edge in the grid.
 
         """
 
-        # Do some checks of parameters first
-        if grid_pairs is None:
-            assert prop is None or not isinstance(prop, list)
-        else:
-            assert len(grid_pairs) == len(prop)
-
-        # networkx.set_edge_attributes(self.graph, key, None)
-
-        if prop is not None:
-            for gp, p in zip(grid_pairs, prop):
-                if tuple(gp) in self.graph.edges():
-                    self.graph.edge[gp[0]][gp[1]][key] = p
-                elif tuple(gp[::-1]) in self.graph.edges():
-                    self.graph.edge[gp[1]][gp[0]][key] = p
-                else:
-                    raise KeyError('Cannot assign property to undefined\
-                                     edge')
-
-
-    def add_edge_props(self, keys):
-        """
-        Add new propertiy to existing edges in the graph.
-
-        Properties can be added either to all edges.
-
-        No tests are done on whether the key already exist, values are simply
-        overwritten.
-
-        Parameters:
-            keys (object): Keys to the properties to be handled.
-
-        Raises:
-            KeyError if a grid pair is not an existing edge in the grid.
-
-        """
-        [self.add_edge_prop(key) for key in np.atleast_1d(keys)]
-
+        for key in np.atleast_1d(keys):
+            if grid_pairs is None:
+                networkx.set_edge_attributes(self.graph, key, None)
+            else:
+                for gp in grid_pairs:
+                    if tuple(gp) in self.graph.edges():
+                        self.graph.edge[gp[0]][gp[1]][key] = None
+                    elif tuple(gp[::-1]) in self.graph.edges():
+                        self.graph.edge[gp[1]][gp[0]][key] = None
+                    else:
+                        raise KeyError('Cannot assign property to undefined\
+                                         edge')
 
     # ------------ Getters for node and edge properties
 

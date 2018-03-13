@@ -55,7 +55,7 @@ def add_data(gb, domain, kf):
         d['param'] = param
 
     # Assign coupling permeability
-    gb.add_edge_prop('kn')
+    gb.add_edge_props('kn')
     for e, d in gb.edges_props():
         gn = gb.nodes_of_edge(e)
         aperture = np.power(a, gb.dim_max() - gn[0].dim)

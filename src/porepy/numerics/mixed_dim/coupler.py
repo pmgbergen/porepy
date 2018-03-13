@@ -55,7 +55,7 @@ class Coupler(object):
         gb: grid bucket.
 
         """
-        gb.add_node_prop('dof')
+        gb.add_node_props('dof')
         for g, d in gb:
             d['dof'] = self.discr_ndof(g)
 
@@ -134,7 +134,7 @@ class Coupler(object):
         """
         dofs = self._dof_start_of_grids(gb)
 
-        gb.add_node_prop(key)
+        gb.add_node_props(key)
         for g, d in gb:
             i = d['node_number']
             d[key] = values[slice(dofs[i], dofs[i + 1])]
