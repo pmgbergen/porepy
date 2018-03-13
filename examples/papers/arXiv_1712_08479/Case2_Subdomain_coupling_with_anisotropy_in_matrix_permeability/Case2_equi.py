@@ -11,7 +11,7 @@ from porepy.utils import comp_geom as cg
 from porepy.numerics.fv import mpfa
 from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
 
-from examples.papers.Hybrid_FV.utils import edge_params, assign_data
+from examples.papers.arXiv_1712_08479.utils import edge_params, assign_data
 from Case2_reduced import BothProblems
 
 
