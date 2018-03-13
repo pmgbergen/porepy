@@ -109,7 +109,8 @@ class Coupler(object):
         # the coupling conditions
         for e, data in gb.edges_props():
             g_l, g_h = gb.nodes_of_edge(e)
-            pos_l, pos_h = gb.nodes_prop([g_l, g_h], 'node_number')
+            pos_l = gb.node_props(g_l, 'node_number')
+            pos_h = gb.node_props(g_h, 'node_number')
             idx = np.ix_([pos_h, pos_l], [pos_h, pos_l])
 
             data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)

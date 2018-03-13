@@ -157,7 +157,7 @@ def new_coupling_fluxes(gb_old, gb_el, neighbours_old, neighbours_el, node_old):
 
     # Assemble original system:
     for i in range(n_neighbours):
-        cc = gb_old.edge_prop(
+        cc = gb_old.edge_props(
             (neighbours_old[i], node_old), 'coupling_discretization')
         idx = np.ix_([i, n_neighbours], [i, n_neighbours])
         all_cc[idx] += cc[0]

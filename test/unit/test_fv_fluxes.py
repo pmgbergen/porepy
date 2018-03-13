@@ -292,7 +292,7 @@ class BasicsTest(unittest.TestCase):
         for e, data in gb.edges_props():
             g1, g2 = gb.nodes_of_edge(e)
             pa = data['param']
-            node_numbers = gb.nodes_prop([g2, g1], 'node_number')
+            node_numbers = [gb.node_prop(g, 'node_number') for g in [g2, g1]]
             if pa is not None:
 
                 if node_numbers == (0, 1):
