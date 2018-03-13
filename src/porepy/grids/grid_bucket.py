@@ -37,11 +37,12 @@ class GridBucket(object):
         self.graph = networkx.Graph(directed=False)
         self.name = "grid bucket"
 
-#------------------------------------------------------------------------------#
+
+    # --------- Iterators -------------------------
 
     def __iter__(self):
         """
-        Iterator over the grid bucket.
+        Iterator over the nodes in the GridBucket.
 
         Yields:
             core.grid.nodes: The grid associated with a node.
@@ -52,37 +53,6 @@ class GridBucket(object):
             data = self.graph.node[g]
             yield g, data
 
-#------------------------------------------------------------------------------#
-
-    def size(self):
-        """
-        Returns:
-            int: Number of nodes in the grid.
-
-        """
-        return self.graph.number_of_nodes()
-
-#------------------------------------------------------------------------------#
-
-    def dim_max(self):
-        """
-        Returns:
-            int: Maximum dimension of the grids present in the hierarchy.
-
-        """
-        return np.amax([g.dim for g, _ in self])
-
-#------------------------------------------------------------------------------#
-
-    def dim_min(self):
-        """
-        Returns:
-            int: Minimum dimension of the grids present in the hierarchy.
-
-        """
-        return np.amin([g.dim for g, _ in self])
-
-#------------------------------------------------------------------------------#
 
     def nodes(self):
         """
@@ -92,7 +62,6 @@ class GridBucket(object):
         """
         return self.graph.nodes_iter()
 
-#------------------------------------------------------------------------------#
 
     def edges(self):
         """
@@ -102,24 +71,8 @@ class GridBucket(object):
         """
         return self.graph.edges_iter()
 
-#------------------------------------------------------------------------------#
 
-    def edges_props_of_node(self, n):
-        """
-        Iterator over the edges of the specific node.
-
-        Parameters:
-            n: A node in the graph.
-
-        Yields:
-            core.grid.edges: The edge (pair of grids) associated with an edge.
-            data: The dictionary storing all information in this edge.
-
-        """
-        for e in self.graph.edges([n]):
-            yield e, self.edge_props(e)
-
-#------------------------------------------------------------------------------#
+    # ---------- Navigate within the graph --------
 
     def sorted_nodes_of_edge(self, e):
         """
@@ -151,24 +104,6 @@ class GridBucket(object):
         else:
             return e[1], e[0]
 
-#------------------------------------------------------------------------------#
-
-    def sort_multiple_nodes(self, nodes):
-        """
-        Sort all the nodes according to node number.
-
-        Parameters:
-            nodes: List of graph nodes.
-
-        Returns:
-            sorted_nodes: The same nodes, sorted.
-
-        """
-        assert self.has_nodes_prop(nodes,'node_number')
-
-        return sorted(nodes, key = lambda n: self.node_prop( n, 'node_number'))
-
-#------------------------------------------------------------------------------#
 
     def nodes_of_edge(self, e):
         """
@@ -184,46 +119,26 @@ class GridBucket(object):
         """
         return e[0], e[1]
 
-#------------------------------------------------------------------------------#
 
-    def get_grids(self, cond):
-        """
-        Obtain the grids subject to a condition.
 
-        Parameters:
-            cond: Predicate to select a grid.
 
-        Returns:
-            grids: np.array of the grids.
 
-        """
-        return np.array([g for g, _ in self if cond(g)])
 
-#------------------------------------------------------------------------------#
-
-    def update_nodes(self, new, old):
-        """
-        Update the grids givin the old and new values. The edges are updated
-        accordingly.
-
-        Parameters:
-            new: List of the new grids, it can be a single element
-            old: List of the old grids, it can be a single element
-        """
-        new = np.atleast_1d(new)
-        old = np.atleast_1d(old)
-        assert new.size == old.size
-
-        networkx.relabel_nodes(self.graph, dict(zip(new, old)), False)
-
-#------------------------------------------------------------------------------#
 
     def node_neighbors(self, node, only_higher=False, only_lower=False):
         """
+        Get neighbors of a node in the graph.
+
+        Optionally, return only neighbors corresponding to higher or lower
+        dimension.
+
         Parameters:
-            node: node in the graph, grid
-            only_higher: consider only the higher dimensional neighbors
-            only_lower: consider only the lower dimensional neighbors
+            node (Grid): node in the graph.
+            only_higher (boolean, optional): Consider only the higher
+                dimensional neighbors. Defaults to False.
+            only_lower (boolean, optional): Consider only the lower dimensional
+                neighbors. Defaults to False.
+
         Return:
             list of networkx.node: Neighbors of node 'node'
 
@@ -243,7 +158,34 @@ class GridBucket(object):
             is_low = np.array([w.dim < node.dim for w in neigh])
             return neigh[is_low]
 
-#------------------------------------------------------------------------------#
+    # ------------ Getters for grids
+
+    def get_grids(self, cond=None):
+        """
+        Obtain the grids, optionally filtered by a specified condition.
+
+        Parameters:
+            cond: Predicate to select a grid. If None is given (default), all
+                grids will be returned.
+
+        Returns:
+            grids: np.array of the grids.
+
+        """
+        return np.array([g for g, _ in self if cond(g)])
+
+
+    def grids_of_dimension(self, dim):
+        """
+        Get all grids in the bucket of a specific dimension.
+
+        Returns:
+            list: Of grids of the specified dimension
+
+        """
+        return [g for g in self.graph.nodes() if g.dim == dim]
+
+    # ----------- Adders for node and edge properties (introduce keywords)
 
     def add_node_prop(self, key, g=None, prop=None):
         """
@@ -257,8 +199,8 @@ class GridBucket(object):
         overwritten.
 
         Parameters:
-            prop (optional, defaults to None): Property to be added.
             key (object): Key to the property to be handled.
+            prop (optional, defaults to None): Property to be added.
             g (list of core.grids.grid, optional): Nodes to be assigned values.
                 Defaults to None, in which case all nodes are assigned the same
                 value.
@@ -293,8 +235,6 @@ class GridBucket(object):
                 for v, p in zip(g, prop):
                     self.graph.node[v][key] = p
 
-#------------------------------------------------------------------------------#
-
     def add_node_props(self, keys):
         """
         Add new properties to existing nodes in the graph.
@@ -314,7 +254,6 @@ class GridBucket(object):
         """
         [self.add_node_prop(key) for key in np.atleast_1d(keys)]
 
-#------------------------------------------------------------------------------#
 
     def add_edge_prop(self, key, grid_pairs=None, prop=None):
         """
@@ -361,7 +300,6 @@ class GridBucket(object):
                     raise KeyError('Cannot assign property to undefined\
                                      edge')
 
-#------------------------------------------------------------------------------#
 
     def add_edge_props(self, keys):
         """
@@ -381,7 +319,8 @@ class GridBucket(object):
         """
         [self.add_edge_prop(key) for key in np.atleast_1d(keys)]
 
-#------------------------------------------------------------------------------#
+
+    # ------------ Getters for node and edge properties
 
     def node_prop(self, g, key):
         """
@@ -396,9 +335,8 @@ class GridBucket(object):
         """
         return self.graph.node[g][key]
 
-#------------------------------------------------------------------------------#
 
-    def has_nodes_prop(self, gs, key):
+    def has_nodes_prop(self, grids, key):
         """
         Test if a key exists for a node property of the bucket, for several nodes.
         Note: the property may contain None but the outcome of the test is
@@ -412,10 +350,9 @@ class GridBucket(object):
             object: The tested property.
 
         """
-        return tuple([key in self.graph.node[g] for g in gs])
+        return tuple([key in self.graph.node[g] for g in grids])
 
 
-#------------------------------------------------------------------------------#
 
     def nodes_prop(self, gs, key):
         """
@@ -431,7 +368,6 @@ class GridBucket(object):
         """
         return tuple([self.graph.node[g][key] for g in gs])
 
-#------------------------------------------------------------------------------#
 
     def node_props(self, g):
         """
@@ -446,7 +382,6 @@ class GridBucket(object):
         """
         return self.graph.node[g]
 
-#------------------------------------------------------------------------------#
 
     def node_props_of_keys(self, g, keys):
         """
@@ -462,7 +397,22 @@ class GridBucket(object):
         """
         return {key: self.graph.node[g][key] for key in keys}
 
-#------------------------------------------------------------------------------#
+
+    def edges_props_of_node(self, n):
+        """
+        Iterator over the edges of the specific node.
+
+        Parameters:
+            n: A node in the graph.
+
+        Yields:
+            core.grid.edges: The edge (pair of grids) associated with an edge.
+            data: The dictionary storing all information in this edge.
+
+        """
+        for e in self.graph.edges([n]):
+            yield e, self.edge_props(e)
+
 
     def edge_prop(self, grid_pairs, key):
         """
@@ -490,7 +440,6 @@ class GridBucket(object):
                 raise KeyError('Unknown edge')
         return np.array(prop_list)
 
-#------------------------------------------------------------------------------#
 
     def edge_props(self, gp):
         """
@@ -515,7 +464,6 @@ class GridBucket(object):
         else:
             raise KeyError('Unknown edge')
 
-#------------------------------------------------------------------------------#
 
     def edges_props(self):
         """
@@ -529,7 +477,7 @@ class GridBucket(object):
         for e in self.graph.edges():
             yield e, self.edge_props(e)
 
-#------------------------------------------------------------------------------#
+    #------------ Add new nodes and edges ----------
 
     def add_nodes(self, new_grids):
         """
@@ -545,38 +493,15 @@ class GridBucket(object):
             np.ndarray, dtype object: Numpy array of vertexes, that are
                 identified with the grid hierarchy. Same order as input grid.
 
+        Raises:
+            ValueError if a grid is already present in the bucket
+
         """
         new_grids = np.atleast_1d(new_grids)
-        assert not np.any([i is j for i in new_grids for j in self.graph])
+        if np.any([i is j for i in new_grids for j in self.graph]):
+            raise ValueError('Grid already defined in bucket')
         [self.graph.add_node(g) for g in new_grids]
 
-#------------------------------------------------------------------------------#
-
-    def remove_node(self, node):
-        """
-        Remove node, and related edges, from the grid bucket.
-        Parameters:
-           node : the node to be removed
-
-        """
-
-        self.graph.remove_node(node)
-
-#------------------------------------------------------------------------------#
-
-    def remove_nodes(self, cond):
-        """
-        Remove nodes, and related edges, from the grid bucket subject to a
-        conditions. The latter takes as input a grid.
-
-        Parameters:
-            cond: predicate to select the grids to remove.
-
-        """
-
-        self.graph.remove_nodes_from([g for g in self.graph if cond(g)])
-
-#------------------------------------------------------------------------------#
 
     def add_edge(self, grids, face_cells):
         """
@@ -613,19 +538,115 @@ class GridBucket(object):
         else:
             raise ValueError('Grid dimension mismatch')
 
-#------------------------------------------------------------------------------#
+    # --------- Remove and update nodes
 
-    def grids_of_dimension(self, dim):
+    def remove_node(self, node):
         """
-        Get all grids in the bucket of a specific dimension.
+        Remove node, and related edges, from the grid bucket.
 
-        Returns:
-            list: Of grids of the specified dimension
+        Parameters:
+           node : the node to be removed
 
         """
-        return [g for g in self.graph.nodes() if g.dim == dim]
 
-#------------------------------------------------------------------------------#
+        self.graph.remove_node(node)
+
+
+    def remove_nodes(self, cond):
+        """
+        Remove nodes, and related edges, from the grid bucket subject to a
+        conditions. The latter takes as input a grid.
+
+        Parameters:
+            cond: predicate to select the grids to remove.
+
+        """
+
+        self.graph.remove_nodes_from([g for g in self.graph if cond(g)])
+
+
+    def update_nodes(self, new, old):
+        """
+        Update the grids givin the old and new values. The edges are updated
+        accordingly.
+
+        Parameters:
+            new: List of the new grids. Can be a single element
+            old: List of the old grids, Can be a single element
+
+        """
+        new = np.atleast_1d(new)
+        old = np.atleast_1d(old)
+        assert new.size == old.size
+
+        networkx.relabel_nodes(self.graph, dict(zip(new, old)), False)
+
+
+    def eliminate_node(self, node):
+        """
+        Remove the node (and the edges it partakes in) and add new direct
+        connections (gb edges) between each of the neighbor pairs. A node with
+        n_neighbors neighbours gives rise to 1 + 2 + ... + n_neighbors-1 new edges.
+
+        """
+        # Identify neighbors
+        neighbors = self.sort_multiple_nodes( self.node_neighbors(node) )
+
+        n_neighbors = len(neighbors)
+
+        # Add an edge between each neighbor pair
+        for i in range(n_neighbors - 1):
+            g0 = neighbors[i]
+            for j in range(i + 1, n_neighbors):
+                g1 = neighbors[j]
+                cell_cells = self.find_shared_face(g0, g1, node)
+                self.add_edge([g0, g1], cell_cells)
+
+        # Remove the node and update the ordering of the remaining nodes
+        node_number = self.node_prop(node, 'node_number')
+        self.remove_node(node)
+        self.update_node_ordering(node_number)
+
+        return neighbors
+
+
+    def duplicate_without_dimension(self, dim):
+        """
+        Remove all the nodes of dimension dim and add new edges between their
+        neighbors by calls to remove_node.
+
+        """
+
+        gb_copy = self.copy()
+        grids_of_dim = gb_copy.grids_of_dimension(dim)
+        grids_of_dim_old = self.grids_of_dimension(dim)
+        # The node numbers are copied for each grid, so they can be used to
+        # make sure we use the same grids (g and g_old) below.
+        nn_new = gb_copy.nodes_prop(grids_of_dim, 'node_number')
+        nn_old = self.nodes_prop(grids_of_dim_old, 'node_number')
+        _, old_in_new = setmembership.ismember_rows(np.array(nn_new),
+                                                   np.array(nn_old), sort=False)
+        neighbours_dict = {}
+        neighbours_dict_old = {}
+        eliminated_nodes =  {}
+        for i, g in enumerate(grids_of_dim):
+            # Eliminate the node and add new gb edges:
+            neighbours =  gb_copy.eliminate_node(g)
+            # Keep track of which nodes were connected to each of the eliminated
+            # nodes. Note that the key is the node number in the old gb, whereas
+            # the neighbours lists refer to the copy grids.
+            g_old = grids_of_dim_old[old_in_new[i]]
+            neighbours_dict[i] = neighbours
+            neighbours_dict_old[i] = self.node_neighbors(g_old)
+            eliminated_nodes[i] = g_old
+
+        elimination_data = {'neighbours':neighbours_dict,
+                            'neighbours_old':neighbours_dict_old,
+                            'eliminated_nodes':eliminated_nodes}
+
+        return gb_copy, elimination_data
+
+    # ---------- Functionality related to ordering of nodes
 
     def assign_node_ordering(self, overwrite_existing=True):
         """
@@ -666,7 +687,6 @@ class GridBucket(object):
                 n['node_number'] = counter
                 counter += 1
 
-#------------------------------------------------------------------------------#
 
     def update_node_ordering(self, removed_number):
         """
@@ -699,8 +719,22 @@ class GridBucket(object):
                 if old_number > removed_number:
                     n['node_number'] = old_number - 1
 
+    def sort_multiple_nodes(self, nodes):
+        """
+        Sort all the nodes according to node number.
 
-#------------------------------------------------------------------------------#
+        Parameters:
+            nodes: List of graph nodes.
+
+        Returns:
+            sorted_nodes: The same nodes, sorted.
+
+        """
+        assert self.has_nodes_prop(nodes,'node_number')
+
+        return sorted(nodes, key = lambda n: self.node_prop( n, 'node_number'))
+
+    # ------------- Miscellaneous functions ---------
 
     def target_2_source_nodes(self, g_src, g_trg):
         """
@@ -718,7 +752,6 @@ class GridBucket(object):
             node_source.astype(np.int32), node_target.astype(np.int32))
         return trg_2_src_nodes
 
-#------------------------------------------------------------------------------#
 
     def compute_geometry(self, is_embedded=True):
         """Compute geometric quantities for the grids.
@@ -728,7 +761,6 @@ class GridBucket(object):
 
         [g.compute_geometry(is_embedded=is_embedded) for g, _ in self]
 
-#------------------------------------------------------------------------------#
 
     def copy(self):
         """Make a copy of the grid bucket utilizing the built-in copy function
@@ -739,45 +771,9 @@ class GridBucket(object):
         gb_copy.graph = self.graph.copy()
         return gb_copy
 
-#------------------------------------------------------------------------------#
 
-    def duplicate_without_dimension(self, dim):
-        """
-        Remove all the nodes of dimension dim and add new edges between their
-        neighbors by calls to remove_node.
 
-        """
 
-        gb_copy = self.copy()
-        grids_of_dim = gb_copy.grids_of_dimension(dim)
-        grids_of_dim_old = self.grids_of_dimension(dim)
-        # The node numbers are copied for each grid, so they can be used to
-        # make sure we use the same grids (g and g_old) below.
-        nn_new = gb_copy.nodes_prop(grids_of_dim, 'node_number')
-        nn_old = self.nodes_prop(grids_of_dim_old, 'node_number')
-        _, old_in_new = setmembership.ismember_rows(np.array(nn_new),
-                                                   np.array(nn_old), sort=False)
-        neighbours_dict = {}
-        neighbours_dict_old = {}
-        eliminated_nodes =  {}
-        for i, g in enumerate(grids_of_dim):
-            # Eliminate the node and add new gb edges:
-            neighbours =  gb_copy.eliminate_node(g)
-            # Keep track of which nodes were connected to each of the eliminated
-            # nodes. Note that the key is the node number in the old gb, whereas
-            # the neighbours lists refer to the copy grids.
-            g_old = grids_of_dim_old[old_in_new[i]]
-            neighbours_dict[i] = neighbours
-            neighbours_dict_old[i] = self.node_neighbors(g_old)
-            eliminated_nodes[i] = g_old
-
-        elimination_data = {'neighbours':neighbours_dict,
-                            'neighbours_old':neighbours_dict_old,
-                            'eliminated_nodes':eliminated_nodes}
-
-        return gb_copy, elimination_data
-
-#------------------------------------------------------------------------------#
 
     def find_shared_face(self, g0, g1, g_l):
         """
@@ -831,36 +827,7 @@ class GridBucket(object):
 
         return cell_cells
 
-#------------------------------------------------------------------------------#
-
-    def eliminate_node(self, node):
-        """
-        Remove the node (and the edges it partakes in) and add new direct
-        connections (gb edges) between each of the neighbor pairs. A node with
-        n_neighbors neighbours gives rise to 1 + 2 + ... + n_neighbors-1 new edges.
-
-        """
-        # Identify neighbors
-        neighbors = self.sort_multiple_nodes( self.node_neighbors(node) )
-
-        n_neighbors = len(neighbors)
-
-        # Add an edge between each neighbor pair
-        for i in range(n_neighbors - 1):
-            g0 = neighbors[i]
-            for j in range(i + 1, n_neighbors):
-                g1 = neighbors[j]
-                cell_cells = self.find_shared_face(g0, g1, node)
-                self.add_edge([g0, g1], cell_cells)
-
-        # Remove the node and update the ordering of the remaining nodes
-        node_number = self.node_prop(node, 'node_number')
-        self.remove_node(node)
-        self.update_node_ordering(node_number)
-
-        return neighbors
-
-#------------------------------------------------------------------------------#
+    # ----------- Apply functions to nodes and edges
 
     def apply_function_to_nodes(self, fct):
         """
@@ -880,7 +847,6 @@ class GridBucket(object):
             values[d['node_number']] = fct(g, d)
         return values
 
-#------------------------------------------------------------------------------#
 
     def apply_function_to_edges(self, fct):
         """
@@ -914,7 +880,6 @@ class GridBucket(object):
         # Upper triangular matrix
         return sps.coo_matrix((values, (i, j)), (self.size(), self.size()))
 
-#------------------------------------------------------------------------------#
 
     def apply_function(self, fct_nodes, fct_edges):
         """
@@ -939,7 +904,7 @@ class GridBucket(object):
         matrix.setdiag(self.apply_function_to_nodes(fct_nodes))
         return matrix
 
-#------------------------------------------------------------------------------#
+    #---- Methods for getting information on the bucket, or its components ----
 
     def diameter(self, cond=None):
         """
@@ -958,7 +923,6 @@ class GridBucket(object):
         diam = [np.amax(g.cell_diameters()) for g in self.graph if cond(g)]
         return np.amax(diam)
 
-#------------------------------------------------------------------------------#
 
     def bounding_box(self, as_dict=False):
         """
@@ -980,7 +944,33 @@ class GridBucket(object):
         else:
             return min_vals, max_vals
 
-#------------------------------------------------------------------------------#
+
+    def size(self):
+        """
+        Returns:
+            int: Number of mono-dimensional grids in the bucket.
+
+        """
+        return self.graph.number_of_nodes()
+
+
+    def dim_max(self):
+        """
+        Returns:
+            int: Maximum dimension of the grids present in the hierarchy.
+
+        """
+        return np.amax([g.dim for g, _ in self])
+
+
+    def dim_min(self):
+        """
+        Returns:
+            int: Minimum dimension of the grids present in the hierarchy.
+
+        """
+        return np.amin([g.dim for g, _ in self])
+
 
     def num_cells(self, cond=None):
         """
@@ -998,7 +988,6 @@ class GridBucket(object):
             cond = lambda _: True
         return np.sum([g.num_cells for g in self.graph if cond(g)])
 
-#------------------------------------------------------------------------------#
 
     def num_faces(self, cond=None):
         """
@@ -1016,7 +1005,6 @@ class GridBucket(object):
             cond = lambda _: True
         return np.sum([g.num_faces for g in self.graph if cond(g)])
 
-#------------------------------------------------------------------------------#
 
     def num_nodes(self, cond=None):
         """
@@ -1034,7 +1022,7 @@ class GridBucket(object):
             cond = lambda _: True
         return np.sum([g.num_nodes for g in self.graph if cond(g)])
 
-#------------------------------------------------------------------------------#
+
 
     def __str__(self):
         max_dim = self.grids_of_dimension(self.dim_max())
@@ -1054,11 +1042,9 @@ class GridBucket(object):
             s += str(len(gl)) + ' grids of dimension ' + str(dim) + '\n'
         return s
 
-#------------------------------------------------------------------------------#
 
     def __repr__(self):
         s = 'Grid bucket containing ' + str(self.size()) + ' grids:\n'
-        num = 0
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
             gl = self.grids_of_dimension(dim)
             s += str(len(gl)) + ' grids of dimension ' + str(dim) + '\n'
