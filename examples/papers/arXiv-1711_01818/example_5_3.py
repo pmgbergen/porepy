@@ -37,7 +37,7 @@ def add_data_darcy(gb, domain, tol):
         else:
             kxx = kf
 
-        perm = tensor.SecondOrder(g.dim, kxx * np.ones(g.num_cells))
+        perm = tensor.SecondOrderTensor(g.dim, kxx * np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))

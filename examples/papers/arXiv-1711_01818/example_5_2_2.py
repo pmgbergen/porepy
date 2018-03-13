@@ -34,7 +34,7 @@ def add_data_darcy(gb, domain, tol):
         rock = g.dim == gb.dim_max()
         kxx = km if rock else kf_t
         d['is_tangential'] = True
-        perm = tensor.SecondOrder(g.dim, kxx * np.ones(g.num_cells))
+        perm = tensor.SecondOrderTensor(g.dim, kxx * np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))

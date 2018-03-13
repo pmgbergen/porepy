@@ -62,7 +62,7 @@ class DarcyModelData(EllipticDataAssigner):
             k = 2/np.sum(1.0/np.array([1e4, 1e-4]))
         else:
             k = 1e4
-        return tensor.SecondOrder(3, np.ones(self.grid().num_cells)*k)
+        return tensor.SecondOrderTensor(3, np.ones(self.grid().num_cells)*k)
 
     def bc(self):
         if self.grid().dim < 2:

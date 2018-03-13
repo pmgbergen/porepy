@@ -267,7 +267,7 @@ def tpfa_matrix(g, perm=None):
        g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
 
     if perm is None:
-        perm = tensor.SecondOrder(g.dim,np.ones(g.num_cells))
+        perm = tensor.SecondOrderTensor(g.dim,np.ones(g.num_cells))
 
     solver = tpfa.Tpfa()
     param = Parameters(g)

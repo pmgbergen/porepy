@@ -14,7 +14,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrder(3, kxx, kyy=1, kzz=1)
+        perm = pp.SecondOrderTensor(3, kxx, kyy=1, kzz=1)
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
 
@@ -47,7 +47,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.sin(g.cell_centers[0, :]) + 1
-        perm = pp.SecondOrder(3, kxx, kyy=1, kzz=1)
+        perm = pp.SecondOrderTensor(3, kxx, kyy=1, kzz=1)
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
         solver = pp.DualVEM(physics='flow')
@@ -82,7 +82,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -118,7 +118,7 @@ class BasicsTest(unittest.TestCase):
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = pp.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
+        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -161,7 +161,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -205,7 +205,7 @@ class BasicsTest(unittest.TestCase):
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = pp.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
+        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -247,7 +247,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=kxx)
+        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=kxx)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -275,7 +275,7 @@ class BasicsTest(unittest.TestCase):
         kyy = np.square(g.cell_centers[0, :]) + 1
         kzz = g.cell_centers[2, :] + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = pp.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
+        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=kzz)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ['dir'])
@@ -303,7 +303,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrder(3, kxx, kyy=1, kzz=1)
+        perm = pp.SecondOrderTensor(3, kxx, kyy=1, kzz=1)
         perm.rotate(R)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
@@ -340,7 +340,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry(is_embedded=True)
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
         perm.rotate(R)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
@@ -376,7 +376,7 @@ class BasicsTest(unittest.TestCase):
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = pp.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
+        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         R = pp.cg.rot(np.pi / 3., [1, 1, 0])
         perm.rotate(R)
@@ -426,7 +426,7 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry(is_embedded=True)
 
         kxx = np.ones(g.num_cells)
-        perm = pp.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
         perm.rotate(R)
 
         bf = g.tags['domain_boundary_faces'].nonzero()[0]
@@ -471,7 +471,7 @@ class BasicsTest(unittest.TestCase):
         kxx = np.square(g.cell_centers[1, :]) + 1
         kyy = np.square(g.cell_centers[0, :]) + 1
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
-        perm = pp.SecondOrder(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
+        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
         R = pp.cg.rot(np.pi / 3., [1, 1, 0])
         perm.rotate(R)

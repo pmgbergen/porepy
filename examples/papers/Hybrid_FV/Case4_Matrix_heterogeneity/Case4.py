@@ -103,7 +103,7 @@ def perm(g):
     else:
         kxx = np.ones(g.num_cells) * 1e-2
         kxx[g.cell_centers[1, :] < .5] = 1e-3
-    return tensor.SecondOrder(3, kxx)
+    return tensor.SecondOrderTensor(3, kxx)
 
 
 def sources(g):

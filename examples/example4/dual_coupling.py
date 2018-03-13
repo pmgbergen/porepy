@@ -54,7 +54,7 @@ from porepy.numerics.mixed_dim import coupler
 #    gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
 #    for g, d in gb:
 #        kxx = np.ones(g.num_cells)
-#        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+#        d['perm'] = tensor.SecondOrderTensor(g.dim, kxx)
 #        d['source'] = np.zeros(g.num_cells)
 #
 #        b_faces = g.get_all_boundary_faces()
@@ -124,7 +124,7 @@ from porepy.numerics.mixed_dim import coupler
 #    gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
 #    for g, d in gb:
 #        kxx = np.ones(g.num_cells)
-#        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+#        d['perm'] = tensor.SecondOrderTensor(g.dim, kxx)
 #        d['source'] = np.zeros(g.num_cells)
 #
 #        if g.dim != 0:
@@ -208,7 +208,7 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
-        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+        d['perm'] = tensor.SecondOrderTensor(g.dim, kxx)
         d['source'] = np.zeros(g.num_cells)
 
         b_faces = g.tags['domain_boundary_faces'].nonzero()[0]

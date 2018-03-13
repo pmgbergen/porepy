@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class FrictionSlipModel():
     '''
     Class for solving a frictional slip problem: T_s <= mu * (T_n -p)
-    
+
 
     Parameters in Init:
     gb: (Grid) a Grid Object.
@@ -92,7 +92,7 @@ class FrictionSlipModel():
                          Only the pressure on the fracture faces are used, and
                          should be equivalent to the pressure in the
                         pressure in the corresponding lower dimensional cells.
-        'traction': (ndarray) size (3, number_of_faces). This should be the 
+        'traction': (ndarray) size (3, number_of_faces). This should be the
                     area scaled traction on each face.
         'rock': a Rock Object with shear stiffness Rock.MU defined.
 
@@ -106,7 +106,7 @@ class FrictionSlipModel():
         fi = frac_faces[1]
         fi_left = frac_faces[0]
         T_n, T_s, n, t = self.normal_shear_traction(fi)
-        
+
         assert np.all(T_s > -1e-10)
         assert np.all(T_n < 0), 'Must have a normal force on the fracture'
 
@@ -132,7 +132,7 @@ class FrictionSlipModel():
         self.d_n[fi_left] += self.fracture_dilation(slip_d)
         assert np.all(self.d_n[fi] >-1e-6)
         slip_vec =  -t * slip_d - n * self.fracture_dilation(slip_d)
-        
+
         self.x[:, fi] += slip_vec
         self.x[:, fi_left] -= slip_vec
 
@@ -141,11 +141,11 @@ class FrictionSlipModel():
     def normal_shear_traction(self, faces=None):
         """
         Project the traction vector into the normal and tangential components
-        as seen from the fractures. 
+        as seen from the fractures.
         Requires that the data dictionary has keyword:
         traction:  (ndarray) size (3, number of faces). giving the area
                    weighted traction on each face.
-        
+
         Returns:
         --------
         T_n:  (ndarray) size (number of fracture_cells) the normal traction on
@@ -234,7 +234,7 @@ class FrictionSlipModel():
 
     def gamma(self):
         """
-        Numerical step length parameter. Defines of far a fracture violating 
+        Numerical step length parameter. Defines of far a fracture violating
         the slip-condition should slip.
         """
         return 2
@@ -261,7 +261,7 @@ class FrictionSlipModel():
         """
         Save the slip distance to the data dictionary. The slip distance
         will be saved as a (3, self.grid().num_faces) array
-        Parameters: 
+        Parameters:
         -----------
         slip_name:    (string) Defaults to 'slip_distance'. Defines the
                                keyword for the saved slip distance in the data
@@ -278,7 +278,7 @@ class FrictionSlipModel():
         """
         Save the aperture change to the data dictionary. The aperture change
         will be saved as a (self.grid().num_faces) array
-        Parameters: 
+        Parameters:
         -----------
         slip_name:    (string) Defaults to 'aperture_name'. Defines the
                                keyword for the saved aperture change in the data
@@ -293,7 +293,7 @@ class FrictionSlipModel():
 
     def save(self, variables=None, save_every=None):
         """
-        Save the result as vtk. 
+        Save the result as vtk.
 
         Parameters:
         ----------
@@ -323,7 +323,7 @@ class FrictionSlipDataAssigner():
     FrictionSlipDataAssigner. Then overload the values you whish to change.
 
     Parameters in Init:
-    gb: (Grid) a grid object 
+    gb: (Grid) a grid object
     data: (dictionary) Dictionary which Parameter will be added to with keyword
           'param'
     physics: (string): defaults to 'mechanics'
@@ -334,7 +334,7 @@ class FrictionSlipDataAssigner():
         bc_val(): defaults to 0
              returns: (ndarray) boundary condition values
         stress_tensor(): defaults to 1
-             returns: (tensor.FourthOrder) Stress tensor
+             returns: (tensor.FourthOrderTensor) Stress tensor
 
     Utility functions:
         grid(): returns: the grid
@@ -362,10 +362,10 @@ class FrictionSlipDataAssigner():
 
 def sign_of_faces(g, faces):
     """
-    returns the sign of faces as defined by g.cell_faces. 
+    returns the sign of faces as defined by g.cell_faces.
     Parameters:
     g: (Grid Object)
-    faces: (ndarray) indices of faces that you want to know the sign for. The 
+    faces: (ndarray) indices of faces that you want to know the sign for. The
            faces must be boundary faces.
 
     Returns:

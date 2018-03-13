@@ -25,7 +25,7 @@ def add_data(gb, tol):
 
             # Permeability
             kxx = np.ones(g.num_cells)
-            param.set_tensor("flow", tensor.SecondOrder(g.dim, kxx))
+            param.set_tensor("flow", tensor.SecondOrderTensor(g.dim, kxx))
 
             # Source term
             param.set_source("flow", np.zeros(g.num_cells))

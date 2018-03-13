@@ -161,7 +161,7 @@ class BasicsTest(unittest.TestCase):
         """
         test domain cut in two. We place 1 dirichlet on top. zero dirichlet on
         bottom and 0 neumann on sides. Further we place 1 displacement on
-        fracture. this should give us displacement 1 on top cells and 0 on 
+        fracture. this should give us displacement 1 on top cells and 0 on
         bottom cells and zero traction on all faces
         """
 

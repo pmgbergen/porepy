@@ -50,7 +50,7 @@ from porepy.fracs.fractures import Fracture, FractureNetwork
 
 # Parameters
 from porepy.params.bc import BoundaryCondition
-from porepy.params.tensor import SecondOrder, FourthOrder
+from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
 from porepy.params.data import Parameters
 
 # Visualization

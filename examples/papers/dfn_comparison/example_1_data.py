@@ -25,7 +25,7 @@ def add_data(gb, tol):
 
         # Permeability
         kxx = np.array([perm(*pt) for pt in g.cell_centers.T])
-        param.set_tensor("flow", tensor.SecondOrder(3, kxx))
+        param.set_tensor("flow", tensor.SecondOrderTensor(3, kxx))
 
         # Source term
         frac_id = d['frac_id'][0]

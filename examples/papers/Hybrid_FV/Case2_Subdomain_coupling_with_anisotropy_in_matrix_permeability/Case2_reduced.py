@@ -68,7 +68,7 @@ class FlowData(EllipticDataAssigner):
     def permeability(self):
         kxx = np.ones(self.grid().num_cells) * \
             np.power(1e4, 2 - self.grid().dim)
-        return tensor.SecondOrder(3, kxx)
+        return tensor.SecondOrderTensor(3, kxx)
 
     def bc(self):
         if self.grid().dim == 1:
@@ -109,7 +109,7 @@ def anisotropy(gb, deg, yfactor):
             kxz = kf * k[0, 2]
             kyz = kf * k[1, 2]
             kzz = kf * k[2, 2]
-            perm = tensor.SecondOrder(3, kxx=kxx, kyy=kyy,
+            perm = tensor.SecondOrderTensor(3, kxx=kxx, kyy=kyy,
                                       kzz=kzz, kxy=kxy, kxz=kxz, kyz=kyz)
 
             d['param'].set_tensor('flow', perm)
