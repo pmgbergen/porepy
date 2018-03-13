@@ -8,7 +8,6 @@ import scipy.sparse as sps
 from porepy.fracs import importer
 from porepy.params import bc, tensor
 from porepy.numerics.fv import tpfa, mpfa
-from porepy.utils.errors import error
 from porepy.numerics.elliptic import EllipticDataAssigner, EllipticModel
 from porepy.numerics.mixed_dim import condensation as SC
 

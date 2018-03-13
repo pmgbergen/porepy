@@ -16,7 +16,7 @@ from porepy.numerics.mixed_dim import condensation as SC
 from porepy.fracs.fractures import EllipticFracture
 import time
 import logging
-from examples.papers.Hybrid_FV.utils import gb_error, global_error, \
+from examples.papers.arXiv_1712_08479.utils import gb_error, global_error, \
                                             edge_params, assign_data
 
 # Module-wide logger

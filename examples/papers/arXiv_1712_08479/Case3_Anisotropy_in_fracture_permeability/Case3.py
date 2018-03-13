@@ -19,7 +19,7 @@ from porepy.numerics.fv import mpfa, tpfa
 from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
 from porepy.numerics.mixed_dim.solver import SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
-from examples.papers.Hybrid_FV.utils import gb_error, edge_params, assign_data
+from examples.papers.arXiv_1712_08479.utils import gb_error, edge_params, assign_data
 
 
 def define_grid():

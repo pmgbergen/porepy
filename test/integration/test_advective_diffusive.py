@@ -209,9 +209,9 @@ def solve_elliptic_problem(gb):
             g, dir_bound, ['dir'] * dir_bound.size)
         d['param'].set_bc('flow', bc_cond)
 
-    gb.add_edge_prop('param')
+    gb.add_edge_props('param')
     for e, d in gb.edges_props():
-        g_h = gb.sorted_nodes_of_edge(e)[1]
+        g_h = gb.nodes_of_edge(e)[1]
         d['param'] = Parameters(g_h)
     flux = elliptic.EllipticModel(gb)
     p = flux.solve()
