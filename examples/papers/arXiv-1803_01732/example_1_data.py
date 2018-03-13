@@ -142,6 +142,38 @@ sol_f = [sol_f0, sol_f1, sol_f2]
 
 #------------------------------------------------------------------------------#
 
+def vel_f0(x, y, z):
+    u = np.array(\
+        [0.1*(-0.5 - x)*(3*x**2 - 8*x*y**2 + 16*x**2*y*np.arctan2(y,x) + \
+         8*y*(x**2 + y**2)*np.arctan2(y,x)) + 0.1*(-x**3 - \
+         8*x*y*(x**2 + y**2)*np.arctan2(y,x)),
+         0.1*(-0.5 - x)*(8*x**2*y + 16*x*y**2*np.arctan2(y,x) \
+         + 8*x*(x**2 + y**2)*np.arctan2(y,x)), 0])
+    return -u
+
+#------------------------------------------------------------------------------#
+
+def vel_f1(x, y, z):
+    u = np.array(\
+        [(3/10.)*(-0.5 - x)*x**2 - x**3/10. - \
+         (12/5.)*np.pi*(-0.5 - x)*x**2*np.abs(z) + (4/5.)*np.pi*x**3*np.abs(z),\
+         0, -np.sign(z)*(4/5.)*np.pi*(-0.5 - x)*x**3])
+    return -u
+
+#------------------------------------------------------------------------------#
+
+def vel_f2(x, y, z):
+    u = np.array(\
+        [0, (-1 + y)*y*(-1 + z)*z + (-1 + y)*(1 + y)*(-1 + z)*z + \
+         y*(1 + y)*(-1 + z)*z,\
+         (-1 + y)*y*(1 + y)*(-1 + z) + (-1 + y)*y*(1 + y)*z])
+    return -u
+
+#------------------------------------------------------------------------------#
+
+vel_f = [vel_f0, vel_f1, vel_f2]
+
+#------------------------------------------------------------------------------#
 
 def perm(x, y, z):
     return 1
@@ -165,19 +197,17 @@ def error_pressure(gb, p_name):
 
 #------------------------------------------------------------------------------#
 
+def error_discharge(gb, P0u_name):
 
-def error_discharge(gb, u_name):
-
-    error = 0
+    error = np.zeros(3)
     for g, d in gb:
         if g.dim < 2:
-            d["err"] = np.zeros(g.num_cells)
             continue
         frac_id = d['frac_id'][0]
-        sol = np.array([sol_f[frac_id](*pt) for pt in g.cell_centers.T])
-        d["err"] = np.abs(d[p_name] - sol)
-        error += np.sum(np.power(d["err"], 2) * g.cell_volumes)
-
-    return np.sqrt(error)
+        sol = np.array([vel_f[frac_id](*pt) for pt in g.cell_centers.T]).T
+        err = np.abs(d[P0u_name] - sol)
+        for i in np.arange(3):
+            error[i] += np.sum(np.power(err[i, :], 2)*g.cell_volumes)
+    return np.sqrt(np.sum(error))
 
 #------------------------------------------------------------------------------#
