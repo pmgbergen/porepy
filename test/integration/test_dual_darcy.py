@@ -185,7 +185,7 @@ def setup_3d(nx, simplex_grid=False):
         param.set_source('flow', src)
         d['param'] = param
 
-    gb.add_edge_prop('kn')
+    gb.add_edge_props('kn')
     for e, d in gb.edges_props():
         g = gb.nodes_of_edge(e)[0]
         d['kn'] = 1 / gb.node_prop(g, 'param').get_aperture()
@@ -231,7 +231,7 @@ def setup_2d_1d(nx, simplex_grid=False):
             param.set_bc_val('flow', bc_val)
         d['param'] = param
 
-    gb.add_edge_prop('kn')
+    gb.add_edge_props('kn')
     for e, d in gb.edges_props():
         g = gb.nodes_of_edge(e)[0]
         d['kn'] = 1 / gb.node_prop(g, 'param').get_aperture()

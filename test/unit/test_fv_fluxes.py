@@ -64,7 +64,7 @@ class BasicsTest(unittest.TestCase):
 
             d['param'] = param
 
-        gb.add_edge_prop('param')
+        gb.add_edge_props('param')
         for e, d in gb.edges_props():
             g_h = gb.nodes_of_edge(e)[1]
             d['param'] = pp.Parameters(g_h)
@@ -139,7 +139,7 @@ class BasicsTest(unittest.TestCase):
 
             d['param'] = param
 
-        gb.add_edge_prop('param')
+        gb.add_edge_props('param')
         for e, d in gb.edges_props():
             g_h = gb.nodes_of_edge(e)[1]
             d['param'] = pp.Parameters(g_h)
@@ -237,7 +237,7 @@ class BasicsTest(unittest.TestCase):
                     g, np.empty(0), np.empty(0)))
             d['param'] = param
 
-        gb.add_edge_prop('param')
+        gb.add_edge_props('param')
         for e, d in gb.edges_props():
             g_h = gb.nodes_of_edge(e)[1]
             d['param'] = pp.Parameters(g_h)
