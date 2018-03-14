@@ -46,11 +46,19 @@ class TestBucket(unittest.TestCase):
 
     def test_add_edge(self):
         gb = pp.GridBucket()
-        g1 = MockGrid()
-        g2 = MockGrid()
+        g1 = MockGrid(1)
+        g2 = MockGrid(2)
+        g3 = MockGrid(3)
         gb.add_nodes(g1)
         gb.add_nodes(g2)
+        gb.add_nodes(g3)
         gb.add_edge([g1, g2], None)
+
+        # Should not be able to add existing edge
+        self.assertRaises(ValueError, gb.add_edge, [g1, g2], None)
+        # Should not be able to add couplings two dimensions appart
+        self.assertRaises(ValueError, gb.add_edge, [g1, g3], None)
+
 
     def test_node_neighbor_no_dim(self):
         # Test node neighbors, not caring about dimensions
@@ -144,6 +152,10 @@ class TestBucket(unittest.TestCase):
             else:
                 assert p2 in d.keys()
                 assert not p1 in d.keys()
+
+    def test_add_node_prop_node_number(self):
+        gb = self.simple_bucket(1)
+        self.assertRaises(ValueError, gb.add_node_props, 'node_number')
 
     #-------------- Tests for add_edge_props
 
@@ -249,6 +261,68 @@ class TestBucket(unittest.TestCase):
             v2 = gb.node_props(g1, k)
             assert v == v2
 
+    def test_set_get_edge_props(self):
+
+        gb = pp.GridBucket()
+        g1 = MockGrid()
+        g2 = MockGrid()
+        g3 = MockGrid()
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_nodes(g3)
+        gb.add_edge([g1, g2], None)
+        gb.add_edge([g2, g3], None)
+
+        d = {'a':1, 'b':2, 'c':3}
+        keys = d.keys()
+        vals = d.values()
+
+        pairs = [[g1, g2], [g2, g3]]
+
+        for k, v in zip(keys, vals):
+            gb.set_edge_prop(pairs[0], k, v)
+
+        # Obtain all keys, check that we have them all
+        all_keys = gb.edge_props(pairs[0])
+        assert all([k in all_keys.keys() for k in keys])
+
+        all_keys = gb.edge_props(pairs[0][::-1])
+        assert all([k in all_keys.keys() for k in keys])
+
+        # The other edge has no properties, Python should raise KeyError
+        self.assertRaises(KeyError, gb.edge_props, gp=pairs[1], key='a')
+        # Try a non-existing edge, the method itself should raise KeyError
+        self.assertRaises(KeyError, gb.edge_props, gp=[g1, g3], key='a')
+
+    def test_update_nodes(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid()
+        g2 = MockGrid()
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+        gb.add_edge([g1, g2], None)
+
+        d = {'a':1, 'b':2}
+        keys = d.keys()
+        vals = d.values()
+
+        for k, v in zip(keys, vals):
+            gb.set_edge_prop([g1, g2], k, v)
+            gb.set_node_prop(g1, k, v)
+
+        g3 = MockGrid()
+
+        gb.update_nodes(g1, g3)
+
+        # Check that the new grid and edge inherited data
+        for k, v in zip(keys, vals):
+            v2 = gb.node_props(g3, k)
+            assert v == v2
+            v2 = gb.edge_props([g2, g3], k)
+            assert v == v2
+
+        # g1 is no longer associated with gb
+        self.assertRaises(KeyError, gb.node_props, g1, 'a')
 
 
 
