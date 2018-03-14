@@ -160,8 +160,8 @@ def new_coupling_fluxes(gb_old, gb_el, neighbours_old, neighbours_el, node_old):
         cc = gb_old.edge_props(
             (neighbours_old[i], node_old), 'coupling_discretization')
         idx = np.ix_([i, n_neighbours], [i, n_neighbours])
-        all_cc[idx] += cc[0]
-        dofs[i] = cc[0][0][0].shape[0]
+        all_cc[idx] += cc
+        dofs[i] = cc[0][0].shape[0]
     global_idx = np.r_[0, np.cumsum(dofs)].astype(int)
     all_cc = sps.bmat(all_cc, 'csr')
 

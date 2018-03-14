@@ -1223,7 +1223,7 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             # general, there are g2.num_cells x g1.num_cells connections/"faces".
             cc = d['face_cells']
             cells_1, cells_2 = cc.nonzero()
-            coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
+            coupling_flux = gb.edge_props(e, 'coupling_flux')
 
             pressures = [gb.node_props(g, p_name) for g in [g2, g1]]
             p2 = pressures[0][cells_2]
