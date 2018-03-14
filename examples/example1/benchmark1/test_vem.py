@@ -78,10 +78,10 @@ def write_network(file_name):
 #------------------------------------------------------------------------------#
 
 
-def main(kf, description, is_coarse=False, if_export=False):
+def make_grid_bucket(mesh_size, is_coarse=False):
     mesh_kwargs = {}
     mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                'value': 0.045, 'bound_value': 0.045}
+                                'value': mesh_size, 'bound_value': mesh_size}
 
     domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
 
@@ -92,7 +92,12 @@ def main(kf, description, is_coarse=False, if_export=False):
     if is_coarse:
         pp.coarsening.coarsen(gb, 'by_volume')
     gb.assign_node_ordering()
+    return gb, domain
 
+
+def main(kf, description, is_coarse=False, if_export=False):
+    mesh_size = 0.045
+    gb, domain = make_grid_bucket(mesh_size)
     # Assign parameters
     add_data(gb, domain, kf)
 
