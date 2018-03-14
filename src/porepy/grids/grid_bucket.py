@@ -138,7 +138,7 @@ class GridBucket(object):
         Get neighbors of a node in the graph.
 
         Optionally, return only neighbors corresponding to higher or lower
-        dimension.
+        dimension. At most one of only_higher and only_lower can be True.
 
         Parameters:
             node (Grid): node in the graph.
@@ -150,13 +150,16 @@ class GridBucket(object):
         Return:
             list of networkx.node: Neighbors of node 'node'
 
+        Raises:
+            ValueError if both only_higher and only_lower is True.
+
         """
         neigh = np.array(self.graph.neighbors(node))
 
         if not only_higher and not only_lower:
             return neigh
         elif only_higher and only_lower:
-            return np.empty(0)
+            raise ValueError('Cannot return both only higher and only lower')
         elif only_higher:
             # Find the neighbours that are higher dimensional
             is_high = np.array([w.dim > node.dim for w in neigh])

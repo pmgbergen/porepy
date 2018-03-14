@@ -98,6 +98,8 @@ class TestBucket(unittest.TestCase):
         assert neigh_2.size == 1
         assert neigh_2[0] == g1
 
+        self.assertRaises(ValueError, gb.node_neighbors, g1, True, True)
+
     # ------------ Tests for add_node_props
 
     def test_add_single_node_prop(self):
@@ -247,8 +249,6 @@ class TestBucket(unittest.TestCase):
             v2 = gb.node_props(g1, k)
             assert v == v2
 
-
-    # --------- Test setters for node properties
 
 
 
