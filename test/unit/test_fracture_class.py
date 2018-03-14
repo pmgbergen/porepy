@@ -112,7 +112,38 @@ class TestFractureIsVertex(unittest.TestCase):
         assert is_vert == True
         assert ind == 0
 
+class TestCopyFracture(unittest.TestCase):
 
+    def frac(self):
+        return pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1],
+                                     [0, 0, 0, 0]]), check_convexity=False)
+
+    def test_copy(self):
+        f1 = self.frac()
+        f2 = f1.copy()
+        assert id(f1) != id(f2)
+
+    def test_deep_copy(self):
+        f1 = self.frac()
+        f2 = f1.copy()
+
+        # Points should be identical
+        assert np.allclose(f1.p, f2.p)
+
+        f2.p[0, 0] = 7
+        assert not np.allclose(f1.p, f2.p)
+
+class TestReprStr(unittest.TestCase):
+    def frac(self):
+        return pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1],
+                                     [0, 0, 0, 0]]), check_convexity=False)
+    def test_str(self):
+        f = self.frac()
+        f.__str__()
+
+    def test_repr(self):
+        f = self.frac()
+        f.__repr__()
 
 if __name__ == '__main__':
     unittest.main()
