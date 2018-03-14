@@ -297,7 +297,10 @@ class GridBucket(object):
         Getter for a node property of the bucket.
 
         Parameters:
-            grid (core.grids.grid): The grid associated with the node.
+            grid (grid): The grid associated with the node.
+            key (object, optional): Keys for the properties to be retrieved.
+                If key is None (default) the entire data dictionary for the
+                node is returned.
 
         Returns:
             object: A dictionary with keys and properties.
@@ -315,7 +318,9 @@ class GridBucket(object):
         Parameters:
             grids_pair (list of core.grids.grid): The two grids making up the
                 edge.
-            key (object): Keys for the properties to be retrieved.
+            key (object, optional): Keys for the properties to be retrieved.
+                If key is None (default) the entire data dictionary for the
+                edge is returned.
 
         Returns:
             object: The properties.
