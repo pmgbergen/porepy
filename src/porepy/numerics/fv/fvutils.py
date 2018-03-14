@@ -1200,7 +1200,7 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
                 dis = np.zeros(g.num_faces)
             d[d_name] = dis
 
-    for e, d in gb.edges_props():
+    for e, d in gb.edges():
         # According to the sorting convention, g2 is the higher dimensional grid,
         # the one to who's faces the fluxes correspond
         g1, g2 = gb.nodes_of_edge(e)

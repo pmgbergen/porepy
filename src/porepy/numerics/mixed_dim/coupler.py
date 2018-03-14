@@ -107,7 +107,7 @@ class Coupler(object):
 
         # Loop over the edges of the graph (pair of connected grids) to compute
         # the coupling conditions
-        for e, data in gb.edges_props():
+        for e, data in gb.edges():
             g_l, g_h = gb.nodes_of_edge(e)
             pos_l = gb.node_props(g_l, 'node_number')
             pos_h = gb.node_props(g_h, 'node_number')

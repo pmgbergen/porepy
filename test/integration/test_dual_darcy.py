@@ -68,14 +68,15 @@ class BasicsTest(unittest.TestCase):
         problem_mult.split()
         problem_mult.pressure('pressure')
 
+
         assert np.allclose(problem_mono.data()['pressure'],
-                           problem_mult.grid().node_props(g_gb, 'pressure'))
+                           g_gb[1]['pressure'])
 
         problem_mono.discharge('u')
         problem_mult.discharge('u')
 
         assert np.allclose(problem_mono.data()['u'],
-                           problem_mult.grid().node_props(g_gb, 'u'))
+                           g_gb[1]['u'])
 
         problem_mono.project_discharge('P0u')
         problem_mult.project_discharge('P0u')
@@ -84,7 +85,7 @@ class BasicsTest(unittest.TestCase):
         problem_mult.save(['pressure', 'P0u'])
 
         assert np.allclose(problem_mono.data()['P0u'],
-                           problem_mult.grid().node_props(g_gb, 'P0u'))
+                           g_gb[1]['P0u'])
 
 #------------------------------------------------------------------------------#
 
@@ -186,7 +187,7 @@ def setup_3d(nx, simplex_grid=False):
         d['param'] = param
 
     gb.add_edge_props('kn')
-    for e, d in gb.edges_props():
+    for e, d in gb.edges():
         g = gb.nodes_of_edge(e)[0]
         d['kn'] = 1 / gb.node_props(g, 'param').get_aperture()
 
@@ -232,7 +233,7 @@ def setup_2d_1d(nx, simplex_grid=False):
         d['param'] = param
 
     gb.add_edge_props('kn')
-    for e, d in gb.edges_props():
+    for e, d in gb.edges():
         g = gb.nodes_of_edge(e)[0]
         d['kn'] = 1 / gb.node_props(g, 'param').get_aperture()
 

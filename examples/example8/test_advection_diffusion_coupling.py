@@ -66,7 +66,7 @@ def add_data_darcy(gb, domain, tol):
 
     # Assign coupling permeability
     gb.add_edge_props('kn')
-    for e, d in gb.edges_props():
+    for e, d in gb.edges():
         gn = gb.nodes_of_edge(e)
         aperture = np.power(1e-2, gb.dim_max() - gn[0].dim)
         d['kn'] = np.ones(gn[0].num_cells) / aperture * kf
@@ -114,7 +114,7 @@ def add_data_advection_diffusion(gb, domain, tol):
 
     # Assign coupling discharge
     gb.add_edge_props('param')
-    for e, d in gb.edges_props():
+    for e, d in gb.edges():
         g_h = gb.nodes_of_edge(e)[1]
         discharge = gb.node_props(g_h)['discharge']
         d['param'] = Parameters(g_h)
