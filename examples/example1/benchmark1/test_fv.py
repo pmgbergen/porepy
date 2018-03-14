@@ -96,9 +96,9 @@ def main(kf, description, multi_point, if_export=False):
 
     # Choose discretization and define the solver
     if multi_point:
-        solver = mpfa.MpfaMixedDim('flow')
+        solver = pp.MpfaMixedDim('flow')
     else:
-        solver = tpfa.TpfaMixedDim('flow')
+        solver = pp.TpfaMixedDim('flow')
 
     # Discretize
     A, b = solver.matrix_rhs(gb)
