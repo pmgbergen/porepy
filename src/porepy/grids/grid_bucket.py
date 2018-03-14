@@ -342,6 +342,52 @@ class GridBucket(object):
         else:
             raise KeyError('Unknown edge')
 
+    #------------- Setters for edge and grid properties
+
+    def set_node_prop(self, g, key, val):
+        """ Set the value of a property of a given node.
+
+        Values can also be set by accessing the data dictionary of the node
+        directly.
+
+        No checks are performed on whether the property has been added to
+        the node. If the property has not been added, it will implicitly be
+        generated.
+
+        Parameters:
+            g (grid): Grid identifying the node.
+            key (object): Key identifying the field to add.
+            val: Value to be added.
+
+        """
+        self.graph.node[g][key] = val
+
+    def set_edge_prop(self, gp, key, val):
+        """ Set the value of a property of a given edge.
+
+        Values can also be set by accessing the data dictionary of the edge
+        directly.
+
+        No checks are performed on whether the property has been added to
+        the edge. If the property has not been added, it will implicitly be
+        generated.
+
+        Parameters:
+            g (grid): Grid identifying the node.
+            key (object): Key identifying the field to add.
+            val: Value to be added.
+
+        Raises:
+            KeyError if the two grids do not form an edge.
+
+        """
+        if tuple(gp) in self.graph.edges():
+            self.graph.edge[gp[0]][gp[1]][key] = val
+        elif tuple(gp[::-1]) in self.graph.edges():
+            self.graph.edge[gp[1]][gp[0]][key] = val
+        else:
+            raise KeyError('Unknown edge')
+
     #------------ Add new nodes and edges ----------
 
     def add_nodes(self, new_grids):

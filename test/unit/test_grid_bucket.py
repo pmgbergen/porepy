@@ -222,6 +222,34 @@ class TestBucket(unittest.TestCase):
                 assert p2 in d.keys()
                 assert not p1 in d.keys()
 
+    # ----------- Tests for getters of node properties ----------
+
+    def test_set_get_node_props_single_grid(self):
+
+        gb = pp.GridBucket()
+        g1 = MockGrid()
+        gb.add_nodes(g1)
+        d = {'a':1, 'b':2, 'c':3}
+
+        keys = d.keys()
+        vals = d.values()
+
+        for k, v in zip(keys, vals):
+            gb.set_node_prop(g1, k, v)
+
+        # Obtain all keys, check that we have them all
+        all_keys = gb.node_props(g1)
+        assert all([k in keys for k in all_keys.keys()])
+        assert all([k in all_keys.keys() for k in keys])
+
+        # Next obtain values by keyword
+        for k, v in zip(keys, vals):
+            v2 = gb.node_props(g1, k)
+            assert v == v2
+
+
+    # --------- Test setters for node properties
+
 
 
 if __name__ == '__main__':
