@@ -434,13 +434,15 @@ class GridBucket(object):
                 from faces of the first grid to faces of the second one.
 
         Raises:
-            ValueError if the two grids are not one dimension apart
+            ValueError if the edge already exists.
+            ValueError if the two grids are not one dimension apart.
 
         """
         assert np.asarray(grids).size == 2
-        # Check that the connection does not already exist
-        assert not (tuple(grids) in self.graph.edges()
-                    or tuple(grids[::-1]) in self.graph.edges())
+
+        if (tuple(grids) in self.graph.edges()
+                    or tuple(grids[::-1]) in self.graph.edges()):
+            raise ValueError('Cannot add existing edge')
 
         # The higher-dimensional grid is the first node of the edge.
         if grids[0].dim - 1 == grids[1].dim:
@@ -481,7 +483,7 @@ class GridBucket(object):
 
     def update_nodes(self, new, old):
         """
-        Update the grids givin the old and new values. The edges are updated
+        Update the grids giving the old and new values. The edges are updated
         accordingly.
 
         Parameters:
