@@ -155,7 +155,7 @@ class TestBucket(unittest.TestCase):
 
         gb.add_edge_props('a')
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             assert 'a' in d.keys()
 
     def test_add_single_edge_prop_reverse_order(self):
@@ -170,7 +170,7 @@ class TestBucket(unittest.TestCase):
         # Add property, with reverse order of grid pair
         gb.add_edge_props('a', grid_pairs=[[g2, g1]])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             assert 'a' in d.keys()
 
     def test_add_multiple_edge_props(self):
@@ -184,7 +184,7 @@ class TestBucket(unittest.TestCase):
         props = ['a', 'b']
         gb.add_edge_props(props)
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             for p in props:
                 assert p in d.keys()
 
@@ -213,7 +213,7 @@ class TestBucket(unittest.TestCase):
         # Try to add test to non-existing edge. Should give error
         self.assertRaises(KeyError, gb.add_edge_props, pboth, [[g1, g3]])
 
-        for g, d in gb.edges_props():
+        for g, d in gb.edges():
             assert pboth in d.keys()
             if g1 in g and g2 in g:
                 assert p1 in d.keys()

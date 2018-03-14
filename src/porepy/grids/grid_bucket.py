@@ -55,22 +55,32 @@ class GridBucket(object):
 
 
     def nodes(self):
-        """
+        """ Iterator over the nodes in the GridBucket.
+
+        Identical functionality to self.__iter__(), but kept for consistency
+        with self.edges()
+
         Yields:
-            An iterator over the graph nodes.
+            g: Grid associated with the current node.
+            data: The dictionary storing all information in this node.
 
         """
-        return self.graph.nodes_iter()
+        for g in self.graph:
+            data = self.graph.node[g]
+            yield g, data
 
 
     def edges(self):
         """
+        Iterator over the edges in the GridBucket
+
         Yields:
-            An iterator over the graph edges.
+            e: Grid pair associated with the current edge.
+            data: The dictionary storing all information in this edge..
 
         """
-        return self.graph.edges_iter()
-
+        for e in self.graph.edges():
+            yield e, self.edge_props(e)
 
     # ---------- Navigate within the graph --------
 
@@ -326,18 +336,6 @@ class GridBucket(object):
                 return self.graph.edge[gp[1]][gp[0]][key]
         else:
             raise KeyError('Unknown edge')
-
-    def edges_props(self):
-        """
-        Iterator over the edges of the grid bucket.
-
-        Yields:
-            core.grid.edges: The edge (pair of grids) associated with an edge.
-            data: The dictionary storing all information in this edge.
-
-        """
-        for e in self.graph.edges():
-            yield e, self.edge_props(e)
 
     #------------ Add new nodes and edges ----------
 
@@ -731,7 +729,7 @@ class GridBucket(object):
 
         # Loop over the edges of the graph (pair of connected nodes)
         idx = 0
-        for e, data in self.edges_props():
+        for e, data in self.edges():
             g_l, g_h = self.nodes_of_edge(e)
             data_l, data_h = self.node_props(g_l), self.node_props(g_h)
 

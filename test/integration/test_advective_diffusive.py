@@ -210,7 +210,7 @@ def solve_elliptic_problem(gb):
         d['param'].set_bc('flow', bc_cond)
 
     gb.add_edge_props('param')
-    for e, d in gb.edges_props():
+    for e, d in gb.edges():
         g_h = gb.nodes_of_edge(e)[1]
         d['param'] = Parameters(g_h)
     flux = elliptic.EllipticModel(gb)

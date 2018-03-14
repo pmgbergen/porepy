@@ -57,7 +57,7 @@ class BasicsTest(unittest.TestCase):
 
         # Assign coupling discharge
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
@@ -122,7 +122,7 @@ class BasicsTest(unittest.TestCase):
 
         # Assign coupling discharge
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
@@ -210,7 +210,7 @@ class BasicsTest(unittest.TestCase):
 
         # Assign coupling discharge
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
@@ -284,7 +284,7 @@ class BasicsTest(unittest.TestCase):
 
         # Assign coupling discharge
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
@@ -349,7 +349,7 @@ class BasicsTest(unittest.TestCase):
 
         # Assign coupling discharge
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
@@ -461,7 +461,7 @@ class BasicsTest(unittest.TestCase):
 
         # Assign coupling discharge
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
@@ -508,7 +508,7 @@ class BasicsTest(unittest.TestCase):
 
         # Assign coupling discharge
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
@@ -564,7 +564,7 @@ class BasicsTest(unittest.TestCase):
 
         # Assign coupling discharge
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)

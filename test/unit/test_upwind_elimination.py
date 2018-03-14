@@ -113,7 +113,7 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             d['param'] = pp.Parameters(g_h)
 

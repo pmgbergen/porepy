@@ -65,7 +65,7 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             d['param'] = pp.Parameters(g_h)
 
@@ -140,7 +140,7 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             d['param'] = pp.Parameters(g_h)
 
@@ -238,7 +238,7 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         gb.add_edge_props('param')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             g_h = gb.nodes_of_edge(e)[1]
             d['param'] = pp.Parameters(g_h)
 
@@ -289,7 +289,7 @@ class BasicsTest(unittest.TestCase):
         d_01, d_10, d_02, d_20, d_13, d_23 \
             = coupling_fluxes_2d_1d_cross_no_el()
 
-        for e, data in gb.edges_props():
+        for e, data in gb.edges():
             g1, g2 = gb.nodes_of_edge(e)
             pa = data['param']
             node_numbers = [gb.node_props(g, 'node_number') for g in [g2, g1]]
@@ -307,7 +307,7 @@ class BasicsTest(unittest.TestCase):
                     assert np.allclose(data['discharge'], d_23, rtol, atol)
 
         d_11, d_21, d_22 = coupling_fluxes_2d_1d_cross_with_el()
-        for e, data in gb_r.edges_props():
+        for e, data in gb_r.edges():
             g1, g2 = gb_r.nodes_of_edge(e)
             pa = data['param']
             node_numbers = [gb_r.node_props(g, 'node_number') for g in [g2, g1]]
