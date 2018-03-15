@@ -37,6 +37,9 @@ class DarcyAndTransport():
         """
         self.flow.step()
         self.flow.pressure()
+        if save_as is not None:
+            self.flow.split(self.flow.pressure_name)
+            self.flow.save(variables=[self.flow.pressure_name])
         if self.flow.el:
             SC.compute_elimination_fluxes(self.flow.full_grid, self.flow.grid(), self.flow.el_data)
         self.flow.discharge()
