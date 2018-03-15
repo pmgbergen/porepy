@@ -404,7 +404,7 @@ def extract_subgrid(g, c, sort=True):
 
     """
     if sort:
-        c = np.sort(c)
+        c = np.sort(np.atleast_1d(c))
 
     # Local cell-face and face-node maps.
     cf_sub, unique_faces = __extract_submatrix(g.cell_faces, c)

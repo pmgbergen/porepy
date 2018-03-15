@@ -79,7 +79,7 @@ from porepy.viz.fracture_visualization import plot_fractures
 # Modules
 from porepy.utils import comp_geom as cg
 from porepy.fracs import meshing, importer, extrusion
-from porepy.grids import structured, simplex, coarsening
+from porepy.grids import structured, simplex, coarsening, partition
 from porepy.params.units import *
 from porepy.numerics.fv import fvutils
 from porepy.utils import error
