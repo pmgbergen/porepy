@@ -260,5 +260,82 @@ class TestConnectivityChecker(unittest.TestCase):
         assert np.array_equal(np.sort(p_sub[components[1]]),
                               np.array([10, 11, 14, 15]))
 
+class TestCoordinatePartitioner(unittest.TestCase):
+
+    def test_cart_grid_square(self):
+        g = pp.CartGrid([4, 4])
+        g.compute_geometry()
+        num_coarse = 4
+
+        pvec = pp.partition.partition_coordinates(g, num_coarse)
+
+        known_cells = [[0, 1, 4, 5], [2, 3, 6, 7], [8, 9, 12, 13],
+                       [10, 11, 14, 15]]
+        for k in known_cells:
+            assert np.all(np.abs(pvec[k] - pvec[k[0]]) < 1e-4)
+
+    def test_cart_grid_rectangle(self):
+        # Rectangular domain
+        g = pp.CartGrid([4, 2])
+        g.compute_geometry()
+        num_coarse = 2
+        pvec = pp.partition.partition_coordinates(g, num_coarse)
+
+        # The grid can be split horizontally or vertically, we can't know how
+        possible_cells = [[0, 1, 4, 5], [2, 3, 6, 7]]
+        possible_cells_2 = [[0, 1, 2, 3], [4, 5, 6, 7]]
+        for k, k2 in zip(possible_cells, possible_cells_2):
+            assert np.all(np.abs(pvec[k] - pvec[k[0]]) < 1e-4) or \
+                    np.all(np.abs(pvec[k2] - pvec[k2[0]]) < 1e-4)
+
+
+class TestPartitionGrid(unittest.TestCase):
+
+    def test_identity_partitioning(self):
+        # All cells are on the same grid, nothing should happen
+        g = pp.CartGrid([3, 4])
+        ind = np.zeros(g.num_cells)
+
+        sub_g, face_map_list, node_map_list\
+            = pp.partition.partition_grid(g, ind)
+
+        nsg = np.unique(ind).size
+        assert len(sub_g) == nsg
+        assert len(face_map_list) == nsg
+        assert len(node_map_list) == nsg
+
+        sg = sub_g[0]
+        assert sg.num_cells == g.num_cells
+        assert sg.num_faces == g.num_faces
+        assert sg.num_nodes == g.num_nodes
+
+        assert np.allclose(face_map_list[0], np.arange(sg.num_faces))
+        assert np.allclose(node_map_list[0], np.arange(sg.num_nodes))
+
+    def test_single_cell_partitioning(self):
+
+        g = pp.CartGrid([3, 3])
+        ind = np.arange(g.num_cells)
+        sub_g, face_map_list, node_map_list\
+            = pp.partition.partition_grid(g, ind)
+
+        nsg = np.unique(ind).size
+        assert len(sub_g) == nsg
+        assert len(face_map_list) == nsg
+        assert len(node_map_list) == nsg
+
+        for ci, (sg, fm, nm) in enumerate(zip(sub_g, face_map_list,
+                                              node_map_list)):
+            assert sg.num_cells == 1
+            assert sg.num_faces == 4
+            assert sg.num_nodes == 4
+
+            f_known = np.where(g.cell_faces.todense()[:, ci] != 0)[0]
+            assert np.all(np.sort(fm) == np.sort(f_known))
+
+            n_known = np.where(g.face_nodes.todense()[:, f_known].sum(axis=1) > 0)[0]
+            assert np.all(np.sort(nm) == np.sort(n_known))
+
+
 if __name__ == '__main__':
     unittest.main()
