@@ -114,6 +114,8 @@ class UnitSquareInjectionMultiDim(ParabolicModel):
                 source[0] = 1.0
             d['param'].set_source(self.physics, source)
 
+    def time_step(self):
+        return 1.0
 
 ###############################################################################
 class UnitSquareInjectionTwoSteps(UnitSquareInjectionMultiDim):

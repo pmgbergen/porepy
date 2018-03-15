@@ -58,12 +58,12 @@ class SlightlyCompressibleModel(ParabolicModel):
         self.pressure(p_name)
         fvutils.compute_discharges(self.grid(), d_name=d_name, p_name=p_name)
 
-    def pressure(self, pressure_name='pressure'):
+    def pressure(self, p, pressure_name='pressure'):
         self.pressure_name = pressure_name
         if self.is_GridBucket:
-            self.split(self.pressure_name)
+            self.split(p, self.pressure_name)
         else:
-            self._data[self.pressure_name] = self._solver.p
+            self._data[self.pressure_name] = p
 
 
 class SlightlyCompressibleDataAssigner(ParabolicDataAssigner):
