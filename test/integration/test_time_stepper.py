@@ -27,41 +27,42 @@ class TestBase(unittest.TestCase):
         '''Inject 1 in cell 0. Test that rhs and pressure solution
         is correct'''
         problem = UnitSquareInjectionMultiDim(self.gb)
-        problem.update(0.0)
+        problem.update(1.0)
         solver = Implicit(problem)
         solver.solve()
+        
         assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
         assert np.sum(np.abs(solver.rhs - 1) < 1e-6) == 1
-        assert np.sum(np.abs(solver.p) > 1e-6) == 1
-        assert np.sum(np.abs(solver.p - 1) < 1e-6) == 1
+        assert np.sum(np.abs(solver.x) > 1e-6) == 1
+        assert np.sum(np.abs(solver.x - 1) < 1e-6) == 1
 
     def test_BDF2_solver(self):
         '''Inject 1 in cell 0. Test that rhs and pressure solution
         is correct'''
         problem = UnitSquareInjectionTwoSteps(self.gb)
-        problem.update(0.0)
-        solver = BDF2(problem)
-        solver.update(solver.dt)
-        solver.reassemble()
+        problem.update(0.5)
+        solver = BDF2(problem, dt=0.5)
+
+        solver.assemble()
         solver.step()
         # The first step should be an implicit step
         assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
         assert np.sum(np.abs(solver.rhs - 1.0) < 1e-6) == 1
-        assert np.sum(np.abs(solver.p) > 1e-6) == 1
-        assert np.sum(np.abs(solver.p - 1.0 / 2.0) < 1e-6) == 1
-        assert np.allclose(solver.p0, 0)
-        assert np.allclose(solver.p_1, 0)
+        assert np.sum(np.abs(solver.x) > 1e-6) == 1
+        assert np.sum(np.abs(solver.x - 1.0 / 2.0) < 1e-6) == 1
+        assert np.allclose(solver.x0, 0)
+        assert np.allclose(solver.x_1, 0)
 
-        solver.update(2 * solver.dt)
-        solver.reassemble()
+        solver.update()
+        solver.assemble()
         solver.step()
         # The second step should be a full bdf2 step
         assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
         assert np.sum(np.abs(solver.rhs - 2.0) < 1e-6) == 1
-        assert np.sum(np.abs(solver.p) > 1e-6) == 1
-        assert np.sum(np.abs(solver.p - 1) < 1e-6) == 1
-        assert np.sum(np.abs(solver.p0 - 0.5) < 1e-6) == 1
-        assert np.allclose(solver.p_1, 0.0)
+        assert np.sum(np.abs(solver.x) > 1e-6) == 1
+        assert np.sum(np.abs(solver.x - 1) < 1e-6) == 1
+        assert np.sum(np.abs(solver.x0 - 0.5) < 1e-6) == 1
+        assert np.allclose(solver.x_1, 0.0)
 
     def test_explicit_solver(self):
         '''Inject 1 in cell 0. Test that rhs and pressure solution
@@ -71,20 +72,26 @@ class TestBase(unittest.TestCase):
         solver = Explicit(problem)
         solver.solve()
         assert np.sum(np.abs(solver.rhs) > 1e-6) == 0
-        assert np.sum(np.abs(solver.p) > 1e-6) == 0
+        assert np.sum(np.abs(solver.x) > 1e-6) == 0
 
     def test_CrankNicolson_solver(self):
         '''Inject 1 in cell 0. Test that rhs and pressure solution
         is correct'''
         problem = UnitSquareInjectionMultiDim(self.gb)
-        problem.update(0.0)
         solver = CrankNicolson(problem)
-        solver.solve()
+        
+        problem.update(.0)
+        solver.assemble()
 
+        problem.update(1.)
+        solver.update()
+        solver.assemble()
+        solver.step()
+        
         assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
         assert np.sum(np.abs(solver.rhs - 0.5) < 1e-6) == 1
-        assert np.sum(np.abs(solver.p) > 1e-6) == 1
-        assert np.sum(np.abs(solver.p - 0.5) < 1e-6) == 1
+        assert np.sum(np.abs(solver.x) > 1e-6) == 1
+        assert np.sum(np.abs(solver.x - 0.5) < 1e-6) == 1
 
 
 ###############################################################################
@@ -105,7 +112,7 @@ class UnitSquareInjectionMultiDim(ParabolicModel):
             source = np.zeros(g.num_cells)
             if g.dim == 0 and t > self.time_step() - 1e-5:
                 source[0] = 1.0
-            d['param'].set_source('transport', source)
+            d['param'].set_source(self.physics, source)
 
 
 ###############################################################################
