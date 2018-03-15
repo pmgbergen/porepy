@@ -84,7 +84,7 @@ class ParabolicModel():
         logger.info('Done. Elapsed time: ' + str(time.time() - tic))
 
         self.x_name = 'solution'
-        self._time_disc = self.time_disc()
+        self._time_disc = self.mass_disc()
 
     def data(self):
         'Get data dictionary'
@@ -201,18 +201,16 @@ class ParabolicModel():
         used in the model'''
         return self.advective_disc(), self.diffusive_disc(), self.source_disc()
 
-    def time_disc(self):
+    def mass_disc(self):
         """
         Returns the time discretization.
         """
         class TimeDisc(mass_matrix.MassMatrix):
-            def __init__(self, deltaT):
-                self.deltaT = deltaT
 
             def matrix_rhs(self, g, data):
                 ndof = g.num_cells
                 aperture = data['param'].get_aperture()
-                coeff = g.cell_volumes * aperture / self.deltaT
+                coeff = g.cell_volumes * aperture
 
                 factor_fluid = data['param'].fluid_specific_heat\
                              * data['param'].fluid_density\
@@ -227,11 +225,11 @@ class ParabolicModel():
                 rhs = np.zeros(ndof)
                 return factor * lhs, factor * rhs
 
-        single_dim_discr = TimeDisc(self.time_step())
+        single_dim_discr = TimeDisc()
         if self.is_GridBucket:
             time_discretization = coupler.Coupler(single_dim_discr)
         else:
-            time_discretization = TimeDisc(self.time_step())
+            time_discretization = TimeDisc()
         return time_discretization
 
     def initial_condition(self):
@@ -239,7 +237,7 @@ class ParabolicModel():
         if self.is_GridBucket:
             for _, d in self.grid():
                 d[self.physics] = d[self.physics + '_data'].initial_condition()
-            global_variable = self.time_disc().merge(self.grid(), self.physics)
+            global_variable = self.mass_disc().merge(self.grid(), self.physics)
         else:
             global_variable = self._data[self.physics + '_data'].initial_condition()
         return global_variable

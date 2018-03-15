@@ -48,6 +48,9 @@ from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
 from porepy.numerics.compressible import SlightlyCompressibleModel, SlightlyCompressibleDataAssigner
 from porepy.numerics.mechanics import StaticModel, StaticDataAssigner
 
+# Linear solver library
+from porepy.numerics.linalg.linsolve import Factory as LSFactory
+
 #Grid
 from porepy.grids.grid import Grid
 from porepy.grids.grid_bucket import GridBucket
