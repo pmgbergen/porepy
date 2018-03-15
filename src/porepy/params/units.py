@@ -23,5 +23,9 @@ KILOMETER = KILO * METER
 
 # Pressure related quantities
 DARCY = 9.869233e-13
+MILLIDARCY = MILLI * DARCY
+
 PASCAL = 1
 BAR = 101325 * PASCAL
+
+CELSIUS = 1
