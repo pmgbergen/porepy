@@ -1,14 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
-from porepy.numerics import elliptic
-from porepy.fracs import meshing
-from porepy.params.data import Parameters
-from porepy.params import tensor, bc
-from porepy.params.units import *
-from porepy.numerics.fv import fvutils
-
+import porepy as pp
 
 class BasicsTest(unittest.TestCase):
 
@@ -19,7 +12,7 @@ class BasicsTest(unittest.TestCase):
         mesh_size = 1.0
         mesh_kwargs = {'mode': 'constant',
                        'value': mesh_size, 'bound_value': mesh_size}
-        self.gb3d = meshing.simplex_grid([f], box, mesh_size=mesh_kwargs)
+        self.gb3d = pp.meshing.simplex_grid([f], box, mesh_size=mesh_kwargs)
         unittest.TestCase.__init__(self, *args, **kwargs)
 
     #------------------------------------------------------------------------------#
@@ -29,7 +22,7 @@ class BasicsTest(unittest.TestCase):
         test that the mono_dimensional elliptic solver gives the same answer as
         the grid bucket elliptic
         """
-        gb = meshing.cart_grid([], [10, 10])
+        gb = pp.meshing.cart_grid([], [10, 10])
 
         for sub_g, d in gb:
             if sub_g.dim == 2:
@@ -38,7 +31,11 @@ class BasicsTest(unittest.TestCase):
                 d['transport_data'] = MatrixDomain(sub_g, d)
 
         problem = SourceProblem(gb, physics='transport')
-        problem.solve()
+        time_stepper = pp.Implicit(problem, dt=0.5)
+        
+        time_stepper.solve()
+        problem.split(time_stepper.x, 'T')
+
         dE = change_in_energy(problem)
         assert np.abs(dE - 10) < 1e-6
 
@@ -56,7 +53,11 @@ class BasicsTest(unittest.TestCase):
                 d['transport_data'] = MatrixDomain(sub_g, d)
 
         problem = SourceProblem(self.gb3d)
-        problem.solve()
+        time_stepper = pp.Implicit(problem, dt=0.5)
+
+        time_stepper.solve()
+        problem.split(time_stepper.x, 'T')
+
         dE = change_in_energy(problem)
         assert np.abs(dE - 10) < 1e-6
 
@@ -70,7 +71,11 @@ class BasicsTest(unittest.TestCase):
                 d['transport_data'] = MatrixDomain(g, d)
         solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveProblem(self.gb3d)
-        problem.solve()
+        time_stepper = pp.Implicit(problem, dt=0.5)
+
+        time_stepper.solve()
+        problem.split(time_stepper.x, 'T')
+
         dE = change_in_energy(problem)
         assert np.abs(dE - 10) < 1e-6
 
@@ -82,8 +87,13 @@ class BasicsTest(unittest.TestCase):
             else:
                 d['transport_data'] = MatrixDomain(g, d)
         solve_elliptic_problem(self.gb3d)
+
         problem = SourceAdvectiveDiffusiveProblem(self.gb3d)
-        problem.solve()
+        time_stepper = pp.Implicit(problem, dt=0.5)
+
+        time_stepper.solve()
+        problem.split(time_stepper.x, 'T')
+
         dE = change_in_energy(problem)
         assert np.abs(dE - 10) < 1e-6
 
@@ -95,87 +105,64 @@ class BasicsTest(unittest.TestCase):
             else:
                 d['transport_data'] = MatrixDomain(g, d)
         solve_elliptic_problem(self.gb3d)
+        
         problem = SourceAdvectiveDiffusiveDirBound(self.gb3d)
-        problem.solve()
+        time_stepper = pp.Implicit(problem, dt=0.5)
+
+        time_stepper.solve()
+        problem.split(time_stepper.x, 'T')
+
         for _, d in self.gb3d:
             T_list = d['transport']
             const_temp = [np.allclose(T, 10) for T in T_list]
             assert np.all(const_temp)
 
 
-class SourceProblem(ParabolicModel):
-    def __init__(self, g, physics='transport'):
-        ParabolicModel.__init__(self, g, physics=physics)
-
+class SourceProblem(pp.ParabolicModel):
     def space_disc(self):
         return self.source_disc()
 
-    def time_step(self):
-        return 0.5
-
-
-class SourceAdvectiveProblem(ParabolicModel):
-    def __init__(self, g, physics='transport'):
-        ParabolicModel.__init__(self, g, physics=physics)
-
+class SourceAdvectiveProblem(pp.ParabolicModel):
     def space_disc(self):
         return self.source_disc(), self.advective_disc()
 
-    def time_step(self):
-        return 0.5
 
-
-class SourceAdvectiveDiffusiveProblem(ParabolicModel):
-    def __init__(self, g, physics='transport'):
-        ParabolicModel.__init__(self, g, physics=physics)
-
+class SourceAdvectiveDiffusiveProblem(pp.ParabolicModel):
     def space_disc(self):
         return self.source_disc(), self.advective_disc(), self.diffusive_disc()
 
-    def time_step(self):
-        return 0.5
-
 
 class SourceAdvectiveDiffusiveDirBound(SourceAdvectiveDiffusiveProblem):
-    def __init__(self, g, physics='transport'):
-        SourceAdvectiveDiffusiveProblem.__init__(self, g, physics=physics)
-
     def bc(self):
         dir_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
-        bc_cond = bc.BoundaryCondition(
+        bc_cond = pp.BoundaryCondition(
             self.grid(), dir_faces, ['dir'] * dir_faces.size)
         return bc_cond
 
-    def bc_val(self, t):
+    def bc_val(self, _):
         dir_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         val = np.zeros(self.grid().num_faces)
-        val[dir_faces] = 10 * PASCAL
+        val[dir_faces] = 10
         return val
 
 
-def source(g, t):
+def source(g, _):
     tol = 1e-4
     value = np.zeros(g.num_cells)
     cell_coord = np.atleast_2d(np.mean(g.cell_centers, axis=1)).T
     cell = np.argmin(
         np.sum(np.abs(g.cell_centers - cell_coord), axis=0))
 
-    value[cell] = 1.0 * KILOGRAM / SECOND
+    value[cell] = 1.0
     return value
 
 
-class MatrixDomain(ParabolicDataAssigner):
-    def __init__(self, g, d, physics='transport'):
-        ParabolicDataAssigner.__init__(self, g, d, physics)
-
+class MatrixDomain(pp.ParabolicDataAssigner):
     def initial_condition(self):
         return 10 * np.ones(self.grid().num_cells)
 
 
 class InjectionDomain(MatrixDomain):
-    def __init__(self, g, d, physics='transport'):
-        MatrixDomain.__init__(self, g, d, physics)
-
     def source(self, t):
         flux = source(self.grid(), t)
         T_in = 10
@@ -187,14 +174,11 @@ class InjectionDomain(MatrixDomain):
 
 def change_in_energy(problem):
     dE = 0
-    problem.advective_disc().split(
-        problem.grid(), 'T', problem._solver.p)
     for g, d in problem.grid():
         p = d['T']
         p0 = d['transport_data'].initial_condition()
         V = g.cell_volumes * d['param'].get_aperture()
         dE += np.sum((p - p0) * V)
-
     return dE
 
 
@@ -205,18 +189,18 @@ def solve_elliptic_problem(gb):
                 'flow', source(g, 0.0))
 
         dir_bound = g.tags['domain_boundary_faces'].nonzero()[0]
-        bc_cond = bc.BoundaryCondition(
+        bc_cond = pp.BoundaryCondition(
             g, dir_bound, ['dir'] * dir_bound.size)
         d['param'].set_bc('flow', bc_cond)
 
     gb.add_edge_props('param')
     for e, d in gb.edges():
         g_h = gb.nodes_of_edge(e)[1]
-        d['param'] = Parameters(g_h)
-    flux = elliptic.EllipticModel(gb)
-    p = flux.solve()
+        d['param'] = pp.Parameters(g_h)
+    flux = pp.EllipticModel(gb)
+    flux.solve()
     flux.split('pressure')
-    fvutils.compute_discharges(gb)
+    pp.fvutils.compute_discharges(gb)
 
 
 def delete_node_data(gb):

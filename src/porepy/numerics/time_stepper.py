@@ -52,7 +52,7 @@ class AbstractSolver(object):
         counter = 0
         if not file_name is None:
             exporter = pp.Exporter(self.gb, file_name)
-            self.model.split(var_name)
+            self.model.split(self.x, var_name)
             self.model.exporter.write_vtk([var_name], time_step=counter)
             times = [0.0]
 
@@ -66,7 +66,7 @@ class AbstractSolver(object):
                          ', minimum value ' + str(self.x.min()))
             if not file_name is None and np.mod(counter, save_every)==0:
                 logger.info('Saving solution')
-                self.model.split(var_name)
+                self.model.split(self.x, var_name)
                 exporter.write_vtk([var_name], time_step=counter)
                 times.append(t)
                 logger.info('Finished saving')

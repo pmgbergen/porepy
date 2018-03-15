@@ -3,22 +3,14 @@ import logging
 import time
 import scipy.sparse as sps
 
-from porepy.params.data import Parameters
-from porepy.params import tensor, bc
-from porepy.numerics.mixed_dim.coupler import Coupler
-from porepy.numerics.fv import tpfa, mass_matrix, source
-from porepy.numerics.fv.transport import upwind
-from porepy.numerics import time_stepper
-from porepy.numerics.mixed_dim import coupler
-from porepy.viz.exporter import Exporter
-from porepy.grids.grid_bucket import GridBucket
-
+import porepy as pp
+from porepy.numerics.fv.transport.upwind import UpwindCoupling
 logger = logging.getLogger(__name__)
 
 
 class ParabolicModel():
     '''
-    Base class for solving general pde problems. This class solves equations of
+    Base class for discretizing general pde problems. This class solves equations of
     the type:
     dT/dt + v*\nabla T - \nabla K \nabla T = q
 
@@ -29,172 +21,119 @@ class ParabolicModel():
     Functions:
     data(): returns data dictionary. Is only used for single grids (I.e. not
             GridBucket)
-    solve(): solve problem
-    step(): take one time step
-    update(t): update parameters to time t
-    reassemble(): reassemble matrices and right hand side
-    solver(): initiate solver (see numerics.pde_solver)
+    update(t=0): update parameters to time t. Assumes a ParabolicDataAssigner
+                 is assigned to data with keyword: physics + '_data'
+    mass_disc(): discretization of the mass term (should give out the mass
+                 mastrix but not divided by the time step)
     advective_disc(): discretization of the advective term
     diffusive_disc(): discretization of the diffusive term
     soruce_disc(): discretization of the source term, q
     space_disc(): returns one or more of the above discretizations. If
                   advective_disc(), source_disc() are returned we solve
                   the problem without diffusion
-    time_disc(): returns the time discretization
-    initial_condition(): returns the initial condition for global variable
+    initial_condition(): returns the initial condition for global variable. 
+                         Assumes a ParabolicDataAssigner is assigned to data
+                         with keyword: physics + '_data'
     grid(): returns the grid bucket for the problem
-    time_step(): returns time step length
-    end_time(): returns end time
-    save(save_every=1): save solution. Parameter: save_every, save only every
-                                                  save_every time steps
 
     Example:
-    # We create a problem with default data, neglecting the advective term
+    # We create a problem with default data, neglecting the advective term.
+    # We define an explicit time stepper 
 
-    class ExampleProblem(ParabolicProblem):
-        def __init__(self, gb):
-            self._g = gb
-            ParabolicProblem.__init__(self)
-
+    class ExampleModel(ParabolicModel):
         def space_disc(self):
             return self.source_disc(), self.diffusive_discr()
     gb = meshing.cart_grid([], [10,10], physdims=[1,1])
     for g, d in gb:
-        d['problem'] = ParabolicData(g, d)
-    problem = ExampleProblem(gb)
-    problem.solve()
+        d['transport_data'] = ParabolicData(g, d)
+    model = ExampleModel(gb)
+    stepper = Implicit(model, dt=0.2, end_time=1.0)
+    stepper.solve()
     '''
 
-    def __init__(self, gb, physics='transport',time_step=1.0, end_time=1.0, **kwargs):
+    def __init__(self, gb, physics='transport', **kwargs):
         self._gb = gb
-        self.is_GridBucket = isinstance(self._gb, GridBucket)
+        self.is_GridBucket = isinstance(self._gb, pp.GridBucket)
         self.physics = physics
         self._data = kwargs.get('data', dict())
-        self._time_step = time_step
-        self._end_time = end_time
-        self._set_data()
-
-        self._solver = self.solver()
-
-        logger.info('Create exporter')
-        tic = time.time()
-        file_name = kwargs.get('file_name', 'solution')
-        folder_name = kwargs.get('folder_name', 'results')
-        self.exporter = Exporter(self._gb, file_name, folder_name)
-        logger.info('Done. Elapsed time: ' + str(time.time() - tic))
-
-        self.x_name = 'solution'
-        self._time_disc = self.mass_disc()
+        
+        self.x_name = physics
+        self._mass_disc = self.mass_disc()
 
     def data(self):
         'Get data dictionary'
         return self._data
 
-    def _set_data(self):
-        if self.is_GridBucket:
-            for _, d in self.grid():
-                d['deltaT'] = self.time_step()
-        else:
-            self.data()['deltaT'] = self.time_step()
-
-    def solve(self, save_as=None, save_every=1):
-        '''Solve problem
-
-        Arguments:
-        save_as (string), defaults to None. If a string is given, the solution
-                          variable is saved to a vtk-file as save_as
-        save_every (int), defines which time steps to save. save_every=2 will
-                          store every second time step.
-        '''
-        tic = time.time()
-        logger.info('Solve problem')
-        s = self._solver.solve(save_as, save_every)
-        logger.info('Done. Elapsed time: ' + str(time.time() - tic))
-        return s
-
-    def step(self):
-        'Take one time step'
-        return self._solver.step()
-
-    def update(self, t):
+    def update(self, t=0):
         'Update parameters to time t'
         if self.is_GridBucket:
-            for g, d in self.grid():
+            for _, d in self.grid():
                 d[self.physics + '_data'].update(t)
         else:
             self.data()[self.physics + '_data'].update(t)
 
-    def split(self, x_name='solution'):
+    def split(self, x, x_name='solution'):
         self.x_name = x_name
-        self._time_disc.split(self.grid(), self.x_name, self._solver.p)
-
-    def reassemble(self):
-        'Reassemble matrices and rhs'
-        return self._solver.reassemble()
-
-    def solver(self):
-        'Initiate solver'
-        return time_stepper.Implicit(self)
+        self._mass_disc.split(self.grid(), self.x_name, x)
 
     def advective_disc(self):
         'Discretization of fluid_density*fluid_specific_heat * v * \nabla T'
 
-        class WeightedUpwindDisc(upwind.Upwind):
-            def __init__(self):
-                self.physics = 'transport'
+        class WeightedUpwindDisc(pp.Upwind):
+            def __init__(self, physics):
+                self.physics = physics
 
             def matrix_rhs(self, g, data):
-                lhs, rhs = upwind.Upwind.matrix_rhs(self, g, data)
+                lhs, rhs = pp.Upwind.matrix_rhs(self, g, data)
                 factor = data['param'].fluid_specific_heat\
                        * data['param'].fluid_density
                 lhs *= factor
                 rhs *= factor
                 return lhs, rhs
 
-        class WeightedUpwindCoupler(upwind.UpwindCoupling):
+        class WeightedUpwindCoupler(UpwindCoupling):
             def __init__(self, discr):
-                self.physics = 'transport'
-                upwind.UpwindCoupling.__init__(self, discr)
+                UpwindCoupling.__init__(self, discr)
 
             def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
-                cc = upwind.UpwindCoupling.matrix_rhs(self, g_h, g_l, data_h,
+                cc = UpwindCoupling.matrix_rhs(self, g_h, g_l, data_h,
                                                       data_l, data_edge)
                 factor = data_h['param'].fluid_specific_heat \
                        * data_h['param'].fluid_density
                 return cc * factor
 
-        class WeightedUpwindMixedDim(upwind.UpwindMixedDim):
+        class WeightedUpwindMixedDim(pp.UpwindMixedDim):
 
-            def __init__(self):
-                self.physics = 'transport'
+            def __init__(self, physics):
+                self.physics = physics
 
-                self.discr = WeightedUpwindDisc()
+                self.discr = WeightedUpwindDisc(self.physics)
                 self.discr_ndof = self.discr.ndof
                 self.coupling_conditions = WeightedUpwindCoupler(self.discr)
 
-                self.solver = coupler.Coupler(self.discr,
-                                             self.coupling_conditions)
+                self.solver = pp.Coupler(self.discr,
+                                         self.coupling_conditions)
 
         if self.is_GridBucket:
-            upwind_discr = WeightedUpwindMixedDim()
+            upwind_discr = WeightedUpwindMixedDim(self.physics)
         else:
-            upwind_discr = WeightedUpwindDisc()
+            upwind_discr = WeightedUpwindDisc(self.physics)
         return upwind_discr
 
     def diffusive_disc(self):
         'Discretization of term \nabla K \nabla T'
         if self.is_GridBucket:
-            diffusive_discr = tpfa.TpfaMixedDim(physics=self.physics)
+            diffusive_discr = pp.TpfaMixedDim(physics=self.physics)
         else:
-            diffusive_discr = tpfa.Tpfa(physics=self.physics)
+            diffusive_discr = pp.Tpfa(physics=self.physics)
         return diffusive_discr
 
     def source_disc(self):
         'Discretization of source term, q'
         if self.is_GridBucket:
-            return source.IntegralMixedDim(physics=self.physics)
+            return pp.IntegralMixedDim(physics=self.physics)
         else:
-            return source.Integral(physics=self.physics)
+            return pp.Integral(physics=self.physics)
 
     def space_disc(self):
         '''Space discretization. Returns the discretization terms that should be
@@ -205,7 +144,7 @@ class ParabolicModel():
         """
         Returns the time discretization.
         """
-        class TimeDisc(mass_matrix.MassMatrix):
+        class TimeDisc(pp.MassMatrix):
 
             def matrix_rhs(self, g, data):
                 ndof = g.num_cells
@@ -227,7 +166,7 @@ class ParabolicModel():
 
         single_dim_discr = TimeDisc()
         if self.is_GridBucket:
-            time_discretization = coupler.Coupler(single_dim_discr)
+            time_discretization = pp.Coupler(single_dim_discr)
         else:
             time_discretization = TimeDisc()
         return time_discretization
@@ -246,14 +185,6 @@ class ParabolicModel():
         'Returns grid/grid_bucket'
         return self._gb
 
-    def time_step(self):
-        'Returns the time step'
-        return self._time_step
-
-    def end_time(self):
-        'Returns the end time'
-        return self._end_time
-
 
 class ParabolicDataAssigner():
     '''
@@ -264,9 +195,9 @@ class ParabolicDataAssigner():
     - physics (string) Physics key word. See Parameters class for valid physics
 
     Functions:
-        update(t): Update source and bc term to time t
+        update(t=0): Update source and bc term to time t
         bc: Set boundary condition
-        bc_val(t): boundary condition value at time t
+        bc_val(t=0): boundary condition value at time t
         initial_condition(): initial condition for problem
         source(): source term for problem
         porosity(): porosity of each cell
@@ -303,7 +234,7 @@ class ParabolicDataAssigner():
         self.physics = physics
         self._set_data()
 
-    def update(self, t):
+    def update(self, t=0.):
         'Update source and bc_val term to time step t'
         source = self.source(t)
         bc_val = self.bc_val(t)
@@ -313,10 +244,10 @@ class ParabolicDataAssigner():
     def bc(self):
         'Define boundary condition'
         dir_bound = np.array([])
-        return bc.BoundaryCondition(self.grid(), dir_bound,
+        return pp.BoundaryCondition(self.grid(), dir_bound,
                                     ['dir'] * dir_bound.size)
 
-    def bc_val(self, t):
+    def bc_val(self, t=0.):
         'Returns boundary condition values at time t'
         return np.zeros(self.grid().num_faces)
 
@@ -324,7 +255,7 @@ class ParabolicDataAssigner():
         'Returns initial condition'
         return np.zeros(self.grid().num_cells)
 
-    def source(self, t):
+    def source(self, t=0.):
         'Returns source term'
         return np.zeros(self.grid().num_cells)
 
@@ -336,7 +267,7 @@ class ParabolicDataAssigner():
     def diffusivity(self):
         'Returns diffusivity tensor'
         kxx = np.ones(self.grid().num_cells)
-        return tensor.SecondOrderTensor(self.grid().dim, kxx)
+        return pp.SecondOrderTensor(self.grid().dim, kxx)
 
     def aperture(self):
         '''Returns apperture of each cell. If None is returned, default
@@ -380,7 +311,7 @@ class ParabolicDataAssigner():
         values from the functions (e.g., self.source(t))
         '''
         if 'param' not in self._data:
-            self._data['param'] = Parameters(self.grid())
+            self._data['param'] = pp.Parameters(self.grid())
         self._data['param'].set_tensor(self.physics, self.diffusivity())
         self._data['param'].set_bc(self.physics, self.bc())
         self._data['param'].set_bc_val(self.physics, self.bc_val(0.0))
