@@ -41,7 +41,7 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
         else:
             raise NotImplementedError('Have not thought of more than six colors')
 
-    plt.figure(**kwargs)
+    fig = plt.figure(kwargs.get("fig_id", 1))
     plt.axis([d['xmin'], d['xmax'], d['ymin'], d['ymax']])
     plt.plot([d['xmin'], d['xmax'], d['xmax'], d['xmin'], d['xmin']],
              [d['ymin'], d['ymin'], d['ymax'], d['ymax'], d['ymin']],
@@ -51,10 +51,10 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
     # serves its purpose.
     for i in range(c.shape[1]):
         plt.plot([p[0, c[0, i]], p[0, c[1, i]]],
-                 [p[1, c[0, i]], p[1, c[1, i]]], 'o-', color=col[tagmap[i]])
+                 [p[1, c[0, i]], p[1, c[1, i]]], '-', color=col[tagmap[i]])
     # Finally set axis
-    plt.show()
-
+    if kwargs.get("plot", True):
+        plt.show()
 
 def remove_nodes(g, rem):
     """
