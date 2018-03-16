@@ -92,6 +92,14 @@ class TestBoundaries(unittest.TestCase):
         int_nodes = g.get_internal_nodes()
         assert int_nodes.size == 0
 
+    def test_bounding_box(self):
+        g = pp.CartGrid([1, 1])
+        g.nodes = np.random.random((g.dim, g.num_nodes))
+
+        bmin, bmax = g.bounding_box()
+        assert np.allclose(bmin, g.nodes.min(axis=1))
+        assert np.allclose(bmax, g.nodes.max(axis=1))
+
 
 if __name__ == '__main__':
     unittest.main()

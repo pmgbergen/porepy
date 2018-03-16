@@ -670,6 +670,11 @@ class Grid(object):
     def bounding_box(self):
         """
         Return the bounding box of the grid.
+
+        Returns:
+            np.array (size 3): Minimum node coordinates in each direction.
+            np.array (size 3): Maximum node coordinates in each direction.
+
         """
         return np.amin(self.nodes, axis=1), np.amax(self.nodes, axis=1)
 
