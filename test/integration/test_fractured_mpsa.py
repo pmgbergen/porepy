@@ -14,7 +14,7 @@ class BasicsTest(unittest.TestCase):
         box = {'xmin': 0, 'ymin': 0, 'zmin': 0,
                'xmax': 5, 'ymax':  5, 'zmax': 5}
 
-        self.gb3d = meshing.simplex_grid([f], box, h_min=5, h_ideal=5)
+        self.gb3d = meshing.simplex_grid([f], box, mesh_size_min=5, mesh_size_frac=5)
         unittest.TestCase.__init__(self, *args, **kwargs)
 
     #------------------------------------------------------------------------------#

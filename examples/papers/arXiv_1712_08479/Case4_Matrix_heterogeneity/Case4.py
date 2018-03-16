@@ -28,13 +28,9 @@ def define_grid():
     Make cartesian grids and a bucket. One horizontal and one vertical 1d
     fracture in a 2d matrix domain.
     """
-    mesh_kwargs = {}
     h_max = 0.018
-    h_min = h_max / 3
-    mesh_kwargs['mesh_size'] = {'mode': 'constant', 'value': h_min,
-                                'bound_value': h_max}
-    mesh_kwargs['file_name'] = 'case_4_grid'
-
+    mesh_size_min = h_max / 3
+    
     domain = {'xmin': 0.2, 'xmax': .8,
               'ymin': 0.25, 'ymax': .75,
               'zmin': 0.5, 'zmax': .7}
@@ -67,7 +63,7 @@ def define_grid():
              EllipticFracture(c_3, ma_3, mi_3, a_3, s_3, d_3),
              EllipticFracture(c_4, ma_4, mi_4, a_4, s_4, d_4),
              EllipticFracture(c_5, ma_5, mi_5, a_5, s_5, d_5)]
-    gb = meshing.simplex_grid(fracs, domain, h_ideal=h_max, h_min=h_min)
+    gb = meshing.simplex_grid(fracs, domain, mesh_size_frac=h_max, mesh_size_min=mesh_size_min)
 
     gb.compute_geometry()
     gb.assign_node_ordering()

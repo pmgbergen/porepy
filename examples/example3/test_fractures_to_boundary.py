@@ -12,8 +12,8 @@ from porepy.fracs import meshing
 def kwarguments_and_domain():
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2,
               'zmin': -2, 'zmax': 2}
-    mesh_size = {'mode': 'constant', 'value': 1, 'bound_value': 1}
-    kwargs = {'mesh_size': mesh_size, 'return_expected': True}
+    kwargs = {'mesh_size_frac': 1, 'mesh_size_bound': 1, 'mesh_size_min': .2,
+              'return_expected': True}
     
     return kwargs, domain
 
