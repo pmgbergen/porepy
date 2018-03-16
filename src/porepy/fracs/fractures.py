@@ -1973,7 +1973,7 @@ class FractureNetwork(object):
 
         if self.mesh_size_min is None or self.mesh_size_frac is None:
             print('Found no information on mesh sizes. Returning')
-            return None, None
+            return None
 
         p = self.decomposition['points']
         num_pts = p.shape[1]
