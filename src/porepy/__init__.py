@@ -26,8 +26,6 @@ __version__ = '0.2.3'
 __all__ = []
 
 # Numerics
-from porepy.numerics.mixed_dim.coupler import Coupler
-
 # Control volume, elliptic
 from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.tpfa import Tpfa, TpfaMixedDim
@@ -49,11 +47,6 @@ from porepy.numerics.elliptic import EllipticModel, EllipticDataAssigner
 from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
 from porepy.numerics.compressible import SlightlyCompressibleModel, SlightlyCompressibleDataAssigner
 from porepy.numerics.mechanics import StaticModel, StaticDataAssigner
-# Time steppers
-from porepy.numerics.time_stepper  import Implicit, BDF2, CrankNicolson, Explicit
-
-# Linear solver library
-from porepy.numerics.linalg.linsolve import Factory as LSFactory
 
 #Grid
 from porepy.grids.grid import Grid
@@ -80,7 +73,7 @@ from porepy.viz.fracture_visualization import plot_fractures
 from porepy.utils import comp_geom as cg
 from porepy.fracs import meshing, importer, extrusion
 from porepy.grids import structured, simplex, coarsening, partition
-from porepy.params.units import *
+from porepy.params import units
 from porepy.numerics.fv import fvutils
 from porepy.utils import error
 

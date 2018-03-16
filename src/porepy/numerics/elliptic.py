@@ -10,7 +10,14 @@ import scipy.sparse.linalg as spl
 import time
 import logging
 
-import porepy as pp
+from porepy.numerics.fv import tpfa, source, fvutils
+from porepy.numerics.vem import vem_dual, vem_source
+from porepy.numerics.linalg.linsolve import Factory as LSFactory
+from porepy.grids.grid_bucket import GridBucket
+from porepy.params import bc, tensor
+from porepy.params.data import Parameters
+from porepy.viz.exporter import Exporter
+
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -60,7 +67,7 @@ class EllipticModel():
     def __init__(self, gb, data=None, physics='flow', **kwargs):
         self.physics = physics
         self._gb = gb
-        self.is_GridBucket = isinstance(self._gb, pp.GridBucket)
+        self.is_GridBucket = isinstance(self._gb, GridBucket)
         self._data = data
 
         self.lhs = []
@@ -73,7 +80,7 @@ class EllipticModel():
 
         tic = time.time()
         logger.info('Create exporter')
-        self.exporter = pp.Exporter(self._gb, file_name, folder_name, **mesh_kw)
+        self.exporter = Exporter(self._gb, file_name, folder_name, **mesh_kw)
         logger.info('Elapsed time: ' + str(time.time() - tic))
 
         self._flux_disc = self.flux_disc()
@@ -116,7 +123,7 @@ class EllipticModel():
 
         # Solve
         tic = time.time()
-        ls = pp.LSFactory()
+        ls = LSFactory()
         if self.rhs.size < max_direct:
             logger.warning('Solve linear system using direct solver')
             self.x = ls.direct(self.lhs, self.rhs)
@@ -152,15 +159,15 @@ class EllipticModel():
 
     def source_disc(self):
         if self.is_GridBucket:
-            return pp.IntegralMixedDim(physics=self.physics)
+            return source.IntegralMixedDim(physics=self.physics)
         else:
-            return pp.Integral(physics=self.physics)
+            return source.Integral(physics=self.physics)
 
     def flux_disc(self):
         if self.is_GridBucket:
-            return pp.TpfaMixedDim(physics=self.physics)
+            return tpfa.TpfaMixedDim(physics=self.physics)
         else:
-            return pp.Tpfa(physics=self.physics)
+            return tpfa.Tpfa(physics=self.physics)
 
     def _discretize(self, discr):
         if self.is_GridBucket:
@@ -187,10 +194,10 @@ class EllipticModel():
 
     def discharge(self, discharge_name='discharge'):
         if self.is_GridBucket:
-            pp.fvutils.compute_discharges(self.grid(), self.physics,
+            fvutils.compute_discharges(self.grid(), self.physics,
                                        p_name=self.pressure_name)
         else:
-            pp.fvutils.compute_discharges(self.grid(), self.physics,
+            fvutils.compute_discharges(self.grid(), self.physics,
                                        self.pressure_name,
                                        self._data)
 
@@ -267,7 +274,7 @@ class EllipticModel():
         all_ind = np.arange(self.rhs.size)
         not_ind = [np.setdiff1d(all_ind, i) for i in ind]
 
-        factory = pp.LSFactory()
+        factory = LSFactory()
         num_mat = len(mat)
         solvers = np.empty(num_mat, dtype=np.object)
         for i, A in enumerate(mat):
@@ -285,7 +292,7 @@ class EllipticModel():
 
     def _obtain_submatrix(self):
 
-        if isinstance(self.grid(), pp.GridBucket):
+        if isinstance(self.grid(), GridBucket):
             gb = self.grid()
             fd = self.flux_disc()
             mat = []
@@ -312,15 +319,15 @@ class DualEllipticModel(EllipticModel):
 
     def source_disc(self):
         if self.is_GridBucket:
-            return pp.DualSourceMixedDim(physics=self.physics)
+            return vem_source.DualSourceMixedDim(physics=self.physics)
         else:
-            return pp.DualSource(physics=self.physics)
+            return vem_source.DualSource(physics=self.physics)
 
     def flux_disc(self):
         if self.is_GridBucket:
-            return pp.DualVEMMixedDim(physics=self.physics)
+            return vem_dual.DualVEMMixedDim(physics=self.physics)
         else:
-            return pp.DualVEM(physics=self.physics)
+            return vem_dual.DualVEM(physics=self.physics)
 
     def solve(self):
         """ Discretize and solve linear system by a direct solver.
@@ -329,7 +336,7 @@ class DualEllipticModel(EllipticModel):
         other block solvers are needed. TODO.
 
         """
-        ls = pp.LSFactory()
+        ls = LSFactory()
         self.x = ls.direct(*self.reassemble())
         return self.x
 
@@ -411,7 +418,7 @@ class EllipticDataAssigner():
         self._set_data()
 
     def bc(self):
-        return pp.BoundaryCondition(self.grid())
+        return bc.BoundaryCondition(self.grid())
 
     def bc_val(self):
         return np.zeros(self.grid().num_faces)
@@ -428,7 +435,7 @@ class EllipticDataAssigner():
 
     def permeability(self):
         kxx = np.ones(self.grid().num_cells)
-        return pp.SecondOrderTensor(self.grid().dim, kxx)
+        return tensor.SecondOrderTensor(self.grid().dim, kxx)
 
     def source(self):
         return np.zeros(self.grid().num_cells)
@@ -441,7 +448,7 @@ class EllipticDataAssigner():
 
     def _set_data(self):
         if 'param' not in self._data:
-            self._data['param'] = pp.Parameters(self.grid())
+            self._data['param'] = Parameters(self.grid())
         self._data['param'].set_tensor(self.physics, self.permeability())
         self._data['param'].set_bc(self.physics, self.bc())
         self._data['param'].set_bc_val(self.physics, self.bc_val())
