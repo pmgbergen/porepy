@@ -2,7 +2,7 @@ import sys, os
 import numpy as np
 import scipy.sparse as sps
 import logging
-
+import warnings
 try:
     import vtk
     import vtk.util.numpy_support as ns
