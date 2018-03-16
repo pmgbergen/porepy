@@ -948,10 +948,12 @@ class FractureNetwork(object):
         domain (dictionary): External bounding box. See
             impose_external_boundary() for details.
         tags (dictionary): Tags used on Fractures and subdomain boundaries.
-        h_min (double): Mesh size parameter, minimum mesh size to be sent to
+        mesh_size_min (double): Mesh size parameter, minimum mesh size to be
+            sent to gmsh. Set by insert_auxiliary_points().
+        mesh_size_frac (double): Mesh size parameter. Ideal mesh size, fed to
             gmsh. Set by insert_auxiliary_points().
-        h_ideal (double): Mesh size parameter. Ideal mesh size, fed to gmsh.
-            Set by insert_auxiliary_points().
+        mesh_size_bound (double): Mesh size parameter. Boundary mesh size, fed to
+            gmsh. Set by insert_auxiliary_points(). 
         auxiliary_points_added (boolean): Mesh size parameter. If True,
             extra points have been added to Fracture geometry to facilitate
             mesh size tuning.
@@ -993,9 +995,9 @@ class FractureNetwork(object):
         self.domain = None
 
         # Initialize mesh size parameters as empty
-        self.h_min = None
-        self.h_ideal = None
-
+        self.mesh_size_min = None
+        self.mesh_size_frac = None
+        self.mesh_size_bound = None
         # Assign an empty tag dictionary
         self.tags = {}
 
@@ -1966,41 +1968,27 @@ class FractureNetwork(object):
         See the gmsh manual for further details.
 
         """
-        mode = kwargs.get('mode', 'distance')
 
         num_pts = self.decomposition['points'].shape[1]
 
-        if mode == 'constant':
-            val = kwargs.get('value', None)
-            bound_val = kwargs.get('bound_value', None)
-            if val is not None:
-                mesh_size = val * np.ones(num_pts)
-            else:
-                mesh_size = None
-            if bound_val is not None:
-                mesh_size_bound = bound_val
-            else:
-                mesh_size_bound = None
-            return mesh_size, mesh_size_bound
-        elif mode == 'distance' or mode == 'weighted':
-            if self.h_min is None or self.h_ideal is None:
-                print('Found no information on mesh sizes. Returning')
-                return None, None
+        if self.mesh_size_min is None or self.mesh_size_frac is None:
+            print('Found no information on mesh sizes. Returning')
+            return None, None
 
-            p = self.decomposition['points']
-            num_pts = p.shape[1]
-            dist = cg.dist_pointset(p, max_diag=True)
-            mesh_size = np.min(dist, axis=1)
-            print('Minimal distance between points encountered is ' + str(np.min(dist)))
-            mesh_size = np.maximum(mesh_size, self.h_min * np.ones(num_pts))
-            mesh_size = np.minimum(mesh_size, self.h_ideal * np.ones(num_pts))
+        p = self.decomposition['points']
+        num_pts = p.shape[1]
+        dist = cg.dist_pointset(p, max_diag=True)
+        mesh_size_dist = np.min(dist, axis=1)
+        print('Minimal distance between points encountered is ' + str(np.min(dist)))
+        mesh_size_min = np.maximum(mesh_size_dist, self.mesh_size_min * np.ones(num_pts))
+        mesh_size = np.minimum(mesh_size_min, self.mesh_size_frac * np.ones(num_pts))
+        if self.mesh_size_bound is not None:
+            mesh_size_bound = np.minimum(mesh_size_min, self.mesh_size_bound * np.ones(num_pts))
+            mesh_size = np.maximum(mesh_size, mesh_size_bound)
+        return mesh_size
 
-            mesh_size_bound = self.h_ideal
-            return mesh_size, mesh_size_bound
-        else:
-            raise ValueError('Unknown mesh size mode ' + mode)
-
-    def insert_auxiliary_points(self, h_ideal=None, h_min=None):
+    def insert_auxiliary_points(self, mesh_size_frac=None, mesh_size_min=None,
+                                mesh_size_bound=None):
         """ Insert auxiliary points on fracture edges. Used to guide gmsh mesh
         size parameters.
 
@@ -2018,11 +2006,15 @@ class FractureNetwork(object):
         description.
 
         Parameters:
-            h_ideal: Ideal mesh size. Will be added to all points that are
-                sufficiently far away from other points.
-            h_min: Minimal mesh size; we will make no attempts to enforce
-                even smaller mesh sizes upon Gmsh.
-
+            mesh_size_frac: Ideal mesh size. Will be added to all points that
+                are sufficiently far away from other points.
+            mesh_size_min: Minimal mesh size; we will make no attempts to
+                enforce even smaller mesh sizes upon Gmsh.
+            mesh_size_bound: Boundary mesh size. Will be added to the points
+                defining the boundary, unless there are any fractures in the
+                immediate vicinity influencing the size. In other words,
+                mesh_size_bound is the boundary point equivalent of
+                mesh_size_frac.
         """
 
         if self.auxiliary_points_added:
@@ -2030,8 +2022,9 @@ class FractureNetwork(object):
         else:
             self.auxiliary_points_added = True
 
-        self.h_ideal = h_ideal
-        self.h_min = h_min
+        self.mesh_size_frac = mesh_size_frac
+        self.mesh_size_min = mesh_size_min
+        self.mesh_size_bound = mesh_size_bound
 
         def dist_p(a, b):
             a = a.reshape((-1, 1))
@@ -2066,12 +2059,12 @@ class FractureNetwork(object):
                 min_dist = dist[np.arange(i.coord.shape[1]), closest_segment]
 
                 for pi, (si, di) in enumerate(zip(closest_segment, min_dist)):
-                    if di < h_ideal:
+                    if di < mesh_size_frac:
                         d_1 = dist_p(cp[pi, si], f.p[:, si])
                         d_2 = dist_p(cp[pi, si], f.p[:, (si+1)%nfp])
                         # If the intersection point is not very close to any of
                         # the points on the segment, we split the segment.
-                        if d_1 > h_min and d_2 > h_min:
+                        if d_1 > mesh_size_min and d_2 > mesh_size_min:
                             np.insert(f.p, (si+1)%nfp, cp[pi, si], axis=1)
 
             # Take note of the intersecting fractures
@@ -2103,12 +2096,11 @@ class FractureNetwork(object):
                     # If the distance is smaller than ideal length, but the
                     # closets point is not too close to the segment endpoints,
                     # we add a new point
-                    if d[mi] < h_ideal:
+                    if d[mi] < mesh_size_frac:
                         d_1 = dist_p(cp_f[:, mi], f.p[:, si])
                         d_2 = dist_p(cp_f[:, mi], f.p[:, (si+1)%nfp])
-                        if d_1 > h_min and d_2 > h_min:
+                        if d_1 > mesh_size_min and d_2 > mesh_size_min:
                             np.insert(f.p, (si+1)%nfp, cp_f[:, mi], axis=1)
-
 
     def to_vtk(self, file_name, data=None, binary=True):
         """
@@ -2216,13 +2208,7 @@ class FractureNetwork(object):
         self.zero_d_pt = intersection_points
 
         # Obtain mesh size parameters
-        if 'mesh_size' in kwargs.keys():
-            # Legacy option, this should be removed.
-            print('Using old version of mesh size determination')
-            mesh_size, mesh_size_bound = \
-                self._determine_mesh_size(**kwargs['mesh_size'])
-        else:
-            mesh_size, mesh_size_bound = self._determine_mesh_size()
+        mesh_size = self._determine_mesh_size()
 
         # The tolerance applied in gmsh should be consistent with the tolerance
         # used in the splitting of the fracture network. The documentation of
@@ -2238,10 +2224,7 @@ class FractureNetwork(object):
         else:
             gmsh_tolerance = self.tol
 
-        if 'mesh_size' in kwargs.keys():
-            meshing_algorithm = kwargs['mesh_size'].get('meshing_algorithm', None)
-        else:
-            meshing_algorithm = None
+        meshing_algorithm = kwargs.get('meshing_algorithm', None)
 
         # Initialize and run the gmsh writer:
         if in_3d:
@@ -2250,7 +2233,6 @@ class FractureNetwork(object):
             dom = None
         writer = GmshWriter(p, edges, polygons=poly, domain=dom,
                             intersection_points=intersection_points,
-                            mesh_size_bound=mesh_size_bound,
                             mesh_size=mesh_size, tolerance=gmsh_tolerance,
                             edges_2_frac=self.decomposition['line_in_frac'],
                             meshing_algorithm=meshing_algorithm,

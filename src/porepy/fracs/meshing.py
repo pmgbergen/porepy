@@ -48,6 +48,23 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
         for the gridding. Only available in 3D.
     **kwargs: May contain fracture tags, options for gridding, etc.
 
+    Gridding options:
+    The mesh parameters are:
+        mesh_size_frac (double): Ideal mesh size. Will be added to all points
+            that are sufficiently far away from other points.
+        mesh_size_min (double): Minimal mesh size; we will make no attempts to
+            enforce even smaller mesh sizes upon Gmsh.
+        mesh_size_bound (double): Optional boundary mesh size, defaults to the
+            value of mesh_size_frac. Will be added to the points
+            defining the boundary. In 2d, this parameter dictates the size at
+            the boundary corners. In 3d, it is assigned unless there are any
+            fractures in the immediate vicinity influencing the size. In other
+            words, mesh_size_bound is the boundary point equivalent of
+            mesh_size_frac.
+
+    TODO: Update 2d implementation to adhere to 3d in 
+        porepy.fracs.utils.determine_mesh_size.
+
     Returns
     -------
     GridBucket: A complete bucket where all fractures are represented as
