@@ -47,6 +47,7 @@ from porepy.numerics.elliptic import EllipticModel, EllipticDataAssigner
 from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
 from porepy.numerics.compressible import SlightlyCompressibleModel, SlightlyCompressibleDataAssigner
 from porepy.numerics.mechanics import StaticModel, StaticDataAssigner
+from porepy.numerics.fracture_deformation import FrictionSlipModel, FrictionSlipDataAssigner
 
 #Grid
 from porepy.grids.grid import Grid
