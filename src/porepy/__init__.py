@@ -49,6 +49,9 @@ from porepy.numerics.compressible import SlightlyCompressibleModel, SlightlyComp
 from porepy.numerics.mechanics import StaticModel, StaticDataAssigner
 from porepy.numerics.fracture_deformation import FrictionSlipModel, FrictionSlipDataAssigner
 
+# Time steppers
+from porepy.numerics.time_stepper import Implicit, Explicit
+
 #Grid
 from porepy.grids.grid import Grid
 from porepy.grids.grid_bucket import GridBucket
