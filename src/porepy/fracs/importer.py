@@ -242,6 +242,8 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
         f_name (str): Path to csv file
         tagcols (array-like, int. Optional): Column index where fracture tags
             are stored. 0-offset. Defaults to no columns.
+        tol (double, optional): Tolerance for merging points with almost equal
+            coordinates.
         **kwargs: keyword arguments passed on to np.genfromtxt.
 
     Returns:
