@@ -47,6 +47,10 @@ from porepy.numerics.elliptic import EllipticModel, EllipticDataAssigner
 from porepy.numerics.parabolic import ParabolicModel, ParabolicDataAssigner
 from porepy.numerics.compressible import SlightlyCompressibleModel, SlightlyCompressibleDataAssigner
 from porepy.numerics.mechanics import StaticModel, StaticDataAssigner
+from porepy.numerics.fracture_deformation import FrictionSlipModel, FrictionSlipDataAssigner
+
+# Time steppers
+from porepy.numerics.time_stepper import Implicit, Explicit
 
 #Grid
 from porepy.grids.grid import Grid
@@ -63,6 +67,7 @@ from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
 from porepy.params.bc import BoundaryCondition
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
 from porepy.params.data import Parameters
+from porepy.params.rock import UnitRock, Shale, SandStone, Granite
 
 # Visualization
 from porepy.viz.exporter import Exporter
@@ -73,7 +78,7 @@ from porepy.viz.fracture_visualization import plot_fractures
 from porepy.utils import comp_geom as cg
 from porepy.fracs import meshing, importer, extrusion
 from porepy.grids import structured, simplex, coarsening, partition
-from porepy.params import units
+from porepy.params.units import *
 from porepy.numerics.fv import fvutils
 from porepy.utils import error
 

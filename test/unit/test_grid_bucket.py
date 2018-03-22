@@ -6,16 +6,27 @@ Created on Mon Mar 12 13:33:32 2018
 @author: eke001
 """
 import unittest
+import numpy as np
 
 import porepy as pp
 
 
 class MockGrid():
 
-    def __init__(self, dim=1):
+    def __init__(self, dim=1, diameter=0, box=None, num_cells=None,
+                 num_faces=None, num_nodes=None):
         self.dim = dim
+        self.diameter = diameter
+        self.box = box
+        self.num_cells = num_cells
+        self.num_faces = num_faces
+        self.num_nodes = num_nodes
 
+    def cell_diameters(self):
+        return self.diameter
 
+    def bounding_box(self):
+        return self.box
 
 
 class TestBucket(unittest.TestCase):
@@ -324,6 +335,65 @@ class TestBucket(unittest.TestCase):
         # g1 is no longer associated with gb
         self.assertRaises(KeyError, gb.node_props, g1, 'a')
 
+
+    def test_diameter(self):
+        g1 = MockGrid(1, 2)
+        g2 = MockGrid(2, 3)
+        gb = pp.GridBucket()
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+
+        assert gb.diameter() == 3
+        assert gb.diameter(lambda g: g.dim == 1) == 2
+
+    def test_bounding_box(self):
+        gb = pp.GridBucket()
+        g1 = pp.CartGrid([1, 1, 1])
+        g1.nodes = np.random.random((g1.dim, g1.num_nodes))
+        g2 = pp.CartGrid([1, 1, 1])
+        # Shift g2 with 1
+        g2.nodes = 1 + np.random.random((g2.dim, g2.num_nodes))
+
+        gb.add_nodes([g1, g2])
+
+        bmin, bmax = gb.bounding_box()
+
+        # Since g2 is shifted, minimum should be at g1, maximum in g2
+        assert np.allclose(bmin, g1.nodes.min(axis=1))
+        assert np.allclose(bmax, g2.nodes.max(axis=1))
+
+        d = gb.bounding_box(as_dict=True)
+        assert d['xmin'] == np.min(g1.nodes[0])
+        assert d['ymin'] == np.min(g1.nodes[1])
+        assert d['zmin'] == np.min(g1.nodes[2])
+        assert d['xmax'] == np.max(g2.nodes[0])
+        assert d['ymax'] == np.max(g2.nodes[1])
+        assert d['zmax'] == np.max(g2.nodes[2])
+
+    def test_num_cells_faces_nodes(self):
+
+        g1 = MockGrid(dim=1, num_cells=1, num_faces=3, num_nodes=3)
+        g2 = MockGrid(dim=2, num_cells=3, num_faces=7, num_nodes=3)
+        gb = pp.GridBucket()
+        gb.add_nodes([g1, g2])
+
+        assert gb.num_cells() == (g1.num_cells + g2.num_cells)
+        assert gb.num_faces() == (g1.num_faces + g2.num_faces)
+        assert gb.num_nodes() == (g1.num_nodes + g2.num_nodes)
+
+        l = lambda g: g.dim == 1
+        assert gb.num_cells(l) == g1.num_cells
+        assert gb.num_faces(l) == g1.num_faces
+        assert gb.num_nodes(l) == g1.num_nodes
+
+    def test_str_repr(self):
+
+        g1 = MockGrid(dim=1, num_cells=1, num_faces=3, num_nodes=3)
+        g2 = MockGrid(dim=2, num_cells=3, num_faces=7, num_nodes=3)
+        gb = pp.GridBucket()
+        gb.add_nodes([g1, g2])
+        gb.__str__()
+        gb.__repr__()
 
 
 if __name__ == '__main__':
