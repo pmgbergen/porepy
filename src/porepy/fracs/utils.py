@@ -3,9 +3,7 @@ Determination of mesh size for Gmsh gridding of 2d fractured domains.
 """
 import numpy as np
 import warnings
-
-from porepy.utils import comp_geom as cg
-from porepy.utils import setmembership
+import porepy as pp
 
 #------------------------------------------------------------------------------#
 
@@ -30,28 +28,20 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
             even smaller mesh sizes upon Gmsh.
         mesh_size_bound: Boundary mesh size. Will be added to the points
             defining the boundary. If included, pts_on_boundary is mandatory.
-    TODO: Improve treatment of mesh_size_bound. This parameter now *dictates*
-    the size at the boundary points. In 3d, it acts as the mesh_size_frac of
-    those points. I.e., no notion is taken of fractures close to the boundary
-    by the 2d algorithm.
     
     See the gmsh manual for further details.
 
-    """
-    print('pts = np.' + repr(pts))
-    print('on_boundary = np.' + repr(pts_on_boundary))
-    print('lines = np.' + repr(lines))
-    
+    """    
     num_pts = pts.shape[1]
     val = kwargs.get('mesh_size_frac', 1)
     val_bound = kwargs.get('mesh_size_bound', None)
     val_min = kwargs.get('mesh_size_min', None)
     tol = kwargs.get('tol', 1e-5)
-    # Idea for fixing domain corner problem: Add boundary tag to pts. Then
+    
+    # One value for each point to distinguish betwee val and val_bound.
     vals = val * np.ones(num_pts)
     if val_bound is not None:
         vals[pts_on_boundary] = val_bound
-#     Propagate with comparison to vals[i] instead of val
     # Compute the lenght of each pair of points (fractures + domain boundary)
     pts_id = lines[:2, :]
     dist = np.linalg.norm(pts[:, pts_id[0, :]] - pts[:, pts_id[1, :]],
@@ -82,7 +72,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
         for line in lines.T:
             start, end = pts[:, line[0]], pts[:, line[1]]
             # Compute the distance between the point and the current line
-            dist, pt_int = cg.distance_point_segment(pt, start, end)
+            dist, pt_int = pp.cg.distance_point_segment(pt, start, end)
             # If the distance is small than the input value we need to consider
             # it
             if dist < vals[pt_id] and not np.isclose(dist, 0.):
@@ -156,7 +146,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
                                      + num_pts))
             pts_frac_id = np.unique(pts_frac_id)
             pts_frac = pts[:, pts_frac_id]
-            pts_frac_id = pts_frac_id[cg.argsort_point_on_line(pts_frac, tol)]
+            pts_frac_id = pts_frac_id[pp.cg.argsort_point_on_line(pts_frac, tol)]
             pts_frac_id = np.vstack((pts_frac_id[:-1], pts_frac_id[1:]))
             other_info = np.tile(lines[2:, mask_bool][:, 0],
                                  (pts_frac_id.shape[1], 1)).T
@@ -185,7 +175,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
             for old_seg in old_lines.T:
                 start, end = old_pts[:, old_seg[0]], old_pts[:, old_seg[1]]
                 # Compute the distance between the point and the current line
-                dist1, pt_int = cg.distance_point_segment(new_pt, start, end)
+                dist1, pt_int = pp.cg.distance_point_segment(new_pt, start, end)
                 # If the distance is small than the input value we need to consider
                 # it
                 if dist1 < mesh_size and not np.isclose(dist1, 0.):
@@ -198,11 +188,6 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     # Make sure no mesh size assignments are below minimum value.
     if val_min is not None:
         dist_pts[dist_pts < val_min] = val_min
-#    # TODO: Let boundary_dist be adjusted if there are fractures close by.
-#    boundary_dist = np.max([val_min, val_bound]) * np.ones(dist_pts.shape)
-#    dist_pts = np.maximum(dist_pts, boundary_dist)
-    print('mesh_sizes = np.' + repr(dist_pts))
-    print('pts_split = np.' + repr(pts))
     return dist_pts, pts, lines
 
 #------------------------------------------------------------------------------#
@@ -234,7 +219,7 @@ def obtain_interdim_mappings(lg, fn, n_per_face,
         # of a single node. This sometimes fails, so enforce it.
         if cn.ndim == 1:
             fn = fn.ravel()
-    is_mem, cell_2_face = setmembership.ismember_rows(
+    is_mem, cell_2_face = pp.utils.setmembership.ismember_rows(
         cn.astype(np.int32), fn.astype(np.int32), sort=False)
     # An element in cell_2_face gives, for all cells in the
     # lower-dimensional grid, the index of the corresponding face
