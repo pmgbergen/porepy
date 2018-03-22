@@ -119,10 +119,10 @@ def setup_3d(nx, simplex_grid=False):
     if not simplex_grid:
         gb = meshing.cart_grid(fracs, nx, physdims=[1, 1, 1])
     else:
-        mesh_kwargs = {}
         mesh_size = .3
-        mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                    'value': mesh_size, 'bound_value': 2 * mesh_size}
+        mesh_kwargs = {'mesh_size_frac': mesh_size,
+                       'mesh_size_bound': 2 * mesh_size,
+                       'mesh_size_min': mesh_size / 20}
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
         gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
 
@@ -162,8 +162,9 @@ def setup_2d_1d(nx, simplex_grid=False):
     else:
         mesh_kwargs = {}
         mesh_size = .08
-        mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                    'value': mesh_size, 'bound_value': 1 * mesh_size}
+        mesh_kwargs = {'mesh_size_frac': mesh_size,
+                       'mesh_size_bound': 2 * mesh_size,
+                       'mesh_size_min': mesh_size / 20}
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
         gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
 
