@@ -128,10 +128,8 @@ folder = os.path.dirname(os.path.realpath(__file__)) + "/"
 export_folder = folder + 'advection_diffusion_coupling'
 tol = 1e-3
 
-mesh_kwargs = {}
-mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 0.045, 'bound_value': 0.045}
-
+mesh_kwargs = {'mesh_size_frac': 0.045,
+               'mesh_size_min': 0.01}
 domain = {'xmin': -0.2, 'xmax': 1.2, 'ymin': -0.2, 'ymax': 1.2}
 gb = importer.dfm_2d_from_csv(folder + 'network.csv', mesh_kwargs, domain)
 gb.compute_geometry()

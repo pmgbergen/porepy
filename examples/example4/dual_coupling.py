@@ -182,11 +182,11 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
               2}
 
-#    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
-    mesh_size = {'mode': 'constant', 'value': 5, 'bound_value': 10}
-    mesh_size = {'mode': 'constant', 'value': 0.25, 'bound_value': 10}
-    kwargs['mesh_size'] = mesh_size
-    kwargs['gmsh_path'] = '~/gmsh/bin/gmsh'
+    
+    kwargs = {'mesh_size_frac': .25,
+              'mesh_size_bound': 10,
+              'mesh_size_min': .02,
+              'gmsh_path': '~/gmsh/bin/gmsh'}
 
     gb = meshing.simplex_grid([f_1, f_2], domain, **kwargs)
     gb.remove_nodes(lambda g: g.dim == gb.dim_max())
