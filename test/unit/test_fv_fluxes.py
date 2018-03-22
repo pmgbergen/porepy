@@ -172,10 +172,7 @@ class BasicsTest(unittest.TestCase):
                        [.5, .5]])
         f2 = np.array([[.5, .5],
                        [0, 1]])
-        mesh_size = 0.4
-        mesh_kwargs = {}
-        mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                    'value': mesh_size, 'bound_value': mesh_size}
+        
         gb = pp.meshing.cart_grid([f1, f2], [2, 2], **{'physdims': [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
