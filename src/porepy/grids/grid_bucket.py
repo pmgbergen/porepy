@@ -154,7 +154,8 @@ class GridBucket(object):
             ValueError if both only_higher and only_lower is True.
 
         """
-        neigh = np.array(self.graph.neighbors(node))
+
+        neigh = np.array([n for n in self.graph.neighbors(node)])
 
         if not only_higher and not only_lower:
             return neigh
@@ -233,7 +234,7 @@ class GridBucket(object):
 
         for key in np.atleast_1d(keys):
             if g is None:
-                networkx.set_node_attributes(self.graph, key, None)
+                networkx.set_node_attributes(self.graph, name=key, values=None)
             else:
                 for h, n in self:
                     if h in g:
@@ -264,13 +265,13 @@ class GridBucket(object):
 
         for key in np.atleast_1d(keys):
             if grid_pairs is None:
-                networkx.set_edge_attributes(self.graph, key, None)
+                networkx.set_edge_attributes(self.graph, name=key, values=None)
             else:
                 for gp in grid_pairs:
                     if tuple(gp) in self.graph.edges():
-                        self.graph.edge[gp[0]][gp[1]][key] = None
+                        self.graph.adj[gp[0]][gp[1]][key] = None
                     elif tuple(gp[::-1]) in self.graph.edges():
-                        self.graph.edge[gp[1]][gp[0]][key] = None
+                        self.graph.adj[gp[1]][gp[0]][key] = None
                     else:
                         raise KeyError('Cannot assign property to undefined\
                                          edge')
@@ -334,14 +335,14 @@ class GridBucket(object):
         """
         if tuple(gp) in self.graph.edges():
             if key is None:
-                return self.graph.edge[gp[0]][gp[1]]
+                return self.graph.adj[gp[0]][gp[1]]
             else:
-                return self.graph.edge[gp[0]][gp[1]][key]
+                return self.graph.adj[gp[0]][gp[1]][key]
         elif tuple(gp[::-1]) in self.graph.edges():
             if key is None:
-                return self.graph.edge[gp[1]][gp[0]]
+                return self.graph.adj[gp[1]][gp[0]]
             else:
-                return self.graph.edge[gp[1]][gp[0]][key]
+                return self.graph.adj[gp[1]][gp[0]][key]
         else:
             raise KeyError('Unknown edge')
 
@@ -385,9 +386,9 @@ class GridBucket(object):
 
         """
         if tuple(gp) in self.graph.edges():
-            self.graph.edge[gp[0]][gp[1]][key] = val
+            self.graph.adj[gp[0]][gp[1]][key] = val
         elif tuple(gp[::-1]) in self.graph.edges():
-            self.graph.edge[gp[1]][gp[0]][key] = val
+            self.graph.adj[gp[1]][gp[0]][key] = val
         else:
             raise KeyError('Unknown edge')
 

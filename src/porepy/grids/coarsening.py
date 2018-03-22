@@ -300,7 +300,7 @@ def generate_seeds(gb):
         index = np.in1d(faces, tips).nonzero()[0]
         cells = np.unique(cells[index])
 
-        face_cells = gb.graph.edge[g][g_h]['face_cells']
+        face_cells = gb.graph.adj[g][g_h]['face_cells']
         interf_cells, interf_faces, _ = sps.find(face_cells)
         index = np.in1d(interf_cells, cells).nonzero()[0]
 

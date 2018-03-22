@@ -1771,7 +1771,13 @@ class FractureNetwork(object):
                 cmax = np.max(np.hstack((cmax, f.p)), axis=1).reshape((-1, 1))
             cmin = cmin[:, 0]
             cmax = cmax[:, 0]
+
             dx = OVERLAP * (cmax - cmin)
+            # In the case were all fractures are aligned with a coordinate
+            # axis, assign an extension in missing directions.
+            hit = np.where(dx < self.tol)[0]
+            dx[hit] = OVERLAP * np.max(dx)
+
             box = {'xmin': cmin[0] - dx[0], 'xmax': cmax[0] + dx[0],
                    'ymin': cmin[1] - dx[1], 'ymax': cmax[1] + dx[1],
                    'zmin': cmin[2] - dx[2], 'zmax': cmax[2] + dx[2]}
