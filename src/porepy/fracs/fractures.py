@@ -1988,9 +1988,12 @@ class FractureNetwork(object):
         print('Minimal distance between points encountered is ' + str(np.min(dist)))
         mesh_size_min = np.maximum(mesh_size_dist, self.mesh_size_min * np.ones(num_pts))
         mesh_size = np.minimum(mesh_size_min, self.mesh_size_frac * np.ones(num_pts))
-        if self.mesh_size_bound is not None:
+        on_boundary = kwargs.get('boundary_point_tags', None)
+        if (self.mesh_size_bound is not None) and (on_boundary is not None):
+            constants = GmshConstants()
+            on_boundary = on_boundary == constants.DOMAIN_BOUNDARY_TAG
             mesh_size_bound = np.minimum(mesh_size_min, self.mesh_size_bound * np.ones(num_pts))
-            mesh_size = np.maximum(mesh_size, mesh_size_bound)
+            mesh_size[on_boundary] = np.maximum(mesh_size, mesh_size_bound)[on_boundary]
         return mesh_size
 
     def insert_auxiliary_points(self, mesh_size_frac=None, mesh_size_min=None,
@@ -2214,7 +2217,7 @@ class FractureNetwork(object):
         self.zero_d_pt = intersection_points
 
         # Obtain mesh size parameters
-        mesh_size = self._determine_mesh_size()
+        mesh_size = self._determine_mesh_size(boundary_point_tags=point_tags)
 
         # The tolerance applied in gmsh should be consistent with the tolerance
         # used in the splitting of the fracture network. The documentation of
