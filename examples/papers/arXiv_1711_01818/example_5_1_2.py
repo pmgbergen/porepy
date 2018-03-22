@@ -120,12 +120,9 @@ def plot_over_line(gb, pts, name, tol):
 
 
 tol = 1e-4
-mesh_kwargs = {}
-mesh_kwargs['mesh_size'] = {'mode': 'weighted',
-                            'value': 500,
-                            'bound_value': 500,
-                            'tol': tol}
 
+mesh_kwargs = {'mesh_size_frac': 500,
+               'mesh_size_min': 20}
 domain = {'xmin': 0, 'xmax': 700, 'ymin': 0, 'ymax': 600}
 gb = importer.from_csv('network.csv', mesh_kwargs, domain)
 gb.compute_geometry()

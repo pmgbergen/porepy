@@ -117,9 +117,8 @@ def make_grid_bucket():
     """
     mesh_kwargs = {'tol': 1e-7}
     mesh_size = 0.05
-    mesh_kwargs['mesh_size'] = {'mode': 'constant', 'value': mesh_size,
-                                'bound_value': mesh_size}
-
+    mesh_kwargs = {'mesh_size_frac': mesh_size,
+                       'mesh_size_min': mesh_size / 20}
     domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
 
     file_name = 'network_scotti.csv'
