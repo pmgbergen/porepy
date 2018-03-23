@@ -1,11 +1,12 @@
 import numpy as np
+import scipy.sparse as sps
 import unittest
 
 from porepy.grids import structured, simplex
 from porepy.params import tensor
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
-from porepy.numerics.fem import p1
+from porepy.numerics.fem import p1, source
 import porepy.utils.comp_geom as cg
 
 #------------------------------------------------------------------------------#
@@ -180,7 +181,7 @@ class BasicsTest( unittest.TestCase ):
         g = simplex.StructuredTriangleGrid([1, 1], [1, 1])
         R = cg.rot(-np.pi/4., [1,1,-1])
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
         perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
@@ -218,7 +219,7 @@ class BasicsTest( unittest.TestCase ):
         R = cg.rot(np.pi/3., [1,1,0])
         perm.rotate(R)
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         bf = g.get_boundary_faces()
         bc = BoundaryCondition(g, bf, bf.size*['neu'])
@@ -241,6 +242,105 @@ class BasicsTest( unittest.TestCase ):
 
 #------------------------------------------------------------------------------#
 
+    def test_convergence_1d_exact(self):
+
+        p_ex = lambda pt: 2*pt[0, :]-3
+
+        for i in np.arange(5):
+            g = structured.CartGrid(3+i, 1)
+            g.compute_geometry()
+
+            kxx = np.ones(g.num_cells)
+            perm = tensor.SecondOrder(3, kxx, kyy=1, kzz=1)
+            bf = g.get_boundary_faces()
+            bc = BoundaryCondition(g, bf, bf.size*['dir'])
+            bc_val = np.zeros(g.num_faces)
+            bc_val[bf] = p_ex(g.face_centers[:, bf])
+
+            solver = p1.P1(physics='flow')
+
+            param = Parameters(g)
+            param.set_tensor(solver, perm)
+            param.set_bc(solver, bc)
+            param.set_bc_val(solver, bc_val)
+            M, rhs = solver.matrix_rhs(g, {'param': param})
+
+            p = sps.linalg.spsolve(M, rhs)
+            err = np.sum(np.abs(p - p_ex(g.nodes)))
+
+            assert np.isclose(err, 0)
+
+#------------------------------------------------------------------------------#
+
+    def test_convergence_1d_not_exact(self):
+
+        p_ex = lambda pt: np.sin(2*np.pi*pt[0, :])
+        source_ex = lambda pt: 4*np.pi**2*np.sin(2*np.pi*pt[0, :])
+
+        for i in np.arange(5):
+            g = structured.CartGrid(3+i, 1)
+            g.compute_geometry()
+
+            kxx = np.ones(g.num_cells)
+            perm = tensor.SecondOrder(3, kxx, kyy=1, kzz=1)
+            bf = g.get_boundary_faces()
+            bc = BoundaryCondition(g, bf, bf.size*['dir'])
+            source_val = source_ex(g.cell_centers)*g.cell_volumes
+
+            solver = p1.P1(physics='flow')
+            integral = source.Integral(physics='flow')
+
+            param = Parameters(g)
+            param.set_tensor(solver, perm)
+            param.set_bc(solver, bc)
+            param.set_source(solver, source_val)
+            M, _ = solver.matrix_rhs(g, {'param': param})
+            _, rhs = integral.matrix_rhs(g, {'param': param})
+
+            p = sps.linalg.spsolve(M, rhs)
+            #print(p)
+            #print(p_ex(g.nodes))
+            err = np.sum(np.abs(p - p_ex(g.nodes)))
+            print(err)
+#            assert np.isclose(err, 0)
+
+#------------------------------------------------------------------------------#
+
+    def test_convergence_2d_exact(self):
+
+        p_ex = lambda pt: 2*pt[0, :]-3*pt[1, :]-9
+
+        for i in np.arange(5):
+            g = simplex.StructuredTriangleGrid([3+i]*2, [1, 1])
+            #from porepy.viz.plot_grid import plot_grid
+            g.compute_geometry()
+            #plot_grid(g, info="all", alpha=0)
+
+            kxx = np.ones(g.num_cells)
+            perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+            bf = g.get_boundary_faces()
+            bc = BoundaryCondition(g, bf, bf.size*['dir'])
+            bc_val = np.zeros(g.num_faces)
+            bc_val[bf] = p_ex(g.face_centers[:, bf])
+
+            solver = p1.P1(physics='flow')
+
+            param = Parameters(g)
+            param.set_tensor(solver, perm)
+            param.set_bc(solver, bc)
+            param.set_bc_val(solver, bc_val)
+            M, rhs = solver.matrix_rhs(g, {'param': param})
+
+            p = sps.linalg.spsolve(M, rhs)
+            err = np.sum(np.abs(p - p_ex(g.nodes)))
+            print(p)
+            print(p_ex(g.nodes))
+
+            assert np.isclose(err, 0)
+
+#------------------------------------------------------------------------------#
+
+
 def matrix_for_test_p1_3d():
     return np.matrix(\
         [[ 0.5       , -0.16666667, -0.16666667,  0.        , -0.16666667,
@@ -261,3 +361,6 @@ def matrix_for_test_p1_3d():
          -0.16666667, -0.16666667,  0.5       ]])
 
 #------------------------------------------------------------------------------#
+
+BasicsTest().test_convergence_2d_exact()
+BasicsTest().test_convergence_1d_not_exact()
