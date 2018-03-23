@@ -156,7 +156,7 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
             if data.size == 0:
                 continue
             centers = data[0:3]
-            maj_ax = data[3] 
+            maj_ax = data[3]
             min_ax = data[4]
             maj_ax_ang = data[5] * ( 1 - degrees + degrees * np.pi / 180)
             strike_ang = data[6] * ( 1 - degrees + degrees * np.pi / 180)
@@ -221,7 +221,7 @@ def dfm_2d_from_csv(f_name, mesh_kwargs, domain=None, return_domain=False, \
 #------------------------------------------------------------------------------#
 
 
-def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
+def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, **kwargs):
     """ Read csv file with fractures to obtain fracture description.
 
     Create the grid bucket from a set of fractures stored in a csv file and a
@@ -244,6 +244,9 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
             are stored. 0-offset. Defaults to no columns.
         tol (double, optional): Tolerance for merging points with almost equal
             coordinates.
+        max_num_fracs (int, optional): Maximum number of fractures included,
+            counting from the start of the file. Defaults to inclusion of all
+            fractures.
         **kwargs: keyword arguments passed on to np.genfromtxt.
 
     Returns:
@@ -264,6 +267,9 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, **kwargs):
     if data.size == 0:
         return np.empty((2, 0)), np.empty((2, 0), dtype=np.int)
     data = np.atleast_2d(data)
+    if max_num_fracs is not None:
+        data = data[:max_num_fracs]
+
 
     num_fracs = data.shape[0] if data.size > 0 else 0
     num_data = data.shape[1] if data.size > 0 else 0
