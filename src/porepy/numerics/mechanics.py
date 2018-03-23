@@ -120,6 +120,7 @@ class StaticModel():
             logger.info('Solve linear system using direct solver')
             if not self.is_factorized:
                 logger.info('Making LU decomposition')
+                self.lhs = self.lhs.tocsc()
                 self.lhs = sps.linalg.factorized(self.lhs)
                 self.is_factorized = True
                 logger.info('Done. Elapsed time ' + str(time.time() - tic))
