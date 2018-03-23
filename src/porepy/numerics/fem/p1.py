@@ -207,10 +207,9 @@ class P1(Solver):
         # pylint: disable=invalid-name
 
         param = data['param']
-        f = param.get_source(self)
 
         if g.dim == 0:
-            return np.array(f)
+            return np.zeros(1)
 
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
