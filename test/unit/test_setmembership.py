@@ -131,6 +131,23 @@ class TestIsmember(unittest.TestCase):
         assert np.allclose(ma, ma_known)
         assert np.allclose(ia, ia_known)
 
+    def test_issue_123(self):
+        # Reported bug #123.
+        # Referred to an implementation of ismember which is now replaced.
+        a = np.array([[0. , 1. , 1. , 0. , 0.2, 0.8, 0.5, 0.5, 0.5],
+                      [0. , 0. , 1. , 1. , 0.5, 0.5, 0.8, 0.2, 0.5]])
+        b = np.array([[0, 1, 1, 0],
+                      [0, 0, 1, 1]])
+        ma, ia = setmembership.ismember_rows(a, b)
+
+        ma_known = np.array([1, 1, 1, 1, 0, 0, 0, 0, 0], dtype=bool)
+        ia_known = np.array([0, 1, 2, 1])
+
+        assert np.allclose(ma, ma_known)
+        assert np.allclose(ia, ia_known)
+
+
+
 
 class TestUniqueColumns(unittest.TestCase):
 
