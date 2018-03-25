@@ -482,7 +482,6 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
     else:
         for i in range(deleted_2_new_faces.size):
             if in_combined[i] == in_combined[i + 1]:
-                print(new_faces)
                 deleted_2_new_faces[i] = new_faces[in_combined[i]]
             else:
                 deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i + 1],

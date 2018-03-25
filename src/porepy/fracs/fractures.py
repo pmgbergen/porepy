@@ -14,6 +14,7 @@ import time
 import logging
 import numpy as np
 import sympy
+import csv
 
 # Imports of external packages that may not be present at the system. The
 # module will work without any of these, but with limited functionalbility.
@@ -2178,6 +2179,7 @@ class FractureNetwork(object):
 
         writer.Update()
 
+
     def to_gmsh(self, file_name, in_3d=True, **kwargs):
         """ Write the fracture network as input for mesh generation by gmsh.
 
@@ -2248,6 +2250,65 @@ class FractureNetwork(object):
                             fracture_tags=frac_tags)
 
         writer.write_geo(file_name)
+
+    def to_csv(self, file_name, domain=None):
+        """
+        Save the 3d network on a csv file with comma , as separator.
+        Note: the file is overwritten if present.
+        The format is
+        - if domain is given the first line describes the domain as a rectangle
+          X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
+        - the other lines descibe the N fractures as a list of points
+          P0_X, P0_Y, P0_Z, ...,PN_X, PN_Y, PN_Z
+
+        Parameters:
+            file_name: name of the file
+            domain: (optional) the bounding box of the problem
+        """
+
+        with open(file_name, 'w') as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=',')
+
+            # if the domain (as bounding box) is defined save it
+            if domain is not None:
+                order = ['xmin', 'ymin', 'zmin', 'xmax', 'ymax', 'zmax']
+                csv_writer.writerow([domain[o] for o in order])
+
+            # write all the fractures
+            [csv_writer.writerow(f.p.ravel(order='F')) for f in self._fractures]
+
+    def to_fab(self, file_name):
+        """
+        Save the 3d network on a fab file, as specified by FracMan.
+
+        The filter is based on the .fab-files needed at the time of writing, and
+        may not cover all options available.
+
+        Parameters:
+            file_name (str): File name.
+        """
+        # function to write a numpy matrix as string
+        def to_file(p):
+            return "\n\t\t".join(" ".join(map(str, x)) for x in p)
+
+        with open(file_name, 'w') as f:
+            # write the first part of the file, some information are fake
+            num_frac = len(self._fractures)
+            num_nodes = np.sum([frac.p.shape[1] for frac in self._fractures])
+            f.write("BEGIN FORMAT\n\tFormat = Ascii\n\tXAxis = East\n"+\
+                    "\tScale = 100.0\n\tNo_Fractures = "+str(num_frac)+"\n"+\
+                    "\tNo_TessFractures = 0\n\tNo_Nodes = "+str(num_nodes)+"\n"+\
+                    "\tNo_Properties = 0\nEND FORMAT\n\n")
+
+            # start to write the fractures
+            f.write("BEGIN FRACTURE\n")
+            for frac_pos, frac in enumerate(self._fractures):
+                f.write("\t"+str(frac_pos)+" "+str(frac.p.shape[1])+" 1\n\t\t")
+                p = np.concatenate((np.atleast_2d(np.arange(frac.p.shape[1])),
+                                    frac.p), axis=0).T
+                f.write(to_file(p)+"\n")
+                f.write("\t0 -1 -1 -1\n")
+            f.write("END FRACTURE")
 
     def fracture_to_plane(self, frac_num):
         """ Project fracture vertexes and intersection points to the natural

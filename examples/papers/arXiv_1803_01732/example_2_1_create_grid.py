@@ -9,7 +9,7 @@ def create(id_problem, is_coarse=False, mesh_size=0.05, tol=1e-5):
 
     mesh_kwargs = {}
     mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                'value': mesh_size, # 0.09
+                                'value': mesh_size, # 0.05 0.15 0.425
                                 'bound_value': 1}
 
     gb = importer.dfn_3d_from_fab(file_name, file_intersections, tol=tol, **mesh_kwargs)
