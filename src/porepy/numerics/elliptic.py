@@ -319,9 +319,9 @@ class DualEllipticModel(EllipticModel):
 
     def source_disc(self):
         if self.is_GridBucket:
-            return vem_source.IntegralMixedDim(physics=self.physics)
+            return vem_source.DualSourceMixedDim(physics=self.physics)
         else:
-            return vem_source.Integral(physics=self.physics)
+            return vem_source.DualSource(physics=self.physics)
 
     def flux_disc(self):
         if self.is_GridBucket:
@@ -401,7 +401,7 @@ class EllipticDataAssigner():
         apperture(): defaults to 1
              returns: (ndarray) aperture of each cell
         permeability(): defaults to 1
-             returns: (tensor.SecondOrder) Permeabillity tensor
+             returns: (tensor.SecondOrderTensor) Permeabillity tensor
         source(): defaults to 0
              returns: (ndarray) The source and sinks
 
@@ -435,7 +435,7 @@ class EllipticDataAssigner():
 
     def permeability(self):
         kxx = np.ones(self.grid().num_cells)
-        return tensor.SecondOrder(self.grid().dim, kxx)
+        return tensor.SecondOrderTensor(self.grid().dim, kxx)
 
     def source(self):
         return np.zeros(self.grid().num_cells)

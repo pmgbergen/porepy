@@ -242,7 +242,7 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
     # $PYHTONPATH, with the name 'numpy_113_unique'.
     if issubclass(mat.dtype.type, np.integer) and tol < 0.5:
         # Obtain version of numpy that was loaded by the import in this module
-        np_version = np.version.version.split('.')
+        np_version = np.__version__.split('.')
         # If we are on numpy 2, or 1.13 or higher, we're good.
         if int(np_version[0]) > 1 or int(np_version[1]) > 12:
             un_ar, new_2_old, old_2_new \

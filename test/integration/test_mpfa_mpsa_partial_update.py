@@ -3,8 +3,8 @@ import numpy as np
 import scipy.sparse as sps
 
 from porepy.numerics.fv import mpfa, mpsa, fvutils
-from porepy.params.tensor import SecondOrder as PermTensor
-from porepy.params.tensor import FourthOrder as StiffnessTensor
+from porepy.params.tensor import SecondOrderTensor as PermTensor
+from porepy.params.tensor import FourthOrderTensor as StiffnessTensor
 from porepy.grids.structured import CartGrid
 from porepy.params import bc
 
@@ -80,7 +80,7 @@ class TestPartialMPFA(unittest.TestCase):
         g = CartGrid([3, 3])
         g.compute_geometry()
 
-        # Assign random permeabilities, for good measure 
+        # Assign random permeabilities, for good measure
         np.random.seed(42)
         kxx = np.random.random(g.num_cells)
         kyy = np.random.random(g.num_cells)
@@ -189,8 +189,8 @@ class TestPartialMPSA():
         assert np.max(np.abs(diff_stress[faces_of_cell])) == 0
         assert np.max(np.abs(diff_bound[faces_of_cell])) == 0
 
-        # Only the faces of the central cell should be non-zero. 
-        # Zero out these ones, and the entire 
+        # Only the faces of the central cell should be non-zero.
+        # Zero out these ones, and the entire
         partial_stress[faces_of_cell, :] = 0
         partial_bound[faces_of_cell, :] = 0
         assert np.max(np.abs(partial_stress.data)) == 0

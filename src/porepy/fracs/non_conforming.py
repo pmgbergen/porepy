@@ -9,11 +9,11 @@ Created on Sun Nov  5 11:17:04 2017
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
+
 from porepy.utils import tags
 from porepy.utils.matrix_compression import rldecode
 from porepy.utils.setmembership import unique_columns_tol, ismember_rows
-
-from porepy import TensorGrid
 
 from porepy.fracs import utils as fracutils
 import porepy.utils.comp_geom as cg
@@ -234,7 +234,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
 
     # Create a new 1d grid.
     # First use a 1d coordinate to initialize topology
-    new_grid = TensorGrid(np.arange(num_new_grid))
+    new_grid = pp.structured.TensorGrid(np.arange(num_new_grid))
     # Then set the right, 3d coordinates
     new_grid.nodes = cg.make_collinear(combined_sorted)
 
