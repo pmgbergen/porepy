@@ -11,14 +11,16 @@ import example_2_1_data
 
 #------------------------------------------------------------------------------#
 
+def main(id_problem, tol=1e-5, N_pts=1000, if_export=False):
 
-def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000, if_export=False):
-
-    folder_export = 'example_2_1_vem_coarse/' + str(id_problem) + "/"
+    mesh_size = 0.15
+    folder_export = 'example_2_1_vem_coarse_'+str(mesh_size)+'/'+str(id_problem)+"/"
     file_export = 'vem'
 
-    gb = example_2_1_create_grid.create(
-        id_problem, is_coarse=is_coarse, tol=tol)
+    gb = example_2_1_create_grid.create(id_problem, is_coarse=True, mesh_size=mesh_size, tol=tol)
+
+    internal_flag = FaceTag.FRACTURE
+    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
     # Assign parameters
     example_2_1_data.add_data(gb, tol)
@@ -58,8 +60,7 @@ def main(id_problem, is_coarse=False, tol=1e-5, N_pts=1000, if_export=False):
 
 
 num_simu = 21
-is_coarse = True
 for i in np.arange(num_simu):
-    main(i + 1, is_coarse, if_export=True)
+    main(i+1, if_export=True)
 
 #------------------------------------------------------------------------------#

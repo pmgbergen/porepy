@@ -13,10 +13,11 @@ import example_2_1_data
 
 def main(id_problem, tol=1e-5, N_pts=1000, if_export=False):
 
-    folder_export = 'example_2_1_tpfa/' + str(id_problem) + "/"
+    mesh_size = 0.15
+    folder_export = 'example_2_1_tpfa_'+str(mesh_size)+'/'+str(id_problem)+"/"
     file_export = 'tpfa'
 
-    gb = example_2_1_create_grid.create(id_problem, tol=tol)
+    gb = example_2_1_create_grid.create(id_problem, mesh_size=mesh_size, tol=tol)
 
     # Assign parameters
     example_2_1_data.add_data(gb, tol)
@@ -52,6 +53,6 @@ def main(id_problem, tol=1e-5, N_pts=1000, if_export=False):
 
 num_simu = 21
 for i in np.arange(num_simu):
-    main(i + 1, if_export=True)
+    main(i+1, if_export=True)
 
 #------------------------------------------------------------------------------#
