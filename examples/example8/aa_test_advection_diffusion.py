@@ -27,7 +27,7 @@ def add_data(g, advection):
     beta_n = advection.beta_n(g, [1, 0, 0])
 
     kxx = 1e-2 * np.ones(g.num_cells)
-    diffusion = second_order_tensor.SecondOrderTensor(g.dim, kxx)
+    diffusion = second_order_tensor.SecondOrderTensorTensor(g.dim, kxx)
 
     f = np.ones(g.num_cells) * g.cell_volumes
 

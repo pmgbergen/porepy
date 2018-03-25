@@ -8,12 +8,7 @@ import numpy as np
 import scipy.sparse as sps
 import unittest
 
-from porepy.fracs import meshing, simplex
-import porepy.utils.comp_geom as cg
-from porepy.utils.errors import error
-from porepy.params import bc, tensor
-from porepy.params.data import Parameters
-from porepy.numerics.fv import mpfa, tpfa, fvutils
+import porepy as pp
 from porepy.numerics.mixed_dim import coupler, condensation
 
 #------------------------------------------------------------------------------#
@@ -31,22 +26,22 @@ class BasicsTest(unittest.TestCase):
         """
         f = np.array([[0, 1],
                       [.5, .5]])
-        gb = meshing.cart_grid([f], [2, 2], **{'physdims': [1, 1]})
+        gb = pp.meshing.cart_grid([f], [2, 2], **{'physdims': [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = tpfa.TpfaMixedDim(physics='flow')
+        solver = pp.TpfaMixedDim(physics='flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
-            param = Parameters(g)
+            param = pp.Parameters(g)
 
             a_dim = np.power(a, gb.dim_max() - g.dim)
             aperture = np.ones(g.num_cells) * a_dim
             param.set_aperture(aperture)
 
-            p = tensor.SecondOrder(3, np.ones(
+            p = pp.SecondOrderTensor(3, np.ones(
                 g.num_cells) * np.power(1e-3, g.dim < gb.dim_max()))
             param.set_tensor('flow', p)
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
@@ -64,20 +59,20 @@ class BasicsTest(unittest.TestCase):
             bc_val[bc_dir] = g.face_centers[0, bc_dir]
             bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
 
-            param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
+            param.set_bc('flow', pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val('flow', bc_val)
 
             d['param'] = param
 
-        gb.add_edge_prop('param')
-        for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
-            d['param'] = Parameters(g_h)
+        gb.add_edge_props('param')
+        for e, d in gb.edges():
+            g_h = gb.nodes_of_edge(e)[1]
+            d['param'] = pp.Parameters(g_h)
 
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A, rhs)
         solver.split(gb, "pressure", p)
-        fvutils.compute_discharges(gb)
+        pp.fvutils.compute_discharges(gb)
 
         p_known = np.array([1.7574919,  1.25249747,  1.7574919,  1.25249747,
                             1.25250298,  1.80993337])
@@ -106,22 +101,22 @@ class BasicsTest(unittest.TestCase):
         """
         f = np.array([[0, 1],
                       [.5, .5]])
-        gb = meshing.cart_grid([f], [2, 2], **{'physdims': [1, 1]})
+        gb = pp.meshing.cart_grid([f], [2, 2], **{'physdims': [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = mpfa.MpfaMixedDim(physics='flow')
+        solver = pp.MpfaMixedDim(physics='flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
-            param = Parameters(g)
+            param = pp.Parameters(g)
 
             a_dim = np.power(a, gb.dim_max() - g.dim)
             aperture = np.ones(g.num_cells) * a_dim
             param.set_aperture(aperture)
 
-            p = tensor.SecondOrder(3, np.ones(
+            p = pp.SecondOrderTensor(3, np.ones(
                 g.num_cells) * np.power(1e-3, g.dim < gb.dim_max()))
             param.set_tensor('flow', p)
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
@@ -139,20 +134,20 @@ class BasicsTest(unittest.TestCase):
             bc_val[bc_dir] = g.face_centers[0, bc_dir]
             bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
 
-            param.set_bc('flow', bc.BoundaryCondition(g, bound_faces, labels))
+            param.set_bc('flow', pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val('flow', bc_val)
 
             d['param'] = param
 
-        gb.add_edge_prop('param')
-        for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
-            d['param'] = Parameters(g_h)
+        gb.add_edge_props('param')
+        for e, d in gb.edges():
+            g_h = gb.nodes_of_edge(e)[1]
+            d['param'] = pp.Parameters(g_h)
 
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A, rhs)
         solver.solver.split(gb, "pressure", p)
-        fvutils.compute_discharges(gb)
+        pp.fvutils.compute_discharges(gb)
 
         p_known = np.array([1.7574919,  1.25249747,  1.7574919,  1.25249747,
                             1.25250298,  1.80993337])
@@ -177,12 +172,8 @@ class BasicsTest(unittest.TestCase):
                        [.5, .5]])
         f2 = np.array([[.5, .5],
                        [0, 1]])
-        mesh_size = 0.4
-        mesh_kwargs = {}
-        mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                    'value': mesh_size, 'bound_value': mesh_size}
-        gb = meshing.cart_grid([f1, f2], [2, 2], **{'physdims': [1, 1]})
-        #gb = meshing.simplex_grid( [f1, f2],domain,**mesh_kwargs)
+        
+        gb = pp.meshing.cart_grid([f1, f2], [2, 2], **{'physdims': [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
 
@@ -205,18 +196,18 @@ class BasicsTest(unittest.TestCase):
                     raise ValueError('Grid not found')
 
         tol = 1e-3
-        solver = tpfa.TpfaMixedDim('flow')
+        solver = pp.TpfaMixedDim('flow')
         gb.add_node_props(['param'])
         a = 1e-2
         for g, d in gb:
-            param = Parameters(g)
+            param = pp.Parameters(g)
 
             a_dim = np.power(a, gb.dim_max() - g.dim)
             aperture = np.ones(g.num_cells) * a_dim
             param.set_aperture(aperture)
 
             kxx = np.ones(g.num_cells) * np.power(1e3, g.dim < gb.dim_max())
-            p = tensor.SecondOrder(3, kxx, kyy=kxx, kzz=kxx)
+            p = pp.SecondOrderTensor(3, kxx, kyy=kxx, kzz=kxx)
             param.set_tensor('flow', p)
 
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
@@ -235,18 +226,18 @@ class BasicsTest(unittest.TestCase):
                 bc_val[bc_dir] = g.face_centers[0, bc_dir]
                 bc_val[bc_neu] = -g.face_areas[bc_neu] * a_dim
 
-                param.set_bc('flow', bc.BoundaryCondition(
+                param.set_bc('flow', pp.BoundaryCondition(
                     g, bound_faces, labels))
                 param.set_bc_val('flow', bc_val)
             else:
-                param.set_bc("flow", bc.BoundaryCondition(
+                param.set_bc("flow", pp.BoundaryCondition(
                     g, np.empty(0), np.empty(0)))
             d['param'] = param
 
-        gb.add_edge_prop('param')
-        for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
-            d['param'] = Parameters(g_h)
+        gb.add_edge_props('param')
+        for e, d in gb.edges():
+            g_h = gb.nodes_of_edge(e)[1]
+            d['param'] = pp.Parameters(g_h)
 
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A, rhs)
@@ -263,10 +254,11 @@ class BasicsTest(unittest.TestCase):
         gb_r, elimination_data = gb.duplicate_without_dimension(dim_to_remove)
         # Compute the flux discretization on the new edges
         condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
-        # Compute the discharges from the flux discretizations and computed pressures
+        # Compute the discharges from the flux discretizations and computed
+        # pressures
         solver.split(gb_r, "pressure", p_red)
-        fvutils.compute_discharges(gb)
-        fvutils.compute_discharges(gb_r)
+        pp.fvutils.compute_discharges(gb)
+        pp.fvutils.compute_discharges(gb_r)
 
         # Known discharges
         d_0, d_1, d_2 = fluxes_2d_1d_cross_with_elimination()
@@ -291,12 +283,13 @@ class BasicsTest(unittest.TestCase):
                 assert np.allclose(d['discharge'], d_2, rtol, atol)
 
         # ... edge fluxes ...
-        d_01, d_10, d_02, d_20, d_13, d_23 = coupling_fluxes_2d_1d_cross_no_el()
+        d_01, d_10, d_02, d_20, d_13, d_23 \
+            = coupling_fluxes_2d_1d_cross_no_el()
 
-        for e, data in gb.edges_props():
-            g1, g2 = gb.sorted_nodes_of_edge(e)
+        for e, data in gb.edges():
+            g1, g2 = gb.nodes_of_edge(e)
             pa = data['param']
-            node_numbers = gb.nodes_prop([g2, g1], 'node_number')
+            node_numbers = [gb.node_props(g, 'node_number') for g in [g2, g1]]
             if pa is not None:
 
                 if node_numbers == (0, 1):
@@ -311,10 +304,10 @@ class BasicsTest(unittest.TestCase):
                     assert np.allclose(data['discharge'], d_23, rtol, atol)
 
         d_11, d_21, d_22 = coupling_fluxes_2d_1d_cross_with_el()
-        for e, data in gb_r.edges_props():
-            g1, g2 = gb_r.sorted_nodes_of_edge(e)
+        for e, data in gb_r.edges():
+            g1, g2 = gb_r.nodes_of_edge(e)
             pa = data['param']
-            node_numbers = gb_r.nodes_prop([g2, g1], 'node_number')
+            node_numbers = [gb_r.node_props(g, 'node_number') for g in [g2, g1]]
             if pa is not None:
 
                 if node_numbers == (0, 1):
@@ -332,7 +325,7 @@ class BasicsTest(unittest.TestCase):
         # ... and pressures
         tol = 1e-10
         assert((np.amax(np.absolute(p - p_cond))) < tol)
-        assert(np.sum(error.error_L2(
+        assert(np.sum(pp.error.error_L2(
             g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 

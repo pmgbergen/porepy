@@ -77,7 +77,7 @@ class SlightlyCompressibleDataAssigner(ParabolicDataAssigner):
 
     Functions:
         compressibility: (float) the compressibility of the fluid
-        permeability: (tensor.SecondOrder) The permeability tensor for the rock.
+        permeability: (tensor.SecondOrderTensor) The permeability tensor for the rock.
                       Setting the permeability is equivalent to setting
                       the ParabolicData.diffusivity() function.
     Example:
@@ -110,7 +110,7 @@ class SlightlyCompressibleDataAssigner(ParabolicDataAssigner):
 
     def permeability(self):
         kxx = np.ones(self.grid().num_cells)
-        return tensor.SecondOrder(self.grid().dim, kxx)
+        return tensor.SecondOrderTensor(self.grid().dim, kxx)
 
     def diffusivity(self):
         return self.permeability()
