@@ -123,7 +123,7 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
 
-    return grid_list_to_grid_bucket(grids, time_tot=tm_tot)
+    return grid_list_to_grid_bucket(grids, time_tot=tm_tot, **kwargs)
 
 def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
         **kwargs):
