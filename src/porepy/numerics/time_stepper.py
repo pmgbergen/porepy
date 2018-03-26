@@ -109,17 +109,17 @@ class AbstractSolver(object):
                 self.problem.split(save_as)
 
                 #########
-                self.g.add_node_prop('color')
-                for g, d in self.g:
-                    if g.dim < 3:
-                        d['color'] = -np.ones(g.num_cells)
-                    if g.dim == 3:
-                        d['color'] = color(g)
-                        for c in np.arange(d['color'].max()+1):
-                            mask = d['color'] == c
-                            av_conc = np.average(d[save_as][mask])
-                            with open("UiB_VEM_c_"+str(c)+".csv", 'a') as f:
-                                f.write(str(t)+", "+str(av_conc)+"\n")
+#                self.g.add_node_prop('color')
+#                for g, d in self.g:
+#                    if g.dim < 3:
+#                        d['color'] = -np.ones(g.num_cells)
+#                    if g.dim == 3:
+#                        d['color'] = color(g)
+#                        for c in np.arange(d['color'].max()+1):
+#                            mask = d['color'] == c
+#                            av_conc = np.average(d[save_as][mask])
+#                            with open("UiB_VEM_c_"+str(c)+".csv", 'a') as f:
+#                                f.write(str(t)+", "+str(av_conc)+"\n")
 
                 #self.problem.exporter.write_vtk(['color'], time_step=counter)
                 ########
