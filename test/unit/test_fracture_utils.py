@@ -12,6 +12,19 @@ import unittest
 import porepy as pp
 
 
+def arrays_equal(a, b, tol=1e-5):
+    # Utility function
+    def nrm(x, y):
+        if x.ndim == 1:
+            x = np.reshape(x, (-1, 1))
+        return np.sqrt(np.sum(np.power(x - y, 2), axis=0))
+
+    for i in range(a.shape[1]):
+        assert np.min(nrm(a[:, i], b)) < tol
+
+    for i in range(b.shape[1]):
+        assert np.min(nrm(b[:, i], a)) < tol
+
 class TestFractureLength(unittest.TestCase):
 
     def test_single_fracture(self):
@@ -47,18 +60,7 @@ class TestFractureLength(unittest.TestCase):
 
 class TestUniquifyPoints(unittest.TestCase):
 
-    def arrays_equal(self, a, b, tol=1e-5):
 
-        def nrm(x, y):
-            if x.ndim == 1:
-                x = np.reshape(x, (-1, 1))
-            return np.sqrt(np.sum(np.power(x - y, 2), axis=0))
-
-        for i in range(a.shape[1]):
-            assert np.min(nrm(a[:, i], b)) < tol
-
-        for i in range(b.shape[1]):
-            assert np.min(nrm(b[:, i], a)) < tol
 
 
     def test_no_change(self):
@@ -77,8 +79,8 @@ class TestUniquifyPoints(unittest.TestCase):
 
         p_known = np.array([[0, 1, 0], [0, 1, 1]])
         e_known = np.array([[0, 0], [1, 2]])
-        self.arrays_equal(p_known, up)
-        self.arrays_equal(e_known, ue)
+        arrays_equal(p_known, up)
+        arrays_equal(e_known, ue)
         assert deleted.size == 0
 
     def test_merge_one_point_variable_tolerance(self):
@@ -90,14 +92,14 @@ class TestUniquifyPoints(unittest.TestCase):
         up, ue, deleted = pp.frac_utils.uniquify_points(p, e, tol=1e-2)
         p_known = np.array([[0, 1, 0], [0, 1, 1]])
         e_known = np.array([[0, 0], [1, 2]])
-        self.arrays_equal(p_known, up)
-        self.arrays_equal(e_known, ue)
+        arrays_equal(p_known, up)
+        arrays_equal(e_known, ue)
         assert deleted.size == 0
 
         # There should be no merge
         up, ue, deleted = pp.frac_utils.uniquify_points(p, e, tol=1e-4)
-        self.arrays_equal(p, up)
-        self.arrays_equal(e, ue)
+        arrays_equal(p, up)
+        arrays_equal(e, ue)
         assert deleted.size == 0
 
     def test_delete_point_edge(self):
@@ -110,11 +112,48 @@ class TestUniquifyPoints(unittest.TestCase):
         p_known = np.array([[0, 1, 2], [0, 0, 0]])
         # Edge with tags
         e_known = np.array([[0, 1], [1, 2], [0, 2]])
-        self.arrays_equal(p_known, up)
-        self.arrays_equal(e_known, ue)
+        arrays_equal(p_known, up)
+        arrays_equal(e_known, ue)
         assert deleted.size == 1
         assert deleted[0] == 1
 
+
+class TestFractureSnapping(unittest.TestCase):
+
+    def test_no_snapping(self):
+        p = np.array([[0, 1, 0, 1], [0, 0, 1, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        pn, conv = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=1e-3)
+        assert np.allclose(p, pn)
+        assert conv
+
+    def test_snap_to_vertex(self):
+        p = np.array([[0, 1, 0, 1], [0, 0, 1e-4, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        pn, conv = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=1e-3)
+        p_known = np.array([[0, 1, 0, 1], [0, 0, 0, 1]])
+        assert np.allclose(p_known, pn)
+        assert conv
+
+    def test_no_snap_to_vertex_small_tol(self):
+        # No snapping because the snapping tolerance is small
+        p = np.array([[0, 1, 0, 1], [0, 0, 1e-4, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        pn, conv = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=1e-5)
+        assert np.allclose(p, pn)
+        assert conv
+
+    def test_snap_to_segment(self):
+        p = np.array([[0, 1, 0.5, 1], [0, 0, 1e-4, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        pn, conv = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=1e-3)
+        p_known = np.array([[0, 1, 0.5, 1], [0, 0, 0, 1]])
+        assert np.allclose(p_known, pn)
+        assert conv
 
 
 if __name__ == '__main__':
