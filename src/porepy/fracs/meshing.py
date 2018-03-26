@@ -125,6 +125,7 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
 
     return grid_list_to_grid_bucket(grids, time_tot=tm_tot, **kwargs)
 
+
 def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
         **kwargs):
     """ Create a mesh of a DFN model, that is, only of fractures.
@@ -321,7 +322,8 @@ def grid_list_to_grid_bucket(grids, time_tot=None, **kwargs):
 
     """
     # Tag tip faces
-    _tag_faces(grids, **kwargs)
+    check_highest_dim = kwargs.get('check_highest_dim', False)
+    _tag_faces(grids, check_highest_dim)
 
     logger.info('Assemble in bucket')
     tm_bucket = time.time()
@@ -401,7 +403,7 @@ def cart_grid(fracs, nx, **kwargs):
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
 
-    return grid_list_to_grid_bucket(grids)
+    return grid_list_to_grid_bucket(grids, **kwargs)
 
 
 def _tag_faces(grids, check_highest_dim=True):
