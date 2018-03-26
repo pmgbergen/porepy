@@ -22,10 +22,6 @@ class TestUniqueRows(unittest.TestCase):
         assert np.all(ia - ia_expected == 0)
         assert np.all(ic - ic_expected == 0)
 
-    if __name__ == '__main__':
-        unittest.main()
-
-
 class TestIsmember(unittest.TestCase):
 
     def test_ismember_rows_with_sort(self):
@@ -135,8 +131,22 @@ class TestIsmember(unittest.TestCase):
         assert np.allclose(ma, ma_known)
         assert np.allclose(ia, ia_known)
 
-    if __name__ == '__main__':
-        unittest.main()
+    def test_issue_123(self):
+        # Reported bug #123.
+        # Referred to an implementation of ismember which is now replaced.
+        a = np.array([[0. , 1. , 1. , 0. , 0.2, 0.8, 0.5, 0.5, 0.5],
+                      [0. , 0. , 1. , 1. , 0.5, 0.5, 0.8, 0.2, 0.5]])
+        b = np.array([[0, 1, 1, 0],
+                      [0, 0, 1, 1]])
+        ma, ia = setmembership.ismember_rows(a, b)
+
+        ma_known = np.array([1, 1, 1, 1, 0, 0, 0, 0, 0], dtype=bool)
+        ia_known = np.array([0, 1, 2, 1])
+
+        assert np.allclose(ma, ma_known)
+        assert np.allclose(ia, ia_known)
+
+
 
 
 class TestUniqueColumns(unittest.TestCase):
@@ -162,7 +172,7 @@ class TestUniqueColumns(unittest.TestCase):
         p_unique, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
 
         # The sorting of the output depends on how the unique array is computed
-        # (see unique_columns_tol for the various options that may be applied). 
+        # (see unique_columns_tol for the various options that may be applied).
         # Do a simple sort to ensure we're safe.
         if p_unique[0, 0] == 0:
             assert np.alltrue(np.sort(old_2_new) == np.array([0, 1, 1]))
@@ -179,5 +189,5 @@ class TestUniqueColumns(unittest.TestCase):
         for i in range(p_known.shape[1]):
             assert np.min(np.sum(np.abs(p_known[:, i] - p_unique), axis=0))== 0
 
-    if __name__ == '__main__':
-        unittest.main()
+if __name__ == '__main__':
+    unittest.main()

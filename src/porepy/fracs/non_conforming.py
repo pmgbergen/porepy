@@ -15,7 +15,7 @@ from porepy.utils import tags
 from porepy.utils.matrix_compression import rldecode
 from porepy.utils.setmembership import unique_columns_tol, ismember_rows
 
-from porepy.fracs import utils as fracutils
+from porepy.fracs import tools as fractools
 import porepy.utils.comp_geom as cg
 
 
@@ -293,7 +293,7 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
 
     # Mappings between faces in 2d grid and cells in 1d
     # 2d faces along the 1d grid will be deleted.
-    delete_faces, cell_1d = fracutils.obtain_interdim_mappings(g_1d, fn_glob,
+    delete_faces, cell_1d = fractools.obtain_interdim_mappings(g_1d, fn_glob,
                                                                nodes_per_face)
 
     # All 1d cells should be identified with 2d faces
