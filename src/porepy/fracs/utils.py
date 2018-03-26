@@ -2,9 +2,13 @@
 
 """
 import numpy as np
+import logging
 
 import porepy as pp
 
+
+# Module level logger
+logger = logging.getLogger(__name__)
 
 def fracture_length_2d(pts, edges):
     """ Find the length of 2D fracture traces.
@@ -59,3 +63,66 @@ def uniquify_points(pts, edges, tol):
     e_unique = np.delete(e_unique_p, point_edge, axis=1)
 
     return p_unique, e_unique, point_edge
+
+
+def snap_fracture_set_2d(pts, edges, snap_tol, termination_tol=1e-2,
+                         max_iter=100):
+    """ Snap vertexes of a set of fracture lines embedded in 2D, so that small
+    distances between lines and vertexes are removed.
+
+    This is intended as a utility function to preprocess a fracture network
+    before meshing. The function may change both connectivity and orientation
+    of individual fractures in the network. Specifically, fractures that
+    almost form a T-intersection (or L), may be connected, while
+    X-intersections with very short ends may be truncated to T-intersections.
+
+    The modification snaps vertexes to the closest point on the adjacent line.
+    This will in general change the orientation of the fracture with the
+    snapped vertex. The alternative, to prolong the fracture along its existing
+    orientation, may result in very long fractures for almost intersecting
+    lines. Depending on how the fractures are ordered, the same point may
+    need to be snapped to a segment several times in an iterative process.
+
+    The algorithm is *not* deterministic, in the sense that if the ordering of
+    the fractures is permuted, the snapped fracture network will be slightly
+    different.
+
+    Parameters:
+        pts (np.array, 2 x n_pts): Array of start and endpoints for fractures.
+        edges (np.ndarray, n x n_fracs): First row contains index of start
+            of all fractures, referring to columns in pts. Second contains
+            index of endpoints.
+        snap_tol (double): Snapping tolerance. Distances below this will be
+            snapped.
+        termination_tol (double): Minimum point movement needed for the
+            iterations to continue.
+        max_iter (int, optional): Maximum number of iterations. Defaults to
+            100.
+
+    Returns:
+        np.array (2 x n_pts): Copy of the point array, with modified point
+            coordinates.
+        boolean: True if the iterations converged within allowed number of
+            iterations.
+
+    """
+    pts_orig = pts.copy()
+    counter = 0
+    pn = 0 * pts
+    while counter < max_iter:
+        pn = pp.cg.snap_points_to_segments(pts, edges, tol=snap_tol)
+        diff = np.max(np.abs(pn - pts))
+        logger.debug('Iteration ' + str(counter) + ', max difference' + str(diff))
+        pts = pn
+        if diff < termination_tol:
+            break
+        counter += 1
+
+    if counter < max_iter:
+        logger.info('Fracture snapping converged after ' + str(counter) + ' iterations')
+        logger.info('Maximum modification ' + str(np.max(np.abs(pts - pts_orig))))
+        return pts, True
+    else:
+        logger.warning('Fracture snapping failed to converge')
+        logger.warning('Residual: ' + str(diff))
+        return pts, False
