@@ -84,6 +84,16 @@ class GridBucket(object):
 
 #------------------------------------------------------------------------------#
 
+    def dims(self):
+        """
+        Returns:
+            int: Active dimensions of the grids present in the hierarchy.
+
+        """
+        return np.unique([g.dim for g, _ in self])
+
+#------------------------------------------------------------------------------#
+
     def nodes(self):
         """
         Yields:
