@@ -9,7 +9,7 @@ from meshio import gmsh_io
 
 from porepy.grids import constants
 from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
-from porepy.fracs import fractures, utils
+from porepy.fracs import fractures, tools
 import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import unique_columns_tol, ismember_rows
 
@@ -393,16 +393,16 @@ def triangle_grid(fracs, domain, **kwargs):
     intersections = __find_intersection_points(lines_split)
 
     # Gridding size
-    
+
     if 'mesh_size_frac' in kwargs.keys():
         # Tag points at the domain corners
         boundary_pt_ind = ismember_rows(pts_split, domain_pts, sort=False)[0]
         mesh_size, pts_split, lines_split = \
-            utils.determine_mesh_size(pts_split, boundary_pt_ind, lines_split,
+            tools.determine_mesh_size(pts_split, boundary_pt_ind, lines_split,
                                       **kwargs)
     else:
         mesh_size = None
-    
+
     # gmsh options
 
     meshing_algorithm = kwargs.get('meshing_algorithm')
