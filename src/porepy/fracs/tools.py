@@ -7,6 +7,7 @@ the frontend functions found in utils.
 
 """
 import numpy as np
+import warnings
 
 import porepy as pp
 
