@@ -34,7 +34,7 @@ class TestMeshSize(unittest.TestCase):
         mesh_size_frac = 1
         mesh_size_bound = 2
         mesh_sizes, pts_split, _ \
-        = pp.fracs.utils.determine_mesh_size(pts, on_boundary, lines,
+        = pp.fracs.tools.determine_mesh_size(pts, on_boundary, lines,
                                              mesh_size_frac=mesh_size_frac,
                                              mesh_size_min=mesh_size_min,
                                              mesh_size_bound=mesh_size_bound,)
@@ -69,7 +69,7 @@ class TestMeshSize(unittest.TestCase):
         mesh_size_frac = 1
         mesh_size_bound = 2
         mesh_sizes, pts_split, _ \
-        = pp.fracs.utils.determine_mesh_size(pts, on_boundary, lines,
+        = pp.fracs.tools.determine_mesh_size(pts, on_boundary, lines,
                                              mesh_size_frac=mesh_size_frac,
                                              mesh_size_min=mesh_size_min,
                                              mesh_size_bound=mesh_size_bound)
