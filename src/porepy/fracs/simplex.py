@@ -6,6 +6,7 @@ import time
 import sys
 import numpy as np
 from meshio import gmsh_io
+import logging
 
 from porepy.grids import constants
 from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
@@ -13,6 +14,8 @@ from porepy.fracs import fractures, tools
 import porepy.utils.comp_geom as cg
 from porepy.utils.setmembership import unique_columns_tol, ismember_rows
 
+
+logger = logging.getLogger(__name__)
 
 def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs):
     """
@@ -329,6 +332,8 @@ def triangle_grid(fracs, domain, **kwargs):
     g = triangle_grid(fracs, box)
 
     """
+    logger.info('Create 2d mesh')
+
     # Verbosity level
     verbose = kwargs.get('verbose', 1)
 
@@ -371,7 +376,10 @@ def triangle_grid(fracs, domain, **kwargs):
 
     # We split all fracture intersections so that the new lines do not
     # intersect, except possible at the end points
+    logger.info('Remove edge crossings')
+    tm = time.time()
     pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol)
+    logger.info('Done. Elapsed time ' + str(time.time() - tm))
 
     # Ensure unique description of points
     pts_split = cg.snap_to_grid(pts_split, tol)
@@ -396,10 +404,13 @@ def triangle_grid(fracs, domain, **kwargs):
 
     if 'mesh_size_frac' in kwargs.keys():
         # Tag points at the domain corners
+        logger.info('Determine mesh size')
+        tm = time.time()
         boundary_pt_ind = ismember_rows(pts_split, domain_pts, sort=False)[0]
         mesh_size, pts_split, lines_split = \
             tools.determine_mesh_size(pts_split, boundary_pt_ind, lines_split,
                                       **kwargs)
+        logger.info('Done. Elapsed time ' + str(time.time() - tm))
     else:
         mesh_size = None
 
@@ -431,15 +442,17 @@ def triangle_grid_run_gmsh(file_name, **kwargs):
     gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
     gmsh_opts = {'-v': gmsh_verbose}
 
+    logger.info('Run gmsh')
+    tm = time.time()
     # Run gmsh
     gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=2,
                                           **gmsh_opts)
 
-    if verbose > 0:
-        if gmsh_status == 0:
-            print('Gmsh processed file successfully')
-        else:
-            print('Gmsh failed with status ' + str(gmsh_status))
+    if gmsh_status == 0:
+        logger.info('Gmsh processed file successfully')
+        logger.info('Elapsed time ' + str(time.time() - tm))
+    else:
+        logger.error('Gmsh failed with status ' + str(gmsh_status))
 
 #------------------------------------------------------------------------------#
 
@@ -466,27 +479,25 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
     const = constants.GmshConstants()
 
     # Create grids from gmsh mesh.
+    logger.info('Create grids of various dimensions')
     g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False)
     g_1d, _ = mesh_2_grid.create_1d_grids(
         pts, cells, phys_names, cell_info, line_tag=const.PHYSICAL_NAME_FRACTURES)
     g_0d = mesh_2_grid.create_0d_grids(pts, cells)
     grids = [g_2d, g_1d, g_0d]
 
-    if verbose > 0:
-        print('\n')
-        print('Grid creation completed. Elapsed time ' + str(time.time() -
-                                                             start_time))
-        print('\n')
-        for g_set in grids:
-            if len(g_set) > 0:
-                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
-                    '-d grids with '
-                num = 0
-                for g in g_set:
-                    num += g.num_cells
-                s += str(num) + ' cells'
-                print(s)
-        print('\n')
+    logger.info('Grid creation completed. Elapsed time ' + str(time.time() -
+                                                               start_time))
+
+    for g_set in grids:
+        if len(g_set) > 0:
+            s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
+                '-d grids with '
+            num = 0
+            for g in g_set:
+                num += g.num_cells
+            s += str(num) + ' cells'
+            logger.info(s)
 
     return grids
 
