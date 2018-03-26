@@ -45,5 +45,77 @@ class TestFractureLength(unittest.TestCase):
         assert np.allclose(fl, fl_known)
 
 
+class TestUniquifyPoints(unittest.TestCase):
+
+    def arrays_equal(self, a, b, tol=1e-5):
+
+        def nrm(x, y):
+            if x.ndim == 1:
+                x = np.reshape(x, (-1, 1))
+            return np.sqrt(np.sum(np.power(x - y, 2), axis=0))
+
+        for i in range(a.shape[1]):
+            assert np.min(nrm(a[:, i], b)) < tol
+
+        for i in range(b.shape[1]):
+            assert np.min(nrm(b[:, i], a)) < tol
+
+
+    def test_no_change(self):
+        p = np.array([[0, 1], [0, 0]])
+        e = np.array([[0], [1]])
+
+        up, ue, deleted = pp.frac_utils.uniquify_points(p, e, tol=1e-4)
+        assert np.allclose(up, p)
+        assert np.allclose(ue, e)
+        assert deleted.size == 0
+
+    def test_merge_one_point(self):
+        p = np.array([[0, 1, 0, 0], [0, 1, 0, 1]])
+        e = np.array([[0, 2], [1, 3]])
+        up, ue, deleted = pp.frac_utils.uniquify_points(p, e, tol=1e-4)
+
+        p_known = np.array([[0, 1, 0], [0, 1, 1]])
+        e_known = np.array([[0, 0], [1, 2]])
+        self.arrays_equal(p_known, up)
+        self.arrays_equal(e_known, ue)
+        assert deleted.size == 0
+
+    def test_merge_one_point_variable_tolerance(self):
+        # Check that a point is merged or not, depending on tolerance
+        p = np.array([[0, 1, 0, 0], [0, 1, 1e-3, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        # We should have a merge
+        up, ue, deleted = pp.frac_utils.uniquify_points(p, e, tol=1e-2)
+        p_known = np.array([[0, 1, 0], [0, 1, 1]])
+        e_known = np.array([[0, 0], [1, 2]])
+        self.arrays_equal(p_known, up)
+        self.arrays_equal(e_known, ue)
+        assert deleted.size == 0
+
+        # There should be no merge
+        up, ue, deleted = pp.frac_utils.uniquify_points(p, e, tol=1e-4)
+        self.arrays_equal(p, up)
+        self.arrays_equal(e, ue)
+        assert deleted.size == 0
+
+    def test_delete_point_edge(self):
+        p = np.array([[0, 1, 1, 2], [0, 0, 0, 0]])
+        # Edge with tags
+        e = np.array([[0, 1, 2], [1, 2, 3], [0, 1, 2]])
+
+        up, ue, deleted = pp.frac_utils.uniquify_points(p, e, tol=1e-2)
+
+        p_known = np.array([[0, 1, 2], [0, 0, 0]])
+        # Edge with tags
+        e_known = np.array([[0, 1], [1, 2], [0, 2]])
+        self.arrays_equal(p_known, up)
+        self.arrays_equal(e_known, ue)
+        assert deleted.size == 1
+        assert deleted[0] == 1
+
+
+
 if __name__ == '__main__':
     unittest.main()
