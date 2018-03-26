@@ -396,8 +396,7 @@ def triangle_grid(fracs, domain, **kwargs):
     
     if 'mesh_size_frac' in kwargs.keys():
         # Tag points at the domain corners
-        boundary_pt_ind = ismember_rows(pts_split, domain_pts, sort=False,
-                                        simple_version=True)[0]
+        boundary_pt_ind = ismember_rows(pts_split, domain_pts, sort=False)[0]
         mesh_size, pts_split, lines_split = \
             utils.determine_mesh_size(pts_split, boundary_pt_ind, lines_split,
                                       **kwargs)
