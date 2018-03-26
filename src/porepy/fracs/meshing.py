@@ -11,7 +11,7 @@ import scipy.sparse as sps
 import time
 import logging
 
-from porepy.fracs import structured, simplex, split_grid, non_conforming, utils
+from porepy.fracs import structured, simplex, split_grid, non_conforming, tools
 from porepy.fracs.fractures import Intersection
 from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
@@ -62,8 +62,8 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
             words, mesh_size_bound is the boundary point equivalent of
             mesh_size_frac.
 
-    TODO: Update 2d implementation to adhere to 3d in 
-        porepy.fracs.utils.determine_mesh_size.
+    TODO: Update 2d implementation to adhere to 3d in
+        porepy.fracs.tools.determine_mesh_size.
 
     Returns
     -------
@@ -540,7 +540,7 @@ def assemble_in_bucket(grids, **kwargs):
             fn = np.sort(fn, axis=0)
 
             for lg in grids[dim + 1]:
-                cell_2_face, cell = utils.obtain_interdim_mappings(
+                cell_2_face, cell = tools.obtain_interdim_mappings(
                     lg, fn, n_per_face, **kwargs)
                 face_cells = sps.csc_matrix(
                     (np.ones(cell.size, dtype=bool), (cell, cell_2_face)),
