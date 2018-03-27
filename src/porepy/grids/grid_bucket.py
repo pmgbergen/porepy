@@ -402,6 +402,45 @@ class GridBucket(object):
         else:
             raise KeyError('Unknown edge')
 
+    #------------ Removers for nodes properties ----------
+
+    def remove_node_props(self, keys, g=None):
+        """
+        Remove property to existing nodes in the graph.
+
+        Properties can be removed either to all nodes, or to selected nodes as
+        specified by their grid. In the former case, to all nodes the property
+        will be removed.
+
+        Parameters:
+            keys (object): Key to the property to be handled.
+            g (list of grids.grid, optional): Nodes to be removed the values.
+                Defaults to None, in which case the property is removed from
+                all nodes.
+
+        Raises:
+            ValueError if the key is 'node_number', this is reserved for other
+                purposes. See self.assign_node_ordering() for details.
+
+        """
+
+        # Check that the key is not 'node_number' - this is reserved
+        if 'node_number' in keys:
+            raise ValueError('Node number is a reserved key, stay away')
+
+        # Do some checks of parameters first
+        if g is not None and not isinstance(g, list):
+            g = [g]
+
+        for key in np.atleast_1d(keys):
+            if g is None:
+                for _, d in self:
+                    del d[key]
+            else:
+                for h, d in self:
+                    if h in g:
+                        del d[key]
+
     #------------ Add new nodes and edges ----------
 
     def add_nodes(self, new_grids):
