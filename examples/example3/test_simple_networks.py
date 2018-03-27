@@ -40,8 +40,7 @@ def test_two_intersecting_fractures(**kwargs):
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
               2}
 
-    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
-    kwargs['mesh_size'] = mesh_size
+    kwargs = {'mesh_size_frac': .5, 'mesh_size_bound': 1, 'mesh_size_min': .2}
 
     grids = meshing.simplex_grid([f_1, f_2], domain, **kwargs)
 
@@ -63,9 +62,8 @@ def test_three_intersecting_fractures(**kwargs):
     # Add some parameters for grid size
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
               2}
-    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
 
-    kwargs['mesh_size'] = mesh_size
+    kwargs = {'mesh_size_frac': .5, 'mesh_size_bound': 1, 'mesh_size_min': .2}
     grids = meshing.simplex_grid([f_1, f_2, f_3], domain, **kwargs)
 
     if kwargs.get('return_expected', False):
@@ -86,9 +84,7 @@ def test_one_fracture_intersected_by_two(**kwargs):
     # Add some parameters for grid size
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
               2}
-    mesh_size = {'mode': 'constant', 'value': 0.4, 'bound_value': 1}
-
-    kwargs['mesh_size'] = mesh_size
+    kwargs = {'mesh_size_frac': .4, 'mesh_size_bound': 1, 'mesh_size_min': .2}
     grids = meshing.simplex_grid([f_1, f_2, f_3], domain, **kwargs)
 
     if kwargs.get('return_expected', False):
@@ -247,11 +243,6 @@ def test_T_intersection_one_boundary_one_inside(**kwargs):
     grids = meshing.simplex_grid([p1, p2], domain)
 
 def test_issue_54():
-    mesh_kwargs = {}
-    mesh_size = 5e-1
-    mesh_kwargs['mesh_size'] = {'mode': 'constant',
-    'value': mesh_size, 'bound_value': 1.2*mesh_size}
-    mesh_kwargs['file_name'] = 'bounding_box_test'
     domain = {'xmin': -1, 'xmax': 1,
               'ymin': 0, 'ymax': 1,
               'zmin': 0, 'zmax': 1}
@@ -269,9 +260,7 @@ def test_issue_54():
 def test_issue_58_1():
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2,
               'zmin': -2, 'zmax': 2}
-    mesh_size = {'mode': 'constant', 'value': .4, 'bound_value': 1}
-    kwargs = {'mesh_size': mesh_size, 'return_expected': True}
-
+    kwargs = {'mesh_size_frac': .4, 'mesh_size_bound': 1, 'mesh_size_min': .2}
     f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
     f_2 = np.array([[0, 1, 1, 0], [0, .5, .5, 0], [0, 0, 1, 1]])
     grids = meshing.simplex_grid([f_1, f_2], domain,**kwargs)
@@ -279,8 +268,8 @@ def test_issue_58_1():
 def test_issue_58_2():
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2,
               'zmin': -2, 'zmax': 2}
-    mesh_size = {'mode': 'constant', 'value': .4, 'bound_value': 1}
-    kwargs = {'mesh_size': mesh_size, 'return_expected': True}
+    kwargs = {'mesh_size_frac': .4, 'mesh_size_bound': 1, 'mesh_size_min': .2,
+              'return_expected': True}
 
     f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
     f_2 = np.array([[0, 1, 1, 0], [0.3, .5, .5, 0.3], [0, 0, 1, 1]])
@@ -289,8 +278,8 @@ def test_issue_58_2():
 def test_issue_58_3():
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2,
               'zmin': -2, 'zmax': 2}
-    mesh_size = {'mode': 'constant', 'value': .4, 'bound_value': 1}
-    kwargs = {'mesh_size': mesh_size, 'return_expected': True}
+    kwargs = {'mesh_size_frac': .5, 'mesh_size_bound': 1, 'mesh_size_min': .2,
+              'return_expected': True}
 
     f_1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
     f_2 = np.array([[0, 1, 1, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
@@ -305,8 +294,8 @@ def test_geiger_3d_partial():
     f_5 = np.array([[0.75, 0.5, 0.5], [0.75, 1.0, 0.5], [0.75, 1.0, 1.0],
                     [0.75, 0.5, 1.0]]).T
     domain = {'xmin':0, 'xmax':1, 'ymin':0, 'ymax':1, 'zmin':0, 'zmax':1}
-    mesh_size = {'mode': 'constant', 'value': .4, 'bound_value': 1}
-    kwargs = {'mesh_size': mesh_size, 'return_expected': True}
+    kwargs = {'mesh_size_frac': .4, 'mesh_size_bound': 1, 'mesh_size_min': .2,
+              'return_expected': True}
     meshing.simplex_grid([f_1, f_2, f_3, f_4, f_5], domain, **kwargs)
 
 def test_issue_90():

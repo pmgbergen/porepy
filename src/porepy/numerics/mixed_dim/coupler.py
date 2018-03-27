@@ -55,7 +55,7 @@ class Coupler(object):
         gb: grid bucket.
 
         """
-        gb.add_node_prop('dof')
+        gb.add_node_props('dof')
         for g, d in gb:
             d['dof'] = self.discr_ndof(g)
 
@@ -107,9 +107,10 @@ class Coupler(object):
 
         # Loop over the edges of the graph (pair of connected grids) to compute
         # the coupling conditions
-        for e, data in gb.edges_props():
-            g_l, g_h = gb.sorted_nodes_of_edge(e)
-            pos_l, pos_h = gb.nodes_prop([g_l, g_h], 'node_number')
+        for e, data in gb.edges():
+            g_l, g_h = gb.nodes_of_edge(e)
+            pos_l = gb.node_props(g_l, 'node_number')
+            pos_h = gb.node_props(g_h, 'node_number')
             idx = np.ix_([pos_h, pos_l], [pos_h, pos_l])
 
             data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
@@ -134,7 +135,7 @@ class Coupler(object):
         """
         dofs = self._dof_start_of_grids(gb)
 
-        gb.add_node_prop(key)
+        gb.add_node_props(key)
         for g, d in gb:
             i = d['node_number']
             d[key] = values[slice(dofs[i], dofs[i + 1])]

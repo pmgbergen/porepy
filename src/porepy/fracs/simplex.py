@@ -6,14 +6,16 @@ import time
 import sys
 import numpy as np
 from meshio import gmsh_io
+import logging
 
 from porepy.grids import constants
 from porepy.grids.gmsh import gmsh_interface, mesh_2_grid
-from porepy.fracs import fractures, utils
+from porepy.fracs import fractures, tools
 import porepy.utils.comp_geom as cg
-from porepy.utils.setmembership import unique_columns_tol
-import porepy
+from porepy.utils.setmembership import unique_columns_tol, ismember_rows
 
+
+logger = logging.getLogger(__name__)
 
 def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs):
     """
@@ -108,11 +110,15 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
 
     start_time = time.time()
 
-    # If fields h_ideal and h_min are provided, try to estimate mesh sizes.
-    h_ideal = kwargs.get('h_ideal', None)
-    h_min = kwargs.get('h_min', None)
-    if h_ideal is not None and h_min is not None:
-        network.insert_auxiliary_points(h_ideal, h_min)
+    # If fields mesh_size_frac and mesh_size_min are provided, try to estimate mesh sizes.
+    mesh_size_frac = kwargs.get('mesh_size_frac', None)
+    mesh_size_min = kwargs.get('mesh_size_min', None)
+    mesh_size_bound = kwargs.get('mesh_size_bound', None)
+    if mesh_size_frac is not None and mesh_size_min is not None:
+        if mesh_size_bound is None:
+            mesh_size_bound = mesh_size_frac
+        network.insert_auxiliary_points(mesh_size_frac, mesh_size_min,
+                                        mesh_size_bound)
         # In this case we need to recompute intersection decomposition anyhow.
         network.split_intersections()
 
@@ -176,7 +182,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     return grids
 
 def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
-                           h_ideal=None, h_min=None, **kwargs):
+                           mesh_size_frac=None, mesh_size_min=None,
+                           mesh_size_bound=None, **kwargs):
     """ Create triangular (2D) grid of a domain embedded in 3D space, without
     meshing the 3D volume.
 
@@ -188,7 +195,7 @@ def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
     use the function fracs.meshing.dfn instead, with the option
     conforming=True.
 
-    To set the mesh size, use parameters h_ideal and h_min, to represent the
+    To set the mesh size, use parameters mesh_size_frac and mesh_size_min, to represent the
     ideal and minimal mesh size sent to gmsh. For more details, see the gmsh
     manual on how to set mesh sizes.
 
@@ -200,9 +207,9 @@ def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
         f_name (str, optional): Filename for communication with gmsh.
             The config file for gmsh will be f_name.geo, with the grid output
             to f_name.msh. Defaults to dfn_network.
-        h_ideal (double, optional): Target mesh size sent to gmsh. If not
+        mesh_size_frac (double, optional): Target mesh size sent to gmsh. If not
             provided, gmsh will do its best to decide on the mesh size.
-        h_min (double, optional): Minimal mesh size sent to gmsh. If not
+        mesh_size_min (double, optional): Minimal mesh size sent to gmsh. If not
             provided, gmsh will do its best to decide on the mesh size.
         **kwargs: Arguments sent to gmsh etc.
 
@@ -217,9 +224,11 @@ def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
     if find_isect:
         network.find_intersections()
 
-    # If fields h_ideal and h_min are provided, try to estimate mesh sizes.
-    if h_ideal is not None and h_min is not None:
-        network.insert_auxiliary_points(h_ideal, h_min)
+    # If fields mesh_size_frac and mesh_size_min are provided, try to estimate mesh sizes.
+    if mesh_size_frac is not None and mesh_size_min is not None:
+        if mesh_size_bound is None:
+            mesh_size_bound = mesh_size_frac
+        network.insert_auxiliary_points(mesh_size_frac, mesh_size_min, mesh_size_bound)
         # In this case we need to recompute intersection decomposition anyhow.
         network.split_intersections()
 
@@ -323,6 +332,8 @@ def triangle_grid(fracs, domain, **kwargs):
     g = triangle_grid(fracs, box)
 
     """
+    logger.info('Create 2d mesh')
+
     # Verbosity level
     verbose = kwargs.get('verbose', 1)
 
@@ -340,7 +351,7 @@ def triangle_grid(fracs, domain, **kwargs):
     frac_con = fracs['edges']
 
     # Unified description of points and lines for domain, and fractures
-    pts_all, lines = __merge_domain_fracs_2d(domain, frac_pts, frac_con)
+    pts_all, lines, domain_pts = __merge_domain_fracs_2d(domain, frac_pts, frac_con)
 
     # Snap to underlying grid before comparing points
     pts_all = cg.snap_to_grid(pts_all, tol)
@@ -365,7 +376,10 @@ def triangle_grid(fracs, domain, **kwargs):
 
     # We split all fracture intersections so that the new lines do not
     # intersect, except possible at the end points
+    logger.info('Remove edge crossings')
+    tm = time.time()
     pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol)
+    logger.info('Done. Elapsed time ' + str(time.time() - tm))
 
     # Ensure unique description of points
     pts_split = cg.snap_to_grid(pts_split, tol)
@@ -387,13 +401,18 @@ def triangle_grid(fracs, domain, **kwargs):
     intersections = __find_intersection_points(lines_split)
 
     # Gridding size
-    if 'mesh_size' in kwargs.keys():
-        mesh_size, mesh_size_bound, pts_split, lines_split = \
-            utils.determine_mesh_size(pts_split, lines_split,
-                                      **kwargs['mesh_size'])
+
+    if 'mesh_size_frac' in kwargs.keys():
+        # Tag points at the domain corners
+        logger.info('Determine mesh size')
+        tm = time.time()
+        boundary_pt_ind = ismember_rows(pts_split, domain_pts, sort=False)[0]
+        mesh_size, pts_split, lines_split = \
+            tools.determine_mesh_size(pts_split, boundary_pt_ind, lines_split,
+                                      **kwargs)
+        logger.info('Done. Elapsed time ' + str(time.time() - tm))
     else:
         mesh_size = None
-        mesh_size_bound = None
 
     # gmsh options
 
@@ -402,7 +421,7 @@ def triangle_grid(fracs, domain, **kwargs):
     # Create a writer of gmsh .geo-files
     gw = gmsh_interface.GmshWriter(
         pts_split, lines_split, domain=domain, mesh_size=mesh_size,
-        mesh_size_bound=mesh_size_bound, intersection_points=intersections,
+        intersection_points=intersections,
         meshing_algorithm=meshing_algorithm)
     gw.write_geo(in_file)
 
@@ -423,15 +442,17 @@ def triangle_grid_run_gmsh(file_name, **kwargs):
     gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
     gmsh_opts = {'-v': gmsh_verbose}
 
+    logger.info('Run gmsh')
+    tm = time.time()
     # Run gmsh
     gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=2,
                                           **gmsh_opts)
 
-    if verbose > 0:
-        if gmsh_status == 0:
-            print('Gmsh processed file successfully')
-        else:
-            print('Gmsh failed with status ' + str(gmsh_status))
+    if gmsh_status == 0:
+        logger.info('Gmsh processed file successfully')
+        logger.info('Elapsed time ' + str(time.time() - tm))
+    else:
+        logger.error('Gmsh failed with status ' + str(gmsh_status))
 
 #------------------------------------------------------------------------------#
 
@@ -458,27 +479,25 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
     const = constants.GmshConstants()
 
     # Create grids from gmsh mesh.
+    logger.info('Create grids of various dimensions')
     g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False)
     g_1d, _ = mesh_2_grid.create_1d_grids(
         pts, cells, phys_names, cell_info, line_tag=const.PHYSICAL_NAME_FRACTURES)
     g_0d = mesh_2_grid.create_0d_grids(pts, cells)
     grids = [g_2d, g_1d, g_0d]
 
-    if verbose > 0:
-        print('\n')
-        print('Grid creation completed. Elapsed time ' + str(time.time() -
-                                                             start_time))
-        print('\n')
-        for g_set in grids:
-            if len(g_set) > 0:
-                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
-                    '-d grids with '
-                num = 0
-                for g in g_set:
-                    num += g.num_cells
-                s += str(num) + ' cells'
-                print(s)
-        print('\n')
+    logger.info('Grid creation completed. Elapsed time ' + str(time.time() -
+                                                               start_time))
+
+    for g_set in grids:
+        if len(g_set) > 0:
+            s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
+                '-d grids with '
+            num = 0
+            for g in g_set:
+                num += g.num_cells
+            s += str(num) + ' cells'
+            logger.info(s)
 
     return grids
 
@@ -543,7 +562,7 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     # Add a second tag as an identifier of each line.
     l = np.vstack((l, np.arange(l.shape[1])))
 
-    return p, l
+    return p, l, dom_p
 
 
 def __find_intersection_points(lines):
