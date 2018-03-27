@@ -134,6 +134,9 @@ class Exporter():
         else:
             # No need of special naming, create the folder
             name = self._make_folder(self.folder, self.name)
+            data = dict() if data is None else data
+            data['grid_dim'] = self.gb.dim*np.ones(self.gb.num_cells)
+            data['cell_id'] = np.arange(self.gb.num_cells)
             self._export_vtk_single(data, time_step, self.gb, name)
 
 #------------------------------------------------------------------------------#
@@ -430,7 +433,7 @@ class Exporter():
 
         gVTK.SetPoints(ptsVTK)
 
-        return gVTK
+        return gVTK, [g.num_cells for g in gs]
 
 
 def _point_ind(cell_ptr, face_ptr, face_cells, nodes_faces, nodes,
