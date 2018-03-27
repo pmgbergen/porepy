@@ -1,12 +1,17 @@
+import sys
 import numpy as np
 import unittest
-import filecmp
 
 from porepy.grids import structured, simplex
 from porepy.fracs import meshing
 from porepy.grids import coarsening as co
 
 from porepy.viz.exporter import Exporter
+
+if_vtk = 'vtk' in sys.modules
+if not if_vtk:
+    import warnings
+    warnings.warn("No vtk module loaded.")
 
 #------------------------------------------------------------------------------#
 
@@ -15,6 +20,9 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_single_grid_1d(self):
+        if not if_vtk:
+            return
+
         g = structured.CartGrid(3, 1)
         g.compute_geometry()
 
@@ -34,6 +42,9 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_single_grid_2d_simplex(self):
+        if not if_vtk:
+            return
+
         g = simplex.StructuredTriangleGrid([3]*2, [1]*2)
         g.compute_geometry()
 
@@ -53,6 +64,9 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_single_grid_2d_cart(self):
+        if not if_vtk:
+            return
+
         g = structured.CartGrid([4]*2, [1]*2)
         g.compute_geometry()
 
@@ -72,6 +86,9 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_single_grid_2d_polytop(self):
+        if not if_vtk:
+            return
+
         g = structured.CartGrid([3, 2], [1]*2)
         g.compute_geometry()
         co.generate_coarse_grid(g, [0, 0, 1, 0, 1, 1])
@@ -93,6 +110,9 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_single_grid_3d_simplex(self):
+        if not if_vtk:
+            return
+
         g = simplex.StructuredTetrahedralGrid([3]*3, [1]*3)
         g.compute_geometry()
 
@@ -112,6 +132,9 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_single_grid_3d_cart(self):
+        if not if_vtk:
+            return
+
         g = structured.CartGrid([4]*3, [1]*3)
         g.compute_geometry()
 
@@ -131,6 +154,9 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_single_grid_3d_polytop(self):
+        if not if_vtk:
+            return
+
         g = structured.CartGrid([3, 2, 3], [1]*3)
         g.compute_geometry()
         co.generate_coarse_grid(g, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, \
@@ -153,6 +179,9 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_gb_1(self):
+        if not if_vtk:
+            return
+
         f1 = np.array([[0, 1], [.5, .5]])
         gb = meshing.cart_grid([f1], [4]*2, **{'physdims': [1, 1]})
         gb.compute_geometry()
@@ -183,6 +212,9 @@ class BasicsTest( unittest.TestCase ):
 #------------------------------------------------------------------------------#
 
     def test_gb_2(self):
+        if not if_vtk:
+            return
+
         f1 = np.array([[0, 1], [.5, .5]])
         f2 = np.array([[.5, .5], [.25, .75]])
         gb = meshing.cart_grid([f1, f2], [4]*2, **{'physdims': [1, 1]})
@@ -2127,8 +2159,8 @@ class BasicsTest( unittest.TestCase ):
         return """<?xml version="1.0"?>
 <VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
 <Collection>
-	<DataSet group="" part="" file="grid_1.vtu"/>
-	<DataSet group="" part="" file="grid_2.vtu"/>
+\t<DataSet group="" part="" file="grid_1.vtu"/>
+\t<DataSet group="" part="" file="grid_2.vtu"/>
 </Collection>
 </VTKFile>"""
 
@@ -2279,8 +2311,8 @@ class BasicsTest( unittest.TestCase ):
         return """<?xml version="1.0"?>
 <VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
 <Collection>
-	<DataSet group="" part="" file="grid_1.vtu"/>
-	<DataSet group="" part="" file="grid_2.vtu"/>
+\t<DataSet group="" part="" file="grid_1.vtu"/>
+\t<DataSet group="" part="" file="grid_2.vtu"/>
 </Collection>
 </VTKFile>"""
 
@@ -2428,3 +2460,6 @@ class BasicsTest( unittest.TestCase ):
   </UnstructuredGrid>
 </VTKFile>
 """
+
+if __name__ == '__main__':
+    unittest.main()
