@@ -29,9 +29,9 @@ def add_data(gb, domain, kf):
         # Permeability
         kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
         if g.dim == 2:
-            perm = tensor.SecondOrder(3, kxx=kxx, kyy=kxx, kzz=1)
+            perm = tensor.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
         else:
-            perm = tensor.SecondOrder(3, kxx=kxx, kyy=1, kzz=1)
+            perm = tensor.SecondOrderTensor(3, kxx=kxx, kyy=1, kzz=1)
             if g.dim == 1:
                 R = cg.project_line_matrix(g.nodes, reference=[1, 0, 0])
                 perm.rotate(R)

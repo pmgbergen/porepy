@@ -234,7 +234,7 @@ def generate_coarse_grid_gb(gb, subdiv):
         face_map = generate_coarse_grid_single(g, partition, True)
 
         # Update all the face_cells for all the 'edges' connected to the grid
-        for e, d in gb.edges_props_of_node(g):
+        for e, d in gb.edges_of_node(g):
             # The indices that need to be mapped to the new grid
             face_cells = d['face_cells'].tocsr()
             indices = face_cells.indices
@@ -267,7 +267,7 @@ def tpfa_matrix(g, perm=None):
        g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
 
     if perm is None:
-        perm = tensor.SecondOrder(g.dim,np.ones(g.num_cells))
+        perm = tensor.SecondOrderTensor(g.dim,np.ones(g.num_cells))
 
     solver = tpfa.Tpfa()
     param = Parameters(g)
@@ -300,7 +300,7 @@ def generate_seeds(gb):
         index = np.in1d(faces, tips).nonzero()[0]
         cells = np.unique(cells[index])
 
-        face_cells = gb.graph.edge[g][g_h]['face_cells']
+        face_cells = gb.graph.adj[g][g_h]['face_cells']
         interf_cells, interf_faces, _ = sps.find(face_cells)
         index = np.in1d(interf_cells, cells).nonzero()[0]
 

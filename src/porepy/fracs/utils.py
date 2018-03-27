@@ -1,249 +1,128 @@
+""" Frontend utility functions related to fractures and their meshing.
+
+"""
 import numpy as np
-import warnings
+import logging
 
-from porepy.utils import comp_geom as cg
-from porepy.utils import setmembership
-
-
-#------------------------------------------------------------------------------#
-
-def determine_mesh_size(pts, lines=None, **kwargs):
-    """
-    Set the preferred mesh size for geometrical points as specified by
-    gmsh. Currently, two options are available:
-    - specify a single value for all fracture points, and one value for
-      the boundary.
-    - to weighed the mesh size depending of the fracture geometry. Useful for
-      complex network of fractures.
-
-    See the gmsh manual for further details.
-
-    """
-    mode = kwargs.get('mode', 'constant')
-
-    if mode == 'weighted':
-        return __weighted_determine_mesh_size(pts, lines, **kwargs)
-    elif mode == 'constant':
-        return __constant_determine_mesh_size(pts, lines, **kwargs)
-    else:
-        raise ValueError('Unknown mesh size mode ' + mode)
-
-#------------------------------------------------------------------------------#
-
-def __constant_determine_mesh_size(pts, lines, **kwargs):
-    num_pts = pts.shape[1]
-    val = kwargs.get('value', None)
-    bound_val = kwargs.get('bound_value', None)
-
-    if val is not None:
-        mesh_size = val * np.ones(num_pts)
-    else:
-        mesh_size = None
-
-    if bound_val is not None:
-        mesh_size_bound = bound_val
-    else:
-        mesh_size_bound = None
-
-    if lines is None:
-        return mesh_size, mesh_size_bound
-    else:
-        return mesh_size, mesh_size_bound, pts, lines
-
-#------------------------------------------------------------------------------#
-
-def __weighted_determine_mesh_size(pts, lines, **kwargs):
-    num_pts = pts.shape[1]
-    val = kwargs.get('value', 1)
-    bound_val = kwargs.get('bound_value', None)
-    tol = kwargs.get('tol', 1e-5)
-
-    # Compute the lenght of each pair of points (fractures + domain boundary)
-    pts_id = lines[:2, :]
-    dist = np.linalg.norm(pts[:, pts_id[0, :]] - pts[:, pts_id[1, :]],
-                          axis=0)
-    dist_pts = np.tile(np.inf, pts.shape[1])
-
-    # Loop on all the points and consider the minimum between the pairs of points
-    # lengths associated to the single point and the value input by the user
-    for i, pt_id in enumerate(pts_id.T):
-        distances = np.array([dist_pts[pt_id], [dist[i]]*2, [val]*2])
-        dist_pts[pt_id] = np.amin(distances, axis=0)
-
-    num_pts = pts.shape[1]
-    num_lines = lines.shape[1]
-    pts_extra = np.empty((2, 0))
-    dist_extra = np.empty(0)
-    pts_id_extra = np.empty(0, dtype=np.int)
-
-    # For each point we compute the distance between the point and the other
-    # pairs of points. We keep the minimum distance between the previously
-    # computed point distance and the distance among the other pairs of points.
-    # If the latter happens, we introduce a new point (useful to determine the
-    # grid size) on the corresponding pair of points with a corresponding
-    # distance.
-    # Loop on all the original points
-    for pt_id, pt in enumerate(pts.T):
-        # Loop on all the original lines
-        for line in lines.T:
-            start, end = pts[:, line[0]], pts[:, line[1]]
-            # Compute the distance between the point and the current line
-            dist, pt_int = cg.distance_point_segment(pt, start, end)
-            # If the distance is small than the input value we need to consider
-            # it
-            if dist < val and not np.isclose(dist, 0.):
-                dist_pts[pt_id] = min(dist_pts[pt_id], dist)
-
-                dist_start = np.linalg.norm(pt_int - start)
-                dist_end = np.linalg.norm(pt_int - end)
-                # Given the internal point on the line, associated to the
-                # distance with the current point, if its distance with the
-                # endings of the line is greater than the distance computed
-                # then we need to keep the point to balance the grid generation.
-                if dist < dist_start and dist < dist_end:
-                    dist_extra = np.r_[dist_extra, min(dist, val)]
-                    pts_extra = np.c_[pts_extra, pt_int]
-                    pts_id_extra = np.r_[pts_id_extra, line[3]]
-
-    old_lines = lines
-    old_pts = pts
-
-    # Since the computation was done point by point with the lines, we need to
-    # consider all the new points together and remove (from the new points) the
-    # useless ones.
-    extra_ids, inv_index = np.unique(pts_id_extra, return_inverse=True)
-    to_remove = np.empty(0, dtype=np.int)
-    for idx, i in enumerate(extra_ids):
-        mask = np.flatnonzero(inv_index == idx)
-        if mask.size > 1:
-            mesh_matrix = np.tile(dist_extra[mask], (mask.size, 1))
-            pos_matrix = np.zeros((mask.size, mask.size))
-            dist_matrix = np.ones((mask.size, mask.size))*np.inf
-
-            for pt1_id_loc in np.arange(mask.size):
-                for pt2_id_loc in np.arange(pt1_id_loc+1, mask.size):
-                    pt1_id = mask[pt1_id_loc]
-                    pt2_id = mask[pt2_id_loc]
-                    pt1 = pts_extra[:, pt1_id]
-                    pt2 = pts_extra[:, pt2_id]
-                    pts_id = np.array([pt1_id, pt2_id])
-                    pts_id_loc = np.array([pt1_id_loc, pt2_id_loc])
-                    pos_min = np.argmin(dist_extra[pts_id])
-                    pos_max = np.argmax(dist_extra[pts_id])
-                    dist_matrix[pts_id_loc[pos_min], pts_id_loc[pos_max]] = \
-                                                   np.linalg.norm(pt1 - pt2)
-
-            to_remove_loc = np.any(dist_matrix < mesh_matrix, axis=0)
-            to_remove = np.r_[to_remove, mask[to_remove_loc]]
-
-    # Remove the useless new points
-    pts_extra = np.delete(pts_extra, to_remove, axis=1)
-    dist_extra = np.delete(dist_extra, to_remove)
-    pts_id_extra = np.delete(pts_id_extra, to_remove)
-
-    # Consider all the points
-    pts = np.c_[pts, pts_extra]
-    dist_pts = np.r_[dist_pts, dist_extra]
-
-    # Re-create the lines, considering the new introduced points
-    seg_ids = np.unique(lines[3, :])
-    new_lines = np.empty((4,0), dtype=np.int)
-    for seg_id in seg_ids:
-        mask_bool = lines[3, :] == seg_id
-        extra_mask_bool = pts_id_extra == seg_id
-        if not np.any(extra_mask_bool):
-            # No extra points are considered for the current line
-            new_lines = np.c_[new_lines, lines[:, mask_bool]]
-        else:
-            # New extra point are considered for the current line, they need to
-            # be sorted along the line.
-            pts_frac_id = np.hstack((lines[0:2, mask_bool].ravel(),
-                                 np.flatnonzero(extra_mask_bool) + num_pts))
-            pts_frac_id = np.unique(pts_frac_id)
-            pts_frac = pts[:, pts_frac_id]
-            pts_frac_id = pts_frac_id[cg.argsort_point_on_line(pts_frac, tol)]
-            pts_frac_id = np.vstack((pts_frac_id[:-1], pts_frac_id[1:]))
-            other_info = np.tile(lines[2:, mask_bool][:, 0],
-                                                (pts_frac_id.shape[1], 1)).T
-            new_lines = np.c_[new_lines, np.vstack((pts_frac_id, other_info))]
-
-    # Consider extra points related to the input value, if the fracture is long
-    # and, beacuse of val, needs additional points we increase the number of
-    # lines.
-    relax = kwargs.get('relaxation', 0.8)
-    lines = np.empty((4, 0), dtype=np.int)
-    for seg in new_lines.T:
-        mesh_size_pt1 = dist_pts[seg[0]]
-        mesh_size_pt2 = dist_pts[seg[1]]
-        dist = np.linalg.norm(pts[:, seg[0]] - pts[:, seg[1]])
-        if (mesh_size_pt1 >= relax*val and mesh_size_pt2 >= relax*val) \
-           or \
-           (relax*dist <= 2*mesh_size_pt1 and relax*dist <= 2*mesh_size_pt2):
-            lines = np.c_[lines, seg]
-        else:
-            pt_id = pts.shape[1]
-            new_pt = 0.5*(pts[:, seg[0]] + pts[:, seg[1]])
-            pts = np.c_[pts, new_pt]
-            mesh_size = np.amin([val, dist/2.])
-
-            for old_seg in old_lines.T:
-                start, end = old_pts[:, old_seg[0]], old_pts[:, old_seg[1]]
-                # Compute the distance between the point and the current line
-                dist1, pt_int = cg.distance_point_segment(new_pt, start, end)
-                # If the distance is small than the input value we need to consider
-                # it
-                if dist1 < mesh_size and not np.isclose(dist1, 0.):
-                    mesh_size = dist1
-
-            dist_pts = np.r_[dist_pts, mesh_size]
-            lines = np.c_[lines, [seg[0], pt_id, seg[2], seg[3]],
-                                 [pt_id, seg[1], seg[2], seg[3]]]
+import porepy as pp
 
 
-    return dist_pts, bound_val, pts, lines
+# Module level logger
+logger = logging.getLogger(__name__)
 
-#------------------------------------------------------------------------------#
-
-def obtain_interdim_mappings(lg, fn, n_per_face,
-                             ensure_matching_face_cell=True, **kwargs):
-    """
-    Find mappings between faces in higher dimension and cells in the lower
-    dimension
+def fracture_length_2d(pts, edges):
+    """ Find the length of 2D fracture traces.
 
     Parameters:
-        lg: Lower dimensional grid.
-        fn: Higher dimensional face-node relation.
-        n_per_face: Number of nodes per face in the higher-dimensional grid.
-        ensure_matching_face_cell: Boolean, defaults to True. If True, an
-            assertion is made that all lower-dimensional cells corresponds to a
-            higher dimensional cell.
+        pts (np.ndarray, 2 x n_pts): Coordinates of start and endpoints of
+            fractures.
+        edges (np.ndarary, 2 x n_fracs): Indices of start and endpoint of
+            fractures, referring to columns in pts.
+
+    Returns:
+        np.ndarray, length n_fracs: Length of each fracture.
 
     """
-    if lg.dim > 0:
-        cn_loc = lg.cell_nodes().indices.reshape((n_per_face,
-                                                  lg.num_cells),
-                                                 order='F')
-        cn = lg.global_point_ind[cn_loc]
-        cn = np.sort(cn, axis=0)
+    start = pts[:, edges[0]]
+    end = pts[:, edges[1]]
+
+    length = np.sqrt(np.sum(np.power(end - start, 2), axis=0))
+    return length
+
+def uniquify_points(pts, edges, tol):
+    """ Uniquify a set of points by merging almost coinciding coordinates.
+
+    Also update fractures, and remove edges that consist of a single point
+    (either after the points were merged, or because the input was a point
+    edge).
+
+    Parameters:
+        pts (np.ndarary, n_dim x n_pts): Coordinates of start and endpoints of
+            the fractures.
+        edges (np.ndarray, n x n_fracs): Indices of start and endpoint of
+            fractures, referring to columns in pts. Should contain at least two
+            rows; additional rows representing fracture tags are also accepted.
+        tol (double): Tolerance used for merging points.
+
+    Returns:
+        np.ndarray (n_dim x n_pts_unique): Unique point array.
+        np.ndarray (2 x n_fracs_update): Updated start and endpoints of
+            fractures.
+        np.ndarray: Index (referring to input) of fractures deleted as they
+            effectively contained a single coordinate.
+
+    """
+
+    # uniquify points based on coordinates
+    p_unique, _, o2n = pp.utils.setmembership.unique_columns_tol(pts, tol=tol)
+    # update edges
+    e_unique_p = np.vstack((o2n[edges[:2]], edges[2:]))
+
+    # Find edges that start and end in the same point, and delete them
+    point_edge = np.where(np.diff(e_unique_p[:2], axis=0)[0] == 0)[0].ravel()
+    e_unique = np.delete(e_unique_p, point_edge, axis=1)
+
+    return p_unique, e_unique, point_edge
+
+
+def snap_fracture_set_2d(pts, edges, snap_tol, termination_tol=1e-2,
+                         max_iter=100):
+    """ Snap vertexes of a set of fracture lines embedded in 2D, so that small
+    distances between lines and vertexes are removed.
+
+    This is intended as a utility function to preprocess a fracture network
+    before meshing. The function may change both connectivity and orientation
+    of individual fractures in the network. Specifically, fractures that
+    almost form a T-intersection (or L), may be connected, while
+    X-intersections with very short ends may be truncated to T-intersections.
+
+    The modification snaps vertexes to the closest point on the adjacent line.
+    This will in general change the orientation of the fracture with the
+    snapped vertex. The alternative, to prolong the fracture along its existing
+    orientation, may result in very long fractures for almost intersecting
+    lines. Depending on how the fractures are ordered, the same point may
+    need to be snapped to a segment several times in an iterative process.
+
+    The algorithm is *not* deterministic, in the sense that if the ordering of
+    the fractures is permuted, the snapped fracture network will be slightly
+    different.
+
+    Parameters:
+        pts (np.array, 2 x n_pts): Array of start and endpoints for fractures.
+        edges (np.ndarray, n x n_fracs): First row contains index of start
+            of all fractures, referring to columns in pts. Second contains
+            index of endpoints.
+        snap_tol (double): Snapping tolerance. Distances below this will be
+            snapped.
+        termination_tol (double): Minimum point movement needed for the
+            iterations to continue.
+        max_iter (int, optional): Maximum number of iterations. Defaults to
+            100.
+
+    Returns:
+        np.array (2 x n_pts): Copy of the point array, with modified point
+            coordinates.
+        boolean: True if the iterations converged within allowed number of
+            iterations.
+
+    """
+    pts_orig = pts.copy()
+    counter = 0
+    pn = 0 * pts
+    while counter < max_iter:
+        pn = pp.cg.snap_points_to_segments(pts, edges, tol=snap_tol)
+        diff = np.max(np.abs(pn - pts))
+        logger.debug('Iteration ' + str(counter) + ', max difference' + str(diff))
+        pts = pn
+        if diff < termination_tol:
+            break
+        counter += 1
+
+    if counter < max_iter:
+        logger.info('Fracture snapping converged after ' + str(counter) + ' iterations')
+        logger.info('Maximum modification ' + str(np.max(np.abs(pts - pts_orig))))
+        return pts, True
     else:
-        cn = np.array([lg.global_point_ind])
-        # We also know that the higher-dimensional grid has faces
-        # of a single node. This sometimes fails, so enforce it.
-        if cn.ndim == 1:
-            fn = fn.ravel()
-    is_mem, cell_2_face = setmembership.ismember_rows(
-        cn.astype(np.int32), fn.astype(np.int32), sort=False)
-    # An element in cell_2_face gives, for all cells in the
-    # lower-dimensional grid, the index of the corresponding face
-    # in the higher-dimensional structure.
-    if not (np.all(is_mem) or np.all(~is_mem)):
-        if ensure_matching_face_cell:
-            raise ValueError(
-                '''Either all cells should have a corresponding face in a higher
-            dim grid or no cells should have a corresponding face in a higher
-            dim grid. This likely is related to gmsh behavior. ''')
-        else:
-            warnings.warn('''Found inconsistency between cells and higher
-                          dimensional faces. Continuing, fingers crossed''')
-    low_dim_cell = np.where(is_mem)[0]
-    return cell_2_face, low_dim_cell
+        logger.warning('Fracture snapping failed to converge')
+        logger.warning('Residual: ' + str(diff))
+        return pts, False

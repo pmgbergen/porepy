@@ -2,7 +2,7 @@ import sys, os
 import numpy as np
 import scipy.sparse as sps
 import logging
-
+import warnings
 try:
     import vtk
     import vtk.util.numpy_support as ns
@@ -208,7 +208,6 @@ class Exporter():
                     values[i] = self.gb.graph.node[g][d]
                 dic_data[d] = np.hstack(values)
 
-            print(dic_data)
             if self.gb_VTK[dim] is not None:
                 self._write_vtk(dic_data, file_name, self.gb_VTK[dim])
 

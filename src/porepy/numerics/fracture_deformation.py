@@ -131,6 +131,7 @@ class FrictionSlipModel():
         self.d_n[fi] += self.fracture_dilation(slip_d)
         self.d_n[fi_left] += self.fracture_dilation(slip_d)
         assert np.all(self.d_n[fi] >-1e-6)
+
         slip_vec =  -t * slip_d - n * self.fracture_dilation(slip_d)
         
         self.x[:, fi] += slip_vec
@@ -274,7 +275,7 @@ class FrictionSlipModel():
         self._data[self.slip_name] = self.x
         return self.x
 
-    def aperture_change(self, aperture_name='apperture_change'):
+    def aperture_change(self, aperture_name='aperture_change'):
         """
         Save the aperture change to the data dictionary. The aperture change
         will be saved as a (self.grid().num_faces) array
