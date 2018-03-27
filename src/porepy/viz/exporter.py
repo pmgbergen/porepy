@@ -217,7 +217,7 @@ class Exporter():
         name = self._make_folder(self.folder, self.name)+".pvd"
         self._export_pvd_gb(name)
 
-        # DEVO RIMUOVERE QUELLI CHE HO AGGIUNTO IO
+        self.gb.remove_node_props(extra_data)
 
 #------------------------------------------------------------------------------#
 
