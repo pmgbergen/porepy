@@ -187,26 +187,26 @@ class Exporter():
             data = np.atleast_1d(data).tolist()
         assert isinstance(data, list) or data is None
         data = list() if data is None else data
+        extra_data = ['grid_dim', 'cell_id', 'grid_node_number']
+        data.extend(extra_data)
 
         self.gb.assign_node_ordering(overwrite_existing=False)
-        self.gb.add_node_props(['grid_dim', 'file_name'])
+        self.gb.add_node_props(extra_data)
+        for g, d in self.gb:
+            d['grid_dim'] = g.dim*np.ones(g.num_cells)
+            d['cell_id'] = np.arange(g.num_cells)
+            d['grid_node_number'] = d['node_number']*np.ones(g.num_cells)
 
         for dim in self.dims:
             file_name = self._make_file_name(self.name, time_step, dim)
             file_name = self._make_folder(self.folder, file_name)
-            #for g in self.gb.get_grids(lambda g: g.dim == dim):
-                #dic_data = self.gb.node_props_of_keys(g, data)
             dic_data = dict()
-            num_elem = self.num_elem[dim]
-            ones = np.ones(np.sum(num_elem))
-            dic_data['grid_dim'] = dim*ones
-            dic_data['cell_id'] = np.hstack((np.arange(n) for n in num_elem))
-
-            dic_data['node_number'] = np.empty(len(num_elem), dtype=np.object)
-            for i, g in enumerate(self.gb.get_grids(lambda g: g.dim == dim)):
-                node_number = self.gb.graph.node[g]['node_number']
-                dic_data['node_number'][i] = node_number*np.ones(g.num_cells)
-            dic_data['node_number'] = np.hstack(dic_data['node_number'])
+            for d in data:
+                grids = self.gb.get_grids(lambda g: g.dim == dim)
+                values = np.empty(grids.size, dtype=np.object)
+                for i, g in enumerate(grids):
+                    values[i] = self.gb.graph.node[g][d]
+                dic_data[d] = np.hstack(values)
 
             print(dic_data)
             if self.gb_VTK[dim] is not None:
@@ -214,6 +214,8 @@ class Exporter():
 
         name = self._make_folder(self.folder, self.name)+".pvd"
         self._export_pvd_gb(name)
+
+        # DEVO RIMUOVERE QUELLI CHE HO AGGIUNTO IO
 
 #------------------------------------------------------------------------------#
 
