@@ -395,6 +395,54 @@ class TestBucket(unittest.TestCase):
         gb.__str__()
         gb.__repr__()
 
+    # ------------ Tests for removers
+
+    def test_remove_single_node_prop(self):
+        gb = self.simple_bucket(2)
+        props = ['a', 'b']
+        gb.add_node_props(props)
+        gb.remove_node_props('a')
+
+        for _, d in gb:
+            assert not 'a' in d.keys()
+            assert 'b' in d.keys()
+
+    def test_remove_multiple_node_props(self):
+        gb = self.simple_bucket(2)
+        props = ['a', 'b']
+        gb.add_node_props(props)
+        gb.remove_node_props(props)
+
+        for _, d in gb:
+            for p in props:
+                assert not p in d.keys()
+
+    def test_remove_selective_node_props(self):
+        gb = pp.GridBucket()
+        g1 = MockGrid()
+        g2 = MockGrid()
+        gb.add_nodes(g1)
+        gb.add_nodes(g2)
+
+        props = ['a', 'b', 'c']
+        gb.add_node_props(props)
+
+        gb.remove_node_props('a', g1)
+        gb.remove_node_props('b', g2)
+        gb.remove_node_props('c', [g1, g2])
+
+        for g, d in gb:
+            assert not 'c' in d.keys()
+            if g == g1:
+                assert not 'a' in d.keys()
+                assert 'b' in d.keys()
+            else:
+                assert not 'b' in d.keys()
+                assert 'a' in d.keys()
+
+    def test_remove_node_prop_node_number(self):
+        gb = self.simple_bucket(1)
+        self.assertRaises(ValueError, gb.remove_node_props, 'node_number')
 
 if __name__ == '__main__':
     unittest.main()
