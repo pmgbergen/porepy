@@ -354,7 +354,7 @@ class ParabolicDataAssigner():
     def diffusivity(self):
         'Returns diffusivity tensor'
         kxx = np.ones(self.grid().num_cells)
-        return tensor.SecondOrder(self.grid().dim, kxx)
+        return tensor.SecondOrderTensor(self.grid().dim, kxx)
 
     def aperture(self):
         '''Returns apperture of each cell. If None is returned, default

@@ -17,9 +17,9 @@ class BasicsTest(unittest.TestCase):
         box = {'xmin': 0, 'ymin': 0, 'zmin': 0,
                'xmax': 5, 'ymax':  5, 'zmax': 5}
         mesh_size = 1.0
-        mesh_kwargs = {'mode': 'constant',
-                       'value': mesh_size, 'bound_value': mesh_size}
-        self.gb3d = meshing.simplex_grid([f], box, mesh_size=mesh_kwargs)
+        mesh_kwargs = {'mesh_size_frac': mesh_size,
+                       'mesh_size_min': mesh_size / 20}
+        self.gb3d = meshing.simplex_grid([f], box, **mesh_kwargs)
         unittest.TestCase.__init__(self, *args, **kwargs)
 
     #------------------------------------------------------------------------------#
@@ -209,9 +209,9 @@ def solve_elliptic_problem(gb):
             g, dir_bound, ['dir'] * dir_bound.size)
         d['param'].set_bc('flow', bc_cond)
 
-    gb.add_edge_prop('param')
-    for e, d in gb.edges_props():
-        g_h = gb.sorted_nodes_of_edge(e)[1]
+    gb.add_edge_props('param')
+    for e, d in gb.edges():
+        g_h = gb.nodes_of_edge(e)[1]
         d['param'] = Parameters(g_h)
     flux = elliptic.EllipticModel(gb)
     p = flux.solve()
