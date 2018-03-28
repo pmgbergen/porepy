@@ -98,7 +98,7 @@ class BasicsTest(unittest.TestCase):
         # Test
         known = np.array([1, 5, 18, 19])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             faces = sps.find(d['face_cells'])[1]
             assert np.array_equal(faces, known)
 
@@ -143,7 +143,7 @@ class BasicsTest(unittest.TestCase):
             co.generate_coarse_grid(gb, part)
 
             # Test
-            for e_d in gb.edges_props():
+            for e_d in gb.edges():
                 faces = sps.find(e_d[1]['face_cells'])[1]
 
                 if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) \
@@ -184,7 +184,7 @@ class BasicsTest(unittest.TestCase):
         known_indices = np.array([1, 3, 0, 2, 1, 3, 0, 2])
         known = np.array([1, 4, 7, 10, 44, 45, 46, 47])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             indices, faces, _ = sps.find(d['face_cells'])
             assert np.array_equal(indices, known_indices)
             assert np.array_equal(faces, known)
@@ -230,7 +230,7 @@ class BasicsTest(unittest.TestCase):
                 3., 3., 3., 3., 3.]])
 
             # Test
-            for e_d in gb.edges_props():
+            for e_d in gb.edges():
                 indices, faces, _ = sps.find(e_d[1]['face_cells'])
 
                 if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) \
@@ -329,7 +329,7 @@ class BasicsTest(unittest.TestCase):
         known_indices = np.array([1, 0, 1, 0])
         known = np.array([1, 4, 10, 11])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             indices, faces, _ = sps.find(d['face_cells'])
             assert np.array_equal(faces, known)
             assert np.array_equal(indices, known_indices)
@@ -348,7 +348,7 @@ class BasicsTest(unittest.TestCase):
         known_indices = np.array([0, 0])
         known = np.array([1, 9])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             indices, faces, _ = sps.find(d['face_cells'])
             assert np.array_equal(faces, known)
             assert np.array_equal(indices, known_indices)
@@ -371,7 +371,7 @@ class BasicsTest(unittest.TestCase):
         known_indices = np.array([0, 0])
         known = np.array([1, 10])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             indices, faces, _ = sps.find(d['face_cells'])
             assert np.array_equal(faces, known)
             assert np.array_equal(indices, known_indices)
@@ -390,7 +390,7 @@ class BasicsTest(unittest.TestCase):
         known_indices = np.array([0, 0])
         known = np.array([3, 9])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             indices, faces, _ = sps.find(d['face_cells'])
             assert np.array_equal(faces, known)
             assert np.array_equal(indices, known_indices)
@@ -413,7 +413,7 @@ class BasicsTest(unittest.TestCase):
         known_indices = np.array([0, 0])
         known = np.array([4, 10])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             indices, faces, _ = sps.find(d['face_cells'])
             assert np.array_equal(faces, known)
             assert np.array_equal(indices, known_indices)
@@ -448,7 +448,7 @@ class BasicsTest(unittest.TestCase):
                             1.66533454e-16]])
 
             # Test
-            for e_d in gb.edges_props():
+            for e_d in gb.edges():
                 indices, faces, _ = sps.find(e_d[1]['face_cells'])
 
                 if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) \
@@ -509,7 +509,7 @@ class BasicsTest(unittest.TestCase):
                             1.66533454e-16]])
 
             # Test
-            for e_d in gb.edges_props():
+            for e_d in gb.edges():
                 indices, faces, _ = sps.find(e_d[1]['face_cells'])
 
                 if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) \
@@ -595,7 +595,7 @@ class BasicsTest(unittest.TestCase):
                             7.21644966e-16, 8.32667268e-16, 9.43689571e-16]])
 
             # Test
-            for e_d in gb.edges_props():
+            for e_d in gb.edges():
                 indices, faces, _ = sps.find(e_d[1]['face_cells'])
 
                 if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) \

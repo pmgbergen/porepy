@@ -29,7 +29,7 @@ def test_tpfa_cart_2d():
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     bound_faces = np.array([0, 3, 12])
     bound = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
@@ -41,7 +41,7 @@ def test_tpfa_cart_2d():
     div = g.cell_faces.T
     a = div * trm
     b = -(div * bound_flux).A
-    
+
     # Checks on interior cell
     mid = 4
     assert a[mid, mid] == 4
@@ -85,7 +85,7 @@ def test_uniform_flow_cart_2d():
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
     bound_faces = np.argwhere(
         np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
     bound = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)

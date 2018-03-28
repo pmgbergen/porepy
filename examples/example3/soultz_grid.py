@@ -102,8 +102,10 @@ def create_grid(**mesh_kwargs):
 
     # This may be changed, if desirable.
     if mesh_kwargs is None:
-        mesh_size = {'mode':'constant', 'value': 150, 'bound_value':500}
-        mesh_kwargs = {'mesh_size': mesh_size, 'file_name': 'soultz_fracs'}
+        mesh_kwargs = {'mesh_size_frac': 150,
+                       'mesh_size_bound': 500,
+                       'mesh_size_min': 10,
+                       'file_name': 'soultz_fracs'}
     # Since we have a ready network (and may want to take this file into
     # jupyter and study the network before gridding), we abuse the workflow
     # slightly by calling simplex_tetrahedral directly, rather than to go the

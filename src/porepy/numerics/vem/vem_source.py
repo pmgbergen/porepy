@@ -9,7 +9,7 @@ from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 
 
-class Integral(Solver):
+class DualSource(Solver):
     '''
     Discretization of the integrated source term
     int q * dx
@@ -43,11 +43,11 @@ class Integral(Solver):
 
 #------------------------------------------------------------------------------
 
-class IntegralMixedDim(SolverMixedDim):
+class DualSourceMixedDim(SolverMixedDim):
     def __init__(self, physics='flow'):
         self.physics = physics
 
-        self.discr = Integral(self.physics)
+        self.discr = DualSource(self.physics)
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = None
 
@@ -56,7 +56,7 @@ class IntegralMixedDim(SolverMixedDim):
 
 #------------------------------------------------------------------------------
 
-class IntegralDFN(SolverMixedDim):
+class DualSourceDFN(SolverMixedDim):
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
         # In this case a mixed solver is considered. We assume only two
@@ -70,7 +70,7 @@ class IntegralDFN(SolverMixedDim):
         self.physics = physics
         self.dim_max = dim_max
 
-        self.discr = Integral(self.physics)
+        self.discr = DualSource(self.physics)
         self.coupling_conditions = None
 
         kwargs = {"discr_ndof": self.__ndof__,
