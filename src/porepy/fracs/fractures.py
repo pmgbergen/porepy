@@ -954,7 +954,7 @@ class FractureNetwork(object):
         mesh_size_frac (double): Mesh size parameter. Ideal mesh size, fed to
             gmsh. Set by insert_auxiliary_points().
         mesh_size_bound (double): Mesh size parameter. Boundary mesh size, fed to
-            gmsh. Set by insert_auxiliary_points(). 
+            gmsh. Set by insert_auxiliary_points().
         auxiliary_points_added (boolean): Mesh size parameter. If True,
             extra points have been added to Fracture geometry to facilitate
             mesh size tuning.
@@ -1589,7 +1589,7 @@ class FractureNetwork(object):
             s += 'Minimal disance between points ' + str(dist) + '\n'
 
         if do_print:
-            print(s)
+            logger.info(s)
 
         return s
 
@@ -1979,14 +1979,14 @@ class FractureNetwork(object):
         num_pts = self.decomposition['points'].shape[1]
 
         if self.mesh_size_min is None or self.mesh_size_frac is None:
-            print('Found no information on mesh sizes. Returning')
+            logger.info('Found no information on mesh sizes. Returning')
             return None
 
         p = self.decomposition['points']
         num_pts = p.shape[1]
         dist = cg.dist_pointset(p, max_diag=True)
         mesh_size_dist = np.min(dist, axis=1)
-        print('Minimal distance between points encountered is ' + str(np.min(dist)))
+        logger.info('Minimal distance between points encountered is '+str(np.min(dist)))
         mesh_size_min = np.maximum(mesh_size_dist, self.mesh_size_min * np.ones(num_pts))
         mesh_size = np.minimum(mesh_size_min, self.mesh_size_frac * np.ones(num_pts))
         on_boundary = kwargs.get('boundary_point_tags', None)
@@ -2028,7 +2028,7 @@ class FractureNetwork(object):
         """
 
         if self.auxiliary_points_added:
-            print('Auxiliary points already added. Returning.')
+            logger.info('Auxiliary points already added. Returning.')
         else:
             self.auxiliary_points_added = True
 
