@@ -10,6 +10,7 @@ that module as well.
 """
 import numpy as np
 import scipy.sparse as sps
+import logging
 
 from porepy.numerics.fv import fvutils
 from porepy.utils import matrix_compression, mcolon, sparse_mat
@@ -17,6 +18,8 @@ from porepy.grids import structured, partition
 from porepy.params import tensor, bc
 from porepy.numerics.mixed_dim.solver import Solver
 
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 class Mpsa(Solver):
 
@@ -599,7 +602,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
         peak_mem = _estimate_peak_memory_mpsa(g)
         num_part = np.ceil(peak_mem / max_memory)
 
-        print('Split MPSA discretization into ' + str(num_part) + ' parts')
+        logger.info('Split MPSA discretization into '+str(num_part)+' parts')
 
         # Let partitioning module apply the best available method
         part = partition.partition(g, num_part)

@@ -18,7 +18,6 @@ from porepy.viz.exporter import Exporter
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
-
 class StaticModel():
     '''
     Class for solving an static elasticity problem flow problem:

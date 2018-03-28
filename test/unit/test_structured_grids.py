@@ -190,8 +190,6 @@ class TestCartGridGeometry1CellPert3D(unittest.TestCase):
         cy = cx
         cz = cx
         cc = self.g.cell_centers
-        print(cx)
-        print(cc[:])
         assert np.isclose(cx, cc[0]).all()
         assert np.isclose(cy, cc[1]).all()
         assert np.isclose(cz, cc[2]).all()

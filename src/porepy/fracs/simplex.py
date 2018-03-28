@@ -106,7 +106,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     if not network.has_checked_intersections:
         network.find_intersections()
     else:
-        print('Use existing intersections')
+        logger.info('Use existing intersections')
 
     start_time = time.time()
 
@@ -125,7 +125,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     if not hasattr(network, 'decomposition'):
         network.split_intersections()
     else:
-        print('Use existing decomposition')
+        logger.info('Use existing decomposition')
 
     in_file = file_name + '.geo'
     out_file = file_name + '.msh'
@@ -141,9 +141,9 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     if verbose > 0:
         start_time = time.time()
         if gmsh_status == 0:
-            print('Gmsh processed file successfully')
+            logger.info('Gmsh processed file successfully')
         else:
-            print('Gmsh failed with status ' + str(gmsh_status))
+            logger.error('Gmsh failed with status '+str(gmsh_status))
 
     pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
 
@@ -164,10 +164,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     grids = [g_3d, g_2d, g_1d, g_0d]
 
     if verbose > 0:
-        print('\n')
-        print('Grid creation completed. Elapsed time ' + str(time.time() -
-                                                             start_time))
-        print('\n')
+        delta_time = str(time.time()-start_time)
+        logger.info('\nGrid creation completed. Elapsed time '+delta_time+'\n')
         for g_set in grids:
             if len(g_set) > 0:
                 s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
@@ -176,8 +174,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
                 for g in g_set:
                     num += g.num_cells
                 s += str(num) + ' cells'
-                print(s)
-        print('\n')
+                logger.info(s)
+        logger.info('\n')
 
     return grids
 
@@ -235,7 +233,7 @@ def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
     if not hasattr(network, 'decomposition'):
         network.split_intersections()
     else:
-        print('Use existing decomposition')
+        logger.info('Use existing decomposition')
 
     pts, cells, cell_info, phys_names = _run_gmsh(f_name, network,
                                                   in_3d=False, **kwargs)
@@ -248,7 +246,7 @@ def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
     grids = [g_2d, g_1d, g_0d]
 
     if verbose > 0:
-        print('\n')
+        logger.info('\n')
         for g_set in grids:
             if len(g_set) > 0:
                 s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
@@ -257,8 +255,8 @@ def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
                 for g in g_set:
                     num += g.num_cells
                 s += str(num) + ' cells'
-                print(s)
-        print('\n')
+                logger.info(s)
+        logger.info('\n')
 
     return grids
 
@@ -274,7 +272,7 @@ def _run_gmsh(file_name, network, **kwargs):
     if not hasattr(network, 'decomposition'):
         network.split_intersections()
     else:
-        print('Use existing decomposition')
+        logger.info('Use existing decomposition')
 
     network.to_gmsh(in_file, **kwargs)
 
@@ -286,9 +284,9 @@ def _run_gmsh(file_name, network, **kwargs):
 
     if verbose > 0:
         if gmsh_status == 0:
-            print('Gmsh processed file successfully')
+            logger.info('Gmsh processed file successfully')
         else:
-            print('Gmsh failed with status ' + str(gmsh_status))
+            logger.error('Gmsh failed with status '+str(gmsh_status))
             sys.exit()
 
     pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)

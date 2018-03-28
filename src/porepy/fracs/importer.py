@@ -528,8 +528,6 @@ def read_dfn_grid(folder, num_fractures, case_id, **kwargs):
                                  "intersection_" + str(f_id) +
                                  "_" + str(g_id - 1) + "_" + str(case_id))
 
-                print(nodes_id)
-                print(g_2d[f_id].global_point_ind[nodes_id])
                 global_point_ind = g_2d[f_id].global_point_ind[nodes_id]
                 g_1d.global_point_ind = global_point_ind
 
