@@ -50,9 +50,7 @@ class BasicsTest(unittest.TestCase):
             param.set_aperture(aperture)
 
             kxx = np.ones(g.num_cells) * np.power(1e3, g.dim < gb.dim_max())
-            #print(kxx, 'dim', g.dim)
             p = tensor.SecondOrderTensor(3, kxx, kyy=kxx, kzz=kxx)
-            # print(p.perm)
             param.set_tensor('flow', p)
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound_face_centers = g.face_centers[:, bound_faces]

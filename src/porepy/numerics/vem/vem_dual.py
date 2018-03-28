@@ -6,8 +6,12 @@
 import warnings
 import numpy as np
 import scipy.sparse as sps
+import logging
 
 import porepy as pp
+
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 #------------------------------------------------------------------------------#
 
@@ -68,7 +72,7 @@ class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
                 conservation_l[c_l] -= u_f
 
         for g, d in gb:
-            print(np.amax(np.abs(d[conservation])))
+            logger.info(np.amax(np.abs(d[conservation])))
 
 #------------------------------------------------------------------------------#
 
