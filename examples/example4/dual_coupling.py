@@ -20,7 +20,7 @@ from scipy.sparse.linalg import spsolve
 
 from porepy.grids import structured
 from porepy.params import tensor, bc
-from porepy.utils.errors import error
+from porepy.utils import error
 from porepy.numerics.vem import dual, dual_coupling
 from porepy.viz.plot_grid import plot_grid
 from porepy.viz.exporter import export_vtk
@@ -54,7 +54,7 @@ from porepy.numerics.mixed_dim import coupler
 #    gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
 #    for g, d in gb:
 #        kxx = np.ones(g.num_cells)
-#        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+#        d['perm'] = tensor.SecondOrderTensor(g.dim, kxx)
 #        d['source'] = np.zeros(g.num_cells)
 #
 #        b_faces = g.get_all_boundary_faces()
@@ -124,7 +124,7 @@ from porepy.numerics.mixed_dim import coupler
 #    gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
 #    for g, d in gb:
 #        kxx = np.ones(g.num_cells)
-#        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+#        d['perm'] = tensor.SecondOrderTensor(g.dim, kxx)
 #        d['source'] = np.zeros(g.num_cells)
 #
 #        if g.dim != 0:
@@ -182,11 +182,11 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
               2}
 
-#    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
-    mesh_size = {'mode': 'constant', 'value': 5, 'bound_value': 10}
-    kwargs = {'mesh_mode': 'constant', 'h_min': 0.25, 'h_ideal': 10}
-
-    kwargs['gmsh_path'] = '~/gmsh/bin/gmsh'
+    
+    kwargs = {'mesh_size_frac': .25,
+              'mesh_size_bound': 10,
+              'mesh_size_min': .02,
+              'gmsh_path': '~/gmsh/bin/gmsh'}
 
     gb = meshing.simplex_grid([f_1, f_2], domain, **kwargs)
     gb.remove_nodes(lambda g: g.dim == gb.dim_max())
@@ -208,7 +208,7 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
-        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+        d['perm'] = tensor.SecondOrderTensor(g.dim, kxx)
         d['source'] = np.zeros(g.num_cells)
 
         b_faces = g.tags['domain_boundary_faces'].nonzero()[0]

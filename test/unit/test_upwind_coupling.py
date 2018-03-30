@@ -56,10 +56,10 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         # Assign coupling discharge
-        gb.add_edge_prop('param')
-        for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'discharge')
+        gb.add_edge_props('param')
+        for e, d in gb.edges():
+            g_h = gb.nodes_of_edge(e)[1]
+            discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
             d['discharge'] = discharge
 
@@ -121,10 +121,10 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         # Assign coupling discharge
-        gb.add_edge_prop('param')
-        for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'discharge')
+        gb.add_edge_props('param')
+        for e, d in gb.edges():
+            g_h = gb.nodes_of_edge(e)[1]
+            discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
             d['discharge'] = discharge
 
@@ -209,10 +209,10 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         # Assign coupling discharge
-        gb.add_edge_prop('param')
-        for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'discharge')
+        gb.add_edge_props('param')
+        for e, d in gb.edges():
+            g_h = gb.nodes_of_edge(e)[1]
+            discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
             d['discharge'] = discharge
 
@@ -283,10 +283,10 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         # Assign coupling discharge
-        gb.add_edge_prop('param')
-        for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'discharge')
+        gb.add_edge_props('param')
+        for e, d in gb.edges():
+            g_h = gb.nodes_of_edge(e)[1]
+            discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
             d['discharge'] = discharge
 
@@ -348,10 +348,10 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         # Assign coupling discharge
-        gb.add_edge_prop('param')
-        for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'discharge')
+        gb.add_edge_props('param')
+        for e, d in gb.edges():
+            g_h = gb.nodes_of_edge(e)[1]
+            discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
             d['discharge'] = discharge
 
@@ -460,10 +460,10 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         # Assign coupling discharge
-        gb.add_edge_prop('param')
-        for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'discharge')
+        gb.add_edge_props('param')
+        for e, d in gb.edges():
+            g_h = gb.nodes_of_edge(e)[1]
+            discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
             d['discharge'] = discharge
 
@@ -507,10 +507,10 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         # Assign coupling discharge
-        gb.add_edge_prop('param')
-        for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'discharge')
+        gb.add_edge_props('param')
+        for e, d in gb.edges():
+            g_h = gb.nodes_of_edge(e)[1]
+            discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
             d['discharge'] = discharge
 
@@ -563,10 +563,10 @@ class BasicsTest(unittest.TestCase):
             d['param'] = param
 
         # Assign coupling discharge
-        gb.add_edge_prop('param')
-        for e, d in gb.edges_props():
-            g_h = gb.sorted_nodes_of_edge(e)[1]
-            discharge = gb.node_prop(g_h, 'discharge')
+        gb.add_edge_props('param')
+        for e, d in gb.edges():
+            g_h = gb.nodes_of_edge(e)[1]
+            discharge = gb.node_props(g_h, 'discharge')
             d['param'] = Parameters(g_h)
             d['discharge'] = discharge
 

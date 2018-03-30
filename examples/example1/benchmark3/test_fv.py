@@ -8,7 +8,6 @@ import scipy.sparse as sps
 from porepy.fracs import importer
 from porepy.params import bc, tensor
 from porepy.numerics.fv import tpfa, mpfa
-from porepy.utils.errors import error
 from porepy.numerics.elliptic import EllipticDataAssigner, EllipticModel
 from porepy.numerics.mixed_dim import condensation as SC
 
@@ -62,7 +61,7 @@ class DarcyModelData(EllipticDataAssigner):
             k = 2 / np.sum(1.0 / np.array([1e4, 1e-4]))
         else:
             k = 1e4
-        return tensor.SecondOrder(3, np.ones(self.grid().num_cells) * k)
+        return tensor.SecondOrderTensor(3, np.ones(self.grid().num_cells)*k)
 
     def bc(self):
         if self.grid().dim < 2:
@@ -116,8 +115,8 @@ def make_grid_bucket():
     Define the geometry and produce the meshes
     """
     mesh_size = 0.05
-    mesh_kwargs = {'mesh_mode': 'constant', 'tol': 1e-7,
-                   'h_ideal': mesh_size, 'h_min': 1 / 3 * mesh_size}
+    mesh_kwargs = {'mesh_size_frac': mesh_size, 
+                   'mesh_size_min': mesh_size / 30, 'tol': 1e-7}
 
     domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
 

@@ -11,6 +11,7 @@ that module as well.
 import warnings
 import numpy as np
 import scipy.sparse as sps
+import logging
 
 from porepy.numerics.fv import fvutils
 from porepy.utils import matrix_compression, mcolon, sparse_mat
@@ -18,6 +19,8 @@ from porepy.grids import structured, partition
 from porepy.params import tensor, bc
 from porepy.numerics.mixed_dim.solver import Solver
 
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 class Mpsa(Solver):
 
@@ -42,28 +45,20 @@ class Mpsa(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data):
+    def matrix_rhs(self, g, data, discretize=True):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point stress
         approximation.
-        The name of data in the input dictionary (data) are:
-        stiffness : tensor.FourthOrder
-            Stress tensor defined cell-wise.
-        source : array (self.g.dim * self.g.num_cells)
-            Vector body force term defined cell-wise. Given as stress, i.e.
-            should already been multiplied with the cell sizes.  If not given a
-            zero source body stress term is assumed and a warning arised.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
 
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
+        data: dictionary to store the data. For details on necessary keywords,
+            see method discretize()
+        discretize (boolean, optional): default True. Whether to discetize
+            prior to matrix assembly. If False, data should already contain
+            discretization.
 
         Return
         ------
@@ -76,7 +71,12 @@ class Mpsa(Solver):
         if discretize:
             self.discretize(g, data)
         div = fvutils.vector_divergence(g)
+        stress = data['stress']
+        bound_stress = data['bound_stress']
         M = div * stress
+
+        f = data['param'].get_source(self)
+        bc_val = data['param'].get_bc_val(self)
 
         return M, self.rhs(g, bound_stress, bc_val, f)
 
@@ -205,9 +205,13 @@ class FracturedMpsa(Mpsa):
         bc_val = data['param'].get_bc_val(self)
 
         frac_faces = np.matlib.repmat(g.tags['fracture_faces'], g.dim, 1)
-        assert np.all(bc_val[frac_faces.ravel('F')] == 0), \
-            '''Fracture should have zero boundary condition. Set slip by
-               Parameters.set_slip_distance'''
+        if data['param'].get_bc(self).bc_type == 'scalar':
+            frac_faces = frac_faces.ravel('F')
+
+        elif data['param'].get_bc(self).bc_type == 'vectorial':
+            bc_val = bc_val.ravel('F')
+        else:
+            raise ValueError('Unknown boundary type')
 
         slip_distance = data['param'].get_slip_distance()
 
@@ -215,6 +219,53 @@ class FracturedMpsa(Mpsa):
         rhs = np.hstack((b_e * bc_val, b_l * slip_distance))
 
         return A, rhs
+
+    def rhs(self, g, data):
+        """
+        Return the matrix and right-hand side for a discretization of a second
+        order elliptic equation using a FV method with a multi-point stress
+        approximation with dofs added on the fracture interfaces.
+
+        Parameters
+        ----------
+        g : grid, or a subclass, with geometry fields computed.
+        data: dictionary to store the data. For details on necessary keywords,
+            see method discretize()
+        discretize (boolean, optional): default True. Whether to discetize
+            prior to matrix assembly. If False, data should already contain
+            discretization.
+
+        Return
+        ------
+        matrix: sparse csr (g.dim * g_num_cells + 2 * {#of fracture faces},
+                            2 * {#of fracture faces})
+            Discretization matrix.
+        rhs: array (g.dim * g_num_cells  + g.dim * num_frac_faces)
+            Right-hand side which contains the boundary conditions and the scalar
+            source term.
+        """
+        stress = data['stress']
+        bound_stress = data['bound_stress']
+        b_e = data['b_e']
+
+        _, b_l = self.given_slip_distance(g, stress, bound_stress)
+
+        bc_val = data['param'].get_bc_val(self)
+
+        frac_faces = np.matlib.repmat(g.tags['fracture_faces'], 3, 1)
+        if data['param'].get_bc(self).bc_type == 'scalar':
+            frac_faces = frac_faces.ravel('F')
+
+        elif data['param'].get_bc(self).bc_type == 'vectorial':
+            bc_val = bc_val.ravel('F')
+        else:
+            raise ValueError('Unknown boundary type')
+
+        slip_distance = data['param'].get_slip_distance()
+
+        rhs = np.hstack((b_e * bc_val, b_l * slip_distance))
+
+        return rhs
 
     def traction(self, g, data, sol):
         """
@@ -237,9 +288,13 @@ class FracturedMpsa(Mpsa):
         cell_disp = self.extract_u(g, sol)
 
         frac_faces = (g.frac_pairs).ravel('C')
+
+
+        if data['param'].get_bc(self).bc_type == 'vectorial':
+            bc_val = bc_val.ravel('F')
+
         frac_ind = mcolon.mcolon(
             g.dim * frac_faces, g.dim * frac_faces + g.dim)
-
         bc_val[frac_ind] = frac_disp
 
         T = data['stress'] * cell_disp + data['bound_stress'] * bc_val
@@ -315,13 +370,17 @@ class FracturedMpsa(Mpsa):
 
         bound = data['param'].get_bc(self)
         is_dir = bound.is_dir
-        if not np.all(is_dir[frac_faces]):
-            is_dir[frac_faces] = True
 
-        bound = bc.BoundaryCondition(g, is_dir, 'dir')
-
-        assert np.all(bound.is_dir[frac_faces]), \
-            'fractures must be set as dirichlet boundary faces'
+        if bound.bc_type == 'scalar':
+            if not np.all(is_dir[frac_faces]):
+                is_dir[frac_faces] = True
+                bound = bc.BoundaryCondition(g, is_dir, 'dir')
+        elif bound.bc_type == 'vectorial':
+            if not np.all(is_dir[:, frac_faces]):
+                is_dir[:, frac_faces] = True
+                bound = bc.BoundaryConditionVectorial(g, is_dir, 'dir')
+        else:
+            raise ValueError('Unknow boundary condition type: ' + bound.bc_type)
 
         # Discretize with normal mpsa
         self.discretize(g, data, **kwargs)
@@ -507,7 +566,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
     Example:
         # Set up a Cartesian grid
         g = structured.CartGrid([5, 5])
-        c =tensor.FourthOrder(g.dim, np.ones(g.num_cells))
+        c =tensor.FourthOrderTensor(g.dim, np.ones(g.num_cells))
 
         # Dirirchlet boundary conditions
         bound_faces = g.get_all_boundary_faces().ravel()
@@ -552,7 +611,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
         peak_mem = _estimate_peak_memory_mpsa(g)
         num_part = np.ceil(peak_mem / max_memory)
 
-        print('Split MPSA discretization into ' + str(num_part) + ' parts')
+        logger.info('Split MPSA discretization into '+str(num_part)+' parts')
 
         # Let partitioning module apply the best available method
         part = partition.partition(g, num_part)
@@ -612,7 +671,7 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
 
     Parameters:
         g (porepy.grids.grid.Grid): grid to be discretized
-        constit (porepy.params.tensor.SecondOrder) permeability tensor
+        constit (porepy.params.tensor.SecondOrderTensor) permeability tensor
         bnd (porepy.params.bc.BoundaryCondition) class for boundary conditions
         faces (np.ndarray) faces to be considered. Intended for partial
             discretization, may change in the future
@@ -778,7 +837,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
     bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
     # Most of the work is done by submethod for elasticity (which is common for
     # elasticity and poro-elasticity).
-    
+
     hook, igrad, rhs_cells, _, _ = mpsa_elasticity(g, constit,
                                                    subcell_topology,
                                                    bound_exclusion, eta,
@@ -793,7 +852,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
                               subcell_topology.subfno_unique, nd)
 
     # Stress discretization
-    stress = hf2f * hook_igrad * rhs_cells    
+    stress = hf2f * hook_igrad * rhs_cells
 
     # Right hand side for boundary discretization
     if bound_exclusion.bc_type == 'scalar':
@@ -869,7 +928,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
     # Pair the forces from each side
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym)
     ncsym = bound_exclusion.exclude_dirichlet_nd(ncsym)
-    
+
     num_subfno = subcell_topology.subfno.max() + 1
     hook_cell = sps.coo_matrix((np.zeros(1), (np.zeros(1), np.zeros(1))),
                                shape=(num_subfno * nd,
@@ -1221,7 +1280,7 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
 
     elif bound_exclusion.bc_type == 'vectorial':
         node_occ = np.hstack((nno_stress, nno_displacement))
-        
+
     sorted_ind = np.argsort(node_occ, kind='mergesort')
     rows2blk_diag = sps.coo_matrix((np.ones(sorted_ind.size),
                                     (np.arange(sorted_ind.size),
@@ -1327,9 +1386,9 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     is_dir = bound_exclusion.exclude_neumann(bound.is_dir[fno].astype(
         'int64'))
     dir_ind_single = np.argwhere(is_dir).ravel('F')
-  
+
     dir_ind = expand_ind(dir_ind_single, nd, is_dir.size)
-    
+
     # The coefficients in the matrix should be duplicated the same way as
     # the row indices, but with no increment
     dir_val = expand_ind(sgn[dir_ind_single_all], nd, 0)
@@ -1375,7 +1434,7 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     conditions assigned component-wise.
 
     For parameters and return, refer to the above create_bound_rhs
-    
+
     """
     nd = g.dim
 
@@ -1395,9 +1454,9 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     if nd == 3:
         num_neu += sum(bound.is_neu[2, fno])
         num_dir += sum(bound.is_dir[2, fno])
-    
+
     num_bound = num_neu + num_dir
-    
+
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
     is_neu_x = bound_exclusion.exclude_dirichlet_x(bound.is_neu[0, fno].astype(
@@ -1406,7 +1465,7 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
 
     is_neu_y = bound_exclusion.exclude_dirichlet_y(bound.is_neu[1, fno].astype(
         'int64'))
-    neu_ind_single_y = np.argwhere(is_neu_y).ravel('F')    
+    neu_ind_single_y = np.argwhere(is_neu_y).ravel('F')
     neu_ind_single_y += is_neu_x.size
 
     # We also need to account for all half faces, that is, do not exclude
@@ -1473,7 +1532,7 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
         'int64'))
     dir_ind_single_y = np.argwhere(is_dir_y).ravel('F')
     dir_ind_single_y += is_dir_x.size
-    
+
     dir_ind_single_all_x = np.argwhere(bound.is_dir[0, fno].astype('int'))\
         .ravel('F')
     dir_ind_single_all_y = np.argwhere(bound.is_dir[1, fno].astype('int'))\
@@ -1517,7 +1576,7 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
 
     # stack together
     bnd_ind = np.hstack((is_bnd_neu, is_bnd_dir))
-    
+
     # Some care is needed to compute coefficients in Neumann matrix: sgn is
     # already defined according to the subcell topology [fno], while areas
     # must be drawn from the grid structure, and thus go through fno

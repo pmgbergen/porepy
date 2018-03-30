@@ -11,7 +11,7 @@ import copy
 import numpy as np
 
 
-class SecondOrder(object):
+class SecondOrderTensor(object):
     """ Cell-wise permeability represented by (3 ,3 ,Nc)-matrix.
 
     The permeability is always 3-dimensional (since the geometry is always 3D),
@@ -112,7 +112,7 @@ class SecondOrder(object):
             kxy = self.perm[1, 0, :].copy()
             kyy = self.perm[1, 1, :].copy()
 
-            return SecondOrder(self.dim, kxx, kxy=kxy, kyy=kyy)
+            return SecondOrderTensor(self.dim, kxx, kxy=kxy, kyy=kyy)
         else:
             kxx = self.perm[0, 0, :].copy()
             kxy = self.perm[1, 0, :].copy()
@@ -122,7 +122,7 @@ class SecondOrder(object):
             kyz = self.perm[2, 1, :].copy()
             kzz = self.perm[2, 2, :].copy()
 
-            return SecondOrder(self.dim, kxx, kxy=kxy, kxz=kxz, kyy=kyy,
+            return SecondOrderTensor(self.dim, kxx, kxy=kxy, kxz=kxz, kyy=kyy,
                                      kyz=kyz, kzz=kzz)
 
 
@@ -137,7 +137,7 @@ class SecondOrder(object):
 
 #----------------------------------------------------------------------#
 
-class FourthOrder(object):
+class FourthOrderTensor(object):
     """ Cell-wise representation of fourth order tensor.
 
     For each cell, there are dim^4 degrees of freedom, stored in a
@@ -278,4 +278,4 @@ class FourthOrder(object):
         self.c = c
 
     def copy(self):
-        return FourthOrder(self.dim, mu=self.mu, lmbda=self.lmbda)
+        return FourthOrderTensor(self.dim, mu=self.mu, lmbda=self.lmbda)

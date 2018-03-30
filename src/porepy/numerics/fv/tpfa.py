@@ -9,19 +9,15 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.params import tensor
+import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 from porepy.numerics.fv import fvutils
-from porepy.grids.grid import Grid
 
 #------------------------------------------------------------------------------
 
-
-class TpfaMixedDim(SolverMixedDim):
+class TpfaMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
     def __init__(self, physics='flow'):
         self.physics = physics
 
@@ -29,12 +25,13 @@ class TpfaMixedDim(SolverMixedDim):
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = TpfaCoupling(self.discr)
 
-        self.solver = Coupler(self.discr, self.coupling_conditions)
+        self.solver = pp.numerics.mixed_dim.coupler.Coupler(self.discr,
+                                                       self.coupling_conditions)
 
 #------------------------------------------------------------------------------
 
 
-class TpfaDFN(SolverMixedDim):
+class TpfaDFN(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
@@ -47,8 +44,9 @@ class TpfaDFN(SolverMixedDim):
 
         kwargs = {"discr_ndof": self.discr.ndof,
                   "discr_fct": self.__matrix_rhs__}
-        self.solver = Coupler(coupling=self.coupling_conditions, **kwargs)
-        SolverMixedDim.__init__(self)
+        self.solver = pp.numerics.mixed_dim.coupler.Coupler(
+                                    coupling=self.coupling_conditions, **kwargs)
+        pp.numerics.mixed_dim.solver.SolverMixedDim.__init__(self)
 
     def __matrix_rhs__(self, g, data):
         # The highest dimensional problem compute the matrix and rhs, the lower
@@ -62,8 +60,7 @@ class TpfaDFN(SolverMixedDim):
 
 #------------------------------------------------------------------------------
 
-
-class Tpfa(Solver):
+class Tpfa(pp.numerics.mixed_dim.solver.Solver):
     """ Discretize elliptic equations by a two-point flux approximation.
 
     Attributes:

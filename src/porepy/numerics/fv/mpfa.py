@@ -233,7 +233,7 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
     Example:
         # Set up a Cartesian grid
         g = structured.CartGrid([5, 5])
-        k = tensor.SecondOrder(g.dim, np.ones(g.num_cells))
+        k = tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
         g.compute_geometry()
         # Dirirchlet boundary conditions
         bound_faces = g.tags['domain_boundary_faces'].ravel()
@@ -331,7 +331,7 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
 
     Parameters:
         g (porepy.grids.grid.Grid): grid to be discretized
-        k (porepy.params.tensor.SecondOrder) permeability tensor
+        k (porepy.params.tensor.SecondOrderTensor) permeability tensor
         bnd (porepy.params.bc.BoundarCondition) class for boundary conditions
         faces (np.ndarray) faces to be considered. Intended for partial
             discretization, may change in the future

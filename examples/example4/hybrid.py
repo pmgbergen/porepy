@@ -18,7 +18,7 @@ import scipy.sparse as sps
 
 from porepy.grids import structured, simplex
 from porepy.params import tensor, bc
-from porepy.utils.errors import error
+from porepy.utils import error
 from porepy.numerics.vem import dual, hybrid
 from porepy.viz.plot_grid import plot_grid
 import porepy.utils.comp_geom as cg
@@ -35,7 +35,7 @@ def darcy_dual_hybridVEM_example0(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     f = np.ones(g.num_cells)
 
@@ -71,7 +71,7 @@ def darcy_dual_hybridVEM_example1(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     def funP_ex(pt):
         return np.sin(2 * np.pi * pt[0]) * np.sin(2 * np.pi * pt[1])
@@ -127,7 +127,7 @@ def darcy_dual_hybridVEM_example2(**kwargs):
     T = cg.tangent_matrix(g.nodes)
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     def funP_ex(pt):
         return np.pi * pt[0] - 6 * pt[1] + np.exp(1) * pt[2] - 4
@@ -176,7 +176,7 @@ def darcy_dual_hybridVEM_example3(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     def funP_ex(pt):
         return np.sin(2 * np.pi * pt[0]) * np.sin(2 * np.pi * pt[1])\

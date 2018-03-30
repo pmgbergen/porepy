@@ -40,7 +40,7 @@ class BasicsTest(unittest.TestCase):
         apperture = 0.5 * np.ones(g.num_cells)
         kxx = 2 * np.ones(g.num_cells)
         kyy = 3 * np.ones(g.num_cells)
-        K = tensor.SecondOrder(g.dim, kxx, kyy)
+        K = tensor.SecondOrderTensor(g.dim, kxx, kyy)
         source = 42 * np.ones(g.num_cells)
         # Assign to parameter
         param = Parameters(g)

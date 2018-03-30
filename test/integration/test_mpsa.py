@@ -10,7 +10,7 @@ from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 def setup_stiffness(g, mu=1, l=1):
     mu = np.ones(g.num_cells) * mu
     l = np.ones(g.num_cells) * l
-    return tensor.FourthOrder(g.dim, mu, l)
+    return tensor.FourthOrderTensor(g.dim, mu, l)
 
 
 def test_uniform_strain():
