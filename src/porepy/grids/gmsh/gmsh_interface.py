@@ -36,8 +36,6 @@ class GmshWriter(object):
         else:
             self.nd = nd
 
-        self.lchar = mesh_size
-
         self.domain = domain
 
         if fracture_tags is not None:

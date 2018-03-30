@@ -29,7 +29,7 @@ def add_data_darcy(gb, domain, tol, a):
         param = Parameters(g)
 
         kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrderTensor(g.dim, kxx)
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))
@@ -64,7 +64,7 @@ def add_data_darcy(gb, domain, tol, a):
     # Assign coupling permeability
     gb.add_edge_prop('kn')
     for e, d in gb.edges_props():
-        gn = gb.sorted_nodes_of_edge(e)
+        gn = gb.nodes_of_edge(e)
         aperture = np.power(a, gb.dim_max() - gn[0].dim)
         d['kn'] = np.ones(gn[0].num_cells) / aperture * kf
 
@@ -77,7 +77,7 @@ def add_data_advection_diffusion(gb, domain, tol, a):
         param = d['param']
 
         kxx = 5 * 1e-2 * np.ones(g.num_cells)
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrderTensor(g.dim, kxx)
         param.set_tensor("transport", perm)
 
         # The 0.5 needs to be fixed in a better way
@@ -112,7 +112,7 @@ def add_data_advection_diffusion(gb, domain, tol, a):
     # Assign coupling discharge
     gb.add_edge_prop('param')
     for e, d in gb.edges_props():
-        g_h = gb.sorted_nodes_of_edge(e)[1]
+        g_h = gb.nodes_of_edge(e)[1]
         discharge = gb.node_prop(g_h, 'param').get_discharge()
         d['param'] = Parameters(g_h)
         d['param'].set_discharge(discharge)

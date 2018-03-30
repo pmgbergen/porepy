@@ -57,7 +57,6 @@ class TestSegmentDistance(unittest.TestCase):
 
     def test_changed_order_3d(self):
         # The order of the start and endpoints of the segments should not matter
-        dim = 3
         p1 = np.random.rand(1, 3)[0]
         p2 = np.random.rand(1, 3)[0]
         p3 = np.random.rand(1, 3)[0]
@@ -80,10 +79,6 @@ class TestSegmentDistance(unittest.TestCase):
         assert np.allclose(cp12, cp32)
         assert np.allclose(cp12, cp42)
         assert np.allclose(cp12, cp51)
-
-
-    if __name__ == '__main__':
-        unittest.main()
 
 
 class TestDistancePointSet(unittest.TestCase):
@@ -122,9 +117,6 @@ class TestDistancePointSet(unittest.TestCase):
         d = cg.dist_pointset(p)
         assert d.shape == (1, 1)
         assert d[0, 0] == 0
-
-    if __name__ == '__main__':
-        unittest.main()
 
 
 class TestDistancePointSegments(unittest.TestCase):
@@ -214,9 +206,6 @@ class TestDistancePointSegments(unittest.TestCase):
         known_cp = np.array([[[1, 0], [1, 0]]])
         assert np.allclose(cp, known_cp)
 
-    if __name__ == '__main__':
-        unittest.main()
-
 
 class TestDistancePointPolygon(unittest.TestCase):
 
@@ -231,7 +220,6 @@ class TestDistancePointPolygon(unittest.TestCase):
         known_d = np.array([0, 0, 1, 1, 1, 1, np.sqrt(2)])
         known_cp = np.array([[0.5, 0.5, 0], [0.5, 0, 0], [0.5, 0.5, 0],
                              [0, 0, 0], [0.5, 0, 0], [1, 0.5, 0], [1, 0, 0]]).T
-        known_inp = np.array([1, 0, 0, 0, 0, 0], dtype=np.bool)
 
         assert np.allclose(d, known_d)
         assert np.allclose(cp, known_cp)
@@ -248,13 +236,10 @@ class TestDistancePointPolygon(unittest.TestCase):
         known_cp = np.array([[1, 0, 0], [1, 0.5, 0.5], [1, 0.5, 0.5],
                              [1, 0, 0.5], [1, 0, 0.5], [1, 0, 0],
                              [1, 0.5, 0.5]]).T
-        known_inp = np.array([0, 1, 0, 0, 0, 0, 1], dtype=np.bool)
 
         assert np.allclose(d, known_d)
         assert np.allclose(cp, known_cp)
 
-    if __name__ == '__main__':
-        unittest.main()
 
 class TestDistanceSegmentPolygon(unittest.TestCase):
 
@@ -384,5 +369,5 @@ class TestDistanceSegmentPolygon(unittest.TestCase):
         assert cp[2] == 0  # x and y coordinate of closest point is not clear
                            # in this case
 
-    if __name__ == '__main__':
-        unittest.main()
+if __name__ == '__main__':
+    unittest.main()

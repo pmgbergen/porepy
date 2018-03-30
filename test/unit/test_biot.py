@@ -21,8 +21,8 @@ class BiotTest(unittest.TestCase):
                                          ['dir'] * bound_faces.size)
 
             mu = np.ones(g.num_cells)
-            c = tensor.FourthOrder(g.dim, mu, mu)
-            k = tensor.SecondOrder(g.dim, np.ones(g.num_cells))
+            c = tensor.FourthOrderTensor(g.dim, mu, mu)
+            k = tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
 
             bound_val = np.zeros(g.num_faces)
 

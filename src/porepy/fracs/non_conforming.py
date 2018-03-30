@@ -9,13 +9,13 @@ Created on Sun Nov  5 11:17:04 2017
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
+
 from porepy.utils import tags
 from porepy.utils.matrix_compression import rldecode
 from porepy.utils.setmembership import unique_columns_tol, ismember_rows
 
-from porepy import TensorGrid
-
-from porepy.fracs import utils as fracutils
+from porepy.fracs import tools as fractools
 import porepy.utils.comp_geom as cg
 
 
@@ -234,7 +234,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
 
     # Create a new 1d grid.
     # First use a 1d coordinate to initialize topology
-    new_grid = TensorGrid(np.arange(num_new_grid))
+    new_grid = pp.structured.TensorGrid(np.arange(num_new_grid))
     # Then set the right, 3d coordinates
     new_grid.nodes = cg.make_collinear(combined_sorted)
 
@@ -293,7 +293,7 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
 
     # Mappings between faces in 2d grid and cells in 1d
     # 2d faces along the 1d grid will be deleted.
-    delete_faces, cell_1d = fracutils.obtain_interdim_mappings(g_1d, fn_glob,
+    delete_faces, cell_1d = fractools.obtain_interdim_mappings(g_1d, fn_glob,
                                                                nodes_per_face)
 
     # All 1d cells should be identified with 2d faces
@@ -482,7 +482,6 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
     else:
         for i in range(deleted_2_new_faces.size):
             if in_combined[i] == in_combined[i + 1]:
-                print(new_faces)
                 deleted_2_new_faces[i] = new_faces[in_combined[i]]
             else:
                 deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i + 1],

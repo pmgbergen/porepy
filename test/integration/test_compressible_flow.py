@@ -37,7 +37,7 @@ class FractureDomain(compressible.SlightlyCompressibleDataAssigner):
 
     def permeability(self):
         kxx = 1000 * np.ones(self.grid().num_cells)
-        return tensor.SecondOrder(3, kxx)
+        return tensor.SecondOrderTensor(3, kxx)
 
 
 class IntersectionDomain(FractureDomain):

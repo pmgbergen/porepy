@@ -14,10 +14,9 @@ def setup_2d_1d(nx, simplex_grid=False):
     if not simplex_grid:
         gb = meshing.cart_grid(fracs, nx, physdims=[1, 1])
     else:
-        mesh_kwargs = {}
         mesh_size = .08
-        mesh_kwargs = {'mesh_mode': 'constant', 'h_ideal': mesh_size,
-                                    'h_min': 1 / 2 * mesh_size}
+        mesh_kwargs = {'mesh_size_frac': mesh_size,
+                       'mesh_size_min': mesh_size / 20}
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
         gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
 
@@ -26,7 +25,7 @@ def setup_2d_1d(nx, simplex_grid=False):
     gb.add_node_props(['param'])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(gb.dim_max(), kxx)
+        perm = tensor.SecondOrderTensor(gb.dim_max(), kxx)
         a = 0.01 / np.max(nx)
         a = np.power(a, gb.dim_max() - g.dim)
         param = Parameters(g)
