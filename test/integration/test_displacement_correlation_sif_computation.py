@@ -95,8 +95,7 @@ def simplex_2d(mesh_size, a, sigma, beta):
     box = {'xmin': 0, 'ymin': 0, 'xmax': .5, 'ymax': 1}
     mesh_kwargs = {}
     h = 1 / mesh_size
-    mesh_kwargs = {'mesh_mode': 'weighted', 'h_ideal': h,
-                                'h_min': 1 / 2 * h}
+    mesh_kwargs = {'mesh_size_frac': h, 'mesh_size_min': 1 / 2 * h}
 
     gb = meshing.simplex_grid([f], box, **mesh_kwargs)
     assign_parameters(gb)
@@ -144,7 +143,7 @@ def simplex_3d(mesh_size, a, sigma, beta, t):
            'xmax': .5, 'ymax': 2 * t, 'zmax': 1}
     mesh_kwargs = {}
     h = 1 / mesh_size
-    mesh_kwargs = {'h_ideal': h, 'h_min': 1 / 2 * h}
+    mesh_kwargs = {'mesh_size_frac': h, 'mesh_size_min': 1 / 2 * h}
 
     gb = meshing.simplex_grid([f], box, **mesh_kwargs)
     assign_parameters(gb)
@@ -216,5 +215,4 @@ if __name__ == '__main__':
 #    # Test for other angle
 #    beta = np.pi/3
 #    BasicsTest().test_sif_convergence_simplex_2d(1/nx, a, sigma, beta)
-    BasicsTest().test_sif_convergence_cartesian_3d()
-    BasicsTest().test_sif_convergence_cartesian_2d()
+    unittest.main()

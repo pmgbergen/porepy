@@ -73,7 +73,7 @@ def set_bc_flow(gb):
         aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
         param.set_aperture(aperture)
 
-        perm = tensor.SecondOrder(3, np.ones(g.num_cells)
+        perm = tensor.SecondOrderTensor(3, np.ones(g.num_cells)
                                 * np.power(kf, g.dim < gb.dim_max()))
         param.set_tensor(physics, perm)
 
@@ -148,7 +148,7 @@ def set_bc_mech_tension(gb, top_tension=1):
         if g.dim > 1:
             lam = np.ones(g.num_cells) * E * poisson / ((1 + poisson) * (1 - 2 * poisson))
             mu = np.ones(g.num_cells) * E / (2 * (1 + poisson))
-            constit = tensor.FourthOrder(g.dim, mu, lam)
+            constit = tensor.FourthOrderTensor(g.dim, mu, lam)
             param.set_tensor(physics, constit)
 
         aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
@@ -241,8 +241,8 @@ def update_apertures(gb, gl, faces_h):
     """
     apertures_l = 0.01*np.ones(faces_h.size)
     try:
-        a = np.append(gb.node_prop(gl, 'param').get_aperture(), apertures_l)
-        gb.node_prop(gl, 'param').set_aperture(a)
+        a = np.append(gb.node_props(gl, 'param').get_aperture(), apertures_l)
+        gb.node_props(gl, 'param').set_aperture(a)
     except KeyError:
         warnings.warn('apertures not updated')
 
