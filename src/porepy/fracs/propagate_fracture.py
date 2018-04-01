@@ -129,7 +129,9 @@ def update_connectivity(g_l, g_h, n_old_nodes_l, unique_node_indices_l,
         # Find the nodes involved
         face_h = faces_h[i]
         local_nodes_h = g_h.face_nodes[:, face_h].nonzero()[0]
-        in_unique_nodes = order_preserving_find(local_nodes_h, unique_nodes_h)
+        in_unique_nodes = setmembership.ismember_rows(local_nodes_h, 
+                                                      unique_nodes_h, 
+                                                      sort=False)[1]
         local_nodes_l = np.array(unique_node_indices_l[in_unique_nodes],
                                  dtype=int)
         # Get geometry information
@@ -217,7 +219,8 @@ def update_connectivity(g_l, g_h, n_old_nodes_l, unique_node_indices_l,
         cf_val = np.append(cf_val, cf_val_loc)
 
     # Resize and update face_nodes ...
-    g_l.face_nodes = sps.csc_matrix((g_l.num_nodes, face_counter_l), dtype=bool)
+    g_l.face_nodes = sps.csc_matrix((g_l.num_nodes, face_counter_l),
+                                    dtype=bool)
     g_l.face_nodes[:n_old_nodes_l, :n_old_faces_l] = old_face_nodes
     g_l.face_nodes[fn_ind_n, fn_ind_f] = True
     g_l.face_nodes.eliminate_zeros()
@@ -230,16 +233,6 @@ def update_connectivity(g_l, g_h, n_old_nodes_l, unique_node_indices_l,
     g_l.cell_faces.eliminate_zeros()
     n_new_faces = face_counter_l - n_old_faces_l
     return n_new_faces, new_face_centers_l
-
-
-def order_preserving_find(a, b):
-    """
-    Finds the occurences of a in b (both np arrays) and returns stripped of
-    None (elements of b that are not found).
-    """
-    c_with_none = np.asarray(setmembership._find_occ(a, b))
-    not_none_ind = np.logical_not(np.isnan(c_with_none.astype(float)))
-    return np.array(c_with_none[not_none_ind], dtype=int)
 
 
 def update_cells(g_h, g_l, faces_h):
@@ -283,8 +276,9 @@ def update_nodes(g_h, g_l, faces_h):
     new_nodes_l = g_h.nodes[:, new_node_indices_h].copy()
 
     # Order preserving find:
-    unique_nodes_l = order_preserving_find(unique_global_nodes,
-                                           g_l.global_point_ind)
+    unique_nodes_l = setmembership.ismember_rows(unique_global_nodes,
+                                                 g_l.global_point_ind, 
+                                                 sort=False)[1]
 
     g_l.nodes = np.append(g_l.nodes, new_nodes_l, axis=1)
     g_l.num_nodes += new_nodes_l.shape[1]
@@ -328,15 +322,15 @@ def split_fracture_extension(bucket, g_h, g_l, faces_h, nodes_h, cells_l):
     nodes_h     - The corresponding (hig_her-dimensional) nodes.
     """
 
-    face_cells = bucket.edge_prop((g_h, g_l), 'face_cells')
+    face_cell_list = [bucket.edge_props((g_h, g_l), 'face_cells')]
 
     # We split all the faces that are connected to faces_h
     # The new faces will share the same nodes and properties (normals,
     # etc.)
 
-    face_cells = split_grid.split_certain_faces(g_h, face_cells, faces_h,
-                                                cells_l)
-    bucket.add_edge_prop('face_cells', [(g_h, g_l)], face_cells)
+    face_cells = split_grid.split_certain_faces(g_h, face_cell_list, faces_h,
+                                                cells_l)[0]
+    bucket.set_edge_prop((g_h, g_l), 'face_cells', face_cells)
 
     # We now find which lower-dim nodes correspond to which higher-
     # dim nodes. We split these nodes according to the topology of
@@ -429,7 +423,7 @@ def displacement_correlation(gb, u, critical_sifs, **kw):
     poisson = kw.get('poisson', 0.3)
     mu = E/(2*(1 + poisson))
     kappa = 3 - 4 * poisson
-    f_c = gb.edge_prop((g_h, g_l), 'face_cells')[0]
+    f_c = gb.edge_props((g_h, g_l), 'face_cells')
     # Obtain the g_h.dim components of the relative displacement vector
     # corresponding to each fracture tip face of the lower dimension.
     delta_u, rm_vectors, actual_rm = relative_displacements(gb, g_h, g_l, rm, u, f_c)
@@ -580,7 +574,8 @@ def relative_displacements(gb, g_h, g_l, rm, u, f_c):
 
             R2 = comp_geom.project_line_matrix(face_coordinates_rot,
                                                tangent = tangent_l,
-                                               reference=[0, 0, 1], flip_flag=True)
+                                               reference=[0, 0, 1], 
+                                               flip_flag=True)
             R = np.dot(R2, R1)
         else:
             # Rotate so that the face normal, on whose line pts lie, aligns

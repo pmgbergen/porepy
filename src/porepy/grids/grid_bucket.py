@@ -387,7 +387,7 @@ class GridBucket(object):
         generated.
 
         Parameters:
-            g (grid): Grid identifying the node.
+            g (list of grid): Grid pair identifying the edge.
             key (object): Key identifying the field to add.
             val: Value to be added.
 

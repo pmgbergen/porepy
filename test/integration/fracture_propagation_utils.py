@@ -12,8 +12,9 @@ dimensions only.
 
 
 import numpy as np
+import porepy as pp
 from porepy.fracs import propagate_fracture
-from porepy.utils import tags, mcolon
+from porepy.utils import tags
 from porepy.utils import setmembership as sm
 from porepy.numerics.fv import fvutils
 
@@ -39,9 +40,6 @@ def propagate_and_update(gb, faces, discr, update_bc, update_apertures):
         d = gb.node_props(g)
         lhs_out, rhs_out = discr.matrix_rhs(g, d)
     return lhs_out, rhs_out
-
-
-
 
 
 def compare_updates(buckets, lh, rh, phys='mechanics', parameters = None,
@@ -147,8 +145,7 @@ def compare_discretizations(g_1, lhs_0, lhs_1, rhs_0, rhs_1, cell_maps,
 
         # and faces on either side of the fracture. Find the order of the g_1
         # frac faces among the g_0 frac faces.
-        frac_faces_loc = propagate_fracture.order_preserving_find(
-                    face_maps[0], g_1.frac_pairs.ravel('C'))
+        frac_faces_loc = sm.ismember_rows(face_maps[0], g_1.frac_pairs.ravel('C'), sort=False)[1] 
         # And expand to the dofs, one for each dimension for each face. For two
         # faces f0 and f1 in 3d, the order is
         # u(f0). v(f0), w(f0), u(f1). v(f1), w(f1)
@@ -180,7 +177,7 @@ def propagate_simple(gb, faces):
                                           faces)
 
 
-def check_equivalent_buckets(buckets):
+def check_equivalent_buckets(buckets, decimals=12):
     """
     Checks agreement between number of cells, faces and nodes, their
     coordinates and the connectivity matrices cell_faces and face_nodes. Also
@@ -210,6 +207,9 @@ def check_equivalent_buckets(buckets):
         assert np.unique(n_faces).size == 1
         assert np.unique(n_nodes).size == 1
         # Check that the coordinates agree
+        cell_centers = np.round(cell_centers, decimals)
+        nodes = np.round(nodes, decimals)
+        face_centers = np.round(face_centers, decimals)
         for i in range(1, n):
             assert np.all(sm.ismember_rows(cell_centers[0],
                                            cell_centers[i])[0])
@@ -248,8 +248,8 @@ def check_equivalent_buckets(buckets):
         g_l_i = buckets[i].grids_of_dimension(dim_l)[0]
         g_h_i = buckets[i].grids_of_dimension(dim_h)[0]
 
-        fc_0 = buckets[0].edge_prop((g_l_0, g_h_0), 'face_cells')[0]
-        fc_1 = buckets[i].edge_prop((g_l_i, g_h_i), 'face_cells')[0]
+        fc_0 = buckets[0].edge_props((g_l_0, g_h_0), 'face_cells')
+        fc_1 = buckets[i].edge_props((g_l_i, g_h_i), 'face_cells')
         cm = cell_maps_l[i-1]
         fm = face_maps_h[i-1]
         mapped_fc = fc_1[cm, :][:, fm]
@@ -271,7 +271,7 @@ def make_maps(g0, g1, n_digits=8, offset=0.11):
     """
     cell_map = sm.ismember_rows(np.around(g0.cell_centers, n_digits),
                                 np.around(g1.cell_centers, n_digits),
-                                sort=False, simple_version=True)[1]
+                                sort=False)[1]
     # Make face_centers unique by dragging them slightly away from the fracture
 
     fc0 = g0.face_centers.copy()
@@ -298,9 +298,9 @@ def make_maps(g0, g1, n_digits=8, offset=0.11):
 
     face_map = sm.ismember_rows(np.around(fc0, n_digits),
                                 np.around(fc1, n_digits),
-                                sort=False, simple_version=True)[1]
+                                sort=False)[1]
 
     node_map = sm.ismember_rows(np.around(n0, n_digits),
                                 np.around(n1, n_digits),
-                                sort=False, simple_version=True)[1]
+                                sort=False)[1]
     return cell_map, face_map, node_map
