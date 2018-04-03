@@ -15,7 +15,7 @@ Practical note: Faces in the fracture plane are given by
 
 
 import unittest
-from porepy.numerics.fv.mpsa import Mpsa
+import porepy as pp
 from test.integration import setup_mixed_dimensional_grids as setup_gb
 from test.integration.setup_mixed_dimensional_grids import set_bc_mech, \
     update_apertures
@@ -44,7 +44,7 @@ class BasicsTest(unittest.TestCase):
         gb_3 = setup_gb.setup_mech(n_cells, .50)
         gb_4 = setup_gb.setup_mech(n_cells, .25)
 
-        discr = Mpsa()
+        discr = pp.Mpsa()
 
         # Initial discretizations
         g_1 = gb_1.grids_of_dimension(2)[0]
@@ -88,7 +88,7 @@ class BasicsTest(unittest.TestCase):
         gb_1 = setup_gb.setup_mech(n_cells, 1)
         gb_2 = setup_gb.setup_mech(n_cells, .5)
 
-        discr = Mpsa()
+        discr = pp.Mpsa()
 
         # Initial discretizations
         g_1 = gb_1.grids_of_dimension(2)[0]
@@ -122,7 +122,7 @@ class BasicsTest(unittest.TestCase):
         gb_3 = setup_gb.setup_mech(n_cells, .50)
         gb_4 = setup_gb.setup_mech(n_cells, .25)
 
-        discr = Mpsa()
+        discr = pp.Mpsa()
 
         # Initial discretizations
         g_1 = gb_1.grids_of_dimension(dim_max)[0]
@@ -167,7 +167,7 @@ class BasicsTest(unittest.TestCase):
         gb_1 = setup_gb.setup_mech(n_cells, .75)
         gb_2 = setup_gb.setup_mech(n_cells, .25)
 
-        discr = Mpsa()
+        discr = pp.Mpsa()
 
         # Initial discretizations
         g_1 = gb_1.grids_of_dimension(dim_max)[0]
@@ -196,5 +196,4 @@ class BasicsTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    BasicsTest().test_discretization_and_propagation_2d()
-    BasicsTest().test_discretization_and_propagation_3d()
+    unittest.main()

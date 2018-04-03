@@ -9,8 +9,7 @@ Created on Tue Jan 16 14:25:17 2018
 
 
 import unittest
-from porepy.numerics.fv.mpfa import MpfaMixedDim
-from porepy.viz import plot_grid, exporter
+import porepy as pp
 from test.integration import setup_mixed_dimensional_grids as setup_gb
 from test.integration.setup_mixed_dimensional_grids import set_bc_flow, \
     update_apertures
@@ -39,7 +38,7 @@ class BasicsTest(unittest.TestCase):
         gb_3 = setup_gb.setup_flow(n_cells, .50)
         gb_4 = setup_gb.setup_flow(n_cells, .25)
 
-        flux_discr = MpfaMixedDim(physics)
+        flux_discr = pp.MpfaMixedDim(physics)
 
         # Initial discretizations
         lhs_1, rhs_1 = flux_discr.matrix_rhs(gb_1)
@@ -57,14 +56,8 @@ class BasicsTest(unittest.TestCase):
                                             set_bc_flow, update_apertures)
         lhs_4, rhs_4 = propagate_and_update(gb_4, [29], flux_discr,
                                             set_bc_flow, update_apertures)
-#        p = sps.linalg.spsolve(lhs_4, rhs_4)
-#        flux_discr.solver.split(gb_4, 'pressure_2', p)
-#        plot_grid.plot_grid(gb_4, 'pressure_2')
         lhs_4, rhs_4 = propagate_and_update(gb_4, [30], flux_discr,
                                             set_bc_flow, update_apertures)
-#        p = sps.linalg.spsolve(lhs_4, rhs_4)
-#        flux_discr.solver.split(gb_4, 'pressure_3', p)
-#        plot_grid.plot_grid(gb_4, 'pressure_3')
         buckets = [gb_1, gb_2, gb_3, gb_4]
         lhs = [lhs_1, lhs_2, lhs_3, lhs_4]
         rhs = [rhs_1, rhs_2, rhs_3, rhs_4]
@@ -85,7 +78,7 @@ class BasicsTest(unittest.TestCase):
         gb_3 = setup_gb.setup_flow(n_cells, .50)
         gb_4 = setup_gb.setup_flow(n_cells, .25)
 
-        flux_discr = MpfaMixedDim(physics)
+        flux_discr = pp.MpfaMixedDim(physics)
 
         # Initial discretizations
         lhs_1, rhs_1 = flux_discr.matrix_rhs(gb_1)
@@ -112,6 +105,6 @@ class BasicsTest(unittest.TestCase):
         rhs = [rhs_1, rhs_2, rhs_3, rhs_4]
         compare_updates(buckets, lhs, rhs, phys=physics)
 
+
 if __name__ == '__main__':
-    BasicsTest().test_discretization_and_propagation_2d()
-    BasicsTest().test_discretization_and_propagation_3d()
+    unittest.main()
