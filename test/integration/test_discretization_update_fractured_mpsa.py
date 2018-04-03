@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jan 30 14:39:37 2018
-
-@author: ivar
 Test for the partial (i.e. spatially local) update of mpsa discretizations
 after grid updates due to fracture propagation.
 
@@ -14,7 +11,7 @@ Practical note: Faces in the fracture plane are given by
 
 
 import unittest
-from porepy.numerics.fv.mpsa import FracturedMpsa
+import porepy as pp
 from test.integration import setup_mixed_dimensional_grids as setup_gb
 from test.integration.setup_mixed_dimensional_grids import set_bc_mech, \
     update_apertures
@@ -22,12 +19,12 @@ from test.integration.fracture_propagation_utils import propagate_and_update, \
     compare_updates
 
 
-#------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------#
 
 
 class BasicsTest(unittest.TestCase):
 
-#------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------#
 
     def test_discretization_and_propagation_2d(self):
         """
@@ -43,7 +40,7 @@ class BasicsTest(unittest.TestCase):
         gb_3 = setup_gb.setup_mech(n_cells, .50)
         gb_4 = setup_gb.setup_mech(n_cells, .25)
 
-        discr = FracturedMpsa()
+        discr = pp.FracturedMpsa()
 
         # Initial discretizations
         g_1 = gb_1.grids_of_dimension(2)[0]
@@ -87,7 +84,7 @@ class BasicsTest(unittest.TestCase):
         gb_1 = setup_gb.setup_mech(n_cells, 1)
         gb_2 = setup_gb.setup_mech(n_cells, .5)
 
-        discr = FracturedMpsa()
+        discr = pp.FracturedMpsa()
 
         # Initial discretizations
         g_1 = gb_1.grids_of_dimension(2)[0]
@@ -121,7 +118,7 @@ class BasicsTest(unittest.TestCase):
         gb_3 = setup_gb.setup_mech(n_cells, .50)
         gb_4 = setup_gb.setup_mech(n_cells, .25)
 
-        discr = FracturedMpsa()
+        discr = pp.FracturedMpsa()
 
         # Initial discretizations
         g_1 = gb_1.grids_of_dimension(dim_max)[0]
@@ -155,12 +152,5 @@ class BasicsTest(unittest.TestCase):
         compare_updates(buckets, lhs, rhs, fractured_mpsa=True)
 
 
-
-
 if __name__ == '__main__':
-    BasicsTest().test_discretization_and_propagation_2d()
-
-    BasicsTest().test_discretization_and_propagation_2d_small()
-    BasicsTest().test_discretization_and_propagation_3d()
-
-
+    unittest.main()
