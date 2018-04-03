@@ -27,7 +27,7 @@ __all__ = []
 
 # Numerics
 # Control volume, elliptic
-from porepy.numerics.fv.mpsa import Mpsa
+from porepy.numerics.fv.mpsa import Mpsa, FracturedMpsa
 from porepy.numerics.fv.tpfa import Tpfa, TpfaMixedDim
 from porepy.numerics.fv.mpfa import Mpfa, MpfaMixedDim
 from porepy.numerics.fv.biot import Biot
@@ -82,5 +82,6 @@ from porepy.grids import structured, simplex, coarsening, partition
 from porepy.params.units import *
 from porepy.numerics.fv import fvutils
 from porepy.utils import error
+from porepy.numerics import displacement_correlation
 
 
