@@ -72,7 +72,7 @@ from porepy.params.rock import UnitRock, Shale, SandStone, Granite
 # Visualization
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid
-from porepy.viz.fracture_visualization import plot_fractures
+from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 # Modules
 from porepy.utils import comp_geom as cg
