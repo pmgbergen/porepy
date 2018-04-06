@@ -1,9 +1,5 @@
 import numpy as np
-
-from porepy.numerics import elliptic
-from porepy.numerics import parabolic
-from porepy.params import bc, tensor
-from porepy.fracs import importer
+import porepy as pp
 
 from porepy.numerics import darcy_and_transport
 
@@ -13,11 +9,11 @@ def create_grid(file_name, domain, mesh_size, tol):
 
     # pack the data for the grid generation
     mesh_kwargs = {'tol': tol}
-    mesh_kwargs['mesh_size'] = {'mode': 'weighted', 'value': mesh_size,
-                                'bound_value': mesh_size}
+    mesh_kwargs['mesh_size_frac'] = mesh_size
+    kwargs = {'assign_fracture_id': True}
 
     # import the fractures and create the grid
-    gb = importer.dfm_2d_from_csv(file_name, mesh_kwargs, domain)
+    gb = pp.importer.dfm_2d_from_csv(file_name, mesh_kwargs, domain, **kwargs)
     gb.compute_geometry()
     gb.assign_node_ordering()
 
@@ -33,40 +29,39 @@ def assign_data(gb, data_problem, data_class, data_key):
     """
     gb.add_node_props([data_key])
 
-    cells = np.nan*np.ones(data_problem['wells'].shape[1])
-    distance = np.inf*np.ones(cells.size)
+    wells_fracture = data_problem['wells_fracture']
+    wells = data_problem['wells']
     for g, _ in gb:
-        cells_loc, distance_loc = assign_well(g, data_problem)
-        print(cells_loc, distance_loc)
-    fix_wells()
+        if g.dim == 1:
+            well_id = np.isin(wells_fracture, g.tags['fracture_id'])
+            if np.any(well_id):
+                wells_id = np.where(well_id)[0]
+                wells_cell = g.closest_cell(wells[:, wells_id])
+            else:
+                wells_cell, wells_id = [np.nan]*2
+        else:
+            wells_cell, wells_id = [np.nan]*2
+
+        g.tags['wells_cell'] = wells_cell
+        g.tags['wells_id'] = wells_id
 
     for g, d in gb:
         d[data_key] = data_class(g, d, **data_problem)
 
 #------------------------------------------------------------------------------#
 
-def assign_well(g, data_problem):
+def detect_fractures(wells, pts, edges):
+    start, end = pts[:, edges[0, :]], pts[:, edges[1, :]]
+    dist, _ = pp.cg.dist_points_segments(wells, start, end)
+    wells_fracture = np.argmin(dist, axis=1)
 
-    wells = data_problem['wells']
-    if g.dim == 1 and not ('well' in g.tags):
-        g.tags['well'] = -np.ones(g.num_cells)
-        g.tags['well_distance'] = np.inf*np.ones(g.num_cells)
-
-        cells, distance = g.closest_cell(wells, return_distance=True)
-        g.tags['well'][cells] = np.arange(cells.size)
-        g.tags['well_distance'][cells] = distance
-        return cells, distance
-    else:
-        return np.nan*np.ones(wells.shape[1]), np.inf*np.ones(wells.shape[1])
+    color = np.inf*np.ones(edges.shape[1])
+    color[wells_fracture] = wells_fracture
+    return wells_fracture, color
 
 #------------------------------------------------------------------------------#
 
-def fix_wells():
-    pass
-
-#------------------------------------------------------------------------------#
-
-class FlowData(elliptic.EllipticDataAssigner):
+class FlowData(pp.EllipticDataAssigner):
     """
     Assign flow problem data to a given grid.
     """
@@ -81,8 +76,9 @@ class FlowData(elliptic.EllipticDataAssigner):
 
         self.reference_aperture = kwargs['aperture']
         self.bc_pressure = kwargs['bc_pressure']
+        self.wells_flow_rate = kwargs['wells_flow_rate']
 
-        elliptic.EllipticDataAssigner.__init__(self, g, d)
+        pp.EllipticDataAssigner.__init__(self, g, d)
 
     def aperture(self):
         a = np.power(self.reference_aperture, 2-self.grid().dim)
@@ -91,14 +87,14 @@ class FlowData(elliptic.EllipticDataAssigner):
     def permeability(self):
         ones = np.ones(self.grid().num_cells)
         if self.grid().dim == 2:
-            return tensor.SecondOrder(3, self.km*ones)
+            return pp.SecondOrderTensor(3, self.km*ones)
         else:
-            return tensor.SecondOrder(3, self.kf*ones)
+            return pp.SecondOrderTensor(3, self.kf*ones)
 
     def bc(self):
         bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         labels = np.array(['dir']*bound_faces.size)
-        return bc.BoundaryCondition(self.grid(), bound_faces, labels)
+        return pp.BoundaryCondition(self.grid(), bound_faces, labels)
 
     def bc_val(self):
         bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
@@ -107,11 +103,16 @@ class FlowData(elliptic.EllipticDataAssigner):
         return bc_val
 
     def source(self):
-        return np.zeros(self.grid().num_cells)
+        val = np.zeros(self.grid().num_cells)
+        wells_cell = self.grid().tags['wells_cell']
+        wells_id = self.grid().tags['wells_id']
+        if np.isfinite(wells_cell):
+            val[wells_cell] = self.wells_flow_rate[wells_id]
+        return val
 
 #------------------------------------------------------------------------------#
 
-class TransportData(parabolic.ParabolicDataAssigner):
+class TransportData(pp.ParabolicDataAssigner):
     """
     Assign transport problem data to given grid.
     """
@@ -123,15 +124,16 @@ class TransportData(parabolic.ParabolicDataAssigner):
 
         self.reference_aperture = kwargs['aperture']
         self.bc_temperature = kwargs['bc_temperature']
+        self.wells_temperature = kwargs['wells_temperature']
 
-        parabolic.ParabolicDataAssigner.__init__(self, g, d)
+        pp.ParabolicDataAssigner.__init__(self, g, d)
 
     def bc(self):
         bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         labels = np.array(['dir']*bound_faces.size)
-        return bc.BoundaryCondition(self.grid(), bound_faces, labels)
+        return pp.BoundaryCondition(self.grid(), bound_faces, labels)
 
-    def bc_val(self, t):
+    def bc_val(self, _):
         bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         bc_val = np.zeros(self.grid().num_faces)
         bc_val[bound_faces] = self.bc_temperature
@@ -144,9 +146,18 @@ class TransportData(parabolic.ParabolicDataAssigner):
         a = np.power(self.reference_aperture, 2-self.grid().dim)
         return np.ones(self.grid().num_cells) * a
 
+    def source(self, _):
+        val = np.zeros(self.grid().num_cells)
+        wells_cell = self.grid().tags['wells_cell']
+        wells_id = self.grid().tags['wells_id']
+        if np.isfinite(wells_cell):
+            val[wells_cell] = self.wells_temperature[wells_id]*\
+                              self.grid().cell_volumes[wells_cell]
+        return val
+
 #------------------------------------------------------------------------------#
 
-class TransportSolver(parabolic.ParabolicModel):
+class TransportSolver(pp.ParabolicModel):
     """
     Make a ParabolicModel for the transport problem with specified parameters.
     """
@@ -155,11 +166,8 @@ class TransportSolver(parabolic.ParabolicModel):
 
         time_step = data_problem['end_time'] /\
                     float(data_problem['number_time_steps'])
-        parabolic.ParabolicModel.__init__(self, gb, time_step=time_step,
+        pp.ParabolicModel.__init__(self, gb, time_step=time_step,
                                           **data_problem)
-
-    def space_disc(self):
-        return self.advective_disc()
 
 #------------------------------------------------------------------------------#
 
@@ -175,7 +183,7 @@ class Simulation(darcy_and_transport.DarcyAndTransport):
         # Darcy problem
         assign_data(gb, data_problem, FlowData, 'problem')
         data_problem['file_name'] = 'pressure'
-        flow = elliptic.EllipticModel(gb, **data_problem)
+        flow = pp.EllipticModel(gb, **data_problem)
 
         # transport problem
         assign_data(gb, data_problem, TransportData, 'transport_data')
