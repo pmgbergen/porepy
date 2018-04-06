@@ -123,6 +123,13 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
 
+    if 'fracture_id' in kwargs:
+        if kwargs['fracture_id'].size != len(grids[ndim-1]):
+            raise ValueError('Wrong size of fracture Id')
+
+        for g, g_id in zip(grids[ndim-1], kwargs['fracture_id']):
+            g.tags['fracture_id'] = g_id
+
     return grid_list_to_grid_bucket(grids, time_tot=tm_tot, **kwargs)
 
 
