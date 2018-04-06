@@ -213,6 +213,9 @@ def dfm_2d_from_csv(f_name, mesh_kwargs, domain=None, return_domain=False, \
         overlap = kwargs.get('domain_overlap', 0)
         domain = cg.bounding_box(pts, overlap)
 
+    if kwargs.get('assign_fracture_id', False):
+        mesh_kwargs['fracture_id'] = np.arange(edges.shape[1])
+
     if return_domain:
         return meshing.simplex_grid(f_set, domain, **mesh_kwargs), domain
     else:
