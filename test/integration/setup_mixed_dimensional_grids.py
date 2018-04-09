@@ -279,6 +279,22 @@ def set_bc_mech_tension(gb, top_tension=1, t=.05, l=1, fix_faces=True):
                     print('fixed faces at ',
                           bound_face_centers[:, lock_index_0],
                           ' and ', bound_face_centers[:, lock_index_1])
+                elif fix_faces:
+                    fix_sides(g, labels, bc_val, left, right, top, bottom,
+                              bound_face_centers,t, bound_faces)
+#                    le = left.nonzero()[0]
+#                    ri = right.nonzero()[0]
+#                    dist = cg.dist_point_pointset(np.array([0, .501, 0]),
+#                                                  bound_face_centers[:, le])
+#                    lock_index_0 = le[np.argmin(dist)]
+#                    labels[lock_index_0] = 'dir_y'
+#                    dist = cg.dist_point_pointset(np.array([1, .501, 0]),
+#                                                  bound_face_centers[:, ri])
+#                    lock_index_1 = ri[np.argmin(dist)]
+#                    labels[lock_index_1] = 'dir_y'
+#                    print('fixed faces at ',
+#                          bound_face_centers[:, lock_index_0],
+#                          ' and ', bound_face_centers[:, lock_index_1])
 #                labels[ind_b] = ['dir']
 #                labels[ind_t] = ['dir']
                 labels = np.array(labels)
@@ -305,7 +321,8 @@ def set_bc_mech_tension(gb, top_tension=1, t=.05, l=1, fix_faces=True):
                 param.set_slip_distance(np.zeros(g.num_faces * g.dim))
 
 
-def set_bc_mech_tension_sneddon(gb, p0, height, length, beta, t=.05, penny=False):
+def set_bc_mech_tension_sneddon(gb, p0, height, length, beta, aperture,
+                                t=.05, penny=False, fix_faces=True):
     """
     Minimal bcs for mechanics.
     """
@@ -322,6 +339,8 @@ def set_bc_mech_tension_sneddon(gb, p0, height, length, beta, t=.05, penny=False
         poisson = .25
         d['shear_modulus'] = mu
         d['Poisson'] = poisson
+        E = 2 * mu * (1 + poisson)
+        d['Young'] = E
 #        d['max_memory'] = 1e7#2959680000
         if g.dim > 1:
             lam = np.ones(g.num_cells) * 2 * mu * poisson /(1 - 2 * poisson)
@@ -342,14 +361,16 @@ def set_bc_mech_tension_sneddon(gb, p0, height, length, beta, t=.05, penny=False
             left = bound_face_centers[0, :] < eps
 
             labels = ['neu' for _ in range(bound_faces.size)]
-            internal_ind = np.isin(bound_faces, internal_faces).nonzero()[0]
+            internal_logical = np.isin(bound_faces, internal_faces)
+            internal_ind = internal_logical.nonzero()[0]
             for i in internal_ind:
                 labels[i] = 'dir'
             side_ind = right.nonzero()[0] #np.logical_or(left, right).nonzero()[0]
-#            topbot_ind  = np.logical_or(bottom, top).nonzero()[0]
-            topbot_ind  = bottom.nonzero()[0]
+            topbot_ind  = np.logical_or(bottom, top).nonzero()[0]
+#            topbot_ind  = bottom.nonzero()[0]
             bc_val = np.zeros((g.dim, g.num_faces))
             internal_tension = np.zeros((g.dim, g.num_faces))
+
 #            bc_dir = bound_faces[np.logical_or(top, bottom)]
             if g.dim == 3 and not penny:
                 back = bound_face_centers[1, :] <  eps
@@ -360,17 +381,33 @@ def set_bc_mech_tension_sneddon(gb, p0, height, length, beta, t=.05, penny=False
 
             if g.dim > last_ind:
 
-#                for i in side_ind:
-#                    labels[i] = 'dir_x'
-#                for i in topbot_ind:
-#                    labels[i] = 'dir_y'
-                labels = np.array(labels)
-#                ind_t = bound_faces[top]
-#                ind_b = bound_faces[bottom]
-#                bc_val[last_ind, ind_t] = top_tension * g.face_areas[ind_t]
-#                bc_val[last_ind, ind_b] = - top_tension * g.face_areas[ind_b]
+                domain_boundary_fc = bound_face_centers[:, ~internal_logical]
+                fracture_center = np.array([length / 2, height / 2, 0])
+                if g.dim == 3:
+                    fracture_center = np.array([length / 2, t, height / 2])
 
-#                normals = np.multiply(g.face_normals[last_ind, internal_faces], g.cell_faces[internal_faces].data)
+#                domain_boundary_fc = domain_boundary_fc - fracture_center[:, np.newaxis]
+
+
+                if g.dim == 2:
+                    sigma_b = boundary_tension_sneddon(p0, domain_boundary_fc,
+                                                   aperture, last_ind,
+                                                   fracture_center)
+                    assign_boundary_tension(g, sigma_b,
+                                            bound_faces[~internal_logical],
+                                            bc_val)
+#                else:
+#                    bc_val[2, bound_faces[top]] = p0
+#                    bc_val[2, bound_faces[bottom]] = - p0
+
+#                if g.dim == 3:
+#                    domain_boundary_ind = g.tags['domain_boundary_faces']
+#                    bc_val[1, domain_boundary_ind] = s_through
+                if fix_faces:
+                    fix_sides(g, labels, bc_val, left, right, top, bottom,
+                              bound_face_centers, t, bound_faces)
+                labels = np.array(labels)
+#                labels[top] = 'dir'
                 internal_tension[last_ind, g.frac_pairs[0]] \
                     = p0 * g.face_areas[g.frac_pairs[0]] * np.sin(beta)
                 internal_tension[0, g.frac_pairs[0]] \
@@ -380,9 +417,7 @@ def set_bc_mech_tension_sneddon(gb, p0, height, length, beta, t=.05, penny=False
                 if np.isclose(beta, np.pi / 2):
                     internal_tension[:, g.frac_pairs[0]] \
                     = (2 * (cc > (height / 2)) - 1) * internal_tension[:, g.frac_pairs[0]]
-                fix_sides(g, labels, bc_val, left, right, top, bottom,
-                          bound_face_centers, t, bound_faces)
-#            top = g.face_centers[1, :] > 1 - eps
+
 #            bottom = bound_face_centers[1, :] < eps
 #            labels = np.array(['neu'] * bound_faces.size)
 #            labels[np.logical_or(top, bottom)] = ['dir']
@@ -395,46 +430,80 @@ def set_bc_mech_tension_sneddon(gb, p0, height, length, beta, t=.05, penny=False
             param.set_slip_distance(internal_tension.ravel('F'))
 
 
-#def boundary_tension_sneddon(g, p0):
+def assign_boundary_tension(g, sigma, faces, bc_val):
+    eps = 1e-5
+    for i, f in enumerate(faces):
+        normal = g.face_normals[:2, f] * g.cell_faces[f].data
+        v = np.dot(sigma[:, :, i], normal)
+#        print('fc', g.face_centers[:2, f])
+#        print(v, normal)
+#        print('sigma', sigma[:, :, i])
+        bc_val[:, f] = v
+
+def boundary_tension_sneddon(p0, fc, a, normal_ind, center):
+    point_l = center - np.array([a, 0, 0])
+    point_r = center + np.array([a, 0, 0])
+    r1 = cg.dist_point_pointset(point_l, fc)
+    v1 = fc - point_l[:, np.newaxis]
+    r2 = cg.dist_point_pointset(point_r, fc)
+    v2 = fc - point_r[:, np.newaxis]
+    r = cg.dist_point_pointset(center, fc)
+    v = fc - center[:, np.newaxis]
+#    v1[normal_ind] = np.absolute(v1[normal_ind])
+#    v2[normal_ind] = np.absolute(v2[normal_ind])
+#    v[normal_ind] = np.absolute(v[normal_ind])
+    normal = np.zeros(3)
+    normal[normal_ind] = 1
+#    normal = np.array([1,0,0])
+    t1 = np.arccos(np.clip(np.dot(normal, v1 / r1), -1.0, 1.0))
+    t2 = np.arccos(np.clip(np.dot(normal, v2 / r2), -1.0, 1.0))
+    t = np.arccos(np.clip(np.dot(normal, v / r), -1.0, 1.0))
+    t1 = np.angle(v1[0] + v1[1]*1j)#np.arctan2(v1[1], v1[0])
+    t2 = np.angle(v2[0] + v2[1]*1j)#np.arctan2(v2[1], v2[0])
+    t = np.angle(v[0] + v[1]*1j)#np.arctan2(v[1], v[0])
+#    pluss = p0 * (np.divide(r, np.multiply(np.sqrt(r1), np.sqrt(r2))) \
+#                * np.cos(t - t1 / 2 - t2 / 2) - 1)
+#    C = p0 * np.divide(np.multiply(r, np.cos(t)), a) \
+#              * np.power(np.divide(np.square(a), np.multiply(r1, r2)), 3 / 2)
+#    minus = C * np.cos(3 / 2 * (t1 + t2))
+    pluss = p0 * (np.divide(r, np.multiply(np.sqrt(r1), np.sqrt(r2))) \
+                * np.cos(t - t1 / 2 - t2 / 2) - 1)
+    C = p0 * np.divide(np.multiply(r, np.sin(t)), a) \
+              * np.power(np.divide(np.square(a), np.multiply(r1, r2)), 3 / 2)
+    minus = C * np.sin(3 / 2 * (t1 + t2))
+    s_t = pluss - minus
+    s_n = pluss + minus
+    s_tn = C * np.cos(3 / 2 * (t1 + t2))
+    tensor = np.array([[s_t, s_tn], [s_tn, s_n]])
+    return tensor
+
+
+def analytical_stresses_on_boundary(p0, fc, a, normal_ind, nu):
+    """
+    p0
+    fc
+    a
+    normal_ind
+    nu - Poisson's ratio
+    """
+    den = np.power(np.square(a) + np.square(fc[normal_ind]), 3 / 2)
+    n3 = np.power(fc[normal_ind], 3)
+    sigma_n = p0 * (1 - np.divide(n3, den))
+    sigma_t = p0 * (1 - np.divide(n3 + fc[normal_ind] * 2 * np.square(a), den))
+    sigma_through = nu * (sigma_n + sigma_t)
+    return sigma_n, sigma_t, sigma_through
+
 
 def fix_sides(g, labels, bc_vals, left, right, top, bottom, bound_face_centers,
               t, bound_faces):
     le = left.nonzero()[0]
-#                    ri = right.nonzero()[0]
-#                    dist = cg.dist_point_pointset(np.array([0, t, .5]),
-#                                                  bound_face_centers[:, le])
-#                    lock_index_0 = le[np.argmin(dist)]
-#                    labels[lock_index_0] = 'dir_z'
-#                    dist = cg.dist_point_pointset(np.array([1, t, .5]),
-#                                                  bound_face_centers[:, ri])
-#                    lock_index_1 = ri[np.argmin(dist)]
-#                    labels[lock_index_1] = 'dir_z'
-#                    print('fixed faces at ',
-#                          bound_face_centers[:, lock_index_0],
-#                          ' and ', bound_face_centers[:, lock_index_1])
-#                    to = top.nonzero()[0]
-#                    bo = bottom.nonzero()[0]
-#                    dist = np.absolute(bound_face_centers[0, to] - .5 + eps)
-#                    dist = cg.dist_point_pointset(np.array([.5, t, 1]),
-#                                                  bound_face_centers[:, to])
-#
-#                    lock_index_0 = to[np.argmin(dist)]
-#                    labels[lock_index_0] = 'dir_x'
-#                    dist = np.absolute(bound_face_centers[0, bo] - .5 + eps)
-#                    dist = cg.dist_point_pointset(np.array([.5, t, 0]),
-#                                                  bound_face_centers[:, bo])
-#
-#                    lock_index_1 = bo[np.argmin(dist)]
-#                    labels[lock_index_1] = 'dir_x'
-#                    print('fixed faces at ',
-#                          bound_face_centers[:, lock_index_0],
-#                          ' and ', bound_face_centers[:, lock_index_1])
-    if g.dim == 2:
+    if g.dim == 33:
+        W = np.max(g.face_centers) / 2 - .1 * g.face_areas[0]
         last_ind = 1
-        left_point = np.array([0, .5, 0])
-        right_point = np.array([1, .5, 0])
-        bottom_point = np.array([.5, 0, 0])
-        top_point = np.array([.5, 1, 0])
+        left_point = np.array([0, W, 0])
+        right_point = np.array([1, W, 0])
+        bottom_point = np.array([W, 0, 0])
+        top_point = np.array([W, 1, 0])
         le = left.nonzero()[0]
         ri = right.nonzero()[0]
         dist = cg.dist_point_pointset(left_point,
@@ -467,7 +536,74 @@ def fix_sides(g, labels, bc_vals, left, right, top, bottom, bound_face_centers,
         bc_vals[0, bound_faces[lock_index_r]] = 0
         bc_vals[last_ind, bound_faces[lock_index_t]] = 0
         bc_vals[last_ind, bound_faces[lock_index_b]] = 0
+#                    ri = right.nonzero()[0]
+#                    dist = cg.dist_point_pointset(np.array([0, t, .5]),
+#                                                  bound_face_centers[:, le])
+#                    lock_index_0 = le[np.argmin(dist)]
+#                    labels[lock_index_0] = 'dir_z'
+#                    dist = cg.dist_point_pointset(np.array([1, t, .5]),
+#                                                  bound_face_centers[:, ri])
+#                    lock_index_1 = ri[np.argmin(dist)]
+#                    labels[lock_index_1] = 'dir_z'
+#                    print('fixed faces at ',
+#                          bound_face_centers[:, lock_index_0],
+#                          ' and ', bound_face_centers[:, lock_index_1])
+#                    to = top.nonzero()[0]
+#                    bo = bottom.nonzero()[0]
+#                    dist = np.absolute(bound_face_centers[0, to] - .5 + eps)
+#                    dist = cg.dist_point_pointset(np.array([.5, t, 1]),
+#                                                  bound_face_centers[:, to])
+#
+#                    lock_index_0 = to[np.argmin(dist)]
+#                    labels[lock_index_0] = 'dir_x'
+#                    dist = np.absolute(bound_face_centers[0, bo] - .5 + eps)
+#                    dist = cg.dist_point_pointset(np.array([.5, t, 0]),
+#                                                  bound_face_centers[:, bo])
+#
+#                    lock_index_1 = bo[np.argmin(dist)]
+#                    labels[lock_index_1] = 'dir_x'
+#                    print('fixed faces at ',
+#                          bound_face_centers[:, lock_index_0],
+#                          ' and ', bound_face_centers[:, lock_index_1])
+    if g.dim == 2:
+        W = np.max(g.face_centers) / 2 - .1 * g.face_areas[0]
+        last_ind = 1
+        left_point = np.array([0, W, 0])
+        right_point = np.array([1, W, 0])
+        bottom_point = np.array([W, 0, 0])
+        top_point = np.array([W, 1, 0])
+        le = left.nonzero()[0]
+        ri = right.nonzero()[0]
+        dist = cg.dist_point_pointset(left_point,
+                                      bound_face_centers[:, le])
+        lock_index_l = le[np.argmin(dist)]
+        labels[lock_index_l] = 'dir_y'
+        dist = cg.dist_point_pointset(right_point,
+                                      bound_face_centers[:, ri])
+        lock_index_r = ri[np.argmin(dist)]
+        labels[lock_index_r] = 'dir_y'
+        print('fixed faces at ',
+              bound_face_centers[:, lock_index_l],
+              ' and ', bound_face_centers[:, lock_index_r])
+        to = top.nonzero()[0]
+        bo = bottom.nonzero()[0]
+        dist = cg.dist_point_pointset(top_point,
+                                      bound_face_centers[:, to])
 
+        lock_index_t = to[np.argmin(dist)]
+        labels[lock_index_t] = 'dir_x'
+        dist = cg.dist_point_pointset(bottom_point,
+                                      bound_face_centers[:, bo])
+
+        lock_index_b = bo[np.argmin(dist)]
+        labels[lock_index_b] = 'dir_x'
+        print('fixed faces at ',
+              bound_face_centers[:, lock_index_b],
+              ' and ', bound_face_centers[:, lock_index_t])
+        bc_vals[last_ind, bound_faces[lock_index_l]] = 0
+        bc_vals[last_ind, bound_faces[lock_index_r]] = 0
+        bc_vals[0, bound_faces[lock_index_t]] = 0
+        bc_vals[0, bound_faces[lock_index_b]] = 0
 
 def set_bc_mech(gb, top_displacement=.01):
     """
@@ -477,10 +613,10 @@ def set_bc_mech(gb, top_displacement=.01):
     physics = 'mechanics'
     eps = 1e-10
     last_ind = gb.dim_max() - 1
-    
+
     for g, d in gb:
         param = d['param']
-        
+
         E = 1
         poisson = .3
         d['Young'] = E
