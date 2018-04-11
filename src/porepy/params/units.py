@@ -22,6 +22,8 @@ CENTIMETER = CENTI * METER
 MILLIMETER = MILLI * METER
 KILOMETER = KILO * METER
 
+GRAVITY_ACCELERATION = 9.80665*METER/SECOND**2
+
 # Pressure related quantities
 DARCY = 9.869233e-13
 PASCAL = 1
@@ -29,3 +31,9 @@ BAR = 101325 * PASCAL
 
 # force
 NEWTON = KILOGRAM * METER / SECOND ** 2
+CELSIUS = 1
+def CELSIUS_to_KELVIN(celsius):
+    return celsius+273.15
+
+def KELKIN_to_CELSIUS(kelvin):
+    return kelvin-273.15

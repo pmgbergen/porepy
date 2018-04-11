@@ -87,6 +87,7 @@ from porepy.params.bc import (
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
 from porepy.params.data import Parameters
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
+from porepy.params.water import Water
 
 # Visualization
 from porepy.viz.exporter import Exporter
