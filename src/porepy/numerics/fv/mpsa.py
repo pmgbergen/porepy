@@ -216,7 +216,7 @@ class FracturedMpsa(Mpsa):
         slip_distance = data['param'].get_slip_distance()
 
         A = sps.vstack((A_e, L), format='csr')
-        rhs = np.hstack((b_e * bc_val, b_l * slip_distance))
+        rhs = np.hstack((b_e * bc_val, b_l * (slip_distance + bc_val)))
 
         return A, rhs
 
@@ -248,7 +248,10 @@ class FracturedMpsa(Mpsa):
         bound_stress = data['bound_stress']
         b_e = data['b_e']
 
-        _, b_l = self.given_slip_distance(g, stress, bound_stress)
+        if self.given_traction_flag:
+            _, b_l = self.given_traction(g, stress, bound_stress)
+        else:
+            _, b_l = self.given_slip_distance(g, stress, bound_stress)
 
         bc_val = data['param'].get_bc_val(self)
 
@@ -263,7 +266,7 @@ class FracturedMpsa(Mpsa):
 
         slip_distance = data['param'].get_slip_distance()
 
-        rhs = np.hstack((b_e * bc_val, b_l * slip_distance))
+        rhs = np.hstack((b_e * bc_val, b_l * (slip_distance + bc_val)))
 
         return rhs
 
@@ -458,8 +461,9 @@ class FracturedMpsa(Mpsa):
         sgn_right = _sign_matrix(g, frac_faces_right)
 
         # We obtain the stress from boundary conditions on the domain boundary
-        bound_stress_external = bound_stress.copy()
-        bound_stress_external[:, int_b_ind] = 0
+        bound_stress_external = bound_stress.copy().tocsc()
+        sparse_mat.zero_columns(bound_stress_external, int_b_ind)
+        bound_stress_external = bound_stress_external.tocsc()
 
         # We construct the L matrix, i.e., we set the traction on the left
         # fracture side
@@ -468,10 +472,10 @@ class FracturedMpsa(Mpsa):
         L = sps.hstack((sgn_left * stress[int_b_left, :], frac_stress))
 
         # negative sign since we have moved b_external from lhs to rhs
-        d_f = sps.csr_matrix((np.ones(int_b_left.size),
+        d_t = sps.csr_matrix((np.ones(int_b_left.size),
                               (np.arange(int_b_left.size), int_b_left)),
-                             (int_b_left.size, g.num_faces * g.dim))
-        d_t = sgn_left * bound_stress_external[int_b_left]  # \
+                             (int_b_left.size, g.num_faces * g.dim)) \
+                        - sgn_left * bound_stress_external[int_b_left]  # \
     #        + sgn_right * bound_stress_external[int_b_right]
 
         return L, d_t
