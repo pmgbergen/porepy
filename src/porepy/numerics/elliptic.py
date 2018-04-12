@@ -198,6 +198,7 @@ class EllipticModel():
                                        p_name=self.pressure_name)
         else:
             fvutils.compute_discharges(self.grid(), self.physics,
+                                       discharge_name,
                                        self.pressure_name,
                                        self._data)
 
