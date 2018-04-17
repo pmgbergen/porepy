@@ -136,7 +136,7 @@ class Ad_array():
     
     def full_jac(self):
         return self.jac
-        return sps.hstack(self.jac[:])
+#        return sps.hstack(self.jac[:])
 
     
     def _other_mul_jac(self, other):
