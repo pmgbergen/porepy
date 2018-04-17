@@ -388,6 +388,78 @@ class TpfaCoupling(AbstractCoupling):
 
         return matrix + cc
 
+#------------------------------------------------------------------------------
+
+class TpfaMonoCoupling(AbstractCoupling):
+
+    def __init__(self, solver):
+        self.solver = solver
+        self.discr_ndof = solver.ndof
+
+    def matrix_rhs(self, matrix, g_l, g_r, data_l, data_r, data_edge):
+        """
+        Computes the coupling terms for the faces between faces in g_l and g_r
+        using the two-point flux approximation.
+
+        Parameters:
+            g_l and g_r: grid structures of the left and right
+                subdomains, respectively.
+            data_l and data_r: the corresponding data dictionaries.
+                Assumed to have the fields 'bound_pressure_cell' and
+                'bound_pressure_face' (see Tpfa)
+
+        """
+        # Mortar data structure.
+        mg = data_edge['mortar_grid']
+
+        # Matrices for reconstruction of face pressures.
+        # Discretization of boundary conditions
+        bound_flux_l = data_l['bound_flux']
+        bound_flux_r = data_r['bound_flux']
+        div_l = fvutils.scalar_divergence(g_l)
+        div_r = fvutils.scalar_divergence(g_r)
+
+        # Contribution from cell center values
+        bound_pressure_cell_l = data_l['bound_pressure_cell']
+        bound_pressure_cell_r = data_r['bound_pressure_cell']
+        # Contribution from boundary value
+        bound_pressure_face_l = data_l['bound_pressure_face']
+        bound_pressure_face_r = data_r['bound_pressure_face']
+
+        # Recover the information for the grid-grid mapping.
+        # Projection from left side to mortar grid.
+        left_P = mg.left_to_mortar_avg()
+        # Projection from right side to mortar grid
+        right_P = mg.right_to_mortar_avg()
+
+        # Enforce continuity of pressures.
+        # We reconstruct the pressure on the mortar grid. The contribution
+        # from the mortars to the pressure is
+        mortar_to_pressure = (left_P) * bound_pressure_face_l * (left_P).T
+        mortar_to_pressure += right_P * bound_pressure_face_r * (right_P).T
+
+        # store discretization
+        data_edge['hat_P_to_mortar'] = left_P * bound_pressure_cell_l
+        data_edge['check_P_to_mortar'] = right_P * bound_pressure_cell_r
+        data_edge['jump'] = sps.coo_matrix((g_l.num_cells, mg.num_cells))
+        data_edge['mortar_weight'] = mortar_to_pressure
+        data_edge['mortar_to_bc_l'] = (bound_flux_l * left_P).T
+        data_edge['mortar_to_bc_r'] = (bound_flux_r * right_P).T
+
+        # create block matrix
+        _, cc = self.create_block_matrix([g_l, g_r, mg])
+
+        # store discretization matrix
+        # first the flux continuity
+        cc[0, 2] = div_l * data_edge['mortar_to_bc_l']
+        cc[1, 2] = -div_r * data_edge['mortar_to_bc_r']
+        # then pressure continuety
+        cc[2, 0] = data_edge['hat_P_to_mortar']
+        cc[2, 1] = -data_edge['check_P_to_mortar']
+        cc[3, 3] = data_edge['mortar_weight']
+
+        return matrix + cc
+
 #------------------------------------------------------------------------------#
 
 class TpfaCouplingDFN(AbstractCoupling):
