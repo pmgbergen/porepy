@@ -265,3 +265,157 @@ class MortarGrid(object):
         row_sum = self.low_to_mortar_int.sum(axis=1)
         assert row_sum.min() > tol
 #        assert row_sum.max() < 1 + tol
+
+
+#------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+
+class BoundaryMortar(object):
+    """
+    Parent class for a mortar grid between two grids of the same dimension.  It
+    contains a mortar grid and the weighted mapping from the LEFT_SIDE grid (as
+    set of faces) to the mortar grid and from the RIGHT_SIDE grid (as set of
+    faces) to the mortar grids.
+
+    Attributes:
+
+        dim (int): dimension. Should be 0 or 1 or 2.
+        side_grids (dictionary of Grid): grid for each side. The key is a
+            SideTag and the value is a Grid.
+        sides (array of SideTag): ordering of the sides.
+        left_to_mortar_int (sps.csc-matrix): Face-cell relationships between the
+            LEFT_SIDE grid and the mortar grid. Matrix size:
+            num_faces x num_cells. In the beginning we assume matching grids,
+            but it can be modified by calling refine_mortar(). The matrix
+            elements represent the ratio between the geometrical objects.
+        right_to_mortar_int (sps.csc-matrix): face-cell relationships between
+            right mortar grid and the mortar grid. Matrix size:
+            num_faces x num_cells. Matrix elements represent the ratio between
+            the geometrical objects.
+        name (list): Information on the formation of the grid, such as the
+            constructor, computations of geometry etc.
+
+
+    """
+    def __init__(self, dim, side_grids, face_faces, name=''):
+        """Initialize the mortar grid
+
+        See class documentation for further description of parameters.
+        The left_to_mortar_int and right_to_mortar_int are identity mapping.
+
+        Parameters
+        ----------
+        dim (int): grid dimension
+        side_grids (dictionary of Grid): grid on each side.
+        face_faces (sps.csc_matrix): face-face relations between the left
+            grid and the right dimensional grid
+        name (str): Name of grid
+        """
+
+        assert dim >= 0 and dim < 3
+        assert np.all([g.dim - 1 == dim for g in side_grids.values()])
+
+        self.dim = dim
+        self.side_grids = side_grids
+        self.sides = np.array(self.side_grids.keys)
+
+        assert self.num_sides() == 1 or self.num_sides() == 2
+
+        if isinstance(name, list):
+            self.name = name
+        else:
+            self.name = [name]
+
+        # face_cells mapping from the Left_SIDE grid to the mortar grid
+        # also here we assume that, in the beginning the mortar grids are equal
+        # to the co-dimensional grid. If this assumption is not satisfied we
+        # need to change the following lines
+        # The face_faces gives a map from the LEFT_SIDE grid to the RIGHT_SIDE
+        # grid. The mortar cells are sorted after the rows of the face_faces
+        # mapping.
+        left_f, right_f, data = sps.find(face_faces)
+
+        cells = np.argsort(left_f)
+        self.num_cells = cells.size
+        self.cell_volumes = side_grids[LEFT_SIDE].face_areas[left_f]
+#        self.cell_volumes = g.face_areas[left_f]
+
+        shape_left = (self.num_cells, face_faces.shape[0])
+        shape_right = (self.num_cells, face_faces.shape[1])
+        self.left_to_mortar_int = sps.csc_matrix((data.astype(np.float),
+                                                  (cells, left_f)),
+                                                 shape=shape_left)
+        self.right_to_mortar_int = sps.csc_matrix((data.astype(np.float),
+                                                  (cells, right_f)),
+                                                  shape=shape_right)
+
+    def __repr__(self):
+        """
+        Implementation of __repr__
+
+        """
+        s = 'Mortar grid with history ' + ', '.join(self.name) + '\n' + \
+            'Dimension ' + str(self.dim) + '\n' + \
+            'Face_cell mapping from the LEFT_SIDE grid to the mortar grid\n' + \
+            str(self.left_to_mortar_int) + '\n' + \
+            'Face_cell mapping from the RIGHT_SIDE grid to the mortar grid\n' + \
+            str(self.right_to_mortar_int)
+
+        return s
+
+    def __str__(self):
+        """
+        Implementation of __str__
+        """
+        s = str()
+
+        s+= "".join(['Side '+str(s)+' with grid:\n'+str(g) for s, g in
+                                                       self.side_grids.items()])
+
+        s += 'Mapping from the faces of the LEFT_SIDE grid to' + \
+             ' the cells of the mortar grid. \nRows indicate the mortar' + \
+             ' cell id, columns indicate the (LEFT_SIDE) face id' + \
+             '\n' + str(self.left_to_mortar_int) + '\n' + \
+             'Mapping from the cells of the face of the RIGHT_SIDE grid' +\
+             'to the cells of the mortar grid. \nRows indicate the mortar' + \
+             ' cell id, columns indicate the (RIGHT_SIDE) face id' + \
+             '\n' + str(self.right_to_mortar_int)
+
+        return s
+
+#------------------------------------------------------------------------------#
+
+    def num_sides(self):
+        """
+        Shortcut to compute the number of sides, it has to be 2 or 1.
+
+        Return:
+            Number of sides.
+        """
+        return len(self.side_grids)
+
+#------------------------------------------------------------------------------#
+
+    def mortar_to_left_int(self):
+
+        return self.left_to_mortar_avg().T
+
+#------------------------------------------------------------------------------#
+
+    def left_to_mortar_avg(self):
+        row_sum = self.left_to_mortar_int.sum(axis=1).A.ravel()
+        return sps.diags(1./row_sum) * self.left_to_mortar_int
+
+#------------------------------------------------------------------------------#
+
+    def right_to_mortar_avg(self):
+        row_sum = self.right_to_mortar_int.sum(axis=1).A.ravel()
+        return sps.diags(1./row_sum) * self.right_to_mortar_int
+
+
+#------------------------------------------------------------------------------#
+
+    def mortar_to_right_int(self):
+        return self.right_to_mortar_avg().T
+
+#------------------------------------------------------------------------------#
