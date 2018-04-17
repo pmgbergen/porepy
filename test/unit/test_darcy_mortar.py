@@ -29,7 +29,7 @@ class TestGridRefinement1d(unittest.TestCase):
 
 #------------------------------------------------------------------------------#
 
-    def est_mortar_grid_darcy(self):
+    def test_mortar_grid_darcy(self):
 
         f1 = np.array([[0, 1], [.5, .5]])
 
@@ -109,7 +109,7 @@ class TestGridRefinement1d(unittest.TestCase):
 
 #------------------------------------------------------------------------------#
 
-    def est_mortar_grid_darcy_2_fracs(self):
+    def test_mortar_grid_darcy_2_fracs(self):
 
         f1 = np.array([[0, 1], [.5, .5]])
         f2 = np.array([[.5, .5], [0, 1]])
@@ -1239,8 +1239,8 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 #gb = a.setup()
 #a = TestMortar3D()
 #a.test_mpfa_1_frac_no_refinement()
-a = TestMortar2DSimplexGrid()
-a.test_mpfa_one_frac()
+#a = TestMortar2DSimplexGrid()
+#a.test_mpfa_one_frac()
 #a = TestMortar2DSimplexGrid()
 #a.grid_2d()
 #a.test_vem_one_frac_coarsen_2d()
