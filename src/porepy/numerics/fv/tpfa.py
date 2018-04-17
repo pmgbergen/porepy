@@ -30,6 +30,10 @@ class TpfaMixedDim(SolverMixedDim):
 
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
+    def discretize(self, gb):
+        for g, d in gb:
+            self.discr.discretize(g, d)
+
 #------------------------------------------------------------------------------
 
 class TpfaDFN(SolverMixedDim):
