@@ -273,6 +273,45 @@ class Tpfa(Solver):
 #------------------------------------------------------------------------------
 
 class TpfaCoupling(AbstractCoupling):
+    """
+    Coupler using both TpfaMixedCoupling (for fractures) and TpfaMonoCoupling
+    for coupling between two grids of same dimension. Note that the
+    mono-dimensional also work for a coupling between a grid to itself and will
+    then act as a periodic boundary condition.
+
+    Mixed dimensional coupling: The coupling condition between
+    two grids of different dimension is lambda = K nabla ( P_hat  - P_check)
+    and a source contribution to the lower dimensional grid equal the jump
+    ||lambda||.
+    
+    Mono dimensional coupling: The coupling condition between two grids of the
+    same dimension is continuity of pressure and flux:
+    P_hat - P_check = 0, v_hat = lambda, v_check = -lambda
+    """
+    def __init__(self, solver):
+        self.mono_coupling = TpfaMonoCoupling(solver)
+        self.mixed_coupling = TpfaMixedCoupling(solver)
+        self.physics = solver.physics
+
+    def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
+        if g_h.dim == g_l.dim:
+            mc =self.mono_coupling.matrix_rhs(matrix, g_h, g_l, data_h, data_l, data_edge)
+        else:
+            mc =self.mixed_coupling.matrix_rhs(matrix, g_h, g_l, data_h, data_l, data_edge)
+        return mc
+
+    def discretize(self, gb):
+        for e, d in gb.edges_props():
+            g_l, g_h = gb.sorted_nodes_of_edge(e)
+            data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
+            if g_l.dim == g_h.dim:
+                self.mono_coupling.discretize(g_h, g_l, data_h, data_l, d)
+            else:
+                self.mixed_coupling.discretize(g_h, g_l, data_h, data_l, d)
+
+#------------------------------------------------------------------------------
+
+class TpfaMixedCoupling(AbstractCoupling):
 
     def __init__(self, solver):
         self.solver = solver
