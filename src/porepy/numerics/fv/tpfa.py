@@ -459,16 +459,26 @@ class TpfaMonoCoupling(AbstractCoupling):
         div_r = fvutils.scalar_divergence(g_r)
 
         # create block matrix
-        _, cc = self.create_block_matrix([g_l, g_r, data_edge['mortar_grid']])
+
 
         # store discretization matrix
-        # first the flux continuity
-        cc[0, 2] = div_l * data_edge['mortar_to_hat_bc']
-        cc[1, 2] = div_r * data_edge['mortar_to_check_bc']
-        # then pressure continuity
-        cc[2, 0] = data_edge['hat_P_to_mortar']
-        cc[2, 1] = -data_edge['check_P_to_mortar']
-        cc[3, 3] = data_edge['mortar_weight']
+        if g_l != g_r:
+            _, cc = self.create_block_matrix([g_l, g_r, data_edge['mortar_grid']])
+            # first the flux continuity
+            cc[0, 2] = div_l * data_edge['mortar_to_hat_bc']
+            cc[1, 2] = div_r * data_edge['mortar_to_check_bc']
+            # then pressure continuity
+            cc[2, 0] = data_edge['hat_P_to_mortar']
+            cc[2, 1] = -data_edge['check_P_to_mortar']
+            cc[2, 2] = data_edge['mortar_weight']
+        else:
+            _, cc = self.create_block_matrix([g_l, data_edge['mortar_grid']])            
+            # if the edge connect a node to itself the contribution
+            # from the left and right are both at the same node
+            cc[0, 1] = div_l * data_edge['mortar_to_hat_bc'] +\
+                       div_r * data_edge['mortar_to_check_bc']
+            cc[1, 0] = data_edge['hat_P_to_mortar'] -\
+                       data_edge['check_P_to_mortar']
 
         return matrix + cc
 
