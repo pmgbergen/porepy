@@ -225,7 +225,6 @@ class Tpfa(Solver):
             t_face = nk.sum(axis=0)
             dist_face_cell = np.power(fc_cc, 2).sum(axis=0)
 
-
         t_face = np.divide(t_face, dist_face_cell)
 
         # Return harmonic average
@@ -479,6 +478,7 @@ class TpfaMonoCoupling(AbstractCoupling):
         data_edge['mortar_to_hat_bc'] = bound_flux_l * (left_P).T
         data_edge['mortar_to_check_bc'] = -bound_flux_r * (right_P).T
 
+
     def matrix_rhs(self, matrix, g_l, g_r, data_l, data_r, data_edge, discretize=True):
         """
         Computes the coupling terms for the faces between faces in g_l and
@@ -512,6 +512,7 @@ class TpfaMonoCoupling(AbstractCoupling):
             cc[2, 0] = data_edge['hat_P_to_mortar']
             cc[2, 1] = -data_edge['check_P_to_mortar']
             cc[2, 2] = data_edge['mortar_weight']
+
         else:
             _, cc = self.create_block_matrix([g_l, data_edge['mortar_grid']])            
             # if the edge connect a node to itself the contribution

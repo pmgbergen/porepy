@@ -333,15 +333,15 @@ class BoundaryMortar(object):
         # The face_faces gives a map from the LEFT_SIDE grid to the RIGHT_SIDE
         # grid. The mortar cells are sorted after the rows of the face_faces
         # mapping.
-        left_f, right_f, data = sps.find(face_faces)
+        right_f, left_f, data = sps.find(face_faces)
 
         cells = np.argsort(left_f)
         self.num_cells = cells.size
         self.cell_volumes = side_grids[LEFT_SIDE].face_areas[left_f]
 #        self.cell_volumes = g.face_areas[left_f]
 
-        shape_left = (self.num_cells, face_faces.shape[0])
-        shape_right = (self.num_cells, face_faces.shape[1])
+        shape_left = (self.num_cells, face_faces.shape[1])
+        shape_right = (self.num_cells, face_faces.shape[0])
         self.left_to_mortar_int = sps.csc_matrix((data.astype(np.float),
                                                   (cells, left_f)),
                                                  shape=shape_left)
