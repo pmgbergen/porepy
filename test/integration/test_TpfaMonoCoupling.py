@@ -108,7 +108,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
         where D are dirichlet boundaries and P the periodic boundaries
         """
-        n = 13
+        n = 8
         xmax = 1
         ymax = 1
         gb = self.generate_grids(n, xmax, ymax)
@@ -156,7 +156,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         # test pressure
         for g, d in gb:
             ap, _, _ = analytic_p(g.cell_centers)
-            assert np.max(np.abs(d['pressure'] - ap)) < 5e-1
+            assert np.max(np.abs(d['pressure'] - ap)) < 5e-2
 
         # test mortar solution
         for e, d_e in gb.edges_props():
@@ -169,9 +169,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             left_flux = left_to_m * np.sum(analytic_flux * g1.face_normals[:2], 0)
             # two the right normals point the wrong way.. need to flip them
             right_flux = -right_to_m * np.sum(analytic_flux * (-g1.face_normals[:2]), 0)
-            
-            assert np.max(np.abs(d_e['mortar_solution'] - left_flux)) <5e-1
-            assert np.max(np.abs(d_e['mortar_solution'] - right_flux)) < 5e-1
+            assert np.max(np.abs(d_e['mortar_solution'] - left_flux)) <5e-2
+            assert np.max(np.abs(d_e['mortar_solution'] - right_flux)) < 5e-2
 
     def generate_grids(self, n, xmax, ymax):
         g1 = structured.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])

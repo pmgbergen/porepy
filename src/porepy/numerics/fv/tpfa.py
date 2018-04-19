@@ -521,6 +521,7 @@ class TpfaMonoCoupling(AbstractCoupling):
                        div_r * data_edge['mortar_to_check_bc']
             cc[1, 0] = data_edge['hat_P_to_mortar'] -\
                        data_edge['check_P_to_mortar']
+            cc[1, 1] = data_edge['mortar_weight']
 
         return matrix + cc
 
