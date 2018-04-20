@@ -106,7 +106,10 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                                 |--------|
                                     P
 
-        where D are dirichlet boundaries and P the periodic boundaries
+        where D are dirichlet boundaries and P the periodic boundaries.
+        We construct periodic solution
+               p = sin(pi/xmax * (x - x0)) * cos(2*pi/ymax * (y - y0))
+        which gives a source term on the rhs.
         """
         n = 8
         xmax = 1
