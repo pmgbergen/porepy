@@ -334,7 +334,7 @@ class BoundaryMortar(object):
         # grid. The mortar cells are sorted after the rows of the face_faces
         # mapping.
         right_f, left_f, data = sps.find(face_faces)
-
+        
         cells = np.argsort(left_f)
         self.num_cells = cells.size
         self.cell_volumes = side_grids[LEFT_SIDE].face_areas[left_f]
@@ -419,3 +419,9 @@ class BoundaryMortar(object):
         return self.right_to_mortar_avg().T
 
 #------------------------------------------------------------------------------#
+    def compute_geometry(self):
+        """
+        Compute the geometry of the mortar grids.
+        We assume that they are not aligned with x (1d) or x, y (2d).
+        """
+        [g.compute_geometry() for g in self.side_grids.values()]
