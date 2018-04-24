@@ -885,8 +885,3 @@ class TestMeshReplacement3d(unittest.TestCase):
         assert np.abs(p1h[0, 4] - 0.5) < 1e-6
         assert np.abs(p1h[1, 7] - 0.5) < 1e-6
         assert np.abs(p1h[1, 8] - 0.5) < 1e-6
-
-#if __name__ == '__main__':
-unittest.main()
-a = TestMeshReplacement3d()
-a.test_replace_2d_with_finer_pert()

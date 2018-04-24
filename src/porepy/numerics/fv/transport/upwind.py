@@ -112,6 +112,7 @@ class Upwind(Solver):
 
         """
         if g.dim == 0:
+            data['flow_faces'] = sps.csr_matrix([0])
             return sps.csr_matrix([0]), np.array([0])
 
         param = data['param']
@@ -158,6 +159,7 @@ class Upwind(Solver):
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
 
+        data['flow_faces'] = flow_faces
         if not has_bc:
             return flow_cells, np.zeros(g.num_cells)
 
