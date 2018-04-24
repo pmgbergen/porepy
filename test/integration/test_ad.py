@@ -12,7 +12,7 @@ class AdTest(unittest.TestCase):
         x, y  = initAdArrays([np.array(1), np.array(2)])
         z = 1*x + 2*y + 3*x*y + 4*x*x + 5*y*y
         val = 35
-        assert z.val == val and z.jac[0].A == 15 and z.jac[1].A == 25
+        assert z.val == val and np.all(z.jac.A == [15, 25])
 
     def test_vector_quadratic(self):
         x, y  = initAdArrays([np.array([1, 1]), np.array([2, 3])])

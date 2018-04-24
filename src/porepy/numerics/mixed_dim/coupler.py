@@ -155,7 +155,10 @@ class Coupler(object):
             g_l, g_h = gb.sorted_nodes_of_edge(e)
             pos_l, pos_h = d['node_number']
             pos_m = d['edge_number'] + gb.num_graph_nodes()
-            idx = np.ix_([pos_h, pos_l, pos_m], [pos_h, pos_l, pos_m])
+            if pos_h == pos_l:
+                idx = np.ix_([pos_h, pos_m], [pos_h, pos_m])
+            else:
+                idx = np.ix_([pos_h, pos_l, pos_m], [pos_h, pos_l, pos_m])                
 
             data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
             matrix[idx] = self.coupling_fct(matrix[idx], g_h, g_l, data_h, data_l, d)
