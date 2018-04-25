@@ -18,7 +18,7 @@ from porepy.fracs.fractures import Fracture
 from porepy.params.data import Parameters
 from porepy.params import bc
 from porepy.params.bc import BoundaryCondition
-from porepy.grids.grid import FaceTag, Grid
+from porepy.grids.grid import Grid
 from porepy.params import tensor
 
 
@@ -58,9 +58,9 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             d['param'] = param
 
         gb.add_edge_prop('kn')
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
-            gn = gb.sorted_nodes_of_edge(e)
+            gn = gb.nodes_of_edge(e)
             d['kn'] = kn * np.ones(mg.num_cells)
 
     def set_grids(self, N, num_nodes_mortar, num_nodes_1d, physdims=[1, 1]):
@@ -70,7 +70,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         gb.compute_geometry()
         gb.assign_node_ordering()
 
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
             new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=num_nodes_mortar) \
                               for s, g in mg.side_grids.items()}
@@ -78,7 +78,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             mortars.update_mortar_grid(mg, new_side_grids, tol=1e-4)
 
             # refine the 1d-physical grid
-            old_g = gb.sorted_nodes_of_edge(e)[0]
+            old_g = gb.nodes_of_edge(e)[0]
             new_g = refinement.new_grid_1d(old_g, num_nodes=num_nodes_1d)
             new_g.compute_geometry()
 
@@ -582,7 +582,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         for g, d in gb:
             param = Parameters(g)
 
-            perm = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+            perm = tensor.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
             param.set_tensor("flow", perm)
 
             aperture = np.power(1e-3, gb.dim_max() - g.dim)
@@ -602,9 +602,9 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 
             d['param'] = param
 
-        gb.add_edge_prop('kn')
+        gb.add_edge_props('kn')
         kn = 1e7
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
             d['kn'] = kn * np.ones(mg.num_cells)
 
@@ -791,7 +791,7 @@ class TestMortar3D(unittest.TestCase):
         for g, d in gb:
             param = Parameters(g)
 
-            perm = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+            perm = tensor.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
             param.set_tensor("flow", perm)
 
             aperture = np.power(1e-6, gb.dim_max() - g.dim)
@@ -811,15 +811,15 @@ class TestMortar3D(unittest.TestCase):
 
             d['param'] = param
 
-        gb.add_edge_prop('kn')
+        gb.add_edge_props('kn')
         kn = 1e7
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
             d['kn'] = kn * np.ones(mg.num_cells)
 
     def verify_cv(self, gb):
         for g in gb.nodes():
-            p = gb.node_prop(g, 'pressure')
+            p = gb.node_props(g, 'pressure')
             assert np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3)
 
     def run_mpfa(self, gb):
@@ -950,7 +950,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
             d['param'] = param
 
-        gb.add_edge_prop('kn')
+        gb.add_edge_props('kn')
         kn = 1e7
         for e, d in gb.edges_props():
             mg = d['mortar_grid']
