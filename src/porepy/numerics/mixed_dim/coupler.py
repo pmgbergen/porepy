@@ -97,8 +97,8 @@ class Coupler(object):
             pos_m = d['edge_number'] + gb.num_graph_nodes()
 
             gs = gb.nodes_of_edge(e)
-            dof_i = gb.node_prop(gs[0], 'dof')
-            dof_j = gb.node_prop(gs[1], 'dof')
+            dof_i = gb.node_props(gs[0], 'dof')
+            dof_j = gb.node_props(gs[1], 'dof')
             dof_m = d['dof']
 
             matrix[pos_i, pos_m] = sps.coo_matrix((dof_i, dof_m))
