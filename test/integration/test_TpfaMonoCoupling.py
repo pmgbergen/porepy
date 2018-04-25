@@ -42,23 +42,23 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         x = sps.linalg.spsolve(A, b)
 
         flow_disc.split(gb, 'pressure', x)
-        
+
         # test pressure
         for g, d in gb:
             assert np.allclose(d['pressure'], xmax - g.cell_centers[0])
 
         # test mortar solution
-        for e, d_e in gb.edges_props():
+        for e, d_e in gb.edges():
             mg = d_e['mortar_grid']
-            g2, g1 = gb.sorted_nodes_of_edge(e)
+            g2, g1 = gb.nodes_of_edge(e)
             left_to_m = mg.left_to_mortar_avg()
             right_to_m = mg.right_to_mortar_avg()
-            
+
             left_area = left_to_m * g1.face_areas
             right_area = right_to_m * g2.face_areas
-            
+
             assert np.allclose(d_e['mortar_solution']/left_area, 1)
-            assert np.allclose(d_e['mortar_solution']/right_area, 1)            
+            assert np.allclose(d_e['mortar_solution']/right_area, 1)
 
     def generate_grids(self, n, xmax, ymax, split):
         g1 = structured.CartGrid([split * n, ymax * n], physdims=[split, ymax])
@@ -135,7 +135,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             d['param'].set_bc('flow', BoundaryCondition(g, dir_bc, 'dir'))
             bc_val = np.zeros(g.num_faces)
             bc_val[dir_bc], _, _ = analytic_p(g.face_centers[:, dir_bc])
-            
+
             d['param'].set_bc_val('flow', bc_val)
 
             pa, _, lpc = analytic_p(g.cell_centers)
@@ -152,16 +152,16 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         x = sps.linalg.spsolve(A, b + src)
 
         flow_disc.split(gb, 'pressure', x)
-        
+
         # test pressure
         for g, d in gb:
             ap, _, _ = analytic_p(g.cell_centers)
             assert np.max(np.abs(d['pressure'] - ap)) < 5e-2
 
         # test mortar solution
-        for e, d_e in gb.edges_props():
+        for e, d_e in gb.edges():
             mg = d_e['mortar_grid']
-            g2, g1 = gb.sorted_nodes_of_edge(e)
+            g2, g1 = gb.nodes_of_edge(e)
             left_to_m = mg.left_to_mortar_avg()
             right_to_m = mg.right_to_mortar_avg()
 
@@ -194,5 +194,5 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         gb.assign_node_ordering()
         return gb
 
-    if __name__ == '__main__':
-        unittest.main()
+if __name__ == '__main__':
+    unittest.main()
