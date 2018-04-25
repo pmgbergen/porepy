@@ -637,7 +637,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     dp = remove_not_neumann * dp
 
     # We also need pressure in the cell next to the boundary face.
-    bound_faces = g.get_boundary_faces()
+    bound_faces = np.where(g.tags['domain_boundary_faces'].ravel())[0]
     # A trick to get the boundary face: We know that one element is -1 (e.g.
     # outside the domain). Add 1, sum cell indices (will only contain the
     # internal cell; the one outside is now zero), and then subtract 1 again.

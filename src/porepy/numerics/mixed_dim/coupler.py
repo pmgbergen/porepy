@@ -59,8 +59,8 @@ class Coupler(object):
         for g, d in gb:
             d['dof'] = self.discr_ndof(g)
 
-        gb.add_edge_prop('dof')
-        for _, d in gb.edges_props():
+        gb.add_edge_props('dof')
+        for _, d in gb.edges():
             d['dof'] = d['mortar_grid'].num_cells
 
 #------------------------------------------------------------------------------#
@@ -92,12 +92,13 @@ class Coupler(object):
 
         # Initialize the mortar matrices, in this case we see the mortar grids
         # as a single grid
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             pos_i, pos_j = d['node_number']
             pos_m = d['edge_number'] + gb.num_graph_nodes()
 
-            gs = gb.sorted_nodes_of_edge(e)
-            dof_i, dof_j = gb.nodes_prop(gs, 'dof')
+            gs = gb.nodes_of_edge(e)
+            dof_i = gb.node_prop(gs[0], 'dof')
+            dof_j = gb.node_prop(gs[1], 'dof')
             dof_m = d['dof']
 
             matrix[pos_i, pos_m] = sps.coo_matrix((dof_i, dof_m))
@@ -151,8 +152,8 @@ class Coupler(object):
 
         # Loop over the edges of the graph (pair of connected grids) to compute
         # the coupling conditions
-        for e, d in gb.edges_props():
-            g_l, g_h = gb.sorted_nodes_of_edge(e)
+        for e, d in gb.edges():
+            g_l, g_h = gb.nodes_of_edge(e)
             pos_l, pos_h = d['node_number']
             pos_m = d['edge_number'] + gb.num_graph_nodes()
             if pos_h == pos_l:
@@ -190,8 +191,8 @@ class Coupler(object):
             i = d['node_number']
             d[key] = values[slice(dofs[i], dofs[i + 1])]
 
-        gb.add_edge_prop(mortar_key)
-        for e, d in gb.edges_props():
+        gb.add_edge_props(mortar_key)
+        for e, d in gb.edges():
             i = d['edge_number'] + gb.num_graph_nodes()
             d[mortar_key] = values[slice(dofs[i], dofs[i + 1])]
 
@@ -231,7 +232,7 @@ class Coupler(object):
         for _, d in gb:
             dofs[d['node_number']] = d['dof']
 
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             i = d['edge_number'] + gb.num_graph_nodes()
             dofs[i] = d['dof']
 

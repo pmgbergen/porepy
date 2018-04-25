@@ -342,6 +342,8 @@ def grid_list_to_grid_bucket(grids, time_tot=None, **kwargs):
     split_grid.split_fractures(gb, **kwargs)
     logger.info('Done. Elapsed time ' + str(time.time() - tm_split))
 
+    create_mortar_grids(gb)
+
     gb.assign_node_ordering()
 
     if time_tot is not None:
@@ -537,10 +539,10 @@ def _assemble_in_bucket(grids, **kwargs):
 
 def create_mortar_grids(gb):
 
-    gb.add_edge_prop('mortar_grid')
+    gb.add_edge_props('mortar_grid')
     # loop on all the nodes and create the mortar grids
-    for e, d in gb.edges_props():
-        lg = gb.sorted_nodes_of_edge(e)[0]
+    for e, d in gb.edges():
+        lg = gb.nodes_of_edge(e)[0]
         # d['face_cells'].indices gives mappings into the lower dimensional
         # cells. Count the number of occurences for each cell.
         num_sides = np.bincount(d['face_cells'].indices)

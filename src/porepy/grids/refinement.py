@@ -191,11 +191,11 @@ def new_grid_1d(g_old, num_nodes, tol=1e-6):
     # map the tags from the old grid to the new one
 
     # retrieve the old faces and the corresponding coordinates
-    old_faces = g_old.get_boundary_faces()
+    old_faces = np.where(g_old.tags['domain_boundary_faces'].ravel())[0]
     old_nodes = g_old.face_centers[:, old_faces]
 
     # retrieve the boundary faces and the corresponding coordinates
-    faces = g.get_boundary_faces()
+    faces = np.where(g.tags['domain_boundary_faces'].ravel())[0]
     nodes = g.face_centers[:, faces]
 
     # compute the mapping from the old boundary to the new boundary
