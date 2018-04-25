@@ -13,9 +13,7 @@ is (at least partly) for purposes of investigation of the method.
 """
 import numpy as np
 
-from porepy.utils import comp_geom as cg
-from porepy.utils import setmembership
-from porepy.numerics.fv import fvutils
+import porepy as pp
 
 
 # ---------------------propagation criteria----------------------------------#
@@ -65,7 +63,7 @@ def faces_to_open(gb, u, critical_sifs, **kw):
     g_h = gb.grids_of_dimension(dim_h)[0]
     g_l = gb.grids_of_dimension(dim_l)[0]
     d_h = gb.node_props(g_h)
-    rm = kw.get('rm', estimate_rm(g_l))
+    rm = kw.get('rm', estimate_rm(g_l, **kw))
     E = d_h['Young']
     poisson = d_h['Poisson']
     mu = E / (2 * (1 + poisson))
@@ -120,7 +118,7 @@ def identify_faces_to_open(g_h, g_l, tips_to_propagate, rm_vectors):
     for i in range(extended_points.shape[1]):
         if tips_to_propagate[i]:
             p = extended_points[:, i]
-            distances = cg.dist_point_pointset(p, g_h.face_centers)
+            distances = pp.cg.dist_point_pointset(p, g_h.face_centers)
             faces_h.append(np.argmin(distances))
 
     return np.array(faces_h, dtype=int)
@@ -214,9 +212,9 @@ def identify_correlation_points(g_h, g_l, rm, u, face_cells):
     normal_rm = []
     for i in range(n_tips):
         p = optimal_points[:, i]
-        distances = cg.dist_point_pointset(p, g_l.cell_centers)
+        distances = pp.cg.dist_point_pointset(p, g_l.cell_centers)
         cell_ind = np.argmin(distances)
-        dist = cg.dist_point_pointset(g_l.face_centers[:, faces_l[i]],
+        dist = pp.cg.dist_point_pointset(g_l.face_centers[:, faces_l[i]],
                                       g_l.cell_centers[:, cell_ind])
 
         cells_l.append(cell_ind)
@@ -225,7 +223,7 @@ def identify_correlation_points(g_h, g_l, rm, u, face_cells):
             nodes = g_l.face_nodes[:, faces_l[i]].nonzero()[0]
             p0 = g_l.nodes[:, nodes[0]].reshape((3, 1))
             p1 = g_l.nodes[:, nodes[1]].reshape((3, 1))
-            normal_dist, _ = cg.dist_points_segments(
+            normal_dist, _ = pp.cg.dist_points_segments(
                     g_l.cell_centers[:, cell_ind], p0, p1)
             normal_rm.append(normal_dist[0])
 
@@ -281,40 +279,34 @@ def relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h):
             # second face to ensure that the first one is on top in the local
             # coordinate system
 
-            R1 = cg.project_plane_matrix(pts, normal=normal_h_1,
-                                         reference=[0, 1, 0])
+            R1 = pp.cg.project_plane_matrix(pts, normal=normal_h_1,
+                                            reference=[0, 1, 0])
             # Rotate so that tangent aligns with z-coordinate
             nodes_l = g_l.face_nodes[:, faces_l[i]].nonzero()[0]
             translated_pts = g_l.nodes[:, nodes_l] \
                             - g_l.face_centers[:, face_l].reshape((3,1))
-            face_coordinates_rot = np.dot(R1, translated_pts)
-            normal_l = np.dot(R1, g_l.face_normals[:, face_l])
-            tangent_l = np.cross(normal_l, np.array([0, 1, 0]))
-
-            R2 = cg.project_line_matrix(face_coordinates_rot,
-                                        tangent=tangent_l, reference=[0, 0, 1],
-                                        flip_flag=True)
-            R = np.dot(R2, R1)
+            pts = np.dot(R1, translated_pts)
         else:
-            # Rotate so that the face normal, on whose line pts lie, aligns
-            # with x
-            tangent_l = g_l.cell_faces[face_l].data \
-                        * g_l.face_normals[:, face_l]
-            if np.all(np.isclose(tangent_l, np.array([1, 0, 0]))):
-                R = np.eye(3)
-            elif np.all(np.isclose(tangent_l, np.array([-1, 0, 0]))):
-                R = - np.eye(3)
-                R[2, 2] = 1
-            else:
-                R = cg.project_line_matrix(pts, tangent=tangent_l,
-                                           reference=[1, 0, 0],
-                                           flip_flag=True)
+            R1 = np.eye(3)
 
+        normal_r = g_l.cell_faces[face_l].data * g_l.face_normals[:, face_l]
+        normal_r = np.dot(R1, normal_r)
+        # Rotate so that the face normal, on whose line pts lie, aligns
+        # with x
+        if np.all(np.isclose(normal_r, np.array([1, 0, 0]))):
+            R2 = np.eye(3)
+        elif np.all(np.isclose(normal_r, np.array([-1, 0, 0]))):
+            R2 = - np.eye(3)
+            R2[2, 2] = 1
+        else:
+            R2 = pp.cg.project_line_matrix(pts, tangent=normal_r,
+                                           reference=[1, 0, 0])
+        R = np.dot(R2, R1)
         # Find what frac-pair the tip i corresponds to
-        j = setmembership.ismember_rows(face_pair[:, np.newaxis],
-                                        g_h.frac_pairs)[1]
-        u_left = u_faces[fvutils.expand_indices_nd(j, g_h.dim)]
-        u_right = u_faces[fvutils.expand_indices_nd(j, g_h.dim)
+        j = pp.utils.setmembership.ismember_rows(face_pair[:, np.newaxis],
+                                                 g_h.frac_pairs)[1]
+        u_left = u_faces[pp.fvutils.expand_indices_nd(j, g_h.dim)]
+        u_right = u_faces[pp.fvutils.expand_indices_nd(j, g_h.dim)
                         + g_l.num_cells * g_h.dim]
         if np.dot(R, normal_h_1)[1] < 0:
             d_u = u_right - u_left
@@ -323,11 +315,10 @@ def relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h):
         d_u = np.dot(R, np.append(d_u, np.zeros((1, 3 - g_h.dim))))[:g_h.dim]
 
         delta_us = np.append(delta_us, d_u[:, np.newaxis], axis=1)
-
     return delta_us
 
 
-def estimate_rm(g):
+def estimate_rm(g, **kw):
     """
     Estimate the optimal distance between tip face centers and correlation
     points. Based on the findings in Nejati et al. (see
@@ -341,8 +332,7 @@ def estimate_rm(g):
         rm  - distance estimate.
     """
     # Constant, see Nejati et al.
-    k = 1.50
-    k = .8  # Seems to be safer for MPSA
+    k = kw.get('rm_factor', .8)
     faces = g.tags['tip_faces'].nonzero()[0]
     if g.dim == 2:
         rm = k * g.face_areas[faces]

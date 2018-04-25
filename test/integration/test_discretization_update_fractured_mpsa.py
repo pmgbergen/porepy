@@ -3,6 +3,8 @@
 """
 Test for the partial (i.e. spatially local) update of mpsa discretizations
 after grid updates due to fracture propagation.
+Note that while this test is rather heavy to run, each test checks for
+agreement of the updated discretization with several other geometries.
 
 Practical note: Faces in the fracture plane are given by
 (nx + 1) * ny * nz + nx * (ny + 1) * nz + nx * ny * nz/2
