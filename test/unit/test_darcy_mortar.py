@@ -35,7 +35,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         for g, d in gb:
             param = Parameters(g)
 
-            perm = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+            perm = tensor.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
             param.set_tensor("flow", perm)
 
             aperture = np.power(1e-3, gb.dim_max() - g.dim)
@@ -57,7 +57,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
             d['param'] = param
 
-        gb.add_edge_prop('kn')
+        gb.add_edge_props('kn')
         for e, d in gb.edges():
             mg = d['mortar_grid']
             gn = gb.nodes_of_edge(e)
