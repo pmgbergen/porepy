@@ -208,6 +208,13 @@ class Exporter():
                 grids = self.gb.get_grids(lambda g: g.dim == dim)
                 values = np.empty(grids.size, dtype=np.object)
                 for i, g in enumerate(grids):
+                    if self.gb.graph.node[g][d] is None:
+                        raise ValueError('Field ' + str(d) \
+                                         +' must be filled. It can not be None')
+                    if np.atleast_2d(self.gb.graph.node[g][d]).shape[1] != g.num_cells:
+                        raise ValueError('Field ' + str(d) \
+                                         +' has wrong dimension. The size' +\
+                                         ' must equal the number of cells')
                     values[i] = self.gb.graph.node[g][d]
                 dic_data[d] = np.hstack(values)
 
