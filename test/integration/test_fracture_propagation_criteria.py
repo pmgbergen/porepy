@@ -25,11 +25,7 @@ from test.integration.fracture_propagation_utils import propagate_and_update, \
     check_equivalent_buckets
 
 
-#-----------------------------------------------------------------------------#
-
 class BasicsTest(unittest.TestCase):
-
-#-----------------------------------------------------------------------------#
 
     def test_displacement_correlation_2d(self, do_save=False):
         """
@@ -63,13 +59,14 @@ class BasicsTest(unittest.TestCase):
         save_vtk(save, u, gb_2, 0)
         # Increase boundary displacement, rediscretize, solve and evaluate
         # propagation.
+
         def set_bc_mech_2(gb):
             set_bc_mech(gb, top_displacement=.3)
         lhs_2, rhs_2 = propagate_and_update(gb_2, faces, discr, set_bc_mech_2,
                                             update_apertures)
         u = sps.linalg.spsolve(lhs_2, rhs_2)
-        faces, _  = pp.displacement_correlation.faces_to_open(gb_2, u,
-                                                              critical_sifs)
+        faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
+                                                             critical_sifs)
         save_vtk(save, u, gb_2, 1)
         # Now the condition is met. Propagate and update discretizations
         lhs_2, rhs_2 = propagate_and_update(gb_2, faces, discr, set_bc_mech_2,
@@ -99,7 +96,8 @@ class BasicsTest(unittest.TestCase):
         buckets = [gb_1, gb_2]
         check_equivalent_buckets(buckets)
 
-    def test_displacement_correlation_2d_internal_fracture(self, do_save=False):
+    def test_displacement_correlation_2d_internal_fracture(self,
+                                                           do_save=False):
         """
         Set up a displacement field and evaluate whether to propagate. Buckets:
         1 premade in its final form
@@ -167,7 +165,8 @@ class BasicsTest(unittest.TestCase):
         buckets = [gb_1, gb_2]
         check_equivalent_buckets(buckets)
 
-    def test_displacement_correlation_3d_internal_fracture(self, do_save=False):
+    def test_displacement_correlation_3d_internal_fracture(self,
+                                                           do_save=False):
         """
         Set up a displacement field and evaluate whether to propagate. Buckets:
         1 premade in its final form

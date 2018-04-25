@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Apr 23 14:10:07 2018
+
+@author: ivar
+"""
+do_import = 1 == 11
+if do_import:
+    import numpy as np
+    from matplotlib import pyplot as plt
+    from examples.example11.fracture_opening_convergence_tests_sneddon import \
+        save, L2_error, L2_norm, analytical_displacements
+    from examples.example11.robin_fixed_ntips import analytical_sifs
+
+beta = np.pi / 2
+a = 1.00
+p0 = 1e8
+Young = 2e10
+Poisson = 0.23
+E = Young
+mu = E / (2 * (1 + Poisson))
+nu = Poisson
+kappa = 3 - 4 * Poisson
+
+npoints = 1000
+eta = np.arange(0, 1, 1 / npoints)
+K_a = analytical_sifs(a, beta, 3, p0, np.ones(npoints))[0,0]
+
+cons = (1 - nu) / mu * p0 * a * 2
+cons *= 2/np.pi
+apertures = cons * np.sqrt(1 - np.power(eta / a, 2) )
+K_dc = np.sqrt(2 * np.pi /(1 - eta)) * np.divide(mu, kappa + 1) * apertures
+K_dc *= 1.025
+e = np.absolute((K_dc - K_a) / K_a)
+signed = (K_dc - K_a) / K_a
+ind = signed > 0
+plt.figure()
+ax = plt.gca()
+ax.plot(eta[ind], e[ind])
+ax.plot(eta[~ind], e[~ind])
+
+ax.set_yscale('log')
+#signed = (K_dc - K_a) / K_a
+#ind = signed > 0
+#plt.figure()
+#plt.plot(eta, signed)

@@ -73,7 +73,7 @@ def simplex_3d(nx, a, beta, t, kw={}):
 
 # -----analytical-------------------------------------------------------------#
 
-def analytical_sifs(a, beta, dim):
+def analytical_sifs(a, beta, dim, sigma):
     """
     Analytical stress intensity factors for the through-the-thickness crack
     problem in question.
@@ -207,8 +207,8 @@ def run_multiple_rm_3d(nc, a, t, simplex=False, beta=np.pi/2):
     return errors, sifs, gb, u, rms, signed
 
 
-def evaluate_sifs_rm(a, beta, dim_h, gb, u):
-    K = analytical_sifs(a, beta, dim_h)[:, np.newaxis]
+def evaluate_sifs_rm(a, beta, dim_h, gb, u, p0):
+    K = analytical_sifs(a, beta, dim_h, sigma=p0)[:, np.newaxis]
     errors = []
     sifs = []
     fracture_cells = []
@@ -269,9 +269,9 @@ def evaluate_sifs_rm(a, beta, dim_h, gb, u):
     return errors, sifs
 
 
-def evaluate_sifs_rm_3d(a, beta, gb, u, move_tip=False):
+def evaluate_sifs_rm_3d(a, beta, gb, u, sigma, move_tip=False):
     dim_h = 3
-    K = analytical_sifs(a, beta, dim_h)[:, np.newaxis]
+    K = analytical_sifs(a, beta, dim_h, sigma)[:, np.newaxis]
     g_l = gb.grids_of_dimension(dim_h-1)[0]
     g_h = gb.grids_of_dimension(dim_h)[0]
     d_h = gb.node_props(g_h)
@@ -374,7 +374,7 @@ if __name__ == '__main__':
     height = 1
     sneddon = True
     a = .05
-    sigma = 1e-5
+    p0 = 1e-5
     beta = np.pi / 2
     t = 0.1
     from_gmsh = False
@@ -445,7 +445,7 @@ if __name__ == '__main__':
         h_frac = 1 / (2*nx)
     errors, sifs, gb, u, rms, signed = run_multiple_rm_3d(nx, a, t,
                                                           simplex=True,
-                                                          beta=beta)
+                                                          beta=beta, sigma=p0)
 #    plt.legend(['nx = ' + str(i) for i in nxs])
 #
 ##    _, s = pp.displacement_correlation.faces_to_open(gb, u, critical_sifs)
@@ -453,7 +453,7 @@ if __name__ == '__main__':
 ##    print(sifs[0, 0],'\n ')
 ##    print(sifs_n)
     errors, sifs, rms, signed = evaluate_sifs_rm_3d(a, beta, gb, u,
-                                                    move_tip=True)
+                                                    move_tip=True, sigma=p0)
 #
     if rms.ndim < 2:
         rms = rms[:, np.newaxis]
