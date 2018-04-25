@@ -789,7 +789,7 @@ class GridBucket(object):
         """
 
         [g.compute_geometry() for g, _ in self]
-        [d['mortar_grid'].compute_geometry() for _, d in self.edges_props()\
+        [d['mortar_grid'].compute_geometry() for _, d in self.edges()\
                                                         if d.get('mortar_grid')]
 
 
