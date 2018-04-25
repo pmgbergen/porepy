@@ -128,10 +128,13 @@ class FrictionSlipModel():
 
         # We also add the values to the left cells so that when we average the
         # face values to obtain a cell value, it will equal the face value
-        self.d_n[fi] += self.fracture_dilation(slip_d)
-        self.d_n[fi_left] += self.fracture_dilation(slip_d)
-        assert np.all(self.d_n[fi] >-1e-6)
-        slip_vec =  -t * slip_d - n * self.fracture_dilation(slip_d)
+
+        slip_vec = -t * slip_d - n * self.fracture_dilation(slip_d, fi)
+
+        self.d_n[fi] += self.fracture_dilation(slip_d, fi)
+        self.d_n[fi_left] += self.fracture_dilation(slip_d, fi_left)
+
+        assert np.all(self.d_n[fi] > -1e-6)
         
         self.x[:, fi] += slip_vec
         self.x[:, fi_left] -= slip_vec
@@ -201,7 +204,7 @@ class FrictionSlipModel():
 
         return T_n, T_s, normals, tangents
 
-    def fracture_dilation(self, distance):
+    def fracture_dilation(self, distance, _):
         """
         defines the fracture dilation as a function of slip distance
         Parameters:
@@ -274,7 +277,7 @@ class FrictionSlipModel():
         self._data[self.slip_name] = self.x
         return self.x
 
-    def aperture_change(self, aperture_name='apperture_change'):
+    def aperture_change(self, aperture_name='aperture_change'):
         """
         Save the aperture change to the data dictionary. The aperture change
         will be saved as a (self.grid().num_faces) array

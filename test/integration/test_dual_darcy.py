@@ -3,10 +3,10 @@ import unittest
 
 from porepy.numerics import elliptic
 from porepy.grids.structured import CartGrid
-from porepy.grids.grid import FaceTag
 from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
+from porepy.utils import tags
 
 
 class BasicsTest(unittest.TestCase):
@@ -34,7 +34,7 @@ class BasicsTest(unittest.TestCase):
             return bc_val
 
         def bc_labels(g):
-            bound_faces = g.get_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound_face_centers = g.face_centers[:, bound_faces]
             left = bound_face_centers[0] < 1e-6
             right = bound_face_centers[0] > 10 - 1e-6
@@ -68,14 +68,15 @@ class BasicsTest(unittest.TestCase):
         problem_mult.split()
         problem_mult.pressure('pressure')
 
+
         assert np.allclose(problem_mono.data()['pressure'],
-                           problem_mult.grid().node_prop(g_gb, 'pressure'))
+                           g_gb[1]['pressure'])
 
         problem_mono.discharge('u')
         problem_mult.discharge('u')
 
         assert np.allclose(problem_mono.data()['u'],
-                           problem_mult.grid().node_prop(g_gb, 'u'))
+                           g_gb[1]['u'])
 
         problem_mono.project_discharge('P0u')
         problem_mult.project_discharge('P0u')
@@ -84,7 +85,7 @@ class BasicsTest(unittest.TestCase):
         problem_mult.save(['pressure', 'P0u'])
 
         assert np.allclose(problem_mono.data()['P0u'],
-                           problem_mult.grid().node_prop(g_gb, 'P0u'))
+                           g_gb[1]['P0u'])
 
 #------------------------------------------------------------------------------#
 
@@ -155,13 +156,11 @@ def setup_3d(nx, simplex_grid=False):
     else:
         mesh_kwargs = {}
         mesh_size = .3
-        mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                    'value': mesh_size, 'bound_value': 2 * mesh_size}
+        mesh_kwargs = {'mesh_size_frac': mesh_size,
+                       'mesh_size_bound': 2 * mesh_size,
+                       'mesh_size_min': mesh_size / 20}
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
         gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
-
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
     gb.add_node_props(['param'])
     for g, d in gb:
@@ -188,10 +187,10 @@ def setup_3d(nx, simplex_grid=False):
         param.set_source('flow', src)
         d['param'] = param
 
-    gb.add_edge_prop('kn')
-    for e, d in gb.edges_props():
-        g = gb.sorted_nodes_of_edge(e)[0]
-        d['kn'] = 1 / gb.node_prop(g, 'param').get_aperture()
+    gb.add_edge_props('kn')
+    for e, d in gb.edges():
+        g = gb.nodes_of_edge(e)[0]
+        d['kn'] = 1 / gb.node_props(g, 'param').get_aperture()
 
     return gb
 
@@ -205,41 +204,36 @@ def setup_2d_1d(nx, simplex_grid=False):
     if not simplex_grid:
         gb = meshing.cart_grid(fracs, nx, physdims=[1, 1])
     else:
-        mesh_kwargs = {}
-        mesh_size = .3
-        mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                                    'value': mesh_size, 'bound_value': 1 * mesh_size}
+        mesh_kwargs= {'mesh_size_frac': .2, 'mesh_size_min': .02}
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
         gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
 
     gb.compute_geometry()
     gb.assign_node_ordering()
 
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
     gb.add_node_props(['param'])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(3, kxx)
+        perm = tensor.SecondOrderTensor(3, kxx)
         a = 0.01 / np.max(nx)
         a = np.power(a, gb.dim_max() - g.dim)
         param = Parameters(g)
         param.set_tensor('flow', perm)
         param.set_aperture(a)
         if g.dim == 2:
-            bound_faces = g.get_boundary_faces()
+            bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
                                          ['dir'] * bound_faces.size)
-            bc_val = g.face_centers[1]
+            bc_val = np.zeros(g.num_faces)
+            bc_val[bound_faces] = g.face_centers[1, bound_faces]
             param.set_bc('flow', bound)
             param.set_bc_val('flow', bc_val)
         d['param'] = param
 
-    gb.add_edge_prop('kn')
-    for e, d in gb.edges_props():
-        g = gb.sorted_nodes_of_edge(e)[0]
-        d['kn'] = 1 / gb.node_prop(g, 'param').get_aperture()
+    gb.add_edge_props('kn')
+    for e, d in gb.edges():
+        g = gb.nodes_of_edge(e)[0]
+        d['kn'] = 1 / gb.node_props(g, 'param').get_aperture()
 
     return gb
 

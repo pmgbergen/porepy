@@ -136,13 +136,13 @@ class MainTester(unittest.TestCase):
         # Compute permeability
         char_func_cells = chi(g.cell_centers[0], g.cell_centers[1]) * 1.
         perm_vec = (1 - char_func_cells) + kappa * char_func_cells
-        perm = tensor.SecondOrder(2, perm_vec)
+        perm = tensor.SecondOrderTensor(2, perm_vec)
 
         # The rest of the function is similar to self.solve.system, see that
         # for comments.
-        bound_faces = g.get_boundary_faces()
-        flux, bound_flux, _, _ = mpfa.mpfa(g, perm, bound_cond,
-                                           inverter='python', eta=0)
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+        flux, bound_flux = mpfa.mpfa(g, perm, bound_cond, inverter='python',
+                                     eta=0)
 
         xc = g.cell_centers
         xf = g.face_centers
@@ -197,7 +197,7 @@ class MainTester(unittest.TestCase):
         char_func_cells = chi(g.cell_centers[0], g.cell_centers[1]) * 1.
         mat_vec = (1 - char_func_cells) + kappa * char_func_cells
 
-        k = tensor.FourthOrder(2, mat_vec, mat_vec)
+        k = tensor.FourthOrderTensor(2, mat_vec, mat_vec)
         stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter='python',
                                          eta=0)
         div = fvutils.vector_divergence(g)
@@ -205,7 +205,7 @@ class MainTester(unittest.TestCase):
 
         # Boundary conditions
         xf = g.face_centers
-        bound_faces = g.get_boundary_faces()
+        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         char_func_bound = chi(xf[0, bound_faces], xf[1, bound_faces]) * 1
         u_bound = np.zeros((g.dim, g.num_faces))
         u_bound[0, bound_faces] = an_sol.ux_f(xf[0, bound_faces],
@@ -285,7 +285,7 @@ class CartGrid2D(MainTester):
         self.g_lines = g
 
         # Define boundary faces and conditions
-        self.bound_faces = g.get_boundary_faces()
+        self.bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         self.bc = bc.BoundaryCondition(g, self.bound_faces,
                                        ['dir'] * self.bound_faces.size)
 
@@ -314,7 +314,7 @@ class CartGrid2D(MainTester):
         an_sol = _SolutionHomogeneousDomainFlow(u, x, y)
 
         perm = 1
-        k = tensor.SecondOrder(2, perm * np.ones(self.g_nolines.num_cells))
+        k = tensor.SecondOrderTensor(2, perm * np.ones(self.g_nolines.num_cells))
         u_num, flux_num = self.solve_system_homogeneous_perm(self.g_nolines,
                                                              self.bc,
                                                              self.bound_faces,
@@ -371,7 +371,7 @@ class CartGrid2D(MainTester):
 
         muc = np.ones(self.g_nolines.num_cells)
         lambdac = muc
-        k = tensor.FourthOrder(2, muc, lambdac)
+        k = tensor.FourthOrderTensor(2, muc, lambdac)
 
         u_num, stress_num = self.solve_system_homogeneous_elasticity(
             self.g_nolines, self.bc, self.bound_faces, k, an_sol)
@@ -542,8 +542,6 @@ class CartGrid2D(MainTester):
                                  -0.61775419, -1.61027696, 1.21720503,
                                  1.24515229])
 
-        print(u_num)
-        print(u_precomp)
         assert np.isclose(u_num, u_precomp, atol=1e-10).all()
         assert np.isclose(flux_num, flux_precomp, atol=1e-10).all()
 
@@ -697,7 +695,7 @@ class TriangleGrid2D(MainTester):
         self.g_lines = g
 
         # Define boundary faces and conditions
-        self.bound_faces = g.get_boundary_faces()
+        self.bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         self.bc = bc.BoundaryCondition(g, self.bound_faces,
                                        ['dir'] * self.bound_faces.size)
 
@@ -728,7 +726,7 @@ class TriangleGrid2D(MainTester):
         bound_cond = self.bc
         bound_faces = self.bound_faces
         perm = 1
-        k = tensor.SecondOrder(2,perm * np.ones(g.num_cells))
+        k = tensor.SecondOrderTensor(2, perm * np.ones(g.num_cells))
 
         u_num, flux_num = self.solve_system_homogeneous_perm(g, bound_cond,
                                                              bound_faces, k,
@@ -796,7 +794,7 @@ class TriangleGrid2D(MainTester):
 
         muc = np.ones(self.g_nolines.num_cells)
         lambdac = muc
-        k = tensor.FourthOrder(2, muc, lambdac)
+        k = tensor.FourthOrderTensor(2, muc, lambdac)
 
         u_num, stress_num = self.solve_system_homogeneous_elasticity(
             self.g_nolines, self.bc, self.bound_faces, k, an_sol)

@@ -9,13 +9,14 @@ Created on Sun Nov  5 11:17:04 2017
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
+
+from porepy.utils import tags
 from porepy.utils.matrix_compression import rldecode
 from porepy.utils.setmembership import unique_columns_tol, ismember_rows
-from porepy import TensorGrid
 
-from porepy.fracs import utils as fracutils
+from porepy.fracs import tools as fractools
 import porepy.utils.comp_geom as cg
-
 
 
 def merge_grids(grids, intersections, tol=1e-4):
@@ -54,7 +55,7 @@ def init_global_ind(gl):
     # (everybody start at 0). Adjust this.
     global_ind_offset = 0
     # Loop over fractures
-    for frac_ind , f in enumerate(gl):
+    for frac_ind, f in enumerate(gl):
         # The 2d grid is the only item in the middle list
         f[0][0].frac_num = frac_ind
 
@@ -154,7 +155,6 @@ def combine_grids(g, g_1d, h, h_1d, global_ind_offset, list_of_grids, tol):
     update_cell_faces(h, delete_faces, new_faces, h_in_combined, fn_orig,
                       node_coord_orig)
 
-
     return combined_1d, global_ind_offset
 
 
@@ -207,7 +207,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     # two points on any of the grids.
     diff_gp = np.min(cg.dist_pointset(gp, True))
     diff_hp = np.min(cg.dist_pointset(hp, True))
-    min_diff = np.minimum(tol, 0.5*np.minimum(diff_gp, diff_hp))
+    min_diff = np.minimum(tol, 0.5 * np.minimum(diff_gp, diff_hp))
 
     # Uniquify points
     combined_unique, _, new_2_old = unique_columns_tol(combined, tol=min_diff)
@@ -234,7 +234,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
 
     # Create a new 1d grid.
     # First use a 1d coordinate to initialize topology
-    new_grid = TensorGrid(np.arange(num_new_grid))
+    new_grid = pp.structured.TensorGrid(np.arange(num_new_grid))
     # Then set the right, 3d coordinates
     new_grid.nodes = cg.make_collinear(combined_sorted)
 
@@ -243,7 +243,7 @@ def merge_1d_grids(g, h, global_ind_offset=0, tol=1e-4):
     global_ind_offset += num_new_grid
 
     return new_grid, global_ind_offset, g_sorted, h_sorted, np.arange(num_g),\
-           np.arange(num_h)
+        np.arange(num_h)
 
 
 def update_global_point_ind(grid_list, old_ind, new_ind):
@@ -293,8 +293,8 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
 
     # Mappings between faces in 2d grid and cells in 1d
     # 2d faces along the 1d grid will be deleted.
-    delete_faces, cell_1d  = fracutils.obtain_interdim_mappings(g_1d, fn_glob,
-                                                                nodes_per_face)
+    delete_faces, cell_1d = fractools.obtain_interdim_mappings(g_1d, fn_glob,
+                                                               nodes_per_face)
 
     # All 1d cells should be identified with 2d faces
     assert cell_1d.size == g_1d.num_cells, """ Failed to find mapping between
@@ -310,7 +310,7 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
 
     # Define indices of new nodes.
     new_nodes = num_nodes_orig - delete_nodes.size\
-                + np.arange(new_grid_1d.num_nodes)
+        + np.arange(new_grid_1d.num_nodes)
 
     # Adjust node indices in the face-node relation
     # First, map nodes between 1d and 2d grids. Use sort_ind here to map
@@ -331,7 +331,6 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
 
     g.face_nodes.indices = node_adjustment[g.face_nodes.indices]
 
-
     # Update node coordinates and global indices for 2d mesh
     g.nodes = np.hstack((g.nodes, new_grid_1d.nodes))
 
@@ -340,7 +339,6 @@ def update_nodes(g, g_1d, new_grid_1d, this_in_combined, sort_ind,
 
     # Global index of deleted points
     old_global_pts = g.global_point_ind[delete_nodes]
-
 
     # Update any occurences of the old points in other grids. When sewing
     # together a DFN grid, this may involve more and more updates as common
@@ -388,13 +386,13 @@ def update_face_nodes(g, delete_faces, num_new_faces, new_node_offset,
 
     # Indices of new nodes.
     new_face_nodes = np.tile(np.arange(num_new_faces), (nodes_per_face, 1)) \
-                    + np.arange(nodes_per_face).reshape((nodes_per_face, 1))
+        + np.arange(nodes_per_face).reshape((nodes_per_face, 1))
     # Offset the numbering: The new nodes are inserted after all outside nodes
     new_face_nodes = new_node_offset + new_face_nodes
     # Number of new faces in mesh
     ind_new_face = g.num_faces - delete_faces.size + np.arange(num_new_faces)
 
-    ## Modify face-node map
+    # Modify face-node map
     # First obtain face-node relation as a matrix. Thankfully, we know the
     # number of nodes per face.
     fn = g.face_nodes.indices.reshape((nodes_per_face, g.num_faces), order='F')
@@ -407,7 +405,7 @@ def update_face_nodes(g, delete_faces, num_new_faces, new_node_offset,
 
     # Trivial updates of data and indptr. Fortunately, this is 2d
     data = np.ones(fn.size, dtype=np.bool)
-    indptr = np.arange(0, fn.size+1, nodes_per_face)
+    indptr = np.arange(0, fn.size + 1, nodes_per_face)
     g.face_nodes = sps.csc_matrix((data, indices, indptr))
     g.num_faces = int(fn.size / nodes_per_face)
     assert g.face_nodes.indices.max() < g.nodes.shape[1]
@@ -473,26 +471,24 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
     # relations
     if in_combined[0] < in_combined[-1]:
         for i in range(deleted_2_new_faces.size):
-            if in_combined[i] == in_combined[i+1]:
+            if in_combined[i] == in_combined[i + 1]:
                 deleted_2_new_faces[i] = new_faces[in_combined[i]]
             else:
                 deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i],
-                                                             in_combined[i+1])]
+                                                             in_combined[i + 1])]
 #            assert deleted_2_new_faces[i].size > 0, \
 #                str(i)+" "+str(in_combined[i])+" "+str(in_combined[i+1])+\
 #                " "+str(np.arange(in_combined[i], in_combined[i+1]))
     else:
         for i in range(deleted_2_new_faces.size):
-            if in_combined[i] == in_combined[i+1]:
-                print(new_faces)
+            if in_combined[i] == in_combined[i + 1]:
                 deleted_2_new_faces[i] = new_faces[in_combined[i]]
             else:
-                deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i+1],
+                deleted_2_new_faces[i] = new_faces[np.arange(in_combined[i + 1],
                                                              in_combined[i])]
 #            assert deleted_2_new_faces[i].size > 0, \
 #                str(i)+" "+str(in_combined[i+1])+" "+str(in_combined[i])+\
 #                " "+str(np.arange(in_combined[i+1], in_combined[i]))
-
 
     # Now that we have mapping from old to new faces, also update face tags
     update_face_tags(g, delete_faces, deleted_2_new_faces)
@@ -509,7 +505,7 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
     # with deleted_2_new_faces to match new and old faces
     # Safeguarding (or stupidity?): Only faces along 1d grid have non-negative
     # index, but we should never hit any of the other elements
-    cf_2_f = -np.ones(delete_faces.max()+1, dtype=np.int)
+    cf_2_f = -np.ones(delete_faces.max() + 1, dtype=np.int)
     cf_2_f[delete_faces] = np.arange(delete_faces.size)
 
     # Map from faces, as stored in cell_faces,to the corresponding cells
@@ -517,13 +513,13 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
 
     # The cell-face map will go from 3 faces per cell to an arbitrary number.
     # Split mapping into list of arrays to prepare for this
-    new_cf = [cf[indptr[i]:indptr[i+1]] for i in range(g.num_cells)]
+    new_cf = [cf[indptr[i]:indptr[i + 1]] for i in range(g.num_cells)]
     # Similar treatment of direction of normal vectors
-    new_sgn = [g.cell_faces.data[indptr[i]:indptr[i+1]] \
-                   for i in range(g.num_cells)]
+    new_sgn = [g.cell_faces.data[indptr[i]:indptr[i + 1]]
+               for i in range(g.num_cells)]
 
     # Create mapping to adjust face indices for deletions
-    tmp = np.arange(cf.max()+1)
+    tmp = np.arange(cf.max() + 1)
     adjust_deleted = np.zeros_like(tmp)
     adjust_deleted[delete_faces] = 1
     face_adjustment = tmp - np.cumsum(adjust_deleted)
@@ -584,12 +580,12 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
         # faces.
         new_cf[cell] = np.hstack((face_adjustment[new_cf[cell][:tr].ravel()],
                                   new_faces_loc,
-                                  face_adjustment[new_cf[cell][tr+1:].ravel()]))
+                                  face_adjustment[new_cf[cell][tr + 1:].ravel()]))
         # Also replicate directions of normal vectors
         new_sgn[cell] = np.hstack((new_sgn[cell][:tr].ravel(),
-                                  np.tile(new_sgn[cell][tr],
-                                          new_faces_loc.size),
-                                  new_sgn[cell][tr+1:].ravel()))
+                                   np.tile(new_sgn[cell][tr],
+                                           new_faces_loc.size),
+                                   new_sgn[cell][tr + 1:].ravel()))
 
     # Adjust face index of cells that have no contact with the updated faces
     for i in np.setdiff1d(np.arange(len(new_cf)), hit_cell):
@@ -609,11 +605,11 @@ def update_cell_faces(g, delete_faces, new_faces, in_combined, fn_orig,
 
 
 def update_face_tags(g, delete_faces, new_faces):
-    """ Update the face_tags of a cell.
+    """ Update the face tags of a cell.
 
     Delete tags for old faces, and add new tags for their replacements.
 
-    If the grid has no face_tags, no change is done
+    If the grid has no face tags, no change is done
 
     Parameters:
         g (grid): To be modified
@@ -622,12 +618,15 @@ def update_face_tags(g, delete_faces, new_faces):
             replacement faces.
 
     """
-    if hasattr(g, 'face_tags'):
-        tags = g.face_tags.copy()
-        tags = np.delete(tags, delete_faces)
-        num_new = np.array([len(new_faces[i]) for i in range(len(new_faces))])
-        new_tags = np.zeros(num_new.sum(), dtype=np.uint8)
-        divides = np.hstack((0, np.cumsum(num_new)))
-        for i, d in enumerate(delete_faces):
-            new_tags[divides[i] : divides[i+1]] = g.face_tags[d]
-        g.face_tags = np.hstack((tags, new_tags))
+    keys = tags.standard_face_tags()
+    for key in keys:
+        if hasattr(g, 'tags'):
+            old_tags = g.tags[key].copy()
+            old_tags = np.delete(old_tags, delete_faces)
+            num_new = np.array([len(new_faces[i])
+                                for i in range(len(new_faces))])
+            new_tags = np.zeros(num_new.sum(), dtype=bool)
+            divides = np.hstack((0, np.cumsum(num_new)))
+            for i, d in enumerate(delete_faces):
+                new_tags[divides[i]: divides[i + 1]] = g.tags[key][d]
+            g.tags[key] = np.hstack((old_tags, new_tags))

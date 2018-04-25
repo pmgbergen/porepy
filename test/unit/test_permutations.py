@@ -1,3 +1,6 @@
+"""
+Tests of module porepy.utils.permutations.
+"""
 import unittest
 import numpy as np
 
@@ -42,5 +45,5 @@ class TestPermutations(unittest.TestCase):
                     lst.append([i, j, k])
         self.compare_lists(base, length, lst)
 
-    if __name__ == '__main__':
-        unittest.main()
+if __name__ == '__main__':
+    unittest.main()

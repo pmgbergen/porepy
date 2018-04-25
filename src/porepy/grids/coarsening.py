@@ -12,7 +12,7 @@ from porepy.params.bc import BoundaryCondition
 
 
 from porepy.utils import matrix_compression, mcolon, accumarray, setmembership
-from porepy.utils import half_space
+from porepy.utils import half_space, tags
 
 from porepy.numerics.fv import tpfa
 
@@ -203,7 +203,7 @@ def generate_coarse_grid_single(g, subdiv, face_map):
     g.face_nodes = face_nodes
     g.num_faces = g.face_nodes.shape[1]
     g.face_areas = g.face_areas[cell_faces_unique]
-    g.face_tags = g.face_tags[cell_faces_unique]
+    g.tags = tags.extract(g.tags, cell_faces_unique, tags.standard_face_tags())
     g.face_normals = g.face_normals[:, cell_faces_unique]
     g.face_centers = g.face_centers[:, cell_faces_unique]
 
@@ -234,7 +234,7 @@ def generate_coarse_grid_gb(gb, subdiv):
         face_map = generate_coarse_grid_single(g, partition, True)
 
         # Update all the face_cells for all the 'edges' connected to the grid
-        for e, d in gb.edges_props_of_node(g):
+        for e, d in gb.edges_of_node(g):
             # The indices that need to be mapped to the new grid
             face_cells = d['face_cells'].tocsr()
             indices = face_cells.indices
@@ -267,7 +267,7 @@ def tpfa_matrix(g, perm=None):
        g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
 
     if perm is None:
-        perm = tensor.SecondOrder(g.dim,np.ones(g.num_cells))
+        perm = tensor.SecondOrderTensor(g.dim,np.ones(g.num_cells))
 
     solver = tpfa.Tpfa()
     param = Parameters(g)
@@ -295,12 +295,12 @@ def generate_seeds(gb):
     gs = gb.get_grids(lambda g: g.dim == gb.dim_max()-1)
 
     for g in gs:
-        tips = np.where(g.has_face_tag(grid.FaceTag.TIP))[0]
+        tips = np.where(g.tags['tip_faces'])[0]
         faces, cells, _ = sps.find(g.cell_faces)
         index = np.in1d(faces, tips).nonzero()[0]
         cells = np.unique(cells[index])
 
-        face_cells = gb.graph.edge[g][g_h]['face_cells']
+        face_cells = gb.graph.adj[g][g_h]['face_cells']
         interf_cells, interf_faces, _ = sps.find(face_cells)
         index = np.in1d(interf_cells, cells).nonzero()[0]
 
