@@ -990,7 +990,7 @@ class GridBucket(object):
             int: Number of mono-dimensional grids in the bucket.
 
         """
-        return self.graph.number_of_nodes()
+        return self.num_graph_nodes() + self.num_graph_edges()
 
 
     def dim_min(self):
