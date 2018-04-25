@@ -17,7 +17,7 @@ import scipy.sparse as sps
 
 from porepy.grids import structured, simplex
 from porepy.params import tensor, bc
-from porepy.utils.errors import error
+from porepy.utils import error
 from porepy.numerics.vem import dual
 from porepy.viz.plot_grid import plot_grid
 import porepy.utils.comp_geom as cg
@@ -34,12 +34,12 @@ def darcy_dualVEM_example0(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     f = np.ones(g.num_cells)
 
-    b_faces = g.get_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
+    b_faces = g.get_all_boundary_faces()
+    bnd = bc.BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
     bnd_val = np.zeros(g.num_faces)
 
     solver = dual.DualVEM()
@@ -50,13 +50,15 @@ def darcy_dualVEM_example0(**kwargs):
     u, p = solver.extract_u(g, up), solver.extract_p(g, up)
     P0u = solver.project_u(g, u)
 
-    if kwargs['visualize']: plot_grid(g, p, P0u)
+    if kwargs['visualize']:
+        plot_grid(g, p, P0u)
 
     norms = np.array([error.norm_L2(g, p), error.norm_L2(g, P0u)])
     norms_known = np.array([0.041554943620853595, 0.18738227880674516])
     assert np.allclose(norms, norms_known)
 
 #------------------------------------------------------------------------------#
+
 
 def darcy_dualVEM_example1(**kwargs):
     #######################
@@ -67,21 +69,24 @@ def darcy_dualVEM_example1(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     def funP_ex(pt):
-        return np.sin(2*np.pi*pt[0]) * np.sin(2*np.pi*pt[1])
+        return np.sin(2 * np.pi * pt[0]) * np.sin(2 * np.pi * pt[1])
+
     def funU_ex(pt):
-        return [-2*np.pi*np.cos(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1]),
-                -2*np.pi*np.sin(2*np.pi*pt[0])*np.cos(2*np.pi*pt[1]),
+        return [-2 * np.pi * np.cos(2 * np.pi * pt[0]) * np.sin(2 * np.pi * pt[1]),
+                -2 * np.pi * np.sin(2 * np.pi *
+                                    pt[0]) * np.cos(2 * np.pi * pt[1]),
                 0]
+
     def fun(pt):
-        return 8*np.pi**2 * funP_ex(pt)
+        return 8 * np.pi**2 * funP_ex(pt)
 
     f = np.array([fun(pt) for pt in g.cell_centers.T])
 
-    b_faces = g.get_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
+    b_faces = g.get_all_boundary_faces()
+    bnd = bc.BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
     bnd_val = np.zeros(g.num_faces)
     bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
@@ -99,11 +104,13 @@ def darcy_dualVEM_example1(**kwargs):
     p_ex = error.interpolate(g, funP_ex)
     u_ex = error.interpolate(g, funU_ex)
 
-    errors = np.array([error.error_L2(g, p, p_ex), error.error_L2(g, P0u, u_ex)])
+    errors = np.array([error.error_L2(g, p, p_ex),
+                       error.error_L2(g, P0u, u_ex)])
     errors_known = np.array([0.0210718223032, 0.00526933885613])
     assert np.allclose(errors, errors_known)
 
 #------------------------------------------------------------------------------#
+
 
 def darcy_dualVEM_example2(**kwargs):
     #######################
@@ -111,26 +118,28 @@ def darcy_dualVEM_example2(**kwargs):
     #######################
     Nx = Ny = 25
     g = simplex.StructuredTriangleGrid([Nx, Ny], [1, 1])
-    R = cg.rot(np.pi/6., [0, 1, 1])
+    R = cg.rot(np.pi / 6., [0, 1, 1])
     g.nodes = np.dot(R, g.nodes)
     g.compute_geometry()
 
     T = cg.tangent_matrix(g.nodes)
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     def funP_ex(pt):
-        return np.pi*pt[0] - 6*pt[1] + np.exp(1)*pt[2] - 4
+        return np.pi * pt[0] - 6 * pt[1] + np.exp(1) * pt[2] - 4
+
     def funU_ex(pt):
         return np.dot(T, [-np.pi, 6, -np.exp(1)])
+
     def fun(pt):
         return 0
 
     f = np.array([fun(pt) for pt in g.cell_centers.T])
 
-    b_faces = g.get_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
+    b_faces = g.get_all_boundary_faces()
+    bnd = bc.BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
     bnd_val = np.zeros(g.num_faces)
     bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
@@ -148,11 +157,13 @@ def darcy_dualVEM_example2(**kwargs):
     p_ex = error.interpolate(g, funP_ex)
     u_ex = error.interpolate(g, funU_ex)
 
-    errors = np.array([error.error_L2(g, p, p_ex), error.error_L2(g, P0u, u_ex)])
+    errors = np.array([error.error_L2(g, p, p_ex),
+                       error.error_L2(g, P0u, u_ex)])
     errors_known = np.array([0, 0])
     assert np.allclose(errors, errors_known)
 
 #------------------------------------------------------------------------------#
+
 
 def darcy_dualVEM_example3(**kwargs):
     #######################
@@ -163,26 +174,27 @@ def darcy_dualVEM_example3(**kwargs):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     def funP_ex(pt):
-        return np.sin(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1])\
-            * np.sin(2*np.pi*pt[2])
+        return np.sin(2 * np.pi * pt[0]) * np.sin(2 * np.pi * pt[1])\
+            * np.sin(2 * np.pi * pt[2])
+
     def funU_ex(pt):
-        return [-2*np.pi*np.cos(2*np.pi*pt[0])\
-                * np.sin(2*np.pi*pt[1])*np.sin(2*np.pi*pt[2]),
-                -2*np.pi*np.sin(2*np.pi*pt[0])\
-                * np.cos(2*np.pi*pt[1])*np.sin(2*np.pi*pt[2]),
-                -2*np.pi*np.sin(2*np.pi*pt[0])\
-                * np.sin(2*np.pi*pt[1])*np.cos(2*np.pi*pt[2])]
+        return [-2 * np.pi * np.cos(2 * np.pi * pt[0])
+                * np.sin(2 * np.pi * pt[1]) * np.sin(2 * np.pi * pt[2]),
+                -2 * np.pi * np.sin(2 * np.pi * pt[0])
+                * np.cos(2 * np.pi * pt[1]) * np.sin(2 * np.pi * pt[2]),
+                -2 * np.pi * np.sin(2 * np.pi * pt[0])
+                * np.sin(2 * np.pi * pt[1]) * np.cos(2 * np.pi * pt[2])]
 
     def fun(pt):
-        return 12*np.pi**2 * funP_ex(pt)
+        return 12 * np.pi**2 * funP_ex(pt)
 
     f = np.array([fun(pt) for pt in g.cell_centers.T])
 
-    b_faces = g.get_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir']*b_faces.size)
+    b_faces = g.get_all_boundary_faces()
+    bnd = bc.BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
     bnd_val = np.zeros(g.num_faces)
     bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
@@ -200,11 +212,13 @@ def darcy_dualVEM_example3(**kwargs):
     p_ex = error.interpolate(g, funP_ex)
     u_ex = error.interpolate(g, funU_ex)
 
-    errors = np.array([error.error_L2(g, p, p_ex), error.error_L2(g, P0u, u_ex)])
+    errors = np.array([error.error_L2(g, p, p_ex),
+                       error.error_L2(g, P0u, u_ex)])
     errors_known = np.array([0.1010936831876412, 0.0680593765009036])
     assert np.allclose(errors, errors_known)
 
 #------------------------------------------------------------------------------#
+
 
 if __name__ == '__main__':
     # If invoked as main, run all tests

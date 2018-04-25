@@ -11,7 +11,7 @@ import scipy.sparse as sps
 import time
 import logging
 
-from porepy.fracs import structured, simplex, split_grid, non_conforming, utils
+from porepy.fracs import structured, simplex, split_grid, non_conforming, tools
 from porepy.fracs.fractures import Intersection
 from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
@@ -19,11 +19,11 @@ from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.grid import FaceTag
 from porepy.grids import mortar_grid
 from porepy.grids.structured import TensorGrid
-from porepy.utils import setmembership, mcolon
+from porepy.utils import mcolon
 from porepy.utils import comp_geom as cg
 
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs):
     """
@@ -49,20 +49,37 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
         for the gridding. Only available in 3D.
     **kwargs: May contain fracture tags, options for gridding, etc.
 
+    Gridding options:
+    The mesh parameters are:
+        mesh_size_frac (double): Ideal mesh size. Will be added to all points
+            that are sufficiently far away from other points.
+        mesh_size_min (double): Minimal mesh size; we will make no attempts to
+            enforce even smaller mesh sizes upon Gmsh.
+        mesh_size_bound (double): Optional boundary mesh size, defaults to the
+            value of mesh_size_frac. Will be added to the points
+            defining the boundary. In 2d, this parameter dictates the size at
+            the boundary corners. In 3d, it is assigned unless there are any
+            fractures in the immediate vicinity influencing the size. In other
+            words, mesh_size_bound is the boundary point equivalent of
+            mesh_size_frac.
+
+    TODO: Update 2d implementation to adhere to 3d in
+        porepy.fracs.tools.determine_mesh_size.
+
     Returns
     -------
     GridBucket: A complete bucket where all fractures are represented as
         lower dim grids. The higher dim fracture faces are split in two,
         and on the edges of the GridBucket graph the mapping from lower dim
         cells to higher dim faces are stored as 'face_cells'. Each face is
-        given a FaceTag depending on the type:
-           NONE: None of the below (i.e. an internal face)
-           DOMAIN_BOUNDARY: All faces that lie on the domain boundary
+        given boolean tags depending on the type:
+           domain_boundary_faces: All faces that lie on the domain boundary
                (i.e. should be given a boundary condition).
-           FRACTURE: All faces that are split (i.e. has a connection to a
+           fracture_faces: All faces that are split (i.e. has a connection to a
                lower dim grid).
-           TIP: A boundary face that is not on the domain boundary, nor
+           tip_faces: A boundary face that is not on the domain boundary, nor
                coupled to a lower domentional domain.
+        The union of the above three is the tag boundary_faces.
 
     Examples
     --------
@@ -74,7 +91,11 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
 
     """
     if domain is None:
-        ndim = 3
+        if fracs is not None:
+            ndim = fracs[0].shape[0]
+        else:
+            ndim = network[0].p.shape[0]
+
     elif 'zmax' in domain:
         ndim = 3
     elif 'ymax' in domain:
@@ -82,19 +103,9 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
     else:
         raise ValueError('simplex_grid only supported for 2 or 3 dimensions')
 
-    verbose = kwargs.get('verbose', 0)
 
-    if verbose > 0:
-        print('Construct mesh')
-        tm_msh = time.time()
-        tm_tot = time.time()
-    # Call relevant method, depending on grid dimensions.
-    if ndim == 2:
-        assert fracs is not None, '2d requires definition of fractures'
-        assert domain is not None, '2d requires definition of domain'
-        # Convert the fracture to a fracture dictionary.
-        if len(fracs) == 0:
-            f_lines = np.zeros((2, 0))
+    logger.info('Construct mesh')
+    tm_tot = time.time()
             f_pts = np.zeros((2, 0))
         else:
             f_lines = np.reshape(np.arange(2 * len(fracs)), (2, -1), order='F')
@@ -102,16 +113,13 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
         frac_dic = {'points': f_pts, 'edges': f_lines}
         grids = simplex.triangle_grid(frac_dic, domain, **kwargs)
     elif ndim == 3:
-        grids = simplex.tetrahedral_grid(fracs, domain, network, subdomains, **kwargs)
+        grids = simplex.tetrahedral_grid(
+            fracs, domain, network, subdomains, **kwargs)
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
 
-    if verbose > 0:
-        print('Done. Elapsed time ' + str(time.time() - tm_msh))
+    return grid_list_to_grid_bucket(grids, time_tot=tm_tot, **kwargs)
 
-    return convert_grid_list_to_bucket(grids, **kwargs)
-
-#------------------------------------------------------------------------------#
 
 def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
         **kwargs):
@@ -169,7 +177,6 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
         grid_list = []
         neigh_list = []
 
-
         for fi in range(len(network._fractures)):
             logger.info('Meshing of fracture ' + str(fi))
             # Rotate fracture vertexes and intersection points
@@ -211,20 +218,19 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
                     g_aux.global_point_ind = global_point_ind[sort_ind]
                     grids[1].insert(ind, g_aux)
 
-
             assert len(grids[0]) == 1, 'Fracture should be covered by single'\
                 'mesh'
 
             grid_list.append(grids)
             neigh_list.append(other_frac)
 
-        logger.warn('Finished creating grids. Elapsed time ' + str(time.time() - tic))
+        logger.warn('Finished creating grids. Elapsed time ' +
+                    str(time.time() - tic))
         logger.warn('Merge grids')
         tic = time.time()
         grids = non_conforming.merge_grids(grid_list, neigh_list)
         logger.warn('Done. Elapsed time ' + str(time.time() - tic))
 
-        print('\n')
         for g_set in grids:
             if len(g_set) > 0:
                 s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
@@ -233,24 +239,9 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4,
                 for g in g_set:
                     num += g.num_cells
                 s += str(num) + ' cells'
-                print(s)
-        print('\n')
+                logger.info(s)
 
-    tag_faces(grids, check_highest_dim=False)
-    logger.warn('Assemble in bucket')
-    tic = time.time()
-    gb = assemble_in_bucket(grids)
-    logger.warn('Done. Elapsed time ' + str(time.time() - tic))
-    logger.warn('Compute geometry')
-    tic = time.time()
-    gb.compute_geometry()
-    logger.warn('Done. Elapsed time ' + str(time.time() - tic))
-    logger.warn('Split fractures')
-    tic = time.time()
-    split_grid.split_fractures(gb)
-    logger.warn('Done. Elapsed time ' + str(time.time() - tic))
-    return gb
-
+    return grid_list_to_grid_bucket(grids, check_highest_dim=False)
 
 #------------------------------------------------------------------------------#
 
@@ -299,18 +290,60 @@ def from_gmsh(file_name, dim, **kwargs):
         grids[0][0].compute_geometry()
         return grids[0][0]
 
-    # Tag tip faces
-    tag_faces(grids)
-
-    # Assemble grids in a bucket
-    gb = assemble_in_bucket(grids)
-    gb.compute_geometry()
-    # Split the grids.
-    split_grid.split_fractures(gb)
-    return gb
+    return grid_list_to_grid_bucket(grids)
 
 #------------------------------------------------------------------------------#
 
+def grid_list_to_grid_bucket(grids, time_tot=None, **kwargs):
+    """ Convert a list of grids to a full GridBucket.
+
+    The list can come from several mesh constructors, both simplex and
+    structured approaches uses this in 2D and 3D.
+
+    The function can not be used on an arbitrary set of grids; they should
+    contain information to glue grids together. This will be included for grids
+    created by the standard mixed-dimensional grid constructors. In other
+    words: Do *not* use this function directly unless you know what you are
+    doing.
+
+    Parameters:
+        grids (list of lists of grids): Grids to enter into the bucket.
+            Sorted per dimension.
+        time_tot (double, optional): Start time for full mesh construction.
+            Used for logging. Defaults to None, in which case no information
+            on total time consumption is logged.
+        **kwargs: Passed on to subfunctions.
+
+    Returns:
+        GridBucket: Final mixed-dimensional grid.
+
+    """
+    # Tag tip faces
+    check_highest_dim = kwargs.get('check_highest_dim', False)
+    _tag_faces(grids, check_highest_dim)
+
+    logger.info('Assemble in bucket')
+    tm_bucket = time.time()
+    gb = _assemble_in_bucket(grids, **kwargs)
+    logger.info('Done. Elapsed time ' + str(time.time() - tm_bucket))
+
+    logger.info('Compute geometry')
+    tm_geom = time.time()
+    gb.compute_geometry()
+    # Split the grids.
+    logger.info('Done. Elapsed time ' + str(time.time() - tm_geom))
+    logger.info('Split fractures')
+    tm_split = time.time()
+    split_grid.split_fractures(gb, **kwargs)
+    logger.info('Done. Elapsed time ' + str(time.time() - tm_split))
+
+    gb.assign_node_ordering()
+
+    if time_tot is not None:
+        logger.info('Mesh construction completed. Total time ' +
+              str(time.time() - time_tot))
+
+    return gb
 
 def cart_grid(fracs, nx, **kwargs):
     """
@@ -335,14 +368,14 @@ def cart_grid(fracs, nx, **kwargs):
         lower dim grids. The higher dim fracture faces are split in two,
         and on the edges of the GridBucket graph the mapping from lower dim
         cells to higher dim faces are stored as 'face_cells'. Each face is
-        given a FaceTag depending on the type:
-           NONE: None of the below (i.e. an internal face)
-           DOMAIN_BOUNDARY: All faces that lie on the domain boundary
+        given boolean tags depending on the type:
+           domain_boundary_faces: All faces that lie on the domain boundary
                (i.e. should be given a boundary condition).
-           FRACTURE: All faces that are split (i.e. has a connection to a
+           fracture_faces: All faces that are split (i.e. has a connection to a
                lower dim grid).
-           TIP: A boundary face that is not on the domain boundary, nor
+           tip_faces: A boundary face that is not on the domain boundary, nor
                coupled to a lower domentional domain.
+        The union of the above three is the tag boundary_faces.
 
     Examples
     --------
@@ -367,48 +400,10 @@ def cart_grid(fracs, nx, **kwargs):
     else:
         raise ValueError('Only support for 2 and 3 dimensions')
 
-    return convert_grid_list_to_bucket(grids, **kwargs)
+    return grid_list_to_grid_bucket(grids, **kwargs)
 
 
-def convert_grid_list_to_bucket(grids, **kwargs):
-    """ Convert a list of grids, persumably generated by gmsh, to a GridBucket.
-    """
-
-    verbose = kwargs.get('verbose', 0)
-
-    # Tag tip faces
-    tag_faces(grids)
-
-    # Assemble grids in a bucket
-
-    if verbose > 0:
-        print('Assemble in bucket')
-        tm_bucket = time.time()
-    gb = assemble_in_bucket(grids, **kwargs)
-    if verbose > 0:
-        print('Done. Elapsed time ' + str(time.time() - tm_bucket))
-        print('Compute geometry')
-        tm_geom = time.time()
-
-    gb.compute_geometry()
-    # Split the grids.
-    if verbose > 0:
-        print('Done. Elapsed time ' + str(time.time() - tm_geom))
-        print('Split fractures')
-        tm_split = time.time()
-    split_grid.split_fractures(gb, **kwargs)
-
-    # create mortar grids
-    create_mortar_grids(gb)
-
-    if verbose > 0:
-        print('Done. Elapsed time ' + str(time.time() - tm_split))
-    gb.assign_node_ordering()
-
-    return gb
-
-
-def tag_faces(grids, check_highest_dim=True):
+def _tag_faces(grids, check_highest_dim=True):
     """
     Tag faces of grids. Three different tags are given to different types of
     faces:
@@ -428,24 +423,23 @@ def tag_faces(grids, check_highest_dim=True):
 
     """
 
-    for gs in grids:
-        for g in gs:
-            g.remove_face_tag([True] * g.num_faces, FaceTag.DOMAIN_BOUNDARY)
-
     # Assume only one grid of highest dimension
     if check_highest_dim:
         assert len(grids[0]) == 1, 'Must be exactly'\
             '1 grid of dim: ' + str(len(grids))
 
     for g_h in np.atleast_1d(grids[0]):
-        bnd_faces = g_h.get_boundary_faces()
-        g_h.add_face_tag(bnd_faces, FaceTag.DOMAIN_BOUNDARY)
+        bnd_faces = g_h.get_all_boundary_faces()
+        domain_boundary_tags = np.zeros(
+            g_h.num_faces, dtype=bool)
+        domain_boundary_tags[bnd_faces] = True
+        g_h.tags['domain_boundary_faces'] = domain_boundary_tags
         bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
         bnd_nodes = np.unique(bnd_nodes)
         for g_dim in grids[1:-1]:
             for g in g_dim:
                 # We find the global nodes of all boundary faces
-                bnd_faces_l = g.get_boundary_faces()
+                bnd_faces_l = g.get_all_boundary_faces()
                 indptr = g.face_nodes.indptr
                 fn_loc = mcolon.mcolon(
                     indptr[bnd_faces_l], indptr[bnd_faces_l + 1])
@@ -458,15 +452,17 @@ def tag_faces(grids, check_highest_dim=True):
                 # We reshape the nodes such that each column equals the nodes of
                 # one face. If a face only contains global boundary nodes, the
                 # local face is also a boundary face. Otherwise, we add a TIP tag.
-                n_per_face = nodes_per_face(g)
+                n_per_face = _nodes_per_face(g)
                 is_tip = np.any(is_tip.reshape(
                     (n_per_face, bnd_faces_l.size), order='F'), axis=0)
-                g.add_face_tag(bnd_faces_l[is_tip], FaceTag.TIP)
-                g.add_face_tag(bnd_faces_l[is_tip == False],
-                               FaceTag.DOMAIN_BOUNDARY)
+
+                g.tags['tip_faces'][bnd_faces_l[is_tip]] = True
+                domain_boundary_tags = np.zeros(g.num_faces, dtype=bool)
+                domain_boundary_tags[bnd_faces_l[is_tip == False]] = True
+                g.tags['domain_boundary_faces'] = domain_boundary_tags
 
 
-def nodes_per_face(g):
+def _nodes_per_face(g):
     """
     Returns the number of nodes per face for a given grid
     """
@@ -486,7 +482,7 @@ def nodes_per_face(g):
     return n_per_face
 
 
-def assemble_in_bucket(grids, **kwargs):
+def _assemble_in_bucket(grids, **kwargs):
     """
     Create a GridBucket from a list of grids.
     Parameters
@@ -513,7 +509,7 @@ def assemble_in_bucket(grids, **kwargs):
         for hg in grids[dim]:
             # We have to specify the number of nodes per face to generate a
             # matrix of the nodes of each face.
-            n_per_face = nodes_per_face(hg)
+            n_per_face = _nodes_per_face(hg)
             fn_loc = hg.face_nodes.indices.reshape((n_per_face, hg.num_faces),
                                                    order='F')
             # Convert to global numbering
@@ -521,7 +517,7 @@ def assemble_in_bucket(grids, **kwargs):
             fn = np.sort(fn, axis=0)
 
             for lg in grids[dim + 1]:
-                cell_2_face, cell = utils.obtain_interdim_mappings(
+                cell_2_face, cell = tools.obtain_interdim_mappings(
                     lg, fn, n_per_face, **kwargs)
                 if cell_2_face.size > 0:
                     face_cells = sps.csc_matrix(

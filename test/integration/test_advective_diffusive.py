@@ -7,7 +7,6 @@ from porepy.fracs import meshing
 from porepy.params.data import Parameters
 from porepy.params import tensor, bc
 from porepy.params.units import *
-from porepy.grids.grid import FaceTag
 from porepy.numerics.fv import fvutils
 
 
@@ -18,9 +17,9 @@ class BasicsTest(unittest.TestCase):
         box = {'xmin': 0, 'ymin': 0, 'zmin': 0,
                'xmax': 5, 'ymax':  5, 'zmax': 5}
         mesh_size = 1.0
-        mesh_kwargs = {'mode': 'constant',
-                       'value': mesh_size, 'bound_value': mesh_size}
-        self.gb3d = meshing.simplex_grid([f], box, mesh_size=mesh_kwargs)
+        mesh_kwargs = {'mesh_size_frac': mesh_size,
+                       'mesh_size_min': mesh_size / 20}
+        self.gb3d = meshing.simplex_grid([f], box, **mesh_kwargs)
         unittest.TestCase.__init__(self, *args, **kwargs)
 
     #------------------------------------------------------------------------------#
@@ -142,15 +141,13 @@ class SourceAdvectiveDiffusiveDirBound(SourceAdvectiveDiffusiveProblem):
         SourceAdvectiveDiffusiveProblem.__init__(self, g, physics=physics)
 
     def bc(self):
-        dir_faces = self.grid().has_face_tag(FaceTag.DOMAIN_BOUNDARY)
-        dir_faces = np.ravel(np.argwhere(dir_faces))
+        dir_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         bc_cond = bc.BoundaryCondition(
             self.grid(), dir_faces, ['dir'] * dir_faces.size)
         return bc_cond
 
     def bc_val(self, t):
-        dir_faces = self.grid().has_face_tag(FaceTag.DOMAIN_BOUNDARY)
-        dir_faces = np.ravel(np.argwhere(dir_faces))
+        dir_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         val = np.zeros(self.grid().num_faces)
         val[dir_faces] = 10 * PASCAL
         return val
@@ -207,14 +204,14 @@ def solve_elliptic_problem(gb):
             d['param'].set_source(
                 'flow', source(g, 0.0))
 
-        dir_bound = np.argwhere(g.has_face_tag(FaceTag.DOMAIN_BOUNDARY))
+        dir_bound = g.tags['domain_boundary_faces'].nonzero()[0]
         bc_cond = bc.BoundaryCondition(
             g, dir_bound, ['dir'] * dir_bound.size)
         d['param'].set_bc('flow', bc_cond)
 
-    gb.add_edge_prop('param')
-    for e, d in gb.edges_props():
-        g_h = gb.sorted_nodes_of_edge(e)[1]
+    gb.add_edge_props('param')
+    for e, d in gb.edges():
+        g_h = gb.nodes_of_edge(e)[1]
         d['param'] = Parameters(g_h)
     flux = elliptic.EllipticModel(gb)
     p = flux.solve()

@@ -3,24 +3,19 @@
 
 @author: fumagalli, alessio
 """
-
 import warnings
 import numpy as np
 import scipy.sparse as sps
+import logging
 
-from porepy.params import tensor
+import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
-from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
-
-from porepy.grids import grid, mortar_grid
-
-from porepy.utils import comp_geom as cg
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 #------------------------------------------------------------------------------#
 
-class DualVEMMixedDim(SolverMixedDim):
+class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
     def __init__(self, physics='flow'):
         self.physics = physics
@@ -29,7 +24,8 @@ class DualVEMMixedDim(SolverMixedDim):
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = DualCoupling(self.discr)
 
-        self.solver = Coupler(self.discr, self.coupling_conditions)
+        self.solver = pp.numerics.mixed_dim.coupler.Coupler(self.discr,
+                                                       self.coupling_conditions)
 
     def extract_u(self, gb, up, u):
         gb.add_node_props([u])
@@ -76,11 +72,11 @@ class DualVEMMixedDim(SolverMixedDim):
                 conservation_l[c_l] -= u_f
 
         for g, d in gb:
-            print(np.amax(np.abs(d[conservation])))
+            logger.info(np.amax(np.abs(d[conservation])))
 
 #------------------------------------------------------------------------------#
 
-class DualVEMDFN(SolverMixedDim):
+class DualVEMDFN(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
@@ -93,8 +89,9 @@ class DualVEMDFN(SolverMixedDim):
 
         kwargs = {"discr_ndof": self.__ndof__,
                   "discr_fct": self.__matrix_rhs__}
-        self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
-        SolverMixedDim.__init__(self)
+        self.solver = pp.numerics.mixed_dim.coupler.Coupler(
+                                    coupling=self.coupling_conditions, **kwargs)
+        pp.numerics.mixed_dim.solver.SolverMixedDim.__init__(self)
 
     def extract_u(self, gb, up, u):
         for g, d in gb:
@@ -138,7 +135,7 @@ class DualVEMDFN(SolverMixedDim):
 
 #------------------------------------------------------------------------------#
 
-class DualVEM(Solver):
+class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
 #------------------------------------------------------------------------------#
 
@@ -235,7 +232,7 @@ class DualVEM(Solver):
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
+        c_centers, f_normals, f_centers, R, dim, _ = pp.cg.map_grid(g)
 
         if not data.get('is_tangential', False):
                 # Rotate the permeability tensor and delete last dimension
@@ -290,8 +287,13 @@ class DualVEM(Solver):
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
         # assign the Neumann boundary conditions
-        if bc and np.any(bc.is_neu):
-            is_neu = np.hstack((bc.is_neu,
+        # For dual discretizations, internal boundaries
+        # are handled by assigning Dirichlet conditions. THus, we remove them
+        # from the is_neu (where they belong by default) and add them in
+        # is_dir.
+        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
+        if bc and np.any(is_neu):
+            is_neu = np.hstack((is_neu,
                                 np.zeros(g.num_cells, dtype=np.bool)))
             M[is_neu, :] *= 0
             M[is_neu, is_neu] = norm
@@ -334,15 +336,22 @@ class DualVEM(Solver):
 
         is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
                           np.ones(g.num_cells, dtype=np.bool)))
-
-        if np.any(bc.is_dir):
-            is_dir = np.where(bc.is_dir)[0]
+        # For dual discretizations, internal boundaries
+        # are handled by assigning Dirichlet conditions. Thus, we remove them
+        # from the is_neu (where they belong by default). As the dirichlet
+        # values are simply added to the rhs, and the internal Dirichlet
+        # conditions on the fractures SHOULD be homogeneous, we exclude them
+        # from the dirichlet condition as well.
+        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
+        is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
+        if np.any(is_dir):
+            is_dir = np.where(is_dir)[0]
             faces, _, sign = sps.find(g.cell_faces)
             sign = sign[np.unique(faces, return_index=True)[1]]
             rhs[is_dir] += -sign[is_dir] * bc_val[is_dir]
 
-        if np.any(bc.is_neu):
-            is_neu = np.where(bc.is_neu)[0]
+        if np.any(is_neu):
+            is_neu = np.where(is_neu)[0]
             rhs[is_neu] = bc_weight * bc_val[is_neu]
 
         return rhs
@@ -411,7 +420,7 @@ class DualVEM(Solver):
 
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to self.massHdiv
-        k = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+        k = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
         param = data['param']
         a = param.get_aperture()
 
@@ -419,7 +428,7 @@ class DualVEM(Solver):
         index = np.argsort(cells)
         faces, sign = faces[index], sign[index]
 
-        c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
+        c_centers, f_normals, f_centers, R, dim, _ = pp.cg.map_grid(g)
 
         # In the virtual cell approach the cell diameters should involve the
         # apertures, however to keep consistency with the hybrid-dimensional
@@ -527,7 +536,7 @@ class DualVEM(Solver):
 
 #------------------------------------------------------------------------------#
 
-class DualCoupling(AbstractCoupling):
+class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
@@ -611,7 +620,7 @@ class DualCoupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
-class DualCouplingDFN(AbstractCoupling):
+class DualCouplingDFN(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 

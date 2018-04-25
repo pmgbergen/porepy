@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 
 from porepy.numerics.mixed_dim.solver import Solver
-from porepy.params.tensor import SecondOrder, FourthOrder
+from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
 from porepy.params.bc import BoundaryCondition
 
 
@@ -511,27 +511,27 @@ class Parameters(object):
                              % (physics, self.known_physics))
 
     def get_permeability(self):
-        """ tensor.SecondOrder
+        """ tensor.SecondOrderTensor
         Cell wise permeability, represented as a second order tensor.
         Defaults to a unit tensor.
         """
         if hasattr(self, '_perm'):
             return self._perm
         else:
-            t = SecondOrder(self.dim, np.ones(self._num_cells))
+            t = SecondOrderTensor(self.dim, np.ones(self._num_cells))
             return t
 
     perm = property(get_permeability)
 
     def get_conductivity(self):
-        """ tensor.SecondOrder
+        """ tensor.SecondOrderTensor
         Cell wise conductivity, represented as a second order tensor.
         Defaults to a unit tensor.
         """
         if hasattr(self, '_conductivity'):
             return self._conductivity
         else:
-            t = SecondOrder(self.dim, np.ones(self._num_cells))
+            t = SecondOrderTensor(self.dim, np.ones(self._num_cells))
             return t
 
     conductivity = property(get_conductivity)
@@ -543,7 +543,7 @@ class Parameters(object):
         if hasattr(self, '_stiffness'):
             return self._stiffness
         else:
-            t = FourthOrder(self.dim, np.ones(self._num_cells),
+            t = FourthOrderTensor(self.dim, np.ones(self._num_cells),
                             np.ones(self._num_cells))
             return t
 
@@ -701,7 +701,7 @@ class Parameters(object):
                              % (physics, self.known_physics))
 
     def get_bc_val_flow(self):
-        """ tensor.SecondOrder
+        """ tensor.SecondOrderTensor
         Cell wise permeability, represented as a second order tensor.
         Solvers should rather access get_tensor().
         """
@@ -713,7 +713,7 @@ class Parameters(object):
     bc_val_flow = property(get_bc_val_flow)
 
     def get_bc_val_transport(self):
-        """ tensor.SecondOrder
+        """ tensor.SecondOrderTensor
         Cell wise conductivity, represented as a second order tensor.
         Solvers should rather access tensor().
         """
@@ -725,7 +725,7 @@ class Parameters(object):
     bc_val_transport = property(get_bc_val_transport)
 
     def get_bc_val_mechanics(self):
-        """ tensor.FourthOrder
+        """ tensor.FourthOrderTensor
         Cell wise conductivity, represented as a fourth order tensor.
         Solvers should rather access tensor().
         """

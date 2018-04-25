@@ -91,7 +91,7 @@ def coarsening_example2(**kwargs):
 
     kxx = 3*np.ones(g.num_cells)
     kyy = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy)
+    perm = tensor.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy)
 
     part = create_partition(tpfa_matrix(g, perm=perm))
     g = generate_coarse_grid(g, part)
@@ -142,7 +142,7 @@ def coarsening_example3(**kwargs):
 
     kxx = 3*np.ones(g.num_cells)
     kyy = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx=kxx, kyy=kyy)
+    perm = tensor.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy)
 
     part = create_partition(tpfa_matrix(g, perm=perm))
     g = generate_coarse_grid(g, part)

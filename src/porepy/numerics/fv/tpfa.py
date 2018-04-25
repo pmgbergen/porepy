@@ -9,18 +9,15 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.params import tensor
+import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 from porepy.numerics.fv import fvutils
-from porepy.grids.grid import Grid
 
 #------------------------------------------------------------------------------
 
-class TpfaMixedDim(SolverMixedDim):
+class TpfaMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
     def __init__(self, physics='flow'):
         self.physics = physics
 
@@ -28,7 +25,8 @@ class TpfaMixedDim(SolverMixedDim):
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = TpfaCoupling(self.discr)
 
-        self.solver = Coupler(self.discr, self.coupling_conditions)
+        self.solver = pp.numerics.mixed_dim.coupler.Coupler(self.discr,
+                                                       self.coupling_conditions)
 
     def discretize(self, gb):
         for g, d in gb:
@@ -38,7 +36,8 @@ class TpfaMixedDim(SolverMixedDim):
 
 #------------------------------------------------------------------------------
 
-class TpfaDFN(SolverMixedDim):
+
+class TpfaDFN(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
@@ -51,8 +50,9 @@ class TpfaDFN(SolverMixedDim):
 
         kwargs = {"discr_ndof": self.discr.ndof,
                   "discr_fct": self.__matrix_rhs__}
-        self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
-        SolverMixedDim.__init__(self)
+        self.solver = pp.numerics.mixed_dim.coupler.Coupler(
+                                    coupling=self.coupling_conditions, **kwargs)
+        pp.numerics.mixed_dim.solver.SolverMixedDim.__init__(self)
 
     def __matrix_rhs__(self, g, data):
         # The highest dimensional problem compute the matrix and rhs, the lower
@@ -66,7 +66,7 @@ class TpfaDFN(SolverMixedDim):
 
 #------------------------------------------------------------------------------
 
-class Tpfa(Solver):
+class Tpfa(pp.numerics.mixed_dim.solver.Solver):
     """ Discretize elliptic equations by a two-point flux approximation.
 
     Attributes:
@@ -234,13 +234,18 @@ class Tpfa(Solver):
         t_full = t.copy()
         sgn_full = np.bincount(fi, sgn)
 
+        # For primal-like discretizations like the TPFA, internal boundaries
+        # are handled by assigning Neumann conditions.
+        is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
+        is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
+
         # Move Neumann faces to Neumann transmissibility
-        bndr_ind = g.get_boundary_faces()
+        bndr_ind = g.get_all_boundary_faces()
         t_b = np.zeros(g.num_faces)
-        t_b[bnd.is_dir] = -t[bnd.is_dir]
-        t_b[bnd.is_neu] = 1
+        t_b[is_dir] = -t[is_dir]
+        t_b[is_neu] = 1
         t_b = t_b[bndr_ind]
-        t[np.logical_or(bnd.is_neu, is_not_active)] = 0
+        t[np.logical_or(is_neu, is_not_active)] = 0
         # Create flux matrix
         flux = sps.coo_matrix((t[fi] * sgn, (fi, ci)))
 
@@ -272,6 +277,7 @@ class Tpfa(Solver):
         data['bound_pressure_face'] = bound_pressure_face
 
 #------------------------------------------------------------------------------
+
 
 class TpfaCoupling(AbstractCoupling):
     """
@@ -514,7 +520,7 @@ class TpfaMonoCoupling(AbstractCoupling):
             cc[2, 2] = data_edge['mortar_weight']
 
         else:
-            _, cc = self.create_block_matrix([g_l, data_edge['mortar_grid']])            
+            _, cc = self.create_block_matrix([g_l, data_edge['mortar_grid']])
             # if the edge connect a node to itself the contribution
             # from the left and right are both at the same node
             cc[0, 1] = div_l * data_edge['mortar_to_hat_bc'] +\
@@ -526,6 +532,7 @@ class TpfaMonoCoupling(AbstractCoupling):
         return matrix + cc
 
 #------------------------------------------------------------------------------#
+
 
 class TpfaCouplingDFN(AbstractCoupling):
 

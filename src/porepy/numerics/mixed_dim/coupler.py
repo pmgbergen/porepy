@@ -55,7 +55,7 @@ class Coupler(object):
         gb: grid bucket.
 
         """
-        gb.add_node_prop('dof')
+        gb.add_node_props('dof')
         for g, d in gb:
             d['dof'] = self.discr_ndof(g)
 
@@ -158,7 +158,7 @@ class Coupler(object):
             if pos_h == pos_l:
                 idx = np.ix_([pos_h, pos_m], [pos_h, pos_m])
             else:
-                idx = np.ix_([pos_h, pos_l, pos_m], [pos_h, pos_l, pos_m])                
+                idx = np.ix_([pos_h, pos_l, pos_m], [pos_h, pos_l, pos_m])
 
             data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
             matrix[idx] = self.coupling_fct(matrix[idx], g_h, g_l, data_h, data_l, d)
@@ -185,7 +185,7 @@ class Coupler(object):
         """
         dofs = self._dof_start_of_grids(gb)
 
-        gb.add_node_prop(key)
+        gb.add_node_props(key)
         for g, d in gb:
             i = d['node_number']
             d[key] = values[slice(dofs[i], dofs[i + 1])]
