@@ -204,7 +204,10 @@ def new_grid_1d(g_old, num_nodes, tol=1e-6):
     mask = mask[:old_faces.shape[0], old_faces.shape[0]:]
     faces = np.dot(mask, faces)
 
-    g.face_tags[faces] = g_old.face_tags[old_faces]
+    # This can probably be made more elegant
+    g.tags['domain_boundary_faces'] = g_old.tags['domain_boundary_faces']
+    g.tags['fracture_faces'] = g_old.tags['fracture_faces']
+    g.tags['tip_faces'] = g_old.tags['tip_faces']
 
     return g
 
