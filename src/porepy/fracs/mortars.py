@@ -492,7 +492,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
     fn_in_hit = np.isin(fn, hit)
     # Faces where all points are found in hit
     faces_by_hit = np.where(np.all(fn_in_hit, axis=0))[0]
-    faces_on_boundary_new = np.where(g_new.tags['domain_boundary_faces'].ravel())[0]
+    faces_on_boundary_new = np.where(g_new.tags['fracture_faces'].ravel())[0]
     # Only consider faces both in hit, and that are boundary
     faces_on_boundary_new = np.intersect1d(faces_by_hit,
                                        faces_on_boundary_new)
