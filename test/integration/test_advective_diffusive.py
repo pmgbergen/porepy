@@ -224,3 +224,6 @@ def delete_node_data(gb):
         d.clear()
 
     gb.assign_node_ordering()
+
+if __name__ == '__main__':
+    unittest.main()
