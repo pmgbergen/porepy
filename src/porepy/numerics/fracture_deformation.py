@@ -115,15 +115,21 @@ class FrictionSlipModel():
         # and all the normal tractions should be negative.
         sigma_n = -T_n - self._data['face_pressure'][fi]
         assert np.all(sigma_n > 0 )
+
+        # new slip are fracture faces slipping in this iteration
         new_slip = T_s - \
             self.mu(fi, self.is_slipping[fi]) * \
             sigma_n > 1e-5 * self._data['rock'].MU
 
         self.is_slipping[fi] = self.is_slipping[fi] | new_slip
-        excess_shear = np.abs(
-            T_s) - self.mu(fi, self.is_slipping[fi]) * sigma_n
+
+        # calculate the shear stiffness
         shear_stiffness = np.sqrt(
             self._gb.face_areas[fi]) / (self._data['rock'].MU)
+
+        # calculate aproximated slip distance
+        excess_shear = np.abs(
+            T_s) - self.mu(fi, self.is_slipping[fi]) * sigma_n
         slip_d = excess_shear * shear_stiffness * self.gamma() * new_slip
 
         # We also add the values to the left cells so that when we average the
@@ -194,10 +200,6 @@ class FrictionSlipModel():
             trac.reshape((3, -1), order='F')[:, fi_left]
         T_right = sgn_right * \
             trac.reshape((3, -1), order='F')[:, fi]
-        if not np.allclose(T_left, -T_right):#, atol=1e-6 * np.max(T_left)):
-            import pdb
-            pdb.set_trace()
-
         assert np.allclose(T_left, -T_right)
 
         # TESTING DONE
