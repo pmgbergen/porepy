@@ -650,13 +650,14 @@ class GridBucket(object):
                 counter += 1
 
 # EK: The following lines seems important, but became homeless during merge
-#        self.add_edge_props(['node_number', 'edge_number'])
-#        counter = 0
-#        for e, d in self.edges_props():
-#            gs = self.sorted_nodes_of_edge(e)
-#            d['node_number'] = np.asarray(self.nodes_prop(gs, 'node_number'))
-#            d['edge_number'] = counter
-#            counter += 1
+        self.add_edge_props(['node_number', 'edge_number'])
+        counter = 0
+        for e, d in self.edges():
+            gs = self.nodes_of_edge(e)
+            d['node_number'] = np.asarray([self.node_props(g, 'node_number')
+                                            for g in gs])
+            d['edge_number'] = counter
+            counter += 1
 
 
 
