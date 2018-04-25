@@ -80,7 +80,7 @@ class Exporter():
             return
 
         if self.is_GridBucket:
-            self.dims = np.setdiff1d(self.gb.dims(), [0])
+            self.dims = np.setdiff1d(self.gb.all_dims(), [0])
             self.gb_VTK = dict(zip(self.dims, [None]*self.dims.size))
             self.num_elem = dict(zip(self.dims, [None]*self.dims.size))
         else:
