@@ -99,17 +99,8 @@ def eliminate_dofs(A, rhs, to_be_eliminated, inverter=sps.linalg.inv):
         to_be_kept: Indices of the masters.
 
     """
-    to_be_kept = np.invert(to_be_eliminated)
-    # Get indexes of the masters:
-    to_be_kept = np.nonzero(to_be_kept)[0]
-    # and slaves:
-    to_be_eliminated = np.nonzero(to_be_eliminated)[0]
-
-    # Masters and slaves:
-    A_mm = A[to_be_kept][:, to_be_kept]
-    A_ms = A[to_be_kept][:, to_be_eliminated]
-    A_sm = A[to_be_eliminated][:, to_be_kept]
-    A_ss = A[to_be_eliminated][:, to_be_eliminated]
+    A_mm, A_ms, A_sm, A_ss, to_be_kept \
+        = split_sparse_matrix_in_four(A, to_be_eliminated)
     A_ss_inv = inverter(A_ss)
     A_ms_A_ss_inv = A_ms * sps.csr_matrix(A_ss_inv)
     sparse_product = A_ms_A_ss_inv * A_sm
@@ -121,6 +112,21 @@ def eliminate_dofs(A, rhs, to_be_eliminated, inverter=sps.linalg.inv):
     condensation_matrix = sps.csc_matrix(- A_ss_inv * A_sm)
 
     return A_reduced, rhs_reduced, condensation_matrix, to_be_kept, A_ss_inv
+
+
+def split_sparse_matrix_in_four(A, slave_indexes):
+    to_be_kept = np.invert(slave_indexes)
+    # Get indexes of the masters:
+    to_be_kept = np.nonzero(to_be_kept)[0]
+    # and slaves:
+    to_be_eliminated = np.nonzero(slave_indexes)[0]
+
+    # Masters and slaves:
+    A_mm = A[to_be_kept][:, to_be_kept]
+    A_ms = A[to_be_kept][:, to_be_eliminated]
+    A_sm = A[to_be_eliminated][:, to_be_kept]
+    A_ss = A[to_be_eliminated][:, to_be_eliminated]
+    return A_mm, A_ms, A_sm, A_ss, to_be_kept
 
 
 def new_coupling_fluxes(gb_old, gb_el, neighbours_old, neighbours_el, node_old):
