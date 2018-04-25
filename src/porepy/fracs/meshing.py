@@ -16,7 +16,6 @@ from porepy.fracs.fractures import Intersection
 from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
-from porepy.grids.grid import FaceTag
 from porepy.grids import mortar_grid
 from porepy.grids.structured import TensorGrid
 from porepy.utils import mcolon
@@ -106,6 +105,12 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
 
     logger.info('Construct mesh')
     tm_tot = time.time()
+    if ndim == 2:
+        assert fracs is not None, '2d requires definition of fractures'
+        assert domain is not None, '2d requires definition of domain'
+        # Convert the fracture to a fracture dictionary.
+        if len(fracs) == 0:
+            f_lines = np.zeros((2, 0))
             f_pts = np.zeros((2, 0))
         else:
             f_lines = np.reshape(np.arange(2 * len(fracs)), (2, -1), order='F')

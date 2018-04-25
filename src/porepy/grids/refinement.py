@@ -10,7 +10,7 @@ Created on Sat Nov 11 17:06:37 2017
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.grids.grid import Grid, FaceTag
+from porepy.grids.grid import Grid
 from porepy.grids.structured import TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.utils import comp_geom as cg
