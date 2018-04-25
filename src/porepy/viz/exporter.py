@@ -200,7 +200,7 @@ class Exporter():
             data = np.atleast_1d(data).tolist()
         assert isinstance(data, list) or data is None
         data = list() if data is None else data
-<<<<<<< HEAD
+#<<<<<<< HEAD
         data.append('grid_dim')
         data.append('is_mortar')
         data.append('mortar_side')
@@ -283,16 +283,16 @@ class Exporter():
                  '<Collection>\n'
         o_file.write(header)
         fm = '\t<DataSet group="" part="" file="%s"/>\n'
-<<<<<<< HEAD
+#<<<<<<< HEAD
         [o_file.write( fm % d['file_name'] ) for g, d in self.gb if g.dim!=0]
         for _, d in self.gb.edges_props():
             for side, g in d['mortar_grid'].side_grids.items():
                 if g.dim > 0:
                     o_file.write( fm % d['file_name'][side] )
-=======
+#=======
         [o_file.write(fm%self._make_file_name(self.name, dim=dim)) \
                                                            for dim in self.dims]
->>>>>>> origin/develop
+#>>>>>>> origin/develop
         o_file.write('</Collection>\n'+'</VTKFile>')
         o_file.close()
 
@@ -405,7 +405,7 @@ class Exporter():
 
     def _update_gb_VTK(self):
         if self.is_GridBucket:
-<<<<<<< HEAD
+#<<<<<<< HEAD
             for g, d in self.gb:
                 self.gb_VTK[d['node_number']] = self._export_vtk_grid(g)
             for _, d in self.gb.edges_props():
@@ -413,11 +413,11 @@ class Exporter():
                 for side, g in d['mortar_grid'].side_grids.items():
                     side_grids_VTK[side] = self._export_vtk_grid(g)
                 self.mg_VTK[d['edge_number']] = side_grids_VTK
-=======
+#=======
             for dim in self.dims:
                 g = self.gb.get_grids(lambda g: g.dim == dim)
                 self.gb_VTK[dim], self.num_elem[dim] = self._export_vtk_grid(g, dim)
->>>>>>> origin/develop
+#>>>>>>> origin/develop
         else:
             self.gb_VTK, self.num_elem = self._export_vtk_grid([self.gb], self.gb.dim)
 
@@ -451,7 +451,7 @@ class Exporter():
 
 #------------------------------------------------------------------------------#
 
-<<<<<<< HEAD
+#<<<<<<< HEAD
     def _make_file_name_mortar(self, name, time_step=None, edge_number=None,
                                side=None):
 
@@ -475,14 +475,14 @@ class Exporter():
 #------------------------------------------------------------------------------#
 
     def _define_gvtk_3d(self, g):
-=======
-    def _define_gvtk_3d(self, gs):
+#=======
+#    def _define_gvtk_3d(self, gs):
         # NOTE: we are assuming only one 3d grid
->>>>>>> origin/develop
+#>>>>>>> origin/develop
         gVTK = vtk.vtkUnstructuredGrid()
         ptsVTK = vtk.vtkPoints()
 
-<<<<<<< HEAD
+#<<<<<<< HEAD
         faces_cells, cells, _ = sps.find(g.cell_faces)
         nodes_faces, faces, _ = sps.find(g.face_nodes)
 
@@ -530,7 +530,7 @@ class Exporter():
                 fsVTK = vtk.vtkIdList()
                 # Number faces that make up the cell
                 fsVTK.InsertNextId(face_per_cell[c])
-=======
+#=======
         ptsId_global = 0
         for g in gs:
             faces_cells, cells, _ = sps.find(g.cell_faces)
@@ -568,7 +568,7 @@ class Exporter():
             for c in np.arange(g.num_cells):
                 fsVTK = vtk.vtkIdList()
                 fsVTK.InsertNextId(face_per_cell[c]) # Number faces that make up the cell
->>>>>>> origin/develop
+#>>>>>>> origin/develop
                 for f in range(face_per_cell[c]):
                     fi = g.cell_faces.indices[face_counter]
                     fsVTK.InsertNextId(nodes_per_face[fi]) # Number of points in face
@@ -578,11 +578,11 @@ class Exporter():
                     face_counter += 1
 
                 gVTK.InsertNextCell(vtk.VTK_POLYHEDRON, fsVTK)
-<<<<<<< HEAD
-=======
+#<<<<<<< HEAD
+#=======
 
             [ptsVTK.InsertNextPoint(*node) for node in g.nodes.T]
->>>>>>> origin/develop
+#>>>>>>> origin/develop
 
         gVTK.SetPoints(ptsVTK)
 
