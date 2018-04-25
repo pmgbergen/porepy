@@ -115,7 +115,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         solver_flow = tpfa.TpfaMixedDim('flow')
         A_flow, b_flow = solver_flow.matrix_rhs(gb)
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         p = sps.linalg.spsolve(A_flow, b_flow)
@@ -134,12 +134,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn)
 
@@ -155,12 +155,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1./kn)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -176,12 +176,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -197,12 +197,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -219,12 +219,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn)
 
@@ -241,12 +241,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1./kn)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -263,12 +263,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -285,12 +285,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -322,7 +322,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         solver_flow = mpfa.MpfaMixedDim('flow')
         A_flow, b_flow = solver_flow.matrix_rhs(gb)
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         p = sps.linalg.spsolve(A_flow, b_flow)
@@ -341,12 +341,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn)
 
@@ -362,12 +362,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1./kn)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -383,12 +383,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -404,12 +404,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -426,12 +426,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=kn)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1], rtol=kn)
 
@@ -448,12 +448,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1./kn)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -470,12 +470,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -492,12 +492,12 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
         g_2d = gb.grids_of_dimension(2)[0]
-        p_2d = gb.node_prop(g_2d, 'pressure')
+        p_2d = gb.node_props(g_2d, 'pressure')
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
         assert np.allclose(p_2d, g_2d.cell_centers[1], rtol=1e-4)
 
         g_1d = gb.grids_of_dimension(1)[0]
-        p_1d = gb.node_prop(g_1d, 'pressure')
+        p_1d = gb.node_props(g_1d, 'pressure')
         # NOTE: This will not be entirely correct,
         assert np.allclose(p_1d, g_1d.cell_centers[1])
 
@@ -615,8 +615,8 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         # are not matching (one may get lucky, though). Thus the coarse error
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
-        for g in gb.nodes():
-            p = gb.node_prop(g, 'pressure')
+        for g, _ in gb.nodes():
+            p = gb.node_props(g, 'pressure')
             #print(g.cell_centers[1] - p)
             import pdb
             #pdb.set_trace()
@@ -818,7 +818,7 @@ class TestMortar3D(unittest.TestCase):
             d['kn'] = kn * np.ones(mg.num_cells)
 
     def verify_cv(self, gb):
-        for g in gb.nodes():
+        for g, _ in gb.nodes():
             p = gb.node_props(g, 'pressure')
             assert np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3)
 
@@ -1021,7 +1021,8 @@ unittest.main()
 #a = TestMortar3D()
 #a.test_mpfa_1_frac_no_refinement()
 a = TestMortar2DSimplexGridStandardMeshing()
-#a.test_mpfa_one_frac_refine_2d()
+#a.test_mpfa_one_frac()
+a.test_mpfa_one_frac_refine_2d()
 #a = TestMortar2DSimplexGrid()
 #a.test_mpfa_one_frac()
 #a = TestMortar2DSimplexGrid()
