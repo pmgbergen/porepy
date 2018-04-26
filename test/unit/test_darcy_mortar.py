@@ -72,14 +72,14 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         for e, d in gb.edges():
             mg = d['mortar_grid']
-            new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=num_nodes_mortar) \
+            new_side_grids = {s: refinement.remesh_1d(g, num_nodes=num_nodes_mortar) \
                               for s, g in mg.side_grids.items()}
 
             mortars.update_mortar_grid(mg, new_side_grids, tol=1e-4)
 
             # refine the 1d-physical grid
             old_g = gb.nodes_of_edge(e)[0]
-            new_g = refinement.new_grid_1d(old_g, num_nodes=num_nodes_1d)
+            new_g = refinement.remesh_1d(old_g, num_nodes=num_nodes_1d)
             new_g.compute_geometry()
 
             gb.update_nodes(old_g, new_g)
@@ -549,25 +549,25 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
                     else:
                         num_nodes = 1 + int(alpha_1d * g.num_cells)
                     num_nodes = 1 + int(alpha_1d * g.num_cells)
-                    gmap[g] = refinement.new_grid_1d(g, num_nodes=num_nodes)
+                    gmap[g] = refinement.remesh_1d(g, num_nodes=num_nodes)
                     gmap[g].compute_geometry()
 
         # Refine mortar grid
         mg_map = {}
         if alpha_mortar is not None:
-            for e, d in gb.edges_props():
+            for e, d in gb.edges():
                 mg = d['mortar_grid']
                 if mg.dim == 1:
                     mg_map[mg] = {}
                     for s, g in mg.side_grids.items():
                         num_nodes = int(g.num_nodes*alpha_mortar)
-                        mg_map[mg][s] = refinement.new_grid_1d(g, num_nodes=num_nodes)
+                        mg_map[mg][s] = refinement.remesh_1d(g, num_nodes=num_nodes)
 
         gb = mortars.replace_grids_in_bucket(gb, gmap, mg_map, tol=1e-4)
 
-        if remove_tags:
-            internal_flag = FaceTag.FRACTURE
-            [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+#        if remove_tags:
+#            internal_flag = FaceTag.FRACTURE
+#            [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
 
         gb.assign_node_ordering()
@@ -777,9 +777,9 @@ class TestMortar3D(unittest.TestCase):
 
         gb = meshing.simplex_grid(fracs=fl, domain=domain, h_min=0.5, h_ideal=0.5, verbose=0)
 
-        if remove_tags:
-            internal_flag = FaceTag.FRACTURE
-            [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+#        if remove_tags:
+#            internal_flag = FaceTag.FRACTURE
+#            [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
         self.set_params(gb)
 
@@ -901,10 +901,10 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
     def setup(self, remove_tags=False, num_1d=3, pert_node=False):
         g2 = self.grid_2d()
         g1 = self.grid_1d()
-        gb = meshing.assemble_in_bucket([[g2], [g1]])
+        gb = meshing._assemble_in_bucket([[g2], [g1]])
 
-        gb.add_edge_prop('face_cells')
-        for e, d in gb.edges_props():
+        gb.add_edge_props('face_cells')
+        for e, d in gb.edges():
             a = np.zeros((g2.num_faces, g1.num_cells))
             a[2, 1] = 1
             a[3, 0] = 1
@@ -913,14 +913,13 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
             d['face_cells'] = sps.csc_matrix(a.T)
         meshing.create_mortar_grids(gb)
 
-
         g_new_2d = self.grid_2d(pert_node)
         g_new_1d = self.grid_1d(num_1d)
         mortars.replace_grids_in_bucket(gb, g_map={g2: g_new_2d, g1: g_new_1d})
 
-        if remove_tags:
-            internal_flag = FaceTag.FRACTURE
-            [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
+#        if remove_tags:
+#            internal_flag = FaceTag.FRACTURE
+#            [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
         gb.assign_node_ordering()
 
@@ -933,7 +932,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         for g, d in gb:
             param = Parameters(g)
 
-            perm = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+            perm = tensor.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
             param.set_tensor("flow", perm)
 
             aperture = np.power(1e-3, gb.dim_max() - g.dim)
@@ -952,7 +951,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
         gb.add_edge_props('kn')
         kn = 1e7
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
             d['kn'] = kn * np.ones(mg.num_cells)
 
@@ -1015,14 +1014,16 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         self.verify_cv(gb)
 
 #TestGridRefinement1d().test_mortar_grid_darcy()
-
+a = TestMortar2dSingleFractureCartesianGrid()
+#a.test_mpfa_one_frac()
+a.test_tpfa_matching_grids_refine_2d_uniform_flow_larger_domain()
 unittest.main()
 #gb = a.setup()
 #a = TestMortar3D()
 #a.test_mpfa_1_frac_no_refinement()
 a = TestMortar2DSimplexGridStandardMeshing()
 #a.test_mpfa_one_frac()
-a.test_mpfa_one_frac_refine_2d()
+#a.test_tpfa_one_frac_refine_2d()
 #a = TestMortar2DSimplexGrid()
 #a.test_mpfa_one_frac()
 #a = TestMortar2DSimplexGrid()
