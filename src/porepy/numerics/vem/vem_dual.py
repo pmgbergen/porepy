@@ -161,9 +161,9 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         dof: the number of degrees of freedom.
 
         """
-        if isinstance(g, grid.Grid):
+        if isinstance(g, pp.Grid):
             return g.num_cells + g.num_faces
-        elif isinstance(g, mortar_grid.MortarGrid):
+        elif isinstance(g, pp.MortarGrid):
             return g.num_cells
         else:
             raise ValueError
