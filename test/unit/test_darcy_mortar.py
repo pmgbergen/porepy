@@ -884,6 +884,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
         g = Grid(2, nodes, face_nodes, cell_faces, 'TriangleGrid')
         g.compute_geometry()
+        g.tags['fracture_faces'][[2, 3, 7, 8]] = 1
         #g.face_normals[1, [2, 3]] = -0.5
         #g.face_normals[1, [7, 8]] = 0.5
         g.global_point_ind = np.arange(nodes.shape[1])
@@ -962,8 +963,8 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         # are not matching (one may get lucky, though). Thus the coarse error
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
-        for g in gb.nodes():
-            p = gb.node_prop(g, 'pressure')
+        for g, _ in gb.nodes():
+            p = gb.node_props(g, 'pressure')
 #            print(p)
 #            print(g.cell_centers[1])
             assert np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol)
@@ -1016,7 +1017,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 #TestGridRefinement1d().test_mortar_grid_darcy()
 a = TestMortar2dSingleFractureCartesianGrid()
 #a.test_mpfa_one_frac()
-a.test_tpfa_matching_grids_refine_2d_uniform_flow_larger_domain()
+#a.test_tpfa_matching_grids_refine_2d_uniform_flow_larger_domain()
 unittest.main()
 #gb = a.setup()
 #a = TestMortar3D()
@@ -1024,7 +1025,7 @@ unittest.main()
 a = TestMortar2DSimplexGridStandardMeshing()
 #a.test_mpfa_one_frac()
 #a.test_tpfa_one_frac_refine_2d()
-#a = TestMortar2DSimplexGrid()
+TestMortar2DSimplexGrid().test_mpfa_one_frac_coarsened_1d()
 #a.test_mpfa_one_frac()
 #a = TestMortar2DSimplexGrid()
 #a.test_mpfa_one_frac_coarsened_1d_pert_2d_node()
