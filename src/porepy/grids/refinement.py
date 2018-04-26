@@ -174,16 +174,32 @@ def refine_triangle_grid(g):
 
 #------------------------------------------------------------------------------#
 
-def new_grid_1d(g_old, num_nodes, tol=1e-6):
-    """ EK: This needs a better name!
+def remesh_1d(g_old, num_nodes, tol=1e-6):
+    """ Create a new 1d mesh covering the same domain as an old one.
+
+    The new grid is equispaced, and there is no guarantee that the nodes in
+    the old and new grids are coincinding. Use with care, in particular for
+    grids with internal boundaries.
+
+    Parameters:
+        g_old (grid): 1d grid to be replaced.
+        num_nodes (int): Number of nodes in the new grid.
+        tol (double, optional): Tolerance used to compare node coornidates
+            (for mapping of boundary conditions). Defaults to 1e-6.
+
+    Returns:
+        grid: New grid.
+
     """
 
+    # Create equi-spaced nodes covering the same domain as the old grid
     theta = np.linspace(0, 1, num_nodes)
     start, end = g_old.get_boundary_nodes()
-
+    # Not sure why the new axis was necessary.
     nodes = g_old.nodes[:, start, np.newaxis]*theta + \
             g_old.nodes[:, end, np.newaxis]*(1.-theta)
 
+    # Create the new grid, and assign nodes.
     g = TensorGrid(nodes[0, :])
     g.nodes = nodes
     g.compute_geometry()
@@ -191,23 +207,25 @@ def new_grid_1d(g_old, num_nodes, tol=1e-6):
     # map the tags from the old grid to the new one
 
     # retrieve the old faces and the corresponding coordinates
-    old_faces = np.where(g_old.tags['domain_boundary_faces'].ravel())[0]
-    old_nodes = g_old.face_centers[:, old_faces]
-
-    # retrieve the boundary faces and the corresponding coordinates
-    faces = np.where(g.tags['domain_boundary_faces'].ravel())[0]
-    nodes = g.face_centers[:, faces]
+    old_frac_faces = np.where(g_old.tags['fracture_faces'].ravel())[0]
 
     # compute the mapping from the old boundary to the new boundary
     # we need to go through the coordinates
-    mask = cg.dist_pointset(np.hstack((old_nodes, nodes)), True) < tol
-    mask = mask[:old_faces.shape[0], old_faces.shape[0]:]
-    faces = np.dot(mask, faces)
+
+    new_frac_face = []
+
+    for fi in old_frac_faces:
+        nfi = np.where(cg.dist_point_pointset(g_old.face_centers[:, fi],
+                                              nodes) < tol)
+        new_frac_face.append(nfi)
+
 
     # This can probably be made more elegant
-    g.tags['domain_boundary_faces'] = g_old.tags['domain_boundary_faces']
-    g.tags['fracture_faces'] = g_old.tags['fracture_faces']
-    g.tags['tip_faces'] = g_old.tags['tip_faces']
+    g.tags['fracture_faces'][new_frac_face] = True
+
+    # Fracture tips should be on the boundary only.
+    if np.any(g_old.tags['tip_faces']):
+        g.tags['tip_faces'] = g.tags['domain_boundary_face']
 
     return g
 
