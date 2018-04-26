@@ -28,3 +28,4 @@ bin/*
 *.pvd
 *.so
 *.png
+*.ipynb_checkpoints*
