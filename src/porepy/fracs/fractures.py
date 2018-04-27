@@ -1089,11 +1089,11 @@ class FractureNetwork(object):
         for i, first in enumerate(self._fractures):
             for j in range(i + 1, len(self._fractures)):
                 second = self._fractures[j]
-                logger.info('Processing fracture %i and %i', i, j)
+                logger.debug('Processing fracture %i and %i', i, j)
                 isect, bound_first, bound_second = first.intersects(second,
                                                                     self.tol)
                 if np.array(isect).size > 0:
-                    logger.info('Found an intersection between %i and %i', i, j)
+                    logger.debug('Found an intersection between %i and %i', i, j)
                     # Let the intersection know whether both intersection
                     # points lies on the boundary of each fracture
                     self.intersections.append(Intersection(first, second,

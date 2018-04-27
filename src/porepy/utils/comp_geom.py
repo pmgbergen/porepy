@@ -488,7 +488,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True,
     # Use a non-standard naming convention for the logger to
     logger = logging.getLogger(__name__ + '.remove_edge_crossings')
 
-    logger.info('Find intersections between %i edges', edges.shape[1])
+    logger.debug('Find intersections between %i edges', edges.shape[1])
     nd = vertices.shape[0]
 
     # Only 2D is considered. 3D should not be too dificult, but it is not
@@ -698,11 +698,6 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True,
         edge_counter += 1
         logger.debug('Edge split into %i new parts', edges.shape[1] -
                      size_before_splitting)
-
-    if verbose > 1:
-        logger.info('Edge intersection removal complete. Elapsed time: %g',
-                    time.time() - start_time)
-        logger.info('Introduced %i new edges', edges.shape[1] - num_edges_orig)
 
     return vertices, edges
 
