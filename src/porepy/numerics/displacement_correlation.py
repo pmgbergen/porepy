@@ -11,8 +11,8 @@ method, see e.g.
 At present, some unnecessary quantities are computed (and passed around). This
 is (at least partly) for purposes of investigation of the method.
 """
-import numpy as np
 
+import numpy as np
 import porepy as pp
 
 
@@ -194,7 +194,6 @@ def identify_correlation_points(g_h, g_l, rm, u, face_cells):
             actual_rm if rm_vectors are non-orthogonal to the tip faces (in
             2d fractures).
     """
-
     # Find the g_l cell center which is closest to the optimal correlation
     # point for each fracture tip
     faces_l = g_l.tags['tip_faces'].nonzero()[0]
@@ -215,7 +214,7 @@ def identify_correlation_points(g_h, g_l, rm, u, face_cells):
         distances = pp.cg.dist_point_pointset(p, g_l.cell_centers)
         cell_ind = np.argmin(distances)
         dist = pp.cg.dist_point_pointset(g_l.face_centers[:, faces_l[i]],
-                                      g_l.cell_centers[:, cell_ind])
+                                         g_l.cell_centers[:, cell_ind])
 
         cells_l.append(cell_ind)
         actual_rm.append(dist)
@@ -257,8 +256,13 @@ def relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h):
     n_tips = faces_l.size
     faces_h = face_cells[cells_l].nonzero()[1]
     faces_h = faces_h.reshape((2, n_tips), order='F')
-    # Extract the face displacements
-    u_faces = u[g_h.dim * g_h.num_cells:]
+    # Extract the displacement differences between pairs of higher-dimensional
+    # fracture faces
+    i_l = np.arange(g_h.num_cells * g_h.dim,
+                    (g_h.num_cells + g_l.num_cells) * g_h.dim)
+    i_r = np.arange((g_h.num_cells + g_l.num_cells) * g_h.dim, u.size)
+    du_faces = np.reshape(u[i_l] - u[i_r], (g_h.dim, -1), order='F')
+
     delta_us = np.empty((g_h.dim, 0))
     # For each face center pair, rotate to local coordinate system aligned with
     # x along the normals, y perpendicular to the fracture and z along the
@@ -273,7 +277,7 @@ def relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h):
         pts = g_l.nodes[:, nodes]
         pts -= g_l.cell_centers[:, cell_l].reshape((3, 1))
         normal_h_1 = g_h.face_normals[:, face_pair[1]] \
-                    * g_h.cell_faces[face_pair[1]].data
+            * g_h.cell_faces[face_pair[1]].data
         if g_h.dim == 3:
             # Rotate to xz, i.e., normal alignes with y. Pass normal of the
             # second face to ensure that the first one is on top in the local
@@ -284,36 +288,38 @@ def relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h):
             # Rotate so that tangent aligns with z-coordinate
             nodes_l = g_l.face_nodes[:, faces_l[i]].nonzero()[0]
             translated_pts = g_l.nodes[:, nodes_l] \
-                            - g_l.face_centers[:, face_l].reshape((3,1))
+                - g_l.face_centers[:, face_l].reshape((3,1))
             pts = np.dot(R1, translated_pts)
         else:
             R1 = np.eye(3)
 
         normal_r = g_l.cell_faces[face_l].data * g_l.face_normals[:, face_l]
-        normal_r = np.dot(R1, normal_r)
+        normal_r = np.dot(R1, normal_r) / np.linalg.norm(normal_r)
         # Rotate so that the face normal, on whose line pts lie, aligns
         # with x
         if np.all(np.isclose(normal_r, np.array([1, 0, 0]))):
             R2 = np.eye(3)
         elif np.all(np.isclose(normal_r, np.array([-1, 0, 0]))):
             R2 = - np.eye(3)
-            R2[2, 2] = 1
+            R2[3 - g_l.dim, 3 - g_l.dim] = 1
         else:
             R2 = pp.cg.project_line_matrix(pts, tangent=normal_r,
                                            reference=[1, 0, 0])
         R = np.dot(R2, R1)
+        normal_h_1_r = np.dot(R, normal_h_1) / np.linalg.norm(normal_h_1)
+
+        h_1_sign = normal_h_1_r[1]
+        assert np.all(np.isclose(h_1_sign * normal_h_1_r, np.array([0, 1, 0])))
         # Find what frac-pair the tip i corresponds to
         j = pp.utils.setmembership.ismember_rows(face_pair[:, np.newaxis],
                                                  g_h.frac_pairs)[1]
-        u_left = u_faces[pp.fvutils.expand_indices_nd(j, g_h.dim)]
-        u_right = u_faces[pp.fvutils.expand_indices_nd(j, g_h.dim)
-                        + g_l.num_cells * g_h.dim]
-        if np.dot(R, normal_h_1)[1] < 0:
-            d_u = u_right - u_left
-        else:
-            d_u = u_left - u_right
-        d_u = np.dot(R, np.append(d_u, np.zeros((1, 3 - g_h.dim))))[:g_h.dim]
-
+        d_u = np.dot(R, np.append(du_faces[:, j],
+                                  np.zeros((1, 3 - g_h.dim))))[:g_h.dim]
+        # Normal_h_1 points outward from the right cell in g_h.frac_pairs. If
+        # it now points downwards, that cell is on the upper side in the
+        # rotated coordinate system. Thne, d_u should be u_right - u_left,
+        # rather than the opposite (which it is by default).
+        d_u *= h_1_sign
         delta_us = np.append(delta_us, d_u[:, np.newaxis], axis=1)
     return delta_us
 
