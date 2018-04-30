@@ -101,7 +101,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     network.add_subdomain_boundaries(subdomains)
     # Impose external boundary. If box is None, a domain size somewhat larger
     # than the network will be assigned.
-    network.impose_external_boundary(box)
+    if box is not None or not network.bounding_box_imposed:
+        network.impose_external_boundary(box)
     # Find intersections and split them, preparing the way for dumping the
     # network to gmsh
     if not network.has_checked_intersections:
