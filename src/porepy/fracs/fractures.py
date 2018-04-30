@@ -199,7 +199,8 @@ class Fracture(object):
             p (np.ndarray, 3xn): Points to add
             check_convexity (boolean, optional): Verify that the polygon is
                 convex. Defaults to true.
-            tol (double): Tolerance used to check if the point already exists.
+            tol (double, optional): Tolerance used to check if the point
+                already exists. Defaults to 1e-4.
 
         Return:
             boolean, true if the resulting polygon is convex.
@@ -1005,6 +1006,8 @@ class FractureNetwork(object):
         # No auxiliary points have been added
         self.auxiliary_points_added = False
 
+        self.bounding_box_imposed = False
+
     def add(self, f):
         """ Add a fracture to the network.
 
@@ -1784,6 +1787,8 @@ class FractureNetwork(object):
             boundary will be truncated.
 
         """
+        self.bounding_box_imposed = True
+
         if box is None:
             OVERLAP = 0.15
             cmin = np.ones((3, 1)) * float('inf')
