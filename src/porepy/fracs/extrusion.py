@@ -324,11 +324,13 @@ def discs_from_exposure(pt, edges, exposure_angle=None,
     Parameters:
         pt (np.array, 2 x num_pts): Coordinates of exposed points.
         edges (np.array, 2 x num_fracs): Connections between fractures.
-        exposure_angle (np.array, num_fracs, optional): See above, and
-           disc_radius_center() for description. Values very close to pi/2, 0
-           and pi will be modified to avoid unphysical extruded fractures.  If
-           not provided, random values will be drawn. Measured in radians.
-           Should be between 0 and pi.
+        exposure_angle (np.array of size num_fracs or double, optional):
+            See above, and disc_radius_center() for description. Defaults to
+            zero, which gives vertical fractures. Scalar input gives same angle
+            to all fractures. Values very close to pi/2, 0 and pi will be
+            modified to avoid unphysical extruded fractures.  If not provided,
+            random values will be drawn. Measured in radians.
+            Should be between 0 and pi.
         outcrop_consistent (boolean, optional): If True (default), points will
             be added at the outcrop surface z=0. This is necessary for the
             3D network to be consistent with the outcrop, but depending on
@@ -350,17 +352,25 @@ def discs_from_exposure(pt, edges, exposure_angle=None,
     strike_angle = np.arctan2(v[1], v[0])
 
     if exposure_angle is not None:
+        if isinstance(exposure_angle, np.ndarray) \
+            or isinstance(exposure_angle, list):
+            exp_ang = np.asarray(exposure_angle)
+        else:
+            exp_ang = np.array(exposure_angle)
+
         # Angles of pi/2 will give point contacts
-        hit = np.abs(exposure_angle - np.pi/2) < 0.01
-        exposure_angle[hit] = exposure_angle[hit] + 0.01
+        hit = np.abs(exp_ang - np.pi/2) < 0.01
+        exp_ang[hit] = exp_ang[hit] + 0.01
 
         # Angles of 0 and pi give infinite fractures.
-        hit = exposure_angle < 0.2
-        exposure_angle[hit] = 0.2
-        hit = np.pi - exposure_angle < 0.2
-        exposure_angle[hit] = 0.2
+        hit = exp_ang < 0.2
+        exp_ang[hit] = 0.2
+        hit = np.pi - exp_ang < 0.2
+        exp_ang[hit] = 0.2
+    else:
+        exp_ang = exposure_angle
 
-    radius, center, ang = disc_radius_center(lengths, p0, p1, exposure_angle)
+    radius, center, ang = disc_radius_center(lengths, p0, p1, exp_ang)
 
     fracs = []
 
