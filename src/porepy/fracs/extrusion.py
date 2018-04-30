@@ -384,12 +384,12 @@ def discs_from_exposure(pt, edges, exposure_angle=None,
         else:
             extra_points = np.zeros((3, 0))
 
-        fracs.append(create_fracture(center[:, i], radius[i], np.pi/2,
+        fracs.append(create_disc_fracture(center[:, i], radius[i], np.pi/2,
                                      strike_angle[i], extra_points))
     return fracs, ang
 
 
-def create_fracture(center, radius, dip, strike, extra_points):
+def create_disc_fracture(center, radius, dip, strike, extra_points):
     """ Create a single circular fracture consistent with a given exposure.
 
     The exposed points will be added to the fracture description.
