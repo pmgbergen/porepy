@@ -342,7 +342,7 @@ def grid_list_to_grid_bucket(grids, time_tot=None, **kwargs):
     split_grid.split_fractures(gb, **kwargs)
     logger.info('Done. Elapsed time ' + str(time.time() - tm_split))
 
-    create_mortar_grids(gb)
+    create_mortar_grids(gb, **kwargs)
 
     gb.assign_node_ordering()
 
@@ -537,7 +537,7 @@ def _assemble_in_bucket(grids, **kwargs):
 
 #------------------------------------------------------------------------------#
 
-def create_mortar_grids(gb):
+def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
 
     gb.add_edge_props('mortar_grid')
     # loop on all the nodes and create the mortar grids
@@ -549,7 +549,10 @@ def create_mortar_grids(gb):
         # Each cell should be found either twice (think a regular fracture
         # that splits a higher dimensional mesh), or once (the lower end of
         # a T-intersection, or both ends of an L-intersection).
-        assert np.all(num_sides == 1) or np.all(num_sides == 2)
+        if ensure_matching_face_cell:
+            assert np.all(num_sides == 1) or np.all(num_sides == 2)
+        else:
+            assert np.max(num_sides) < 3
 
         # If all cells are found twice, create two mortar grids
         if np.all(num_sides > 1):
