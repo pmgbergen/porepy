@@ -189,6 +189,9 @@ class GridBucket(object):
             grids: np.array of the grids.
 
         """
+        if cond is None:
+            cond = lambda g: True
+
         return np.array([g for g, _ in self if cond(g)])
 
 
@@ -523,6 +526,8 @@ class GridBucket(object):
             cond: predicate to select the grids to remove.
 
         """
+        if cond is None:
+            cond = lambda g: True
 
         self.graph.remove_nodes_from([g for g in self.graph if cond(g)])
 
@@ -953,7 +958,7 @@ class GridBucket(object):
             diameter: the diameter of the grid bucket.
         """
         if cond is None:
-            cond = lambda _: True
+            cond = lambda g: True
         diam_g = [np.amax(g.cell_diameters()) for g in self.graph if cond(g)]
 
         diam_mg = [np.amax(d['mortar_grid'].cell_diameters())\
@@ -1033,7 +1038,7 @@ class GridBucket(object):
             num_cells: the total number of cells of the grid bucket.
         """
         if cond is None:
-            cond = lambda _: True
+            cond = lambda g: True
         return np.sum([g.num_cells for g in self.graph if cond(g)])
 
 
@@ -1050,7 +1055,7 @@ class GridBucket(object):
             num_cells: the total number of cells of the grid bucket.
         """
         if cond is None:
-            cond = lambda _: True
+            cond = lambda g: True
         return np.sum([d['mortar_grid'].num_cells
                        for _, d in self.edges_props()
                        if d.get('mortar_grid')
@@ -1069,7 +1074,7 @@ class GridBucket(object):
             num_faces: the total number of faces of the grid bucket.
         """
         if cond is None:
-            cond = lambda _: True
+            cond = lambda g: True
         return np.sum([g.num_faces for g in self.graph if cond(g)])
 
 
@@ -1086,7 +1091,7 @@ class GridBucket(object):
             num_nodes: the total number of nodes of the grid bucket.
         """
         if cond is None:
-            cond = lambda _: True
+            cond = lambda g: True
         return np.sum([g.num_nodes for g in self.graph if cond(g)])
 
 
