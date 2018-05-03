@@ -54,8 +54,6 @@ class GridBucket(object):
             yield g, data
 
 
-
-
     def nodes(self):
         """ Iterator over the nodes in the GridBucket.
 
@@ -179,7 +177,8 @@ class GridBucket(object):
         """
         Obtain the grids, optionally filtered by a specified condition.
 
-        IMPLEMENTATION NOTE: EXAMPLE NEEDED
+        Example:
+        g = self.gb.get_grids(lambda g: g.dim == dim)
 
         Parameters:
             cond: Predicate to select a grid. If None is given (default), all
