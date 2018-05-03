@@ -201,8 +201,8 @@ class GridBucket(object):
             list: Of grids of the specified dimension
 
         """
-        return [g for g in self.graph.nodes() if g.dim == dim]
 
+        return self.get_grids(lambda g: g.dim == dim)
 
 
     def get_mortar_grids(self, cond=None, name='mortar_grid'):
