@@ -81,11 +81,15 @@ class Exporter():
 
         if self.is_GridBucket:
             self.dims = np.setdiff1d(self.gb.all_dims(), [0])
-            self.gb_VTK = dict(zip(self.dims, [None]*self.dims.size))
-            self.num_elem = dict(zip(self.dims, [None]*self.dims.size))
+            num_dims = self.dims.size
+            self.gb_VTK = dict(zip(self.dims, [None]*num_dims))
+
+            # mortar grid variables
+            self.m_dims = np.setdiff1d(self.dims, self.gb.dim_max())
+            num_m_dims = self.m_dims.size
+            self.m_gb_VTK = dict(zip(self.m_dims, [None]*num_m_dims))
         else:
             self.gb_VTK = None
-            self.num_elem = None
 
         self.has_numba = 'numba' in sys.modules
 
@@ -200,58 +204,24 @@ class Exporter():
             data = np.atleast_1d(data).tolist()
         assert isinstance(data, list) or data is None
         data = list() if data is None else data
-#<<<<<<< HEAD
-        data.append('grid_dim')
-        data.append('is_mortar')
-        data.append('mortar_side')
+
+        # consider the grid_bucket node data
+        extra_data = ['grid_dim', 'cell_id', 'grid_node_number', 'is_mortar',
+                      'mortar_side']
+        data.extend(extra_data)
 
         self.gb.assign_node_ordering(overwrite_existing=False)
-        self.gb.add_node_props(['grid_dim', 'file_name', 'is_mortar',
-                                'mortar_side', 'cell_id', 'grid_node_number'])
-
+        self.gb.add_node_props(extra_data)
+        # fill the extra data
         for g, d in self.gb:
-            if g.dim > 0:
-                ones = np.ones(g.num_cells, dtype=np.int)
-                d['file_name'] = self._make_file_name(self.name, time_step,
-                                                               d['node_number'])
-                file_name = self._make_folder(self.folder, d['file_name'])
-                d['grid_dim'] = g.dim*ones
-                d['is_mortar'] = np.zeros(g.num_cells, dtype=np.bool)
-                d['mortar_side'] = int(mortar_grid.NONE_SIDE)*ones
-                d['cell_id'] = np.arange(g.num_cells, dtype=np.int)
-                d['grid_node_number'] = d['node_number']*np.ones(g.num_cells)
-                # EK: Alessio, please clean up this part
-#                dic_data = self.gb.node_props_of_keys(g, data)
-#                g_VTK = self.gb_VTK[d['node_number']]
-#                self._write_vtk(dic_data, file_name, g_VTK, g)
+            ones = np.ones(g.num_cells, dtype=np.int)
+            d['grid_dim'] = g.dim*ones
+            d['cell_id'] = np.arange(g.num_cells, dtype=np.int)
+            d['grid_node_number'] = d['node_number']*ones
+            d['is_mortar'] = np.zeros(g.num_cells, dtype=np.bool)
+            d['mortar_side'] = int(mortar_grid.NONE_SIDE)*ones
 
-        self.gb.add_edge_props(['grid_dim', 'file_name', 'is_mortar',
-                                'mortar_side', 'cell_id'])
-        for _, d in self.gb.edges_props():
-            mg = d['mortar_grid']
-            d['file_name'] = {}
-            d['grid_dim'] = {}
-            d['is_mortar'] = {}
-            d['mortar_side'] = {}
-            d['cell_id'] = {}
-            for side, g in mg.side_grids.items():
-                if g.dim == 0:
-                    continue
-                ones = np.ones(g.num_cells, dtype=np.int)
-                d['file_name'][side] = self._make_file_name_mortar(self.name,
-                                          time_step, d['edge_number'], side)
-                file_name = self._make_folder(self.folder,
-                                              d['file_name'][side])
-                d['grid_dim'][side] = g.dim*ones
-                d['is_mortar'][side] = ones.astype(np.bool)
-                d['mortar_side'][side] = int(side)*ones
-                d['cell_id'][side] = np.arange(g.num_cells, dtype=np.int)
-                dic_data = {'grid_dim': d['grid_dim'][side],
-                            'is_mortar': d['is_mortar'][side],
-                            'mortar_side': d['mortar_side'][side],
-                            'cell_id': d['cell_id'][side]}
-                g_VTK = self.mg_VTK[d['edge_number']][side]
-                self._write_vtk(dic_data, file_name, g_VTK, g)
+        # collect the data and extra data in a single stack for each dimension
         for dim in self.dims:
             file_name = self._make_file_name(self.name, time_step, dim)
             file_name = self._make_folder(self.folder, file_name)
@@ -261,6 +231,57 @@ class Exporter():
                 values = np.empty(grids.size, dtype=np.object)
                 for i, g in enumerate(grids):
                     values[i] = self.gb.graph.node[g][d]
+                    if values[i] is None:
+                        raise ValueError('Field ' + str(d) \
+                                         +' must be filled. It can not be None')
+                dic_data[d] = np.hstack(values)
+
+            if self.gb_VTK[dim] is not None:
+                self._write_vtk(dic_data, file_name, self.gb_VTK[dim])
+
+        self.gb.remove_node_props(extra_data)
+
+        # consider the grid_bucket edge data
+        extra_data = ['grid_dim', 'cell_id', 'grid_edge_number', 'is_mortar',
+                      'mortar_side']
+        self.gb.add_edge_props(extra_data)
+        for _, d in self.gb.edges():
+            d['grid_dim'] = {}
+            d['cell_id'] = {}
+            d['grid_edge_number'] = {}
+            d['is_mortar'] = {}
+            d['mortar_side'] = {}
+            mg = d['mortar_grid']
+            for side, g in mg.side_grids.items():
+                ones = np.ones(g.num_cells, dtype=np.int)
+                d['grid_dim'][side] = g.dim*ones
+                d['is_mortar'][side] = ones.astype(np.bool)
+                d['mortar_side'][side] = int(side)*ones
+                d['cell_id'][side] = np.arange(g.num_cells, dtype=np.int)
+                d['grid_edge_number'][side] = d['edge_number']*ones
+
+        # collect the data and extra data in a single stack for each dimension
+        for dim in self.m_dims:
+            file_name = self._make_file_name_mortar(self.name, time_step, dim)
+            file_name = self._make_folder(self.folder, file_name)
+            dic_data = dict()
+
+            mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
+            cond = lambda e: np.amin([g.dim for g in e]) == dim
+            edges = np.array([e for e, _ in self.gb.edges() if cond(e)])
+            num_grids = np.sum([m.num_sides() for m in mgs])
+
+            for d in extra_data:
+                values = np.empty(num_grids, dtype=np.object)
+                i = 0
+                for mg, edge in zip(mgs, edges):
+                    for side, g in mg.side_grids.items():
+                        values[i] = self.gb.edge_props(edge, d)[side]
+                        if values[i] is None:
+                            raise ValueError('Field ' + str(d) \
+                                         +' must be filled. It can not be None')
+                        i += 1
+
                 dic_data[d] = np.hstack(values)
 
             if self.gb_VTK[dim] is not None:
@@ -269,7 +290,7 @@ class Exporter():
         name = self._make_folder(self.folder, self.name)+".pvd"
         self._export_pvd_gb(name)
 
-        self.gb.remove_node_props(extra_data)
+        self.gb.remove_edge_props(extra_data)
 
 #------------------------------------------------------------------------------#
 
@@ -283,16 +304,13 @@ class Exporter():
                  '<Collection>\n'
         o_file.write(header)
         fm = '\t<DataSet group="" part="" file="%s"/>\n'
-#<<<<<<< HEAD
-        [o_file.write( fm % d['file_name'] ) for g, d in self.gb if g.dim!=0]
-        for _, d in self.gb.edges_props():
-            for side, g in d['mortar_grid'].side_grids.items():
-                if g.dim > 0:
-                    o_file.write( fm % d['file_name'][side] )
-#=======
+
         [o_file.write(fm%self._make_file_name(self.name, dim=dim)) \
                                                            for dim in self.dims]
-#>>>>>>> origin/develop
+
+        [o_file.write(fm%self._make_file_name_mortar(self.name, dim=dim)) \
+                                                         for dim in self.m_dims]
+
         o_file.write('</Collection>\n'+'</VTKFile>')
         o_file.close()
 
@@ -332,7 +350,7 @@ class Exporter():
 
         gVTK.SetPoints(ptsVTK)
 
-        return gVTK, [g.num_cells for g in gs]
+        return gVTK
 
 #------------------------------------------------------------------------------#
 
@@ -363,7 +381,7 @@ class Exporter():
 
         gVTK.SetPoints(ptsVTK)
 
-        return gVTK, [g.num_cells for g in gs]
+        return gVTK
 
 #------------------------------------------------------------------------------#
 
@@ -374,7 +392,7 @@ class Exporter():
 
 #------------------------------------------------------------------------------#
 
-    def _write_vtk(self, data, name, g_VTK, g):
+    def _write_vtk(self, data, name, g_VTK):
         writer = vtk.vtkXMLUnstructuredGridWriter()
         writer.SetInputData(g_VTK)
         writer.SetFileName(name)
@@ -384,14 +402,13 @@ class Exporter():
                 if values_field is None:
                     continue
                 values = values_field.ravel(order='F')
-                dataVTK = ns.numpy_to_vtk(values, deep=True,
-                                   array_type=self.map_type[values_field.dtype])
+                dtype = self.map_type[values_field.dtype]
+
+                dataVTK = ns.numpy_to_vtk(values, deep=True, array_type=dtype)
                 dataVTK.SetName(str(name_field))
                 dataVTK.SetNumberOfComponents(1 if values_field.ndim == 1 else 3)
-                if g.num_nodes == values.size:
-                    g_VTK.GetPointData().AddArray(dataVTK)
-                else:
-                    g_VTK.GetCellData().AddArray(dataVTK)
+
+                g_VTK.GetCellData().AddArray(dataVTK)
 
         if not self.binary:
             writer.SetDataModeToAscii()
@@ -405,26 +422,24 @@ class Exporter():
 
     def _update_gb_VTK(self):
         if self.is_GridBucket:
-#<<<<<<< HEAD
-            for g, d in self.gb:
-                self.gb_VTK[d['node_number']] = self._export_vtk_grid(g)
-            for _, d in self.gb.edges_props():
-                side_grids_VTK = {}
-                for side, g in d['mortar_grid'].side_grids.items():
-                    side_grids_VTK[side] = self._export_vtk_grid(g)
-                self.mg_VTK[d['edge_number']] = side_grids_VTK
-#=======
             for dim in self.dims:
                 g = self.gb.get_grids(lambda g: g.dim == dim)
-                self.gb_VTK[dim], self.num_elem[dim] = self._export_vtk_grid(g, dim)
-#>>>>>>> origin/develop
+                self.gb_VTK[dim] = self._export_vtk_grid(g, dim)
+
+            for dim in self.m_dims:
+                # extract the mortar grids for dimension dim
+                mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
+                # it contains the mortar grids "unrolled" by sides
+                mg = np.array([g for m in mgs for _, g in m.side_grids.items()])
+                self.m_gb_VTK[dim] = self._export_vtk_grid(mg, dim)
         else:
-            self.gb_VTK, self.num_elem = self._export_vtk_grid([self.gb], self.gb.dim)
+            self.gb_VTK = self._export_vtk_grid([self.gb], self.gb.dim)
 
 #------------------------------------------------------------------------------#
 
     def _make_folder(self, folder, name=None):
-        if folder is None: return name
+        if folder is None:
+            return name
 
         if not os.path.exists(folder):
             os.makedirs(folder)
@@ -451,86 +466,27 @@ class Exporter():
 
 #------------------------------------------------------------------------------#
 
-#<<<<<<< HEAD
-    def _make_file_name_mortar(self, name, time_step=None, edge_number=None,
-                               side=None):
+    def _make_file_name_mortar(self, name, time_step=None, dim=None):
+
+        # we keep the order as in _make_file_name
+        assert dim is not None
 
         extension = ".vtu"
-        mortar = "_mortar_"+str(int(side))
+        name = name+"_mortar_"
         padding = 6
-        if edge_number is None: # normal grid
-            if time_step is None:
-                return name + mortar + extension
-            else:
-                time = str(time_step).zfill(padding)
-                return name + "_" + time + mortar + extension
-        else: # part of a grid bucket
-            grid = str(edge_number).zfill(padding)
-            if time_step is None:
-                return name + "_" + grid + mortar + extension
-            else:
-                time = str(time_step).zfill(padding)
-                return name + "_" + grid + "_" + time + mortar + extension
+        if time_step is None:
+            return name + str(dim) + extension
+        else:
+            time = str(time_step).zfill(padding)
+            return name + str(dim) + "_" + time + extension
 
 #------------------------------------------------------------------------------#
 
-    def _define_gvtk_3d(self, g):
-#=======
-#    def _define_gvtk_3d(self, gs):
+    def _define_gvtk_3d(self, gs):
         # NOTE: we are assuming only one 3d grid
-#>>>>>>> origin/develop
         gVTK = vtk.vtkUnstructuredGrid()
         ptsVTK = vtk.vtkPoints()
 
-#<<<<<<< HEAD
-        faces_cells, cells, _ = sps.find(g.cell_faces)
-        nodes_faces, faces, _ = sps.find(g.face_nodes)
-
-        cptr = g.cell_faces.indptr
-        fptr = g.face_nodes.indptr
-        face_per_cell = np.diff(cptr)
-        nodes_per_face = np.diff(fptr)
-
-        # Total number of nodes to be written in the face-node relation
-        num_cell_nodes = np.array([nodes_per_face[i] \
-                                   for i in g.cell_faces.indices])
-
-        n = g.nodes
-        fc = g.face_centers
-        normal_vec = g.face_normals / g.face_areas
-
-        # Use numba if available, unless the problem is very small, in which
-        # case the pure python version probably is faster than combined compile
-        # and runtime for numba
-        # The number 1000 here is somewhat random.
-        if self.has_numba and g.num_cells > 1000:
-            logger.info('Construct 3d grid information using numba')
-            cell_nodes = _point_ind_numba(cptr, fptr, faces_cells, nodes_faces,
-                                          n, fc, normal_vec, num_cell_nodes)
-        else:
-            logger.info('Construct 3d grid information using pure python')
-            cell_nodes = _point_ind(cptr, fptr, faces_cells, nodes_faces, n,
-                                    fc, normal_vec, num_cell_nodes)
-        # implementation note: I did not even try feeding this to numba, my
-        # guess is that it will not like the vtk specific stuff.
-        node_counter = 0
-        face_counter = 0
-        for c in np.arange(g.num_cells):
-            if self.simplicial:
-                loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-                ptsId = np.array([nodes_faces[g.face_nodes.indptr[f]:\
-                                              g.face_nodes.indptr[f+1]]
-                                  for f in faces_cells[loc]]).T
-                ptsId = np.unique(ptsId)
-                fsVTK = vtk.vtkIdList()
-                [fsVTK.InsertNextId(p) for p in ptsId]
-
-                gVTK.InsertNextCell(vtk.VTK_TETRA, fsVTK)
-            else:
-                fsVTK = vtk.vtkIdList()
-                # Number faces that make up the cell
-                fsVTK.InsertNextId(face_per_cell[c])
-#=======
         ptsId_global = 0
         for g in gs:
             faces_cells, cells, _ = sps.find(g.cell_faces)
@@ -566,27 +522,35 @@ class Exporter():
             node_counter = 0
             face_counter = 0
             for c in np.arange(g.num_cells):
-                fsVTK = vtk.vtkIdList()
-                fsVTK.InsertNextId(face_per_cell[c]) # Number faces that make up the cell
-#>>>>>>> origin/develop
-                for f in range(face_per_cell[c]):
-                    fi = g.cell_faces.indices[face_counter]
-                    fsVTK.InsertNextId(nodes_per_face[fi]) # Number of points in face
-                    for ni in range(nodes_per_face[fi]):
-                        fsVTK.InsertNextId(cell_nodes[node_counter])
-                        node_counter += 1
-                    face_counter += 1
+                if self.simplicial:
+                    loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+                    ptsId = np.array([nodes_faces[g.face_nodes.indptr[f]:\
+                                                  g.face_nodes.indptr[f+1]]
+                                      for f in faces_cells[loc]]).T
+                    ptsId = np.unique(ptsId)
+                    fsVTK = vtk.vtkIdList()
+                    [fsVTK.InsertNextId(p) for p in ptsId]
 
-                gVTK.InsertNextCell(vtk.VTK_POLYHEDRON, fsVTK)
-#<<<<<<< HEAD
-#=======
+                    gVTK.InsertNextCell(vtk.VTK_TETRA, fsVTK)
+                else:
+                    fsVTK = vtk.vtkIdList()
+                    # Number faces that make up the cell
+                    fsVTK.InsertNextId(face_per_cell[c])
+                    for f in range(face_per_cell[c]):
+                        fi = g.cell_faces.indices[face_counter]
+                        fsVTK.InsertNextId(nodes_per_face[fi]) # Number of points in face
+                        for ni in range(nodes_per_face[fi]):
+                            fsVTK.InsertNextId(cell_nodes[node_counter])
+                            node_counter += 1
+                        face_counter += 1
+
+                    gVTK.InsertNextCell(vtk.VTK_POLYHEDRON, fsVTK)
 
             [ptsVTK.InsertNextPoint(*node) for node in g.nodes.T]
-#>>>>>>> origin/develop
 
         gVTK.SetPoints(ptsVTK)
 
-        return gVTK, [g.num_cells for g in gs]
+        return gVTK
 
 
 def _point_ind(cell_ptr, face_ptr, face_cells, nodes_faces, nodes,
