@@ -205,6 +205,25 @@ class GridBucket(object):
 
 
 
+    def get_mortar_grids(self, cond=None, name='mortar_grid'):
+        """
+        Obtain the mortar grids, optionally filtered by a specified condition.
+
+        Example:
+        g = self.gb.get_mortar_grids(lambda g: g.dim == dim)
+
+        Parameters:
+            cond: Predicate to select a grid. If None is given (default), all
+                grids will be returned.
+
+        Returns:
+            grids: np.array of the grids.
+
+        """
+        if cond is None:
+            cond = lambda g: True
+        return np.array([d[name] for _, d in self.edges() if cond(d[name])])
+
     # ----------- Adders for node and edge properties (introduce keywords)
 
     def add_node_props(self, keys, g=None):
@@ -437,6 +456,43 @@ class GridBucket(object):
             else:
                 for h, d in self:
                     if h in g:
+                        del d[key]
+
+    def remove_edge_props(self, keys, e=None):
+        """
+        Remove property to existing edges in the graph.
+
+        Properties can be removed either to all edges, or to selected edges as
+        specified by their grid pair. In the former case, to all edges the property
+        will be removed.
+
+        Parameters:
+            keys (object): Key to the property to be handled.
+            e (list of pair of grids.grid, optional): Edges to be removed the
+                values. Defaults to None, in which case the property is removed
+                from all edges.
+
+        Raises:
+            ValueError if the key is 'edge_number', this is reserved for other
+                purposes. See self.assign_node_ordering() for details.
+
+        """
+
+        # Check that the key is not 'edge_number' - this is reserved
+        if 'edge_number' in keys:
+            raise ValueError('Edge number is a reserved key, stay away')
+
+        # Do some checks of parameters first
+        if e is not None and not any(isinstance(el, list) for el in e):
+            e = [e]
+
+        for key in np.atleast_1d(keys):
+            if e is None:
+                for _, d in self.edges():
+                    del d[key]
+            else:
+                for ed, d in self.edges():
+                    if ed in e:
                         del d[key]
 
     #------------ Add new nodes and edges ----------
