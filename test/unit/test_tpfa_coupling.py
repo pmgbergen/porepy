@@ -33,6 +33,7 @@ class BasicsTest(unittest.TestCase):
         solver = tpfa.Tpfa(physics='flow')
         #solver = tpfa.Tpfa(physics='flow')
         gb.add_node_props(['param'])
+        gb.add_edge_props(['kn'])
         a = 1e-2
         for g, d in gb:
             param = Parameters(g)
@@ -61,15 +62,21 @@ class BasicsTest(unittest.TestCase):
 
             d['param'] = param
 
+        for e, d in gb.edges():
+            d['kn'] = 1e-5
+
         coupling_conditions = tpfa.TpfaCoupling(solver)
         solver_coupler = coupler.Coupler(solver, coupling_conditions)
         A, rhs = solver_coupler.matrix_rhs(gb)
 
-        A_known = np.array([[4.19047619,  0., -0.19047619],
-                            [0.,  4.19047619, -0.19047619],
-                            [-0.19047619, -0.19047619,  0.38095238]])
+        A_known = np.array([[4.,  0., -0, 0., 1],
+                            [0.,  4., -0., 1, 0],
+                            [0,   0,   0,  -1, -1],
+                            [0, 1, -1, -5.000025e4, 0],
+                            [1, 0, -1, 0, -5.000025e4]
+                            ])
 
-        rhs_known = np.array([0., 4., 0.])
+        rhs_known = np.array([0., 4., 0., 0, 0])
 
         rtol = 1e-6
         atol = rtol
