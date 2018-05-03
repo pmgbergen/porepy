@@ -772,14 +772,14 @@ class GridBucket(object):
             d['cell_global2loc'] = sps.hstack(mat, 'csr')
 
         # create mortar restriction
-        for _, d in self.edges_props():
+        for _, d in self.edges():
             if not d.get('mortar_grid'):
                 continue
             gm = d['mortar_grid']
             pos_i = d['edge_number']
             mat = np.empty(self.num_graph_edges(), dtype=np.object)
             # first initial empty matrix
-            for _, d_j in self.edges_props():
+            for _, d_j in self.edges():
                 gm_j = d_j['mortar_grid']
                 pos_j = d_j['edge_number']
                 mat[pos_j] = sps.coo_matrix((gm.num_cells, gm_j.num_cells))
@@ -962,7 +962,7 @@ class GridBucket(object):
         diam_g = [np.amax(g.cell_diameters()) for g in self.graph if cond(g)]
 
         diam_mg = [np.amax(d['mortar_grid'].cell_diameters())\
-                                                 for e, d in self.edges_props()\
+                                                 for e, d in self.edges()\
                                             if cond(e) and d.get('mortar_grid')]
 
         return np.amax(np.hstack((diam_g, diam_mg)))
@@ -1057,9 +1057,8 @@ class GridBucket(object):
         if cond is None:
             cond = lambda g: True
         return np.sum([d['mortar_grid'].num_cells
-                       for _, d in self.edges_props()
-                       if d.get('mortar_grid')
-                       and cond(d['mortar_grid'])])
+                       for _, d in self.edges()
+                       if d.get('mortar_grid') and cond(d['mortar_grid'])])
 
     def num_faces(self, cond=None):
         """
