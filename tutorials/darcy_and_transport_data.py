@@ -95,8 +95,9 @@ class FlowData(pp.EllipticDataAssigner):
             k = self.pb['rock'].PERMEABILITY
 
         mu = self.pb['water'].dynamic_viscosity()
-        kxx = (k/mu)*np.ones(self.grid().num_cells)
-        return pp.SecondOrderTensor(3, kxx)
+        rho = self.pb['water'].density()
+        kxx = k*rho*pp.GRAVITY_ACCELERATION/mu
+        return pp.SecondOrderTensor(3, kxx*np.ones(self.grid().num_cells))
 
     def bc(self):
         bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
@@ -104,15 +105,7 @@ class FlowData(pp.EllipticDataAssigner):
         return pp.BoundaryCondition(self.grid(), bound_faces, labels)
 
     def bc_val(self):
-        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
-        bc_val = np.zeros(self.grid().num_faces)
-
-        depth, theta_ref = self.pb['depth'], self.pb['theta_ref']
-        pressure = self.pb['water'].hydrostatic_pressure(depth, theta_ref)
-
-        bc_val[bound_faces] = pressure
-        print(pressure)
-        return bc_val
+        return np.zeros(self.grid().num_faces)
 
     def source(self):
         val = np.zeros(self.grid().num_cells)
@@ -208,6 +201,11 @@ class TransportSolver(pp.ParabolicModel):
         time_step = pb['end_time']/float(pb['number_time_steps'])
         pp.ParabolicModel.__init__(self, gb, time_step=time_step, **pb)
 
+    def space_disc(self):
+        '''Space discretization. Returns the discretization terms that should be
+        used in the model'''
+        return self.advective_disc(), self.source_disc()
+
 #------------------------------------------------------------------------------#
 
 class Simulation(darcy_and_transport.DarcyAndTransport):
@@ -226,7 +224,7 @@ class Simulation(darcy_and_transport.DarcyAndTransport):
 
         # Darcy problem
         self.assign_data(gb, pb, FlowData, 'problem')
-        pb['file_name'] = 'pressure'
+        pb['file_name'] = 'hydraulic_head'
         flow = pp.EllipticModel(gb, **pb)
 
         # transport problem
