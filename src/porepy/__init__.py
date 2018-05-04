@@ -40,7 +40,8 @@ from porepy.numerics.elliptic import DualEllipticModel
 
 # Transport related
 from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim
-from porepy.numerics.fv.mass_matrix import MassMatrix, InvMassMatrix
+from porepy.numerics.fv.mass_matrix import MassMatrix, MassMatrixMixedDim
+from porepy.numerics.fv.mass_matrix import InvMassMatrix, InvMassMatrixMixedDim
 
 # Physical models
 from porepy.numerics.elliptic import EllipticModel, EllipticDataAssigner
