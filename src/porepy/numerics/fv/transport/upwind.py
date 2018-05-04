@@ -160,7 +160,7 @@ class Upwind(Solver):
 
         # Compute the inflow/outflow related to the cells of the problem
         flow_faces.data = flow_faces.data.clip(min=0)
-        
+
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
 
@@ -340,7 +340,7 @@ class Upwind(Solver):
 
 class UpwindCoupling(AbstractCoupling):
 
-    #------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
     def __init__(self, discr):
         self.discr_ndof = discr.ndof
