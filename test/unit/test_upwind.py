@@ -513,3 +513,5 @@ class BasicsTest(unittest.TestCase):
         assert np.allclose(deltaT, deltaT_known, rtol, atol)
 
 #------------------------------------------------------------------------------#
+if __name__ == '__main__':
+    unittest.main()
