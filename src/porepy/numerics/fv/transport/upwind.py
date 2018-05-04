@@ -114,7 +114,7 @@ class Upwind(Solver):
 
         """
         if g.dim == 0:
-            return sps.csr_matrix([0]), [0]
+            return sps.csr_matrix([0.]), np.array([0.])
 
         param = data['param']
         discharge = data[d_name]
@@ -160,9 +160,10 @@ class Upwind(Solver):
 
         # Compute the inflow/outflow related to the cells of the problem
         flow_faces.data = flow_faces.data.clip(min=0)
-        
+
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
+        flow_cells = flow_cells.astype(np.float)
 
         if not has_bc:
             return flow_cells, np.zeros(g.num_cells)
