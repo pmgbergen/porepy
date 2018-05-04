@@ -813,7 +813,7 @@ class GridBucket(object):
         """
 
         # Create node restriction
-        self.add_node_prop('cell_global2loc')
+        self.add_node_props('cell_global2loc')
         for g, d in self:
             pos_i = d['node_number']
             mat = np.empty(self.num_graph_nodes(), dtype=np.object)
