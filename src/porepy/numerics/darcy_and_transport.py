@@ -25,7 +25,7 @@ class DarcyAndTransport():
         if not hasattr(self.flow, 'el'):
             self.flow.el = False
 
-    def solve(self, save_as=None, save_every=1):
+    def solve(self, transport_save_as=None, flow_save_as=None, save_every=1):
         """
         Solve both problems.
 
@@ -36,14 +36,17 @@ class DarcyAndTransport():
                           store every second time step.
         """
         self.flow.step()
-        self.flow.pressure()
-        if save_as is not None:
-            self.flow.split(self.flow.pressure_name)
-            self.flow.save(variables=[self.flow.pressure_name])
+        if flow_save_as is not None:
+            self.flow.pressure(flow_save_as)
+            self.flow.split(flow_save_as)
+            self.flow.save(variables=[flow_save_as])
+        else:
+            self.flow.pressure()
+
         if self.flow.el:
             SC.compute_elimination_fluxes(self.flow.full_grid, self.flow.grid(), self.flow.el_data)
         self.flow.discharge()
-        self.transport.solve(save_as, save_every)
+        self.transport.solve(transport_save_as, save_every)
 
     def save(self, export_every=1):
         """
