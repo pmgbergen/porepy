@@ -83,7 +83,7 @@ class MassMatrix(Solver):
 
 ##########################################################################
 
-class InvMassMatrixMixDim(SolverMixedDim):
+class InvMassMatrixMixedDim(SolverMixedDim):
 
     def __init__(self, physics='flow'):
         self.physics = physics

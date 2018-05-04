@@ -42,7 +42,6 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     val_bound = kwargs.get('mesh_size_bound', None)
     val_min = kwargs.get('mesh_size_min', None)
     tol = kwargs.get('tol', 1e-5)
-
     # One value for each point to distinguish betwee val and val_bound.
     vals = val * np.ones(num_pts)
     if val_bound is not None:
