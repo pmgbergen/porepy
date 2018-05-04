@@ -326,7 +326,7 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
         assert network is not None, '''Need access to the network used to
             produce the .geo file'''
         grids = simplex.tetrahedral_grid_from_gmsh(out_file, network, **kwargs)
-        return meshing.convert_grid_list_to_bucket(grids, **kwargs)
+        return meshing.grid_list_to_grid_bucket(grids, **kwargs)
 
 
 #------------ End of gmsh-based functions, start of fab related --------------#
