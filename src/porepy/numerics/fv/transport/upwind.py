@@ -165,6 +165,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
+        flow_cells = flow_cells.astype(np.float)
 
         data["flow_faces"] = flow_faces
         if not has_bc:
