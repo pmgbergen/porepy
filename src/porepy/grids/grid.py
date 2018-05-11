@@ -553,6 +553,12 @@ class Grid(object):
         all_tags = tags.all_face_tags(self.tags)
         return self.__indices(all_tags)
 
+    def get_boundary_faces(self):
+        """
+        Get indices of all faces tagged as domain boundary.
+        """
+        return self.__indices(self.tags['domain_boundary_faces'])
+
     def get_internal_faces(self):
         """
         Get internal faces id of the grid
