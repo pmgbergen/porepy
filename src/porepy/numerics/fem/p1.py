@@ -3,7 +3,6 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.linalg as linalg
 
-from porepy.params import tensor
 from porepy.grids import grid, mortar_grid
 
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
