@@ -38,6 +38,12 @@ from porepy.numerics.vem.vem_dual import DualVEM, DualVEMMixedDim
 from porepy.numerics.vem.vem_source import DualSource, DualSourceMixedDim
 from porepy.numerics.elliptic import DualEllipticModel
 
+# Finite elements, elliptic
+from porepy.numerics.fem.p1 import P1, P1MixedDim
+from porepy.numerics.fem.source import P1Source, P1SourceMixedDim
+from porepy.numerics.fem.rt0 import RT0, RT0MixedDim
+
+
 # Transport related
 from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim
 from porepy.numerics.fv.mass_matrix import MassMatrix, InvMassMatrix
