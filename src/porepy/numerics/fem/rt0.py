@@ -189,7 +189,7 @@ class RT0(Solver):
 
             # Compute the H_div-mass local matrix
             A = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c],
-                              g.cell_volumes[c], coord_loc, sign[loc], g.dim, HB)
+                             g.cell_volumes[c], coord_loc, sign[loc], g.dim, HB)
 
             # Save values for Hdiv-mass local matrix in the global structure
             cols = np.tile(faces_loc, (faces_loc.size, 1))

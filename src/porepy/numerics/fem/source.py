@@ -10,11 +10,11 @@ from porepy.numerics.mixed_dim.coupler import Coupler
 
 #------------------------------------------------------------------------------#
 
-class IntegralMixedDim(SolverMixedDim):
+class P1SourceMixedDim(SolverMixedDim):
     def __init__(self, physics='flow'):
         self.physics = physics
 
-        self.discr = Integral(self.physics)
+        self.discr = P1Source(self.physics)
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = None
 
@@ -23,7 +23,7 @@ class IntegralMixedDim(SolverMixedDim):
 
 #------------------------------------------------------------------------------#
 
-class Integral(Solver):
+class P1Source(Solver):
     '''
     Discretization of the integrated source term
     int q * dx
