@@ -29,55 +29,14 @@ def unique_rows(data):
     return data[ia], ia, ic
 
 
-def _asvoid(arr):
-    """
-
-    Taken from
-    http://stackoverflow.com/questions/22699756/python-version-of-ismember-with-rows-and-index
-
-    View the array as dtype np.void (bytes)
-    This views the last axis of ND-arrays as bytes so you can perform
-    comparisons on the entire row.
-    http://stackoverflow.com/a/16840350/190597 (Jaime, 2013-05)
-    Warning: When using asvoid for comparison, note that float zeros may
-    compare UNEQUALLY
-    >>> asvoid([-0.]) == asvoid([0.])
-    array([False], dtype=bool)
-    """
-    arr = np.ascontiguousarray(arr)
-    return arr.view(np.dtype((np.void, arr.dtype.itemsize * arr.shape[-1])))
-
-
-def _find_occ(a, b):
-    """
-    Find index of occurences of a in b.
-
-    The function has only been tested on np.arrays, but it should be fairly
-    general (only require iterables?)
-
-    Code snippet found at
-    http://stackoverflow.com/questions/15864082/python-equivalent-of-matlabs-ismember-function?rq=1
-
-    """
-    # Base search on a dictionary
-
-    bind = {}
-    # Invert dictionary to create a map from an item in b to the *first*
-    # occurence of the item.
-    # NOTE: If we ever need to give the option of returning last index, it
-    # should require no more than bypassing the if statement.
-    for i, elt in enumerate(b):
-        if elt not in bind:
-            bind[elt] = i
-    # Use inverse mapping to obtain
-    return [bind.get(itm, None) for itm in a]
-
-
-def ismember_rows(a, b, sort=True, simple_version=False):
+def ismember_rows(a, b, sort=True):
     """
     Find *columns* of a that are also members of *columns* of b.
 
     The function mimics Matlab's function ismember(..., 'rows').
+
+    If the numpy version is less than 1.13, this function will be slow for
+    large arrays.
 
     TODO: Rename function, this is confusing!
 
@@ -86,9 +45,6 @@ def ismember_rows(a, b, sort=True, simple_version=False):
         b (np.array): Array in which we will look for a twin
         sort (boolean, optional): If true, the arrays will be sorted before
             seraching, increasing the chances for a match. Defaults to True.
-        simple_verion (boolean, optional): Use an alternative implementation
-            based on a global for loop. The code is slow for large arrays, but
-            easy to understand. Defaults to False.
 
     Returns:
         np.array (boolean): For each column in a, true if there is a
@@ -120,7 +76,41 @@ def ismember_rows(a, b, sort=True, simple_version=False):
     a = np.atleast_1d(a)
     num_a = a.shape[-1]
 
-    if simple_version:
+    # If numpy >= 1.13 is available, we can utilize functionality in np.unique
+    # to speed up the calculation siginficantly.
+    # If this is not the case, this will take time.
+    np_version = np.version.version.split('.')
+    if int(np_version[0]) > 1 or int(np_version[1]) > 12:
+
+        # stack the arrays
+        c = np.hstack((sa, sb))
+        # Uniquify c. We don't care about the unique array itself, but rather
+        # the indices which maps the unique array back to the original c
+        if a.ndim > 1:
+            _, ind = np.unique(c, axis=1, return_inverse=True)
+        else:
+            _, ind = np.unique(c, return_inverse=True)
+
+        # Indices in a and b referring to the unique array.
+        # Elements in ind_a that are also in ind_b will correspond to rows
+        # in a that are also found in b
+        ind_a = ind[:num_a]
+        ind_b = ind[num_a:]
+
+        # Find common members
+        ismem_a = np.isin(ind_a, ind_b)
+
+        # Fonud this trick on
+        # https://stackoverflow.com/questions/8251541/numpy-for-every-element-in-one-array-find-the-index-in-another-array
+        # See answer by Joe Kington
+        sort_ind = np.argsort(ind_b)
+        ypos = np.searchsorted(ind_b[sort_ind], ind_a[ismem_a])
+        ia = sort_ind[ypos]
+
+        # We're done
+        return ismem_a, ia
+
+    else:
         # Use straightforward search, based on a for loop. This is slow for
         # large arrays, but as the alternative implementation is opaque, and
         # there has been some doubts on its reliability, this version is kept
@@ -140,55 +130,6 @@ def ismember_rows(a, b, sort=True, simple_version=False):
                 ind_of_a_in_b = np.append(ind_of_a_in_b, hit)
 
         return ismem_a, ind_of_a_in_b.astype('int')
-
-    else:
-        if a.ndim == 1:
-            # Special treatment of 1d, vstack of voids (below) ran into trouble
-            # here.
-            _, k, count = np.unique(np.hstack((a, b)), return_inverse=True,
-                                    return_counts=True)
-            _, k_a, count_a = np.unique(a, return_inverse=True,
-                                        return_counts=True)
-        else:
-            # Represent the arrays as voids to facilitate quick comparison
-            # Take void type of int64s, or else spurious error messages may
-            # arise. We do this after the transpose (which copies sa and sb) to
-            # avoid disturbing the original fields.
-            voida = _asvoid(sa.transpose().astype('int64'))
-            voidb = _asvoid(sb.transpose().astype('int64'))
-
-            # Use unique to count the number of occurences in a
-            _, _, k, count = np.unique(np.vstack((voida, voidb)),
-                                       return_index=True,
-                                       return_inverse=True,
-                                       return_counts=True)
-            # Also count the number of occurences in voida
-            _, _, k_a, count_a = np.unique(voida, return_index=True,
-                                           return_inverse=True,
-                                           return_counts=True)
-
-        # Index of a and b elements in the combined array
-        ind_a = np.arange(num_a)
-        ind_b = num_a + np.arange(b.shape[-1])
-
-        # Count number of occurences in combine array, and in a only
-        num_occ_a_and_b = count[k[ind_a]]
-        num_occ_a = count_a[k_a[ind_a]]
-
-        # Subtraction gives number of a in b
-        num_occ_a_in_b = num_occ_a_and_b - num_occ_a
-        ismem_a = (num_occ_a_in_b > 0)
-
-        # To get the indices of common elements in a and b, compare the
-        # elements in k (pointers to elements in the unique combined arary)
-        occ_a = k[ind_a[ismem_a]]
-        occ_b = k[ind_b]
-
-        ind_of_a_in_b = _find_occ(occ_a, occ_b)
-        # Remove None types when no hit was found
-        ind_of_a_in_b = [i for i in ind_of_a_in_b if i is not None]
-
-        return ismem_a, np.array(ind_of_a_in_b, dtype='int')
 
 #---------------------------------------------------------
 
@@ -242,7 +183,7 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
     # $PYHTONPATH, with the name 'numpy_113_unique'.
     if issubclass(mat.dtype.type, np.integer) and tol < 0.5:
         # Obtain version of numpy that was loaded by the import in this module
-        np_version = np.version.version.split('.')
+        np_version = np.__version__.split('.')
         # If we are on numpy 2, or 1.13 or higher, we're good.
         if int(np_version[0]) > 1 or int(np_version[1]) > 12:
             un_ar, new_2_old, old_2_new \
@@ -299,3 +240,5 @@ def unique_columns_tol(mat, tol=1e-8, exponent=2):
     new_2_old = np.argwhere(keep).ravel()
 
     return mat[:, keep], new_2_old, old_2_new
+
+

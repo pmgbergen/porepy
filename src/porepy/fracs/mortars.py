@@ -327,7 +327,7 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
     for g_old, g_new in g_map.items():
         gb.update_nodes(g_old, g_new)
 
-        for e, d in gb.edges_props_of_node(g_new):
+        for e, d in gb.edges_of_node(g_new):
             mg = d['mortar_grid']
             if mg.dim == g_new.dim:
                 # update the mortar grid of the same dimension
@@ -492,7 +492,7 @@ def _match_grids_along_line_from_geometry(mg, g_new, g_old, tol):
     fn_in_hit = np.isin(fn, hit)
     # Faces where all points are found in hit
     faces_by_hit = np.where(np.all(fn_in_hit, axis=0))[0]
-    faces_on_boundary_new = g_new.get_boundary_faces()
+    faces_on_boundary_new = np.where(g_new.tags['fracture_faces'].ravel())[0]
     # Only consider faces both in hit, and that are boundary
     faces_on_boundary_new = np.intersect1d(faces_by_hit,
                                        faces_on_boundary_new)

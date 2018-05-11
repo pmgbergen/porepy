@@ -488,7 +488,7 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True,
     # Use a non-standard naming convention for the logger to
     logger = logging.getLogger(__name__ + '.remove_edge_crossings')
 
-    logger.info('Find intersections between %i edges', edges.shape[1])
+    logger.debug('Find intersections between %i edges', edges.shape[1])
     nd = vertices.shape[0]
 
     # Only 2D is considered. 3D should not be too dificult, but it is not
@@ -698,11 +698,6 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True,
         edge_counter += 1
         logger.debug('Edge split into %i new parts', edges.shape[1] -
                      size_before_splitting)
-
-    if verbose > 1:
-        logger.info('Edge intersection removal complete. Elapsed time: %g',
-                    time.time() - start_time)
-        logger.info('Introduced %i new edges', edges.shape[1] - num_edges_orig)
 
     return vertices, edges
 
@@ -2033,27 +2028,59 @@ def dist_points_segments(p, start, end):
     # Closest points
     cp = np.zeros((num_p, num_l, nd))
 
-    for pi in range(num_p):
-        # Project the vectors from start to point onto the line, and compute
-        # relative length
-        v = p[:, pi].reshape((-1, 1)) - start
-        proj = np.sum(v * line, axis=0) / lengths**2
+    # We need to compare all points to all segments.
+    # The implemtation uses an outer for-loop, followed by an inner (almost)
+    # vectorized part. Time consumption depends on the number of iterations in
+    # the outer loop, so make a choice depending on whether there are more
+    # segments or points. For borderline cases, more elaborate choices may be
+    # better, but the current form should do for extreme cases.
+    if num_p < num_l:
+        for pi in range(num_p):
+            # Project the vectors from start to point onto the line, and compute
+            # relative length
+            v = p[:, pi].reshape((-1, 1)) - start
+            proj = np.sum(v * line, axis=0) / lengths**2
 
-        # Projections with length less than zero have the closest point at
-        # start
-        less = np.ma.less_equal(proj, 0)
-        d[pi, less] = dist_point_pointset(p[:, pi], start[:, less])
-        cp[pi, less, :] = np.swapaxes(start[:, less], 1, 0)
-        # Similarly, above one signifies closest to end
-        above = np.ma.greater_equal(proj, 1)
-        d[pi, above] = dist_point_pointset(p[:, pi], end[:, above])
-        cp[pi, above, :] = np.swapaxes(end[:, above], 1, 0)
+            # Projections with length less than zero have the closest point at
+            # start
+            less = np.ma.less_equal(proj, 0)
+            d[pi, less] = dist_point_pointset(p[:, pi], start[:, less])
+            cp[pi, less, :] = np.swapaxes(start[:, less], 1, 0)
+            # Similarly, above one signifies closest to end
+            above = np.ma.greater_equal(proj, 1)
+            d[pi, above] = dist_point_pointset(p[:, pi], end[:, above])
+            cp[pi, above, :] = np.swapaxes(end[:, above], 1, 0)
 
-        # Points inbetween
-        between = np.logical_not(np.logical_or(less, above).data)
-        proj_p = start[:, between] + proj[between] * line[:, between]
-        d[pi, between] = dist_point_pointset(p[:, pi], proj_p)
-        cp[pi, between, :] = np.swapaxes(proj_p, 1, 0)
+            # Points inbetween
+            between = np.logical_not(np.logical_or(less, above).data)
+            proj_p = start[:, between] + proj[between] * line[:, between]
+            d[pi, between] = dist_point_pointset(p[:, pi], proj_p)
+            cp[pi, between, :] = np.swapaxes(proj_p, 1, 0)
+    else:
+        for ei in range(num_l):
+            # Project the vectors from start to point onto the line, and compute
+            # relative length
+            v = p - start[:, ei].reshape((-1, 1))
+            proj = np.sum(v * line[:, ei].reshape((-1, 1)), axis=0) / lengths[ei]**2
+
+            # Projections with length less than zero have the closest point at
+            # start
+            less = np.ma.less_equal(proj, 0)
+            d[less, ei] = dist_point_pointset(start[:, ei], p[:, less])
+            cp[less, ei, :] = start[:, ei]
+            # Similarly, above one signifies closest to end
+            above = np.ma.greater_equal(proj, 1)
+            d[above, ei] = dist_point_pointset(end[:, ei], p[:, above])
+            cp[above, ei, :] = end[:, ei]
+
+            # Points inbetween
+            between = np.logical_not(np.logical_or(less, above).data)
+            proj_p = start[:, ei].reshape((-1, 1)) \
+                   + proj[between] * line[:, ei].reshape((-1, 1))
+            for proj_i, bi in enumerate(np.where(between)[0]):
+                d[bi, ei] = np.min(dist_point_pointset(proj_p[:, proj_i], p[:, bi]))
+                cp[bi, ei, :] = proj_p[:, proj_i]
+
 
     return d, cp
 

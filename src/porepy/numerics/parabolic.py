@@ -75,14 +75,11 @@ class ParabolicModel():
         self._set_data()
 
         self._solver = self.solver()
-        self._solver.parameters['store_results'] = False
-
-        file_name = kwargs.get('file_name', str(physics))
-        folder_name = kwargs.get('folder_name', 'results')
-
 
         logger.info('Create exporter')
         tic = time.time()
+        file_name = kwargs.get('file_name', 'solution')
+        folder_name = kwargs.get('folder_name', 'results')
         self.exporter = Exporter(self._gb, file_name, folder_name)
         logger.info('Done. Elapsed time: ' + str(time.time() - tic))
 
@@ -99,12 +96,19 @@ class ParabolicModel():
                 d['deltaT'] = self.time_step()
         else:
             self.data()['deltaT'] = self.time_step()
-    
-    def solve(self):
-        'Solve problem'
+
+    def solve(self, save_as=None, save_every=1):
+        '''Solve problem
+
+        Arguments:
+        save_as (string), defaults to None. If a string is given, the solution
+                          variable is saved to a vtk-file as save_as
+        save_every (int), defines which time steps to save. save_every=2 will
+                          store every second time step.
+        '''
         tic = time.time()
         logger.info('Solve problem')
-        s = self._solver.solve()
+        s = self._solver.solve(save_as, save_every)
         logger.info('Done. Elapsed time: ' + str(time.time() - tic))
         return s
 
@@ -191,7 +195,7 @@ class ParabolicModel():
             return source.IntegralMixedDim(physics=self.physics)
         else:
             return source.Integral(physics=self.physics)
-        
+
     def space_disc(self):
         '''Space discretization. Returns the discretization terms that should be
         used in the model'''
@@ -252,14 +256,6 @@ class ParabolicModel():
         'Returns the end time'
         return self._end_time
 
-    def save(self, variables=None, time=None, save_every=None):
-        if variables is None:
-            self.exporter.write_vtk()
-        else:
-            if not self.is_GridBucket:
-                variables = {k: self._data[k] for k in variables \
-                                                             if k in self._data}
-            self.exporter.write_vtk(variables, time_step=time)
 
 class ParabolicDataAssigner():
     '''
@@ -342,7 +338,7 @@ class ParabolicDataAssigner():
     def diffusivity(self):
         'Returns diffusivity tensor'
         kxx = np.ones(self.grid().num_cells)
-        return tensor.SecondOrder(self.grid().dim, kxx)
+        return tensor.SecondOrderTensor(self.grid().dim, kxx)
 
     def aperture(self):
         '''Returns apperture of each cell. If None is returned, default

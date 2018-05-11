@@ -49,7 +49,6 @@ class BasicsTest( unittest.TestCase ):
         node_connections = sps.csc_matrix(node_connections)
         G = graph.Graph(node_connections)
         G.color_nodes()
-        print(G.color)
         assert np.all(G.color[:2]==0)
         assert G.color[3]==1
         assert G.regions == 2

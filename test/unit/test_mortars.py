@@ -66,7 +66,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         old_projection = mg.high_to_mortar_int.copy()
@@ -77,7 +77,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         new_projection = mg.high_to_mortar_int
@@ -94,7 +94,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         old_projection = mg.high_to_mortar_int.copy()
@@ -111,7 +111,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         new_projection = mg.high_to_mortar_int
@@ -140,7 +140,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         old_projection = mg.high_to_mortar_int.copy()
@@ -157,7 +157,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         new_projection = mg.high_to_mortar_int
@@ -190,7 +190,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         old_projection = mg.high_to_mortar_int.copy()
@@ -215,7 +215,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         new_projection = mg.high_to_mortar_int
@@ -247,7 +247,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         old_projection = mg.high_to_mortar_int.copy()
@@ -272,7 +272,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         new_projection = mg.high_to_mortar_int
@@ -311,7 +311,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         old_projection = mg.high_to_mortar_int.copy()
@@ -350,7 +350,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         new_projection = mg.high_to_mortar_int
@@ -384,7 +384,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         gb.compute_geometry()
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         old_projection = mg.high_to_mortar_int.copy()
@@ -419,7 +419,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         mortars.replace_grids_in_bucket(gb, {g_old: g_new})
 
         # Get mortar grid again
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             mg = d['mortar_grid']
 
         new_projection = mg.high_to_mortar_int
@@ -449,7 +449,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
 
 class MockGrid(object):
 
-    def __init__(self, nodes, fn, cf, cc, n, cv, dim, glob_pi=None):
+    def __init__(self, nodes, fn, cf, cc, n, cv, dim, frac_face=None, glob_pi=None):
         self.nodes = nodes
         self.face_nodes = fn
         self.cell_faces = cf
@@ -469,8 +469,16 @@ class MockGrid(object):
         elif self.dim == 3:
             self.name = ['TetrahedralGrid']
 
+        ff = np.zeros(self.num_faces, dtype=np.bool)
+        if frac_face is not None:
+            ff[frac_face] = 1
+        self.tags = {'fracture_faces': ff}
+
+
         if glob_pi is not None:
             self.global_point_ind = glob_pi
+
+
 
     def cell_nodes(self):
         return self.face_nodes * self.cell_faces
@@ -526,7 +534,8 @@ class TestMeshReplacement3d(unittest.TestCase):
             # This will invalidate the assigned geometry, but it should not matter
             n[2, [3, 6, 9, 12]] = 2
 
-        g = MockGrid(n, face_nodes, cell_faces, cell_centers, face_normals, cell_volumes, 3)
+        g = MockGrid(n, face_nodes, cell_faces, cell_centers, face_normals,
+                     cell_volumes, 3, frac_face=[3, 7, 11, 15])
         g.global_point_ind = np.arange(n.shape[1])
         return g
 
@@ -563,7 +572,8 @@ class TestMeshReplacement3d(unittest.TestCase):
             n[2, 4] = 2
             n[2, 9] = 2
 
-        g = MockGrid(n, face_nodes, cell_faces, cell_centers, face_normals, cell_volumes, 3)
+        g = MockGrid(n, face_nodes, cell_faces, cell_centers, face_normals,
+                     cell_volumes, 3, frac_face=[5, 6, 12, 13])
         g.global_point_ind = np.arange(n.shape[1])
         return g
 
@@ -592,7 +602,8 @@ class TestMeshReplacement3d(unittest.TestCase):
         cell_volumes = 1/2 * np.ones(cell_centers.shape[1])
         if pert:
             cell_volumes[1] = 1
-        g = MockGrid(n, face_nodes, cell_faces, cell_centers, face_normals, cell_volumes, 2)
+        g = MockGrid(n, face_nodes, cell_faces, cell_centers, face_normals,
+                     cell_volumes, 2, frac_face=[2, 3])
         g.global_point_ind = 1 + np.arange(n.shape[1])
         return g
 
@@ -654,7 +665,8 @@ class TestMeshReplacement3d(unittest.TestCase):
         cell_volumes = 1/4 * np.ones(cell_centers.shape[1])
         if pert:
             cell_volumes[2:] = 0.5
-        g = MockGrid(n, face_nodes, cell_faces, cell_centers, face_normals, cell_volumes, 2)
+        g = MockGrid(n, face_nodes, cell_faces, cell_centers, face_normals,
+                     cell_volumes, 2, frac_face=[2, 4, 7, 8])
         g.global_point_ind = 0 + np.arange(n.shape[1])
         return g
 
@@ -706,11 +718,11 @@ class TestMeshReplacement3d(unittest.TestCase):
             g2 = self.grid_2d_two_cells(pert)
             g1 = self.grid_1d()
 
-            gb = meshing.assemble_in_bucket([[g3], [g2], [g1]], ensure_matching_face_cell=False)
+            gb = meshing._assemble_in_bucket([[g3], [g2], [g1]], ensure_matching_face_cell=False)
 
-            gb.add_edge_prop('face_cells')
-            for e, d in gb.edges_props():
-                gl = gb.sorted_nodes_of_edge(e)[0]
+            gb.add_edge_props('face_cells')
+            for e, d in gb.edges():
+                gl = gb.nodes_of_edge(e)[0]
                 if gl.dim == 1:
                     m = sps.csc_matrix(np.array([[0, 0, 1, 1, 0, 0]]))
                     d['face_cells'] = m
@@ -725,8 +737,8 @@ class TestMeshReplacement3d(unittest.TestCase):
         else:
             g3 = self.grid_3d_no_1d(pert)
             g2 = self.grid_2d_two_cells_no_1d(pert)
-            gb = meshing.assemble_in_bucket([[g3], [g2]], ensure_matching_face_cell=False)
-            for e, d in gb.edges_props():
+            gb = meshing._assemble_in_bucket([[g3], [g2]], ensure_matching_face_cell=False)
+            for e, d in gb.edges():
                 a = np.zeros((16, 2))
                 a[3, 0] = 1
                 a[7, 1] = 1
@@ -740,8 +752,8 @@ class TestMeshReplacement3d(unittest.TestCase):
     def _mortar_grids(self, gb):
         mg1 = None
         mg2 = None
-        for e, d in gb.edges_props():
-            gh = gb.sorted_nodes_of_edge(e)[0]
+        for e, d in gb.edges():
+            gh = gb.nodes_of_edge(e)[0]
             if gh.dim == 1:
                 mg1 = d['mortar_grid']
             else:
@@ -886,7 +898,5 @@ class TestMeshReplacement3d(unittest.TestCase):
         assert np.abs(p1h[1, 7] - 0.5) < 1e-6
         assert np.abs(p1h[1, 8] - 0.5) < 1e-6
 
-#if __name__ == '__main__':
-unittest.main()
-a = TestMeshReplacement3d()
-a.test_replace_2d_with_finer_pert()
+if __name__ == '__main__':
+    unittest.main()
