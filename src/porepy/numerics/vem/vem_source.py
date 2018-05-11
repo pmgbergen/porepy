@@ -8,13 +8,46 @@ import scipy.sparse as sps
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 
-#------------------------------------------------------------------------------#
 
-class IntegralMixedDim(SolverMixedDim):
+class DualSource(Solver):
+    '''
+    Discretization of the integrated source term
+    int q * dx
+    over each grid cell.
+
+    All this function does is returning a zero lhs and
+    rhs = - param.get_source.physics in a saddle point fashion.
+    '''
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
+        Solver.__init__(self)
+
+    def ndof(self, g):
+        return g.num_cells + g.num_faces
+
+    def matrix_rhs(self, g, data):
+        param = data['param']
+        sources = param.get_source(self)
+        lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
+        assert sources.size == g.num_cells, \
+                                 'There should be one soure value for each cell'
+
+        rhs = np.zeros(self.ndof(g))
+        is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
+                          np.ones(g.num_cells, dtype=np.bool)))
+
+        rhs[is_p] = -sources
+
+        return lhs, rhs
+
+#------------------------------------------------------------------------------
+
+class DualSourceMixedDim(SolverMixedDim):
     def __init__(self, physics='flow'):
         self.physics = physics
 
-        self.discr = Integral(self.physics)
+        self.discr = DualSource(self.physics)
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = None
 
@@ -23,7 +56,7 @@ class IntegralMixedDim(SolverMixedDim):
 
 #------------------------------------------------------------------------------#
 
-class IntegralDFN(SolverMixedDim):
+class DualSourceDFN(SolverMixedDim):
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
         # In this case a mixed solver is considered. We assume only two
@@ -37,7 +70,7 @@ class IntegralDFN(SolverMixedDim):
         self.physics = physics
         self.dim_max = dim_max
 
-        self.discr = Integral(self.physics)
+        self.discr = DualSource(self.physics)
         self.coupling_conditions = None
 
         kwargs = {"discr_ndof": self.__ndof__,

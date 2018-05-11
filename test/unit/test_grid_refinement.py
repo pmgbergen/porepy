@@ -143,7 +143,7 @@ class TestRefinementGridBucket(unittest.TestCase):
         gb.assign_node_ordering()
 
         gs_1d = np.array(gb.grids_of_dimension(1))
-        hs_1d = np.array([refinement.refine_grid_1d(g, ratio) for g in gs_1d])
+        hs_1d = np.array([refinement.remesh_1d(g, ratio) for g in gs_1d])
 
         gb.update_nodes(gs_1d, hs_1d)
 
@@ -157,7 +157,7 @@ class TestRefinementGridBucket(unittest.TestCase):
                           [ 0.  ,  0.,  0.,  0.  ,  0.  ,  0.,  0.,  0.,  0.5,
                             0.  ,  0.,  0.,  0.5,  0.  ]])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             assert np.allclose(d["face_cells"].todense(), known_face_cells)
 
 #------------------------------------------------------------------------------#
@@ -171,7 +171,7 @@ class TestRefinementGridBucket(unittest.TestCase):
         gb.assign_node_ordering()
 
         gs_1d = np.array(gb.grids_of_dimension(1))
-        hs_1d = np.array([refinement.refine_grid_1d(g, ratio) for g in gs_1d])
+        hs_1d = np.array([refinement.remesh_1d(g, ratio) for g in gs_1d])
 
         gb.update_nodes(gs_1d, hs_1d)
 
@@ -195,7 +195,7 @@ class TestRefinementGridBucket(unittest.TestCase):
                                 0.,  0.,  0.        ,  0.33333333,  0.        ,
                                 0.,  0.,  0.33333333,  0.        ]])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             assert np.allclose(d["face_cells"].todense(), known_face_cells)
 
 #------------------------------------------------------------------------------#
@@ -209,7 +209,7 @@ class TestRefinementGridBucket(unittest.TestCase):
         gb.assign_node_ordering()
 
         gs_1d = np.array(gb.grids_of_dimension(1))
-        hs_1d = np.array([refinement.new_grid_1d(g, num_nodes) for g in gs_1d])
+        hs_1d = np.array([refinement.remesh_1d(g, num_nodes) for g in gs_1d])
 
         gb.update_nodes(gs_1d, hs_1d)
 
@@ -224,7 +224,7 @@ class TestRefinementGridBucket(unittest.TestCase):
                                 0.,  0.,  0.        ,  0.        ,  0.66666667,
                                 0.,  0.,  0.        ,  0.66666667]])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             assert np.allclose(d["face_cells"].todense(), known_face_cells)
 
 #------------------------------------------------------------------------------#
@@ -238,7 +238,7 @@ class TestRefinementGridBucket(unittest.TestCase):
         gb.assign_node_ordering()
 
         gs_1d = np.array(gb.grids_of_dimension(1))
-        hs_1d = np.array([refinement.new_grid_1d(g, num_nodes) for g in gs_1d])
+        hs_1d = np.array([refinement.remesh_1d(g, num_nodes) for g in gs_1d])
 
         gb.update_nodes(gs_1d, hs_1d)
 
@@ -262,7 +262,7 @@ class TestRefinementGridBucket(unittest.TestCase):
                  0.        ,  0.        ,  0.        ,  0.        ,  0.33333333,
                  1.        ]])
 
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             assert np.allclose(d["face_cells"].todense(), known_face_cells)
 
 #------------------------------------------------------------------------------#
@@ -276,7 +276,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
         gb.compute_geometry()
         gb.assign_node_ordering()
 
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
 
             high_to_mortar_known = np.matrix([[ 0.,  0.,  0.,  0.,
                                                 0.,  0.,  0.,  0.,
@@ -313,10 +313,10 @@ class TestRefinementMortarGrid(unittest.TestCase):
         gb.compute_geometry()
         gb.assign_node_ordering()
 
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
 
             mg = d['mortar']
-            new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=4) \
+            new_side_grids = {s: refinement.remesh_1d(g, num_nodes=4) \
                               for s, g in mg.side_grids.items()}
 
             mortars.refine_mortar(mg, new_side_grids)
@@ -349,10 +349,10 @@ class TestRefinementMortarGrid(unittest.TestCase):
         gb.compute_geometry()
         gb.assign_node_ordering()
 
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
 
             mg = d['mortar']
-            new_side_grids = {s: refinement.new_grid_1d(g, num_nodes=int(s)+3) \
+            new_side_grids = {s: refinement.remesh_1d(g, num_nodes=int(s)+3) \
                               for s, g in mg.side_grids.items()}
 
             mortars.refine_mortar(mg, new_side_grids)
@@ -415,13 +415,14 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
         gb = meshing.cart_grid([f1], [2, 2], **{'physdims': [1, 1]})
         gb.compute_geometry()
+        meshing.create_mortar_grids(gb)
         gb.assign_node_ordering()
 
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
 
             # refine the 1d-physical grid
-            old_g = gb.sorted_nodes_of_edge(e)[0]
-            new_g = refinement.new_grid_1d(old_g, num_nodes=5)
+            old_g = gb.nodes_of_edge(e)[0]
+            new_g = refinement.remesh_1d(old_g, num_nodes=5)
             new_g.compute_geometry()
 
             gb.update_nodes(old_g, new_g)
@@ -457,13 +458,14 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
         gb = meshing.cart_grid([f1], [2, 2], **{'physdims': [1, 1]})
         gb.compute_geometry()
+        meshing.create_mortar_grids(gb)
         gb.assign_node_ordering()
 
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
 
             # refine the 1d-physical grid
-            old_g = gb.sorted_nodes_of_edge(e)[0]
-            new_g = refinement.new_grid_1d(old_g, num_nodes=4)
+            old_g = gb.nodes_of_edge(e)[0]
+            new_g = refinement.remesh_1d(old_g, num_nodes=4)
             new_g.compute_geometry()
 
             gb.update_nodes(old_g, new_g)
@@ -499,9 +501,11 @@ class TestRefinementMortarGrid(unittest.TestCase):
                       [.5, .5, .5, .5]])
         gb = meshing.cart_grid([f], [2]*3, **{'physdims': [1]*3})
         gb.compute_geometry()
+        meshing.create_mortar_grids(gb)
+
         gb.assign_node_ordering()
 
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
 
             mg = d['mortar']
             indices_known = np.array([0, 1, 2, 3, 4, 5, 6, 7])
@@ -524,5 +528,6 @@ class TestRefinementMortarGrid(unittest.TestCase):
             data_known = np.array([ 1.,  1.,  1.,  1.,  1.,  1.,  1.,  1.])
             assert np.array_equal(mg.low_to_mortar.data, data_known)
 
-    if __name__ == '__main__':
-        unittest.main()
+
+if __name__ == '__main__':
+    unittest.main()

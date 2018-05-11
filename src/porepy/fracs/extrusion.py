@@ -35,7 +35,7 @@ from porepy.fracs.fractures import EllipticFracture, Fracture
 logger = logging.getLogger()
 
 def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None,
-                           **kwargs):
+                           extrusion_type='disc', **kwargs):
     """ Create a set of fractures compatible with exposed lines in an outcrop.
 
     See module-level documentation for futher comments.
@@ -73,8 +73,13 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None,
     lengths = fracture_length(pt, edges)
 
     # Extrude to fracture discs
-    logging.info('Create discs from exposure')
-    fractures, extrude_ang = discs_from_exposure(pt, edges, **kwargs)
+    logging.info('Create fractures from exposure')
+    if extrusion_type.lower().strip() == 'disc':
+        fractures, extrude_ang = discs_from_exposure(pt, edges, **kwargs)
+        disc_type = True
+    else:
+        fractures = rectangles_from_exposure(pt, edges)
+        disc_type = False
 
     p0 = pt[:, edges[0]]
     p1 = pt[:, edges[1]]
@@ -90,7 +95,7 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None,
         _, radius = cut_fracture_by_plane(fractures[sec], fractures[prim],
                                           split_pt[:, p], **kwargs)
         # If specified, ensure that cuts in T-intersections appear realistic.
-        if ensure_realistic_cuts and radius is not None:
+        if ensure_realistic_cuts and disc_type and radius is not None:
             ang = np.arctan2(0.5*lengths[prim], radius)
 
             # Ensure the center of both fractures are on the same side of the
@@ -105,7 +110,7 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None,
             new_radius, center, _ = disc_radius_center(lengths[prim], e0, e1,
                                                        theta=ang)
             strike = np.arctan2(e1[1] - e0[1], e1[0]- e0[0])
-            f = create_fracture(center, new_radius, np.pi/2, strike,
+            f = create_disc_fracture(center, new_radius, np.pi/2, strike,
                                 np.vstack((e0, e1)).T)
             rotate_fracture(f, e1-e0, rot_ang[prim], p0[:, prim])
             fractures[prim] = f
@@ -324,11 +329,13 @@ def discs_from_exposure(pt, edges, exposure_angle=None,
     Parameters:
         pt (np.array, 2 x num_pts): Coordinates of exposed points.
         edges (np.array, 2 x num_fracs): Connections between fractures.
-        exposure_angle (np.array, num_fracs, optional): See above, and
-           disc_radius_center() for description. Values very close to pi/2, 0
-           and pi will be modified to avoid unphysical extruded fractures.  If
-           not provided, random values will be drawn. Measured in radians.
-           Should be between 0 and pi.
+        exposure_angle (np.array of size num_fracs or double, optional):
+            See above, and disc_radius_center() for description. Defaults to
+            zero, which gives vertical fractures. Scalar input gives same angle
+            to all fractures. Values very close to pi/2, 0 and pi will be
+            modified to avoid unphysical extruded fractures.  If not provided,
+            random values will be drawn. Measured in radians.
+            Should be between 0 and pi.
         outcrop_consistent (boolean, optional): If True (default), points will
             be added at the outcrop surface z=0. This is necessary for the
             3D network to be consistent with the outcrop, but depending on
@@ -350,17 +357,25 @@ def discs_from_exposure(pt, edges, exposure_angle=None,
     strike_angle = np.arctan2(v[1], v[0])
 
     if exposure_angle is not None:
+        if isinstance(exposure_angle, np.ndarray) \
+            or isinstance(exposure_angle, list):
+            exp_ang = np.asarray(exposure_angle)
+        else:
+            exp_ang = np.array(exposure_angle)
+
         # Angles of pi/2 will give point contacts
-        hit = np.abs(exposure_angle - np.pi/2) < 0.01
-        exposure_angle[hit] = exposure_angle[hit] + 0.01
+        hit = np.abs(exp_ang - np.pi/2) < 0.01
+        exp_ang[hit] = exp_ang[hit] + 0.01
 
         # Angles of 0 and pi give infinite fractures.
-        hit = exposure_angle < 0.2
-        exposure_angle[hit] = 0.2
-        hit = np.pi - exposure_angle < 0.2
-        exposure_angle[hit] = 0.2
+        hit = exp_ang < 0.2
+        exp_ang[hit] = 0.2
+        hit = np.pi - exp_ang < 0.2
+        exp_ang[hit] = 0.2
+    else:
+        exp_ang = exposure_angle
 
-    radius, center, ang = disc_radius_center(lengths, p0, p1, exposure_angle)
+    radius, center, ang = disc_radius_center(lengths, p0, p1, exp_ang)
 
     fracs = []
 
@@ -374,12 +389,38 @@ def discs_from_exposure(pt, edges, exposure_angle=None,
         else:
             extra_points = np.zeros((3, 0))
 
-        fracs.append(create_fracture(center[:, i], radius[i], np.pi/2,
+        fracs.append(create_disc_fracture(center[:, i], radius[i], np.pi/2,
                                      strike_angle[i], extra_points))
     return fracs, ang
 
+def rectangles_from_exposure(pt, edges, height=None, **kwargs):
 
-def create_fracture(center, radius, dip, strike, extra_points):
+
+    num_fracs = edges.shape[1]
+
+    lengths = fracture_length(pt, edges)
+    p0 = pt[:, edges[0]]
+    p1 = pt[:, edges[1]]
+
+    if height is None:
+        height = lengths
+
+    x0 = p0[0]
+    x1 = p1[0]
+    y0 = p0[1]
+    y1 = p1[1]
+
+    fracs = []
+
+    for i in range(num_fracs):
+        p = np.array([[x0[i], y0[i], -height[i]],
+                      [x1[i], y1[i], -height[i]],
+                      [x1[i], y1[i], height[i]],
+                      [x0[i], y0[i], height[i]]]).T
+        fracs.append(Fracture(p))
+    return fracs
+
+def create_disc_fracture(center, radius, dip, strike, extra_points):
     """ Create a single circular fracture consistent with a given exposure.
 
     The exposed points will be added to the fracture description.

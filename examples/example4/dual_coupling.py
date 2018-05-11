@@ -20,12 +20,10 @@ from scipy.sparse.linalg import spsolve
 
 from porepy.grids import structured
 from porepy.params import tensor, bc
-from porepy.utils.errors import error
+from porepy.utils import error
 from porepy.numerics.vem import dual, dual_coupling
 from porepy.viz.plot_grid import plot_grid
 from porepy.viz.exporter import export_vtk
-
-from porepy.grids.grid import FaceTag
 
 from porepy.grids.coarsening import *
 from porepy.fracs import meshing
@@ -47,8 +45,6 @@ from porepy.numerics.mixed_dim import coupler
 #
 #    # Need to remove the boundary flag explicity from the fracture face,
 #    # because of the mix formulation
-#    internal_flag = FaceTag.FRACTURE | FaceTag.TIP
-#    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 #
 #    if kwargs['visualize']: plot_grid(gb, info="all", alpha=0)
 #
@@ -58,10 +54,10 @@ from porepy.numerics.mixed_dim import coupler
 #    gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
 #    for g, d in gb:
 #        kxx = np.ones(g.num_cells)
-#        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+#        d['perm'] = tensor.SecondOrderTensor(g.dim, kxx)
 #        d['source'] = np.zeros(g.num_cells)
 #
-#        b_faces = g.get_boundary_faces()
+#        b_faces = g.get_all_boundary_faces()
 #        b_faces_left = b_faces[g.face_centers[0, b_faces] == 0]
 #        b_faces_right = b_faces[g.face_centers[0, b_faces] == 2]
 #
@@ -120,12 +116,7 @@ from porepy.numerics.mixed_dim import coupler
 #    gb = meshing.cart_grid([f0, f1], [Nx, Ny], physdims=[2, 1])
 #    gb.remove_nodes(lambda g: g.dim == gb.dim_max())
 #    gb.assign_node_ordering()
-#
-#    # Need to remove the boundary flag explicity from the fracture face,
-#    # because of the mix formulation
-#    internal_flag = FaceTag.FRACTURE | FaceTag.TIP
-#    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-#
+##
 #    if kwargs['visualize']: plot_grid(gb, info="cfo", alpha=0)
 #
 #    # devo mettere l'apertura indicata come a
@@ -133,11 +124,11 @@ from porepy.numerics.mixed_dim import coupler
 #    gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
 #    for g, d in gb:
 #        kxx = np.ones(g.num_cells)
-#        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+#        d['perm'] = tensor.SecondOrderTensor(g.dim, kxx)
 #        d['source'] = np.zeros(g.num_cells)
 #
 #        if g.dim != 0:
-#            b_faces = g.get_boundary_faces()
+#            b_faces = g.get_all_boundary_faces()
 #            b_faces_dir = np.array([0])
 #            b_faces_dir_cond = g.face_centers[0, b_faces_dir]
 #
@@ -191,11 +182,11 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     domain = {'xmin': -2, 'xmax': 2, 'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax':
               2}
 
-#    mesh_size = {'mode': 'constant', 'value': 0.5, 'bound_value': 1}
-    mesh_size = {'mode': 'constant', 'value': 5, 'bound_value': 10}
-    mesh_size = {'mode': 'constant', 'value': 0.25, 'bound_value': 10}
-    kwargs['mesh_size'] = mesh_size
-    kwargs['gmsh_path'] = '~/gmsh/bin/gmsh'
+    
+    kwargs = {'mesh_size_frac': .25,
+              'mesh_size_bound': 10,
+              'mesh_size_min': .02,
+              'gmsh_path': '~/gmsh/bin/gmsh'}
 
     gb = meshing.simplex_grid([f_1, f_2], domain, **kwargs)
     gb.remove_nodes(lambda g: g.dim == gb.dim_max())
@@ -211,22 +202,16 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     print([g.num_faces for g, _ in gb])
     gb.assign_node_ordering()
 
-    # Need to remove the boundary flag explicity from the fracture face,
-    # because of the mix formulation
-    internal_flag = FaceTag.FRACTURE
-    [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag)
-     for g, _ in gb if g.dim == gb.dim_max()]
-
     if kwargs['visualize']:
         plot_grid(gb, info="f", alpha=0)
 
     gb.add_node_props(['perm', 'source', 'bc', 'bc_val'])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
-        d['perm'] = tensor.SecondOrder(g.dim, kxx)
+        d['perm'] = tensor.SecondOrderTensor(g.dim, kxx)
         d['source'] = np.zeros(g.num_cells)
 
-        b_faces = g.get_boundary_faces()
+        b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
         b_faces_dir = b_faces[np.bitwise_or(g.face_centers[1, b_faces] == -1,
                                             g.face_centers[0, b_faces] == -1)]
 

@@ -54,7 +54,7 @@ def create_2d_grids(pts, cells, **kwargs):
 
         num_tri = tri_cells.shape[0]
 
-        phys_name_ind_tri = np.unique(cell_info['triangle']['physical'])
+        phys_name_ind_tri = np.unique(cell_info['triangle']['gmsh:physical'])
 
         # Index of the physical name tag assigned by gmsh to each fracture
         gmsh_num = np.zeros(phys_name_ind_tri.size, dtype='int')
@@ -92,7 +92,7 @@ def create_2d_grids(pts, cells, **kwargs):
             for ti in loc_gmsh_num:
                 # It seems the gmsh numbering corresponding to the physical tags
                 # (as found in physnames) is stored in the first column of info
-                gmsh_ind = np.where(cell_info['triangle']['physical'] == ti)[0]
+                gmsh_ind = np.where(cell_info['triangle']['gmsh:physical'] == ti)[0]
                 loc_tri_glob_ind = np.vstack((loc_tri_glob_ind,
                                               tri_cells[gmsh_ind, :]))
 
@@ -145,7 +145,7 @@ def create_1d_grids(pts, cells, phys_names, cell_info,
 
     gmsh_const = constants.GmshConstants()
 
-    line_tags = cell_info['line']['physical']
+    line_tags = cell_info['line']['gmsh:physical']
     line_cells = cells['line']
 
     gmsh_tip_num = []

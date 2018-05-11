@@ -10,7 +10,7 @@ import unittest
 
 import scipy.sparse as sps
 
-from porepy.grids import structured, simplex
+from porepy.grids import structured
 from porepy.params.bc import BoundaryCondition
 from porepy.params import tensor
 from porepy.params.data import Parameters
@@ -40,7 +40,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = advect.discharge(g, [1, 0, 0])
 
-        b_faces = g.get_boundary_faces()
+        b_faces = g.get_all_boundary_faces()
         bc = BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
         param.set_bc("transport", bc)
@@ -94,7 +94,7 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
         dis = advect.discharge(g, [1, 0, 0])
 
-        b_faces = g.get_boundary_faces()
+        b_faces = g.get_all_boundary_faces()
         bc = BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
         param.set_bc("transport", bc)
@@ -152,14 +152,14 @@ class BasicsTest(unittest.TestCase):
         param = Parameters(g)
 
         # Permeability
-        perm = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+        perm = tensor.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         # Source term
         param.set_source("flow", np.zeros(g.num_cells))
 
         # Boundaries
-        b_faces = g.get_boundary_faces()
+        b_faces = g.get_all_boundary_faces()
         bc = BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
         bc_val = np.zeros(g.num_faces)
         bc_val[b_faces] = funp_ex(g.face_centers[:, b_faces])
@@ -171,7 +171,7 @@ class BasicsTest(unittest.TestCase):
         solver = vem_dual.DualVEM("flow")
         D_flow, b_flow = solver.matrix_rhs(g, data)
 
-        solver_source = vem_source.Integral('flow')
+        solver_source = vem_source.DualSource('flow')
         D_source, b_source = solver_source.matrix_rhs(g, data)
 
         up = sps.linalg.spsolve(D_flow + D_source, b_flow + b_source)

@@ -15,24 +15,28 @@ from porepy.numerics.vem import vem_dual, vem_source
 
 #------------------------------------------------------------------------------#
 
+
 def rhs(x, y, z):
-    return 7.*z*(x**2 + y**2 + 1.) - y*(x**2 - 9.*z**2) - 4.*x**2*z -\
-    (8.*np.sin(np.pi*y) -\
-    4.*np.pi**2*y**2*np.sin(np.pi*y) + 16.*np.pi*y*np.cos(np.pi*y))*(x**2/2. +\
-    y**2/2. + 1./2.) -\
-    4.*y**2*(2.*np.sin(np.pi*y) + np.pi*y*np.cos(np.pi*y))
+    return 7. * z * (x**2 + y**2 + 1.) - y * (x**2 - 9. * z**2) - 4. * x**2 * z -\
+        (8. * np.sin(np.pi * y) -
+         4. * np.pi**2 * y**2 * np.sin(np.pi * y) + 16. * np.pi * y * np.cos(np.pi * y)) * (x**2 / 2. +
+                                                                                            y**2 / 2. + 1. / 2.) -\
+        4. * y**2 * (2. * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
 
 #------------------------------------------------------------------------------#
+
 
 def solution(x, y, z):
-    return x**2*z+4.*y**2*np.sin(np.pi*y)-3.*z**3
+    return x**2 * z + 4. * y**2 * np.sin(np.pi * y) - 3. * z**3
 
 #------------------------------------------------------------------------------#
+
 
 def permeability(x, y, z):
-    return 1.+x**2+y**2
+    return 1. + x**2 + y**2
 
 #------------------------------------------------------------------------------#
+
 
 def add_data(g):
     """
@@ -42,20 +46,21 @@ def add_data(g):
 
     # Permeability
     kxx = np.array([permeability(*pt) for pt in g.cell_centers.T])
-    param.set_tensor("flow", tensor.SecondOrder(3, kxx))
+    param.set_tensor("flow", tensor.SecondOrderTensor(3, kxx))
 
     # Source term
     source = np.array([rhs(*pt) for pt in g.cell_centers.T])
-    param.set_source("flow", g.cell_volumes*source)
+    param.set_source("flow", g.cell_volumes * source)
 
-    # Boundaries
-    bound_faces = g.get_boundary_faces()
+    # Boundariesy
+    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
     bound_face_centers = g.face_centers[:, bound_faces]
 
     labels = np.array(['dir'] * bound_faces.size)
 
     bc_val = np.zeros(g.num_faces)
-    bc_val[bound_faces] = np.array([solution(*pt) for pt in bound_face_centers.T])
+    bc_val[bound_faces] = np.array([solution(*pt)
+                                    for pt in bound_face_centers.T])
 
     param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
     param.set_bc_val("flow", bc_val)
@@ -64,18 +69,20 @@ def add_data(g):
 
 #------------------------------------------------------------------------------#
 
+
 def error_p(g, p):
 
     sol = np.array([solution(*pt) for pt in g.cell_centers.T])
-    return np.sqrt(np.sum(np.power(np.abs(p - sol), 2)*g.cell_volumes))
+    return np.sqrt(np.sum(np.power(np.abs(p - sol), 2) * g.cell_volumes))
 
 #------------------------------------------------------------------------------#
+
 
 def main(N):
     Nx = Ny = N
     #g = structured.CartGrid([Nx, Ny], [1, 1])
     g = simplex.StructuredTriangleGrid([Nx, Ny], [1, 1])
-    R = cg.rot(np.pi/4., [1,0,0])
+    R = cg.rot(np.pi / 4., [1, 0, 0])
     g.nodes = np.dot(R, g.nodes)
     g.compute_geometry()
     #co.coarsen(g, 'by_volume')
@@ -87,10 +94,10 @@ def main(N):
     solver_flow = vem_dual.DualVEM('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(g, data)
 
-    solver_source = vem_source.Integral('flow')
+    solver_source = vem_source.DualSource('flow')
     A_source, b_source = solver_source.matrix_rhs(g, data)
 
-    up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+    up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 
     u = solver_flow.extract_u(g, up)
     p = solver_flow.extract_p(g, up)
@@ -101,15 +108,17 @@ def main(N):
 
 #------------------------------------------------------------------------------#
 
-#class BasicsTest( unittest.TestCase ):
+# class BasicsTest( unittest.TestCase ):
+
 
 def test_vem_varing_k_surface():
     diam_10, error_10 = main(10)
     diam_20, error_20 = main(20)
 
     known_order = 1.97928213116
-    order = np.log(error_10/error_20)/np.log(diam_10/diam_20)
+    order = np.log(error_10 / error_20) / np.log(diam_10 / diam_20)
     assert np.isclose(order, known_order)
+
 
 #------------------------------------------------------------------------------#
 test_vem_varing_k_surface()

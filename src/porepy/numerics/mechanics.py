@@ -1,5 +1,5 @@
 '''
-Module for initializing, assigning data, solve, and save linear elastic problem 
+Module for initializing, assigning data, solve, and save linear elastic problem
 with fractures.
 '''
 import numpy as np
@@ -17,7 +17,6 @@ from porepy.viz.exporter import Exporter
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
-
 
 class StaticModel():
     '''
@@ -76,8 +75,9 @@ class StaticModel():
 
         self.displacement_name = 'displacement'
         self.frac_displacement_name = 'frac_displacement'
+        self.is_factorized = False
 
-    def solve(self, max_direct=40000, callback=False, **kwargs):
+    def solve(self, max_direct=40000, callback=False, discretize=True, **kwargs):
         """ Reassemble and solve linear system.
 
         After the funtion has been called, the attributes lhs and rhs are
@@ -104,17 +104,28 @@ class StaticModel():
         """
         # Discretize
         tic = time.time()
-        logger.info('Discretize')
-        self.lhs, self.rhs = self.reassemble(**kwargs)
-        logger.info('Done. Elapsed time ' + str(time.time() - tic))
-
+        if discretize:
+            logger.info('Discretize')
+            self.lhs, self.rhs = self.reassemble(**kwargs)
+            self.is_factorized = False
+            logger.info('Done. Elapsed time ' + str(time.time() - tic))
+        else:
+            self.rhs = self._stress_disc.rhs(self.grid(), self.data())
         # Solve
         tic = time.time()
         ls = LSFactory()
 
         if self.rhs.size <  max_direct:
             logger.info('Solve linear system using direct solver')
-            self.x = ls.direct(self.lhs,self.rhs)
+            if not self.is_factorized:
+                logger.info('Making LU decomposition')
+                self.lhs = self.lhs.tocsc()
+                self.lhs = sps.linalg.factorized(self.lhs)
+                self.is_factorized = True
+                logger.info('Done. Elapsed time ' + str(time.time() - tic))
+            logger.info('Solve linear system using direct solver')
+            tic = time.time()
+            self.x = self.lhs(self.rhs)
         else:
             logger.info('Solve linear system using GMRES')
             precond = self._setup_preconditioner()
@@ -146,7 +157,7 @@ class StaticModel():
 
     def stress_disc(self):
         """
-        Define the stress discretization. 
+        Define the stress discretization.
         Returns:
             FracturedMpsa (Solver object)
         """
@@ -172,7 +183,7 @@ class StaticModel():
         """
         Save the cell displacement to the data dictionary. The displacement
         will be saved as a (3,  self.grid().num_cells) array
-        Parameters: 
+        Parameters:
         -----------
         displacement_name:    (string) Defaults to 'displacement'. Defines the
                               keyword for the saved displacement in the data
@@ -190,12 +201,12 @@ class StaticModel():
 
     def frac_displacement(self, frac_displacement_name='frac_displacement'):
         """
-        Save the fracture displacement to the data dictionary. This is the 
+        Save the fracture displacement to the data dictionary. This is the
         displacement on the fracture facers. The displacement
         will be saved as a (3,  self.grid().num_cells) array
-        Parameters: 
+        Parameters:
         -----------
-        frac_displacement_name: 
+        frac_displacement_name:
             (string) Defaults to 'frac_displacement'. Defines the keyword for
             the saved displacement in the data dictionary
 
@@ -211,10 +222,10 @@ class StaticModel():
 
     def traction(self, traction_name='traction'):
         """
-        Save the  traction on faces to the data dictionary. This is the 
+        Save the  traction on faces to the data dictionary. This is the
         area scaled traction on the fracture facers. The displacement
         will be saved as a (3,  self.grid().num_cells) array
-        Parameters: 
+        Parameters:
         -----------
         traction_name
             (string) Defaults to 'traction'. Defines the keyword for the
@@ -240,7 +251,7 @@ class StaticModel():
 
     def save(self, variables=None, time_step=None):
         """
-        Save the result as vtk. 
+        Save the result as vtk.
 
         Parameters:
         ----------
@@ -253,7 +264,7 @@ class StaticModel():
 
         if variables is None:
             self.exporter.write_vtk()
-        else: 
+        else:
             variables = {k: self._data[k] for k in variables \
                          if k in self._data}
             self.exporter.write_vtk(variables, time_step=time_step)
@@ -317,7 +328,7 @@ class StaticDataAssigner():
     StaticDataAssigner. Then overload the values you whish to change.
 
     Parameters in Init:
-    gb (Grid): a grid object 
+    gb (Grid): a grid object
     data (dictionary): Dictionary which Parameter will be added to with keyword
                        'param'
     physics: (string): defaults to 'mechanics'
@@ -328,7 +339,7 @@ class StaticDataAssigner():
         bc_val(): defaults to 0
              returns: (ndarray) boundary condition values
         stress_tensor(): defaults to 1
-             returns: (tensor.FourthOrder) Stress tensor
+             returns: (tensor.FourthOrderTensor) Stress tensor
 
     Utility functions:
         grid(): returns: the grid
@@ -366,6 +377,6 @@ class StaticDataAssigner():
             self._data['param'] = Parameters(self.grid())
         self._data['param'].set_bc(self.physics, self.bc())
         self._data['param'].set_bc_val(self.physics, self.bc_val())
-        self._data['param'].set_background_stress(self.physics, self.background_stress())        
+        self._data['param'].set_background_stress(self.physics, self.background_stress())
         if self.stress_tensor() is not None:
             self._data['param'].set_tensor(self.physics, self.stress_tensor())

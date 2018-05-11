@@ -186,7 +186,7 @@ def compute_dist_face_cell(g, subcell_topology, eta):
                                         blocksz[0], blocksz)
     eta_vec = eta * np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
-    bnd = np.in1d(subcell_topology.fno, g.get_boundary_faces())
+    bnd = np.in1d(subcell_topology.fno, g.get_all_boundary_faces())
     eta_vec[bnd] = 0
     cp = g.face_centers[:, subcell_topology.fno] \
         + eta_vec * (g.nodes[:, subcell_topology.nno] -
@@ -406,10 +406,7 @@ def invert_diagonal_blocks(mat, s, method=None):
 
     # Variable to check if we have tried and failed with numba
     try_cython = False
-    # Do not use numba for small systems due to compiling overhead. If the
-    # application is inversion of transmissibility systems in mpfa,
-    # s.shape[0] = number of nodes of the grid.
-    if method == 'numba' or (method is None and s.shape[0] > 4000):
+    if method == 'numba' or method is None:
         try:
             inv_vals = invert_diagonal_blocks_numba(mat, s)
         except:
@@ -421,7 +418,7 @@ def invert_diagonal_blocks(mat, s, method=None):
             inv_vals = invert_diagonal_blocks_cython(mat, s)
         except ImportError as e:
             raise e
-    elif method == 'python' or (method is None and s.shape[0] <= 4000):
+    elif method == 'python':
         inv_vals = invert_diagonal_blocks_python(mat, s)
 
     ia = block_diag_matrix(inv_vals, s)
@@ -642,7 +639,7 @@ class ExcludeBoundaries(object):
 
     def __init__(self, subcell_topology, bound, nd):
         """
-        Define mappings to exclude boundary faces with dirichlet and neumann
+        Define mappings to exclude boundary faces/components with dirichlet and neumann
         conditions
 
         Parameters
@@ -652,33 +649,110 @@ class ExcludeBoundaries(object):
 
         Returns
         -------
-        exclude_neumann: Matrix, mapping from all faces to those having flux
+        exclude_neumann: Matrix, mapping from all faces/components to those having flux
                          continuity
-        exclude_dirichlet: Matrix, mapping from all faces to those having pressure
+        exclude_dirichlet: Matrix, mapping from all faces/components to those having pressure
                            continuity
         """
         self.nd = nd
+        self.bc_type = bound.bc_type
 
         # Short hand notation
         fno = subcell_topology.fno_unique
         num_subfno = subcell_topology.num_subfno_unique
 
         # Define mappings to exclude boundary values
-        col_neu = np.argwhere([not it for it in bound.is_neu[fno]])
-        row_neu = np.arange(col_neu.size)
-        self.exclude_neu = sps.coo_matrix((np.ones(row_neu.size),
-                                           (row_neu, col_neu.ravel('C'))),
-                                          shape=(row_neu.size,
-                                                 num_subfno)).tocsr()
-        col_dir = np.argwhere([not it for it in bound.is_dir[fno]])
-        row_dir = np.arange(col_dir.size)
-        self.exclude_dir = sps.coo_matrix((np.ones(row_dir.size),
-                                           (row_dir, col_dir.ravel('C'))),
-                                          shape=(row_dir.size,
-                                                 num_subfno)).tocsr()
+
+        if self.bc_type == 'scalar':
+
+            col_neu = np.argwhere([not it for it in bound.is_neu[fno]])
+            row_neu = np.arange(col_neu.size)
+            self.exclude_neu = sps.coo_matrix((np.ones(row_neu.size),
+                                               (row_neu, col_neu.ravel('C'))),
+                                              shape=(row_neu.size,
+                                                     num_subfno)).tocsr()
+
+            col_dir = np.argwhere([not it for it in bound.is_dir[fno]])
+            row_dir = np.arange(col_dir.size)
+            self.exclude_dir = sps.coo_matrix((np.ones(row_dir.size),
+                                               (row_dir, col_dir.ravel('C'))),
+                                              shape=(row_dir.size,
+                                                     num_subfno)).tocsr()
+
+        elif self.bc_type == 'vectorial':
+
+            #Neumann
+            col_neu_x = np.argwhere([not it for it in bound.is_neu[0, fno]])
+            row_neu_x = np.arange(col_neu_x.size)
+            self.exclude_neu_x = sps.coo_matrix((np.ones(row_neu_x.size),
+                                               (row_neu_x, col_neu_x.ravel('C'))),
+                                              shape=(row_neu_x.size,
+                                                     num_subfno)).tocsr()
+
+            col_neu_y = np.argwhere([not it for it in bound.is_neu[1, fno]])
+            row_neu_y = np.arange(col_neu_y.size)
+            self.exclude_neu_y = sps.coo_matrix((np.ones(row_neu_y.size),
+                                               (row_neu_y, col_neu_y.ravel('C'))),
+                                              shape=(row_neu_y.size,
+                                                     num_subfno)).tocsr()
+            col_neu_y += num_subfno
+            col_neu = np.append(col_neu_x, [col_neu_y])
+
+            if nd == 3:
+                col_neu_z = np.argwhere([not it for it in bound.is_neu[2, fno]])
+                row_neu_z = np.arange(col_neu_z.size)
+                self.exclude_neu_z = sps.coo_matrix((np.ones(row_neu_z.size),
+                                                   (row_neu_z, col_neu_z.ravel('C'))),
+                                                  shape=(row_neu_z.size,
+                                                         num_subfno)).tocsr()
+
+                col_neu_z += 2 * num_subfno
+                col_neu = np.append(col_neu, [col_neu_z])
+
+            row_neu = np.arange(col_neu.size)
+            self.exclude_neu_nd = sps.coo_matrix((np.ones(row_neu.size),
+                                               (row_neu, col_neu.ravel('C'))),
+                                              shape=(row_neu.size,
+                                                      nd * num_subfno)).tocsr()
+
+            #Dirichlet, same procedure
+            col_dir_x = np.argwhere([not it for it in bound.is_dir[0, fno]])
+            row_dir_x = np.arange(col_dir_x.size)
+            self.exclude_dir_x = sps.coo_matrix((np.ones(row_dir_x.size),
+                                               (row_dir_x, col_dir_x.ravel('C'))),
+                                              shape=(row_dir_x.size,
+                                                      num_subfno)).tocsr()
+
+            col_dir_y = np.argwhere([not it for it in bound.is_dir[1, fno]])
+            row_dir_y = np.arange(col_dir_y.size)
+            self.exclude_dir_y = sps.coo_matrix((np.ones(row_dir_y.size),
+                                               (row_dir_y, col_dir_y.ravel('C'))),
+                                              shape=(row_dir_y.size,
+                                                      num_subfno)).tocsr()
+
+            col_dir_y += num_subfno
+            col_dir = np.append(col_dir_x, [col_dir_y])
+
+            if nd == 3:
+                col_dir_z = np.argwhere([not it for it in bound.is_dir[2, fno]])
+                row_dir_z = np.arange(col_dir_z.size)
+                self.exclude_dir_z = sps.coo_matrix((np.ones(row_dir_z.size),
+                                                   (row_dir_z, col_dir_z.ravel('C'))),
+                                                  shape=(row_dir_z.size,
+                                                          num_subfno)).tocsr()
+
+                col_dir_z += 2 * num_subfno
+                col_dir = np.append(col_dir, [col_dir_z])
+
+            row_dir = np.arange(col_dir.size)
+            self.exclude_dir_nd = sps.coo_matrix((np.ones(row_dir.size),
+                                               (row_dir, col_dir.ravel('C'))),
+                                              shape=(row_dir.size,
+                                                      nd * num_subfno)).tocsr()
+
 
     def exclude_dirichlet(self, other):
-        """ Mapping to exclude faces with Dirichlet boundary conditions from
+        """ Mapping to exclude faces/components with Dirichlet boundary conditions from
         local systems.
 
         Parameters:
@@ -686,14 +760,75 @@ class ExcludeBoundaries(object):
                 continuity of flux and pressure.
 
         Returns:
-            scipy.sparse matrix, with rows corresponding to faces with
+            scipy.sparse matrix, with rows corresponding to faces/components with
                 Dirichlet conditions eliminated.
 
         """
-        return self.exclude_dir * other
+        if self.bc_type == 'scalar':
+            exclude_dir = self.exclude_dir * other
+
+        elif self.bc_type == 'vectorial':
+            exclude_dir = np.append(self.exclude_dir_x * other, [self.exclude_dir_y * other])
+            if self.nd == 3:
+                exclude_dir = np.append(exclude_dir, [self.exclude_dir_z * other])
+
+        return exclude_dir
+
+    def exclude_dirichlet_x(self, other):
+
+        """ Mapping to exclude components in the x-direction with Dirichlet boundary conditions from
+        local systems.
+        NOTE: Currently works for boundary faces aligned with the coordinate system.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with components in the x-direction corresponding to faces with
+                Dirichlet conditions eliminated.
+
+        """
+
+        return self.exclude_dir_x * other
+
+
+    def exclude_dirichlet_y(self, other):
+        """ Mapping to exclude components in the y-direction with Dirichlet boundary conditions from
+        local systems.
+        NOTE: Currently works for boundary faces aligned with the coordinate system.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with components in the y-direction corresponding to faces with
+                Dirichlet conditions eliminated.
+
+        """
+
+        return self.exclude_dir_y * other
+
+    def exclude_dirichlet_z(self, other):
+        """ Mapping to exclude components in the z-direction with Dirichlet boundary conditions from
+        local systems.
+        NOTE: Currently works for boundary faces aligned with the coordinate system.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with components in the z-direction corresponding to faces with
+                Dirichlet conditions eliminated.
+
+        """
+
+        return self.exclude_dir_z * other
 
     def exclude_neumann(self, other):
-        """ Mapping to exclude faces with Neumann boundary conditions from
+        """ Mapping to exclude faces/components with Neumann boundary conditions from
         local systems.
 
         Parameters:
@@ -701,19 +836,85 @@ class ExcludeBoundaries(object):
                 continuity of flux and pressure.
 
         Returns:
-            scipy.sparse matrix, with rows corresponding to faces with
+            scipy.sparse matrix, with rows corresponding to faces/components with
                 Neumann conditions eliminated.
 
         """
-        return self.exclude_neu * other
+        if self.bc_type == 'scalar':
+            exclude_neu = self.exclude_neu * other
+
+        elif self.bc_type == 'vectorial':
+            exclude_neu = np.append(self.exclude_neu_x * other, [self.exclude_neu_y * other])
+            if self.nd == 3:
+                exclude_neu = np.append(exclude_neu, [self.exclude_neu_z * other])
+
+        return exclude_neu
+
+    def exclude_neumann_x(self, other):
+        """ Mapping to exclude components in the x-direction with Neumann boundary conditions from
+        local systems.
+        NOTE: Currently works for boundary faces aligned with the coordinate system.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with components in the x-direction corresponding to faces with
+                Neumann conditions eliminated.
+
+        """
+
+        return self.exclude_neu_x * other
+
+
+    def exclude_neumann_y(self, other):
+        """ Mapping to exclude components in the y-direction with Neumann boundary conditions from
+        local systems.
+        NOTE: Currently works for boundary faces aligned with the coordinate system.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with components in the y-direction corresponding to faces with
+                Neumann conditions eliminated.
+
+        """
+
+        return self.exclude_neu_y * other
+
+    def exclude_neumann_z(self, other):
+        """ Mapping to exclude components in the z-direction with Neumann boundary conditions from
+        local systems.
+        NOTE: Currently works for boundary faces aligned with the coordinate system.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with components in the z-direction corresponding to faces with
+                Neumann conditions eliminated.
+
+        """
+
+        return self.exclude_neu_z * other
 
     def exclude_dirichlet_nd(self, other):
         """ Exclusion of Dirichlet conditions for vector equations (elasticity).
         See above method without _nd suffix for description.
 
         """
-        exclude_dirichlet_nd = sps.kron(sps.eye(self.nd),
-                                        self.exclude_dir)
+
+        if self.bc_type == 'scalar':
+            exclude_dirichlet_nd = sps.kron(sps.eye(self.nd),
+                                            self.exclude_dir)
+
+        elif self.bc_type == 'vectorial':
+            exclude_dirichlet_nd = self.exclude_dir_nd
+
         return exclude_dirichlet_nd * other
 
     def exclude_neumann_nd(self, other):
@@ -721,7 +922,13 @@ class ExcludeBoundaries(object):
         See above method without _nd suffix for description.
 
         """
-        exclude_neumann_nd = sps.kron(sps.eye(self.nd), self.exclude_neu)
+        if self.bc_type == 'scalar':
+            exclude_neumann_nd = sps.kron(sps.eye(self.nd),
+                                            self.exclude_neu)
+
+        elif self.bc_type == 'vectorial':
+            exclude_neumann_nd = self.exclude_neu_nd
+
         return exclude_neumann_nd * other
 
 #-----------------End of class ExcludeBoundaries-----------------------------
@@ -955,15 +1162,23 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
         'bc_val': Boundary condition values.
             and the following edge property field for all connected grids:
         'coupling_flux': Discretization of the coupling fluxes.
+    physics (string): defaults to 'flow'. The physic regime
+    d_name (string): defaults to 'discharge'. The keyword which the computed
+                     discharge will be stored by in the dictionary.
+    p_name (string): defaults to 'pressure'. The keyword that the pressure
+                     field is stored by in the dictionary
+    data (dictionary): defaults to None. If gb is mono-dimensional grid the
+                       data dictionary must be given. If gb is a
+                       multi-dimensional grid, this variable has no effect
+
     Returns:
-        gb, the same grid bucket with the added field 'discharge'(overwritten
-        by d_name) added to all node data fields. Note that the fluxes between
-        grids will be added only at the gb edge, not at the node fields. The
-        sign of the discharges correspond to the directions of the normals, in
-        the edge/coupling case those of the higher grid. For edges beteween
-        grids of equal dimension, there is an implicit assumption that all
-        normals point from the second to the first of the sorted grids
-        (gb.sorted_nodes_of_edge(e)).
+        gb, the same grid bucket with the added field 'discharge' added to all
+        node data fields. Note that the fluxes between grids will be added only
+        at the gb edge, not at the node fields. The sign of the discharges
+        correspond to the directions of the normals, in the edge/coupling case
+        those of the higher grid. For edges beteween grids of equal dimension,
+        there is an implicit assumption that all normals point from the second
+        to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
     if not isinstance(gb, GridBucket):
         pa = data['param']
@@ -985,10 +1200,10 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
                 dis = np.zeros(g.num_faces)
             d[d_name] = dis
 
-    for e, d in gb.edges_props():
+    for e, d in gb.edges():
         # According to the sorting convention, g2 is the higher dimensional grid,
         # the one to who's faces the fluxes correspond
-        g1, g2 = gb.sorted_nodes_of_edge(e)
+        g1, g2 = gb.nodes_of_edge(e)
         try:
             pa = d['param']
         except KeyError:
@@ -996,11 +1211,11 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             d['param'] = pa
 
         if g1.dim != g2.dim and d['face_cells'] is not None:
-            coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
-            pressures = gb.nodes_prop([g2, g1], p_name)
+            coupling_flux = gb.edge_props(e, 'coupling_flux')
+            pressures = [gb.node_props(g, p_name) for g in [g2, g1]]
             dis = coupling_flux * np.concatenate(pressures)
             d[d_name] = dis
-            
+
         elif g1.dim == g2.dim and d['face_cells'] is not None:
             # g2 is now only the "higher", but still the one defining the faces
             # (cell-cells connections) in the sense that the normals are assumed
@@ -1008,9 +1223,9 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             # general, there are g2.num_cells x g1.num_cells connections/"faces".
             cc = d['face_cells']
             cells_1, cells_2 = cc.nonzero()
-            coupling_flux = gb.edge_prop(e, 'coupling_flux')[0]
+            coupling_flux = gb.edge_props(e, 'coupling_flux')
 
-            pressures = gb.nodes_prop([g2, g1], p_name)
+            pressures = [gb.node_props(g, p_name) for g in [g2, g1]]
             p2 = pressures[0][cells_2]
             p1 = pressures[1][cells_1]
             contribution_2 = np.multiply(coupling_flux[cc], p2)

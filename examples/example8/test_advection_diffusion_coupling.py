@@ -8,7 +8,6 @@ from porepy.fracs import importer
 
 from porepy.params import tensor
 from porepy.grids import structured
-from porepy.grids.grid import FaceTag
 
 from porepy.numerics.mixed_dim import coupler
 from porepy.numerics.vem import vem_dual, vem_source
@@ -18,7 +17,6 @@ from porepy.numerics.fv import tpfa
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.utils.errors import error
 
 #------------------------------------------------------------------------------#
 
@@ -31,7 +29,7 @@ def add_data_darcy(gb, domain, tol):
         param = Parameters(g)
 
         kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrderTensor(g.dim, kxx)
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))
@@ -39,7 +37,7 @@ def add_data_darcy(gb, domain, tol):
         aperture = np.power(1e-2, gb.dim_max() - g.dim)
         param.set_aperture(np.ones(g.num_cells) * aperture)
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = np.argwhere(g.tags['domain_boundary_faces']).ravel('F')
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -67,9 +65,9 @@ def add_data_darcy(gb, domain, tol):
         d['param'] = param
 
     # Assign coupling permeability
-    gb.add_edge_prop('kn')
-    for e, d in gb.edges_props():
-        gn = gb.sorted_nodes_of_edge(e)
+    gb.add_edge_props('kn')
+    for e, d in gb.edges():
+        gn = gb.nodes_of_edge(e)
         aperture = np.power(1e-2, gb.dim_max() - gn[0].dim)
         d['kn'] = np.ones(gn[0].num_cells) / aperture * kf
 
@@ -82,7 +80,7 @@ def add_data_advection_diffusion(gb, domain, tol):
         param = d['param']
 
         kxx = 5 * 1e-2 * np.ones(g.num_cells)
-        perm = tensor.SecondOrder(g.dim, kxx)
+        perm = tensor.SecondOrderTensor(g.dim, kxx)
         param.set_tensor("transport", perm)
 
         # The 0.5 needs to be fixed in a better way
@@ -90,7 +88,7 @@ def add_data_advection_diffusion(gb, domain, tol):
             g.cell_volumes * param.get_aperture()
         param.set_source("transport", source)
 
-        bound_faces = g.get_boundary_faces()
+        bound_faces = np.argwhere(g.tags['domain_boundary_faces']).ravel('F')
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -115,10 +113,10 @@ def add_data_advection_diffusion(gb, domain, tol):
                 g, np.empty(0), np.empty(0)))
 
     # Assign coupling discharge
-    gb.add_edge_prop('param')
-    for e, d in gb.edges_props():
-        g_h = gb.sorted_nodes_of_edge(e)[1]
-        discharge = gb.node_prop(g_h, 'discharge')
+    gb.add_edge_props('param')
+    for e, d in gb.edges():
+        g_h = gb.nodes_of_edge(e)[1]
+        discharge = gb.node_props(g_h)['discharge']
         d['param'] = Parameters(g_h)
         d['discharge'] = discharge
 
@@ -130,21 +128,12 @@ folder = os.path.dirname(os.path.realpath(__file__)) + "/"
 export_folder = folder + 'advection_diffusion_coupling'
 tol = 1e-3
 
-mesh_kwargs = {}
-mesh_kwargs['mesh_size'] = {'mode': 'constant',
-                            'value': 0.045, 'bound_value': 0.045}
-
+mesh_kwargs = {'mesh_size_frac': 0.045,
+               'mesh_size_min': 0.01}
 domain = {'xmin': -0.2, 'xmax': 1.2, 'ymin': -0.2, 'ymax': 1.2}
 gb = importer.dfm_2d_from_csv(folder + 'network.csv', mesh_kwargs, domain)
 gb.compute_geometry()
 gb.assign_node_ordering()
-
-gb.add_node_props(['face_tags'])
-for g, d in gb:
-    d['face_tags'] = g.face_tags.copy()
-
-internal_flag = FaceTag.FRACTURE
-[g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
 
 # Assign parameters
 add_data_darcy(gb, domain, tol)
@@ -153,7 +142,7 @@ add_data_darcy(gb, domain, tol)
 darcy = vem_dual.DualVEMMixedDim('flow')
 A_flow, b_flow = darcy.matrix_rhs(gb)
 
-solver_source = vem_source.IntegralMixedDim('flow')
+solver_source = vem_source.DualSourceMixedDim('flow')
 A_source, b_source = solver_source.matrix_rhs(gb)
 
 up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
@@ -170,9 +159,6 @@ if do_save:
     exporter.export_vtk(gb, 'darcy', ['pressure', "P0u"], folder=export_folder)
 
 #################################################################
-
-for g, d in gb:
-    g.face_tags = d['face_tags']
 
 physics = 'transport'
 advection = upwind.UpwindMixedDim(physics)

@@ -112,28 +112,28 @@ class AdTest(unittest.TestCase):
         assert b == 3
 
     def test_mul_ad_var_mat(self):
-        x = Ad_array(np.array([1,2,3]), [sps.diags([3,2,1])])
+        x = Ad_array(np.array([1,2,3]), sps.diags([3,2,1]))
         A = sps.csc_matrix(np.array([[1,2,3],[4,5,6],[7,8,9]]))
         f = x * A
         sol = np.array([30, 36, 42])
         jac = np.diag([3, 2, 1]) * A
 
-        assert np.all(f.val == sol) and np.all(f.jac[0] == jac)
-        assert np.all(x.val == np.array([1,2,3])) and np.all(x.jac[0] == np.diag([3,2,1]))
+        assert np.all(f.val == sol) and np.all(f.jac == jac)
+        assert np.all(x.val == np.array([1,2,3])) and np.all(x.jac == np.diag([3,2,1]))
         assert np.all(A == np.array([[1,2,3],[4,5,6],[7,8,9]]))
 
     def test_advar_mul_vec(self):
-        x = Ad_array(np.array([1,2,3]), [sps.diags([3,2,1])])
+        x = Ad_array(np.array([1,2,3]), sps.diags([3,2,1]))
         A = np.array([1, 3, 10])
         f = x * A
         sol = np.array([1, 6, 30])
         jac = np.diag([3, 6, 10])
         
-        assert np.all(f.val == sol) and np.all(f.jac[0] == jac)
-        assert np.all(x.val == np.array([1,2,3])) and np.all(x.jac[0] == np.diag([3,2,1]))
+        assert np.all(f.val == sol) and np.all(f.jac == jac)
+        assert np.all(x.val == np.array([1,2,3])) and np.all(x.jac == np.diag([3,2,1]))
 
     def test_advar_m_mul_vec_n(self):
-        x =  Ad_array(np.array([1,2,3]), [sps.diags([3,2,1])])
+        x =  Ad_array(np.array([1,2,3]), sps.diags([3,2,1]))
         vec = np.array([1, 2])
         R = sps.csc_matrix(np.array([[1, 0, 1], [0, 1, 0]]))
         y = R * x
@@ -146,27 +146,26 @@ class AdTest(unittest.TestCase):
         assert np.sum(z.full_jac().A - Jz) == 0
 
     def test_mul_sps_advar(self):
-        J = np.array([[[1,3,1],[5,0,0],[5,1,2]]])
+        J = sps.csc_matrix(np.array([[1,3,1],[5,0,0],[5,1,2]]))
         x = Ad_array(np.array([1,2,3]), J)
         A = sps.csc_matrix(np.array([[1,2,3],[4,5,6],[7,8,9]]))
         f = A * x
                 
         assert np.all(f.val == [14,32,50])
-        assert np.all(f.jac == A*J[0])
+        assert np.all(f.jac == A*J.A)
 
     def test_mul_advar_vectors(self):
         Ja = sps.csc_matrix(np.array([[1,3,1],[5,0,0],[5,1,2]]))
         Jb = sps.csc_matrix(np.array([[1,0,0],[0,1,0],[0,0,1]]))
-        a = Ad_array(np.array([1,2,3]), [Ja])
-        b = Ad_array(np.array([1,1,1]), [Jb])
+        a = Ad_array(np.array([1,2,3]), Ja)
+        b = Ad_array(np.array([1,1,1]), Jb)
         A = sps.csc_matrix(np.array([[1,2,3],[4,5,6],[7,8,9]]))
         
         f = A*a + b
         jac  = A*Ja + Jb
 
         assert np.all(f.val == [15, 33, 51])
-        assert np.sum(f.jac[0] != A*Ja + Jb) == 0
-        assert len(f.jac) == 1
+        assert np.sum(f.full_jac() != A*Ja + Jb) == 0
         assert np.sum(Ja != sps.csc_matrix(np.array([[1,3,1],[5,0,0],[5,1,2]]))) == 0
         assert np.sum(Jb != sps.csc_matrix(np.array([[1,0,0],[0,1,0],[0,0,1]]))) == 0
     def test_power_advar_scalar(self):
@@ -227,7 +226,7 @@ class AdTest(unittest.TestCase):
                       [2, 4, 1, 9, 9],
                       [6, 2, 1, 45, 2]])
 
-        a = Ad_array(np.array([1, 2, 3, 4, 5]), np.array([J1, J2]))
+        a = Ad_array(np.array([1, 2, 3, 4, 5]), J.copy())#np.array([J1, J2]))
 
         assert np.sum(a.full_jac() != J) == 0
 
