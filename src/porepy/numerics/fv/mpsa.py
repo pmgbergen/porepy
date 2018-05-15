@@ -10,6 +10,7 @@ that module as well.
 """
 import numpy as np
 import scipy.sparse as sps
+import logging
 
 from porepy.numerics.fv import fvutils
 from porepy.utils import matrix_compression, mcolon, sparse_mat
@@ -17,6 +18,8 @@ from porepy.grids import structured, partition
 from porepy.params import tensor, bc
 from porepy.numerics.mixed_dim.solver import Solver
 
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 class Mpsa(Solver):
 
@@ -326,7 +329,7 @@ class FracturedMpsa(Mpsa):
 
     def discretize_fractures(self, g, data, faces=None, **kwargs):
         """
-        Discretize the vector elliptic equation by the multi-point stress and added 
+        Discretize the vector elliptic equation by the multi-point stress and added
         degrees of freedom on the fracture faces
 
         The method computes fluxes over faces in terms of displacements in
@@ -554,7 +557,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
     Example:
         # Set up a Cartesian grid
         g = structured.CartGrid([5, 5])
-        c =tensor.FourthOrder(g.dim, np.ones(g.num_cells))
+        c =tensor.FourthOrderTensor(g.dim, np.ones(g.num_cells))
 
         # Dirirchlet boundary conditions
         bound_faces = g.get_all_boundary_faces().ravel()
@@ -599,7 +602,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
         peak_mem = _estimate_peak_memory_mpsa(g)
         num_part = np.ceil(peak_mem / max_memory)
 
-        print('Split MPSA discretization into ' + str(num_part) + ' parts')
+        logger.info('Split MPSA discretization into '+str(num_part)+' parts')
 
         # Let partitioning module apply the best available method
         part = partition.partition(g, num_part)
@@ -659,7 +662,7 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
 
     Parameters:
         g (porepy.grids.grid.Grid): grid to be discretized
-        constit (porepy.params.tensor.SecondOrder) permeability tensor
+        constit (porepy.params.tensor.SecondOrderTensor) permeability tensor
         bnd (porepy.params.bc.BoundaryCondition) class for boundary conditions
         faces (np.ndarray) faces to be considered. Intended for partial
             discretization, may change in the future
@@ -817,7 +820,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
     bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
     # Most of the work is done by submethod for elasticity (which is common for
     # elasticity and poro-elasticity).
-    
+
     hook, igrad, rhs_cells, _, _ = mpsa_elasticity(g, constit,
                                                    subcell_topology,
                                                    bound_exclusion, eta,
@@ -832,7 +835,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter='numba'):
                               subcell_topology.subfno_unique, nd)
 
     # Stress discretization
-    stress = hf2f * hook_igrad * rhs_cells    
+    stress = hf2f * hook_igrad * rhs_cells
 
     # Right hand side for boundary discretization
     if bound_exclusion.bc_type == 'scalar':
@@ -908,7 +911,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta,
     # Pair the forces from each side
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym)
     ncsym = bound_exclusion.exclude_dirichlet_nd(ncsym)
-    
+
     num_subfno = subcell_topology.subfno.max() + 1
     hook_cell = sps.coo_matrix((np.zeros(1), (np.zeros(1), np.zeros(1))),
                                shape=(num_subfno * nd,
@@ -1260,7 +1263,7 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
 
     elif bound_exclusion.bc_type == 'vectorial':
         node_occ = np.hstack((nno_stress, nno_displacement))
-        
+
     sorted_ind = np.argsort(node_occ, kind='mergesort')
     rows2blk_diag = sps.coo_matrix((np.ones(sorted_ind.size),
                                     (np.arange(sorted_ind.size),
@@ -1366,9 +1369,9 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     is_dir = bound_exclusion.exclude_neumann(bound.is_dir[fno].astype(
         'int64'))
     dir_ind_single = np.argwhere(is_dir).ravel('F')
-  
+
     dir_ind = expand_ind(dir_ind_single, nd, is_dir.size)
-    
+
     # The coefficients in the matrix should be duplicated the same way as
     # the row indices, but with no increment
     dir_val = expand_ind(sgn[dir_ind_single_all], nd, 0)
@@ -1414,7 +1417,7 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     conditions assigned component-wise.
 
     For parameters and return, refer to the above create_bound_rhs
-    
+
     """
     nd = g.dim
 
@@ -1434,9 +1437,9 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     if nd == 3:
         num_neu += sum(bound.is_neu[2, fno])
         num_dir += sum(bound.is_dir[2, fno])
-    
+
     num_bound = num_neu + num_dir
-    
+
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
     is_neu_x = bound_exclusion.exclude_dirichlet_x(bound.is_neu[0, fno].astype(
@@ -1445,7 +1448,7 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
 
     is_neu_y = bound_exclusion.exclude_dirichlet_y(bound.is_neu[1, fno].astype(
         'int64'))
-    neu_ind_single_y = np.argwhere(is_neu_y).ravel('F')    
+    neu_ind_single_y = np.argwhere(is_neu_y).ravel('F')
     neu_ind_single_y += is_neu_x.size
 
     # We also need to account for all half faces, that is, do not exclude
@@ -1512,7 +1515,7 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
         'int64'))
     dir_ind_single_y = np.argwhere(is_dir_y).ravel('F')
     dir_ind_single_y += is_dir_x.size
-    
+
     dir_ind_single_all_x = np.argwhere(bound.is_dir[0, fno].astype('int'))\
         .ravel('F')
     dir_ind_single_all_y = np.argwhere(bound.is_dir[1, fno].astype('int'))\
@@ -1556,7 +1559,7 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
 
     # stack together
     bnd_ind = np.hstack((is_bnd_neu, is_bnd_dir))
-    
+
     # Some care is needed to compute coefficients in Neumann matrix: sgn is
     # already defined according to the subcell topology [fno], while areas
     # must be drawn from the grid structure, and thus go through fno

@@ -3,22 +3,19 @@
 
 @author: fumagalli, alessio
 """
-
 import warnings
 import numpy as np
 import scipy.sparse as sps
+import logging
 
-from porepy.params import tensor
+import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
-from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
-
-from porepy.utils import comp_geom as cg
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 #------------------------------------------------------------------------------#
 
-class DualVEMMixedDim(SolverMixedDim):
+class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
     def __init__(self, physics='flow'):
         self.physics = physics
@@ -27,7 +24,8 @@ class DualVEMMixedDim(SolverMixedDim):
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = DualCoupling(self.discr)
 
-        self.solver = Coupler(self.discr, self.coupling_conditions)
+        self.solver = pp.numerics.mixed_dim.coupler.Coupler(self.discr,
+                                                       self.coupling_conditions)
 
     def extract_u(self, gb, up, u):
         gb.add_node_props([u])
@@ -74,11 +72,11 @@ class DualVEMMixedDim(SolverMixedDim):
                 conservation_l[c_l] -= u_f
 
         for g, d in gb:
-            print(np.amax(np.abs(d[conservation])))
+            logger.info(np.amax(np.abs(d[conservation])))
 
 #------------------------------------------------------------------------------#
 
-class DualVEMDFN(SolverMixedDim):
+class DualVEMDFN(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
     def __init__(self, dim_max, physics='flow'):
         # NOTE: There is no flow along the intersections of the fractures.
@@ -91,8 +89,9 @@ class DualVEMDFN(SolverMixedDim):
 
         kwargs = {"discr_ndof": self.__ndof__,
                   "discr_fct": self.__matrix_rhs__}
-        self.solver = Coupler(coupling = self.coupling_conditions, **kwargs)
-        SolverMixedDim.__init__(self)
+        self.solver = pp.numerics.mixed_dim.coupler.Coupler(
+                                    coupling=self.coupling_conditions, **kwargs)
+        pp.numerics.mixed_dim.solver.SolverMixedDim.__init__(self)
 
     def extract_u(self, gb, up, u):
         for g, d in gb:
@@ -136,7 +135,7 @@ class DualVEMDFN(SolverMixedDim):
 
 #------------------------------------------------------------------------------#
 
-class DualVEM(Solver):
+class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
 #------------------------------------------------------------------------------#
 
@@ -255,7 +254,7 @@ class DualVEM(Solver):
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
+        c_centers, f_normals, f_centers, R, dim, _ = pp.cg.map_grid(g)
 
         if not data.get('is_tangential', False):
                 # Rotate the permeability tensor and delete last dimension
@@ -445,7 +444,7 @@ class DualVEM(Solver):
 
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to self.massHdiv
-        k = tensor.SecondOrder(g.dim, kxx=np.ones(g.num_cells))
+        k = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
         param = data['param']
         a = param.get_aperture()
 
@@ -453,7 +452,7 @@ class DualVEM(Solver):
         index = np.argsort(cells)
         faces, sign = faces[index], sign[index]
 
-        c_centers, f_normals, f_centers, R, dim, _ = cg.map_grid(g)
+        c_centers, f_normals, f_centers, R, dim, _ = pp.cg.map_grid(g)
 
         # In the virtual cell approach the cell diameters should involve the
         # apertures, however to keep consistency with the hybrid-dimensional
@@ -561,7 +560,7 @@ class DualVEM(Solver):
 
 #------------------------------------------------------------------------------#
 
-class DualCoupling(AbstractCoupling):
+class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
@@ -621,7 +620,7 @@ class DualCoupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
-class DualCouplingDFN(AbstractCoupling):
+class DualCouplingDFN(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 

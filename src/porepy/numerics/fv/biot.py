@@ -263,8 +263,8 @@ class Biot(Solver):
         Example:
             # Set up a Cartesian grid
             g = structured.CartGrid([5, 5])
-            c = tensor.FourthOrder(g.dim, np.ones(g.num_cells))
-            k = tensor.SecondOrder(g.dim, np.ones(g.num_cells))
+            c = tensor.FourthOrderTensor(g.dim, np.ones(g.num_cells))
+            k = tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
 
             # Dirirchlet boundary conditions for mechanics
             bound_faces = g.get_all_boundary_faces().ravel()

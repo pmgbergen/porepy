@@ -19,7 +19,7 @@ def setup_cart_2d(nx):
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrder(g.dim, kxx)
+    perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     return g, perm
 
