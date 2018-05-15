@@ -16,7 +16,7 @@ def setup_cart_2d(nx):
     gb.add_node_props(['param'])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrder(gb.dim_max(), kxx)
+        perm = tensor.SecondOrderTensor(gb.dim_max(), kxx)
         a = 0.01 / np.max(nx)
         a = np.power(a, gb.dim_max() - g.dim)
         param = Parameters(g)

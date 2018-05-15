@@ -190,8 +190,6 @@ class TestCartGridGeometry1CellPert3D(unittest.TestCase):
         cy = cx
         cz = cx
         cc = self.g.cell_centers
-        print(cx)
-        print(cc[:])
         assert np.isclose(cx, cc[0]).all()
         assert np.isclose(cy, cc[1]).all()
         assert np.isclose(cz, cc[2]).all()
@@ -247,7 +245,7 @@ class TestStructuredTetrahedralGrid(unittest.TestCase):
         g.compute_geometry()
         self.g = g
 
-	# The ordering of faces may differ depending on the test system (presumably version of scipy or similar). Below are hard-coded combination of face-nodes, and the corresponding faces and face_areas. 
+    # The ordering of faces may differ depending on the test system (presumably version of scipy or similar). Below are hard-coded combination of face-nodes, and the corresponding faces and face_areas.
         self.fn = np.array([[0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3, 3, 4,
                           5],
                          [1, 1, 2, 2, 2, 2, 3, 3, 4, 4, 5, 3, 4, 5, 5, 6, 5,

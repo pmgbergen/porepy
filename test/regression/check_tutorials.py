@@ -32,9 +32,11 @@ def remove_plots(fn):
         for line in content:
             if line.strip()[:9] == 'plot_grid':
                 continue
+            if line.strip()[:12] == 'pp.plot_grid':
+                continue
             if line.strip()[:4] == 'plt.':
                 continue
-            if line.strip()[:8] == 'frac_viz':
+            if line.strip()[:17] == 'pp.plot_fractures':
                 continue
             if line.strip()[:11] == 'get_ipython':
                 continue

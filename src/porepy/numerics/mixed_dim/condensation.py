@@ -157,11 +157,11 @@ def new_coupling_fluxes(gb_old, gb_el, neighbours_old, neighbours_el, node_old):
 
     # Assemble original system:
     for i in range(n_neighbours):
-        cc = gb_old.edge_prop(
+        cc = gb_old.edge_props(
             (neighbours_old[i], node_old), 'coupling_discretization')
         idx = np.ix_([i, n_neighbours], [i, n_neighbours])
-        all_cc[idx] += cc[0]
-        dofs[i] = cc[0][0][0].shape[0]
+        all_cc[idx] += cc
+        dofs[i] = cc[0][0].shape[0]
     global_idx = np.r_[0, np.cumsum(dofs)].astype(int)
     all_cc = sps.bmat(all_cc, 'csr')
 
@@ -202,7 +202,8 @@ def new_coupling_fluxes(gb_old, gb_el, neighbours_old, neighbours_el, node_old):
             g_1 = neighbours_el[j]
             id_1 = slice(global_idx[j], global_idx[j + 1])
             cc_01 = all_cc.tocsr()[id_0, :].tocsc()[:, id_1]
-            gb_el.add_edge_prop('coupling_flux', [[g_0, g_1]], [-cc_01])
+            gb_el.add_edge_props('coupling_flux', [[g_0, g_1]])
+            gb_el.edge_props([g_0, g_1])['coupling_flux'] = -cc_01
 
 
 def compute_elimination_fluxes(gb, gb_el, elimination_data):

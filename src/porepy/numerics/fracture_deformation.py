@@ -115,23 +115,32 @@ class FrictionSlipModel():
         # and all the normal tractions should be negative.
         sigma_n = -T_n - self._data['face_pressure'][fi]
         assert np.all(sigma_n > 0 )
+
+        # new slip are fracture faces slipping in this iteration
         new_slip = T_s - \
             self.mu(fi, self.is_slipping[fi]) * \
             sigma_n > 1e-5 * self._data['rock'].MU
 
         self.is_slipping[fi] = self.is_slipping[fi] | new_slip
-        excess_shear = np.abs(
-            T_s) - self.mu(fi, self.is_slipping[fi]) * sigma_n
+
+        # calculate the shear stiffness
         shear_stiffness = np.sqrt(
             self._gb.face_areas[fi]) / (self._data['rock'].MU)
+
+        # calculate aproximated slip distance
+        excess_shear = np.abs(
+            T_s) - self.mu(fi, self.is_slipping[fi]) * sigma_n
         slip_d = excess_shear * shear_stiffness * self.gamma() * new_slip
 
         # We also add the values to the left cells so that when we average the
         # face values to obtain a cell value, it will equal the face value
-        self.d_n[fi] += self.fracture_dilation(slip_d)
-        self.d_n[fi_left] += self.fracture_dilation(slip_d)
-        assert np.all(self.d_n[fi] >-1e-6)
-        slip_vec =  -t * slip_d - n * self.fracture_dilation(slip_d)
+
+        slip_vec = -t * slip_d - n * self.fracture_dilation(slip_d, fi)
+
+        self.d_n[fi] += self.fracture_dilation(slip_d, fi)
+        self.d_n[fi_left] += self.fracture_dilation(slip_d, fi_left)
+
+        assert np.all(self.d_n[fi] > -1e-6)
         
         self.x[:, fi] += slip_vec
         self.x[:, fi_left] -= slip_vec
@@ -191,17 +200,13 @@ class FrictionSlipModel():
             trac.reshape((3, -1), order='F')[:, fi_left]
         T_right = sgn_right * \
             trac.reshape((3, -1), order='F')[:, fi]
-        if not np.allclose(T_left, -T_right):#, atol=1e-6 * np.max(T_left)):
-            import pdb
-            pdb.set_trace()
-
         assert np.allclose(T_left, -T_right)
 
         # TESTING DONE
 
         return T_n, T_s, normals, tangents
 
-    def fracture_dilation(self, distance):
+    def fracture_dilation(self, distance, _):
         """
         defines the fracture dilation as a function of slip distance
         Parameters:
@@ -274,7 +279,7 @@ class FrictionSlipModel():
         self._data[self.slip_name] = self.x
         return self.x
 
-    def aperture_change(self, aperture_name='apperture_change'):
+    def aperture_change(self, aperture_name='aperture_change'):
         """
         Save the aperture change to the data dictionary. The aperture change
         will be saved as a (self.grid().num_faces) array

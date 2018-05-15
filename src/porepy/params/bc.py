@@ -124,22 +124,31 @@ class BoundaryConditionVectorial(object):
         self.bc_type = 'vectorial'
 
         # Find boundary faces
-        bf = g.get_all_boundary_faces()
+        self.bf = g.get_all_boundary_faces()
 
         self.is_neu = np.zeros((g.dim, self.num_faces), dtype=bool)
         self.is_dir = np.zeros((g.dim, self.num_faces), dtype=bool)
 
-        self.is_neu[:, bf] = True
+        self.is_neu[:, self.bf] = True
+        self.set_bc(faces, cond)
+
+    def set_bc(self, faces, cond):
 
         if faces is not None:
             # Validate arguments
             assert cond is not None
-            if not np.all(np.in1d(faces, bf)):
+            if faces.dtype == bool:
+                if faces.size != self.num_faces:
+                    raise ValueError('''When giving logical faces, the size of
+                                        array must match number of faces''')
+                faces = np.argwhere(faces)
+
+            if not np.all(np.in1d(faces, self.bf)):
                 raise ValueError('Give boundary condition only on the boundary')
             if isinstance(cond, str):
                 cond = [cond] * faces.size
             if faces.size != len(cond):
-                raise ValueError(str(g.dim) + ' BC per face')
+                raise ValueError(str(self.dim) + ' BC per face')
 
             for j in np.arange(faces.size):
                 s = cond[j]
@@ -164,6 +173,14 @@ class BoundaryConditionVectorial(object):
                     if self.dim == 3:
                         self.is_dir[2, faces[j]] = False
                         self.is_neu[2, faces[j]]= True
+                elif s.lower() == 'dir_xy':
+                    self.is_dir[0, faces[j]] = True
+                    self.is_neu[0, faces[j]] = False
+                    self.is_dir[1, faces[j]] = True
+                    self.is_neu[1, faces[j]] = False
+                    if self.dim == 3:
+                        self.is_dir[2, faces[j]] = False
+                        self.is_neu[2, faces[j]]= True
                 elif s.lower() == 'dir_z':
                     self.is_dir[0, faces[j]] = False
                     self.is_dir[1, faces[j]] = False
@@ -173,7 +190,6 @@ class BoundaryConditionVectorial(object):
                     self.is_neu[2, faces[j]] = False
                 else:
                     raise ValueError('Boundary should be Dirichlet or Neumann')
-
 
 def face_on_side(g, side, tol=1e-8):
     """ Find faces on specified sides of a grid.
