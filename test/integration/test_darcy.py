@@ -107,6 +107,9 @@ class BasicsTest(unittest.TestCase):
                 assert np.allclose(d['pressure'], p_ref)
         return gb
 
+    if __name__ == '__main__':
+        unittest.main()
+
 
 def setup_3d(nx, simplex_grid=False):
     f1 = np.array(
@@ -210,3 +213,6 @@ def elliptic_dirich_neumann_source_sink_cart_ref_3d():
                       -8.37196805, -24.79222197, -35.8194776, -40.46051172,
                       -8.34414468, -24.57071193, -35.99975111, -44.22506448])
     return p_ref
+
+if __name__ == '__main__':
+    unittest.main()

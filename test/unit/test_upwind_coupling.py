@@ -768,3 +768,5 @@ def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d():
     return U, rhs
 
 #------------------------------------------------------------------------------#
+if __name__ == '__main__':
+    unittest.main()
