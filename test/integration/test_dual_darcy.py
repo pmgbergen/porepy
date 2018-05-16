@@ -261,3 +261,5 @@ def elliptic_dirich_neumann_source_sink_cart_ref_3d():
     return p_ref
 
 #------------------------------------------------------------------------------#
+if __name__ == '__main__':
+    unittest.main()

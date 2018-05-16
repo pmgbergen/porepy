@@ -148,18 +148,25 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         """
         Return the number of degrees of freedom associated to the method.
         In this case number of faces (velocity dofs) plus the number of cells
-        (pressure dof).
+        (pressure dof). If a mortar grid is given the number of dof are equal to
+        the number of cells, we are considering an inter-dimensional interface
+        with flux variable as mortars.
 
         Parameter
         ---------
-        g: grid, or a subclass.
+        g: grid.
 
         Return
         ------
         dof: the number of degrees of freedom.
 
         """
-        return g.num_cells + g.num_faces
+        if isinstance(g, pp.Grid):
+            return g.num_cells + g.num_faces
+        elif isinstance(g, pp.MortarGrid):
+            return g.num_cells
+        else:
+            raise ValueError
 
 #------------------------------------------------------------------------------#
 
@@ -167,17 +174,6 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         """
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using dual virtual element method.
-        The name of data in the input dictionary (data) are:
-        perm : second_order_tensor
-            Permeability defined cell-wise.
-        source : array (self.g.num_cells)
-            Scalar source term defined cell-wise. If not given a zero source
-            term is assumed and a warning arised.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
 
         Parameters
         ----------
@@ -191,24 +187,6 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         rhs: array (g.num_faces+g_num_cells)
             Right-hand side which contains the boundary conditions and the scalar
             source term.
-
-        Examples
-        --------
-        b_faces_neu = ... # id of the Neumann faces
-        b_faces_dir = ... # id of the Dirichlet faces
-        bnd = bc.BoundaryCondition(g, np.hstack((b_faces_dir, b_faces_neu)),
-                                ['dir']*b_faces_dir.size + ['neu']*b_faces_neu.size)
-        bnd_val = {'dir': fun_dir(g.face_centers[:, b_faces_dir]),
-                   'neu': fun_neu(f.face_centers[:, b_faces_neu])}
-
-        data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
-
-        D, rhs = dual.matrix_rhs(g, data)
-        up = sps.linalg.spsolve(D, rhs)
-        u = dual.extract_u(g, up)
-        p = dual.extract_p(g, up)
-        P0u = dual.project_u(g, u, perm)
-
         """
         M, bc_weight = self.matrix(g, data, bc_weight=True)
         return M, self.rhs(g, data, bc_weight)
@@ -569,7 +547,7 @@ class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
+    def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
         Note: the right-hand side is not implemented now.
@@ -591,32 +569,56 @@ class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         """
         # pylint: disable=invalid-name
 
-        # Normal permeability and aperture of the intersection
-        k = 2*data_edge['kn'] # TODO: need to be handled in a different way
-        aperture_h = data_h['param'].get_aperture()
-
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        dof, cc = self.create_block_matrix(g_h, g_l)
+        g_m = data_edge['mortar_grid']
+        dof, cc = self.create_block_matrix([g_h, g_l, g_m])
 
         # Recover the information for the grid-grid mapping
-        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
-        faces, cells_h, sign = sps.find(g_h.cell_faces)
-        ind = np.unique(faces, return_index=True)[1]
-        sign = sign[ind][faces_h]
-        cells_h = cells_h[ind][faces_h]
+        faces_h, cells_h, sign_h = sps.find(g_h.cell_faces)
+        ind_faces_h = np.unique(faces_h, return_index=True)[1]
+        cells_h = cells_h[ind_faces_h]
+        sign_h = sign_h[ind_faces_h]
 
-        # Compute the off-diagonal terms
-        dataIJ, I, J = sign, g_l.num_faces+cells_l, faces_h
-        cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
-        cc[0, 1] = cc[1, 0].T
+        # Velocity degree of freedom matrix
+        U = sps.diags(sign_h)
 
-        # Compute the diagonal terms
-        dataIJ = 1./(g_h.face_areas[faces_h] * aperture_h[cells_h] * k[cells_l])
-        I, J = faces_h, faces_h
-        cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
+        shape = (g_h.num_cells, g_m.num_cells)
+        hat_E_int = g_m.mortar_to_high_int()
+        hat_E_int = sps.bmat([[U*hat_E_int], [sps.csr_matrix(shape)]])
 
-        return cc
+        hat_P_avg = g_m.high_to_mortar_avg()
+        check_P_avg = g_m.low_to_mortar_avg()
+
+        cc[0, 2] = matrix[0, 0] * hat_E_int
+        cc[2, 0] = hat_E_int.T * matrix[0, 0]
+        cc[2, 2] = hat_E_int.T * matrix[0, 0] * hat_E_int
+
+        # Mortar mass matrix
+        inv_M = sps.diags(1./g_m.cell_volumes)
+
+        # Normal permeability and aperture of the intersection
+        inv_k = 1./(2.*data_edge['kn'])
+        aperture_h = data_h['param'].get_aperture()
+
+        # Inverse of the normal permability matrix
+        Eta = sps.diags(np.divide(inv_k, hat_P_avg*aperture_h[cells_h]))
+
+        matrix[2, 2] += inv_M*Eta
+
+        A = check_P_avg.T
+        shape = (g_l.num_faces, A.shape[1])
+        cc[1, 2] = sps.bmat([[sps.csr_matrix(shape)], [A]])
+        cc[2, 1] = cc[1, 2].T
+
+        matrix += cc
+        dof = np.where(hat_E_int.sum(axis=1).A.astype(np.bool))[0]
+        norm = np.linalg.norm(matrix[0, 0].diagonal(), np.inf)
+        matrix[0, 0][dof, :] *= 0
+        matrix[0, 0][dof, dof] = norm
+        matrix[0, 2][dof, :] *= 0
+
+        return matrix
 
 #------------------------------------------------------------------------------#
 

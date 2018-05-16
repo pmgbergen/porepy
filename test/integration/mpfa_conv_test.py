@@ -24,7 +24,7 @@ from porepy.grids import structured, simplex
 from porepy.params import tensor, bc
 from porepy.numerics.fv import mpfa, fvutils, mpsa
 from porepy.utils.mcolon import mcolon
-from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
+import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
 class _SolutionHomogeneousDomainFlow(object):
@@ -98,8 +98,8 @@ class MainTester(unittest.TestCase):
         rewriting of the way analytical solutions are represented).
         """
         # Discretization. Use python inverter for speed
-        flux, bound_flux = mpfa.mpfa(
-            g, k, bound_cond, inverter='python', eta=0)
+        flux, bound_flux, _, _ = mpfa.mpfa(g, k, bound_cond, inverter='python',
+                                           eta=0)
         # Set up linear system
         div = fvutils.scalar_divergence(g)
         a = div * flux
@@ -141,8 +141,8 @@ class MainTester(unittest.TestCase):
         # The rest of the function is similar to self.solve.system, see that
         # for comments.
         bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
-        flux, bound_flux = mpfa.mpfa(g, perm, bound_cond, inverter='python',
-                                     eta=0)
+        flux, bound_flux, _, _ = mpfa.mpfa(g, perm, bound_cond,
+                                           inverter='python', eta=0)
 
         xc = g.cell_centers
         xf = g.face_centers
@@ -1065,5 +1065,5 @@ class TriangleGrid2D(MainTester):
         assert np.isclose(u_num, u_precomp, atol=1e-10).all()
         assert np.isclose(stress_num, stress_precomp, atol=1e-10).all()
 
-    if __name__ == '__main__':
-        unittest.main()
+if __name__ == '__main__':
+    unittest.main()

@@ -199,7 +199,8 @@ class Fracture(object):
             p (np.ndarray, 3xn): Points to add
             check_convexity (boolean, optional): Verify that the polygon is
                 convex. Defaults to true.
-            tol (double): Tolerance used to check if the point already exists.
+            tol (double, optional): Tolerance used to check if the point
+                already exists. Defaults to 1e-4.
 
         Return:
             boolean, true if the resulting polygon is convex.
@@ -1005,6 +1006,8 @@ class FractureNetwork(object):
         # No auxiliary points have been added
         self.auxiliary_points_added = False
 
+        self.bounding_box_imposed = False
+
     def add(self, f):
         """ Add a fracture to the network.
 
@@ -1089,11 +1092,11 @@ class FractureNetwork(object):
         for i, first in enumerate(self._fractures):
             for j in range(i + 1, len(self._fractures)):
                 second = self._fractures[j]
-                logger.info('Processing fracture %i and %i', i, j)
+                logger.debug('Processing fracture %i and %i', i, j)
                 isect, bound_first, bound_second = first.intersects(second,
                                                                     self.tol)
                 if np.array(isect).size > 0:
-                    logger.info('Found an intersection between %i and %i', i, j)
+                    logger.debug('Found an intersection between %i and %i', i, j)
                     # Let the intersection know whether both intersection
                     # points lies on the boundary of each fracture
                     self.intersections.append(Intersection(first, second,
@@ -1715,6 +1718,27 @@ class FractureNetwork(object):
         s = 'Fracture set with ' + str(len(self._fractures)) + ' fractures'
         return s
 
+    def bounding_box(self):
+        """ Obtain bounding box for fracture network.
+
+        The box is defined by the external boundary, if imposed, or if not by
+        the maximal extent of the fractures in each direction.
+
+        Returns:
+            dictionary with fields 'xmin', 'xmax', 'ymin', 'ymax', 'zmin',
+                'zmax'
+        """
+        min_coord = np.ones(3) * float('inf')
+        max_coord = -np.ones(3) * float('inf')
+
+        for f in self._fractures:
+            min_coord = np.minimum(np.min(f.p, axis=1), min_coord)
+            max_coord = np.maximum(np.max(f.p, axis=1), max_coord)
+
+        return {'xmin': min_coord[0], 'xmax': max_coord[0],
+                'ymin': min_coord[1], 'ymax': max_coord[1],
+                'zmin': min_coord[2], 'zmax': max_coord[2]}
+
     def add_subdomain_boundaries(self, vertexes):
         """
         Adds subdomain boundaries to the fracture network. These are
@@ -1763,6 +1787,8 @@ class FractureNetwork(object):
             boundary will be truncated.
 
         """
+        self.bounding_box_imposed = True
+
         if box is None:
             OVERLAP = 0.15
             cmin = np.ones((3, 1)) * float('inf')
@@ -1774,8 +1800,10 @@ class FractureNetwork(object):
             cmax = cmax[:, 0]
 
             dx = OVERLAP * (cmax - cmin)
-            # In the case were all fractures are aligned with a coordinate
-            # axis, assign an extension in missing directions.
+
+            # If the fractures has no extension along one of the coordinate
+            # (a single fracture aligned with one axis), the domain should
+            # still have an extension.
             hit = np.where(dx < self.tol)[0]
             dx[hit] = OVERLAP * np.max(dx)
 

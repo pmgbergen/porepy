@@ -16,6 +16,7 @@ from porepy.fracs.fractures import Intersection
 from porepy import FractureNetwork
 from porepy.fracs.fractures import FractureNetwork as FractureNetwork_full
 from porepy.grids.grid_bucket import GridBucket
+from porepy.grids import mortar_grid
 from porepy.grids.structured import TensorGrid
 from porepy.utils import mcolon
 from porepy.utils import comp_geom as cg
@@ -23,7 +24,7 @@ from porepy.utils import comp_geom as cg
 
 logger = logging.getLogger(__name__)
 
-def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0, **kwargs):
+def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs):
     """
     Main function for grid generation. Creates a fractured simiplex grid in 2
     or 3 dimensions.
@@ -104,7 +105,6 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], verbose=0
 
     logger.info('Construct mesh')
     tm_tot = time.time()
-    # Call relevant method, depending on grid dimensions.
     if ndim == 2:
         assert fracs is not None, '2d requires definition of fractures'
         assert domain is not None, '2d requires definition of domain'
@@ -255,6 +255,8 @@ def from_gmsh(file_name, dim, **kwargs):
     Import an already generated grid from gmsh.
     NOTE: Only 2d grid is implemented so far.
 
+    TODO: A similar function is being implemnted in the importer, use this instead.
+
     Parameters
     ----------
     file_name (string): Gmsh file name.
@@ -339,6 +341,8 @@ def grid_list_to_grid_bucket(grids, time_tot=None, **kwargs):
     tm_split = time.time()
     split_grid.split_fractures(gb, **kwargs)
     logger.info('Done. Elapsed time ' + str(time.time() - tm_split))
+
+    create_mortar_grids(gb, **kwargs)
 
     gb.assign_node_ordering()
 
@@ -558,12 +562,42 @@ def _assemble_in_bucket(grids, **kwargs):
             for lg in grids[dim + 1]:
                 cell_2_face, cell = tools.obtain_interdim_mappings(
                     lg, fn, n_per_face, **kwargs)
-                face_cells = sps.csc_matrix(
-                    (np.ones(cell.size, dtype=bool), (cell, cell_2_face)),
-                    (lg.num_cells, hg.num_faces))
+                if cell_2_face.size > 0:
+                    face_cells = sps.csc_matrix(
+                        (np.ones(cell.size, dtype=bool), (cell, cell_2_face)),
+                        (lg.num_cells, hg.num_faces))
 
-                # This if may be unnecessary, but better safe than sorry.
-                if face_cells.size > 0:
                     bucket.add_edge([hg, lg], face_cells)
 
     return bucket
+
+#------------------------------------------------------------------------------#
+
+def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
+
+    gb.add_edge_props('mortar_grid')
+    # loop on all the nodes and create the mortar grids
+    for e, d in gb.edges():
+        lg = gb.nodes_of_edge(e)[0]
+        # d['face_cells'].indices gives mappings into the lower dimensional
+        # cells. Count the number of occurences for each cell.
+        num_sides = np.bincount(d['face_cells'].indices)
+        # Each cell should be found either twice (think a regular fracture
+        # that splits a higher dimensional mesh), or once (the lower end of
+        # a T-intersection, or both ends of an L-intersection).
+        if ensure_matching_face_cell:
+            assert np.all(num_sides == 1) or np.all(num_sides == 2)
+        else:
+            assert np.max(num_sides) < 3
+
+        # If all cells are found twice, create two mortar grids
+        if np.all(num_sides > 1):
+            # we are in a two sides situation
+            side_g = {mortar_grid.LEFT_SIDE:  lg.copy(),
+                      mortar_grid.RIGHT_SIDE: lg.copy()}
+        else:
+            # the tag name is just a place-holder we assume left side
+            side_g = {mortar_grid.LEFT_SIDE:  lg.copy()}
+        d['mortar_grid'] = mortar_grid.MortarGrid(lg.dim, side_g, d['face_cells'])
+
+#------------------------------------------------------------------------------#

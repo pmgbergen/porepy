@@ -155,3 +155,5 @@ class BasicsTest(unittest.TestCase):
             g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#
+    if __name__ == '__main__':
+        unittest.main()

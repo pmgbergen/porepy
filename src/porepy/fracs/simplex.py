@@ -69,7 +69,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     """
 
     # Verbosity level
-    verbose = kwargs.get('verbose', 1)
+    verbose = kwargs.get('verbose', 0)
 
     # File name for communication with gmsh
     file_name = kwargs.pop('file_name', 'gmsh_frac_file')
@@ -77,21 +77,22 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     if network is None:
 
         frac_list = []
-        for f in fracs:
-            # Input can be either numpy arrays or predifined fractures. As a
-            # guide, we treat f as a fracture if it has an attribute p which is
-            # a numpy array.
-            # If f turns out not to be a fracture, strange errors will result
-            # as the further program tries to access non-existing methods.
-            # The correct treatment here would be several
-            # isinstance-statements, but that became less than elegant. To
-            # revisit.
-            if hasattr(f, 'p') and isinstance(f.p, np.ndarray):
-                frac_list.append(f)
-            else:
-                # Convert the fractures from numpy representation to our 3D
-                # fracture data structure.
-                frac_list.append(fractures.Fracture(f))
+        if fracs is not None:
+            for f in fracs:
+                # Input can be either numpy arrays or predifined fractures. As a
+                # guide, we treat f as a fracture if it has an attribute p which is
+                # a numpy array.
+                # If f turns out not to be a fracture, strange errors will result
+                # as the further program tries to access non-existing methods.
+                # The correct treatment here would be several
+                # isinstance-statements, but that became less than elegant. To
+                # revisit.
+                if hasattr(f, 'p') and isinstance(f.p, np.ndarray):
+                    frac_list.append(f)
+                else:
+                    # Convert the fractures from numpy representation to our 3D
+                    # fracture data structure.
+                    frac_list.append(fractures.Fracture(f))
 
         # Combine the fractures into a network
         network = fractures.FractureNetwork(frac_list, verbose=verbose,
@@ -100,7 +101,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     network.add_subdomain_boundaries(subdomains)
     # Impose external boundary. If box is None, a domain size somewhat larger
     # than the network will be assigned.
-    network.impose_external_boundary(box)
+    if box is not None or not network.bounding_box_imposed:
+        network.impose_external_boundary(box)
     # Find intersections and split them, preparing the way for dumping the
     # network to gmsh
     if not network.has_checked_intersections:
@@ -108,7 +110,6 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     else:
         logger.info('Use existing intersections')
 
-    start_time = time.time()
 
     # If fields mesh_size_frac and mesh_size_min are provided, try to estimate mesh sizes.
     mesh_size_frac = kwargs.get('mesh_size_frac', None)
@@ -138,46 +139,8 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3,
                                           **gmsh_opts)
 
-    if verbose > 0:
-        start_time = time.time()
-        if gmsh_status == 0:
-            logger.info('Gmsh processed file successfully')
-        else:
-            logger.error('Gmsh failed with status '+str(gmsh_status))
+    return tetrahedral_grid_from_gmsh(file_name, network, **kwargs)
 
-    pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
-
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names
-    phys_names = {v[0]: k for k, v in phys_names.items()}
-
-    # Call upon helper functions to create grids in various dimensions.
-    # The constructors require somewhat different information, reflecting the
-    # different nature of the grids.
-    g_3d = mesh_2_grid.create_3d_grids(pts, cells)
-    g_2d = mesh_2_grid.create_2d_grids(
-        pts, cells, is_embedded=True, phys_names=phys_names,
-        cell_info=cell_info, network=network)
-    g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
-    g_0d = mesh_2_grid.create_0d_grids(pts, cells)
-
-    grids = [g_3d, g_2d, g_1d, g_0d]
-
-    if verbose > 0:
-        delta_time = str(time.time()-start_time)
-        logger.info('\nGrid creation completed. Elapsed time '+delta_time+'\n')
-        for g_set in grids:
-            if len(g_set) > 0:
-                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
-                    '-d grids with '
-                num = 0
-                for g in g_set:
-                    num += g.num_cells
-                s += str(num) + ' cells'
-                logger.info(s)
-        logger.info('\n')
-
-    return grids
 
 def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
                            mesh_size_frac=None, mesh_size_min=None,
