@@ -360,9 +360,9 @@ class DualEllipticModel(EllipticModel):
             self._flux_disc.extract_u(
                 self._gb, self.x_name, self.discharge_name)
 
-            for e, d in self._gb.edges_props():
-                g_h = self._gb.sorted_nodes_of_edge(e)[1]
-                d[discharge_name] = self._gb.node_prop(g_h, discharge_name)
+            for e, d in self._gb.edges():
+                g_h = self._gb.nodes_of_edge(e)[1]
+                d[discharge_name] = self._gb.node_props(g_h, discharge_name)
 
         else:
             discharge = self._flux_disc.extract_u(self._gb, self.x)
