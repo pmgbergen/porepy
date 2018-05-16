@@ -211,8 +211,16 @@ class RT0(Solver):
         if bc and np.any(bc.is_neu):
             is_neu = np.hstack((bc.is_neu,
                                 np.zeros(g.num_cells, dtype=np.bool)))
-            M[is_neu, :] *= 0
-            M[is_neu, is_neu] = norm
+            is_neu = np.where(is_neu)[0]
+
+            # set in an efficient way the essential boundary conditions, by
+            # clear the rows and put norm in the diagonal
+            for row in is_neu:
+                M.data[M.indptr[row]:M.indptr[row+1]] = 0.
+
+            d = M.diagonal()
+            d[is_neu] = norm
+            M.setdiag(d)
 
         if bc_weight:
             return M, norm
