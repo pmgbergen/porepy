@@ -623,9 +623,17 @@ class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         matrix += cc
         dof = np.where(hat_E_int.sum(axis=1).A.astype(np.bool))[0]
         norm = np.linalg.norm(matrix[0, 0].diagonal(), np.inf)
-        matrix[0, 0][dof, :] *= 0
-        matrix[0, 0][dof, dof] = norm
-        matrix[0, 2][dof, :] *= 0
+
+        for row in dof:
+            idx = slice(matrix[0, 0].indptr[row], matrix[0, 0].indptr[row+1])
+            matrix[0, 0].data[idx] = 0.
+
+            idx = slice(matrix[0, 2].indptr[row], matrix[0, 2].indptr[row+1])
+            matrix[0, 2].data[idx] = 0.
+
+        d = matrix[0, 0].diagonal()
+        d[dof] = norm
+        matrix[0, 0].setdiag(d)
 
         return matrix
 
