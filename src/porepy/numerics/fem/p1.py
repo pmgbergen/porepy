@@ -181,8 +181,14 @@ class P1(Solver):
                          nodes[g.face_nodes.indptr[f]:g.face_nodes.indptr[f+1]]\
                         for f in np.where(bc.is_dir)[0]]).ravel()
 
-            M[dir_nodes, :] *= 0
-            M[dir_nodes, dir_nodes] = norm
+            # set in an efficient way the essential boundary conditions, by
+            # clear the rows and put norm in the diagonal
+            for row in dir_nodes:
+                M.data[M.indptr[row]:M.indptr[row+1]] = 0.
+
+            d = M.diagonal()
+            d[dir_nodes] = norm
+            M.setdiag(d)
 
         if bc_weight:
             return M, norm
