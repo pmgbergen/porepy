@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class StaticModel():
     '''
-    Class for solving an static elasticity problem flow problem:
+    Class for solving an static elasticity problem:
      \nabla \sigma = 0,
     where nabla is the stress tensor.
 
@@ -244,7 +244,7 @@ class StaticModel():
         if np.any(sigma):
             normals = self.grid().face_normals
             for i in range(normals.shape[1]):
-                T_b[:, i] = np.dot(normals[:, i], sigma)
+                T_b[:, i] = np.dot(normals[:, i], sigma[i])
         else:
             T_b = 0
         self._data[traction_name] = T + T_b
