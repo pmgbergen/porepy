@@ -314,9 +314,7 @@ class ParabolicDataAssigner():
 
     def bc(self):
         'Define boundary condition'
-        dir_bound = np.array([])
-        return bc.BoundaryCondition(self.grid(), dir_bound,
-                                    ['dir'] * dir_bound.size)
+        return bc.BoundaryCondition(self.grid())
 
     def bc_val(self, t):
         'Returns boundary condition values at time t'
