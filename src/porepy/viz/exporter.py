@@ -267,8 +267,8 @@ class Exporter():
             dic_data = dict()
 
             mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
-            cond = lambda e: np.amin([g.dim for g in e]) == dim
-            edges = np.array([e for e, _ in self.gb.edges() if cond(e)])
+            cond = lambda d: d['mortar_grid'].dim == dim
+            edges = np.array([e for e, d in self.gb.edges() if cond(d)])
             num_grids = np.sum([m.num_sides() for m in mgs])
 
             for d in extra_data:
@@ -284,8 +284,8 @@ class Exporter():
 
                 dic_data[d] = np.hstack(values)
 
-            if self.gb_VTK[dim] is not None:
-                self._write_vtk(dic_data, file_name, self.gb_VTK[dim])
+            if self.m_gb_VTK[dim] is not None:
+                self._write_vtk(dic_data, file_name, self.m_gb_VTK[dim])
 
         name = self._make_folder(self.folder, self.name)+".pvd"
         self._export_pvd_gb(name)
