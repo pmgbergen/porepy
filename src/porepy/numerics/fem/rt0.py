@@ -9,15 +9,12 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.linalg as linalg
 
-from porepy.params import tensor
+import porepy as pp
 
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 from porepy.numerics.vem import DualCoupling
-from porepy.grids import grid, mortar_grid
-
-from porepy.utils import comp_geom as cg
 
 #------------------------------------------------------------------------------#
 
@@ -71,9 +68,9 @@ class RT0(Solver):
         dof: the number of degrees of freedom.
 
         """
-        if isinstance(g, grid.Grid):
+        if isinstance(g, pp.Grid):
             return g.num_cells + g.num_faces
-        elif isinstance(g, mortar_grid.MortarGrid):
+        elif isinstance(g, pp.MortarGrid):
             return g.num_cells
         else:
             raise ValueError
@@ -143,7 +140,7 @@ class RT0(Solver):
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        c_centers, f_normals, f_centers, R, dim, node_coords = cg.map_grid(g)
+        c_centers, f_normals, f_centers, R, dim, node_coords = pp.cg.map_grid(g)
 
         if not data.get('is_tangential', False):
                 # Rotate the permeability tensor and delete last dimension
@@ -258,18 +255,25 @@ class RT0(Solver):
         if bc is None:
             return rhs
 
-        is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
-                          np.ones(g.num_cells, dtype=np.bool)))
+        # For dual discretizations, internal boundaries
+        # are handled by assigning Dirichlet conditions. Thus, we remove them
+        # from the is_neu (where they belong by default). As the dirichlet
+        # values are simply added to the rhs, and the internal Dirichlet
+        # conditions on the fractures SHOULD be homogeneous, we exclude them
+        # from the dirichlet condition as well.
+        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
+        is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
 
-        if np.any(bc.is_dir):
-            is_dir = np.where(bc.is_dir)[0]
-            faces, _, sign = sps.find(g.cell_faces)
-            sign = sign[np.unique(faces, return_index=True)[1]]
+        faces, _, sign = sps.find(g.cell_faces)
+        sign = sign[np.unique(faces, return_index=True)[1]]
+
+        if np.any(is_dir):
+            is_dir = np.where(is_dir)[0]
             rhs[is_dir] += -sign[is_dir] * bc_val[is_dir]
 
-        if np.any(bc.is_neu):
-            is_neu = np.where(bc.is_neu)[0]
-            rhs[is_neu] = bc_weight * bc_val[is_neu]
+        if np.any(is_neu):
+            is_neu = np.where(is_neu)[0]
+            rhs[is_neu] = sign[is_neu] * bc_weight * bc_val[is_neu]
 
         return rhs
 
