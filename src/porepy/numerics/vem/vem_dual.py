@@ -343,8 +343,6 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         if bc is None:
             return rhs
 
-        is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
-                          np.ones(g.num_cells, dtype=np.bool)))
         # For dual discretizations, internal boundaries
         # are handled by assigning Dirichlet conditions. Thus, we remove them
         # from the is_neu (where they belong by default). As the dirichlet
