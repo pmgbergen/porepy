@@ -337,7 +337,9 @@ class BoundaryMortar(object):
         
         cells = np.argsort(left_f)
         self.num_cells = cells.size
-        self.cell_volumes = side_grids[LEFT_SIDE].face_areas[left_f]
+        self.cell_volumes = np.hstack([g.cell_volumes \
+                                             for g in self.side_grids.values()])
+#        self.cell_volumes = side_grids[LEFT_SIDE].face_areas[left_f]
 #        self.cell_volumes = g.face_areas[left_f]
 
         shape_left = (self.num_cells, face_faces.shape[1])
