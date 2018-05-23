@@ -85,7 +85,8 @@ class Exporter():
             self.gb_VTK = dict(zip(self.dims, [None]*num_dims))
 
             # mortar grid variables
-            self.m_dims = np.setdiff1d(self.dims, self.gb.dim_max())
+            self.m_dims = np.unique([d['mortar_grid'].dim for _, d
+                                     in self.gb.edges()])
             num_m_dims = self.m_dims.size
             self.m_gb_VTK = dict(zip(self.m_dims, [None]*num_m_dims))
         else:
