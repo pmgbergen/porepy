@@ -17,9 +17,7 @@ except ImportError:
     warnings.warn('Could not import pymetis. Some functions will not work as\
     intended')
 
-from porepy.grids.grid import Grid
-from porepy.grids import structured
-from porepy.utils import permutations
+import porepy as pp
 
 
 def partition_metis(g, num_part):
@@ -265,7 +263,7 @@ def partition(g, num_coarse):
         # If we have made it this far, we can run pymetis.
         return partition_metis(g, num_coarse)
     except KeyError:
-        if isinstance(g, structured.TensorGrid):
+        if isinstance(g, pp.TensorGrid):
             return partition_structured(g, num_part=num_coarse)
         else:
             return partition_coordinates(g, num_coarse)
@@ -354,7 +352,7 @@ def determine_coarse_dimensions(target, fine_size):
 
         # Loop over all combinations of rounding up and down, and test if we
         # are closer to the target number.
-        for perm in permutations.multinary_permutations(2, nd):
+        for perm in pp.permutations.multinary_permutations(2, nd):
             size_now = np.zeros(nd)
             for i, bit in enumerate(perm):
                 size_now[i] = coarse_size[bit, i]
@@ -373,27 +371,30 @@ def determine_coarse_dimensions(target, fine_size):
     return optimum.astype('int')
 
 
-def extract_subgrid(g, c, sort=True):
+def extract_subgrid(g, c, sort=True, faces=False):
     """
-    Extract a subgrid based on cell indices.
+    Extract a subgrid based on cell/face indices.
 
-    For simplicity the cell indices will be sorted before the subgrid is
+    For simplicity the cell/face indices will be sorted before the subgrid is
     extracted.
 
     If the parent grid has geometry attributes (cell centers etc.) these are
     copied to the child.
 
-    No checks are done on whether the cells form a connected area. The method
-    should work in theory for non-connected cells, the user will then have to
-    decide what to do with the resulting grid. This option has however not been
-    tested.
+    No checks are done on whether the cells/faces form a connected area. The
+    method should work in theory for non-connected cells, the user will then
+    have to decide what to do with the resulting grid. This option has however
+    not been tested.
 
     Parameters:
         g (core.grids.Grid): Grid object, parent
         c (np.array, dtype=int): Indices of cells to be extracted
-
+        sort=True (bool): If true c is sorted
+        faces=False (bool): If true c are intrepetred as faces, and the
+                            exptracted grid will be a lower dimensional grid
+                            defined by the these faces
     Returns:
-        core.grids.Grid: Extracted subgrid. Will share (note, *not* copy)
+        Grid: Extracted subgrid. Will share (note, *not* copy)
             geometric fileds with the parent grid. Also has an additional
             field parent_cell_ind giving correspondance between parent and
             child cells.
@@ -406,6 +407,8 @@ def extract_subgrid(g, c, sort=True):
     if sort:
         c = np.sort(np.atleast_1d(c))
 
+    if faces:
+        return __extract_cells_from_faces(g, c)
     # Local cell-face and face-node maps.
     cf_sub, unique_faces = __extract_submatrix(g.cell_faces, c)
     fn_sub, unique_nodes = __extract_submatrix(g.face_nodes, unique_faces)
@@ -415,7 +418,7 @@ def extract_subgrid(g, c, sort=True):
     name.append('Extract subgrid')
 
     # Construct new grid.
-    h = Grid(g.dim, g.nodes[:, unique_nodes], fn_sub, cf_sub, name)
+    h = pp.Grid(g.dim, g.nodes[:, unique_nodes], fn_sub, cf_sub, name)
 
     # Copy geometric information if any
     if hasattr(g, 'cell_centers'):
@@ -447,6 +450,52 @@ def __extract_submatrix(mat, ind):
     return sps.csc_matrix((data, rows_sub, cols)), unique_rows
 
 
+def __extract_cells_from_faces(g, f):
+    """
+    Extracting a lower-dimensional grid from the fraces of the higher
+    dimensional grid g. See extract_subgrid.
+    """
+    if g.dim != 2:
+        raise NotImplementedError('can only create a subgrid for dimension 2')
+
+    # Local cell-face and face-node maps.
+    cell_nodes, unique_nodes = __extract_submatrix(g.face_nodes, f)
+    
+    cell_faces_indices = cell_nodes.indices
+    data = -1 * cell_nodes.data
+    _, ix = np.unique(cell_faces_indices, return_index=True)
+    data[ix] *=-1
+
+    cell_faces = sps.csc_matrix((data, cell_faces_indices, cell_nodes.indptr))
+    
+    num_faces = np.shape(cell_faces)[0]
+    num_nodes = np.shape(cell_nodes)[0]
+    num_nodes_per_face = np.ones(num_nodes)
+
+    face_node_ind = pp.utils.matrix_compression.rldecode(np.arange(num_faces),
+                                                         num_nodes_per_face)
+    
+    face_nodes = sps.coo_matrix((np.ones(num_nodes, dtype=bool),
+                                 (np.arange(num_faces), face_node_ind))).tocsc()
+
+
+    # Append information on subgrid extraction to the new grid's history
+    name = list(g.name)
+    name.append('Extract subgrid')
+
+    h = pp.Grid(g.dim - 1, g.nodes[:, unique_nodes], face_nodes, cell_faces, name)
+
+    h.compute_geometry()
+
+    assert np.all(np.isclose(g.face_areas[f], h.cell_volumes))
+    h.cell_volumes = g.face_areas[f]
+    assert np.all(np.isclose(g.face_centers[:, f], h.cell_centers))
+    h.cell_centers = g.face_centers[:, f]
+
+    h.parent_face_ind = f
+    return h, f, unique_nodes
+
+
 def partition_grid(g, ind):
     """
     Partition a grid into multiple subgrids based on an index set.
@@ -454,7 +503,7 @@ def partition_grid(g, ind):
     No tests are made on whether the resulting grids are connected.
 
     Example:
-        >>> g = structured.CartGrid(np.array([10, 10]))
+        >>> g = pp.CartGrid(np.array([10, 10]))
         >>> p = partition_structured(g, num_part=4)
         >>> subg, face_map, node_map = partition_grid(g, p)
 
@@ -509,7 +558,7 @@ def overlap(g, cell_ind, num_layers, criterion='node'):
         np.array: Indices of the extended cell set.
 
     Examples:
-        >>> g = structured.CartGrid([5, 5])
+        >>> g = pp.CartGrid([5, 5])
         >>> ci = np.array([0, 1, 5, 6])
         >>> overlap(g, ci, 1)
         array([ 0,  1,  2,  5,  6,  7, 10, 11, 12])
@@ -586,13 +635,13 @@ def grid_is_connected(g, cell_ind=None):
             of a connected component.
 
     Examples:
-        >>> g = structured.CartGrid(np.array([2, 2]))
+        >>> g = pp.CartGrid(np.array([2, 2]))
         >>> p = np.array([0, 1])
         >>> is_con, l = grid_is_connected(g, p)
         >>> is_con
         True
 
-        >>> g = structured.CartGrid(np.array([2, 2]))
+        >>> g = pp.CartGrid(np.array([2, 2]))
         >>> p = np.array([0, 3])
         >>> is_con, l = grid_is_connected(g, p)
         >>> is_con
