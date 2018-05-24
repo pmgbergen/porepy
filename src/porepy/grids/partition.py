@@ -455,9 +455,23 @@ def __extract_cells_from_faces(g, f):
     Extracting a lower-dimensional grid from the fraces of the higher
     dimensional grid g. See extract_subgrid.
     """
-    if g.dim != 2:
-        raise NotImplementedError('can only create a subgrid for dimension 2')
+    if g.dim==2:
+        return __extract_cells_from_faces_2d(g, f)
+    elif g.dim==1:
+        return __extract_cells_from_faces_1d(g, f)
+    else:
+        raise NotImplementedError('can only create a subgrid for dimension 1 and 2')
 
+
+def __extract_cells_from_faces_1d(g, f):
+    assert np.size(f)==1
+    node = np.argwhere(g.face_nodes[:, f])[:, 0]
+    h = pp.PointGrid(g.nodes[:, node])
+    h.compute_geometry()
+    return h, f, node
+
+
+def __extract_cells_from_faces_2d(g, f):
     # Local cell-face and face-node maps.
     cell_nodes, unique_nodes = __extract_submatrix(g.face_nodes, f)
     
