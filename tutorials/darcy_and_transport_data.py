@@ -28,6 +28,7 @@ def plot(pb):
 
     color_f = pb['wells']['color']
 
+    pb['domain'] = pp.cg.bounding_box(pb['dfn']['pts'])
     pp.plot_fractures(pb['domain'], pb['dfn']['pts'], pb['dfn']['edges'],
                       plot=False, fig_id=1, colortag=color_f)
 
