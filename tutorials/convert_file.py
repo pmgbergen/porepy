@@ -27,7 +27,7 @@ def main():
                              'START_X': pts[0, edge[0]],
                              'START_Y': pts[1, edge[0]],
                              'END_X':   pts[0, edge[1]],
-                             'END_Y':   pts[0, edge[1]]})
+                             'END_Y':   pts[1, edge[1]]})
 
 if __name__ == "__main__":
     main()
