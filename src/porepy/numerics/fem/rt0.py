@@ -208,9 +208,9 @@ class RT0(Solver):
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
         # assign the Neumann boundary conditions
+        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
         if bc and np.any(bc.is_neu):
-            is_neu = np.hstack((bc.is_neu,
-                                np.zeros(g.num_cells, dtype=np.bool)))
+            is_neu = np.hstack((is_neu, np.zeros(g.num_cells, dtype=np.bool)))
             is_neu = np.where(is_neu)[0]
 
             # set in an efficient way the essential boundary conditions, by
