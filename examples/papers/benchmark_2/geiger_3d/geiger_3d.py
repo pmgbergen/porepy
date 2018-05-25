@@ -1,5 +1,4 @@
 import numpy as np
-import porepy as pp
 
 import geiger_3d_data as geiger
 import solvers
