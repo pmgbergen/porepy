@@ -1,20 +1,14 @@
 import numpy as np
-
-from porepy.params import tensor, units
-from porepy.fracs import importer
-from porepy.fracs.fractures import Fracture, FractureNetwork
-from porepy.params.bc import BoundaryCondition
-from porepy.viz.exporter import Exporter
-from porepy.numerics import elliptic, parabolic
+import porepy as pp
 
 #------------------------------------------------------------------------------#
 
 def import_grid(file_geo, tol):
 
-    frac = Fracture(np.array([[0, 10, 10,  0],
-                              [0,  0, 10, 10],
-                              [8,  2,  2,  8]])*10)
-    network = FractureNetwork([frac], tol=tol)
+    frac = pp.Fracture(np.array([[0, 10, 10,  0],
+                                 [0,  0, 10, 10],
+                                 [8,  2,  2,  8]])*10)
+    network = pp.FractureNetwork([frac], tol=tol)
 
     domain = {'xmin': 0, 'xmax': 100,
               'ymin': 0, 'ymax': 100,
@@ -24,88 +18,108 @@ def import_grid(file_geo, tol):
     network.split_intersections()
     network.to_gmsh('dummy.geo')
 
-    gb = importer.dfm_from_gmsh(file_geo, 3, network)
+    gb = pp.importer.dfm_from_gmsh(file_geo, 3, network)
     gb.compute_geometry()
 
     return gb, domain
 
 #------------------------------------------------------------------------------#
 
-class DarcyModelData(elliptic.EllipticDataAssigner):
-    def __init__(self, g, data, **kwargs):
-        self.domain = kwargs['domain']
-        self.tol = kwargs['tol']
-
-        self.apert = kwargs['aperture']
-        self.km_high = kwargs['km_high']
-        self.km_low = kwargs['km_low']
-        self.kf = kwargs['kf']
-        self.max_dim = kwargs.get('max_dim', 3)
-
-        # define two pieces of the boundary, useful to impose boundary conditions
-        self.bc_top = np.empty(0)
-        self.bc_bottom = np.empty(0)
-
-        b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
-        if b_faces.size > 0:
-            b_face_centers = g.face_centers[:, b_faces]
-
-            self.bc_top = np.logical_and(b_face_centers[0, :] < 0 + self.tol,
-                                         b_face_centers[2, :] > 90 - self.tol)
-
-            self.bc_bottom = np.logical_and(b_face_centers[1, :] < 0 + self.tol,
-                                            b_face_centers[2, :] < 10 + self.tol)
-
-        elliptic.EllipticDataAssigner.__init__(self, g, data)
-
-    def aperture(self):
-        return np.power(self.apert, self.max_dim-self.grid().dim)
-
-    def bc(self):
-
-        b_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
-        if b_faces.size == 0:
-            return BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
-
-        labels = np.array(['neu'] * b_faces.size)
-        labels[self.bc_top] = 'dir'
-        labels[self.bc_bottom] = 'dir'
-        return BoundaryCondition(self.grid(), b_faces, labels)
-
-    def bc_val(self):
-        bc_val = np.zeros(self.grid().num_faces)
-        b_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
-        if b_faces.size > 0:
-            bc_val[b_faces[self.bc_top]] = 4 * units.BAR
-            bc_val[b_faces[self.bc_bottom]] = 1 * units.BAR
-
-        return bc_val
-
-    def low_zones(self):
-        return self.grid().cell_centers[2, :] < 10
-
-    def permeability(self):
-        dim = self.grid().dim
-        if dim == 3:
-            kxx = self.km_high * np.ones(self.grid().num_cells)
-            kxx[self.low_zones()] = self.km_low
-            kxx /= 1e-3 # viscosity
-            return tensor.SecondOrder(dim, kxx=kxx, kyy=kxx, kzz=kxx)
-        else:
-            kxx = self.kf * np.ones(self.grid().num_cells)
-            kxx /= 1e-3 # viscosity
-            return tensor.SecondOrder(dim, kxx=kxx, kyy=kxx, kzz=1)
+def low_zones(g):
+    return g.cell_centers[2, :] < 10
 
 #------------------------------------------------------------------------------#
 
-class AdvectiveProblem(parabolic.ParabolicModel):
+def add_data(gb, data, solver_name):
+    tol = data['tol']
+
+    is_fv = solver_name == "tpfa" or solver_name == "mpfa"
+
+    gb.add_node_props(['is_tangential', 'problem', 'frac_num', 'low_zones'])
+    for g, d in gb:
+        param = pp.Parameters(g)
+        d['is_tangential'] = True
+        d['low_zones'] = low_zones(g)
+
+        ones = np.ones(g.num_cells)
+        zeros = np.zeros(g.num_cells)
+        empty = np.empty(0)
+
+        if g.dim == 2:
+            d['frac_num'] = g.frac_num*ones
+        else:
+            d['frac_num'] = -1*ones
+
+        # set the permeability
+        if g.dim == 3:
+            kxx = data['km_high']*ones
+            kxx[d['low_zones']] = data['km_low']
+            kxx /= data['mu'] # viscosity
+            if is_fv:
+                perm = pp.SecondOrderTensor(3, kxx=kxx)
+            else:
+                perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=kxx)
+        else: #g.dim == 2:
+            kxx = data['kf']*ones/data['mu']
+            if is_fv:
+                perm = pp.SecondOrderTensor(3, kxx=kxx)
+            else:
+                perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kxx, kzz=1)
+        param.set_tensor("flow", perm)
+
+        # Source term
+        param.set_source("flow", zeros)
+
+        # Assign apertures
+        aperture = np.power(data['aperture'], 3-g.dim)
+        param.set_aperture(aperture*ones)
+
+        # Boundaries
+        b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+        if b_faces.size != 0 or g.dim == 2:
+
+            b_face_centers = g.face_centers[:, b_faces]
+
+            b_top = np.logical_and(b_face_centers[0, :] < 0 + tol,
+                                   b_face_centers[2, :] > 90 - tol)
+
+            b_bottom = np.logical_and(b_face_centers[1, :] < 0 + tol,
+                                       b_face_centers[2, :] < 10 + tol)
+
+            labels = np.array(['neu'] * b_faces.size)
+            labels[b_top] = 'dir'
+            labels[b_bottom] = 'dir'
+            param.set_bc("flow", pp.BoundaryCondition(g, b_faces, labels))
+
+            bc_val = np.zeros(g.num_faces)
+            bc_val[b_faces[b_top]] = 4 * pp.METER
+            bc_val[b_faces[b_bottom]] = 1 * pp.METER
+            param.set_bc_val("flow", bc_val)
+        else:
+            param.set_bc("flow", pp.BoundaryCondition(g, empty, empty))
+
+        d['param'] = param
+
+    # Assign coupling permeability, the aperture is read from the lower dimensional grid
+    gb.add_edge_props('kn')
+    for e, d in gb.edges():
+        g_l = gb.nodes_of_edge(e)[0]
+        mg = d['mortar_grid']
+        check_P = mg.low_to_mortar_avg()
+
+        gamma = check_P*gb.node_props(g_l, 'param').get_aperture()
+        d['kn'] = data['kf']*np.ones(mg.num_cells) / gamma / data['mu']
+
+#------------------------------------------------------------------------------#
+
+class AdvectiveProblem(pp.ParabolicModel):
 
     def space_disc(self):
         return self.source_disc(), self.advective_disc()
 
 #------------------------------------------------------------------------------#
 
-class AdvectiveDataAssigner(parabolic.ParabolicDataAssigner):
+class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
 
     def __init__(self, g, data, physics='transport', **kwargs):
         self.domain = kwargs['domain']
@@ -126,7 +140,7 @@ class AdvectiveDataAssigner(parabolic.ParabolicDataAssigner):
             self.inflow = np.logical_and(b_face_centers[0, :] < 0 + self.tol,
                                          b_face_centers[2, :] > 90 - self.tol)
 
-        parabolic.ParabolicDataAssigner.__init__(self, g, data, physics)
+        pp.ParabolicDataAssigner.__init__(self, g, data, physics)
 
     def low_zones(self):
         return self.grid().cell_centers[2, :] < 10
