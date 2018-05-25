@@ -9,14 +9,12 @@ from porepy.numerics import elliptic, parabolic
 
 #------------------------------------------------------------------------------#
 
-def create_grid(export=False):
-    folder ='/home/elle/Dropbox/Work/2018-fractures-comparison/3d-fracture-flow-and-transport/single/grids/'
-    file_dfm = folder+'single_lowdim_new.geo'
+def import_grid(file_geo, tol):
 
     frac = Fracture(np.array([[0, 10, 10,  0],
                               [0,  0, 10, 10],
                               [8,  2,  2,  8]])*10)
-    network = FractureNetwork([frac])
+    network = FractureNetwork([frac], tol=tol)
 
     domain = {'xmin': 0, 'xmax': 100,
               'ymin': 0, 'ymax': 100,
@@ -26,10 +24,8 @@ def create_grid(export=False):
     network.split_intersections()
     network.to_gmsh('dummy.geo')
 
-    gb = importer.dfm_from_gmsh(file_dfm, 3, network)
+    gb = importer.dfm_from_gmsh(file_geo, 3, network)
     gb.compute_geometry()
-    if export:
-        Exporter(gb, "grid", "grid").write_vtk()
 
     return gb, domain
 
