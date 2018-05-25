@@ -66,7 +66,7 @@ from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
 from porepy.grids.point_grid import PointGrid
-from porepy.grids.mortar_grid import MortarGrid
+from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
 
 # Fractures
 from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
@@ -83,6 +83,7 @@ from porepy.viz.plot_grid import plot_grid
 from porepy.viz.fracture_visualization import plot_fractures
 
 # Modules
+from porepy.utils import permutations
 from porepy.utils import comp_geom as cg
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, importer, extrusion

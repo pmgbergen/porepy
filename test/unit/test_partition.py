@@ -121,6 +121,83 @@ class TestCoarseDimensionDeterminer(unittest.TestCase):
         assert np.array_equal(np.sort(coarse), np.array([1, 15, 60]))
 
 
+class TestExtractSubGrid(unittest.TestCase):
+
+    def compare_grid_geometries(self, g, h, sub_c, sub_f, sub_n):
+        assert np.array_equal(g.nodes[:, sub_n], h.nodes)
+        assert np.array_equal(g.face_areas[sub_f], h.cell_volumes)
+        assert np.array_equal(g.face_centers[:, sub_f], h.cell_centers)
+        assert np.array_equal(g.nodes[:, sub_n], h.nodes)
+
+    def test_cart_2d(self):
+        g = pp.CartGrid([2, 3])
+        g.nodes = g.nodes + 0.2 * np.random.random(g.nodes.shape)
+        g.compute_geometry()
+
+        f = np.array([0, 3, 6])
+
+        h, sub_f, sub_n = pp.partition.extract_subgrid(g, f, faces=True)
+
+        true_nodes = np.array([0, 3, 6, 9])
+        true_faces = np.array([0, 3, 6])
+
+        assert np.array_equal(true_nodes, sub_n)
+        assert np.array_equal(true_faces, sub_f)
+
+        self.compare_grid_geometries(g, h, f, true_faces, true_nodes)
+
+
+    def test_cart_1d(self):
+        g = pp.TensorGrid(np.array([0, 1, 2]))
+        g.nodes = g.nodes + 0.2 * np.random.random(g.nodes.shape)
+        g.compute_geometry()
+
+        face_pos = [0, 1, 2]
+        
+        for f in face_pos:
+            h, sub_f, sub_n = pp.partition.extract_subgrid(g, f, faces=True)
+
+            true_nodes = np.array([f])
+            true_faces = np.array([f])
+
+            assert np.array_equal(true_nodes, sub_n)
+            assert np.array_equal(true_faces, sub_f)
+
+            self.compare_grid_geometries(g, h, f, true_faces, true_nodes)
+
+        
+    def test_cart_2d_with_bend(self):
+        """
+        grid: |----|----|
+              |    |    |
+              -----------
+              |    |    |
+              |    |    |
+              -----------
+        Extract: 
+                   -----|
+                        |
+                        -
+                        |
+                        |
+        """
+        g = pp.CartGrid([2, 2])
+        g.nodes = g.nodes + 0.2 * np.random.random(g.nodes.shape)
+        g.compute_geometry()
+
+        f = np.array([2, 5, 11])
+
+        h, sub_f, sub_n = pp.partition.extract_subgrid(g, f, faces=True)
+
+        true_nodes = np.array([2, 5, 7, 8])
+        true_faces = np.array([2, 5, 11])
+
+        assert np.array_equal(true_nodes, sub_n)
+        assert np.array_equal(true_faces, sub_f)
+
+        self.compare_grid_geometries(g, h, f, true_faces, true_nodes)
+        
+
 class TestGrids(unittest.TestCase):
 
     def compare_grid_geometries(self, g, h, sub_c, sub_f, sub_n):

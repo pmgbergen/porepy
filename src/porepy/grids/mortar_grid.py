@@ -313,7 +313,7 @@ class BoundaryMortar(object):
         """
 
         assert dim >= 0 and dim < 3
-        assert np.all([g.dim - 1 == dim for g in side_grids.values()])
+        assert np.all([g.dim == dim for g in side_grids.values()])
 
         self.dim = dim
         self.side_grids = side_grids
@@ -334,10 +334,12 @@ class BoundaryMortar(object):
         # grid. The mortar cells are sorted after the rows of the face_faces
         # mapping.
         right_f, left_f, data = sps.find(face_faces)
-
+        
         cells = np.argsort(left_f)
         self.num_cells = cells.size
-        self.cell_volumes = side_grids[LEFT_SIDE].face_areas[left_f]
+        self.cell_volumes = np.hstack([g.cell_volumes \
+                                             for g in self.side_grids.values()])
+#        self.cell_volumes = side_grids[LEFT_SIDE].face_areas[left_f]
 #        self.cell_volumes = g.face_areas[left_f]
 
         shape_left = (self.num_cells, face_faces.shape[1])
@@ -372,13 +374,13 @@ class BoundaryMortar(object):
         s+= "".join(['Side '+str(s)+' with grid:\n'+str(g) for s, g in
                                                        self.side_grids.items()])
 
-        s += 'Mapping from the faces of the LEFT_SIDE grid to' + \
+        s += 'Mapping from the faces of the left_side grid to' + \
              ' the cells of the mortar grid. \nRows indicate the mortar' + \
-             ' cell id, columns indicate the (LEFT_SIDE) face id' + \
+             ' cell id, columns indicate the left_grid face id' + \
              '\n' + str(self.left_to_mortar_int) + '\n' + \
-             'Mapping from the cells of the face of the RIGHT_SIDE grid' +\
+             'Mapping from the cells of the face of the right_side grid' +\
              'to the cells of the mortar grid. \nRows indicate the mortar' + \
-             ' cell id, columns indicate the (RIGHT_SIDE) face id' + \
+             ' cell id, columns indicate the right_grid face id' + \
              '\n' + str(self.right_to_mortar_int)
 
         return s
@@ -419,3 +421,9 @@ class BoundaryMortar(object):
         return self.right_to_mortar_avg().T
 
 #------------------------------------------------------------------------------#
+    def compute_geometry(self):
+        """
+        Compute the geometry of the mortar grids.
+        We assume that they are not aligned with x (1d) or x, y (2d).
+        """
+        [g.compute_geometry() for g in self.side_grids.values()]
