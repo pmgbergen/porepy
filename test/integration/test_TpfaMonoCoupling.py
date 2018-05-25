@@ -1,11 +1,13 @@
 import unittest
 import numpy as np
 import scipy.sparse as sps
+from scipy.spatial.distance import cdist
 
 from porepy.grids import structured, mortar_grid, grid_bucket
 from porepy.numerics.fv import tpfa, fvutils, source
 from porepy.params.data import Parameters
 from porepy.params.bc import BoundaryCondition
+from porepy.fracs import meshing
 
 class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
@@ -93,7 +95,6 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
     if __name__ == '__main__':
         unittest.main()
 
-
 class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
     def test_periodic_bc(self):
@@ -106,12 +107,15 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                                 |--------|
                                     P
 
-        where D are dirichlet boundaries and P the periodic boundaries
+        where D are dirichlet boundaries and P the periodic boundaries.
+        We construct periodic solution
+               p = sin(pi/xmax * (x - x0)) * cos(2*pi/ymax * (y - y0))
+        which gives a source term on the rhs.
         """
         n = 8
         xmax = 1
         ymax = 1
-        gb = self.generate_grids(n, xmax, ymax)
+        gb = self.generate_2d_grid(n, xmax, ymax)
         tol = 1e-6
 
         def analytic_p(x):
@@ -142,6 +146,69 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             src =  -lpc * g.cell_volumes
             d['param'].set_source('flow', src)
 
+        self.solve(gb, analytic_p)
+
+    def test_periodic_bc_with_fractues(self):
+        """
+        We set up the test case      P
+                                |--------|
+                                | g2|    |
+                              D | g3x  g0| D
+                                | g1|    |
+                                |--------|
+                                    P
+
+        where D are dirichlet boundaries and P the periodic boundaries.
+        We construct periodic solution
+               p = sin(pi/xmax * (x - x0)) * cos(2*pi/ymax * (y - y0))
+        which gives a source term on the rhs.
+
+        The domain is a 2D domain with two fractures (g1, and g2) connected
+        through the periodic bc and 0D intersection (g3)
+        """
+        n = 8
+        xmax = 1
+        ymax = 1
+        gb = self.generate_grid_with_fractures(n, xmax, ymax)
+        tol = 1e-6
+
+        def analytic_p(x):
+            x = x.copy()
+            shiftx = xmax / 4
+            shifty = ymax / 3
+            x[0] = x[0] - shiftx
+            x[1] = x[1] - shifty
+            p = np.sin(np.pi/xmax * x[0]) * np.cos(2*np.pi/ymax * x[1])
+            px = (np.pi / xmax) * np.cos(np.pi/xmax * x[0]) * np.cos(2*np.pi/ymax * x[1])
+            py = 2*np.pi / ymax * np.sin(np.pi/xmax * x[0]) * np.sin(2*np.pi/ymax * x[1])
+            pxx = -(np.pi / xmax)**2 * p
+            pyy = -(2*np.pi / ymax)**2 * p
+            return p, np.vstack([px, py]), pxx + pyy
+
+        for g, d in gb:
+            d['param'] = Parameters(g)
+            left = g.face_centers[0] < tol
+            right = g.face_centers[0] > xmax - tol
+            dir_bc = left + right
+            d['param'].set_bc('flow', BoundaryCondition(g, dir_bc, 'dir'))
+            bc_val = np.zeros(g.num_faces)
+            bc_val[dir_bc], _, _ = analytic_p(g.face_centers[:, dir_bc])
+            
+            d['param'].set_bc_val('flow', bc_val)
+            aperture = 1e-6**(2 - g.dim)
+            d['param'].set_aperture(aperture)
+
+            pa, _, lpc = analytic_p(g.cell_centers)
+            src =  -lpc * g.cell_volumes * aperture
+            d['param'].set_source('flow', src)
+
+
+        for _, d in gb.edges():
+            d['kn'] = 1e10
+
+        self.solve(gb, analytic_p)
+
+    def solve(self, gb, analytic_p):
         flow_disc = tpfa.TpfaMixedDim()
         source_disc = source.IntegralMixedDim()
 
@@ -152,7 +219,6 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         x = sps.linalg.spsolve(A, b + src)
 
         flow_disc.split(gb, 'pressure', x)
-
         # test pressure
         for g, d in gb:
             ap, _, _ = analytic_p(g.cell_centers)
@@ -162,17 +228,28 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         for e, d_e in gb.edges():
             mg = d_e['mortar_grid']
             g2, g1 = gb.nodes_of_edge(e)
-            left_to_m = mg.left_to_mortar_avg()
-            right_to_m = mg.right_to_mortar_avg()
+            try:
+                left_to_m = mg.left_to_mortar_avg()
+                right_to_m = mg.right_to_mortar_avg()
+            except AttributeError:
+                continue
+            d1 = gb.node_props(g1)
+            d2 = gb.node_props(g2)
 
             _, analytic_flux,_ = analytic_p(g1.face_centers)
-            left_flux = left_to_m * np.sum(analytic_flux * g1.face_normals[:2], 0)
-            # two the right normals point the wrong way.. need to flip them
-            right_flux = -right_to_m * np.sum(analytic_flux * (-g1.face_normals[:2]), 0)
+            # the aperture is assumed constant
+            a1 = np.max(d1['param'].aperture)
+            left_flux =  a1 * np.sum(analytic_flux * g1.face_normals[:2], 0)
+            left_flux = left_to_m * (d1['bound_flux'] * left_flux)
+            # right flux is negative lambda
+            a2 = np.max(d2['param'].aperture)
+            right_flux = a2 * np.sum(analytic_flux * g2.face_normals[:2], 0)
+            right_flux = -right_to_m * (d2['bound_flux'] * right_flux)
+
             assert np.max(np.abs(d_e['mortar_solution'] - left_flux)) <5e-2
             assert np.max(np.abs(d_e['mortar_solution'] - right_flux)) < 5e-2
-
-    def generate_grids(self, n, xmax, ymax):
+    
+    def generate_2d_grid(self, n, xmax, ymax):
         g1 = structured.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])
         g1.compute_geometry()
         gb = grid_bucket.GridBucket()
@@ -194,5 +271,85 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         gb.assign_node_ordering()
         return gb
 
+    def generate_grid_with_fractures(self, n, xmax, ymax):
+        x = [xmax/3] * 2
+        y = [0, ymax/2]
+        fracs = [np.array([x, y])]
+        y = [ymax/2, ymax]
+        fracs.append(np.array([x, y]))
+
+        gb = meshing.cart_grid(fracs, [xmax * n, ymax * n], physdims=[xmax, ymax])
+
+        tol = 1e-6
+        for g, d in gb:
+            # map right faces to left
+            left = np.argwhere(g.face_centers[1] < tol).ravel()
+            right = np.argwhere(g.face_centers[1] > ymax - tol).ravel()
+            g.face_centers[1, right] = 0
+
+            g.left = left
+            g.right = right
+
+        # now create mappings between two grids of equal dimension
+        for dim in [2, 1]:
+            grids = gb.grids_of_dimension(dim)
+            for i, gi in enumerate(grids):
+                if gi.left.size < 1:
+                    continue
+                for j, gj in enumerate(grids):
+                    if gj.right.size < 1:
+                        continue
+                    face_faces = self.match_grids(gi, gj)
+
+                    if np.sum(face_faces)==0:
+                        continue
+
+                    gb.add_edge((gi, gj), face_faces)
+                    d_e = gb.edge_props((gi, gj))
+
+                    di = gb.node_props(gi)
+                    dj = gb.node_props(gj)
+
+                    if di['node_number'] < dj['node_number']:
+                        gr = gi.copy()
+                        gl = gj.copy()
+                        face_faces = face_faces.T
+                    else:
+                        gr = gj.copy()
+                        gl = gi.copy()
+
+                    if i != j:
+                        side_g = {mortar_grid.LEFT_SIDE:  gl.copy(),
+                                  mortar_grid.RIGHT_SIDE:  gr.copy()}
+                    else:
+                        side_g = {mortar_grid.LEFT_SIDE:  gi.copy()}
+
+                    d_e['mortar_grid'] = \
+                        mortar_grid.BoundaryMortar(gi.dim - 1, side_g, face_faces)
+        gb.compute_geometry() # basically reset g.face_centers[,right]
+        gb.assign_node_ordering()
+
+        return gb
+
+    def match_grids(self, gi, gj):
+        tol = 1e-6
+        fi = gi.face_centers[:, gi.left]
+        fj = gj.face_centers[:, gj.right]
+
+        left_right_faces = np.argwhere(np.abs(cdist(fi[:2].T, fj[:2].T) < tol))
+        left = gi.left[left_right_faces[:, 0]]
+        right = gj.right[left_right_faces[:, 1]]
+
+        assert left.size == np.unique(left).size
+        assert right.size == np.unique(right).size    
+
+        val = np.ones(left.shape, dtype=bool)
+        shape = [gj.num_faces, gi.num_faces]
+
+        face_faces = sps.coo_matrix((val, (right, left)), shape=shape)
+        return face_faces
+
+
 if __name__ == '__main__':
     unittest.main()
+

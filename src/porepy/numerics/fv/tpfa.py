@@ -308,8 +308,8 @@ class TpfaCoupling(AbstractCoupling):
         return mc
 
     def discretize(self, gb):
-        for e, d in gb.edges_props():
-            g_l, g_h = gb.sorted_nodes_of_edge(e)
+        for e, d in gb.edges():
+            g_l, g_h = gb.nodes_of_edge(e)
             data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
             if g_l.dim == g_h.dim:
                 self.mono_coupling.discretize(g_h, g_l, data_h, data_l, d)
