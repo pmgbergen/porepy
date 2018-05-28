@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jan  4 17:32:35 2018
-
-@author: ivar
-
 Propagation of fractures. Much in common with (and reuse of) split_grid.
 For now assumes:
     single fracture
@@ -18,10 +14,14 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-def propagate_fracture(gb, g_h, g_l, faces_h):
+def propagate_fractures(gb, faces):
     """
-    Extend the fracture defined by g_l to the higher-dimensional faces_h and
-    splits g_h along the same faces.
+    gb - grid bucket with matrix and fracture grids.
+    faces_h - list of list of faces to be split in the highest-dimensional
+        grid. The length of the outer list equals the number of fractures.
+        Each entry in the list is a list containing the higher-dimensional
+        indices of the faces to be split for the extension of the corresponding
+        fracture.
     Changes to grids done in-place.
     The call changes:
         Geometry and connectivity fields of the two grids involved.
@@ -32,63 +32,77 @@ def propagate_fracture(gb, g_h, g_l, faces_h):
         updates.
         partial_update, a boolean flag indicating that the grids have been
         updated.
-    These may have to be returned by the function to be handled externally when
-    multiple fractures are implemented.
     """
-
-    if faces_h.size == 0:
-        for g, d in gb:
-            d['partial_update'] = True
-            if g.dim == gb.dim_max():
-                d['new_cells'] = np.empty(0, dtype=int)
-                d['new_faces'] = np.empty(0, dtype=int)
-            else:
-                d['new_cells'] = np.empty(0, dtype=int)
-                d['new_faces'] = np.empty(0, dtype=int)
-        return
-
-    # Keep track of original information:
-    n_old_faces_l = g_l.num_faces
-    n_old_cells_l = g_l.num_cells
-    n_old_nodes_l = g_l.num_nodes
-
-    # It is convenient to tag the nodes lying on the domain boundary. This
-    # helps updating the face tags later:
-    pp.utils.tags.add_node_tags_from_face_tags(gb, 'domain_boundary')
-
-    # Get the "involved nodes", i.e., the union between the new nodes in the
-    # lower dimension and the boundary nodes where the fracture propagates.
-    # The former are added to the global_point_ind of g_l.
-    unique_node_ind_l, unique_node_ind_h = update_nodes(g_h, g_l, faces_h)
-
-    # Update the connectivity matrices (cell_faces and face_nodes) and tag
-    # the lower-dimensional faces, including re-classification of (former) tips
-    # to internal faces, where appropriate.
-    n_new_faces, new_face_centers \
-        = update_connectivity(g_l, g_h, n_old_nodes_l, unique_node_ind_l,
-                              n_old_faces_l, n_old_cells_l, unique_node_ind_h,
-                              faces_h)
-    # Add new faces to g_l
-    append_face_geometry(g_l, n_new_faces, new_face_centers)
-    # Same for cells
-    new_cells = update_cells(g_h, g_l, faces_h)
-
-    # Split g_h along faces_h
-    split_fracture_extension(gb, g_h, g_l, faces_h, unique_node_ind_h,
-                             new_cells)
-
-    # Store information on which faces and cells have just been added. Note,
-    # we only keep track of the faces and cells from the last propagation call!
-    new_faces_h = g_h.frac_pairs[1, np.isin(g_h.frac_pairs[0], faces_h)]
+    dim_h = gb.dim_max()
+    g_h = gb.grids_of_dimension(dim_h)[0]
+    # First initialise certain tags to get rid of any existing tags from
+    # previous calls
     for g, d in gb:
-        d['partial_update'] = True
-        if g.dim == gb.dim_max():
-            d['new_cells'] = np.empty(0)
-            d['new_faces'] = new_faces_h
+        if g.dim == dim_h:
+            d['new_cells'] = np.empty(0, dtype=int)
+            d['new_faces'] = np.empty(0, dtype=int)
         else:
-            d['new_cells'] = new_cells
-            d['new_faces'] = np.arange(g.num_faces - n_new_faces, g.num_faces)
-    gb.compute_geometry()
+            d['new_cells'] = np.empty(0, dtype=int)
+            d['new_faces'] = np.empty(0, dtype=int)
+
+    for i, g_l in enumerate(gb.grids_of_dimension(dim_h - 1)):
+        faces_h = np.array(faces[i])
+        if faces_h.size == 0:
+            for g, d in gb:
+                d['partial_update'] = True
+                if g.dim == gb.dim_max():
+                    d['new_cells'] = np.empty(0, dtype=int)
+                    d['new_faces'] = np.empty(0, dtype=int)
+                else:
+                    d['new_cells'] = np.empty(0, dtype=int)
+                    d['new_faces'] = np.empty(0, dtype=int)
+            return
+
+        # Keep track of original information:
+        n_old_faces_l = g_l.num_faces
+        n_old_cells_l = g_l.num_cells
+        n_old_nodes_l = g_l.num_nodes
+
+        # It is convenient to tag the nodes lying on the domain boundary. This
+        # helps updating the face tags later:
+        pp.utils.tags.add_node_tags_from_face_tags(gb, 'domain_boundary')
+
+        # Get the "involved nodes", i.e., the union between the new nodes in
+        # the lower dimension and the boundary nodes where the fracture
+        # propagates. The former are added to the global_point_ind of g_l.
+        unique_node_ind_l, unique_node_ind_h = update_nodes(g_h, g_l, faces_h)
+
+        # Update the connectivity matrices (cell_faces and face_nodes) and tag
+        # the lower-dimensional faces, including re-classification of (former)
+        # tips to internal faces, where appropriate.
+        n_new_faces, new_face_centers \
+            = update_connectivity(g_l, g_h, n_old_nodes_l, unique_node_ind_l,
+                                  n_old_faces_l, n_old_cells_l,
+                                  unique_node_ind_h, faces_h)
+        # Add new faces to g_l
+        append_face_geometry(g_l, n_new_faces, new_face_centers)
+        # Same for cells
+        new_cells = update_cells(g_h, g_l, faces_h)
+
+        # Split g_h along faces_h
+        split_fracture_extension(gb, g_h, g_l, faces_h, unique_node_ind_h,
+                                 new_cells)
+
+        # Store information on which faces and cells have just been added.
+        # Note that we only keep track of the faces and cells from the last
+        # propagation call!
+        new_faces_h = g_h.frac_pairs[1, np.isin(g_h.frac_pairs[0], faces_h)]
+        d_h = gb.node_props(g_h)
+        d_l = gb.node_props(g_l)
+        d_h['partial_update'] = True
+        d_l['partial_update'] = True
+        d_h['new_faces'] = np.append(d_h['new_faces'], new_faces_h)
+        d_l['new_cells'] = np.append(d_l['new_cells'], new_cells)
+        new_faces_l = np.arange(g_l.num_faces - n_new_faces, g_l.num_faces)
+        d_l['new_faces'] = np.append(d_l['new_faces'], new_faces_l)
+
+        # Update geometry on each iteration to ensure correct tags.
+        gb.compute_geometry()
 
 
 def update_connectivity(g_l, g_h, n_old_nodes_l, unique_node_indices_l,
@@ -316,27 +330,43 @@ def split_fracture_extension(bucket, g_h, g_l, faces_h, nodes_h, cells_l):
     faces_h     - The higher-dimensional faces to be split.
     cells_l     - The corresponding lower-dimensional cells.
     nodes_h     - The corresponding (hig_her-dimensional) nodes.
-    """
 
-    face_cell_list = [bucket.edge_props((g_h, g_l), 'face_cells')]
+    Same level as split_faces
+    """
+    # We are splitting faces in g_h. This affects all the immersed fractures,
+    # as face_cells has to be extended for the new faces_h.
+    neigh = np.array(bucket.node_neighbors(g_h))
+
+    # Find the neighbours that are lower dimensional
+    is_low_dim_grid = np.where([w.dim < g_h.dim for w in neigh])
+    low_dim_neigh = neigh[is_low_dim_grid]
+    edges = [(g_h, w) for w in low_dim_neigh]
+    g_l_ind = np.nonzero(low_dim_neigh == g_l)[0]
+    if len(edges) == 0:
+        # No lower dim grid. Nothing to do.
+        warnings.warn('Unexpected neighbourless g_h in fracture propagation')
+        return
+
+    face_cell_list = [bucket.edge_props(e, 'face_cells') for e in edges]  #[bucket.edge_props((g_h, g_l), 'face_cells')]
 
     # We split all the faces that are connected to faces_h
     # The new faces will share the same nodes and properties (normals,
     # etc.)
+    face_cell_list = pp.fracs.split_grid.split_certain_faces(g_h,
+                                                             face_cell_list,
+                                                             faces_h, cells_l,
+                                                             g_l_ind)
 
-    face_cells = pp.fracs.split_grid.split_certain_faces(g_h, face_cell_list,
-                                                         faces_h, cells_l)[0]
-    bucket.set_edge_prop((g_h, g_l), 'face_cells', face_cells)
+    for e, f in zip(edges, face_cell_list):
+        bucket.edge_props(e)['face_cells'] = f
 
     # We now find which lower-dim nodes correspond to which higher-
     # dim nodes. We split these nodes according to the topology of
     # the connected higher-dim cells. At a X-intersection we split
     # the node into four, while at the fracture boundary it is not split.
-
     pp.fracs.split_grid.split_nodes(g_h, [g_l], [nodes_h])
 
     # Remove zeros from cell_faces
-
     [g.cell_faces.eliminate_zeros() for g, _ in bucket]
     return bucket
 
@@ -368,3 +398,27 @@ def tag_affected_cells_and_faces(gb):
     t = np.ones(g_l.num_cells, dtype=bool)
     t[cells_l] = True
     g_l.tags['discretize_cells'] = t
+
+
+def propgation_angle(K):
+    """
+    Compute the angle of propagation from already computed SIFs. The
+    computation is done in the local coordinsate system of the fracture tips,
+    and positive angles correspond to.
+    Intended for a single fracture grid.
+
+    Parameters:
+        K: array of stress intensity factors, with mode along first axis and
+            face along second.
+
+    Returns:
+        phi: array (number of tip faces, ) of propagation angles in radians.
+    """
+    A = 140 / 180 * np.pi
+    B = -70 / 180 * np.pi
+    aK = np.absolute(K)
+    phi = (A * aK[1]/(K[0] + aK[1] + aK[2])
+            + B * np.square(aK[2]/(K[0] + aK[1] + aK[2])))
+    neg_ind = K[1] > 0
+    phi[neg_ind] = - phi[neg_ind]
+    return phi

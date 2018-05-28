@@ -83,5 +83,5 @@ from porepy.params.units import *
 from porepy.numerics.fv import fvutils
 from porepy.utils import error
 from porepy.numerics import displacement_correlation
-
+from porepy.fracs import propagate_fracture
 

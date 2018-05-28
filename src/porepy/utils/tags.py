@@ -77,6 +77,7 @@ def add_tags(parent, new_tags):
     nt.update(new_tags)
     parent.tags = nt
 
+
 def add_node_tags_from_face_tags(gb, tag_base):
     """
     Set domain boundary tags for all nodes at at least one domain boundary

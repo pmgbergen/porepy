@@ -147,7 +147,7 @@ def simplex_3d(h, length, height, a, t, beta, file_name, from_gmsh=False,
 
 # -----analytical-------------------------------------------------------------#
 
-def analytical_displacements(gb, a, p0=1):
+def analytical_displacements(gb, a, beta, p0=1):
     """
     Analytical stress intensity factors for the through-the-thickness crack
     problem in question.

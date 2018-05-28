@@ -125,7 +125,7 @@ def solve(gb, dim_h, kw={}):
     critical_sifs = [1, .1, .1]     # Arbitrary, unused critical values
     _, sifs = pp.displacement_correlation.faces_to_open(gb, u, critical_sifs,
                                                         **kw)
-    return sifs
+    return sifs[0]
 
 
 def run_multiple_and_plot(array, function):
@@ -228,6 +228,7 @@ def evaluate_sifs_rm(a, beta, dim_h, gb, u, p0):
         kw = {'rm': rmin}
         _, s = pp.displacement_correlation.faces_to_open(gb, u, critical_sifs,
                                                          **kw)
+        s = s[0]
         e = np.mean(np.absolute(K - s)/K, axis=1)
         errors.append(e)
         sifs.append(s)

@@ -52,43 +52,52 @@ def faces_to_open(gb, u, critical_sifs, **kw):
                 may differ for 2d fractures.
 
     Returns:
-        faces_h_to_open: (possibly empty) array of higher-dimensional faces
-            to be split
-        sifs: the calculated stress intensity factors for each of the
-            lower-dimensional tip faces.
+        faces_h_to_open: list (one entry for each g_l) of (possibly empty)
+            arrays of higher-dimensional faces to be split.
+        sifs: list (one entry for each g_l) of the calculated stress intensity
+            factors for each of the lower-dimensional tip faces. Axes for
+            listed arrays: mode, tip face.
 
     """
     dim_h = gb.dim_max()
-    dim_l = gb.dim_min()
+    dim_l = dim_h - 1
     g_h = gb.grids_of_dimension(dim_h)[0]
-    g_l = gb.grids_of_dimension(dim_l)[0]
     d_h = gb.node_props(g_h)
-    rm = kw.get('rm', estimate_rm(g_l, **kw))
+
     E = d_h['Young']
     poisson = d_h['Poisson']
     mu = E / (2 * (1 + poisson))
     kappa = 3 - 4 * poisson
-    face_cells = gb.edge_props((g_h, g_l), 'face_cells')
 
-    # Obtain the g_h.dim components of the relative displacement vector
-    # corresponding to each fracture tip face of the lower dimension.
-    cells_l, faces_l, rm_vectors, rm_distances, normal_rm \
-        = identify_correlation_points(g_h, g_l, rm, u, face_cells)
+    sifs = []
+    faces_h_to_open = []
+    for i, g_l in enumerate(gb.grids_of_dimension(dim_l)):
+        rm = kw.get('rm', estimate_rm(g_l, **kw))
 
-    delta_u = relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h)
+        face_cells = gb.edge_props((g_h, g_l), 'face_cells')
 
-    if kw.get('use_normal_rm_distance', False) and g_l.dim > 1:
-        rm_distances = normal_rm
+        # Obtain the g_h.dim components of the relative displacement vector
+        # corresponding to each fracture tip face of the lower dimension.
+        cells_l, faces_l, rm_vectors, rm_distances, normal_rm \
+            = identify_correlation_points(g_h, g_l, rm, u, face_cells)
 
-    # Use them to compute the SIFs locally.
-    sifs = sif_from_delta_u(delta_u, rm_distances, mu, kappa)
+        delta_u = relative_displacements(u, face_cells, g_l, cells_l, faces_l,
+                                         g_h)
 
-    tips_to_propagate = determine_onset(sifs,
-                                        np.array(critical_sifs))
-    # Find the right direction. For now, only normal extension is allowed.
-    faces_h_to_open = identify_faces_to_open(g_h, g_l, tips_to_propagate,
-                                             rm_vectors)
-    faces_h_to_open = np.unique(faces_h_to_open)
+        if kw.get('use_normal_rm_distance', False) and g_l.dim > 1:
+            rm_distances = normal_rm
+
+        # Use them to compute the SIFs locally.
+        sifs_i = sif_from_delta_u(delta_u, rm_distances, mu, kappa)
+
+        tips_to_propagate = determine_onset(sifs_i, np.array(critical_sifs))
+        # Find the right direction. For now, only normal extension is allowed.
+        faces_h_to_open_i = identify_faces_to_open(g_h, g_l, tips_to_propagate,
+                                                   rm_vectors)
+        faces_h_to_open_i = np.unique(faces_h_to_open_i)
+
+        faces_h_to_open.append(faces_h_to_open_i)
+        sifs.append(sifs_i)
     return faces_h_to_open, sifs
 
 
@@ -258,9 +267,11 @@ def relative_displacements(u, face_cells, g_l, cells_l, faces_l, g_h):
     faces_h = faces_h.reshape((2, n_tips), order='F')
     # Extract the displacement differences between pairs of higher-dimensional
     # fracture faces
+    n_fracture_cells = int(round((u.size - g_h.num_cells * g_h.dim) /
+                                 g_h.dim / 2))
     i_l = np.arange(g_h.num_cells * g_h.dim,
-                    (g_h.num_cells + g_l.num_cells) * g_h.dim)
-    i_r = np.arange((g_h.num_cells + g_l.num_cells) * g_h.dim, u.size)
+                    (g_h.num_cells + n_fracture_cells) * g_h.dim)
+    i_r = np.arange((g_h.num_cells + n_fracture_cells) * g_h.dim, u.size)
     du_faces = np.reshape(u[i_l] - u[i_r], (g_h.dim, -1), order='F')
 
     delta_us = np.empty((g_h.dim, 0))

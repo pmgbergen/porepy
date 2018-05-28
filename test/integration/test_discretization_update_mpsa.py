@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jan 16 14:25:17 2018
-
-@author: ivar
-
 Test for the partial (i.e. spatially local) update of mpsa discretizations
 after grid updates due to fracture propagation.
 
@@ -23,12 +19,7 @@ from test.integration.fracture_propagation_utils import propagate_and_update, \
     compare_updates
 
 
-#------------------------------------------------------------------------------#
-
-
 class BasicsTest(unittest.TestCase):
-
-#------------------------------------------------------------------------------#
 
     def test_discretization_and_propagation_2d(self):
         """
