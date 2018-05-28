@@ -139,15 +139,24 @@ def split_faces(gh, face_cells):
     return face_cells
 
 
-def split_certain_faces(gh, face_cells, faces, cells):
+def split_certain_faces(gh, face_cell_list, faces, cells, gl_ind):
+    """
+    For a given pair of gh and gl.
+    Split only the faces specified by faces (higher-dimensional), corresponding
+    to new cells (lower-dimensional). gl_ind identifies gl in
+    face_cell_list, i.e.
+        face_cell_list[gl_ind] = gb.edge_props((gh, gl), 'face_cells')
+    """
+    for i, f_c in enumerate(face_cell_list):
         # We first we duplicate faces along tagged faces. The duplicate
         # faces will share the same nodes as the original faces,
         # however, the new faces are not yet added to the cell_faces map
         # (to save computation).
-        face_id = duplicate_certain_faces(gh, face_cells, faces)
-        face_cells = update_face_cells(face_cells, face_id, 0, cells)
+        face_id = duplicate_certain_faces(gh, f_c, faces)
+        face_cell_list = update_face_cells(face_cell_list, face_id, gl_ind,
+                                           cells)
         if face_id.size == 0:
-            return face_cells
+            return face_cell_list
 
         # We now set the cell_faces map based on which side of the
         # fractures the cells lie. We assume that all fractures are
@@ -166,7 +175,7 @@ def split_certain_faces(gh, face_cells, faces, cells):
             right = np.arange(gh.num_faces - face_id.size, gh.num_faces)
             gh.frac_pairs = np.hstack(
                 (gh.frac_pairs, np.vstack((left, right))))
-        return face_cells
+        return face_cell_list
 
 
 def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):

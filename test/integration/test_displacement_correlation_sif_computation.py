@@ -72,6 +72,28 @@ class BasicsTest(unittest.TestCase):
         _, error = simplex_3d(20, .05, .001, np.pi / 3, 0.03, rm_factor=.8)
         assert max(error) < .13
 
+    def test_two_fractures_cartesian_2d(self):
+        a = .1
+        n_cells = [10, 4]
+        sigma = 1e-5
+        rm_factor = .5
+        dim_h = 2
+        f_1 = np.array([[0, 2 * a],
+                        [0.5, 0.5]])
+        f_2 = np.array([[1 - a, 1],
+                        [0.5, 0.5]])
+        gb = pp.meshing.cart_grid([f_1, f_2], n_cells, **{'physdims': [1, 1]})
+        assign_parameters(gb, sigma)
+
+        # Discretize, solve and evaluate sifs. Dimension of array correspond to
+        # fracture, sif mode and face.
+        sifs = np.array(solve(gb, dim_h, rm_factor=rm_factor))
+
+        # First fracture is twice as big as second, so K_I should be larger:
+        assert sifs[0, 0, 0] > 1.5 * sifs[1, 0, 0]
+        # Pure opening, so mode II should be zero:
+        assert np.all(np.isclose(sifs[:, 1], 0))
+
 
 def cartesian_2d(n_cells, a, sigma, rm_factor):
     # Make grid bucket and assign data
@@ -208,7 +230,10 @@ def solve(gb, dim_h, rm_factor):
     critical_sifs = [.005, .1, .1]
     _, sifs = pp.displacement_correlation.faces_to_open(gb, u, critical_sifs,
                                                         rm_factor=rm_factor)
-    return sifs
+    if len(gb.grids_of_dimension(dim_h-1)) < 2:
+        return sifs[0]
+    else:
+        return sifs
 
 
 if __name__ == '__main__':

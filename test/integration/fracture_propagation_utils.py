@@ -28,7 +28,10 @@ def propagate_and_update(gb, faces, discr, update_bc, update_apertures):
     out of the propagate_fracture module.
     """
     faces = np.array(faces)
-    propagate_simple(gb, faces)
+    if faces.ndim < 2:
+        pp.propagate_fracture.propagate_fractures(gb, [faces])
+    else:
+        pp.propagate_fracture.propagate_fractures(gb, faces)
     propagate_fracture.tag_affected_cells_and_faces(gb)
     gl = gb.grids_of_dimension(gb.dim_min())[0]
     update_apertures(gb, gl, faces)
@@ -145,7 +148,7 @@ def compare_discretizations(g_1, lhs_0, lhs_1, rhs_0, rhs_1, cell_maps,
 
         # and faces on either side of the fracture. Find the order of the g_1
         # frac faces among the g_0 frac faces.
-        frac_faces_loc = sm.ismember_rows(face_maps[0], g_1.frac_pairs.ravel('C'), sort=False)[1] 
+        frac_faces_loc = sm.ismember_rows(face_maps[0], g_1.frac_pairs.ravel('C'), sort=False)[1]
         # And expand to the dofs, one for each dimension for each face. For two
         # faces f0 and f1 in 3d, the order is
         # u(f0). v(f0), w(f0), u(f1). v(f1), w(f1)
@@ -164,24 +167,13 @@ def compare_discretizations(g_1, lhs_0, lhs_1, rhs_0, rhs_1, cell_maps,
     assert np.all(np.isclose(rhs_0, rhs_1[global_dof_map]))
 
 
-def propagate_simple(gb, faces):
-    """
-    Wrapper for the fracture propagation in a bucket containing a single
-    fracture along specified higher-dimensional faces.
-    """
-    dim_h = gb.dim_max()
-    faces = np.array(faces)
-    propagate_fracture.propagate_fracture(gb,
-                                          gb.grids_of_dimension(dim_h)[0],
-                                          gb.grids_of_dimension(dim_h - 1)[0],
-                                          faces)
-
-
 def check_equivalent_buckets(buckets, decimals=12):
     """
     Checks agreement between number of cells, faces and nodes, their
     coordinates and the connectivity matrices cell_faces and face_nodes. Also
     checks the face tags.
+
+    Note: Only checks first grid of each dimension!!
     """
     dim_h = buckets[0].dim_max()
     n = len(buckets)

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jan 16 14:25:17 2018
-
-@author: ivar
-
+Test the update of an mpfa discretization (as opposed to full
+re-discretization) following grid modifications, here due to fracture
+propagation.
 """
 
 

@@ -14,10 +14,9 @@ class BasicsTest(unittest.TestCase):
         box = {'xmin': 0, 'ymin': 0, 'zmin': 0,
                'xmax': 5, 'ymax':  5, 'zmax': 5}
 
-        self.gb3d = meshing.simplex_grid([f], box, mesh_size_min=5, mesh_size_frac=5)
+        self.gb3d = meshing.simplex_grid([f], box, mesh_size_min=5,
+                                         mesh_size_frac=5)
         unittest.TestCase.__init__(self, *args, **kwargs)
-
-    #------------------------------------------------------------------------------#
 
     def test_zero_force(self):
         """
@@ -92,7 +91,8 @@ class BasicsTest(unittest.TestCase):
         u_right = u_f[mid_ind:]
         assert np.all(np.abs(u_left - u_right - 1) < 1e-10)
 
-        # fracture displacement should be symetric since everything else is symetric
+        # fracture displacement should be symmetric since everything else is
+        # symmetric
         assert np.allclose(u_left, 0.5)
         assert np.allclose(u_right, -0.5)
 
@@ -209,7 +209,6 @@ class BasicsTest(unittest.TestCase):
         assert np.allclose(u_c[:, ~top_cells], 0)
         assert np.allclose(T, 0)
 
-
     def test_vectorial_bc(self):
         """
         We mixed bc_val on domain boundary and fracture displacement in
@@ -232,7 +231,8 @@ class BasicsTest(unittest.TestCase):
         frac_slip[0, frac_bnd] = np.ones(np.sum(frac_bnd))
         bc_val[:, dom_bnd] = g.face_centers[:, dom_bnd]
 
-        bound = bc.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), 'dir')
+        bound = bc.BoundaryConditionVectorial(g, g.get_all_boundary_faces(),
+                                              'dir')
 
         data['param'].set_bc('mechanics', bound)
         data['param'].set_bc_val('mechanics', bc_val)
@@ -270,3 +270,7 @@ class BasicsTest(unittest.TestCase):
 
         # should have a positive displacement for all cells
         assert np.all(u_c > 0)
+
+
+if __name__ == '__main__':
+    unittest.main()

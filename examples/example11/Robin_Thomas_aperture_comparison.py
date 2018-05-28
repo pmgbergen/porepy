@@ -29,7 +29,7 @@ def analytical_sifs(a, beta, dim, sigma, phi=0):
     problem in question.
     """
 
-    nu = .3
+    nu = .23
     cons = 2 * sigma * np.sqrt(a / np.pi)
     K_I = cons * np.square(np.sin(beta)) * np.ones(phi.size)
     K_II = cons / (2 - nu) * np.sin(2 * beta) * np.cos(phi)
@@ -61,7 +61,7 @@ def assign_parameters(gb):
         # TODO: Add update method
         param.__init__(g)
         E = Young
-        Poisson = .3
+        Poisson = .23
 
         d['Poisson'] = Poisson
         d['Young'] = E
@@ -87,19 +87,23 @@ def assign_parameters(gb):
                 labels[i] = 'dir'
             bc_val = np.zeros((g.dim, g.num_faces))
             if g.dim > last_ind:
-                ind_t = bound_faces[top]
-
-                ind_t = bound_faces[top]
-                normals = g.face_normals[last_ind, ind_t] \
-                    * g.cell_faces[ind_t].data
-                bc_val[last_ind, ind_t] = np.absolute(p0 * normals)
-                for i in bottom.nonzero()[0]:
-                    labels[i] = 'dir_z'
+#                ind_t = bound_faces[top]
+#
+#                ind_t = bound_faces[top]
+#                normals = g.face_normals[last_ind, ind_t] \
+#                    * g.cell_faces[ind_t].data
+#                bc_val[last_ind, ind_t] = np.absolute(p0 * normals)
+#                for i in bottom.nonzero()[0]:
+#                    labels[i] = 'dir_z'
                 dist = pp.cg.dist_point_pointset(np.array([10, 10, 0]),
                                                  bound_face_centers[:, bottom])
                 ind = np.argmin(dist)
-                labels[bottom[ind]] = 'dir'
+#                labels[bottom[ind]] = 'dir'
                 internal_tension = np.zeros((g.dim, g.num_faces))
+                internal_tension[last_ind, g.frac_pairs[0]] \
+                    = p0 * g.face_areas[g.frac_pairs[0]] * np.sin(beta)
+                internal_tension[0, g.frac_pairs[0]] \
+                    = p0 * g.face_areas[g.frac_pairs[0]] * np.cos(beta)
                 bcs = pp.BoundaryConditionVectorial(g, bound_faces, labels)
                 param.set_bc(physics, bcs)
                 param.set_bc_val(physics, bc_val.ravel('F'))
@@ -213,14 +217,14 @@ if __name__ == '__main__':
     height = 20
     sneddon = False
     a = 1
-    p0 = 1e7
-    beta = np.pi / 4
+    p0 = 1e8
+    beta = np.pi / 2
     penny = True
     t = 10
-    Young = 1e10
+    Young = 2e10
     center = np.array([length / 2, height / 2, t])
 
-    existing_gb = 1 == 1
+    existing_gb = 11 == 1
     from_gmsh = 1 == 1
     fixed_ntips = 1 == 19
     # ------------------ 3 D -------------------------------------------------#
@@ -231,12 +235,12 @@ if __name__ == '__main__':
     else:
         # Number of fracture tips:
         v = [6, 8, 12, 15, 20, 25, 30]
-        v = [5]
-        nx = 4
+        v = [20]
+        nx = 12
 
     all_aperture_l2 = []
     all_sif_l2 = []
-    root = 'robin_shielded'  #'robin_rotated'  #'robin_unshielded'
+    root = 'robin_comparison'  #'robin_unshielded'
     for i in v:
         if fixed_ntips:
             nx = i
@@ -251,8 +255,8 @@ if __name__ == '__main__':
             os.makedirs(folder)
         file_name = folder + '/geometry'
         if not existing_gb:
-            sif_l2, sifs, gb, u, e_loc = run(nx, a, t, fn=file_name,
-                                             beta=beta, sigma=p0)
+            sif_l2, sifs, gb, u, sif_e_loc = run(nx, a, t, fn=file_name,
+                                                 beta=beta, sigma=p0)
         else:
             d = pickle.load(open(folder + '/data', 'rb'))
             u = d['u']
@@ -276,14 +280,14 @@ if __name__ == '__main__':
         aperture_error = np.mean(np.absolute(aperture_e_loc))
         aperture_l2 = L2_error(aperture_analytical, aperture, g_l.cell_volumes)
         all_sif_l2.append(sif_l2)
-#        if not existing_gb:
-#            d = {'u': u, 'a': aperture, 'a_a': aperture_analytical, 'eta': eta,
-#                 'aperture_L2': aperture_l2, 'aperture_e_loc': aperture_e_loc,
-#                 'sif_l2': sif_l2, 'sif_e_loc': sif_e_loc, 'sifs': sifs}
-#            pickle.dump(d, open(folder + '/data', 'wb'))
+        if not existing_gb:
+            d = {'u': u, 'a': aperture, 'a_a': aperture_analytical, 'eta': eta,
+                 'aperture_L2': aperture_l2, 'aperture_e_loc': aperture_e_loc,
+                 'sif_l2': sif_l2, 'sif_e_loc': sif_e_loc, 'sifs': sifs}
+            pickle.dump(d, open(folder + '/data', 'wb'))
 
         all_aperture_l2.append(aperture_l2)
-#        save(gb, u, np.absolute(aperture_e_loc), 'aperture',
-#             folder_name=folder, export=True)
+        save(gb, u, np.absolute(aperture_e_loc), 'aperture',
+             folder_name=folder, export=True)
 
     plot_all(do_plot=False)

@@ -56,6 +56,7 @@ class BasicsTest(unittest.TestCase):
         # Check for propagation
         faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
                                                              critical_sifs)
+        faces = faces[0]
         save_vtk(save, u, gb_2, 0)
         # Increase boundary displacement, rediscretize, solve and evaluate
         # propagation.
@@ -67,10 +68,12 @@ class BasicsTest(unittest.TestCase):
         u = sps.linalg.spsolve(lhs_2, rhs_2)
         faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
                                                              critical_sifs)
+        faces = faces[0]
         save_vtk(save, u, gb_2, 1)
         # Now the condition is met. Propagate and update discretizations
         lhs_2, rhs_2 = propagate_and_update(gb_2, faces, discr, set_bc_mech_2,
                                             update_apertures)
+        faces = faces[0]
         u = sps.linalg.spsolve(lhs_2, rhs_2)
         faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
                                                              critical_sifs)
@@ -84,6 +87,7 @@ class BasicsTest(unittest.TestCase):
         u = sps.linalg.spsolve(lhs_2, rhs_2)
         faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
                                                              critical_sifs)
+        faces = faces[0]
         save_vtk(save, u, gb_2, 3)
 
         lhs_2, rhs_2 = propagate_and_update(gb_2, faces, discr, set_bc_mech_3,
@@ -125,6 +129,7 @@ class BasicsTest(unittest.TestCase):
         # Check for propagation
         faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
                                                              critical_sifs)
+        faces = faces[0]
         save_vtk(save, u, gb_2, 0)
         # Increase boundary displacement, rediscretize, solve and evaluate
         # propagation.
@@ -136,6 +141,7 @@ class BasicsTest(unittest.TestCase):
         u = sps.linalg.spsolve(lhs_2, rhs_2)
         faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
                                                              critical_sifs)
+        faces = faces[0]
         save_vtk(save, u, gb_2, 1)
         # Now the condition is met. Propagate and update discretizations
         lhs_2, rhs_2 = propagate_and_update(gb_2, faces, discr, set_bc_mech_2,
@@ -143,6 +149,7 @@ class BasicsTest(unittest.TestCase):
         u = sps.linalg.spsolve(lhs_2, rhs_2)
         faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
                                                              critical_sifs)
+        faces = faces[0]
         save_vtk(save, u, gb_2, 2)
 
         def set_bc_mech_3(gb):
@@ -153,6 +160,7 @@ class BasicsTest(unittest.TestCase):
         u = sps.linalg.spsolve(lhs_2, rhs_2)
         faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
                                                              critical_sifs)
+        faces = faces[0]
         save_vtk(save, u, gb_2, 3)
 #
         lhs_2, rhs_2 = propagate_and_update(gb_2, faces, discr, set_bc_mech_3,
@@ -204,6 +212,7 @@ class BasicsTest(unittest.TestCase):
         faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
                                                              critical_sifs,
                                                              rm_factor=rm_f)
+        faces = faces[0]
         save_vtk(save, u, gb_2, 0)
         # Increase boundary displacement, rediscretize, solve and evaluate
         # propagation.
@@ -214,6 +223,7 @@ class BasicsTest(unittest.TestCase):
         faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
                                                              critical_sifs,
                                                              rm_factor=rm_f)
+        faces = faces[0]
         save_vtk(save, u, gb_2, 1)
         # Now the condition is met. Propagate and update discretizations
         lhs_2, rhs_2 = propagate_and_update(gb_2, faces, discr, set_bc_mech_2,
@@ -222,6 +232,7 @@ class BasicsTest(unittest.TestCase):
         faces, _ = pp.displacement_correlation.faces_to_open(gb_2, u,
                                                              critical_sifs,
                                                              rm_factor=rm_f)
+        faces = faces[0]
         save_vtk(save, u, gb_2, 2)
 
         if do_save:
