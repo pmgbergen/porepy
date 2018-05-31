@@ -302,9 +302,11 @@ class TpfaCoupling(AbstractCoupling):
 
     def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
         if g_h.dim == g_l.dim:
-            mc =self.mono_coupling.matrix_rhs(matrix, g_h, g_l, data_h, data_l, data_edge)
+            mc = self.mono_coupling.matrix_rhs(matrix, g_h, g_l, data_h,
+                                               data_l, data_edge)
         else:
-            mc =self.mixed_coupling.matrix_rhs(matrix, g_h, g_l, data_h, data_l, data_edge)
+            mc = self.mixed_coupling.matrix_rhs(matrix, g_h, g_l, data_h,
+                                                data_l, data_edge)
         return mc
 
     def discretize(self, gb):
