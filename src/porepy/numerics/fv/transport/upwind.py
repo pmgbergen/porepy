@@ -397,25 +397,31 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         flag = (lam_flux > 0).astype(np.int)
 
         # assemble matrices
-        # first add the discretizations when thre is a flux from upper grid to
-        # lower grid
-        # Transport out off upper
-        lam_u = lam_flux * flag
-        cc[0, 0] = sps.diags(div * hat * (lam_u))
-        # transport from upper to lower
-        cc[1, 0] = face_cells * div.T * sps.diags(div * hat * -lam_u)
-        # Then add the discretization when there is a flux from lower grid to
-        # uppper grid
-        # transport from lower to upper
-        lam_l = lam_flux * (1 - flag)
-        cc[0, 1] = div * sps.diags(hat * lam_l) * face_cells.T
-        # transport out of lower
-        cc[1, 1] = sps.diags(check * (-lam_l))
+        # Transport out off upper equals lambda
+        cc[0, 2] = div * hat
+
+        # transport out of lower is -lambda
+        cc[1, 2] = -check #* sps.diags((1 - flag))
+
+        # Discretisation of mortars
+        # If fluid flux(lam_flux) is positive we use the upper value as weight,
+        # i.e., T_hat * fluid_flux = lambda.
+        # We set cc[2, 0] = T_hat * fluid_flux
+        cc[2, 0] = sps.diags(lam_flux * flag, 0) * hat.T * div.T
+
+        # If fluid flux is negative we use the lower value as weight,
+        # i.e., T_check * fluid_flux = lambda.
+        # we set cc[2, 1] = T_check * fluid_flux
+        cc[2, 1] = sps.diags((lam_flux * (1 - flag)), 0) * check.T
+
+        # The rhs of T * fluid_flux = lambda
+        cc[2, 2] = -sps.eye(np.size(lam_flux))
 
         if data_h['node_number'] == data_l['node_number']:
             # All contributions to be returned to the same block of the
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0, 1))])
+        
         return matrix + cc
 
 #------------------------------------------------------------------------------#
