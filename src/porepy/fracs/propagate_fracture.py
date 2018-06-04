@@ -417,7 +417,7 @@ def propgation_angle(K):
     A = 140 / 180 * np.pi
     B = -70 / 180 * np.pi
     if K.shape[0] == 2:
-        K = np.hstack([K, np.zeros((K.shape[0],1))])
+        K = np.vstack([K, np.zeros((1, K.shape[1]))])
     aK = np.absolute(K)
     phi = (A * aK[1]/(K[0] + aK[1] + aK[2])
             + B * np.square(aK[2]/(K[0] + aK[1] + aK[2])))
