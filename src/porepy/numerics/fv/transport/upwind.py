@@ -159,7 +159,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
         # Compute the inflow/outflow related to the cells of the problem
         flow_faces.data = flow_faces.data.clip(min=0)
-        
+
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
 
@@ -340,7 +340,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
 class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
-    #------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
     def __init__(self, discr):
         self.discr_ndof = discr.ndof
@@ -354,7 +354,7 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         Note: the right-hand side is not implemented now.
 
         Parameters:
-            matrix: Uncoupled discretization matrix. 
+            matrix: Uncoupled discretization matrix.
             g_h: grid of higher dimension
             g_l: grid of lower dimension
             data_h: dictionary which stores the data for the higher dimensional
@@ -374,54 +374,51 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         lam_flux = data_edge[lambda_key]
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        dof, cc = self.create_block_matrix([g_h, g_l, data_edge['mortar_grid']])
-
-        # Mortar grid
-        mg = data_edge['mortar_grid']
+        g_m = data_edge['mortar_grid']
+        dof, cc = self.create_block_matrix([g_h, g_l, g_m])
 
         # Projection from mortar to upper dimenional faces
-        hat = mg.high_to_mortar_avg().T
+        hat_P_avg = g_m.high_to_mortar_avg()
         # Projection from mortar to lower dimensional cells
-        check = mg.low_to_mortar_avg().T
+        check_P_avg = g_m.low_to_mortar_avg()
 
         # mapping from upper dim cellls to faces
         # The mortars always points from upper to lower, so we don't flip any
         # signs
         div = np.abs(pp.numerics.fv.fvutils.scalar_divergence(g_h))
 
-        # mapping from cells of lower to faces of upper
-        face_cells = data_edge['face_cells']
-
         # Find upwind weighting. if flag is True we use the upper weights
         # if flag is False we use the lower weighs
-        flag = (lam_flux > 0).astype(np.int)
+        flag = (lam_flux > 0).astype(np.float)
+        not_flag = 1-flag
 
         # assemble matrices
         # Transport out off upper equals lambda
-        cc[0, 2] = div * hat
+        cc[0, 2] = div * hat_P_avg.T
 
         # transport out of lower is -lambda
-        cc[1, 2] = -check #* sps.diags((1 - flag))
+        cc[1, 2] = -check_P_avg.T #* sps.diags((1 - flag))
 
         # Discretisation of mortars
         # If fluid flux(lam_flux) is positive we use the upper value as weight,
         # i.e., T_hat * fluid_flux = lambda.
         # We set cc[2, 0] = T_hat * fluid_flux
-        cc[2, 0] = sps.diags(lam_flux * flag, 0) * hat.T * div.T
+        cc[2, 0] = sps.diags(lam_flux*flag) * hat_P_avg * div.T
 
         # If fluid flux is negative we use the lower value as weight,
         # i.e., T_check * fluid_flux = lambda.
         # we set cc[2, 1] = T_check * fluid_flux
-        cc[2, 1] = sps.diags((lam_flux * (1 - flag)), 0) * check.T
+        cc[2, 1] = sps.diags(lam_flux*not_flag) * check_P_avg
 
         # The rhs of T * fluid_flux = lambda
-        cc[2, 2] = -sps.eye(np.size(lam_flux))
+        # Recover the information for the grid-grid mapping
+        cc[2, 2] = -sps.eye(g_m.num_cells)
 
         if data_h['node_number'] == data_l['node_number']:
             # All contributions to be returned to the same block of the
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0, 1))])
-        
+
         return matrix + cc
 
 #------------------------------------------------------------------------------#
