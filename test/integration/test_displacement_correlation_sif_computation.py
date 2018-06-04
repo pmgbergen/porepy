@@ -56,7 +56,10 @@ class BasicsTest(unittest.TestCase):
         assert max(error) < .08
 
     def test_sif_convergence_simplex_2d(self):
-        _, error = simplex_2d(20, .05, .001, np.pi / 2, rm_factor=.8)
+        sifs, error = simplex_2d(20, .05, .001, np.pi / 2, rm_factor=.8)
+        phi = pp.propagate_fracture.propgation_angle(sifs)
+        print(phi)
+        assert np.max(np.absolute(phi)) < .05
         assert max(error) < .04
         _, error = simplex_2d(30, .05, .001, np.pi / 3, rm_factor=.8)
         assert max(error) < .2
@@ -67,10 +70,14 @@ class BasicsTest(unittest.TestCase):
         assert max(error) < .11
 
     def test_sif_convergence_simplex_3d(self):
-        _, error = simplex_3d(20, .05, .001, np.pi / 2, 0.03, rm_factor=.8)
+        sifs, error = simplex_3d(20, .05, .001, np.pi / 2, 0.03, rm_factor=.8)
+        phi = pp.propagate_fracture.propgation_angle(sifs)
+        assert np.max(np.absolute(phi)) < .05
         assert max(error) < .08
-        _, error = simplex_3d(20, .05, .001, np.pi / 3, 0.03, rm_factor=.8)
+        sifs, error = simplex_3d(20, .05, .001, np.pi / 3, 0.03, rm_factor=.8)
+        phi = pp.propagate_fracture.propgation_angle(sifs)
         assert max(error) < .13
+        assert np.max(np.absolute(np.absolute(phi) - np.pi / 3)) < .05
 
     def test_two_fractures_cartesian_2d(self):
         a = .1
