@@ -115,7 +115,7 @@ class Coupler(object):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, gb, matrix_format="csr"):
+    def matrix_rhs(self, gb, matrix_format="csr", return_bmat=False):
         """
         Return the matrix and righ-hand side for a suitable discretization, where
         a hierarchy of grids are considered. The matrices are stored in the
@@ -148,7 +148,10 @@ class Coupler(object):
 
         # if the coupling conditions are not given fill only the diagonal part
         if self.coupling_fct is None:
-            return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
+            if return_bmat:
+                return matrix, rhs
+            else:
+                return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
         # Loop over the edges of the graph (pair of connected grids) to compute
         # the coupling conditions
@@ -164,7 +167,10 @@ class Coupler(object):
             data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
             matrix[idx] = self.coupling_fct(matrix[idx], g_h, g_l, data_h, data_l, d)
 
-        return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
+        if return_bmat:
+            return matrix, rhs
+        else:
+            return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
 #------------------------------------------------------------------------------#
 
