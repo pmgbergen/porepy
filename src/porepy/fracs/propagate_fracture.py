@@ -347,7 +347,7 @@ def split_fracture_extension(bucket, g_h, g_l, faces_h, nodes_h, cells_l):
         warnings.warn('Unexpected neighbourless g_h in fracture propagation')
         return
 
-    face_cell_list = [bucket.edge_props(e, 'face_cells') for e in edges]  #[bucket.edge_props((g_h, g_l), 'face_cells')]
+    face_cell_list = [bucket.edge_props(e, 'face_cells') for e in edges]
 
     # We split all the faces that are connected to faces_h
     # The new faces will share the same nodes and properties (normals,
@@ -416,6 +416,8 @@ def propgation_angle(K):
     """
     A = 140 / 180 * np.pi
     B = -70 / 180 * np.pi
+    if K.shape[0] == 2:
+        K = np.hstack([K, np.zeros((K.shape[0],1))])
     aK = np.absolute(K)
     phi = (A * aK[1]/(K[0] + aK[1] + aK[2])
             + B * np.square(aK[2]/(K[0] + aK[1] + aK[2])))
