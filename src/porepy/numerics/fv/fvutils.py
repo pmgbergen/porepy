@@ -1149,7 +1149,7 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
 
 
 def compute_discharges(gb, physics='flow', d_name='discharge',
-                       p_name='pressure', data=None):
+                       p_name='pressure', lam_name='mortar_solution', data=None):
     """
     Computes discharges over all faces in the entire grid /grid bucket given
     pressures for all nodes, provided as node properties.
@@ -1199,38 +1199,3 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             else:
                 dis = np.zeros(g.num_faces)
             d[d_name] = dis
-
-    for e, d in gb.edges():
-        # According to the sorting convention, g2 is the higher dimensional grid,
-        # the one to who's faces the fluxes correspond
-        g1, g2 = gb.nodes_of_edge(e)
-        try:
-            pa = d['param']
-        except KeyError:
-            pa = Parameters(g2)
-            d['param'] = pa
-
-        if g1.dim != g2.dim and d['face_cells'] is not None:
-            coupling_flux = gb.edge_props(e, 'coupling_flux')
-            pressures = [gb.node_props(g, p_name) for g in [g2, g1]]
-            dis = coupling_flux * np.concatenate(pressures)
-            d[d_name] = dis
-
-        elif g1.dim == g2.dim and d['face_cells'] is not None:
-            # g2 is now only the "higher", but still the one defining the faces
-            # (cell-cells connections) in the sense that the normals are assumed
-            # outward from g2, "pointing towards the g1 cells". Note that in
-            # general, there are g2.num_cells x g1.num_cells connections/"faces".
-            cc = d['face_cells']
-            cells_1, cells_2 = cc.nonzero()
-            coupling_flux = gb.edge_props(e, 'coupling_flux')
-
-            pressures = [gb.node_props(g, p_name) for g in [g2, g1]]
-            p2 = pressures[0][cells_2]
-            p1 = pressures[1][cells_1]
-            contribution_2 = np.multiply(coupling_flux[cc], p2)
-            contribution_1 = np.multiply(coupling_flux[cc], p1)
-            dis = contribution_2 - contribution_1
-            # Store flux at the edge only. This means that the flux will remain
-            # zero in the data of both g1 and g2
-            d[d_name] = np.ravel(dis)

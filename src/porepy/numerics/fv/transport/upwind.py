@@ -2,14 +2,11 @@ from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
-from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
-
+import porepy as pp
 #------------------------------------------------------------------------------#
 
 
-class UpwindMixedDim(SolverMixedDim):
+class UpwindMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
     def __init__(self, physics='transport'):
         self.physics = physics
@@ -18,7 +15,8 @@ class UpwindMixedDim(SolverMixedDim):
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = UpwindCoupling(self.discr)
 
-        self.solver = Coupler(self.discr, self.coupling_conditions)
+        self.solver = pp.numerics.mixed_dim.coupler.Coupler(self.discr,
+                                                            self.coupling_conditions)
 
     def cfl(self, gb):
         deltaT = gb.apply_function(self.discr.cfl,
@@ -28,12 +26,12 @@ class UpwindMixedDim(SolverMixedDim):
     def outflow(self, gb):
         def bind(g, d):
             return self.discr.outflow(g, d), np.zeros(g.num_cells)
-        return Coupler(self.discr, solver_fct=bind).matrix_rhs(gb)[0]
+        return pp.Coupler(self.discr, solver_fct=bind).matrix_rhs(gb)[0]
 
 #------------------------------------------------------------------------------#
 
 
-class Upwind(Solver):
+class Upwind(pp.numerics.mixed_dim.solver.Solver):
     """
     Discretize a hyperbolic transport equation using a single point upstream
     weighting scheme.
@@ -340,7 +338,7 @@ class Upwind(Solver):
 #------------------------------------------------------------------------------#
 
 
-class UpwindCoupling(AbstractCoupling):
+class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
     #------------------------------------------------------------------------------#
 
@@ -349,12 +347,14 @@ class UpwindCoupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge, d_name='discharge'):
+    def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge,
+                   lambda_key='mortar_solution'):
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
         Note: the right-hand side is not implemented now.
 
         Parameters:
+            matrix: Uncoupled discretization matrix. 
             g_h: grid of higher dimension
             g_l: grid of lower dimension
             data_h: dictionary which stores the data for the higher dimensional
@@ -371,62 +371,58 @@ class UpwindCoupling(AbstractCoupling):
         """
 
         # Normal component of the velocity from the higher dimensional grid
-        discharge = data_edge[d_name]
-
+        lam_flux = data_edge[lambda_key]
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        dof, cc = self.create_block_matrix(g_h, g_l)
+        dof, cc = self.create_block_matrix([g_h, g_l, data_edge['mortar_grid']])
 
-        # 1d-1d
-        if g_h.dim == g_l.dim:
-            # Remember that face_cells are really cell-cell connections
-            # in this case
-            cells_l, cells_h = data_edge['face_cells'].nonzero()
-            diag_cc11 = np.zeros(g_l.num_cells)
-            diag_cc00 = np.zeros(g_h.num_cells)
-            d_00 = np.bincount(cells_h, np.sign(discharge.clip(min=0)) * discharge,
-                               minlength=g_h.num_cells)
-            d_11 = np.bincount(cells_l, np.sign(discharge.clip(max=0)) * discharge,
-                               minlength=g_l.num_cells)
-            np.add.at(diag_cc00, range(g_h.num_cells), d_00)
-            np.add.at(diag_cc11, range(g_l.num_cells), d_11)
-        else:
-            # Recover the information for the grid-grid mapping
-            cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
+        # Mortar grid
+        mg = data_edge['mortar_grid']
 
-            # Recover the correct sign for the velocity
-            faces, _, sgn = sps.find(g_h.cell_faces)
-            sgn = sgn[np.unique(faces, return_index=True)[1]]
-            discharge = sgn[faces_h] * discharge[faces_h]
+        # Projection from mortar to upper dimenional faces
+        hat = mg.high_to_mortar_avg().T
+        # Projection from mortar to lower dimensional cells
+        check = mg.low_to_mortar_avg().T
 
-            # Determine which are the corresponding cells of the faces_h
-            cell_faces_h = g_h.cell_faces.tocsr()[faces_h, :]
-            cells_h = cell_faces_h.nonzero()[1]
+        # mapping from upper dim cellls to faces
+        # The mortars always points from upper to lower, so we don't flip any
+        # signs
+        div = np.abs(pp.numerics.fv.fvutils.scalar_divergence(g_h))
 
-            diag_cc11 = np.zeros(g_l.num_cells)
-            np.add.at(diag_cc11, cells_l, np.sign(
-                discharge.clip(max=0)) * discharge)
+        # mapping from cells of lower to faces of upper
+        face_cells = data_edge['face_cells']
 
-            diag_cc00 = np.zeros(g_h.num_cells)
-            np.add.at(diag_cc00, cells_h, np.sign(
-                discharge.clip(min=0)) * discharge)
-        # Compute the outflow from the higher to the lower dimensional grid
-        cc[1, 0] = sps.coo_matrix((-discharge.clip(min=0), (cells_l, cells_h)),
-                                  shape=(dof[1], dof[0]))
+        # Find upwind weighting. if flag is True we use the upper weights
+        # if flag is False we use the lower weighs
+        flag = (lam_flux > 0).astype(np.int)
 
-        # Compute the inflow from the higher to the lower dimensional grid
-        cc[0, 1] = sps.coo_matrix((discharge.clip(max=0), (cells_h, cells_l)),
-                                  shape=(dof[0], dof[1]))
+        # assemble matrices
+        # Transport out off upper equals lambda
+        cc[0, 2] = div * hat
 
-        cc[1, 1] = sps.dia_matrix((diag_cc11, 0), shape=(dof[1], dof[1]))
+        # transport out of lower is -lambda
+        cc[1, 2] = -check #* sps.diags((1 - flag))
 
-        cc[0, 0] = sps.dia_matrix((diag_cc00, 0), shape=(dof[0], dof[0]))
+        # Discretisation of mortars
+        # If fluid flux(lam_flux) is positive we use the upper value as weight,
+        # i.e., T_hat * fluid_flux = lambda.
+        # We set cc[2, 0] = T_hat * fluid_flux
+        cc[2, 0] = sps.diags(lam_flux * flag, 0) * hat.T * div.T
+
+        # If fluid flux is negative we use the lower value as weight,
+        # i.e., T_check * fluid_flux = lambda.
+        # we set cc[2, 1] = T_check * fluid_flux
+        cc[2, 1] = sps.diags((lam_flux * (1 - flag)), 0) * check.T
+
+        # The rhs of T * fluid_flux = lambda
+        cc[2, 2] = -sps.eye(np.size(lam_flux))
 
         if data_h['node_number'] == data_l['node_number']:
             # All contributions to be returned to the same block of the
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0, 1))])
-        return cc
+        
+        return matrix + cc
 
 #------------------------------------------------------------------------------#
 

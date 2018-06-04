@@ -156,12 +156,12 @@ class ParabolicModel():
                 self.physics = 'transport'
                 upwind.UpwindCoupling.__init__(self, discr)
 
-            def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
-                cc = upwind.UpwindCoupling.matrix_rhs(self, g_h, g_l, data_h,
+            def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
+                cc = upwind.UpwindCoupling.matrix_rhs(self, matrix, g_h, g_l, data_h,
                                                       data_l, data_edge)
                 factor = data_h['param'].fluid_specific_heat \
                        * data_h['param'].fluid_density
-                return cc * factor
+                return (cc - matrix) * factor + matrix
 
         class WeightedUpwindMixedDim(upwind.UpwindMixedDim):
 
