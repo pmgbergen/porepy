@@ -196,7 +196,7 @@ class Exporter():
 
     def _export_vtk_single(self, data, time_step, g, name):
         name = self._make_file_name(name, time_step)
-        self._write_vtk(data, name, self.gb_VTK, g)
+        self._write_vtk(data, name, self.gb_VTK)
 
 #------------------------------------------------------------------------------#
 
