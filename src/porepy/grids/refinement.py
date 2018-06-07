@@ -216,9 +216,9 @@ def remesh_1d(g_old, num_nodes, tol=1e-6):
 
     for fi in old_frac_faces:
         nfi = np.where(cg.dist_point_pointset(g_old.face_centers[:, fi],
-                                              nodes) < tol)
-        new_frac_face.append(nfi)
-
+                                              nodes) < tol)[0]
+        if len(nfi) > 0:
+            new_frac_face.append(nfi[0])
 
     # This can probably be made more elegant
     g.tags['fracture_faces'][new_frac_face] = True

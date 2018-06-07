@@ -54,8 +54,8 @@ class SolverMixedDim(object):
     def __init__(self):
         pass
 
-    def matrix_rhs(self, gb):
-        return self.solver.matrix_rhs(gb)
+    def matrix_rhs(self, gb, **kwargs):
+        return self.solver.matrix_rhs(gb, **kwargs)
 
     def split(self, gb, key, values, **kwargs):
         return self.solver.split(gb, key, values, **kwargs)
