@@ -79,37 +79,36 @@ class Coupler(object):
             rhs: the global right-hand side.
         """
         # Initialize the global matrix and rhs to store the local problems
-        matrix = np.empty((gb.size(), gb.size()), dtype=np.object)
-        rhs = np.empty(gb.size(), dtype=np.object)
 
-        for g_i, d_i in gb:
+        shapes = np.empty((gb.size(), gb.size()), dtype=np.object)
+        num_nodes = gb.num_graph_nodes()
+
+        # Initialize the shapes for the matrices and rhs for all the sub-blocks
+        for _, d_i in gb:
             pos_i = d_i['node_number']
-            rhs[pos_i] = np.zeros(d_i['dof'])
-
-            for g_j, d_j in gb:
+            for _, d_j in gb:
                 pos_j = d_j['node_number']
-                matrix[pos_i, pos_j] = sps.coo_matrix((d_i['dof'], d_j['dof']))
+                shapes[pos_i, pos_j] = (d_i['dof'], d_j['dof'])
+            for _, d_e in gb.edges():
+                pos_e = d_e['edge_number'] + num_nodes
+                shapes[pos_i, pos_e] = (d_i['dof'], d_e['dof'])
+                shapes[pos_e, pos_i] = (d_e['dof'], d_i['dof'])
 
-        # Initialize the mortar matrices, in this case we see the mortar grids
-        # as a single grid
-        for e, d in gb.edges():
-            pos_i, pos_j = d['node_number']
-            pos_m = d['edge_number'] + gb.num_graph_nodes()
+        for _, d_e in gb.edges():
+            pos_e = d_e['edge_number'] + num_nodes
+            dof_e = d_e['dof']
+            for _, d_f in gb.edges():
+                pos_f = d_f['edge_number'] + num_nodes
+                shapes[pos_e, pos_f] = (dof_e, d_f['dof'])
 
-            gs = gb.nodes_of_edge(e)
-            dof_i = gb.node_props(gs[0], 'dof')
-            dof_j = gb.node_props(gs[1], 'dof')
-            dof_m = d['dof']
+        # initialize the matrix and rhs
+        matrix = np.empty(shapes.shape, dtype=np.object)
+        rhs = np.empty(shapes.shape[0], dtype=np.object)
 
-            matrix[pos_i, pos_m] = sps.coo_matrix((dof_i, dof_m))
-            matrix[pos_m, pos_i] = sps.coo_matrix((dof_m, dof_i))
-
-            matrix[pos_j, pos_m] = sps.coo_matrix((dof_j, dof_m))
-            matrix[pos_m, pos_j] = sps.coo_matrix((dof_m, dof_j))
-
-            matrix[pos_m, pos_m] = sps.coo_matrix((dof_m, dof_m))
-
-            rhs[pos_m] =  np.zeros(dof_m)
+        for i in np.arange(shapes.shape[0]):
+            rhs[i] = np.zeros(shapes[i, i][0])
+            for j in np.arange(shapes.shape[1]):
+                matrix[i, j] = sps.coo_matrix(shapes[i, j])
 
         return matrix, rhs
 
