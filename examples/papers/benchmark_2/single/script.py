@@ -15,8 +15,15 @@ import csv, sys
 #------------------------------------------------------------------------------#
 
 def plot_over_line(input_file, output_file):
-    # create a new 'PVD Reader'
-    sol = PVDReader(FileName=input_file)
+
+    if input_file.lower().endswith('.pvd'):
+        # create a new 'PVD Reader'
+        sol = PVDReader(FileName=input_file)
+    elif input_file.lower().endswith('.vtu'):
+        # create a new 'XML Unstructured Grid Reader'
+        sol = XMLUnstructuredGridReader(FileName=input_file)
+    else:
+        raise ValueError, "file format not yet supported"
 
     # create a new 'Plot Over Line'
     pol = PlotOverLine(Input=sol, Source='High Resolution Line Source')
