@@ -29,3 +29,5 @@ bin/*
 *.so
 *.png
 *.ipynb_checkpoints*
+*.eps
+*.pdf
