@@ -16,7 +16,8 @@ def main(test_case, file_geo, folder, solver, solver_name):
         kf = 1e-4
         phi_f = 0.01
     data = {'domain': domain, 'tol': tol, 'aperture': 1e-4,  'km_low': 1e-1,
-            'km': 1, 'kf': kf, 'phi_f': phi_f, 'dt': .1, 't_max': 5}
+            'km': 1, 'kf': kf, 'phi_m': 1e-1, 'phi_f': phi_f,
+            'dt': .1, 't_max': 5}
 
     geiger.add_data(gb, data, solver_name)
     solver(gb, folder)
