@@ -1,7 +1,6 @@
 import numpy as np
 import porepy as pp
 
-#------------------------------------------------------------------------------#
 
 def import_grid(file_geo, tol):
 
@@ -128,13 +127,6 @@ def add_data(gb, data, solver_name):
 
         gamma = check_P*gb.node_props(g_l, 'param').get_aperture()
         d['kn'] = data['kf']*np.ones(mg.num_cells) / gamma
-
-#------------------------------------------------------------------------------#
-
-class AdvectiveProblem(pp.ParabolicModel):
-
-    def space_disc(self):
-        return self.source_disc(), self.advective_disc()
 
 #------------------------------------------------------------------------------#
 
