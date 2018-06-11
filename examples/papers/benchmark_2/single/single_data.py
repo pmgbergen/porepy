@@ -35,7 +35,7 @@ def add_data(gb, data, solver_name):
 
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
-    gb.add_node_props(['is_tangential', 'problem', 'frac_num', 'low_zones'])
+    gb.add_node_props(['is_tangential', 'problem', 'frac_num', 'low_zones', 'phi'])
     for g, d in gb:
         param = pp.Parameters(g)
         d['is_tangential'] = True
@@ -54,13 +54,12 @@ def add_data(gb, data, solver_name):
         if g.dim == 3:
             kxx = data['km_high']*ones
             kxx[d['low_zones']] = data['km_low']
-            kxx /= data['mu'] # viscosity
             if is_fv:
                 perm = pp.SecondOrderTensor(3, kxx=kxx)
             else:
                 perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=kxx)
         else: #g.dim == 2:
-            kxx = data['kf']*ones/data['mu']
+            kxx = data['kf']*ones
             if is_fv:
                 perm = pp.SecondOrderTensor(3, kxx=kxx)
             else:
@@ -76,7 +75,7 @@ def add_data(gb, data, solver_name):
 
         # Boundaries
         b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
-        if b_faces.size != 0 or g.dim == 2:
+        if b_faces.size != 0:
 
             b_face_centers = g.face_centers[:, b_faces]
 
@@ -84,7 +83,7 @@ def add_data(gb, data, solver_name):
                                    b_face_centers[2, :] > 90 - tol)
 
             b_bottom = np.logical_and(b_face_centers[1, :] < 0 + tol,
-                                       b_face_centers[2, :] < 10 + tol)
+                                      b_face_centers[2, :] < 10 + tol)
 
             labels = np.array(['neu'] * b_faces.size)
             labels[b_top] = 'dir'
@@ -100,6 +99,12 @@ def add_data(gb, data, solver_name):
 
         d['param'] = param
 
+        if g.dim == 3:
+            d['phi'] = data['phi_high'] * ones
+            d['phi'][low_zones(g)] = data['phi_low']
+        else:
+            d['phi'] = data['phi_f'] * ones
+
     # Assign coupling permeability, the aperture is read from the lower dimensional grid
     gb.add_edge_props('kn')
     for e, d in gb.edges():
@@ -108,14 +113,7 @@ def add_data(gb, data, solver_name):
         check_P = mg.low_to_mortar_avg()
 
         gamma = check_P*gb.node_props(g_l, 'param').get_aperture()
-        d['kn'] = data['kf']*np.ones(mg.num_cells) / gamma / data['mu']
-
-#------------------------------------------------------------------------------#
-
-class AdvectiveProblem(pp.ParabolicModel):
-
-    def space_disc(self):
-        return self.source_disc(), self.advective_disc()
+        d['kn'] = data['kf']*np.ones(mg.num_cells) / gamma
 
 #------------------------------------------------------------------------------#
 
@@ -142,13 +140,10 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
 
         pp.ParabolicDataAssigner.__init__(self, g, data, physics)
 
-    def low_zones(self):
-        return self.grid().cell_centers[2, :] < 10
-
     def porosity(self):
         if self.grid().dim == 3:
             phi = self.phi_high * np.ones(self.grid().num_cells)
-            phi[self.low_zones()] = self.phi_low
+            phi[low_zones(self.grid())] = self.phi_low
         else:
             phi = self.phi_f * np.ones(self.grid().num_cells)
         return phi
