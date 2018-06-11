@@ -64,26 +64,40 @@ class static_flow_IE_solver(AbstractSolver):
         self.lhs_time = lhs_time
         self.static_rhs = rhs_flux + rhs_time
         self.rhs = lhs_time * self.p0 + rhs_flux + rhs_time
+#        print('rhs', self.rhs)
 
-     def solve(self):
+     def solve(self, save_as=None, save_every=1):
         """
         Solve problem.
         """
         nt = np.ceil(self.T / self.dt).astype(np.int)
-        logger.info('Time stepping using ' + str(nt) + ' steps')
+        logger.warning('Time stepping using ' + str(nt) + ' steps')
         t = self.dt
-        counter = 1
+        counter = 0
+        mortar_key='transport_mortar_solution'
+        if not save_as is None:
+            self.problem.split(save_as, mortar_key)
+            self.problem.exporter.write_vtk([save_as], time_step=counter)
+            times = [0.0]
         self.assemble()
         IE_solver = sps.linalg.factorized((self.lhs).tocsc())
-        while t < self.T + 1e-14:
-            logger.info('Step ' + str(counter) + ' out of ' + str(nt))
+        while t < self.T * (1 + 1e-14):
+            logger.warning('Step ' + str(counter) + ' out of ' + str(nt))
             counter += 1
             self.update(t)
             self.step(IE_solver)
             logger.debug('Maximum value ' + str(self.p.max()) +\
                          ', minimum value ' + str(self.p.min()))
+            if not save_as is None and np.mod(counter, save_every)==0:
+                logger.info('Saving solution')
+                self.problem.split(save_as, mortar_key)
+                self.problem.exporter.write_vtk([save_as], time_step=counter)
+                times.append(t)
+                logger.info('Finished saving')
             t += self.dt
-        self.update(t)
+        if not save_as is None:
+            self.problem.exporter.write_pvd(np.asarray(times))
+
         return self.data
 
      def step(self, IE_solver):
@@ -95,7 +109,7 @@ class static_flow_IE_solver(AbstractSolver):
         update parameters for next time step
         """
         self.p0 = self.p
-        # Store result
-        if self.parameters['store_results'] == True:
-            self.data[self.problem.physics].append(self.p)
-            self.data['times'].append(t - self.dt)
+#        # Store result
+#        if self.parameters['store_results'] == True:
+#            self.data[self.problem.physics].append(self.p)
+#            self.data['times'].append(t - self.dt)
