@@ -7,38 +7,6 @@ from porepy.numerics.linalg.linsolve import Factory as LSFactory
 
 logger = logging.getLogger(__name__)
 
-def color(g):
-    val = np.zeros(g.num_cells, dtype=np.int)
-    x = g.cell_centers[0, :]
-    y = g.cell_centers[1, :]
-    z = g.cell_centers[2, :]
-
-    val[np.logical_and.reduce((x>.5, y<.5, z<.5))] = 1
-    val[np.logical_and.reduce((x<.5, y>.5, z<.5))] = 2
-    val[np.logical_and.reduce((x>.5, y>.5, z<.5))] = 3
-    val[np.logical_and.reduce((x<.5, y<.5, z>.5))] = 4
-    val[np.logical_and.reduce((x>.5, y<.5, z>.5))] = 5
-    val[np.logical_and.reduce((x<.5, y>.5, z>.5))] = 6
-
-    val[np.logical_and.reduce((x>.75, y>.75, z>.75))] = 7
-    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.75))] = 8
-    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.75))] = 9
-    val[np.logical_and.reduce((x>.5, x<.75, y>.5, y<.75, z>.75))] = 10
-    val[np.logical_and.reduce((x>.75, y>.75, z>.5, z<.75))] = 11
-    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.5, z<.75))] = 12
-    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.5, z<.75))] = 13
-
-    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.5, z<.625))] = 14
-    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.5, z<.625))] = 15
-    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.5, z<.625))] = 16
-    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.5, z<.625))] = 17
-    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.625, z<.75))] = 18
-    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.625, z<.75))] = 19
-    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.625, z<.75))] = 20
-    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.625, z<.75))] = 21
-
-    return val
-
 class AbstractSolver(object):
     """
     Abstract base class for solving a general first order time pde problem.
@@ -108,21 +76,6 @@ class AbstractSolver(object):
                 logger.info('Saving solution')
                 self.problem.split(save_as)
 
-                #########
-#                self.g.add_node_prop('color')
-#                for g, d in self.g:
-#                    if g.dim < 3:
-#                        d['color'] = -np.ones(g.num_cells)
-#                    if g.dim == 3:
-#                        d['color'] = color(g)
-#                        for c in np.arange(d['color'].max()+1):
-#                            mask = d['color'] == c
-#                            av_conc = np.average(d[save_as][mask])
-#                            with open("UiB_VEM_c_"+str(c)+".csv", 'a') as f:
-#                                f.write(str(t)+", "+str(av_conc)+"\n")
-
-                #self.problem.exporter.write_vtk(['color'], time_step=counter)
-                ########
                 self.problem.exporter.write_vtk([save_as], time_step=counter)
                 times.append(t)
                 logger.info('Finished saving')
