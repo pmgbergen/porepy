@@ -2,6 +2,8 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.darcy_and_transport import static_flow_IE_solver \
+    as TransportSolver
 
 #------------------------------------------------------------------------------#
 
@@ -107,3 +109,25 @@ def solve_vem(gb, folder):
     export(gb, folder)
 
 #------------------------------------------------------------------------------#
+
+
+def transport(gb, data, solver_name, folder, adv_data_assigner):
+    if solver_name == "tpfa" or solver_name == "mpfa":
+        pp.fvutils.compute_discharges(gb)
+    physics = 'transport'
+    for g, d in gb:
+        d[physics+'_data'] = adv_data_assigner(g, d, **data)
+    advective = AdvectiveProblem(gb, physics, time_step=data['dt'],
+                                 end_time=data['t_max'],
+                                 folder_name=folder, file_name='tracer')
+    advective.solve("tracer")
+
+
+class AdvectiveProblem(pp.ParabolicModel):
+
+    def space_disc(self):
+        return self.source_disc(), self.advective_disc()
+
+    def solver(self):
+        'Initiate solver'
+        return TransportSolver(self)
