@@ -6,8 +6,14 @@ import porepy as pp
 #------------------------------------------------------------------------------#
 
 def export(gb, folder):
+
+    gb.add_node_props(['cell_volumes', 'cell_centers'])
+    for g, d in gb:
+        d['cell_volumes'] = g.cell_volumes
+        d['cell_centers'] = g.cell_centers
+
     save = pp.Exporter(gb, "sol", folder=folder)
-    save.write_vtk(["pressure"])
+    save.write_vtk(["pressure", 'cell_volumes', 'cell_centers'])
 
 #------------------------------------------------------------------------------#
 
