@@ -49,7 +49,7 @@ def add_data(gb, data, solver_name):
 
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
-    gb.add_node_props(['is_tangential', 'param', 'frac_num', 'low_zones'])
+    gb.add_node_props(['is_tangential', 'param', 'frac_num', 'low_zones', 'phi'])
     for g, d in gb:
         param = pp.Parameters(g)
         d['is_tangential'] = True
@@ -117,6 +117,10 @@ def add_data(gb, data, solver_name):
 
         d['param'] = param
 
+        if g.dim == 3:
+            d['phi'] = data['phi_m'] * ones
+        else:
+            d['phi'] = data['phi_f'] * ones
 
     # Assign coupling permeability, the aperture is read from the lower dimensional grid
     gb.add_edge_props('kn')
@@ -137,6 +141,7 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         self.tol = kwargs['tol']
         self.max_dim = kwargs.get('max_dim', 3)
         self.phi_f = kwargs['phi_f']
+        self.phi_m = kwargs['phi_m']
 
         # define two pieces of the boundary, useful to impose boundary conditions
         self.inflow = np.empty(0)
@@ -169,6 +174,6 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         dim = self.grid().dim
         ones = np.ones(self.grid().num_cells)
         if dim == 3:
-            return 0.1*ones
+            return self.phi_m*ones
         else:
             return self.phi_f*ones
