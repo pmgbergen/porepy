@@ -156,14 +156,12 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
     def bc(self):
         b_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         if b_faces.size == 0:
-            return BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
-        return BoundaryCondition(self.grid(), b_faces, 'dir')
+            return pp.BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
+        return pp.BoundaryCondition(self.grid(), b_faces, 'dir')
 
     def bc_val(self, _):
         bc_val = np.zeros(self.grid().num_faces)
         b_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         if b_faces.size > 0:
             bc_val[b_faces[self.inflow]] = 0.01
-        return  bc_val
-
-#------------------------------------------------------------------------------#
+        return bc_val

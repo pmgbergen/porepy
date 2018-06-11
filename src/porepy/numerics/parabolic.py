@@ -124,9 +124,10 @@ class ParabolicModel():
         else:
             self.data()[self.physics + '_data'].update(t)
 
-    def split(self, x_name='solution'):
+    def split(self, x_name='solution', mortar_key='mortar_solution'):
         self.x_name = x_name
-        self._time_disc.split(self.grid(), self.x_name, self._solver.p)
+        self._time_disc.split(self.grid(), self.x_name, self._solver.p,
+                              mortar_key)
 
     def reassemble(self):
         'Reassemble matrices and rhs'
