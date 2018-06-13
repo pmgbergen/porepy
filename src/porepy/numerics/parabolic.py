@@ -65,13 +65,17 @@ class ParabolicModel():
     problem.solve()
     '''
 
-    def __init__(self, gb, physics='transport',time_step=1.0, end_time=1.0, **kwargs):
+    def __init__(self, gb, physics='transport', time_step=1.0, end_time=1.0,
+                 callback=None, **kwargs):
         self._gb = gb
         self.is_GridBucket = isinstance(self._gb, GridBucket)
         self.physics = physics
         self._data = kwargs.get('data', dict())
         self._time_step = time_step
         self._end_time = end_time
+
+        self.callback = callback
+
         self._set_data()
 
         self._solver = self.solver()
@@ -123,6 +127,9 @@ class ParabolicModel():
                 d[self.physics + '_data'].update(t)
         else:
             self.data()[self.physics + '_data'].update(t)
+
+        if self.callback is not None:
+            self.callback(self)
 
     def split(self, x_name='solution', mortar_key='mortar_solution'):
         self.x_name = x_name
