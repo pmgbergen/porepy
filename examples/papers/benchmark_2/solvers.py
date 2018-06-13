@@ -49,6 +49,7 @@ def solve_tpfa(gb, folder):
 
     p = sps.linalg.spsolve(A, b_flow+b_source)
     solver_flow.split(gb, "pressure", p)
+    pp.fvutils.compute_discharges(gb)
 
     export(gb, folder)
 
@@ -66,6 +67,7 @@ def solve_mpfa(gb, folder):
 
     p = sps.linalg.spsolve(A, b_flow+b_source)
     solver_flow.split(gb, "pressure", p)
+    pp.fvutils.compute_discharges(gb)
 
     export(gb, folder)
 
@@ -111,15 +113,14 @@ def solve_vem(gb, folder):
 #------------------------------------------------------------------------------#
 
 
-def transport(gb, data, solver_name, folder, adv_data_assigner):
-    if solver_name == "tpfa" or solver_name == "mpfa":
-        pp.fvutils.compute_discharges(gb)
+def transport(gb, data, solver_name, folder, adv_data_assigner, callback=None):
     physics = 'transport'
     for g, d in gb:
         d[physics+'_data'] = adv_data_assigner(g, d, **data)
     advective = AdvectiveProblem(gb, physics, time_step=data['dt'],
                                  end_time=data['t_max'],
-                                 folder_name=folder, file_name='tracer')
+                                 folder_name=folder, file_name='tracer',
+                                 callback=callback)
     advective.solve("tracer")
 
 
@@ -131,3 +132,5 @@ class AdvectiveProblem(pp.ParabolicModel):
     def solver(self):
         'Initiate solver'
         return TransportSolver(self)
+
+
