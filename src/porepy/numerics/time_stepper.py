@@ -81,6 +81,9 @@ class AbstractSolver(object):
                 logger.info('Finished saving')
             t += self.dt
 
+        # Final update, mainly to let the problem run a callback function
+        self.update(t)
+
         if not save_as is None:
             self.problem.exporter.write_pvd(np.asarray(times))
 

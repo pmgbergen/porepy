@@ -109,6 +109,8 @@ class static_flow_IE_solver(AbstractSolver):
         update parameters for next time step
         """
         self.p0 = self.p
+        # Call problem update to invoke a possible callback function therein.
+        self.problem.update(t)
 #        # Store result
 #        if self.parameters['store_results'] == True:
 #            self.data[self.problem.physics].append(self.p)
