@@ -529,7 +529,8 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     subcell_topology = fvutils.SubcellTopology(g)
 
     # Obtain normal_vector * k, pairings of cells and nodes (which together
-    # uniquely define sub-cells, and thus index for gradients.
+    # uniquely define sub-cells, and thus index for gradients. See comment
+    # below for the ordering of elements in the subcell gradient.
     nk_grad, cell_node_blocks, \
         sub_cell_index = _tensor_vector_prod(g, k, subcell_topology, apertures)
 
@@ -608,6 +609,38 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
 
     del grad, cols2blk_diag, rows2blk_diag
 
+    # Technical note: The elements in igrad are organized as follows:
+    # The fields subcell_topology.cno and .nno will together identify Nd
+    # placements in igrad that are associated with the same cell and the same
+    # node, that is, they belong to the same subcell. These placements are used
+    # to store the discrete gradient of that cell, with the first item
+    # representing the x-component etc.
+    # As an example, to find the gradient in the subcell of cell ci, associated
+    # with node ni, first find the indexes of subcell_topology.cno and .nno
+    # that contain ci and ni, respectively. The first of these indexes give the
+    # row of the x-component of the gradient, the second the y-component etc.
+    #
+    # The columns of igrad corresponds to the ordering of the equations in
+    # grad; as recovered in _block_diagonal_structure. In practice, the first
+    # columns correspond to unit pressures assigned to faces (as used for
+    # boundary conditions or to discretize discontinuities over internal faces,
+    # say, to represent heterogeneous gravity), while the latter group
+    # gives gradients induced by cell center pressures.
+    #
+    # Note tacit assumptions: 1) Each cell has exactly Nd faces meeting in a
+    # vertex; or else, there would not be an exact match between the
+    # number of equal (nno-cno) pairs and the number of components in the
+    # gradient. This assumption is always okay in 2d, in 3d it rules out cells
+    # shaped as pyramids, in which case mpfa is not defined without making
+    # further specifications of the method.
+    # 2) The number of components in the gradient is equal to the spatial
+    # dimension of the grid, as defined in g.dim. Thus 2d grids embedded in 3d
+    # will run into trouble, unless the grid is first projected down to its
+    # natural plane. This can be fixed by a more general implementation, but
+    # it would require quite deep changes to the code.
+
+
+    # Flux discretization:
     flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, pr_cont_cell]))
 
     ####
