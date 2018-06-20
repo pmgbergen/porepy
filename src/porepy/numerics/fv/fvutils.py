@@ -1216,5 +1216,5 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
         # fluxes.
         induced_flux = d['mortar_to_hat_bc'] * d[lam_name]
         # Remove contribution directly on the boundary faces.
-        induced_flux[g_h.get_boundary_faces()] = 0
+        induced_flux[g_h.tags['fracture_faces']] = 0
         gb.node_props(g_h)[d_name] += induced_flux
