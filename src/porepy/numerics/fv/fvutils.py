@@ -1187,7 +1187,7 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
             dis = data['flux'] * data[p_name] + data['bound_flux'] \
                                * pa.get_bc_val(physics)
         else:
-            dis = np.zeros(g.num_faces)
+            raise ValueError('Discharges can only be computed if a flux-based discretization has been applied')
         data[d_name] = dis
         return
 
@@ -1198,5 +1198,6 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
                 dis = d['flux'] * d[p_name] + d['bound_flux'] \
                     * pa.get_bc_val(physics)
             else:
-                dis = np.zeros(g.num_faces)
+                raise ValueError('Discharges can only be computed if a flux-based discretization has been applied')
+
             d[d_name] = dis
