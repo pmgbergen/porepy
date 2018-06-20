@@ -1191,6 +1191,8 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
         data[d_name] = dis
         return
 
+    # Compute fluxes from pressures internal to the subdomain, and for global
+    # boundary conditions.
     for g, d in gb:
         if g.dim > 0:
             pa = d['param']
@@ -1201,3 +1203,18 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
                 raise ValueError('Discharges can only be computed if a flux-based discretization has been applied')
 
             d[d_name] = dis
+
+    # Compute fluxes over internal faces, induced by the mortar flux. These
+    # are a critical part of what makes MPFA consistent, but will not be
+    # present for TPFA.
+    # Note that fluxes over faces on the subdomain boundaries are not included,
+    # these are already accounted for in the mortar solution.
+    for e, d in gb.edges():
+        g_h = gb.nodes_of_edge(e)[1]
+        # The mapping mortar_to_hat_bc contains is composed of a mapping to
+        # faces on the higher-dimensional grid, and computation of the induced
+        # fluxes.
+        induced_flux = d['mortar_to_hat_bc'] * d[lam_name]
+        # Remove contribution directly on the boundary faces.
+        induced_flux[g_h.get_boundary_faces()] = 0
+        gb.node_props(g_h)[d_name] += induced_flux
