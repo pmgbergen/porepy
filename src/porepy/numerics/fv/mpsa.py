@@ -8,6 +8,7 @@ equations tend to become slightly more complex thus, it may be useful to confer
 that module as well.
 
 """
+import warnings
 import numpy as np
 import scipy.sparse as sps
 import logging
@@ -67,8 +68,6 @@ class Mpsa(Solver):
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        param = data['param']
-
         if discretize:
             self.discretize(g, data)
         div = fvutils.vector_divergence(g)
@@ -112,10 +111,15 @@ class Mpsa(Solver):
         c = data['param'].get_tensor(self)
         bnd = data['param'].get_bc(self)
 
-        stress, bound_stress = mpsa(g, c, bnd)
-
-        data['stress'] = stress
-        data['bound_stress'] = bound_stress
+        partial = data.get('partial_update', False)
+        if  not partial:
+            stress, bound_stress = mpsa(g, c, bnd)
+            data['stress'] = stress
+            data['bound_stress'] = bound_stress
+        else:
+            a = data['param'].aperture
+            fvutils.partial_discretization(g, data, c, bnd, a, mpsa_partial,
+                                           physics=self.physics)
 
 #------------------------------------------------------------------------------#
 
@@ -138,9 +142,11 @@ class FracturedMpsa(Mpsa):
     fracture face which describe the fracture deformation.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, given_traction=False, **kwargs):
         Mpsa.__init__(self, **kwargs)
         assert hasattr(self, 'physics'), 'Mpsa must assign physics'
+        self.given_traction_flag = given_traction
+
 
     def ndof(self, g):
         """
@@ -191,11 +197,14 @@ class FracturedMpsa(Mpsa):
         b_e = data['b_e']
         A_e = data['A_e']
 
-        L, b_l = self.given_slip_distance(g, stress, bound_stress)
+        if self.given_traction_flag:
+            L, b_l = self.given_traction(g, stress, bound_stress)
+        else:
+            L, b_l = self.given_slip_distance(g, stress, bound_stress)
 
         bc_val = data['param'].get_bc_val(self)
 
-        frac_faces = np.matlib.repmat(g.tags['fracture_faces'], 3, 1)
+        frac_faces = np.matlib.repmat(g.tags['fracture_faces'], g.dim, 1)
         if data['param'].get_bc(self).bc_type == 'scalar':
             frac_faces = frac_faces.ravel('F')
 
@@ -207,7 +216,7 @@ class FracturedMpsa(Mpsa):
         slip_distance = data['param'].get_slip_distance()
 
         A = sps.vstack((A_e, L), format='csr')
-        rhs = np.hstack((b_e * bc_val, b_l * slip_distance))
+        rhs = np.hstack((b_e * bc_val, b_l * (slip_distance + bc_val)))
 
         return A, rhs
 
@@ -239,7 +248,10 @@ class FracturedMpsa(Mpsa):
         bound_stress = data['bound_stress']
         b_e = data['b_e']
 
-        _, b_l = self.given_slip_distance(g, stress, bound_stress)
+        if self.given_traction_flag:
+            _, b_l = self.given_traction(g, stress, bound_stress)
+        else:
+            _, b_l = self.given_slip_distance(g, stress, bound_stress)
 
         bc_val = data['param'].get_bc_val(self)
 
@@ -254,7 +266,7 @@ class FracturedMpsa(Mpsa):
 
         slip_distance = data['param'].get_slip_distance()
 
-        rhs = np.hstack((b_e * bc_val, b_l * slip_distance))
+        rhs = np.hstack((b_e * bc_val, b_l * (slip_distance + bc_val)))
 
         return rhs
 
@@ -449,8 +461,9 @@ class FracturedMpsa(Mpsa):
         sgn_right = _sign_matrix(g, frac_faces_right)
 
         # We obtain the stress from boundary conditions on the domain boundary
-        bound_stress_external = bound_stress.copy()
-        bound_stress_external[:, int_b_ind] = 0
+        bound_stress_external = bound_stress.copy().tocsc()
+        sparse_mat.zero_columns(bound_stress_external, int_b_ind)
+        bound_stress_external = bound_stress_external.tocsc()
 
         # We construct the L matrix, i.e., we set the traction on the left
         # fracture side
@@ -459,10 +472,10 @@ class FracturedMpsa(Mpsa):
         L = sps.hstack((sgn_left * stress[int_b_left, :], frac_stress))
 
         # negative sign since we have moved b_external from lhs to rhs
-        d_f = sps.csr_matrix((np.ones(int_b_left.size),
+        d_t = sps.csr_matrix((np.ones(int_b_left.size),
                               (np.arange(int_b_left.size), int_b_left)),
-                             (int_b_left.size, g.num_faces * g.dim))
-        d_t = sgn_left * bound_stress_external[int_b_left]  # \
+                             (int_b_left.size, g.num_faces * g.dim)) \
+                        - sgn_left * bound_stress_external[int_b_left]  # \
     #        + sgn_right * bound_stress_external[int_b_right]
 
         return L, d_t
@@ -648,7 +661,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None,
 
 
 def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
-                 faces=None, nodes=None):
+                 faces=None, nodes=None, apertures=None):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
     of global variable numbers.
@@ -677,6 +690,8 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
             subgrid computation. Defaults to None.
         nodes (np.array, int, optional): Index of nodes on which to base the
             subgrid computation. Defaults to None.
+        apertures (np.array, int, optional): Cell apertures. Defaults to None.
+            Unused for now, added for similarity to mpfa_partial.
 
         Note that if all of {cells, faces, nodes} are None, empty matrices will
         be returned.
@@ -699,7 +714,13 @@ def mpsa_partial(g, constit, bound, eta=0, inverter='numba', cells=None,
     ind, active_faces = fvutils.cell_ind_for_partial_update(g, cells=cells,
                                                             faces=faces,
                                                             nodes=nodes)
-
+    if (ind.size + active_faces.size) == 0:
+        stress_glob = sps.csr_matrix((g.dim * g.num_faces,
+                                      g.dim * g.num_cells), dtype='float64')
+        bound_stress_glob = sps.csr_matrix((g.dim * g.num_faces,
+                                            g.dim * g.num_faces),
+                                            dtype='float64')
+        return stress_glob, bound_stress_glob, active_faces
     # Extract subgrid, together with mappings between local and global
     # cells
     sub_g, l2g_faces, _ = partition.extract_subgrid(g, ind)

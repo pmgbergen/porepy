@@ -579,7 +579,9 @@ class Parameters(object):
             return self.get_bc_transport()
         elif physics == 'mechanics':
             return self.get_bc_mechanics()
-
+        else:
+            raise ValueError('Unknown physics "%s".\n Possible physics are: %s'
+                             % (physics, self.known_physics))
     def set_bc(self, obj, val):
         """ Set physics-specific boundary condition
 
