@@ -25,7 +25,7 @@ class BasicsTest(unittest.TestCase):
 
     #------------------------------------------------------------------------------#
 
-    def test_0d_elimination_2d_1d_cross(self):
+    def atest_0d_elimination_2d_1d_cross(self):
         """
         Simplest case possible:
         2d case with two fractures intersecting in a single 0d grid
@@ -97,7 +97,7 @@ class BasicsTest(unittest.TestCase):
 
 #------------------------------------------------------------------------------#
 
-    def test_0d_elimination_two_0d_grids(self):
+    def atest_0d_elimination_two_0d_grids(self):
         """
         2d case involving two 0d grids.
         """
@@ -170,7 +170,7 @@ class BasicsTest(unittest.TestCase):
 
 #------------------------------------------------------------------------------#
 
-    def test_0d_elimination_3d_2d_1d_0d(self):
+    def atest_0d_elimination_3d_2d_1d_0d(self):
         """
         3d case with a single 0d grid.
         """
@@ -281,5 +281,5 @@ class BasicsTest(unittest.TestCase):
             g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#
-    if __name__ == '__main__':
-        unittest.main()
+#    if __name__ == '__main__':
+#        unittest.main()
