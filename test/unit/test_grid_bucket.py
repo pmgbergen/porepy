@@ -33,7 +33,7 @@ class TestGridBucket(unittest.TestCase):
             assert np.all(R*glob==loc)
         # test mortars
         glob = np.array([0, 1])
-        for _, d in gb.edges_props():
+        for _, d in gb.edges():
             loc = np.array([0, 1])
             R = d['cell_global2loc']
             assert np.all(R*glob==loc)
@@ -63,7 +63,7 @@ class TestGridBucket(unittest.TestCase):
         glob = np.arange(12)
         start = 0
         end = 0
-        for e, d in gb.edges_props():
+        for e, d in gb.edges():
             i = d['edge_number']
             end += d['mortar_grid'].num_cells
             loc = np.arange(start, end)
