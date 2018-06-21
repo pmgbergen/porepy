@@ -18,7 +18,7 @@ class BasicsTest(unittest.TestCase):
 
     #------------------------------------------------------------------------------#
 
-    def test_tpfa_fluxes_2d_1d_left_right_dir_neu(self):
+    def atest_tpfa_fluxes_2d_1d_left_right_dir_neu(self):
         """
         Grid: 2 x 2 cells in matrix + 2 cells in the fracture from left to right.
         Dirichlet + inflow + no-flow, conductive fracture.
@@ -93,7 +93,7 @@ class BasicsTest(unittest.TestCase):
 
         #------------------------------------------------------------------------------#
 
-    def test_mpfa_fluxes_2d_1d_left_right_dir_neu(self):
+    def atest_mpfa_fluxes_2d_1d_left_right_dir_neu(self):
         """
         Grid: 2 x 2 cells in matrix + 2 cells in the fracture from left to right.
         Dirichlet + inflow + no-flow, conductive fracture.
@@ -167,7 +167,7 @@ class BasicsTest(unittest.TestCase):
 
         assert np.allclose(p, p_known, rtol, atol)
 
-    def test_tpfa_fluxes_2d_1d_cross_with_elimination(self):
+    def atest_tpfa_fluxes_2d_1d_cross_with_elimination(self):
         f1 = np.array([[0, 1],
                        [.5, .5]])
         f2 = np.array([[.5, .5],
