@@ -114,7 +114,7 @@ class FrictionSlipModel():
         # Here we need to multiply T_n with -1 as we want the absolute value,
         # and all the normal tractions should be negative.
         sigma_n = -T_n - self._data['face_pressure'][fi]
-        assert np.all(sigma_n > 0 )
+#        assert np.all(sigma_n > 0 )
 
         # new slip are fracture faces slipping in this iteration
         new_slip = T_s - \

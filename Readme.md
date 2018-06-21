@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/pmgbergen/porepy.svg?branch=develop)](https://travis-ci.org/pmgbergen/porepy) [![Coverage Status](https://coveralls.io/repos/github/pmgbergen/porepy/badge.svg?branch=develop)](https://coveralls.io/github/pmgbergen/porepy?branch=develop)
+[![DOI](https://zenodo.org/badge/89228838.svg)](https://zenodo.org/badge/latestdoi/89228838)
 
 # PorePy: A Simulation Tool for Fractured and Deformable Porous Media written in Python.
 PorePy currently has the following distinguishing features:
@@ -7,7 +8,7 @@ PorePy currently has the following distinguishing features:
 - Discretization of flow and transport, using finite volume methods and virtual finite elements.
 - Discretization of elasticity and poro-elasticity, using finite volume methods.
 
-PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the University of Bergen, Norway. The software is developed under projects funded by the Reserach Council of Norway and Statoil.
+PorePy is developed by the [Porous Media Group](http://pmg.b.uib.no/) at the University of Bergen, Norway. The software is developed under projects funded by the Research Council of Norway and Statoil.
 
 # Reproduce results from papers and preprints
 Runscripts for most, if not all, papers that uses porepy is available at [here](https://github.com/pmgbergen/porepy/tree/develop/examples/papers). 
