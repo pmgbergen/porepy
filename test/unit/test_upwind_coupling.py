@@ -1,5 +1,5 @@
 """
-Tests of module porepy.utils.permutations.
+Tests of class UpwindCoupling in module porepy.numerics.fv.transport.upwind
 """
 import unittest
 import numpy as np
@@ -10,6 +10,12 @@ import porepy as pp
 class TestUpwindCoupling(unittest.TestCase):
     
     def generate_grid(self):
+        # Generate cartesian grid with one fracture:
+        # ---------
+        # |   |   |
+        # --------- horizontal fracture
+        # |   |   |
+        # --------
         f = np.array([[0, 2], [1, 1]])
         return pp.meshing.cart_grid([f], [2, 2])
 
@@ -20,6 +26,10 @@ class TestUpwindCoupling(unittest.TestCase):
         return coupler.create_block_matrix(gs)
 
     def test_upwind_2d_1d_positive_flux(self):
+        # test coupling between 2D grid and 1D grid with a fluid flux going from
+        # 2D grid to 1D grid. The upwind weighting should in this case choose the
+        # 2D cell variables as weights
+
         gb = self.generate_grid()
         g2 = gb.grids_of_dimension(2)[0]
         g1 = gb.grids_of_dimension(1)[0]
@@ -52,6 +62,10 @@ class TestUpwindCoupling(unittest.TestCase):
         assert np.allclose(sps.hstack(matrix[2, :]).A, matrix_l)
 
     def test_upwind_2d_1d_negative_flux(self):
+        # test coupling between 2D grid and 1D grid with a fluid flux going from
+        # 1D grid to 2D grid. The upwind weighting should in this case choose the
+        # 1D cell variables as weights
+
         gb = self.generate_grid()
         g2 = gb.grids_of_dimension(2)[0]
         g1 = gb.grids_of_dimension(1)[0]
