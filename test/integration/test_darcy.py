@@ -1,12 +1,7 @@
 import numpy as np
 import unittest
 
-from porepy.numerics import elliptic
-from porepy.grids.structured import CartGrid
-from porepy.fracs import meshing
-from porepy.params.data import Parameters
-from porepy.params import tensor, bc
-
+import porepy as pp
 
 class BasicsTest(unittest.TestCase):
 
@@ -17,10 +12,10 @@ class BasicsTest(unittest.TestCase):
         test that the mono_dimensional elliptic solver gives the same answer as
         the grid bucket elliptic
         """
-        g = CartGrid([10, 10])
+        g = pp.CartGrid([10, 10])
         g.compute_geometry()
-        gb = meshing.cart_grid([], [10, 10])
-        param_g = Parameters(g)
+        gb = pp.meshing.cart_grid([], [10, 10])
+        param_g = pp.Parameters(g)
 
         def bc_val(g):
             left = g.face_centers[0] < 1e-6
@@ -39,7 +34,7 @@ class BasicsTest(unittest.TestCase):
 
             labels = np.array(['neu'] * bound_faces.size)
             labels[np.logical_or(right, left)] = 'dir'
-            bc_labels = bc.BoundaryCondition(g, bound_faces, labels)
+            bc_labels = pp.BoundaryCondition(g, bound_faces, labels)
 
             return bc_labels
 
@@ -48,12 +43,18 @@ class BasicsTest(unittest.TestCase):
 
         gb.add_node_props(['param'])
         for sub_g, d in gb:
-            d['param'] = Parameters(sub_g)
+            d['param'] = pp.Parameters(sub_g)
             d['param'].set_bc_val('flow', bc_val(g))
             d['param'].set_bc('flow', bc_labels(sub_g))
 
-        problem_mono = elliptic.EllipticModel(g, {'param': param_g})
-        problem_mult = elliptic.EllipticModel(gb)
+        for e, d in gb.edges():
+            gl, _ = gb.nodes_of_edge(e)
+            d_l = gb.node_props(gl)
+            d['kn'] = 1. / np.mean(d_l['param'].get_aperture())
+        
+
+        problem_mono = pp.EllipticModel(g, {'param': param_g})
+        problem_mult = pp.EllipticModel(gb)
 
         p_mono = problem_mono.solve()
         p_mult = problem_mult.solve()
@@ -64,7 +65,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_elliptic_uniform_flow_cart(self):
         gb = setup_2d_1d([10, 10])
-        problem = elliptic.EllipticModel(gb)
+        problem = pp.EllipticModel(gb)
         p = problem.solve()
         problem.split('pressure')
 
@@ -82,7 +83,7 @@ class BasicsTest(unittest.TestCase):
         the tpfa half transmissibilities are computed.
         """
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
-        problem = elliptic.EllipticModel(gb)
+        problem = pp.EllipticModel(gb)
         p = problem.solve()
         problem.split('pressure')
 
@@ -94,7 +95,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_elliptic_dirich_neumann_source_sink_cart(self):
         gb = setup_3d(np.array([4, 4, 4]), simplex_grid=False)
-        problem = elliptic.EllipticModel(gb)
+        problem = pp.EllipticModel(gb)
         p = problem.solve()
         problem.split('pressure')
 
@@ -120,27 +121,27 @@ def setup_3d(nx, simplex_grid=False):
         [[0.5, 0.5, 0.5, 0.5], [0.2, 0.8, 0.8, 0.2], [0.2, 0.2, 0.8, 0.8]])
     fracs = [f1, f2, f3]
     if not simplex_grid:
-        gb = meshing.cart_grid(fracs, nx, physdims=[1, 1, 1])
+        gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1, 1])
     else:
         mesh_size = .3
         mesh_kwargs = {'mesh_size_frac': mesh_size,
                        'mesh_size_bound': 2 * mesh_size,
                        'mesh_size_min': mesh_size / 20}
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
-        gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
+        gb = pp.meshing.simplex_grid(fracs, domain, **mesh_kwargs)
 
     gb.add_node_props(['param'])
     for g, d in gb:
         a = 0.01 / np.max(nx)
         a = np.power(a, gb.dim_max() - g.dim)
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_aperture(a)
 
         # BoundaryCondition
         left = g.face_centers[0] < 1e-6
         top = g.face_centers[2] > 1 - 1e-6
         dir_faces = np.argwhere(left)
-        bc_cond = bc.BoundaryCondition(g, dir_faces, ['dir'] * dir_faces.size)
+        bc_cond = pp.BoundaryCondition(g, dir_faces, ['dir'] * dir_faces.size)
         bc_val = np.zeros(g.num_faces)
         bc_val[dir_faces] = 3
         bc_val[top] = 2.4
@@ -153,6 +154,13 @@ def setup_3d(nx, simplex_grid=False):
         src[-1] = -np.pi
         param.set_source('flow', src)
         d['param'] = param
+
+    for e, d in gb.edges():
+        gl, _ = gb.nodes_of_edge(e)
+        d_l = gb.node_props(gl)
+        d['kn'] = 1. / np.mean(d_l['param'].get_aperture())
+
+        
     return gb
 
 
@@ -161,7 +169,7 @@ def setup_2d_1d(nx, simplex_grid=False):
     frac2 = np.array([[0.5, 0.5], [0.8, 0.2]])
     fracs = [frac1, frac2]
     if not simplex_grid:
-        gb = meshing.cart_grid(fracs, nx, physdims=[1, 1])
+        gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1])
     else:
         mesh_kwargs = {}
         mesh_size = .08
@@ -169,28 +177,34 @@ def setup_2d_1d(nx, simplex_grid=False):
                        'mesh_size_bound': 2 * mesh_size,
                        'mesh_size_min': mesh_size / 20}
         domain = {'xmin': 0, 'ymin': 0, 'xmax': 1, 'ymax': 1}
-        gb = meshing.simplex_grid(fracs, domain, **mesh_kwargs)
+        gb = pp.meshing.simplex_grid(fracs, domain, **mesh_kwargs)
 
     gb.compute_geometry()
     gb.assign_node_ordering()
     gb.add_node_props(['param'])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrderTensor(3, kxx)
+        perm = pp.SecondOrderTensor(3, kxx)
         a = 0.01 / np.max(nx)
         a = np.power(a, gb.dim_max() - g.dim)
-        param = Parameters(g)
+        param = pp.Parameters(g)
         param.set_tensor('flow', perm)
         param.set_aperture(a)
         if g.dim == 2:
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
-            bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
+            bound = pp.BoundaryCondition(g, bound_faces.ravel('F'),
                                          ['dir'] * bound_faces.size)
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces] = g.face_centers[1, bound_faces]
             param.set_bc('flow', bound)
             param.set_bc_val('flow', bc_val)
         d['param'] = param
+
+    for e, d in gb.edges():
+        gl, _ = gb.nodes_of_edge(e)
+        d_l = gb.node_props(gl)
+        d['kn'] = 1. / np.mean(d_l['param'].get_aperture())
+        
 
     return gb
 
