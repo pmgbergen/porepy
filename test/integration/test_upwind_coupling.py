@@ -28,7 +28,7 @@ class BasicsTest(unittest.TestCase):
         tol = 1e-3
         gb.add_node_props(['param'])
         solver = upwind.UpwindMixedDim('transport')
-
+        a = 1e-2
         for g, d in gb:
             param = Parameters(g)
 
@@ -57,21 +57,12 @@ class BasicsTest(unittest.TestCase):
 
             d['param'] = param
 
-        # Assign coupling discharge
-        gb.add_edge_props('param')
-        for e, d in gb.edges():
-            g_h = gb.nodes_of_edge(e)[1]
-            discharge = gb.node_props(g_h, 'discharge')
-            sign = np.zeros(g_h.num_faces)
-            sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
-            sign = d['mortar_grid'].high_to_mortar_avg() * sign
-            d['param'] = Parameters(g_h)
-            d['mortar_solution'] = sign * (d['mortar_grid'].high_to_mortar_avg() * discharge)
+        add_constant_discharge(gb, solver, [0, 1, 0], a)
 
         U, rhs = solver.matrix_rhs(gb)
 
         theta = np.linalg.solve(U.A, rhs)
-#        deltaT = solver.cfl(gb)
+        deltaT = solver.cfl(gb)
         U_known = np.array([[ 0.,  0.,  0.,  0.,  1.],
                             [ 0.,  1.,  0.,  1.,  0.],
                             [ 0.,  0.,  0., -1., -1.],
@@ -82,14 +73,14 @@ class BasicsTest(unittest.TestCase):
 
         theta_known = [1, 1, 1, -1, 1]
 
-#        deltaT_known = 5 * 1e-3
+        deltaT_known = 5 * 1e-3
 
         rtol = 1e-15
         atol = rtol
         assert np.allclose(U.todense(), U_known, rtol, atol)
         assert np.allclose(rhs, rhs_known, rtol, atol)
         assert np.allclose(theta, theta_known)
- #       assert np.allclose(deltaT, deltaT_known, rtol, atol)
+        assert np.allclose(deltaT, deltaT_known, rtol, atol)
 
 #------------------------------------------------------------------------------#
 
@@ -103,14 +94,13 @@ class BasicsTest(unittest.TestCase):
         tol = 1e-3
         solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
-
+        a = 1e-2
         for g, d in gb:
             param = Parameters(g)
 
             aperture = np.ones(g.num_cells) * \
-                np.power(1e-2, gb.dim_max() - g.dim)
+                np.power(a, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
 
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
@@ -132,36 +122,28 @@ class BasicsTest(unittest.TestCase):
 
             d['param'] = param
 
-        # Assign coupling discharge
-        gb.add_edge_props('param')
-        for e, d in gb.edges():
-            g_h = gb.nodes_of_edge(e)[1]
-            discharge = gb.node_props(g_h, 'discharge')
-            sign = np.zeros(g_h.num_faces)
-            sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
-            sign = d['mortar_grid'].high_to_mortar_avg() * sign
-            d['param'] = Parameters(g_h)
-            d['mortar_solution'] = sign * (d['mortar_grid'].high_to_mortar_avg() * discharge)
+        add_constant_discharge(gb, solver, [1, 0, 0], a)
 
         U, rhs = solver.matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
-#        deltaT = solver.cfl(gb)
+        deltaT = solver.cfl(gb)
 
         U_known = np.array([[ 1.  ,  0.  ,  0.  ,  0.  ,  1.  ],
                             [ 0.  ,  1.  ,  0.  ,  1.  ,  0.  ],
                             [ 0.  ,  0.  ,  0.01, -1.  , -1.  ],
                             [ 0.  ,  0.  ,  0.  , -1.  ,  0.  ],
                             [ 0.  ,  0.  ,  0.  ,  0.  , -1.  ]])
-   
+
         rhs_known = np.array([1, 1, 1e-2, 0, 0])
         theta_known = np.array([1, 1, 1, 0, 0])
-#        deltaT_known = 5 * 1e-1
+        deltaT_known = 5 * 1e-1
 
         rtol = 1e-15
         atol = rtol
         assert np.allclose(U.todense(), U_known, rtol, atol)
         assert np.allclose(rhs, rhs_known, rtol, atol)
         assert np.allclose(theta, theta_known, rtol, atol)
+        assert np.allclose(deltaT, deltaT_known, rtol, atol)
 
 
 #------------------------------------------------------------------------------#
@@ -197,14 +179,13 @@ class BasicsTest(unittest.TestCase):
         tol = 1e-3
         solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
-
+        a = 1e-2
         for g, d in gb:
             param = Parameters(g)
 
             aperture = np.ones(g.num_cells) * \
-                np.power(1e-2, gb.dim_max() - g.dim)
+                np.power(a, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
 
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
@@ -228,20 +209,11 @@ class BasicsTest(unittest.TestCase):
                     g, np.empty(0), np.empty(0)))
             d['param'] = param
 
-        # Assign coupling discharge
-        gb.add_edge_props('param')
-        for e, d in gb.edges():
-            g_h = gb.nodes_of_edge(e)[1]
-            discharge = gb.node_props(g_h, 'discharge')
-            sign = np.zeros(g_h.num_faces)
-            sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
-            sign = d['mortar_grid'].high_to_mortar_avg() * sign
-            d['param'] = Parameters(g_h)
-            d['mortar_solution'] = sign * (d['mortar_grid'].high_to_mortar_avg() * discharge)
+        add_constant_discharge(gb, solver, [1, 0, 0], a)
 
         U, rhs = solver.matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
- #       deltaT = solver.cfl(gb)
+        deltaT = solver.cfl(gb)
         U_known = np.array(
             [[ 0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,  0.  ,
                0.  ,  0.  ,  0.  ,  1.  ,  0.  ,  0.  ,  0.  ,  1.  ,  0.  ,
@@ -314,13 +286,14 @@ class BasicsTest(unittest.TestCase):
         rhs_known = np.array([1., 0., 1., 0., 0., 0.01, 0., 0.,0.,
                               0,0,0,0,0,0,0,0,0,0,0,0])
 
-#        deltaT_known = 5 * 1e-3
+        deltaT_known = 5 * 1e-3
 
         rtol = 1e-15
         atol = rtol
         assert np.allclose(U.todense(), U_known, rtol, atol)
         assert np.allclose(rhs, rhs_known, rtol, atol)
         assert np.allclose(theta, theta_known, rtol, atol)
+        assert np.allclose(deltaT, deltaT_known, rtol, atol)
 
 #------------------------------------------------------------------------------#
 
@@ -335,14 +308,13 @@ class BasicsTest(unittest.TestCase):
         tol = 1e-3
         solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
-
+        a = 1e-2
         for g, d in gb:
             param = Parameters(g)
 
             aperture = np.ones(g.num_cells) * \
-                np.power(1e-2, gb.dim_max() - g.dim)
+                np.power(a, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            d['discharge'] = solver.discr.discharge(g, [0, 0, 1], aperture)
 
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
@@ -364,20 +336,10 @@ class BasicsTest(unittest.TestCase):
 
             d['param'] = param
 
-        # Assign coupling discharge
-        gb.add_edge_props('param')
-        for e, d in gb.edges():
-            g_h = gb.nodes_of_edge(e)[1]
-            discharge = gb.node_props(g_h, 'discharge')
-            sign = np.zeros(g_h.num_faces)
-            sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
-            sign = d['mortar_grid'].high_to_mortar_avg() * sign
-            d['param'] = Parameters(g_h)
-            d['mortar_solution'] = sign * (d['mortar_grid'].high_to_mortar_avg() * discharge)
-
+        add_constant_discharge(gb, solver, [0, 0, 1], a)
         U, rhs = solver.matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
-#        deltaT = solver.cfl(gb)
+        deltaT = solver.cfl(gb)
 
         U_known = np.array([[ 0.,  0.,  0.,  0.,  1.],
                             [ 0.,  1.,  0.,  1.,  0.],
@@ -387,14 +349,15 @@ class BasicsTest(unittest.TestCase):
         rhs_known = np.array([1, 0, 0, 0, 0])
 
         theta_known = np.array([1, 1, 1, -1, 1])
-        
-#        deltaT_known = 5 * 1e-3
+
+        deltaT_known = 5 * 1e-3
 
         rtol = 1e-15
         atol = rtol
         assert np.allclose(U.todense(), U_known, rtol, atol)
         assert np.allclose(rhs, rhs_known, rtol, atol)
         assert np.allclose(theta, theta_known, rtol, atol)
+        assert np.allclose(deltaT, deltaT_known, rtol, atol)
 
 #------------------------------------------------------------------------------#
 
@@ -409,14 +372,13 @@ class BasicsTest(unittest.TestCase):
         tol = 1e-3
         solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
-
+        a = 1e-2
         for g, d in gb:
             param = Parameters(g)
 
             aperture = np.ones(g.num_cells) * \
-                np.power(1e-2, gb.dim_max() - g.dim)
+                np.power(a, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
 
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             bound_face_centers = g.face_centers[:, bound_faces]
@@ -436,21 +398,10 @@ class BasicsTest(unittest.TestCase):
             param.set_bc_val('transport', bc_val)
 
             d['param'] = param
-
-        # Assign coupling discharge
-        gb.add_edge_props('param')
-        for e, d in gb.edges():
-            g_h = gb.nodes_of_edge(e)[1]
-            discharge = gb.node_props(g_h, 'discharge')
-            sign = np.zeros(g_h.num_faces)
-            sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
-            sign = d['mortar_grid'].high_to_mortar_avg() * sign
-            d['param'] = Parameters(g_h)
-            d['mortar_solution'] = sign * (d['mortar_grid'].high_to_mortar_avg() * discharge)
-
+        add_constant_discharge(gb, solver, [1, 0, 0], a)
         U, rhs = solver.matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
-#        deltaT = solver.cfl(gb)
+        deltaT = solver.cfl(gb)
         U_known = np.array([[ 0.5 ,  0.  ,  0.  ,  0.  ,  1.  ],
                             [ 0.  ,  0.5 ,  0.  ,  1.  ,  0.  ],
                             [ 0.  ,  0.  ,  0.01, -1.  , -1.  ],
@@ -459,14 +410,16 @@ class BasicsTest(unittest.TestCase):
         rhs_known = np.array([0.5 , 0.5 , 0.01, 0.  , 0.  ])
 
         theta_known = np.array([1, 1, 1, 0, 0])
-        
-#deltaT_known = 5 * 1e-1
+
+        deltaT_known = 5 * 1e-1
 
         rtol = 1e-15
         atol = rtol
         assert np.allclose(U.todense(), U_known, rtol, atol)
         assert np.allclose(rhs, rhs_known, rtol, atol)
         assert np.allclose(theta, theta_known, rtol, atol)
+        assert np.allclose(deltaT, deltaT_known, rtol, atol)
+
 
 #------------------------------------------------------------------------------#
 
@@ -527,14 +480,13 @@ class BasicsTest(unittest.TestCase):
         tol = 1e-3
         solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
-
+        a = 1e-2
         for g, d in gb:
             param = Parameters(g)
 
             aperture = np.ones(g.num_cells) * \
-                np.power(1e-2, gb.dim_max() - g.dim)
+                np.power(a, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            d['discharge'] = solver.discr.discharge(g, [1, 0, 0], aperture)
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             if bound_faces.size != 0:
 
@@ -556,20 +508,12 @@ class BasicsTest(unittest.TestCase):
 
             d['param'] = param
 
-        # Assign coupling discharge
-        gb.add_edge_props('param')
-        for e, d in gb.edges():
-            g_h = gb.nodes_of_edge(e)[1]
-            discharge = gb.node_props(g_h, 'discharge')
-            sign = np.zeros(g_h.num_faces)
-            sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
-            sign = d['mortar_grid'].high_to_mortar_avg() * sign
-            d['param'] = Parameters(g_h)
-            d['mortar_solution'] = sign * (d['mortar_grid'].high_to_mortar_avg() * discharge)
+        add_constant_discharge(gb, solver, [1, 0, 0], a)
+
 
         U, rhs = solver.matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
-#        deltaT = solver.cfl(gb)
+        deltaT = solver.cfl(gb)
 
         U_known, rhs_known = matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d()
         theta_known = np.array([ 1.,  1.,  1.,  1., 1.,  1.,  1.,  1.,
@@ -583,14 +527,15 @@ class BasicsTest(unittest.TestCase):
                                  -5e-03, 5e-03, -5e-03,  5e-03,0,
                                  0, -1e-04,  1e-04,0,0])
 
-        
-#        deltaT_known = 5 * 1e-3
+
+        deltaT_known = 5 * 1e-3
 
         rtol = 1e-15
         atol = rtol
         assert np.allclose(U.todense(), U_known, rtol, atol)
         assert np.allclose(rhs, rhs_known, rtol, atol)
         assert np.allclose(theta, theta_known, rtol, atol)
+        assert np.allclose(deltaT, deltaT_known, rtol, atol)
 
 #------------------------------------------------------------------------------#
 
@@ -605,11 +550,11 @@ class BasicsTest(unittest.TestCase):
         solver = upwind.UpwindMixedDim('transport')
 
         gb.add_node_props(['param'])
-
+        a = 1e-2
         for g, d in gb:
             param = Parameters(g)
             aperture = np.ones(g.num_cells) * \
-                np.power(1e-2, gb.dim_max() - g.dim)
+                np.power(a, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
             d['discharge'] = solver.discr.discharge(g, [2, 0, 0], aperture)
 
@@ -618,17 +563,8 @@ class BasicsTest(unittest.TestCase):
             param.set_bc('transport', bc)
             d['param'] = param
 
-        # Assign coupling discharge
-        gb.add_edge_props('param')
-        for e, d in gb.edges():
-            g_h = gb.nodes_of_edge(e)[1]
-            discharge = gb.node_props(g_h, 'discharge')
-            sign = np.zeros(g_h.num_faces)
-            sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
-            sign = d['mortar_grid'].high_to_mortar_avg() * sign
-            d['param'] = Parameters(g_h)
-            d['mortar_solution'] = sign * (d['mortar_grid'].high_to_mortar_avg() * discharge)
 
+        add_constant_discharge(gb, solver, [2, 0, 0], a)
         M, rhs = solver.matrix_rhs(gb)
         # add generic mass matrix to solve system
         I_diag = np.zeros(M.shape[0])
@@ -651,16 +587,17 @@ class BasicsTest(unittest.TestCase):
              [ 0.,  0.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0.,  0.,  0., -1., 0.],
              [ 0.,  2.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0., -1.]])
         rhs_known = np.zeros(14)
-        theta_known = np.array([0.33333333, 0.55555556, 0.80246914, 2.60493827, 0.33333333,
-                                0.55555556, 0.80246914, 2.60493827, 0.7037037 , 0.7037037,
-                                -1.40740741, -1.40740741,  1.11111111,  1.11111111])
+        theta_known = np.array([0.33333333, 0.55555556, 0.80246914, 2.60493827,
+                                0.33333333, 0.55555556, 0.80246914, 2.60493827,
+                                0.7037037 , 0.7037037, -1.40740741, -1.40740741,
+                                1.11111111,  1.11111111])
 
         rtol = 1e-8
         atol = rtol
 
         assert np.allclose(M.A, M_known, rtol, atol)
         assert np.allclose(rhs, rhs_known, rtol, atol)
-        assert np.allclose(theta, theta_known, rtol, atol)        
+        assert np.allclose(theta, theta_known, rtol, atol)
 
 # #------------------------------------------------------------------------------#
 
@@ -673,14 +610,13 @@ class BasicsTest(unittest.TestCase):
 
         solver = upwind.UpwindMixedDim('transport')
         gb.add_node_props(['param'])
-
+        a = 1e-1
         for g, d in gb:
             param = Parameters(g)
 
             aperture = np.ones(g.num_cells) * \
-                np.power(1e-1, gb.dim_max() - g.dim)
+                np.power(a, gb.dim_max() - g.dim)
             param.set_aperture(aperture)
-            d['discharge'] = solver.discr.discharge(g, [1, 1, 0], aperture)
 
             bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
             labels = np.array(['dir'] * bound_faces.size)
@@ -693,16 +629,7 @@ class BasicsTest(unittest.TestCase):
 
             d['param'] = param
 
-        # Assign coupling discharge
-        gb.add_edge_props('param')
-        for e, d in gb.edges():
-            g_h = gb.nodes_of_edge(e)[1]
-            discharge = gb.node_props(g_h, 'discharge')
-            sign = np.zeros(g_h.num_faces)
-            sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
-            sign = d['mortar_grid'].high_to_mortar_avg() * sign
-            d['param'] = Parameters(g_h)
-            d['mortar_solution'] = sign * (d['mortar_grid'].high_to_mortar_avg() * discharge)
+        add_constant_discharge(gb, solver, [1, 1, 0], a)
 
         M, rhs = solver.matrix_rhs(gb)
         theta = np.linalg.solve(M.A, rhs)
@@ -846,6 +773,31 @@ def matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d():
 
     return U, rhs
 
+
+def add_constant_discharge(gb, solver, flux, a):
+    """
+    Adds the constant discharge to all internal and mortar faces, the latter
+    in the "mortar_solution" field.
+    gb - grid bucket
+    solver - mixed dimensional upwind solver
+    flux - 3 x 1 flux at all faces [u, v, w]
+    a - cross-sectional area of the fractures.
+    """
+    for g, d in gb:
+        aperture = np.ones(g.num_cells) * \
+            np.power(a, gb.dim_max() - g.dim)
+        d['discharge'] = solver.discr.discharge(g, flux, aperture)
+    gb.add_edge_props('param')
+    for e, d in gb.edges():
+        g_h = gb.nodes_of_edge(e)[1]
+        discharge = gb.node_props(g_h, 'discharge')
+        sign = np.zeros(g_h.num_faces)
+        sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
+        sign = d['mortar_grid'].high_to_mortar_avg() * sign
+        d['param'] = Parameters(g_h)
+        d['mortar_solution'] = sign * (d['mortar_grid'].high_to_mortar_avg()
+                                        * discharge)
+
 # #------------------------------------------------------------------------------#
-# if __name__ == '__main__':
-#     unittest.main()
+if __name__ == '__main__':
+     unittest.main()
