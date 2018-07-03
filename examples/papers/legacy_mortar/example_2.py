@@ -9,13 +9,13 @@ import example_2_data
 from solvers import *
 
 case = 1
-h_list = [0.2, 0.15, 0.1]
+h_list = [0.2, 0.15, 0.1, 0.05]
 list_of_solvers = {"tpfa": solve_tpfa, "p1": solve_p1, "mpfa": solve_mpfa,
                    "rt0": solve_rt0, "vem": solve_vem}
 
-list_of_solvers = {"mpfa": solve_tpfa, "p1": solve_p1}
-list_of_solvers = {'vem': solve_vem, 'rt0': solve_rt0, 'mpfa': solve_mpfa}
-h_list = [0.2, 0.15, 0.1]
+#list_of_solvers = {"mpfa": solve_tpfa, "p1": solve_p1}
+#list_of_solvers = {'vem': solve_vem, 'rt0': solve_rt0, 'mpfa': solve_mpfa}
+#h_list = [0.2, 0.15, 0.1]
 
 def reference_solution(h=0.1):
     # Compute the reference solution with the RT0
@@ -48,9 +48,9 @@ def convergence_test(h_list, list_of_solvers, gb_ref):
             error_2d = 0
             ref_2d = 0
 
-            for e_ref, d_ref in gb_ref.edges_props():
+            for e_ref, d_ref in gb_ref.edges():
                 found=False
-                for e, d in gb.edges_props():
+                for e, d in gb.edges():
                     if d_ref['edge_id'] == d['edge_id']:
                         found = True
                         break
@@ -124,5 +124,5 @@ def convergence_test(h_list, list_of_solvers, gb_ref):
         f.close()
 
 if __name__ == '__main__':
-    ref_sol = reference_solution(h=0.05)
+    ref_sol = reference_solution(h=0.02)
     convergence_test(h_list, list_of_solvers, ref_sol)

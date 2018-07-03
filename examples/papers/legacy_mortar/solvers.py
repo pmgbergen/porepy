@@ -3,6 +3,7 @@ import scipy.sparse as sps
 
 from porepy.viz.exporter import Exporter
 
+import porepy as pp
 from porepy.numerics import fv
 from porepy.numerics import fem
 from porepy.numerics import vem
@@ -22,16 +23,14 @@ def mortar_dof_size(A, gb, solver_flow):
 def solve_rt0(gb, folder, return_only_matrix=False):
 
     # Choose and define the solvers and coupler
-    solver_flow = fem.RT0MixedDim('flow')
+    solver_flow = pp.RT0MixedDim('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = vem.IntegralMixedDim('flow')
-    A_source, b_source = solver_source.matrix_rhs(gb)
-    A = A_flow + A_source
+    A = A_flow
     if return_only_matrix:
         return A, mortar_dof_size(A, gb, solver_flow)
 
-    up = sps.linalg.spsolve(A, b_flow+b_source)
+    up = sps.linalg.spsolve(A, b_flow)
     solver_flow.split(gb, "up", up)
 
     solver_flow.extract_p(gb, "up", "pressure")
@@ -44,16 +43,14 @@ def solve_rt0(gb, folder, return_only_matrix=False):
 def solve_tpfa(gb, folder, return_only_matrix=False):
 
     # Choose and define the solvers and coupler
-    solver_flow = fv.TpfaMixedDim('flow')
+    solver_flow = pp.TpfaMixedDim('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = fv.IntegralMixedDim('flow')
-    A_source, b_source = solver_source.matrix_rhs(gb)
-    A = A_flow + A_source
+    A = A_flow
     if return_only_matrix:
         return A, mortar_dof_size(A, gb, solver_flow)
 
-    p = sps.linalg.spsolve(A, b_flow+b_source)
+    p = sps.linalg.spsolve(A, b_flow)
     solver_flow.split(gb, "pressure", p)
 
     save = Exporter(gb, "sol", folder=folder)
@@ -64,16 +61,14 @@ def solve_tpfa(gb, folder, return_only_matrix=False):
 def solve_mpfa(gb, folder, return_only_matrix=False):
 
     # Choose and define the solvers and coupler
-    solver_flow = fv.MpfaMixedDim('flow')
+    solver_flow = pp.MpfaMixedDim('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = fv.IntegralMixedDim('flow')
-    A_source, b_source = solver_source.matrix_rhs(gb)
-    A = A_flow + A_source
+    A = A_flow
     if return_only_matrix:
         return A, mortar_dof_size(A, gb, solver_flow)
 
-    p = sps.linalg.spsolve(A, b_flow+b_source)
+    p = sps.linalg.spsolve(A, b_flow)
     solver_flow.split(gb, "pressure", p)
 
     save = Exporter(gb, "sol", folder=folder)
@@ -84,36 +79,32 @@ def solve_mpfa(gb, folder, return_only_matrix=False):
 def solve_p1(gb, folder, return_only_matrix=False):
 
     # Choose and define the solvers and coupler
-    solver_flow = fem.P1MixedDim('flow')
+    solver_flow = pp.P1MixedDim('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = fem.IntegralMixedDim('flow')
-    A_source, b_source = solver_source.matrix_rhs(gb)
-    A = A_flow + A_source
+    A = A_flow
     if return_only_matrix:
         return A, mortar_dof_size(A, gb, solver_flow)
 
-    p = sps.linalg.spsolve(A, b_flow+b_source)
+    p = sps.linalg.spsolve(A, b_flow)
     solver_flow.split(gb, "pressure", p)
 
-    save = Exporter(gb, "sol", folder=folder, simplicial=True)
-    save.write_vtk(["pressure"])
+#    save = Exporter(gb, "sol", folder=folder, simplicial=True)
+#    save.write_vtk(["pressure"])
 
 #------------------------------------------------------------------------------#
 
 def solve_vem(gb, folder, return_only_matrix=False):
 
     # Choose and define the solvers and coupler
-    solver_flow = vem.DualVEMMixedDim('flow')
+    solver_flow = pp.DualVEMMixedDim('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = vem.IntegralMixedDim('flow')
-    A_source, b_source = solver_source.matrix_rhs(gb)
-    A = A_flow + A_source
+    A = A_flow
     if return_only_matrix:
         return A, mortar_dof_size(A, gb, solver_flow)
 
-    up = sps.linalg.spsolve(A, b_flow+b_source)
+    up = sps.linalg.spsolve(A, b_flow)
     solver_flow.split(gb, "up", up)
 
     solver_flow.extract_p(gb, "up", "pressure")
