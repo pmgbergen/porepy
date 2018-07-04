@@ -210,12 +210,11 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
     def solve(self, gb, analytic_p):
         flow_disc = pp.TpfaMixedDim()
-        source_disc = pp.IntegralMixedDim()
+        source_disc = pp.IntegralMixedDim(coupling=[None])
 
         _, src = source_disc.matrix_rhs(gb)
 
         A, b = flow_disc.matrix_rhs(gb)
-
         x = sps.linalg.spsolve(A, b + src)
 
         flow_disc.split(gb, 'pressure', x)

@@ -45,7 +45,7 @@ from porepy.numerics.fem.rt0 import RT0, RT0MixedDim
 
 
 # Transport related
-from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim
+from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim, UpwindCoupling
 from porepy.numerics.fv.mass_matrix import MassMatrix, MassMatrixMixedDim
 from porepy.numerics.fv.mass_matrix import InvMassMatrix, InvMassMatrixMixedDim
 

@@ -159,7 +159,7 @@ class EllipticModel():
 
     def source_disc(self):
         if self.is_GridBucket:
-            return source.IntegralMixedDim(physics=self.physics)
+            return source.IntegralMixedDim(physics=self.physics, coupling=[None])
         else:
             return source.Integral(physics=self.physics)
 
