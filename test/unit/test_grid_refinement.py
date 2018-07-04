@@ -447,7 +447,11 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                              [ 0.5,  0.5,  0. ,  0. ]])
 
             assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
-            assert np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
+
+            # The ordering of the cells in the new 1d grid may be flipped on
+            # some systems; therefore allow two configurations
+            assert np.logical_or(np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()),
+                                 np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()[::-1]))
 #------------------------------------------------------------------------------#
 
     def test_mortar_grid_1d_refine_1d_grid_2(self):
@@ -490,7 +494,10 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                                    [ 2.,  1.,  0.]])
 
             assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
-            assert np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
+            # The ordering of the cells in the new 1d grid may be flipped on
+            # some systems; therefore allow two configurations
+            assert np.logical_or(np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()),
+                                 np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()[::-1]))
 
 #------------------------------------------------------------------------------#
 
