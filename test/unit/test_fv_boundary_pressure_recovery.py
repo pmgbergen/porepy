@@ -245,7 +245,10 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         d['param'].set_bc_val('flow', bv)
         t = Tpfa('flow')
         A, b = t.matrix_rhs(g, d)
-        x = spl.spsolve(A, b)
+        # The problem is singular, and spsolve does not work well on all systems.
+        # Instead, set a consistent solution, and check that the boundary
+        # pressure is recovered.
+        x = g.cell_centers[0]
 
         bound_p = d['bound_pressure_cell'] * x\
                 + d['bound_pressure_face'] * bv
@@ -473,7 +476,10 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         d['param'].set_bc_val('flow', bv)
         t = Mpfa('flow')
         A, b = t.matrix_rhs(g, d)
-        x = spl.spsolve(A, b)
+        # The problem is singular, and spsolve does not work well on all systems.
+        # Instead, set a consistent solution, and check that the boundary
+        # pressure is recovered.
+        x = g.cell_centers[0]
 
         bound_p = d['bound_pressure_cell'] * x\
                 + d['bound_pressure_face'] * bv
