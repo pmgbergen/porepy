@@ -299,9 +299,9 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                              [ 1.,  0.],
                                              [ 0.,  1.]])
 
-            mg = d['mortar']
-            assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
-            assert np.allclose(low_to_mortar_known, mg.low_to_mortar.todense())
+            mg = d['mortar_grid']
+            assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            assert np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
 
 #------------------------------------------------------------------------------#
 
@@ -315,11 +315,11 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
         for e, d in gb.edges():
 
-            mg = d['mortar']
+            mg = d['mortar_grid']
             new_side_grids = {s: refinement.remesh_1d(g, num_nodes=4) \
                               for s, g in mg.side_grids.items()}
 
-            mortars.refine_mortar(mg, new_side_grids)
+            mortars.update_mortar_grid(mg, new_side_grids, 1e-4)
 
             high_to_mortar_known = 1./3.*np.matrix([
         [ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0.,  0.],
@@ -336,8 +336,8 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                                    [ 1.,  1.],
                                                    [ 2.,  0.]])
 
-            assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
-            assert np.allclose(low_to_mortar_known, mg.low_to_mortar.todense())
+            assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            assert np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
 
 #------------------------------------------------------------------------------#
 
@@ -351,11 +351,11 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
         for e, d in gb.edges():
 
-            mg = d['mortar']
+            mg = d['mortar_grid']
             new_side_grids = {s: refinement.remesh_1d(g, num_nodes=int(s)+3) \
                               for s, g in mg.side_grids.items()}
 
-            mortars.refine_mortar(mg, new_side_grids)
+            mortars.update_mortar_grid(mg, new_side_grids, 1e-4)
 
             high_to_mortar_known = np.matrix(
                                         [[ 0.        ,  0.        ,  0.        ,
@@ -401,8 +401,8 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                              [ 0.5       ,  0.        ],
                                              [ 0.5       ,  0.        ]])
 
-            assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
-            assert np.allclose(low_to_mortar_known, mg.low_to_mortar.todense())
+            assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            assert np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
 
 #------------------------------------------------------------------------------#
 
@@ -426,8 +426,8 @@ class TestRefinementMortarGrid(unittest.TestCase):
             new_g.compute_geometry()
 
             gb.update_nodes(old_g, new_g)
-            mg = d['mortar']
-            mortars.refine_co_dimensional_grid(mg, new_g)
+            mg = d['mortar_grid']
+            mortars.update_physical_low_grid(mg, new_g, 1e-4)
 
             high_to_mortar_known = np.matrix([[ 0.,  0.,  0.,  0.,  0.,  0.,
                                                 0.,  0.,  0.,  1.,  0.,  0.,
@@ -446,8 +446,8 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                              [ 0. ,  0. ,  0.5,  0.5],
                                              [ 0.5,  0.5,  0. ,  0. ]])
 
-            assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
-            assert np.allclose(low_to_mortar_known, mg.low_to_mortar.todense())
+            assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            assert np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
 #------------------------------------------------------------------------------#
 
     def test_mortar_grid_1d_refine_1d_grid_2(self):
@@ -469,8 +469,8 @@ class TestRefinementMortarGrid(unittest.TestCase):
             new_g.compute_geometry()
 
             gb.update_nodes(old_g, new_g)
-            mg = d['mortar']
-            mortars.refine_co_dimensional_grid(mg, new_g)
+            mg = d['mortar_grid']
+            mortars.update_physical_low_grid(mg, new_g, 1e-4)
 
             high_to_mortar_known = np.matrix([[ 0.,  0.,  0.,  0.,  0.,  0.,
                                                 0.,  0.,  0.,  1.,  0.,  0.,
@@ -489,8 +489,8 @@ class TestRefinementMortarGrid(unittest.TestCase):
                                                    [ 0.,  1.,  2.],
                                                    [ 2.,  1.,  0.]])
 
-            assert np.allclose(high_to_mortar_known, mg.high_to_mortar.todense())
-            assert np.allclose(low_to_mortar_known, mg.low_to_mortar.todense())
+            assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            assert np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
 
 #------------------------------------------------------------------------------#
 
@@ -507,26 +507,26 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
         for e, d in gb.edges():
 
-            mg = d['mortar']
+            mg = d['mortar_grid']
             indices_known = np.array([0, 1, 2, 3, 4, 5, 6, 7])
-            assert np.array_equal(mg.high_to_mortar.indices, indices_known)
+            assert np.array_equal(mg.high_to_mortar_int.indices, indices_known)
 
             indptr_known = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                      0, 1, 2, 3, 4, 4, 4, 4, 4, 5, 6, 7, 8])
-            assert np.array_equal(mg.high_to_mortar.indptr, indptr_known)
+            assert np.array_equal(mg.high_to_mortar_int.indptr, indptr_known)
 
             data_known = np.array([ 1.,  1.,  1.,  1.,  1.,  1.,  1.,  1.])
-            assert np.array_equal(mg.high_to_mortar.data, data_known)
+            assert np.array_equal(mg.high_to_mortar_int.data, data_known)
 
             indices_known = np.array([0, 4, 1, 5, 2, 6, 3, 7])
-            assert np.array_equal(mg.low_to_mortar.indices, indices_known)
+            assert np.array_equal(mg.low_to_mortar_int.indices, indices_known)
 
             indptr_known = np.array([0, 2, 4, 6, 8])
-            assert np.array_equal(mg.low_to_mortar.indptr, indptr_known)
+            assert np.array_equal(mg.low_to_mortar_int.indptr, indptr_known)
 
             data_known = np.array([ 1.,  1.,  1.,  1.,  1.,  1.,  1.,  1.])
-            assert np.array_equal(mg.low_to_mortar.data, data_known)
+            assert np.array_equal(mg.low_to_mortar_int.data, data_known)
 
 
 if __name__ == '__main__':
