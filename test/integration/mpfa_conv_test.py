@@ -24,7 +24,7 @@ from porepy.grids import structured, simplex
 from porepy.params import tensor, bc
 from porepy.numerics.fv import mpfa, fvutils, mpsa
 from porepy.utils.mcolon import mcolon
-import setup_grids_mpfa_mpsa_tests as setup_grids
+from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
 
 class _SolutionHomogeneousDomainFlow(object):
