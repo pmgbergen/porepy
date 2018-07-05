@@ -106,7 +106,7 @@ def main(kf, description, is_coarse=False, if_export=False):
     solver_flow = pp.DualVEMMixedDim('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = pp.DualSourceMixedDim('flow')
+    solver_source = pp.DualSourceMixedDim('flow', coupling=[None])
 
     A_source, b_source = solver_source.matrix_rhs(gb)
 
