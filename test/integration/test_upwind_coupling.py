@@ -168,13 +168,34 @@ class BasicsTest(unittest.TestCase):
                                    [-5.55111512e-17, 5.55111512e-17]])
 
         for g, d in gb:
-            if g.dim == 1:
+            if g.dim == 2:
+                d['node_number'] = 0
+            elif g.dim == 1:
                 if np.allclose(g.cell_centers, cell_centers_1):
                     d['node_number'] = 1
                 elif np.allclose(g.cell_centers, cell_centers_2):
                     d['node_number'] = 2
                 else:
                     raise ValueError('Grid not found')
+            elif g.dim==0:
+                d['node_number'] = 3
+            else:
+                raise ValueError
+
+        for e, d in gb.edges():
+            g1, g2 = gb.nodes_of_edge(e)
+            n1 = gb.node_props(g1, 'node_number')
+            n2 = gb.node_props(g2, 'node_number')
+            if n1==1 and n2==0:
+                d['edge_number'] = 0
+            elif n1==2 and n2==0:
+                d['edge_number'] = 1
+            elif n1==3 and n2==1:
+                d['edge_number'] = 2
+            elif n1==3 and n2==2:
+                d['edge_number'] = 3
+            else:
+                raise ValueError
 
         tol = 1e-3
         solver = upwind.UpwindMixedDim('transport')
@@ -290,6 +311,7 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
+
         assert np.allclose(U.todense(), U_known, rtol, atol)
         assert np.allclose(rhs, rhs_known, rtol, atol)
         assert np.allclose(theta, theta_known, rtol, atol)
@@ -476,6 +498,55 @@ class BasicsTest(unittest.TestCase):
                 d['node_number'] = 9
             else:
                 pass
+
+        for e, d in gb.edges():
+            g1, g2 = gb.nodes_of_edge(e)
+            n1 = gb.node_props(g1, 'node_number')
+            n2 = gb.node_props(g2, 'node_number')
+            if n1==1 and n2==0:
+                d['edge_number'] = 0
+            elif n1==2 and n2==0:
+                d['edge_number'] = 1
+            elif n1==3 and n2==0:
+                d['edge_number'] = 2
+            elif n1==4 and n2==1:
+                d['edge_number'] = 3
+            elif n1==5 and n2==1:
+                d['edge_number'] = 4
+            elif n1==6 and n2==1:
+                d['edge_number'] = 5
+            elif n1==7 and n2==1:
+                d['edge_number'] = 6
+            elif n1==4 and n2==2:
+                d['edge_number'] = 7
+            elif n1==5 and n2==2:
+                d['edge_number'] = 8
+            elif n1==8 and n2==2:
+                d['edge_number'] = 9                
+            elif n1==9 and n2==2:
+                d['edge_number'] = 10
+            elif n1==6 and n2==3:
+                d['edge_number'] = 11
+            elif n1==7 and n2==3:
+                d['edge_number'] = 12               
+            elif n1==8 and n2==3:
+                d['edge_number'] = 13
+            elif n1==9 and n2==3:
+                d['edge_number'] = 14
+            elif n1==10 and n2==4:
+                d['edge_number'] = 15
+            elif n1==10 and n2==5:
+                d['edge_number'] = 16
+            elif n1==10 and n2==6:
+                d['edge_number'] = 17
+            elif n1==10 and n2==7:
+                d['edge_number'] = 18
+            elif n1==10 and n2==8:
+                d['edge_number'] = 19
+            elif n1==10 and n2==9:
+                d['edge_number'] = 20
+            else:
+                raise ValueError
 
         tol = 1e-3
         solver = upwind.UpwindMixedDim('transport')
