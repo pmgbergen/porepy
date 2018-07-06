@@ -1,11 +1,7 @@
 import unittest
 import numpy as np
 
-from porepy.numerics import compressible
-from porepy.grids import structured
-from porepy.fracs import meshing
-from porepy.params import tensor
-
+import porepy as pp
 
 class TestCompressibleFlow(unittest.TestCase):
 
@@ -17,27 +13,26 @@ class TestCompressibleFlow(unittest.TestCase):
             if g.dim == 3:
                 pT = d['pressure']
         p_refT = _reference_solution_multi_grid()
-
         assert np.allclose(pT, p_refT)
 
 
 ###############################################################################
 
 
-class MatrixDomain(compressible.SlightlyCompressibleDataAssigner):
+class MatrixDomain(pp.SlightlyCompressibleDataAssigner):
     def __init__(self, g, d):
-        compressible.SlightlyCompressibleDataAssigner.__init__(self, g, d)
+        pp.SlightlyCompressibleDataAssigner.__init__(self, g, d)
 
 
-class FractureDomain(compressible.SlightlyCompressibleDataAssigner):
+class FractureDomain(pp.SlightlyCompressibleDataAssigner):
     def __init__(self, g, d):
-        compressible.SlightlyCompressibleDataAssigner.__init__(self, g, d)
+        pp.SlightlyCompressibleDataAssigner.__init__(self, g, d)
         aperture = np.power(0.001, 3 - g.dim)
         self.data()['param'].set_aperture(aperture)
 
     def permeability(self):
         kxx = 1000 * np.ones(self.grid().num_cells)
-        return tensor.SecondOrderTensor(3, kxx)
+        return pp.SecondOrderTensor(3, kxx)
 
 
 class IntersectionDomain(FractureDomain):
@@ -62,8 +57,13 @@ def set_sub_problems(gb):
         else:
             raise ValueError('Unkown grid-dimension %d' % g.dim)
 
+    for e, d in gb.edges():
+        gl, _ = gb.nodes_of_edge(e)
+        d_l = gb.node_props(gl)
+        d['kn'] = 1000 / np.mean(d_l['param'].get_aperture())
+        
 
-class UnitSquareInjectionMultiDim(compressible.SlightlyCompressibleModel):
+class UnitSquareInjectionMultiDim(pp.SlightlyCompressibleModel):
 
     def __init__(self):
 
@@ -72,13 +72,13 @@ class UnitSquareInjectionMultiDim(compressible.SlightlyCompressibleModel):
         f_3 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [.5, .5, .5, .5]])
         f_set = [f_1, f_2, f_3]
 
-        g = meshing.cart_grid(f_set, [4, 4, 4], physdims=[1, 1, 1])
+        g = pp.meshing.cart_grid(f_set, [4, 4, 4], physdims=[1, 1, 1])
         g.compute_geometry()
         g.assign_node_ordering()
         set_sub_problems(g)
         self.g = g
         # Initialize base class
-        compressible.SlightlyCompressibleModel.__init__(self, self.g, 'flow')
+        pp.SlightlyCompressibleModel.__init__(self, self.g, 'flow')
 
     #--------grid function--------
 

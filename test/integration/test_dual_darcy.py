@@ -190,7 +190,9 @@ def setup_3d(nx, simplex_grid=False):
     gb.add_edge_props('kn')
     for e, d in gb.edges():
         g = gb.nodes_of_edge(e)[0]
-        d['kn'] = 1 / gb.node_props(g, 'param').get_aperture()
+        mg = d['mortar_grid']
+        check_P = mg.low_to_mortar_avg()
+        d['kn'] = 1 / (check_P * gb.node_props(g, 'param').get_aperture())
 
     return gb
 
@@ -233,7 +235,9 @@ def setup_2d_1d(nx, simplex_grid=False):
     gb.add_edge_props('kn')
     for e, d in gb.edges():
         g = gb.nodes_of_edge(e)[0]
-        d['kn'] = 1 / gb.node_props(g, 'param').get_aperture()
+        mg = d['mortar_grid']
+        check_P = mg.low_to_mortar_avg()
+        d['kn'] = 1 / (check_P * gb.node_props(g, 'param').get_aperture())
 
     return gb
 
@@ -261,3 +265,5 @@ def elliptic_dirich_neumann_source_sink_cart_ref_3d():
     return p_ref
 
 #------------------------------------------------------------------------------#
+if __name__ == '__main__':
+    unittest.main()

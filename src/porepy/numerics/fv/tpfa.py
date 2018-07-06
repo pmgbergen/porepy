@@ -28,6 +28,12 @@ class TpfaMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
         self.solver = pp.numerics.mixed_dim.coupler.Coupler(self.discr,
                                                        self.coupling_conditions)
 
+    def discretize(self, gb):
+        for g, d in gb:
+            self.discr.discretize(g, d)
+
+        self.coupling_conditions.discretize(gb)
+
 #------------------------------------------------------------------------------
 
 
@@ -224,10 +230,15 @@ class Tpfa(pp.numerics.mixed_dim.solver.Solver):
         # Return harmonic average
         t = 1 / np.bincount(fi, weights=1 / t_face)
 
+        # Save values for use in recovery of boundary face pressures
+        t_full = t.copy()
+        sgn_full = np.bincount(fi, sgn)
+
         # For primal-like discretizations like the TPFA, internal boundaries
         # are handled by assigning Neumann conditions.
         is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
         is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
+
         # Move Neumann faces to Neumann transmissibility
         bndr_ind = g.get_all_boundary_faces()
         t_b = np.zeros(g.num_faces)
@@ -248,15 +259,126 @@ class Tpfa(pp.numerics.mixed_dim.solver.Solver):
         data['flux'] = flux
         data['bound_flux'] = bound_flux
 
+        # Next, construct operator to reconstruct pressure on boundaries
+        # Fields for data storage
+        v_cell = np.zeros(fi.size)
+        v_face = np.zeros(g.num_faces)
+        # On Dirichlet faces, simply recover boundary condition
+        v_face[bnd.is_dir] = 1
+        # On Neumann faces, the, use half-transmissibilities
+        v_face[bnd.is_neu] = -1/t_full[bnd.is_neu]
+        v_cell[bnd.is_neu[fi]] = 1
+
+        bound_pressure_cell = sps.coo_matrix((v_cell, (fi, ci)),
+                                             (g.num_faces, g.num_cells))
+        bound_pressure_face = sps.dia_matrix((v_face, 0),
+                                             (g.num_faces, g.num_faces))
+        data['bound_pressure_cell'] = bound_pressure_cell
+        data['bound_pressure_face'] = bound_pressure_face
+
 #------------------------------------------------------------------------------
 
 
 class TpfaCoupling(AbstractCoupling):
+    """
+    Coupler using both TpfaMixedCoupling (for fractures) and TpfaMonoCoupling
+    for coupling between two grids of same dimension. Note that the
+    mono-dimensional also work for a coupling between a grid to itself and will
+    then act as a periodic boundary condition.
+
+    Mixed dimensional coupling: The coupling condition between
+    two grids of different dimension is lambda = K nabla ( P_hat  - P_check)
+    and a source contribution to the lower dimensional grid equal the jump
+    ||lambda||.
+    
+    Mono dimensional coupling: The coupling condition between two grids of the
+    same dimension is continuity of pressure and flux:
+    P_hat - P_check = 0, v_hat = lambda, v_check = -lambda
+    """
+    def __init__(self, solver):
+        self.mono_coupling = TpfaMonoCoupling(solver)
+        self.mixed_coupling = TpfaMixedCoupling(solver)
+        self.physics = solver.physics
+
+    def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
+        if g_h.dim == g_l.dim:
+            mc = self.mono_coupling.matrix_rhs(matrix, g_h, g_l, data_h,
+                                               data_l, data_edge)
+        else:
+            mc = self.mixed_coupling.matrix_rhs(matrix, g_h, g_l, data_h,
+                                                data_l, data_edge)
+        return mc
+
+    def discretize(self, gb):
+        for e, d in gb.edges():
+            g_l, g_h = gb.nodes_of_edge(e)
+            data_l, data_h = gb.node_props(g_l), gb.node_props(g_h)
+            if g_l.dim == g_h.dim:
+                self.mono_coupling.discretize(g_h, g_l, data_h, data_l, d)
+            else:
+                self.mixed_coupling.discretize(g_h, g_l, data_h, data_l, d)
+
+#------------------------------------------------------------------------------
+
+class TpfaMixedCoupling(AbstractCoupling):
 
     def __init__(self, solver):
         self.solver = solver
+        self.discr_ndof = solver.ndof
 
-    def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
+    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+        """
+        Computes the coupling terms for the faces between cells in g_h and g_l
+        using the two-point flux approximation.
+        see matrix_rhs for parameters iformation
+        """
+        # Mortar data structure.
+        mg = data_edge['mortar_grid']
+
+        # Discretization of boundary conditions
+        bound_flux_h = data_h['bound_flux']
+
+        # Matrices for reconstruction of face pressures.
+        # Contribution from cell center values
+        bound_pressure_cc_h = data_h['bound_pressure_cell']
+        # Contribution from boundary value
+        bound_pressure_face_h = data_h['bound_pressure_face']
+
+        # Recover the information for the grid-grid mapping
+        faces_h, cells_h, _ = sps.find(g_h.cell_faces)
+        ind_faces_h = np.unique(faces_h, return_index=True)[1]
+        cells_h = cells_h[ind_faces_h]
+
+        # Projection from mortar grid to upper dimension
+        hat_P = mg.high_to_mortar_avg()
+        # Projection from mortar grid to lower dimension
+        check_P = mg.low_to_mortar_avg()
+
+        # Create the block matrix for the contributions
+        hat_P_to_mortar = hat_P * bound_pressure_cc_h
+        # Normal permeability and aperture of the intersection
+        inv_k = 1./(2.*data_edge['kn'])
+        aperture_h = data_h['param'].get_aperture()
+
+        # Inverse of the normal permability matrix
+        Eta = sps.diags(np.divide(inv_k, hat_P*aperture_h[cells_h]))
+
+        # Mortar mass matrix
+        M = sps.diags(1./mg.cell_volumes)
+        mortar_weight = hat_P * bound_pressure_face_h * hat_P.T
+        mortar_weight -= Eta*M
+
+        # store results
+        check_size = (g_l.num_faces, mg.num_cells)
+        data_edge['mortar_to_hat_bc'] = bound_flux_h *  hat_P.T
+        data_edge['mortar_to_check_bc'] = sps.csc_matrix(check_size)
+        data_edge['jump'] = check_P.T
+        data_edge['hat_P_to_mortar'] = hat_P_to_mortar
+        data_edge['check_P_to_mortar'] = check_P
+        data_edge['mortar_weight'] = mortar_weight
+        
+
+    def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge, discretize=True):
         """
         Computes the coupling terms for the faces between cells in g_h and g_l
         using the two-point flux approximation.
@@ -283,110 +405,133 @@ class TpfaCoupling(AbstractCoupling):
             cc: Discretization matrices for the coupling terms assembled
                 in a csc.sparse matrix.
         """
+        if discretize:
+            self.discretize(g_h, g_l, data_h, data_l, data_edge)
 
-        k_l = data_l['param'].get_tensor(self.solver)
-        k_h = data_h['param'].get_tensor(self.solver)
-        a_l = data_l['param'].get_aperture()
-        a_h = data_h['param'].get_aperture()
+        # assemble discretization matrix:
+        _, cc = self.create_block_matrix([g_h, g_l, data_edge['mortar_grid']])
 
-        dof = np.array([self.solver.ndof(g_h), self.solver.ndof(g_l)])
+        # Contribution from mortar variable to conservation in the higher domain
+        # Acts as a boundary condition, treat with standard boundary discretization
+        #cc[0, 2] = div_h *  bound_flux_h * face_areas_h *  hat_P.T
+        div_h = fvutils.scalar_divergence(g_h)
+        cc[0, 2] = div_h *  data_edge['mortar_to_hat_bc']
+        # For the lower dimensional grid the mortar act as a source term. This
+        # shows up in the equation as a jump operator: div u - ||lambda|| = 0
+        # where ||.|| is the jump
+        cc[1, 2] = -data_edge['jump'] #* sps.diags(mg.cell_volumes)
 
-        # Obtain the cells and face signs of the higher dimensional grid
-        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
-        faces, cells_h, sgn_h = sps.find(g_h.cell_faces)
-        ind = np.unique(faces, return_index=True)[1]
-        sgn_h = sgn_h[ind]
-        cells_h = cells_h[ind]
+        # Governing equation for the inter-dimensional flux law.
+        # Equation on the form
+        #   \lambda = \kappa (p_h - p_l). The trace of the pressure from
+        # the higher dimension is composed of the cell center pressure,
+        # and a contribution from the boundary flux, represented by the mortar flux
+        # Cell center contribution, mapped to the mortar grid
+        cc[2, 0] = data_edge['hat_P_to_mortar']
 
-        cells_h, sgn_h = cells_h[faces_h], sgn_h[faces_h]
+        # Contribution from the lower dimensional pressure
+        cc[2, 1] = -data_edge['check_P_to_mortar']
+        # Contribution from mortar
+        # Should we have hat_P_pressure here?
+        #cc[2, 2] += hat_P * bound_pressure_face_h * face_areas_h * hat_P.T
+        cc[2, 2] = data_edge['mortar_weight']
 
-        # The procedure for obtaining the face transmissibilities of the higher
-        # grid is in the main analougous to the one used in the discretize function
-        # of the Tpfa class.
-        n = g_h.face_normals[:, faces_h]
-        n *= sgn_h
-        perm_h = k_h.perm[:, :, cells_h]
+        return matrix + cc
 
-        # Compute the distance between face center and cell center. If specified
-        # (edgewise), the face centroid is shifted half an aperture in the normal
-        # direction of the fracture. Unless matrix cell size approaches the
-        # aperture, this has minimal impact.
-        if data_edge.get('aperture_correction', False):
-            apt_dim = np.divide(a_l[cells_l], a_h[cells_h])
-            fc_corrected = g_h.face_centers[::,
-                                            faces_h].copy() - apt_dim / 2 * n
-            fc_cc_h = fc_corrected - g_h.cell_centers[::, cells_h]
+#------------------------------------------------------------------------------
+
+class TpfaMonoCoupling(AbstractCoupling):
+
+    def __init__(self, solver):
+        self.solver = solver
+        self.discr_ndof = solver.ndof
+
+    def discretize(self, g_l, g_r, data_l, data_r, data_edge):
+        """
+        Discretize  the coupling terms for the faces between faces in g_l and
+        faces in g_r using the two-point flux approximation. See matrix_rhs
+        for information on the parameters.
+        """
+        # Mortar data structure.
+        mg = data_edge['mortar_grid']
+
+        # Matrices for reconstruction of face pressures.
+        # Discretization of boundary conditions
+        bound_flux_l = data_l['bound_flux']
+        bound_flux_r = data_r['bound_flux']
+        # Contribution from cell center values
+        bound_pressure_cell_l = data_l['bound_pressure_cell']
+        bound_pressure_cell_r = data_r['bound_pressure_cell']
+        # Contribution from boundary value
+        bound_pressure_face_l = data_l['bound_pressure_face']
+        bound_pressure_face_r = data_r['bound_pressure_face']
+
+        # Recover the information for the grid-grid mapping.
+        # Projection from left side to mortar grid.
+        left_P = mg.left_to_mortar_avg()
+        # Projection from right side to mortar grid
+        right_P = mg.right_to_mortar_avg()
+
+        # Enforce continuity of pressures.
+        # We reconstruct the pressure on the mortar grid. The contribution
+        # from the mortars to the pressure is
+        mortar_to_pressure = (left_P) * bound_pressure_face_l * (left_P).T
+        mortar_to_pressure += right_P * bound_pressure_face_r * (right_P).T
+
+        # store discretization
+        data_edge['hat_P_to_mortar'] = left_P * bound_pressure_cell_l
+        data_edge['check_P_to_mortar'] = right_P * bound_pressure_cell_r
+        data_edge['jump'] = sps.coo_matrix((g_r.num_cells, mg.num_cells))
+        data_edge['mortar_weight'] = mortar_to_pressure
+        data_edge['mortar_to_hat_bc'] = bound_flux_l * (left_P).T
+        data_edge['mortar_to_check_bc'] = -bound_flux_r * (right_P).T
+
+
+    def matrix_rhs(self, matrix, g_l, g_r, data_l, data_r, data_edge, discretize=True):
+        """
+        Computes the coupling terms for the faces between faces in g_l and
+        faces in g_r using the two-point flux approximation.
+
+        Parameters:
+            g_l and g_r: grid structures of the two subdomains, respectively.
+            data_l and data_r: the corresponding data dictionaries.
+
+        Returns:
+            cc: Discretization matrices for the coupling terms assembled
+                in a csc.sparse matrix.
+        """
+        if discretize:
+            self.discretize(g_l, g_r, data_l, data_r, data_edge)
+
+        # calculate divergence
+        div_l = fvutils.scalar_divergence(g_l)
+        div_r = fvutils.scalar_divergence(g_r)
+
+        # create block matrix
+
+
+        # store discretization matrix
+        if g_l != g_r:
+            _, cc = self.create_block_matrix([g_l, g_r, data_edge['mortar_grid']])
+            # first the flux continuity
+            cc[0, 2] = div_l * data_edge['mortar_to_hat_bc']
+            cc[1, 2] = div_r * data_edge['mortar_to_check_bc']
+            # then pressure continuity
+            cc[2, 0] = data_edge['hat_P_to_mortar']
+            cc[2, 1] = -data_edge['check_P_to_mortar']
+            cc[2, 2] = data_edge['mortar_weight']
+
         else:
-            fc_cc_h = g_h.face_centers[::, faces_h] - \
-                g_h.cell_centers[::, cells_h]
+            _, cc = self.create_block_matrix([g_l, data_edge['mortar_grid']])
+            # if the edge connect a node to itself the contribution
+            # from the left and right are both at the same node
+            cc[0, 1] = div_l * data_edge['mortar_to_hat_bc'] +\
+                       div_r * data_edge['mortar_to_check_bc']
+            cc[1, 0] = data_edge['hat_P_to_mortar'] -\
+                       data_edge['check_P_to_mortar']
+            cc[1, 1] = data_edge['mortar_weight']
 
-        nk_h = perm_h * n
-        nk_h = nk_h.sum(axis=1)
-        if data_edge.get('Aavatsmark_transmissibilities', False):
-            dist_face_cell_h = np.linalg.norm(fc_cc_h, 2, axis=0)
-            t_face_h = np.linalg.norm(nk_h, 2, axis=0)
-        else:
-            nk_h *= fc_cc_h
-            t_face_h = nk_h.sum(axis=0)
-            dist_face_cell_h = np.power(fc_cc_h, 2).sum(axis=0)
-
-        # Account for the apertures
-        t_face_h = t_face_h * a_h[cells_h]
-        # and compute the matrix side half transmissibilities
-        t_face_h = np.divide(t_face_h, dist_face_cell_h)
-
-        # For the lower dimension some simplifications can be made, due to the
-        # alignment of the face normals and (normal) permeabilities of the
-        # cells. First, the normal component of the permeability of the lower
-        # dimensional cells must be found. While not provided in g_l, the
-        # normal of these faces is the same as that of the corresponding higher
-        # dimensional face, up to a sign.
-        n1 = n[np.newaxis, :, :]
-        n2 = n[:, np.newaxis, :]
-        n1n2 = n1 * n2
-
-        normal_perm = np.einsum(
-            'ij...,ij...', n1n2, k_l.perm[:, :, cells_l])
-        # The area has been multiplied in twice, not once as above, through n1
-        # and n2
-        normal_perm = np.divide(normal_perm, g_h.face_areas[faces_h])
-
-        # Account for aperture contribution to face area
-        t_face_l = a_h[cells_h] * normal_perm
-
-        # And use it for face-center cell-center distance
-        t_face_l = np.divide(
-            t_face_l, 0.5 * np.divide(a_l[cells_l], a_h[cells_h]))
-
-        # Assemble face transmissibilities for the two dimensions and compute
-        # harmonic average
-        t_face = np.array([t_face_h, t_face_l])
-        t = t_face.prod(axis=0) / t_face.sum(axis=0)
-
-        # Create the block matrix for the contributions
-        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof]
-                      ).reshape((2, 2))
-
-        # Compute the off-diagonal terms
-        dataIJ, I, J = -t, cells_l, cells_h
-        cc[1, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[0]))
-        cc[0, 1] = cc[1, 0].T
-
-        # Compute the diagonal terms
-        dataIJ, I, J = t, cells_h, cells_h
-        cc[0, 0] = sps.csr_matrix((dataIJ, (I, J)), (dof[0], dof[0]))
-        I, J = cells_l, cells_l
-        cc[1, 1] = sps.csr_matrix((dataIJ, (I, J)), (dof[1], dof[1]))
-
-        # Save the flux discretization for back-computation of fluxes
-        cells2faces = sps.csr_matrix((sgn_h, (faces_h, cells_h)),
-                                     (g_h.num_faces, g_h.num_cells))
-
-        data_edge['coupling_flux'] = sps.hstack([cells2faces * cc[0, 0],
-                                                 cells2faces * cc[0, 1]])
-        data_edge['coupling_discretization'] = cc
-
-        return cc
+        return matrix + cc
 
 #------------------------------------------------------------------------------#
 
@@ -446,7 +591,7 @@ class TpfaCouplingDFN(AbstractCoupling):
             dist_face_cell_h = np.power(fc_cc_h, 2).sum(axis=0)
 
         # Account for the apertures
-        t_face_h = t_face_h * a_h[cells_h]
+        t_face_h = np.multiply(t_face_h, a_h[cells_h])
         t = np.divide(t_face_h, dist_face_cell_h)
 
         # Create the block matrix for the contributions

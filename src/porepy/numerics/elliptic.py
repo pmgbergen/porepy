@@ -159,7 +159,7 @@ class EllipticModel():
 
     def source_disc(self):
         if self.is_GridBucket:
-            return source.IntegralMixedDim(physics=self.physics)
+            return source.IntegralMixedDim(physics=self.physics, coupling=[None])
         else:
             return source.Integral(physics=self.physics)
 
@@ -198,6 +198,7 @@ class EllipticModel():
                                        p_name=self.pressure_name)
         else:
             fvutils.compute_discharges(self.grid(), self.physics,
+                                       discharge_name,
                                        self.pressure_name,
                                        self._data)
 
@@ -319,7 +320,8 @@ class DualEllipticModel(EllipticModel):
 
     def source_disc(self):
         if self.is_GridBucket:
-            return vem_source.DualSourceMixedDim(physics=self.physics)
+            return vem_source.DualSourceMixedDim(physics=self.physics,
+                                                 coupling=[None])
         else:
             return vem_source.DualSource(physics=self.physics)
 
@@ -337,7 +339,12 @@ class DualEllipticModel(EllipticModel):
 
         """
         ls = LSFactory()
-        self.x = ls.direct(*self.reassemble())
+        lhs, rhs = self.reassemble()
+
+        import scipy.io as sps_io
+        sps_io.mmwrite("matrix.mtx", lhs)
+
+        self.x = ls.direct(lhs, rhs)
         return self.x
 
     def pressure(self, pressure_name='pressure'):
@@ -354,6 +361,11 @@ class DualEllipticModel(EllipticModel):
         if self.is_GridBucket:
             self._flux_disc.extract_u(
                 self._gb, self.x_name, self.discharge_name)
+
+            for e, d in self._gb.edges():
+                g_h = self._gb.nodes_of_edge(e)[1]
+                d[discharge_name] = self._gb.node_props(g_h, discharge_name)
+
         else:
             discharge = self._flux_disc.extract_u(self._gb, self.x)
             self._data[self.discharge_name] = discharge

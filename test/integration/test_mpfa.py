@@ -45,7 +45,7 @@ def test_laplacian_stencil_cart_2d():
     bound = bc.BoundaryCondition(g, bnd_faces, ['dir'] * bnd_faces.size)
 
     # Python inverter is most efficient for small problems
-    flux, bound_flux = mpfa.mpfa(g, perm, bound, inverter='python')
+    flux, bound_flux, _, _ = mpfa.mpfa(g, perm, bound, inverter='python')
     div = g.cell_faces.T
     A = div * flux
 
@@ -85,7 +85,7 @@ def test_uniform_flow_cart_2d():
                                  'dir'] * bound_faces.size)
 
     # Python inverter is most efficient for small problems
-    flux, bound_flux = mpfa.mpfa(g, perm, bound, inverter='python')
+    flux, bound_flux, _, _ = mpfa.mpfa(g, perm, bound, inverter='python')
     div = g.cell_faces.T
 
     a = div * flux
@@ -109,7 +109,7 @@ def test_uniform_flow_cart_2d_structured_pert():
                                  'dir'] * bound_faces.size)
 
     # Python inverter is most efficient for small problems
-    flux, bound_flux = mpfa.mpfa(g, perm, bound, inverter='python')
+    flux, bound_flux, _, _ = mpfa.mpfa(g, perm, bound, inverter='python')
     div = g.cell_faces.T
 
     a = div * flux
@@ -144,7 +144,7 @@ def test_uniform_flow_cart_2d_pert():
                                  'dir'] * bound_faces.size)
 
     # Python inverter is most efficient for small problems
-    flux, bound_flux = mpfa.mpfa(g, perm, bound, inverter='python')
+    flux, bound_flux, _, _ = mpfa.mpfa(g, perm, bound, inverter='python')
     div = g.cell_faces.T
 
     a = div * flux

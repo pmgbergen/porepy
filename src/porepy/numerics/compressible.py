@@ -51,7 +51,7 @@ class SlightlyCompressibleModel(ParabolicModel):
                 return lhs * data['compressibility'], rhs * data['compressibility']
         time_discretization = TimeDisc(self.time_step())
         if self.is_GridBucket:
-            time_discretization = Coupler(time_discretization)
+            time_discretization = Coupler(time_discretization, [None])
         return time_discretization
 
     def discharge(self, d_name='discharge', p_name='pressure'):

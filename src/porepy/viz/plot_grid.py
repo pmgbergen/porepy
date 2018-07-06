@@ -119,7 +119,7 @@ def quiver(vector_value, ax, g, **kwargs):
     else:
         raise ValueError
 
-    scale = kwargs.get('vector_scale', 0.02)
+    scale = kwargs.get('vector_scale', 0.2)
     for v in np.arange(vector_value.shape[1]):
         x = [where[0, v], where[0, v] + scale * vector_value[0, v]]
         y = [where[1, v], where[1, v] + scale * vector_value[1, v]]

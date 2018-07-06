@@ -30,6 +30,7 @@ class TestBase(unittest.TestCase):
         problem.update(0.0)
         solver = Implicit(problem)
         solver.solve()
+        
         assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
         assert np.sum(np.abs(solver.rhs - 1) < 1e-6) == 1
         assert np.sum(np.abs(solver.p) > 1e-6) == 1

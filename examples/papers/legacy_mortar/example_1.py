@@ -1,109 +1,95 @@
 import numpy as np
+import scipy.sparse as sps
 
-from porepy.viz import exporter
-from porepy.fracs import importer
+from porepy.grids.grid import Grid
+from porepy.fracs import mortars
 
-from porepy.params import tensor
-from porepy.params.bc import BoundaryCondition
-from porepy.params.data import Parameters
-
-from porepy.numerics import elliptic
-from porepy.utils import comp_geom as cg
-
-import create_porepy_grid
+import example_1_data
+import solvers
 
 #------------------------------------------------------------------------------#
 
+def reference_solution():
 
-def add_data(gb, domain, kf):
-    """
-    Define the permeability, apertures, boundary conditions
-    """
-    gb.add_node_props(['param'])
-    tol = 1e-5
-    a = 1e-3
-
-    for g, d in gb:
-        param = Parameters(g)
-
-        # Permeability
-        kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
-        if g.dim == 2:
-            perm = tensor.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
-        else:
-            perm = tensor.SecondOrderTensor(3, kxx=kxx, kyy=1, kzz=1)
-            if g.dim == 1:
-                R = cg.project_line_matrix(g.nodes, reference=[1, 0, 0])
-                perm.rotate(R)
-
-        param.set_tensor("flow", perm)
-
-        # Source term
-        param.set_source("flow", np.zeros(g.num_cells))
-
-        # Assign apertures
-        aperture = np.power(a, gb.dim_max() - g.dim)
-        param.set_aperture(np.ones(g.num_cells) * aperture)
-
-        # Boundaries
-        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
-        if bound_faces.size != 0:
-            bound_face_centers = g.face_centers[:, bound_faces]
-
-            bottom_corner = np.logical_and(bound_face_centers[0, :] < 0.1,
-                                           bound_face_centers[1, :] < 0.1)
-
-            top_corner = np.logical_and(bound_face_centers[0, :] > 0.9,
-                                        bound_face_centers[1, :] > 0.9)
-
-            labels = np.array(['neu'] * bound_faces.size)
-            dir_faces = np.logical_or(bottom_corner, top_corner)
-            labels[dir_faces] = 'dir'
-
-            bc_val = np.zeros(g.num_faces)
-            bc_val[bound_faces[bottom_corner]] = 1
-            bc_val[bound_faces[top_corner]] = -1
-
-            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val("flow", bc_val)
-        else:
-            param.set_bc("flow", BoundaryCondition(
-                g, np.empty(0), np.empty(0)))
-
-        d['param'] = param
-
-    # Assign coupling permeability
-    gb.add_edge_prop('kn')
-    for e, d in gb.edges_props():
-        g = gb.sorted_nodes_of_edge(e)[0]
-        d['kn'] = kf / gb.node_prop(g, 'param').get_aperture()
+    # Compute the reference solution with the RT0
+    cells_2d = 100000
+    solver = "rt0"
+    gb_ref = example_1_data.create_gb(cells_2d)
+    example_1_data.add_data(gb_ref, solver)
+    folder = "example_1_reference"
+    solvers.solve_rt0(gb_ref, folder)
+    return gb_ref
 
 #------------------------------------------------------------------------------#
 
+def convergence_test(N, gb_ref, solver, solver_fct):
 
-def main():
+    f = open(solver+"_error.txt", "w")
+    for i in np.arange(N):
 
-    gb = create_porepy_grid.create(mesh_size=0.01)
+        cells_2d = 200*4**i
+        alpha_1d = None
+        alpha_mortar = 0.75
+        gb = example_1_data.create_gb(cells_2d, alpha_1d, alpha_mortar)
 
-    # Assign parameters
-    domain = gb.bounding_box(as_dict=True)
-    kf = 1e-4
-    add_data(gb, domain, kf)
+        example_1_data.add_data(gb, solver)
+        folder = "example_1_"+solver+"_"+str(i)
+        solver_fct(gb, folder)
 
-    # Choose and define the solvers and coupler
-    problem = elliptic.DualEllipticModel(gb)
-    problem.solve()
+        error_0d = 0
+        ref_0d = 0
+        error_1d = 0
+        ref_1d = 0
 
-    problem.split()
-    problem.pressure('pressure')
-    problem.project_discharge('P0u')
+        for e_ref, d_ref in gb_ref.edges_props():
+            for e, d in gb.edges_props():
+                if d_ref['edge_number'] == d['edge_number']:
+                    break
 
-    problem.save(["pressure", "P0u"])
+            mg_ref = d_ref['mortar_grid']
+            mg = d['mortar_grid']
 
-#------------------------------------------------------------------------------#
+            m_ref = d_ref['mortar_solution']
+            m = d['mortar_solution']
+            num_cells = int(mg.num_cells/2)
+            m_switched = np.hstack((m[num_cells:], m[:num_cells]))
 
+            if mg_ref.dim == 0:
+                error_0d += np.power(m-m_ref, 2)[0]
+                ref_0d += np.power(m_ref, 2)[0]
 
-if __name__ == "__main__":
-    main()
+            if mg_ref.dim == 1:
+                Pi_ref = np.empty((mg.num_sides(), mg.num_sides()), dtype=np.object)
+
+                for idx, (side, g_ref) in enumerate(mg_ref.side_grids.items()):
+                    g = mg.side_grids[side]
+                    Pi_ref[idx, idx] = mortars.split_matrix_1d(g, g_ref,
+                                                           example_1_data.tol())
+
+                Pi_ref = sps.bmat(Pi_ref, format='csc')
+
+                inv_k = 1./(2.*d_ref['kn'])
+                M = sps.diags(inv_k/mg_ref.cell_volumes)
+                delta = m_ref - Pi_ref*m
+                delta_switched = m_ref - Pi_ref*m_switched
+
+                error_1d_loc = np.dot(delta, M*delta)
+                error_1d_loc_switched = np.dot(delta_switched, M*delta_switched)
+
+                error_1d += min(error_1d_loc, error_1d_loc_switched)
+                ref_1d += np.dot(m_ref, M*m_ref)
+
+        error_0d = '%1.2e'%np.sqrt(error_0d/ref_0d)
+        error_1d = '%1.2e'%np.sqrt(error_1d/ref_1d)
+
+        def cond(g): return not(isinstance(g, Grid))
+        diam_mg = '%1.2e'%gb.diameter(cond)
+
+        def cond(g): return isinstance(g, Grid)
+        diam_g = '%1.2e'%gb.diameter(cond)
+
+        f.write(str(i)+" \t"+diam_g+" \t"+diam_mg+" \t"+error_0d+" \t"+error_1d+'\n')
+
+    f.close()
 
 #------------------------------------------------------------------------------#
