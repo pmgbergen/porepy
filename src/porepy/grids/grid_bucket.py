@@ -110,7 +110,8 @@ class GridBucket(object):
             node_indexes = [self.node_props(g, 'node_number') for g in e]
             if node_indexes[0] < node_indexes[1]:
                 return e[0], e[1]
-            return e[1], e[0]
+            else:
+                return e[1], e[0]
 
         elif e[0].dim < e[1].dim:
             return e[0], e[1]
