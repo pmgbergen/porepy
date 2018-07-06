@@ -25,7 +25,7 @@ class Coupler(object):
         else:
             self.discr_ndof = discr_ndof
 
-        
+
         # Consider the solver for each dimension
         discr_fct = kwargs.get("discr_fct")
         if discr_fct is None:
@@ -179,7 +179,8 @@ class Coupler(object):
         for e, d in gb.edges():
             for i in range(self.num_mortars):
                 g_l, g_h = gb.nodes_of_edge(e)
-                pos_l, pos_h = d['node_number']
+                pos_l = gb.node_props(g_l, 'node_number')
+                pos_h = gb.node_props(g_h, 'node_number')
                 pos_m = d['edge_number'] + num_nodes + i * num_edges
                 if pos_h == pos_l:
                     idx = np.ix_([pos_h, pos_m], [pos_h, pos_m])
