@@ -7,7 +7,6 @@ from porepy.numerics.linalg.linsolve import Factory as LSFactory
 
 logger = logging.getLogger(__name__)
 
-
 class AbstractSolver(object):
     """
     Abstract base class for solving a general first order time pde problem.
@@ -76,10 +75,14 @@ class AbstractSolver(object):
             if not save_as is None and np.mod(counter, save_every)==0:
                 logger.info('Saving solution')
                 self.problem.split(save_as)
+
                 self.problem.exporter.write_vtk([save_as], time_step=counter)
                 times.append(t)
                 logger.info('Finished saving')
             t += self.dt
+
+        # Final update, mainly to let the problem run a callback function
+        self.update(t)
 
         if not save_as is None:
             self.problem.exporter.write_pvd(np.asarray(times))

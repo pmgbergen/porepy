@@ -25,7 +25,7 @@ class BasicsTest(unittest.TestCase):
 
     #------------------------------------------------------------------------------#
 
-    def test_1d_elimination_2d_1d(self):
+    def atest_1d_elimination_2d_1d(self):
         """
         Simplest case possible:
         2d case with two fractures intersecting in a single 0d grid
@@ -90,7 +90,7 @@ class BasicsTest(unittest.TestCase):
 
 #------------------------------------------------------------------------------#
 
-    def test_1d_elimination_3d_2d_1d(self):
+    def atest_1d_elimination_3d_2d_1d(self):
         """
         3d case with a single 1d grid.
         """
@@ -155,3 +155,5 @@ class BasicsTest(unittest.TestCase):
             g, d['pressure'], d['p_cond']) for g, d in gb) < tol)
 
 #------------------------------------------------------------------------------#
+#    if __name__ == '__main__':
+#        unittest.main()

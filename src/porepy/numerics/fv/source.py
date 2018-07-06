@@ -44,14 +44,14 @@ class Integral(Solver):
 #------------------------------------------------------------------------------
 
 class IntegralMixedDim(SolverMixedDim):
-    def __init__(self, physics='flow'):
+    def __init__(self, physics='flow', coupling=None):
         self.physics = physics
 
         self.discr = Integral(self.physics)
         self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = None
+        self.coupling_conditions = coupling
 
-        self.solver = Coupler(self.discr)
+        self.solver = Coupler(self.discr, self.coupling_conditions)
         SolverMixedDim.__init__(self)
 
 #------------------------------------------------------------------------------

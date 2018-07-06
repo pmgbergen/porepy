@@ -44,17 +44,17 @@ class DualSource(Solver):
 #------------------------------------------------------------------------------
 
 class DualSourceMixedDim(SolverMixedDim):
-    def __init__(self, physics='flow'):
+    def __init__(self, physics='flow', coupling=None):
         self.physics = physics
 
         self.discr = DualSource(self.physics)
         self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = None
+        self.coupling_conditions = coupling
 
-        self.solver = Coupler(self.discr)
+        self.solver = Coupler(self.discr, self.coupling_conditions)
         SolverMixedDim.__init__(self)
 
-#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------#
 
 class DualSourceDFN(SolverMixedDim):
     def __init__(self, dim_max, physics='flow'):
@@ -97,4 +97,38 @@ class DualSourceDFN(SolverMixedDim):
             ndof = self.__ndof__(g)
             return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
 
-#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------#
+
+class Integral(Solver):
+    '''
+    Discretization of the integrated source term
+    int q * dx
+    over each grid cell.
+
+    All this function does is returning a zero lhs and
+    rhs = - param.get_source.physics in a saddle point fashion.
+    '''
+
+    def __init__(self, physics='flow'):
+        self.physics = physics
+        Solver.__init__(self)
+
+    def ndof(self, g):
+        return g.num_cells + g.num_faces
+
+    def matrix_rhs(self, g, data):
+        param = data['param']
+        sources = param.get_source(self)
+        lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
+        assert sources.size == g.num_cells, \
+                                 'There should be one soure value for each cell'
+
+        rhs = np.zeros(self.ndof(g))
+        is_p = np.hstack((np.zeros(g.num_faces, dtype=np.bool),
+                          np.ones(g.num_cells, dtype=np.bool)))
+
+        rhs[is_p] = -sources
+
+        return lhs, rhs
+
+#------------------------------------------------------------------------------#

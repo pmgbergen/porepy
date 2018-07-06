@@ -177,7 +177,7 @@ class Grid(object):
 
         return s
 
-    def compute_geometry(self, is_embedded=False):
+    def compute_geometry(self):
         """Compute geometric quantities for the grid.
 
         This method initializes class variables describing the grid
@@ -196,7 +196,7 @@ class Grid(object):
         elif self.dim == 1:
             self.__compute_geometry_1d()
         elif self.dim == 2:
-            self.__compute_geometry_2d(is_embedded)
+            self.__compute_geometry_2d()
         else:
             self.__compute_geometry_3d()
 
@@ -246,12 +246,11 @@ class Grid(object):
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
         self.face_normals[:, flip] *= -1
 
-    def __compute_geometry_2d(self, is_embedded):
+    def __compute_geometry_2d(self):
         "Compute 2D geometry, with method motivated by similar MRST function"
 
-        if is_embedded:
-            R = cg.project_plane_matrix(self.nodes, check_planar=False)
-            self.nodes = np.dot(R, self.nodes)
+        R = cg.project_plane_matrix(self.nodes, check_planar=False)
+        self.nodes = np.dot(R, self.nodes)
 
         fn = self.face_nodes.indices
         edge1 = fn[::2]
@@ -311,11 +310,10 @@ class Grid(object):
                              np.logical_and(nrm(v) < nrm(vn), sgn < 0))
         self.face_normals[:, flip] *= -1
 
-        if is_embedded:
-            self.nodes = np.dot(R.T, self.nodes)
-            self.face_normals = np.dot(R.T, self.face_normals)
-            self.face_centers = np.dot(R.T, self.face_centers)
-            self.cell_centers = np.dot(R.T, self.cell_centers)
+        self.nodes = np.dot(R.T, self.nodes)
+        self.face_normals = np.dot(R.T, self.face_normals)
+        self.face_centers = np.dot(R.T, self.face_centers)
+        self.cell_centers = np.dot(R.T, self.cell_centers)
 
     def __compute_geometry_3d(self):
         """
@@ -555,6 +553,12 @@ class Grid(object):
         all_tags = tags.all_face_tags(self.tags)
         return self.__indices(all_tags)
 
+    def get_boundary_faces(self):
+        """
+        Get indices of all faces tagged as domain boundary.
+        """
+        return self.__indices(self.tags['domain_boundary_faces'])
+
     def get_internal_faces(self):
         """
         Get internal faces id of the grid
@@ -590,7 +594,7 @@ class Grid(object):
 
     def cell_diameters(self, cn=None):
         """
-        Compute the cell diameters.
+        Compute the cell diameters. If self.dim == 0, return 0
 
         Parameters:
             cn (optional): cell nodes map, previously already computed.
@@ -600,6 +604,8 @@ class Grid(object):
             np.array, num_cells: values of the cell diameter for each cell
 
         """
+        if self.dim == 0:
+            return np.zeros(1)
 
         def comb(n): return np.fromiter(itertools.chain.from_iterable(
             itertools.combinations(n, 2)), n.dtype).reshape((2, -1),

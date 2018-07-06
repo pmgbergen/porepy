@@ -54,16 +54,6 @@ class GridBucket(object):
             yield g, data
 
 
-    def dims(self):
-        """
-        Returns:
-            int: Active dimensions of the grids present in the hierarchy.
-
-        """
-        return np.unique([g.dim for g, _ in self])
-
-#------------------------------------------------------------------------------#
-
     def nodes(self):
         """ Iterator over the nodes in the GridBucket.
 
@@ -120,7 +110,8 @@ class GridBucket(object):
             node_indexes = [self.node_props(g, 'node_number') for g in e]
             if node_indexes[0] < node_indexes[1]:
                 return e[0], e[1]
-            return e[1], e[0]
+            else:
+                return e[1], e[0]
 
         elif e[0].dim < e[1].dim:
             return e[0], e[1]
@@ -142,6 +133,7 @@ class GridBucket(object):
         """
         for e in self.graph.edges([n]):
             yield e, self.edge_props(e)
+
 
     def node_neighbors(self, node, only_higher=False, only_lower=False):
         """
@@ -186,6 +178,9 @@ class GridBucket(object):
         """
         Obtain the grids, optionally filtered by a specified condition.
 
+        Example:
+        g = self.gb.get_grids(lambda g: g.dim == dim)
+
         Parameters:
             cond: Predicate to select a grid. If None is given (default), all
                 grids will be returned.
@@ -194,18 +189,41 @@ class GridBucket(object):
             grids: np.array of the grids.
 
         """
+        if cond is None:
+            cond = lambda g: True
+
         return np.array([g for g, _ in self if cond(g)])
 
 
     def grids_of_dimension(self, dim):
         """
         Get all grids in the bucket of a specific dimension.
-
         Returns:
             list: Of grids of the specified dimension
 
         """
-        return [g for g in self.graph.nodes() if g.dim == dim]
+
+        return self.get_grids(lambda g: g.dim == dim)
+
+
+    def get_mortar_grids(self, cond=None, name='mortar_grid'):
+        """
+        Obtain the mortar grids, optionally filtered by a specified condition.
+
+        Example:
+        g = self.gb.get_mortar_grids(lambda g: g.dim == dim)
+
+        Parameters:
+            cond: Predicate to select a grid. If None is given (default), all
+                grids will be returned.
+
+        Returns:
+            grids: np.array of the grids.
+
+        """
+        if cond is None:
+            cond = lambda g: True
+        return np.array([d[name] for _, d in self.edges() if cond(d[name])])
 
     # ----------- Adders for node and edge properties (introduce keywords)
 
@@ -272,7 +290,6 @@ class GridBucket(object):
             KeyError if a grid pair is not an existing edge in the grid.
 
         """
-
         for key in np.atleast_1d(keys):
             if grid_pairs is None:
                 networkx.set_edge_attributes(self.graph, name=key, values=None)
@@ -285,6 +302,7 @@ class GridBucket(object):
                     else:
                         raise KeyError('Cannot assign property to undefined\
                                          edge')
+
 
     # ------------ Getters for node and edge properties
 
@@ -306,7 +324,6 @@ class GridBucket(object):
 
 
     def node_props(self, g, key=None):
-
         """
         Getter for a node property of the bucket.
 
@@ -376,6 +393,7 @@ class GridBucket(object):
         """
         self.graph.node[g][key] = val
 
+
     def set_edge_prop(self, gp, key, val):
         """ Set the value of a property of a given edge.
 
@@ -439,6 +457,43 @@ class GridBucket(object):
             else:
                 for h, d in self:
                     if h in g:
+                        del d[key]
+
+    def remove_edge_props(self, keys, e=None):
+        """
+        Remove property to existing edges in the graph.
+
+        Properties can be removed either to all edges, or to selected edges as
+        specified by their grid pair. In the former case, to all edges the property
+        will be removed.
+
+        Parameters:
+            keys (object): Key to the property to be handled.
+            e (list of pair of grids.grid, optional): Edges to be removed the
+                values. Defaults to None, in which case the property is removed
+                from all edges.
+
+        Raises:
+            ValueError if the key is 'edge_number', this is reserved for other
+                purposes. See self.assign_node_ordering() for details.
+
+        """
+
+        # Check that the key is not 'edge_number' - this is reserved
+        if 'edge_number' in keys:
+            raise ValueError('Edge number is a reserved key, stay away')
+
+        # Do some checks of parameters first
+        if e is not None and not any(isinstance(el, list) for el in e):
+            e = [e]
+
+        for key in np.atleast_1d(keys):
+            if e is None:
+                for _, d in self.edges():
+                    del d[key]
+            else:
+                for ed, d in self.edges():
+                    if ed in e:
                         del d[key]
 
     #------------ Add new nodes and edges ----------
@@ -527,6 +582,8 @@ class GridBucket(object):
             cond: predicate to select the grids to remove.
 
         """
+        if cond is None:
+            cond = lambda g: True
 
         self.graph.remove_nodes_from([g for g in self.graph if cond(g)])
 
@@ -653,6 +710,12 @@ class GridBucket(object):
                 n['node_number'] = counter
                 counter += 1
 
+        self.add_edge_props('edge_number')
+        counter = 0
+        for e, d in self.edges():
+            d['edge_number'] = counter
+            counter += 1
+
 
     def update_node_ordering(self, removed_number):
         """
@@ -719,13 +782,71 @@ class GridBucket(object):
         return trg_2_src_nodes
 
 
-    def compute_geometry(self, is_embedded=True):
-        """Compute geometric quantities for the grids.
+    def cell_global2loc(self):
+        """
+        Create a global to local cell-mapping.
 
-        Note: the flag "is_embedded" is True by default.
+        cell_global2loc(..) add a keyword cell_global2local to each node in the
+        GridBucket which is a sparse matrix R which restrict the global cell
+        number, to local cell number. I.e., R*global_cell_vector
+        equals the local cell ordering of that node. For the GridBucket:
+
+                                   0 1 4 2 3
+                                   - - x - -
+
+        where - represent 1D cells and x a 0D cell, and the numbers above is the
+        global cell ordering, cell_global2loc will give out the two matrices
+        R_1 = [[1,0,0,0,0],
+               [0,1,0,0,0],
+               [0,0,1,0,0],
+               [0,0,0,1,0]]
+        R_0 = [[0,0,0,0,1]]
+
+        If the GridBucket has mortar grids on the edges, a corresponding
+        restriction from global mortar cells to local mortar cells will be
+        made.
         """
 
-        [g.compute_geometry(is_embedded=is_embedded) for g, _ in self]
+        # Create node restriction
+        self.add_node_props('cell_global2loc')
+        for g, d in self:
+            pos_i = d['node_number']
+            mat = np.empty(self.num_graph_nodes(), dtype=np.object)
+            # first initial empty matrix
+            for g_j, d_j in self:
+                pos_j = d_j['node_number']
+                mat[pos_j] = sps.coo_matrix((g.num_cells, g_j.num_cells))
+
+            # overwrite the local matrix for grid g
+            mat[pos_i] = sps.eye(g.num_cells)
+            d['cell_global2loc'] = sps.hstack(mat, 'csr')
+
+        # create mortar restriction
+        for _, d in self.edges():
+            if not d.get('mortar_grid'):
+                continue
+            gm = d['mortar_grid']
+            pos_i = d['edge_number']
+            mat = np.empty(self.num_graph_edges(), dtype=np.object)
+            # first initial empty matrix
+            for _, d_j in self.edges():
+                gm_j = d_j['mortar_grid']
+                pos_j = d_j['edge_number']
+                mat[pos_j] = sps.coo_matrix((gm.num_cells, gm_j.num_cells))
+
+            # overwrite the local matrix for grid g
+            mat[pos_i] = sps.eye(gm.num_cells)
+
+            d['cell_global2loc'] = sps.hstack(mat, 'csr')
+
+
+    def compute_geometry(self):
+        """Compute geometric quantities for the grids.
+        """
+
+        [g.compute_geometry() for g, _ in self]
+        [d['mortar_grid'].compute_geometry() for _, d in self.edges()\
+                                                        if d.get('mortar_grid')]
 
 
     def copy(self):
@@ -808,7 +929,7 @@ class GridBucket(object):
                 ordered by 'node_number'.
 
         """
-        values = np.empty(self.size())
+        values = np.empty(self.num_graph_nodes())
         for g, d in self:
             values[d['node_number']] = fct(g, d)
         return values
@@ -845,7 +966,8 @@ class GridBucket(object):
             idx += 1
 
         # Upper triangular matrix
-        return sps.coo_matrix((values, (i, j)), (self.size(), self.size()))
+        return sps.coo_matrix((values, (i, j)), (self.num_graph_nodes(),
+                                                 self.num_graph_nodes()))
 
 
     def apply_function(self, fct_nodes, fct_edges):
@@ -886,17 +1008,22 @@ class GridBucket(object):
             diameter: the diameter of the grid bucket.
         """
         if cond is None:
-            cond = lambda _: True
-        diam = [np.amax(g.cell_diameters()) for g in self.graph if cond(g)]
-        return np.amax(diam)
+            cond = lambda g: True
+        diam_g = [np.amax(g.cell_diameters()) for g in self.graph if cond(g)]
+
+        diam_mg = [np.amax(d['mortar_grid'].cell_diameters())\
+                                                 for e, d in self.edges()\
+                                            if cond(e) and d.get('mortar_grid')]
+
+        return np.amax(np.hstack((diam_g, diam_mg)))
 
 
     def bounding_box(self, as_dict=False):
         """
         Return the bounding box of the grid bucket.
         """
-        c_0s = np.empty((3, self.size()))
-        c_1s = np.empty((3, self.size()))
+        c_0s = np.empty((3, self.num_graph_nodes()))
+        c_1s = np.empty((3, self.num_graph_nodes()))
 
         for i, g in enumerate(self.graph):
             c_0s[:, i], c_1s[:, i] = g.bounding_box()
@@ -918,7 +1045,16 @@ class GridBucket(object):
             int: Number of mono-dimensional grids in the bucket.
 
         """
-        return self.graph.number_of_nodes()
+        return self.num_graph_nodes() + self.num_graph_edges()
+
+
+    def dim_min(self):
+        """
+        Returns:
+            int: Minimum dimension of the grids present in the hierarchy.
+
+        """
+        return np.amin([g.dim for g, _ in self])
 
 
     def dim_max(self):
@@ -930,13 +1066,13 @@ class GridBucket(object):
         return np.amax([g.dim for g, _ in self])
 
 
-    def dim_min(self):
+    def all_dims(self):
         """
         Returns:
-            int: Minimum dimension of the grids present in the hierarchy.
+            int: Active dimensions of the grids present in the hierarchy.
 
         """
-        return np.amin([g.dim for g, _ in self])
+        return np.unique([g.dim for g, _ in self])
 
 
     def num_cells(self, cond=None):
@@ -952,9 +1088,27 @@ class GridBucket(object):
             num_cells: the total number of cells of the grid bucket.
         """
         if cond is None:
-            cond = lambda _: True
+            cond = lambda g: True
         return np.sum([g.num_cells for g in self.graph if cond(g)])
 
+
+    def num_mortar_cells(self, cond=None):
+        """
+        Compute the total number of mortar cells of the grid bucket, considering
+        a loop on all mortar grids. It is possible to specify a condition based
+        on the grid to select some of them.
+
+        Parameter:
+            cond: optional, predicate with a grid as input.
+
+        Return:
+            num_cells: the total number of cells of the grid bucket.
+        """
+        if cond is None:
+            cond = lambda g: True
+        return np.sum([d['mortar_grid'].num_cells
+                       for _, d in self.edges()
+                       if d.get('mortar_grid') and cond(d['mortar_grid'])])
 
     def num_faces(self, cond=None):
         """
@@ -969,7 +1123,7 @@ class GridBucket(object):
             num_faces: the total number of faces of the grid bucket.
         """
         if cond is None:
-            cond = lambda _: True
+            cond = lambda g: True
         return np.sum([g.num_faces for g in self.graph if cond(g)])
 
 
@@ -986,9 +1140,42 @@ class GridBucket(object):
             num_nodes: the total number of nodes of the grid bucket.
         """
         if cond is None:
-            cond = lambda _: True
+            cond = lambda g: True
         return np.sum([g.num_nodes for g in self.graph if cond(g)])
 
+
+    def num_graph_nodes(self):
+        """
+        Return the total number of nodes (physical meshes) in the graph.
+
+        Returns:
+            int: Number of nodes in the graph.
+
+        """
+        return self.graph.number_of_nodes()
+
+
+    def num_graph_edges(self):
+        """
+        Return the total number of edge in the graph.
+
+        Returns:
+            int: Number of edges in the graph.
+
+        """
+        return self.graph.number_of_edges()
+
+
+    def num_nodes_edges(self):
+        """
+        Return the total number of nodes (physical meshes) plus the total number
+        of edges in the graph. It is the size of the graph.
+
+        Returns:
+            int: Number of nodes and edges in the graph.
+
+        """
+        return self.num_graph_nodes() + self.num_graph_edges()
 
 
     def __str__(self):
@@ -1011,7 +1198,7 @@ class GridBucket(object):
 
 
     def __repr__(self):
-        s = 'Grid bucket containing ' + str(self.size()) + ' grids:\n'
+        s = 'Grid bucket containing ' + str(self.num_graph_nodes()) + ' grids:\n'
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
             gl = self.grids_of_dimension(dim)
             s += str(len(gl)) + ' grids of dimension ' + str(dim) + '\n'

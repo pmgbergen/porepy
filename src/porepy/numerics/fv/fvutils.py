@@ -8,8 +8,8 @@ from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
 from porepy.utils import matrix_compression, mcolon
-from porepy.params.data import Parameters
 from porepy.grids.grid_bucket import GridBucket
 
 
@@ -1149,7 +1149,8 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
 
 
 def compute_discharges(gb, physics='flow', d_name='discharge',
-                       p_name='pressure', data=None):
+                       p_name='pressure', lam_name='mortar_solution',
+                       data=None):
     """
     Computes discharges over all faces in the entire grid /grid bucket given
     pressures for all nodes, provided as node properties.
@@ -1180,16 +1181,18 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
-    if not isinstance(gb, GridBucket):
+    if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
         pa = data['param']
         if data.get('flux') is not None:
             dis = data['flux'] * data[p_name] + data['bound_flux'] \
                                * pa.get_bc_val(physics)
         else:
-            dis = np.zeros(g.num_faces)
+            raise ValueError('Discharges can only be computed if a flux-based discretization has been applied')
         data[d_name] = dis
         return
 
+    # Compute fluxes from pressures internal to the subdomain, and for global
+    # boundary conditions.
     for g, d in gb:
         if g.dim > 0:
             pa = d['param']
@@ -1197,40 +1200,21 @@ def compute_discharges(gb, physics='flow', d_name='discharge',
                 dis = d['flux'] * d[p_name] + d['bound_flux'] \
                     * pa.get_bc_val(physics)
             else:
-                dis = np.zeros(g.num_faces)
+                raise ValueError('Discharges can only be computed if a flux-based discretization has been applied')
+
             d[d_name] = dis
 
+    # Compute fluxes over internal faces, induced by the mortar flux. These
+    # are a critical part of what makes MPFA consistent, but will not be
+    # present for TPFA.
+    # Note that fluxes over faces on the subdomain boundaries are not included,
+    # these are already accounted for in the mortar solution.
     for e, d in gb.edges():
-        # According to the sorting convention, g2 is the higher dimensional grid,
-        # the one to who's faces the fluxes correspond
-        g1, g2 = gb.nodes_of_edge(e)
-        try:
-            pa = d['param']
-        except KeyError:
-            pa = Parameters(g2)
-            d['param'] = pa
-
-        if g1.dim != g2.dim and d['face_cells'] is not None:
-            coupling_flux = gb.edge_props(e, 'coupling_flux')
-            pressures = [gb.node_props(g, p_name) for g in [g2, g1]]
-            dis = coupling_flux * np.concatenate(pressures)
-            d[d_name] = dis
-
-        elif g1.dim == g2.dim and d['face_cells'] is not None:
-            # g2 is now only the "higher", but still the one defining the faces
-            # (cell-cells connections) in the sense that the normals are assumed
-            # outward from g2, "pointing towards the g1 cells". Note that in
-            # general, there are g2.num_cells x g1.num_cells connections/"faces".
-            cc = d['face_cells']
-            cells_1, cells_2 = cc.nonzero()
-            coupling_flux = gb.edge_props(e, 'coupling_flux')
-
-            pressures = [gb.node_props(g, p_name) for g in [g2, g1]]
-            p2 = pressures[0][cells_2]
-            p1 = pressures[1][cells_1]
-            contribution_2 = np.multiply(coupling_flux[cc], p2)
-            contribution_1 = np.multiply(coupling_flux[cc], p1)
-            dis = contribution_2 - contribution_1
-            # Store flux at the edge only. This means that the flux will remain
-            # zero in the data of both g1 and g2
-            d[d_name] = np.ravel(dis)
+        g_h = gb.nodes_of_edge(e)[1]
+        # The mapping mortar_to_hat_bc contains is composed of a mapping to
+        # faces on the higher-dimensional grid, and computation of the induced
+        # fluxes.
+        induced_flux = d['mortar_to_hat_bc'] * d[lam_name]
+        # Remove contribution directly on the boundary faces.
+        induced_flux[g_h.tags['fracture_faces']] = 0
+        gb.node_props(g_h)[d_name] += induced_flux

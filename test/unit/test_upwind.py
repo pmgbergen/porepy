@@ -264,7 +264,7 @@ class BasicsTest(unittest.TestCase):
         g = structured.CartGrid(3, 1)
         R = cg.rot(-np.pi / 5., [0, 1, -1])
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         solver = upwind.Upwind()
         param = Parameters(g)
@@ -294,7 +294,7 @@ class BasicsTest(unittest.TestCase):
         g = structured.CartGrid(3, 1)
         R = cg.rot(-np.pi / 8., [-1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         solver = upwind.Upwind()
         param = Parameters(g)
@@ -324,7 +324,7 @@ class BasicsTest(unittest.TestCase):
         g = structured.CartGrid([3, 2], [1, 1])
         R = cg.rot(np.pi / 4., [0, 1, 0])
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         solver = upwind.Upwind()
         param = Parameters(g)
@@ -358,7 +358,7 @@ class BasicsTest(unittest.TestCase):
         g = structured.CartGrid([3, 2], [1, 1])
         R = cg.rot(np.pi / 6., [1, 1, 0])
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         solver = upwind.Upwind()
         param = Parameters(g)
@@ -392,7 +392,7 @@ class BasicsTest(unittest.TestCase):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
         R = cg.rot(np.pi / 2., [1, 1, 0])
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         solver = upwind.Upwind()
         param = Parameters(g)
@@ -423,7 +423,7 @@ class BasicsTest(unittest.TestCase):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
         R = cg.rot(-np.pi / 5., [1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
-        g.compute_geometry(is_embedded=True)
+        g.compute_geometry()
 
         solver = upwind.Upwind()
         param = Parameters(g)
@@ -513,3 +513,5 @@ class BasicsTest(unittest.TestCase):
         assert np.allclose(deltaT, deltaT_known, rtol, atol)
 
 #------------------------------------------------------------------------------#
+if __name__ == '__main__':
+    unittest.main()
