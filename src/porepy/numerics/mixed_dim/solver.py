@@ -1,4 +1,5 @@
 import numpy as np
+
 """ Module containing super class for all single-domain solvers.
 
 In reality, this is kind of a contract (in the Java sense), there is
@@ -7,9 +8,10 @@ solvers, with an eye to the needs of mixed-dimensional couplings.
 
 """
 
+
 class Solver(object):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def ndof(self, g):
         """
@@ -27,7 +29,7 @@ class Solver(object):
         """
         raise NotImplementedError("Method not implemented")
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g, data):
         """
@@ -47,10 +49,11 @@ class Solver(object):
         """
         raise NotImplementedError("Method not implemented")
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 class SolverMixedDim(object):
-
     def __init__(self):
         pass
 
@@ -61,6 +64,7 @@ class SolverMixedDim(object):
         return self.solver.split(gb, key, values, **kwargs)
 
     def ndof(self, gb):
-        return np.sum([self.discr_ndof(g) for g,_ in gb])
+        return np.sum([self.discr_ndof(g) for g, _ in gb])
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#

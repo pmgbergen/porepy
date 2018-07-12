@@ -3,32 +3,34 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
 class UpwindMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
-
-    def __init__(self, physics='transport'):
+    def __init__(self, physics="transport"):
         self.physics = physics
 
         self.discr = Upwind(self.physics)
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = UpwindCoupling(self.discr)
 
-        self.solver = pp.numerics.mixed_dim.coupler.Coupler(self.discr,
-                                                            self.coupling_conditions)
+        self.solver = pp.numerics.mixed_dim.coupler.Coupler(
+            self.discr, self.coupling_conditions
+        )
 
     def cfl(self, gb):
-        deltaT = gb.apply_function(self.discr.cfl,
-                                   self.coupling_conditions.cfl).data
+        deltaT = gb.apply_function(self.discr.cfl, self.coupling_conditions.cfl).data
         return np.amin(deltaT)
 
     def outflow(self, gb):
         def bind(g, d):
             return self.discr.outflow(g, d), np.zeros(g.num_cells)
+
         return pp.Coupler(self.discr, solver_fct=bind).matrix_rhs(gb)[0]
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
 class Upwind(pp.numerics.mixed_dim.solver.Solver):
@@ -38,12 +40,13 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
 
     """
-#------------------------------------------------------------------------------#
 
-    def __init__(self, physics='transport'):
+    # ------------------------------------------------------------------------------#
+
+    def __init__(self, physics="transport"):
         self.physics = physics
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def ndof(self, g):
         """
@@ -61,9 +64,9 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         """
         return g.num_cells
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data, d_name='discharge'):
+    def matrix_rhs(self, g, data, d_name="discharge"):
         """
         Return the matrix and righ-hand side for a discretization of a scalar
         linear transport problem using the upwind scheme.
@@ -112,15 +115,15 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
         """
         if g.dim == 0:
-            data['flow_faces'] = sps.csr_matrix([0])
+            data["flow_faces"] = sps.csr_matrix([0])
             return sps.csr_matrix([0]), np.array([0])
 
-        param = data['param']
+        param = data["param"]
         discharge = data[d_name]
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
 
-        has_bc = not(bc is None or bc_val is None)
+        has_bc = not (bc is None or bc_val is None)
 
         # Compute the face flux respect to the real direction of the normals
         indices = g.cell_faces.indices
@@ -163,7 +166,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
 
-        data['flow_faces'] = flow_faces
+        data["flow_faces"] = flow_faces
         if not has_bc:
             return flow_cells, np.zeros(g.num_cells)
 
@@ -181,12 +184,15 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
             is_neu = np.where(bc.is_neu)[0]
             bc_val_neu[is_neu] = bc_val[is_neu]
 
-        return flow_cells, - inflow.transpose() * bc_val_dir \
-            - np.abs(g.cell_faces.transpose()) * bc_val_neu
+        return (
+            flow_cells,
+            -inflow.transpose() * bc_val_dir
+            - np.abs(g.cell_faces.transpose()) * bc_val_neu,
+        )
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def cfl(self, g, data, d_name='discharge'):
+    def cfl(self, g, data, d_name="discharge"):
         """
         Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
@@ -210,7 +216,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         if g.dim == 0:
             return np.inf
         # Retrieve the data, only "discharge" is mandatory
-        param = data['param']
+        param = data["param"]
         discharge = data[d_name]
         aperture = param.get_aperture()
         phi = param.get_porosity()
@@ -229,14 +235,14 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         dist_vector = g.face_centers[:, faces] - g.cell_centers[:, cells]
         # Element-wise scalar products between the distance vectors and the
         # normals
-        dist = np.einsum('ij,ij->j', dist_vector, g.face_normals[:, faces])
+        dist = np.einsum("ij,ij->j", dist_vector, g.face_normals[:, faces])
         # Since discharge is multiplied by the aperture, we get rid of it!!!!
         # Additionally we consider the phi (porosity) and the cell-mapping
         coeff = (aperture * phi)[cells]
         # deltaT is deltaX/discharge with coefficient
         return np.amin(np.abs(np.divide(dist, discharge[faces])) * coeff)
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def discharge(self, g, beta, cell_apertures=None):
         """
@@ -266,24 +272,25 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         assert beta.size == 3
 
         if g.dim == 0:
-            dot_prod = np.dot(g.face_normals.ravel('F'), face_apertures * beta)
+            dot_prod = np.dot(g.face_normals.ravel("F"), face_apertures * beta)
             return np.atleast_1d(dot_prod)
 
-        return np.array([np.dot(n, a * beta)
-                         for n, a in zip(g.face_normals.T, face_apertures)])
+        return np.array(
+            [np.dot(n, a * beta) for n, a in zip(g.face_normals.T, face_apertures)]
+        )
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def outflow(self, g, data, d_name='discharge'):
+    def outflow(self, g, data, d_name="discharge"):
         if g.dim == 0:
             return sps.csr_matrix([0])
 
-        param = data['param']
+        param = data["param"]
         discharge = data[d_name]
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
 
-        has_bc = not(bc is None or bc_val is None)
+        has_bc = not (bc is None or bc_val is None)
 
         # Compute the face flux respect to the real direction of the normals
         indices = g.cell_faces.indices
@@ -294,7 +301,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         # We need to impose no-flow for the inflow faces without boundary
         # condition
         mask = np.unique(indices, return_index=True)[1]
-        bc_neu = g.tags['domain_boundary_faces'].nonzero()[0]
+        bc_neu = g.tags["domain_boundary_faces"].nonzero()[0]
 
         if has_bc:
             # If boundary conditions are imposed remove the faces from this
@@ -318,10 +325,10 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         if_faces.data = np.sign(if_faces.data)
 
         outflow_faces = if_faces.indices[if_faces.data > 0]
-        domain_boundary_faces = g.tags['domain_boundary_faces'].nonzero()[0]
-        outflow_faces = np.intersect1d(outflow_faces,
-                                       domain_boundary_faces,
-                                       assume_unique=True)
+        domain_boundary_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        outflow_faces = np.intersect1d(
+            outflow_faces, domain_boundary_faces, assume_unique=True
+        )
 
         # va tutto bene se ho neumann omogeneo
         # gli outflow sono positivi
@@ -335,20 +342,22 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
         return if_outflow_cells
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
 class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def __init__(self, discr):
         self.discr_ndof = discr.ndof
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge,
-                   lambda_key='mortar_solution'):
+    def matrix_rhs(
+        self, matrix, g_h, g_l, data_h, data_l, data_edge, lambda_key="mortar_solution"
+    ):
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
         Note: the right-hand side is not implemented now.
@@ -374,7 +383,7 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         lam_flux = data_edge[lambda_key]
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        g_m = data_edge['mortar_grid']
+        g_m = data_edge["mortar_grid"]
         dof, cc = self.create_block_matrix([g_h, g_l, g_m])
 
         # Projection from mortar to upper dimenional faces
@@ -390,40 +399,40 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         # Find upwind weighting. if flag is True we use the upper weights
         # if flag is False we use the lower weighs
         flag = (lam_flux > 0).astype(np.float)
-        not_flag = 1-flag
+        not_flag = 1 - flag
 
         # assemble matrices
         # Transport out off upper equals lambda
         cc[0, 2] = div * hat_P_avg.T
 
         # transport out of lower is -lambda
-        cc[1, 2] = -check_P_avg.T #* sps.diags((1 - flag))
+        cc[1, 2] = -check_P_avg.T  # * sps.diags((1 - flag))
 
         # Discretisation of mortars
         # If fluid flux(lam_flux) is positive we use the upper value as weight,
         # i.e., T_hat * fluid_flux = lambda.
         # We set cc[2, 0] = T_hat * fluid_flux
-        cc[2, 0] = sps.diags(lam_flux*flag) * hat_P_avg * div.T
+        cc[2, 0] = sps.diags(lam_flux * flag) * hat_P_avg * div.T
 
         # If fluid flux is negative we use the lower value as weight,
         # i.e., T_check * fluid_flux = lambda.
         # we set cc[2, 1] = T_check * fluid_flux
-        cc[2, 1] = sps.diags(lam_flux*not_flag) * check_P_avg
+        cc[2, 1] = sps.diags(lam_flux * not_flag) * check_P_avg
 
         # The rhs of T * fluid_flux = lambda
         # Recover the information for the grid-grid mapping
         cc[2, 2] = -sps.eye(g_m.num_cells)
 
-        if data_h['node_number'] == data_l['node_number']:
+        if data_h["node_number"] == data_l["node_number"]:
             # All contributions to be returned to the same block of the
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0, 1))])
 
         return matrix + cc
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def cfl(self, g_h, g_l, data_h, data_l, data_edge, d_name='mortar_solution'):
+    def cfl(self, g_h, g_l, data_h, data_l, data_edge, d_name="mortar_solution"):
         """
         Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
@@ -454,19 +463,18 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         """
         # Retrieve the discharge, which is mandatory
 
-        aperture_h = data_h['param'].get_aperture()
-        aperture_l = data_l['param'].get_aperture()
-        phi_l = data_l['param'].get_porosity()
-        mg = data_edge['mortar_grid']
+        aperture_h = data_h["param"].get_aperture()
+        aperture_l = data_l["param"].get_aperture()
+        phi_l = data_l["param"].get_porosity()
+        mg = data_edge["mortar_grid"]
         discharge = np.zeros(g_h.num_faces)
         discharge[mg.high_to_mortar_int.nonzero()[1]] = data_edge[d_name]
         if g_h.dim == g_l.dim:
             # More or less same as below, except we have cell_cells in the place
             # of face_cells (see grid_bucket.duplicate_without_dimension).
-            phi_h = data_h['param'].get_porosity()
-            cells_l, cells_h = data_edge['face_cells'].nonzero()
-            not_zero = ~np.isclose(
-                np.zeros(discharge.shape), discharge, atol=0)
+            phi_h = data_h["param"].get_porosity()
+            cells_l, cells_h = data_edge["face_cells"].nonzero()
+            not_zero = ~np.isclose(np.zeros(discharge.shape), discharge, atol=0)
             if not np.any(not_zero):
                 return np.Inf
 
@@ -482,11 +490,10 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
             return np.amin(np.abs(np.divide(dist, discharge)) * coeff)
 
         # Recover the information for the grid-grid mapping
-        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
+        cells_l, faces_h, _ = sps.find(data_edge["face_cells"])
 
         # Detect and remove the faces which have zero in "discharge"
-        not_zero = ~np.isclose(np.zeros(faces_h.size),
-                               discharge[faces_h], atol=0)
+        not_zero = ~np.isclose(np.zeros(faces_h.size), discharge[faces_h], atol=0)
         if not np.any(not_zero):
             return np.inf
 
@@ -504,9 +511,9 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         dist = 0.5 * np.divide(aperture_l, aperture_h)
         # Since discharge is multiplied by the aperture wighted face areas, we
         # divide through that quantity to get velocities in [length/time]
-        velocity = np.divide(discharge[faces_h],
-                              g_h.face_areas[faces_h] * aperture_h)
+        velocity = np.divide(discharge[faces_h], g_h.face_areas[faces_h] * aperture_h)
         # deltaT is deltaX/velocity with coefficient
         return np.amin(np.abs(np.divide(dist, velocity)) * phi_l)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#

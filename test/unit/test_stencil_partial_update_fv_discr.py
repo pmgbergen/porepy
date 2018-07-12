@@ -4,8 +4,8 @@ import numpy as np
 from porepy.grids.structured import CartGrid
 from porepy.numerics.fv import fvutils
 
-class TestCellIndForPartialUpdate(unittest.TestCase):
 
+class TestCellIndForPartialUpdate(unittest.TestCase):
     def setUp(self):
         self.g_2d = CartGrid([5, 5])
         self.g_3d = CartGrid([3, 3, 3])
@@ -75,14 +75,21 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
         # Use cell 13 (middle one)
         c = np.array([13])
         known_cells = np.arange(27)
-        fx = np.hstack((np.array([1, 2, 5, 6, 9, 10]),
+        fx = np.hstack(
+            (
+                np.array([1, 2, 5, 6, 9, 10]),
                 np.array([1, 2, 5, 6, 9, 10]) + 12,
-                np.array([1, 2, 5, 6, 9, 10]) + 24))
-        fy = 36 + np.hstack((np.array([3, 4, 5, 6, 7, 8]),
-                             np.array([3, 4, 5, 6, 7, 8]) + 12,
-                             np.array([3, 4, 5, 6, 7, 8]) + 24))
-        fz = 72 + np.hstack((np.arange(9) + 9,
-                             np.arange(9) + 18))
+                np.array([1, 2, 5, 6, 9, 10]) + 24,
+            )
+        )
+        fy = 36 + np.hstack(
+            (
+                np.array([3, 4, 5, 6, 7, 8]),
+                np.array([3, 4, 5, 6, 7, 8]) + 12,
+                np.array([3, 4, 5, 6, 7, 8]) + 24,
+            )
+        )
+        fz = 72 + np.hstack((np.arange(9) + 9, np.arange(9) + 18))
         known_faces = np.hstack((fx, fy, fz))
 
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_3d, cells=c)
@@ -102,13 +109,14 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
         assert np.alltrue(known_cells == cell_ind)
         assert np.alltrue(known_faces == face_ind)
 
-
     def test_face_based_ind_2d(self):
 
         # Use face between cells 11 and 12
         f = np.array([14])
 
-        known_cells = np.array([1, 2, 5, 6, 7, 8, 10, 11, 12, 13, 15, 16, 17, 18, 21, 22])
+        known_cells = np.array(
+            [1, 2, 5, 6, 7, 8, 10, 11, 12, 13, 15, 16, 17, 18, 21, 22]
+        )
         known_faces = np.array([8, 14, 20, 41, 42, 46, 47])
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_2d, faces=f)
 
@@ -124,7 +132,5 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
         assert np.alltrue(known_cells == cell_ind)
         assert np.alltrue(known_faces == face_ind)
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()
-
-
