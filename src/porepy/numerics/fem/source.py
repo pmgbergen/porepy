@@ -1,6 +1,6 @@
-'''
+"""
 Discretization of the flux term of an equation.
-'''
+"""
 
 import numpy as np
 import scipy.sparse as sps
@@ -8,10 +8,11 @@ import scipy.sparse as sps
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+
 
 class P1SourceMixedDim(SolverMixedDim):
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
         self.discr = P1Source(self.physics)
@@ -21,19 +22,21 @@ class P1SourceMixedDim(SolverMixedDim):
         self.solver = Coupler(self.discr)
         SolverMixedDim.__init__(self)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 class P1Source(Solver):
-    '''
+    """
     Discretization of the integrated source term
     int q * dx
     over each grid cell.
 
     All this function does is returning a zero lhs and
     rhs = param.get_source.physics.
-    '''
+    """
 
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
         Solver.__init__(self)
 
@@ -41,7 +44,7 @@ class P1Source(Solver):
         return g.num_nodes
 
     def matrix_rhs(self, g, data):
-        param = data['param']
+        param = data["param"]
         sources = param.get_source(self)
 
         cell_nodes = g.cell_nodes()
@@ -51,12 +54,13 @@ class P1Source(Solver):
 
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its nodes
-            loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
+            loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c + 1])
             nodes_loc = nodes[loc]
 
-            rhs[nodes_loc] += sources[c]/(g.dim+1)
+            rhs[nodes_loc] += sources[c] / (g.dim + 1)
 
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
         return lhs, rhs
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#

@@ -17,6 +17,7 @@ from porepy.utils.setmembership import unique_columns_tol, ismember_rows
 
 logger = logging.getLogger(__name__)
 
+
 def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs):
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
@@ -69,10 +70,10 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     """
 
     # Verbosity level
-    verbose = kwargs.get('verbose', 0)
+    verbose = kwargs.get("verbose", 0)
 
     # File name for communication with gmsh
-    file_name = kwargs.pop('file_name', 'gmsh_frac_file')
+    file_name = kwargs.pop("file_name", "gmsh_frac_file")
 
     if network is None:
 
@@ -87,7 +88,7 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
                 # The correct treatment here would be several
                 # isinstance-statements, but that became less than elegant. To
                 # revisit.
-                if hasattr(f, 'p') and isinstance(f.p, np.ndarray):
+                if hasattr(f, "p") and isinstance(f.p, np.ndarray):
                     frac_list.append(f)
                 else:
                     # Convert the fractures from numpy representation to our 3D
@@ -95,8 +96,9 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
                     frac_list.append(fractures.Fracture(f))
 
         # Combine the fractures into a network
-        network = fractures.FractureNetwork(frac_list, verbose=verbose,
-                                            tol=kwargs.get('tol', 1e-4))
+        network = fractures.FractureNetwork(
+            frac_list, verbose=verbose, tol=kwargs.get("tol", 1e-4)
+        )
     # Add any subdomain boundaries:
     network.add_subdomain_boundaries(subdomains)
     # Impose external boundary. If box is None, a domain size somewhat larger
@@ -108,43 +110,46 @@ def tetrahedral_grid(fracs=None, box=None, network=None, subdomains=[], **kwargs
     if not network.has_checked_intersections:
         network.find_intersections()
     else:
-        logger.info('Use existing intersections')
-
+        logger.info("Use existing intersections")
 
     # If fields mesh_size_frac and mesh_size_min are provided, try to estimate mesh sizes.
-    mesh_size_frac = kwargs.get('mesh_size_frac', None)
-    mesh_size_min = kwargs.get('mesh_size_min', None)
-    mesh_size_bound = kwargs.get('mesh_size_bound', None)
+    mesh_size_frac = kwargs.get("mesh_size_frac", None)
+    mesh_size_min = kwargs.get("mesh_size_min", None)
+    mesh_size_bound = kwargs.get("mesh_size_bound", None)
     if mesh_size_frac is not None and mesh_size_min is not None:
         if mesh_size_bound is None:
             mesh_size_bound = mesh_size_frac
-        network.insert_auxiliary_points(mesh_size_frac, mesh_size_min,
-                                        mesh_size_bound)
+        network.insert_auxiliary_points(mesh_size_frac, mesh_size_min, mesh_size_bound)
         # In this case we need to recompute intersection decomposition anyhow.
         network.split_intersections()
 
-    if not hasattr(network, 'decomposition'):
+    if not hasattr(network, "decomposition"):
         network.split_intersections()
     else:
-        logger.info('Use existing decomposition')
+        logger.info("Use existing decomposition")
 
-    in_file = file_name + '.geo'
-    out_file = file_name + '.msh'
+    in_file = file_name + ".geo"
+    out_file = file_name + ".msh"
 
     network.to_gmsh(in_file, **kwargs)
 
-    gmsh_opts = kwargs.get('gmsh_opts', {})
-    gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
-    gmsh_opts['-v'] = gmsh_verbose
-    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3,
-                                          **gmsh_opts)
+    gmsh_opts = kwargs.get("gmsh_opts", {})
+    gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
+    gmsh_opts["-v"] = gmsh_verbose
+    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3, **gmsh_opts)
 
     return tetrahedral_grid_from_gmsh(file_name, network, **kwargs)
 
 
-def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
-                           mesh_size_frac=None, mesh_size_min=None,
-                           mesh_size_bound=None, **kwargs):
+def triangle_grid_embedded(
+    network,
+    find_isect=True,
+    f_name="dfn_network",
+    mesh_size_frac=None,
+    mesh_size_min=None,
+    mesh_size_bound=None,
+    **kwargs
+):
     """ Create triangular (2D) grid of a domain embedded in 3D space, without
     meshing the 3D volume.
 
@@ -193,63 +198,74 @@ def triangle_grid_embedded(network, find_isect=True, f_name='dfn_network',
         # In this case we need to recompute intersection decomposition anyhow.
         network.split_intersections()
 
-    if not hasattr(network, 'decomposition'):
+    if not hasattr(network, "decomposition"):
         network.split_intersections()
     else:
-        logger.info('Use existing decomposition')
+        logger.info("Use existing decomposition")
 
-    pts, cells, cell_info, phys_names = _run_gmsh(f_name, network,
-                                                  in_3d=False, **kwargs)
+    pts, cells, cell_info, phys_names = _run_gmsh(
+        f_name, network, in_3d=False, **kwargs
+    )
     g_2d = mesh_2_grid.create_2d_grids(
-        pts, cells, is_embedded=True, phys_names=phys_names,
-        cell_info=cell_info, network=network)
+        pts,
+        cells,
+        is_embedded=True,
+        phys_names=phys_names,
+        cell_info=cell_info,
+        network=network,
+    )
     g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
     g_0d = mesh_2_grid.create_0d_grids(pts, cells)
 
     grids = [g_2d, g_1d, g_0d]
 
     if verbose > 0:
-        logger.info('\n')
+        logger.info("\n")
         for g_set in grids:
             if len(g_set) > 0:
-                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
-                    '-d grids with '
+                s = (
+                    "Created "
+                    + str(len(g_set))
+                    + " "
+                    + str(g_set[0].dim)
+                    + "-d grids with "
+                )
                 num = 0
                 for g in g_set:
                     num += g.num_cells
-                s += str(num) + ' cells'
+                s += str(num) + " cells"
                 logger.info(s)
-        logger.info('\n')
+        logger.info("\n")
 
     return grids
 
+
 def _run_gmsh(file_name, network, **kwargs):
 
-    verbose = kwargs.get('verbose', 1)
-    if file_name[-4:] == '.geo' or file_name[-4:] == '.msh':
+    verbose = kwargs.get("verbose", 1)
+    if file_name[-4:] == ".geo" or file_name[-4:] == ".msh":
         file_name = file_name[:-4]
 
-    in_file = file_name + '.geo'
-    out_file = file_name + '.msh'
+    in_file = file_name + ".geo"
+    out_file = file_name + ".msh"
 
-    if not hasattr(network, 'decomposition'):
+    if not hasattr(network, "decomposition"):
         network.split_intersections()
     else:
-        logger.info('Use existing decomposition')
+        logger.info("Use existing decomposition")
 
     network.to_gmsh(in_file, **kwargs)
 
-    gmsh_opts = kwargs.get('gmsh_opts', {})
-    gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
-    gmsh_opts['-v'] = gmsh_verbose
-    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3,
-                                          **gmsh_opts)
+    gmsh_opts = kwargs.get("gmsh_opts", {})
+    gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
+    gmsh_opts["-v"] = gmsh_verbose
+    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=3, **gmsh_opts)
 
     if verbose > 0:
         if gmsh_status == 0:
-            logger.info('Gmsh processed file successfully')
+            logger.info("Gmsh processed file successfully")
         else:
-            logger.error('Gmsh failed with status '+str(gmsh_status))
+            logger.error("Gmsh failed with status " + str(gmsh_status))
             sys.exit()
 
     pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
@@ -259,6 +275,7 @@ def _run_gmsh(file_name, network, **kwargs):
     phys_names = {v[0]: k for k, v in phys_names.items()}
 
     return pts, cells, cell_info, phys_names
+
 
 def triangle_grid(fracs, domain, **kwargs):
     """
@@ -293,23 +310,23 @@ def triangle_grid(fracs, domain, **kwargs):
     g = triangle_grid(fracs, box)
 
     """
-    logger.info('Create 2d mesh')
+    logger.info("Create 2d mesh")
 
     # Verbosity level
-    verbose = kwargs.get('verbose', 1)
+    verbose = kwargs.get("verbose", 1)
 
     # File name for communication with gmsh
-    file_name = kwargs.get('file_name', 'gmsh_frac_file')
-    kwargs.pop('file_name', str())
+    file_name = kwargs.get("file_name", "gmsh_frac_file")
+    kwargs.pop("file_name", str())
 
-    tol = kwargs.get('tol', 1e-4)
+    tol = kwargs.get("tol", 1e-4)
 
-    in_file = file_name + '.geo'
-    out_file = file_name + '.msh'
+    in_file = file_name + ".geo"
+    out_file = file_name + ".msh"
 
     # Pick out fracture points, and their connections
-    frac_pts = fracs['points']
-    frac_con = fracs['edges']
+    frac_pts = fracs["points"]
+    frac_con = fracs["edges"]
 
     # Unified description of points and lines for domain, and fractures
     pts_all, lines, domain_pts = __merge_domain_fracs_2d(domain, frac_pts, frac_con)
@@ -337,10 +354,10 @@ def triangle_grid(fracs, domain, **kwargs):
 
     # We split all fracture intersections so that the new lines do not
     # intersect, except possible at the end points
-    logger.info('Remove edge crossings')
+    logger.info("Remove edge crossings")
     tm = time.time()
     pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol)
-    logger.info('Done. Elapsed time ' + str(time.time() - tm))
+    logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points
     pts_split = cg.snap_to_grid(pts_split, tol)
@@ -363,70 +380,77 @@ def triangle_grid(fracs, domain, **kwargs):
 
     # Gridding size
 
-    if 'mesh_size_frac' in kwargs.keys():
+    if "mesh_size_frac" in kwargs.keys():
         # Tag points at the domain corners
-        logger.info('Determine mesh size')
+        logger.info("Determine mesh size")
         tm = time.time()
         boundary_pt_ind = ismember_rows(pts_split, domain_pts, sort=False)[0]
-        mesh_size, pts_split, lines_split = \
-            tools.determine_mesh_size(pts_split, boundary_pt_ind, lines_split,
-                                      **kwargs)
-        logger.info('Done. Elapsed time ' + str(time.time() - tm))
+        mesh_size, pts_split, lines_split = tools.determine_mesh_size(
+            pts_split, boundary_pt_ind, lines_split, **kwargs
+        )
+        logger.info("Done. Elapsed time " + str(time.time() - tm))
     else:
         mesh_size = None
 
     # gmsh options
 
-    meshing_algorithm = kwargs.get('meshing_algorithm')
+    meshing_algorithm = kwargs.get("meshing_algorithm")
 
     # Create a writer of gmsh .geo-files
     gw = gmsh_interface.GmshWriter(
-        pts_split, lines_split, domain=domain, mesh_size=mesh_size,
+        pts_split,
+        lines_split,
+        domain=domain,
+        mesh_size=mesh_size,
         intersection_points=intersections,
-        meshing_algorithm=meshing_algorithm)
+        meshing_algorithm=meshing_algorithm,
+    )
     gw.write_geo(in_file)
 
     triangle_grid_run_gmsh(file_name, **kwargs)
     return triangle_grid_from_gmsh(file_name, **kwargs)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def triangle_grid_run_gmsh(file_name, **kwargs):
 
-    if file_name.endswith('.geo'):
+    if file_name.endswith(".geo"):
         file_name = file_name[:-4]
-    in_file = file_name + '.geo'
-    out_file = file_name + '.msh'
+    in_file = file_name + ".geo"
+    out_file = file_name + ".msh"
 
     # Verbosity level
-    verbose = kwargs.get('verbose', 1)
-    gmsh_verbose = kwargs.get('gmsh_verbose', verbose)
-    gmsh_opts = {'-v': gmsh_verbose}
+    verbose = kwargs.get("verbose", 1)
+    gmsh_verbose = kwargs.get("gmsh_verbose", verbose)
+    gmsh_opts = {"-v": gmsh_verbose}
 
-    logger.info('Run gmsh')
+    logger.info("Run gmsh")
     tm = time.time()
     # Run gmsh
-    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=2,
-                                          **gmsh_opts)
+    gmsh_status = gmsh_interface.run_gmsh(in_file, out_file, dims=2, **gmsh_opts)
 
     if gmsh_status == 0:
-        logger.info('Gmsh processed file successfully')
-        logger.info('Elapsed time ' + str(time.time() - tm))
+        logger.info("Gmsh processed file successfully")
+        logger.info("Elapsed time " + str(time.time() - tm))
     else:
-        logger.error('Gmsh failed with status ' + str(gmsh_status))
+        logger.error("Gmsh failed with status " + str(gmsh_status))
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def triangle_grid_from_gmsh(file_name, **kwargs):
 
     start_time = time.time()
 
-    if file_name.endswith('.msh'):
+    if file_name.endswith(".msh"):
         file_name = file_name[:-4]
-    out_file = file_name + '.msh'
+    out_file = file_name + ".msh"
 
     # Verbosity level
-    verbose = kwargs.get('verbose', 1)
+    verbose = kwargs.get("verbose", 1)
 
     pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
 
@@ -440,39 +464,48 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
     const = constants.GmshConstants()
 
     # Create grids from gmsh mesh.
-    logger.info('Create grids of various dimensions')
+    logger.info("Create grids of various dimensions")
     g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False)
     g_1d, _ = mesh_2_grid.create_1d_grids(
-        pts, cells, phys_names, cell_info, line_tag=const.PHYSICAL_NAME_FRACTURES)
+        pts, cells, phys_names, cell_info, line_tag=const.PHYSICAL_NAME_FRACTURES
+    )
     g_0d = mesh_2_grid.create_0d_grids(pts, cells)
     grids = [g_2d, g_1d, g_0d]
 
-    logger.info('Grid creation completed. Elapsed time ' + str(time.time() -
-                                                               start_time))
+    logger.info(
+        "Grid creation completed. Elapsed time " + str(time.time() - start_time)
+    )
 
     for g_set in grids:
         if len(g_set) > 0:
-            s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
-                '-d grids with '
+            s = (
+                "Created "
+                + str(len(g_set))
+                + " "
+                + str(g_set[0].dim)
+                + "-d grids with "
+            )
             num = 0
             for g in g_set:
                 num += g.num_cells
-            s += str(num) + ' cells'
+            s += str(num) + " cells"
             logger.info(s)
 
     return grids
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
 
     start_time = time.time()
     # Verbosity level
-    verbose = kwargs.get('verbose', 1)
+    verbose = kwargs.get("verbose", 1)
 
-    if file_name.endswith('.msh'):
+    if file_name.endswith(".msh"):
         file_name = file_name[:-4]
-    file_name = file_name + '.msh'
+    file_name = file_name + ".msh"
 
     pts, cells, _, cell_info, phys_names = gmsh_io.read(file_name)
 
@@ -485,32 +518,43 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
     # different nature of the grids.
     g_3d = mesh_2_grid.create_3d_grids(pts, cells)
     g_2d = mesh_2_grid.create_2d_grids(
-        pts, cells, is_embedded=True, phys_names=phys_names,
-        cell_info=cell_info, network=network)
+        pts,
+        cells,
+        is_embedded=True,
+        phys_names=phys_names,
+        cell_info=cell_info,
+        network=network,
+    )
     g_1d, _ = mesh_2_grid.create_1d_grids(pts, cells, phys_names, cell_info)
     g_0d = mesh_2_grid.create_0d_grids(pts, cells)
 
     grids = [g_3d, g_2d, g_1d, g_0d]
 
     if verbose > 0:
-        print('\n')
-        print('Grid creation completed. Elapsed time ' + str(time.time() -
-                                                             start_time))
-        print('\n')
+        print("\n")
+        print("Grid creation completed. Elapsed time " + str(time.time() - start_time))
+        print("\n")
         for g_set in grids:
             if len(g_set) > 0:
-                s = 'Created ' + str(len(g_set)) + ' ' + str(g_set[0].dim) + \
-                    '-d grids with '
+                s = (
+                    "Created "
+                    + str(len(g_set))
+                    + " "
+                    + str(g_set[0].dim)
+                    + "-d grids with "
+                )
                 num = 0
                 for g in g_set:
                     num += g.num_cells
-                s += str(num) + ' cells'
+                s += str(num) + " cells"
                 print(s)
-        print('\n')
+        print("\n")
 
     return grids
 
-#-----------------------------------------------------------------------------#
+
+# -----------------------------------------------------------------------------#
+
 
 def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     """
@@ -536,12 +580,11 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l):
 
     if isinstance(dom, dict):
         # First create lines that define the domain
-        x_min = dom['xmin']
-        x_max = dom['xmax']
-        y_min = dom['ymin']
-        y_max = dom['ymax']
-        dom_p = np.array([[x_min, x_max, x_max, x_min],
-                          [y_min, y_min, y_max, y_max]])
+        x_min = dom["xmin"]
+        x_max = dom["xmax"]
+        y_min = dom["ymin"]
+        y_max = dom["ymax"]
+        dom_p = np.array([[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]])
         dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
     else:
         dom_p = dom
@@ -557,8 +600,7 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     dom_l = np.vstack((dom_lines, dom_tags))
 
     # Also add a tag to the fractures, signifying that these are fractures
-    frac_l = np.vstack((frac_l,
-                        const.FRACTURE_TAG * np.ones(frac_l.shape[1])))
+    frac_l = np.vstack((frac_l, const.FRACTURE_TAG * np.ones(frac_l.shape[1])))
 
     # Merge the point arrays, compartment points first
     p = np.hstack((dom_p, frac_p))
@@ -566,7 +608,7 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     # Adjust index of fracture points to account for the compartment points
     frac_l[:2] += dom_p.shape[1]
 
-    l = np.hstack((dom_l, frac_l)).astype('int')
+    l = np.hstack((dom_l, frac_l)).astype("int")
 
     # Add a second tag as an identifier of each line.
     l = np.vstack((l, np.arange(l.shape[1])))

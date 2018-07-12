@@ -12,11 +12,11 @@ from porepy.numerics.vem import vem_dual, vem_source
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics.fv import tpfa, mass_matrix
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
 
 
 def add_data_darcy(gb, domain, tol):
-    gb.add_node_props(['param', 'is_tangent'])
+    gb.add_node_props(["param", "is_tangent"])
 
     apert = 1e-2
 
@@ -29,7 +29,7 @@ def add_data_darcy(gb, domain, tol):
 
         rock = g.dim == gb.dim_max()
         kxx = km if rock else kf_t
-        d['is_tangential'] = True
+        d["is_tangential"] = True
         perm = tensor.SecondOrderTensor(g.dim, kxx * np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
@@ -37,18 +37,18 @@ def add_data_darcy(gb, domain, tol):
 
         param.set_aperture(np.power(apert, gb.dim_max() - g.dim))
 
-        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
-            top = bound_face_centers[1, :] > domain['ymax'] - tol
-            bottom = bound_face_centers[1, :] < domain['ymin'] + tol
-            left = bound_face_centers[0, :] < domain['xmin'] + tol
-            right = bound_face_centers[0, :] > domain['xmax'] - tol
+            top = bound_face_centers[1, :] > domain["ymax"] - tol
+            bottom = bound_face_centers[1, :] < domain["ymin"] + tol
+            left = bound_face_centers[0, :] < domain["xmin"] + tol
+            right = bound_face_centers[0, :] > domain["xmax"] - tol
             boundary = np.logical_or(left, right)
 
-            labels = np.array(['neu'] * bound_faces.size)
-            labels[boundary] = ['dir']
+            labels = np.array(["neu"] * bound_faces.size)
+            labels[boundary] = ["dir"]
 
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces[left]] = 30 * 1e6
@@ -56,18 +56,18 @@ def add_data_darcy(gb, domain, tol):
             param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("flow", bc_val)
         else:
-            param.set_bc("flow", BoundaryCondition(
-                g, np.empty(0), np.empty(0)))
+            param.set_bc("flow", BoundaryCondition(g, np.empty(0), np.empty(0)))
 
-        d['param'] = param
+        d["param"] = param
 
     # Assign coupling permeability
-    gb.add_edge_prop('kn')
+    gb.add_edge_prop("kn")
     for e, d in gb.edges_props():
         g = gb.sorted_nodes_of_edge(e)[0]
-        d['kn'] = kf_n / gb.node_prop(g, 'param').get_aperture()
+        d["kn"] = kf_n / gb.node_prop(g, "param").get_aperture()
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
 def add_data_advection(gb, domain, tol):
@@ -88,52 +88,51 @@ def add_data_advection(gb, domain, tol):
     c_f = phi_f * rho_w * c_w + (1 - phi_f) * rho_s * c_s
 
     for g, d in gb:
-        param = d['param']
+        param = d["param"]
 
         rock = g.dim == gb.dim_max()
         source = np.zeros(g.num_cells)
         param.set_source("transport", source)
 
         param.set_porosity(1)
-        param.set_discharge(d['discharge'])
+        param.set_discharge(d["discharge"])
 
-        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
-            top = bound_face_centers[1, :] > domain['ymax'] - tol
-            bottom = bound_face_centers[1, :] < domain['ymin'] + tol
-            left = bound_face_centers[0, :] < domain['xmin'] + tol
-            right = bound_face_centers[0, :] > domain['xmax'] - tol
+            top = bound_face_centers[1, :] > domain["ymax"] - tol
+            bottom = bound_face_centers[1, :] < domain["ymin"] + tol
+            left = bound_face_centers[0, :] < domain["xmin"] + tol
+            right = bound_face_centers[0, :] > domain["xmax"] - tol
             boundary = np.logical_or(left, right)
-            labels = np.array(['neu'] * bound_faces.size)
-            labels[boundary] = ['dir']
+            labels = np.array(["neu"] * bound_faces.size)
+            labels[boundary] = ["dir"]
 
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces[left]] = 1
 
-            param.set_bc("transport", BoundaryCondition(
-                g, bound_faces, labels))
+            param.set_bc("transport", BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("transport", bc_val)
         else:
-            param.set_bc("transport", BoundaryCondition(
-                g, np.empty(0), np.empty(0)))
-        d['param'] = param
+            param.set_bc("transport", BoundaryCondition(g, np.empty(0), np.empty(0)))
+        d["param"] = param
 
     # Assign coupling discharge
-    gb.add_edge_prop('param')
+    gb.add_edge_prop("param")
     for e, d in gb.edges_props():
         g = gb.sorted_nodes_of_edge(e)[1]
-        discharge = gb.node_prop(g, 'param').get_discharge()
-        d['param'] = Parameters(g)
-        d['param'].set_discharge(discharge)
+        discharge = gb.node_prop(g, "param").get_discharge()
+        d["param"] = Parameters(g)
+        d["param"].set_discharge(discharge)
 
-#------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
 
 
 tol = 1e-4
-export_folder = 'example_5_2_1'
+export_folder = "example_5_2_1"
 
 T = 40 * np.pi * 1e7
 Nt = 20  # 10 20 40 80 160 320 640 1280 2560 5120 - 100000
@@ -141,13 +140,12 @@ deltaT = T / Nt
 export_every = 1
 if_coarse = True
 
-mesh_kwargs = {'mesh_size_frac': 500,
-               'mesh_size_min': 20, 'tol': tol}
-domain = {'xmin': 0, 'xmax': 700, 'ymin': 0, 'ymax': 600}
-gb = importer.from_csv('network.csv', mesh_kwargs, domain)
+mesh_kwargs = {"mesh_size_frac": 500, "mesh_size_min": 20, "tol": tol}
+domain = {"xmin": 0, "xmax": 700, "ymin": 0, "ymax": 600}
+gb = importer.from_csv("network.csv", mesh_kwargs, domain)
 gb.compute_geometry()
 if if_coarse:
-    co.coarsen(gb, 'by_volume')
+    co.coarsen(gb, "by_volume")
 gb.assign_node_ordering()
 
 
@@ -155,10 +153,10 @@ gb.assign_node_ordering()
 add_data_darcy(gb, domain, tol)
 
 # Choose and define the solvers and coupler
-solver_flow = vem_dual.DualVEMMixDim('flow')
+solver_flow = vem_dual.DualVEMMixDim("flow")
 A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-solver_source = vem_source.DualSourceMixDim('flow')
+solver_source = vem_source.DualSourceMixDim("flow")
 A_source, b_source = solver_source.matrix_rhs(gb)
 
 up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
@@ -172,19 +170,19 @@ solver_flow.project_u(gb, "discharge", "P0u")
 # compute the flow rate
 total_flow_rate = 0
 for g, d in gb:
-    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+    bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
     if bound_faces.size != 0:
         bound_face_centers = g.face_centers[:, bound_faces]
-        left = bound_face_centers[0, :] < domain['xmin'] + tol
-        flow_rate = d['discharge'][bound_faces[left]]
+        left = bound_face_centers[0, :] < domain["xmin"] + tol
+        flow_rate = d["discharge"][bound_faces[left]]
         total_flow_rate += np.sum(flow_rate)
 
-save = Exporter(gb, 'darcy', export_folder, binary=False)
+save = Exporter(gb, "darcy", export_folder, binary=False)
 save.write_vtk(["p", "P0u"])
 
 #################################################################
 
-physics = 'transport'
+physics = "transport"
 advection = upwind.UpwindMixedDim(physics)
 mass = mass_matrix.MassMatrixMixedDim(physics)
 invMass = mass_matrix.InvMassMatrixMixDim(physics)
@@ -192,7 +190,7 @@ invMass = mass_matrix.InvMassMatrixMixDim(physics)
 # Assign parameters
 add_data_advection(gb, domain, tol)
 
-gb.add_node_prop('deltaT', prop=deltaT)
+gb.add_node_prop("deltaT", prop=deltaT)
 
 U, rhs_u = advection.matrix_rhs(gb)
 M, _ = mass.matrix_rhs(gb)
@@ -231,5 +229,6 @@ for i in np.arange(Nt):
 save.write_pvd(step_to_export * deltaT)
 
 times = deltaT * np.arange(Nt)
-np.savetxt(export_folder + '/production.txt', (times, np.abs(production)),
-           delimiter=',')
+np.savetxt(
+    export_folder + "/production.txt", (times, np.abs(production)), delimiter=","
+)

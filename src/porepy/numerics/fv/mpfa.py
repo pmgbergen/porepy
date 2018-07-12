@@ -16,11 +16,11 @@ from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.fv import TpfaCoupling, TpfaCouplingDFN
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 class MpfaMixedDim(SolverMixedDim):
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
         self.discr = Mpfa(self.physics)
@@ -29,12 +29,12 @@ class MpfaMixedDim(SolverMixedDim):
 
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
-#------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
 
 
 class MpfaDFN(SolverMixedDim):
-
-    def __init__(self, dim_max, physics='flow'):
+    def __init__(self, dim_max, physics="flow"):
         # NOTE: There is no flow along the intersections of the fractures.
 
         self.physics = physics
@@ -43,8 +43,7 @@ class MpfaDFN(SolverMixedDim):
         self.discr = Mpfa(self.physics)
         self.coupling_conditions = TpfaCouplingDFN(self.discr)
 
-        kwargs = {"discr_ndof": self.discr.ndof,
-                  "discr_fct": self.__matrix_rhs__}
+        kwargs = {"discr_ndof": self.discr.ndof, "discr_fct": self.__matrix_rhs__}
         self.solver = Coupler(coupling=self.coupling_conditions, **kwargs)
         SolverMixDim.__init__(self)
 
@@ -58,12 +57,12 @@ class MpfaDFN(SolverMixedDim):
             ndof = self.discr.ndof(g)
             return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
 
-#------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
 
 
 class Mpfa(Solver):
-
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
     def ndof(self, g):
@@ -82,7 +81,7 @@ class Mpfa(Solver):
         """
         return g.num_cells
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g, data, discretize=True):
         """
@@ -121,18 +120,18 @@ class Mpfa(Solver):
             self.discretize(g, data)
 
         div = fvutils.scalar_divergence(g)
-        flux = data['flux']
+        flux = data["flux"]
         M = div * flux
 
-        bound_flux = data['bound_flux']
+        bound_flux = data["bound_flux"]
 
-        param = data['param']
+        param = data["param"]
 
         bc_val = param.get_bc_val(self)
 
         return M, self.rhs(g, bound_flux, bc_val)
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def rhs(self, g, bound_flux, bc_val):
         """
@@ -144,7 +143,7 @@ class Mpfa(Solver):
 
         return -div * bound_flux * bc_val
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def discretize(self, g, data):
         """
@@ -164,22 +163,22 @@ class Mpfa(Solver):
         data: dictionary to store the data.
 
         """
-        param = data['param']
+        param = data["param"]
         k = param.get_tensor(self)
         bnd = param.get_bc(self)
         a = param.aperture
 
         trm, bound_flux, bp_cell, bp_face = mpfa(g, k, bnd, apertures=a)
-        data['flux'] = trm
-        data['bound_flux'] = bound_flux
-        data['bound_pressure_cell'] = bp_cell
-        data['bound_pressure_face'] = bp_face
-
-#------------------------------------------------------------------------------#
+        data["flux"] = trm
+        data["bound_flux"] = bound_flux
+        data["bound_pressure_cell"] = bp_cell
+        data["bound_pressure_face"] = bp_face
 
 
-def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
-         **kwargs):
+# ------------------------------------------------------------------------------#
+
+
+def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, **kwargs):
     """
     Discretize the scalar elliptic equation by the multi-point flux
     approximation method.
@@ -269,9 +268,9 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
         # entire grid.
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
-        flux, bound_flux, bound_pressure_cell, bound_pressure_face \
-            = _mpfa_local(g, k, bnd, eta=eta, inverter=inverter,
-                          apertures=apertures)
+        flux, bound_flux, bound_pressure_cell, bound_pressure_face = _mpfa_local(
+            g, k, bnd, eta=eta, inverter=inverter, apertures=apertures
+        )
     else:
         # Estimate number of partitions necessary based on prescribed memory
         # usage
@@ -299,7 +298,7 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
 
         for p in range(part.max()):
             # Cells in this partitioning
-            cell_ind = np.argwhere(part == p).ravel('F')
+            cell_ind = np.argwhere(part == p).ravel("F")
             # To discretize with as little overlap as possible, we use the
             # keyword nodes to specify the update stencil. Find nodes of the
             # local cells.
@@ -308,9 +307,9 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
             active_nodes = np.squeeze(np.where((cn * active_cells) > 0))
 
             # Perform local discretization.
-            loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_faces \
-                = mpfa_partial(g, k, bnd, eta=eta, inverter=inverter,
-                               nodes=active_nodes)
+            loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_faces = mpfa_partial(
+                g, k, bnd, eta=eta, inverter=inverter, nodes=active_nodes
+            )
 
             # Eliminate contribution from faces already covered
             loc_flux[face_covered, :] *= 0
@@ -327,11 +326,21 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None,
 
     return flux, bound_flux, bound_pressure_cell, bound_pressure_face
 
-#------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
 
 
-def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
-                 nodes=None, apertures=None):
+def mpfa_partial(
+    g,
+    k,
+    bnd,
+    eta=0,
+    inverter="numba",
+    cells=None,
+    faces=None,
+    nodes=None,
+    apertures=None,
+):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
     of global variable numbers.
@@ -376,14 +385,14 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
 
     """
     if cells is not None:
-        warnings.warn('Cells keyword for partial mpfa has not been tested')
+        warnings.warn("Cells keyword for partial mpfa has not been tested")
     if faces is not None:
-        warnings.warn('Faces keyword for partial mpfa has not been tested')
+        warnings.warn("Faces keyword for partial mpfa has not been tested")
 
     # Find computational stencil, based on specified cells, faces and nodes.
-    ind, active_faces = fvutils.cell_ind_for_partial_update(g, cells=cells,
-                                                            faces=faces,
-                                                            nodes=nodes)
+    ind, active_faces = fvutils.cell_ind_for_partial_update(
+        g, cells=cells, faces=faces, nodes=nodes
+    )
 
     # Extract subgrid, together with mappings between local and global
     # cells
@@ -399,8 +408,8 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
 
     # Boundary conditions are slightly more complex. Find local faces
     # that are on the global boundary.
-    loc_bound_ind = np.argwhere(np.in1d(l2g_faces, glob_bound_face)).ravel('F')
-    loc_cond = np.array(loc_bound_ind.size * ['neu'])
+    loc_bound_ind = np.argwhere(np.in1d(l2g_faces, glob_bound_face)).ravel("F")
+    loc_cond = np.array(loc_bound_ind.size * ["neu"])
     # Then pick boundary condition on those faces.
     if loc_bound_ind.size > 0:
         # We could have avoided to explicitly define Neumann conditions,
@@ -413,17 +422,18 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
         is_dir = is_dir[l2g_faces[loc_bound_ind]]
         is_neu = is_neu[l2g_faces[loc_bound_ind]]
 
-        loc_cond[is_dir] = 'dir'
+        loc_cond[is_dir] = "dir"
     loc_bnd = bc.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
 
     # Discretization of sub-problem
-    flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face\
-        = _mpfa_local(sub_g, loc_k, loc_bnd, eta=eta, inverter=inverter,
-                      apertures=apertures)
+    flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face = _mpfa_local(
+        sub_g, loc_k, loc_bnd, eta=eta, inverter=inverter, apertures=apertures
+    )
 
     # Map to global indices
-    face_map, cell_map = fvutils.map_subgrid_to_grid(g, l2g_faces, l2g_cells,
-                                                     is_vector=False)
+    face_map, cell_map = fvutils.map_subgrid_to_grid(
+        g, l2g_faces, l2g_cells, is_vector=False
+    )
     flux_glob = face_map * flux_loc * cell_map
     bound_flux_glob = face_map * bound_flux_loc * face_map.transpose()
     bound_pressure_cell_glob = face_map * bound_pressure_cell * cell_map
@@ -431,18 +441,22 @@ def mpfa_partial(g, k, bnd, eta=0, inverter='numba', cells=None, faces=None,
 
     # By design of mpfa, and the subgrids, the discretization will update faces
     # outside the active faces. Kill these.
-    outside = np.setdiff1d(np.arange(g.num_faces), active_faces,
-                           assume_unique=True)
+    outside = np.setdiff1d(np.arange(g.num_faces), active_faces, assume_unique=True)
     flux_glob[outside, :] = 0
     bound_flux_glob[outside, :] = 0
     bound_pressure_cell_glob[outside, :] = 0
     bound_pressure_face_glob[outside, :] = 0
 
-    return flux_glob, bound_flux_glob, bound_pressure_cell_glob,\
-             bound_pressure_face_glob, active_faces
+    return (
+        flux_glob,
+        bound_flux_glob,
+        bound_pressure_cell_glob,
+        bound_pressure_face_glob,
+        active_faces,
+    )
 
 
-def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
+def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
     """
     Actual implementation of the MPFA O-method. To calculate MPFA on a grid
     directly, either call this method, or, to respect the privacy of this
@@ -487,12 +501,17 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     if g.dim == 1:
         discr = tpfa.Tpfa()
         params = data.Parameters(g)
-        params.set_bc('flow', bnd)
+        params.set_bc("flow", bnd)
         params.set_aperture(apertures)
-        params.set_tensor('flow', k)
-        d = {'param': params}
+        params.set_tensor("flow", k)
+        d = {"param": params}
         discr.discretize(g, d)
-        return d['flux'], d['bound_flux'], d['bound_pressure_cell'], d['bound_pressure_face']
+        return (
+            d["flux"],
+            d["bound_flux"],
+            d["bound_pressure_cell"],
+            d["bound_pressure_face"],
+        )
     elif g.dim == 0:
         return sps.csr_matrix([0]), 0, 0, 0
 
@@ -510,8 +529,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
         # Rotate the grid into the xy plane and delete third dimension. First
         # make a copy to avoid alterations to the input grid
         g = g.copy()
-        cell_centers, face_normals, face_centers, R, _, nodes = cg.map_grid(
-            g)
+        cell_centers, face_normals, face_centers, R, _, nodes = cg.map_grid(g)
         g.cell_centers = cell_centers
         g.face_normals = face_normals
         g.face_centers = face_centers
@@ -531,8 +549,9 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     # Obtain normal_vector * k, pairings of cells and nodes (which together
     # uniquely define sub-cells, and thus index for gradients. See comment
     # below for the ordering of elements in the subcell gradient.
-    nk_grad, cell_node_blocks, \
-        sub_cell_index = _tensor_vector_prod(g, k, subcell_topology, apertures)
+    nk_grad, cell_node_blocks, sub_cell_index = _tensor_vector_prod(
+        g, k, subcell_topology, apertures
+    )
 
     # Distance from cell centers to face centers, this will be the
     # contribution from gradient unknown to equations for pressure continuity
@@ -550,22 +569,28 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     # The .A suffix is necessary to get a numpy array, instead of a scipy
     # matrix.
     sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
-    pr_cont_cell = sps.coo_matrix((sgn[0], (subcell_topology.subfno,
-                                            subcell_topology.cno))).tocsr()
+    pr_cont_cell = sps.coo_matrix(
+        (sgn[0], (subcell_topology.subfno, subcell_topology.cno))
+    ).tocsr()
     # The cell centers give zero contribution to flux continuity
-    nk_cell = sps.coo_matrix((np.zeros(1), (np.zeros(1), np.zeros(1))),
-                             shape=(subcell_topology.num_subfno,
-                                    subcell_topology.num_cno)).tocsr()
+    nk_cell = sps.coo_matrix(
+        (np.zeros(1), (np.zeros(1), np.zeros(1))),
+        shape=(subcell_topology.num_subfno, subcell_topology.num_cno),
+    ).tocsr()
     del sgn
 
     # Mapping from sub-faces to faces
-    hf2f = sps.coo_matrix((np.ones(subcell_topology.unique_subfno.size),
-                           (subcell_topology.fno_unique,
-                            subcell_topology.subfno_unique)))
+    hf2f = sps.coo_matrix(
+        (
+            np.ones(subcell_topology.unique_subfno.size),
+            (subcell_topology.fno_unique, subcell_topology.subfno_unique),
+        )
+    )
 
     # Update signs
-    sgn_unique = g.cell_faces[subcell_topology.fno_unique,
-                              subcell_topology.cno_unique].A.ravel('F')
+    sgn_unique = g.cell_faces[
+        subcell_topology.fno_unique, subcell_topology.cno_unique
+    ].A.ravel("F")
 
     # The boundary faces will have either a Dirichlet or Neumann condition, but
     # not both (Robin is not implemented).
@@ -586,8 +611,8 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     # block-diagonal structure, with one block centered around each vertex.
     # Obtain the necessary mappings.
     rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
-        sub_cell_index, cell_node_blocks, subcell_topology.nno_unique,
-        bound_exclusion)
+        sub_cell_index, cell_node_blocks, subcell_topology.nno_unique, bound_exclusion
+    )
 
     del cell_node_blocks, sub_cell_index
 
@@ -602,10 +627,11 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
 
     del grad_eqs
-    igrad = cols2blk_diag * fvutils.invert_diagonal_blocks(grad,
-                                                           size_of_blocks,
-                                                           method=inverter) \
-          * rows2blk_diag
+    igrad = (
+        cols2blk_diag
+        * fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
+        * rows2blk_diag
+    )
 
     del grad, cols2blk_diag, rows2blk_diag
 
@@ -639,28 +665,38 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     # natural plane. This can be fixed by a more general implementation, but
     # it would require quite deep changes to the code.
 
-
     # Flux discretization:
     flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, pr_cont_cell]))
 
     ####
     # Boundary conditions
-    rhs_bound = _create_bound_rhs(bnd, bound_exclusion,
-                                  subcell_topology, sgn_unique, g,
-                                  num_nk_cell, num_pr_cont_grad)
+    rhs_bound = _create_bound_rhs(
+        bnd,
+        bound_exclusion,
+        subcell_topology,
+        sgn_unique,
+        g,
+        num_nk_cell,
+        num_pr_cont_grad,
+    )
     # Discretization of boundary values
     bound_flux = hf2f * darcy * igrad * rhs_bound
 
     # Below here, fields necessary for reconstruction of boundary pressures
 
     # Diagonal matrix that divides by number of sub-faces per face
-    half_face_per_face = sps.diags(1./(hf2f * np.ones(hf2f.shape[1])))
+    half_face_per_face = sps.diags(1. / (hf2f * np.ones(hf2f.shape[1])))
 
     # Contribution to face pressure from sub-cell gradients, calculated as
     # gradient times distance. Then further map to faces, and divide by number
     # of contributions per face
-    dp = half_face_per_face * hf2f * pr_cont_grad_all * igrad * \
-            (-sps.vstack([nk_cell, pr_cont_cell]))
+    dp = (
+        half_face_per_face
+        * hf2f
+        * pr_cont_grad_all
+        * igrad
+        * (-sps.vstack([nk_cell, pr_cont_cell]))
+    )
 
     # Internal faces, and boundary faces with a Dirichle condition do not need
     # information on the gradient.
@@ -674,10 +710,11 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     # A trick to get the boundary face: We know that one element is -1 (e.g.
     # outside the domain). Add 1, sum cell indices (will only contain the
     # internal cell; the one outside is now zero), and then subtract 1 again.
-    bound_cells = np.sum(g.cell_face_as_dense()[:, bound_faces]+1, axis=0) - 1
-    cell_contrib = sps.coo_matrix((np.ones_like(bound_faces),
-                                   (bound_faces, bound_cells)),
-                                   shape=(g.num_faces, g.num_cells))
+    bound_cells = np.sum(g.cell_face_as_dense()[:, bound_faces] + 1, axis=0) - 1
+    cell_contrib = sps.coo_matrix(
+        (np.ones_like(bound_faces), (bound_faces, bound_cells)),
+        shape=(g.num_faces, g.num_cells),
+    )
     cell_contrib = remove_not_neumann * cell_contrib
 
     bound_pressure_cell = dp + cell_contrib
@@ -686,23 +723,27 @@ def _mpfa_local(g, k, bnd, eta=None, inverter='numba', apertures=None):
     sgn_arr[bound_faces] = g.cell_faces[bound_faces].sum(axis=1).A.ravel()
     sgn_mat = sps.diags(sgn_arr)
 
-    bound_pressure_face_neu = sgn_mat * half_face_per_face * hf2f * pr_cont_grad_all * igrad * rhs_bound
+    bound_pressure_face_neu = (
+        sgn_mat * half_face_per_face * hf2f * pr_cont_grad_all * igrad * rhs_bound
+    )
     # For Dirichlet faces, simply recover the boundary condition
     bound_pressure_face_dir = sps.diags(bnd.is_dir.astype(np.int))
 
-    bound_pressure_face = bound_pressure_face_dir\
-                        + remove_not_neumann * bound_pressure_face_neu
+    bound_pressure_face = (
+        bound_pressure_face_dir + remove_not_neumann * bound_pressure_face_neu
+    )
 
     return flux, bound_flux, bound_pressure_cell, bound_pressure_face
 
 
-#----------------------------------------------------------------------------#
+# ----------------------------------------------------------------------------#
 #
 # The functions below are helper functions, which are not really necessary to
 # understand in detail to use the method. They also tend to be less well
 # documented.
 #
-#----------------------------------------------------------------------------#
+# ----------------------------------------------------------------------------#
+
 
 def _estimate_peak_memory(g):
     """
@@ -770,8 +811,9 @@ def _tensor_vector_prod(g, k, subcell_topology, apertures=None):
     # correspond to a unique rows (Matlab-style) from what I understand.
     # This also means that the pairs in cell_node_blocks uniquely defines
     # subcells, and can be used to index gradients etc.
-    cell_node_blocks, blocksz = matrix_compression.rlencode(np.vstack((
-        subcell_topology.cno, subcell_topology.nno)))
+    cell_node_blocks, blocksz = matrix_compression.rlencode(
+        np.vstack((subcell_topology.cno, subcell_topology.nno))
+    )
 
     nd = g.dim
 
@@ -790,16 +832,16 @@ def _tensor_vector_prod(g, k, subcell_topology, apertures=None):
 
     # Distribute faces equally on the sub-faces
     num_nodes = np.diff(g.face_nodes.indptr)
-    normals = g.face_normals[:, subcell_topology.fno] / num_nodes[
-        subcell_topology.fno]
+    normals = g.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
     if apertures is not None:
         normals = normals * apertures[subcell_topology.cno]
 
     # Represent normals and permeability on matrix form
     ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))
-    normals_mat = sps.csr_matrix((normals.ravel('F'), j.ravel('F'), ind_ptr))
-    k_mat = sps.csr_matrix((k.perm[::, ::, cell_node_blocks[0]].ravel('F'),
-                            j.ravel('F'), ind_ptr))
+    normals_mat = sps.csr_matrix((normals.ravel("F"), j.ravel("F"), ind_ptr))
+    k_mat = sps.csr_matrix(
+        (k.perm[::, ::, cell_node_blocks[0]].ravel("F"), j.ravel("F"), ind_ptr)
+    )
 
     nk = normals_mat * k_mat
 
@@ -809,8 +851,7 @@ def _tensor_vector_prod(g, k, subcell_topology, apertures=None):
     return nk, cell_node_blocks, sub_cell_ind
 
 
-def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
-                              bound_exclusion):
+def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno, bound_exclusion):
     """ Define matrices to turn linear system into block-diagonal form
 
     Parameters
@@ -837,24 +878,23 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno,
     sorted_ind = np.argsort(node_occ)
     sorted_nodes_rows = node_occ[sorted_ind]
     # Size of block systems
-    size_of_blocks = np.bincount(sorted_nodes_rows.astype('int64'))
-    rows2blk_diag = sps.coo_matrix((np.ones(sorted_nodes_rows.size),
-                                    (np.arange(sorted_ind.size),
-                                     sorted_ind))).tocsr()
+    size_of_blocks = np.bincount(sorted_nodes_rows.astype("int64"))
+    rows2blk_diag = sps.coo_matrix(
+        (np.ones(sorted_nodes_rows.size), (np.arange(sorted_ind.size), sorted_ind))
+    ).tocsr()
 
     # cell_node_blocks[1] contains the node numbers associated with each
     # sub-cell gradient (and so column of the local linear systems). A sort
     # of these will give a block-diagonal structure
     sorted_nodes_cols = np.argsort(cell_node_blocks[1])
-    subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel('F')
-    cols2blk_diag = sps.coo_matrix((np.ones(sub_cell_index.size),
-                                    (subcind_nodes,
-                                     np.arange(sub_cell_index.size)))).tocsr()
+    subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel("F")
+    cols2blk_diag = sps.coo_matrix(
+        (np.ones(sub_cell_index.size), (subcind_nodes, np.arange(sub_cell_index.size)))
+    ).tocsr()
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
-def _create_bound_rhs(bnd, bound_exclusion,
-                      subcell_topology, sgn, g, num_flux, num_pr):
+def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, num_pr):
     """
     Define rhs matrix to get basis functions for incorporates boundary
     conditions
@@ -888,38 +928,42 @@ def _create_bound_rhs(bnd, bound_exclusion,
     # Neumann boundary conditions
     # Find Neumann faces, exclude Dirichlet faces (since these are excluded
     # from the right hand side linear system), and do necessary formating.
-    neu_ind = np.argwhere(bound_exclusion.exclude_dirichlet(
-        is_neu[fno].astype('int64'))).ravel('F')
+    neu_ind = np.argwhere(
+        bound_exclusion.exclude_dirichlet(is_neu[fno].astype("int64"))
+    ).ravel("F")
     # We also need to map the respective Neumann and Dirichlet half-faces to
     # the global half-face numbering (also interior faces). The latter should
     # not have Dirichlet and Neumann excluded (respectively), and thus we need
     # new fields
-    neu_ind_all = np.argwhere(is_neu[fno].astype('int')).ravel('F')
-    dir_ind_all = np.argwhere(is_dir[fno].astype('int')).ravel('F')
-    num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order='F')
+    neu_ind_all = np.argwhere(is_neu[fno].astype("int")).ravel("F")
+    dir_ind_all = np.argwhere(is_dir[fno].astype("int")).ravel("F")
+    num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order="F")
 
     # For the Neumann boundary conditions, we define the value as seen from
     # the innside of the domain. E.g. outflow is defined to be positive. We
     # therefore set the matrix indices to -1. We also have to scale it with
     # the number of nodes per face because the flux of face is the sum of its
     # half-faces.
-    scaled_sgn = - 1 / num_face_nodes[fno[neu_ind_all]]
+    scaled_sgn = -1 / num_face_nodes[fno[neu_ind_all]]
     if neu_ind.size > 0:
-        neu_cell = sps.coo_matrix((scaled_sgn,
-                                   (neu_ind, np.arange(neu_ind.size))),
-                                  shape=(num_flux, num_bound))
+        neu_cell = sps.coo_matrix(
+            (scaled_sgn, (neu_ind, np.arange(neu_ind.size))),
+            shape=(num_flux, num_bound),
+        )
     else:
         # Special handling when no elements are found. Not sure if this is
         # necessary, or if it is me being stupid
         neu_cell = sps.coo_matrix((num_flux, num_bound))
 
     # Dirichlet boundary conditions
-    dir_ind = np.argwhere(bound_exclusion.exclude_neumann(
-        is_dir[fno].astype('int64'))).ravel('F')
+    dir_ind = np.argwhere(
+        bound_exclusion.exclude_neumann(is_dir[fno].astype("int64"))
+    ).ravel("F")
     if dir_ind.size > 0:
-        dir_cell = sps.coo_matrix((sgn[dir_ind_all], (dir_ind, num_neu +
-                                                      np.arange(dir_ind.size))),
-                                  shape=(num_pr, num_bound))
+        dir_cell = sps.coo_matrix(
+            (sgn[dir_ind_all], (dir_ind, num_neu + np.arange(dir_ind.size))),
+            shape=(num_pr, num_bound),
+        )
     else:
         # Special handling when no elements are found. Not sure if this is
         # necessary, or if it is me being stupid
@@ -928,27 +972,30 @@ def _create_bound_rhs(bnd, bound_exclusion,
     # Number of elements in neu_ind and neu_ind_all are equal, we can test with
     # any of them. Same with dir.
     if neu_ind.size > 0 and dir_ind.size > 0:
-        neu_dir_ind = np.hstack([neu_ind_all, dir_ind_all]).ravel('F')
+        neu_dir_ind = np.hstack([neu_ind_all, dir_ind_all]).ravel("F")
     elif neu_ind.size > 0:
         neu_dir_ind = neu_ind_all
     elif dir_ind.size > 0:
         neu_dir_ind = dir_ind_all
     else:
-        raise ValueError("Boundary values should be either Dirichlet or "
-                         "Neumann")
+        raise ValueError("Boundary values should be either Dirichlet or " "Neumann")
 
     num_subfno = subcell_topology.num_subfno_unique
 
     # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
     # Map these to all half-face indices
-    bnd_2_all_hf = sps.coo_matrix((np.ones(num_bound),
-                                   (np.arange(num_bound), neu_dir_ind)),
-                                  shape=(num_bound, num_subfno))
+    bnd_2_all_hf = sps.coo_matrix(
+        (np.ones(num_bound), (np.arange(num_bound), neu_dir_ind)),
+        shape=(num_bound, num_subfno),
+    )
     # The user of the discretization should now nothing about half faces,
     # thus map from half face to face indices.
-    hf_2_f = sps.coo_matrix((np.ones(subcell_topology.subfno_unique.size),
-                             (subcell_topology.subfno_unique,
-                              subcell_topology.fno_unique)),
-                            shape=(num_subfno, g.num_faces))
+    hf_2_f = sps.coo_matrix(
+        (
+            np.ones(subcell_topology.subfno_unique.size),
+            (subcell_topology.subfno_unique, subcell_topology.fno_unique),
+        ),
+        shape=(num_subfno, g.num_faces),
+    )
     rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
     return rhs_bound

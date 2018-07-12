@@ -6,14 +6,12 @@ from porepy.utils import comp_geom as cg
 
 
 class PolygonSegmentIntersectionTest(unittest.TestCase):
-
     def setup_polygons(self):
-        p_1 = np.array([[-1, 1, 1, -1 ], [0, 0, 0, 0], [-1, -1, 1, 1]])
-        p_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-.7, -.7, .8, .8]])
-        p_3 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [.5, .5, 1.5, 1.5]])
-        p_4 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1 ], [-1, -1, 1, 1]])
+        p_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
+        p_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-.7, -.7, .8, .8]])
+        p_3 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [.5, .5, 1.5, 1.5]])
+        p_4 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]])
         return p_1, p_2, p_3, p_4
-
 
     def test_one_intersection(self):
         p_1, p_2, _, _ = self.setup_polygons()
@@ -97,16 +95,12 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         # Test motivated from debuging Issue #16 (GitHub)
         # After updates of the code, we should find both intersection at vertex,
         # and internal to segments of both polygons
-        frac1 = np.array([[1, 2, 4],
-                          [1, 4, 1],
-                          [2, 2, 2]])
+        frac1 = np.array([[1, 2, 4], [1, 4, 1], [2, 2, 2]])
 
-        frac2 = np.array([[2, 2, 2],
-                          [2, 4, 1],
-                          [1, 2, 4]])
+        frac2 = np.array([[2, 2, 2], [2, 4, 1], [1, 2, 4]])
 
         # Segment
-        isect_known_1 = np.array([[2, 5/3, 2]]).T
+        isect_known_1 = np.array([[2, 5 / 3, 2]]).T
         isect_known_2 = np.array([[2, 4, 2]]).T
         isect = cg.polygon_segment_intersect(frac1, frac2)
         assert np.min(np.sum(np.abs(isect - isect_known_1), axis=0)) < 1e-5
@@ -119,36 +113,24 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
     def test_segment_in_polygon_plane(self):
         # One segment lies fully within a plane
         p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
-        p2 = np.array([[0.3, 0.5, 0],
-                       [0.7, 0.5, 0],
-                       [0.7, 0.5, 1],
-                       [0.3, 0.5, 1]]).T
-        isect_known = np.array([[0.3, 0.5, 0],
-                                [0.7, 0.5, 0]]).T
+        p2 = np.array([[0.3, 0.5, 0], [0.7, 0.5, 0], [0.7, 0.5, 1], [0.3, 0.5, 1]]).T
+        isect_known = np.array([[0.3, 0.5, 0], [0.7, 0.5, 0]]).T
         isect = cg.polygon_segment_intersect(p1, p2)
         assert np.allclose(isect, isect_known)
 
     def test_segment_in_plane_but_not_in_polygon(self):
         p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
-        p2 = np.array([[1.3, 0.5, 0],
-                       [1.7, 0.5, 0],
-                       [1.7, 0.5, 1],
-                       [1.3, 0.5, 1]]).T
+        p2 = np.array([[1.3, 0.5, 0], [1.7, 0.5, 0], [1.7, 0.5, 1], [1.3, 0.5, 1]]).T
         isect = cg.polygon_segment_intersect(p1, p2)
         assert isect is None
 
     def test_segment_partly_in_polygon(self):
         # Segment in plane, one point inside, one point outside polygon
         p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
-        p2 = np.array([[0.3, 0.5, 0],
-                       [1.7, 0.5, 0],
-                       [0.7, 0.5, 1],
-                       [0.3, 0.5, 1]]).T
-        isect_known = np.array([[0.3, 0.5, 0],
-                                [1, 0.5, 0]]).T
+        p2 = np.array([[0.3, 0.5, 0], [1.7, 0.5, 0], [0.7, 0.5, 1], [0.3, 0.5, 1]]).T
+        isect_known = np.array([[0.3, 0.5, 0], [1, 0.5, 0]]).T
         isect = cg.polygon_segment_intersect(p1, p2)
         assert np.allclose(isect, isect_known)
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()
-

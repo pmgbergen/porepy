@@ -12,7 +12,6 @@ import porepy.utils.comp_geom as cg
 
 
 class TestTriangulationMatching(unittest.TestCase):
-
     def test_identical_triangles(self):
         p = np.array([[0, 1, 0], [0, 0, 1]])
         t = np.array([[0, 1, 2]]).T
@@ -30,7 +29,6 @@ class TestTriangulationMatching(unittest.TestCase):
         p2 = np.array([[0, 1, 0], [0, 1, 1]])
         t2 = np.array([[0, 1, 2]]).T
 
-
         l = cg.intersect_triangulations(p1, p2, t1, t2)
         assert len(l) == 2
         assert l[0][0] == 0
@@ -47,7 +45,6 @@ class TestTriangulationMatching(unittest.TestCase):
         p2 = np.array([[0, 1, 0], [0, 1, 1]])
         t2 = np.array([[0, 1, 2]]).T
 
-
         l = cg.intersect_triangulations(p2, p1, t2, t1)
         assert len(l) == 2
         assert l[0][0] == 0
@@ -57,5 +54,5 @@ class TestTriangulationMatching(unittest.TestCase):
         assert l[1][0] == 0
         assert l[1][2] == 0.25
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()

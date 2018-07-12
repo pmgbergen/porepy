@@ -10,7 +10,7 @@ Acknowledgements:
 import numpy as np
 
 
-def rldecode(A,n):
+def rldecode(A, n):
     """ Decode compressed information. 
         
         The code is heavily inspired by MRST's function with the same name, 
@@ -28,23 +28,26 @@ def rldecode(A,n):
             compression should be along dimension 1
             n (int): Number of occurences for each element
     """
-    r = n > 0         
-    i = np.cumsum(np.hstack((np.zeros(1), n[r])), dtype='>i4')
+    r = n > 0
+    i = np.cumsum(np.hstack((np.zeros(1), n[r])), dtype=">i4")
     j = np.zeros(i[-1])
     j[i[1:-1:]] = 1
-    B = A[np.cumsum(j, dtype='>i4')]
+    B = A[np.cumsum(j, dtype=">i4")]
     return B
+
 
 def rlencode(A):
     """ Compress matrix by looking for identical columns. """
     comp = A[::, 0:-1] != A[::, 1::]
     i = np.any(comp, axis=0)
-    i = np.hstack((np.argwhere(i).ravel(), (A.shape[1]-1)))
-    
+    i = np.hstack((np.argwhere(i).ravel(), (A.shape[1] - 1)))
+
     num = np.diff(np.hstack((np.array([-1]), i)))
-    
+
     return A[::, i], num
-    
-if __name__ == '__main__':
+
+
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

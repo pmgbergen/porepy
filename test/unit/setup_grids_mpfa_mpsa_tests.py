@@ -25,10 +25,13 @@ def setup_2d():
     g_cart_rpert = structured.CartGrid(nx)
     dx = 1
     pert = .4
-    rand = np.vstack( (np.random.rand(g_cart_rpert.dim, g_cart_rpert.num_nodes),
-                       np.repeat( 0., g_cart_rpert.num_nodes) ) )
-    g_cart_rpert.nodes = g_cart_rpert.nodes + dx * pert * \
-                                              (0.5 - rand)
+    rand = np.vstack(
+        (
+            np.random.rand(g_cart_rpert.dim, g_cart_rpert.num_nodes),
+            np.repeat(0., g_cart_rpert.num_nodes),
+        )
+    )
+    g_cart_rpert.nodes = g_cart_rpert.nodes + dx * pert * (0.5 - rand)
     # No perturbations of the z-coordinate (which is not active in this case)
     g_cart_rpert.nodes[2, :] = 0
     g_cart_rpert.compute_geometry()
@@ -38,8 +41,7 @@ def setup_2d():
 
 
 def perturb(g, rate, dx):
-    rand = np.vstack( (np.random.rand(g.dim, g.num_nodes),
-                       np.repeat( 0., g.num_nodes) ) )
+    rand = np.vstack((np.random.rand(g.dim, g.num_nodes), np.repeat(0., g.num_nodes)))
     g.nodes += rate * dx * (rand - 0.5)
     # Ensure there are no perturbations in the z-coordinate
     if g.dim == 2:
@@ -48,21 +50,19 @@ def perturb(g, rate, dx):
 
 
 def make_grid(grid, grid_dims, domain, dim):
-    if grid.lower() == 'cart' or grid.lower() == 'cartesian':
+    if grid.lower() == "cart" or grid.lower() == "cartesian":
         return structured.CartGrid(grid_dims, domain)
-    elif (grid.lower() == 'simplex' and dim == 2) \
-            or grid.lower() == 'triangular':
+    elif (grid.lower() == "simplex" and dim == 2) or grid.lower() == "triangular":
         return simplex.StructuredTriangleGrid(grid_dims, domain)
 
 
-def grid_sequence(basedim, num_levels, grid_type, pert=0, ref_rate=2,
-                  domain=None):
+def grid_sequence(basedim, num_levels, grid_type, pert=0, ref_rate=2, domain=None):
     dim = basedim.shape[0]
 
     if domain is None:
         domain = np.ones(dim)
     for iter1 in range(num_levels):
-        nx = basedim * ref_rate**iter1
+        nx = basedim * ref_rate ** iter1
         g = make_grid(grid_type, nx, domain, dim)
         if pert > 0:
             dx = np.max(domain / nx)
@@ -71,15 +71,16 @@ def grid_sequence(basedim, num_levels, grid_type, pert=0, ref_rate=2,
         yield g
 
 
-def grid_sequence_fixed_lines(basedim, num_levels, grid_type, pert=0,
-                              ref_rate=2, domain=None, subdom_func=None):
+def grid_sequence_fixed_lines(
+    basedim, num_levels, grid_type, pert=0, ref_rate=2, domain=None, subdom_func=None
+):
     dim = basedim.shape[0]
 
     if domain is None:
         domain = np.ones(dim)
 
     for iter1 in range(num_levels):
-        nx = basedim * ref_rate**iter1
+        nx = basedim * ref_rate ** iter1
         g = make_grid(grid_type, nx, domain, dim)
 
         if pert > 0:
@@ -96,11 +97,10 @@ def grid_sequence_fixed_lines(basedim, num_levels, grid_type, pert=0,
                 bnd_face = np.argwhere(chi_face > 0).squeeze(1)
                 node_ptr = g.face_nodes.indptr
                 node_ind = g.face_nodes.indices
-                bnd_nodes = node_ind[mcolon.mcolon(node_ptr[bnd_face],
-                                                   node_ptr[bnd_face+1])]
+                bnd_nodes = node_ind[
+                    mcolon.mcolon(node_ptr[bnd_face], node_ptr[bnd_face + 1])
+                ]
                 g.nodes[:, bnd_nodes] = old_nodes[:, bnd_nodes]
 
         g.compute_geometry()
         yield g
-
-
