@@ -72,7 +72,7 @@ from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
 from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
 
 # Parameters
-from porepy.params.bc import BoundaryCondition, BoundaryConditionVectorial
+from porepy.params.bc import BoundaryCondition, BoundaryConditionVectorial, BoundaryConditionNode
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
 from porepy.params.data import Parameters
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
