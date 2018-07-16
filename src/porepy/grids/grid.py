@@ -109,6 +109,10 @@ class Grid(object):
         self.initiate_face_tags()
         self.update_boundary_face_tag()
 
+        # Add tag for the boundary nodes
+        self.initiate_node_tags()
+        self.update_boundary_node_tag()
+
     def copy(self):
         """
         Create a deep copy of the grid.
@@ -550,8 +554,14 @@ class Grid(object):
         Get indices of all faces tagged as either fractures, domain boundary or
         tip.
         """
-        all_tags = tags.all_face_tags(self.tags)
-        return self.__indices(all_tags)
+        return self.__indices(tags.all_face_tags(self.tags))
+
+    def get_all_boundary_nodes(self):
+        """
+        Get indices of all nodes tagged as either fractures, domain boundary or
+        tip.
+        """
+        return self.__indices(tags.all_node_tags(self.tags))
 
     def get_boundary_faces(self):
         """
@@ -579,18 +589,37 @@ class Grid(object):
             np.ndarray (1d), index of nodes on the boundary
 
         """
-        b_faces = self.get_all_boundary_faces()
-        first = self.face_nodes.indptr[b_faces]
-        second = self.face_nodes.indptr[b_faces + 1]
-        return np.unique(self.face_nodes.indices[mcolon.mcolon(first, second)])
+        return np.where(self.tags['domain_boundary_nodes'])[0]
 
     def update_boundary_face_tag(self):
         """ Tag faces on the boundary of the grid with boundary tag.
 
         """
-        bd_faces = np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel('F')
-                               == 1).ravel('F')
-        self.tags['domain_boundary_faces'][bd_faces] = True
+        zeros = np.zeros(self.num_faces, dtype=np.bool)
+        self.tags['domain_boundary_faces'] = zeros
+        if self.dim > 0: # by default no 0d grid at the boundary of the domain
+            bd_faces = np.argwhere(np.abs(self.cell_faces).sum(axis=1
+                                                 ).A.ravel('F') == 1).ravel('F')
+            self.tags['domain_boundary_faces'][bd_faces] = True
+
+    def update_boundary_node_tag(self):
+        """ Tag nodes on the boundary of the grid with boundary tag.
+
+        """
+
+        mask = {'domain_boundary_faces': 'domain_boundary_nodes',
+                'fracture_faces': 'fracture_nodes',
+                'tip_faces': 'tip_nodes'}
+        zeros = np.zeros(self.num_nodes, dtype=np.bool)
+
+        for face_tag, node_tag in mask.items():
+            self.tags[node_tag] = zeros.copy()
+            faces = np.where(self.tags[face_tag])[0]
+            if faces.size > 0:
+                first = self.face_nodes.indptr[faces]
+                second = self.face_nodes.indptr[faces+1]
+                nodes = self.face_nodes.indices[mcolon.mcolon(first, second)]
+                self.tags[node_tag][nodes] = True
 
     def cell_diameters(self, cn=None):
         """
@@ -718,8 +747,12 @@ class Grid(object):
 
     def initiate_face_tags(self):
         keys = tags.standard_face_tags()
-        values = [np.zeros(self.num_faces, dtype=bool)
-                  for _ in range(len(keys))]
+        values = [np.zeros(self.num_faces, dtype=bool) for _ in keys]
+        tags.add_tags(self, dict(zip(keys, values)))
+
+    def initiate_node_tags(self):
+        keys = tags.standard_node_tags()
+        values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
     def __indices(self, true_false):

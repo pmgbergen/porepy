@@ -39,17 +39,33 @@ def standard_face_tags():
     """
     return ['fracture_faces', 'tip_faces', 'domain_boundary_faces']
 
+def standard_node_tags():
+    """
+    Returns the standard node tag key.
+    """
+    return ['fracture_nodes', 'tip_nodes', 'domain_boundary_nodes']
+
+def all_tags(parent, ft):
+    """
+    Return a logical array indicate which of the parent objects are
+    tagged with any of the standard object tags.
+    """
+    return np.logical_or(np.logical_or(parent[ft[0]], parent[ft[1]]),
+                         parent[ft[2]])
 
 def all_face_tags(parent):
     """
     Return a logical array indicate which of the parent (grid.tags) faces are
     tagged with any of the standard face tags.
     """
-    ft = standard_face_tags()
-    all_tags = np.logical_or(np.logical_or(parent[ft[0]],
-                                           parent[ft[1]]),
-                            parent[ft[2]])
-    return all_tags
+    return all_tags(parent, standard_face_tags())
+
+def all_node_tags(parent):
+    """
+    Return a logical array indicate which of the parent (grid.nodes) nodes are
+    tagged with any of the standard node tags.
+    """
+    return all_tags(parent, standard_node_tags())
 
 def extract(all_tags, indices, keys=None):
     """
