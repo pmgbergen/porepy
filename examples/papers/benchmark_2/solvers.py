@@ -15,7 +15,7 @@ def export(gb, folder):
         d['cell_centers'] = g.cell_centers
 
     save = pp.Exporter(gb, "sol", folder=folder)
-    save.write_vtk(["pressure", 'cell_volumes', 'cell_centers'])
+    save.write_vtk(["pressure", 'cell_volumes', 'cell_centers', 'phi'])
 
 #------------------------------------------------------------------------------#
 
