@@ -142,10 +142,13 @@ class StructuredTriangleGrid(TriangleGrid):
         thus Cartesian cells are unit squares
         """
         nx = np.asarray(nx)
+        assert nx.size == 2
+
         if physdims is None:
             physdims = nx
         else:
             physdims = np.asarray(physdims)
+            assert physdims.size == 2
 
         x = np.linspace(0, physdims[0], nx[0] + 1)
         y = np.linspace(0, physdims[1], nx[1] + 1)
@@ -318,10 +321,13 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
         thus Cartesian cells are unit squares
         """
         nx = np.asarray(nx)
+        assert nx.size == 3
+
         if physdims is None:
             physdims = nx
         else:
             physdims = np.asarray(physdims)
+            assert physdims.size == 3
 
         x = np.linspace(0, physdims[0], nx[0] + 1)
         y = np.linspace(0, physdims[1], nx[1] + 1)
