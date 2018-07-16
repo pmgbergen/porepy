@@ -10,6 +10,7 @@ import porepy as pp
 # Module level logger
 logger = logging.getLogger(__name__)
 
+
 def fracture_length_2d(pts, edges):
     """ Find the length of 2D fracture traces.
 
@@ -28,6 +29,7 @@ def fracture_length_2d(pts, edges):
 
     length = np.sqrt(np.sum(np.power(end - start, 2), axis=0))
     return length
+
 
 def uniquify_points(pts, edges, tol):
     """ Uniquify a set of points by merging almost coinciding coordinates.
@@ -65,8 +67,7 @@ def uniquify_points(pts, edges, tol):
     return p_unique, e_unique, point_edge
 
 
-def snap_fracture_set_2d(pts, edges, snap_tol, termination_tol=1e-2,
-                         max_iter=100):
+def snap_fracture_set_2d(pts, edges, snap_tol, termination_tol=1e-2, max_iter=100):
     """ Snap vertexes of a set of fracture lines embedded in 2D, so that small
     distances between lines and vertexes are removed.
 
@@ -112,17 +113,17 @@ def snap_fracture_set_2d(pts, edges, snap_tol, termination_tol=1e-2,
     while counter < max_iter:
         pn = pp.cg.snap_points_to_segments(pts, edges, tol=snap_tol)
         diff = np.max(np.abs(pn - pts))
-        logger.debug('Iteration ' + str(counter) + ', max difference' + str(diff))
+        logger.debug("Iteration " + str(counter) + ", max difference" + str(diff))
         pts = pn
         if diff < termination_tol:
             break
         counter += 1
 
     if counter < max_iter:
-        logger.info('Fracture snapping converged after ' + str(counter) + ' iterations')
-        logger.info('Maximum modification ' + str(np.max(np.abs(pts - pts_orig))))
+        logger.info("Fracture snapping converged after " + str(counter) + " iterations")
+        logger.info("Maximum modification " + str(np.max(np.abs(pts - pts_orig))))
         return pts, True
     else:
-        logger.warning('Fracture snapping failed to converge')
-        logger.warning('Residual: ' + str(diff))
+        logger.warning("Fracture snapping failed to converge")
+        logger.warning("Residual: " + str(diff))
         return pts, False

@@ -1,6 +1,6 @@
-'''
+"""
 Module for initializing, solve, and save a fracture deformation law.
-'''
+"""
 import numpy as np
 import scipy.sparse as sps
 import time
@@ -16,8 +16,8 @@ from porepy.viz.exporter import Exporter
 logger = logging.getLogger(__name__)
 
 
-class FrictionSlipModel():
-    '''
+class FrictionSlipModel:
+    """
     Class for solving a frictional slip problem: T_s <= mu * (T_n -p)
     
 
@@ -48,31 +48,31 @@ class FrictionSlipModel():
             folder kwargs['folder_name'] with file name
             kwargs['file_name'], default values are 'results' for the folder and
             physics for the file name.
-    '''
+    """
 
-    def __init__(self, gb, data, physics='slip', **kwargs):
+    def __init__(self, gb, data, physics="slip", **kwargs):
         self.physics = physics
         if isinstance(gb, GridBucket):
-            raise ValueError('FrictionSlip excpected a Grid, not a GridBucket')
+            raise ValueError("FrictionSlip excpected a Grid, not a GridBucket")
 
         self._gb = gb
         self._data = data
 
-        file_name = kwargs.get('file_name', physics)
-        folder_name = kwargs.get('folder_name', 'results')
+        file_name = kwargs.get("file_name", physics)
+        folder_name = kwargs.get("folder_name", "results")
 
         tic = time.time()
-        logger.info('Create exporter')
+        logger.info("Create exporter")
         self.exporter = Exporter(self._gb, file_name, folder_name)
-        logger.info('Elapsed time: ' + str(time.time() - tic))
+        logger.info("Elapsed time: " + str(time.time() - tic))
 
         self.x = np.zeros((3, gb.num_faces))
         self.d_n = np.zeros(gb.num_faces)
 
         self.is_slipping = np.zeros(gb.num_faces, dtype=np.bool)
 
-        self.slip_name = 'slip_distance'
-        self.aperture_name = 'aperture_change'
+        self.slip_name = "slip_distance"
+        self.aperture_name = "aperture_change"
 
     def solve(self):
         """ Linearize and solve corresponding system
@@ -100,36 +100,35 @@ class FrictionSlipModel():
             new_slip (bool) returns True if the slip vector was violated for
                      any faces
         """
-        assert self._gb.dim == 3, 'only support for 3D (yet)'
+        assert self._gb.dim == 3, "only support for 3D (yet)"
 
         frac_faces = self._gb.frac_pairs
         fi = frac_faces[1]
         fi_left = frac_faces[0]
         T_n, T_s, n, t = self.normal_shear_traction(fi)
-        
+
         assert np.all(T_s > -1e-10)
-        assert np.all(T_n < 0), 'Must have a normal force on the fracture'
+        assert np.all(T_n < 0), "Must have a normal force on the fracture"
 
         # we find the effective normal stress on the fracture face.
         # Here we need to multiply T_n with -1 as we want the absolute value,
         # and all the normal tractions should be negative.
-        sigma_n = -T_n - self._data['face_pressure'][fi]
-#        assert np.all(sigma_n > 0 )
+        sigma_n = -T_n - self._data["face_pressure"][fi]
+        #        assert np.all(sigma_n > 0 )
 
         # new slip are fracture faces slipping in this iteration
-        new_slip = T_s - \
-            self.mu(fi, self.is_slipping[fi]) * \
-            sigma_n > 1e-5 * self._data['rock'].MU
+        new_slip = (
+            T_s - self.mu(fi, self.is_slipping[fi]) * sigma_n
+            > 1e-5 * self._data["rock"].MU
+        )
 
         self.is_slipping[fi] = self.is_slipping[fi] | new_slip
 
         # calculate the shear stiffness
-        shear_stiffness = np.sqrt(
-            self._gb.face_areas[fi]) / (self._data['rock'].MU)
+        shear_stiffness = np.sqrt(self._gb.face_areas[fi]) / (self._data["rock"].MU)
 
         # calculate aproximated slip distance
-        excess_shear = np.abs(
-            T_s) - self.mu(fi, self.is_slipping[fi]) * sigma_n
+        excess_shear = np.abs(T_s) - self.mu(fi, self.is_slipping[fi]) * sigma_n
         slip_d = excess_shear * shear_stiffness * self.gamma() * new_slip
 
         # We also add the values to the left cells so that when we average the
@@ -141,7 +140,7 @@ class FrictionSlipModel():
         self.d_n[fi_left] += self.fracture_dilation(slip_d, fi_left)
 
         assert np.all(self.d_n[fi] > -1e-6)
-        
+
         self.x[:, fi] += slip_vec
         self.x[:, fi_left] -= slip_vec
 
@@ -174,32 +173,30 @@ class FrictionSlipModel():
             fi = faces
 
         assert self._gb.dim == 3
-        T = self._data['traction'].copy()
+        T = self._data["traction"].copy()
         T = T / self._gb.face_areas
 
         sgn = sign_of_faces(self._gb, fi)
-        #sgn_test = g.cell_faces[fi, ci]
+        # sgn_test = g.cell_faces[fi, ci]
 
         T = sgn * T[:, fi]
         normals = sgn * self._gb.face_normals[:, fi] / self._gb.face_areas[fi]
-        assert np.allclose(np.sqrt(np.sum(normals**2, axis=0)), 1)
+        assert np.allclose(np.sqrt(np.sum(normals ** 2, axis=0)), 1)
 
         T_n = np.sum(T * normals, axis=0)
         tangents = T - T_n * normals
-        T_s = np.sqrt(np.sum(tangents**2, axis=0))
-        tangents = tangents / np.sqrt(np.sum(tangents**2, axis=0))
-        assert np.allclose(np.sqrt(np.sum(tangents**2, axis=0)), 1)
+        T_s = np.sqrt(np.sum(tangents ** 2, axis=0))
+        tangents = tangents / np.sqrt(np.sum(tangents ** 2, axis=0))
+        assert np.allclose(np.sqrt(np.sum(tangents ** 2, axis=0)), 1)
         assert np.allclose(T, T_n * normals + T_s * tangents)
         # Sanity check:
         frac_faces = self._gb.frac_pairs
-        trac = self._data['traction'].copy()
+        trac = self._data["traction"].copy()
         fi_left = frac_faces[0]
         sgn_left = sign_of_faces(self._gb, fi_left)
         sgn_right = sign_of_faces(self._gb, fi)
-        T_left = sgn_left * \
-            trac.reshape((3, -1), order='F')[:, fi_left]
-        T_right = sgn_right * \
-            trac.reshape((3, -1), order='F')[:, fi]
+        T_left = sgn_left * trac.reshape((3, -1), order="F")[:, fi_left]
+        T_right = sgn_right * trac.reshape((3, -1), order="F")[:, fi]
         assert np.allclose(T_left, -T_right)
 
         # TESTING DONE
@@ -262,7 +259,7 @@ class FrictionSlipModel():
         """
         return self._data
 
-    def slip_distance(self, slip_name='slip_distance'):
+    def slip_distance(self, slip_name="slip_distance"):
         """
         Save the slip distance to the data dictionary. The slip distance
         will be saved as a (3, self.grid().num_faces) array
@@ -279,7 +276,7 @@ class FrictionSlipModel():
         self._data[self.slip_name] = self.x
         return self.x
 
-    def aperture_change(self, aperture_name='aperture_change'):
+    def aperture_change(self, aperture_name="aperture_change"):
         """
         Save the aperture change to the data dictionary. The aperture change
         will be saved as a (self.grid().num_faces) array
@@ -311,14 +308,13 @@ class FrictionSlipModel():
         if variables is None:
             self.exporter.write_vtk()
         else:
-            variables = {k: self._data[k] for k in variables
-                         if k in self._data}
+            variables = {k: self._data[k] for k in variables if k in self._data}
             self.exporter.write_vtk(variables)
 
 
-#------------------------------------------------------------------------------#
-class FrictionSlipDataAssigner():
-    '''
+# ------------------------------------------------------------------------------#
+class FrictionSlipDataAssigner:
+    """
     Class for setting data to a slip problem:
     T_s <= mu (T_n - p)
     This class creates a Parameter object and assigns the data to this object
@@ -344,9 +340,9 @@ class FrictionSlipDataAssigner():
     Utility functions:
         grid(): returns: the grid
 
-    '''
+    """
 
-    def __init__(self, g, data, physics='slip'):
+    def __init__(self, g, data, physics="slip"):
         self._g = g
         self._data = data
         self.physics = physics
@@ -359,10 +355,11 @@ class FrictionSlipDataAssigner():
         return self._g
 
     def _set_data(self):
-        if 'param' not in self._data:
-            self._data['param'] = Parameters(self.grid())
+        if "param" not in self._data:
+            self._data["param"] = Parameters(self.grid())
 
-#-----------------------------------------------------------------------------#
+
+# -----------------------------------------------------------------------------#
 
 
 def sign_of_faces(g, faces):
@@ -381,7 +378,7 @@ def sign_of_faces(g, faces):
     IC = np.argsort(IA)
 
     fi, _, sgn = sps.find(g.cell_faces[faces[IA], :])
-    assert fi.size == faces.size, 'sign of internal faces does not make sense'
+    assert fi.size == faces.size, "sign of internal faces does not make sense"
     I = np.argsort(fi)
     sgn = sgn[I]
     sgn = sgn[IC]

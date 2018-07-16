@@ -20,7 +20,7 @@ def define_grid(nx, ny):
     a 2d matrix domain.
     """
 
-    mesh_kwargs = {'physdims': np.array([1, 1])}
+    mesh_kwargs = {"physdims": np.array([1, 1])}
 
     f_1 = np.array([[0, 1], [0.5, 0.5]])
     fracs = [f_1]
@@ -33,13 +33,17 @@ def boundary_face_type(g):
     """
     Extract the faces where Dirichlet conditions are to be set.
     """
-    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+    bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
     bound_face_centers = g.face_centers[:, bound_faces]
     onev = np.ones(bound_face_centers.shape[1])
-    dirface1 = np.where(np.array(bound_face_centers[0, :] < 0.25 * onev)
-                        & np.array(bound_face_centers[1, :] < 1e-5 * onev))
-    dirface2 = np.where(np.array(bound_face_centers[0, :] > 0.75 * onev)
-                        & np.array(bound_face_centers[1, :] > (1 - 1e-5) * onev))
+    dirface1 = np.where(
+        np.array(bound_face_centers[0, :] < 0.25 * onev)
+        & np.array(bound_face_centers[1, :] < 1e-5 * onev)
+    )
+    dirface2 = np.where(
+        np.array(bound_face_centers[0, :] > 0.75 * onev)
+        & np.array(bound_face_centers[1, :] > (1 - 1e-5) * onev)
+    )
     return bound_faces, dirface1, dirface2
 
 
@@ -66,8 +70,7 @@ class FlowData(EllipticDataAssigner):
         return np.ones(self.grid().num_cells) * a
 
     def permeability(self):
-        kxx = np.ones(self.grid().num_cells) * \
-            np.power(1e4, 2 - self.grid().dim)
+        kxx = np.ones(self.grid().num_cells) * np.power(1e4, 2 - self.grid().dim)
         return tensor.SecondOrderTensor(3, kxx)
 
     def bc(self):
@@ -75,10 +78,10 @@ class FlowData(EllipticDataAssigner):
             return bc.BoundaryCondition(self.grid())
 
         bound_faces, dirface1, dirface2 = boundary_face_type(self.grid())
-        labels = np.array(['neu'] * bound_faces.size)
+        labels = np.array(["neu"] * bound_faces.size)
 
         dirfaces = np.concatenate((dirface1, dirface2))
-        labels[dirfaces] = 'dir'
+        labels[dirfaces] = "dir"
         return bc.BoundaryCondition(self.grid(), bound_faces, labels)
 
     def bc_val(self):
@@ -109,11 +112,12 @@ def anisotropy(gb, deg, yfactor):
             kxz = kf * k[0, 2]
             kyz = kf * k[1, 2]
             kzz = kf * k[2, 2]
-            perm = tensor.SecondOrderTensor(3, kxx=kxx, kyy=kyy,
-                                      kzz=kzz, kxy=kxy, kxz=kxz, kyz=kyz)
+            perm = tensor.SecondOrderTensor(
+                3, kxx=kxx, kyy=kyy, kzz=kzz, kxy=kxy, kxz=kxz, kyz=kyz
+            )
 
-            d['param'].set_tensor('flow', perm)
-            d['hybrid_correction'] = True
+            d["param"].set_tensor("flow", perm)
+            d["hybrid_correction"] = True
 
 
 class TransportData(ParabolicDataAssigner):
@@ -129,10 +133,10 @@ class TransportData(ParabolicDataAssigner):
             return bc.BoundaryCondition(self.grid())
 
         bound_faces, dirface1, dirface2 = boundary_face_type(self.grid())
-        labels = np.array(['neu'] * bound_faces.size)
+        labels = np.array(["neu"] * bound_faces.size)
 
         dirfaces = np.concatenate((dirface1, dirface2))
-        labels[dirfaces] = 'dir'
+        labels[dirfaces] = "dir"
         return bc.BoundaryCondition(self.grid(), bound_faces, labels)
 
     def bc_val(self, t):
@@ -166,7 +170,7 @@ class TransportSolver(ParabolicModel):
     def __init__(self, gb):
         self._g = gb
         ParabolicModel.__init__(self, gb, **kw)
-        self._solver.parameters['store_results'] = True
+        self._solver.parameters["store_results"] = True
 
     def grid(self):
         return self._g
@@ -193,36 +197,35 @@ class BothProblems(DarcyAndTransport):
         """
         Save quantities to be compared for error-evaluation.
         """
-        np.savetxt(folder + '/pressures' + appendix + '.csv',
-                   self.flow.x, delimiter=",")
+        np.savetxt(
+            folder + "/pressures" + appendix + ".csv", self.flow.x, delimiter=","
+        )
 
         tr = np.asarray(tracer)
-        tempvec = tr[:, ny**2 - 1]
-        np.savetxt(folder + '/tracer' + appendix + '.csv',
-                   tr[-1, :], delimiter=",")
+        tempvec = tr[:, ny ** 2 - 1]
+        np.savetxt(folder + "/tracer" + appendix + ".csv", tr[-1, :], delimiter=",")
 
-        np.savetxt(folder + '/tvec' + appendix + '.csv',
-                   tempvec, delimiter=",")
+        np.savetxt(folder + "/tvec" + appendix + ".csv", tempvec, delimiter=",")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ny = [4, 8, 16, 32]
     yfactor = [1, 2, 4, 6]
     deg = [10, 30, 60]
-    main_folder = 'results/'
+    main_folder = "results/"
     for n in ny:
         gb = define_grid(n, n)
-        assign_data(gb, FlowData, 'problem')
+        assign_data(gb, FlowData, "problem")
         edge_params(gb)
-        assign_data(gb, TransportData, 'transport_data')
+        assign_data(gb, TransportData, "transport_data")
         for y in yfactor:
             for d in deg:
-                appendix = '{}cells_{}degrees_{}factor'.format(n, d, y)
-                kw = {'folder_name': main_folder + appendix}
+                appendix = "{}cells_{}degrees_{}factor".format(n, d, y)
+                kw = {"folder_name": main_folder + appendix}
                 anisotropy(gb, d, y)
                 darcy_problem = DarcySolver(gb)
                 transport_problem = TransportSolver(gb)
                 Full = BothProblems(darcy_problem, transport_problem)
                 p, t = Full.solve()
-#                Full.save()
+                #                Full.save()
                 Full.save_text(t, n, main_folder, appendix)

@@ -24,13 +24,12 @@ def initAdArrays(variables):
 
     return ad_arrays
 
-class Ad_array():
 
+class Ad_array:
     def __init__(self, val=1.0, jac=0.0):
         self.val = val
         self.jac = jac
 
-    
     def __add__(self, other):
         b = _cast(other)
         c = Ad_array()
@@ -50,9 +49,8 @@ class Ad_array():
     def __rsub__(self, other):
         return -self.__sub__(other)
 
-    
     def __mul__(self, other):
-        if not isinstance(other, Ad_array): # other is scalar
+        if not isinstance(other, Ad_array):  # other is scalar
             val = self.val * other
             if isinstance(other, np.ndarray):
                 jac = self.diagvec_mul_jac(other)
@@ -66,32 +64,34 @@ class Ad_array():
     def __rmul__(self, other):
         if isinstance(other, Ad_array):
             # other is Ad_var, so should have called __mul__
-            raise RuntimeError('Somthing went horrible wrong')
+            raise RuntimeError("Somthing went horrible wrong")
         val = other * self.val
         jac = self._other_mul_jac(other)
         return Ad_array(val, jac)
 
     def __pow__(self, other):
         if not isinstance(other, Ad_array):
-            val = self.val**other
-            jac = self.diagvec_mul_jac(other * self.val**(other - 1))
+            val = self.val ** other
+            jac = self.diagvec_mul_jac(other * self.val ** (other - 1))
         else:
-            val = self.val**other.val
-            jac = self.diagvec_mul_jac(other.val * self.val**(other.val - 1)) \
-                + other.diagvec_mul_jac(self.val **other.val * np.log(self.val))
+            val = self.val ** other.val
+            jac = self.diagvec_mul_jac(
+                other.val * self.val ** (other.val - 1)
+            ) + other.diagvec_mul_jac(self.val ** other.val * np.log(self.val))
         return Ad_array(val, jac)
 
     def __rpow__(self, other):
         if isinstance(other, Ad_array):
-            raise ValueError('Somthing went horrible wrong, should' \
-                             'have called __pow__')
-        
+            raise ValueError(
+                "Somthing went horrible wrong, should" "have called __pow__"
+            )
+
         val = other ** self.val
-        jac = self.diagvec_mul_jac(other**self.val * np.log(other))
-        return Ad_array(val, jac)        
+        jac = self.diagvec_mul_jac(other ** self.val * np.log(other))
+        return Ad_array(val, jac)
 
     def __truediv__(self, other):
-        return self * other**-1
+        return self * other ** -1
 
     def __neg__(self):
         b = self.copy()
@@ -111,7 +111,6 @@ class Ad_array():
             b.jac = self.jac
         return b
 
-    
     def diagvec_mul_jac(self, a):
         try:
             A = sps.diags(a)
@@ -123,7 +122,6 @@ class Ad_array():
         else:
             return A * self.jac
 
-    
     def jac_mul_diagvec(self, a):
         try:
             A = sps.diags(a)
@@ -133,19 +131,21 @@ class Ad_array():
             return np.array([J * A for J in self.jac])
         else:
             return self.jac * A
-    
+
     def full_jac(self):
         return self.jac
-#        return sps.hstack(self.jac[:])
 
-    
+    #        return sps.hstack(self.jac[:])
+
     def _other_mul_jac(self, other):
         return other * self.jac
-#        return np.array([other * J for J in self.jac])
 
-    
+    #        return np.array([other * J for J in self.jac])
+
     def _jac_mul_other(self, other):
         return self.jac * other
+
+
 #        return np.array([J * other for J in self.jac])
 
 

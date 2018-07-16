@@ -19,15 +19,15 @@ class TestSource(unittest.TestCase):
         assert lhs.shape == (8, 8)
         assert lhs.nnz == 0
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()
 
 
 def setup_3d_grid():
     g = CartGrid([2, 2, 2], physdims=[1, 1, 1])
     g.compute_geometry()
-    d = {'param': Parameters(g)}
+    d = {"param": Parameters(g)}
     src = np.zeros(g.num_cells)
     src[4] = 1
-    d['param'].set_source('flow', src)
+    d["param"].set_source("flow", src)
     return g, d

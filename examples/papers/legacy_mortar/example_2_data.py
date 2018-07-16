@@ -9,31 +9,33 @@ from porepy.params.bc import BoundaryCondition
 from porepy.params import tensor
 import porepy as pp
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+
 
 def tol():
     return 1e-8
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def geo_file_name(h, prepared):
-    fn = 'geiger_3d_h_' + str(h)
+    fn = "geiger_3d_h_" + str(h)
     if prepared:
-        fn += '_prepared'
-    fn += '.geo'
+        fn += "_prepared"
+    fn += ".geo"
     return fn
 
 
 def create_gb(h, h_dfn=None):
-
     def str_of_nodes(n):
-        return str(n[0]) + '_' + str(n[1]) + '_' + str(n[2])
+        return str(n[0]) + "_" + str(n[1]) + "_" + str(n[2])
 
-    file_csv = 'geiger_3d.csv'
+    file_csv = "geiger_3d.csv"
     file_geo = geo_file_name(h, False)
-    print('Create grid')
+    print("Create grid")
     _, _, domain = importer.network_3d_from_csv(file_csv, tol=tol())
-    network = pickle.load(open('geiger_3d_network', 'rb'))
+    network = pickle.load(open("geiger_3d_network", "rb"))
     gb = importer.dfm_from_gmsh(file_geo, 3, network=network, tol=tol())
     gb.compute_geometry()
     print(gb)
@@ -63,11 +65,11 @@ def create_gb(h, h_dfn=None):
 
     """
 
-    gb.add_edge_props('edge_id')
+    gb.add_edge_props("edge_id")
     for e, d in gb.edges():
         g_l, g_h = gb.nodes_of_edge(e)
         if g_l.dim == 2:
-            d['edge_id'] = g_l.frac_num
+            d["edge_id"] = g_l.frac_num
         elif g_l.dim == 1:
             f1 = g_h.frac_num
             g_neigh = gb.node_neighbors(g_l, only_higher=True)
@@ -77,9 +79,16 @@ def create_gb(h, h_dfn=None):
                     f2 = g.frac_num
             min_coord = g_l.nodes.min(axis=1)
             max_coord = g_l.nodes.max(axis=1)
-            d['edge_id'] = str(f1) + '_' + str(f2) + '_'\
-                + str_of_nodes(min_coord) + '_' +  str_of_nodes(max_coord)
-            g_l.edge_id = d['edge_id']
+            d["edge_id"] = (
+                str(f1)
+                + "_"
+                + str(f2)
+                + "_"
+                + str_of_nodes(min_coord)
+                + "_"
+                + str_of_nodes(max_coord)
+            )
+            g_l.edge_id = d["edge_id"]
 
     for e, d in gb.edges():
         g_l, g_h = gb.nodes_of_edge(e)
@@ -87,13 +96,19 @@ def create_gb(h, h_dfn=None):
             min_coord = g_h.nodes.min(axis=1)
             max_coord = g_h.nodes.max(axis=1)
             coord = g_l.nodes
-            d['edge_id'] = str_of_nodes(min_coord) + '_'\
-                + str_of_nodes(max_coord) + '_' + str_of_nodes(coord)
-
+            d["edge_id"] = (
+                str_of_nodes(min_coord)
+                + "_"
+                + str_of_nodes(max_coord)
+                + "_"
+                + str_of_nodes(coord)
+            )
 
     return gb, domain
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def add_data(gb, domain, solver, case):
 
@@ -103,16 +118,16 @@ def add_data(gb, domain, solver, case):
         kf = 1
     else:
         kf = 1e-4
-    data = {'domain': domain, 'aperture': 1e-4, 'km': 1, 'kf': kf}
+    data = {"domain": domain, "aperture": 1e-4, "km": 1, "kf": kf}
 
     if_solver = solver == "vem" or solver == "rt0" or solver == "p1"
 
     # only when solving for the vem case
-#    if solver == "vem" or solver == "rt0":
-#        [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, FaceTag.FRACTURE) \
-#                                                             for g, _ in gb]
+    #    if solver == "vem" or solver == "rt0":
+    #        [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, FaceTag.FRACTURE) \
+    #                                                             for g, _ in gb]
 
-    gb.add_node_props(['param', 'is_tangential'])
+    gb.add_node_props(["param", "is_tangential"])
     for g, d in gb:
         param = Parameters(g)
 
@@ -134,19 +149,19 @@ def add_data(gb, domain, solver, case):
         param.set_tensor("flow", perm)
 
         aperture = np.power(data["aperture"], gb.dim_max() - g.dim)
-        param.set_aperture(aperture*np.ones(g.num_cells))
+        param.set_aperture(aperture * np.ones(g.num_cells))
 
         param.set_source("flow", np.zeros(g.num_cells))
 
-        bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if bound_faces.size == 0:
-            bc =  BoundaryCondition(g, np.empty(0), np.empty(0))
+            bc = BoundaryCondition(g, np.empty(0), np.empty(0))
             param.set_bc("flow", bc)
         else:
             p_press, b_in, b_out = b_pressure(g)
 
-            labels = np.array(['neu'] * bound_faces.size)
-            labels[p_press] = 'dir'
+            labels = np.array(["neu"] * bound_faces.size)
+            labels[p_press] = "dir"
 
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces[b_in]] = 1
@@ -155,26 +170,30 @@ def add_data(gb, domain, solver, case):
             param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("flow", bc_val)
 
-        d['is_tangential'] = True
-        d['param'] = param
+        d["is_tangential"] = True
+        d["param"] = param
 
-    gb.add_edge_props('kn')
+    gb.add_edge_props("kn")
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
-        mg = d['mortar_grid']
+        mg = d["mortar_grid"]
         check_P = mg.low_to_mortar_avg()
 
         kxx = data["kf"]
         kxx = 1e-8
-        gamma = np.power(check_P * gb.node_props(g_l, 'param').get_aperture(),
-                         1./(gb.dim_max() - g_l.dim))
-        d['kn'] = kxx * np.ones(mg.num_cells) / gamma
+        gamma = np.power(
+            check_P * gb.node_props(g_l, "param").get_aperture(),
+            1. / (gb.dim_max() - g_l.dim),
+        )
+        d["kn"] = kxx * np.ones(mg.num_cells) / gamma
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def b_pressure(g):
 
-    b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+    b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
     null = np.zeros(b_faces.size, dtype=np.bool)
     if b_faces.size == 0:
         return null, null, null
@@ -182,12 +201,15 @@ def b_pressure(g):
         b_face_centers = g.face_centers[:, b_faces]
 
         val = 0.4 - tol()
-        b_in = np.logical_and.reduce(tuple(b_face_centers[i, :] < val \
-                                                             for i in range(3)))
+        b_in = np.logical_and.reduce(
+            tuple(b_face_centers[i, :] < val for i in range(3))
+        )
 
         val = 0.8 + tol()
-        b_out = np.logical_and.reduce(tuple(b_face_centers[i, :] > val \
-                                                             for i in range(3)))
+        b_out = np.logical_and.reduce(
+            tuple(b_face_centers[i, :] > val for i in range(3))
+        )
         return np.logical_or(b_in, b_out), b_in, b_out
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#

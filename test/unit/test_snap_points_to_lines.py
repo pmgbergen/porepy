@@ -11,8 +11,8 @@ import unittest
 
 from porepy.utils import comp_geom as cg
 
-class TestPointSnapping(unittest.TestCase):
 
+class TestPointSnapping(unittest.TestCase):
     def test_single_point_snap(self):
         p = np.array([[0, 1], [0, 0]])
         e = np.array([[0], [1]])
@@ -67,6 +67,5 @@ class TestPointSnapping(unittest.TestCase):
         p_known = np.array([[0, 1, 0.5, 0.5], [0, 0, 0, 1], [0, 1, 0.5, 1]])
         assert np.allclose(p_new, p_known)
 
-
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()

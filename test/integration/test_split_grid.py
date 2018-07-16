@@ -34,8 +34,7 @@ class TestMeshing(unittest.TestCase):
             else:
                 f_p_shape_true = 0
             assert f_p.shape[1] == f_p_shape_true
-            assert np.allclose(
-                g.face_centers[:, f_p[0]], g.face_centers[:, f_p[1]])
+            assert np.allclose(g.face_centers[:, f_p[0]], g.face_centers[:, f_p[1]])
 
     def test_X_intersection_3d(self):
         """
@@ -68,8 +67,7 @@ class TestMeshing(unittest.TestCase):
             else:
                 f_p_shape_true = 0
             assert f_p.shape[1] == f_p_shape_true
-            assert np.allclose(
-                g.face_centers[:, f_p[0]], g.face_centers[:, f_p[1]])
+            assert np.allclose(g.face_centers[:, f_p[0]], g.face_centers[:, f_p[1]])
 
     def test_tripple_intersection_3d(self):
         """
@@ -101,7 +99,6 @@ class TestMeshing(unittest.TestCase):
             else:
                 f_p_shape_true = 0
             assert f_p.shape[1] == f_p_shape_true
-            assert np.allclose(
-                g.face_centers[:, f_p[0]], g.face_centers[:, f_p[1]])
+            assert np.allclose(g.face_centers[:, f_p[0]], g.face_centers[:, f_p[1]])
 
         assert np.allclose(g_0[0].nodes, np.array([1, 1, 1]))

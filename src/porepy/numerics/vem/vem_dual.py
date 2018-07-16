@@ -13,19 +13,20 @@ import porepy as pp
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+
 
 class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
-
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
         self.discr = DualVEM(self.physics)
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = DualCoupling(self.discr)
 
-        self.solver = pp.numerics.mixed_dim.coupler.Coupler(self.discr,
-                                                       self.coupling_conditions)
+        self.solver = pp.numerics.mixed_dim.coupler.Coupler(
+            self.discr, self.coupling_conditions
+        )
 
     def extract_u(self, gb, up, u):
         gb.add_node_props([u])
@@ -60,13 +61,13 @@ class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
         for e, data in gb.edges_props():
             g_l, g_h = gb.sorted_nodes_of_edge(e)
 
-            cells_l, faces_h, _ = sps.find(data['face_cells'])
+            cells_l, faces_h, _ = sps.find(data["face_cells"])
             faces, cells_h, sign = sps.find(g_h.cell_faces)
             ind = np.unique(faces, return_index=True)[1]
             sign = sign[ind][faces_h]
 
             conservation_l = gb.node_prop(g_l, conservation)
-            u_h = sign*gb.node_prop(g_h, u)[faces_h]
+            u_h = sign * gb.node_prop(g_h, u)[faces_h]
 
             for c_l, u_f in zip(cells_l, u_h):
                 conservation_l[c_l] -= u_f
@@ -74,11 +75,12 @@ class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
         for g, d in gb:
             logger.info(np.amax(np.abs(d[conservation])))
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 class DualVEMDFN(pp.numerics.mixed_dim.solver.SolverMixedDim):
-
-    def __init__(self, dim_max, physics='flow'):
+    def __init__(self, dim_max, physics="flow"):
         # NOTE: There is no flow along the intersections of the fractures.
 
         self.physics = physics
@@ -87,10 +89,10 @@ class DualVEMDFN(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
         self.coupling_conditions = DualCouplingDFN(self.__ndof__)
 
-        kwargs = {"discr_ndof": self.__ndof__,
-                  "discr_fct": self.__matrix_rhs__}
+        kwargs = {"discr_ndof": self.__ndof__, "discr_fct": self.__matrix_rhs__}
         self.solver = pp.numerics.mixed_dim.coupler.Coupler(
-                                    coupling=self.coupling_conditions, **kwargs)
+            coupling=self.coupling_conditions, **kwargs
+        )
         pp.numerics.mixed_dim.solver.SolverMixedDim.__init__(self)
 
     def extract_u(self, gb, up, u):
@@ -133,16 +135,18 @@ class DualVEMDFN(pp.numerics.mixed_dim.solver.SolverMixedDim):
             ndof = self.__ndof__(g)
             return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def ndof(self, g):
         """
@@ -168,7 +172,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         else:
             raise ValueError
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g, data):
         """
@@ -191,7 +195,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         M, bc_weight = self.matrix(g, data, bc_weight=True)
         return M, self.rhs(g, data, bc_weight)
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix(self, g, data, bc_weight=False):
         """
@@ -221,7 +225,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
-        param = data['param']
+        param = data["param"]
         k = param.get_tensor(self)
         bc = param.get_bc(self)
         a = param.get_aperture()
@@ -234,26 +238,25 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         # surface coordinates in 1d and 2d)
         c_centers, f_normals, f_centers, R, dim, _ = pp.cg.map_grid(g)
 
-        if not data.get('is_tangential', False):
-                # Rotate the permeability tensor and delete last dimension
-                if g.dim < 3:
-                    k = k.copy()
-                    k.rotate(R)
-                    remove_dim = np.where(np.logical_not(dim))[0]
-                    k.perm = np.delete(k.perm, (remove_dim), axis=0)
-                    k.perm = np.delete(k.perm, (remove_dim), axis=1)
+        if not data.get("is_tangential", False):
+            # Rotate the permeability tensor and delete last dimension
+            if g.dim < 3:
+                k = k.copy()
+                k.rotate(R)
+                remove_dim = np.where(np.logical_not(dim))[0]
+                k.perm = np.delete(k.perm, (remove_dim), axis=0)
+                k.perm = np.delete(k.perm, (remove_dim), axis=1)
 
         # In the virtual cell approach the cell diameters should involve the
         # apertures, however to keep consistency with the hybrid-dimensional
         # approach and with the related hypotheses we avoid.
         diams = g.cell_diameters()
         # Weight for the stabilization term
-        weight = np.power(diams, 2-g.dim)
+        weight = np.power(diams, 2 - g.dim)
 
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
-        size = np.sum(np.square(g.cell_faces.indptr[1:]-\
-                                g.cell_faces.indptr[:-1]))
+        size = np.sum(np.square(g.cell_faces.indptr[1:] - g.cell_faces.indptr[:-1]))
         I = np.empty(size, dtype=np.int)
         J = np.empty(size, dtype=np.int)
         dataIJ = np.empty(size)
@@ -261,18 +264,24 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
 
             # Compute the H_div-mass local matrix
-            A = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
-                              g.cell_volumes[c], f_centers[:, faces_loc],
-                              f_normals[:, faces_loc], sign[loc],
-                              diams[c], weight[c])[0]
+            A = self.massHdiv(
+                a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
+                c_centers[:, c],
+                g.cell_volumes[c],
+                f_centers[:, faces_loc],
+                f_normals[:, faces_loc],
+                sign[loc],
+                diams[c],
+                weight[c],
+            )[0]
 
             # Save values for Hdiv-mass local matrix in the global structure
             cols = np.tile(faces_loc, (faces_loc.size, 1))
-            loc_idx = slice(idx, idx+cols.size)
+            loc_idx = slice(idx, idx + cols.size)
             I[loc_idx] = cols.T.ravel()
             J[loc_idx] = cols.ravel()
             dataIJ[loc_idx] = A.ravel()
@@ -281,8 +290,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
-        M = sps.bmat([[mass, div.T],
-                      [ div,  None]], format='csr')
+        M = sps.bmat([[mass, div.T], [div, None]], format="csr")
 
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
@@ -299,7 +307,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
             # set in an efficient way the essential boundary conditions, by
             # clear the rows and put norm in the diagonal
             for row in is_neu:
-                M.data[M.indptr[row]:M.indptr[row+1]] = 0.
+                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
 
             d = M.diagonal()
             d[is_neu] = norm
@@ -309,7 +317,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
             return M, norm
         return M
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def rhs(self, g, data, bc_weight=1):
         """
@@ -326,7 +334,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        param = data['param']
+        param = data["param"]
         f = param.get_source(self)
 
         if g.dim == 0:
@@ -363,7 +371,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         return rhs
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def extract_u(self, g, up):
         """  Extract the velocity from a dual virtual element solution.
@@ -381,9 +389,9 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         """
         # pylint: disable=invalid-name
-        return up[:g.num_faces]
+        return up[: g.num_faces]
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def extract_p(self, g, up):
         """  Extract the pressure from a dual virtual element solution.
@@ -401,9 +409,9 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         """
         # pylint: disable=invalid-name
-        return up[g.num_faces:]
+        return up[g.num_faces :]
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def project_u(self, g, u, data):
         """  Project the velocity computed with a dual vem solver to obtain a
@@ -428,7 +436,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to self.massHdiv
         k = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
-        param = data['param']
+        param = data["param"]
         a = param.get_aperture()
 
         faces, cells, sign = sps.find(g.cell_faces)
@@ -445,13 +453,18 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         P0u = np.zeros((3, g.num_cells))
 
         for c in np.arange(g.num_cells):
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
 
-            Pi_s = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
-                                 g.cell_volumes[c], f_centers[:, faces_loc],
-                                 f_normals[:, faces_loc], sign[loc],
-                                 diams[c])[1]
+            Pi_s = self.massHdiv(
+                a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
+                c_centers[:, c],
+                g.cell_volumes[c],
+                f_centers[:, faces_loc],
+                f_normals[:, faces_loc],
+                sign[loc],
+                diams[c],
+            )[1]
 
             # extract the velocity for the current cell
             P0u[dim, c] = np.dot(Pi_s, u[faces_loc]) / diams[c] * a[c]
@@ -459,7 +472,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         return P0u
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def check_conservation(self, g, u):
         """
@@ -476,15 +489,14 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         conservation = np.empty(g.num_cells)
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
-            conservation[c] = np.sum(u[faces[loc]]*sign[loc])
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+            conservation[c] = np.sum(u[faces[loc]] * sign[loc])
 
         return conservation
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def massHdiv(self, K, c_center, c_volume, f_centers, normals, sign, diam,
-                 weight=0):
+    def massHdiv(self, K, c_center, c_volume, f_centers, normals, sign, diam, weight=0):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
@@ -515,21 +527,23 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         # pylint: disable=invalid-name
 
         dim = K.shape[0]
-        mono = np.array([lambda pt, i=i: (pt[i] - c_center[i])/diam \
-                                                       for i in np.arange(dim)])
-        grad = np.eye(dim)/diam
+        mono = np.array(
+            [lambda pt, i=i: (pt[i] - c_center[i]) / diam for i in np.arange(dim)]
+        )
+        grad = np.eye(dim) / diam
 
         # local matrix D
         D = np.array([np.dot(normals.T, np.dot(K, g)) for g in grad]).T
 
         # local matrix G
-        G = np.dot(grad, np.dot(K, grad.T))*c_volume
+        G = np.dot(grad, np.dot(K, grad.T)) * c_volume
 
         # local matrix F
-        F = np.array([s*m(f) for m in mono \
-                      for s, f in zip(sign, f_centers.T)]).reshape((dim, -1))
+        F = np.array(
+            [s * m(f) for m in mono for s, f in zip(sign, f_centers.T)]
+        ).reshape((dim, -1))
 
-        assert np.allclose(G, np.dot(F, D)), "G "+str(G)+" F*D "+str(np.dot(F,D))
+        assert np.allclose(G, np.dot(F, D)), "G " + str(G) + " F*D " + str(np.dot(F, D))
 
         # local matrix Pi_s
         Pi_s = np.linalg.solve(G, F)
@@ -541,16 +555,18 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         return A, Pi_s
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def __init__(self, discr):
         self.discr_ndof = discr.ndof
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
         """
@@ -576,7 +592,7 @@ class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        g_m = data_edge['mortar_grid']
+        g_m = data_edge["mortar_grid"]
         dof, cc = self.create_block_matrix([g_h, g_l, g_m])
 
         # Recover the information for the grid-grid mapping
@@ -590,7 +606,7 @@ class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
         shape = (g_h.num_cells, g_m.num_cells)
         hat_E_int = g_m.mortar_to_high_int()
-        hat_E_int = sps.bmat([[U*hat_E_int], [sps.csr_matrix(shape)]])
+        hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
 
         hat_P_avg = g_m.high_to_mortar_avg()
         check_P_avg = g_m.low_to_mortar_avg()
@@ -600,16 +616,16 @@ class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         cc[2, 2] = hat_E_int.T * matrix[0, 0] * hat_E_int
 
         # Mortar mass matrix
-        inv_M = sps.diags(1./g_m.cell_volumes)
+        inv_M = sps.diags(1. / g_m.cell_volumes)
 
         # Normal permeability and aperture of the intersection
-        inv_k = 1./(2.*data_edge['kn'])
-        aperture_h = data_h['param'].get_aperture()
+        inv_k = 1. / (2. * data_edge["kn"])
+        aperture_h = data_h["param"].get_aperture()
 
         # Inverse of the normal permability matrix
-        Eta = sps.diags(np.divide(inv_k, hat_P_avg*aperture_h[cells_h]))
+        Eta = sps.diags(np.divide(inv_k, hat_P_avg * aperture_h[cells_h]))
 
-        matrix[2, 2] += inv_M*Eta
+        matrix[2, 2] += inv_M * Eta
 
         A = check_P_avg.T
         shape = (g_l.num_faces, A.shape[1])
@@ -621,10 +637,10 @@ class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         norm = np.linalg.norm(matrix[0, 0].diagonal(), np.inf)
 
         for row in dof:
-            idx = slice(matrix[0, 0].indptr[row], matrix[0, 0].indptr[row+1])
+            idx = slice(matrix[0, 0].indptr[row], matrix[0, 0].indptr[row + 1])
             matrix[0, 0].data[idx] = 0.
 
-            idx = slice(matrix[0, 2].indptr[row], matrix[0, 2].indptr[row+1])
+            idx = slice(matrix[0, 2].indptr[row], matrix[0, 2].indptr[row + 1])
             matrix[0, 2].data[idx] = 0.
 
         d = matrix[0, 0].diagonal()
@@ -633,17 +649,19 @@ class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
         return matrix
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 class DualCouplingDFN(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def __init__(self, discr_ndof):
 
         self.discr_ndof = discr_ndof
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
         """
@@ -671,7 +689,7 @@ class DualCouplingDFN(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         dof, cc = self.create_block_matrix(g_h, g_l)
 
         # Recover the information for the grid-grid mapping
-        cells_l, faces_h, _ = sps.find(data_edge['face_cells'])
+        cells_l, faces_h, _ = sps.find(data_edge["face_cells"])
         faces, cells_h, sign = sps.find(g_h.cell_faces)
         ind = np.unique(faces, return_index=True)[1]
         sign = sign[ind][faces_h]
@@ -683,4 +701,5 @@ class DualCouplingDFN(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
         return cc
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
