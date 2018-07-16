@@ -59,7 +59,7 @@ def add_data(gb, domain, kf):
     for e, d in gb.edges():
         gn = gb.nodes_of_edge(e)
         aperture = np.power(a, gb.dim_max() - gn[0].dim)
-        d['kn'] = np.ones(gn[0].num_cells) * kf / aperture
+        d['kn'] = np.ones(d['mortar_grid'].num_cells) * kf / aperture
 
 #------------------------------------------------------------------------------#
 
@@ -106,7 +106,7 @@ def main(kf, description, is_coarse=False, if_export=False):
     solver_flow = pp.DualVEMMixedDim('flow')
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = pp.DualSourceMixedDim('flow')
+    solver_source = pp.DualSourceMixedDim('flow', coupling=[None])
 
     A_source, b_source = solver_source.matrix_rhs(gb)
 

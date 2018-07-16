@@ -16,7 +16,7 @@ viz: Visualization; paraview, matplotlib.
 
 """
 
-__version__ = '0.3.1'
+__version__ = '0.4'
 
 #------------------------------------
 # Simplified namespaces. The rue of thumb is that classes and modules that a
@@ -27,7 +27,7 @@ __all__ = []
 
 # Numerics
 # Control volume, elliptic
-from porepy.numerics.fv.mpsa import Mpsa
+from porepy.numerics.fv.mpsa import Mpsa, FracturedMpsa
 from porepy.numerics.fv.tpfa import Tpfa, TpfaMixedDim
 from porepy.numerics.fv.mpfa import Mpfa, MpfaMixedDim
 from porepy.numerics.fv.biot import Biot
@@ -45,7 +45,7 @@ from porepy.numerics.fem.rt0 import RT0, RT0MixedDim
 
 
 # Transport related
-from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim
+from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim, UpwindCoupling
 from porepy.numerics.fv.mass_matrix import MassMatrix, MassMatrixMixedDim
 from porepy.numerics.fv.mass_matrix import InvMassMatrix, InvMassMatrixMixedDim
 

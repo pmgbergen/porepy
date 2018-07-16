@@ -12,7 +12,7 @@ def sign_of_boundary_faces(g):
     Returns:
     sgn: (ndarray) the sign of the faces
     """
-    faces = g.get_boundary_faces()
+    faces = g.get_all_boundary_faces()
 
     IA = np.argsort(faces)
     IC = np.argsort(IA)

@@ -181,14 +181,14 @@ def main(multi_point, if_export=False, left_to_right=True):
 #-----------------------------------------------------------------------------#
 
 
-def test_fv_top_to_bottom():
+def atest_fv_top_to_bottom():
     main(multi_point=False, if_export=False, left_to_right=False)
     main(multi_point=True, if_export=False, left_to_right=False)
 
 #-----------------------------------------------------------------------------#
 
 
-def test_fv_left_to_right():
+def atest_fv_left_to_right():
     main(multi_point=False, if_export=False, left_to_right=True)
     main(multi_point=True, if_export=False, left_to_right=True)
 

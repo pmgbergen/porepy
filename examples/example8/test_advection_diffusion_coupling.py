@@ -69,7 +69,7 @@ def add_data_darcy(gb, domain, tol):
     for e, d in gb.edges():
         gn = gb.nodes_of_edge(e)
         aperture = np.power(1e-2, gb.dim_max() - gn[0].dim)
-        d['kn'] = np.ones(gn[0].num_cells) / aperture * kf
+        d['kn'] = np.ones(d['mortar_grid'].num_cells) / aperture * kf
 
 #------------------------------------------------------------------------------#
 
@@ -142,7 +142,7 @@ add_data_darcy(gb, domain, tol)
 darcy = vem_dual.DualVEMMixedDim('flow')
 A_flow, b_flow = darcy.matrix_rhs(gb)
 
-solver_source = vem_source.DualSourceMixedDim('flow')
+solver_source = vem_source.DualSourceMixedDim('flow', coupling=[None])
 A_source, b_source = solver_source.matrix_rhs(gb)
 
 up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
