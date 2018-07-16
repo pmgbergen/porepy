@@ -110,7 +110,8 @@ class GridBucket(object):
             node_indexes = [self.node_props(g, 'node_number') for g in e]
             if node_indexes[0] < node_indexes[1]:
                 return e[0], e[1]
-            return e[1], e[0]
+            else:
+                return e[1], e[0]
 
         elif e[0].dim < e[1].dim:
             return e[0], e[1]
@@ -709,17 +710,11 @@ class GridBucket(object):
                 n['node_number'] = counter
                 counter += 1
 
-# EK: The following lines seems important, but became homeless during merge
-        self.add_edge_props(['node_number', 'edge_number'])
+        self.add_edge_props('edge_number')
         counter = 0
         for e, d in self.edges():
-            gs = self.nodes_of_edge(e)
-            d['node_number'] = np.asarray([self.node_props(g, 'node_number')
-                                            for g in gs])
             d['edge_number'] = counter
             counter += 1
-
-
 
 
     def update_node_ordering(self, removed_number):

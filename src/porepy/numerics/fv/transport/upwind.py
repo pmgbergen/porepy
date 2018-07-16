@@ -423,7 +423,7 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
 #------------------------------------------------------------------------------#
 
-    def cfl(self, g_h, g_l, data_h, data_l, data_edge, d_name='discharge'):
+    def cfl(self, g_h, g_l, data_h, data_l, data_edge, d_name='mortar_solution'):
         """
         Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
@@ -446,12 +446,20 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         Return:
             deltaT: time step according to CFL condition.
 
+        Note: the design of this function has not been updated according
+        to the mortar structure. Instead, mg.high_to_mortar_int.nonzero()[1]
+        is used to map the 'mortar_solution' (one flux for each mortar dof) to
+        the old discharge (one flux for each g_h face).
+
         """
         # Retrieve the discharge, which is mandatory
-        discharge = data_edge[d_name]
+
         aperture_h = data_h['param'].get_aperture()
         aperture_l = data_l['param'].get_aperture()
         phi_l = data_l['param'].get_porosity()
+        mg = data_edge['mortar_grid']
+        discharge = np.zeros(g_h.num_faces)
+        discharge[mg.high_to_mortar_int.nonzero()[1]] = data_edge[d_name]
         if g_h.dim == g_l.dim:
             # More or less same as below, except we have cell_cells in the place
             # of face_cells (see grid_bucket.duplicate_without_dimension).
@@ -494,10 +502,11 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         # Compute discrete distance cell to face centers for the lower
         # dimensional grid
         dist = 0.5 * np.divide(aperture_l, aperture_h)
-        # Since discharge is multiplied by the aperture, we get rid of it!!!!
-        discharge = np.divide(discharge[faces_h],
+        # Since discharge is multiplied by the aperture wighted face areas, we
+        # divide through that quantity to get velocities in [length/time]
+        velocity = np.divide(discharge[faces_h],
                               g_h.face_areas[faces_h] * aperture_h)
-        # deltaT is deltaX/discharge with coefficient
-        return np.amin(np.abs(np.divide(dist, discharge)) * phi_l)
+        # deltaT is deltaX/velocity with coefficient
+        return np.amin(np.abs(np.divide(dist, velocity)) * phi_l)
 
 #------------------------------------------------------------------------------#

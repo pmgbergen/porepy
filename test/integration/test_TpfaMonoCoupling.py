@@ -3,11 +3,7 @@ import numpy as np
 import scipy.sparse as sps
 from scipy.spatial.distance import cdist
 
-from porepy.grids import structured, mortar_grid, grid_bucket
-from porepy.numerics.fv import tpfa, fvutils, source
-from porepy.params.data import Parameters
-from porepy.params.bc import BoundaryCondition
-from porepy.fracs import meshing
+import porepy as pp
 
 class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
@@ -27,17 +23,17 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         gb = self.generate_grids(n, xmax, ymax, split)
         tol = 1e-6
         for g, d in gb:
-            d['param'] = Parameters(g)
+            d['param'] = pp.Parameters(g)
             left = g.face_centers[0] < tol
             right = g.face_centers[0] > xmax - tol
             dir_bc = left + right
-            d['param'].set_bc('flow', BoundaryCondition(g, dir_bc, 'dir'))
+            d['param'].set_bc('flow', pp.BoundaryCondition(g, dir_bc, 'dir'))
             bc_val = np.zeros(g.num_faces)
             bc_val[left] = xmax
             bc_val[right] = 0
             d['param'].set_bc_val('flow', bc_val)
 
-        flow_disc = tpfa.TpfaMixedDim()
+        flow_disc = pp.TpfaMixedDim()
 
         A, b = flow_disc.matrix_rhs(gb)
 
@@ -63,32 +59,46 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             assert np.allclose(d_e['mortar_solution']/right_area, 1)
 
     def generate_grids(self, n, xmax, ymax, split):
-        g1 = structured.CartGrid([split * n, ymax * n], physdims=[split, ymax])
-        g2 = structured.CartGrid([(xmax-split) * n, ymax * n], physdims=[xmax-split, ymax])
+        g1 = pp.CartGrid([split * n, ymax * n], physdims=[split, ymax])
+        g2 = pp.CartGrid([(xmax-split) * n, ymax * n], physdims=[xmax-split, ymax])
         g2.nodes[0] += split
 
         g1.compute_geometry()
         g2.compute_geometry()
         grids = [g2, g1]
 
-        gb = grid_bucket.GridBucket()
+        gb = pp.GridBucket()
 
         [gb.add_nodes(g) for g in grids]
+        [g2, g1] = gb.grids_of_dimension(2)
 
         tol = 1e-6
-        left_faces = np.argwhere(g1.face_centers[0] > split - tol).ravel()
-        right_faces = np.argwhere(g2.face_centers[0] < split + tol).ravel()
+        if np.any(g2.cell_centers[0] > split) :
+            right_grid = g2
+            left_grid = g1
+        else:
+            right_grid = g1
+            left_grid = g2
+
+        gb.set_node_prop(left_grid, 'node_number', 1)
+        gb.set_node_prop(right_grid, 'node_number', 0)
+        left_faces = np.argwhere(left_grid.face_centers[0] > split - tol).ravel()
+        right_faces = np.argwhere(right_grid.face_centers[0] < split + tol).ravel()
         val = np.ones(left_faces.size, dtype=np.bool)
-        shape = [g2.num_faces, g1.num_faces]
+        shape = [right_grid.num_faces, left_grid.num_faces]
 
         face_faces = sps.coo_matrix((val, (right_faces, left_faces)), shape=shape)
 
-        gb.add_edge((g1, g2), face_faces)
-        side_g = {mortar_grid.LEFT_SIDE: g1.copy(),
-                  mortar_grid.RIGHT_SIDE: g2.copy()}
+        gb.add_edge((right_grid, left_grid), face_faces)
+
+        mg = pp.TensorGrid(np.array([split] * ((n+1) * ymax)))
+        mg.nodes[1] = np.linspace(0, ymax, (n+1) * ymax)
+        mg.compute_geometry()
+        side_g = {pp.grids.mortar_grid.LEFT_SIDE: mg}
+
         d_e = gb.edge_props((g1, g2))
-        d_e['mortar_grid'] = mortar_grid.BoundaryMortar(g1.dim -1, side_g, face_faces)
-        gb.assign_node_ordering()
+        d_e['mortar_grid'] = pp.BoundaryMortar(g1.dim -1, side_g, face_faces)
+        d_e['edge_number'] = 0
 
         return gb
 
@@ -132,11 +142,11 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             return p, np.vstack([px, py]), pxx + pyy
 
         for g, d in gb:
-            d['param'] = Parameters(g)
+            d['param'] = pp.Parameters(g)
             left = g.face_centers[0] < tol
             right = g.face_centers[0] > xmax - tol
             dir_bc = left + right
-            d['param'].set_bc('flow', BoundaryCondition(g, dir_bc, 'dir'))
+            d['param'].set_bc('flow', pp.BoundaryCondition(g, dir_bc, 'dir'))
             bc_val = np.zeros(g.num_faces)
             bc_val[dir_bc], _, _ = analytic_p(g.face_centers[:, dir_bc])
 
@@ -186,14 +196,14 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             return p, np.vstack([px, py]), pxx + pyy
 
         for g, d in gb:
-            d['param'] = Parameters(g)
+            d['param'] = pp.Parameters(g)
             left = g.face_centers[0] < tol
             right = g.face_centers[0] > xmax - tol
             dir_bc = left + right
-            d['param'].set_bc('flow', BoundaryCondition(g, dir_bc, 'dir'))
+            d['param'].set_bc('flow', pp.BoundaryCondition(g, dir_bc, 'dir'))
             bc_val = np.zeros(g.num_faces)
             bc_val[dir_bc], _, _ = analytic_p(g.face_centers[:, dir_bc])
-            
+
             d['param'].set_bc_val('flow', bc_val)
             aperture = 1e-6**(2 - g.dim)
             d['param'].set_aperture(aperture)
@@ -209,13 +219,12 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         self.solve(gb, analytic_p)
 
     def solve(self, gb, analytic_p):
-        flow_disc = tpfa.TpfaMixedDim()
-        source_disc = source.IntegralMixedDim()
+        flow_disc = pp.TpfaMixedDim()
+        source_disc = pp.IntegralMixedDim(coupling=[None])
 
         _, src = source_disc.matrix_rhs(gb)
 
         A, b = flow_disc.matrix_rhs(gb)
-
         x = sps.linalg.spsolve(A, b + src)
 
         flow_disc.split(gb, 'pressure', x)
@@ -248,11 +257,11 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
             assert np.max(np.abs(d_e['mortar_solution'] - left_flux)) <5e-2
             assert np.max(np.abs(d_e['mortar_solution'] - right_flux)) < 5e-2
-    
+
     def generate_2d_grid(self, n, xmax, ymax):
-        g1 = structured.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])
+        g1 = pp.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])
         g1.compute_geometry()
-        gb = grid_bucket.GridBucket()
+        gb = pp.GridBucket()
 
         gb.add_nodes(g1)
 
@@ -265,9 +274,15 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         face_faces = sps.coo_matrix((val, (right_faces, left_faces)), shape=shape)
 
         gb.add_edge((g1, g1), face_faces)
-        side_g = {mortar_grid.LEFT_SIDE: g1.copy()}
+
+        mg = pp.TensorGrid(np.linspace(0, xmax, n+1))
+        mg.nodes[1] = ymax
+
+        mg.compute_geometry()
+        side_g = {pp.grids.mortar_grid.LEFT_SIDE: mg}
+
         d_e = gb.edge_props((g1, g1))
-        d_e['mortar_grid'] = mortar_grid.BoundaryMortar(g1.dim -1, side_g, face_faces)
+        d_e['mortar_grid'] = pp.BoundaryMortar(g1.dim -1, side_g, face_faces)
         gb.assign_node_ordering()
         return gb
 
@@ -278,7 +293,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         y = [ymax/2, ymax]
         fracs.append(np.array([x, y]))
 
-        gb = meshing.cart_grid(fracs, [xmax * n, ymax * n], physdims=[xmax, ymax])
+        gb = pp.meshing.cart_grid(fracs, [xmax * n, ymax * n], physdims=[xmax, ymax])
 
         tol = 1e-6
         for g, d in gb:
@@ -311,21 +326,18 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                     dj = gb.node_props(gj)
 
                     if di['node_number'] < dj['node_number']:
-                        gr = gi.copy()
-                        gl = gj.copy()
+                        # gj is left
+                        g_m, _, _ = pp.partition.extract_subgrid(gj, gj.right,
+                                                                 faces=True)
                         face_faces = face_faces.T
                     else:
-                        gr = gj.copy()
-                        gl = gi.copy()
+                        # gi is left
+                        g_m, _, _ = pp.partition.extract_subgrid(gi, gi.left,
+                                                                 faces=True)
 
-                    if i != j:
-                        side_g = {mortar_grid.LEFT_SIDE:  gl.copy(),
-                                  mortar_grid.RIGHT_SIDE:  gr.copy()}
-                    else:
-                        side_g = {mortar_grid.LEFT_SIDE:  gi.copy()}
+                    side_g = {pp.grids.mortar_grid.LEFT_SIDE:  g_m}
+                    d_e['mortar_grid'] = pp.BoundaryMortar(gi.dim - 1, side_g, face_faces)
 
-                    d_e['mortar_grid'] = \
-                        mortar_grid.BoundaryMortar(gi.dim - 1, side_g, face_faces)
         gb.compute_geometry() # basically reset g.face_centers[,right]
         gb.assign_node_ordering()
 
@@ -341,7 +353,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         right = gj.right[left_right_faces[:, 1]]
 
         assert left.size == np.unique(left).size
-        assert right.size == np.unique(right).size    
+        assert right.size == np.unique(right).size
 
         val = np.ones(left.shape, dtype=bool)
         shape = [gj.num_faces, gi.num_faces]
