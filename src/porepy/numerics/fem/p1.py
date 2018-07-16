@@ -261,27 +261,6 @@ class P1(Solver):
 
 #------------------------------------------------------------------------------#
 
-    def massH1(self, c_volume, dim):
-        """ Compute the local mass H1 matrix using the P1 Lagrangean approach.
-
-        Parameters
-        ----------
-        c_volume : scalar
-            Cell volume.
-
-        Return
-        ------
-        out: ndarray (num_faces_of_cell, num_faces_of_cell)
-            Local mass Hdiv matrix.
-        """
-        # Allow short variable names in this function
-        # pylint: disable=invalid-name
-
-        M = np.ones((dim+1, dim+1))+np.identity(dim+1)
-        return c_volume*M/((dim+1)*(dim+2))
-
-#------------------------------------------------------------------------------#
-
 class P1Coupling(AbstractCoupling):
 
 #------------------------------------------------------------------------------#
