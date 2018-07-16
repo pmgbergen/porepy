@@ -6,27 +6,29 @@ import porepy as pp
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+
 
 class P1MassMatrixMixedDim(SolverMixedDim):
-
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
         self.discr = P1MassMatrix(self.physics)
 
         self.solver = Coupler(self.discr)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 class P1MassMatrix(Solver):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def ndof(self, g):
         """
@@ -44,7 +46,7 @@ class P1MassMatrix(Solver):
         """
         return g.num_nodes
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g, data):
         """
@@ -72,7 +74,7 @@ class P1MassMatrix(Solver):
         """
         return self.matrix(g, data), self.rhs(g, data, bc_weight)
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix(self, g, data):
         """
@@ -102,18 +104,18 @@ class P1MassMatrix(Solver):
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        param = data['param']
+        param = data["param"]
         phi = param.get_porosity()
         aperture = param.get_aperture()
-        coeff = phi / data.get('deltaT', 1.) * aperture
+        coeff = phi / data.get("deltaT", 1.) * aperture
 
-        #TODO the coeff is not used since the default values are cell based.
+        # TODO the coeff is not used since the default values are cell based.
         bc = param.get_bc(self)
         assert isinstance(bc, pp.BoundaryConditionNode)
 
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
-            return coeff*sps.csr_matrix((self.ndof(g), self.ndof(g)))
+            return coeff * sps.csr_matrix((self.ndof(g), self.ndof(g)))
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
@@ -121,7 +123,7 @@ class P1MassMatrix(Solver):
 
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
-        size = np.power(g.dim+1, 2)*g.num_cells
+        size = np.power(g.dim + 1, 2) * g.num_cells
         I = np.empty(size, dtype=np.int)
         J = np.empty(size, dtype=np.int)
         dataIJ = np.empty(size)
@@ -132,16 +134,16 @@ class P1MassMatrix(Solver):
 
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its nodes
-            loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
+            loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c + 1])
             nodes_loc = nodes[loc]
 
             # Compute the mass-H1 local matrix
-            #A = coeff[nodes_loc]*self.massH1(g.cell_volumes[c], g.dim)
+            # A = coeff[nodes_loc]*self.massH1(g.cell_volumes[c], g.dim)
             A = self.massH1(g.cell_volumes[c], g.dim)
 
             # Save values for stiff-H1 local matrix in the global structure
             cols = np.tile(nodes_loc, (nodes_loc.size, 1))
-            loc_idx = slice(idx, idx+cols.size)
+            loc_idx = slice(idx, idx + cols.size)
             I[loc_idx] = cols.T.ravel()
             J[loc_idx] = cols.ravel()
             dataIJ[loc_idx] = A.ravel()
@@ -156,11 +158,11 @@ class P1MassMatrix(Solver):
             # set in an efficient way the essential boundary conditions, by
             # clear the rows and put norm in the diagonal
             for row in dir_nodes:
-                M.data[M.indptr[row]:M.indptr[row+1]] = 0.
+                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
 
         return M
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def rhs(self, g, data):
         """
@@ -173,7 +175,7 @@ class P1MassMatrix(Solver):
 
         return np.zeros(self.ndof())
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def massH1(self, c_volume, dim):
         """ Compute the local mass H1 matrix using the P1 Lagrangean approach.
@@ -191,7 +193,8 @@ class P1MassMatrix(Solver):
         # Allow short variable names in this function
         # pylint: disable=invalid-name
 
-        M = np.ones((dim+1, dim+1))+np.identity(dim+1)
-        return c_volume*M/((dim+1)*(dim+2))
+        M = np.ones((dim + 1, dim + 1)) + np.identity(dim + 1)
+        return c_volume * M / ((dim + 1) * (dim + 2))
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#

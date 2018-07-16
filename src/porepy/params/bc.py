@@ -7,6 +7,7 @@ Created on Mon Feb 29 14:30:22 2016
 import numpy as np
 import warnings
 
+
 class BoundaryCondition(object):
 
     """ Class to store information on boundary conditions.
@@ -53,13 +54,13 @@ class BoundaryCondition(object):
         self.num_faces = g.num_faces
         self.dim = g.dim - 1
 
-        self.bc_type = 'scalar'
+        self.bc_type = "scalar"
 
         # Find boundary faces
         bf = g.get_all_boundary_faces()
 
         # Keep track of internal boundaries
-        self.is_internal = g.tags['fracture_faces']
+        self.is_internal = g.tags["fracture_faces"]
 
         self.is_neu = np.zeros(self.num_faces, dtype=bool)
         self.is_dir = np.zeros(self.num_faces, dtype=bool)
@@ -72,31 +73,39 @@ class BoundaryCondition(object):
             assert cond is not None
             if faces.dtype == bool:
                 if faces.size != self.num_faces:
-                    raise ValueError('''When giving logical faces, the size of
-                                        array must match number of faces''')
+                    raise ValueError(
+                        """When giving logical faces, the size of
+                                        array must match number of faces"""
+                    )
                 faces = np.argwhere(faces)
             if not np.all(np.in1d(faces, bf)):
-                raise ValueError('Give boundary condition only on the \
-                                 boundary')
-            domain_boundary_and_tips = np.argwhere(np.logical_or(
-                g.tags['domain_boundary_faces'], g.tags['tip_faces']))
+                raise ValueError(
+                    "Give boundary condition only on the \
+                                 boundary"
+                )
+            domain_boundary_and_tips = np.argwhere(
+                np.logical_or(g.tags["domain_boundary_faces"], g.tags["tip_faces"])
+            )
             if not np.all(np.in1d(faces, domain_boundary_and_tips)):
-                warnings.warn('You are now specifying conditions on internal \
-                              boundaries. Be very careful!')
+                warnings.warn(
+                    "You are now specifying conditions on internal \
+                              boundaries. Be very careful!"
+                )
             if isinstance(cond, str):
                 cond = [cond] * faces.size
             if faces.size != len(cond):
-                raise ValueError('One BC per face')
+                raise ValueError("One BC per face")
 
             for l in np.arange(faces.size):
                 s = cond[l]
-                if s.lower() == 'neu':
+                if s.lower() == "neu":
                     pass  # Neumann is already default
-                elif s.lower() == 'dir':
+                elif s.lower() == "dir":
                     self.is_dir[faces[l]] = True
                     self.is_neu[faces[l]] = False
                 else:
-                    raise ValueError('Boundary should be Dirichlet or Neumann')
+                    raise ValueError("Boundary should be Dirichlet or Neumann")
+
 
 class BoundaryConditionNode(object):
 
@@ -137,13 +146,13 @@ class BoundaryConditionNode(object):
         self.num_nodes = g.num_nodes
         self.dim = g.dim - 1
 
-        self.bc_type = 'scalar'
+        self.bc_type = "scalar"
 
         # Find boundary nodes
         bn = g.get_all_boundary_nodes()
 
         # Keep track of internal boundaries
-        self.is_internal = g.tags['fracture_nodes']
+        self.is_internal = g.tags["fracture_nodes"]
 
         self.is_neu = np.zeros(self.num_nodes, dtype=np.bool)
         self.is_dir = np.zeros(self.num_nodes, dtype=np.bool)
@@ -156,31 +165,39 @@ class BoundaryConditionNode(object):
             assert cond is not None
             if nodes.dtype == bool:
                 if nodes.size != self.num_nodes:
-                    raise ValueError('''When giving logical nodes, the size of
-                                        array must match number of nodes''')
+                    raise ValueError(
+                        """When giving logical nodes, the size of
+                                        array must match number of nodes"""
+                    )
                 nodes = np.argwhere(nodes)
             if not np.all(np.in1d(nodes, bn)):
-                raise ValueError('Give boundary condition only on the \
-                                 boundary')
-            domain_boundary_and_tips = np.argwhere(np.logical_or(
-                g.tags['domain_boundary_nodes'], g.tags['tip_nodes']))
+                raise ValueError(
+                    "Give boundary condition only on the \
+                                 boundary"
+                )
+            domain_boundary_and_tips = np.argwhere(
+                np.logical_or(g.tags["domain_boundary_nodes"], g.tags["tip_nodes"])
+            )
             if not np.all(np.in1d(nodes, domain_boundary_and_tips)):
-                warnings.warn('You are now specifying conditions on internal \
-                              boundaries. Be very careful!')
+                warnings.warn(
+                    "You are now specifying conditions on internal \
+                              boundaries. Be very careful!"
+                )
             if isinstance(cond, str):
                 cond = [cond] * nodes.size
             if nodes.size != len(cond):
-                raise ValueError('One BC per node')
+                raise ValueError("One BC per node")
 
             for l in np.arange(nodes.size):
                 s = cond[l]
-                if s.lower() == 'neu':
+                if s.lower() == "neu":
                     pass  # Neumann is already default
-                elif s.lower() == 'dir':
+                elif s.lower() == "dir":
                     self.is_dir[nodes[l]] = True
                     self.is_neu[nodes[l]] = False
                 else:
-                    raise ValueError('Boundary should be Dirichlet or Neumann')
+                    raise ValueError("Boundary should be Dirichlet or Neumann")
+
 
 class BoundaryConditionVectorial(object):
 
@@ -204,7 +221,7 @@ class BoundaryConditionVectorial(object):
         self.num_faces = g.num_faces
         self.dim = g.dim
 
-        self.bc_type = 'vectorial'
+        self.bc_type = "vectorial"
 
         # Find boundary faces
         self.bf = g.get_all_boundary_faces()
@@ -222,49 +239,51 @@ class BoundaryConditionVectorial(object):
             assert cond is not None
             if faces.dtype == bool:
                 if faces.size != self.num_faces:
-                    raise ValueError('''When giving logical faces, the size of
-                                        array must match number of faces''')
+                    raise ValueError(
+                        """When giving logical faces, the size of
+                                        array must match number of faces"""
+                    )
                 faces = np.argwhere(faces)
 
             if not np.all(np.in1d(faces, self.bf)):
-                raise ValueError('Give boundary condition only on the boundary')
+                raise ValueError("Give boundary condition only on the boundary")
             if isinstance(cond, str):
                 cond = [cond] * faces.size
             if faces.size != len(cond):
-                raise ValueError(str(self.dim) + ' BC per face')
+                raise ValueError(str(self.dim) + " BC per face")
 
             for j in np.arange(faces.size):
                 s = cond[j]
-                if s.lower() == 'neu':
+                if s.lower() == "neu":
                     pass  # Neumann is already default
-                elif s.lower() == 'dir':
+                elif s.lower() == "dir":
                     self.is_dir[:, faces[j]] = True
                     self.is_neu[:, faces[j]] = False
-                elif s.lower() == 'dir_x':
+                elif s.lower() == "dir_x":
                     self.is_dir[0, faces[j]] = True
                     self.is_neu[0, faces[j]] = False
                     self.is_dir[1, faces[j]] = False
                     self.is_neu[1, faces[j]] = True
                     if self.dim == 3:
                         self.is_dir[2, faces[j]] = False
-                        self.is_neu[2, faces[j]]= True
-                elif s.lower() == 'dir_y':
+                        self.is_neu[2, faces[j]] = True
+                elif s.lower() == "dir_y":
                     self.is_dir[0, faces[j]] = False
                     self.is_dir[1, faces[j]] = True
                     self.is_neu[0, faces[j]] = True
                     self.is_neu[1, faces[j]] = False
                     if self.dim == 3:
                         self.is_dir[2, faces[j]] = False
-                        self.is_neu[2, faces[j]]= True
-                elif s.lower() == 'dir_xy':
+                        self.is_neu[2, faces[j]] = True
+                elif s.lower() == "dir_xy":
                     self.is_dir[0, faces[j]] = True
                     self.is_neu[0, faces[j]] = False
                     self.is_dir[1, faces[j]] = True
                     self.is_neu[1, faces[j]] = False
                     if self.dim == 3:
                         self.is_dir[2, faces[j]] = False
-                        self.is_neu[2, faces[j]]= True
-                elif s.lower() == 'dir_z':
+                        self.is_neu[2, faces[j]] = True
+                elif s.lower() == "dir_z":
                     self.is_dir[0, faces[j]] = False
                     self.is_dir[1, faces[j]] = False
                     self.is_dir[2, faces[j]] = True
@@ -272,7 +291,8 @@ class BoundaryConditionVectorial(object):
                     self.is_neu[1, faces[j]] = True
                     self.is_neu[2, faces[j]] = False
                 else:
-                    raise ValueError('Boundary should be Dirichlet or Neumann')
+                    raise ValueError("Boundary should be Dirichlet or Neumann")
+
 
 def face_on_side(g, side, tol=1e-8):
     """ Find faces on specified sides of a grid.
@@ -302,30 +322,24 @@ def face_on_side(g, side, tol=1e-8):
     faces = []
     for s in side:
         s = s.lower().strip()
-        if s == 'west' or s == 'xmin':
+        if s == "west" or s == "xmin":
             xm = g.nodes[0].min()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) <
-                                             tol)))
-        elif s == 'east' or s == 'xmax':
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) < tol)))
+        elif s == "east" or s == "xmax":
             xm = g.nodes[0].max()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) <
-                                             tol)))
-        elif s == 'south' or s == 'ymin':
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) < tol)))
+        elif s == "south" or s == "ymin":
             xm = g.nodes[1].min()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) <
-                                             tol)))
-        elif s == 'north' or s == 'ymax':
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) < tol)))
+        elif s == "north" or s == "ymax":
             xm = g.nodes[1].max()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) <
-                                             tol)))
-        elif s == 'bottom' or s == 'bot' or s == 'zmin':
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) < tol)))
+        elif s == "bottom" or s == "bot" or s == "zmin":
             xm = g.nodes[2].min()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) <
-                                             tol)))
-        elif s == 'top' or s == 'zmax':
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) < tol)))
+        elif s == "top" or s == "zmax":
             xm = g.nodes[2].max()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) <
-                                             tol)))
+            faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) < tol)))
         else:
-            raise ValueError('Unknow face side')
+            raise ValueError("Unknow face side")
     return faces

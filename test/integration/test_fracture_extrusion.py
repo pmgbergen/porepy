@@ -3,8 +3,8 @@ import numpy as np
 
 from porepy.fracs import extrusion
 
-class TestFractureExtrusion(unittest.TestCase):
 
+class TestFractureExtrusion(unittest.TestCase):
     def test_cut_off(self):
         # Two fractures, the second abutting. Check that the second fracture is
         # cut correctly.
@@ -23,9 +23,8 @@ class TestFractureExtrusion(unittest.TestCase):
         tol = 1e-4
 
         fractures = extrusion.fractures_from_outcrop(p, e, tol=tol)
-        # 
-        assert np.all(fractures[1].p[1] >= fractures[1].p[0]-tol)
-
+        #
+        assert np.all(fractures[1].p[1] >= fractures[1].p[0] - tol)
 
     def test_no_family_given(self):
         # Assign fracture family automatically
@@ -36,5 +35,5 @@ class TestFractureExtrusion(unittest.TestCase):
         fractures = extrusion.fractures_from_outcrop(p, e, tol=tol)
         assert np.all(fractures[1].p[1] >= -tol)
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()

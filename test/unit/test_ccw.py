@@ -5,7 +5,6 @@ from porepy.utils import comp_geom as cg
 
 
 class TestCCW(unittest.TestCase):
-    
     def setup(self):
         p1 = np.array([0, 0])
         p2 = np.array([1, 0])
@@ -50,7 +49,5 @@ class TestCCW(unittest.TestCase):
         # Outside safety margin, and not on the ccw side
         assert not cg.is_ccw_polyline(p1, p2, p3, tol=1e-8, default=False)
 
-    
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()
-

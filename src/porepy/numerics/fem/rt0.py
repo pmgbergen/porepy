@@ -20,11 +20,11 @@ from porepy.numerics.vem import DualCoupling
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+
 
 class RT0MixedDim(SolverMixedDim):
-
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
         self.discr = RT0(self.physics)
@@ -43,16 +43,18 @@ class RT0MixedDim(SolverMixedDim):
         for g, d in gb:
             d[p] = self.discr.extract_p(g, d[up])
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 class RT0(Solver):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def ndof(self, g):
         """
@@ -79,7 +81,7 @@ class RT0(Solver):
         else:
             raise ValueError
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g, data):
         """
@@ -103,7 +105,7 @@ class RT0(Solver):
         M, bc_weight = self.matrix(g, data, bc_weight=True)
         return M, self.rhs(g, data, bc_weight)
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix(self, g, data, bc_weight=False):
         """
@@ -133,7 +135,7 @@ class RT0(Solver):
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
-        param = data['param']
+        param = data["param"]
         k = param.get_tensor(self)
         bc = param.get_bc(self)
         a = param.get_aperture()
@@ -146,18 +148,18 @@ class RT0(Solver):
         # surface coordinates in 1d and 2d)
         c_centers, f_normals, f_centers, R, dim, node_coords = pp.cg.map_grid(g)
 
-        if not data.get('is_tangential', False):
-                # Rotate the permeability tensor and delete last dimension
-                if g.dim < 3:
-                    k = k.copy()
-                    k.rotate(R)
-                    remove_dim = np.where(np.logical_not(dim))[0]
-                    k.perm = np.delete(k.perm, (remove_dim), axis=0)
-                    k.perm = np.delete(k.perm, (remove_dim), axis=1)
+        if not data.get("is_tangential", False):
+            # Rotate the permeability tensor and delete last dimension
+            if g.dim < 3:
+                k = k.copy()
+                k.rotate(R)
+                remove_dim = np.where(np.logical_not(dim))[0]
+                k.perm = np.delete(k.perm, (remove_dim), axis=0)
+                k.perm = np.delete(k.perm, (remove_dim), axis=1)
 
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
-        size = np.power(g.dim+1, 2)*g.num_cells
+        size = np.power(g.dim + 1, 2) * g.num_cells
         I = np.empty(size, dtype=np.int)
         J = np.empty(size, dtype=np.int)
         dataIJ = np.empty(size)
@@ -165,36 +167,43 @@ class RT0(Solver):
 
         nodes, _, _ = sps.find(g.face_nodes)
 
-        size_HB = g.dim*(g.dim+1)
+        size_HB = g.dim * (g.dim + 1)
         HB = np.zeros((size_HB, size_HB))
         for it in np.arange(0, size_HB, g.dim):
-            HB += np.diagflat(np.ones(size_HB-it), it)
+            HB += np.diagflat(np.ones(size_HB - it), it)
         HB += HB.T
-        HB /= g.dim*g.dim*(g.dim+1)*(g.dim+2)
+        HB /= g.dim * g.dim * (g.dim + 1) * (g.dim + 2)
 
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
 
-            face_nodes_loc = ([nodes[g.face_nodes.indptr[f]:\
-                                     g.face_nodes.indptr[f+1]] \
-                               for f in faces_loc])
+            face_nodes_loc = [
+                nodes[g.face_nodes.indptr[f] : g.face_nodes.indptr[f + 1]]
+                for f in faces_loc
+            ]
             nodes_loc = np.unique(face_nodes_loc)
 
-            opposite_node = np.array([
-                                np.setdiff1d(nodes_loc, f, assume_unique=True) \
-                                    for f in face_nodes_loc]).flatten()
+            opposite_node = np.array(
+                [np.setdiff1d(nodes_loc, f, assume_unique=True) for f in face_nodes_loc]
+            ).flatten()
 
             coord_loc = node_coords[:, opposite_node]
 
             # Compute the H_div-mass local matrix
-            A = self.massHdiv(a[c]*k.perm[0:g.dim, 0:g.dim, c],
-                             g.cell_volumes[c], coord_loc, sign[loc], g.dim, HB)
+            A = self.massHdiv(
+                a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
+                g.cell_volumes[c],
+                coord_loc,
+                sign[loc],
+                g.dim,
+                HB,
+            )
 
             # Save values for Hdiv-mass local matrix in the global structure
             cols = np.tile(faces_loc, (faces_loc.size, 1))
-            loc_idx = slice(idx, idx+cols.size)
+            loc_idx = slice(idx, idx + cols.size)
             I[loc_idx] = cols.T.ravel()
             J[loc_idx] = cols.ravel()
             dataIJ[loc_idx] = A.ravel()
@@ -203,8 +212,7 @@ class RT0(Solver):
         # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
-        M = sps.bmat([[mass, div.T],
-                      [ div,  None]], format='csr')
+        M = sps.bmat([[mass, div.T], [div, None]], format="csr")
 
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
@@ -217,7 +225,7 @@ class RT0(Solver):
             # set in an efficient way the essential boundary conditions, by
             # clear the rows and put norm in the diagonal
             for row in is_neu:
-                M.data[M.indptr[row]:M.indptr[row+1]] = 0.
+                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
 
             d = M.diagonal()
             d[is_neu] = norm
@@ -227,7 +235,7 @@ class RT0(Solver):
             return M, norm
         return M
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def rhs(self, g, data, bc_weight=1):
         """
@@ -244,7 +252,7 @@ class RT0(Solver):
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        param = data['param']
+        param = data["param"]
         f = param.get_source(self)
 
         if g.dim == 0:
@@ -281,7 +289,7 @@ class RT0(Solver):
 
         return rhs
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def extract_u(self, g, up):
         """  Extract the velocity from a RT0-P0 solution.
@@ -299,9 +307,9 @@ class RT0(Solver):
 
         """
         # pylint: disable=invalid-name
-        return up[:g.num_faces]
+        return up[: g.num_faces]
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def extract_p(self, g, up):
         """  Extract the pressure from a RT0-P0 solution.
@@ -319,9 +327,9 @@ class RT0(Solver):
 
         """
         # pylint: disable=invalid-name
-        return up[g.num_faces:]
+        return up[g.num_faces :]
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def massHdiv(self, K, c_volume, coord, sign, dim, HB):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
@@ -343,14 +351,16 @@ class RT0(Solver):
         # Allow short variable names in this function
         # pylint: disable=invalid-name
         inv_K = np.linalg.inv(K)
-        inv_K = linalg.block_diag(*([inv_K]*(dim+1)))/c_volume
+        inv_K = linalg.block_diag(*([inv_K] * (dim + 1))) / c_volume
 
         coord = coord[0:dim, :]
-        N = coord.flatten('F').reshape((-1, 1))*np.ones((1, dim+1))-\
-            np.tile(coord, (dim+1, 1))
+        N = coord.flatten("F").reshape((-1, 1)) * np.ones((1, dim + 1)) - np.tile(
+            coord, (dim + 1, 1)
+        )
 
         C = np.diagflat(sign)
 
         return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K, np.dot(N, C)))))
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#

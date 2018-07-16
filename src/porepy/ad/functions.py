@@ -11,6 +11,7 @@ def exp(var):
     else:
         return np.exp(var)
 
+
 def log(var):
     if not isinstance(var, Ad_array):
         return np.log(var)
@@ -19,11 +20,13 @@ def log(var):
     der = var.diagvec_mul_jac(1 / var.val)
     return Ad_array(val, der)
 
+
 def sign(var):
     if not isinstance(var, Ad_array):
         return np.sign(var)
     else:
         return np.sign(var.val)
+
 
 def abs(var):
     if not isinstance(var, Ad_array):
@@ -32,4 +35,3 @@ def abs(var):
         val = np.abs(var.val)
         jac = var.diagvec_mul_jac(sign(var))
         return Ad_array(val, jac)
-    
