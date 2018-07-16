@@ -5,6 +5,8 @@ Discretization of the flux term of an equation.
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
+
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 
@@ -42,21 +44,12 @@ class P1Source(Solver):
 
     def matrix_rhs(self, g, data):
         param = data['param']
-        sources = param.get_source(self)
 
-        cell_nodes = g.cell_nodes()
-        nodes, cells, _ = sps.find(cell_nodes)
-
-        rhs = np.zeros(self.ndof(g))
-
-        for c in np.arange(g.num_cells):
-            # For the current cell retrieve its nodes
-            loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c+1])
-            nodes_loc = nodes[loc]
-
-            rhs[nodes_loc] += sources[c]/(g.dim+1)
+        solver = pp.P1MassMatrix(physics=self.physics)
+        M = solver.matrix(g, data)
 
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
-        return lhs, rhs
+
+        return lhs, M.dot(param.get_source(self))
 
 #------------------------------------------------------------------------------#
