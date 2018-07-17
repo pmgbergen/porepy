@@ -1,8 +1,5 @@
-import numpy as np
-
 import single_data as single
 import examples.papers.benchmark_2.solvers as solvers
-
 
 def main(file_geo, folder, solver, solver_name):
 
@@ -22,13 +19,11 @@ def main(file_geo, folder, solver, solver_name):
 
 
 if __name__ == "__main__":
-    #file_geo = 'single_lowdim_point_based.geo'
-    file_geo = 'single_lowdim_new.geo'
+    file_geo = 'single_lowdim_point_based.geo'
+    #file_geo = 'single_lowdim_new.geo'
     solver_list = [solvers.solve_tpfa, solvers.solve_vem]
     solver_names = ['tpfa', 'vem']
 
-    #solver_names = ['vem']
-    #solver_list = [solvers.solve_vem]
     for solver, solver_name in zip(solver_list, solver_names):
         folder = solver_name+'_results'
         main(file_geo, folder, solver, solver_name)
