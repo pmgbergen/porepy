@@ -26,7 +26,7 @@ def import_grid(file_geo, tol):
 #------------------------------------------------------------------------------#
 
 def low_zones(g):
-    return g.cell_centers[2, :] < 10
+    return g.cell_centers[2, :] > 10
 
 #------------------------------------------------------------------------------#
 
@@ -138,6 +138,9 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
             self.inflow = np.logical_and(b_face_centers[0, :] < 0 + self.tol,
                                          b_face_centers[2, :] > 90 - self.tol)
 
+            self.outflow = np.logical_and(b_face_centers[1, :] < 0 + self.tol,
+                                          b_face_centers[2, :] < 10 + self.tol)
+
         pp.ParabolicDataAssigner.__init__(self, g, data, physics)
 
     def porosity(self):
@@ -148,11 +151,18 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
             phi = self.phi_f * np.ones(self.grid().num_cells)
         return phi
 
+    def rock_specific_heat(self):
+        #hack to remove the rock part
+        return 0
+
     def bc(self):
         b_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
         if b_faces.size == 0:
             return pp.BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
-        return pp.BoundaryCondition(self.grid(), b_faces, 'dir')
+        else:
+            labels = np.array(['neu'] * b_faces.size)
+            labels[np.logical_or(self.inflow, self.outflow)] = 'dir'
+        return pp.BoundaryCondition(self.grid(), b_faces, labels)
 
     def bc_val(self, _):
         bc_val = np.zeros(self.grid().num_faces)
