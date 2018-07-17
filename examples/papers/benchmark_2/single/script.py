@@ -110,7 +110,7 @@ if __name__ == "__main__":
         step = 101
 
         cot = cot_domain(transport_root, file_in, step, field)
-        times = np.arange(step)*2e6
+        times = np.arange(step)*1e7
         file_out = folder+"cot_fracture.csv"
         write_csv(file_out, ['time', 'c'], [times, cot])
 
@@ -120,8 +120,6 @@ if __name__ == "__main__":
 
         # in this file the constant data are saved
         file_in = folder+"sol_3.vtu"
-
-        field = "tracer"
 
         cot = cot_domain(transport_root, file_in, step, field)
         file_out = folder+"cot_matrix.csv"
