@@ -21,9 +21,14 @@ def main(file_geo, folder, solver, solver_name):
 if __name__ == "__main__":
     file_geo = 'single_lowdim_point_based.geo'
     #file_geo = 'single_lowdim_new.geo'
-    solver_list = [solvers.solve_tpfa, solvers.solve_vem]
-    solver_names = ['tpfa', 'vem']
 
-    for solver, solver_name in zip(solver_list, solver_names):
-        folder = solver_name+'_results'
-        main(file_geo, folder, solver, solver_name)
+    files_geo = ['geom_1k.geo', 'geom_10k.geo', 'geom_100k.geo']
+    files_geo = ['geom_1k.geo']
+    solver_list = [solvers.solve_tpfa, solvers.solve_vem, solvers.solve_rt0,
+                   solvers.solve_mpfa]
+    solver_names = ['tpfa', 'vem', 'rt0', 'mpfa']
+
+    for idx, file_geo in enumerate(files_geo):
+        for solver, solver_name in zip(solver_list, solver_names):
+            folder = solver_name+'_results_'+str(idx)
+            main(file_geo, folder, solver, solver_name)

@@ -14,7 +14,17 @@ def export(gb, folder):
         d['cell_centers'] = g.cell_centers
 
     save = pp.Exporter(gb, "sol", folder=folder)
-    save.write_vtk(["pressure", 'cell_volumes', 'cell_centers', 'phi'])
+
+    props = ["pressure", 'cell_volumes', 'cell_centers', 'phi', 'aperture']
+
+    # extra properties, problem specific
+    if all(gb.has_nodes_prop(gb.get_grids(), 'low_zones')):
+        gb.add_node_props('bottom_domain')
+        for g, d in gb:
+            d['bottom_domain'] = 1-d['low_zones']
+        props.append('bottom_domain')
+
+    save.write_vtk(props)
 
 #------------------------------------------------------------------------------#
 
