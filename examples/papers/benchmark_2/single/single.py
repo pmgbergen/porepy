@@ -20,10 +20,8 @@ def main(file_geo, folder, solver, solver_name):
 
 if __name__ == "__main__":
     file_geo = 'single_lowdim_point_based.geo'
-    #file_geo = 'single_lowdim_new.geo'
 
     files_geo = ['geom_1k.geo', 'geom_10k.geo', 'geom_100k.geo']
-    files_geo = ['geom_1k.geo']
     solver_list = [solvers.solve_tpfa, solvers.solve_vem, solvers.solve_rt0,
                    solvers.solve_mpfa]
     solver_names = ['tpfa', 'vem', 'rt0', 'mpfa']
