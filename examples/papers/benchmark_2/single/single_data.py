@@ -35,7 +35,8 @@ def add_data(gb, data, solver_name):
 
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
-    gb.add_node_props(['is_tangential', 'problem', 'frac_num', 'low_zones', 'phi'])
+    gb.add_node_props(['is_tangential', 'problem', 'frac_num', 'low_zones',
+                       'phi', 'aperture'])
     for g, d in gb:
         param = pp.Parameters(g)
         d['is_tangential'] = True
@@ -72,6 +73,7 @@ def add_data(gb, data, solver_name):
         # Assign apertures
         aperture = np.power(data['aperture'], 3-g.dim)
         param.set_aperture(aperture*ones)
+        d['aperture'] = aperture*ones
 
         # Boundaries
         b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
