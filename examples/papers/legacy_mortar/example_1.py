@@ -44,8 +44,8 @@ def convergence_test(N, gb_ref, solver, solver_fct):
         error_1d = 0
         ref_1d = 0
 
-        for e_ref, d_ref in gb_ref.edges_props():
-            for e, d in gb.edges_props():
+        for e_ref, d_ref in gb_ref.edges():
+            for e, d in gb.edges():
                 if d_ref["edge_number"] == d["edge_number"]:
                     break
 
