@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
     solver_names = ['tpfa', 'vem', 'rt0', 'mpfa']
 
-    idx = '0'
+    idx = '1'
 
     for solver in solver_names:
         folder = "./"+solver+"_results_"+idx+"/"
