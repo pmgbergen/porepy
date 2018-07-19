@@ -42,25 +42,25 @@ def add_data(gb, data, solver_name):
         d['is_tangential'] = True
         d['low_zones'] = low_zones(g)
 
-        ones = np.ones(g.num_cells)
+        unity = np.ones(g.num_cells)
         zeros = np.zeros(g.num_cells)
         empty = np.empty(0)
 
         if g.dim == 2:
-            d['frac_num'] = g.frac_num*ones
+            d['frac_num'] = g.frac_num*unity
         else:
-            d['frac_num'] = -1*ones
+            d['frac_num'] = -1*unity
 
         # set the permeability
         if g.dim == 3:
-            kxx = data['km_high']*ones
+            kxx = data['km_high']*unity
             kxx[d['low_zones']] = data['km_low']
             if is_fv:
                 perm = pp.SecondOrderTensor(3, kxx=kxx)
             else:
                 perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=kxx)
         else: #g.dim == 2:
-            kxx = data['kf']*ones
+            kxx = data['kf']*unity
             if is_fv:
                 perm = pp.SecondOrderTensor(3, kxx=kxx)
             else:
@@ -72,8 +72,8 @@ def add_data(gb, data, solver_name):
 
         # Assign apertures
         aperture = np.power(data['aperture'], 3-g.dim)
-        param.set_aperture(aperture*ones)
-        d['aperture'] = aperture*ones
+        param.set_aperture(aperture*unity)
+        d['aperture'] = aperture*unity
 
         # Boundaries
         b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
@@ -102,10 +102,10 @@ def add_data(gb, data, solver_name):
         d['param'] = param
 
         if g.dim == 3:
-            d['phi'] = data['phi_high'] * ones
+            d['phi'] = data['phi_high'] * unity
             d['phi'][low_zones(g)] = data['phi_low']
         else:
-            d['phi'] = data['phi_f'] * ones
+            d['phi'] = data['phi_f'] * unity
 
     # Assign coupling permeability, the aperture is read from the lower dimensional grid
     gb.add_edge_props('kn')
