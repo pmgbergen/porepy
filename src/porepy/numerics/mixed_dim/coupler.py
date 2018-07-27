@@ -35,27 +35,30 @@ class Coupler(object):
 
         # Consider the coupling between dimensions
         coupling_fct = kwargs.get("coupling_fct")
+
+        # Choose coupling or coupling_fct
         if coupling is None and coupling_fct is None:
-            self.coupling_fct = None
+            # if both are None, assign None coupling
+            self.coupling_fct = [None]
         elif coupling_fct is not None:
+            # make sure coupling_fct is list
             if not isinstance(coupling_fct, list):
                 coupling_fct = [coupling_fct]
             self.coupling_fct = [c for c in coupling_fct]
-        else:
+        else: # we assign coupling as coupling function
+            # Make sure coupling is list
             if not isinstance(coupling, list):
                 coupling = [coupling]
             coupling_matrix_rhs = []
             for c in coupling:
-                if c is None:
+                if c is None: # we assign None coupling
                     coupling_matrix_rhs.append(c)
-                else:
+                else: # Assign the matrix rhs coupling function
                     coupling_matrix_rhs.append(c.matrix_rhs)
             self.coupling_fct = [c for c in coupling_matrix_rhs]
 
-        if self.coupling_fct is None:
-            self.num_mortars = 0
-        else:
-            self.num_mortars = len(self.coupling_fct)
+        # assign how many sets of mortars we need
+        self.num_mortars = len(self.coupling_fct)
 
     # ------------------------------------------------------------------------------#
 
