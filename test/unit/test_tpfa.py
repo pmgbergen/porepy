@@ -14,9 +14,9 @@ from porepy.numerics.fv import tpfa
 
 def _assign_params(g, perm, bound):
     params = data.Parameters(g)
-    params.set_tensor('Flow', perm)
-    params.set_bc('Flow', bound)
-    d = {'param': params}
+    params.set_tensor("Flow", perm)
+    params.set_bc("Flow", bound)
+    d = {"param": params}
     return d
 
 
@@ -32,12 +32,12 @@ def test_tpfa_cart_2d():
     perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     bound_faces = np.array([0, 3, 12])
-    bound = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
+    bound = bc.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)
 
     discr = tpfa.Tpfa()
     d = _assign_params(g, perm, bound)
     discr.discretize(g, d)
-    trm, bound_flux = d['flux'], d['bound_flux']
+    trm, bound_flux = d["flux"], d["bound_flux"]
     div = g.cell_faces.T
     a = div * trm
     b = -(div * bound_flux).A
@@ -85,15 +85,14 @@ def test_uniform_flow_cart_2d():
 
     kxx = np.ones(g.num_cells)
     perm = tensor.SecondOrderTensor(g.dim, kxx)
-    bound_faces = np.argwhere(
-        np.abs(g.cell_faces).sum(axis=1).A.ravel('F') == 1)
-    bound = bc.BoundaryCondition(g, bound_faces, ['dir'] * bound_faces.size)
+    bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel("F") == 1)
+    bound = bc.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)
 
     discr = tpfa.Tpfa()
     d = _assign_params(g, perm, bound)
     discr.discretize(g, d)
-    flux, bound_flux = d['flux'], d['bound_flux']
+    flux, bound_flux = d["flux"], d["bound_flux"]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_tpfa_cart_2d()

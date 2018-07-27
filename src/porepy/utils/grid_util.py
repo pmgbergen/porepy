@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
 
+
 def sign_of_boundary_faces(g):
     """
     returns the sign of boundary faces as defined by g.cell_faces. 
@@ -18,7 +19,7 @@ def sign_of_boundary_faces(g):
     IC = np.argsort(IA)
 
     fi, _, sgn = sps.find(g.cell_faces[faces[IA], :])
-    assert fi.size == faces.size, 'sign of internal faces does not make sense'
+    assert fi.size == faces.size, "sign of internal faces does not make sense"
     I = np.argsort(fi)
     sgn = sgn[I]
     sgn = sgn[IC]

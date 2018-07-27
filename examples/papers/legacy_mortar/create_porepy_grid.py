@@ -10,9 +10,10 @@ from porepy.fracs import simplex, meshing, split_grid
 
 import grid_to_gmsh
 
+
 def create(mesh_size=0.01):
-    fn = 'test_grid'
-    grid_to_gmsh.write_geo(fn + '.geo', mesh_size=mesh_size)
+    fn = "test_grid"
+    grid_to_gmsh.write_geo(fn + ".geo", mesh_size=mesh_size)
 
     simplex.triangle_grid_run_gmsh(fn)
 
@@ -28,5 +29,6 @@ def create(mesh_size=0.01):
 
     return gb
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     create()

@@ -11,7 +11,6 @@ def set_tol():
 
 
 class TestCartGrideGeometry2DUnpert(unittest.TestCase):
-
     def setUp(self):
         self.tol = set_tol()
         nc = np.array([2, 3])
@@ -32,12 +31,11 @@ class TestCartGrideGeometry2DUnpert(unittest.TestCase):
         volumes = 1 * np.ones(self.g.num_cells)
         assert np.isclose(volumes, self.g.cell_volumes).all()
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()
 
 
 class TestCartGridGeometry2DPert(unittest.TestCase):
-
     def setUp(self):
         self.tol = set_tol()
         nc = np.array([2, 2])
@@ -53,8 +51,9 @@ class TestCartGridGeometry2DPert(unittest.TestCase):
         assert np.isclose(yn, self.g.nodes[1]).all()
 
     def test_faces_areas(self):
-        areas = np.array([1, np.sqrt(1.25), 1, 1, np.sqrt(1.25), 1, 1, 1,
-                          1.5, 0.5, 1, 1])
+        areas = np.array(
+            [1, np.sqrt(1.25), 1, 1, np.sqrt(1.25), 1, 1, 1, 1.5, 0.5, 1, 1]
+        )
         assert np.isclose(areas, self.g.face_areas).all()
 
     def test_cell_volumes(self):
@@ -68,12 +67,11 @@ class TestCartGridGeometry2DPert(unittest.TestCase):
         assert np.isclose(nx, fn[0]).all()
         assert np.isclose(ny, fn[1]).all()
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()
 
 
 class TestCartGridGeometryUnpert3D(unittest.TestCase):
-
     def setUp(self):
         nc = 2 * np.ones(3, dtype=np.int)
         g = structured.CartGrid(nc)
@@ -81,16 +79,99 @@ class TestCartGridGeometryUnpert3D(unittest.TestCase):
         self.g = g
 
     def test_node_coord(self):
-        x = np.array([0, 1, 2, 0, 1, 2, 0, 1, 2,   # z == 0
-                      0, 1, 2, 0, 1, 2, 0, 1, 2,   # z == 1
-                      0, 1, 2, 0, 1, 2, 0, 1, 2])  # z == 2
-        y = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2,
-                      0, 0, 0, 1, 1, 1, 2, 2, 2,
-                      0, 0, 0, 1, 1, 1, 2, 2, 2,
-                      ])
-        z = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0,
-                      1, 1, 1, 1, 1, 1, 1, 1, 1,
-                      2, 2, 2, 2, 2, 2, 2, 2, 2])
+        x = np.array(
+            [
+                0,
+                1,
+                2,
+                0,
+                1,
+                2,
+                0,
+                1,
+                2,  # z == 0
+                0,
+                1,
+                2,
+                0,
+                1,
+                2,
+                0,
+                1,
+                2,  # z == 1
+                0,
+                1,
+                2,
+                0,
+                1,
+                2,
+                0,
+                1,
+                2,
+            ]
+        )  # z == 2
+        y = np.array(
+            [
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                2,
+                2,
+                2,
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                2,
+                2,
+                2,
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                2,
+                2,
+                2,
+            ]
+        )
+        z = np.array(
+            [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+            ]
+        )
 
         assert np.isclose(x, self.g.nodes[0]).all()
         assert np.isclose(y, self.g.nodes[1]).all()
@@ -129,12 +210,11 @@ class TestCartGridGeometryUnpert3D(unittest.TestCase):
         assert np.isclose(cy, cc[1]).all()
         assert np.isclose(cz, cc[2]).all()
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()
 
 
 class TestCartGridGeometry1CellPert3D(unittest.TestCase):
-
     def setUp(self):
         nc = np.ones(3, dtype=np.int)
         g = structured.CartGrid(nc)
@@ -194,32 +274,30 @@ class TestCartGridGeometry1CellPert3D(unittest.TestCase):
         assert np.isclose(cy, cc[1]).all()
         assert np.isclose(cz, cc[2]).all()
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()
+
 
 class TestStructuredTriangleGridGeometry(unittest.TestCase):
     """ Create simplest possible configuration, test sanity of geometric
     quantities.
     """
+
     def setUp(self):
         g = simplex.StructuredTriangleGrid([1, 1])
         g.compute_geometry()
         self.g = g
 
     def test_node_coords(self):
-        nodes = np.array([[0, 1, 0, 1],
-                          [0, 0, 1, 1],
-                          [0, 0, 0, 0]])
+        nodes = np.array([[0, 1, 0, 1], [0, 0, 1, 1], [0, 0, 0, 0]])
         assert np.allclose(self.g.nodes, nodes)
 
     def test_face_centers(self):
-        fc = np.array([[0.5, 0, 0.5, 1, 0.5],
-                       [0, 0.5, 0.5, 0.5, 1],
-                       [0, 0, 0, 0, 0]])
+        fc = np.array([[0.5, 0, 0.5, 1, 0.5], [0, 0.5, 0.5, 0.5, 1], [0, 0, 0, 0, 0]])
         assert np.allclose(self.g.face_centers, fc)
 
     def test_cell_centers(self):
-        cc = np.array([[2/3, 1/3], [1/3, 2/3], [0, 0]])
+        cc = np.array([[2 / 3, 1 / 3], [1 / 3, 2 / 3], [0, 0]])
         assert np.allclose(self.g.cell_centers, cc)
 
     def test_cell_volumes(self):
@@ -231,13 +309,12 @@ class TestStructuredTriangleGridGeometry(unittest.TestCase):
         assert np.allclose(self.g.face_areas, fa)
 
     def test_face_normals(self):
-        fn = np.array([[0, -1, -1, 1, 0],
-                       [-1, 0, 1, 0, 1],
-                       [0, 0, 0, 0, 0]])
+        fn = np.array([[0, -1, -1, 1, 0], [-1, 0, 1, 0, 1], [0, 0, 0, 0, 0]])
         assert np.allclose(self.g.face_normals, fn)
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()
+
 
 class TestStructuredTetrahedralGrid(unittest.TestCase):
     def setUp(self):
@@ -245,71 +322,144 @@ class TestStructuredTetrahedralGrid(unittest.TestCase):
         g.compute_geometry()
         self.g = g
 
-    # The ordering of faces may differ depending on the test system (presumably version of scipy or similar). Below are hard-coded combination of face-nodes, and the corresponding faces and face_areas.
-        self.fn = np.array([[0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3, 3, 4,
-                          5],
-                         [1, 1, 2, 2, 2, 2, 3, 3, 4, 4, 5, 3, 4, 5, 5, 6, 5,
-                          6],
-                         [2, 4, 4, 3, 4, 6, 5, 6, 5, 6, 6, 6, 6, 6, 7, 7, 6,
-                          7]])
-        self.face_areas = np.array([0.5       ,  0.5       ,  0.5       ,  0.5,
-                                 0.8660254 , 0.70710678,  0.5       ,  0.70710678,
-                          0.5       ,  0.70710678, 0.70710678,  0.5       ,
-                          0.5       ,  0.8660254 ,  0.5       , 0.5       ,
-                          0.5       ,  0.5       ])
-        self.face_center = np.array([[ 0.33333333,  0.33333333,  0.        ,
-                                   0.66666667,  0.33333333, 0.33333333,  1.
-                                   ,  0.66666667,  0.66666667,  0.33333333,
-                                   0.66666667,  0.33333333,  0.        ,
-                                   0.66666667,  1.        , 0.66666667,
-                                   0.33333333,  0.66666667],
-                                  [ 0.33333333,  0.        ,  0.33333333,
-                                   0.66666667,  0.33333333, 0.66666667,
-                                   0.33333333,  0.66666667,  0.        ,
-                                   0.33333333, 0.33333333,  1.        ,
-                                   0.66666667,  0.66666667,  0.66666667, 1.
-                                   ,  0.33333333,  0.66666667],
-                                  [ 0.        ,  0.33333333,  0.33333333,  0.
-                                   ,  0.33333333, 0.33333333,  0.33333333,
-                                   0.33333333,  0.66666667,  0.66666667,
-                                   0.66666667,  0.33333333,  0.66666667,
-                                   0.66666667,  0.66666667, 0.66666667,  1.
-                                   ,  1.        ]])
+        # The ordering of faces may differ depending on the test system (presumably version of scipy or similar). Below are hard-coded combination of face-nodes, and the corresponding faces and face_areas.
+        self.fn = np.array(
+            [
+                [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3, 3, 4, 5],
+                [1, 1, 2, 2, 2, 2, 3, 3, 4, 4, 5, 3, 4, 5, 5, 6, 5, 6],
+                [2, 4, 4, 3, 4, 6, 5, 6, 5, 6, 6, 6, 6, 6, 7, 7, 6, 7],
+            ]
+        )
+        self.face_areas = np.array(
+            [
+                0.5,
+                0.5,
+                0.5,
+                0.5,
+                0.8660254,
+                0.70710678,
+                0.5,
+                0.70710678,
+                0.5,
+                0.70710678,
+                0.70710678,
+                0.5,
+                0.5,
+                0.8660254,
+                0.5,
+                0.5,
+                0.5,
+                0.5,
+            ]
+        )
+        self.face_center = np.array(
+            [
+                [
+                    0.33333333,
+                    0.33333333,
+                    0.,
+                    0.66666667,
+                    0.33333333,
+                    0.33333333,
+                    1.,
+                    0.66666667,
+                    0.66666667,
+                    0.33333333,
+                    0.66666667,
+                    0.33333333,
+                    0.,
+                    0.66666667,
+                    1.,
+                    0.66666667,
+                    0.33333333,
+                    0.66666667,
+                ],
+                [
+                    0.33333333,
+                    0.,
+                    0.33333333,
+                    0.66666667,
+                    0.33333333,
+                    0.66666667,
+                    0.33333333,
+                    0.66666667,
+                    0.,
+                    0.33333333,
+                    0.33333333,
+                    1.,
+                    0.66666667,
+                    0.66666667,
+                    0.66666667,
+                    1.,
+                    0.33333333,
+                    0.66666667,
+                ],
+                [
+                    0.,
+                    0.33333333,
+                    0.33333333,
+                    0.,
+                    0.33333333,
+                    0.33333333,
+                    0.33333333,
+                    0.33333333,
+                    0.66666667,
+                    0.66666667,
+                    0.66666667,
+                    0.33333333,
+                    0.66666667,
+                    0.66666667,
+                    0.66666667,
+                    0.66666667,
+                    1.,
+                    1.,
+                ],
+            ]
+        )
 
     def test_face_centers_areas(self):
-        face_nodes = self.g.face_nodes.indices.reshape((3, self.g.num_faces), order='F')
+        face_nodes = self.g.face_nodes.indices.reshape((3, self.g.num_faces), order="F")
         ismem, ind_map = setmembership.ismember_rows(self.fn, face_nodes)
         assert np.all(ismem)
 
         assert np.allclose(self.face_areas, self.g.face_areas[ind_map])
         assert np.allclose(self.face_center, self.g.face_centers[:, ind_map])
 
-
     def test_node_coords(self):
-        nodes = np.array([[0, 1, 0, 1, 0, 1, 0, 1],
-                          [0, 0, 1, 1, 0, 0, 1, 1],
-                          [0, 0, 0, 0, 1, 1, 1, 1]])
+        nodes = np.array(
+            [
+                [0, 1, 0, 1, 0, 1, 0, 1],
+                [0, 0, 1, 1, 0, 0, 1, 1],
+                [0, 0, 0, 0, 1, 1, 1, 1],
+            ]
+        )
         assert np.allclose(self.g.nodes, nodes)
 
     def test_cell_centers(self):
-        cc = np.array([[1/4, 1/4, 1/4],
-                       [1/4, 1/2, 1/2],
-                       [1/2, 1/4, 3/4],
-                       [1/2, 3/4, 1/4],
-                       [3/4, 1/2, 1/2],
-                       [3/4, 3/4, 3/4]]).T
+        cc = np.array(
+            [
+                [1 / 4, 1 / 4, 1 / 4],
+                [1 / 4, 1 / 2, 1 / 2],
+                [1 / 2, 1 / 4, 3 / 4],
+                [1 / 2, 3 / 4, 1 / 4],
+                [3 / 4, 1 / 2, 1 / 2],
+                [3 / 4, 3 / 4, 3 / 4],
+            ]
+        ).T
         assert np.allclose(self.g.cell_centers, cc)
 
     def test_cell_volumes(self):
-        cv = np.array([1/6, 1/6, 1/6, 1/6, 1/6, 1/6])
+        cv = np.array([1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6])
         assert np.allclose(self.g.cell_volumes, cv)
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()
+
 
 class TestStructuredSimplexGridCoverage(unittest.TestCase):
     """ Verify that the tessalation covers the whole domain.
     """
+
     def test_coverage_triangles(self):
         domain = np.array([2, 3])
         grid_size = np.array([3, 5])
@@ -324,5 +474,5 @@ class TestStructuredSimplexGridCoverage(unittest.TestCase):
         g.compute_geometry()
         assert np.abs(domain.prod() - np.sum(g.cell_volumes)) < 1e-10
 
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()

@@ -26,32 +26,35 @@ from porepy.numerics.mixed_dim import coupler, condensation
 from porepy.numerics.fv.transport import upwind
 from porepy.numerics.fv import mass_matrix
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
 
 
 def add_data_transport(gb):
 
-    gb.add_node_props(['bc', 'bc_val', 'discharge', 'apertures'])
+    gb.add_node_props(["bc", "bc_val", "discharge", "apertures"])
     for g, d in gb:
-        b_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+        b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         index = np.nonzero(
-            abs(g.face_centers[:, b_faces]) == np.ones([3, b_faces.size]))[1]
+            abs(g.face_centers[:, b_faces]) == np.ones([3, b_faces.size])
+        )[1]
         b_faces = b_faces[index]
-        d['bc'] = bc.BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
-        d['bc_val'] = {'dir': np.ones(b_faces.size)}
-        d['apertures'] = np.ones(g.num_cells) * np.power(.01, float(g.dim < 3))
-        d['discharge'] = upwind.Upwind().discharge(
-            g, [1, 1, 2 * np.power(1000, g.dim < 2)], d['apertures'])
+        d["bc"] = bc.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
+        d["bc_val"] = {"dir": np.ones(b_faces.size)}
+        d["apertures"] = np.ones(g.num_cells) * np.power(.01, float(g.dim < 3))
+        d["discharge"] = upwind.Upwind().discharge(
+            g, [1, 1, 2 * np.power(1000, g.dim < 2)], d["apertures"]
+        )
 
-    gb.add_edge_prop('discharge')
+    gb.add_edge_prop("discharge")
     for e, d in gb.edges_props():
         g_h = gb.sorted_nodes_of_edge(e)[1]
-        d['discharge'] = gb.node_prop(g_h, 'discharge')
-
-#------------------------------------------------------------------------------#
+        d["discharge"] = gb.node_prop(g_h, "discharge")
 
 
-if __name__ == '__main__':
+# ------------------------------------------------------------------------------#
+
+
+if __name__ == "__main__":
     np.set_printoptions(linewidth=999999)
     np.set_printoptions(precision=7)
 
@@ -61,15 +64,14 @@ if __name__ == '__main__':
 
     f_set = [f_1, f_2, f_3]
 
-    domain = {'xmin': -1, 'xmax': 1,
-              'ymin': -1, 'ymax': 1, 'zmin': -1, 'zmax': 1}
+    domain = {"xmin": -1, "xmax": 1, "ymin": -1, "ymax": 1, "zmin": -1, "zmax": 1}
 
     # gb = meshing.cart_grid(f, [2, 4], physdims=[2, 4])
     Nx, Ny = 10, 10
     # gb = meshing.cart_grid([np.array([[Nx / 2, Nx / 2], [1, Ny]])],
     #                       [Nx, Ny], physdims=[Nx, Ny])
     # gb = meshing.cart_grid(f_set, [Nx, Nx, Nx])
-    path_to_gmsh = '~/gmsh-2.16.0-Linux/bin/gmsh'
+    path_to_gmsh = "~/gmsh-2.16.0-Linux/bin/gmsh"
 
     gb = meshing.simplex_grid(f_set, domain, gmsh_path=path_to_gmsh)
     gb.assign_node_ordering()
@@ -133,8 +135,7 @@ if __name__ == '__main__':
 
         if i % export_every == 0:
             print("Export the solution of the current state")
-            export_vtk(gb, file_name, ["conc"],
-                       time_step=i_export, folder="simu")
+            export_vtk(gb, file_name, ["conc"], time_step=i_export, folder="simu")
 
             step_to_export = np.r_[step_to_export, i]
             i_export += 1
@@ -152,8 +153,7 @@ if __name__ == '__main__':
         coupler_solver.split(gb_r, "conc_r", conc_r)
         if i % export_every == 0:
             print("Export the solution of the current state")
-            export_vtk(gb_r, file_name_r, ["conc_r"],
-                       time_step=i_export, folder="simu")
+            export_vtk(gb_r, file_name_r, ["conc_r"], time_step=i_export, folder="simu")
             step_to_export = np.r_[step_to_export, i]
             i_export += 1
 

@@ -8,7 +8,6 @@ from porepy.params import rock
 
 
 class TestRock(unittest.TestCase):
-
     def test_lame_from_young_poisson(self):
         e = 1
         nu = 0.1
@@ -20,7 +19,7 @@ class TestRock(unittest.TestCase):
         lam = 1
         mu = 0.5
         nu = rock.poisson_from_lame(mu, lam)
-        self.assertEqual(nu, 1/3)
+        self.assertEqual(nu, 1 / 3)
 
     def test_unit_rock(self):
         R = rock.UnitRock()
@@ -35,7 +34,7 @@ class TestRock(unittest.TestCase):
         self.assertTrue(R.POISSON_RATIO, 0.1)
         self.assertTrue(R.LAMBDA, 568181818.1818181)
         self.assertTrue(R.MU, 2272727272.7272725)
-     
+
     def test_granite(self):
         R = rock.SandStone()
         self.assertTrue(R.PERMEABILITY, 1e-8 * 9.869233e-13)
@@ -51,5 +50,5 @@ class TestRock(unittest.TestCase):
         self.assertTrue(R.POROSITY, 0.01)
         self.assertTrue(R.YOUNG_MODULUS, 15)
         self.assertTrue(R.POISSON_RATIO, 0.3)
-        self.assertTrue(R.LAMBDA,865384615.3846153)
+        self.assertTrue(R.LAMBDA, 865384615.3846153)
         self.assertTrue(R.MU, 576923076.9230769)

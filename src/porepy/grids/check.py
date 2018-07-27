@@ -8,7 +8,8 @@ import scipy.sparse as sps
 
 import porepy.utils.comp_geom as cg
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+
 
 def grid(g):
     """ Sanity check for the grid. General method which apply the following:
@@ -33,7 +34,9 @@ def grid(g):
     if g.dim != 1:
         face_normals(g)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def face_normals(g):
     """ Check if the face normals are actually normal to the faces.
@@ -45,12 +48,14 @@ def face_normals(g):
     nodes, faces, _ = sps.find(g.face_nodes)
 
     for f in np.arange(g.num_faces):
-        loc = slice(g.face_nodes.indptr[f], g.face_nodes.indptr[f+1])
+        loc = slice(g.face_nodes.indptr[f], g.face_nodes.indptr[f + 1])
         normal = g.face_normals[:, f]
         tangent = cg.compute_tangent(g.nodes[:, nodes[loc]])
         assert np.isclose(np.dot(normal, tangent), 0)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def face_normals_1d(g):
     """ Check if the face normals are actually normal to the faces, 1d case.
@@ -64,4 +69,5 @@ def face_normals_1d(g):
     for f in np.arange(g.num_faces):
         assert np.isclose(np.dot(g.face_normals[:, f], a_normal), 0)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
