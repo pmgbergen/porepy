@@ -39,7 +39,6 @@ def standard_face_tags():
     """
     return ["fracture_faces", "tip_faces", "domain_boundary_faces"]
 
-
 def standard_node_tags():
     """
     Returns the standard node tag key.

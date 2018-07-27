@@ -382,7 +382,7 @@ class BasicsTest(unittest.TestCase):
 
             kxx = np.ones(g.num_cells)
             perm = pp.SecondOrderTensor(3, kxx, kyy=1, kzz=1)
-            bn = g.get_boundary_faces()
+            bn = g.get_boundary_nodes()
             bc = pp.BoundaryConditionNode(g, bn, bn.size * ["dir"])
             bc_val = np.zeros(g.num_nodes)
             bc_val[bn] = p_ex(g.nodes[:, bn])
