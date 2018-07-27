@@ -92,6 +92,7 @@ def split_fractures(bucket, **kwargs):
     # Remove zeros from cell_faces
 
     [g.cell_faces.eliminate_zeros() for g, _ in bucket]
+    [g.update_boundary_node_tag() for g, _ in bucket]
     return bucket
 
 
