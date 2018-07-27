@@ -41,6 +41,7 @@ from porepy.numerics.elliptic import DualEllipticModel
 # Finite elements, elliptic
 from porepy.numerics.fem.p1 import P1, P1MixedDim
 from porepy.numerics.fem.source import P1Source, P1SourceMixedDim
+from porepy.numerics.fem.mass_matrix import P1MassMatrix, P1MassMatrixMixedDim
 from porepy.numerics.fem.rt0 import RT0, RT0MixedDim
 
 
@@ -78,7 +79,11 @@ from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
 from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
 
 # Parameters
-from porepy.params.bc import BoundaryCondition, BoundaryConditionVectorial
+from porepy.params.bc import (
+    BoundaryCondition,
+    BoundaryConditionVectorial,
+    BoundaryConditionNode,
+)
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
 from porepy.params.data import Parameters
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
