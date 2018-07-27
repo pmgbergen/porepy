@@ -1,15 +1,16 @@
 import warnings
 import numpy as np
 import scipy.sparse as sps
-import scipy.linalg as linalg
+import logging
 
-from porepy.grids import grid, mortar_grid
+import porepy as pp
 
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
-from porepy.utils import comp_geom as cg
+# Module-wide logger
+logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------#
 
@@ -51,9 +52,9 @@ class P1(Solver):
         dof: the number of degrees of freedom.
 
         """
-        if isinstance(g, grid.Grid):
+        if isinstance(g, pp.Grid):
             return g.num_nodes
-        elif isinstance(g, mortar_grid.MortarGrid):
+        elif isinstance(g, pp.MortarGrid):
             return g.num_cells
         else:
             raise ValueError
@@ -125,11 +126,12 @@ class P1(Solver):
         param = data["param"]
         k = param.get_tensor(self)
         bc = param.get_bc(self)
+        assert isinstance(bc, pp.BoundaryConditionNode)
         a = param.get_aperture()
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
-        c_centers, f_normals, f_centers, R, dim, node_coords = cg.map_grid(g)
+        c_centers, f_normals, f_centers, R, dim, node_coords = pp.cg.map_grid(g)
 
         if not data.get("is_tangential", False):
             # Rotate the permeability tensor and delete last dimension
@@ -181,15 +183,7 @@ class P1(Solver):
 
         # assign the Dirichlet boundary conditions
         if bc and np.any(bc.is_dir):
-            nodes, _, _, = sps.find(g.face_nodes)
-
-            dir_nodes = np.array(
-                [
-                    nodes[g.face_nodes.indptr[f] : g.face_nodes.indptr[f + 1]]
-                    for f in np.where(bc.is_dir)[0]
-                ]
-            ).ravel()
-
+            dir_nodes = np.where(bc.is_dir)[0]
             # set in an efficient way the essential boundary conditions, by
             # clear the rows and put norm in the diagonal
             for row in dir_nodes:
@@ -242,49 +236,7 @@ class P1(Solver):
 
         if np.any(bc.is_dir):
             is_dir = np.where(bc.is_dir)[0]
-            nodes, _, _, = sps.find(g.face_nodes)
-
-            size = np.power(g.dim, 2) * is_dir.size
-            I = np.empty(size, dtype=np.int)
-            J = np.empty(size, dtype=np.int)
-            dataIJ = np.empty(size)
-            idx = 0
-
-            size_rhs = g.dim * is_dir.size
-            data_rhs = np.empty(size_rhs)
-            I_rhs = np.empty(size_rhs, dtype=np.int)
-            idx_rhs = 0
-
-            for f in is_dir:
-                loc = slice(g.face_nodes.indptr[f], g.face_nodes.indptr[f + 1])
-                nodes_loc = nodes[loc]
-
-                A = self.massH1(g.face_areas[f], g.dim - 1)
-                b = bc_weight * g.face_areas[f] * bc_val[f] / g.dim
-
-                # Save values for H1-mass local matrix in the global structure
-                cols = np.tile(nodes_loc, (nodes_loc.size, 1))
-                loc_idx = slice(idx, idx + cols.size)
-                I[loc_idx] = cols.T.ravel()
-                J[loc_idx] = cols.ravel()
-                dataIJ[loc_idx] = A.ravel()
-                idx += cols.size
-
-                loc_idx = slice(idx_rhs, idx_rhs + nodes_loc.size)
-                I_rhs[loc_idx] = nodes_loc
-                data_rhs[loc_idx] = b.ravel()
-                idx_rhs += nodes_loc.size
-
-            # Construct the global matrices
-            M = sps.csr_matrix((dataIJ, (I, J)), shape=(rhs.size, rhs.size))
-            identity = (M.sum(axis=1) == 0).astype(np.float).ravel()
-            M += sps.diags(identity, offsets=[0], shape=M.shape)
-
-            M_rhs = sps.csr_matrix(
-                (data_rhs, (I_rhs, np.zeros(I_rhs.size))), shape=(rhs.size, 1)
-            )
-
-            rhs = sps.linalg.spsolve(M, M_rhs)
+            rhs[is_dir] = bc_weight * bc_val[is_dir]
 
         return rhs
 
@@ -314,29 +266,6 @@ class P1(Solver):
         return c_volume * np.dot(dphi.T, np.dot(K, dphi))
 
     # ------------------------------------------------------------------------------#
-
-    def massH1(self, c_volume, dim):
-        """ Compute the local mass H1 matrix using the P1 Lagrangean approach.
-
-        Parameters
-        ----------
-        c_volume : scalar
-            Cell volume.
-
-        Return
-        ------
-        out: ndarray (num_faces_of_cell, num_faces_of_cell)
-            Local mass Hdiv matrix.
-        """
-        # Allow short variable names in this function
-        # pylint: disable=invalid-name
-
-        M = np.ones((dim + 1, dim + 1)) + np.identity(dim + 1)
-        return c_volume * M / ((dim + 1) * (dim + 2))
-
-
-# ------------------------------------------------------------------------------#
-
 
 class P1Coupling(AbstractCoupling):
 
