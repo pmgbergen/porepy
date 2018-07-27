@@ -763,6 +763,7 @@ class BasicsTest(unittest.TestCase):
                 assert np.array_equal(computed, known)
                 known = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
                 computed = np.where(g.tags["fracture_nodes"])[0]
+                print(computed, known)
                 assert np.array_equal(computed, known)
                 assert np.array_equal(g.tags["tip_faces"], [False] * g.num_faces)
                 assert np.array_equal(g.tags["tip_nodes"], [False] * g.num_nodes)
@@ -804,8 +805,8 @@ class BasicsTest(unittest.TestCase):
             if g.dim == 0:
                 assert np.sum(g.tags["fracture_faces"]) == 0
                 assert np.sum(g.tags["fracture_nodes"]) == 0
-                assert np.sum(g.tags["tip_faces"]) == 1
-                assert np.sum(g.tags["tip_nodes"]) == 1
+                assert np.sum(g.tags["tip_faces"]) == 0
+                assert np.sum(g.tags["tip_nodes"]) == 0
                 assert np.sum(g.tags["domain_boundary_faces"]) == 0
                 assert np.sum(g.tags["domain_boundary_nodes"]) == 0
 
@@ -878,3 +879,5 @@ class BasicsTest(unittest.TestCase):
 
 
 # ------------------------------------------------------------------------------#
+
+BasicsTest().test_tag_2d_1d_cart_complex()
