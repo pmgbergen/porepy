@@ -294,7 +294,7 @@ class ParabolicModel():
         elif self.advective_term or self.diffusive_term:
             coupling = [None]
         else:
-            coupling = None
+            coupling = []
         return coupling
 
 class ParabolicDataAssigner():
