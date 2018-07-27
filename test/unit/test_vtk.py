@@ -242,6 +242,7 @@ class BasicsTest(unittest.TestCase):
 
         with open(folder + file_name + "_2.vtu", "r") as content_file:
             content = content_file.read()
+        print(content)
         assert content == self._gb_2_grid_2_vtu()
 
         with open(folder+"grid_mortar_1.vtu", "r") as content_file:
@@ -2328,6 +2329,66 @@ class BasicsTest(unittest.TestCase):
 """
 
     # ------------------------------------------------------------------------------#
+
+    def _gb_1_mortar_grid_vtu(self):
+        return """<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="10" NumberOfCells="8">
+      <PointData>
+      </PointData>
+      <CellData>
+        <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
+          1 1 1 1 1 1
+          1 1
+        </DataArray>
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
+          0 1 2 3 0 1
+          2 3
+        </DataArray>
+        <DataArray type="Int32" Name="grid_edge_number" format="ascii" RangeMin="0" RangeMax="0">
+          0 0 0 0 0 0
+          0 0
+        </DataArray>
+        <DataArray type="Int8" Name="is_mortar" format="ascii" RangeMin="1" RangeMax="1">
+          1 1 1 1 1 1
+          1 1
+        </DataArray>
+        <DataArray type="Int32" Name="mortar_side" format="ascii" RangeMin="1" RangeMax="2">
+          1 1 1 1 2 2
+          2 2
+        </DataArray>
+      </CellData>
+      <Points>
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.1180339887">
+          1 0.5 -5.5511151231e-17 0.75 0.5 -2.7755575616e-17
+          0.5 0.5 0 0.25 0.5 2.7755575616e-17
+          0 0.5 5.5511151231e-17 1 0.5 -5.5511151231e-17
+          0.75 0.5 -2.7755575616e-17 0.5 0.5 0
+          0.25 0.5 2.7755575616e-17 0 0.5 5.5511151231e-17
+        </DataArray>
+      </Points>
+      <Cells>
+        <DataArray type="Int64" Name="connectivity" format="ascii" RangeMin="0" RangeMax="9">
+          0 1 1 2 2 3
+          3 4 5 6 6 7
+          7 8 8 9
+        </DataArray>
+        <DataArray type="Int64" Name="offsets" format="ascii" RangeMin="2" RangeMax="16">
+          2 4 6 8 10 12
+          14 16
+        </DataArray>
+        <DataArray type="UInt8" Name="types" format="ascii" RangeMin="3" RangeMax="3">
+          3 3 3 3 3 3
+          3 3
+        </DataArray>
+      </Cells>
+    </Piece>
+  </UnstructuredGrid>
+</VTKFile>
+"""
+
+#------------------------------------------------------------------------------#
 
     def _gb_1_mortar_grid_vtu(self):
         return """<?xml version="1.0"?>
