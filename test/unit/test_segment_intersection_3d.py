@@ -3,8 +3,8 @@ import unittest
 
 from porepy.utils import comp_geom as cg
 
-class TestSegmentSegmentIntersection(unittest.TestCase):
 
+class TestSegmentSegmentIntersection(unittest.TestCase):
     def test_intersection_origin(self):
         # 3D lines cross in the origin
         p_1 = np.array([0, -1, -1])
@@ -45,7 +45,6 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         p_i = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         assert p_i is None
 
-
     def test_lines_cross_segments_not(self):
         p_1 = np.array([-1, 0, -1])
         p_2 = np.array([0, 0, 0])
@@ -64,7 +63,6 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         p_i = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         assert p_i is None
 
-
     def test_L_intersection(self):
         p_1 = np.zeros(3)
         p_2 = np.random.rand(3)
@@ -82,7 +80,6 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         p_int = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         assert p_int is None
 
-
     def test_both_aligned_with_axis(self):
         # Both lines are aligned an axis,
         p_1 = np.array([-1, -1, 0])
@@ -93,7 +90,6 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         p_int = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         p_known = np.array([-1, 0, 0]).reshape((-1, 1))
         assert np.allclose(p_int, p_known)
-
 
     def test_segment_fully_overlapped(self):
         # One line is fully covered by another
@@ -144,7 +140,6 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         assert np.min(np.sum(np.abs(p_int - p_known_1), axis=0)) < 1e-8
         assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8
 
-
     def test_random_incline(self):
         p_1 = np.random.rand(3)
         p_2 = 3 * p_1
@@ -169,19 +164,15 @@ class TestSegmentSegmentIntersection(unittest.TestCase):
         assert np.min(np.sum(np.abs(p_int - p_known_1), axis=0)) < 1e-8
         assert np.min(np.sum(np.abs(p_int - p_known_2), axis=0)) < 1e-8
 
-
     def test_constant_y_axis(self):
         p_1 = np.array([1, 0, -1])
         p_2 = np.array([1, 0, 1])
         p_3 = np.array([1.5, 0, 0])
         p_4 = np.array([0, 0, 1.5])
 
-
         p_int = cg.segments_intersect_3d(p_1, p_2, p_3, p_4)
         p_known = np.array([1, 0, 0.5]).reshape((-1, 1))
         assert np.min(np.sum(np.abs(p_int - p_known), axis=0)) < 1e-8
 
-
-
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         unittest.main()

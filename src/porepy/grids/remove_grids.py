@@ -14,7 +14,9 @@ def duplicate_without_dimension(gb, dim):
     for g in gb1.grids_of_dimension(dim):
         remove_node(gb1, g)
     return gb1
-#------------------------------------------------------------------------------#
+
+
+# ------------------------------------------------------------------------------#
 
 
 def remove_node(gb, node):
@@ -35,11 +37,12 @@ def remove_node(gb, node):
             gb.add_edge([n1, n2], face_faces)
 
     # Remove the node and update the ordering of the remaining nodes
-    node_number = gb.node_prop(node, 'node_number')
+    node_number = gb.node_prop(node, "node_number")
     gb.remove_node(node)
     gb.update_node_ordering(node_number)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
 def find_shared_face(n1, n2, node, gb):
@@ -54,8 +57,8 @@ def find_shared_face(n1, n2, node, gb):
     # Identify the faces connecting the neighbors to the grid to be removed
     fc1 = gb.edge_props([n1, node])
     fc2 = gb.edge_props([n2, node])
-    _, face_number_1, _ = sps.find(fc1['face_cells'])
-    _, face_number_2, _ = sps.find(fc2['face_cells'])
+    _, face_number_1, _ = sps.find(fc1["face_cells"])
+    _, face_number_2, _ = sps.find(fc2["face_cells"])
 
     # The lower dim. node (corresponding to the first dimension, cells,
     # in face_cells) is first in gb.sorted_nodes_of_edge. To be consistent
@@ -64,9 +67,10 @@ def find_shared_face(n1, n2, node, gb):
     # grids through the face_faces matrix, to be placed as a face_cells
     # substitute.
     face_faces = sps.csc_matrix(
-        (np.array([True]), (face_number_1, face_number_2)),
-        (n1.num_faces, n2.num_faces))
+        (np.array([True]), (face_number_1, face_number_2)), (n1.num_faces, n2.num_faces)
+    )
 
     return face_faces
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#

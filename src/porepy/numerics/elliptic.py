@@ -1,9 +1,9 @@
-'''
+"""
 Module for initializing, assigning data, solve, and save an elliptic pde.
 Ths can for example be incompressible flow
 problem assuming darcy's law. Please see the tutorial darcy's equation on the
 porepy github: https://github.com/pmgbergen/porepy
-'''
+"""
 import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spl
@@ -23,8 +23,8 @@ from porepy.viz.exporter import Exporter
 logger = logging.getLogger(__name__)
 
 
-class EllipticModel():
-    '''
+class EllipticModel:
+    """
     Class for solving an incompressible flow problem:
     \nabla K \nabla p = q,
     where K is the second order permeability tenser, p the fluid pressure
@@ -62,9 +62,9 @@ class EllipticModel():
             folder kwargs['folder_name'] with file name
             kwargs['file_name'], default values are 'results' for the folder and
             physics for the file name.
-    '''
+    """
 
-    def __init__(self, gb, data=None, physics='flow', **kwargs):
+    def __init__(self, gb, data=None, physics="flow", **kwargs):
         self.physics = physics
         self._gb = gb
         self.is_GridBucket = isinstance(self._gb, GridBucket)
@@ -74,14 +74,14 @@ class EllipticModel():
         self.rhs = []
         self.x = []
 
-        file_name = kwargs.get('file_name', physics)
-        folder_name = kwargs.get('folder_name', 'results')
-        mesh_kw = kwargs.get('mesh_kw', {})
+        file_name = kwargs.get("file_name", physics)
+        folder_name = kwargs.get("folder_name", "results")
+        mesh_kw = kwargs.get("mesh_kw", {})
 
         tic = time.time()
-        logger.info('Create exporter')
+        logger.info("Create exporter")
         self.exporter = Exporter(self._gb, file_name, folder_name, **mesh_kw)
-        logger.info('Elapsed time: ' + str(time.time() - tic))
+        logger.info("Elapsed time: " + str(time.time() - tic))
 
         self._flux_disc = self.flux_disc()
         self._source_disc = self.source_disc()
@@ -114,32 +114,38 @@ class EllipticModel():
             np.array: Pressure state.
 
         """
-        logger.error('Solve elliptic model')
+        logger.error("Solve elliptic model")
         # Discretize
         tic = time.time()
-        logger.warning('Discretize')
+        logger.warning("Discretize")
         self.lhs, self.rhs = self.reassemble()
-        logger.warning('Done. Elapsed time ' + str(time.time() - tic))
+        logger.warning("Done. Elapsed time " + str(time.time() - tic))
 
         # Solve
         tic = time.time()
         ls = LSFactory()
         if self.rhs.size < max_direct:
-            logger.warning('Solve linear system using direct solver')
+            logger.warning("Solve linear system using direct solver")
             self.x = ls.direct(self.lhs, self.rhs)
         else:
-            logger.warning('Solve linear system using GMRES')
+            logger.warning("Solve linear system using GMRES")
             precond = self._setup_preconditioner()
-#            precond = ls.ilu(self.lhs)
+            #            precond = ls.ilu(self.lhs)
             slv = ls.gmres(self.lhs)
-            self.x, info = slv(self.rhs, M=precond, callback=callback,
-                               maxiter=10000, restart=1500, tol=1e-8)
+            self.x, info = slv(
+                self.rhs,
+                M=precond,
+                callback=callback,
+                maxiter=10000,
+                restart=1500,
+                tol=1e-8,
+            )
             if info == 0:
-                logger.warning('GMRES succeeded.')
+                logger.warning("GMRES succeeded.")
             else:
-                logger.warning('GMRES failed with status ' + str(info))
+                logger.warning("GMRES failed with status " + str(info))
 
-        logger.warning('Done. Elapsed time ' + str(time.time() - tic))
+        logger.warning("Done. Elapsed time " + str(time.time() - tic))
         return self.x
 
     def step(self):
@@ -152,7 +158,7 @@ class EllipticModel():
         """
         lhs_flux, rhs_flux = self._discretize(self._flux_disc)
         lhs_source, rhs_source = self._discretize(self._source_disc)
-        assert lhs_source.nnz == 0, 'Source lhs different from zero!'
+        assert lhs_source.nnz == 0, "Source lhs different from zero!"
         self.lhs = lhs_flux
         self.rhs = rhs_flux + rhs_source
         return self.lhs, self.rhs
@@ -181,28 +187,32 @@ class EllipticModel():
     def data(self):
         return self._data
 
-    def split(self, x_name='solution'):
+    def split(self, x_name="solution"):
         self.x_name = x_name
         self._flux_disc.split(self.grid(), self.x_name, self.x)
 
-    def pressure(self, pressure_name='pressure'):
+    def pressure(self, pressure_name="pressure"):
         self.pressure_name = pressure_name
         if self.is_GridBucket:
             self.split(self.pressure_name)
         else:
             self._data[self.pressure_name] = self.x
 
-    def discharge(self, discharge_name='discharge'):
+    def discharge(self, discharge_name="discharge"):
         if self.is_GridBucket:
-            fvutils.compute_discharges(self.grid(), self.physics,
-                                       p_name=self.pressure_name)
+            fvutils.compute_discharges(
+                self.grid(), self.physics, p_name=self.pressure_name
+            )
         else:
-            fvutils.compute_discharges(self.grid(), self.physics,
-                                       discharge_name,
-                                       self.pressure_name,
-                                       self._data)
+            fvutils.compute_discharges(
+                self.grid(),
+                self.physics,
+                discharge_name,
+                self.pressure_name,
+                self._data,
+            )
 
-    def permeability(self, perm_names=['kxx', 'kyy', 'kzz']):
+    def permeability(self, perm_names=["kxx", "kyy", "kzz"]):
         """ Assign permeability to self._data, ready for export to vtk.
 
         For the moment, we only dump the main diagonals of the permeabliity.
@@ -215,38 +225,36 @@ class EllipticModel():
         """
 
         def get_ind(n):
-            if n == 'kxx':
+            if n == "kxx":
                 return 0
-            elif n == 'kyy':
+            elif n == "kyy":
                 return 1
-            elif n == 'kzz':
+            elif n == "kzz":
                 return 2
             else:
-                raise ValueError('Unknown perm keyword ' + n)
+                raise ValueError("Unknown perm keyword " + n)
 
         for n in perm_names:
             ind = get_ind(n)
             if self.is_GridBucket:
                 for _, d in self.grid():
-                    d[n] = d['param'].get_permeability().perm[ind, ind, :]
+                    d[n] = d["param"].get_permeability().perm[ind, ind, :]
             else:
-                self._data[n] = self._data['param'].get_permeability()\
-                    .perm[ind, ind, :]
+                self._data[n] = self._data["param"].get_permeability().perm[ind, ind, :]
 
-    def porosity(self, poro_name='porosity'):
+    def porosity(self, poro_name="porosity"):
         if self.is_GridBucket:
             for _, d in self.grid():
-                d[poro_name] = d['param'].get_porosity()
+                d[poro_name] = d["param"].get_porosity()
         else:
-            self._data[poro_name] = self._data['param'].get_porosity()
+            self._data[poro_name] = self._data["param"].get_porosity()
 
     def save(self, variables=None, save_every=None):
         if variables is None:
             self.exporter.write_vtk()
         else:
             if not self.is_GridBucket:
-                variables = {k: self._data[k] for k in variables
-                             if k in self._data}
+                variables = {k: self._data[k] for k in variables if k in self._data}
             self.exporter.write_vtk(variables)
 
     # Helper functions for linear solve below
@@ -267,7 +275,9 @@ class EllipticModel():
                 x[i] += s(r_i)
             return x
 
-        def M(r): return precond(r)
+        def M(r):
+            return precond(r)
+
         return spl.LinearOperator(self.lhs.shape, M)
 
     def _assign_solvers(self):
@@ -307,12 +317,12 @@ class EllipticModel():
         else:
             return [self.lhs], [np.arange(self.grid().num_cells)]
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
 class DualEllipticModel(EllipticModel):
-
-    def __init__(self, gb, data=None, physics='flow', **kwargs):
+    def __init__(self, gb, data=None, physics="flow", **kwargs):
         EllipticModel.__init__(self, gb, data, physics, **kwargs)
 
         self.discharge_name = str()
@@ -320,8 +330,7 @@ class DualEllipticModel(EllipticModel):
 
     def source_disc(self):
         if self.is_GridBucket:
-            return vem_source.DualSourceMixedDim(physics=self.physics,
-                                                 coupling=[None])
+            return vem_source.DualSourceMixedDim(physics=self.physics, coupling=[None])
         else:
             return vem_source.DualSource(physics=self.physics)
 
@@ -342,16 +351,16 @@ class DualEllipticModel(EllipticModel):
         lhs, rhs = self.reassemble()
 
         import scipy.io as sps_io
+
         sps_io.mmwrite("matrix.mtx", lhs)
 
         self.x = ls.direct(lhs, rhs)
         return self.x
 
-    def pressure(self, pressure_name='pressure'):
+    def pressure(self, pressure_name="pressure"):
         self.pressure_name = pressure_name
         if self.is_GridBucket:
-            self._flux_disc.extract_p(
-                self._gb, self.x_name, self.pressure_name)
+            self._flux_disc.extract_p(self._gb, self.x_name, self.pressure_name)
         else:
             pressure = self._flux_disc.extract_p(self._gb, self.x)
             self._data[self.pressure_name] = pressure
@@ -359,8 +368,7 @@ class DualEllipticModel(EllipticModel):
     def discharge(self, discharge_name="discharge"):
         self.discharge_name = discharge_name
         if self.is_GridBucket:
-            self._flux_disc.extract_u(
-                self._gb, self.x_name, self.discharge_name)
+            self._flux_disc.extract_u(self._gb, self.x_name, self.discharge_name)
 
             for e, d in self._gb.edges():
                 g_h = self._gb.nodes_of_edge(e)[1]
@@ -375,19 +383,22 @@ class DualEllipticModel(EllipticModel):
             self.discharge()
         self.projected_discharge_name = projected_discharge_name
         if self.is_GridBucket:
-            self._flux_disc.project_u(self._gb, self.discharge_name,
-                                      self.projected_discharge_name)
+            self._flux_disc.project_u(
+                self._gb, self.discharge_name, self.projected_discharge_name
+            )
         else:
             discharge = self._data[self.discharge_name]
-            projected_discharge = self._flux_disc.project_u(self._gb,
-                                                            discharge, self._data)
+            projected_discharge = self._flux_disc.project_u(
+                self._gb, discharge, self._data
+            )
             self._data[self.projected_discharge_name] = projected_discharge
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
-class EllipticDataAssigner():
-    '''
+class EllipticDataAssigner:
+    """
     Class for setting data to an incompressible flow problem:
     \nabla K \nabla p = q,
     where K is the second order permeability tenser, p the fluid pressure
@@ -420,9 +431,9 @@ class EllipticDataAssigner():
     Utility functions:
         grid(): returns: the grid
 
-    '''
+    """
 
-    def __init__(self, g, data, physics='flow'):
+    def __init__(self, g, data, physics="flow"):
         self._g = g
         self._data = data
 
@@ -436,13 +447,13 @@ class EllipticDataAssigner():
         return np.zeros(self.grid().num_faces)
 
     def porosity(self):
-        '''Returns apperture of each cell. If None is returned, default
-        Parameter class value is used'''
+        """Returns apperture of each cell. If None is returned, default
+        Parameter class value is used"""
         return None
 
     def aperture(self):
-        '''Returns apperture of each cell. If None is returned, default
-        Parameter class value is used'''
+        """Returns apperture of each cell. If None is returned, default
+        Parameter class value is used"""
         return None
 
     def permeability(self):
@@ -459,14 +470,14 @@ class EllipticDataAssigner():
         return self._g
 
     def _set_data(self):
-        if 'param' not in self._data:
-            self._data['param'] = Parameters(self.grid())
-        self._data['param'].set_tensor(self.physics, self.permeability())
-        self._data['param'].set_bc(self.physics, self.bc())
-        self._data['param'].set_bc_val(self.physics, self.bc_val())
-        self._data['param'].set_source(self.physics, self.source())
+        if "param" not in self._data:
+            self._data["param"] = Parameters(self.grid())
+        self._data["param"].set_tensor(self.physics, self.permeability())
+        self._data["param"].set_bc(self.physics, self.bc())
+        self._data["param"].set_bc_val(self.physics, self.bc_val())
+        self._data["param"].set_source(self.physics, self.source())
 
         if self.porosity() is not None:
-            self._data['param'].set_porosity(self.porosity())
+            self._data["param"].set_porosity(self.porosity())
         if self.aperture() is not None:
-            self._data['param'].set_aperture(self.aperture())
+            self._data["param"].set_aperture(self.aperture())

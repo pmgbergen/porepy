@@ -12,9 +12,10 @@ and puts submatrices in their right places.
 import numpy as np
 import scipy.sparse as sps
 
+
 class Coupler(object):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def __init__(self, discr=None, coupling=None, **kwargs):
 
@@ -24,7 +25,6 @@ class Coupler(object):
             self.discr_ndof = discr.ndof
         else:
             self.discr_ndof = discr_ndof
-
 
         # Consider the solver for each dimension
         discr_fct = kwargs.get("discr_fct")
@@ -60,7 +60,7 @@ class Coupler(object):
         # assign how many sets of mortars we need
         self.num_mortars = len(self.coupling_fct)
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def ndof(self, gb):
         """
@@ -74,15 +74,15 @@ class Coupler(object):
         gb: grid bucket.
 
         """
-        gb.add_node_props('dof')
+        gb.add_node_props("dof")
         for g, d in gb:
-            d['dof'] = self.discr_ndof(g)
+            d["dof"] = self.discr_ndof(g)
 
-        gb.add_edge_props('dof')
+        gb.add_edge_props("dof")
         for _, d in gb.edges():
-            d['dof'] = [d['mortar_grid'].num_cells] * self.num_mortars
+            d["dof"] = [d["mortar_grid"].num_cells] * self.num_mortars
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def initialize_matrix_rhs(self, gb):
         """
@@ -105,24 +105,24 @@ class Coupler(object):
 
         # Initialize the shapes for the matrices and rhs for all the sub-blocks
         for _, d_i in gb:
-            pos_i = d_i['node_number']
+            pos_i = d_i["node_number"]
             for _, d_j in gb:
-                pos_j = d_j['node_number']
-                shapes[pos_i, pos_j] = (d_i['dof'], d_j['dof'])
+                pos_j = d_j["node_number"]
+                shapes[pos_i, pos_j] = (d_i["dof"], d_j["dof"])
             for _, d_e in gb.edges():
                 for i in range(self.num_mortars):
-                    pos_e = d_e['edge_number'] + num_nodes + i * num_edges
-                    shapes[pos_i, pos_e] = (d_i['dof'], d_e['dof'][i])
-                    shapes[pos_e, pos_i] = (d_e['dof'][i], d_i['dof'])
+                    pos_e = d_e["edge_number"] + num_nodes + i * num_edges
+                    shapes[pos_i, pos_e] = (d_i["dof"], d_e["dof"][i])
+                    shapes[pos_e, pos_i] = (d_e["dof"][i], d_i["dof"])
 
         for _, d_e in gb.edges():
             for i in range(self.num_mortars):
-                pos_e = d_e['edge_number'] + num_nodes + i * num_edges
-                dof_e = d_e['dof'][i]
+                pos_e = d_e["edge_number"] + num_nodes + i * num_edges
+                dof_e = d_e["dof"][i]
                 for _, d_f in gb.edges():
                     for j in range(self.num_mortars):
-                        pos_f = d_f['edge_number'] + num_nodes + j * num_edges
-                        shapes[pos_e, pos_f] = (dof_e, d_f['dof'][j])
+                        pos_f = d_f["edge_number"] + num_nodes + j * num_edges
+                        shapes[pos_e, pos_f] = (dof_e, d_f["dof"][j])
 
         # initialize the matrix and rhs
         matrix = np.empty(shapes.shape, dtype=np.object)
@@ -135,7 +135,7 @@ class Coupler(object):
 
         return matrix, rhs
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, gb, matrix_format="csr", return_bmat=False):
         """
@@ -162,14 +162,14 @@ class Coupler(object):
 
         # Loop over the grids and compute the problem matrix
         for g, d in gb:
-            pos = d['node_number']
+            pos = d["node_number"]
             matrix[pos, pos], rhs[pos] = self.discr_fct(g, d)
 
         # Handle special case of 1-element grids, that give 0-d arrays
         rhs = np.array([np.atleast_1d(a) for a in tuple(rhs)])
 
         # if the coupling conditions are not given fill only the diagonal part
-        if self.num_mortars==1 and self.coupling_fct[0] is None:
+        if self.num_mortars == 1 and self.coupling_fct[0] is None:
             if return_bmat:
                 return matrix, rhs
             else:
@@ -182,9 +182,9 @@ class Coupler(object):
         for e, d in gb.edges():
             for i in range(self.num_mortars):
                 g_l, g_h = gb.nodes_of_edge(e)
-                pos_l = gb.node_props(g_l, 'node_number')
-                pos_h = gb.node_props(g_h, 'node_number')
-                pos_m = d['edge_number'] + num_nodes + i * num_edges
+                pos_l = gb.node_props(g_l, "node_number")
+                pos_h = gb.node_props(g_h, "node_number")
+                pos_m = d["edge_number"] + num_nodes + i * num_edges
                 if pos_h == pos_l:
                     idx = np.ix_([pos_h, pos_m], [pos_h, pos_m])
                 else:
@@ -195,16 +195,18 @@ class Coupler(object):
                     # if coupling is not given, skip
                     pass
                 else:
-                    matrix[idx] = self.coupling_fct[i](matrix[idx], g_h, g_l, data_h, data_l, d)
+                    matrix[idx] = self.coupling_fct[i](
+                        matrix[idx], g_h, g_l, data_h, data_l, d
+                    )
 
         if return_bmat:
             return matrix, rhs
         else:
             return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def split(self, gb, key, values, mortar_key='mortar_solution'):
+    def split(self, gb, key, values, mortar_key="mortar_solution"):
         """
         Store in the grid bucket the vector, split in the function, solution of
         the problem. The values are extracted from the global solution vector
@@ -224,16 +226,16 @@ class Coupler(object):
 
         gb.add_node_props(key)
         for g, d in gb:
-            i = d['node_number']
+            i = d["node_number"]
             d[key] = values[slice(dofs[i], dofs[i + 1])]
 
         gb.add_edge_props(mortar_key)
         for e, d in gb.edges():
             for j in range(self.num_mortars):
-                i = d['edge_number'] + gb.num_graph_nodes() + gb.num_graph_edges() * j
+                i = d["edge_number"] + gb.num_graph_nodes() + gb.num_graph_edges() * j
                 d[mortar_key] = values[slice(dofs[i], dofs[i + 1])]
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def merge(self, gb, key):
         """
@@ -253,30 +255,30 @@ class Coupler(object):
         dofs = self._dof_start_of_grids(gb)
         values = np.zeros(dofs[-1])
         for g, d in gb:
-            i = d['node_number']
+            i = d["node_number"]
             values[slice(dofs[i], dofs[i + 1])] = d[key]
 
         return values
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def _dof_start_of_grids(self ,gb):
+    def _dof_start_of_grids(self, gb):
         " Helper method to get first global dof for all grids. "
         self.ndof(gb)
         size = gb.num_graph_nodes() + self.num_mortars * gb.num_graph_edges()
         dofs = np.zeros(size, dtype=int)
 
         for _, d in gb:
-            dofs[d['node_number']] = d['dof']
+            dofs[d["node_number"]] = d["dof"]
 
         for j in range(self.num_mortars):
             for e, d in gb.edges():
-                i = d['edge_number'] + gb.num_graph_nodes() + gb.num_graph_edges() * j
-                dofs[i] = d['dof'][j]
+                i = d["edge_number"] + gb.num_graph_nodes() + gb.num_graph_edges() * j
+                dofs[i] = d["dof"][j]
 
         return np.r_[0, np.cumsum(dofs)]
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def dof_of_grid(self, gb, g):
         """ Obtain global indices of dof associated with a given grid.
@@ -290,7 +292,8 @@ class Coupler(object):
 
         """
         dof_list = self._dof_start_of_grids(gb)
-        nn = gb.node_props(g)['node_number']
-        return np.arange(dof_list[nn], dof_list[nn+1])
+        nn = gb.node_props(g)["node_number"]
+        return np.arange(dof_list[nn], dof_list[nn + 1])
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#

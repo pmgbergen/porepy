@@ -8,7 +8,6 @@ from porepy.params.data import Parameters
 
 
 class MassMatrixTest(unittest.TestCase):
-
     def test_mass_matrix(self):
         g = structured.CartGrid([3, 3, 3])
         g.compute_geometry()
@@ -16,7 +15,7 @@ class MassMatrixTest(unittest.TestCase):
         dt = 0.2
         param = Parameters(g)
         param.set_porosity(phi)
-        data = {'param': param, 'deltaT': dt}
+        data = {"param": param, "deltaT": dt}
         time_discr = MassMatrix()
         lhs, rhs = time_discr.matrix_rhs(g, data)
         assert np.allclose(rhs, 0)
@@ -31,7 +30,7 @@ class MassMatrixTest(unittest.TestCase):
         dt = 0.2
         param = Parameters(g)
         param.set_porosity(phi)
-        data = {'param': param, 'deltaT': dt}
+        data = {"param": param, "deltaT": dt}
         time_discr = InvMassMatrix()
         lhs, rhs = time_discr.matrix_rhs(g, data)
         assert np.allclose(rhs, 0)

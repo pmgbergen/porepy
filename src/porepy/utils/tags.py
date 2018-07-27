@@ -37,7 +37,7 @@ def standard_face_tags():
     """
     Returns the three standard face tag keys.
     """
-    return ['fracture_faces', 'tip_faces', 'domain_boundary_faces']
+    return ["fracture_faces", "tip_faces", "domain_boundary_faces"]
 
 
 def all_face_tags(parent):
@@ -46,10 +46,9 @@ def all_face_tags(parent):
     tagged with any of the standard face tags.
     """
     ft = standard_face_tags()
-    all_tags = np.logical_or(np.logical_or(parent[ft[0]],
-                                           parent[ft[1]]),
-                            parent[ft[2]])
+    all_tags = np.logical_or(np.logical_or(parent[ft[0]], parent[ft[1]]), parent[ft[2]])
     return all_tags
+
 
 def extract(all_tags, indices, keys=None):
     """
@@ -72,7 +71,7 @@ def add_tags(parent, new_tags):
     dictionaries (parent.tags and new_tags) will be decided by those in
     new_tags.
     """
-    old_tags = getattr(parent, 'tags', {}).copy()
+    old_tags = getattr(parent, "tags", {}).copy()
     nt = dict(old_tags)
     nt.update(new_tags)
     parent.tags = nt
