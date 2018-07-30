@@ -12,6 +12,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+
 class TestGridMappings1d(unittest.TestCase):
     def test_merge_single_grid(self):
         """
@@ -26,9 +27,7 @@ class TestGridMappings1d(unittest.TestCase):
         The mortar grid will just be a point
         """
 
-        face_faces = np.array([[0, 0, 0],
-                               [0, 0, 0],
-                               [1, 0, 0]])
+        face_faces = np.array([[0, 0, 0], [0, 0, 0], [1, 0, 0]])
         face_faces = sps.csc_matrix(face_faces)
         left_side = pp.PointGrid(np.array([0, 0, 0]).T)
         left_side.compute_geometry()
@@ -55,8 +54,7 @@ class TestGridMappings1d(unittest.TestCase):
                           |--|  (right grid)
                           0  1
         """
-        face_faces = np.array([[0, 0, 0],
-                               [0, 1, 0]])
+        face_faces = np.array([[0, 0, 0], [0, 1, 0]])
         face_faces = sps.csc_matrix(face_faces)
         left_side = pp.PointGrid(np.array([2, 0, 0]).T)
         left_side.compute_geometry()
@@ -71,5 +69,6 @@ class TestGridMappings1d(unittest.TestCase):
         assert np.all(mg.right_to_mortar_avg().A == [0, 1])
         assert np.all(mg.right_to_mortar_int.A == [0, 1])
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

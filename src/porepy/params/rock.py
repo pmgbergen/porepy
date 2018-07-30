@@ -7,7 +7,6 @@ moduli etc.
 from porepy.params import units
 
 
-
 def poisson_from_lame(mu, lmbda):
     """ Compute Poisson's ratio from Lame parameters
 
@@ -53,15 +52,12 @@ class UnitRock(object):
 
     """
 
-    
-
     PERMEABILITY = 1
     POROSITY = 1
     MU = 1
     LAMBDA = 1
     YOUNG_MODULUS = 1
     POSSION_RATIO = 1
-
 
 
 class SandStone(UnitRock):
@@ -71,18 +67,20 @@ class SandStone(UnitRock):
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
 
     """
+
     def __init__(self):
 
         # Fairly permeable rock.
         self.PERMEABILITY = 1 * units.DARCY
         self.POROSITY = 0.2
         # Reported range for Young's modulus is 0.5-8.6
-        self.YOUNG_MODULUS = 5 * units.KILOGRAM / units.CENTI**2 * 1e5
+        self.YOUNG_MODULUS = 5 * units.KILOGRAM / units.CENTI ** 2 * 1e5
         # Reported range for Poisson's ratio is 0.066-0.125
         self.POISSON_RATIO = 0.1
 
-        self.LAMBDA, self.MU = lame_from_young_poisson(self.YOUNG_MODULUS,
-                                                       self.POISSON_RATIO)
+        self.LAMBDA, self.MU = lame_from_young_poisson(
+            self.YOUNG_MODULUS, self.POISSON_RATIO
+        )
 
 
 class Shale(UnitRock):
@@ -93,17 +91,19 @@ class Shale(UnitRock):
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
 
     """
+
     def __init__(self):
         # No source for permeability and porosity.
         self.PERMEABILITY = 1e-5 * units.DARCY
         self.POROSITY = 0.01
         # Reported range for Young's modulus is 0.8-3.0
-        self.YOUNG_MODULUS = 1.5 * units.KILOGRAM / units.CENTI**2 * 1e5
+        self.YOUNG_MODULUS = 1.5 * units.KILOGRAM / units.CENTI ** 2 * 1e5
         # Reported range for Poisson's ratio is 0.11-0.54 (the latter is strange)
         self.POISSON_RATIO = 0.3
 
-        self.LAMBDA, self.MU = lame_from_young_poisson(self.YOUNG_MODULUS, self.POISSON_RATIO)
-
+        self.LAMBDA, self.MU = lame_from_young_poisson(
+            self.YOUNG_MODULUS, self.POISSON_RATIO
+        )
 
 
 class Granite(UnitRock):
@@ -114,16 +114,16 @@ class Granite(UnitRock):
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
 
     """
+
     def __init__(self):
         # No source for permeability and porosity
         self.PERMEABILITY = 1e-8 * units.DARCY
         self.POROSITY = 0.01
         # Reported range for Young's modulus is 2.6-7.0
-        self.YOUNG_MODULUS = 5 * units.KILOGRAM / units.CENTI**2 * 1e5
+        self.YOUNG_MODULUS = 5 * units.KILOGRAM / units.CENTI ** 2 * 1e5
         # Reported range for Poisson's ratio is 0.125-0.25
         self.POISSON_RATIO = 0.2
 
-        self.LAMBDA, self.MU = lame_from_young_poisson(self.YOUNG_MODULUS,
-                                                       self.POISSON_RATIO)
-
-
+        self.LAMBDA, self.MU = lame_from_young_poisson(
+            self.YOUNG_MODULUS, self.POISSON_RATIO
+        )

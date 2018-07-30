@@ -8,7 +8,7 @@ from porepy.grids.grid_bucket import GridBucket
 
 
 class SlightlyCompressibleModel(ParabolicModel):
-    '''
+    """
     Inherits from ParabolicProblem
     This class solves equations of the type:
     phi *c_p dp/dt  - \nabla K \nabla p = q
@@ -29,9 +29,9 @@ class SlightlyCompressibleModel(ParabolicModel):
         d['problem'] = SlightlyCompressibleData(g, d)
     problem = SlightlyCompressible(gb)
     problem.solve()
-   '''
+   """
 
-    def __init__(self, gb, physics='flow', **kwargs):
+    def __init__(self, gb, physics="flow", **kwargs):
         self.is_GridBucket = isinstance(gb, GridBucket)
         ParabolicModel.__init__(self, gb, physics, **kwargs)
 
@@ -42,23 +42,25 @@ class SlightlyCompressibleModel(ParabolicModel):
         """
         Returns the time discretization.
         """
+
         class TimeDisc(mass_matrix.MassMatrix):
             def __init__(self, deltaT):
                 self.deltaT = deltaT
 
             def matrix_rhs(self, g, data):
                 lhs, rhs = mass_matrix.MassMatrix.matrix_rhs(self, g, data)
-                return lhs * data['compressibility'], rhs * data['compressibility']
+                return lhs * data["compressibility"], rhs * data["compressibility"]
+
         time_discretization = TimeDisc(self.time_step())
         if self.is_GridBucket:
             time_discretization = Coupler(time_discretization, [None])
         return time_discretization
 
-    def discharge(self, d_name='discharge', p_name='pressure'):
+    def discharge(self, d_name="discharge", p_name="pressure"):
         self.pressure(p_name)
         fvutils.compute_discharges(self.grid(), d_name=d_name, p_name=p_name)
 
-    def pressure(self, pressure_name='pressure'):
+    def pressure(self, pressure_name="pressure"):
         self.pressure_name = pressure_name
         if self.is_GridBucket:
             self.split(self.pressure_name)
@@ -67,7 +69,7 @@ class SlightlyCompressibleModel(ParabolicModel):
 
 
 class SlightlyCompressibleDataAssigner(ParabolicDataAssigner):
-    '''
+    """
     Inherits from ParabolicData
     Base class for assigning valid data for a slighly compressible problem.
     Init:
@@ -96,14 +98,14 @@ class SlightlyCompressibleDataAssigner(ParabolicDataAssigner):
     gb = meshing.cart_grid([], [10,10], physdims=[1,1])
     for g, d in gb:
         d['problem'] = ExampleData(g, d)
-    '''
+    """
 
-    def __init__(self, g, data, physics='flow'):
+    def __init__(self, g, data, physics="flow"):
         ParabolicDataAssigner.__init__(self, g, data, physics)
 
     def _set_data(self):
         ParabolicDataAssigner._set_data(self)
-        self.data()['compressibility'] = self.compressibility()
+        self.data()["compressibility"] = self.compressibility()
 
     def compressibility(self):
         return 1.0
