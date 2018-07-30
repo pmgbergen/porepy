@@ -16,9 +16,9 @@ from porepy.params import tensor
 
 class HybridDualVEM(Solver):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
     def ndof(self, g):
@@ -37,7 +37,7 @@ class HybridDualVEM(Solver):
         """
         return g.num_faces
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g, data):
         """
@@ -92,7 +92,7 @@ class HybridDualVEM(Solver):
         if g.dim == 0:
             return sps.identity(self.ndof(g), format="csr"), np.zeros(1)
 
-        param = data['param']
+        param = data["param"]
         k = param.get_tensor(self)
         f = param.get_source(self)
         bc = param.get_bc(self)
@@ -107,12 +107,11 @@ class HybridDualVEM(Solver):
 
         # Weight for the stabilization term
         diams = g.cell_diameters()
-        weight = np.power(diams, 2-g.dim)
+        weight = np.power(diams, 2 - g.dim)
 
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
-        size = np.sum(np.square(g.cell_faces.indptr[1:] - \
-                                g.cell_faces.indptr[:-1]))
+        size = np.sum(np.square(g.cell_faces.indptr[1:] - g.cell_faces.indptr[:-1]))
         I = np.empty(size, dtype=np.int)
         J = np.empty(size, dtype=np.int)
         data = np.empty(size)
@@ -123,19 +122,27 @@ class HybridDualVEM(Solver):
 
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
             ndof = faces_loc.size
 
             # Retrieve permeability and normals assumed outward to the cell.
             sgn_loc = sgn[loc].reshape((-1, 1))
-            normals = np.multiply(np.tile(sgn_loc.T, (g.dim, 1)),
-                                  f_normals[:, faces_loc])
+            normals = np.multiply(
+                np.tile(sgn_loc.T, (g.dim, 1)), f_normals[:, faces_loc]
+            )
 
             # Compute the H_div-mass local matrix
-            A = massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
-                         a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
-                         a[c]*normals, np.ones(ndof), diams[c], weight[c])[0]
+            A = massHdiv(
+                k.perm[0 : g.dim, 0 : g.dim, c],
+                c_centers[:, c],
+                a[c] * g.cell_volumes[c],
+                f_centers[:, faces_loc],
+                a[c] * normals,
+                np.ones(ndof),
+                diams[c],
+                weight[c],
+            )[0]
             # Compute the Div local matrix
             B = -np.ones((ndof, 1))
             # Compute the hybrid local matrix
@@ -143,18 +150,18 @@ class HybridDualVEM(Solver):
 
             # Perform the static condensation to compute the hybrid local matrix
             invA = np.linalg.inv(A)
-            S = 1/np.dot(B.T, np.dot(invA, B))
+            S = 1 / np.dot(B.T, np.dot(invA, B))
             L = np.dot(np.dot(invA, np.dot(B, np.dot(S, B.T))), invA)
             L = np.dot(np.dot(C.T, L - invA), C)
 
             # Compute the local hybrid right using the static condensation
-            rhs[faces_loc] += np.dot(C.T,
-                                     np.dot(invA,
-                                            np.dot(B, np.dot(S, f[c]))))[:, 0]
+            rhs[faces_loc] += np.dot(C.T, np.dot(invA, np.dot(B, np.dot(S, f[c]))))[
+                :, 0
+            ]
 
             # Save values for hybrid matrix
             cols = np.tile(faces_loc, (faces_loc.size, 1))
-            loc_idx = slice(idx, idx+cols.size)
+            loc_idx = slice(idx, idx + cols.size)
             I[loc_idx] = cols.T.ravel()
             J[loc_idx] = cols.ravel()
             data[loc_idx] = L.ravel()
@@ -172,18 +179,18 @@ class HybridDualVEM(Solver):
 
                 H[is_dir, :] *= 0
                 H[is_dir, is_dir] = norm
-                rhs[is_dir] = norm*bc_val[is_dir]
+                rhs[is_dir] = norm * bc_val[is_dir]
 
             if np.any(bc.is_neu):
                 faces, _, sgn = sps.find(g.cell_faces)
                 sgn = sgn[np.unique(faces, return_index=True)[1]]
 
                 is_neu = np.where(bc.is_neu)[0]
-                rhs[is_neu] += sgn[is_neu]*bc_val[is_neu]*g.face_areas[is_neu]
+                rhs[is_neu] += sgn[is_neu] * bc_val[is_neu] * g.face_areas[is_neu]
 
         return H, rhs
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def compute_up(self, g, l, data):
         """
@@ -207,7 +214,7 @@ class HybridDualVEM(Solver):
         if g.dim == 0:
             return 0, l[0]
 
-        param = data['param']
+        param = data["param"]
         k = param.get_tensor(self)
         f = param.get_source(self)
         a = param.aperture
@@ -220,7 +227,7 @@ class HybridDualVEM(Solver):
 
         # Weight for the stabilization term
         diams = g.cell_diameters()
-        weight = np.power(diams, 2-g.dim)
+        weight = np.power(diams, 2 - g.dim)
 
         # Allocation of the pressure and velocity vectors
         p = np.zeros(g.num_cells)
@@ -229,32 +236,42 @@ class HybridDualVEM(Solver):
 
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c+1])
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
             ndof = faces_loc.size
 
             # Retrieve permeability and normals assumed outward to the cell.
             sgn_loc = sgn[loc].reshape((-1, 1))
-            normals = np.multiply(np.tile(sgn_loc.T, (g.dim, 1)),
-                                  f_normals[:, faces_loc])
+            normals = np.multiply(
+                np.tile(sgn_loc.T, (g.dim, 1)), f_normals[:, faces_loc]
+            )
 
             # Compute the H_div-mass local matrix
-            A = massHdiv(k.perm[0:g.dim, 0:g.dim, c], c_centers[:, c],
-                         a[c]*g.cell_volumes[c], f_centers[:, faces_loc],
-                         a[c]*normals, np.ones(ndof), diams[c], weight[c])[0]
+            A = massHdiv(
+                k.perm[0 : g.dim, 0 : g.dim, c],
+                c_centers[:, c],
+                a[c] * g.cell_volumes[c],
+                f_centers[:, faces_loc],
+                a[c] * normals,
+                np.ones(ndof),
+                diams[c],
+                weight[c],
+            )[0]
             # Compute the Div local matrix
             B = -np.ones((ndof, 1))
             # Compute the hybrid local matrix
             C = np.eye(ndof, ndof)
 
             # Perform the static condensation to compute the pressure and velocity
-            S = 1/np.dot(B.T, solve(A, B))
+            S = 1 / np.dot(B.T, solve(A, B))
             l_loc = l[faces_loc].reshape((-1, 1))
 
             p[c] = np.dot(S, f[c] - np.dot(B.T, solve(A, np.dot(C, l_loc))))
-            u[faces_loc] = -np.multiply(sgn_loc, solve(A, np.dot(B, p[c]) + \
-                                                       np.dot(C, l_loc)))
+            u[faces_loc] = -np.multiply(
+                sgn_loc, solve(A, np.dot(B, p[c]) + np.dot(C, l_loc))
+            )
 
         return u, p
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#

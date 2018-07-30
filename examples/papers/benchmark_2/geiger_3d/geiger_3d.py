@@ -1,6 +1,7 @@
 import geiger_3d_data as geiger
 import examples.papers.benchmark_2.solvers as solvers
 
+
 def main(test_case, file_geo, folder, solver, solver_name):
 
     tol = 1e-8

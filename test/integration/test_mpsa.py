@@ -17,16 +17,16 @@ def test_uniform_strain():
     g_list = setup_grids.setup_2d()
 
     for g in g_list:
-        bound_faces = np.argwhere(np.abs(g.cell_faces)
-                                  .sum(axis=1).A.ravel('F') == 1)
-        bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
-                                     ['dir'] * bound_faces.size)
+        bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel("F") == 1)
+        bound = bc.BoundaryCondition(
+            g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
+        )
         mu = 1
         l = 1
         constit = setup_stiffness(g, mu, l)
 
         # Python inverter is most efficient for small problems
-        stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter='python')
+        stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter="python")
 
         div = fvutils.vector_divergence(g)
         a = div * stress
@@ -46,11 +46,11 @@ def test_uniform_strain():
         d_bound[0, bound.is_dir] = df_x[bound.is_dir]
         d_bound[1, bound.is_dir] = df_y[bound.is_dir]
 
-        rhs = div * bound_stress * d_bound.ravel('F')
+        rhs = div * bound_stress * d_bound.ravel("F")
 
         d = np.linalg.solve(a.todense(), -rhs)
 
-        traction = stress * d + bound_stress * d_bound.ravel('F')
+        traction = stress * d + bound_stress * d_bound.ravel("F")
 
         s_xx = (2 * mu + l) * gx + l * gy
         s_xy = mu * (gx + gy)
@@ -72,14 +72,14 @@ def test_uniform_displacement():
     g_list = setup_grids.setup_2d()
 
     for g in g_list:
-        bound_faces = np.argwhere(np.abs(g.cell_faces)
-                                  .sum(axis=1).A.ravel('F') == 1)
-        bound = bc.BoundaryCondition(g, bound_faces.ravel('F'),
-                                     ['dir'] * bound_faces.size)
+        bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel("F") == 1)
+        bound = bc.BoundaryCondition(
+            g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
+        )
         constit = setup_stiffness(g)
 
         # Python inverter is most efficient for small problems
-        stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter='python')
+        stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter="python")
 
         div = fvutils.vector_divergence(g)
         a = div * stress
@@ -90,11 +90,11 @@ def test_uniform_displacement():
         d_bound[0, bound.is_dir] = d_x
         d_bound[1, bound.is_dir] = d_y
 
-        rhs = div * bound_stress * d_bound.ravel('F')
+        rhs = div * bound_stress * d_bound.ravel("F")
 
         d = np.linalg.solve(a.todense(), -rhs)
 
-        traction = stress * d + bound_stress * d_bound.ravel('F')
+        traction = stress * d + bound_stress * d_bound.ravel("F")
 
         assert np.max(np.abs(d[::2] - d_x)) < 1e-8
         assert np.max(np.abs(d[1::2] - d_y)) < 1e-8
@@ -111,12 +111,11 @@ def test_uniform_displacement_neumann():
         bot = np.ravel(np.argwhere(g.face_centers[1, :] < 1e-10))
         left = np.ravel(np.argwhere(g.face_centers[0, :] < 1e-10))
         dir_faces = np.hstack((left, bot))
-        bound = bc.BoundaryCondition(g, dir_faces.ravel('F'),
-                                     ['dir'] * dir_faces.size)
+        bound = bc.BoundaryCondition(g, dir_faces.ravel("F"), ["dir"] * dir_faces.size)
         constit = setup_stiffness(g)
 
         # Python inverter is most efficient for small problems
-        stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter='python')
+        stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter="python")
 
         div = fvutils.vector_divergence(g)
         a = div * stress
@@ -127,11 +126,11 @@ def test_uniform_displacement_neumann():
         d_bound[0, bound.is_dir] = d_x
         d_bound[1, bound.is_dir] = d_y
 
-        rhs = div * bound_stress * d_bound.ravel('F')
+        rhs = div * bound_stress * d_bound.ravel("F")
 
         d = np.linalg.solve(a.todense(), -rhs)
 
-        traction = stress * d + bound_stress * d_bound.ravel('F')
+        traction = stress * d + bound_stress * d_bound.ravel("F")
         assert np.max(np.abs(d[::2] - d_x)) < 1e-8
         assert np.max(np.abs(d[1::2] - d_y)) < 1e-8
         assert np.max(np.abs(traction)) < 1e-8
@@ -139,9 +138,11 @@ def test_uniform_displacement_neumann():
 
 def test_conservation_of_momentum():
     pts = np.random.rand(3, 9)
-    corners = [[0, 0, 0, 0, 1, 1, 1, 1],
-               [0, 0, 1, 1, 0, 0, 1, 1],
-               [0, 1, 0, 1, 0, 1, 0, 1]]
+    corners = [
+        [0, 0, 0, 0, 1, 1, 1, 1],
+        [0, 0, 1, 1, 0, 0, 1, 1],
+        [0, 1, 0, 1, 0, 1, 0, 1],
+    ]
     pts = np.hstack((corners, pts))
     gt = simplex.TetrahedralGrid(pts)
     gc = structured.CartGrid([3, 3, 3], physdims=[1, 1, 1])
@@ -152,12 +153,11 @@ def test_conservation_of_momentum():
         bot = np.ravel(np.argwhere(g.face_centers[1, :] < 1e-10))
         left = np.ravel(np.argwhere(g.face_centers[0, :] < 1e-10))
         dir_faces = np.hstack((left, bot))
-        bound = bc.BoundaryCondition(g, dir_faces.ravel('F'),
-                                     ['dir'] * dir_faces.size)
+        bound = bc.BoundaryCondition(g, dir_faces.ravel("F"), ["dir"] * dir_faces.size)
         constit = setup_stiffness(g)
 
         # Python inverter is most efficient for small problems
-        stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter='python')
+        stress, bound_stress = mpsa.mpsa(g, constit, bound, inverter="python")
 
         div = fvutils.vector_divergence(g)
         a = div * stress
@@ -169,17 +169,17 @@ def test_conservation_of_momentum():
         d_bound[0, bndr] = d_x
         d_bound[1, bndr] = d_y
 
-        rhs = div * bound_stress * d_bound.ravel('F')
+        rhs = div * bound_stress * d_bound.ravel("F")
 
         d = np.linalg.solve(a.todense(), -rhs)
 
-        traction = stress * d + bound_stress * d_bound.ravel('F')
-        traction_2d = traction.reshape((g.dim, -1), order='F')
+        traction = stress * d + bound_stress * d_bound.ravel("F")
+        traction_2d = traction.reshape((g.dim, -1), order="F")
         for cell in range(g.num_cells):
             fid, _, sgn = sps.find(g.cell_faces[:, cell])
             assert np.all(np.sum(traction_2d[:, fid] * sgn, axis=1) < 1e-10)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_uniform_displacement()
     test_uniform_strain()

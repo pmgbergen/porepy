@@ -23,7 +23,8 @@ from porepy.viz.plot_grid import plot_grid
 import porepy.utils.comp_geom as cg
 
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+
 
 def darcy_dualVEM_example0(**kwargs):
     #######################
@@ -39,25 +40,26 @@ def darcy_dualVEM_example0(**kwargs):
     f = np.ones(g.num_cells)
 
     b_faces = g.get_all_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
+    bnd = bc.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
     bnd_val = np.zeros(g.num_faces)
 
     solver = dual.DualVEM()
-    data = {'k': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
+    data = {"k": perm, "source": f, "bc": bnd, "bc_val": bnd_val}
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
     u, p = solver.extract_u(g, up), solver.extract_p(g, up)
     P0u = solver.project_u(g, u)
 
-    if kwargs['visualize']:
+    if kwargs["visualize"]:
         plot_grid(g, p, P0u)
 
     norms = np.array([error.norm_L2(g, p), error.norm_L2(g, P0u)])
     norms_known = np.array([0.041554943620853595, 0.18738227880674516])
     assert np.allclose(norms, norms_known)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
 def darcy_dualVEM_example1(**kwargs):
@@ -75,41 +77,42 @@ def darcy_dualVEM_example1(**kwargs):
         return np.sin(2 * np.pi * pt[0]) * np.sin(2 * np.pi * pt[1])
 
     def funU_ex(pt):
-        return [-2 * np.pi * np.cos(2 * np.pi * pt[0]) * np.sin(2 * np.pi * pt[1]),
-                -2 * np.pi * np.sin(2 * np.pi *
-                                    pt[0]) * np.cos(2 * np.pi * pt[1]),
-                0]
+        return [
+            -2 * np.pi * np.cos(2 * np.pi * pt[0]) * np.sin(2 * np.pi * pt[1]),
+            -2 * np.pi * np.sin(2 * np.pi * pt[0]) * np.cos(2 * np.pi * pt[1]),
+            0,
+        ]
 
     def fun(pt):
-        return 8 * np.pi**2 * funP_ex(pt)
+        return 8 * np.pi ** 2 * funP_ex(pt)
 
     f = np.array([fun(pt) for pt in g.cell_centers.T])
 
     b_faces = g.get_all_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
+    bnd = bc.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
     bnd_val = np.zeros(g.num_faces)
     bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
     solver = dual.DualVEM()
-    data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
+    data = {"perm": perm, "source": f, "bc": bnd, "bc_val": bnd_val}
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
     u, p = solver.extract_u(g, up), solver.extract_p(g, up)
     P0u = solver.project_u(g, u)
 
-    if kwargs['visualize']:
+    if kwargs["visualize"]:
         plot_grid(g, p, P0u)
 
     p_ex = error.interpolate(g, funP_ex)
     u_ex = error.interpolate(g, funU_ex)
 
-    errors = np.array([error.error_L2(g, p, p_ex),
-                       error.error_L2(g, P0u, u_ex)])
+    errors = np.array([error.error_L2(g, p, p_ex), error.error_L2(g, P0u, u_ex)])
     errors_known = np.array([0.0210718223032, 0.00526933885613])
     assert np.allclose(errors, errors_known)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
 def darcy_dualVEM_example2(**kwargs):
@@ -139,30 +142,30 @@ def darcy_dualVEM_example2(**kwargs):
     f = np.array([fun(pt) for pt in g.cell_centers.T])
 
     b_faces = g.get_all_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
+    bnd = bc.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
     bnd_val = np.zeros(g.num_faces)
     bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
     solver = dual.DualVEM()
-    data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
+    data = {"perm": perm, "source": f, "bc": bnd, "bc_val": bnd_val}
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
     u, p = solver.extract_u(g, up), solver.extract_p(g, up)
     P0u = solver.project_u(g, u)
 
-    if kwargs['visualize']:
+    if kwargs["visualize"]:
         plot_grid(g, p, P0u)
 
     p_ex = error.interpolate(g, funP_ex)
     u_ex = error.interpolate(g, funU_ex)
 
-    errors = np.array([error.error_L2(g, p, p_ex),
-                       error.error_L2(g, P0u, u_ex)])
+    errors = np.array([error.error_L2(g, p, p_ex), error.error_L2(g, P0u, u_ex)])
     errors_known = np.array([0, 0])
     assert np.allclose(errors, errors_known)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
 def darcy_dualVEM_example3(**kwargs):
@@ -177,55 +180,68 @@ def darcy_dualVEM_example3(**kwargs):
     perm = tensor.SecondOrderTensor(g.dim, kxx)
 
     def funP_ex(pt):
-        return np.sin(2 * np.pi * pt[0]) * np.sin(2 * np.pi * pt[1])\
+        return (
+            np.sin(2 * np.pi * pt[0])
+            * np.sin(2 * np.pi * pt[1])
             * np.sin(2 * np.pi * pt[2])
+        )
 
     def funU_ex(pt):
-        return [-2 * np.pi * np.cos(2 * np.pi * pt[0])
-                * np.sin(2 * np.pi * pt[1]) * np.sin(2 * np.pi * pt[2]),
-                -2 * np.pi * np.sin(2 * np.pi * pt[0])
-                * np.cos(2 * np.pi * pt[1]) * np.sin(2 * np.pi * pt[2]),
-                -2 * np.pi * np.sin(2 * np.pi * pt[0])
-                * np.sin(2 * np.pi * pt[1]) * np.cos(2 * np.pi * pt[2])]
+        return [
+            -2
+            * np.pi
+            * np.cos(2 * np.pi * pt[0])
+            * np.sin(2 * np.pi * pt[1])
+            * np.sin(2 * np.pi * pt[2]),
+            -2
+            * np.pi
+            * np.sin(2 * np.pi * pt[0])
+            * np.cos(2 * np.pi * pt[1])
+            * np.sin(2 * np.pi * pt[2]),
+            -2
+            * np.pi
+            * np.sin(2 * np.pi * pt[0])
+            * np.sin(2 * np.pi * pt[1])
+            * np.cos(2 * np.pi * pt[2]),
+        ]
 
     def fun(pt):
-        return 12 * np.pi**2 * funP_ex(pt)
+        return 12 * np.pi ** 2 * funP_ex(pt)
 
     f = np.array([fun(pt) for pt in g.cell_centers.T])
 
     b_faces = g.get_all_boundary_faces()
-    bnd = bc.BoundaryCondition(g, b_faces, ['dir'] * b_faces.size)
+    bnd = bc.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
     bnd_val = np.zeros(g.num_faces)
     bnd_val[b_faces] = funP_ex(g.face_centers[:, b_faces])
 
     solver = dual.DualVEM()
-    data = {'perm': perm, 'source': f, 'bc': bnd, 'bc_val': bnd_val}
+    data = {"perm": perm, "source": f, "bc": bnd, "bc_val": bnd_val}
     D, rhs = solver.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(D, rhs)
     u, p = solver.extract_u(g, up), solver.extract_p(g, up)
     P0u = solver.project_u(g, u)
 
-    if kwargs['visualize']:
+    if kwargs["visualize"]:
         plot_grid(g, p, P0u)
 
     p_ex = error.interpolate(g, funP_ex)
     u_ex = error.interpolate(g, funU_ex)
 
-    errors = np.array([error.error_L2(g, p, p_ex),
-                       error.error_L2(g, P0u, u_ex)])
+    errors = np.array([error.error_L2(g, p, p_ex), error.error_L2(g, P0u, u_ex)])
     errors_known = np.array([0.1010936831876412, 0.0680593765009036])
     assert np.allclose(errors, errors_known)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # If invoked as main, run all tests
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'v:', ['verbose=',
-                                                        'visualize='])
+        opts, args = getopt.getopt(sys.argv[1:], "v:", ["verbose=", "visualize="])
     except getopt.GetoptError as err:
         print(err)
         sys.exit(2)
@@ -234,9 +250,9 @@ if __name__ == '__main__':
     visualize = False
     # process options
     for o, a in opts:
-        if o in ('-v', '--verbose'):
+        if o in ("-v", "--verbose"):
             verbose = bool(a)
-        elif o == '--visualize':
+        elif o == "--visualize":
             visualize = bool(a)
 
     success_counter = 0
@@ -244,25 +260,28 @@ if __name__ == '__main__':
 
     time_tot = time.time()
 
-    functions_list = [o for o in getmembers(
-        sys.modules[__name__]) if isfunction(o[1])]
+    functions_list = [o for o in getmembers(sys.modules[__name__]) if isfunction(o[1])]
 
     for f in functions_list:
         func = f
-        if func[0] == 'isfunction' or func[0] == 'getmembers' or \
-           func[0] == 'spsolve' or func[0] == 'plot_grid':
+        if (
+            func[0] == "isfunction"
+            or func[0] == "getmembers"
+            or func[0] == "spsolve"
+            or func[0] == "plot_grid"
+        ):
             continue
         if verbose:
-            print('Running ' + func[0])
+            print("Running " + func[0])
 
         time_loc = time.time()
         try:
             func[1](visualize=visualize)
 
         except Exception as exp:
-            print('\n')
-            print(' ************** FAILURE **********')
-            print('Example ' + func[0] + ' failed')
+            print("\n")
+            print(" ************** FAILURE **********")
+            print("Example " + func[0] + " failed")
             print(exp)
             logging.error(traceback.format_exc())
             failure_counter += 1
@@ -273,11 +292,17 @@ if __name__ == '__main__':
     #################################
     # Summary
     #
-    print('\n')
-    print(' --- ')
-    print('Ran in total ' + str(success_counter + failure_counter) + ' tests,'
-          + ' out of which ' + str(failure_counter) + ' failed.')
-    print('Total elapsed time is ' + str(time.time() - time_tot) + ' seconds')
-    print('\n')
+    print("\n")
+    print(" --- ")
+    print(
+        "Ran in total "
+        + str(success_counter + failure_counter)
+        + " tests,"
+        + " out of which "
+        + str(failure_counter)
+        + " failed."
+    )
+    print("Total elapsed time is " + str(time.time() - time_tot) + " seconds")
+    print("\n")
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#

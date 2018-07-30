@@ -37,7 +37,21 @@ def standard_face_tags():
     """
     Returns the three standard face tag keys.
     """
-    return ['fracture_faces', 'tip_faces', 'domain_boundary_faces']
+    return ["fracture_faces", "tip_faces", "domain_boundary_faces"]
+
+def standard_node_tags():
+    """
+    Returns the standard node tag key.
+    """
+    return ["fracture_nodes", "tip_nodes", "domain_boundary_nodes"]
+
+
+def all_tags(parent, ft):
+    """
+    Return a logical array indicate which of the parent objects are
+    tagged with any of the standard object tags.
+    """
+    return np.logical_or(np.logical_or(parent[ft[0]], parent[ft[1]]), parent[ft[2]])
 
 
 def all_face_tags(parent):
@@ -45,11 +59,16 @@ def all_face_tags(parent):
     Return a logical array indicate which of the parent (grid.tags) faces are
     tagged with any of the standard face tags.
     """
-    ft = standard_face_tags()
-    all_tags = np.logical_or(np.logical_or(parent[ft[0]],
-                                           parent[ft[1]]),
-                            parent[ft[2]])
-    return all_tags
+    return all_tags(parent, standard_face_tags())
+
+
+def all_node_tags(parent):
+    """
+    Return a logical array indicate which of the parent (grid.nodes) nodes are
+    tagged with any of the standard node tags.
+    """
+    return all_tags(parent, standard_node_tags())
+
 
 def extract(all_tags, indices, keys=None):
     """
@@ -72,7 +91,7 @@ def add_tags(parent, new_tags):
     dictionaries (parent.tags and new_tags) will be decided by those in
     new_tags.
     """
-    old_tags = getattr(parent, 'tags', {}).copy()
+    old_tags = getattr(parent, "tags", {}).copy()
     nt = dict(old_tags)
     nt.update(new_tags)
     parent.tags = nt

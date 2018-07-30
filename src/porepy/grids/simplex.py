@@ -22,6 +22,7 @@ class TriangleGrid(Grid):
     parent Grid class.
 
     """
+
     def __init__(self, p, tri=None, name=None):
         """
         Create triangular grid from point cloud.
@@ -50,7 +51,7 @@ class TriangleGrid(Grid):
             tri = tri.transpose()
 
         if name is None:
-            name = 'TriangleGrid'
+            name = "TriangleGrid"
 
         num_nodes = p.shape[1]
 
@@ -60,12 +61,10 @@ class TriangleGrid(Grid):
         else:
             nodes = p
 
-        assert num_nodes > 2   # Check of transposes of point array
+        assert num_nodes > 2  # Check of transposes of point array
 
         # Face node relations
-        face_nodes = np.hstack((tri[[0, 1]],
-                                tri[[1, 2]],
-                                tri[[2, 0]])).transpose()
+        face_nodes = np.hstack((tri[[0, 1]], tri[[1, 2]], tri[[2, 0]])).transpose()
         face_nodes.sort(axis=1)
         face_nodes, _, cell_faces = setmembership.unique_rows(face_nodes)
 
@@ -73,29 +72,35 @@ class TriangleGrid(Grid):
         num_cells = tri.shape[1]
 
         num_nodes_per_face = 2
-        face_nodes = face_nodes.ravel('C')
-        indptr = np.hstack((np.arange(0, num_nodes_per_face * num_faces,
-                                      num_nodes_per_face),
-                            num_nodes_per_face * num_faces))
+        face_nodes = face_nodes.ravel("C")
+        indptr = np.hstack(
+            (
+                np.arange(0, num_nodes_per_face * num_faces, num_nodes_per_face),
+                num_nodes_per_face * num_faces,
+            )
+        )
         data = np.ones(face_nodes.shape, dtype=bool)
-        face_nodes = sps.csc_matrix((data, face_nodes, indptr),
-                                    shape=(num_nodes, num_faces))
+        face_nodes = sps.csc_matrix(
+            (data, face_nodes, indptr), shape=(num_nodes, num_faces)
+        )
 
         # Cell face relation
         num_faces_per_cell = 3
-        cell_faces = cell_faces.reshape(num_faces_per_cell,
-                                        num_cells).ravel('F')
-        indptr = np.hstack((np.arange(0, num_faces_per_cell*num_cells,
-                                      num_faces_per_cell),
-                            num_faces_per_cell * num_cells))
+        cell_faces = cell_faces.reshape(num_faces_per_cell, num_cells).ravel("F")
+        indptr = np.hstack(
+            (
+                np.arange(0, num_faces_per_cell * num_cells, num_faces_per_cell),
+                num_faces_per_cell * num_cells,
+            )
+        )
         data = -np.ones(cell_faces.shape)
         _, sgns = np.unique(cell_faces, return_index=True)
         data[sgns] = 1
-        cell_faces = sps.csc_matrix((data, cell_faces, indptr),
-                                    shape=(num_faces, num_cells))
+        cell_faces = sps.csc_matrix(
+            (data, cell_faces, indptr), shape=(num_faces, num_cells)
+        )
 
-        super(TriangleGrid, self).__init__(2, nodes, face_nodes, cell_faces,
-                                           name)
+        super(TriangleGrid, self).__init__(2, nodes, face_nodes, cell_faces, name)
 
     def cell_node_matrix(self):
         """ Get cell-node relations in a Nc x 3 matrix
@@ -103,14 +108,12 @@ class TriangleGrid(Grid):
         """
 
         # Absolute value needed since cellFaces can be negative
-        cn = self.face_nodes * np.abs(self.cell_faces) \
-             * sps.eye(self.num_cells)
+        cn = self.face_nodes * np.abs(self.cell_faces) * sps.eye(self.num_cells)
         row, col = cn.nonzero()
         scol = np.argsort(col)
 
         # Consistency check
-        assert np.all(accumarray.accum(col, np.ones(col.size)) ==
-                      (self.dim + 1))
+        assert np.all(accumarray.accum(col, np.ones(col.size)) == (self.dim + 1))
 
         return row[scol].reshape(self.num_cells, 3)
 
@@ -142,17 +145,20 @@ class StructuredTriangleGrid(TriangleGrid):
         thus Cartesian cells are unit squares
         """
         nx = np.asarray(nx)
+        assert nx.size == 2
+
         if physdims is None:
             physdims = nx
         else:
             physdims = np.asarray(physdims)
+            assert physdims.size == 2
 
         x = np.linspace(0, physdims[0], nx[0] + 1)
         y = np.linspace(0, physdims[1], nx[1] + 1)
 
         # Node coordinates
         x_coord, y_coord = np.meshgrid(x, y)
-        p = np.vstack((x_coord.ravel(order='C'), y_coord.ravel(order='C')))
+        p = np.vstack((x_coord.ravel(order="C"), y_coord.ravel(order="C")))
 
         # Define nodes of the first row of cells.
         tmp_ind = np.arange(0, nx[0])
@@ -164,20 +170,20 @@ class StructuredTriangleGrid(TriangleGrid):
         # The first triangle is defined by (i1, i2, i3), the next by
         # (i1, i3, i4). Stack these vertically, and reshape so that the
         # first quad is split into cells 0 and 1 and so on
-        tri_base = np.vstack((ind_1, ind_2, ind_3, ind_1, ind_3,
-                              ind_4)).reshape((3, -1), order='F')
+        tri_base = np.vstack((ind_1, ind_2, ind_3, ind_1, ind_3, ind_4)).reshape(
+            (3, -1), order="F"
+        )
         # Initialize array of triangles. For the moment, we will append the
         # cells here, but we do know how many cells there are in advance,
         # so pre-allocation is possible if this turns out to be a bottleneck
         tri = tri_base
 
         # Loop over all remaining rows in the y-direction.
-        for iter1 in range(nx[1].astype('int64') - 1):
+        for iter1 in range(nx[1].astype("int64") - 1):
             # The node numbers are increased by nx[0] + 1 for each row
             tri = np.hstack((tri, tri_base + (iter1 + 1) * (nx[0] + 1)))
 
-        super(self.__class__, self).__init__(p, tri,
-                                             name='StructuredTriangleGrid')
+        super(self.__class__, self).__init__(p, tri, name="StructuredTriangleGrid")
 
 
 class TetrahedralGrid(Grid):
@@ -213,54 +219,61 @@ class TetrahedralGrid(Grid):
             tet = tet.transpose()
 
         if name is None:
-            name = 'TetrahedralGrid'
+            name = "TetrahedralGrid"
 
         num_nodes = p.shape[1]
 
         nodes = p
-        assert num_nodes > 3   # Check of transposes of point array
+        assert num_nodes > 3  # Check of transposes of point array
 
         num_cells = tet.shape[1]
         tet = self.__permute_nodes(p, tet)
 
         # Define face-nodes so that the first column contains fn of cell 0,
         # etc.
-        face_nodes = np.vstack((tet[[1, 0, 2]],
-                                tet[[0, 1, 3]],
-                                tet[[2, 0, 3]],
-                                tet[[1, 2, 3]]))
+        face_nodes = np.vstack(
+            (tet[[1, 0, 2]], tet[[0, 1, 3]], tet[[2, 0, 3]], tet[[1, 2, 3]])
+        )
         # Reshape face-nodes into a 3x 4*num_cells-matrix, with the four first
         # columns belonging to cell 0.
-        face_nodes = face_nodes.reshape((3, 4*num_cells), order='F')
+        face_nodes = face_nodes.reshape((3, 4 * num_cells), order="F")
         sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
         face_nodes_sorted = np.sort(face_nodes, axis=0)
-        face_nodes, _, cell_faces = \
-            setmembership.unique_columns_tol(face_nodes_sorted)
+        face_nodes, _, cell_faces = setmembership.unique_columns_tol(face_nodes_sorted)
 
         num_faces = face_nodes.shape[1]
 
         num_nodes_per_face = 3
-        face_nodes = face_nodes.ravel(order='F')
-        indptr = np.hstack((np.arange(0, num_nodes_per_face * num_faces,
-                                      num_nodes_per_face),
-                            num_nodes_per_face * num_faces))
+        face_nodes = face_nodes.ravel(order="F")
+        indptr = np.hstack(
+            (
+                np.arange(0, num_nodes_per_face * num_faces, num_nodes_per_face),
+                num_nodes_per_face * num_faces,
+            )
+        )
         data = np.ones(face_nodes.shape, dtype=bool)
-        face_nodes = sps.csc_matrix((data, face_nodes, indptr),
-                                    shape=(num_nodes, num_faces))
+        face_nodes = sps.csc_matrix(
+            (data, face_nodes, indptr), shape=(num_nodes, num_faces)
+        )
 
         # Cell face relation
         num_faces_per_cell = 4
-        indptr = np.hstack((np.arange(0, num_faces_per_cell*num_cells,
-                                      num_faces_per_cell),
-                            num_faces_per_cell * num_cells))
+        indptr = np.hstack(
+            (
+                np.arange(0, num_faces_per_cell * num_cells, num_faces_per_cell),
+                num_faces_per_cell * num_cells,
+            )
+        )
         data = np.ones(cell_faces.shape)
         sgn_change = np.where(np.any(np.diff(sort_ind, axis=0) == 1, axis=0))[0]
         data[sgn_change] = -1
-        cell_faces = sps.csc_matrix((data, cell_faces, indptr),
-                                    shape=(num_faces, num_cells))
+        cell_faces = sps.csc_matrix(
+            (data, cell_faces, indptr), shape=(num_faces, num_cells)
+        )
 
-        super(TetrahedralGrid, self).__init__(3, nodes, face_nodes, cell_faces,
-                                              'TetrahedralGrid')
+        super(TetrahedralGrid, self).__init__(
+            3, nodes, face_nodes, cell_faces, "TetrahedralGrid"
+        )
 
     def __permute_nodes(self, p, t):
         v = self.__triple_product(p, t)
@@ -291,6 +304,7 @@ class TetrahedralGrid(Grid):
 
         return dx[2] * cross_x + dy[2] * cross_y + dz[2] * cross_z
 
+
 class StructuredTetrahedralGrid(TetrahedralGrid):
     """ Class for a structured triangular grids, composed of squares divided
     into two.
@@ -318,10 +332,13 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
         thus Cartesian cells are unit squares
         """
         nx = np.asarray(nx)
+        assert nx.size == 3
+
         if physdims is None:
             physdims = nx
         else:
             physdims = np.asarray(physdims)
+            assert physdims.size == 3
 
         x = np.linspace(0, physdims[0], nx[0] + 1)
         y = np.linspace(0, physdims[1], nx[1] + 1)
@@ -329,8 +346,13 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
 
         # Node coordinates
         y_coord, x_coord, z_coord = np.meshgrid(y, x, z)
-        p = np.vstack((x_coord.ravel(order='F'), y_coord.ravel(order='F'),
-                       z_coord.ravel(order='F')))
+        p = np.vstack(
+            (
+                x_coord.ravel(order="F"),
+                y_coord.ravel(order="F"),
+                z_coord.ravel(order="F"),
+            )
+        )
 
         # Define nodes of the first row of cells.
         tmp_ind = np.arange(0, nx[0])
@@ -345,25 +367,47 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
         ind_7 = ind_3 + nxy
         ind_8 = ind_4 + nxy
 
-        tet_base = np.vstack((ind_1, ind_2, ind_3, ind_5,
-                              ind_2, ind_3, ind_5, ind_7,
-                              ind_2, ind_5, ind_6, ind_7,
-                              ind_2, ind_3, ind_4, ind_7,
-                              ind_2, ind_4, ind_6, ind_7,
-                              ind_4, ind_6, ind_7, ind_8)).reshape((4, -1), order='F')
+        tet_base = np.vstack(
+            (
+                ind_1,
+                ind_2,
+                ind_3,
+                ind_5,
+                ind_2,
+                ind_3,
+                ind_5,
+                ind_7,
+                ind_2,
+                ind_5,
+                ind_6,
+                ind_7,
+                ind_2,
+                ind_3,
+                ind_4,
+                ind_7,
+                ind_2,
+                ind_4,
+                ind_6,
+                ind_7,
+                ind_4,
+                ind_6,
+                ind_7,
+                ind_8,
+            )
+        ).reshape((4, -1), order="F")
         # Initialize array of triangles. For the moment, we will append the
         # cells here, but we do know how many cells there are in advance,
         # so pre-allocation is possible if this turns out to be a bottleneck
 
         # Loop over all remaining rows in the y-direction.
-        for iter2 in range(nx[2].astype('int64')):
-            for iter1 in range(nx[1].astype('int64')):
-                increment = iter2 * nxy + iter1 * (nx[0]+1)
+        for iter2 in range(nx[2].astype("int64")):
+            for iter1 in range(nx[1].astype("int64")):
+                increment = iter2 * nxy + iter1 * (nx[0] + 1)
                 if iter2 == 0 and iter1 == 0:
                     tet = tet_base + increment
                 else:
                     tet = np.hstack((tet, tet_base + increment))
 
-        super(self.__class__, self).__init__(p, tet=tet,
-                                             name='StructuredTetrahedralGrid')
-
+        super(self.__class__, self).__init__(
+            p, tet=tet, name="StructuredTetrahedralGrid"
+        )

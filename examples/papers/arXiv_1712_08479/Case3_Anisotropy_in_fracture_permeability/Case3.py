@@ -11,8 +11,7 @@ import matplotlib.pyplot as plt
 
 from porepy.fracs import meshing
 from porepy.numerics.elliptic import EllipticModel, EllipticDataAssigner
-from porepy.numerics.darcy_and_transport import DarcyAndTransport, \
-    static_flow_IE_solver
+from porepy.numerics.darcy_and_transport import DarcyAndTransport, static_flow_IE_solver
 from porepy.params import bc, tensor
 from porepy.utils import comp_geom as cg
 from porepy.numerics.fv import mpfa, tpfa
@@ -27,12 +26,10 @@ def define_grid():
     Make cartesian grids and a bucket. One horizontal and one vertical 1d
     fracture in a 2d matrix domain.
     """
-    f_1 = np.array([[0, 0, 1, 1],
-                    [0, 1, 1, 0],
-                    [.5, .5, .5, .5]])
+    f_1 = np.array([[0, 0, 1, 1], [0, 1, 1, 0], [.5, .5, .5, .5]])
 
     fracs = [f_1]
-    mesh_kwargs = {'physdims': np.array([1, 1, 1])}
+    mesh_kwargs = {"physdims": np.array([1, 1, 1])}
     gb = meshing.cart_grid(fracs, np.array([nx, nx, nx]), **mesh_kwargs)
     gb.assign_node_ordering()
     return gb
@@ -42,17 +39,21 @@ def boundary_face_type(g):
     """
     Extract the faces where Dirichlet conditions are to be set.
     """
-    bound_faces = g.tags['domain_boundary_faces'].nonzero()[0]
+    bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
     bound_face_centers = g.face_centers[:, bound_faces]
     onev = np.ones(bound_face_centers.shape[1])
     a = 1 / nx
     tol = 1e-5
-    dirface1 = np.where(np.array(bound_face_centers[0, :] < a * onev)
-                        & np.array(bound_face_centers[1, :] < a * onev)
-                        & np.array(bound_face_centers[2, :] < tol * onev))
-    dirface2 = np.where(np.array(bound_face_centers[0, :] > (1 - a) * onev)
-                        & np.array(bound_face_centers[1, :] > (1 - a) * onev)
-                        & np.array(bound_face_centers[2, :] > (1 - tol) * onev))
+    dirface1 = np.where(
+        np.array(bound_face_centers[0, :] < a * onev)
+        & np.array(bound_face_centers[1, :] < a * onev)
+        & np.array(bound_face_centers[2, :] < tol * onev)
+    )
+    dirface2 = np.where(
+        np.array(bound_face_centers[0, :] > (1 - a) * onev)
+        & np.array(bound_face_centers[1, :] > (1 - a) * onev)
+        & np.array(bound_face_centers[2, :] > (1 - tol) * onev)
+    )
     return bound_faces, dirface1, dirface2
 
 
@@ -79,8 +80,7 @@ class FlowData(EllipticDataAssigner):
 
     def permeability(self):
         if self.grid().dim == 3:
-            kxx = np.ones(self.grid().num_cells) \
-                * np.power(1e4, 3 > self.grid().dim)
+            kxx = np.ones(self.grid().num_cells) * np.power(1e4, 3 > self.grid().dim)
             return tensor.SecondOrderTensor(3, kxx)
         else:
             return anisotropy(self.grid(), d, y)
@@ -89,9 +89,9 @@ class FlowData(EllipticDataAssigner):
         if self.grid().dim < 3:
             return bc.BoundaryCondition(self.grid())
         bound_faces, dirface1, dirface2 = boundary_face_type(self.grid())
-        labels = np.array(['neu'] * bound_faces.size)
+        labels = np.array(["neu"] * bound_faces.size)
         dirfaces = np.concatenate((dirface1, dirface2))
-        labels[dirfaces] = 'dir'
+        labels[dirfaces] = "dir"
         return bc.BoundaryCondition(self.grid(), bound_faces, labels)
 
     def bc_val(self):
@@ -121,8 +121,9 @@ def anisotropy(g, deg, yfactor):
     kxz = kf * k[0, 2]
     kyz = kf * k[1, 2]
     kzz = kf * k[2, 2]
-    perm = tensor.SecondOrderTensor(3, kxx=kxx, kyy=kyy,
-                              kzz=kzz, kxy=kxy, kxz=kxz, kyz=kyz)
+    perm = tensor.SecondOrderTensor(
+        3, kxx=kxx, kyy=kyy, kzz=kzz, kxy=kxy, kxz=kxz, kyz=kyz
+    )
     return perm
 
 
@@ -132,7 +133,7 @@ class MixedDiscretization(SolverMixedDim):
     subdomain dimension.
     """
 
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
         self.discr = tpfa.Tpfa(self.physics)
         self.discr_ndof = self.discr.ndof
@@ -140,9 +141,10 @@ class MixedDiscretization(SolverMixedDim):
         tp = tpfa.Tpfa(self.physics)
         mp = mpfa.Mpfa(self.physics)
 
-        def discr_fct(g, d): return mp.matrix_rhs(g, d) if g.dim < 3 \
-            else tp.matrix_rhs(g, d)
-        kwargs = {'discr_fct': discr_fct}
+        def discr_fct(g, d):
+            return mp.matrix_rhs(g, d) if g.dim < 3 else tp.matrix_rhs(g, d)
+
+        kwargs = {"discr_fct": discr_fct}
         self.solver = Coupler(self.discr, self.coupling_conditions, **kwargs)
 
 
@@ -156,9 +158,9 @@ class TransportData(ParabolicDataAssigner):
 
     def bc(self):
         bound_faces, dirface1, dirface2 = boundary_face_type(self.grid())
-        labels = np.array(['neu'] * bound_faces.size)
+        labels = np.array(["neu"] * bound_faces.size)
         dirfaces = np.concatenate((dirface1, dirface2))
-        labels[dirfaces] = 'dir'
+        labels[dirfaces] = "dir"
         return bc.BoundaryCondition(self.grid(), bound_faces, labels)
 
     def bc_val(self, t):
@@ -199,7 +201,7 @@ class TransportSolver(ParabolicModel):
     def __init__(self, gb, kw):
         self._g = gb
         ParabolicModel.__init__(self, gb, **kw)
-        self._solver.parameters['store_results'] = True
+        self._solver.parameters["store_results"] = True
 
     def grid(self):
         return self._g
@@ -227,21 +229,21 @@ class BothProblems(DarcyAndTransport):
         DarcyAndTransport.__init__(self, flow, transport)
 
     def setup_subproblems(self, gb, mp, mix):
-        appendix = ''
+        appendix = ""
         if mp:
-            appendix += '_mp'
+            appendix += "_mp"
         elif mix:
-            appendix += '_mix'
-        kw = {'folder_name': main_folder + appendix}
+            appendix += "_mix"
+        kw = {"folder_name": main_folder + appendix}
 
         darcy_problem = DarcySolver(gb, mp, mix, kw)
-        assign_data(gb, TransportData, 'transport_data')
+        assign_data(gb, TransportData, "transport_data")
         transport_problem = TransportSolver(gb, kw)
         return darcy_problem, transport_problem
 
     def solve_and_save_text(self):
-        self.transport._solver.data['transport'] = []
-        self.transport._solver.data['times'] = []
+        self.transport._solver.data["transport"] = []
+        self.transport._solver.data["times"] = []
         p, t = self.solve()
         return p, t
 
@@ -250,14 +252,18 @@ def evaluate_errors(p1, p2, t, t_mp, gb):
     e = np.array([1, 1])
     tracer_errors_L2 = gb_error(gb, t[-1], t_mp[-1])
     pressure_errors_L2 = gb_error(gb, p1, p2)
-    print('L2 [matrix, fracture], tracer', tracer_errors_L2,
-          ' and pressure', pressure_errors_L2)
+    print(
+        "L2 [matrix, fracture], tracer",
+        tracer_errors_L2,
+        " and pressure",
+        pressure_errors_L2,
+    )
     return e
 
 
 def plot_monitored_tracer(t_tp, t_mp, t_mix, P):
-    matplotlib.rc('font', **{'size': 14})
-    matplotlib.rc('lines', linewidth=3)
+    matplotlib.rc("font", **{"size": 14})
+    matplotlib.rc("lines", linewidth=3)
     cell = gb.grids_of_dimension(3)[0].num_cells - 1
     endtime = P.transport.end_time()
     timesteps = len(t)
@@ -272,23 +278,23 @@ def plot_monitored_tracer(t_tp, t_mp, t_mix, P):
     plt.figure(figsize=(172 / 25.4, 129 / 25.4))
 
     plt.plot(time, tv_mp)
-    plt.plot(time, tv_mix, ls='--')
+    plt.plot(time, tv_mix, ls="--")
     plt.plot(time, tv_tp)
-    plt.legend(['MPFA', 'Hybrid', 'TPFA'])
-    plt.xlabel('Time')
-    plt.ylabel('Concentration')
-    plt.savefig('figures/monitored_tracer.png')
+    plt.legend(["MPFA", "Hybrid", "TPFA"])
+    plt.xlabel("Time")
+    plt.ylabel("Concentration")
+    plt.savefig("figures/monitored_tracer.png")
     plt.show()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     nx = 40
     y = 3
     d = -45
-    main_folder = 'results'
+    main_folder = "results"
     gb = define_grid()
-    assign_data(gb, FlowData, 'problem')
+    assign_data(gb, FlowData, "problem")
     edge_params(gb)
     gb_mp = gb.copy()
     gb_mix = gb.copy()
