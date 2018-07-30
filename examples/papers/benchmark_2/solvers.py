@@ -15,16 +15,17 @@ def export(gb, folder):
 
     save = pp.Exporter(gb, "sol", folder=folder)
 
-    props = ["pressure", 'cell_volumes', 'cell_centers', 'phi', 'aperture']
+    props = ["pressure", "cell_volumes", "cell_centers", "phi", "aperture"]
 
     # extra properties, problem specific
-    if all(gb.has_nodes_prop(gb.get_grids(), 'low_zones')):
-        gb.add_node_props('bottom_domain')
+    if all(gb.has_nodes_prop(gb.get_grids(), "low_zones")):
+        gb.add_node_props("bottom_domain")
         for g, d in gb:
-            d['bottom_domain'] = 1-d['low_zones']
-        props.append('bottom_domain')
+            d["bottom_domain"] = 1 - d["low_zones"]
+        props.append("bottom_domain")
 
     save.write_vtk(props)
+
 
 # ------------------------------------------------------------------------------#
 
@@ -35,10 +36,10 @@ def solve_rt0(gb, folder):
     solver_flow = pp.RT0MixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = pp.DualSourceMixedDim('flow', [None])
+    solver_source = pp.DualSourceMixedDim("flow", [None])
     A_source, b_source = solver_source.matrix_rhs(gb)
 
-    up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+    up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 
     solver_flow.split(gb, "up", up)
     solver_flow.extract_p(gb, "up", "pressure")
@@ -56,10 +57,10 @@ def solve_tpfa(gb, folder):
     solver_flow = pp.TpfaMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = pp.IntegralMixedDim('flow', [None])
+    solver_source = pp.IntegralMixedDim("flow", [None])
     A_source, b_source = solver_source.matrix_rhs(gb)
 
-    p = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+    p = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 
     solver_flow.split(gb, "pressure", p)
     pp.fvutils.compute_discharges(gb)
@@ -76,10 +77,10 @@ def solve_mpfa(gb, folder):
     solver_flow = pp.MpfaMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = pp.IntegralMixedDim('flow', [None])
+    solver_source = pp.IntegralMixedDim("flow", [None])
     A_source, b_source = solver_source.matrix_rhs(gb)
 
-    p = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+    p = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 
     solver_flow.split(gb, "pressure", p)
     pp.fvutils.compute_discharges(gb)
@@ -116,10 +117,10 @@ def solve_vem(gb, folder):
     solver_flow = pp.DualVEMMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = pp.DualSourceMixedDim('flow', [None])
+    solver_source = pp.DualSourceMixedDim("flow", [None])
     A_source, b_source = solver_source.matrix_rhs(gb)
 
-    up = sps.linalg.spsolve(A_flow+A_source, b_flow+b_source)
+    up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 
     solver_flow.split(gb, "up", up)
     solver_flow.extract_p(gb, "up", "pressure")
@@ -129,6 +130,7 @@ def solve_vem(gb, folder):
 
 
 # ------------------------------------------------------------------------------#
+
 
 def transport(gb, data, solver_name, folder, adv_data_assigner, callback=None):
     physics = "transport"
@@ -144,6 +146,7 @@ def transport(gb, data, solver_name, folder, adv_data_assigner, callback=None):
         callback=callback,
     )
     advective.solve("tracer")
+
 
 class AdvectiveProblem(pp.ParabolicModel):
     def space_disc(self):
