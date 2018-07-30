@@ -45,15 +45,15 @@ class Coupler(object):
             if not isinstance(coupling_fct, list):
                 coupling_fct = [coupling_fct]
             self.coupling_fct = [c for c in coupling_fct]
-        else: # we assign coupling as coupling function
+        else:  # we assign coupling as coupling function
             # Make sure coupling is list
             if not isinstance(coupling, list):
                 coupling = [coupling]
             coupling_matrix_rhs = []
             for c in coupling:
-                if c is None: # we assign None coupling
+                if c is None:  # we assign None coupling
                     coupling_matrix_rhs.append(c)
-                else: # Assign the matrix rhs coupling function
+                else:  # Assign the matrix rhs coupling function
                     coupling_matrix_rhs.append(c.matrix_rhs)
             self.coupling_fct = [c for c in coupling_matrix_rhs]
 
