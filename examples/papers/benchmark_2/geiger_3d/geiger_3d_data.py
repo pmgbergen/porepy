@@ -24,6 +24,42 @@ def import_grid(file_geo, tol):
 
 # ------------------------------------------------------------------------------#
 
+def color(g):
+    if g.dim < 3:
+        return np.zeros(g.num_cells, dtype=np.int)
+
+    val = np.zeros(g.cell_centers.shape[1], dtype=np.int)
+    x = g.cell_centers[0, :]
+    y = g.cell_centers[1, :]
+    z = g.cell_centers[2, :]
+
+    val[np.logical_and.reduce((x>.5, y<.5, z<.5))] = 0
+    val[np.logical_and.reduce((x<.5, y>.5, z<.5))] = 1
+    val[np.logical_and.reduce((x>.5, y>.5, z<.5))] = 2
+    val[np.logical_and.reduce((x<.5, y<.5, z>.5))] = 3
+    val[np.logical_and.reduce((x>.5, y<.5, z>.5))] = 4
+    val[np.logical_and.reduce((x<.5, y>.5, z>.5))] = 5
+
+    val[np.logical_and.reduce((x>.75, y>.75, z>.75))] = 6
+    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.75))] = 7
+    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.75))] = 8
+    val[np.logical_and.reduce((x>.5, x<.75, y>.5, y<.75, z>.75))] = 9
+    val[np.logical_and.reduce((x>.75, y>.75, z>.5, z<.75))] = 10
+    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.5, z<.75))] = 11
+    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.5, z<.75))] = 12
+
+    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.5, z<.625))] = 13
+    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.5, z<.625))] = 14
+    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.5, z<.625))] = 15
+    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.5, z<.625))] = 16
+    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.625, z<.75))] = 17
+    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.625, z<.75))] = 18
+    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.625, z<.75))] = 19
+    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.625, z<.75))] = 20
+
+    return val
+
+#------------------------------------------------------------------------------#
 
 def low_zones(g):
     if g.dim < 3:
@@ -66,11 +102,12 @@ def add_data(gb, data, solver_name):
 
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
-    gb.add_node_props(["is_tangential", "param", "frac_num", "low_zones", "phi"])
+    gb.add_node_props(["is_tangential", "param", "frac_num", "low_zones", "phi", "color"])
     for g, d in gb:
         param = pp.Parameters(g)
         d["is_tangential"] = True
         d["low_zones"] = low_zones(g)
+        d["color"] = color(g)
 
         unity = np.ones(g.num_cells)
         zeros = np.zeros(g.num_cells)
