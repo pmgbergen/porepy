@@ -33,7 +33,7 @@ def read_data(vtk_reader, field):
 
 #------------------------------------------------------------------------------#
 
-def plot_over_line(file_in, file_out, pts, resolution=50000):
+def plot_over_line(file_in, file_out, pts, resolution=500):
 
     if file_in.lower().endswith('.pvd'):
         # create a new 'PVD Reader'
@@ -95,73 +95,74 @@ if __name__ == "__main__":
 
     solver_names = ['tpfa', 'vem', 'rt0', 'mpfa']
 
-    idx = '1'
+    indices = ['0', '1']
 
-    for solver in solver_names:
-        folder = "./"+solver+"_results_"+idx+"/"
+    for idx in indices:
+        for solver in solver_names:
+            folder = "./"+solver+"_results_"+idx+"/"
 
-        # 2) $\int_{\Omega_3,3} \porosity c \, \mathrm{d}x$ $([-])$ vs. time
-        field = "tracer"
-        step = 101
+            # 2) $\int_{\Omega_3,3} \porosity c \, \mathrm{d}x$ $([-])$ vs. time
+            field = "tracer"
+            step = 101
 
-        transport_root = folder+"tracer_3_"
+            transport_root = folder+"tracer_3_"
 
-        # in this file the constant data are saved
-        file_in = folder+"sol_3.vtu"
-        fields = ["phi", "cell_volumes", "aperture", "bottom_domain"]
-        cot_matrix = cot_domain(transport_root, file_in, step, field, fields)
+            # in this file the constant data are saved
+            file_in = folder+"sol_3.vtu"
+            fields = ["phi", "cell_volumes", "aperture", "bottom_domain"]
+            cot_matrix = cot_domain(transport_root, file_in, step, field, fields)
 
-        # 1) $\int_{\Omega_f} \epsilon \porosity c \, \mathrm{d}x$ $([-])$ vs. time
+            # 1) $\int_{\Omega_f} \epsilon \porosity c \, \mathrm{d}x$ $([-])$ vs. time
 
-        transport_root = folder+"tracer_2_"
+            transport_root = folder+"tracer_2_"
 
-        # in this file the constant data are saved
-        file_in = folder+"sol_2.vtu"
-        fields = ["phi", "cell_volumes", "aperture"]
-        cot_fracture = cot_domain(transport_root, file_in, step, field, fields)
+            # in this file the constant data are saved
+            file_in = folder+"sol_2.vtu"
+            fields = ["phi", "cell_volumes", "aperture"]
+            cot_fracture = cot_domain(transport_root, file_in, step, field, fields)
 
-        # 3)
-        # collect the data in a single file
-        file_out = folder+"dot_"+idx+".csv"
-        times = np.arange(step)*1e7
+            # 3)
+            # collect the data in a single file
+            file_out = folder+"dot_"+idx+".csv"
+            times = np.arange(step)*1e7
 
-        write_csv(file_out, ['time', 'cot_m', 'cot_f'], [times, cot_matrix, cot_fracture])
+            write_csv(file_out, ['time', 'cot_m', 'cot_f'], [times, cot_matrix, cot_fracture])
 
-        # 4) plot of the pressure head in the matrix, along
-        #    (0, 100, 100)-(100, 0, 0)
+            # 4) plot of the pressure head in the matrix, along
+            #    (0, 100, 100)-(100, 0, 0)
 
-        field = "pressure"
-        # file of the matrix
-        file_in = folder+"sol_3.vtu"
-        file_out = folder+"pol_matrix_"+idx+".csv"
-        pts = [[0, 100, 100], [100, 0, 0]]
+            field = "pressure"
+            # file of the matrix
+            file_in = folder+"sol_3.vtu"
+            file_out = folder+"pol_matrix_"+idx+".csv"
+            pts = [[0, 100, 100], [100, 0, 0]]
 
-        plot_over_line(file_in, file_out, pts)
-        data = read_csv(file_out, ['arc_length', field])
-        write_csv(file_out, ['arc_length', field], data)
+            plot_over_line(file_in, file_out, pts)
+            data = read_csv(file_out, ['arc_length', field])
+            write_csv(file_out, ['arc_length', field], data)
 
-        # 5) plot of $c$ in the matrix, at the final simulation time, along
-        #    (0, 100, 100)-(100, 0, 0)
+            # 5) plot of $c$ in the matrix, at the final simulation time, along
+            #    (0, 100, 100)-(100, 0, 0)
 
-        field = "tracer"
-        # file of the matrix at final simulation time
-        file_in = folder+"tracer_3_000100.vtu"
-        file_out = folder+"col_matrix_"+idx+".csv"
-        pts = [[0, 100, 100], [100, 0, 0]]
+            field = "tracer"
+            # file of the matrix at final simulation time
+            file_in = folder+"tracer_3_000100.vtu"
+            file_out = folder+"col_matrix_"+idx+".csv"
+            pts = [[0, 100, 100], [100, 0, 0]]
 
-        plot_over_line(file_in, file_out, pts)
-        data = read_csv(file_out, ['arc_length', field])
-        write_csv(file_out, ['arc_length', field], data)
+            plot_over_line(file_in, file_out, pts)
+            data = read_csv(file_out, ['arc_length', field])
+            write_csv(file_out, ['arc_length', field], data)
 
-        # 6) plot of $c$ within the fracture at the final simulation time along
-        #    (0, 100, 80)-(100, 0, 20)
+            # 6) plot of $c$ within the fracture at the final simulation time along
+            #    (0, 100, 80)-(100, 0, 20)
 
-        field = "tracer"
-        # file of the fracture at final simulation time
-        file_in = folder+"tracer_2_000100.vtu"
-        file_out = folder+"col_fracture_"+idx+".csv"
-        pts = [[0, 100, 80], [100, 0, 20]]
+            field = "tracer"
+            # file of the fracture at final simulation time
+            file_in = folder+"tracer_2_000100.vtu"
+            file_out = folder+"col_fracture_"+idx+".csv"
+            pts = [[0, 100, 80], [100, 0, 20]]
 
-        plot_over_line(file_in, file_out, pts)
-        data = read_csv(file_out, ['arc_length', field])
-        write_csv(file_out, ['arc_length', field], data)
+            plot_over_line(file_in, file_out, pts)
+            data = read_csv(file_out, ['arc_length', field])
+            write_csv(file_out, ['arc_length', field], data)

@@ -24,6 +24,9 @@ def export(gb, folder):
             d["bottom_domain"] = 1 - d["low_zones"]
         props.append("bottom_domain")
 
+    if all(gb.has_nodes_prop(gb.get_grids(), "color")):
+        props.append("color")
+
     save.write_vtk(props)
 
 
