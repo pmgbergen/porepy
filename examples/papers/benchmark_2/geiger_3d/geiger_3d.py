@@ -1,11 +1,15 @@
+import numpy as np
 import geiger_3d_data as geiger
 import examples.papers.benchmark_2.solvers as solvers
 
 
-def main(test_case, file_geo, folder, solver, solver_name):
+def main(test_case, file_geo, folder, solver, solver_name, N = None):
 
     tol = 1e-8
-    gb, domain = geiger.import_grid(file_geo, tol)
+    if N is not None:
+        gb, domain = geiger.make_grid_cart(N)
+    else:
+        gb, domain = geiger.import_grid(file_geo, tol)
 
     # select the permeability depending on the selected test case
     if test_case == 1:
@@ -48,12 +52,18 @@ if __name__ == "__main__":
     solver_names = ["tpfa", "vem", "rt0", "mpfa"]
     test_cases = [1, 2]
 
-#    files_geo = {"mesh15.geo": "0"}  ###
-#    solver_list = [solvers.solve_tpfa, solvers.solve_vem]  ###
-#    solver_names = ["tpfa", "vem"]  ###
+    files_geo = {"mesh15.geo": "0", "mesh05.geo": "3"}  ###
+    solver_list = [solvers.solve_tpfa]  ###
+    solver_names = ["tpfa"]  ###
 
     for test_case in test_cases:
         for solver, solver_name in zip(solver_list, solver_names):
             for file_geo, mesh_id in files_geo.items():
                 folder = solver_name + "_results_" + str(test_case) + "_" + mesh_id
-                main(test_case, file_geo, folder, solver, solver_name)
+                if mesh_id == "0" and test_case == 1:
+                    continue
+                if mesh_id == "0":
+                    N = 16
+                else:
+                    N = 32
+                main(test_case, file_geo, folder, solver, solver_name, N)

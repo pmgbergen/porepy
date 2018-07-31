@@ -1,3 +1,4 @@
+import csv
 import numpy as np
 import porepy as pp
 
@@ -21,6 +22,36 @@ def import_grid(file_geo, tol):
 
     return gb, domain
 
+
+# ------------------------------------------------------------------------------#
+
+def make_grid_cart(N):
+
+    file_csv = "geiger_3d.csv"
+
+    frac_list = []
+    # Extract the data from the csv file
+    with open(file_csv, "r") as csv_file:
+        spam_reader = csv.reader(csv_file, delimiter=",")
+
+        # Read the domain first
+        domain = np.asarray(next(spam_reader), dtype=np.float)
+        assert domain.size == 6
+        domain = {
+            "xmin": domain[0],
+            "xmax": domain[3],
+            "ymin": domain[1],
+            "ymax": domain[4],
+            "zmin": domain[2],
+            "zmax": domain[5],
+        }
+
+        for row in spam_reader:
+            # Read the points
+            pts = np.asarray(row, dtype=np.float)
+            frac_list.append(pts.reshape((3, -1), order="F"))
+
+    return pp.meshing.cart_grid(frac_list, [N]*3, physdims=[1]*3), domain
 
 # ------------------------------------------------------------------------------#
 
