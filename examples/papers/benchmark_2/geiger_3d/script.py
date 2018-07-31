@@ -17,7 +17,7 @@ import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 
 import csv
-from scipy.io import mmread
+#from scipy.io import mmread
 import numpy as np
 
 #------------------------------------------------------------------------------#
@@ -33,40 +33,6 @@ def read_file(file_in):
 def read_data(vtk_reader, field):
     data = vtk_reader.GetOutput().GetCellData().GetArray(field)
     return vtk_to_numpy(data)
-
-#------------------------------------------------------------------------------#
-
-def color(cell_centers):
-    val = np.zeros(cell_centers.shape[1], dtype=np.int)
-    x = cell_centers[0, :]
-    y = cell_centers[1, :]
-    z = cell_centers[2, :]
-
-    val[np.logical_and.reduce((x>.5, y<.5, z<.5))] = 0
-    val[np.logical_and.reduce((x<.5, y>.5, z<.5))] = 1
-    val[np.logical_and.reduce((x>.5, y>.5, z<.5))] = 2
-    val[np.logical_and.reduce((x<.5, y<.5, z>.5))] = 3
-    val[np.logical_and.reduce((x>.5, y<.5, z>.5))] = 4
-    val[np.logical_and.reduce((x<.5, y>.5, z>.5))] = 5
-
-    val[np.logical_and.reduce((x>.75, y>.75, z>.75))] = 6
-    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.75))] = 7
-    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.75))] = 8
-    val[np.logical_and.reduce((x>.5, x<.75, y>.5, y<.75, z>.75))] = 9
-    val[np.logical_and.reduce((x>.75, y>.75, z>.5, z<.75))] = 10
-    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.5, z<.75))] = 11
-    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.5, z<.75))] = 12
-
-    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.5, z<.625))] = 13
-    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.5, z<.625))] = 14
-    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.5, z<.625))] = 15
-    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.5, z<.625))] = 16
-    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.625, z<.75))] = 17
-    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.625, z<.75))] = 18
-    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.625, z<.75))] = 19
-    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.625, z<.75))] = 20
-
-    return val
 
 #------------------------------------------------------------------------------#
 
@@ -86,7 +52,7 @@ def pot_block(field, file_in):
 
 #------------------------------------------------------------------------------#
 
-def plot_over_line(file_in, file_out, pts, resolution=50000):
+def plot_over_line(file_in, file_out, pts, resolution=1000):
 
     if file_in.lower().endswith('.pvd'):
         # create a new 'PVD Reader'
@@ -110,46 +76,84 @@ def plot_over_line(file_in, file_out, pts, resolution=50000):
 
 #------------------------------------------------------------------------------#
 
-def post_process(file_out, fields):
+def read_csv(file_in, fields):
     # post-process the file by selecting only few columns
     data = list(list() for _ in fields)
-    with open(file_out, 'r') as csvfile:
+    with open(file_in, 'r') as csvfile:
         reader = csv.DictReader(csvfile)
         [d.append(row[f]) for row in reader for f, d in zip(fields, data)]
+    return data
 
+#------------------------------------------------------------------------------#
+
+def write_csv(file_out, fields, data):
     with open(file_out, 'w') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fields)
-        writer.writeheader()
+        #writer.writeheader()
         [writer.writerow({f: d for f, d in zip(fields, dd)}) for dd in zip(*data)]
+
+#------------------------------------------------------------------------------#
+
+def cot_domain(transport_root, file_in, step, field, fields, padding=6):
+
+    vtk_reader = read_file(file_in)
+    weight = np.multiply.reduce([read_data(vtk_reader, f) for f in fields])
+    color = read_data(vtk_reader, "color")
+    num_colors = 22
+
+    cot = np.zeros(step, num_colors)
+    for i in np.arange(step):
+        file_in = transport_root+str(i).zfill(padding)+".vtu"
+        vtk_reader = read_file(file_in)
+        c = read_data(vtk_reader, field)
+        for color_id in np.arange(num_colors):
+            weight *= float(color == color_id)
+            cot[i, color_id] = np.sum(c*weight)/np.sum(weight)
+
+    return cot
 
 #------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
 
-#    # 2) matrix information
-#    file_in = "matrix.mtx"
-#    A = mmread(file_in)
-#
-#    print("dof ", A.shape)
-#    print("nnz ", A.nnz)
-#    print("nnz/dof^2 ", A.nnz/float(A.shape[0]**2))
-#
-#    # for the condest use matlab/octave, no available option in scipy
-#
-#    # 3) for each mesh and for each matrix permeability, the pressure over
-#    #    line from (0, 0, 0) to (1, 1, 1)
-#
-#    field = "pressure"
-#    # file of both the matrix and the fracture
-#    file_in = "./rt0_results/sol.pvd"
-#    file_out = "./rt0_results/pol.csv"
-#    pts = [[0, 0, 0], [1, 1, 1]]
-#
-#    plot_over_line(file_in, file_out, pts)
-#    post_process(file_out, ['arc_length', field])
+    solver_names = ['tpfa', 'vem', 'rt0', 'mpfa']
+    cases = ['1', '2']
+    indices = ['0', '1', '2', '3']
 
-    # 4) for the coarsest mesh the averaged concentration on each matrix block
-    field = "pressure" # should be c
-    file_in = "./rt0_results_2_0/sol_3.vtu"
+#    solver_names = ['tpfa', 'vem'] ###
+#    indices = ['0'] ###
 
-    pot_block(field, file_in)
+    for case in cases:
+        for idx in indices:
+            for solver in solver_names:
+                folder = "./" + solver + "_results_" + case + "_" + idx + "/"
+
+            #    # 2) matrix information
+            #    file_in = "matrix.mtx"
+            #    A = mmread(file_in)
+            #
+            #    print("dof ", A.shape)
+            #    print("nnz ", A.nnz)
+            #    print("nnz/dof^2 ", A.nnz/float(A.shape[0]**2))
+            #
+            #    # for the condest use matlab/octave, no available option in scipy
+            #
+                # 3) for each mesh and for each matrix permeability, the pressure over
+                #    line from (0, 0, 0) to (1, 1, 1)
+
+                field = "pressure"
+                # file of both the matrix and the fracture
+                file_in = folder + "sol_3.vtu"
+                file_out = folder + "pol_matrix_"+ case + "_" + idx + ".csv"
+                pts = [[0, 0, 0], [1, 1, 1]]
+
+                plot_over_line(file_in, file_out, pts)
+                data = read_csv(file_out, ['arc_length', field])
+                write_csv(file_out, ['arc_length', field], data)
+
+     # 4) for the coarsest mesh the averaged concentration on each matrix block
+
+#            transport_root = folder + "tracer_3_"
+#            file_in = folder + "tracer./rt0_results_2_0/sol_3.vtu"
+#
+#            pot_block(field, file_in)

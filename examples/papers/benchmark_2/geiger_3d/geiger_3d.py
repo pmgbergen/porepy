@@ -48,12 +48,12 @@ if __name__ == "__main__":
     solver_names = ["tpfa", "vem", "rt0", "mpfa"]
     test_cases = [1, 2]
 
-    files_geo = {"mesh15.geo": "0"}  ###
-    solver_list = [solvers.solve_tpfa, solvers.solve_vem]  ###
-    solver_names = ["tpfa", "vem"]  ###
+#    files_geo = {"mesh15.geo": "0"}  ###
+#    solver_list = [solvers.solve_tpfa, solvers.solve_vem]  ###
+#    solver_names = ["tpfa", "vem"]  ###
 
     for test_case in test_cases:
         for solver, solver_name in zip(solver_list, solver_names):
             for file_geo, mesh_id in files_geo.items():
-                folder = solver_name + "_case_" + str(test_case) + "_mesh_" + mesh_id
+                folder = solver_name + "_results_" + str(test_case) + "_" + mesh_id
                 main(test_case, file_geo, folder, solver, solver_name)
