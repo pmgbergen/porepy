@@ -38,7 +38,6 @@ def create_gb(h, h_dfn=None):
     network = pickle.load(open("geiger_3d_network", "rb"))
     gb = importer.dfm_from_gmsh(file_geo, 3, network=network, tol=tol())
     gb.compute_geometry()
-    print(gb)
 
     """
     if h_dfn is not None:
@@ -236,12 +235,12 @@ def b_pressure_node(g):
     else:
         b_node_coords = g.nodes[:, b_nodes]
 
-        val = 0.4 - tol()
+        val = 0.4 + tol()
         b_in = np.logical_and.reduce(
             tuple(b_node_coords[i, :] < val for i in range(3))
         )
 
-        val = 0.8 + tol()
+        val = 0.8 - tol()
         b_out = np.logical_and.reduce(
             tuple(b_node_coords[i, :] > val for i in range(3))
         )
