@@ -614,7 +614,7 @@ class Grid(object):
             np.ndarray (1d), index of nodes on the boundary
 
         """
-        return np.where(self.tags["domain_boundary_nodes"])[0]
+        return self.__indices(self.tags["domain_boundary_nodes"])
 
     def update_boundary_face_tag(self):
         """ Tag faces on the boundary of the grid with boundary tag.
@@ -648,6 +648,7 @@ class Grid(object):
                 second = self.face_nodes.indptr[faces + 1]
                 nodes = self.face_nodes.indices[mcolon.mcolon(first, second)]
                 self.tags[node_tag][nodes] = True
+
 
     def cell_diameters(self, cn=None):
         """
