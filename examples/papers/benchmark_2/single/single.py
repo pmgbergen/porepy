@@ -24,8 +24,8 @@ def main(file_geo, folder, solver, solver_name):
 
     single.add_data(gb, data, solver_name)
     solver(gb, folder)
-    solvers.transport(gb, data, solver_name, folder, single.AdvectiveDataAssigner)
-
+    advective = solvers.transport(gb, data, solver_name, folder, single.AdvectiveDataAssigner)
+    np.savetxt(folder+"/outflow.csv", advective._solver.outflow)
 
 if __name__ == "__main__":
     file_geo = "single_lowdim_point_based.geo"
