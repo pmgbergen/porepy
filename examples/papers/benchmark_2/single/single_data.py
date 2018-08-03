@@ -109,8 +109,6 @@ def add_data(gb, data, solver_name):
             d['phi'][low_zones(g)] = data['phi_low']
         else:
             d['phi'] = data['phi_f'] * unity
-        else:
-            d["phi"] = data["phi_f"] * ones
 
     # Assign coupling permeability, the aperture is read from the lower dimensional grid
     gb.add_edge_props("kn")
@@ -180,3 +178,4 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         if b_faces.size > 0:
             bc_val[b_faces[self.inflow]] = 0.01
         return bc_val
+
