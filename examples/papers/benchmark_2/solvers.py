@@ -1,4 +1,5 @@
 import scipy.sparse as sps
+import numpy as np
 
 import porepy as pp
 from porepy.numerics.darcy_and_transport import static_flow_IE_solver as TransportSolver
@@ -149,6 +150,7 @@ def transport(gb, data, solver_name, folder, adv_data_assigner, callback=None):
         callback=callback,
     )
     advective.solve("tracer")
+    return advective
 
 
 class AdvectiveProblem(pp.ParabolicModel):
@@ -157,4 +159,34 @@ class AdvectiveProblem(pp.ParabolicModel):
 
     def solver(self):
         "Initiate solver"
-        return TransportSolver(self)
+        return Transport(self)
+
+
+class Transport(TransportSolver):
+
+    def __init__(self, problem):
+        self.gb = problem.grid()
+        self.outflow = np.empty(0)
+        pp.numerics.time_stepper.AbstractSolver.__init__(self, problem)
+
+    def step(self, IE_solver):
+        "Take one time step"
+        self.p = IE_solver(self.lhs_time * self.p0 + self.static_rhs)
+        self._compute_flow_rate()
+        return self.p
+
+    def _compute_flow_rate(self):
+        # this function is only for the first benchmark case
+        for g, d in self.gb:
+            if g.dim < 3:
+                continue
+            faces, cells, sign = sps.find(g.cell_faces)
+            index = np.argsort(cells)
+            faces, sign = faces[index], sign[index]
+
+            discharge = d["discharge"]
+            discharge[faces] *= sign
+            discharge[g.get_internal_faces()] = 0
+            discharge[discharge < 0] = 0
+            val = np.dot(discharge, np.abs(g.cell_faces) * self.p[:g.num_cells])
+            self.outflow = np.r_[self.outflow, val]
