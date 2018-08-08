@@ -804,8 +804,8 @@ class BasicsTest(unittest.TestCase):
             if g.dim == 0:
                 assert np.sum(g.tags["fracture_faces"]) == 0
                 assert np.sum(g.tags["fracture_nodes"]) == 0
-                assert np.sum(g.tags["tip_faces"]) == 1
-                assert np.sum(g.tags["tip_nodes"]) == 1
+                assert np.sum(g.tags["tip_faces"]) == 0
+                assert np.sum(g.tags["tip_nodes"]) == 0
                 assert np.sum(g.tags["domain_boundary_faces"]) == 0
                 assert np.sum(g.tags["domain_boundary_nodes"]) == 0
 
