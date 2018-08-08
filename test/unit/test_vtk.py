@@ -8,16 +8,18 @@ from porepy.grids import coarsening as co
 
 from porepy.viz.exporter import Exporter
 
-if_vtk = 'vtk' in sys.modules
+if_vtk = "vtk" in sys.modules
 if not if_vtk:
     import warnings
+
     warnings.warn("No vtk module loaded.")
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
 
-class BasicsTest( unittest.TestCase ):
 
-#------------------------------------------------------------------------------#
+class BasicsTest(unittest.TestCase):
+
+    # ------------------------------------------------------------------------------#
 
     def test_single_grid_1d(self):
         if not if_vtk:
@@ -26,188 +28,187 @@ class BasicsTest( unittest.TestCase ):
         g = structured.CartGrid(3, 1)
         g.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells)*g.dim
-        dummy_vector = np.ones((3, g.num_cells))*g.dim
+        dummy_scalar = np.ones(g.num_cells) * g.dim
+        dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         folder = "./test_vtk/"
         file_name = "grid"
         save = Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({'dummy_scalar': dummy_scalar,
-                        'dummy_vector': dummy_vector})
+        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder+file_name+".vtu", 'r') as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
+
         assert content == self._single_grid_1d_grid_vtu()
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def test_single_grid_2d_simplex(self):
         if not if_vtk:
             return
 
-        g = simplex.StructuredTriangleGrid([3]*2, [1]*2)
+        g = simplex.StructuredTriangleGrid([3] * 2, [1] * 2)
         g.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells)*g.dim
-        dummy_vector = np.ones((3, g.num_cells))*g.dim
+        dummy_scalar = np.ones(g.num_cells) * g.dim
+        dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         folder = "./test_vtk/"
         file_name = "grid"
         save = Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({'dummy_scalar': dummy_scalar,
-                        'dummy_vector': dummy_vector})
+        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder+file_name+".vtu", 'r') as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         assert content == self._single_grid_2d_simplex_grid_vtu()
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def test_single_grid_2d_cart(self):
         if not if_vtk:
             return
 
-        g = structured.CartGrid([4]*2, [1]*2)
+        g = structured.CartGrid([4] * 2, [1] * 2)
         g.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells)*g.dim
-        dummy_vector = np.ones((3, g.num_cells))*g.dim
+        dummy_scalar = np.ones(g.num_cells) * g.dim
+        dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         folder = "./test_vtk/"
         file_name = "grid"
         save = Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({'dummy_scalar': dummy_scalar,
-                        'dummy_vector': dummy_vector})
+        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder+file_name+".vtu", 'r') as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         assert content == self._single_grid_2d_cart_grid_vtu()
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def test_single_grid_2d_polytop(self):
         if not if_vtk:
             return
 
-        g = structured.CartGrid([3, 2], [1]*2)
+        g = structured.CartGrid([3, 2], [1] * 2)
         g.compute_geometry()
         co.generate_coarse_grid(g, [0, 0, 1, 0, 1, 1])
         g.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells)*g.dim
-        dummy_vector = np.ones((3, g.num_cells))*g.dim
+        dummy_scalar = np.ones(g.num_cells) * g.dim
+        dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         folder = "./test_vtk/"
         file_name = "grid"
         save = Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({'dummy_scalar': dummy_scalar,
-                        'dummy_vector': dummy_vector})
+        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder+file_name+".vtu", 'r') as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         assert content == self._single_grid_2d_polytop_grid_vtu()
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def test_single_grid_3d_simplex(self):
         if not if_vtk:
             return
 
-        g = simplex.StructuredTetrahedralGrid([3]*3, [1]*3)
+        g = simplex.StructuredTetrahedralGrid([3] * 3, [1] * 3)
         g.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells)*g.dim
-        dummy_vector = np.ones((3, g.num_cells))*g.dim
+        dummy_scalar = np.ones(g.num_cells) * g.dim
+        dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         folder = "./test_vtk/"
         file_name = "grid"
         save = Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({'dummy_scalar': dummy_scalar,
-                        'dummy_vector': dummy_vector})
+        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder+file_name+".vtu", 'r') as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         assert content == self._single_grid_3d_simplex_grid_vtu()
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def test_single_grid_3d_cart(self):
         if not if_vtk:
             return
 
-        g = structured.CartGrid([4]*3, [1]*3)
+        g = structured.CartGrid([4] * 3, [1] * 3)
         g.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells)*g.dim
-        dummy_vector = np.ones((3, g.num_cells))*g.dim
+        dummy_scalar = np.ones(g.num_cells) * g.dim
+        dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         folder = "./test_vtk/"
         file_name = "grid"
         save = Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({'dummy_scalar': dummy_scalar,
-                        'dummy_vector': dummy_vector})
+        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder+file_name+".vtu", 'r') as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         assert content == self._single_grid_3d_cart_grid_vtu()
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def test_single_grid_3d_polytop(self):
         if not if_vtk:
             return
 
-        g = structured.CartGrid([3, 2, 3], [1]*3)
+        g = structured.CartGrid([3, 2, 3], [1] * 3)
         g.compute_geometry()
-        co.generate_coarse_grid(g, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, \
-                                    4, 4, 4, 4])
+        co.generate_coarse_grid(
+            g, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
+        )
         g.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells)*g.dim
-        dummy_vector = np.ones((3, g.num_cells))*g.dim
+        dummy_scalar = np.ones(g.num_cells) * g.dim
+        dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         folder = "./test_vtk/"
         file_name = "grid"
         save = Exporter(g, file_name, folder, binary=False)
-        save.write_vtk({'dummy_scalar': dummy_scalar,
-                        'dummy_vector': dummy_vector})
+        save.write_vtk({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
 
-        with open(folder+file_name+".vtu", 'r') as content_file:
+        with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
         assert content == self._single_grid_3d_polytop_grid_vtu()
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def test_gb_1(self):
         if not if_vtk:
             return
 
         f1 = np.array([[0, 1], [.5, .5]])
-        gb = meshing.cart_grid([f1], [4]*2, **{'physdims': [1, 1]})
+        gb = meshing.cart_grid([f1], [4] * 2, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
-        gb.add_node_props(['scalar_dummy', 'dummy_vector'])
+        gb.add_node_props(["scalar_dummy", "dummy_vector"])
 
         for g, d in gb:
-            d['dummy_scalar'] = np.ones(g.num_cells)*g.dim
-            d['dummy_vector'] = np.ones((3, g.num_cells))*g.dim
+            d["dummy_scalar"] = np.ones(g.num_cells) * g.dim
+            d["dummy_vector"] = np.ones((3, g.num_cells)) * g.dim
 
         folder = "./test_vtk/"
         file_name = "grid"
         save = Exporter(gb, file_name, folder, binary=False)
-        save.write_vtk(['dummy_scalar', 'dummy_vector'])
+        save.write_vtk(["dummy_scalar", "dummy_vector"])
 
-        with open(folder+file_name+".pvd", 'r') as content_file:
+        with open(folder + file_name + ".pvd", "r") as content_file:
             content = content_file.read()
         assert content == self._gb_1_grid_pvd()
 
-        with open(folder+file_name+"_1.vtu", 'r') as content_file:
+        with open(folder + file_name + "_1.vtu", "r") as content_file:
             content = content_file.read()
         assert content == self._gb_1_grid_1_vtu()
 
-        with open(folder+file_name+"_2.vtu", 'r') as content_file:
+        with open(folder + file_name + "_2.vtu", "r") as content_file:
             content = content_file.read()
         assert content == self._gb_1_grid_2_vtu()
+
+        with open(folder+"grid_mortar_1.vtu", "r") as content_file:
+            content = content_file.read()
+        assert content == self._gb_1_mortar_grid_vtu()
 
 #------------------------------------------------------------------------------#
 
@@ -217,31 +218,36 @@ class BasicsTest( unittest.TestCase ):
 
         f1 = np.array([[0, 1], [.5, .5]])
         f2 = np.array([[.5, .5], [.25, .75]])
-        gb = meshing.cart_grid([f1, f2], [4]*2, **{'physdims': [1, 1]})
+        gb = meshing.cart_grid([f1, f2], [4] * 2, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
-        gb.add_node_props(['dummy_scalar', 'dummy_vector'])
+        gb.add_node_props(["dummy_scalar", "dummy_vector"])
 
         for g, d in gb:
-            d['dummy_scalar'] = np.ones(g.num_cells)*g.dim
-            d['dummy_vector'] = np.ones((3, g.num_cells))*g.dim
+            d["dummy_scalar"] = np.ones(g.num_cells) * g.dim
+            d["dummy_vector"] = np.ones((3, g.num_cells)) * g.dim
 
         folder = "./test_vtk/"
         file_name = "grid"
         save = Exporter(gb, file_name, folder, binary=False)
-        save.write_vtk(['dummy_scalar', 'dummy_vector'])
+        save.write_vtk(["dummy_scalar", "dummy_vector"])
 
-        with open(folder+file_name+".pvd", 'r') as content_file:
+        with open(folder + file_name + ".pvd", "r") as content_file:
             content = content_file.read()
         assert content == self._gb_2_grid_pvd()
 
-        with open(folder+file_name+"_1.vtu", 'r') as content_file:
+        with open(folder + file_name + "_1.vtu", "r") as content_file:
             content = content_file.read()
         assert content == self._gb_2_grid_1_vtu()
 
-        with open(folder+file_name+"_2.vtu", 'r') as content_file:
+        with open(folder + file_name + "_2.vtu", "r") as content_file:
             content = content_file.read()
+        print(content)
         assert content == self._gb_2_grid_2_vtu()
+
+        with open(folder+"grid_mortar_1.vtu", "r") as content_file:
+            content = content_file.read()
+        assert content == self._gb_2_mortar_grid_1_vtu()
 
 #------------------------------------------------------------------------------#
 
@@ -263,7 +269,7 @@ class BasicsTest( unittest.TestCase ):
         <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
           1 1 1
         </DataArray>
-        <DataArray type="Float64" Name="cell_id" format="ascii" RangeMin="0" RangeMax="2">
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="2">
           0 1 2
         </DataArray>
       </CellData>
@@ -289,7 +295,7 @@ class BasicsTest( unittest.TestCase ):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _single_grid_2d_simplex_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -320,7 +326,7 @@ class BasicsTest( unittest.TestCase ):
           2 2 2 2 2 2
           2 2 2 2 2 2
         </DataArray>
-        <DataArray type="Float64" Name="cell_id" format="ascii" RangeMin="0" RangeMax="17">
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="17">
           0 1 2 3 4 5
           6 7 8 9 10 11
           12 13 14 15 16 17
@@ -366,7 +372,7 @@ class BasicsTest( unittest.TestCase ):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _single_grid_2d_cart_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -396,7 +402,7 @@ class BasicsTest( unittest.TestCase ):
           2 2 2 2 2 2
           2 2 2 2
         </DataArray>
-        <DataArray type="Float64" Name="cell_id" format="ascii" RangeMin="0" RangeMax="15">
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="15">
           0 1 2 3 4 5
           6 7 8 9 10 11
           12 13 14 15
@@ -449,7 +455,7 @@ class BasicsTest( unittest.TestCase ):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _single_grid_2d_polytop_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -468,7 +474,7 @@ class BasicsTest( unittest.TestCase ):
         <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="2" RangeMax="2">
           2 2
         </DataArray>
-        <DataArray type="Float64" Name="cell_id" format="ascii" RangeMin="0" RangeMax="1">
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="1">
           0 1
         </DataArray>
       </CellData>
@@ -500,7 +506,7 @@ class BasicsTest( unittest.TestCase ):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _single_grid_3d_simplex_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -651,7 +657,7 @@ class BasicsTest( unittest.TestCase ):
           3 3 3 3 3 3
           3 3 3 3 3 3
         </DataArray>
-        <DataArray type="Float64" Name="cell_id" format="ascii" RangeMin="0" RangeMax="161">
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="161">
           0 1 2 3 4 5
           6 7 8 9 10 11
           12 13 14 15 16 17
@@ -1382,7 +1388,7 @@ class BasicsTest( unittest.TestCase ):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _single_grid_3d_cart_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -1452,7 +1458,7 @@ class BasicsTest( unittest.TestCase ):
           3 3 3 3 3 3
           3 3 3 3
         </DataArray>
-        <DataArray type="Float64" Name="cell_id" format="ascii" RangeMin="0" RangeMax="63">
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="63">
           0 1 2 3 4 5
           6 7 8 9 10 11
           12 13 14 15 16 17
@@ -2000,7 +2006,7 @@ class BasicsTest( unittest.TestCase ):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _single_grid_3d_polytop_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -2021,7 +2027,7 @@ class BasicsTest( unittest.TestCase ):
         <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="3" RangeMax="3">
           3 3 3 3 3
         </DataArray>
-        <DataArray type="Float64" Name="cell_id" format="ascii" RangeMin="0" RangeMax="4">
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="4">
           0 1 2 3 4
         </DataArray>
       </CellData>
@@ -2153,7 +2159,7 @@ class BasicsTest( unittest.TestCase ):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _gb_1_grid_pvd(self):
         return """<?xml version="1.0"?>
@@ -2161,10 +2167,11 @@ class BasicsTest( unittest.TestCase ):
 <Collection>
 \t<DataSet group="" part="" file="grid_1.vtu"/>
 \t<DataSet group="" part="" file="grid_2.vtu"/>
+\t<DataSet group="" part="" file="grid_mortar_1.vtu"/>
 </Collection>
 </VTKFile>"""
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _gb_1_grid_1_vtu(self):
         return """<?xml version="1.0"?>
@@ -2181,14 +2188,20 @@ class BasicsTest( unittest.TestCase ):
           1 1 1 1 1 1
           1 1 1 1 1 1
         </DataArray>
-        <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
+        <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
           1 1 1 1
         </DataArray>
-        <DataArray type="Float64" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
           0 1 2 3
         </DataArray>
-        <DataArray type="Float64" Name="grid_node_number" format="ascii" RangeMin="1" RangeMax="1">
+        <DataArray type="Int32" Name="grid_node_number" format="ascii" RangeMin="1" RangeMax="1">
           1 1 1 1
+        </DataArray>
+        <DataArray type="Int8" Name="is_mortar" format="ascii" RangeMin="0" RangeMax="0">
+          0 0 0 0
+        </DataArray>
+        <DataArray type="Int32" Name="mortar_side" format="ascii" RangeMin="0" RangeMax="0">
+          0 0 0 0
         </DataArray>
       </CellData>
       <Points>
@@ -2215,7 +2228,7 @@ class BasicsTest( unittest.TestCase ):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _gb_1_grid_2_vtu(self):
         return """<?xml version="1.0"?>
@@ -2240,17 +2253,27 @@ class BasicsTest( unittest.TestCase ):
           2 2 2 2 2 2
           2 2 2 2 2 2
         </DataArray>
-        <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="2" RangeMax="2">
+        <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="2" RangeMax="2">
           2 2 2 2 2 2
           2 2 2 2 2 2
           2 2 2 2
         </DataArray>
-        <DataArray type="Float64" Name="cell_id" format="ascii" RangeMin="0" RangeMax="15">
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="15">
           0 1 2 3 4 5
           6 7 8 9 10 11
           12 13 14 15
         </DataArray>
-        <DataArray type="Float64" Name="grid_node_number" format="ascii" RangeMin="0" RangeMax="0">
+        <DataArray type="Int32" Name="grid_node_number" format="ascii" RangeMin="0" RangeMax="0">
+          0 0 0 0 0 0
+          0 0 0 0 0 0
+          0 0 0 0
+        </DataArray>
+        <DataArray type="Int8" Name="is_mortar" format="ascii" RangeMin="0" RangeMax="0">
+          0 0 0 0 0 0
+          0 0 0 0 0 0
+          0 0 0 0
+        </DataArray>
+        <DataArray type="Int32" Name="mortar_side" format="ascii" RangeMin="0" RangeMax="0">
           0 0 0 0 0 0
           0 0 0 0 0 0
           0 0 0 0
@@ -2305,6 +2328,126 @@ class BasicsTest( unittest.TestCase ):
 </VTKFile>
 """
 
+    # ------------------------------------------------------------------------------#
+
+    def _gb_1_mortar_grid_vtu(self):
+        return """<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="10" NumberOfCells="8">
+      <PointData>
+      </PointData>
+      <CellData>
+        <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
+          1 1 1 1 1 1
+          1 1
+        </DataArray>
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
+          0 1 2 3 0 1
+          2 3
+        </DataArray>
+        <DataArray type="Int32" Name="grid_edge_number" format="ascii" RangeMin="0" RangeMax="0">
+          0 0 0 0 0 0
+          0 0
+        </DataArray>
+        <DataArray type="Int8" Name="is_mortar" format="ascii" RangeMin="1" RangeMax="1">
+          1 1 1 1 1 1
+          1 1
+        </DataArray>
+        <DataArray type="Int32" Name="mortar_side" format="ascii" RangeMin="1" RangeMax="2">
+          1 1 1 1 2 2
+          2 2
+        </DataArray>
+      </CellData>
+      <Points>
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.1180339887">
+          1 0.5 -5.5511151231e-17 0.75 0.5 -2.7755575616e-17
+          0.5 0.5 0 0.25 0.5 2.7755575616e-17
+          0 0.5 5.5511151231e-17 1 0.5 -5.5511151231e-17
+          0.75 0.5 -2.7755575616e-17 0.5 0.5 0
+          0.25 0.5 2.7755575616e-17 0 0.5 5.5511151231e-17
+        </DataArray>
+      </Points>
+      <Cells>
+        <DataArray type="Int64" Name="connectivity" format="ascii" RangeMin="0" RangeMax="9">
+          0 1 1 2 2 3
+          3 4 5 6 6 7
+          7 8 8 9
+        </DataArray>
+        <DataArray type="Int64" Name="offsets" format="ascii" RangeMin="2" RangeMax="16">
+          2 4 6 8 10 12
+          14 16
+        </DataArray>
+        <DataArray type="UInt8" Name="types" format="ascii" RangeMin="3" RangeMax="3">
+          3 3 3 3 3 3
+          3 3
+        </DataArray>
+      </Cells>
+    </Piece>
+  </UnstructuredGrid>
+</VTKFile>
+"""
+
+#------------------------------------------------------------------------------#
+
+    def _gb_1_mortar_grid_vtu(self):
+        return """<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="10" NumberOfCells="8">
+      <PointData>
+      </PointData>
+      <CellData>
+        <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
+          1 1 1 1 1 1
+          1 1
+        </DataArray>
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
+          0 1 2 3 0 1
+          2 3
+        </DataArray>
+        <DataArray type="Int32" Name="grid_edge_number" format="ascii" RangeMin="0" RangeMax="0">
+          0 0 0 0 0 0
+          0 0
+        </DataArray>
+        <DataArray type="Int8" Name="is_mortar" format="ascii" RangeMin="1" RangeMax="1">
+          1 1 1 1 1 1
+          1 1
+        </DataArray>
+        <DataArray type="Int32" Name="mortar_side" format="ascii" RangeMin="1" RangeMax="2">
+          1 1 1 1 2 2
+          2 2
+        </DataArray>
+      </CellData>
+      <Points>
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.1180339887">
+          1 0.5 -5.5511151231e-17 0.75 0.5 -2.7755575616e-17
+          0.5 0.5 0 0.25 0.5 2.7755575616e-17
+          0 0.5 5.5511151231e-17 1 0.5 -5.5511151231e-17
+          0.75 0.5 -2.7755575616e-17 0.5 0.5 0
+          0.25 0.5 2.7755575616e-17 0 0.5 5.5511151231e-17
+        </DataArray>
+      </Points>
+      <Cells>
+        <DataArray type="Int64" Name="connectivity" format="ascii" RangeMin="0" RangeMax="9">
+          0 1 1 2 2 3
+          3 4 5 6 6 7
+          7 8 8 9
+        </DataArray>
+        <DataArray type="Int64" Name="offsets" format="ascii" RangeMin="2" RangeMax="16">
+          2 4 6 8 10 12
+          14 16
+        </DataArray>
+        <DataArray type="UInt8" Name="types" format="ascii" RangeMin="3" RangeMax="3">
+          3 3 3 3 3 3
+          3 3
+        </DataArray>
+      </Cells>
+    </Piece>
+  </UnstructuredGrid>
+</VTKFile>
+"""
+
 #------------------------------------------------------------------------------#
 
     def _gb_2_grid_pvd(self):
@@ -2313,10 +2456,12 @@ class BasicsTest( unittest.TestCase ):
 <Collection>
 \t<DataSet group="" part="" file="grid_1.vtu"/>
 \t<DataSet group="" part="" file="grid_2.vtu"/>
+\t<DataSet group="" part="" file="grid_mortar_0.vtu"/>
+\t<DataSet group="" part="" file="grid_mortar_1.vtu"/>
 </Collection>
 </VTKFile>"""
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _gb_2_grid_1_vtu(self):
         return """<?xml version="1.0"?>
@@ -2334,14 +2479,20 @@ class BasicsTest( unittest.TestCase ):
           1 1 1 1 1 1
           1 1 1 1 1 1
         </DataArray>
-        <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
+        <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
           1 1 1 1 1 1
         </DataArray>
-        <DataArray type="Float64" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
           0 1 2 3 0 1
         </DataArray>
-        <DataArray type="Float64" Name="grid_node_number" format="ascii" RangeMin="1" RangeMax="2">
+        <DataArray type="Int32" Name="grid_node_number" format="ascii" RangeMin="1" RangeMax="2">
           1 1 1 1 2 2
+        </DataArray>
+        <DataArray type="Int8" Name="is_mortar" format="ascii" RangeMin="0" RangeMax="0">
+          0 0 0 0 0 0
+        </DataArray>
+        <DataArray type="Int32" Name="mortar_side" format="ascii" RangeMin="0" RangeMax="0">
+          0 0 0 0 0 0
         </DataArray>
       </CellData>
       <Points>
@@ -2370,7 +2521,7 @@ class BasicsTest( unittest.TestCase ):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _gb_2_grid_2_vtu(self):
         return """<?xml version="1.0"?>
@@ -2395,17 +2546,27 @@ class BasicsTest( unittest.TestCase ):
           2 2 2 2 2 2
           2 2 2 2 2 2
         </DataArray>
-        <DataArray type="Float64" Name="grid_dim" format="ascii" RangeMin="2" RangeMax="2">
+        <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="2" RangeMax="2">
           2 2 2 2 2 2
           2 2 2 2 2 2
           2 2 2 2
         </DataArray>
-        <DataArray type="Float64" Name="cell_id" format="ascii" RangeMin="0" RangeMax="15">
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="15">
           0 1 2 3 4 5
           6 7 8 9 10 11
           12 13 14 15
         </DataArray>
-        <DataArray type="Float64" Name="grid_node_number" format="ascii" RangeMin="0" RangeMax="0">
+        <DataArray type="Int32" Name="grid_node_number" format="ascii" RangeMin="0" RangeMax="0">
+          0 0 0 0 0 0
+          0 0 0 0 0 0
+          0 0 0 0
+        </DataArray>
+        <DataArray type="Int8" Name="is_mortar" format="ascii" RangeMin="0" RangeMax="0">
+          0 0 0 0 0 0
+          0 0 0 0 0 0
+          0 0 0 0
+        </DataArray>
+        <DataArray type="Int32" Name="mortar_side" format="ascii" RangeMin="0" RangeMax="0">
           0 0 0 0 0 0
           0 0 0 0 0 0
           0 0 0 0
@@ -2461,5 +2622,74 @@ class BasicsTest( unittest.TestCase ):
 </VTKFile>
 """
 
+#------------------------------------------------------------------------------#
+
+    def _gb_2_mortar_grid_1_vtu(self):
+        return """<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32" compressor="vtkZLibDataCompressor">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="20" NumberOfCells="12">
+      <PointData>
+      </PointData>
+      <CellData>
+        <DataArray type="Int32" Name="grid_dim" format="ascii" RangeMin="1" RangeMax="1">
+          1 1 1 1 1 1
+          1 1 1 1 1 1
+        </DataArray>
+        <DataArray type="Int32" Name="cell_id" format="ascii" RangeMin="0" RangeMax="3">
+          0 1 2 3 0 1
+          2 3 0 1 0 1
+        </DataArray>
+        <DataArray type="Int32" Name="grid_edge_number" format="ascii" RangeMin="0" RangeMax="1">
+          0 0 0 0 0 0
+          0 0 1 1 1 1
+        </DataArray>
+        <DataArray type="Int8" Name="is_mortar" format="ascii" RangeMin="1" RangeMax="1">
+          1 1 1 1 1 1
+          1 1 1 1 1 1
+        </DataArray>
+        <DataArray type="Int32" Name="mortar_side" format="ascii" RangeMin="1" RangeMax="2">
+          1 1 1 1 2 2
+          2 2 1 1 2 2
+        </DataArray>
+      </CellData>
+      <Points>
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="ascii" RangeMin="0.5" RangeMax="1.1180339887">
+          1 0.5 -5.5511151231e-17 0.75 0.5 -2.7755575616e-17
+          0.5 0.5 0 0.5 0.5 0
+          0.25 0.5 2.7755575616e-17 0 0.5 5.5511151231e-17
+          1 0.5 -5.5511151231e-17 0.75 0.5 -2.7755575616e-17
+          0.5 0.5 0 0.5 0.5 0
+          0.25 0.5 2.7755575616e-17 0 0.5 5.5511151231e-17
+          0.5 0.75 -2.7755575616e-17 0.5 0.5 0
+          0.5 0.5 0 0.5 0.25 2.7755575616e-17
+          0.5 0.75 -2.7755575616e-17 0.5 0.5 0
+          0.5 0.5 0 0.5 0.25 2.7755575616e-17
+        </DataArray>
+      </Points>
+      <Cells>
+        <DataArray type="Int64" Name="connectivity" format="ascii" RangeMin="0" RangeMax="19">
+          0 1 1 2 3 4
+          4 5 6 7 7 8
+          9 10 10 11 12 13
+          14 15 16 17 18 19
+        </DataArray>
+        <DataArray type="Int64" Name="offsets" format="ascii" RangeMin="2" RangeMax="24">
+          2 4 6 8 10 12
+          14 16 18 20 22 24
+        </DataArray>
+        <DataArray type="UInt8" Name="types" format="ascii" RangeMin="3" RangeMax="3">
+          3 3 3 3 3 3
+          3 3 3 3 3 3
+        </DataArray>
+      </Cells>
+    </Piece>
+  </UnstructuredGrid>
+</VTKFile>
+"""
+
+#------------------------------------------------------------------------------#
+
 if __name__ == '__main__':
+    BasicsTest().test_gb_2()
     unittest.main()

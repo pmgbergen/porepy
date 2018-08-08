@@ -6,25 +6,24 @@ import unittest
 
 import porepy as pp
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+
 
 class TestDiameterComputation(unittest.TestCase):
-
     def test_cell_diameters_2d(self):
         g = pp.CartGrid([3, 2], [1, 1])
         cell_diameters = g.cell_diameters()
-        known = np.repeat( np.sqrt( 0.5**2 + 1./3.**2), g.num_cells )
-        assert np.allclose( cell_diameters, known )
+        known = np.repeat(np.sqrt(0.5 ** 2 + 1. / 3. ** 2), g.num_cells)
+        assert np.allclose(cell_diameters, known)
 
     def test_cell_diameters_3d(self):
         g = pp.CartGrid([3, 2, 1])
         cell_diameters = g.cell_diameters()
-        known = np.repeat( np.sqrt(3), g.num_cells )
-        assert np.allclose( cell_diameters, known )
+        known = np.repeat(np.sqrt(3), g.num_cells)
+        assert np.allclose(cell_diameters, known)
 
 
 class TestReprAndStr(unittest.TestCase):
-
     def test_repr(self):
         # Call repr, just to see that it works
         g = pp.CartGrid([1, 1])
@@ -46,7 +45,7 @@ class TestClosestCell(unittest.TestCase):
 
         p = np.array([[0.5, -0.5], [0.5, 0.5]])
         ind = g.closest_cell(p)
-        assert np.allclose(ind, 0*ind)
+        assert np.allclose(ind, 0 * ind)
 
     def test_out_of_plane(self):
         g = pp.CartGrid([2, 2])
@@ -58,17 +57,14 @@ class TestClosestCell(unittest.TestCase):
 
 
 class TestCellFaceAsDense(unittest.TestCase):
-
     def test_cart_grid(self):
         g = pp.CartGrid([2, 1])
         cf = g.cell_face_as_dense()
-        known = np.array([[-1, 0, 1, -1, -1, 0, 1],
-                          [0, 1, -1, 0, 1, -1, -1]])
+        known = np.array([[-1, 0, 1, -1, -1, 0, 1], [0, 1, -1, 0, 1, -1, -1]])
         assert np.allclose(cf, known)
 
 
 class TestBoundaries(unittest.TestCase):
-
     def test_bounary_node_cart(self):
         g = pp.CartGrid([2, 2])
         bound_ind = g.get_boundary_nodes()
@@ -101,5 +97,5 @@ class TestBoundaries(unittest.TestCase):
         assert np.allclose(bmax, g.nodes.max(axis=1))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
