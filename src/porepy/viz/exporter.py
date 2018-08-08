@@ -30,13 +30,6 @@ class Field(object):
     """
     Internal class to store information for the data to export.
     """
-    # map numpy to vtk types
-    map_type = {
-        np.dtype("bool"): vtk.VTK_CHAR,
-        np.dtype("int64"): vtk.VTK_INT,
-        np.dtype("float64"): vtk.VTK_DOUBLE,
-    }
-
     def __init__(self, name, cell_data = False, point_data = False, values = None):
         assert np.logical_xor(cell_data, point_data)
         # name of the field
@@ -45,6 +38,8 @@ class Field(object):
         self.cell_data = cell_data
         # if the field is vtk point data
         self.point_data = point_data
+        # number of components of the field
+        self.num_components = None
         # values of the field, use set_values to set it
         if values is not None:
             self.set_values(values)
@@ -67,7 +62,15 @@ class Field(object):
         Return the vtk type of the field
         """
         self._check_values()
-        return self.map_type[self.values.dtype]
+
+        # map numpy to vtk types
+        map_type = {
+            np.dtype("bool"): vtk.VTK_CHAR,
+            np.dtype("int64"): vtk.VTK_INT,
+            np.dtype("float64"): vtk.VTK_DOUBLE,
+        }
+
+        return map_type[self.values.dtype]
 
     def check(self, values, g):
         """
@@ -85,17 +88,12 @@ class Field(object):
                 + " has wrong dimension."
             )
 
-    def num_components(self):
-        """
-        Return the number of components of the field, 1 for scalar and 3 for vector
-        """
-        self._check_values()
-        return 1 if self.values.ndim == 1 else 3
 
     def set_values(self, values):
         """
         Function useful to set the values
         """
+        self.num_components = 1 if values.ndim == 1 else 3
         self.values = values.ravel(order="F")
 
     def _check_values(self):
@@ -108,8 +106,8 @@ class Fields(object):
     """
     Internal class to store a list of field.
     """
-    def __init__(self, fields=list()):
-        self.fields = fields
+    def __init__(self):
+        self.fields = None
 
     def __iter__(self):
         """
@@ -128,12 +126,20 @@ class Fields(object):
         """
         Extend the list of fields with additional fields
         """
-        if isinstance(fields, list):
-            self.fields.extend(fields)
-        elif isinstance(fields, Fields):
-            self.fields.extend(fields.fields)
+        if self.fields is None:
+            if isinstance(fields, list):
+                self.fields = fields
+            elif isinstance(fields, Fields):
+                self.fields = fields.fields
+            else:
+                raise ValueError
         else:
-            raise ValueError
+            if isinstance(fields, list):
+                self.fields.extend(fields)
+            elif isinstance(fields, Fields):
+                self.fields.extend(fields.fields)
+            else:
+                raise ValueError
 
     def names(self):
         """
@@ -316,12 +322,7 @@ class Exporter:
         name = self._make_folder(self.folder, self.name)
         name = self._make_file_name(name, time_step)
 
-        fields = Fields([
-            Field("grid_dim", cell_data = True,
-                  values = self.gb.dim * np.ones(self.gb.num_cells)),
-            Field("cell_id", cell_data = True,
-                  values = np.arange(self.gb.num_cells))
-        ])
+        fields = Fields()
         if len(data) > 0:
             if point_data:
                 fields.extend([Field(n, point_data = True, values = v)
@@ -329,6 +330,13 @@ class Exporter:
             else:
                 fields.extend([Field(n, cell_data = True, values = v)
                                for n, v in data.items()])
+
+        fields.extend([
+            Field("grid_dim", cell_data = True,
+                  values = self.gb.dim * np.ones(self.gb.num_cells)),
+            Field("cell_id", cell_data = True,
+                  values = np.arange(self.gb.num_cells))
+        ])
 
         self._write_vtk(fields, name, self.gb_VTK)
 
@@ -349,7 +357,8 @@ class Exporter:
                 fields.extend([Field(d, cell_data=True) for d in data])
 
         # consider the grid_bucket node data
-        extra_fields = Fields([
+        extra_fields = Fields()
+        extra_fields.extend([
             Field("grid_dim", cell_data=True),
             Field("cell_id", cell_data=True),
             Field("grid_node_number", cell_data=True),
@@ -387,7 +396,8 @@ class Exporter:
         self.gb.remove_node_props(extra_fields.names())
 
         # consider the grid_bucket edge data
-        extra_fields = Fields([
+        extra_fields = Fields()
+        extra_fields.extend([
             Field("grid_dim", cell_data=True),
             Field("cell_id", cell_data=True),
             Field("grid_edge_number", cell_data=True),
@@ -560,7 +570,7 @@ class Exporter:
                                           deep = True,
                                           array_type=field.dtype())
                 dataVTK.SetName(field.name)
-                dataVTK.SetNumberOfComponents(field.num_components())
+                dataVTK.SetNumberOfComponents(field.num_components)
 
                 if field.cell_data:
                     g_VTK.GetCellData().AddArray(dataVTK)
