@@ -262,7 +262,7 @@ class Exporter:
         if self.is_GridBucket:
             self._export_vtk_gb(data, time_step, point_data)
         else:
-            self._export_vtk_single(data, time_step, name, point_data)
+            self._export_vtk_single(data, time_step, point_data)
 
     # ------------------------------------------------------------------------------#
 
@@ -311,16 +311,10 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _export_vtk_single(self, data, time_step, name, point_data):
+    def _export_vtk_single(self, data, time_step, point_data):
         # No need of special naming, create the folder
         name = self._make_folder(self.folder, self.name)
         name = self._make_file_name(name, time_step)
-
-        if data is not None:
-            data = np.atleast_1d(data).tolist()
-        else:
-            data = list()
-        assert isinstance(data, list) or data is None
 
         fields = Fields([
             Field("grid_dim", cell_data = True,
