@@ -66,9 +66,14 @@ def add_data_darcy(gb, domain, tol):
     # Assign coupling permeability
     gb.add_edge_props("kn")
     for e, d in gb.edges():
-        gn = gb.nodes_of_edge(e)
-        aperture = np.power(1e-2, gb.dim_max() - gn[0].dim)
-        d["kn"] = np.ones(d["mortar_grid"].num_cells) / aperture * kf
+        g_l = gb.nodes_of_edge(e)[0]
+        aperture = np.power(1e-2, gb.dim_max() - g_l.dim)*np.ones(g_l.num_cells)
+
+        mg = d['mortar_grid']
+        check_P = mg.low_to_mortar_avg()
+
+        gamma = check_P * aperture
+        d['kn'] = kf * np.ones(mg.num_cells) / gamma
 
 
 # ------------------------------------------------------------------------------#

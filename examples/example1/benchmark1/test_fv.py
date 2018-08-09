@@ -72,14 +72,16 @@ def add_data(gb, domain, kf, mesh_value):
         d["param"] = param
 
     # Assign coupling permeability
-    gb.add_edge_props("kn")
+    gb.add_edge_props('kn')
     for e, d in gb.edges():
-        gn = gb.nodes_of_edge(e)
-        aperture = np.power(a, gb.dim_max() - gn[0].dim)
-        d["kn"] = np.ones(d["mortar_grid"].num_cells) * kf / aperture
+        g_l = gb.nodes_of_edge(e)[0]
+        mg = d['mortar_grid']
+        check_P = mg.low_to_mortar_avg()
 
+        gamma = check_P * gb.node_props(g_l, 'param').get_aperture()
+        d['kn'] = kf * np.ones(mg.num_cells) / gamma
 
-# ------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 
 def write_network(file_name):
@@ -129,7 +131,8 @@ def main(kf, description, multi_point, if_export=False):
 
 def test_tpfa_blocking():
     kf = 1e-4
-    main(kf, "blocking", multi_point=False)
+    if_export = True
+    main(kf, "blocking_tpfa", multi_point=False, if_export=if_export)
 
 
 # ------------------------------------------------------------------------------#
@@ -137,7 +140,8 @@ def test_tpfa_blocking():
 
 def test_tpfa_permeable():
     kf = 1e4
-    main(kf, "permeable", multi_point=False)
+    if_export = True
+    main(kf, "permeable_tpfa", multi_point=False, if_export=if_export)
 
 
 # ------------------------------------------------------------------------------#
@@ -145,7 +149,8 @@ def test_tpfa_permeable():
 
 def test_mpfa_blocking():
     kf = 1e-4
-    main(kf, "blocking", multi_point=True)
+    if_export = True
+    main(kf, "blocking_mpfa", multi_point=True, if_export=if_export)
 
 
 # ------------------------------------------------------------------------------#
@@ -153,7 +158,8 @@ def test_mpfa_blocking():
 
 def test_mpfa_permeable():
     kf = 1e4
-    main(kf, "permeable", multi_point=True)
+    if_export = True
+    main(kf, "permeable_mpfa", multi_point=True, if_export=if_export)
 
 
 # ------------------------------------------------------------------------------#
