@@ -42,16 +42,14 @@ def add_data(gb, domain, kf):
             left = bound_face_centers[0, :] < domain["xmin"] + tol
             right = bound_face_centers[0, :] > domain["xmax"] - tol
 
-            labels = np.array(["dir"] * bound_faces.size)
-
-
-#            labels[right] = "dir"
+            labels = np.array(["neu"] * bound_faces.size)
+            labels[right] = "dir"
 #            labels[left] = "dir" ####
 #
             bc_val = np.zeros(g.num_faces)
-            bc_val[bound_faces] = g.face_centers[1, bound_faces]
-#            #bc_val[bound_faces[left]] = -aperture * g.face_areas[bound_faces[left]]
-#            bc_val[bound_faces[right]] = 1
+#            bc_val[bound_faces] = g.face_centers[1, bound_faces]
+            bc_val[bound_faces[left]] = -aperture * g.face_areas[bound_faces[left]]
+            bc_val[bound_faces[right]] = 1
 
             param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("flow", bc_val)
@@ -75,15 +73,15 @@ def add_data(gb, domain, kf):
 
 def write_network(file_name):
     network = "FID,START_X,START_Y,END_X,END_Y\n"
-    network += "0,0.5,0.5,1,0.5\n"
-    network += "0,0.5,0.25,0.5,0.75"
+#    network += "0,0.5,0.5,1,0.5\n"
+#    network += "0,0.5,0.25,0.5,0.75"
 
-#    network += "0,0,0.5,1,0.5\n"
-#    network += "1,0.5,0,0.5,1\n"
-#    network += "2,0.5,0.75,1,0.75\n"
-#    network += "3,0.75,0.5,0.75,1\n"
-#    network += "4,0.5,0.625,0.75,0.625\n"
-#    network += "5,0.625,0.5,0.625,0.75\n"
+    network += "0,0,0.5,1,0.5\n"
+    network += "1,0.5,0,0.5,1\n"
+    network += "2,0.5,0.75,1,0.75\n"
+    network += "3,0.75,0.5,0.75,1\n"
+    network += "4,0.5,0.625,0.75,0.625\n"
+    network += "5,0.625,0.5,0.625,0.75\n"
 
     with open(file_name, "w") as text_file:
         text_file.write(network)
@@ -124,12 +122,10 @@ def main_ms(kf, name):
     ms.compute_bases(is_mixed=True)
 
     # solve the co-dimensional problem
-    A_l, b_l = ms.codim_problem(A, b)
-    x_l = sps.linalg.spsolve(A_l, b_l)
+    x_l = ms.solve_l(A, b)
 
     # post-compute the higher dimensional solution
-    x_h = ms.compute_sol_h(x_l)
-    print(x_h)
+    x_h = ms.solve_h(x_l)
 
     x = ms.concatenate(x_h, x_l)
     solver_flow.split(gb, "up", x)
@@ -176,7 +172,7 @@ def main_dd(kf, name):
 if __name__ == "__main__":
     kf = 1e-4
     main_ms(kf, "blocking")
-    main_dd(kf, "blocking")
+    #main_dd(kf, "blocking")
 
     #kf = 1e4
     #main_dd(kf, "permeable")
