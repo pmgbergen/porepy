@@ -75,7 +75,8 @@ def add_data(gb, domain, kf):
 
 def write_network(file_name):
     network = "FID,START_X,START_Y,END_X,END_Y\n"
-    network += "0,0.5,0.5,1,0.5"
+    network += "0,0.5,0.5,1,0.5\n"
+    network += "0,0.5,0.25,0.5,0.75"
 
 #    network += "0,0,0.5,1,0.5\n"
 #    network += "1,0.5,0,0.5,1\n"
@@ -158,10 +159,9 @@ def main_dd(kf, name):
     dd = DomainDecomposition(gb)
     dd.extract_blocks(A, b)
 
-    x_0 = np.zeros(dd.ndof())
     tol = 1e-8
-    max_it = 1000
-    x = dd.solve(x_0, tol, max_it)
+    maxiter = 1000
+    x = dd.solve(tol, maxiter)
 
     solver_flow.split(gb, "up", x)
 
@@ -174,8 +174,8 @@ def main_dd(kf, name):
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-    kf = 1e0
-    #main_ms(kf, "blocking")
+    kf = 1e-4
+    main_ms(kf, "blocking")
     main_dd(kf, "blocking")
 
     #kf = 1e4
