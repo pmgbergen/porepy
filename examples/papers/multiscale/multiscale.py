@@ -117,7 +117,7 @@ class Multiscale(object):
 
 #------------------------------------------------------------------------------#
 
-    def codim_problem(self, A, b):
+    def solve_l(self, A, b):
         # construct the problem in the fracture network
         A_l = np.empty((2, 2), dtype=np.object)
         b_l = np.empty(2, dtype=np.object)
@@ -139,11 +139,13 @@ class Multiscale(object):
             b_l[1] = np.empty(0)
 
         # assemble and return
-        return sps.bmat(A_l, "csr"), np.concatenate(tuple(b_l))
+        A_l = sps.bmat(A_l, "csr")
+        b_l = np.concatenate(tuple(b_l))
+        return sps.linalg.spsolve(A_l, b_l)
 
 #------------------------------------------------------------------------------#
 
-    def compute_sol_h(self, x_l):
+    def solve_h(self, x_l):
         # compute the higher dimensional solution
         rhs = x_l[:self.if_p.size]
         rhs = np.concatenate((np.zeros(self.dof_h), -self.C_h * rhs))
