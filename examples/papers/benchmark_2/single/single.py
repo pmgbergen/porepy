@@ -1,3 +1,5 @@
+import numpy as np
+
 import single_data as single
 import examples.papers.benchmark_2.solvers as solvers
 
