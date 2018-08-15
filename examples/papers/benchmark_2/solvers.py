@@ -1,3 +1,4 @@
+import logging, time
 import scipy.sparse as sps
 import numpy as np
 
@@ -6,6 +7,7 @@ from porepy.numerics.darcy_and_transport import static_flow_IE_solver as Transpo
 
 # ------------------------------------------------------------------------------#
 
+logger = logging.getLogger(__name__)
 
 def export(gb, folder):
 
@@ -16,7 +18,7 @@ def export(gb, folder):
 
     save = pp.Exporter(gb, "sol", folder=folder)
 
-    props = ["pressure", "cell_volumes", "cell_centers", "phi", "aperture"]
+    props = ["pressure", "cell_volumes", "cell_centers", "aperture"]
 
     # extra properties, problem specific
     if all(gb.has_nodes_prop(gb.get_grids(), "low_zones")):
@@ -37,13 +39,19 @@ def export(gb, folder):
 def solve_rt0(gb, folder):
 
     # Choose and define the solvers and coupler
+    logger.info('RT0 discretization')
+    tic = time.time()
     solver_flow = pp.RT0MixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
     solver_source = pp.DualSourceMixedDim("flow", [None])
     A_source, b_source = solver_source.matrix_rhs(gb)
 
+    logger.info('Done. Elapsed time: ' + str(time.time() - tic))
+    logger.info('Linear solver')
+    tic = time.time()
     up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
+    logger.info('Done. Elapsed time ' + str(time.time() - tic))
 
     solver_flow.split(gb, "up", up)
     solver_flow.extract_p(gb, "up", "pressure")
@@ -58,14 +66,18 @@ def solve_rt0(gb, folder):
 def solve_tpfa(gb, folder):
 
     # Choose and define the solvers and coupler
+    logger.info('TPFA discretization')
+    tic = time.time()
     solver_flow = pp.TpfaMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
     solver_source = pp.IntegralMixedDim("flow", [None])
     A_source, b_source = solver_source.matrix_rhs(gb)
-
+    logger.info('Done. Elapsed time: ' + str(time.time() - tic))
+    logger.info('Linear solver')
+    tic = time.time()
     p = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
-
+    logger.info('Done. Elapsed time ' + str(time.time() - tic))
     solver_flow.split(gb, "pressure", p)
     pp.fvutils.compute_discharges(gb)
 
@@ -78,13 +90,19 @@ def solve_tpfa(gb, folder):
 def solve_mpfa(gb, folder):
 
     # Choose and define the solvers and coupler
+    logger.info('MPFA discretization')
+    tic = time.time()
     solver_flow = pp.MpfaMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
     solver_source = pp.IntegralMixedDim("flow", [None])
     A_source, b_source = solver_source.matrix_rhs(gb)
 
+    logger.info('Done. Elapsed time: ' + str(time.time() - tic))
+    logger.info('Linear solver')
+    tic = time.time()
     p = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
+    logger.info('Done. Elapsed time ' + str(time.time() - tic))
 
     solver_flow.split(gb, "pressure", p)
     pp.fvutils.compute_discharges(gb)
@@ -118,13 +136,19 @@ def solve_p1(gb, folder):
 def solve_vem(gb, folder):
 
     # Choose and define the solvers and coupler
+    logger.info('VEM discretization')
+    tic = time.time()
     solver_flow = pp.DualVEMMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
     solver_source = pp.DualSourceMixedDim("flow", [None])
     A_source, b_source = solver_source.matrix_rhs(gb)
 
+    logger.info('Done. Elapsed time: ' + str(time.time() - tic))
+    logger.info('Linear solver')
+    tic = time.time()
     up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
+    logger.info('Done. Elapsed time ' + str(time.time() - tic))
 
     solver_flow.split(gb, "up", up)
     solver_flow.extract_p(gb, "up", "pressure")
