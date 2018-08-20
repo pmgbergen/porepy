@@ -59,141 +59,100 @@ class DomainDecomposition(object):
                 pos_le.append(d["edge_number"] + num_nodes)
 
         # extract the blocks for the higher dimension
-        self.A_h = sps.bmat(A[np.ix_(pos_hn, pos_hn)])
-        self.b_h = np.concatenate(tuple(b[pos_hn]))
+        self.A_h = sps.bmat(A[np.ix_(pos_hn + pos_he, pos_hn + pos_he)])
+        self.b_h = np.r_[tuple(b[pos_hn + pos_he])]
 
-        # extract the blocks for the higher to mortar
-        self.C_mh = sps.bmat(A[np.ix_(pos_he, pos_hn)])
-        self.C_hm = sps.bmat(A[np.ix_(pos_hn, pos_he)])
+        # Couple the 1 co-dimensional pressure to the mortar variables
+        self.C_h = sps.bmat(A[np.ix_(pos_he, pos_ln)])
 
-        # extract the block for the 1-codimensional mortar variable
-        self.A_m = sps.bmat(A[np.ix_(pos_he, pos_he)])
-        self.b_m = np.concatenate(tuple(b[pos_he]))
+        # Realise the jump operator given the mortar variables
+        self.C_l = sps.bmat(A[np.ix_(pos_ln, pos_he)])
 
         # construct the problem in the fracture network
         A_l = np.empty((2, 2), dtype=np.object)
         b_l = np.empty(2, dtype=np.object)
-
-        # coupling matrices
-        self.C_ml = sps.bmat(A[np.ix_(pos_he, pos_ln + pos_le)])
-        self.C_lm = sps.bmat(A[np.ix_(pos_ln + pos_le, pos_he)])
 
         A_l[0, 0] = sps.bmat(A[np.ix_(pos_ln, pos_ln)])
         self.dof_l = A_l[0, 0].shape[0]
 
         # add to the righ-hand side the non-homogenous solution from the higher
         # dimensional problem
-        b_l[0] = np.concatenate(tuple(b[pos_ln]))
+        b_l[0] = np.r_[tuple(b[pos_ln])]
 
         # in the case of > 1 co-dimensional problems
         if len(pos_le) > 0:
             A_l[0, 1] = sps.bmat(A[np.ix_(pos_ln, pos_le)])
             A_l[1, 0] = sps.bmat(A[np.ix_(pos_le, pos_ln)])
             A_l[1, 1] = sps.bmat(A[np.ix_(pos_le, pos_le)])
-
-            b_l[1] = np.concatenate(tuple(b[pos_le]))
+            b_l[1] = np.r_[tuple(b[pos_le])]
         else:
             b_l[1] = np.empty(0)
 
         # assemble and return
         self.A_l = sps.bmat(A_l, "csr")
-        self.b_l = np.concatenate(tuple(b_l))
+        self.b_l = np.r_[tuple(b_l)]
 
 #------------------------------------------------------------------------------#
 
-    def solve(self, tol, maxiter):
+    def solve(self, tol, maxiter, drop_tol, info=False):
 
-        # factorize the matrices to save time
-        self.factorize_h()
-        self.factorize_l()
-
-        # compute the right-hand side
-        b_h = self.solve_h(-self.b_h)
-        b_l = self.solve_l(-self.b_l)
-        b = self.b_m + self.C_mh * b_h + self.C_ml * b_l
-
-        def schur_complement(x_m):
-
-            # given a mortar solution compute the high dimensional
-            x_h = self.solve_h(-self.C_hm * x_m)
-            # given a mortar solution compute the co-dimensional
-            x_l = self.solve_l(-self.C_lm * x_m)
-            # construct the resulting M*x_m
-            return self.A_m * x_m + self.C_mh * x_h + self.C_ml * x_l
+        global iteration_number
+        iteration_number = 0
 
         def callback(x):
             global iteration_number
             iteration_number += 1
 
-        M = sps.linalg.LinearOperator(self.A_m.shape, schur_complement)
-        x_m, info = sps.linalg.gmres(M, b, tol=tol, maxiter=maxiter,
-                                     callback=callback)
-        print(info, iteration_number)
+        # construct the matrix and preconditioner
+        A = sps.linalg.LinearOperator(self.A_l.shape, self.schur_complement)
+        P = sps.linalg.spilu(self.A_l.tocsc(), drop_tol)
+        M = sps.linalg.LinearOperator(self.A_l.shape, lambda x: P.solve(x))
 
-        # given a mortar solution compute the high dimensional
-        x_h = self.solve_h(self.b_h - self.C_hm * x_m)
-        # given a mortar solution compute the co-dimensional
-        x_l = self.solve_l(self.b_l - self.C_lm * x_m)
+        # construct the right-hand side
+        x_h = self.LU_h(self.b_h)
+        b_h = np.zeros(self.b_l.size)
+        b_h[:self.dof_l] = - self.C_l * x_h[self.dof_h:]
+        b = self.b_l + b_h
 
+        # solve with an iterative scheme the problem
+        x_l, _ = sps.linalg.gmres(A, b, tol=tol, maxiter=maxiter, M=M, callback=callback)
+
+        # reconstruct the higher dimensional solution
+        x_h += self.solve_h(x_l)
         x = self.concatenate(x_h, x_l)
 
-        return x
+        if info:
+            return x, {"solve_h": iteration_number+2}
+        else:
+            return x
 
 #------------------------------------------------------------------------------#
 
-    def error(self, x, x_old):
-        norm = np.linalg.norm(x_old)
-        return np.linalg.norm(x - x_old)/(norm if norm else 1)
-
-#------------------------------------------------------------------------------#
-
-    def split(self, x):
-        x_h = np.zeros(self.A_h.shape[0])
-        x_l = np.zeros(self.A_l.shape[0])
-
-        x_h[:self.dof_h] = x[:self.dof_h]
-        x_l[:self.dof_l] = x[self.dof_h : (self.dof_h + self.dof_l)]
-
-        return x_h, x_l
-
-#------------------------------------------------------------------------------#
-
-    def concatenate(self, x_h, x_l):
-        # save and export using standard algorithm, the mortar variable is not
-        # yet exported
-        x = np.zeros(x_h.size + x_l.size)
-        x[:self.dof_h] = x_h[:self.dof_h]
-        x[self.dof_h : (self.dof_h + self.dof_l)] = x_l[:self.dof_l]
-        return x
-
-#------------------------------------------------------------------------------#
-
-    def factorize_h(self):
-        # By default I fix the possible un-connected blocks
-        data = np.array([0]*self.g_h.num_faces + [1]*self.g_h.num_cells)
-        # create the matrix for the pressure average
-        M = sps.coo_matrix(data.reshape((-1, 1)))
-
-        # update the matrix A_h
-        self.A_h = sps.bmat([[self.A_h, M], [M.T, None]])
-
+    def factorize(self):
         self.LU_h = sps.linalg.factorized(self.A_h.tocsc())
-
-#------------------------------------------------------------------------------#
-
-    def solve_h(self, b):
-        x = self.LU_h(np.append(b, 0))
-        x[self.g_h.num_faces:] -= x[-1]
-        return x[:-1]
-
-#------------------------------------------------------------------------------#
-
-    def factorize_l(self):
         self.LU_l = sps.linalg.factorized(self.A_l.tocsc())
 
 #------------------------------------------------------------------------------#
 
-    def solve_l(self, b):
-        return self.LU_l(b)
+    def schur_complement(self, x_l):
+        x_h = self.C_l * self.solve_h(x_l)[self.dof_h:]
+        x_h.resize(x_l.size)
+        return self.A_l * x_l + x_h
+
+#------------------------------------------------------------------------------#
+
+    def solve_h(self, x_l):
+        # compute the higher dimensional solution
+        b = np.r_[[0]*self.dof_h, -self.C_h * x_l[:self.dof_l]]
+        return self.LU_h(b)
+
+#------------------------------------------------------------------------------#
+
+    def concatenate(self, x_h, x_l):
+        # save and export using standard algorithm
+        x = np.zeros(x_h.size + x_l.size)
+        x[:self.dof_h] = x_h[:self.dof_h]
+        x[self.dof_h : (self.dof_h + self.dof_l)] = x_l[:self.dof_l]
+        return x
 
 #------------------------------------------------------------------------------#
