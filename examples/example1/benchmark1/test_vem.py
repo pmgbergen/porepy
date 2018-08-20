@@ -9,7 +9,7 @@ def add_data(gb, domain, kf):
     """
     Define the permeability, apertures, boundary conditions
     """
-    gb.add_node_props(["param"])
+    gb.add_node_props(["param", "is_tangential"])
     tol = 1e-5
     a = 1e-4
 
@@ -51,6 +51,7 @@ def add_data(gb, domain, kf):
         else:
             param.set_bc("flow", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
 
+        d["is_tangential"] = True
         d["param"] = param
 
     # Assign coupling permeability
