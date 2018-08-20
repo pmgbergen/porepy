@@ -12,18 +12,20 @@ def add_data(gb, domain, kf):
     """
     Define the permeability, apertures, boundary conditions
     """
-    gb.add_node_props(["param"])
+    gb.add_node_props(["param", "is_tangential"])
     tol = 1e-8
-    a = 1e-2
+    a = 1e-4
 
     for g, d in gb:
+        d["is_tangential"] = True
         param = pp.Parameters(g)
 
         # Permeability
-        kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
         if g.dim == 2:
+            kxx = np.ones(g.num_cells)
             perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kxx, kzz=1)
         else:
+            kxx = kf * np.ones(g.num_cells)
             perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=1, kzz=1)
         param.set_tensor("flow", perm)
 
@@ -35,7 +37,7 @@ def add_data(gb, domain, kf):
         param.set_aperture(np.ones(g.num_cells) * aperture)
 
         # Boundaries
-        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        bound_faces = g.get_boundary_faces()
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
@@ -44,10 +46,8 @@ def add_data(gb, domain, kf):
 
             labels = np.array(["neu"] * bound_faces.size)
             labels[right] = "dir"
-#            labels[left] = "dir" ####
-#
+
             bc_val = np.zeros(g.num_faces)
-#            bc_val[bound_faces] = g.face_centers[1, bound_faces]
             bc_val[bound_faces[left]] = -aperture * g.face_areas[bound_faces[left]]
             bc_val[bound_faces[right]] = 1
 
@@ -65,17 +65,20 @@ def add_data(gb, domain, kf):
         mg = d["mortar_grid"]
         check_P = mg.low_to_mortar_avg()
 
-        gamma = check_P * gb.node_props(g_l, "param").get_aperture()
-        d["kn"] = kf * np.ones(mg.num_cells) / gamma
+        gamma = np.power(
+            check_P * gb.node_props(g_l, "param").get_aperture(),
+            1. / (gb.dim_max() - g_l.dim),
+        )
+
+        d["kn"] = kf / gamma
+
+    return a
 
 # ------------------------------------------------------------------------------#
 
 
 def write_network(file_name):
     network = "FID,START_X,START_Y,END_X,END_Y\n"
-#    network += "0,0.5,0.5,1,0.5\n"
-#    network += "0,0.5,0.25,0.5,0.75"
-
     network += "0,0,0.5,1,0.5\n"
     network += "1,0.5,0,0.5,1\n"
     network += "2,0.5,0.75,1,0.75\n"
@@ -104,9 +107,19 @@ def make_grid_bucket(mesh_size):
 
 # ------------------------------------------------------------------------------#
 
-def main_ms(kf, name):
+def export(gb, x, name, solver_flow):
 
-    mesh_size = 0.045
+    solver_flow.split(gb, "up", x)
+
+    gb.add_node_props("pressure")
+    solver_flow.extract_p(gb, "up", "pressure")
+
+    save = pp.Exporter(gb, "rt0", folder=name)
+    save.write_vtk("pressure")
+
+# ------------------------------------------------------------------------------#
+
+def main_ms(kf, name, mesh_size):
     gb, domain = make_grid_bucket(mesh_size)
 
     # Assign parameters
@@ -119,7 +132,7 @@ def main_ms(kf, name):
     # off-line computation fo the bases
     ms = Multiscale(gb)
     ms.extract_blocks_h(A, b)
-    ms.compute_bases(is_mixed=True)
+    info = ms.compute_bases()
 
     # solve the co-dimensional problem
     x_l = ms.solve_l(A, b)
@@ -127,26 +140,21 @@ def main_ms(kf, name):
     # post-compute the higher dimensional solution
     x_h = ms.solve_h(x_l)
 
+    # update the number of solution of the higher dimensional problem
+    info["solve_h"] += 1
+    print(info)
+
     x = ms.concatenate(x_h, x_l)
-    solver_flow.split(gb, "up", x)
 
-    gb.add_node_props("pressure")
-    solver_flow.extract_p(gb, "up", "pressure")
-
-    save = pp.Exporter(gb, "rt0", folder="ms_"+name)
-    save.write_vtk("pressure")
+    export(gb, x, "ms_"+name, solver_flow)
 
 # ------------------------------------------------------------------------------#
 
-def main_dd(kf, name):
-
-    mesh_size = 0.045
-    #mesh_size = 0.5
+def main_dd(kf, name, mesh_size):
     gb, domain = make_grid_bucket(mesh_size)
-    #pp.plot_grid(gb, info="all", alpha=0)
 
     # Assign parameters
-    add_data(gb, domain, kf)
+    aperture = add_data(gb, domain, kf)
 
     # Choose and define the solvers and coupler
     solver_flow = pp.RT0MixedDim("flow")
@@ -155,24 +163,46 @@ def main_dd(kf, name):
     dd = DomainDecomposition(gb)
     dd.extract_blocks(A, b)
 
-    tol = 1e-8
-    maxiter = 1000
-    x = dd.solve(tol, maxiter)
+    tol = 1e-5
+    maxiter = 1e3
+    drop_tol = min(1e-4, 0.1*aperture*kf)
 
-    solver_flow.split(gb, "up", x)
+    dd.factorize()
+    x, info = dd.solve(tol, maxiter, drop_tol, info=True)
+    print(info)
 
-    gb.add_node_props("pressure")
-    solver_flow.extract_p(gb, "up", "pressure")
+    export(gb, x, "dd_"+name, solver_flow)
 
-    save = pp.Exporter(gb, "rt0", folder="dd_"+name)
-    save.write_vtk("pressure")
+# ------------------------------------------------------------------------------#
+
+def main(kf, name, mesh_size):
+    gb, domain = make_grid_bucket(mesh_size)
+
+    # Assign parameters
+    add_data(gb, domain, kf)
+
+    # Choose and define the solvers and coupler
+    solver_flow = pp.RT0MixedDim("flow")
+    A, b = solver_flow.matrix_rhs(gb)
+
+    x = sps.linalg.spsolve(A, b)
+
+    export(gb, x, "ref_"+name, solver_flow)
 
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-    kf = 1e-4
-    main_ms(kf, "blocking")
-    #main_dd(kf, "blocking")
 
-    #kf = 1e4
-    #main_dd(kf, "permeable")
+    mesh_size = 0.045
+
+    print("Blocking case")
+    kf = 1e-4
+    main(kf, "blocking", mesh_size)
+    main_ms(kf, "blocking", mesh_size)
+    main_dd(kf, "blocking", mesh_size)
+
+    print("Permeable case")
+    kf = 1e4
+    main(kf, "permeable", mesh_size)
+    main_ms(kf, "permeable", mesh_size)
+    main_dd(kf, "permeable", mesh_size)
