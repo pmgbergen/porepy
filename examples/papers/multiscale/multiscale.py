@@ -35,6 +35,8 @@ class Multiscale(object):
         # Number of dofs for the co-dimensional grids
         self.dof_l = None
 
+#------------------------------------------------------------------------------#
+
     def extract_blocks_h(self, A, b):
         # Select the position in the matrix A of the higher dimensional domain
         pos_hn = [self.gb.node_props(self.g_h, "node_number")]
@@ -58,7 +60,7 @@ class Multiscale(object):
 
         # extract the blocks for the higher dimension
         self.A_h = sps.bmat(A[np.ix_(pos_hn + pos_he, pos_hn + pos_he)])
-        self.b_h = np.concatenate(tuple(b[pos_hn + pos_he]))
+        self.b_h = np.r_[tuple(b[pos_hn + pos_he])]
 
         # Couple the 1 co-dimensional pressure to the mortar variables
         self.C_h = sps.bmat(A[np.ix_(pos_he, self.pos_ln)])
@@ -68,19 +70,14 @@ class Multiscale(object):
 
 #------------------------------------------------------------------------------#
 
-    def compute_bases(self, is_mixed):
-        """
-        is_mixed: if the numerical scheme is in mixed form, useful to impose the
-                boundary conditions
-        """
+    def compute_bases(self):
 
         # construct the rhs with all the active pressure dof in the 1 co-dimension
         self.if_p = np.zeros(self.C_h.shape[1], dtype=np.bool)
         pos = 0
         for g, d in self.gb:
             if g.dim != self.g_h.dim:
-                if is_mixed: # shift the dofs in case of mixed method
-                    pos += g.num_faces
+                pos += g.num_faces
                 # only the 1 co-dimensional grids are interesting
                 if g.dim == self.g_h.dim - 1:
                     self.if_p[pos : pos + g.num_cells] = True
@@ -101,7 +98,7 @@ class Multiscale(object):
             rhs[dof_basis] = 1.
             # project from the co-dimensional pressure to the Robin boundary
             # condition
-            rhs = np.concatenate((np.zeros(self.dof_h), -self.C_h * rhs))
+            rhs = np.r_[[0]*self.dof_h, -self.C_h * rhs]
             # compute the jump of the mortars
             self.bases[:, dof_basis] = self.C_l * self.LU(rhs)[-dof_bases:]
 
@@ -114,6 +111,8 @@ class Multiscale(object):
 
         # solve for non-zero boundary conditions
         self.x_h = - self.C_l * self.LU(self.b_h)[-dof_bases:]
+
+        return {"solve_h": num_bases+1}
 
 #------------------------------------------------------------------------------#
 
@@ -128,28 +127,28 @@ class Multiscale(object):
         A_l[0, 0] += self.bases
         # add to the righ-hand side the non-homogenous solution from the higher
         # dimensional problem
-        b_l[0] = np.concatenate(tuple(b[self.pos_ln])) + self.x_h
+        b_l[0] = np.r_[tuple(b[self.pos_ln])] + self.x_h
         # in the case of > 1 co-dimensional problems
         if len(self.pos_le) > 0:
             A_l[0, 1] = sps.bmat(A[np.ix_(self.pos_ln, self.pos_le)])
             A_l[1, 0] = sps.bmat(A[np.ix_(self.pos_le, self.pos_ln)])
             A_l[1, 1] = sps.bmat(A[np.ix_(self.pos_le, self.pos_le)])
-            b_l[1] = np.concatenate(tuple(b[self.pos_le]))
+            b_l[1] = np.r_[tuple(b[self.pos_le])]
         else:
             b_l[1] = np.empty(0)
 
         # assemble and return
         A_l = sps.bmat(A_l, "csr")
-        b_l = np.concatenate(tuple(b_l))
+        b_l = np.r_[tuple(b_l)]
+
         return sps.linalg.spsolve(A_l, b_l)
 
 #------------------------------------------------------------------------------#
 
     def solve_h(self, x_l):
         # compute the higher dimensional solution
-        rhs = x_l[:self.if_p.size]
-        rhs = np.concatenate((np.zeros(self.dof_h), -self.C_h * rhs))
-        return self.LU(self.b_h + rhs)
+        b = np.r_[[0]*self.dof_h, -self.C_h * x_l[:self.C_h.shape[1]]]
+        return self.LU(self.b_h + b)
 
 #------------------------------------------------------------------------------#
 
