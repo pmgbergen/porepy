@@ -1,13 +1,17 @@
 import pickle
 import time
+import os
 
 import numpy as np
 import porepy as pp
 
-def create_grid(fn=None):
+# ------------------------------------------------------------------------------#
+def create_grid(fn):
 
     domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 2.25, "zmin": 0, "zmax": 1}
-    if fn is None:
+    _, ext = os.path.splitext(fn)
+
+    if ext == ".geo":
         f1 = pp.Fracture(
             np.array(
                 [
@@ -90,11 +94,14 @@ def create_grid(fn=None):
 
         gb = pp.importer.dfm_from_gmsh("mildly_complex.geo", 3, network)
         print("Elapsed time " + str(time.time() - tm))
-    else:
+    elif ext == ".grid":
         gb = pickle.load(open(fn, "rb"))
+    else:
+        raise ValueError("Not supported data format")
 
     return gb, domain
 
+# ------------------------------------------------------------------------------#
 
 
 def add_data(gb, data, solver_name):
@@ -172,6 +179,9 @@ def add_data(gb, data, solver_name):
             param.set_bc("flow", pp.BoundaryCondition(g, b_faces, labels))
             param.set_bc_val("flow", bc_val)
 
+            g.tags["inlet_faces"] = np.zeros(g.num_faces, dtype=np.bool)
+            g.tags["inlet_faces"][b_faces[b_in]] = True
+
         else:
             param.set_bc("flow", pp.BoundaryCondition(g, empty, empty))
 
@@ -187,6 +197,7 @@ def add_data(gb, data, solver_name):
         gamma = check_P * gb.node_props(g_l, "param").get_aperture()
         d["kn"] = kn * np.ones(mg.num_cells) / gamma
 
+# ------------------------------------------------------------------------------#
 
 def b_pressure(g):
     assert g.dim == 3
@@ -199,13 +210,13 @@ def b_pressure(g):
         xf = g.face_centers[:, b_faces]
         b_in = np.argwhere(
             np.logical_and(
-                np.abs(xf[1]) < 1e-8, np.logical_and(xf[2] > 1 / 3, xf[2] < 2 / 3)
+                np.abs(xf[1]) < 1e-8, np.logical_and(xf[2] > 1./3., xf[2] < 2./3.)
             )
         )
         b_out = np.argwhere(
             np.logical_and(
                 np.abs(xf[1] - y_max) < 1e-8,
-                np.logical_or(xf[2] < 1 / 3, xf[2] > 2 / 3),
+                np.logical_or(xf[2] < 1./3., xf[2] > 2./3.),
             )
         )
 
