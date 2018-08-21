@@ -6,7 +6,8 @@ import examples.papers.benchmark_2.solvers as solvers
 def main(grid_file, folder, solver, solver_name, dt):
 
     tol = 1e-8
-    gb, domain = small_data.create_grid(grid_file)
+    #gb, domain = small_data.create_grid(grid_file)
+    gb, domain = small_data.create_grid()
 
     print('Loaded grid with ', gb.num_cells(), ' cells')
 
