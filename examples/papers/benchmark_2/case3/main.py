@@ -1,13 +1,13 @@
 import numpy as np
 import porepy as pp
-import small_data
+import data as problem_data
 import examples.papers.benchmark_2.solvers as solvers
 
 def main(grid_file, folder, solver, solver_name, dt):
 
     tol = 1e-8
-    #gb, domain = small_data.create_grid(grid_file)
-    gb, domain = small_data.create_grid()
+    #gb, domain = problem_data.create_grid(grid_file)
+    gb, domain = problem_data.create_grid()
 
     print('Loaded grid with ', gb.num_cells(), ' cells')
 
@@ -15,7 +15,7 @@ def main(grid_file, folder, solver, solver_name, dt):
     data["dt"] = dt
 
 
-    small_data.add_data(gb, data, solver_name)
+    problem_data.add_data(gb, data, solver_name)
 
     print('Invoke solver ', solver_name)
     solver(gb, folder)
@@ -44,8 +44,8 @@ def main(grid_file, folder, solver, solver_name, dt):
     print('Invoke transport solver')
 
     solvers.transport(gb, data, solver_name, folder,
-                          small_data.AdvectiveDataAssigner,
-                         callback=report_concentrations)
+                      problem_data.AdvectiveDataAssigner,
+                      callback=report_concentrations)
     return gb, data
 
 def outlet_fluxes(gb, fn=None):
@@ -54,7 +54,7 @@ def outlet_fluxes(gb, fn=None):
             break
 
     flux = d['discharge']
-    _, b_out = small_data.b_pressure(g)
+    _, b_out = problem_data.b_pressure(g)
     bound_faces = np.where(g.tags['domain_boundary_faces'])[0]
     xf = g.face_centers[:, bound_faces[b_out]]
     oi = bound_faces[b_out].ravel()

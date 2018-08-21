@@ -4,7 +4,6 @@ import time
 import numpy as np
 import porepy as pp
 
-
 def create_grid(fn=None):
 
     domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 2.25, "zmin": 0, "zmax": 1}
