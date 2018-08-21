@@ -92,7 +92,7 @@ def create_grid(fn):
 
         tm = time.time()
 
-        gb = pp.importer.dfm_from_gmsh("mildly_complex.geo", 3, network)
+        gb = pp.importer.dfm_from_gmsh(fn, 3, network)
         print("Elapsed time " + str(time.time() - tm))
     elif ext == ".grid":
         gb = pickle.load(open(fn, "rb"))
