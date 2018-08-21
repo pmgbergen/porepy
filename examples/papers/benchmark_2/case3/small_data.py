@@ -1,4 +1,5 @@
 import pickle
+import time
 
 import numpy as np
 import porepy as pp
@@ -8,7 +9,7 @@ def create_grid(fn=None):
 
     domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 2.25, "zmin": 0, "zmax": 1}
     if fn is None:
-        f1 = Fracture(
+        f1 = pp.Fracture(
             np.array(
                 [
                     [0.05, 0.25, 0.05],
@@ -18,7 +19,7 @@ def create_grid(fn=None):
                 ]
             ).T
         )
-        f2 = Fracture(
+        f2 = pp.Fracture(
             np.array(
                 [
                     [0.5, 0.05, 0.95],
@@ -28,17 +29,17 @@ def create_grid(fn=None):
                 ]
             ).T
         )
-        f3 = Fracture(
+        f3 = pp.Fracture(
             np.array(
                 [[0.05, 1, 0.5], [0.95, 1, 0.5], [0.95, 2, 0.85], [0.05, 2, 0.85]]
             ).T
         )
-        f4 = Fracture(
+        f4 = pp.Fracture(
             np.array(
                 [[0.05, 1, 0.49], [0.95, 1, 0.49], [0.95, 2, 0.14], [0.05, 2, 0.14]]
             ).T
         )
-        f5 = Fracture(
+        f5 = pp.Fracture(
             np.array(
                 [
                     [0.23, 1.9, 0.195],
@@ -48,7 +49,7 @@ def create_grid(fn=None):
                 ]
             ).T
         )
-        f6 = Fracture(
+        f6 = pp.Fracture(
             np.array(
                 [
                     [0.17, 1.9, 0.195],
@@ -58,7 +59,7 @@ def create_grid(fn=None):
                 ]
             ).T
         )
-        f7 = Fracture(
+        f7 = pp.Fracture(
             np.array(
                 [
                     [0.77, 1.9, 0.195],
@@ -68,7 +69,7 @@ def create_grid(fn=None):
                 ]
             ).T
         )
-        f8 = Fracture(
+        f8 = pp.Fracture(
             np.array(
                 [
                     [0.83, 1.9, 0.195],
@@ -79,7 +80,7 @@ def create_grid(fn=None):
             ).T
         )
 
-        network = FractureNetwork([f1, f2, f3, f4, f5, f6, f7, f8])
+        network = pp.FractureNetwork([f1, f2, f3, f4, f5, f6, f7, f8])
 
         network.impose_external_boundary(domain)
         network.find_intersections()
@@ -88,7 +89,7 @@ def create_grid(fn=None):
 
         tm = time.time()
 
-        gb = importer.dfm_from_gmsh("mildly_complex.geo", 3, network)
+        gb = pp.importer.dfm_from_gmsh("mildly_complex.geo", 3, network)
         print("Elapsed time " + str(time.time() - tm))
     else:
         gb = pickle.load(open(fn, "rb"))
@@ -113,13 +114,15 @@ def add_data(gb, data, solver_name):
 
     gb.add_node_props(["is_tangential", "param", "frac_num"])
     for g, d in gb:
-        param = pp.Parameters(g)
-        d["is_tangential"] = True
-        d["aperture"] = aperture
 
         one_vec = np.ones(g.num_cells)
         zero_vec = np.zeros(g.num_cells)
         empty = np.empty(0)
+
+        param = pp.Parameters(g)
+        d["is_tangential"] = True
+        d["aperture"] = aperture * one_vec
+
 
         if g.dim == 2:
             d["frac_num"] = g.frac_num * one_vec
@@ -152,7 +155,7 @@ def add_data(gb, data, solver_name):
 
         # Assign apertures
         aperture = np.power(data["aperture"], 3 - g.dim)
-        param.set_aperture(aperture * one_vec)
+        param.set_aperture(aperture)
 
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]

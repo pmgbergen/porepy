@@ -1,9 +1,9 @@
 import numpy as np
 import porepy as pp
 import small_data
-import ppdir.examples.papers.benchmark_2.solvers as solvers
+import examples.papers.benchmark_2.solvers as solvers
 
-def main(grid_file, folder, solver, solver_name, dt, save_every):
+def main(grid_file, folder, solver, solver_name, dt):
 
     tol = 1e-8
     gb, domain = small_data.create_grid(grid_file)
@@ -19,26 +19,32 @@ def main(grid_file, folder, solver, solver_name, dt, save_every):
     print('Invoke solver ', solver_name)
     solver(gb, folder)
 
-    outlet_fluxes(gb, fn='concentrations_' + solver_name + '_' + str(gb.num_cells()) + '_dt_' + str(dt) + '.txt')
+    file_name = 'concentrations_' + solver_name + '_' +\
+                 str(gb.num_cells()) + '_dt_' + str(dt) + '.txt'
+    outlet_fluxes(gb, fn=file_name)
 
     def report_concentrations(problem):
         problem.split()
 
         print('Max concentration ', problem._solver.p.max())
 
+        mean = np.zeros(8)
         for g, d in problem.grid():
             if g.dim == 2:
                 pv = d['param'].porosity * g.cell_volumes
                 field = d['solution']
 
-                mean = np.sum(pv * field) / np.sum(pv)
-                print('Mean concentration in fracture ', g.frac_num, ' ', mean)
+                mean[g.frac_num] = np.sum(pv * field) / np.sum(pv)
+
+        file_name = folder+"/mean_concentration.txt"
+        with open(file_name, 'a') as f:
+            f.write(", ".join(map(str, mean))+"\n")
 
     print('Invoke transport solver')
 
     solvers.transport(gb, data, solver_name, folder,
                           small_data.AdvectiveDataAssigner,
-                         callback=report_concentrations, save_every=save_every)
+                         callback=report_concentrations)
     return gb, data
 
 def outlet_fluxes(gb, fn=None):
@@ -68,22 +74,22 @@ def outlet_fluxes(gb, fn=None):
 
 
 if __name__ == "__main__":
-    grid_files = [  "grid_bucket_31645.grid",
-                  "grid_bucket_41258.grid", "grid_bucket_60825.grid",
-                  "grid_bucket_98779.grid", "grid_bucket_138430.grid"]
+    grid_files = ["grid_bucket_31645.grid", "grid_bucket_138430.grid"]
 #    solver_list = [solvers.solve_rt0, solvers.solve_tpfa, solvers.solve_mpfa,
 #                    solvers.solve_vem]
     solver_list = [solvers.solve_tpfa, solvers.solve_mpfa, solvers.solve_vem,
                    solvers.solve_rt0]
     solver_names = ['tpfa', 'mpfa', 'vem', 'rt0']
-    solver_names = ['mpfa']
-    solver_list = [solvers.solve_mpfa]
-    time_steps = [0.1, 0.05, 0.025, 0.01, 0.005, 0.001]
-    save_every = [1, 2, 4, 10, 20, 100]
+
+
+    grid_files = ["grid_bucket_31645.grid"]
+    solver_names = ['tpfa']
+    solver_list = [solvers.solve_tpfa]
+
+    time_step = 0.01*20
 
     for solver, solver_name in zip(solver_list, solver_names):
         for mesh_id, gf in enumerate(grid_files):
-            for dt, save in zip(time_steps, save_every):
-                folder = solver_name + '_mesh_' + str(mesh_id) + '_dt_' + str(dt)
-                gb, data = main(gf, folder, solver, solver_name, dt, save)
+            folder = solver_name + '_mesh_' + str(mesh_id)
+            gb, data = main(gf, folder, solver, solver_name, time_step)
 

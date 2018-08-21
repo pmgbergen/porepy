@@ -18,7 +18,7 @@ def export(gb, folder):
 
     save = pp.Exporter(gb, "sol", folder=folder)
 
-    props = ["pressure", "cell_volumes", "cell_centers", "aperture"]
+    props = ["pressure", "cell_volumes", "cell_centers"]
 
     # extra properties, problem specific
     if all(gb.has_nodes_prop(gb.get_grids(), "low_zones")):
@@ -29,6 +29,9 @@ def export(gb, folder):
 
     if all(gb.has_nodes_prop(gb.get_grids(), "color")):
         props.append("color")
+
+    if all(gb.has_nodes_prop(gb.get_grids(), "aperture")):
+        props.append("aperture")
 
     save.write_vtk(props)
 
