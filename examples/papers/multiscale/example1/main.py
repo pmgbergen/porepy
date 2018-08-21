@@ -232,7 +232,7 @@ def main(kf, name, mesh_size):
 
 if __name__ == "__main__":
 
-    mesh_sizes = 0.45*np.array([1, 1e-1, 1e-2, 1e-3])
+    mesh_sizes = 0.45*np.array([1, 1e-1, 1e-2])
 
     kf = 1e-4
     name = "blocking"
