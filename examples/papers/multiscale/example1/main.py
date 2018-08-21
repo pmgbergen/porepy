@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import scipy.sparse as sps
 import porepy as pp
 
@@ -119,6 +120,39 @@ def export(gb, x, name, solver_flow):
 
 # ------------------------------------------------------------------------------#
 
+def write_out(gb, file_name, data):
+
+    cell_2d = np.sum([g.num_cells for g in gb.grids_of_dimension(2)])
+    cell_1d = np.sum([g.num_cells for g in gb.grids_of_dimension(1)])
+
+    with open(file_name, "a") as f:
+        f.write(", ".join(map(str, [cell_2d, cell_1d, data])) + "\n")
+
+# ------------------------------------------------------------------------------#
+
+def summarize_data(size):
+
+    data = np.zeros((size, 6))
+
+    values = np.genfromtxt("dd_permeable.txt", delimiter = ",", dtype=np.int)
+    # save the number of cells
+    data[:, 0:2] = values[:, 0:2]
+    # save the other data
+    data[:, 2] = values[:, 2]
+    data[:, 3] = np.genfromtxt("ms_permeable.txt", delimiter = ",", dtype=np.int)[:, 2]
+    data[:, 4] = np.genfromtxt("dd_blocking.txt", delimiter = ",", dtype=np.int)[:, 2]
+    data[:, 5] = np.genfromtxt("ms_blocking.txt", delimiter = ",", dtype=np.int)[:, 2]
+
+    name = "results.csv"
+    np.savetxt(name, data, delimiter=' & ', fmt='%d', newline=' \\\\\n')
+
+    # remove the // from the end of the file
+    with open(name, 'rb+') as f:
+        f.seek(-3, os.SEEK_END)
+        f.truncate()
+
+# ------------------------------------------------------------------------------#
+
 def main_ms(kf, name, mesh_size):
     gb, domain = make_grid_bucket(mesh_size)
 
@@ -146,7 +180,9 @@ def main_ms(kf, name, mesh_size):
 
     x = ms.concatenate(x_h, x_l)
 
-    export(gb, x, "ms_"+name, solver_flow)
+    folder = "ms_" + name + "_" + str(mesh_size)
+    export(gb, x, folder, solver_flow)
+    write_out(gb, "ms_"+name+".txt", info["solve_h"])
 
 # ------------------------------------------------------------------------------#
 
@@ -164,14 +200,16 @@ def main_dd(kf, name, mesh_size):
     dd.extract_blocks(A, b)
 
     tol = 1e-5
-    maxiter = 1e3
+    maxiter = 1e4
     drop_tol = min(1e-4, 0.1*aperture*kf)
 
     dd.factorize()
     x, info = dd.solve(tol, maxiter, drop_tol, info=True)
     print(info)
 
-    export(gb, x, "dd_"+name, solver_flow)
+    folder = "dd_" + name + "_" + str(mesh_size)
+    export(gb, x, folder, solver_flow)
+    write_out(gb, "dd_"+name+".txt", info["solve_h"])
 
 # ------------------------------------------------------------------------------#
 
@@ -187,22 +225,31 @@ def main(kf, name, mesh_size):
 
     x = sps.linalg.spsolve(A, b)
 
-    export(gb, x, "ref_"+name, solver_flow)
+    folder = "ref_" + name + "_" + str(mesh_size)
+    export(gb, x, folder, solver_flow)
 
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
 
-    mesh_size = 0.045
+    mesh_sizes = 0.45*np.array([1, 1e-1, 1e-2, 1e-3])
 
-    print("Blocking case")
     kf = 1e-4
-    main(kf, "blocking", mesh_size)
-    main_ms(kf, "blocking", mesh_size)
-    main_dd(kf, "blocking", mesh_size)
+    name = "blocking"
+    for mesh_size in mesh_sizes:
+        print(name, str(mesh_size))
+        main(kf, name, mesh_size)
+        main_ms(kf, name, mesh_size)
+        main_dd(kf, name, mesh_size)
 
-    print("Permeable case")
+    print("========")
+
     kf = 1e4
-    main(kf, "permeable", mesh_size)
-    main_ms(kf, "permeable", mesh_size)
-    main_dd(kf, "permeable", mesh_size)
+    name = "permeable"
+    for mesh_size in mesh_sizes:
+        print(name, str(mesh_size))
+        main(kf, name, mesh_size)
+        main_ms(kf, name, mesh_size)
+        main_dd(kf, name, mesh_size)
+
+    summarize_data(mesh_sizes.size)
