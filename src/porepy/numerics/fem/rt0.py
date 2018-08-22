@@ -43,6 +43,10 @@ class RT0MixedDim(SolverMixedDim):
         for g, d in gb:
             d[p] = self.discr.extract_p(g, d[up])
 
+    def project_u(self, gb, u, P0u):
+        gb.add_node_props([P0u])
+        for g, d in gb:
+            d[P0u] = self.discr.project_u(g, d[u], d)
 
 # ------------------------------------------------------------------------------#
 
@@ -179,17 +183,9 @@ class RT0(Solver):
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
 
-            face_nodes_loc = [
-                nodes[g.face_nodes.indptr[f] : g.face_nodes.indptr[f + 1]]
-                for f in faces_loc
-            ]
-            nodes_loc = np.unique(face_nodes_loc)
-
-            opposite_node = np.array(
-                [np.setdiff1d(nodes_loc, f, assume_unique=True) for f in face_nodes_loc]
-            ).flatten()
-
-            coord_loc = node_coords[:, opposite_node]
+            # find the opposite node id for each face
+            node = self.opposite_side_node(g.face_nodes, nodes, faces_loc)
+            coord_loc = node_coords[:, node]
 
             # Compute the H_div-mass local matrix
             A = self.massHdiv(
@@ -331,6 +327,62 @@ class RT0(Solver):
 
     # ------------------------------------------------------------------------------#
 
+    def project_u(self, g, u, data):
+        """  Project the velocity computed with a rt0 solver to obtain a
+        piecewise constant vector field, one triplet for each cell.
+
+        Parameters
+        ----------
+        g : grid, or a subclass, with geometry fields computed.
+        u : array (g.num_faces) Velocity at each face.
+
+        Return
+        ------
+        P0u : ndarray (3, g.num_faces) Velocity at each cell.
+
+        """
+        # Allow short variable names in backend function
+        # pylint: disable=invalid-name
+
+        if g.dim == 0:
+            return np.zeros(3).reshape((3, 1))
+
+        param = data["param"]
+        a = param.get_aperture()
+
+        faces, cells, sign = sps.find(g.cell_faces)
+        index = np.argsort(cells)
+        faces, sign = faces[index], sign[index]
+
+        c_centers, f_normals, f_centers, R, dim, node_coords = pp.cg.map_grid(g)
+
+        nodes, _, _ = sps.find(g.face_nodes)
+
+        P0u = np.zeros((3, g.num_cells))
+
+        for c in np.arange(g.num_cells):
+            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+            faces_loc = faces[loc]
+
+            # find the opposite node id for each face
+            node = self.opposite_side_node(g.face_nodes, nodes, faces_loc)
+
+            # extract the coordinates
+            center = np.tile(c_centers[:, c], (node.size, 1)).T
+            delta_c = center - node_coords[:, node]
+            delta_f = f_centers[:, faces_loc] - node_coords[:, node]
+            normals = f_normals[:, faces_loc]
+
+            Pi = delta_c / np.einsum("ij,ij->j", delta_f, normals)
+
+            # extract the velocity for the current cell
+            P0u[dim, c] = np.dot(Pi, u[faces_loc])
+            P0u[:, c] = np.dot(R.T, P0u[:, c])
+
+        return P0u
+
+    # ------------------------------------------------------------------------------#
+
     def massHdiv(self, K, c_volume, coord, sign, dim, HB):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
@@ -362,5 +414,15 @@ class RT0(Solver):
 
         return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K, np.dot(N, C)))))
 
+
+# ------------------------------------------------------------------------------#
+
+    def opposite_side_node(self, face_nodes, nodes, faces_loc):
+        indptr = face_nodes.indptr
+        face_nodes = [nodes[indptr[f]: indptr[f + 1]] for f in faces_loc]
+
+        nodes_loc = np.unique(face_nodes)
+        opposite_node = [np.setdiff1d(nodes_loc, f, assume_unique=True) for f in face_nodes]
+        return np.array(opposite_node).flatten()
 
 # ------------------------------------------------------------------------------#
