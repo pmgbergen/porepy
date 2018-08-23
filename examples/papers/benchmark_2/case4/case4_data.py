@@ -13,7 +13,7 @@ def create_grid(from_file=True):
     if from_file:
         gb = pickle.load(open('gridbucket_case4.grid', 'rb'))
     else:
-        gb = pp.importer.dfm_from_gmsh("gmsh_frac_file.geo", 3, network,
+        gb = pp.importer.dfm_from_gmsh("gmsh_frac_file.msh", 3, network,
                                        ensure_matching_face_cell=True)
         pickle.dump(gb, open('gridbucket_case4.grid', 'wb'))
 

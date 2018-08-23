@@ -23,7 +23,7 @@ if not root.hasHandlers():
 def main(folder, solver, solver_name, dt, save_every):
 
     tol = 1e-8
-    gb, domain = case4_data.create_grid(from_file=True)
+    gb, domain = case4_data.create_grid(from_file=False)
 
     print('Loaded grid with ', gb.num_cells(), ' cells')
 
@@ -34,9 +34,9 @@ def main(folder, solver, solver_name, dt, save_every):
     case4_data.add_data(gb, data, solver_name)
 
     print('Invoke solver ', solver_name)
-    solver(gb, folder)
+#    solver(gb, folder)
 
-    outlet_fluxes(gb, fn='concentrations_' + solver_name + '_' + str(gb.num_cells()) + '_dt_' + str(dt) + '.txt')
+#    outlet_fluxes(gb, fn='concentrations_' + solver_name + '_' + str(gb.num_cells()) + '_dt_' + str(dt) + '.txt')
 
     def report_concentrations(problem):
         problem.split()
