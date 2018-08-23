@@ -14,10 +14,10 @@ def main(test_case, file_geo, folder, solver, solver_name, N = None):
     # select the permeability depending on the selected test case
     if test_case == 1:
         kf = 1e4
-        phi_f = 0.9
+        porosity_f = 0.9
     else:
         kf = 1e-4
-        phi_f = 0.01
+        porosity_f = 0.01
     data = {
         "domain": domain,
         "tol": tol,
@@ -25,8 +25,8 @@ def main(test_case, file_geo, folder, solver, solver_name, N = None):
         "km_low": 1e-1,
         "km": 1,
         "kf": kf,
-        "phi_m": 1e-1,
-        "phi_f": phi_f,
+        "porosity_m": 1e-1,
+        "porosity_f": porosity_f,
         "dt": 0.25 / 100,
         "t_max": 0.25,
     }
@@ -50,11 +50,11 @@ if __name__ == "__main__":
         solvers.solve_mpfa,
     ]
     solver_names = ["tpfa", "vem", "rt0", "mpfa"]
-    test_cases = [1, 2]
+    test_cases = [0, 1]
 
-    files_geo = {"mesh15.geo": "0", "mesh05.geo": "3"}  ###
-    solver_list = [solvers.solve_tpfa]  ###
-    solver_names = ["tpfa"]  ###
+#    files_geo = {"mesh15.geo": "0", "mesh05.geo": "3"}  ###
+#    solver_list = [solvers.solve_tpfa]  ###
+#    solver_names = ["tpfa"]  ###
 
     for test_case in test_cases:
         for solver, solver_name in zip(solver_list, solver_names):

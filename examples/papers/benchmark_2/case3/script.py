@@ -53,7 +53,7 @@ def write_csv(file_out, fields, data):
 if __name__ == "__main__":
 
     solver_names = ['tpfa', 'vem', 'rt0', 'mpfa']
-    indices = ['0'] #, '1']
+    indices = ['0', '1']
 
     for idx in indices:
         for solver in solver_names:
