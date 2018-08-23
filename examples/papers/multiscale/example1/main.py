@@ -9,7 +9,7 @@ from domain_decomposition import DomainDecomposition
 # ------------------------------------------------------------------------------#
 
 
-def add_data(gb, domain, kf):
+def add_data(gb, domain, kf_t, kf_n):
     """
     Define the permeability, apertures, boundary conditions
     """
@@ -26,7 +26,7 @@ def add_data(gb, domain, kf):
             kxx = np.ones(g.num_cells)
             perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kxx, kzz=1)
         else:
-            kxx = kf * np.ones(g.num_cells)
+            kxx = kf_t * np.ones(g.num_cells)
             perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=1, kzz=1)
         param.set_tensor("flow", perm)
 
@@ -71,7 +71,7 @@ def add_data(gb, domain, kf):
             1. / (gb.dim_max() - g_l.dim),
         )
 
-        d["kn"] = kf / gamma
+        d["kn"] = kf_n / gamma
 
     return a
 
@@ -153,11 +153,11 @@ def summarize_data(size):
 
 # ------------------------------------------------------------------------------#
 
-def main_ms(kf, name, mesh_size):
+def main_ms(kf_t, kf_n, name, mesh_size):
     gb, domain = make_grid_bucket(mesh_size)
 
     # Assign parameters
-    add_data(gb, domain, kf)
+    add_data(gb, domain, kf_t, kf_n)
 
     # Choose and define the solvers and coupler
     solver_flow = pp.RT0MixedDim("flow")
@@ -186,11 +186,11 @@ def main_ms(kf, name, mesh_size):
 
 # ------------------------------------------------------------------------------#
 
-def main_dd(kf, name, mesh_size):
+def main_dd(kf_t, kf_n, name, mesh_size):
     gb, domain = make_grid_bucket(mesh_size)
 
     # Assign parameters
-    aperture = add_data(gb, domain, kf)
+    aperture = add_data(gb, domain, kf_t, kf_n)
 
     # Choose and define the solvers and coupler
     solver_flow = pp.RT0MixedDim("flow")
@@ -201,7 +201,7 @@ def main_dd(kf, name, mesh_size):
 
     tol = 1e-5
     maxiter = 1e4
-    drop_tol = min(1e-4, 0.1*aperture*kf)
+    drop_tol = np.amin([1e-4, 0.1*aperture*kf_t, 0.1*kf_n/aperture])
 
     dd.factorize()
     x, info = dd.solve(tol, maxiter, drop_tol, info=True)
@@ -213,11 +213,11 @@ def main_dd(kf, name, mesh_size):
 
 # ------------------------------------------------------------------------------#
 
-def main(kf, name, mesh_size):
+def main(kf_t, kf_n, name, mesh_size):
     gb, domain = make_grid_bucket(mesh_size)
 
     # Assign parameters
-    add_data(gb, domain, kf)
+    add_data(gb, domain, kf_t, kf_n)
 
     # Choose and define the solvers and coupler
     solver_flow = pp.RT0MixedDim("flow")
@@ -234,22 +234,19 @@ if __name__ == "__main__":
 
     mesh_sizes = 0.45*np.array([1, 1e-1, 1e-2])
 
-    kf = 1e-4
-    name = "blocking"
-    for mesh_size in mesh_sizes:
-        print(name, str(mesh_size))
-        main(kf, name, mesh_size)
-        main_ms(kf, name, mesh_size)
-        main_dd(kf, name, mesh_size)
+    kf = {0: 1e-4, 1: 1e4}
+    # it's (kf_t, kf_n)
+    tests = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
 
-    print("========")
+    mesh_sizes = [0.45, 0.045, 0.01]
+    #tests = np.array([[0, 0], [1, 1]])
 
-    kf = 1e4
-    name = "permeable"
-    for mesh_size in mesh_sizes:
-        print(name, str(mesh_size))
-        main(kf, name, mesh_size)
-        main_ms(kf, name, mesh_size)
-        main_dd(kf, name, mesh_size)
+    for t, n in tests:
+        name = str(t) + "_" + str(n)
+        for mesh_size in mesh_sizes:
+            print(name, str(mesh_size))
+            main(kf[t], kf[n], name, mesh_size)
+            main_ms(kf[t], kf[n], name, mesh_size)
+            main_dd(kf[t], kf[n], name, mesh_size)
 
     summarize_data(mesh_sizes.size)
