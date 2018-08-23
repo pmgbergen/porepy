@@ -15,8 +15,82 @@ logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------#
 
+class DualMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
+    def __init__(self, physics="flow"):
+        raise NotImplementedError("Abstract class")
 
-class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
+    def extract_u(self, gb, up, u):
+        """
+        Save in the grid bucket the discharge for each grid. Note: the discharge
+        between dimension is zero since it is represented by a mortar variable.
+
+        Parameters
+        ---------
+        gb: the grid bucket
+        up: identifier of the solution, already split, in the grid bucket
+        u: identifier of the discharge which will be added to the grid bucket.
+
+        """
+        gb.add_node_props([u])
+        for g, d in gb:
+            d[u] = self.discr.extract_u(g, d[up])
+
+    def extract_p(self, gb, up, p):
+        """
+        Save in the grid bucket the pressure for each grid.
+
+        Parameters
+        ---------
+        gb: the grid bucket
+        up: identifier of the solution, already split, in the grid bucket
+        p: identifier of the pressure which will be added to the grid bucket.
+
+        """
+        gb.add_node_props([p])
+        for g, d in gb:
+            d[p] = self.discr.extract_p(g, d[up])
+
+    def project_u(self, gb, u, P0u, mortar_key="mortar_solution"):
+        """
+        Save in the grid bucket a piece-wise vector representation of the Darcy
+        velocity for each grid.
+
+        Parameters
+        ---------
+        gb: the grid bucket
+        u: identifier of the discharge, already split, in the grid bucket
+        P0u: identifier of the reconstructed velocity which will be added to the grid bucket.
+        mortar_key (optional): identifier of the mortar variable, already split, in the
+            grid bucket. The default value is "mortar_solution".
+
+        """
+
+        gb.add_node_props([P0u])
+        for g, d in gb:
+            # we need to recover the velocity from the mortar variable before
+            # the projection, only lower dimensional edges need to be considered.
+            u_e = np.zeros(d[u].size)
+            faces = g.tags["fracture_faces"]
+            if np.any(faces):
+                # recover the sign of the discharge, since the mortar is assumed
+                # to point from the higher to the lower dimensional problem
+                _, indices = np.unique(g.cell_faces.indices, return_index=True)
+                sign = sps.diags(g.cell_faces.data[indices], 0)
+
+                for e, d_e in gb.edges_of_node(g):
+                    g_m = d_e["mortar_grid"]
+                    if g_m.dim == g.dim:
+                        continue
+                    # project the mortar variable back to the higher dimensional
+                    # problem
+                    u_e += sign * g_m.mortar_to_high_int() * d_e[mortar_key]
+
+            d[P0u] = self.discr.project_u(g, u_e + d[u], d)
+
+# ------------------------------------------------------------------------------#
+
+
+class DualVEMMixedDim(DualMixedDim):
     def __init__(self, physics="flow"):
         self.physics = physics
 
@@ -27,53 +101,6 @@ class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
         self.solver = pp.numerics.mixed_dim.coupler.Coupler(
             self.discr, self.coupling_conditions
         )
-
-    def extract_u(self, gb, up, u):
-        gb.add_node_props([u])
-        for g, d in gb:
-            d[u] = self.discr.extract_u(g, d[up])
-
-    def extract_p(self, gb, up, p):
-        gb.add_node_props([p])
-        for g, d in gb:
-            d[p] = self.discr.extract_p(g, d[up])
-
-    def project_u(self, gb, u, P0u):
-        gb.add_node_props([P0u])
-        for g, d in gb:
-            d[P0u] = self.discr.project_u(g, d[u], d)
-
-    def check_conservation(self, gb, u, conservation):
-        """
-        Assert if the local conservation of mass is preserved for the grid
-        bucket.
-        Parameters
-        ----------
-        gb: grid bucket, or a subclass.
-        u : string name of the velocity in the data associated to gb.
-        conservation: string name for the conservation of mass.
-        """
-        for g, d in gb:
-            d[conservation] = self.discr.check_conservation(g, d[u])
-
-        # add to the lower dimensional grids the contribution from the higher
-        # dimensional grids
-        for e, data in gb.edges_props():
-            g_l, g_h = gb.sorted_nodes_of_edge(e)
-
-            cells_l, faces_h, _ = sps.find(data["face_cells"])
-            faces, cells_h, sign = sps.find(g_h.cell_faces)
-            ind = np.unique(faces, return_index=True)[1]
-            sign = sign[ind][faces_h]
-
-            conservation_l = gb.node_prop(g_l, conservation)
-            u_h = sign * gb.node_prop(g_h, u)[faces_h]
-
-            for c_l, u_f in zip(cells_l, u_h):
-                conservation_l[c_l] -= u_f
-
-        for g, d in gb:
-            logger.info(np.amax(np.abs(d[conservation])))
 
 
 # ------------------------------------------------------------------------------#

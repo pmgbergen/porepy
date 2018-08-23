@@ -12,10 +12,10 @@ import logging
 
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
+from porepy.numerics.mixed_dim.solver import Solver
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
-from porepy.numerics.vem import DualCoupling
+from porepy.numerics.vem import DualMixedDim, DualCoupling
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------------------#
 
 
-class RT0MixedDim(SolverMixedDim):
+class RT0MixedDim(DualMixedDim):
     def __init__(self, physics="flow"):
         self.physics = physics
 
@@ -33,20 +33,6 @@ class RT0MixedDim(SolverMixedDim):
 
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
-    def extract_u(self, gb, up, u):
-        gb.add_node_props([u])
-        for g, d in gb:
-            d[u] = self.discr.extract_u(g, d[up])
-
-    def extract_p(self, gb, up, p):
-        gb.add_node_props([p])
-        for g, d in gb:
-            d[p] = self.discr.extract_p(g, d[up])
-
-    def project_u(self, gb, u, P0u):
-        gb.add_node_props([P0u])
-        for g, d in gb:
-            d[P0u] = self.discr.project_u(g, d[u], d)
 
 # ------------------------------------------------------------------------------#
 
