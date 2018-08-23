@@ -64,29 +64,30 @@ def color(g):
     y = g.cell_centers[1, :]
     z = g.cell_centers[2, :]
 
-    val[np.logical_and.reduce((x>.5, y<.5, z<.5))] = 0
-    val[np.logical_and.reduce((x<.5, y>.5, z<.5))] = 1
-    val[np.logical_and.reduce((x>.5, y>.5, z<.5))] = 2
-    val[np.logical_and.reduce((x<.5, y<.5, z>.5))] = 3
-    val[np.logical_and.reduce((x>.5, y<.5, z>.5))] = 4
-    val[np.logical_and.reduce((x<.5, y>.5, z>.5))] = 5
+    val[np.logical_and.reduce((x<.5, y<.5, z<.5))] = 0
+    val[np.logical_and.reduce((x>.5, y<.5, z<.5))] = 1
+    val[np.logical_and.reduce((x<.5, y>.5, z<.5))] = 2
+    val[np.logical_and.reduce((x>.5, y>.5, z<.5))] = 3
+    val[np.logical_and.reduce((x<.5, y<.5, z>.5))] = 4
+    val[np.logical_and.reduce((x>.5, y<.5, z>.5))] = 5
+    val[np.logical_and.reduce((x<.5, y>.5, z>.5))] = 6
 
-    val[np.logical_and.reduce((x>.75, y>.75, z>.75))] = 6
-    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.75))] = 7
-    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.75))] = 8
-    val[np.logical_and.reduce((x>.5, x<.75, y>.5, y<.75, z>.75))] = 9
-    val[np.logical_and.reduce((x>.75, y>.75, z>.5, z<.75))] = 10
-    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.5, z<.75))] = 11
-    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.5, z<.75))] = 12
+    val[np.logical_and.reduce((x>.75, y>.75, z>.75))] = 7
+    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.75))] = 8
+    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.75))] = 9
+    val[np.logical_and.reduce((x>.5, x<.75, y>.5, y<.75, z>.75))] = 10
+    val[np.logical_and.reduce((x>.75, y>.75, z>.5, z<.75))] = 11
+    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.5, z<.75))] = 12
+    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.5, z<.75))] = 13
 
-    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.5, z<.625))] = 13
-    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.5, z<.625))] = 14
-    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.5, z<.625))] = 15
-    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.5, z<.625))] = 16
-    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.625, z<.75))] = 17
-    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.625, z<.75))] = 18
-    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.625, z<.75))] = 19
-    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.625, z<.75))] = 20
+    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.5, z<.625))] = 14
+    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.5, z<.625))] = 15
+    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.5, z<.625))] = 16
+    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.5, z<.625))] = 17
+    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.625, z<.75))] = 18
+    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.625, z<.75))] = 19
+    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.625, z<.75))] = 20
+    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.625, z<.75))] = 21
 
     return val
 
@@ -133,7 +134,7 @@ def add_data(gb, data, solver_name):
 
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
-    gb.add_node_props(["is_tangential", "param", "frac_num", "low_zones", "phi", "color"])
+    gb.add_node_props(["is_tangential", "param", "frac_num", "low_zones", "porosity", "color"])
     for g, d in gb:
         param = pp.Parameters(g)
         d["is_tangential"] = True
@@ -206,9 +207,9 @@ def add_data(gb, data, solver_name):
         d["param"] = param
 
         if g.dim == 3:
-            d["phi"] = data["phi_m"] * unity
+            d["porosity"] = data["porosity_m"] * unity
         else:
-            d["phi"] = data["phi_f"] * unity
+            d["porosity"] = data["porosity_f"] * unity
 
     # Assign coupling permeability, the aperture is read from the lower dimensional grid
     gb.add_edge_props("kn")
@@ -229,8 +230,8 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         self.domain = kwargs["domain"]
         self.tol = kwargs["tol"]
         self.max_dim = kwargs.get("max_dim", 3)
-        self.phi_f = kwargs["phi_f"]
-        self.phi_m = kwargs["phi_m"]
+        self.porosity_f = kwargs["porosity_f"]
+        self.porosity_m = kwargs["porosity_m"]
 
         # define two pieces of the boundary, useful to impose boundary conditions
         self.inflow = np.empty(0)
@@ -250,9 +251,9 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
 
     def porosity(self):
         if self.grid().dim == 3:
-            return self.phi_m * np.ones(self.grid().num_cells)
+            return self.porosity_m * np.ones(self.grid().num_cells)
         else:
-            return self.phi_f * np.ones(self.grid().num_cells)
+            return self.porosity_f * np.ones(self.grid().num_cells)
 
     def rock_specific_heat(self):
         # hack to remove the rock part
@@ -278,6 +279,6 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         dim = self.grid().dim
         ones = np.ones(self.grid().num_cells)
         if dim == 3:
-            return self.phi_m * ones
+            return self.porosity_m * ones
         else:
-            return self.phi_f * ones
+            return self.porosity_f * ones
