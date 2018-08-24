@@ -23,18 +23,18 @@ if not root.hasHandlers():
 def main(folder, solver, solver_name, dt, save_every):
 
     tol = 1e-8
-    gb, domain = case4_data.create_grid(from_file=False)
+    gb, domain = case4_data.create_grid(from_file=True)
 
     print('Loaded grid with ', gb.num_cells(), ' cells')
 
-    data = {"domain": domain, "t_max": 1}
+    data = {"domain": domain, "t_max": 5000}
     data["dt"] = dt
 
 
     case4_data.add_data(gb, data, solver_name)
 
     print('Invoke solver ', solver_name)
-#    solver(gb, folder)
+    solver(gb, folder)
 
 #    outlet_fluxes(gb, fn='concentrations_' + solver_name + '_' + str(gb.num_cells()) + '_dt_' + str(dt) + '.txt')
 
@@ -52,12 +52,12 @@ def main(folder, solver, solver_name, dt, save_every):
                 print('Mean concentration in fracture ', g.frac_num, ' ', mean)
 
     print('Invoke transport solver')
-    return gb, data
-"""
+
     solvers.transport(gb, data, solver_name, folder,
                           case4_data.AdvectiveDataAssigner,
-                         callback=report_concentrations, save_every=save_every)
-"""
+                         callback=None, save_every=save_every)
+
+    return gb, data
 
 
 def outlet_fluxes(gb, fn=None):
@@ -92,14 +92,12 @@ if __name__ == "__main__":
     solver_names = ['tpfa', 'mpfa', 'vem', 'rt0']
     solver_names = ['tpfa', 'mpfa']
     solver_list = [solvers.solve_tpfa, solvers.solve_mpfa]
-#    time_steps = [0.1, 0.05, 0.025, 0.01, 0.005, 0.001]
-#    save_every = [1, 2, 4, 10, 20, 100]
 
-    time_steps = [1]
+    time_steps = [50]
     save_every = [1]
 
     for solver, solver_name in zip(solver_list, solver_names):
         for dt, save in zip(time_steps, save_every):
             folder = solver_name  + '_dt_' + str(dt)
-            gb, data = main(folder, solver, solver_name, dt, save)
+            gb, data = main(folder, solver, solver_name, dt, save_every=save)
 
