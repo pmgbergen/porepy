@@ -37,7 +37,7 @@ def add_data(gb, data, solver_name):
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
     gb.add_node_props(['is_tangential', 'problem', 'frac_num', 'low_zones',
-                       'phi', 'aperture'])
+                       'porosity', 'aperture'])
     for g, d in gb:
         param = pp.Parameters(g)
         d["is_tangential"] = True
@@ -105,10 +105,10 @@ def add_data(gb, data, solver_name):
         d["param"] = param
 
         if g.dim == 3:
-            d['phi'] = data['phi_high'] * unity
-            d['phi'][low_zones(g)] = data['phi_low']
+            d['porosity'] = data['porosity_high'] * unity
+            d['porosity'][low_zones(g)] = data['porosity_low']
         else:
-            d['phi'] = data['phi_f'] * unity
+            d['porosity'] = data['porosity_f'] * unity
 
     # Assign coupling permeability, the aperture is read from the lower dimensional grid
     gb.add_edge_props("kn")
@@ -130,9 +130,9 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         self.tol = kwargs["tol"]
         self.max_dim = kwargs.get("max_dim", 3)
 
-        self.phi_high = kwargs["phi_high"]
-        self.phi_low = kwargs["phi_low"]
-        self.phi_f = kwargs["phi_f"]
+        self.porosity_high = kwargs["porosity_high"]
+        self.porosity_low = kwargs["porosity_low"]
+        self.porosity_f = kwargs["porosity_f"]
 
         # define two pieces of the boundary, useful to impose boundary conditions
         self.inflow = np.empty(0)
@@ -153,11 +153,11 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
 
     def porosity(self):
         if self.grid().dim == 3:
-            phi = self.phi_high * np.ones(self.grid().num_cells)
-            phi[low_zones(self.grid())] = self.phi_low
+            porosity = self.porosity_high * np.ones(self.grid().num_cells)
+            porosity[low_zones(self.grid())] = self.porosity_low
         else:
-            phi = self.phi_f * np.ones(self.grid().num_cells)
-        return phi
+            porosity = self.porosity_f * np.ones(self.grid().num_cells)
+        return porosity
 
     def rock_specific_heat(self):
         #hack to remove the rock part
