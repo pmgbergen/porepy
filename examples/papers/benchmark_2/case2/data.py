@@ -8,7 +8,7 @@ import porepy as pp
 def import_grid(file_geo, tol):
 
     # define the mesh size
-    file_csv = "geiger_3d.csv"
+    file_csv = "fracture_geometry.csv"
     domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
 
     _, network, _ = pp.importer.network_3d_from_csv(file_csv, tol=tol)
@@ -27,7 +27,7 @@ def import_grid(file_geo, tol):
 
 def make_grid_cart(N):
 
-    file_csv = "geiger_3d.csv"
+    file_csv = "fracture_geometry.csv"
 
     frac_list = []
     # Extract the data from the csv file

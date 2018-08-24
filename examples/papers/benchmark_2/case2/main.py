@@ -1,5 +1,5 @@
 import numpy as np
-import geiger_3d_data as geiger
+import data as problem_data
 import examples.papers.benchmark_2.solvers as solvers
 
 
@@ -7,9 +7,9 @@ def main(test_case, file_geo, folder, solver, solver_name, N = None):
 
     tol = 1e-8
     if N is not None:
-        gb, domain = geiger.make_grid_cart(N)
+        gb, domain = problem_data.make_grid_cart(N)
     else:
-        gb, domain = geiger.import_grid(file_geo, tol)
+        gb, domain = problem_data.import_grid(file_geo, tol)
 
     # select the permeability depending on the selected test case
     if test_case == 1:
@@ -31,9 +31,9 @@ def main(test_case, file_geo, folder, solver, solver_name, N = None):
         "t_max": 0.25,
     }
 
-    geiger.add_data(gb, data, solver_name)
+    problem_data.add_data(gb, data, solver_name)
     solver(gb, folder)
-    solvers.transport(gb, data, solver_name, folder, geiger.AdvectiveDataAssigner)
+    solvers.transport(gb, data, solver_name, folder, problem_data.AdvectiveDataAssigner)
 
 
 if __name__ == "__main__":
