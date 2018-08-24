@@ -1,14 +1,3 @@
-# How to use: generally in your paraview folder you have a sub-folder called bin
-# inside you have an executable called pvpython, which is a python interpreter
-# with paraview library. Use it to call this script.
-#
-# You can run the code as
-# ${PARAVIEW_BIN}/pvpython file_in.pvd file_out.csv pressure_field_name
-#
-# example
-# ${PARAVIEW_BIN}/pvpython ./vem/result.pvd ./vem/pol.csv pressure
-
-#### import the simple module from the paraview
 from __future__ import print_function
 
 import paraview.simple as pv
@@ -17,7 +6,7 @@ import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 
 import csv
-#from scipy.io import mmread
+from scipy.io import mmread
 import numpy as np
 
 #------------------------------------------------------------------------------#
@@ -52,7 +41,7 @@ def pot_block(field, file_in):
 
 #------------------------------------------------------------------------------#
 
-def plot_over_line(file_in, file_out, pts, resolution=1000):
+def plot_over_line(file_in, file_out, pts, resolution=2000):
 
     if file_in.lower().endswith('.pvd'):
         # create a new 'PVD Reader'
@@ -116,17 +105,13 @@ def cot_domain(transport_root, file_in, step, field, fields, num_colors, padding
 if __name__ == "__main__":
 
     solver_names = ['tpfa', 'vem', 'rt0', 'mpfa']
-    cases = ['1', '2']
-    indices = ['0', '1', '2', '3']
+    perms = ['0', '1']
+    refinements = ['0', '1', '2']
 
-    #solver_names = ['vem'] ###
-    cases = ['1']
-    indices = ['0'] ###
-
-    for case in cases:
-        for idx in indices:
+    for perm in perms:
+        for refinement in refinements:
             for solver in solver_names:
-                folder = "./" + solver + "_results_" + case + "_" + idx + "/"
+                folder = "./" + solver + "_results_" + perm + "_" + refinement + "/"
 
             #    # 2) matrix information
             #    file_in = "matrix.mtx"
@@ -141,15 +126,15 @@ if __name__ == "__main__":
                 # 3) for each mesh and for each matrix permeability, the pressure over
                 #    line from (0, 0, 0) to (1, 1, 1)
 
-#                field = "pressure"
-#                # file of both the matrix and the fracture
-#                file_in = folder + "sol_3.vtu"
-#                file_out = folder + "pol_matrix_"+ case + "_" + idx + ".csv"
-#                pts = [[0, 0, 0], [1, 1, 1]]
-#
-#                plot_over_line(file_in, file_out, pts)
-#                data = read_csv(file_out, ['arc_length', field])
-#                write_csv(file_out, ['arc_length', field], data)
+                field = "pressure"
+                # file of both the matrix and the fracture
+                file_in = folder + "sol_3.vtu"
+                file_out = folder + "dol_perm_"+ perm + "_refinement_" + refinement + ".csv"
+                pts = [[0, 0, 0], [1, 1, 1]]
+
+                plot_over_line(file_in, file_out, pts)
+                data = read_csv(file_out, ['arc_length', field])
+                write_csv(file_out, ['arc_length', field], data)
 
                 # 4) for the coarsest mesh the averaged concentration on each matrix block
 
@@ -162,11 +147,12 @@ if __name__ == "__main__":
                 cot_matrix = cot_domain(transport_root, file_in, step, field, fields, num_colors)
 
                 # collect the data in a single file
-                file_out = folder + "cot_" + case + "_" + idx + ".csv"
-                times = np.arange(step)*0.25/100.
-                labels = np.arange(num_colors).astype(np.str)
-                labels = np.core.defchararray.add("cot_m_", labels)
-                labels = np.insert(labels, 0, 'time')
-                data = np.insert(cot_matrix, 0, times, axis=1).T
-                write_csv(file_out, labels, data)
+                if refinement == "1":
+                    file_out = folder + "dot_perm_" + perm + ".csv"
+                    times = np.arange(step)*0.25/100.
+                    labels = np.arange(num_colors).astype(np.str)
+                    labels = np.core.defchararray.add("cot_m_", labels)
+                    labels = np.insert(labels, 0, 'time')
+                    data = np.insert(cot_matrix, 0, times, axis=1).T
+                    write_csv(file_out, labels, data)
 
