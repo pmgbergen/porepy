@@ -128,7 +128,7 @@ class ParabolicModel:
                           store every second time step.
         """
         tic = time.time()
-        logger.info("Solve problem")
+        logger.info("Solve problem, saving every " + str(save_every))
         s = self._solver.solve(save_as, save_every)
         logger.info("Done. Elapsed time: " + str(time.time() - tic))
         return s

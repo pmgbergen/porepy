@@ -163,7 +163,9 @@ def solve_vem(gb, folder):
 # ------------------------------------------------------------------------------#
 
 
-def transport(gb, data, solver_name, folder, adv_data_assigner, callback=None):
+def transport(gb, data, solver_name, folder, adv_data_assigner, callback=None,
+             save_every=1):
+
     physics = "transport"
     for g, d in gb:
         d[physics + "_data"] = adv_data_assigner(g, d, **data)
@@ -176,7 +178,7 @@ def transport(gb, data, solver_name, folder, adv_data_assigner, callback=None):
         file_name="tracer",
         callback=callback,
     )
-    advective.solve("tracer")
+    advective.solve("tracer", save_every=save_every)
     return advective
 
 
