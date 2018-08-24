@@ -12,7 +12,7 @@ def main(test_case, file_geo, folder, solver, solver_name, N = None):
         gb, domain = problem_data.import_grid(file_geo, tol)
 
     # select the permeability depending on the selected test case
-    if test_case == 1:
+    if test_case == 0:
         kf = 1e4
         porosity_f = 0.9
     else:
