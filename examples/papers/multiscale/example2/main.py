@@ -78,12 +78,31 @@ def add_data(gb, domain, kf_t, kf_n):
 # ------------------------------------------------------------------------------#
 
 
-def update_data(gb, kf_t, P0u="P0u"):
+def update_data(gb, solver_flow, kf_t):
+
+    solver_flow.extract_u(gb, "up", "discharge")
+    solver_flow.project_u(gb, "discharge", "P0u")
+
+    beta = 1e5
     for g, d in gb:
         if g.dim == 1:
-            kf = kf_t * np.ones(g.num_cells)
+            # define the non-linear relation with u
+            u = beta * np.linalg.norm(d["P0u"], axis=0)
+
+            # to trick the code we need to do the following
+            kf = 1./(1./kf_t + u)
             perm = pp.SecondOrderTensor(1, kxx=kf, kyy=1, kzz=1)
             d["param"].set_tensor("flow", perm)
+
+# ------------------------------------------------------------------------------#
+
+def compute_error(gb, x, x_old):
+
+    g_h = self.gb.grids_of_dimension(2)[0]
+
+    norm_x_old = np.linalg.norm(x_old)
+    err = np.linalg.norm(x - x_old) / (norm_x_old if norm_x_old else 1)
+
 
 # ------------------------------------------------------------------------------#
 
@@ -236,20 +255,30 @@ def main(kf_t, kf_n, name, mesh_size):
     tol = 1e-4
     maxiter = 1e3
 
-    x_old = np.zeros(solver_flow.ndof())
+    # Compute the initial guess
+    A, b = solver_flow.matrix_rhs(gb)
+    x_old = sps.linalg.spsolve(A, b)
+    solver_flow.split(gb, "up", x_old)
+
     i = 0
     err = np.inf
     while err > tol and i < maxiter:
+
+        # update the tangetial fracture permeability
+        update_data(gb, solver_flow, kf_t)
+
         A, b = solver_flow.matrix_rhs(gb)
         x = sps.linalg.spsolve(A, b)
+        solver_flow.split(gb, "up", x)
 
         norm_x_old = np.linalg.norm(x_old)
-        err = np.linalg.norm(x-x_old) / (norm_x_old if norm_x_old else 1)
+        err = np.linalg.norm(x - x_old) / (norm_x_old if norm_x_old else 1)
 
         x_old = x
         i += 1
 
-        update_data(gb, kf_t, "P0u")
+
+    print(i, err)
 
     folder = "ref_" + name + "_" + str(mesh_size)
     export(gb, x, folder, solver_flow)
@@ -258,7 +287,7 @@ def main(kf_t, kf_n, name, mesh_size):
 
 if __name__ == "__main__":
 
-    main(1, 1, "", 0.1)
+    main(1e-4, 1e-4, "", 0.1)
 
 #    mesh_sizes = 0.45*np.array([1, 1e-1, 1e-2])
 #
