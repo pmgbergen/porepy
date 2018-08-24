@@ -102,7 +102,7 @@ def main(grid_file, folder, solver, solver_name, dt):
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-    grid_files = ["grid_30k.geo", "grid_140k.geo"]
+    grid_files = ["mesh30k.geo", "mesh140k.geo"]
     solver_list = [solvers.solve_tpfa, solvers.solve_mpfa, solvers.solve_vem,
                    solvers.solve_rt0]
     solver_names = ['tpfa', 'mpfa', 'vem', 'rt0']
