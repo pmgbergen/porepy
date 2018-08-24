@@ -38,10 +38,9 @@ def main(test_case, file_geo, folder, solver, solver_name, N = None):
 
 if __name__ == "__main__":
     files_geo = {
-        "mesh15.geo": "0",
-        "mesh1.geo": "1",
-        "mesh075.geo": "2",
-        "mesh05.geo": "3",
+        "mesh500.geo": "0",
+        "mesh4k.geo": "1",
+        "mesh32k.geo": "2"
     }
     solver_list = [
         solvers.solve_tpfa,
@@ -51,19 +50,13 @@ if __name__ == "__main__":
     ]
     solver_names = ["tpfa", "vem", "rt0", "mpfa"]
     test_cases = [0, 1]
-
-#    files_geo = {"mesh15.geo": "0", "mesh05.geo": "3"}  ###
-#    solver_list = [solvers.solve_tpfa]  ###
-#    solver_names = ["tpfa"]  ###
+    cart_size = {"0": 8, "1": 16, "2": 32}
 
     for test_case in test_cases:
         for solver, solver_name in zip(solver_list, solver_names):
             for file_geo, mesh_id in files_geo.items():
                 folder = solver_name + "_results_" + str(test_case) + "_" + mesh_id
-                if mesh_id == "0" and test_case == 1:
-                    continue
-                if mesh_id == "0":
-                    N = 16
-                else:
-                    N = 32
+                N = cart_size[mesh_id]
+                if solver_name == "rt0":
+                    N = None
                 main(test_case, file_geo, folder, solver, solver_name, N)
