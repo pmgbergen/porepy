@@ -3,108 +3,10 @@ import os
 import scipy.sparse as sps
 import porepy as pp
 
-from multiscale import Multiscale
-from domain_decomposition import DomainDecomposition
+from data import Data
 
-# ------------------------------------------------------------------------------#
-
-
-def add_data(gb, domain, kf_t, kf_n):
-    """
-    Define the permeability, apertures, boundary conditions
-    """
-    gb.add_node_props(["param", "is_tangential"])
-    tol = 1e-8
-    a = 1e-4
-
-    for g, d in gb:
-        d["is_tangential"] = True
-        param = pp.Parameters(g)
-
-        # Permeability
-        if g.dim == 2:
-            kxx = np.ones(g.num_cells)
-            perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kxx, kzz=1)
-        else:
-            kxx = kf_t * np.ones(g.num_cells)
-            perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=1, kzz=1)
-        param.set_tensor("flow", perm)
-
-        # Source term
-        param.set_source("flow", np.zeros(g.num_cells))
-
-        # Assign apertures
-        aperture = np.power(a, gb.dim_max() - g.dim)
-        param.set_aperture(np.ones(g.num_cells) * aperture)
-
-        # Boundaries
-        bound_faces = g.get_boundary_faces()
-        if bound_faces.size != 0:
-            bound_face_centers = g.face_centers[:, bound_faces]
-
-            left = bound_face_centers[0, :] < domain["xmin"] + tol
-            right = bound_face_centers[0, :] > domain["xmax"] - tol
-
-            labels = np.array(["neu"] * bound_faces.size)
-            labels[right] = "dir"
-
-            bc_val = np.zeros(g.num_faces)
-            bc_val[bound_faces[left]] = -aperture * g.face_areas[bound_faces[left]]
-            bc_val[bound_faces[right]] = 1
-
-            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val("flow", bc_val)
-        else:
-            param.set_bc("flow", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
-
-        d["param"] = param
-
-    # Assign coupling permeability
-    gb.add_edge_props("kn")
-    for e, d in gb.edges():
-        g_l = gb.nodes_of_edge(e)[0]
-        mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
-
-        gamma = np.power(
-            check_P * gb.node_props(g_l, "param").get_aperture(),
-            1. / (gb.dim_max() - g_l.dim),
-        )
-
-        d["kn"] = kf_n / gamma
-
-    return a
-
-# ------------------------------------------------------------------------------#
-
-
-def write_network(file_name):
-    network = "FID,START_X,START_Y,END_X,END_Y\n"
-    network += "0,0,0.5,1,0.5\n"
-    network += "1,0.5,0,0.5,1\n"
-    network += "2,0.5,0.75,1,0.75\n"
-    network += "3,0.75,0.5,0.75,1\n"
-    network += "4,0.5,0.625,0.75,0.625\n"
-    network += "5,0.625,0.5,0.625,0.75\n"
-
-    with open(file_name, "w") as text_file:
-        text_file.write(network)
-
-
-# ------------------------------------------------------------------------------#
-
-
-def make_grid_bucket(mesh_size):
-    mesh_kwargs = {}
-    mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
-
-    domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-
-    file_name = "network_geiger.csv"
-    write_network(file_name)
-    gb = pp.importer.dfm_2d_from_csv(file_name, mesh_kwargs, domain)
-    gb.compute_geometry()
-    return gb, domain
+from examples.papers.multiscale.multiscale import Multiscale
+from examples.papers.multiscale.domain_decomposition import DomainDecomposition
 
 # ------------------------------------------------------------------------------#
 
@@ -130,41 +32,41 @@ def write_out(gb, file_name, data):
 
 # ------------------------------------------------------------------------------#
 
-def summarize_data(size):
+def summarize_data(mesh_size, tests):
 
-    data = np.zeros((size, 6))
+    for t, n in tests:
 
-    values = np.genfromtxt("dd_permeable.txt", delimiter = ",", dtype=np.int)
-    # save the number of cells
-    data[:, 0:2] = values[:, 0:2]
-    # save the other data
-    data[:, 2] = values[:, 2]
-    data[:, 3] = np.genfromtxt("ms_permeable.txt", delimiter = ",", dtype=np.int)[:, 2]
-    data[:, 4] = np.genfromtxt("dd_blocking.txt", delimiter = ",", dtype=np.int)[:, 2]
-    data[:, 5] = np.genfromtxt("ms_blocking.txt", delimiter = ",", dtype=np.int)[:, 2]
+        data = np.zeros((mesh_size.size, 4))
+        print(data)
 
-    name = "results.csv"
-    np.savetxt(name, data, delimiter=' & ', fmt='%d', newline=' \\\\\n')
+        name = "_" + str(t) + "_" + str(n)
+        dd = np.genfromtxt("dd"+name+".txt", delimiter = ",", dtype=np.int)
+        data[:, 0:3] = np.atleast_2d(dd)
+        print()
+        ms = np.genfromtxt("ms"+name+".txt", delimiter = ",", dtype=np.int)
+        data[:, 3] = np.atleast_2d(ms)[:, 2]
 
-    # remove the // from the end of the file
-    with open(name, 'rb+') as f:
-        f.seek(-3, os.SEEK_END)
-        f.truncate()
+        name = "results"+name+".csv"
+        np.savetxt(name, data, delimiter=' & ', fmt='%d', newline=' \\\\\n')
+
+        # remove the // from the end of the file
+        with open(name, 'rb+') as f:
+            f.seek(-3, os.SEEK_END)
+            f.truncate()
 
 # ------------------------------------------------------------------------------#
 
-def main_ms(kf_t, kf_n, name, mesh_size):
-    gb, domain = make_grid_bucket(mesh_size)
+def main_ms(pb_data, name):
 
-    # Assign parameters
-    add_data(gb, domain, kf_t, kf_n)
+    data = Data(pb_data)
+    data.add_to_gb()
 
     # Choose and define the solvers and coupler
     solver_flow = pp.RT0MixedDim("flow")
-    A, b = solver_flow.matrix_rhs(gb, return_bmat=True)
+    A, b = solver_flow.matrix_rhs(data.gb, return_bmat=True)
 
     # off-line computation fo the bases
-    ms = Multiscale(gb)
+    ms = Multiscale(data.gb)
     ms.extract_blocks_h(A, b)
     info = ms.compute_bases()
 
@@ -180,73 +82,74 @@ def main_ms(kf_t, kf_n, name, mesh_size):
 
     x = ms.concatenate(x_h, x_l)
 
-    folder = "ms_" + name + "_" + str(mesh_size)
-    export(gb, x, folder, solver_flow)
-    write_out(gb, "ms_"+name+".txt", info["solve_h"])
+    folder = "ms_" + name + "_" + str(pb_data["mesh_size"])
+    export(data.gb, x, folder, solver_flow)
+    write_out(data.gb, "ms_"+name+".txt", info["solve_h"])
 
 # ------------------------------------------------------------------------------#
 
-def main_dd(kf_t, kf_n, name, mesh_size):
-    gb, domain = make_grid_bucket(mesh_size)
+def main_dd(pb_data, name):
 
-    # Assign parameters
-    aperture = add_data(gb, domain, kf_t, kf_n)
+    data = Data(pb_data)
+    data.add_to_gb()
+
+    # parameters for the dd algorightm
+    tol = 1e-6
+    maxiter = 1e4
+    drop_tol = 0.1*np.amin([1e-3, data.eff_kf_t(), data.eff_kf_n()])
 
     # Choose and define the solvers and coupler
     solver_flow = pp.RT0MixedDim("flow")
-    A, b = solver_flow.matrix_rhs(gb, return_bmat=True)
+    A, b = solver_flow.matrix_rhs(data.gb, return_bmat=True)
 
-    dd = DomainDecomposition(gb)
+    dd = DomainDecomposition(data.gb)
     dd.extract_blocks(A, b)
-
-    tol = 1e-5
-    maxiter = 1e4
-    drop_tol = np.amin([1e-4, 0.1*aperture*kf_t, 0.1*kf_n/aperture])
 
     dd.factorize()
     x, info = dd.solve(tol, maxiter, drop_tol, info=True)
     print(info)
 
-    folder = "dd_" + name + "_" + str(mesh_size)
-    export(gb, x, folder, solver_flow)
-    write_out(gb, "dd_"+name+".txt", info["solve_h"])
+    folder = "dd_" + name + "_" + str(pb_data["mesh_size"])
+    export(data.gb, x, folder, solver_flow)
+    write_out(data.gb, "dd_"+name+".txt", info["solve_h"])
 
 # ------------------------------------------------------------------------------#
 
-def main(kf_t, kf_n, name, mesh_size):
-    gb, domain = make_grid_bucket(mesh_size)
+def main(pb_data, name):
 
-    # Assign parameters
-    add_data(gb, domain, kf_t, kf_n)
+    data = Data(pb_data)
+    data.add_to_gb()
 
     # Choose and define the solvers and coupler
     solver_flow = pp.RT0MixedDim("flow")
-    A, b = solver_flow.matrix_rhs(gb)
+    A, b = solver_flow.matrix_rhs(data.gb)
 
     x = sps.linalg.spsolve(A, b)
 
-    folder = "ref_" + name + "_" + str(mesh_size)
-    export(gb, x, folder, solver_flow)
+    folder = "ref_" + name + "_" + str(pb_data["mesh_size"])
+    export(data.gb, x, folder, solver_flow)
 
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
 
-    mesh_sizes = 0.45*np.array([1, 1e-1, 1e-2])
+    mesh_sizes = np.array([0.45, 0.045, 0.0045])
 
     kf = {0: 1e-4, 1: 1e4}
     # it's (kf_t, kf_n)
     tests = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
 
-    mesh_sizes = [0.45, 0.045, 0.01]
-    #tests = np.array([[0, 0], [1, 1]])
-
     for t, n in tests:
         name = str(t) + "_" + str(n)
         for mesh_size in mesh_sizes:
             print(name, str(mesh_size))
-            main(kf[t], kf[n], name, mesh_size)
-            main_ms(kf[t], kf[n], name, mesh_size)
-            main_dd(kf[t], kf[n], name, mesh_size)
+            data = {"kf_n": kf[n],
+                    "kf_t": kf[t],
+                    "aperture": 1e-4,
+                    "mesh_size": mesh_size}
 
-    summarize_data(mesh_sizes.size)
+            main_ms(data, name)
+            main_dd(data, name)
+            main(data, name)
+
+    summarize_data(mesh_sizes, tests)
