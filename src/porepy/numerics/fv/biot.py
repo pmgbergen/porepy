@@ -9,15 +9,11 @@ from porepy.numerics.mixed_dim.solver import Solver
 
 
 class Biot(Solver):
-
     def __init__(self, eta=None):
         """ Set default values for some parameters used in discretization.
 
         """
-        defaults = {'fluid_compr': 0,
-                    'fluid_viscosity': 1,
-                    'biot_alpha': 1
-                    }
+        defaults = {"fluid_compr": 0, "fluid_viscosity": 1, "biot_alpha": 1}
         self.defaults = defaults
 
     def ndof(self, g):
@@ -43,12 +39,12 @@ class Biot(Solver):
         rhs_bound = self.rhs(g, data)
         return A_biot, rhs_bound
 
-#--------------------------- Helper methods for discretization ----------
+    # --------------------------- Helper methods for discretization ----------
 
     def rhs(self, g, data):
         bnd = self.rhs_bound(g, data)
         tm = self.rhs_time(g, data)
-#        src = data['source']
+        #        src = data['source']
         return bnd + tm
 
     def rhs_bound(self, g, data):
@@ -67,15 +63,14 @@ class Biot(Solver):
             state.
 
         """
-        d = data['param'].get_bc_val('mechanics')
-        p = data['param'].get_bc_val('flow')
+        d = data["param"].get_bc_val("mechanics")
+        p = data["param"].get_bc_val("flow")
 
         div_flow = fvutils.scalar_divergence(g)
         div_mech = fvutils.vector_divergence(g)
 
-        p_bound = -div_flow * data['bound_flux'] * p\
-                  - data['bound_div_d'] * d
-        s_bound = -div_mech * data['bound_stress'] * d
+        p_bound = -div_flow * data["bound_flux"] * p - data["bound_div_d"] * d
+        s_bound = -div_mech * data["bound_stress"] * d
         return np.hstack((s_bound, p_bound))
 
     def rhs_time(self, g, data):
@@ -97,18 +92,17 @@ class Biot(Solver):
             state.
 
         """
-        state = data.get('state', None)
+        state = data.get("state", None)
         if state is None:
             state = np.zeros((g.dim + 1) * g.num_cells)
 
         d = self.extractD(g, state, as_vector=True)
         p = self.extractP(g, state)
 
-        d_scaling = data.get('displacement_scaling', 1)
+        d_scaling = data.get("displacement_scaling", 1)
 
-        div_d = np.squeeze(data['param'].biot_alpha *
-                           data['div_d'] * d * d_scaling)
-        p_cmpr = data['compr_discr'] * p
+        div_d = np.squeeze(data["param"].biot_alpha * data["div_d"] * d * d_scaling)
+        p_cmpr = data["compr_discr"] * p
 
         mech_rhs = np.zeros(g.dim * g.num_cells)
 
@@ -179,43 +173,48 @@ class Biot(Solver):
         """
         div_flow = fvutils.scalar_divergence(g)
         div_mech = fvutils.vector_divergence(g)
-        param = data['param']
+        param = data["param"]
 
         fluid_viscosity = param.fluid_viscosity
         biot_alpha = param.biot_alpha
 
         # Put together linear system
-        A_flow = div_flow * data['flux'] / fluid_viscosity
-        A_mech = div_mech * data['stress']
+        A_flow = div_flow * data["flux"] / fluid_viscosity
+        A_mech = div_mech * data["stress"]
 
         # Time step size
-        dt = data['dt']
+        dt = data["dt"]
 
-        d_scaling = data.get('displacement_scaling', 1)
+        d_scaling = data.get("displacement_scaling", 1)
         # Matrix for left hand side
-        A_biot = sps.bmat([[A_mech,
-                            data['grad_p'] * biot_alpha],
-                           [data['div_d'] * biot_alpha * d_scaling,
-                            data['compr_discr']
-                            + dt * A_flow + data['stabilization']]]).tocsr()
+        A_biot = sps.bmat(
+            [
+                [A_mech, data["grad_p"] * biot_alpha],
+                [
+                    data["div_d"] * biot_alpha * d_scaling,
+                    data["compr_discr"] + dt * A_flow + data["stabilization"],
+                ],
+            ]
+        ).tocsr()
 
         return A_biot
 
     def _discretize_flow(self, g, data):
 
         # Discretiztaion using MPFA
-        md = mpfa.Mpfa(physics='flow')
+        md = mpfa.Mpfa(physics="flow")
 
         md.discretize(g, data)
-        data['flux'] = data['flux']
-        data['bound_flux'] = data['bound_flux']
+        data["flux"] = data["flux"]
+        data["bound_flux"] = data["bound_flux"]
 
     def _discretize_compr(self, g, data):
-        param = data['param']
+        param = data["param"]
         compr = param.fluid_compr
         poro = param.porosity
-        data['compr_discr'] = sps.dia_matrix((g.cell_volumes * compr * poro, 0),
-                                             shape=(g.num_cells, g.num_cells))
+        data["compr_discr"] = sps.dia_matrix(
+            (g.cell_volumes * compr * poro, 0), shape=(g.num_cells, g.num_cells)
+        )
 
     def _discretize_mech(self, g, data):
         """
@@ -301,13 +300,13 @@ class Biot(Solver):
             p = x[g.num_cells * gdim:]
 
         """
-        param = data['param']
-        bound_mech = param.get_bc('mechanics')
-        bound_flow = param.get_bc('flow')
-        constit = param.get_tensor('mechanics')
+        param = data["param"]
+        bound_mech = param.get_bc("mechanics")
+        bound_flow = param.get_bc("flow")
+        constit = param.get_tensor("mechanics")
 
-        eta = data.get('eta', 0)
-        inverter = data.get('inverter', None)
+        eta = data.get("eta", 0)
+        inverter = data.get("inverter", None)
 
         # The grid coordinates are always three-dimensional, even if the grid
         # is really 2D. This means that there is not a 1-1 relation between the
@@ -332,11 +331,13 @@ class Biot(Solver):
         # Define subcell topology
         subcell_topology = fvutils.SubcellTopology(g)
         # Obtain mappings to exclude boundary faces for mechanics
-        bound_exclusion_mech = fvutils.ExcludeBoundaries(subcell_topology,
-                                                         bound_mech, nd)
+        bound_exclusion_mech = fvutils.ExcludeBoundaries(
+            subcell_topology, bound_mech, nd
+        )
         # ... and flow
-        bound_exclusion_flow = fvutils.ExcludeBoundaries(subcell_topology,
-                                                         bound_flow, nd)
+        bound_exclusion_flow = fvutils.ExcludeBoundaries(
+            subcell_topology, bound_flow, nd
+        )
 
         num_subhfno = subcell_topology.subhfno.size
 
@@ -347,12 +348,15 @@ class Biot(Solver):
         # as a force on the faces. The right hand side is thus formed of the
         # normal vectors.
         def build_rhs_normals_single_dimension(dim):
-            val = g.face_normals[dim, subcell_topology.fno] \
-                * sgn / num_nodes[subcell_topology.fno]
-            mat = sps.coo_matrix((val.squeeze(), (subcell_topology.subfno,
-                                                  subcell_topology.cno)),
-                                 shape=(subcell_topology.num_subfno,
-                                        subcell_topology.num_cno))
+            val = (
+                g.face_normals[dim, subcell_topology.fno]
+                * sgn
+                / num_nodes[subcell_topology.fno]
+            )
+            mat = sps.coo_matrix(
+                (val.squeeze(), (subcell_topology.subfno, subcell_topology.cno)),
+                shape=(subcell_topology.num_subfno, subcell_topology.num_cno),
+            )
             return mat
 
         rhs_normals = build_rhs_normals_single_dimension(0)
@@ -362,32 +366,39 @@ class Biot(Solver):
 
         rhs_normals = bound_exclusion_mech.exclude_dirichlet_nd(rhs_normals)
 
-        num_dir_subface = (bound_exclusion_mech.exclude_neu.shape[1] -
-                           bound_exclusion_mech.exclude_neu.shape[0]) * nd
+        num_dir_subface = (
+            bound_exclusion_mech.exclude_neu.shape[1]
+            - bound_exclusion_mech.exclude_neu.shape[0]
+        ) * nd
         # No right hand side for cell displacement equations.
-        rhs_normals_displ_var = sps.coo_matrix((nd * subcell_topology.num_subfno
-                                                - num_dir_subface,
-                                                subcell_topology.num_cno))
+        rhs_normals_displ_var = sps.coo_matrix(
+            (
+                nd * subcell_topology.num_subfno - num_dir_subface,
+                subcell_topology.num_cno,
+            )
+        )
 
         # Why minus?
         rhs_normals = -sps.vstack([rhs_normals, rhs_normals_displ_var])
         del rhs_normals_displ_var
 
         # Call core part of MPSA
-        hook, igrad, rhs_cells, cell_node_blocks, hook_normal \
-            = mpsa.mpsa_elasticity(g, constit, subcell_topology,
-                                   bound_exclusion_mech, eta, inverter)
+        hook, igrad, rhs_cells, cell_node_blocks, hook_normal = mpsa.mpsa_elasticity(
+            g, constit, subcell_topology, bound_exclusion_mech, eta, inverter
+        )
 
         # Output should be on face-level (not sub-face)
-        hf2f = fvutils.map_hf_2_f(subcell_topology.fno_unique,
-                                  subcell_topology.subfno_unique, nd)
+        hf2f = fvutils.map_hf_2_f(
+            subcell_topology.fno_unique, subcell_topology.subfno_unique, nd
+        )
 
         # Stress discretization
         stress = hf2f * hook * igrad * rhs_cells
 
         # Right hand side for boundary discretization
-        rhs_bound = mpsa.create_bound_rhs(bound_mech, bound_exclusion_mech,
-                                          subcell_topology, g)
+        rhs_bound = mpsa.create_bound_rhs(
+            bound_mech, bound_exclusion_mech, subcell_topology, g
+        )
         # Discretization of boundary values
         bound_stress = hf2f * hook * igrad * rhs_bound
 
@@ -395,12 +406,13 @@ class Biot(Solver):
         # equations.
         rows = fvutils.expand_indices_nd(subcell_topology.cno, nd)
         cols = np.arange(num_subhfno * nd)
-        vals = np.tile(sgn, (nd, 1)).ravel('F')
-        div_gradp = sps.coo_matrix((vals, (rows, cols)),
-                                   shape=(subcell_topology.num_cno * nd,
-                                          num_subhfno * nd)).tocsr()
+        vals = np.tile(sgn, (nd, 1)).ravel("F")
+        div_gradp = sps.coo_matrix(
+            (vals, (rows, cols)),
+            shape=(subcell_topology.num_cno * nd, num_subhfno * nd),
+        ).tocsr()
 
-#        del hook, rhs_bound
+        #        del hook, rhs_bound
         del rows, cols, vals
 
         grad_p = div_gradp * hook_normal * igrad * rhs_normals
@@ -419,12 +431,12 @@ class Biot(Solver):
 
         stabilization = div * igrad * rhs_normals
 
-        data['stress'] = stress
-        data['bound_stress'] = bound_stress
-        data['grad_p'] = grad_p
-        data['div_d'] = div_d
-        data['stabilization'] = stabilization
-        data['bound_div_d'] = bound_div_d
+        data["stress"] = stress
+        data["bound_stress"] = bound_stress
+        data["grad_p"] = grad_p
+        data["div_d"] = div_d
+        data["stabilization"] = stabilization
+        data["bound_div_d"] = bound_div_d
 
     def _face_vector_to_scalar(self, nf, nd):
         """ Create a mapping from vector quantities on faces (stresses) to
@@ -434,8 +446,7 @@ class Biot(Solver):
         Parameters:
             nf (int): Number of faces in the grid
         """
-        rows = np.tile(np.arange(nf), ((nd, 1))).reshape((1, nd * nf),
-                                                         order='F')[0]
+        rows = np.tile(np.arange(nf), ((nd, 1))).reshape((1, nd * nf), order="F")[0]
 
         cols = fvutils.expand_indices_nd(np.arange(nf), nd)
         vals = np.ones(nf * nd)
@@ -458,8 +469,8 @@ class Biot(Solver):
         # Sub-cell wise trace of strain tensor: One row per sub-cell
         row, col = np.meshgrid(np.arange(cell_node_blocks.shape[1]), trace)
         # Adjust the columns to hit each sub-cell
-        incr = np.cumsum(nd**2 * np.ones(cell_node_blocks.shape[1])) - nd**2
-        col += incr.astype('int32')
+        incr = np.cumsum(nd ** 2 * np.ones(cell_node_blocks.shape[1])) - nd ** 2
+        col += incr.astype("int32")
 
         # Integrate the trace over the sub-cell, that is, distribute the cell
         # volumes equally over the sub-cells
@@ -467,37 +478,41 @@ class Biot(Solver):
         cell_vol = g.cell_volumes / num_cell_nodes
         val = np.tile(cell_vol[cell_node_blocks[0]], (nd, 1))
         # and we have our mapping from vector to scalar values on sub-cells
-        vector_2_scalar = sps.coo_matrix((val.ravel('F'),
-                                          (row.ravel('F'),
-                                           col.ravel('F')))).tocsr()
+        vector_2_scalar = sps.coo_matrix(
+            (val.ravel("F"), (row.ravel("F"), col.ravel("F")))
+        ).tocsr()
 
         # Mapping from sub-cells to cells
-        div_op = sps.coo_matrix((np.ones(cell_node_blocks.shape[1]),
-                                 (cell_node_blocks[0], np.arange(
-                                     cell_node_blocks.shape[1])))).tocsr()
+        div_op = sps.coo_matrix(
+            (
+                np.ones(cell_node_blocks.shape[1]),
+                (cell_node_blocks[0], np.arange(cell_node_blocks.shape[1])),
+            )
+        ).tocsr()
         # and the composed map
         div = div_op * vector_2_scalar
         return div
 
-#----------------------- Linear solvers -------------------------------------
+    # ----------------------- Linear solvers -------------------------------------
 
-    def solve(self, A, solver='direct', **kwargs):
+    def solve(self, A, solver="direct", **kwargs):
 
         solver = solver.strip().lower()
-        if solver == 'direct':
+        if solver == "direct":
+
             def slv(b):
                 x = la.spsolve(A, b)
                 return x
-        elif solver == 'factorized':
+
+        elif solver == "factorized":
             slv = la.factorized(A.tocsc())
 
         else:
-            raise ValueError('Unknown solver ' + solver)
+            raise ValueError("Unknown solver " + solver)
 
         return slv
 
-
-#----------------------- Methods for post processing -------------------------
+    # ----------------------- Methods for post processing -------------------------
     def extractD(self, g, u, dims=None, as_vector=False):
         """ Extract displacement field from solution.
 
@@ -521,7 +536,7 @@ class Biot(Solver):
         for d in dims:
             vals.append(u[d + inds])
         if as_vector:
-            vals = np.asarray(vals).reshape((-1, 1), order='F')
+            vals = np.asarray(vals).reshape((-1, 1), order="F")
             return vals
         else:
             return vals
@@ -538,7 +553,7 @@ class Biot(Solver):
             np.ndarray: Pressure part of solution vector.
 
         """
-        return u[g.dim * g.num_cells:]
+        return u[g.dim * g.num_cells :]
 
     def compute_flux(self, g, u, data):
         """ Compute flux field corresponding to a solution.
@@ -555,9 +570,9 @@ class Biot(Solver):
             np.ndarray: Flux over all faces
 
         """
-        flux_discr = data['flux']
-        bound_flux = data['bound_flux']
-        bound_val = data['bc_val_flow']
+        flux_discr = data["flux"]
+        bound_flux = data["bound_flux"]
+        bound_val = data["bc_val_flow"]
         p = self.extractP(g, u)
         flux = flux_discr * p + bound_flux * bound_val
         return flux
@@ -578,9 +593,9 @@ class Biot(Solver):
                 all stress values on the first face, then the second etc.
 
         """
-        param = data['param']
-        stress_discr = data['stress']
-        bound_stress = data['bound_stress']
+        param = data["param"]
+        stress_discr = data["stress"]
+        bound_stress = data["bound_stress"]
         bound_val = param.get_bc_val_mechanics()
         d = self.extractD(g, u, as_vector=True)
         stress = np.squeeze(stress_discr * d) + (bound_stress * bound_val)

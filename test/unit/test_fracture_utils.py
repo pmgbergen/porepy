@@ -25,8 +25,8 @@ def arrays_equal(a, b, tol=1e-5):
     for i in range(b.shape[1]):
         assert np.min(nrm(b[:, i], a)) < tol
 
-class TestFractureLength(unittest.TestCase):
 
+class TestFractureLength(unittest.TestCase):
     def test_single_fracture(self):
         p = np.array([[0, 1], [0, 0]])
         e = np.array([[0], [1]])
@@ -59,10 +59,6 @@ class TestFractureLength(unittest.TestCase):
 
 
 class TestUniquifyPoints(unittest.TestCase):
-
-
-
-
     def test_no_change(self):
         p = np.array([[0, 1], [0, 0]])
         e = np.array([[0], [1]])
@@ -119,7 +115,6 @@ class TestUniquifyPoints(unittest.TestCase):
 
 
 class TestFractureSnapping(unittest.TestCase):
-
     def test_no_snapping(self):
         p = np.array([[0, 1, 0, 1], [0, 0, 1, 1]])
         e = np.array([[0, 2], [1, 3]])
@@ -156,5 +151,5 @@ class TestFractureSnapping(unittest.TestCase):
         assert conv
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

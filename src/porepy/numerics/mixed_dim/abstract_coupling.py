@@ -12,7 +12,7 @@ import scipy.sparse as sps
 
 class AbstractCoupling(object):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def __init__(self, discr=None, discr_ndof=None):
 
@@ -21,7 +21,7 @@ class AbstractCoupling(object):
         else:
             self.discr_ndof = discr_ndof
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g_h, g_l, data_h, data_l, data_edge):
         """
@@ -62,30 +62,31 @@ class AbstractCoupling(object):
         """
         raise NotImplementedError("Method not implemented")
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def create_block_matrix(self, g_h, g_l):
+    def create_block_matrix(self, gs):
         """
         Create the block matrix structure descibed in self.matrix_rhs
 
         Parameters
         ----------
-        g_h: grid of higher dimension
-        g_l: grid of lower dimension
+        gs: grids
 
         Return
         ------
         dof: array containing the number of dofs for the higher and lower
-            dimensional grids, respectively.
+             dimensional grids, respectively.
         matrix: sparse empty block matrix from the discretization.
         """
+        gs = np.atleast_1d(np.asarray(gs))
 
         # Retrieve the number of degrees of both grids
-        dof = np.array([self.discr_ndof(g_h), self.discr_ndof(g_l)])
+        dof = np.array([self.discr_ndof(g) for g in gs])
 
         # Create the block matrix for the contributions
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
 
-        return dof, cc.reshape((2, 2))
+        return dof, cc.reshape((gs.size, gs.size))
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#

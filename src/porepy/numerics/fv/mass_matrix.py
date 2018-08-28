@@ -4,27 +4,29 @@ import scipy.sparse as sps
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+
 
 class MassMatrixMixedDim(SolverMixedDim):
-
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
         self.discr = MassMatrix(self.physics)
 
         self.solver = Coupler(self.discr)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 class MassMatrix(Solver):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def ndof(self, g):
         """
@@ -42,7 +44,7 @@ class MassMatrix(Solver):
         """
         return g.num_cells
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g, data):
         """
@@ -75,34 +77,36 @@ class MassMatrix(Solver):
 
         """
         ndof = self.ndof(g)
-        phi = data['param'].get_porosity()
-        aperture = data['param'].get_aperture()
-        coeff = g.cell_volumes * phi / data['deltaT'] * aperture
+        phi = data["param"].get_porosity()
+        aperture = data["param"].get_aperture()
+        coeff = g.cell_volumes * phi / data["deltaT"] * aperture
 
         return sps.dia_matrix((coeff, 0), shape=(ndof, ndof)), np.zeros(ndof)
 
+
 ##########################################################################
 
-class InvMassMatrixMixDim(SolverMixedDim):
 
-    def __init__(self, physics='flow'):
+class InvMassMatrixMixedDim(SolverMixedDim):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
         self.discr = InvMassMatrix(self.physics)
 
         self.solver = Coupler(self.discr)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
 class InvMassMatrix(Solver):
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics='flow'):
+    def __init__(self, physics="flow"):
         self.physics = physics
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def ndof(self, g):
         """
@@ -120,7 +124,7 @@ class InvMassMatrix(Solver):
         """
         return g.num_cells
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def matrix_rhs(self, g, data):
         """
@@ -156,4 +160,5 @@ class InvMassMatrix(Solver):
         M, rhs = MassMatrix(physics=self.physics).matrix_rhs(g, data)
         return sps.dia_matrix((1. / M.diagonal(), 0), shape=M.shape), rhs
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#

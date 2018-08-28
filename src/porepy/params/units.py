@@ -40,3 +40,5 @@ def CELSIUS_to_KELVIN(celsius):
 def KELKIN_to_CELSIUS(kelvin):
     return kelvin-273.15
 
+# force
+NEWTON = KILOGRAM * METER / SECOND ** 2

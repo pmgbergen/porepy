@@ -34,8 +34,10 @@ from porepy.fracs.fractures import EllipticFracture, Fracture
 
 logger = logging.getLogger()
 
-def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None,
-                           **kwargs):
+
+def fractures_from_outcrop(
+    pt, edges, ensure_realistic_cuts=True, family=None, extrusion_type="disc", **kwargs
+):
     """ Create a set of fractures compatible with exposed lines in an outcrop.
 
     See module-level documentation for futher comments.
@@ -56,58 +58,63 @@ def fractures_from_outcrop(pt, edges, ensure_realistic_cuts=True, family=None,
         list of Fracture: Fracture planes.
 
     """
-    logging.info('Extrusion recieved ' + str(edges.shape[1]) + ' lines')
-    assert edges.shape[0] == 2, 'Edges have two endpoints'
+    logging.info("Extrusion recieved " + str(edges.shape[1]) + " lines")
+    assert edges.shape[0] == 2, "Edges have two endpoints"
     edges = np.vstack((edges, np.arange(edges.shape[1], dtype=np.int)))
 
     # identify crossings
-    logging.info('Identify crossings')
+    logging.info("Identify crossings")
     split_pt, split_edges = cg.remove_edge_crossings(pt, edges, **kwargs)
-    logging.info('Fractures composed of ' + str(split_edges.shape[0]) + 'branches')
+    logging.info("Fractures composed of " + str(split_edges.shape[0]) + "branches")
 
     # Find t-intersections
     abutment_pts, prim_frac, sec_frac, other_pt = t_intersections(split_edges)
-    logging.info('Found ' + str(prim_frac.size) + ' T-intersections')
+    logging.info("Found " + str(prim_frac.size) + " T-intersections")
 
     # Calculate fracture lengths
     lengths = fracture_length(pt, edges)
 
     # Extrude to fracture discs
-    logging.info('Create discs from exposure')
-    fractures, extrude_ang = discs_from_exposure(pt, edges, **kwargs)
+    logging.info("Create fractures from exposure")
+    if extrusion_type.lower().strip() == "disc":
+        fractures, extrude_ang = discs_from_exposure(pt, edges, **kwargs)
+        disc_type = True
+    else:
+        fractures = rectangles_from_exposure(pt, edges)
+        disc_type = False
 
     p0 = pt[:, edges[0]]
     p1 = pt[:, edges[1]]
     exposure = p1 - p0
 
     # Impose incline.
-    logging.info('Impose incline')
-    rot_ang = impose_inlcine(fractures, exposure, p0, frac_family=family,
-                             **kwargs)
+    logging.info("Impose incline")
+    rot_ang = impose_inlcine(fractures, exposure, p0, frac_family=family, **kwargs)
 
     # Cut fractures
     for prim, sec, p in zip(prim_frac, sec_frac, other_pt):
-        _, radius = cut_fracture_by_plane(fractures[sec], fractures[prim],
-                                          split_pt[:, p], **kwargs)
+        _, radius = cut_fracture_by_plane(
+            fractures[sec], fractures[prim], split_pt[:, p], **kwargs
+        )
         # If specified, ensure that cuts in T-intersections appear realistic.
-        if ensure_realistic_cuts and radius is not None:
-            ang = np.arctan2(0.5*lengths[prim], radius)
+        if ensure_realistic_cuts and disc_type and radius is not None:
+            ang = np.arctan2(0.5 * lengths[prim], radius)
 
             # Ensure the center of both fractures are on the same side of the
             # exposed plane - if not, the cut will still be bad.
-            if extrude_ang[sec] > np.pi/2 and ang < np.pi/2:
-                ang = np.pi-ang
-            elif extrude_ang[sec] < np.pi/2 and ang > np.pi/2:
-                ang = np.pi-ang
+            if extrude_ang[sec] > np.pi / 2 and ang < np.pi / 2:
+                ang = np.pi - ang
+            elif extrude_ang[sec] < np.pi / 2 and ang > np.pi / 2:
+                ang = np.pi - ang
 
             e0 = p0[:, prim]
             e1 = p1[:, prim]
-            new_radius, center, _ = disc_radius_center(lengths[prim], e0, e1,
-                                                       theta=ang)
-            strike = np.arctan2(e1[1] - e0[1], e1[0]- e0[0])
-            f = create_fracture(center, new_radius, np.pi/2, strike,
-                                np.vstack((e0, e1)).T)
-            rotate_fracture(f, e1-e0, rot_ang[prim], p0[:, prim])
+            new_radius, center, _ = disc_radius_center(lengths[prim], e0, e1, theta=ang)
+            strike = np.arctan2(e1[1] - e0[1], e1[0] - e0[0])
+            f = create_disc_fracture(
+                center, new_radius, np.pi / 2, strike, np.vstack((e0, e1)).T
+            )
+            rotate_fracture(f, e1 - e0, rot_ang[prim], p0[:, prim])
             fractures[prim] = f
 
     return fractures
@@ -184,8 +191,8 @@ def t_intersections(edges, remove_three_families=True):
         fi_all = frac_num[ei]
         fi, count = np.unique(fi_all, return_counts=True)
         if fi.size > 2:
-             remove[i] = 1
-             continue
+            remove[i] = 1
+            continue
         # Find the fracture number associated with main and abutting edge.
         if count[0] == 1:
             primal_frac[i] = fi[1]
@@ -204,11 +211,11 @@ def t_intersections(edges, remove_three_families=True):
 
     # Remove any T-intersections that did not belong to
     if remove_three_families and remove.any():
-         remove = np.where(remove)[0]
-         abutments = np.delete(abutments, remove)
-         primal_frac = np.delete(primal_frac, remove)
-         sec_frac = np.delete(sec_frac, remove)
-         other_point = np.delete(other_point, remove)
+        remove = np.where(remove)[0]
+        abutments = np.delete(abutments, remove)
+        primal_frac = np.delete(primal_frac, remove)
+        sec_frac = np.delete(sec_frac, remove)
+        other_point = np.delete(other_point, remove)
 
     return abutments, primal_frac, sec_frac, other_point
 
@@ -242,6 +249,7 @@ def x_intersections(edges):
         x_fracs[:, i] = np.unique(ei)
     return nodes, x_fracs, x_edges
 
+
 def fracture_length(pt, e):
     """ Compute length of fracture lines.
 
@@ -258,7 +266,8 @@ def fracture_length(pt, e):
     y0 = pt[1, e[0]]
     y1 = pt[1, e[1]]
 
-    return np.sqrt(np.power(x1-x0, 2) + np.power(y1-y0, 2))
+    return np.sqrt(np.power(x1 - x0, 2) + np.power(y1 - y0, 2))
+
 
 def disc_radius_center(lengths, p0, p1, theta=None):
     """ Compute radius and center of a disc, based on the length of a chord
@@ -294,11 +303,11 @@ def disc_radius_center(lengths, p0, p1, theta=None):
         # of the FractureNetwork. Point contacts also make little physical
         # sense, so we vaoid them.
         limit = 0.3
-        hit = rnd > 1-limit
+        hit = rnd > 1 - limit
         rnd[hit] -= limit
         hit = rnd < limit
         rnd[hit] += limit
-        theta = np.pi * (limit + (1-2*limit) * rnd)
+        theta = np.pi * (limit + (1 - 2 * limit) * rnd)
 
     radius = 0.5 * lengths / np.sin(theta)
 
@@ -310,8 +319,10 @@ def disc_radius_center(lengths, p0, p1, theta=None):
 
     return radius, np.vstack((mid_point, depth)), theta
 
-def discs_from_exposure(pt, edges, exposure_angle=None,
-                        outcrop_consistent=True, **kwargs):
+
+def discs_from_exposure(
+    pt, edges, exposure_angle=None, outcrop_consistent=True, **kwargs
+):
     """ Create fracture discs based on exposed lines in an outrcrop.
 
     The outcrop is assumed to be in the xy-plane. The returned disc will be
@@ -324,11 +335,13 @@ def discs_from_exposure(pt, edges, exposure_angle=None,
     Parameters:
         pt (np.array, 2 x num_pts): Coordinates of exposed points.
         edges (np.array, 2 x num_fracs): Connections between fractures.
-        exposure_angle (np.array, num_fracs, optional): See above, and
-           disc_radius_center() for description. Values very close to pi/2, 0
-           and pi will be modified to avoid unphysical extruded fractures.  If
-           not provided, random values will be drawn. Measured in radians.
-           Should be between 0 and pi.
+        exposure_angle (np.array of size num_fracs or double, optional):
+            See above, and disc_radius_center() for description. Defaults to
+            zero, which gives vertical fractures. Scalar input gives same angle
+            to all fractures. Values very close to pi/2, 0 and pi will be
+            modified to avoid unphysical extruded fractures.  If not provided,
+            random values will be drawn. Measured in radians.
+            Should be between 0 and pi.
         outcrop_consistent (boolean, optional): If True (default), points will
             be added at the outcrop surface z=0. This is necessary for the
             3D network to be consistent with the outcrop, but depending on
@@ -350,17 +363,24 @@ def discs_from_exposure(pt, edges, exposure_angle=None,
     strike_angle = np.arctan2(v[1], v[0])
 
     if exposure_angle is not None:
+        if isinstance(exposure_angle, np.ndarray) or isinstance(exposure_angle, list):
+            exp_ang = np.asarray(exposure_angle)
+        else:
+            exp_ang = np.array(exposure_angle)
+
         # Angles of pi/2 will give point contacts
-        hit = np.abs(exposure_angle - np.pi/2) < 0.01
-        exposure_angle[hit] = exposure_angle[hit] + 0.01
+        hit = np.abs(exp_ang - np.pi / 2) < 0.01
+        exp_ang[hit] = exp_ang[hit] + 0.01
 
         # Angles of 0 and pi give infinite fractures.
-        hit = exposure_angle < 0.2
-        exposure_angle[hit] = 0.2
-        hit = np.pi - exposure_angle < 0.2
-        exposure_angle[hit] = 0.2
+        hit = exp_ang < 0.2
+        exp_ang[hit] = 0.2
+        hit = np.pi - exp_ang < 0.2
+        exp_ang[hit] = 0.2
+    else:
+        exp_ang = exposure_angle
 
-    radius, center, ang = disc_radius_center(lengths, p0, p1, exposure_angle)
+    radius, center, ang = disc_radius_center(lengths, p0, p1, exp_ang)
 
     fracs = []
 
@@ -368,18 +388,55 @@ def discs_from_exposure(pt, edges, exposure_angle=None,
         z = 2 * center[2, i]
         if outcrop_consistent:
             extra_point_depth = np.array([0, 0, z, z])
-            extra_points = np.vstack((np.vstack((p0[:, i], p1[:, i], p0[:, i],
-                                                 p1[:, i])).T,
-                                      extra_point_depth))
+            extra_points = np.vstack(
+                (
+                    np.vstack((p0[:, i], p1[:, i], p0[:, i], p1[:, i])).T,
+                    extra_point_depth,
+                )
+            )
         else:
             extra_points = np.zeros((3, 0))
 
-        fracs.append(create_fracture(center[:, i], radius[i], np.pi/2,
-                                     strike_angle[i], extra_points))
+        fracs.append(
+            create_disc_fracture(
+                center[:, i], radius[i], np.pi / 2, strike_angle[i], extra_points
+            )
+        )
     return fracs, ang
 
 
-def create_fracture(center, radius, dip, strike, extra_points):
+def rectangles_from_exposure(pt, edges, height=None, **kwargs):
+
+    num_fracs = edges.shape[1]
+
+    lengths = fracture_length(pt, edges)
+    p0 = pt[:, edges[0]]
+    p1 = pt[:, edges[1]]
+
+    if height is None:
+        height = lengths
+
+    x0 = p0[0]
+    x1 = p1[0]
+    y0 = p0[1]
+    y1 = p1[1]
+
+    fracs = []
+
+    for i in range(num_fracs):
+        p = np.array(
+            [
+                [x0[i], y0[i], -height[i]],
+                [x1[i], y1[i], -height[i]],
+                [x1[i], y1[i], height[i]],
+                [x0[i], y0[i], height[i]],
+            ]
+        ).T
+        fracs.append(Fracture(p))
+    return fracs
+
+
+def create_disc_fracture(center, radius, dip, strike, extra_points):
     """ Create a single circular fracture consistent with a given exposure.
 
     The exposed points will be added to the fracture description.
@@ -399,14 +456,18 @@ def create_fracture(center, radius, dip, strike, extra_points):
 
     """
     if extra_points.shape[0] == 2:
-        extra_points = np.vstack((extra_points,
-                                  np.zeros(extra_points.shape[1])))
+        extra_points = np.vstack((extra_points, np.zeros(extra_points.shape[1])))
 
     # The simplest way of distributing points along the disc seems to be to
     # create an elliptic fracture, and pick out the points.
-    f = EllipticFracture(center=center, major_axis=radius, minor_axis=radius,
-                         dip_angle=dip, strike_angle=strike,
-                         major_axis_angle=0)
+    f = EllipticFracture(
+        center=center,
+        major_axis=radius,
+        minor_axis=radius,
+        dip_angle=dip,
+        strike_angle=strike,
+        major_axis_angle=0,
+    )
     # Add the points on the exposed surface. This creates an unequal
     # distribution of the points, but it is the only hard information we have
     # on the fracture
@@ -450,9 +511,15 @@ def rotate_fracture(frac, vec, angle, exposure):
     frac.compute_normal()
 
 
-def impose_inlcine(fracs, exposure_line, exposure_point, frac_family=None,
-                   family_mean_incline=None, family_std_incline=None,
-                   **kwargs):
+def impose_inlcine(
+    fracs,
+    exposure_line,
+    exposure_point,
+    frac_family=None,
+    family_mean_incline=None,
+    family_std_incline=None,
+    **kwargs
+):
     """ Impose incline on the fractures from family-based parameters.
 
     The incline for each family is specified in terms of its mean and standard
@@ -492,15 +559,18 @@ def impose_inlcine(fracs, exposure_line, exposure_point, frac_family=None,
     all_ang = np.zeros(len(fracs))
     for fi, f in enumerate(fracs):
         fam = frac_family[fi]
-        ang = np.random.normal(loc=family_mean_incline[fam],
-                               scale=family_std_incline[fam])
+        ang = np.random.normal(
+            loc=family_mean_incline[fam], scale=family_std_incline[fam]
+        )
         rotate_fracture(f, exposure_line[:, fi], ang, exposure_point[:, fi])
         all_ang[fi] = ang
 
     return all_ang
 
-def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
-                          recompute_center=True, **kwargs):
+
+def cut_fracture_by_plane(
+    main_frac, other_frac, reference_point, tol=1e-4, recompute_center=True, **kwargs
+):
     """ Cut a fracture by a plane, and confine it to one side of the plane.
 
     Intended use is to confine abutting fractures (T-intersections) to one side
@@ -556,7 +626,7 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
     # We should perhaps do a scaling of coordinates.
     non_zero = np.where(np.abs(n) > 1e-8)[0]
     if non_zero.size == 0:
-        raise ValueError('Could not compute normal vector of other fracture')
+        raise ValueError("Could not compute normal vector of other fracture")
     ind = np.setdiff1d(np.arange(3), non_zero[0])
     i0 = ind[0]
     i1 = ind[1]
@@ -566,23 +636,31 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
     # A for-loop might have been possible here.
     p[i0, 0] = main_min[i0]
     p[i1, 0] = main_min[i1]
-    p[i2, 0] = c[i2] - (n[i0] * (main_min[i0] - c[i0])
-                      + n[i1] * (main_min[i1] - c[i1])) / n[i2]
+    p[i2, 0] = (
+        c[i2]
+        - (n[i0] * (main_min[i0] - c[i0]) + n[i1] * (main_min[i1] - c[i1])) / n[i2]
+    )
 
     p[i0, 1] = main_max[i0]
     p[i1, 1] = main_min[i1]
-    p[i2, 1] = c[i2] - (n[i0] * (main_max[i0] - c[i0])
-                      + n[i1] * (main_min[i1] - c[i1])) / n[i2]
+    p[i2, 1] = (
+        c[i2]
+        - (n[i0] * (main_max[i0] - c[i0]) + n[i1] * (main_min[i1] - c[i1])) / n[i2]
+    )
 
     p[i0, 2] = main_max[i0]
     p[i1, 2] = main_max[i1]
-    p[i2, 2] = c[i2] - (n[i0] * (main_max[i0] - c[i0])
-                      + n[i1] * (main_max[i1] - c[i1])) / n[i2]
+    p[i2, 2] = (
+        c[i2]
+        - (n[i0] * (main_max[i0] - c[i0]) + n[i1] * (main_max[i1] - c[i1])) / n[i2]
+    )
 
     p[i0, 3] = main_min[i0]
     p[i1, 3] = main_max[i1]
-    p[i2, 3] = c[i2] - (n[i0] * (main_min[i0] - c[i0])
-                      + n[i1] * (main_max[i1] - c[i1])) / n[i2]
+    p[i2, 3] = (
+        c[i2]
+        - (n[i0] * (main_min[i0] - c[i0]) + n[i1] * (main_max[i1] - c[i1])) / n[i2]
+    )
 
     # Create an auxiliary fracture that spans the same plane as the other
     # fracture, and with a larger extension than the main fracture.
@@ -594,12 +672,14 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
     # with a certain angle to the vertical. If the other fracture is rotated
     # with a similar angle, point contact results.
     if isect_pt.size == 0:
-        warnings.warn("""No intersection found in cutting of fractures. This is
+        warnings.warn(
+            """No intersection found in cutting of fractures. This is
                          likely caused by an unfortunate combination of
                          extrusion and rotation angles, which created fractures
                          that only intersect in a single point (the outcrop
                          plane. Will try to continue, but this may cause
-                         trouble for meshing etc.""")
+                         trouble for meshing etc."""
+        )
         return main_frac, None
 
     # Next step is to eliminate points in the main fracture that are on the
@@ -612,7 +692,6 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
     # Eliminate points that are on the other side.
     eliminate = np.where(sgn * right_sign < 0)[0]
     main_frac.remove_points(eliminate)
-
 
     # Add intersection points on the main fracture. One of these may already be
     # present, as the point of extrusion, but add_point will uniquify the point
@@ -643,7 +722,7 @@ def cut_fracture_by_plane(main_frac, other_frac, reference_point, tol=1e-4,
 
     if not is_inside.all():
         hit = np.logical_not(is_inside)
-        r = np.sqrt(np.sum(isect_pt[:, hit]**2))
+        r = np.sqrt(np.sum(isect_pt[:, hit] ** 2))
         return main_frac, r
     else:
         return main_frac, None
