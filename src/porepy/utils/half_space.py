@@ -6,6 +6,7 @@ import scipy.optimize as opt
 from porepy.utils import comp_geom as cg
 from porepy.utils.sort_points import sort_point_pairs
 
+
 def half_space_int(n, x0, pts):
     """
     Find the points that lie in the intersection of half spaces (3D)
@@ -39,21 +40,25 @@ def half_space_int(n, x0, pts):
     >>> half_space_int(n,x0,pts)
     array([False,  True, False], dtype=bool)
     """
-    assert n.shape[0] == 3, ' only 3D supported'
-    assert x0.shape[0] == 3, ' only 3D supported'
-    assert pts.shape[0] == 3, ' only 3D supported'
-    assert n.shape[1] == x0.shape[1], 'there must be the same number of normal vectors as points'
+    assert n.shape[0] == 3, " only 3D supported"
+    assert x0.shape[0] == 3, " only 3D supported"
+    assert pts.shape[0] == 3, " only 3D supported"
+    assert (
+        n.shape[1] == x0.shape[1]
+    ), "there must be the same number of normal vectors as points"
 
     n_pts = pts.shape[1]
     in_hull = np.zeros(n_pts)
     x0 = np.repeat(x0[:, :, np.newaxis], n_pts, axis=2)
     n = np.repeat(n[:, :, np.newaxis], n_pts, axis=2)
     for i in range(x0.shape[1]):
-        in_hull += np.sum((pts - x0[:, i, :])*n[:, i, :], axis=0) <= 0
+        in_hull += np.sum((pts - x0[:, i, :]) * n[:, i, :], axis=0) <= 0
 
     return in_hull == x0.shape[1]
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def half_space_pt(n, x0, pts, recompute=True):
     """
@@ -93,22 +98,29 @@ def half_space_pt(n, x0, pts, recompute=True):
     """
     dim = (1, n.shape[1])
     c = np.array([0, 0, 0, 0, -1])
-    A_ub = np.concatenate((n, [np.sum(-n*x0, axis=0)], np.ones(dim))).T
+    A_ub = np.concatenate((n, [np.sum(-n * x0, axis=0)], np.ones(dim))).T
     b_ub = np.zeros(dim).T
     b_min, b_max = np.amin(pts, axis=1), np.amax(pts, axis=1)
-    bounds = ((b_min[0], b_max[0]), (b_min[1], b_max[1]),
-              (b_min[2], b_max[2]), (0, None), (0, None))
+    bounds = (
+        (b_min[0], b_max[0]),
+        (b_min[1], b_max[1]),
+        (b_min[2], b_max[2]),
+        (0, None),
+        (0, None),
+    )
     res = opt.linprog(c, A_ub, b_ub, bounds=bounds)
 
     if recompute and (not res.success or np.all(np.isclose(res.x[3:], 0))):
         return half_space_pt(-n, x0, pts, False)
 
     if res.success and not np.all(np.isclose(res.x[3:], 0)):
-        return np.array(res.x[:3])/res.x[3]
+        return np.array(res.x[:3]) / res.x[3]
     else:
         return np.array([np.nan, np.nan, np.nan])
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def star_shape_cell_centers(g):
 
@@ -128,15 +140,18 @@ def star_shape_cell_centers(g):
         loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
         faces_loc = faces[loc]
         loc_n = g.face_nodes.indptr[faces_loc]
-        normal = np.multiply(sgn[loc], np.divide(g.face_normals[:, faces_loc],
-                                                 g.face_areas[faces_loc]))
+        normal = np.multiply(
+            sgn[loc], np.divide(g.face_normals[:, faces_loc], g.face_areas[faces_loc])
+        )
 
         x0, x1 = xn[:, nodes[loc_n]], xn[:, nodes[loc_n + 1]]
         coords = np.concatenate((x0, x1), axis=1)
-        cell_centers[:, c] = half_space_pt(normal, (x1 + x0)/2., coords)
+        cell_centers[:, c] = half_space_pt(normal, (x1 + x0) / 2., coords)
 
     if g.dim == 2:
         cell_centers = np.dot(R.T, cell_centers)
 
     return cell_centers
-#------------------------------------------------------------------------------#
+
+
+# ------------------------------------------------------------------------------#

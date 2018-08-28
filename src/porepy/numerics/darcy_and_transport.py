@@ -6,7 +6,8 @@ from porepy.numerics.mixed_dim import condensation as SC
 
 logger = logging.getLogger(__name__)
 
-class DarcyAndTransport():
+
+class DarcyAndTransport:
     """
     Wrapper for a stationary Darcy problem and a transport problem
     on the resulting fluxes.
@@ -22,7 +23,7 @@ class DarcyAndTransport():
     def __init__(self, flow, transport):
         self.flow = flow
         self.transport = transport
-        if not hasattr(self.flow, 'el'):
+        if not hasattr(self.flow, "el"):
             self.flow.el = False
 
     def solve(self, transport_save_as=None, flow_save_as=None, save_every=1):
@@ -44,7 +45,9 @@ class DarcyAndTransport():
             self.flow.pressure()
 
         if self.flow.el:
-            SC.compute_elimination_fluxes(self.flow.full_grid, self.flow.grid(), self.flow.el_data)
+            SC.compute_elimination_fluxes(
+                self.flow.full_grid, self.flow.grid(), self.flow.el_data
+            )
         self.flow.discharge()
         self.transport.solve(transport_save_as, save_every)
 
@@ -57,17 +60,17 @@ class DarcyAndTransport():
 
 
 class static_flow_IE_solver(AbstractSolver):
-     """
+    """
      Implicit time discretization:
      (y_k+1 - y_k) / dt = F^k+1
      No diffusion and static flow field is assumed. This is an adjusted
      version of the IE_solver in the time stepping module.
      """
 
-     def __init__(self, problem):
+    def __init__(self, problem):
         AbstractSolver.__init__(self, problem)
 
-     def assemble(self):
+    def assemble(self):
         lhs_flux, rhs_flux = self._discretize(self.space_disc)
         lhs_time, rhs_time = self._discretize(self.time_disc)
 
@@ -76,37 +79,60 @@ class static_flow_IE_solver(AbstractSolver):
         self.static_rhs = rhs_flux + rhs_time
         self.rhs = lhs_time * self.p0 + rhs_flux + rhs_time
 
-     def solve(self):
+    #        print('rhs', self.rhs)
+
+    def solve(self, save_as=None, save_every=1):
         """
         Solve problem.
         """
         nt = np.ceil(self.T / self.dt).astype(np.int)
-        logger.info('Time stepping using ' + str(nt) + ' steps')
+        logger.warning("Time stepping using " + str(nt) + " steps")
         t = self.dt
-        counter = 1
+        counter = 0
+        mortar_key = "transport_mortar_solution"
+        if not save_as is None:
+            self.problem.split(save_as, mortar_key)
+            self.problem.exporter.write_vtk([save_as], time_step=counter)
+            times = [0.0]
         self.assemble()
         IE_solver = sps.linalg.factorized((self.lhs).tocsc())
-        while t < self.T + 1e-14:
-            logger.info('Step ' + str(counter) + ' out of ' + str(nt))
+        while t < self.T * (1 + 1e-14):
+            logger.warning("Step " + str(counter) + " out of " + str(nt))
             counter += 1
             self.update(t)
             self.step(IE_solver)
-            logger.debug('Maximum value ' + str(self.p.max()) +\
-                         ', minimum value ' + str(self.p.min()))
+            logger.debug(
+                "Maximum value "
+                + str(self.p.max())
+                + ", minimum value "
+                + str(self.p.min())
+            )
+            if not save_as is None and np.mod(counter, save_every) == 0:
+                logger.info("Saving solution")
+                self.problem.split(save_as, mortar_key)
+                self.problem.exporter.write_vtk([save_as], time_step=counter)
+                times.append(t)
+                logger.info("Finished saving")
             t += self.dt
-        self.update(t)
+        if not save_as is None:
+            self.problem.exporter.write_pvd(np.asarray(times))
+
         return self.data
 
-     def step(self, IE_solver):
-          self.p = IE_solver(self.lhs_time * self.p0 + self.static_rhs)
-          return self.p
+    def step(self, IE_solver):
+        self.p = IE_solver(self.lhs_time * self.p0 + self.static_rhs)
+        return self.p
 
-     def update(self, t):
+    def update(self, t):
         """
         update parameters for next time step
         """
         self.p0 = self.p
-        # Store result
-        if self.parameters['store_results'] == True:
-            self.data[self.problem.physics].append(self.p)
-            self.data['times'].append(t - self.dt)
+        # Call problem update to invoke a possible callback function therein.
+        self.problem.update(t)
+
+
+#        # Store result
+#        if self.parameters['store_results'] == True:
+#            self.data[self.problem.physics].append(self.p)
+#            self.data['times'].append(t - self.dt)

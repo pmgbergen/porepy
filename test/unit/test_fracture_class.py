@@ -10,33 +10,34 @@ class TestFractureCenters(unittest.TestCase):
 
     def test_frac_1(self):
         # Simple plane, known center.
-        f_1 = pp.Fracture(np.array([[0, 2, 2, 0],
-                                 [0, 2, 2, 0],
-                                 [-1, -1, 1, 1]]), check_convexity=False)
+        f_1 = pp.Fracture(
+            np.array([[0, 2, 2, 0], [0, 2, 2, 0], [-1, -1, 1, 1]]),
+            check_convexity=False,
+        )
         c_known = np.array([1, 1, 0]).reshape((3, 1))
         assert np.allclose(c_known, f_1.center)
 
     def test_frac_2(self):
         # Center away from xy-plane
-        f_1 = pp.Fracture(np.array([[0, 2, 2, 0],
-                                 [0, 2, 2, 0],
-                                 [0, 0, 1, 1]]), check_convexity=False)
+        f_1 = pp.Fracture(
+            np.array([[0, 2, 2, 0], [0, 2, 2, 0], [0, 0, 1, 1]]), check_convexity=False
+        )
         c_known = np.array([1, 1, 0.5]).reshape((3, 1))
         assert np.allclose(c_known, f_1.center)
 
     def test_frac_3(self):
         # Fracture plane defined by x + y + z = 1
-        f_1 = pp.Fracture(np.array([[0, 1, 1, 0],
-                                 [0, 0, 1, 1],
-                                 [1, 0, -1, 0]]), check_convexity=False)
+        f_1 = pp.Fracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 0, -1, 0]]), check_convexity=False
+        )
         c_known = np.array([0.5, 0.5, 0]).reshape((3, 1))
         assert np.allclose(c_known, f_1.center)
 
     def test_frac_4(self):
         # Fracture plane defined by x + y + z = 4
-        f_1 = pp.Fracture(np.array([[0, 1, 1, 0],
-                                 [0, 0, 1, 1],
-                                 [4, 3, 2, 3]]), check_convexity=False)
+        f_1 = pp.Fracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [4, 3, 2, 3]]), check_convexity=False
+        )
         c_known = np.array([0.5, 0.5, 3]).reshape((3, 1))
         assert np.allclose(c_known, f_1.center)
 
@@ -58,6 +59,7 @@ class TestFractureIndex(unittest.TestCase):
     The attribute may need to change later, these tests should ensure that we
     don't rush it.
     """
+
     def array(self):
         return np.array([[0, 1, 0], [0, 0, 0], [0, 0, 1]])
 
@@ -83,8 +85,9 @@ class TestFractureIsVertex(unittest.TestCase):
     """
 
     def frac(self):
-        return pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1],
-                                     [0, 0, 0, 0]]), check_convexity=False)
+        return pp.Fracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]), check_convexity=False
+        )
 
     def test_not_vertex(self):
         p = np.array([0.5, 0.5, 0])
@@ -112,11 +115,12 @@ class TestFractureIsVertex(unittest.TestCase):
         assert is_vert == True
         assert ind == 0
 
-class TestCopyFracture(unittest.TestCase):
 
+class TestCopyFracture(unittest.TestCase):
     def frac(self):
-        return pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1],
-                                     [0, 0, 0, 0]]), check_convexity=False)
+        return pp.Fracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]), check_convexity=False
+        )
 
     def test_copy(self):
         f1 = self.frac()
@@ -133,10 +137,13 @@ class TestCopyFracture(unittest.TestCase):
         f2.p[0, 0] = 7
         assert not np.allclose(f1.p, f2.p)
 
+
 class TestReprStr(unittest.TestCase):
     def frac(self):
-        return pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1],
-                                     [0, 0, 0, 0]]), check_convexity=False)
+        return pp.Fracture(
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]), check_convexity=False
+        )
+
     def test_str(self):
         f = self.frac()
         f.__str__()
@@ -145,5 +152,6 @@ class TestReprStr(unittest.TestCase):
         f = self.frac()
         f.__repr__()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

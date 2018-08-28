@@ -7,7 +7,7 @@ from porepy.params.bc import BoundaryCondition
 
 
 class AdvectiveModel(parabolic.ParabolicModel):
-    '''
+    """
     Inherits from ParabolicProblem
     This class solves equations of the type:
     phi *c_p dp/dt  - \nabla K \nabla p = q
@@ -24,7 +24,7 @@ class AdvectiveModel(parabolic.ParabolicModel):
         d['problem'] = SlightlyCompressibleData(g, d)
     problem = SlightlyCompressible(gb)
     problem.solve()
-   '''
+   """
 
     def __init__(self, gb, **kwargs):
         parabolic.ParabolicModel.__init__(self, gb, **kwargs)
@@ -48,29 +48,29 @@ class AdvectiveModelData(parabolic.ParabolicDataAssigner):
     def bc_val(self, t):
 
         bc_val = np.zeros(self.grid().num_faces)
-        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
+        bound_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
         if bound_faces.size == 0:
             return bc_val
 
         bound_face_centers = self.grid().face_centers[:, bound_faces]
-        bottom = bound_face_centers[2, :] < self.domain['zmin'] + self.tol
+        bottom = bound_face_centers[2, :] < self.domain["zmin"] + self.tol
         bc_val[bound_faces[bottom]] = 1
 
         return bc_val
 
     def bc(self):
 
-        bound_faces = self.grid().tags['domain_boundary_faces'].nonzero()[0]
+        bound_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
         if bound_faces.size == 0:
             return BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
 
         bound_face_centers = self.grid().face_centers[:, bound_faces]
-        top = bound_face_centers[2, :] > self.domain['zmax'] - self.tol
-        bottom = bound_face_centers[2, :] < self.domain['zmin'] + self.tol
+        top = bound_face_centers[2, :] > self.domain["zmax"] - self.tol
+        bottom = bound_face_centers[2, :] < self.domain["zmin"] + self.tol
 
         boundary = np.logical_or(top, bottom)
 
-        labels = np.array(['neu'] * bound_faces.size)
-        labels[boundary] = ['dir']
+        labels = np.array(["neu"] * bound_faces.size)
+        labels[boundary] = ["dir"]
 
         return BoundaryCondition(self.grid(), bound_faces, labels)

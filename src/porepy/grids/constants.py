@@ -6,6 +6,7 @@ class GmshConstants(object):
 
     This may not be the most pythonic way of doing this, but it works.
     """
+
     def __init__(self):
         self.DOMAIN_BOUNDARY_TAG = 1
         self.COMPARTMENT_BOUNDARY_TAG = 2
@@ -21,13 +22,12 @@ class GmshConstants(object):
         # General auxiliary tag
         self.AUXILIARY_TAG = 7
 
-        self.PHYSICAL_NAME_DOMAIN = 'DOMAIN'
-        self.PHYSICAL_NAME_FRACTURES = 'FRACTURE_'
-        self.PHYSICAL_NAME_AUXILIARY = 'AUXILIARY_'
-        
-        # Physical name for fracture tips
-        self.PHYSICAL_NAME_FRACTURE_TIP ='FRACTURE_TIP_'
-        self.PHYSICAL_NAME_FRACTURE_LINE = 'FRACTURE_LINE_'
-        self.PHYSICAL_NAME_AUXILIARY_LINE = 'AUXILIARY_LINE_'
-        self.PHYSICAL_NAME_FRACTURE_POINT = 'FRACTURE_POINT_'
+        self.PHYSICAL_NAME_DOMAIN = "DOMAIN"
+        self.PHYSICAL_NAME_FRACTURES = "FRACTURE_"
+        self.PHYSICAL_NAME_AUXILIARY = "AUXILIARY_"
 
+        # Physical name for fracture tips
+        self.PHYSICAL_NAME_FRACTURE_TIP = "FRACTURE_TIP_"
+        self.PHYSICAL_NAME_FRACTURE_LINE = "FRACTURE_LINE_"
+        self.PHYSICAL_NAME_AUXILIARY_LINE = "AUXILIARY_LINE_"
+        self.PHYSICAL_NAME_FRACTURE_POINT = "FRACTURE_POINT_"

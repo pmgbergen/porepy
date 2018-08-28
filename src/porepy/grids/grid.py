@@ -109,6 +109,10 @@ class Grid(object):
         self.initiate_face_tags()
         self.update_boundary_face_tag()
 
+        # Add tag for the boundary nodes
+        self.initiate_node_tags()
+        self.update_boundary_node_tag()
+
     def copy(self):
         """
         Create a deep copy of the grid.
@@ -117,19 +121,24 @@ class Grid(object):
             grid: A deep copy of self. All attributes will also be copied.
 
         """
-        h = Grid(self.dim, self.nodes.copy(), self.face_nodes.copy(),
-                 self.cell_faces.copy(), self.name)
-        if hasattr(self, 'cell_volumes'):
+        h = Grid(
+            self.dim,
+            self.nodes.copy(),
+            self.face_nodes.copy(),
+            self.cell_faces.copy(),
+            self.name,
+        )
+        if hasattr(self, "cell_volumes"):
             h.cell_volumes = self.cell_volumes.copy()
-        if hasattr(self, 'cell_centers'):
+        if hasattr(self, "cell_centers"):
             h.cell_centers = self.cell_centers.copy()
-        if hasattr(self, 'face_centers'):
+        if hasattr(self, "face_centers"):
             h.face_centers = self.face_centers.copy()
-        if hasattr(self, 'face_normals'):
+        if hasattr(self, "face_normals"):
             h.face_normals = self.face_normals.copy()
-        if hasattr(self, 'face_areas'):
+        if hasattr(self, "face_areas"):
             h.face_areas = self.face_areas.copy()
-        if hasattr(self, 'tags'):
+        if hasattr(self, "tags"):
             h.tags = self.tags.copy()
         return h
 
@@ -138,11 +147,11 @@ class Grid(object):
         Implementation of __repr__
 
         """
-        s = 'Grid with history ' + ', '.join(self.name) + '\n'
-        s = s + 'Number of cells ' + str(self.num_cells) + '\n'
-        s = s + 'Number of faces ' + str(self.num_faces) + '\n'
-        s = s + 'Number of nodes ' + str(self.num_nodes) + '\n'
-        s += 'Dimension ' + str(self.dim)
+        s = "Grid with history " + ", ".join(self.name) + "\n"
+        s = s + "Number of cells " + str(self.num_cells) + "\n"
+        s = s + "Number of faces " + str(self.num_faces) + "\n"
+        s = s + "Number of nodes " + str(self.num_nodes) + "\n"
+        s += "Dimension " + str(self.dim)
         return s
 
     def __str__(self):
@@ -151,33 +160,33 @@ class Grid(object):
         s = str()
 
         # Special treatment of point grids.
-        if 'PointGrid' in self.name:
-            s = 'Point grid.\n'
+        if "PointGrid" in self.name:
+            s = "Point grid.\n"
             n = self.nodes
-            s += 'Coordinate: (' + str(n[0]) + ', ' + str(n[1])
-            s += ', ' + str(n[2]) + ')\n'
+            s += "Coordinate: (" + str(n[0]) + ", " + str(n[1])
+            s += ", " + str(n[2]) + ")\n"
             return s
 
         # More or less uniform treatment of the types of grids.
-        if 'CartGrid' in self.name:
-            s = 'Cartesian grid in ' + str(self.dim) + ' dimensions.\n'
-        elif 'TensorGrid' in self.name:
-            s = 'Tensor grid in ' + str(self.dim) + ' dimensions.\n'
-        elif 'StructuredTriangleGrid' in self.name:
-            s = 'Structured triangular grid.\n'
-        elif 'TriangleGrid' in self.name:
-            s = 'Triangular grid. \n'
-        elif 'StructuredTetrahedralGrid' in self.name:
-            s = 'Structured tetrahedral grid.\n'
-        elif 'TetrahedralGrid' in self.name:
-            s = 'Tetrahedral grid.\n'
-        s = s + 'Number of cells ' + str(self.num_cells) + '\n'
-        s = s + 'Number of faces ' + str(self.num_faces) + '\n'
-        s = s + 'Number of nodes ' + str(self.num_nodes) + '\n'
+        if "CartGrid" in self.name:
+            s = "Cartesian grid in " + str(self.dim) + " dimensions.\n"
+        elif "TensorGrid" in self.name:
+            s = "Tensor grid in " + str(self.dim) + " dimensions.\n"
+        elif "StructuredTriangleGrid" in self.name:
+            s = "Structured triangular grid.\n"
+        elif "TriangleGrid" in self.name:
+            s = "Triangular grid. \n"
+        elif "StructuredTetrahedralGrid" in self.name:
+            s = "Structured tetrahedral grid.\n"
+        elif "TetrahedralGrid" in self.name:
+            s = "Tetrahedral grid.\n"
+        s = s + "Number of cells " + str(self.num_cells) + "\n"
+        s = s + "Number of faces " + str(self.num_faces) + "\n"
+        s = s + "Number of nodes " + str(self.num_nodes) + "\n"
 
         return s
 
-    def compute_geometry(self, is_embedded=False):
+    def compute_geometry(self):
         """Compute geometric quantities for the grid.
 
         This method initializes class variables describing the grid
@@ -189,14 +198,14 @@ class Grid(object):
         computations.
         """
 
-        self.name.append('Compute geometry')
+        self.name.append("Compute geometry")
 
         if self.dim == 0:
             self.__compute_geometry_0d()
         elif self.dim == 1:
             self.__compute_geometry_1d()
         elif self.dim == 2:
-            self.__compute_geometry_2d(is_embedded)
+            self.__compute_geometry_2d()
         else:
             self.__compute_geometry_3d()
 
@@ -242,16 +251,17 @@ class Grid(object):
         # normal vector. If the prolonged vector is shorter, the normal should
         # flipped
         vn = v + nrm(v) * self.face_normals[:, fi[idx]] * 0.001
-        flip = np.logical_or(np.logical_and(nrm(v) > nrm(vn), sgn > 0),
-                             np.logical_and(nrm(v) < nrm(vn), sgn < 0))
+        flip = np.logical_or(
+            np.logical_and(nrm(v) > nrm(vn), sgn > 0),
+            np.logical_and(nrm(v) < nrm(vn), sgn < 0),
+        )
         self.face_normals[:, flip] *= -1
 
-    def __compute_geometry_2d(self, is_embedded):
+    def __compute_geometry_2d(self):
         "Compute 2D geometry, with method motivated by similar MRST function"
 
-        if is_embedded:
-            R = cg.project_plane_matrix(self.nodes, check_planar=False)
-            self.nodes = np.dot(R, self.nodes)
+        R = cg.project_plane_matrix(self.nodes, check_planar=False)
+        self.nodes = np.dot(R, self.nodes)
 
         fn = self.face_nodes.indices
         edge1 = fn[::2]
@@ -263,13 +273,14 @@ class Grid(object):
         edge_length_x = xe2[0] - xe1[0]
         edge_length_y = xe2[1] - xe1[1]
         edge_length_z = xe2[2] - xe1[2]
-        self.face_areas = np.sqrt(np.power(edge_length_x, 2) +
-                                  np.power(edge_length_y, 2) +
-                                  np.power(edge_length_z, 2))
+        self.face_areas = np.sqrt(
+            np.power(edge_length_x, 2)
+            + np.power(edge_length_y, 2)
+            + np.power(edge_length_z, 2)
+        )
         self.face_centers = 0.5 * (xe1 + xe2)
         n = edge_length_z.shape[0]
-        self.face_normals = np.vstack(
-            (edge_length_y, -edge_length_x, np.zeros(n)))
+        self.face_normals = np.vstack((edge_length_y, -edge_length_x, np.zeros(n)))
 
         cell_faces, cellno = self.cell_faces.nonzero()
         cx = np.bincount(cellno, weights=self.face_centers[0, cell_faces])
@@ -283,8 +294,9 @@ class Grid(object):
         sub_volumes = 0.5 * np.abs(a[0] * b[1] - a[1] * b[0])
         self.cell_volumes = np.bincount(cellno, weights=sub_volumes)
 
-        sub_centroids = (self.cell_centers[:, cellno] + 2 *
-                         self.face_centers[:, cell_faces]) / 3
+        sub_centroids = (
+            self.cell_centers[:, cellno] + 2 * self.face_centers[:, cell_faces]
+        ) / 3
 
         ccx = np.bincount(cellno, weights=sub_volumes * sub_centroids[0])
         ccy = np.bincount(cellno, weights=sub_volumes * sub_centroids[1])
@@ -307,15 +319,16 @@ class Grid(object):
         # normal vector. If the prolonged vector is shorter, the normal should
         # flipped
         vn = v + nrm(v) * self.face_normals[:, fi[idx]] * 0.001
-        flip = np.logical_or(np.logical_and(nrm(v) > nrm(vn), sgn > 0),
-                             np.logical_and(nrm(v) < nrm(vn), sgn < 0))
+        flip = np.logical_or(
+            np.logical_and(nrm(v) > nrm(vn), sgn > 0),
+            np.logical_and(nrm(v) < nrm(vn), sgn < 0),
+        )
         self.face_normals[:, flip] *= -1
 
-        if is_embedded:
-            self.nodes = np.dot(R.T, self.nodes)
-            self.face_normals = np.dot(R.T, self.face_normals)
-            self.face_centers = np.dot(R.T, self.face_centers)
-            self.cell_centers = np.dot(R.T, self.cell_centers)
+        self.nodes = np.dot(R.T, self.nodes)
+        self.face_normals = np.dot(R.T, self.face_normals)
+        self.face_centers = np.dot(R.T, self.face_centers)
+        self.cell_centers = np.dot(R.T, self.cell_centers)
 
     def __compute_geometry_3d(self):
         """
@@ -337,8 +350,9 @@ class Grid(object):
         #  represents the edge running from face_nodes[i] to face_nodes[i+1])
         face_nodes = self.face_nodes.indices
         # For each node, index of its parent face
-        face_node_ind = matrix_compression.rldecode(np.arange(
-            self.num_faces), num_nodes_per_face)
+        face_node_ind = matrix_compression.rldecode(
+            np.arange(self.num_faces), num_nodes_per_face
+        )
 
         # Index of next node on the edge list. Note that this assumes the
         # elements in face_nodes is stored in an ordered fasion
@@ -347,19 +361,17 @@ class Grid(object):
         next_node[face_node_ptr[1:] - 1] = face_node_ptr[:-1]
 
         # Mapping from cells to faces
-        edge_2_face = sps.coo_matrix((np.ones(num_face_nodes),
-                                      (np.arange(num_face_nodes),
-                                       face_node_ind))).tocsc()
+        edge_2_face = sps.coo_matrix(
+            (np.ones(num_face_nodes), (np.arange(num_face_nodes), face_node_ind))
+        ).tocsc()
 
         # Define temporary face center as the mean of the face nodes
-        tmp_face_center = self.nodes[:, face_nodes] * \
-            edge_2_face / num_nodes_per_face
+        tmp_face_center = self.nodes[:, face_nodes] * edge_2_face / num_nodes_per_face
         # Associate this value with all the edge of this face
         tmp_face_center = edge_2_face * tmp_face_center.transpose()
 
         # Vector along each edge
-        along_edge = self.nodes[:, face_nodes[next_node]] - \
-            self.nodes[:, face_nodes]
+        along_edge = self.nodes[:, face_nodes[next_node]] - self.nodes[:, face_nodes]
         # Vector from face center to start node of each edge
         face_2_node = tmp_face_center.transpose() - self.nodes[:, face_nodes]
 
@@ -367,12 +379,16 @@ class Grid(object):
         # between along_edge and face_2_node
         # Divide by two to ensure that the normal vector has length equal to
         # the area of the face triangle (by properties of cross product)
-        sub_normals = np.vstack((along_edge[1] * face_2_node[2] -
-                                 along_edge[2] * face_2_node[1],
-                                 along_edge[2] * face_2_node[0] -
-                                 along_edge[0] * face_2_node[2],
-                                 along_edge[0] * face_2_node[1] -
-                                 along_edge[1] * face_2_node[0])) / 2
+        sub_normals = (
+            np.vstack(
+                (
+                    along_edge[1] * face_2_node[2] - along_edge[2] * face_2_node[1],
+                    along_edge[2] * face_2_node[0] - along_edge[0] * face_2_node[2],
+                    along_edge[0] * face_2_node[1] - along_edge[1] * face_2_node[0],
+                )
+            )
+            / 2
+        )
 
         def nrm(v):
             return np.sqrt(np.sum(v * v, axis=0))
@@ -384,9 +400,11 @@ class Grid(object):
         # Centers of sub-faces are given by the centroid coordinates,
         # e.g. the mean coordinate of the edge endpoints and the temporary
         # face center
-        sub_centroids = (self.nodes[:, face_nodes] +
-                         self.nodes[:, face_nodes[next_node]]
-                         + tmp_face_center.transpose()) / 3
+        sub_centroids = (
+            self.nodes[:, face_nodes]
+            + self.nodes[:, face_nodes[next_node]]
+            + tmp_face_center.transpose()
+        ) / 3
 
         # Face normals are given as the sum of the sub-components
         face_normals = sub_normals * edge_2_face
@@ -398,9 +416,12 @@ class Grid(object):
         # and take scalar product by element-wise multiplication with
         # sub-normals, and sum over the components (axis=0).
         # NOTE: There should be a built-in function for this in numpy?
-        sub_normals_sign = np.sign(np.sum(sub_normals * (edge_2_face *
-                                                         face_normals.transpose()).transpose(),
-                                          axis=0))
+        sub_normals_sign = np.sign(
+            np.sum(
+                sub_normals * (edge_2_face * face_normals.transpose()).transpose(),
+                axis=0,
+            )
+        )
 
         # Finally, face centers are the area weighted means of centroids of
         # the sub-faces
@@ -432,8 +453,9 @@ class Grid(object):
         # from a cell (e.g. edges on internal faces are seen twice).
 
         # Cell numbers are obtained from the columns in edge_2_cell.
-        cell_numbers = matrix_compression.rldecode(np.arange(self.num_cells),
-                                                   np.diff(edge_2_cell.indptr))
+        cell_numbers = matrix_compression.rldecode(
+            np.arange(self.num_cells), np.diff(edge_2_cell.indptr)
+        )
         # Edge numbers from the rows. Here it is crucial that the indices
         # are sorted
         edge_numbers = edge_2_cell.indices
@@ -456,20 +478,20 @@ class Grid(object):
 
             count = np.zeros((dim, sz))
             for iter1 in range(dim):
-                count[iter1] = np.bincount(arr, weights=weights[iter1],
-                                           minlength=sz)
+                count[iter1] = np.bincount(arr, weights=weights[iter1], minlength=sz)
             return count
 
         # First estimate of cell centers as the mean of its faces' centers
         # Divide by num_cell_edges here since all edges bring in their faces
-        tmp_cell_centers = bincount_nd(cell_numbers,
-                                       face_centers[:, face_numbers]
-                                       / num_cell_edges[cell_numbers])
+        tmp_cell_centers = bincount_nd(
+            cell_numbers, face_centers[:, face_numbers] / num_cell_edges[cell_numbers]
+        )
 
         # Distance from the temporary cell center to the sub-centroids (of
         # the tetrahedra associated with each edge)
-        dist_cellcenter_subface = sub_centroids[:, edge_numbers] \
-            - tmp_cell_centers[:, cell_numbers]
+        dist_cellcenter_subface = (
+            sub_centroids[:, edge_numbers] - tmp_cell_centers[:, cell_numbers]
+        )
 
         # Get sign of normal vectors, seen from all faces.
         # Make sure we get a numpy ndarray, and not a matrix (.A), and that
@@ -479,15 +501,15 @@ class Grid(object):
         # Get outwards pointing sub-normals for all sub-faces: We need to
         # account for both the orientation of the face, and the orientation
         # of sub-faces relative to faces.
-        outer_normals = sub_normals[:, edge_numbers] \
-            * orientation * sub_normals_sign[edge_numbers]
+        outer_normals = (
+            sub_normals[:, edge_numbers] * orientation * sub_normals_sign[edge_numbers]
+        )
 
         # Volumes of tetrahedra are now given by the dot product between the
         #  outer normal (which is area weighted, and thus represent the base
         #  of the tet), with the distancance from temporary cell center (the
         # dot product gives the hight).
-        tet_volumes = np.sum(dist_cellcenter_subface * outer_normals,
-                             axis=0) / 3
+        tet_volumes = np.sum(dist_cellcenter_subface * outer_normals, axis=0) / 3
 
         # Sometimes the sub-tet volumes can have a volume of numerical zero.
         # Why this is so is not clear, but for the moment, we allow for a
@@ -500,8 +522,9 @@ class Grid(object):
 
         # Compute a correction to the temporary cell center, by a volume
         # weighted sum of the sub-tetrahedra
-        rel_centroid = bincount_nd(cell_numbers, tet_volumes * tri_centroids) \
-            / cell_volumes
+        rel_centroid = (
+            bincount_nd(cell_numbers, tet_volumes * tri_centroids) / cell_volumes
+        )
         cell_centers = tmp_cell_centers + rel_centroid
 
         # ... and we're done
@@ -519,9 +542,13 @@ class Grid(object):
         """
         # Local version of cell-face map, using absolute value to avoid
         # artifacts from +- in the original version.
-        cf_loc = sps.csc_matrix((np.abs(self.cell_faces.data),
-                                 self.cell_faces.indices,
-                                 self.cell_faces.indptr))
+        cf_loc = sps.csc_matrix(
+            (
+                np.abs(self.cell_faces.data),
+                self.cell_faces.indices,
+                self.cell_faces.indptr,
+            )
+        )
         mat = (self.face_nodes * cf_loc) > 0
         return mat
 
@@ -532,7 +559,7 @@ class Grid(object):
             np.ndarray, size num_cells: Number of nodes per cell.
 
         """
-        return self.cell_nodes().sum(axis=0).A.ravel('F')
+        return self.cell_nodes().sum(axis=0).A.ravel("F")
 
     def get_internal_nodes(self):
         """
@@ -542,9 +569,9 @@ class Grid(object):
             np.ndarray (1D), index of internal nodes.
 
         """
-        internal_nodes = np.setdiff1d(np.arange(self.num_nodes),
-                                      self.get_boundary_nodes(),
-                                      assume_unique=True)
+        internal_nodes = np.setdiff1d(
+            np.arange(self.num_nodes), self.get_boundary_nodes(), assume_unique=True
+        )
         return internal_nodes
 
     def get_all_boundary_faces(self):
@@ -552,8 +579,20 @@ class Grid(object):
         Get indices of all faces tagged as either fractures, domain boundary or
         tip.
         """
-        all_tags = tags.all_face_tags(self.tags)
-        return self.__indices(all_tags)
+        return self.__indices(tags.all_face_tags(self.tags))
+
+    def get_all_boundary_nodes(self):
+        """
+        Get indices of all nodes tagged as either fractures, domain boundary or
+        tip.
+        """
+        return self.__indices(tags.all_node_tags(self.tags))
+
+    def get_boundary_faces(self):
+        """
+        Get indices of all faces tagged as domain boundary.
+        """
+        return self.__indices(self.tags["domain_boundary_faces"])
 
     def get_internal_faces(self):
         """
@@ -563,9 +602,9 @@ class Grid(object):
             np.ndarray (1d), index of internal faces.
 
         """
-        return np.setdiff1d(np.arange(self.num_faces),
-                            self.get_all_boundary_faces(),
-                            assume_unique=True)
+        return np.setdiff1d(
+            np.arange(self.num_faces), self.get_all_boundary_faces(), assume_unique=True
+        )
 
     def get_boundary_nodes(self):
         """
@@ -575,22 +614,45 @@ class Grid(object):
             np.ndarray (1d), index of nodes on the boundary
 
         """
-        b_faces = self.get_all_boundary_faces()
-        first = self.face_nodes.indptr[b_faces]
-        second = self.face_nodes.indptr[b_faces + 1]
-        return np.unique(self.face_nodes.indices[mcolon.mcolon(first, second)])
+        return self.__indices(self.tags["domain_boundary_nodes"])
 
     def update_boundary_face_tag(self):
         """ Tag faces on the boundary of the grid with boundary tag.
 
         """
-        bd_faces = np.argwhere(np.abs(self.cell_faces).sum(axis=1).A.ravel('F')
-                               == 1).ravel('F')
-        self.tags['domain_boundary_faces'][bd_faces] = True
+        zeros = np.zeros(self.num_faces, dtype=np.bool)
+        self.tags["domain_boundary_faces"] = zeros
+        if self.dim > 0:  # by default no 0d grid at the boundary of the domain
+            bd_faces = np.argwhere(
+                np.abs(self.cell_faces).sum(axis=1).A.ravel("F") == 1
+            ).ravel("F")
+            self.tags["domain_boundary_faces"][bd_faces] = True
+
+    def update_boundary_node_tag(self):
+        """ Tag nodes on the boundary of the grid with boundary tag.
+
+        """
+
+        mask = {
+            "domain_boundary_faces": "domain_boundary_nodes",
+            "fracture_faces": "fracture_nodes",
+            "tip_faces": "tip_nodes",
+        }
+        zeros = np.zeros(self.num_nodes, dtype=np.bool)
+
+        for face_tag, node_tag in mask.items():
+            self.tags[node_tag] = zeros.copy()
+            faces = np.where(self.tags[face_tag])[0]
+            if faces.size > 0:
+                first = self.face_nodes.indptr[faces]
+                second = self.face_nodes.indptr[faces + 1]
+                nodes = self.face_nodes.indices[mcolon.mcolon(first, second)]
+                self.tags[node_tag][nodes] = True
+
 
     def cell_diameters(self, cn=None):
         """
-        Compute the cell diameters.
+        Compute the cell diameters. If self.dim == 0, return 0
 
         Parameters:
             cn (optional): cell nodes map, previously already computed.
@@ -600,19 +662,27 @@ class Grid(object):
             np.array, num_cells: values of the cell diameter for each cell
 
         """
+        if self.dim == 0:
+            return np.zeros(1)
 
-        def comb(n): return np.fromiter(itertools.chain.from_iterable(
-            itertools.combinations(n, 2)), n.dtype).reshape((2, -1),
-                                                            order='F')
+        def comb(n):
+            return np.fromiter(
+                itertools.chain.from_iterable(itertools.combinations(n, 2)), n.dtype
+            ).reshape((2, -1), order="F")
 
-        def diam(n): return np.amax(np.linalg.norm(self.nodes[:, n[0, :]] -
-                                                   self.nodes[:, n[1, :]],
-                                                   axis=0))
+        def diam(n):
+            return np.amax(
+                np.linalg.norm(self.nodes[:, n[0, :]] - self.nodes[:, n[1, :]], axis=0)
+            )
 
         if cn is None:
             cn = self.cell_nodes()
-        return np.array([diam(comb(cn.indices[cn.indptr[c]:cn.indptr[c + 1]]))
-                         for c in np.arange(self.num_cells)])
+        return np.array(
+            [
+                diam(comb(cn.indices[cn.indptr[c] : cn.indptr[c + 1]]))
+                for c in np.arange(self.num_cells)
+            ]
+        )
 
     def cell_face_as_dense(self):
         """
@@ -633,11 +703,11 @@ class Grid(object):
         # Increase the data by one to distinguish cell indices from boundary
         # cells
         data = n.indices + 1
-        cols = ((n.data + 1) / 2).astype('i')
+        cols = ((n.data + 1) / 2).astype("i")
         neighs = sps.coo_matrix((data, (rows, cols))).todense()
         # Subtract 1 to get back to real cell indices
         neighs -= 1
-        neighs = neighs.transpose().A.astype('int')
+        neighs = neighs.transpose().A.astype("int")
         # Finally, we need to switch order of rows to get normal vectors
         # pointing from first to second row.
         return neighs[::-1]
@@ -663,7 +733,7 @@ class Grid(object):
         # Find connection between cells via the cell-face map
         c2c = cell_faces.transpose() * cell_faces
         # Only care about absolute values
-        c2c.data = np.clip(c2c.data, 0, 1).astype('bool')
+        c2c.data = np.clip(c2c.data, 0, 1).astype("bool")
 
         return c2c
 
@@ -719,11 +789,15 @@ class Grid(object):
 
     def initiate_face_tags(self):
         keys = tags.standard_face_tags()
-        values = [np.zeros(self.num_faces, dtype=bool)
-                  for _ in range(len(keys))]
+        values = [np.zeros(self.num_faces, dtype=bool) for _ in keys]
+        tags.add_tags(self, dict(zip(keys, values)))
+
+    def initiate_node_tags(self):
+        keys = tags.standard_node_tags()
+        values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
     def __indices(self, true_false):
         """ Shorthand for np.argwhere.
         """
-        return np.argwhere(true_false).ravel('F')
+        return np.argwhere(true_false).ravel("F")

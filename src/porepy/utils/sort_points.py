@@ -3,7 +3,8 @@ import numpy as np
 from porepy.utils.comp_geom import project_plane_matrix
 
 
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+
 
 def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=True):
     """ Sort pairs of numbers to form a chain.
@@ -35,7 +36,7 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     # In the case of non-circular ordering ensure to start from the correct one
     if not is_circular:
         check_circular = False
-        if np.count_nonzero(lines==sorted_lines[0, 0]) > 1:
+        if np.count_nonzero(lines == sorted_lines[0, 0]) > 1:
             sorted_lines[:, 0] = np.flip(sorted_lines[:, 0], 0)
 
     # The starting point for the next line
@@ -75,7 +76,9 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
         return sorted_lines, is_ordered
     return sorted_lines
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def sort_point_plane(pts, centre, normal=None):
     """ Sort the points which lie on a plane.
@@ -100,4 +103,5 @@ def sort_point_plane(pts, centre, normal=None):
     delta = np.array([d / np.linalg.norm(d) for d in delta.T]).T
     return np.argsort(np.arctan2(*delta))
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
