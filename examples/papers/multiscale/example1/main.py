@@ -16,9 +16,11 @@ def export(gb, x, name, solver_flow):
 
     gb.add_node_props("pressure")
     solver_flow.extract_p(gb, "up", "pressure")
+    solver_flow.extract_u(gb, "up", "discharge")
+    solver_flow.project_u(gb, "discharge", "P0u")
 
     save = pp.Exporter(gb, "rt0", folder=name)
-    save.write_vtk("pressure")
+    save.write_vtk(["pressure", "P0u"])
 
 # ------------------------------------------------------------------------------#
 
@@ -133,7 +135,7 @@ def main(pb_data, name):
 
 if __name__ == "__main__":
 
-    mesh_sizes = np.array([0.45, 0.045, 0.0045])
+    mesh_sizes = np.array([0.45, 0.045, 0.0275])
 
     kf = {0: 1e-4, 1: 1e4}
     # it's (kf_t, kf_n)
