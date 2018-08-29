@@ -32,7 +32,7 @@ class Data(object):
 
         self.domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
-        file_name = "network_geiger.csv"
+        file_name = "network.csv"
         self.write_network(file_name)
         self.gb = pp.importer.dfm_2d_from_csv(file_name, mesh_kwargs, self.domain)
         self.gb.compute_geometry()
