@@ -43,12 +43,13 @@ def mean_inlet_pressure(gb, solver_name):
 
     inlet = g.tags["inlet_faces"]
     if solver_name == "tpfa" or solver_name == "mpfa":
-        pressure_map = d["bound_pressure_cell"]
+        face_pressure = d["bound_pressure_cell"]*d["pressure"] + \
+                        d["bound_pressure_face"]*d["param"].get_bc_val("flow")
     else:
-        pressure_map = np.abs(g.cell_faces)
+        face_pressure = np.abs(g.cell_faces) * d["pressure"]
 
-    face_pressure = np.multiply(g.face_areas, pressure_map * d["pressure"])
-    return np.sum(face_pressure[inlet])/np.sum(g.face_areas[inlet])
+    weighted_face_pressure = np.multiply(g.face_areas, face_pressure)
+    return np.sum(weighted_face_pressure[inlet])/np.sum(g.face_areas[inlet])
 
 # ------------------------------------------------------------------------------#
 
