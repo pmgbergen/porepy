@@ -237,9 +237,7 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
 
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size > 0:
-            b_in, b_out = b_pressure(g)
-
-            self.inflow = b_in
+            self.inflow = b_pressure(g)[0]
 
         pp.ParabolicDataAssigner.__init__(self, g, data, physics)
 
