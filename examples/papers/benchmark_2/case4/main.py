@@ -97,12 +97,9 @@ if __name__ == "__main__":
                    solvers.solve_rt0]
     solver_names = ['tpfa', 'mpfa', 'vem', 'rt0']
 
-    solver_list = [solvers.solve_tpfa]
-    solver_names = ['tpfa']
-
     time_step = 50
     for solver, solver_name in zip(solver_list, solver_names):
-        folder = solver_name  + '_dt_' + str(time_step)
+        folder = solver_name + '_results'
         main(folder, solver, solver_name, time_step)
 
     # collect all the data
