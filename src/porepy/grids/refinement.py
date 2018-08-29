@@ -231,7 +231,7 @@ def remesh_1d(g_old, num_nodes, tol=1e-6):
 
     # Create equi-spaced nodes covering the same domain as the old grid
     theta = np.linspace(0, 1, num_nodes)
-    start, end = g_old.get_boundary_nodes()
+    start, end = g_old.get_all_boundary_nodes()
     # Not sure why the new axis was necessary.
     nodes = g_old.nodes[:, start, np.newaxis] * theta + g_old.nodes[
         :, end, np.newaxis
