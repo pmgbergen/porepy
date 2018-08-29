@@ -1,103 +1,109 @@
-import logging, sys
 import numpy as np
 import porepy as pp
 import case4_data
-try:
-    import examples.papers.benchmark_2.solvers as solvers
-except:
-    pass
 
+from examples.papers.benchmark_2.case3.main import mean_inlet_pressure
 
-root = logging.getLogger()
-root.setLevel(logging.INFO)
+import examples.papers.benchmark_2.solvers as solvers
 
-if not root.hasHandlers():
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
+# ------------------------------------------------------------------------------#
 
-    root.addHandler(ch)
+def report_concentrations(problem):
+    problem.split()
+    mean = np.zeros(52)
+    for g, d in problem.grid():
+        if g.dim == 2:
+            pv = d['param'].porosity * g.cell_volumes
+            mean[g.frac_num] = np.sum(pv * d['solution']) / np.sum(pv)
 
+    file_name = folder+"/mean_concentration.txt"
+    with open(file_name, 'a') as f:
+        f.write(", ".join(map(str, mean))+"\n")
 
-def main(folder, solver, solver_name, dt, save_every):
+# ------------------------------------------------------------------------------#
 
-    tol = 1e-8
-    gb, domain = case4_data.create_grid(from_file=True)
-
-    print('Loaded grid with ', gb.num_cells(), ' cells')
-
-    data = {"domain": domain, "t_max": 5000}
-    data["dt"] = dt
-
-
-    case4_data.add_data(gb, data, solver_name)
-
-    print('Invoke solver ', solver_name)
-    solver(gb, folder)
-
-#    outlet_fluxes(gb, fn='concentrations_' + solver_name + '_' + str(gb.num_cells()) + '_dt_' + str(dt) + '.txt')
-
-    def report_concentrations(problem):
-        problem.split()
-
-        print('Max concentration ', problem._solver.p.max())
-
-        for g, d in problem.grid():
-            if g.dim == 2:
-                pv = d['param'].porosity * g.cell_volumes
-                field = d['solution']
-
-                mean = np.sum(pv * field) / np.sum(pv)
-                print('Mean concentration in fracture ', g.frac_num, ' ', mean)
-
-    print('Invoke transport solver')
-
-    solvers.transport(gb, data, solver_name, folder,
-                          case4_data.AdvectiveDataAssigner,
-                         callback=None, save_every=save_every)
-
-    return gb, data
-
-
-def outlet_fluxes(gb, fn=None):
-    for g, d in gb:
-        if g.dim == 3:
-            break
+def outlet_fluxes(gb):
+    g = gb.grids_of_dimension(3)[0]
+    d = gb.node_props(g)
 
     flux = d['discharge']
     _, b_out = case4_data.b_pressure(g)
     bound_faces = np.where(g.tags['domain_boundary_faces'])[0]
+
     xf = g.face_centers[:, bound_faces[b_out]]
     oi = bound_faces[b_out].ravel()
-    lower = np.where(xf[2] < 0.5)
-    upper = np.where(xf[2] > 0.5)
+
+    lower = g.tags["outlet1_faces"]
+    upper = g.tags["outlet2_faces"]
+
     n = g.face_normals[1, oi]
     bf = flux[oi] * np.sign(n)
 
-    if fn is not None:
-        with open(fn, 'w') as f:
-            f.write(str(np.sum(bf[lower[0]]))+ ', ' + str(np.sum(bf[upper[0]])) + '\n')
+    return np.sum(bf[lower]), np.sum(bf[upper])
 
-    print('Num cells in 3D: ' + str(g.num_cells))
-    print('Lower boundary outflow: ' + str(np.sum(bf[lower[0]])))
-    print('Upper bounadry outflow: ' + str(np.sum(bf[upper[0]])))
+# ------------------------------------------------------------------------------#
 
+def summarize_data(solver_names):
+
+    file_out = "UiB.csv"
+
+    with open(file_out, "w") as f_out:
+        for solver_name in solver_names:
+            file_in = solver_name + "_results/info.txt"
+            with open(file_in, "r") as f_in:
+                f_out.write(f_in.readlines()[0]+"\n")
+
+# ------------------------------------------------------------------------------#
+
+def main(folder, solver, solver_name, dt):
+
+    tol = 1e-8
+    gb, domain = case4_data.create_grid(from_file=True)
+
+    data = {"domain": domain, "t_max": 5000}
+    data["dt"] = dt
+
+    case4_data.add_data(gb, data, solver_name)
+
+    solver(gb, folder)
+
+    outflow_upper, outflow_lower = outlet_fluxes(gb)
+    mean = mean_inlet_pressure(gb, solver_name)
+
+    # to store the results for the current problem
+    results = np.empty(1+3+3, dtype=np.object)
+
+    # save basic informations
+    results[0] = "UiB-" + solver_name.upper()
+    results[1] = np.sum([g.num_cells for g in gb.grids_of_dimension(3)])
+    results[2] = np.sum([g.num_cells for g in gb.grids_of_dimension(2)])
+    results[3] = np.sum([g.num_cells for g in gb.grids_of_dimension(1)])
+    results[4] = outflow_upper
+    results[5] = outflow_lower
+    results[6] = mean
+
+    file_name = folder + '/info.txt'
+    with open(file_name, "w") as f:
+        f.write(", ".join(map(str, results)))
+
+    solvers.transport(gb, data, solver_name, folder,
+                      case4_data.AdvectiveDataAssigner,
+                      callback=report_concentrations)
+
+# ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-#    solver_list = [solvers.solve_rt0, solvers.solve_tpfa, solvers.solve_mpfa,
-#                    solvers.solve_vem]
     solver_list = [solvers.solve_tpfa, solvers.solve_mpfa, solvers.solve_vem,
                    solvers.solve_rt0]
     solver_names = ['tpfa', 'mpfa', 'vem', 'rt0']
-    solver_names = ['tpfa', 'mpfa']
-    solver_list = [solvers.solve_tpfa, solvers.solve_mpfa]
 
-    time_steps = [50]
-    save_every = [1]
+    solver_list = [solvers.solve_tpfa]
+    solver_names = ['tpfa']
 
+    time_step = 50
     for solver, solver_name in zip(solver_list, solver_names):
-        for dt, save in zip(time_steps, save_every):
-            folder = solver_name  + '_dt_' + str(dt)
-            gb, data = main(folder, solver, solver_name, dt, save_every=save)
+        folder = solver_name  + '_dt_' + str(time_step)
+        main(folder, solver, solver_name, time_step)
 
+    # collect all the data
+    summarize_data(solver_names)

@@ -82,7 +82,7 @@ def add_data(gb, data, solver_name):
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size != 0:
 
-            b_in, b_out = b_pressure(g)
+            b_in, b_out, b_out_1, b_out_2 = b_pressure(g)
             if b_in is not None and b_out is not None:
 
                 labels = np.array(["neu"] * b_faces.size)
@@ -94,6 +94,16 @@ def add_data(gb, data, solver_name):
 
                 param.set_bc("flow", pp.BoundaryCondition(g, b_faces, labels))
                 param.set_bc_val("flow", bc_val)
+
+                g.tags["inlet_faces"] = np.zeros(g.num_faces, dtype=np.bool)
+                g.tags["inlet_faces"][b_faces[b_in]] = True
+
+                g.tags["outlet1_faces"] = np.zeros(g.num_faces, dtype=np.bool)
+                g.tags["outlet1_faces"][b_faces[b_out_1]] = True
+
+                g.tags["outlet2_faces"] = np.zeros(g.num_faces, dtype=np.bool)
+                g.tags["outlet2_faces"][b_faces[b_out_2]] = True
+
             else:
                 param.set_bc("flow", pp.BoundaryCondition(g, empty_vec, empty_vec))
 
@@ -115,11 +125,11 @@ def add_data(gb, data, solver_name):
 
 def b_pressure(g):
     if g.dim < 3:
-        return None, None
+        return None, None, None, None
     b_faces = np.where(g.tags["domain_boundary_faces"])[0]
     null = np.zeros(b_faces.size, dtype=np.bool)
     if b_faces.size == 0:
-        return null, null
+        return null, null, null, null
     else:
         xf = g.face_centers[:, b_faces]
         tol = 1e-3
@@ -131,15 +141,19 @@ def b_pressure(g):
                         )
             ))
 
-        b_out = np.argwhere(
-                np.logical_or(np.logical_and.reduce(
+        b_out_2 = np.logical_and.reduce(
                         (xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100)
-                        ), np.logical_and.reduce(
-                        (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
-                        )
-            ))
+            )
 
-        return b_in, b_out
+        b_out_1 = np.logical_and.reduce(
+                        (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
+            )
+
+        b_out = np.argwhere(np.logical_or(b_out_1, b_out_2))
+        b_out_1 = np.argwhere(b_out_1)
+        b_out_2 = np.argwhere(b_out_2)
+
+        return b_in, b_out, b_out_1, b_out_2
 
 
 # ------------------------------------------------------------------------------#
@@ -156,9 +170,7 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
 
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size > 0:
-            b_in, b_out = b_pressure(g)
-
-            self.inflow = b_in
+            self.inflow = b_pressure(g)[0]
 
         pp.ParabolicDataAssigner.__init__(self, g, data, physics)
 
