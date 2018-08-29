@@ -1,6 +1,6 @@
 import numpy as np
 import porepy as pp
-import case4_data
+import data as problem_data
 
 from examples.papers.benchmark_2.case3.main import mean_inlet_pressure
 
@@ -27,7 +27,7 @@ def outlet_fluxes(gb):
     d = gb.node_props(g)
 
     flux = d['discharge']
-    _, b_out = case4_data.b_pressure(g)
+    _, b_out = problem_data.b_pressure(g)
     bound_faces = np.where(g.tags['domain_boundary_faces'])[0]
 
     xf = g.face_centers[:, bound_faces[b_out]]
@@ -58,12 +58,12 @@ def summarize_data(solver_names):
 def main(folder, solver, solver_name, dt):
 
     tol = 1e-8
-    gb, domain = case4_data.create_grid(from_file=True)
+    gb, domain = problem_data.create_grid(from_file=True)
 
     data = {"domain": domain, "t_max": 5000}
     data["dt"] = dt
 
-    case4_data.add_data(gb, data, solver_name)
+    problem_data.add_data(gb, data, solver_name)
 
     solver(gb, folder)
 
@@ -87,7 +87,7 @@ def main(folder, solver, solver_name, dt):
         f.write(", ".join(map(str, results)))
 
     solvers.transport(gb, data, solver_name, folder,
-                      case4_data.AdvectiveDataAssigner,
+                      problem_data.AdvectiveDataAssigner,
                       callback=report_concentrations)
 
 # ------------------------------------------------------------------------------#
