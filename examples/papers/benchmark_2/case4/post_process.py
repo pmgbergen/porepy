@@ -53,33 +53,31 @@ def write_csv(file_out, fields, data):
 if __name__ == "__main__":
 
     solver_names = ['tpfa', 'vem', 'rt0', 'mpfa']
-    indices = ['0', '1']
 
-    for idx in indices:
-        for solver in solver_names:
-            folder = "./"+solver+"_results_"+idx+"/"
+    for solver in solver_names:
+        folder = "./"+solver+"_results/"
 
-            # plot of the pressure head in the matrix, along
+        # plot of the pressure head in the matrix, along
 
-            # 3) (0, 100, 100)-(100, 0, 0)
+        # 3) (0, 100, 100)-(100, 0, 0)
 
-            field = "pressure"
-            # file of the matrix
-            file_in = folder+"sol_3.vtu"
+        field = "pressure"
+        # file of the matrix
+        file_in = folder+"sol_3.vtu"
 
-            file_out = folder+"pol_0_matrix_"+idx+".csv"
-            pts = [[0.5, 1.1, 0], [0.5, 1.1, 1]]
+        file_out = folder+"dol_0.csv"
+        pts = [[350, 100, -100], [-500, 1500, 500]]
 
-            plot_over_line(file_in, file_out, pts)
-            data = read_csv(file_out, ['arc_length', field])
-            write_csv(file_out, ['arc_length', field], data)
+        plot_over_line(file_in, file_out, pts)
+        data = read_csv(file_out, ['arc_length', field])
+        write_csv(file_out, ['arc_length', field], data)
 
-            # 4) (0, 100, 100)-(100, 0, 0)
+        # 4) (0, 100, 100)-(100, 0, 0)
 
-            file_out = folder+"pol_1_matrix_"+idx+".csv"
-            pts = [[0, 2.15, 0.5], [1, 2.15, 0.5]]
+        file_out = folder+"dol_1.csv"
+        pts = [[-500, 100, -100], [350, 1500, 500]]
 
-            plot_over_line(file_in, file_out, pts)
-            data = read_csv(file_out, ['arc_length', field])
-            write_csv(file_out, ['arc_length', field], data)
+        plot_over_line(file_in, file_out, pts)
+        data = read_csv(file_out, ['arc_length', field])
+        write_csv(file_out, ['arc_length', field], data)
 
