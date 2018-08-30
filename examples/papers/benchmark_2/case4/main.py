@@ -33,8 +33,8 @@ def outlet_fluxes(gb):
     xf = g.face_centers[:, bound_faces[b_out]]
     oi = bound_faces[b_out].ravel()
 
-    lower = g.tags["outlet1_faces"]
-    upper = g.tags["outlet2_faces"]
+    lower = np.where(g.tags["outlet1_faces"])[0]
+    upper = np.where(g.tags["outlet2_faces"])[0]
 
     n = g.face_normals[1, oi]
     bf = flux[oi] * np.sign(n)
