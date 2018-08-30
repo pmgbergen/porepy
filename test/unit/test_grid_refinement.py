@@ -434,7 +434,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
             new_g = refinement.remesh_1d(old_g, num_nodes=5)
             new_g.compute_geometry()
 
-            gb.update_nodes(old_g, new_g)
+            gb.update_nodes({old_g: new_g})
             mg = d["mortar_grid"]
             mortars.update_physical_low_grid(mg, new_g, 1e-4)
 
@@ -484,7 +484,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
             new_g = refinement.remesh_1d(old_g, num_nodes=4)
             new_g.compute_geometry()
 
-            gb.update_nodes(old_g, new_g)
+            gb.update_nodes({old_g: new_g})
             mg = d["mortar_grid"]
             mortars.update_physical_low_grid(mg, new_g, 1e-4)
 
