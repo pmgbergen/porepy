@@ -582,21 +582,17 @@ class GridBucket(object):
 
         self.graph.remove_nodes_from([g for g in self.graph if cond(g)])
 
-    def update_nodes(self, new, old):
+    def update_nodes(self, mapping):
         """
-        Update the grids giving the old and new values. The edges are updated
+        Update the grids giving old and new values. The edges are updated
         accordingly.
 
         Parameters:
-            new: List of the new grids. Can be a single element
-            old: List of the old grids, Can be a single element
+            mapping: A dictionary with the old labels as keys and new
+            labels as values. A partial mapping is allowed.
 
         """
-        new = np.atleast_1d(new)
-        old = np.atleast_1d(old)
-        assert new.size == old.size
-
-        networkx.relabel_nodes(self.graph, dict(zip(new, old)), False)
+        self.graph = networkx.relabel_nodes(self.graph, mapping)
 
     def eliminate_node(self, node):
         """
