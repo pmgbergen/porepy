@@ -388,7 +388,7 @@ class TestBucket(unittest.TestCase):
 
         g3 = MockGrid()
 
-        gb.update_nodes(g1, g3)
+        gb.update_nodes({g1: g3})
 
         # Check that the new grid and edge inherited data
         for k, v in zip(keys, vals):
