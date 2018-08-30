@@ -120,7 +120,7 @@ def main_ms(pb_data):
         i += 1
 
     # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", info["solve_h"])
+    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", info["solve_h"], "alpha", pb_data["alpha"])
 
     # post-compute the higher dimensional solution
     x_h = ms.solve_h(x_l)
@@ -189,7 +189,7 @@ def main_dd(pb_data):
         i += 1
 
     # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", solve_h)
+    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", solve_h, "alpha", pb_data["alpha"])
 
     folder = "dd_" + str(pb_data["beta"]) + "_" + str(pb_data["alpha"])
     export(data.gb, x, folder, solver_flow)
@@ -230,9 +230,9 @@ def main(pb_data):
         i += 1
 
     # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", i)
+    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", i, "alpha", pb_data["alpha"])
 
-    folder = "ref_" + str(pb_data["beta"])
+    folder = "ref_" + str(pb_data["beta"]) + "_" + str(pb_data["alpha"])
     export(data.gb, x, folder, solver_flow)
 
 # ------------------------------------------------------------------------------#
@@ -241,7 +241,6 @@ if __name__ == "__main__":
 
     betas = np.array([1e-1, 0, 1e1])
     alphas = np.array([0.5, 0.75, 1, 1.25])
-    alphas = np.array([1.00000001])
 
     for beta in betas:
         for alpha in alphas:
