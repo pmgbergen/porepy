@@ -27,14 +27,14 @@ def outlet_fluxes(gb):
     d = gb.node_props(g)
 
     flux = d['discharge']
-    _, b_out = problem_data.b_pressure(g)
+    b_out = problem_data.b_pressure(g)[1]
     bound_faces = np.where(g.tags['domain_boundary_faces'])[0]
 
     xf = g.face_centers[:, bound_faces[b_out]]
     oi = bound_faces[b_out].ravel()
 
-    lower = g.tags["outlet1_faces"]
-    upper = g.tags["outlet2_faces"]
+    lower = np.where(g.tags["outlet1_faces"])[0]
+    upper = np.where(g.tags["outlet2_faces"])[0]
 
     n = g.face_normals[1, oi]
     bf = flux[oi] * np.sign(n)
