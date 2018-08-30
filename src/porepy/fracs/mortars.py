@@ -132,7 +132,7 @@ def update_physical_high_grid(mg, g_new, g_old, tol):
         old_nodes = g_old.face_centers[:, old_faces]
 
         # retrieve the boundary faces and the corresponding coordinates
-        new_faces = g_new.get_boundary_faces()
+        new_faces = g_new.get_all_boundary_faces()
         new_nodes = g_new.face_centers[:, new_faces]
 
         # we assume only one old node
@@ -340,10 +340,11 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
     for mg_old, mg_new in mg_map.items():
         update_mortar_grid(mg_old, mg_new, tol)
 
+    if g_map:
+        gb.update_nodes(g_map)
+
     # refine the grids when specified
     for g_old, g_new in g_map.items():
-        gb.update_nodes(g_old, g_new)
-
         for e, d in gb.edges_of_node(g_new):
             mg = d["mortar_grid"]
             if mg.dim == g_new.dim:
