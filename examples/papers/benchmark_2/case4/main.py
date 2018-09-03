@@ -25,6 +25,7 @@ def report_concentrations(problem):
 def outlet_fluxes(gb):
     g = gb.grids_of_dimension(3)[0]
     d = gb.node_props(g)
+    tol = 1e-3
 
     flux = d['discharge']
     b_out = problem_data.b_pressure(g)[1]
@@ -33,13 +34,18 @@ def outlet_fluxes(gb):
     xf = g.face_centers[:, bound_faces[b_out]]
     oi = bound_faces[b_out].ravel()
 
-    lower = np.where(g.tags["outlet1_faces"])[0]
-    upper = np.where(g.tags["outlet2_faces"])[0]
+    lower = np.where(np.logical_and.reduce(
+                (xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100)
+            ))
+
+    upper = np.where(np.logical_and.reduce(
+                (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
+            ))
 
     n = g.face_normals[1, oi]
     bf = flux[oi] * np.sign(n)
 
-    return np.sum(bf[lower]), np.sum(bf[upper])
+    return np.sum(bf[lower[0]]), np.sum(bf[upper[0]])
 
 # ------------------------------------------------------------------------------#
 

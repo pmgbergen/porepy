@@ -98,12 +98,6 @@ def add_data(gb, data, solver_name):
                 g.tags["inlet_faces"] = np.zeros(g.num_faces, dtype=np.bool)
                 g.tags["inlet_faces"][b_faces[b_in]] = True
 
-                g.tags["outlet1_faces"] = np.zeros(g.num_faces, dtype=np.bool)
-                g.tags["outlet1_faces"][b_faces[b_out_1]] = True
-
-                g.tags["outlet2_faces"] = np.zeros(g.num_faces, dtype=np.bool)
-                g.tags["outlet2_faces"][b_faces[b_out_2]] = True
-
             else:
                 param.set_bc("flow", pp.BoundaryCondition(g, empty_vec, empty_vec))
 
