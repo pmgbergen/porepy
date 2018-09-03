@@ -53,19 +53,18 @@ def write_out(gb, file_name, data):
 
 # ------------------------------------------------------------------------------#
 
-def summarize_data(betas, alphas):
+def summarize_data(betas):
 
     data_dd = np.genfromtxt("dd.txt", delimiter = ",", dtype=np.int)[:, 2]
-    data_dd = data_dd.reshape(betas.size, alphas.size)
+    data_dd = data_dd.reshape(betas.size, 1)
 
     data_ms = np.genfromtxt("ms.txt", delimiter = ",", dtype=np.int)[:, 2]
-    data_ms = data_ms.reshape(betas.size, alphas.size)
+    data_ms = data_ms.reshape(betas.size, 1)
 
-    data = np.zeros((betas.size, 2*alphas.size + 1))
+    data = np.zeros((betas.size, 3))
     data[:, 0] = betas
-    for col in np.arange(alphas.size):
-        data[:, 2*col+1] = data_dd[:, col]
-        data[:, 2*col+2] = data_ms[:, col]
+    data[:, 1] = data_dd[:, 0]
+    data[:, 2] = data_ms[:, 0]
 
     name = "results.csv"
     np.savetxt(name, data, delimiter=' & ', fmt='%f', newline=' \\\\\n')
@@ -120,7 +119,7 @@ def main_ms(pb_data):
         i += 1
 
     # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", info["solve_h"], "alpha", pb_data["alpha"])
+    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", info["solve_h"])
 
     # post-compute the higher dimensional solution
     x_h = ms.solve_h(x_l)
@@ -130,7 +129,7 @@ def main_ms(pb_data):
 
     x = ms.concatenate(x_h, x_l)
 
-    folder = "ms_" + str(pb_data["beta"]) + "_" + str(pb_data["alpha"])
+    folder = "ms_" + str(pb_data["beta"])
     export(data.gb, x, folder, solver_flow)
     write_out(data.gb, "ms.txt", info["solve_h"])
 
@@ -189,9 +188,9 @@ def main_dd(pb_data):
         i += 1
 
     # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", solve_h, "alpha", pb_data["alpha"])
+    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", solve_h)
 
-    folder = "dd_" + str(pb_data["beta"]) + "_" + str(pb_data["alpha"])
+    folder = "dd_" + str(pb_data["beta"])
     export(data.gb, x, folder, solver_flow)
     write_out(data.gb, "dd.txt", solve_h)
 
@@ -230,9 +229,9 @@ def main(pb_data):
         i += 1
 
     # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", i, "alpha", pb_data["alpha"])
+    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", i)
 
-    folder = "ref_" + str(pb_data["beta"]) + "_" + str(pb_data["alpha"])
+    folder = "ref_" + str(pb_data["beta"])
     export(data.gb, x, folder, solver_flow)
 
 # ------------------------------------------------------------------------------#
@@ -240,21 +239,20 @@ def main(pb_data):
 if __name__ == "__main__":
 
     betas = np.array([1e-1, 0, 1e1])
-    alphas = np.array([0.5, 0.75, 1, 1.25])
+    alpha = 4
 
     for beta in betas:
-        for alpha in alphas:
-            data = {"kf_n": 1e4,
-                    "kf_t": 1e4,
-                    "aperture": 1e-4,
-                    "beta": beta,
-                    "mesh_size": 0.045,
-                    "alpha": alpha,
-                    "fix_pt_err": 1e-5,
-                    "fix_pt_maxiter": 1e3}
+        data = {"kf_n": 1e4,
+                "kf_t": 1e4,
+                "aperture": 1e-4,
+                "beta": beta,
+                "mesh_size": 0.5,
+                "alpha": alpha,
+                "fix_pt_err": 1e-5,
+                "fix_pt_maxiter": 1e3}
 
-            main_ms(data)
-            main_dd(data)
-            main(data)
+        main_ms(data)
+        main_dd(data)
+        main(data)
 
-    summarize_data(betas, alphas)
+    summarize_data(betas)
