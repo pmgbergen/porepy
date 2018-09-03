@@ -88,9 +88,10 @@ def main(grid_file, folder, solver, solver_name, dt):
     results[1] = np.sum([g.num_cells for g in gb.grids_of_dimension(3)])
     results[2] = np.sum([g.num_cells for g in gb.grids_of_dimension(2)])
     results[3] = np.sum([g.num_cells for g in gb.grids_of_dimension(1)])
-    results[4] = outflow_upper
-    results[5] = outflow_lower
-    results[6] = mean
+    results[4] = np.sum([g.num_cells for g in gb.grids_of_dimension(0)])
+    results[5] = outflow_upper
+    results[6] = outflow_lower
+    results[7] = mean
 
     file_name = folder + '/info.txt'
     with open(file_name, "w") as f:

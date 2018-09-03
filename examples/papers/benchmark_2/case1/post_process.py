@@ -83,7 +83,7 @@ def cot_domain(transport_root, file_in, step, field, fields, padding=6):
 if __name__ == "__main__":
 
     solver_names = ['tpfa', 'vem', 'rt0', 'mpfa']
-    refinements = ['0', '1']
+    refinements = ['0', '1', '2']
 
     for refinement in refinements:
         for solver in solver_names:

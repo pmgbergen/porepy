@@ -1,5 +1,6 @@
 import logging, time
 import scipy.sparse as sps
+import scipy.io as sps_io
 import numpy as np
 
 import porepy as pp
@@ -60,6 +61,8 @@ def solve_rt0(gb, folder):
     solver_flow.extract_p(gb, "up", "pressure")
     solver_flow.extract_u(gb, "up", "discharge")
 
+    sps_io.mmwrite(folder+"/matrix.mtx", A_flow + A_source)
+
     export(gb, folder)
 
 
@@ -83,6 +86,8 @@ def solve_tpfa(gb, folder):
     logger.info('Done. Elapsed time ' + str(time.time() - tic))
     solver_flow.split(gb, "pressure", p)
     pp.fvutils.compute_discharges(gb)
+
+    sps_io.mmwrite(folder+"/matrix.mtx", A_flow + A_source)
 
     export(gb, folder)
 
@@ -109,6 +114,8 @@ def solve_mpfa(gb, folder):
 
     solver_flow.split(gb, "pressure", p)
     pp.fvutils.compute_discharges(gb)
+
+    sps_io.mmwrite(folder+"/matrix.mtx", A_flow + A_source)
 
     export(gb, folder)
 
@@ -156,6 +163,8 @@ def solve_vem(gb, folder):
     solver_flow.split(gb, "up", up)
     solver_flow.extract_p(gb, "up", "pressure")
     solver_flow.extract_u(gb, "up", "discharge")
+
+    sps_io.mmwrite(folder+"/matrix.mtx", A_flow + A_source)
 
     export(gb, folder)
 
