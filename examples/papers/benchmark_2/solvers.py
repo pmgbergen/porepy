@@ -48,13 +48,10 @@ def solve_rt0(gb, folder):
     solver_flow = pp.RT0MixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = pp.DualSourceMixedDim("flow", [None])
-    A_source, b_source = solver_source.matrix_rhs(gb)
-
     logger.info('Done. Elapsed time: ' + str(time.time() - tic))
     logger.info('Linear solver')
     tic = time.time()
-    up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
+    up = sps.linalg.spsolve(A_flow, b_flow)
     logger.info('Done. Elapsed time ' + str(time.time() - tic))
 
     solver_flow.split(gb, "up", up)
@@ -103,13 +100,10 @@ def solve_mpfa(gb, folder):
     solver_flow = pp.MpfaMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = pp.IntegralMixedDim("flow", [None])
-    A_source, b_source = solver_source.matrix_rhs(gb)
-
     logger.info('Done. Elapsed time: ' + str(time.time() - tic))
     logger.info('Linear solver')
     tic = time.time()
-    p = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
+    p = sps.linalg.spsolve(A_flow, b_flow)
     logger.info('Done. Elapsed time ' + str(time.time() - tic))
 
     solver_flow.split(gb, "pressure", p)
@@ -130,10 +124,8 @@ def solve_p1(gb, folder):
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
     solver_source = pp.IntegralMixedDim("flow")
-    A_source, b_source = solver_source.matrix_rhs(gb)
-    A = A_flow + A_source
 
-    p = sps.linalg.spsolve(A, b_flow + b_source)
+    p = sps.linalg.spsolve(A, b_flow)
     solver_flow.split(gb, "pressure", p)
 
     save = pp.Exporter(gb, "sol", folder=folder, simplicial=True)
@@ -151,13 +143,10 @@ def solve_vem(gb, folder):
     solver_flow = pp.DualVEMMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    solver_source = pp.DualSourceMixedDim("flow", [None])
-    A_source, b_source = solver_source.matrix_rhs(gb)
-
     logger.info('Done. Elapsed time: ' + str(time.time() - tic))
     logger.info('Linear solver')
     tic = time.time()
-    up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
+    up = sps.linalg.spsolve(A_flow, b_flow)
     logger.info('Done. Elapsed time ' + str(time.time() - tic))
 
     solver_flow.split(gb, "up", up)
