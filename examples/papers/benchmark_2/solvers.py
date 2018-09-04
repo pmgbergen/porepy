@@ -58,10 +58,8 @@ def solve_rt0(gb, folder):
     solver_flow.extract_p(gb, "up", "pressure")
     solver_flow.extract_u(gb, "up", "discharge")
 
-    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
-
     export(gb, folder)
-
+    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
 
 # ------------------------------------------------------------------------------#
 
@@ -84,9 +82,8 @@ def solve_tpfa(gb, folder):
     solver_flow.split(gb, "pressure", p)
     pp.fvutils.compute_discharges(gb)
 
-    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
-
     export(gb, folder)
+    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
 
 
 # ------------------------------------------------------------------------------#
@@ -109,9 +106,8 @@ def solve_mpfa(gb, folder):
     solver_flow.split(gb, "pressure", p)
     pp.fvutils.compute_discharges(gb)
 
-    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
-
     export(gb, folder)
+    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
 
 
 # ------------------------------------------------------------------------------#
@@ -153,9 +149,8 @@ def solve_vem(gb, folder):
     solver_flow.extract_p(gb, "up", "pressure")
     solver_flow.extract_u(gb, "up", "discharge")
 
-    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
-
     export(gb, folder)
+    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
 
 
 # ------------------------------------------------------------------------------#
