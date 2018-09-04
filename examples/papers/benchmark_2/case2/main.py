@@ -31,6 +31,12 @@ def main(test_case, file_geo, folder, solver, solver_name, N = None):
         "t_max": 0.25,
     }
 
+    problem_data.add_data(gb, data, solver_name)
+    solver(gb, folder)
+
+    # to store the results for the current problem
+    results = np.empty(5, dtype=np.object)
+
     # save basic informations
     results[0] = "UiB-" + solver_name.upper()
     results[1] = np.sum([g.num_cells for g in gb.grids_of_dimension(3)])
@@ -42,8 +48,6 @@ def main(test_case, file_geo, folder, solver, solver_name, N = None):
     with open(file_name, "w") as f:
         f.write(", ".join(map(str, results)))
 
-    problem_data.add_data(gb, data, solver_name)
-    solver(gb, folder)
     solvers.transport(gb, data, solver_name, folder, problem_data.AdvectiveDataAssigner)
 
 

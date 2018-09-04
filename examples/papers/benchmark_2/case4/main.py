@@ -77,7 +77,7 @@ def main(folder, solver, solver_name, dt):
     mean = mean_inlet_pressure(gb, solver_name)
 
     # to store the results for the current problem
-    results = np.empty(1+3+3, dtype=np.object)
+    results = np.empty(8, dtype=np.object)
 
     # save basic informations
     results[0] = "UiB-" + solver_name.upper()
