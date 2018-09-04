@@ -5,6 +5,7 @@ from vtk.util.numpy_support import vtk_to_numpy
 
 import csv
 import numpy as np
+from scipy.io import mmread
 
 #------------------------------------------------------------------------------#
 
@@ -32,12 +33,19 @@ def plot_over_line(file_in, file_out, pts, resolution=2000):
 
 #------------------------------------------------------------------------------#
 
-def read_csv(file_in, fields):
+def read_csv(file_in, fields=None):
+
     # post-process the file by selecting only few columns
-    data = list(list() for _ in fields)
-    with open(file_in, 'r') as csvfile:
-        reader = csv.DictReader(csvfile)
-        [d.append(row[f]) for row in reader for f, d in zip(fields, data)]
+    if fields is not None:
+        data = list(list() for _ in fields)
+        with open(file_in, 'r') as csvfile:
+            reader = csv.DictReader(csvfile)
+            [d.append(row[f]) for row in reader for f, d in zip(fields, data)]
+    else:
+        with open(file_in, 'r') as csvfile:
+            reader = csv.reader(csvfile)
+            data = list(reader)
+
     return data
 
 #------------------------------------------------------------------------------#
@@ -59,6 +67,26 @@ if __name__ == "__main__":
         for solver in solver_names:
             folder = "./"+solver+"_results_"+idx+"/"
 
+            # 1) 2) matrix and grid information
+            file_in = folder + "info.txt"
+            data_info = read_csv(file_in)[0]
+            data_info = map(float, data_info[1:])
+
+            data = map(int, data_info[3::-1])
+
+            file_in = folder + "matrix.mtx"
+            A = mmread(file_in)
+            data.append(A.shape[0])
+            data.append(A.nnz)
+
+            data.append(data_info[4])
+            data.append(data_info[5])
+            data.append(data_info[6])
+
+            with open(solver+"_results.csv", 'a+') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(data)
+
             # plot of the pressure head in the matrix, along
 
             # 3) (0, 100, 100)-(100, 0, 0)
@@ -67,7 +95,7 @@ if __name__ == "__main__":
             # file of the matrix
             file_in = folder+"sol_3.vtu"
 
-            file_out = folder+"pol_0_matrix_"+idx+".csv"
+            file_out = folder+"dol_line_0_refinement_"+idx+".csv"
             pts = [[0.5, 1.1, 0], [0.5, 1.1, 1]]
 
             plot_over_line(file_in, file_out, pts)
@@ -76,10 +104,22 @@ if __name__ == "__main__":
 
             # 4) (0, 100, 100)-(100, 0, 0)
 
-            file_out = folder+"pol_1_matrix_"+idx+".csv"
+            file_out = folder+"dol_line_1_refinement_"+idx+".csv"
             pts = [[0, 2.15, 0.5], [1, 2.15, 0.5]]
 
             plot_over_line(file_in, file_out, pts)
             data = read_csv(file_out, ['arc_length', field])
             write_csv(file_out, ['arc_length', field], data)
 
+            # 5)
+            file_in = folder+"/mean_concentration.txt"
+            file_out = folder+"/cot_refinement_"+idx+".csv"
+            data = np.array(read_csv(file_in), dtype=np.float)[-100:, :]
+
+            time = np.arange(1, 101)*0.01
+            data = np.c_[time, data]
+
+            with open(file_out, 'w') as csvfile:
+                writer = csv.writer(csvfile)
+                for row in data:
+                    writer.writerow(row)

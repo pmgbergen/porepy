@@ -5,6 +5,7 @@ from vtk.util.numpy_support import vtk_to_numpy
 
 import csv
 import numpy as np
+from scipy.io import mmread
 
 #------------------------------------------------------------------------------#
 
@@ -46,12 +47,19 @@ def plot_over_line(file_in, file_out, pts, resolution=2000):
 
 #------------------------------------------------------------------------------#
 
-def read_csv(file_in, fields):
+def read_csv(file_in, fields=None):
+
     # post-process the file by selecting only few columns
-    data = list(list() for _ in fields)
-    with open(file_in, 'r') as csvfile:
-        reader = csv.DictReader(csvfile)
-        [d.append(row[f]) for row in reader for f, d in zip(fields, data)]
+    if fields is not None:
+        data = list(list() for _ in fields)
+        with open(file_in, 'r') as csvfile:
+            reader = csv.DictReader(csvfile)
+            [d.append(row[f]) for row in reader for f, d in zip(fields, data)]
+    else:
+        with open(file_in, 'r') as csvfile:
+            reader = csv.reader(csvfile)
+            data = list(reader)
+
     return data
 
 #------------------------------------------------------------------------------#
@@ -60,7 +68,10 @@ def write_csv(file_out, fields, data):
     with open(file_out, 'w') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fields)
         #writer.writeheader()
-        [writer.writerow({f: d for f, d in zip(fields, dd)}) for dd in zip(*data)]
+        for dd in zip(*data):
+            if np.isnan(np.array(dd)).any():
+                print(dd)
+            writer.writerow({f: d for f, d in zip(fields, dd)})
 
 #------------------------------------------------------------------------------#
 
@@ -89,6 +100,20 @@ if __name__ == "__main__":
         for solver in solver_names:
             folder = "./"+solver+"_results_"+refinement+"/"
 
+            # 1) matrix and grid information
+            file_in = folder + "info.txt"
+            data = read_csv(file_in)[0]
+            data = map(int, map(float, data[:0:-1]))
+
+            file_in = folder + "matrix.mtx"
+            A = mmread(file_in)
+            data.append(A.shape[0])
+            data.append(A.nnz)
+
+            with open(solver+"_results.csv", 'a+') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(data)
+
             # 2) $\int_{\Omega_3,3} \porosity c \, \mathrm{d}x$ $([-])$ vs. time
             field = "tracer"
             step = 101
@@ -97,26 +122,35 @@ if __name__ == "__main__":
 
             # in this file the constant data are saved
             file_in = folder+"sol_3.vtu"
-            fields = ["phi", "cell_volumes", "aperture", "bottom_domain"]
-            cot_matrix = cot_domain(transport_root, file_in, step, field, fields)
+            fields = ["cell_volumes", "aperture", "bottom_domain"]
+            phi = 0.25
+            cot_matrix = phi * cot_domain(transport_root, file_in, step, field, fields)
 
-            # 1) $\int_{\Omega_f} \epsilon \porosity c \, \mathrm{d}x$ $([-])$ vs. time
+            # 3) $\int_{\Omega_f} \epsilon \porosity c \, \mathrm{d}x$ $([-])$ vs. time
 
             transport_root = folder+"tracer_2_"
 
             # in this file the constant data are saved
             file_in = folder+"sol_2.vtu"
-            fields = ["phi", "cell_volumes", "aperture"]
-            cot_fracture = cot_domain(transport_root, file_in, step, field, fields)
+            fields = ["cell_volumes", "aperture"]
+            phi = 0.4
+            cot_fracture = phi * cot_domain(transport_root, file_in, step, field, fields)
 
-            # 3)
+
+            # 4) the integrated flux of c across the outlet boundary for each time step
+            file_in = folder + "outflow.csv"
+            outflow = read_csv(file_in)
+            outflow = np.array(outflow, dtype=np.float).ravel()
+
+            # )
             # collect the data in a single file
-            file_out = folder+"dot_"+refinement+".csv"
+            file_out = folder+"dot_refinement_"+refinement+".csv"
             times = np.arange(step)*1e7
 
-            write_csv(file_out, ['time', 'cot_m', 'cot_f'], [times, cot_matrix, cot_fracture])
+            data = [times, cot_matrix, cot_fracture, outflow]
+            write_csv(file_out, ['time', 'cot_m', 'cot_f', 'outflow'], data)
 
-            # 4) plot of the pressure head in the matrix, along
+            # 5) plot of the pressure head in the matrix, along
             #    (0, 100, 100)-(100, 0, 0)
 
             field_0 = "pressure"
@@ -127,8 +161,9 @@ if __name__ == "__main__":
 
             plot_over_line(file_in, file_tmp, pts)
             data_0 = read_csv(file_tmp, ['arc_length', field_0])
+            data_0 = np.array(data_0, dtype=np.float).T
 
-            # 5) plot of $c$ in the matrix, at the final simulation time, along
+            # 6) plot of $c$ in the matrix, at the final simulation time, along
             #    (0, 100, 100)-(100, 0, 0)
 
             field_1 = "tracer"
@@ -139,8 +174,9 @@ if __name__ == "__main__":
 
             plot_over_line(file_in, file_tmp, pts)
             data_1 = read_csv(file_tmp, ['arc_length', field_1])
+            data_1 = np.array(data_1, dtype=np.float).T
 
-            # 6) plot of $c$ within the fracture at the final simulation time along
+            # 7) plot of $c$ within the fracture at the final simulation time along
             #    (0, 100, 80)-(100, 0, 20)
 
             field_2 = "tracer"
@@ -151,8 +187,15 @@ if __name__ == "__main__":
 
             plot_over_line(file_in, file_tmp, pts)
             data_2 = read_csv(file_tmp, ['arc_length', field_2])
+            data_2 = np.array(data_2, dtype=np.float).T
 
             file_out = folder+"dol_refinement_"+refinement+".csv"
-            write_csv(file_out,
-                    ['arc_length', field_0, 'arc_length', field_1, 'arc_length', field_2],
-                    [data_0, data_1, data_2])
+            data = np.asarray([data_0[:, 0], data_0[:, 1], data_1[:, 0],
+                               data_1[:, 1], data_2[:, 0], data_2[:, 1]])
+
+            with open(file_out, 'w') as csvfile:
+                writer = csv.writer(csvfile)
+                for row in data.T:
+                    if np.isnan(row).any():
+                        continue
+                    writer.writerow(row)
