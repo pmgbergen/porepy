@@ -371,19 +371,17 @@ class FracturedMpsa(Mpsa):
         frac_faces = g.tags["fracture_faces"]
 
         bound = data["param"].get_bc(self)
-        is_dir = bound.is_dir
 
         if bound.bc_type == "scalar":
-            if not np.all(is_dir[frac_faces]):
-                is_dir[frac_faces] = True
-                bound = bc.BoundaryCondition(g, is_dir, "dir")
+            bound.is_dir[frac_faces] = True
+            bound.is_neu[frac_faces] = False
         elif bound.bc_type == "vectorial":
-            if not np.all(is_dir[:, frac_faces]):
-                is_dir[:, frac_faces] = True
-                bound = bc.BoundaryConditionVectorial(g, is_dir, "dir")
+            bound.is_dir[:, frac_faces] = True
+            bound.is_neu[:, frac_faces] = False
         else:
             raise ValueError("Unknow boundary condition type: " + bound.bc_type)
-
+        if np.sum(bound.is_dir * bound.is_neu) !=0:
+            raise AssertionError('Found faces that are both dirichlet and neuman')
         # Discretize with normal mpsa
         self.discretize(g, data, **kwargs)
         stress, bound_stress = data["stress"], data["bound_stress"]
