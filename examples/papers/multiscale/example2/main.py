@@ -53,24 +53,27 @@ def write_out(gb, file_name, data):
 
 # ------------------------------------------------------------------------------#
 
-def summarize_data(betas):
+def summarize_data(betas, tests):
 
-    data = np.zeros((betas.size, 3))
-    data[:, 0] = betas
-    data[:, 1] = np.genfromtxt("dd.txt", delimiter = ",", dtype=np.int)[:, 2]
-    data[:, 2] = np.genfromtxt("ms.txt", delimiter = ",", dtype=np.int)[:, 2]
+    for t, n in tests:
+        data = np.zeros((betas.size, 3))
 
-    name = "results.csv"
-    np.savetxt(name, data, delimiter=' & ', fmt='%f', newline=' \\\\\n')
+        name = "_" + str(n)
+        data[:, 0] = betas
+        data[:, 1] = np.genfromtxt("dd"+name+".txt", delimiter = ",", dtype=np.int)[:, 2]
+        data[:, 2] = np.genfromtxt("ms"+name+".txt", delimiter = ",", dtype=np.int)[:, 2]
 
-    # remove the // from the end of the file
-    with open(name, 'rb+') as f:
-        f.seek(-3, os.SEEK_END)
-        f.truncate()
+        name = "results"+name+".csv"
+        np.savetxt(name, data, delimiter=' & ', fmt='%f', newline=' \\\\\n')
+
+        # remove the // from the end of the file
+        with open(name, 'rb+') as f:
+            f.seek(-3, os.SEEK_END)
+            f.truncate()
 
 # ------------------------------------------------------------------------------#
 
-def main_ms(pb_data):
+def main_ms(pb_data, name):
     # in principle we can re-compute only the matrices related to the
     # fracture network, however to simplify the implementation we re-compute everything
 
@@ -112,9 +115,6 @@ def main_ms(pb_data):
         err = compute_error(data.gb)
         i += 1
 
-    # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", info["solve_h"])
-
     # post-compute the higher dimensional solution
     x_h = ms.solve_h(x_l)
 
@@ -123,13 +123,17 @@ def main_ms(pb_data):
 
     x = ms.concatenate(x_h, x_l)
 
-    folder = "ms_" + str(pb_data["beta"])
+    folder = "ms_" + str(pb_data["beta"]) + name
     export(data.gb, x, folder, solver_flow)
-    write_out(data.gb, "ms.txt", info["solve_h"])
+    write_out(data.gb, "ms"+name+".txt", info["solve_h"])
+
+    # print the summary data
+    print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
+    print("iter", i, "err", err, "solve_h", info["solve_h"])
 
 # ------------------------------------------------------------------------------#
 
-def main_dd(pb_data):
+def main_dd(pb_data, name):
     # in principle we can re-compute only the matrices related to the
     # fracture network, however to simplify the implementation we re-compute everything
 
@@ -181,16 +185,17 @@ def main_dd(pb_data):
         err = compute_error(data.gb)
         i += 1
 
-    # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", solve_h)
-
-    folder = "dd_" + str(pb_data["beta"])
+    folder = "dd_" + str(pb_data["beta"]) + name
     export(data.gb, x, folder, solver_flow)
-    write_out(data.gb, "dd.txt", solve_h)
+    write_out(data.gb, "dd"+name+".txt", solve_h)
+
+    # print the summary data
+    print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
+    print("iter", i, "err", err, "solve_h", solve_h)
 
 # ------------------------------------------------------------------------------#
 
-def main(pb_data):
+def main(pb_data, name):
 
     data = Data(pb_data)
     data.add_to_gb()
@@ -222,28 +227,35 @@ def main(pb_data):
         err = compute_error(data.gb)
         i += 1
 
-    # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", i)
-
-    folder = "ref_" + str(pb_data["beta"])
+    folder = "ref_" + str(pb_data["beta"]) + name
     export(data.gb, x, folder, solver_flow)
+
+    # print the summary data
+    print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
+    print("iter", i, "err", err, "solve_h", i)
 
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
 
+    kf = {0: 1e-4, 1: 1e4}
+    # it's (kf_t, kf_n)
+    tests = np.array([[1, 1], [1, 0]])
     betas = np.array([1e-2, 1e-1, 1, 1e1, 1e2])
-    for beta in betas:
-        data = {"kf_n": 1e4,
-                "kf_t": 1e4,
-                "aperture": 1e-4,
-                "beta": beta,
-                "mesh_size": 0.045,
-                "fix_pt_err": 1e-5,
-                "fix_pt_maxiter": 1e3}
 
-        main_ms(data)
-        main_dd(data)
-        main(data)
+    for t, n in tests:
+        name = "_" + str(n)
+        for beta in betas:
+            data = {"kf_n": kf[n],
+                    "kf_t": kf[t],
+                    "aperture": 1e-4,
+                    "beta": beta,
+                    "mesh_size": 0.045,
+                    "fix_pt_err": 1e-5,
+                    "fix_pt_maxiter": 1e3}
 
-    summarize_data(betas)
+            main_ms(data, name)
+            main_dd(data, name)
+            main(data, name)
+
+    summarize_data(betas, tests)
