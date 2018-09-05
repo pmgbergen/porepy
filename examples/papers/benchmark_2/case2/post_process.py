@@ -65,12 +65,19 @@ def plot_over_line(file_in, file_out, pts, resolution=2000):
 
 #------------------------------------------------------------------------------#
 
-def read_csv(file_in, fields):
+def read_csv(file_in, fields=None):
+
     # post-process the file by selecting only few columns
-    data = list(list() for _ in fields)
-    with open(file_in, 'r') as csvfile:
-        reader = csv.DictReader(csvfile)
-        [d.append(row[f]) for row in reader for f, d in zip(fields, data)]
+    if fields is not None:
+        data = list(list() for _ in fields)
+        with open(file_in, 'r') as csvfile:
+            reader = csv.DictReader(csvfile)
+            [d.append(row[f]) for row in reader for f, d in zip(fields, data)]
+    else:
+        with open(file_in, 'r') as csvfile:
+            reader = csv.reader(csvfile)
+            data = list(reader)
+
     return data
 
 #------------------------------------------------------------------------------#
@@ -113,17 +120,22 @@ if __name__ == "__main__":
             for solver in solver_names:
                 folder = "./" + solver + "_results_" + perm + "_" + refinement + "/"
 
-            #    # 2) matrix information
-            #    file_in = "matrix.mtx"
-            #    A = mmread(file_in)
-            #
-            #    print("dof ", A.shape)
-            #    print("nnz ", A.nnz)
-            #    print("nnz/dof^2 ", A.nnz/float(A.shape[0]**2))
-            #
-            #    # for the condest use matlab/octave, no available option in scipy
-            #
-                # 3) for each mesh and for each matrix permeability, the pressure over
+                # 1) matrix and grid information
+                file_in = folder + "info.txt"
+                data = read_csv(file_in)[0]
+                data = map(int, map(float, data[:0:-1]))
+
+                file_in = folder + "matrix.mtx"
+                A = mmread(file_in)
+                data.append(A.shape[0])
+                data.append(A.nnz)
+
+                file_out = solver+"_results_perm_"+perm+".csv"
+                with open(file_out, 'a+') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(data)
+
+                # 2) for each mesh and for each matrix permeability, the pressure over
                 #    line from (0, 0, 0) to (1, 1, 1)
 
                 field = "pressure"
@@ -137,17 +149,15 @@ if __name__ == "__main__":
                 write_csv(file_out, ['arc_length', field], data)
 
                 # 4) for the coarsest mesh the averaged concentration on each matrix block
-
-                transport_root = folder+"tracer_3_"
-                file_in = folder+"sol_3.vtu"
-                fields = ["cell_volumes"]
-                field = "tracer"
-                step = 101
-                num_colors = 21
-                cot_matrix = cot_domain(transport_root, file_in, step, field, fields, num_colors)
-
-                # collect the data in a single file
                 if refinement == "1":
+                    transport_root = folder+"tracer_3_"
+                    file_in = folder+"sol_3.vtu"
+                    fields = ["cell_volumes"]
+                    field = "tracer"
+                    step = 101
+                    num_colors = 21
+                    cot_matrix = cot_domain(transport_root, file_in, step, field, fields, num_colors)
+
                     file_out = folder + "dot_perm_" + perm + ".csv"
                     times = np.arange(step)*0.25/100.
                     labels = np.arange(num_colors).astype(np.str)
