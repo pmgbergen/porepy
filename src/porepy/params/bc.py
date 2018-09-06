@@ -64,6 +64,7 @@ class BoundaryCondition(object):
 
         self.is_neu = np.zeros(self.num_faces, dtype=bool)
         self.is_dir = np.zeros(self.num_faces, dtype=bool)
+        self.is_rob = np.zeros(self.num_faces, dtype=bool)        
 
         # By default, all faces are Neumann.
         self.is_neu[bf] = True
@@ -103,8 +104,13 @@ class BoundaryCondition(object):
                 elif s.lower() == "dir":
                     self.is_dir[faces[l]] = True
                     self.is_neu[faces[l]] = False
+                    self.is_rob[faces[l]] = False
+                elif s.lower() == "rob":
+                    self.is_dir[faces[l]] = False
+                    self.is_neu[faces[l]] = False
+                    self.is_rob[faces[l]] = True                    
                 else:
-                    raise ValueError("Boundary should be Dirichlet or Neumann")
+                    raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
 class BoundaryConditionNode(object):
 
