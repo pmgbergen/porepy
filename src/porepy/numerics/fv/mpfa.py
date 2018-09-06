@@ -549,19 +549,19 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
     # Obtain normal_vector * k, pairings of cells and nodes (which together
     # uniquely define sub-cells, and thus index for gradients. See comment
     # below for the ordering of elements in the subcell gradient.
-    nk_grad, cell_node_blocks, sub_cell_index = _tensor_vector_prod(
+    nk_grad_all, cell_node_blocks, sub_cell_index = _tensor_vector_prod(
         g, k, subcell_topology, apertures
     )
 
     # Distance from cell centers to face centers, this will be the
     # contribution from gradient unknown to equations for pressure continuity
-    pr_cont_grad = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
+    pr_cont_grad_all = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
 
     # Darcy's law
-    darcy = -nk_grad[subcell_topology.unique_subfno]
+    darcy = -nk_grad_all[subcell_topology.unique_subfno]
 
     # Pair fluxes over subfaces, that is, enforce conservation
-    nk_grad = subcell_topology.pair_over_subfaces(nk_grad)
+    nk_grad_all = subcell_topology.pair_over_subfaces(nk_grad_all)
 
     # Contribution from cell center potentials to local systems
     # For pressure continuity, +-1 (Depending on whether the cell is on the
@@ -569,7 +569,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
     # The .A suffix is necessary to get a numpy array, instead of a scipy
     # matrix.
     sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
-    pr_cont_cell = sps.coo_matrix(
+    pr_cont_cell_all = sps.coo_matrix(
         (sgn[0], (subcell_topology.subfno, subcell_topology.cno))
     ).tocsr()
     # The cell centers give zero contribution to flux continuity
@@ -577,6 +577,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
         (np.zeros(1), (np.zeros(1), np.zeros(1))),
         shape=(subcell_topology.num_subfno, subcell_topology.num_cno),
     ).tocsr()
+    
     del sgn
 
     # Mapping from sub-faces to faces
@@ -598,18 +599,25 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
     bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
 
     # No flux conditions for Dirichlet boundary faces
-    nk_grad = bound_exclusion.exclude_dirichlet(nk_grad)
-    nk_cell = bound_exclusion.exclude_dirichlet(nk_cell)
+    nk_grad_n = bound_exclusion.exclude_rob_dir(nk_grad_all)
+    nk_cell = bound_exclusion.exclude_rob_dir(nk_cell)
+
+    # Robin condition is only applied to Robin boundary faces
+    nk_grad_r = bound_exclusion.keep_robin(nk_grad_all)
+    pr_cont_grad_r = bound_exclusion.keep_robin(pr_cont_grad_all)
+    pr_cont_cell_r = bound_exclusion.keep_robin(pr_cont_cell_all)
+
+    del nk_grad_all
     # No pressure condition for Neumann boundary faces
-    pr_cont_grad_all = pr_cont_grad
-    pr_cont_grad = bound_exclusion.exclude_neumann(pr_cont_grad)
-    pr_cont_cell = bound_exclusion.exclude_neumann(pr_cont_cell)
+    pr_cont_grad = bound_exclusion.exclude_neu_rob(pr_cont_grad_all)
+    pr_cont_cell = bound_exclusion.exclude_neu_rob(pr_cont_cell_all)
 
     # So far, the local numbering has been based on the numbering scheme
     # implemented in SubcellTopology (which treats one cell at a time). For
     # efficient inversion (below), it is desirable to get the system over to a
     # block-diagonal structure, with one block centered around each vertex.
     # Obtain the necessary mappings.
+
     rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
         sub_cell_index, cell_node_blocks, subcell_topology.nno_unique, bound_exclusion
     )
@@ -618,11 +626,14 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
 
     # System of equations for the subcell gradient variables. On block diagonal
     # form.
-    grad_eqs = sps.vstack([nk_grad, pr_cont_grad])
+    grad_eqs = sps.vstack([nk_grad_n, nk_grad_r + pr_cont_grad_r, pr_cont_grad])
 
     num_nk_cell = nk_cell.shape[0]
+    num_nk_rob = nk_grad_r.shape[0]
     num_pr_cont_grad = pr_cont_grad.shape[0]
-    del nk_grad
+    import pdb; pdb.set_trace()
+    
+    del nk_grad_n, nk_grad_r, pr_cont_grad_r
 
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
 
@@ -666,7 +677,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
     # it would require quite deep changes to the code.
 
     # Flux discretization:
-    flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, pr_cont_cell]))
+    flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, pr_cont_cell_r, pr_cont_cell]))
 
     ####
     # Boundary conditions
@@ -676,7 +687,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
         subcell_topology,
         sgn_unique,
         g,
-        num_nk_cell,
+        num_nk_cell + num_nk_rob,
         num_pr_cont_grad,
     )
     # Discretization of boundary values
@@ -695,7 +706,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
         * hf2f
         * pr_cont_grad_all
         * igrad
-        * (-sps.vstack([nk_cell, pr_cont_cell]))
+        * (-sps.vstack([nk_cell, pr_cont_cell_r, pr_cont_cell]))
     )
 
     # Internal faces, and boundary faces with a Dirichle condition do not need
@@ -871,10 +882,13 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno, bound_exclu
 
     # Stack node numbers of equations on top of each other, and sort them to
     # get block-structure. First eliminate node numbers at the boundary, where
-    # the equations are either of flux or pressure continuity (not both)
-    nno_flux = bound_exclusion.exclude_dirichlet(nno)
-    nno_pressure = bound_exclusion.exclude_neumann(nno)
-    node_occ = np.hstack((nno_flux, nno_pressure))
+    # the equations are either of flux, pressure continuity or robin
+    nno_flux = bound_exclusion.exclude_rob_dir(nno)
+    nno_pressure = bound_exclusion.exclude_neu_rob(nno)
+    # we have now eliminated all nodes related to robin, we therefore add them
+    nno_rob = bound_exclusion.keep_robin(nno)
+
+    node_occ = np.hstack((nno_flux, nno_rob, nno_pressure))
     sorted_ind = np.argsort(node_occ)
     sorted_nodes_rows = node_occ[sorted_ind]
     # Size of block systems
@@ -919,14 +933,17 @@ def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, 
     # are handled by assigning Neumann conditions.
     is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
     is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
+    is_rob = np.logical_and(bnd.is_rob, np.logical_not(bnd.is_internal))
+    is_neu =  np.logical_or(is_neu, is_rob)
 
     fno = subcell_topology.fno_unique
     num_neu = np.sum(is_neu[fno])
     num_dir = np.sum(is_dir[fno])
     num_bound = num_neu + num_dir
 
-    # Neumann boundary conditions
-    # Find Neumann faces, exclude Dirichlet faces (since these are excluded
+    # Neumann and Robin boundary conditions. We can handle Neumann and robin
+    # since they both are given in units of force.
+    # Find Neumann and Robin faces, exclude Dirichlet faces (since these are excluded
     # from the right hand side linear system), and do necessary formating.
     neu_ind = np.argwhere(
         bound_exclusion.exclude_dirichlet(is_neu[fno].astype("int64"))
