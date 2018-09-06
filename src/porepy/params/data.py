@@ -765,3 +765,31 @@ class Parameters(object):
             return np.zeros(self._num_faces * self.dim)
 
     bc_val_mechanics = property(get_bc_val_mechanics)
+
+
+    # ------------------------------------
+    def get_robin_factor(self, default=1):
+        """ double or array-like
+        face-wise representation of robin_factor. Set as either a np.ndarary, or a
+        scalar (uniform) value. Always returned as np.ndarray.
+        """
+        if not hasattr(self, "_robin_factor"):
+            return default * np.ones(self._num_faces * self.dim)
+
+        if isinstance(self._robin_factor, np.ndarray):
+            # Hope that the user did not initialize as array with wrong size
+            return self._robin_factor
+        else:
+            return self._robin_factor * np.ones(self._num_faces)
+
+    def set_robin_factor(self, val):
+        """ Set physics-specific robin factor. The robin factor is given by
+        T + robin_factor * u = g
+        where T is the traction, and g is given as a boundary value
+
+        Parameters:
+        val : robin_factor, representing the robin factor
+        """
+        self._robin_factor = val
+
+    robin_factor = property(get_robin_factor, set_robin_factor)
