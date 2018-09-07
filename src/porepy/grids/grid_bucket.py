@@ -588,8 +588,8 @@ class GridBucket(object):
         accordingly.
 
         Parameters:
-            mapping: A dictionary with the old labels as keys and new
-            labels as values. A partial mapping is allowed.
+            mapping: A dictionary with the old grid as keys and new
+            grid as values. A partial mapping is allowed.
 
         """
         self.graph = networkx.relabel_nodes(self.graph, mapping)

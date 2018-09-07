@@ -248,9 +248,13 @@ def remesh_1d(g_old, num_nodes, tol=1e-6):
     # normally the tags are given at faces/point that are fixed the 1d mesh
     # we use this assumption to proceed.
     for f_old in np.arange(g_old.num_faces):
+        # detect in the new grid which face is geometrically the same (upon a tolerance)
+        # as in the old grid
         dist = cg.dist_point_pointset(g_old.face_centers[:, f_old], g.face_centers)
         f_new = np.where(dist < tol)[0]
 
+        # if you find a match transfer all the tags from the face in the old grid to
+        # the face in the new grid
         if f_new.size:
             assert f_new.size == 1
             for tag in pp.utils.tags.standard_face_tags():
