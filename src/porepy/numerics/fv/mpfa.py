@@ -515,9 +515,11 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, alpha=Non
     elif g.dim == 0:
         return sps.csr_matrix([0]), 0, 0, 0
 
-    if alpha is None and np.sum(bnd.is_rob)>0:
-        raise ValueError('If applying Robin conditions you must supply an alpha')
-
+    if alpha is None:
+        if  np.sum(bnd.is_rob) !=0:
+            raise ValueError('If applying Robin conditions you must supply an alpha')
+        else:
+            alpha = 1
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
     # of coordinates of a point / vector and the real dimension. This again
