@@ -340,6 +340,8 @@ def replace_grids_in_bucket(gb, g_map={}, mg_map={}, tol=1e-6):
     for mg_old, mg_new in mg_map.items():
         update_mortar_grid(mg_old, mg_new, tol)
 
+    # update the grid bucket considering the new grids instead of the old one
+    # valid only for physical grids and not for mortar grids
     if g_map:
         gb.update_nodes(g_map)
 

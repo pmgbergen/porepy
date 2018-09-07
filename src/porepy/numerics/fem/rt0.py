@@ -404,6 +404,22 @@ class RT0(Solver):
 # ------------------------------------------------------------------------------#
 
     def opposite_side_node(self, face_nodes, nodes, faces_loc):
+        """
+        Given a face return the node on the opposite side, typical request of a Raviart-Thomas
+        approximation. This function is mainly for internal use.
+
+        Parameters:
+        ----------
+        face_nodes: global map which contains, for each face, the node ids
+        nodes: all the nodes in the grid after a find to the face_nodes map
+        faces_loc: face ids for the current cel
+
+        Return:
+        -------
+        opposite_node: for each face in faces_loc the id of the node at their opposite
+            side
+
+        """
         indptr = face_nodes.indptr
         face_nodes = [nodes[indptr[f]: indptr[f + 1]] for f in faces_loc]
 
