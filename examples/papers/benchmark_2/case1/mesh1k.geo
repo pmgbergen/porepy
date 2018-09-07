@@ -3,7 +3,9 @@
 // The 3d domain consists of two layers and a 2d fault zone
 // embedded in the upper one. Meshing is done using tetrahedra.
 ///////////////////////////////////////////////////////////////////
-h = 1.325;            // 1.325 to get ~1.5k, 0.48 to get ~10k, 0.225 to get ~100k
+
+Mesh.Algorithm = 8;
+h = 1.25;            // 1.25 to get ~1k, 0.47 to get ~10k, 0.19 to get ~100k
 ref = .90;                    // refinement in z-direction towards fracture plane (ref < 1.0)
 numPointsZ_layer1 = 3 * h;       // no. vertices in z in layer one
 numPointsZ_layer2_above = 5; // no. vertices in z in layer two above the fault
@@ -29,10 +31,14 @@ Point(4) = {0.0, 100.0, 0.0, size_at_bottom};
 Point(5) = {0.0, 0.0, 100.0, size_at_top_left};
 Point(6) = {100.0, 0.0, 100.0, size_at_top_right};
 Point(7) = {100.0, 100.0, 100.0, size_at_top_right};
+
 Point(8) = {0.0, 100.0, 100.0, size_at_top_left};
 
+
 // Lower layer boundary points
-Point(9) = {0.0, 0.0, 10.0, size_between_layers_left};
+
+Point(9) = {0.0, 0.0, 10.0, size_between_layers_left / 2};
+
 Point(10) = {100.0, 0.0, 10.0, size_between_layers_right};
 Point(11) = {100.0, 100.0, 10.0, size_between_layers_right};
 Point(12) = {0.0, 100.0, 10.0, size_between_layers_left};
