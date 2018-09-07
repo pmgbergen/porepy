@@ -206,7 +206,7 @@ class Transport(TransportSolver):
             index = np.argsort(cells)
             faces, sign = faces[index], sign[index]
 
-            discharge = d["discharge"]
+            discharge = d["discharge"].copy()
             discharge[faces] *= sign
             discharge[g.get_internal_faces()] = 0
             discharge[discharge < 0] = 0
