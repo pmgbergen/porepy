@@ -178,7 +178,7 @@ class Mpfa(Solver):
 # ------------------------------------------------------------------------------#
 
 
-def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, **kwargs):
+def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, alpha=None, **kwargs):
     """
     Discretize the scalar elliptic equation by the multi-point flux
     approximation method.
@@ -269,7 +269,7 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, **
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
         flux, bound_flux, bound_pressure_cell, bound_pressure_face = _mpfa_local(
-            g, k, bnd, eta=eta, inverter=inverter, apertures=apertures
+            g, k, bnd, eta=eta, inverter=inverter, apertures=apertures, alpha=alpha
         )
     else:
         # Estimate number of partitions necessary based on prescribed memory
@@ -456,7 +456,7 @@ def mpfa_partial(
     )
 
 
-def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
+def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, alpha=None):
     """
     Actual implementation of the MPFA O-method. To calculate MPFA on a grid
     directly, either call this method, or, to respect the privacy of this
@@ -514,6 +514,9 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
         )
     elif g.dim == 0:
         return sps.csr_matrix([0]), 0, 0, 0
+
+    if alpha is None and np.sum(bnd.is_rob)>0:
+        raise ValueError('If applying Robin conditions you must supply an alpha')
 
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
@@ -577,8 +580,23 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
         (np.zeros(1), (np.zeros(1), np.zeros(1))),
         shape=(subcell_topology.num_subfno, subcell_topology.num_cno),
     ).tocsr()
-    
-    del sgn
+
+    # For the Robin codition the distance from the cell centers to face centers
+    # will be the contribution from the gradients. We integrate over the subface
+    # and multiply by the area
+    num_nodes = np.diff(g.face_nodes.indptr)
+    scaled_sgn = (
+        alpha * sgn[0] * g.face_areas[subcell_topology.fno] \
+        / num_nodes[subcell_topology.fno]
+        )
+    # pair_over_subfaces flips the sign so we flip it back
+    pr_trace_grad_all = pr_cont_grad_all * sps.diags(scaled_sgn)
+    pr_trace_cell_all = sps.coo_matrix(
+        (alpha * g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
+         (subcell_topology.subfno, subcell_topology.cno))
+    ).tocsr()
+
+    del sgn, scaled_sgn
 
     # Mapping from sub-faces to faces
     hf2f = sps.coo_matrix(
@@ -604,11 +622,11 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
 
     # Robin condition is only applied to Robin boundary faces
     nk_grad_r = bound_exclusion.keep_robin(nk_grad_all)
-    pr_cont_grad_r = bound_exclusion.keep_robin(pr_cont_grad_all)
-    pr_cont_cell_r = bound_exclusion.keep_robin(pr_cont_cell_all)
+    pr_trace_grad = bound_exclusion.keep_robin(pr_trace_grad_all)
+    pr_trace_cell = bound_exclusion.keep_robin(pr_trace_cell_all)
 
     del nk_grad_all
-    # No pressure condition for Neumann boundary faces
+    # No pressure condition for Neumann or Robin boundary faces
     pr_cont_grad = bound_exclusion.exclude_neu_rob(pr_cont_grad_all)
     pr_cont_cell = bound_exclusion.exclude_neu_rob(pr_cont_cell_all)
 
@@ -626,14 +644,20 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
 
     # System of equations for the subcell gradient variables. On block diagonal
     # form.
-    grad_eqs = sps.vstack([nk_grad_n, nk_grad_r + pr_cont_grad_r, pr_cont_grad])
+    # NOTE: I think in the discretization for sub_cells a flow out of the cell is
+    # negative. This is a contradiction to what is done for the boundary conditions
+    # where we want to set dot(n, flux) where n is the normal pointing outwards.
+    # thats why we need +nk_grad_r - pr_trace_grad -pr_trace_cell instead of = rhs 
+    # instead of how we would expect: -nk_grad_r + pr_trace_grad +pr_trace_cell= rhs.
+    # This is also why we multiply with -1 in scaled_sgn in _create_bound_rhs
+    grad_eqs = sps.vstack([nk_grad_n, nk_grad_r - pr_trace_grad, pr_cont_grad])
 
     num_nk_cell = nk_cell.shape[0]
     num_nk_rob = nk_grad_r.shape[0]
     num_pr_cont_grad = pr_cont_grad.shape[0]
-    import pdb; pdb.set_trace()
     
-    del nk_grad_n, nk_grad_r, pr_cont_grad_r
+    
+    del nk_grad_n, nk_grad_r, pr_trace_grad
 
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
 
@@ -677,7 +701,8 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
     # it would require quite deep changes to the code.
 
     # Flux discretization:
-    flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, pr_cont_cell_r, pr_cont_cell]))
+    # The negative in front of pr_trace_cell comes from the grad_egs
+    flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell]))
 
     ####
     # Boundary conditions
@@ -687,7 +712,8 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
         subcell_topology,
         sgn_unique,
         g,
-        num_nk_cell + num_nk_rob,
+        num_nk_cell,
+        num_nk_rob,
         num_pr_cont_grad,
     )
     # Discretization of boundary values
@@ -706,7 +732,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
         * hf2f
         * pr_cont_grad_all
         * igrad
-        * (-sps.vstack([nk_cell, pr_cont_cell_r, pr_cont_cell]))
+        * (-sps.vstack([nk_cell, pr_trace_cell, pr_cont_cell]))
     )
 
     # Internal faces, and boundary faces with a Dirichle condition do not need
@@ -855,7 +881,7 @@ def _tensor_vector_prod(g, k, subcell_topology, apertures=None):
     )
 
     nk = normals_mat * k_mat
-
+    
     # Unique sub-cell indexes are pulled from column indices, we only need
     # every nd column (since nd faces of the cell meet at each vertex)
     sub_cell_ind = j[::, 0::nd]
@@ -908,7 +934,7 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno, bound_exclu
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
-def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, num_pr):
+def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, num_rob, num_pr):
     """
     Define rhs matrix to get basis functions for incorporates boundary
     conditions
@@ -934,51 +960,71 @@ def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, 
     is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
     is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
     is_rob = np.logical_and(bnd.is_rob, np.logical_not(bnd.is_internal))
-    is_neu =  np.logical_or(is_neu, is_rob)
 
     fno = subcell_topology.fno_unique
     num_neu = np.sum(is_neu[fno])
     num_dir = np.sum(is_dir[fno])
-    num_bound = num_neu + num_dir
+    num_rob = np.sum(is_rob[fno])
+    num_bound = num_neu + num_dir + num_rob
 
-    # Neumann and Robin boundary conditions. We can handle Neumann and robin
-    # since they both are given in units of force.
+    # Neumann and Robin boundary conditions. Neumann and Robin conditions
+    # are essentially the same for the rhs (the rhs for both is a flux).
+    # However, we need to be carefull and get the indexing correct as seen
+    # from the local system, that is, first Neumann, then Robin and last
+    # Dirichlet.
     # Find Neumann and Robin faces, exclude Dirichlet faces (since these are excluded
     # from the right hand side linear system), and do necessary formating.
     neu_ind = np.argwhere(
-        bound_exclusion.exclude_dirichlet(is_neu[fno].astype("int64"))
+        bound_exclusion.exclude_rob_dir(is_neu[fno].astype("int64"))
     ).ravel("F")
-    # We also need to map the respective Neumann and Dirichlet half-faces to
+    rob_ind = np.argwhere(
+        bound_exclusion.keep_robin(is_rob[fno].astype("int64"))
+    ).ravel("F")
+    neu_rob_ind = np.argwhere(
+        bound_exclusion.exclude_dirichlet((is_rob[fno] + is_neu[fno]).astype("int64"))
+    ).ravel("F")
+
+    # We also need to map the respective Neumann, Robin, and Dirichlet half-faces to
     # the global half-face numbering (also interior faces). The latter should
     # not have Dirichlet and Neumann excluded (respectively), and thus we need
     # new fields
     neu_ind_all = np.argwhere(is_neu[fno].astype("int")).ravel("F")
+    rob_ind_all = np.argwhere(is_rob[fno].astype("int")).ravel("F")    
     dir_ind_all = np.argwhere(is_dir[fno].astype("int")).ravel("F")
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order="F")
 
-    # For the Neumann boundary conditions, we define the value as seen from
+    # We now merge the neuman and robin indices since they are treated equivalent
+    if rob_ind.size==0:
+        neu_rob_ind = neu_ind
+    elif neu_ind.size==0:
+        neu_rob_ind = rob_ind
+    else:
+        neu_rob_ind = np.hstack((neu_ind, rob_ind + num_flux))
+    neu_rob_ind_all = np.hstack((neu_ind_all, rob_ind_all))
+
+    # For the Neumann/Robin boundary conditions, we define the value as seen from
     # the innside of the domain. E.g. outflow is defined to be positive. We
     # therefore set the matrix indices to -1. We also have to scale it with
     # the number of nodes per face because the flux of face is the sum of its
     # half-faces.
-    scaled_sgn = -1 / num_face_nodes[fno[neu_ind_all]]
-    if neu_ind.size > 0:
-        neu_cell = sps.coo_matrix(
-            (scaled_sgn, (neu_ind, np.arange(neu_ind.size))),
-            shape=(num_flux, num_bound),
+    scaled_sgn = -1 / num_face_nodes[fno[neu_rob_ind_all]]
+    if neu_rob_ind.size > 0:
+        neu_rob_cell = sps.coo_matrix(
+            (scaled_sgn, (neu_rob_ind, np.arange(neu_rob_ind.size))),
+            shape=(num_flux+num_rob, num_bound),
         )
     else:
         # Special handling when no elements are found. Not sure if this is
         # necessary, or if it is me being stupid
-        neu_cell = sps.coo_matrix((num_flux, num_bound))
+        neu_rob_cell = sps.coo_matrix((num_flux + num_rob, num_bound))
 
     # Dirichlet boundary conditions
     dir_ind = np.argwhere(
-        bound_exclusion.exclude_neumann(is_dir[fno].astype("int64"))
+        bound_exclusion.exclude_neu_rob(is_dir[fno].astype("int64"))
     ).ravel("F")
     if dir_ind.size > 0:
         dir_cell = sps.coo_matrix(
-            (sgn[dir_ind_all], (dir_ind, num_neu + np.arange(dir_ind.size))),
+            (sgn[dir_ind_all], (dir_ind, num_neu + num_rob + np.arange(dir_ind.size))),
             shape=(num_pr, num_bound),
         )
     else:
@@ -988,12 +1034,12 @@ def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, 
 
     # Number of elements in neu_ind and neu_ind_all are equal, we can test with
     # any of them. Same with dir.
-    if neu_ind.size > 0 and dir_ind.size > 0:
-        neu_dir_ind = np.hstack([neu_ind_all, dir_ind_all]).ravel("F")
-    elif neu_ind.size > 0:
-        neu_dir_ind = neu_ind_all
+    if neu_rob_ind.size > 0 and dir_ind.size > 0:
+        neu_rob_dir_ind = np.hstack([neu_rob_ind_all, dir_ind_all]).ravel("F")
+    elif neu_rob_ind.size > 0:
+        neu_rob_dir_ind = neu_rob_ind_all
     elif dir_ind.size > 0:
-        neu_dir_ind = dir_ind_all
+        neu_rob_dir_ind = dir_ind_all
     else:
         raise ValueError("Boundary values should be either Dirichlet or " "Neumann")
 
@@ -1002,7 +1048,7 @@ def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, 
     # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
     # Map these to all half-face indices
     bnd_2_all_hf = sps.coo_matrix(
-        (np.ones(num_bound), (np.arange(num_bound), neu_dir_ind)),
+        (np.ones(num_bound), (np.arange(num_bound), neu_rob_dir_ind)),
         shape=(num_bound, num_subfno),
     )
     # The user of the discretization should now nothing about half faces,
@@ -1014,5 +1060,6 @@ def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, 
         ),
         shape=(num_subfno, g.num_faces),
     )
-    rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
+    rhs_bound = sps.vstack([neu_rob_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
+
     return rhs_bound
