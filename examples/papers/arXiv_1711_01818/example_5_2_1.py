@@ -9,8 +9,7 @@ from porepy.params.data import Parameters
 from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import vem_dual, vem_source
-from porepy.numerics.fv.transport import upwind
-from porepy.numerics.fv import tpfa, mass_matrix
+from porepy.numerics.fv import mass_matrix, upwind
 
 # ------------------------------------------------------------------------------#
 

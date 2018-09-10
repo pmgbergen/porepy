@@ -19,9 +19,6 @@ class TestSource(unittest.TestCase):
         self.assertTrue(lhs.shape == (8, 8))
         self.assertTrue(lhs.nnz == 0)
 
-    if __name__ == "__main__":
-        unittest.main()
-
 
 def setup_3d_grid():
     g = CartGrid([2, 2, 2], physdims=[1, 1, 1])
@@ -31,3 +28,7 @@ def setup_3d_grid():
     src[4] = 1
     d["param"].set_source("flow", src)
     return g, d
+
+
+if __name__ == "__main__":
+    unittest.main()

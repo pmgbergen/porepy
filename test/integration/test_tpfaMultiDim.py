@@ -88,3 +88,7 @@ class BasicsTest(unittest.TestCase):
         flux_discr.solver.split(gb, "pressure", p)
 
         self.assertTrue(check_pressures(gb))
+
+
+if __name__ == "__main__":
+    unittest.main()
