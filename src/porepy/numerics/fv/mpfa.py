@@ -83,7 +83,7 @@ class Mpfa(Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data, discretize=True):
+    def assemble_matrix(self, g, data):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point flux
@@ -101,42 +101,33 @@ class Mpfa(Solver):
         g : grid, or a subclass, with geometry fields computed.
         data: dictionary to store the data. For details on necessary keywords,
             see method discretize()
-        discretize (boolean, optional): Whether to discetize prior to matrix
-            assembly. If False, data should already contain discretization.
-            Defaults to True.
 
         Return
         ------
         matrix: sparse csr (g_num_cells, g_num_cells)
             Discretization matrix.
-        rhs: array (g_num_cells)
-            Right-hand side which contains the boundary conditions and the scalar
-            source term.
 
         """
-        if discretize:
-            self.discretize(g, data)
-
         div = fvutils.scalar_divergence(g)
         flux = data["flux"]
         M = div * flux
 
+        return M
+
+    # ------------------------------------------------------------------------------#
+
+    def assemble_rhs(self, g, data):
+        """
+        Return the righ-hand side for a discretization of a second order elliptic
+        equation using the MPFA method. See self.matrix_rhs for a detaild
+        description.
+        """
         bound_flux = data["bound_flux"]
 
         param = data["param"]
 
         bc_val = param.get_bc_val(self)
 
-        return M, self.rhs(g, bound_flux, bc_val)
-
-    # ------------------------------------------------------------------------------#
-
-    def rhs(self, g, bound_flux, bc_val):
-        """
-        Return the righ-hand side for a discretization of a second order elliptic
-        equation using the MPFA method. See self.matrix_rhs for a detaild
-        description.
-        """
         div = g.cell_faces.T
 
         return -div * bound_flux * bc_val

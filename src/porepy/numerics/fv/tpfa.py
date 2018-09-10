@@ -18,7 +18,7 @@ from porepy.numerics.fv import fvutils
 # ------------------------------------------------------------------------------
 
 
-class TpfaMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
+class TpfaMixedDim(pp.numerics.fv.fv_elliptic.FVElliptic):
     def __init__(self, physics="flow"):
         self.physics = physics
 
@@ -296,7 +296,7 @@ class TpfaCoupling(AbstractCoupling):
     two grids of different dimension is lambda = K nabla ( P_hat  - P_check)
     and a source contribution to the lower dimensional grid equal the jump
     ||lambda||.
-    
+
     Mono dimensional coupling: The coupling condition between two grids of the
     same dimension is continuity of pressure and flux:
     P_hat - P_check = 0, v_hat = lambda, v_check = -lambda
