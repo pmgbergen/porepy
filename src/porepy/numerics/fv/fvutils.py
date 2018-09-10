@@ -995,6 +995,57 @@ class ExcludeBoundaries(object):
 
         return exclude_neumann_nd * other
 
+    def exclude_neu_rob_nd(self, other):
+        """ Exclusion of Neumann and robin conditions for vector equations (elasticity).
+        See above method without _nd suffix for description.
+
+        """
+        if self.bc_type == "scalar":
+            exclude_neumann_nd = sps.kron(sps.eye(self.nd), self._exclude_neu_rob)
+
+        elif self.bc_type == "vectorial":
+            raise NotImplementedError()
+
+        return exclude_neumann_nd * other
+
+    def exclude_neu_dir_nd(self, other):
+        """ Exclusion of Neumann and Dirichlet conditions for vector equations
+        (elasticity). See above method without _nd suffix for description.
+
+        """
+        if self.bc_type == "scalar":
+            exclude_neu_dir_nd = sps.kron(sps.eye(self.nd), self._exclude_neu_dir)
+
+        elif self.bc_type == "vectorial":
+            raise NotImplementedError()
+
+        return exclude_neu_dir_nd * other
+
+    def exclude_rob_dir_nd(self, other):
+        """ Exclusion of Roben and Dirichlet conditions for vector equations
+        (elasticity). See above method without _nd suffix for description.
+
+        """
+        if self.bc_type == "scalar":
+            exclude_neu_dir_nd = sps.kron(sps.eye(self.nd), self._exclude_rob_dir)
+
+        elif self.bc_type == "vectorial":
+            raise NotImplementedError()
+
+        return exclude_neu_dir_nd * other
+
+    def keep_robin_nd(self, other):
+        """ Keep Roben conditions for vector equations (elasticity).
+        See above method without _nd suffix for description.
+        """
+        if self.bc_type == "scalar":
+            exclude_neu_dir_nd = sps.kron(sps.eye(self.nd), self._keep_robin)
+
+        elif self.bc_type == "vectorial":
+            raise NotImplementedError()
+
+        return exclude_neu_dir_nd * other
+
     def exclude_neu_rob(self, other):
         """ Mapping to exclude faces/components with Neumann and Robin boundary
         conditions from local systems.
