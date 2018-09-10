@@ -36,10 +36,11 @@ class TestTPFA(unittest.TestCase):
         bound_faces = np.array([0, 3, 12])
         bound = bc.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)
 
-        discr = tpfa.Tpfa()
+        key = "flow"
+        discr = tpfa.Tpfa(key)
         d = _assign_params(g, perm, bound)
         discr.discretize(g, d)
-        trm, bound_flux = d["flux"], d["bound_flux"]
+        trm, bound_flux = d[discr._key() + "flux"], d[discr._key() + "bound_flux"]
         div = g.cell_faces.T
         a = div * trm
         b = -(div * bound_flux).A

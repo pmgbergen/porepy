@@ -589,6 +589,9 @@ class BasicsTest(unittest.TestCase):
 
 # ------------------------------------------------------------------------------#
 
+if __name__ == "__main__":
+    unittest.main()
+
 
 def matrix_for_test_rt0_3d():
     return np.matrix(

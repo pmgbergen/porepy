@@ -103,6 +103,10 @@ def save_img(name, g, cell_value=None, vector_value=None, info=None, **kwargs):
 
 
 class Arrow3D(FancyArrowPatch):
+    """
+    Arrow representation intended for visualization of vector quantities.
+    """
+
     def __init__(self, xs, ys, zs, *args, **kwargs):
         FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
         self._verts3d = xs, ys, zs
@@ -288,6 +292,14 @@ def color_map(extr_value, cmap_type="jet"):
 
 
 def add_info(g, info, ax, **kwargs):
+    """
+    Adds information on numbering of geometry information of the grid g to ax.
+
+    For each of the flags "C", "N" and "F" that are present in info, the cell, node and
+    face numbers will be displayed at the corresponding cell centers, nodes and face
+    centers, respectively.
+    """
+
     def disp(i, p, c, m):
         ax.scatter(*p, c=c, marker=m)
         ax.text(*p, i)

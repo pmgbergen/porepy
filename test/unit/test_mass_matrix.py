@@ -7,6 +7,7 @@ from porepy.grids import structured
 from porepy.params.data import Parameters
 
 
+
 class MassMatrixTest(unittest.TestCase):
     def test_mass_matrix(self):
         g = structured.CartGrid([3, 3, 3])
@@ -37,3 +38,7 @@ class MassMatrixTest(unittest.TestCase):
         self.assertTrue(np.allclose(lhs.diagonal(), dt / (g.cell_volumes * phi)))
         off_diag = np.where(~np.eye(lhs.shape[0], dtype=bool))
         self.assertTrue(np.allclose(lhs.A[off_diag], 0))
+
+
+if __name__ == "__main__":
+    unittest.main()

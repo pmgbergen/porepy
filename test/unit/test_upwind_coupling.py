@@ -23,10 +23,9 @@ class TestUpwindCoupling(unittest.TestCase):
         def ndof(g):
             return g.num_cells
 
-        coupler = pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling(
-            discr_ndof=ndof
-        )
-        return coupler.create_block_matrix(gs)
+        dof = np.array([ndof(g) for g in gs])
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        return cc.reshape((3, 3))
 
     def test_upwind_2d_1d_positive_flux(self):
         # test coupling between 2D grid and 1D grid with a fluid flux going from

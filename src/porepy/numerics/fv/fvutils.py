@@ -1175,13 +1175,14 @@ def compute_discharges(
     """
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
         pa = data["param"]
-        if data.get("flux") is not None:
-            dis = data["flux"] * data[p_name] + data["bound_flux"] * pa.get_bc_val(
-                physics
-            )
+        if data.get(keyword + "_flux") is not None:
+            dis = data[keyword + "_flux"] * data[p_name] + data[
+                keyword + "_bound_flux"
+            ] * pa.get_bc_val(physics)
         else:
             raise ValueError(
-                "Discharges can only be computed if a flux-based discretization has been applied"
+                """Discharges can only be computed if a flux-based
+                                 discretization has been applied"""
             )
         data[d_name] = dis
         return
@@ -1191,11 +1192,14 @@ def compute_discharges(
     for g, d in gb:
         if g.dim > 0:
             pa = d["param"]
-            if d.get("flux") is not None:
-                dis = d["flux"] * d[p_name] + d["bound_flux"] * pa.get_bc_val(physics)
+            if d.get(keyword + "_flux") is not None:
+                dis = d[keyword + "_flux"] * d[p_name] + d[
+                    keyword + "_bound_flux"
+                ] * pa.get_bc_val(physics)
             else:
                 raise ValueError(
-                    "Discharges can only be computed if a flux-based discretization has been applied"
+                    """Discharges can only be computed if a flux-based
+                                 discretization has been applied"""
                 )
 
             d[d_name] = dis

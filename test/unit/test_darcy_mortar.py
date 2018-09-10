@@ -61,6 +61,21 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             gn = gb.nodes_of_edge(e)
             d["kn"] = kn * np.ones(mg.num_cells)
 
+        key = "flow"
+        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
+        for g, d in gb:
+            # Choose discretization and define the solver
+            if multi_point:
+                discr = pp.Mpfa(key)
+            else:
+                discr = pp.Tpfa(key)
+
+            d[discretization_key] = discr
+
+        for _, d in gb.edges():
+            d[discretization_key] = pp.RobinCoupling(key, discr)
+
     def set_grids(self, N, num_nodes_mortar, num_nodes_1d, physdims=[1, 1]):
         f1 = np.array([[0, physdims[0]], [.5, .5]])
 
@@ -639,23 +654,27 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         for g, _ in gb.nodes():
             p = gb.node_props(g, "pressure")
             # print(g.cell_centers[1] - p)
-            import pdb
-
-            # pdb.set_trace()
-            #            if g.dim == 1:
-
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def run_mpfa(self, gb):
-        solver_flow = mpfa.MpfaMixedDim("flow")
-        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+        solver_flow = pp.EllipticAssembler("flow")
+        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
 
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
 
     def run_vem(self, gb):
-        solver_flow = vem_dual.DualVEMMixedDim("flow")
-        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+        key = "flow"
+        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
+        for g, d in gb:
+            d[discretization_key] = pp.DualVEM(key)
+
+        for _, d in gb.edges():
+            d[discretization_key] = pp.RobinCoupling(key, pp.DualVEM(key))
+
+        solver_flow = pp.EllipticAssembler("flow")
+        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
 
         up = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "up", up)
@@ -844,8 +863,17 @@ class TestMortar3D(unittest.TestCase):
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3))
 
     def run_mpfa(self, gb):
-        solver_flow = mpfa.MpfaMixedDim("flow")
-        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+        key = "flow"
+        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
+        for g, d in gb:
+            d[discretization_key] = pp.Mpfa(key)
+
+        for _, d in gb.edges():
+            d[discretization_key] = pp.RobinCoupling(key, pp.Mpfa(key))
+
+        solver_flow = pp.EllipticAssembler("flow")
+        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
 
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
@@ -1016,8 +1044,17 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
     def run_mpfa(self, gb):
-        solver_flow = mpfa.MpfaMixedDim("flow")
-        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+        key = "flow"
+        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
+        for g, d in gb:
+            d[discretization_key] = pp.Mpfa(key)
+
+        for _, d in gb.edges():
+            d[discretization_key] = pp.RobinCoupling(key, pp.Mpfa(key))
+
+        solver_flow = pp.EllipticAssembler("flow")
+        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
 
         p = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "pressure", p)
@@ -1061,10 +1098,6 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 #        self.run_mpfa(gb)
 #        self.verify_cv(gb)
 
-# TestGridRefinement1d().test_mortar_grid_darcy()
-# a = TestMortar2dSingleFractureCartesianGrid()
-# a.test_mpfa_one_frac()
-# a.test_tpfa_matching_grids_refine_2d_uniform_flow_larger_domain()
 if __name__ == "__main__":
     unittest.main()
 # gb = a.setup()
