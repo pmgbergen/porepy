@@ -591,7 +591,8 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, alpha=Non
         alpha * sgn[0] * g.face_areas[subcell_topology.fno] \
         / num_nodes[subcell_topology.fno]
         )
-    # pair_over_subfaces flips the sign so we flip it back
+
+    # pair_over_subfaces flips the sign so we flip it backo
     pr_trace_grad_all = pr_cont_grad_all * sps.diags(scaled_sgn)
     pr_trace_cell_all = sps.coo_matrix(
         (alpha * g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
@@ -966,7 +967,7 @@ def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, 
     fno = subcell_topology.fno_unique
     num_neu = np.sum(is_neu[fno])
     num_dir = np.sum(is_dir[fno])
-    num_rob = np.sum(is_rob[fno])
+    assert num_rob == np.sum(is_rob[fno])
     num_bound = num_neu + num_dir + num_rob
 
     # Neumann and Robin boundary conditions. Neumann and Robin conditions
@@ -999,7 +1000,7 @@ def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, 
     if rob_ind.size==0:
         neu_rob_ind = neu_ind
     elif neu_ind.size==0:
-        neu_rob_ind = rob_ind
+        neu_rob_ind = rob_ind + num_flux
     else:
         neu_rob_ind = np.hstack((neu_ind, rob_ind + num_flux))
     neu_rob_ind_all = np.hstack((neu_ind_all, rob_ind_all))
