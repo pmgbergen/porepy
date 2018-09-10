@@ -126,7 +126,6 @@ class RobinBoundTest(unittest.TestCase):
 
         assert np.allclose(p, p_ex)
         assert np.allclose(flux * p + bound_flux * u_bound, u_ex)
-                
 
     def solve_robin(self, g, k, bnd, alpha, p_bound, rob_bound, dir_ind, rob_ind, p_ex, u_ex):
         flux, bound_flux, _, _ = pp.numerics.fv.mpfa._mpfa_local(g, k, bnd, alpha=alpha)
