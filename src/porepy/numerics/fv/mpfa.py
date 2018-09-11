@@ -587,13 +587,13 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, alpha=Non
     # will be the contribution from the gradients. We integrate over the subface
     # and multiply by the area
     num_nodes = np.diff(g.face_nodes.indptr)
+    sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
     scaled_sgn = (
-        alpha * sgn[0] * g.face_areas[subcell_topology.fno] \
-        / num_nodes[subcell_topology.fno]
-        )
-
+        alpha * sgn[0] * g.face_areas[subcell_topology.fno_unique] \
+        / num_nodes[subcell_topology.fno_unique]
+    )
     # pair_over_subfaces flips the sign so we flip it backo
-    pr_trace_grad_all = pr_cont_grad_all * sps.diags(scaled_sgn)
+    pr_trace_grad_all = sps.diags(scaled_sgn) * pr_cont_grad_all
     pr_trace_cell_all = sps.coo_matrix(
         (alpha * g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
          (subcell_topology.subfno, subcell_topology.cno))
