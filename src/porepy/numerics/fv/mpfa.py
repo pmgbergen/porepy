@@ -587,7 +587,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, robin_wei
         shape=(subcell_topology.num_subfno, subcell_topology.num_cno),
     ).tocsr()
 
-    # For the Robin codition the distance from the cell centers to face centers
+    # For the Robin condition the distance from the cell centers to face centers
     # will be the contribution from the gradients. We integrate over the subface
     # and multiply by the area
     num_nodes = np.diff(g.face_nodes.indptr)
