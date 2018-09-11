@@ -4,7 +4,7 @@ Contains standard values (e.g. found in Wikipedia) for permeability, elastic
 moduli etc.
 
 """
-from porepy.params import units
+import porepy as pp
 
 
 def poisson_from_lame(mu, lmbda):
@@ -71,10 +71,10 @@ class SandStone(UnitRock):
     def __init__(self):
 
         # Fairly permeable rock.
-        self.PERMEABILITY = 1 * units.DARCY
+        self.PERMEABILITY = 1 * pp.DARCY
         self.POROSITY = 0.2
         # Reported range for Young's modulus is 0.5-8.6
-        self.YOUNG_MODULUS = 5 * units.KILOGRAM / units.CENTI ** 2 * 1e5
+        self.YOUNG_MODULUS = 5 * pp.KILOGRAM / pp.CENTI ** 2 * 1e5
         # Reported range for Poisson's ratio is 0.066-0.125
         self.POISSON_RATIO = 0.1
 
@@ -94,10 +94,10 @@ class Shale(UnitRock):
 
     def __init__(self):
         # No source for permeability and porosity.
-        self.PERMEABILITY = 1e-5 * units.DARCY
+        self.PERMEABILITY = 1e-5 * pp.DARCY
         self.POROSITY = 0.01
         # Reported range for Young's modulus is 0.8-3.0
-        self.YOUNG_MODULUS = 1.5 * units.KILOGRAM / units.CENTI ** 2 * 1e5
+        self.YOUNG_MODULUS = 1.5 * pp.KILOGRAM / pp.CENTI ** 2 * 1e5
         # Reported range for Poisson's ratio is 0.11-0.54 (the latter is strange)
         self.POISSON_RATIO = 0.3
 
@@ -112,18 +112,23 @@ class Granite(UnitRock):
 
     Data partially from:
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
-
+    And 
+    https://www.jsg.utexas.edu/tyzhu/files/Some-Useful-Numbers.pdf
     """
 
     def __init__(self):
-        # No source for permeability and porosity
-        self.PERMEABILITY = 1e-8 * units.DARCY
+        UnitRock.__init__(self)
+
+        self.PERMEABILITY = 1e-8 * pp.DARCY
+        # jsg range: 0.005 - .015
         self.POROSITY = 0.01
-        # Reported range for Young's modulus is 2.6-7.0
-        self.YOUNG_MODULUS = 5 * units.KILOGRAM / units.CENTI ** 2 * 1e5
+        # Reported range for Young's modulus by jsg is 10-70GPa
+        self.YOUNG_MODULUS = 4 * pp.GIGA * pp.PASCAL
         # Reported range for Poisson's ratio is 0.125-0.25
         self.POISSON_RATIO = 0.2
 
+        # Reported density
+        self.DENSITY = 2700 * pp.KILOGRAM / pp.METER**3
         self.LAMBDA, self.MU = lame_from_young_poisson(
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
