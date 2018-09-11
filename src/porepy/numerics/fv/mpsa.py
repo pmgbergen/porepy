@@ -1039,11 +1039,6 @@ def _mpsa_local(g, constit, bound, eta=0, alpha=None, inverter="numba"):
 
     nd = g.dim
 
-    if alpha is None:
-        if  np.sum(bound.is_rob) !=0:
-            raise ValueError('If applying Robin conditions you must supply an alpha')
-        else:
-            alpha = 1
     # Define subcell topology
     subcell_topology = fvutils.SubcellTopology(g)
     # Obtain mappings to exclude boundary faces
@@ -1113,6 +1108,12 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     """
 
     nd = g.dim
+
+    if alpha is None:
+        if  np.sum(bound.is_rob) !=0:
+            raise ValueError('If applying Robin conditions you must supply an alpha')
+        else:
+            alpha = 1
 
     # Compute product between normal vectors and stiffness matrices
     ncsym_all, ncasym, cell_node_blocks, sub_cell_index = _tensor_vector_prod(

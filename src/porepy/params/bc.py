@@ -233,6 +233,7 @@ class BoundaryConditionVectorial(object):
 
         self.is_neu = np.zeros((g.dim, self.num_faces), dtype=bool)
         self.is_dir = np.zeros((g.dim, self.num_faces), dtype=bool)
+        self.is_rob = np.zeros((g.dim, self.num_faces), dtype=bool)
 
         self.is_neu[:, self.bf] = True
         self.set_bc(faces, cond)
