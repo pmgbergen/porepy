@@ -703,7 +703,7 @@ class FracturedMpsa(Mpsa):
 # ------------------------------------------------------------------------------#
 
 
-def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None, **kwargs):
+def mpsa(g, constit, bound, eta=None, alpha=None, inverter=None, max_memory=None, **kwargs):
     """
     Discretize the vector elliptic equation by the multi-point stress
     approximation method, specifically the weakly symmetric MPSA-W method.
@@ -799,7 +799,7 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None, **kwargs):
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
         stress, bound_stress = _mpsa_local(
-            g, constit, bound, eta=eta, inverter=inverter
+            g, constit, bound, eta=eta, inverter=inverter, alpha=alpha
         )
     else:
         # Estimate number of partitions necessary based on prescribed memory
@@ -835,7 +835,8 @@ def mpsa(g, constit, bound, eta=None, inverter=None, max_memory=None, **kwargs):
 
             # Perform local discretization.
             loc_stress, loc_bound_stress, loc_faces = mpsa_partial(
-                g, constit, bound, eta=eta, inverter=inverter, nodes=active_nodes
+                g, constit, bound, eta=eta, inverter=inverter, nodes=active_nodes,
+                alpha=alpha
             )
 
             # Eliminate contribution from faces already covered
@@ -861,6 +862,7 @@ def mpsa_partial(
     faces=None,
     nodes=None,
     apertures=None,
+    alpha=None
 ):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
@@ -952,7 +954,7 @@ def mpsa_partial(
 
     # Discretization of sub-problem
     stress_loc, bound_stress_loc = _mpsa_local(
-        sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter
+        sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, alpha=alpha
     )
 
     face_map, cell_map = fvutils.map_subgrid_to_grid(
@@ -1038,7 +1040,7 @@ def _mpsa_local(g, constit, bound, eta=0, alpha=None, inverter="numba"):
     nd = g.dim
 
     if alpha is None:
-        if  np.sum(bnd.is_rob) !=0:
+        if  np.sum(bound.is_rob) !=0:
             raise ValueError('If applying Robin conditions you must supply an alpha')
         else:
             alpha = 1
@@ -1134,10 +1136,10 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     # sides of the faces.
     hook = __unique_hooks_law(ncsym_all, ncasym, subcell_topology, nd)
 
+    # Pair the forces from each side
+    ncsym_all = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
     del ncasym
 
-    # Pair the forces from each side
-    ncsym_all = subcell_topology.pair_over_subfaces_nd(ncsym_all)
     ncsym = bound_exclusion.exclude_rob_dir_nd(ncsym_all)
 
     num_subfno = subcell_topology.subfno.max() + 1
@@ -1155,7 +1157,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     num_sub_cells = cell_node_blocks[0].size
     rob_grad, rob_cell = __get_displacement_submatrices_rob(
         g, subcell_topology, eta, num_sub_cells, bound_exclusion, alpha
-    )                                                    
+    )
 
     # Matrices to enforce displacement continuity
     d_cont_grad, d_cont_cell = __get_displacement_submatrices(
@@ -1163,8 +1165,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     )
 
     grad_eqs = sps.vstack([ncsym, ncsym_rob + rob_grad, d_cont_grad])
-    
-    del ncsym, d_cont_grad
+    del ncsym, d_cont_grad, ncsym_rob, rob_grad
 
     igrad = _inverse_gradient(
         grad_eqs,
@@ -1262,19 +1263,18 @@ def __get_displacement_submatrices_rob(
     # contribution from gradient unknown to equations for displacement
     # at the boundary
     rob_grad = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
-
+    
     # For the Robin codition the distance from the cell centers to face centers
     # will be the contribution from the gradients. We integrate over the subface
     # and multiply by the area
     num_nodes = np.diff(g.face_nodes.indptr)
-    sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
+    sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
     scaled_sgn = (
-        alpha * sgn[0] * g.face_areas[subcell_topology.fno] \
-        / num_nodes[subcell_topology.fno]
+        alpha * sgn[0] * g.face_areas[subcell_topology.fno_unique] \
+        / num_nodes[subcell_topology.fno_unique]
         )
     # pair_over_subfaces flips the sign so we flip it back
-    rob_grad = sps.kron(sps.eye(nd), rob_grad * sps.diags(scaled_sgn))
-
+    rob_grad = sps.kron(sps.eye(nd), sps.diags(scaled_sgn)*rob_grad)
     # Contribution from cell center potentials to local systems
     rob_cell = sps.coo_matrix(
         (alpha * g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
