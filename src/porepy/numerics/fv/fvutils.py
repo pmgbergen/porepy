@@ -917,6 +917,86 @@ class ExcludeBoundaries(object):
 
         return exclude_rob
     
+    def exclude_neu_rob(self, other):
+        """ Mapping to exclude faces/components with Neumann and Robin boundary
+        conditions from local systems.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                Neumann conditions eliminated.
+
+        """
+        if self.bc_type == "scalar":
+            exclude_neu = self._exclude_neu_rob* other
+
+        elif self.bc_type == "vectorial":
+            raise NotImplementedError()
+        return exclude_neu
+
+    def exclude_neu_dir(self, other):
+        """ Mapping to exclude faces/components with Neumann and Dirichlet boundary
+        conditions from local systems.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                Neumann conditions eliminated.
+
+        """
+        if self.bc_type == "scalar":
+            exclude_neu = self._exclude_neu_dir * other
+
+        elif self.bc_type == "vectorial":
+            raise NotImplementedError()
+        return exclude_neu
+
+    def exclude_rob_dir(self, other):
+        """ Mapping to exclude faces/components with Robin and Dirichlet boundary
+        conditions from local systems.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                Neumann conditions eliminated.
+
+        """
+        if self.bc_type == "scalar":
+            exclude_rob = self._exclude_rob_dir* other
+
+        elif self.bc_type == "vectorial":
+            raise NotImplementedError()
+        return exclude_rob
+
+    def keep_robin(self, other):
+        """ Mapping to exclude faces/components that is not on the Robin boundary
+        conditions from local systems.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                all but robin conditions eliminated.
+
+        """
+        if self.bc_type == "scalar":
+            exclude_rob = self._keep_robin * other
+
+        elif self.bc_type == "vectorial":
+            raise NotImplementedError()
+        return exclude_rob
+
     def exclude_neumann_x(self, other):
         """ Mapping to exclude components in the x-direction with Neumann boundary conditions from
         local systems.
@@ -1045,88 +1125,6 @@ class ExcludeBoundaries(object):
             raise NotImplementedError()
 
         return exclude_neu_dir_nd * other
-
-    def exclude_neu_rob(self, other):
-        """ Mapping to exclude faces/components with Neumann and Robin boundary
-        conditions from local systems.
-
-        Parameters:
-            other (scipy.sparse matrix): Matrix of local equations for
-                continuity of flux and pressure.
-
-        Returns:
-            scipy.sparse matrix, with rows corresponding to faces/components with
-                Neumann conditions eliminated.
-
-        """
-        if self.bc_type == "scalar":
-            exclude_neu = self._exclude_neu_rob* other
-
-        elif self.bc_type == "vectorial":
-            raise NotImplementedError()
-        return exclude_neu
-
-    def exclude_neu_dir(self, other):
-        """ Mapping to exclude faces/components with Neumann and Dirichlet boundary
-        conditions from local systems.
-
-        Parameters:
-            other (scipy.sparse matrix): Matrix of local equations for
-                continuity of flux and pressure.
-
-        Returns:
-            scipy.sparse matrix, with rows corresponding to faces/components with
-                Neumann conditions eliminated.
-
-        """
-        if self.bc_type == "scalar":
-            exclude_neu = self._exclude_neu_dir * other
-
-        elif self.bc_type == "vectorial":
-            raise NotImplementedError()
-        return exclude_neu
-
-    def exclude_rob_dir(self, other):
-        """ Mapping to exclude faces/components with Robin and Dirichlet boundary
-        conditions from local systems.
-
-        Parameters:
-            other (scipy.sparse matrix): Matrix of local equations for
-                continuity of flux and pressure.
-
-        Returns:
-            scipy.sparse matrix, with rows corresponding to faces/components with
-                Neumann conditions eliminated.
-
-        """
-        if self.bc_type == "scalar":
-            exclude_rob = self._exclude_rob_dir* other
-
-        elif self.bc_type == "vectorial":
-            raise NotImplementedError()
-        return exclude_rob
-
-    def keep_robin(self, other):
-        """ Mapping to exclude faces/components that is not on the Robin boundary
-        conditions from local systems.
-
-        Parameters:
-            other (scipy.sparse matrix): Matrix of local equations for
-                continuity of flux and pressure.
-
-        Returns:
-            scipy.sparse matrix, with rows corresponding to faces/components with
-                all but robin conditions eliminated.
-
-        """
-        if self.bc_type == "scalar":
-            exclude_rob = self._keep_robin * other
-
-        elif self.bc_type == "vectorial":
-            raise NotImplementedError()
-        return exclude_rob
-    
-
 
 # -----------------End of class ExcludeBoundaries-----------------------------
 

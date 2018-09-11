@@ -178,7 +178,7 @@ class Mpfa(Solver):
 # ------------------------------------------------------------------------------#
 
 
-def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, alpha=None, **kwargs):
+def mpfa(g, k, bnd, robin_weight=None, eta=None, inverter=None, apertures=None, max_memory=None, **kwargs):
     """
     Discretize the scalar elliptic equation by the multi-point flux
     approximation method.
@@ -203,6 +203,8 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, al
         g (core.grids.grid): grid to be discretized
         k (core.constit.second_order_tensor) permeability tensor
         bnd (core.bc.bc) class for boundary values
+        robin_weight (float): Weight robin_weight for displacement term in Robin conditions
+            sigma*n + robin_weight * u = G
         eta Location of pressure continuity point. Defaults to 1/3 for simplex
             grids, 0 otherwise. On boundary faces with Dirichlet conditions,
             eta=0 will be enforced.
@@ -269,7 +271,7 @@ def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, al
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
         flux, bound_flux, bound_pressure_cell, bound_pressure_face = _mpfa_local(
-            g, k, bnd, eta=eta, inverter=inverter, apertures=apertures, alpha=alpha
+            g, k, bnd, eta=eta, inverter=inverter, apertures=apertures, robin_weight=robin_weight
         )
     else:
         # Estimate number of partitions necessary based on prescribed memory
@@ -456,7 +458,7 @@ def mpfa_partial(
     )
 
 
-def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, alpha=None):
+def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, robin_weight=None):
     """
     Actual implementation of the MPFA O-method. To calculate MPFA on a grid
     directly, either call this method, or, to respect the privacy of this
@@ -471,15 +473,17 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, alpha=Non
     The method will give continuous fluxes over the faces, and pressure
     continuity for certain points (controlled by the parameter eta). This can
     be expressed as a linear system on the form
-        (i)   A * grad_p            = 0
-        (ii)  B * grad_p + C * p_cc = 0
-        (iii) 0            D * p_cc = I
+        (i)    A * grad_p              = 0
+        (ii)   Ar * grad_p + Cr * P_cc = 0
+        (iii)  B * grad_p + C * p_cc   = 0
+        (iv)   0            D * p_cc   = I
     Here, the first equation represents flux continuity, and involves only the
-    pressure gradients (grad_p). The second equation gives pressure continuity
+    pressure gradients (grad_p). The second equation gives the Robin conditions,
+    relating flux to the pressure. The third equation gives pressure continuity
     over cell faces, thus B will contain distances between cell centers and the
     face continuity points, while C consists of +- 1 (depending on which side
-    the cell is relative to the face normal vector). The third equation
-    enforces the pressure to be unity in one cell at a time. Thus (i)-(iii) can
+    the cell is relative to the face normal vector). The fourth equation
+    enforces the pressure to be unity in one cell at a time. Thus (i)-(iv) can
     be inverted to express the pressure gradients as in terms of the cell
     center variables, that is, we can compute the basis functions on the
     sub-cells. Because of the method construction (again see reference paper),
@@ -489,7 +493,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, alpha=Non
     (i), that is, only consider contribution from one side of the face.
     Boundary values can be incorporated with appropriate modifications -
     Neumann conditions will have a non-zero right hand side for (i), while
-    Dirichlet gives a right hand side for (ii).
+    Dirichlet gives a right hand side for (iii).
 
     """
     if eta is None:
@@ -515,11 +519,11 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, alpha=Non
     elif g.dim == 0:
         return sps.csr_matrix([0]), 0, 0, 0
 
-    if alpha is None:
+    if robin_weight is None:
         if  np.sum(bnd.is_rob) !=0:
-            raise ValueError('If applying Robin conditions you must supply an alpha')
+            raise ValueError('If applying Robin conditions you must supply an robin_weight')
         else:
-            alpha = 1
+            robin_weight = 1
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
     # of coordinates of a point / vector and the real dimension. This again
@@ -589,13 +593,13 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, alpha=Non
     num_nodes = np.diff(g.face_nodes.indptr)
     sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
     scaled_sgn = (
-        alpha * sgn[0] * g.face_areas[subcell_topology.fno_unique] \
+        robin_weight * sgn[0] * g.face_areas[subcell_topology.fno_unique] \
         / num_nodes[subcell_topology.fno_unique]
     )
-    # pair_over_subfaces flips the sign so we flip it backo
+    # pair_over_subfaces flips the sign so we flip it back
     pr_trace_grad_all = sps.diags(scaled_sgn) * pr_cont_grad_all
     pr_trace_cell_all = sps.coo_matrix(
-        (alpha * g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
+        (robin_weight * g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
          (subcell_topology.subfno, subcell_topology.cno))
     ).tocsr()
 

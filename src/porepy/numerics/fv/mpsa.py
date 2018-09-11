@@ -134,185 +134,6 @@ class Mpsa(Solver):
 
         return -div * bound_stress * bc_val - f
 
-
-# ------------------------------------------------------------------------------#
-
-
-class RobinMpsa(Mpsa):
-    """
-    Subclass of MPSA for discretizing a domain with robin boundary conditinos.
-    Adds DOFs on each robin face.
-    """
-
-    def __init__(self, robin_faces, **kwargs):
-        """
-        robin_faces is a function that takes a grid and return an array
-        of length grid.num_faces that are true on the robin faces and false otherwise
-        """
-        Mpsa.__init__(self, **kwargs)
-        assert hasattr(self, "physics"), "Mpsa must assign physics"
-        self.robin_faces = robin_faces
-
-    def ndof(self, g):
-        """
-        Return the number of degrees of freedom associated to the method.
-        In this case number of cells pluss the number of robin face times
-        dimension (stress dof).
-
-        Parameter
-        ---------
-        g: grid, or a subclass.
-
-        Return
-        ------
-        dof: the number of degrees of freedom.
-
-        """
-        return g.dim * (g.num_cells + np.sum(self.robin_faces(g)))
-
-    def matrix_rhs(self, g, data, discretize=True):
-        """
-        Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method with a multi-point stress
-        approximation with dofs added on the robin faces
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data. For details on necessary keywords,
-            see method discretize()
-        discretize (boolean, optional): default True. Whether to discetize
-            prior to matrix assembly. If False, data should already contain
-            discretization.
-
-        Return
-        ------
-        matrix: sparse csr (g.dim * (g_num_cells + {#of robin faces},
-                            g.dim * (g_num_cells + {#of robin faces}))
-            Discretization matrix.
-        rhs: array (g.dim * g_num_cells  + {#of robin faces})
-            Right-hand side which contains the boundary conditions and the scalar
-            source term.
-        """
-        if discretize:
-            self.discretize_robin(g, data)
-
-        b_e = data["b_e"]
-        A_e = data["A_e"]
-
-        bc_val = data["param"].get_bc_val(self)
-
-        rhs = b_e * bc_val
-
-        return A_e, rhs
-
-    def discretize_robin(self, g, data, faces=None, **kwargs):
-        """
-        Discretize the vector elliptic equation by the multi-point stress and added
-        degrees of freedom on the robin faces
-
-        The method computes fluxes over faces in terms of displacements in
-        adjacent cells (defined as the two cells sharing the face).
-
-        The name of data in the input dictionary (data) are:
-        param : Parameter(Class). Contains the following parameters:
-            tensor : fourth_order_tensor
-                Permeability defined cell-wise. If not given a identity permeability
-                is assumed and a warning arised.
-            bc : boundary conditions (optional)
-            bc_val : dictionary (optional)
-                Values of the boundary conditions. The dictionary has at most the
-                following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-                conditions, respectively.
-            apertures : (np.ndarray) (optional) apertures of the cells for scaling of
-                the face normals.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
-        """
-
-        #    dir_bound = g.get_all_boundary_faces()
-        #    bound = bc.BoundaryCondition(g, dir_bound, ['dir'] * dir_bound.size)
-
-        rob_faces = self.robin_faces(g)
-
-        bound = data["param"].get_bc(self)
-
-        if bound.bc_type == "scalar":
-            bound.is_dir[rob_faces] = True
-            bound.is_neu[rob_faces] = False
-        elif bound.bc_type == "vectorial":
-            bound.is_dir[:, rob_faces] = True
-            bound.is_neu[:, rob_faces] = False
-        else:
-            raise ValueError("Unknow boundary condition type: " + bound.bc_type)
-        if np.sum(bound.is_dir * bound.is_neu) !=0:
-            raise AssertionError('Found faces that are both dirichlet and neuman')
-
-        # Discretize with normal mpsa
-        self.discretize(g, data, **kwargs)
-        stress, bound_stress = data["stress"], data["bound_stress"]
-
-        # Create A and rhs
-        div = fvutils.vector_divergence(g)
-        a = div * stress
-        b = div * bound_stress
-
-        # we find the matrix indices of the robin faces
-        rob_ind = mcolon.mcolon(
-            g.dim * rob_faces, g.dim * rob_faces + g.dim
-        )
-        # We find the sign of the robin faces.
-        sgn_rob = _sign_matrix(g, rob_faces)
-
-        # The displacement on the robin boundary face are considered unknowns,
-        # so we move them over to the lhs. The rhs now only consists of the
-        # external boundary faces
-        b_rob = b[:, rob_ind]
-        b_external = b.copy()
-        sparse_mat.zero_columns(b_external, rob_ind)
-
-        bound_stress_external = bound_stress.copy().tocsc()
-        sparse_mat.zero_columns(bound_stress_external, rob_ind)
-        # We calculate the stress on the robin faces due to the internal cells
-        # and robin face displacements (the other boundaries are on the rhs)
-        roben_stress = sps.hstack(
-            (
-                sgn_rob * stress[rob_ind, :],
-                (sgn_rob * bound_stress[rob_ind, :])[:, rob_ind]
-            )
-        )
-        # we add the displacement on the robin boundaries
-        alpha = data["param"].get_robin_factor()[rob_faces]
-        alpha = np.ravel([alpha]*g.dim, 'F')
-        roben_disp = sps.hstack(
-            (
-                sps.csr_matrix((rob_ind.size, g.dim * g.num_cells)),
-                sps.diags(alpha, 0),
-            )
-        )
-        roben_condition = roben_stress + roben_disp
-        A = sps.vstack((sps.hstack((a, b_rob)), roben_condition), format="csr")
-
-        # negative sign since we have moved b_external from lhs to rhs
-        d_b = -b_external
-        # sps.csr_matrix((int_b_left.size, g.num_faces * g.dim))
-        d_t = (
-            sps.csr_matrix(
-                (np.ones(rob_ind.size), (np.arange(rob_ind.size), rob_ind)),
-                (rob_ind.size, g.num_faces * g.dim),
-            )
-            -sgn_rob * bound_stress_external[rob_ind]
-        )
-
-        b_matrix = sps.vstack((d_b, d_t), format="csr")
-
-        data["b_e"] = b_matrix
-        data["A_e"] = A
-
-
 class FracturedMpsa(Mpsa):
     """
     Subclass of MPSA for discretizing a fractured domain. Adds DOFs on each
@@ -703,7 +524,7 @@ class FracturedMpsa(Mpsa):
 # ------------------------------------------------------------------------------#
 
 
-def mpsa(g, constit, bound, eta=None, alpha=None, inverter=None, max_memory=None, **kwargs):
+def mpsa(g, constit, bound, robin_weight=None, eta=None, inverter=None, max_memory=None, **kwargs):
     """
     Discretize the vector elliptic equation by the multi-point stress
     approximation method, specifically the weakly symmetric MPSA-W method.
@@ -731,7 +552,10 @@ def mpsa(g, constit, bound, eta=None, alpha=None, inverter=None, max_memory=None
 
     Parameters:
         g (core.grids.grid): grid to be discretized
-        constit (core.bc.bc) class for boundary values
+        constit (pp.FourthOrderTensor) Constitutive law
+        bound (pp.BoundarCondition) Class for boundary condition
+        robin_weight (float): Weight alpha for displacement term in Robin conditions
+            sigma*n + alpha * u = G
         eta Location of pressure continuity point. Should be 1/3 for simplex
             grids, 0 otherwise. On boundary faces with Dirichlet conditions,
             eta=0 will be enforced.
@@ -799,7 +623,7 @@ def mpsa(g, constit, bound, eta=None, alpha=None, inverter=None, max_memory=None
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
         stress, bound_stress = _mpsa_local(
-            g, constit, bound, eta=eta, inverter=inverter, alpha=alpha
+            g, constit, bound, eta=eta, inverter=inverter, robin_weight=robin_weight
         )
     else:
         # Estimate number of partitions necessary based on prescribed memory
@@ -836,7 +660,7 @@ def mpsa(g, constit, bound, eta=None, alpha=None, inverter=None, max_memory=None
             # Perform local discretization.
             loc_stress, loc_bound_stress, loc_faces = mpsa_partial(
                 g, constit, bound, eta=eta, inverter=inverter, nodes=active_nodes,
-                alpha=alpha
+                robin_weight=robin_weight
             )
 
             # Eliminate contribution from faces already covered
@@ -862,7 +686,7 @@ def mpsa_partial(
     faces=None,
     nodes=None,
     apertures=None,
-    alpha=None
+    robin_weight=None
 ):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
@@ -954,7 +778,7 @@ def mpsa_partial(
 
     # Discretization of sub-problem
     stress_loc, bound_stress_loc = _mpsa_local(
-        sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, alpha=alpha
+        sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, robin_weight=robin_weight
     )
 
     face_map, cell_map = fvutils.map_subgrid_to_grid(
@@ -975,7 +799,7 @@ def mpsa_partial(
     return stress_glob, bound_stress_glob, active_faces
 
 
-def _mpsa_local(g, constit, bound, eta=0, alpha=None, inverter="numba"):
+def _mpsa_local(g, constit, bound, eta=0, robin_weight=None, inverter="numba"):
     """
     Actual implementation of the MPSA W-method. To calculate the MPSA
     discretization on a grid, either call this method, or, to respect the
@@ -1047,7 +871,7 @@ def _mpsa_local(g, constit, bound, eta=0, alpha=None, inverter="numba"):
     # elasticity and poro-elasticity).
 
     hook, igrad, rhs_cells, _, _ = mpsa_elasticity(
-        g, constit, subcell_topology, bound_exclusion, eta, inverter, alpha=alpha
+        g, constit, subcell_topology, bound_exclusion, eta, inverter, robin_weight=robin_weight
     )
 
     hook_igrad = hook * igrad
@@ -1075,7 +899,7 @@ def _mpsa_local(g, constit, bound, eta=0, alpha=None, inverter="numba"):
     return stress, bound_stress
 
 
-def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter, alpha=None):
+def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter, robin_weight=None):
     """
     This is the function where the real discretization takes place. It contains
     the parts that are common for elasticity and poro-elasticity, and was thus
@@ -1109,11 +933,11 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
 
     nd = g.dim
 
-    if alpha is None:
-        if  np.sum(bound.is_rob) !=0:
-            raise ValueError('If applying Robin conditions you must supply an alpha')
+    if robin_weight is None:
+        if  np.sum(bound_exclusion._keep_robin.shape[0]) !=0:
+            raise ValueError('If applying Robin conditions you must supply an robin_weight')
         else:
-            alpha = 1
+            robin_weight = 1
 
     # Compute product between normal vectors and stiffness matrices
     ncsym_all, ncasym, cell_node_blocks, sub_cell_index = _tensor_vector_prod(
@@ -1157,7 +981,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     # Book keeping
     num_sub_cells = cell_node_blocks[0].size
     rob_grad, rob_cell = __get_displacement_submatrices_rob(
-        g, subcell_topology, eta, num_sub_cells, bound_exclusion, alpha
+        g, subcell_topology, eta, num_sub_cells, bound_exclusion, robin_weight
     )
 
     # Matrices to enforce displacement continuity
@@ -1257,7 +1081,7 @@ def __get_displacement_submatrices(
     return d_cont_grad, d_cont_cell
 
 def __get_displacement_submatrices_rob(
-    g, subcell_topology, eta, num_sub_cells, bound_exclusion, alpha
+    g, subcell_topology, eta, num_sub_cells, bound_exclusion, robin_weight
 ):
     nd = g.dim
     # Distance from cell centers to face centers, this will be the
@@ -1265,20 +1089,20 @@ def __get_displacement_submatrices_rob(
     # at the boundary
     rob_grad = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
     
-    # For the Robin codition the distance from the cell centers to face centers
+    # For the Robin condition the distance from the cell centers to face centers
     # will be the contribution from the gradients. We integrate over the subface
     # and multiply by the area
     num_nodes = np.diff(g.face_nodes.indptr)
     sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
     scaled_sgn = (
-        alpha * sgn[0] * g.face_areas[subcell_topology.fno_unique] \
+        robin_weight * sgn[0] * g.face_areas[subcell_topology.fno_unique] \
         / num_nodes[subcell_topology.fno_unique]
         )
     # pair_over_subfaces flips the sign so we flip it back
     rob_grad = sps.kron(sps.eye(nd), sps.diags(scaled_sgn)*rob_grad)
     # Contribution from cell center potentials to local systems
     rob_cell = sps.coo_matrix(
-        (alpha * g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
+        (robin_weight * g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
          (subcell_topology.subfno, subcell_topology.cno))
     ).tocsr()
     rob_cell = sps.kron(sps.eye(nd), rob_cell)
