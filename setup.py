@@ -60,7 +60,7 @@ long_description = read("Readme.rst")
 
 setup(
     name="porepy",
-    version="0.4.1",
+    version="0.4.2",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
     author="Runar Berge, Alessio Fumagalli, Eirik Keilegavlen and Ivar Stefansson",
