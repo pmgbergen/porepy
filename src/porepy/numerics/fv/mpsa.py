@@ -933,12 +933,6 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
 
     nd = g.dim
 
-    if robin_weight is None:
-        if  np.sum(bound_exclusion._keep_robin.shape[0]) !=0:
-            raise ValueError('If applying Robin conditions you must supply an robin_weight')
-        else:
-            robin_weight = 1
-
     # Compute product between normal vectors and stiffness matrices
     ncsym_all, ncasym, cell_node_blocks, sub_cell_index = _tensor_vector_prod(
         g, constit, subcell_topology
@@ -978,6 +972,13 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     # For the Robin boundary conditions we need to pair the forces with the
     # displacement
     ncsym_rob = bound_exclusion.keep_robin_nd(ncsym_all)
+
+    if robin_weight is None:
+        if  ncsym_rob.shape[0] !=0:
+            raise ValueError('If applying Robin conditions you must supply an robin_weight')
+        else:
+            robin_weight = 1
+
     # Book keeping
     num_sub_cells = cell_node_blocks[0].size
     rob_grad, rob_cell = __get_displacement_submatrices_rob(

@@ -11,7 +11,7 @@ class RobinBoundTest(unittest.TestCase):
         g = pp.CartGrid([nx, ny], physdims=[1, 1])
         g.compute_geometry()
         c = pp.FourthOrderTensor(2, np.ones(g.num_cells), np.ones(g.num_cells))
-        alpha = np.pi
+        robin_weight = np.pi
 
         bot = g.face_centers[1] < 1e-10
         top = g.face_centers[1] > 1 - 1e-10
@@ -45,9 +45,9 @@ class RobinBoundTest(unittest.TestCase):
         u_bound[:, neu_ind] = T_ex(neu_ind) * sgn_n
         u_bound[:, rob_ind] = (
         T_ex(rob_ind) * sgn_r
-        + alpha * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
+        + robin_weight * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
         )
-        u, T = self.solve_mpsa(g, c, alpha, bnd, u_bound)
+        u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
 
         assert np.allclose(u, u_ex(g.cell_centers).ravel('F'))
         assert np.allclose(T, T_ex(np.arange(g.num_faces)).ravel('F'))
@@ -58,7 +58,7 @@ class RobinBoundTest(unittest.TestCase):
         g = pp.CartGrid([nx, ny], physdims=[1, 1])
         g.compute_geometry()
         c = pp.FourthOrderTensor(2, np.ones(g.num_cells), np.ones(g.num_cells))
-        alpha = np.pi
+        robin_weight = np.pi
 
         bot = g.face_centers[1] < 1e-10
         top = g.face_centers[1] > 1 - 1e-10
@@ -92,9 +92,9 @@ class RobinBoundTest(unittest.TestCase):
         u_bound[:, neu_ind] = T_ex(neu_ind) * sgn_n
         u_bound[:, rob_ind] = (
         T_ex(rob_ind) * sgn_r
-        + alpha * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
+        + robin_weight * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
         )
-        u, T = self.solve_mpsa(g, c, alpha, bnd, u_bound)
+        u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
 
         assert np.allclose(u, u_ex(g.cell_centers).ravel('F'))
         assert np.allclose(T, T_ex(np.arange(g.num_faces)).ravel('F'))
@@ -105,7 +105,7 @@ class RobinBoundTest(unittest.TestCase):
         g = pp.StructuredTriangleGrid([nx, ny], physdims=[1, 1])
         g.compute_geometry()
         c = pp.FourthOrderTensor(2, np.ones(g.num_cells), np.ones(g.num_cells))
-        alpha = np.pi
+        robin_weight = np.pi
 
         bot = g.face_centers[1] < 1e-10
         top = g.face_centers[1] > 1 - 1e-10
@@ -139,9 +139,9 @@ class RobinBoundTest(unittest.TestCase):
         u_bound[:, neu_ind] = T_ex(neu_ind) * sgn_n
         u_bound[:, rob_ind] = (
         T_ex(rob_ind) * sgn_r
-        + alpha * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
+        + robin_weight * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
         )
-        u, T = self.solve_mpsa(g, c, alpha, bnd, u_bound)
+        u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
 
         assert np.allclose(u, u_ex(g.cell_centers).ravel('F'))
         assert np.allclose(T, T_ex(np.arange(g.num_faces)).ravel('F'))
@@ -153,7 +153,7 @@ class RobinBoundTest(unittest.TestCase):
         g = pp.TriangleGrid(points)
         g.compute_geometry()
         c = pp.FourthOrderTensor(2, np.ones(g.num_cells), np.ones(g.num_cells))
-        alpha = np.pi
+        robin_weight = np.pi
 
         bot = g.face_centers[1] < 1e-10
         top = g.face_centers[1] > 1 - 1e-10
@@ -187,9 +187,9 @@ class RobinBoundTest(unittest.TestCase):
         u_bound[:, neu_ind] = T_ex(neu_ind) * sgn_n
         u_bound[:, rob_ind] = (
         T_ex(rob_ind) * sgn_r
-        + alpha * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
+        + robin_weight * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
         )
-        u, T = self.solve_mpsa(g, c, alpha, bnd, u_bound)
+        u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
 
         assert np.allclose(u, u_ex(g.cell_centers).ravel('F'))
         assert np.allclose(T, T_ex(np.arange(g.num_faces)).ravel('F'))
@@ -204,7 +204,7 @@ class RobinBoundTest(unittest.TestCase):
         g = pp.CartGrid([4,4,4], [1,1,1])
         g.compute_geometry()
         c = pp.FourthOrderTensor(3, np.ones(g.num_cells), np.ones(g.num_cells))
-        alpha = 1.0
+        robin_weight = 1.0
 
         bot = g.face_centers[2] < 1e-10
         top = g.face_centers[2] > 1 - 1e-10
@@ -242,16 +242,16 @@ class RobinBoundTest(unittest.TestCase):
         u_bound[:, neu_ind] = T_ex(neu_ind) * sgn_n
         u_bound[:, rob_ind] = (
         T_ex(rob_ind) * sgn_r
-        + alpha * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
+        + robin_weight * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
         )
-        u, T = self.solve_mpsa(g, c, alpha, bnd, u_bound)
+        u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
 
         assert np.allclose(u, u_ex(g.cell_centers).ravel('F'))
         assert np.allclose(T, T_ex(np.arange(g.num_faces)).ravel('F'))
 
 
-    def solve_mpsa(self, g, c, alpha, bnd, u_bound):
-        stress, bound_stress = pp.numerics.fv.mpsa._mpsa_local(g, c, bnd, alpha=alpha)
+    def solve_mpsa(self, g, c, robin_weight, bnd, u_bound):
+        stress, bound_stress = pp.numerics.fv.mpsa._mpsa_local(g, c, bnd, robin_weight=robin_weight)
         div = pp.fvutils.vector_divergence(g)
         a = div * stress
         b = -div * bound_stress * u_bound.ravel('F')
