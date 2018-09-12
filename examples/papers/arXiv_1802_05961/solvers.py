@@ -98,6 +98,7 @@ def solve_p1(gb, folder, return_only_matrix=False):
     save = Exporter(gb, "sol", folder=folder, simplicial=True)
     save.write_vtk("pressure", point_data=True)
 
+
 # ------------------------------------------------------------------------------#
 
 

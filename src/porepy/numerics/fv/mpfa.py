@@ -178,7 +178,17 @@ class Mpfa(Solver):
 # ------------------------------------------------------------------------------#
 
 
-def mpfa(g, k, bnd, robin_weight=None, eta=None, inverter=None, apertures=None, max_memory=None, **kwargs):
+def mpfa(
+    g,
+    k,
+    bnd,
+    robin_weight=None,
+    eta=None,
+    inverter=None,
+    apertures=None,
+    max_memory=None,
+    **kwargs
+):
     """
     Discretize the scalar elliptic equation by the multi-point flux
     approximation method.
@@ -271,7 +281,13 @@ def mpfa(g, k, bnd, robin_weight=None, eta=None, inverter=None, apertures=None, 
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
         flux, bound_flux, bound_pressure_cell, bound_pressure_face = _mpfa_local(
-            g, k, bnd, eta=eta, inverter=inverter, apertures=apertures, robin_weight=robin_weight
+            g,
+            k,
+            bnd,
+            eta=eta,
+            inverter=inverter,
+            apertures=apertures,
+            robin_weight=robin_weight,
         )
     else:
         # Estimate number of partitions necessary based on prescribed memory
@@ -458,7 +474,9 @@ def mpfa_partial(
     )
 
 
-def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, robin_weight=None):
+def _mpfa_local(
+    g, k, bnd, eta=None, inverter="numba", apertures=None, robin_weight=None
+):
     """
     Actual implementation of the MPFA O-method. To calculate MPFA on a grid
     directly, either call this method, or, to respect the privacy of this
@@ -520,8 +538,10 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, robin_wei
         return sps.csr_matrix([0]), 0, 0, 0
 
     if robin_weight is None:
-        if  np.sum(bnd.is_rob) !=0:
-            raise ValueError('If applying Robin conditions you must supply an robin_weight')
+        if np.sum(bnd.is_rob) != 0:
+            raise ValueError(
+                "If applying Robin conditions you must supply an robin_weight"
+            )
         else:
             robin_weight = 1
     # The grid coordinates are always three-dimensional, even if the grid is
@@ -593,14 +613,20 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, robin_wei
     num_nodes = np.diff(g.face_nodes.indptr)
     sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
     scaled_sgn = (
-        robin_weight * sgn[0] * g.face_areas[subcell_topology.fno_unique] \
+        robin_weight
+        * sgn[0]
+        * g.face_areas[subcell_topology.fno_unique]
         / num_nodes[subcell_topology.fno_unique]
     )
     # pair_over_subfaces flips the sign so we flip it back
     pr_trace_grad_all = sps.diags(scaled_sgn) * pr_cont_grad_all
     pr_trace_cell_all = sps.coo_matrix(
-        (robin_weight * g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
-         (subcell_topology.subfno, subcell_topology.cno))
+        (
+            robin_weight
+            * g.face_areas[subcell_topology.fno]
+            / num_nodes[subcell_topology.fno],
+            (subcell_topology.subfno, subcell_topology.cno),
+        )
     ).tocsr()
 
     del sgn, scaled_sgn
@@ -654,7 +680,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, robin_wei
     # NOTE: I think in the discretization for sub_cells a flow out of the cell is
     # negative. This is a contradiction to what is done for the boundary conditions
     # where we want to set dot(n, flux) where n is the normal pointing outwards.
-    # thats why we need +nk_grad_r - pr_trace_grad -pr_trace_cell instead of = rhs 
+    # thats why we need +nk_grad_r - pr_trace_grad -pr_trace_cell instead of = rhs
     # instead of how we would expect: -nk_grad_r + pr_trace_grad +pr_trace_cell= rhs.
     # This is also why we multiply with -1 in scaled_sgn in _create_bound_rhs
     grad_eqs = sps.vstack([nk_grad_n, nk_grad_r - pr_trace_grad, pr_cont_grad])
@@ -662,8 +688,7 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, robin_wei
     num_nk_cell = nk_cell.shape[0]
     num_nk_rob = nk_grad_r.shape[0]
     num_pr_cont_grad = pr_cont_grad.shape[0]
-    
-    
+
     del nk_grad_n, nk_grad_r, pr_trace_grad
 
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
@@ -888,7 +913,7 @@ def _tensor_vector_prod(g, k, subcell_topology, apertures=None):
     )
 
     nk = normals_mat * k_mat
-    
+
     # Unique sub-cell indexes are pulled from column indices, we only need
     # every nd column (since nd faces of the cell meet at each vertex)
     sub_cell_ind = j[::, 0::nd]
@@ -941,7 +966,9 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno, bound_exclu
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
-def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, num_rob, num_pr):
+def _create_bound_rhs(
+    bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, num_rob, num_pr
+):
     """
     Define rhs matrix to get basis functions for incorporates boundary
     conditions
@@ -996,14 +1023,14 @@ def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, 
     # not have Dirichlet and Neumann excluded (respectively), and thus we need
     # new fields
     neu_ind_all = np.argwhere(is_neu[fno].astype("int")).ravel("F")
-    rob_ind_all = np.argwhere(is_rob[fno].astype("int")).ravel("F")    
+    rob_ind_all = np.argwhere(is_rob[fno].astype("int")).ravel("F")
     dir_ind_all = np.argwhere(is_dir[fno].astype("int")).ravel("F")
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order="F")
 
     # We now merge the neuman and robin indices since they are treated equivalent
-    if rob_ind.size==0:
+    if rob_ind.size == 0:
         neu_rob_ind = neu_ind
-    elif neu_ind.size==0:
+    elif neu_ind.size == 0:
         neu_rob_ind = rob_ind + num_flux
     else:
         neu_rob_ind = np.hstack((neu_ind, rob_ind + num_flux))
@@ -1018,7 +1045,7 @@ def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, 
     if neu_rob_ind.size > 0:
         neu_rob_cell = sps.coo_matrix(
             (scaled_sgn, (neu_rob_ind, np.arange(neu_rob_ind.size))),
-            shape=(num_flux+num_rob, num_bound),
+            shape=(num_flux + num_rob, num_bound),
         )
     else:
         # Special handling when no elements are found. Not sure if this is

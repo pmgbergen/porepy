@@ -766,7 +766,6 @@ class Parameters(object):
 
     bc_val_mechanics = property(get_bc_val_mechanics)
 
-
     # ------------------------------------
     def get_robin_factor(self, default=1):
         """ double or array-like

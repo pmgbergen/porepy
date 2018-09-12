@@ -55,4 +55,5 @@ class P1Source(Solver):
 
         return lhs, M.dot(param.get_source(self))
 
+
 # ------------------------------------------------------------------------------#
