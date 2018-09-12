@@ -624,8 +624,8 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, robin_wei
     bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
 
     # No flux conditions for Dirichlet boundary faces
-    nk_grad_n = bound_exclusion.exclude_rob_dir(nk_grad_all)
-    nk_cell = bound_exclusion.exclude_rob_dir(nk_cell)
+    nk_grad_n = bound_exclusion.exclude_robin_dirichlet(nk_grad_all)
+    nk_cell = bound_exclusion.exclude_robin_dirichlet(nk_cell)
 
     # Robin condition is only applied to Robin boundary faces
     nk_grad_r = bound_exclusion.keep_robin(nk_grad_all)
@@ -634,8 +634,8 @@ def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None, robin_wei
 
     del nk_grad_all
     # No pressure condition for Neumann or Robin boundary faces
-    pr_cont_grad = bound_exclusion.exclude_neu_rob(pr_cont_grad_all)
-    pr_cont_cell = bound_exclusion.exclude_neu_rob(pr_cont_cell_all)
+    pr_cont_grad = bound_exclusion.exclude_neumann_robin(pr_cont_grad_all)
+    pr_cont_cell = bound_exclusion.exclude_neumann_robin(pr_cont_cell_all)
 
     # So far, the local numbering has been based on the numbering scheme
     # implemented in SubcellTopology (which treats one cell at a time). For
@@ -916,8 +916,8 @@ def _block_diagonal_structure(sub_cell_index, cell_node_blocks, nno, bound_exclu
     # Stack node numbers of equations on top of each other, and sort them to
     # get block-structure. First eliminate node numbers at the boundary, where
     # the equations are either of flux, pressure continuity or robin
-    nno_flux = bound_exclusion.exclude_rob_dir(nno)
-    nno_pressure = bound_exclusion.exclude_neu_rob(nno)
+    nno_flux = bound_exclusion.exclude_robin_dirichlet(nno)
+    nno_pressure = bound_exclusion.exclude_neumann_robin(nno)
     # we have now eliminated all nodes related to robin, we therefore add them
     nno_rob = bound_exclusion.keep_robin(nno)
 
@@ -982,7 +982,7 @@ def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, 
     # Find Neumann and Robin faces, exclude Dirichlet faces (since these are excluded
     # from the right hand side linear system), and do necessary formating.
     neu_ind = np.argwhere(
-        bound_exclusion.exclude_rob_dir(is_neu[fno].astype("int64"))
+        bound_exclusion.exclude_robin_dirichlet(is_neu[fno].astype("int64"))
     ).ravel("F")
     rob_ind = np.argwhere(
         bound_exclusion.keep_robin(is_rob[fno].astype("int64"))
@@ -1027,7 +1027,7 @@ def _create_bound_rhs(bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, 
 
     # Dirichlet boundary conditions
     dir_ind = np.argwhere(
-        bound_exclusion.exclude_neu_rob(is_dir[fno].astype("int64"))
+        bound_exclusion.exclude_neumann_robin(is_dir[fno].astype("int64"))
     ).ravel("F")
     if dir_ind.size > 0:
         dir_cell = sps.coo_matrix(

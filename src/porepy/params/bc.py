@@ -265,6 +265,10 @@ class BoundaryConditionVectorial(object):
                 elif s.lower() == "dir":
                     self.is_dir[:, faces[j]] = True
                     self.is_neu[:, faces[j]] = False
+                elif s.lower() == "rob":
+                    self.is_rob[:, faces[j]] = True
+                    self.is_neu[:, faces[j]] = False
+                    self.is_dir[:, faces[j]] = False
                 elif s.lower() == "dir_x":
                     self.is_dir[0, faces[j]] = True
                     self.is_neu[0, faces[j]] = False
