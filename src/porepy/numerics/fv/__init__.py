@@ -1,5 +1,6 @@
 from .tpfa import TpfaMixedDim, TpfaDFN, Tpfa
 from .tpfa import TpfaCoupling, TpfaCouplingDFN
+from  .fv_elliptic import FVElliptic
 
 from .mpfa import MpfaMixedDim, MpfaDFN, Mpfa
 
