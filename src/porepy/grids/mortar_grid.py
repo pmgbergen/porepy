@@ -98,7 +98,7 @@ class MortarGrid(object):
             cells[faces > np.median(faces)] += num_cells
 
         shape = (num_cells * self.num_sides(), face_cells.shape[1])
-        self.high_to_mortar_int = sps.csc_matrix(
+        self.master_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, faces)), shape=shape
         )
 
@@ -106,7 +106,7 @@ class MortarGrid(object):
         # It is composed by two identity matrices since we are assuming matching
         # grids here.
         identity = [[sps.identity(num_cells)]] * self.num_sides()
-        self.low_to_mortar_int = sps.bmat(identity, format="csc")
+        self.slave_to_mortar_int = sps.bmat(identity, format="csc")
 
     # ------------------------------------------------------------------------------#
 
@@ -196,8 +196,8 @@ class MortarGrid(object):
         # Once the global matrix is constructed the new low_to_mortar_int and
         # high_to_mortar_int maps are updated.
         matrix = sps.bmat(matrix)
-        self.low_to_mortar_int = matrix * self.low_to_mortar_int
-        self.high_to_mortar_int = matrix * self.high_to_mortar_int
+        self.slave_to_mortar_int = matrix * self.master_to_mortar_int
+        self.master_to_mortar_int = matrix * self.master_to_mortar_int
 
         self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
         self.cell_volumes = np.hstack(
@@ -207,7 +207,7 @@ class MortarGrid(object):
 
     # ------------------------------------------------------------------------------#
 
-    def update_low(self, side_matrix):
+    def update_slave(self, side_matrix):
         """
         Update the low_to_mortar_int map when the lower dimensional grid is changed.
 
@@ -227,14 +227,14 @@ class MortarGrid(object):
             matrix[pos, 0] = side_matrix[side]
 
         # Update the low_to_mortar_int map. No need to update the high_to_mortar_int.
-        self.low_to_mortar_int = sps.bmat(matrix, format="csc")
+        self.slave_to_mortar_int = sps.bmat(matrix, format="csc")
         self._check_mappings()
 
     # ------------------------------------------------------------------------------#
 
-    def update_high(self, matrix):
+    def update_master(self, matrix):
         # Make a comment here
-        self.high_to_mortar_int = self.high_to_mortar_int * matrix
+        self.master_to_mortar_int = self.master_to_mortar_int * matrix
         self._check_mappings()
 
     # ------------------------------------------------------------------------------#
@@ -250,20 +250,20 @@ class MortarGrid(object):
 
     # ------------------------------------------------------------------------------#
 
-    def mortar_to_high_int(self):
-        return self.high_to_mortar_avg().T
+    def mortar_to_master_int(self):
+        return self.master_to_mortar_avg().T
 
     # ------------------------------------------------------------------------------#
 
-    def high_to_mortar_avg(self):
-        row_sum = self.high_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.high_to_mortar_int
+    def master_to_mortar_avg(self):
+        row_sum = self.master_to_mortar_int.sum(axis=1).A.ravel()
+        return sps.diags(1. / row_sum) * self.master_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
-    def low_to_mortar_avg(self):
-        row_sum = self.low_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.low_to_mortar_int
+    def slave_to_mortar_avg(self):
+        row_sum = self.slave_to_mortar_int.sum(axis=1).A.ravel()
+        return sps.diags(1. / row_sum) * self.slave_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
