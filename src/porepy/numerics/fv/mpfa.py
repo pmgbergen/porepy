@@ -14,7 +14,7 @@ from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
-from porepy.numerics.fv import TpfaCoupling, TpfaCouplingDFN
+from porepy.numerics.fv import TpfaCoupling, TpfaCouplingDFN, FVElliptic
 
 # ------------------------------------------------------------------------------
 
@@ -61,6 +61,7 @@ class MpfaDFN(SolverMixedDim):
 # ------------------------------------------------------------------------------
 
 
+<<<<<<< eb22cd1601407d0700a73461676101219dc7c949
 class Mpfa(Solver):
     def __init__(self, physics="flow"):
         self.physics = physics
@@ -185,7 +186,7 @@ class Mpfa(Solver):
             proj = mg.low_to_mortar_avg()
 
         matrix[self_ind, 2] += proj.T
-
+class Mpfa(FVElliptic):
 
     # ------------------------------------------------------------------------------#
 
@@ -211,11 +212,10 @@ class Mpfa(Solver):
         trm, bound_flux, bp_cell, bp_face = mpfa(
             g, k, bnd, apertures=a, robin_weight=robin_weight
         )
-        data["flux"] = trm
-        data["bound_flux"] = bound_flux
-        data["bound_pressure_cell"] = bp_cell
-        data["bound_pressure_face"] = bp_face
-
+        data[self.key() + "flux"] = trm
+        data[self.key() + "bound_flux"] = bound_flux
+        data[self.key() + "bound_pressure_cell"] = bp_cell
+        data[self.key() + "bound_pressure_face"] = bp_face
 
 # ------------------------------------------------------------------------------#
 
