@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.sparse as sps
-import porepy as pp
 
 class Multiscale(object):
 
@@ -75,7 +74,7 @@ class Multiscale(object):
         # construct the rhs with all the active pressure dof in the 1 co-dimension
         self.if_p = np.zeros(self.C_h.shape[1], dtype=np.bool)
         pos = 0
-        for g, d in self.gb:
+        for g, _ in self.gb:
             if g.dim != self.g_h.dim:
                 pos += g.num_faces
                 # only the 1 co-dimensional grids are interesting
@@ -101,9 +100,6 @@ class Multiscale(object):
             rhs = np.r_[[0]*self.dof_h, -self.C_h * rhs]
             # compute the jump of the mortars
             self.bases[:, dof_basis] = self.C_l * self.LU(rhs)[-dof_bases:]
-
-            # save = pp.Exporter(g_h, "vem"+str(dof_basis), folder="vem_ms")
-            # save.write_vtk({'pressure': x[g_h.num_faces:dof_h]})
 
         # save the bases in a csr format
         self.bases = sps.csr_matrix(self.bases)

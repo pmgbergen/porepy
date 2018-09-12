@@ -38,7 +38,7 @@ class Data(object):
 
         g_map = {}
         if self.data["alpha"] != 1:
-            for g, d in self.gb:
+            for g, _ in self.gb:
                 if g.dim == 1:
                     num_nodes = int(g.num_nodes * self.data["alpha"])
                     if num_nodes < 2:
@@ -134,7 +134,8 @@ class Data(object):
 
     # ------------------------------------------------------------------------------#
 
-    def write_network(self, file_name):
+    @staticmethod
+    def write_network(file_name):
         network = "FID,START_X,START_Y,END_X,END_Y\n"
 
         network += "0,0,0.5,0.5,0.5\n"
