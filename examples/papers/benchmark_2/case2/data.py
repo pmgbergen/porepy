@@ -36,7 +36,8 @@ def make_grid_cart(N):
 
         # Read the domain first
         domain = np.asarray(next(spam_reader), dtype=np.float)
-        assert domain.size == 6
+        if domain.size != 6:
+            raise ValueError("It has to be 6")
         domain = {
             "xmin": domain[0],
             "xmax": domain[3],
@@ -274,11 +275,3 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         if b_faces.size > 0:
             bc_val[b_faces[self.inflow]] = 1
         return bc_val
-
-    def porosity(self):
-        dim = self.grid().dim
-        ones = np.ones(self.grid().num_cells)
-        if dim == 3:
-            return self.porosity_m * ones
-        else:
-            return self.porosity_f * ones

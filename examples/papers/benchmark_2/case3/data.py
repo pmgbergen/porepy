@@ -200,7 +200,8 @@ def add_data(gb, data, solver_name):
 # ------------------------------------------------------------------------------#
 
 def b_pressure(g):
-    assert g.dim == 3
+    if g.dim != 3:
+        raise ValueError("Only 3d domain is allowed here")
     y_max = g.nodes[1].max()
     b_faces = np.where(g.tags["domain_boundary_faces"])[0]
     null = np.zeros(b_faces.size, dtype=np.bool)

@@ -113,24 +113,6 @@ def solve_mpfa(gb, folder):
 # ------------------------------------------------------------------------------#
 
 
-def solve_p1(gb, folder):
-
-    # Choose and define the solvers and coupler
-    solver_flow = pp.P1MixedDim("flow")
-    A_flow, b_flow = solver_flow.matrix_rhs(gb)
-
-    solver_source = pp.IntegralMixedDim("flow")
-
-    p = sps.linalg.spsolve(A, b_flow)
-    solver_flow.split(gb, "pressure", p)
-
-    save = pp.Exporter(gb, "sol", folder=folder, simplicial=True)
-    save.write_vtk(["pressure"])
-
-
-# ------------------------------------------------------------------------------#
-
-
 def solve_vem(gb, folder):
 
     # Choose and define the solvers and coupler
