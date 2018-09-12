@@ -55,7 +55,7 @@ def write_out(gb, file_name, data):
 
 def summarize_data(betas, tests):
 
-    for t, n in tests:
+    for _, n in tests:
         data = np.zeros((betas.size, 3))
 
         name = "_" + str(n)

@@ -362,7 +362,7 @@ class RT0(Solver):
             Pi = delta_c / np.einsum("ij,ij->j", delta_f, normals)
 
             # extract the velocity for the current cell
-            P0u[dim, c] = np.dot(Pi, u[faces_loc])
+            P0u[dim, c] = np.dot(Pi, u[faces_loc]) * a[c]
             P0u[:, c] = np.dot(R.T, P0u[:, c])
 
         return P0u
@@ -403,7 +403,8 @@ class RT0(Solver):
 
 # ------------------------------------------------------------------------------#
 
-    def opposite_side_node(self, face_nodes, nodes, faces_loc):
+    @staticmethod
+    def opposite_side_node(face_nodes, nodes, faces_loc):
         """
         Given a face return the node on the opposite side, typical request of a Raviart-Thomas
         approximation. This function is mainly for internal use.

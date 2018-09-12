@@ -77,7 +77,7 @@ class DualMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
                 _, indices = np.unique(g.cell_faces.indices, return_index=True)
                 sign = sps.diags(g.cell_faces.data[indices], 0)
 
-                for e, d_e in gb.edges_of_node(g):
+                for _, d_e in gb.edges_of_node(g):
                     g_m = d_e["mortar_grid"]
                     if g_m.dim == g.dim:
                         continue

@@ -120,7 +120,8 @@ class Data(object):
 
     # ------------------------------------------------------------------------------#
 
-    def write_network(self, file_name):
+    @staticmethod
+    def write_network(file_name):
         network = "FID,START_X,START_Y,END_X,END_Y\n"
         network += "0,0,0.5,1,0.5\n"
         network += "1,0.5,0,0.5,1\n"
