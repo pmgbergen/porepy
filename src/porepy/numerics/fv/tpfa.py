@@ -82,8 +82,8 @@ class Tpfa(FVElliptic):
 
     """
 
-    def __init__(self, physics="flow"):
-        self.physics = physics
+    def __init__(self, keyword):
+        super(Tpfa, self).__init__(keyword)
 
     def ndof(self, g):
         """
