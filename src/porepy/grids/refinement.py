@@ -256,8 +256,8 @@ def remesh_1d(g_old, num_nodes, tol=1e-6):
         # if you find a match transfer all the tags from the face in the old grid to
         # the face in the new grid
         if f_new.size:
-            if f_new.size == 1:
-                raise ValueError("It cannot be only one face, something went wrong")
+            if f_new.size != 1:
+                raise ValueError("It cannot be more than one face, something went wrong")
             for tag in pp.utils.tags.standard_face_tags():
                 g.tags[tag][f_new] = g_old.tags[tag][f_old]
 
