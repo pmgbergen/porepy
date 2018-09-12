@@ -142,7 +142,8 @@ class FracturedMpsa(Mpsa):
 
     def __init__(self, given_traction=False, **kwargs):
         Mpsa.__init__(self, **kwargs)
-        assert hasattr(self, "physics"), "Mpsa must assign physics"
+        if not hasattr(self, "physics"):
+            raise AttributeError("Mpsa must assign physics")
         self.given_traction_flag = given_traction
 
     def ndof(self, g):
@@ -1255,7 +1256,8 @@ def _tensor_vector_prod(g, constit, subcell_topology):
     # Duplicates in [cno, nno] corresponds to different faces meeting at the
     # same node. There should be exactly nd of these. This test will fail
     # for pyramids in 3D
-    assert np.all(blocksz == nd)
+    if not np.all(blocksz == nd):
+        raise AssertionError()
 
     # Define row and column indices to be used for normal vector matrix
     # Rows are based on sub-face numbers.
@@ -1478,7 +1480,9 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     num_neu = sum(bound.is_neu[fno]) * nd
     num_dir = sum(bound.is_dir[fno]) * nd
-    assert num_rob == sum(bound.is_rob[fno]) * nd
+    if not num_rob == sum(bound.is_rob[fno]) * nd:
+        raise AssertionError()
+
     num_bound = num_neu + num_dir + num_rob
 
     # Convenience method for duplicating a list, with a certain increment
@@ -1936,9 +1940,9 @@ def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell, num_sub_cells,
 
 def _neu_face_sgn(g, neu_ind):
     neu_sgn = (g.cell_faces[neu_ind, :]).data
-    assert (
-        neu_sgn.size == neu_ind.size
-    ), "A normal sign is only well defined for a boundary face"
+    if not neu_sgn.size == neu_ind.size:
+        raise AssertionError("A normal sign is only well defined for a boundary face")
+
     sort_id = np.argsort(g.cell_faces[neu_ind, :].indices)
     return neu_sgn[sort_id]
 
