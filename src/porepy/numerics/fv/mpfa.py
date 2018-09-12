@@ -132,6 +132,61 @@ class Mpfa(Solver):
 
         return -div * bound_flux * bc_val
 
+    def assemble_neumann(self, g, data, data_edge, is_high, matrix, self_ind):
+
+        div = g.cell_faces.T
+
+        # Projection operators to grid
+        mg = data_edge['mortar_grid']
+
+        # TODO: Update to cover mixed and mono-dimensional case together
+        if is_high:
+            proj = mg.high_to_mortar_avg()
+        else:
+            proj = mg.low_to_mortar_avg()
+
+        matrix[self_ind, 2] += div * data['bound_flux'] * proj.T
+
+    def assemble_source(self, g, data, data_edge, is_high, matrix, self_ind):
+
+        mg = data_edge['mortar_grid']
+
+        # TODO: this should become first or second or something
+        if is_high:
+            proj = mg.high_to_mortar_avg()
+        else:
+            proj = mg.low_to_mortar_avg()
+
+        matrix[self_ind, 2] += -proj.T
+
+    def assemble_pressure_trace_projection(self, g, data, data_edge, is_high, matrix, self_ind):
+        """ Assemble operators to represent the pressure trace.
+        """
+        mg = data_edge['mortar_grid']
+
+        # TODO: this should become first or second or something
+        if is_high:
+            proj = mg.high_to_mortar_avg()
+        else:
+            proj = mg.low_to_mortar_avg()
+
+        bp = data['bound_pressure_cell']
+        matrix[2, self_ind] += proj * bp
+        matrix[2, 2] += proj * data['bound_pressure_face'] * proj.T
+
+
+    def assemble_pressure_cell_projection(self, g, data, data_edge, is_high, matrix, self_ind):
+        mg = data_edge['mortar_grid']
+
+        # TODO: this should become first or second or something
+        if is_high:
+            proj = mg.high_to_mortar_avg()
+        else:
+            proj = mg.low_to_mortar_avg()
+
+        matrix[self_ind, 2] += proj.T
+
+
     # ------------------------------------------------------------------------------#
 
     def discretize(self, g, data):
