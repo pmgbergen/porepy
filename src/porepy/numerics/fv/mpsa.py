@@ -1368,7 +1368,6 @@ def _inverse_gradient(
     nd,
     inverter,
 ):
-
     # Mappings to convert linear system to block diagonal form
     rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
         sub_cell_index, cell_node_blocks, nno_unique, bound_exclusion, nd
@@ -1425,9 +1424,8 @@ def _block_diagonal_structure(
         )
 
     elif bound_exclusion.bc_type == "vectorial":
-        node_occ = np.hstack((nno_stress, nno_displacement))
-        if nno_rob.size >= 0:
-            raise NotImplementedError()
+        node_occ = np.hstack((nno_stress, nno_rob, nno_displacement))
+
     sorted_ind = np.argsort(node_occ, kind="mergesort")
     rows2blk_diag = sps.coo_matrix(
         (np.ones(sorted_ind.size), (np.arange(sorted_ind.size), sorted_ind))
