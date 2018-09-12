@@ -889,7 +889,8 @@ def _tensor_vector_prod(g, k, subcell_topology, apertures=None):
     # Duplicates in [cno, nno] corresponds to different faces meeting at the
     # same node. There should be exactly nd of these. This test will fail
     # for pyramids in 3D
-    assert np.all(blocksz == nd)
+    if not np.all(blocksz == nd):
+        raise AssertionError()
 
     # Define row and column indices to be used for normal_vectors * perm.
     # Rows are based on sub-face numbers.
@@ -998,7 +999,9 @@ def _create_bound_rhs(
     fno = subcell_topology.fno_unique
     num_neu = np.sum(is_neu[fno])
     num_dir = np.sum(is_dir[fno])
-    assert num_rob == np.sum(is_rob[fno])
+    if not num_rob == np.sum(is_rob[fno]):
+        raise AssertionError()
+
     num_bound = num_neu + num_dir + num_rob
 
     # Neumann and Robin boundary conditions. Neumann and Robin conditions
