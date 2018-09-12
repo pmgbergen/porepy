@@ -1,5 +1,4 @@
 """
-
 Implementation of the multi-point stress appoximation method, and also terms
 related to poro-elastic coupling.
 
@@ -959,7 +958,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     ncsym_all = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
     del ncasym
 
-    ncsym = bound_exclusion.exclude_rob_dir_nd(ncsym_all)
+    ncsym = bound_exclusion.exclude_robin_dirichlet_nd(ncsym_all)
 
     num_subfno = subcell_topology.subfno.max() + 1
     hook_cell = sps.coo_matrix(
@@ -967,7 +966,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
         shape=(num_subfno * nd, (np.max(subcell_topology.cno) + 1) * nd),
     ).tocsr()
 
-    hook_cell = bound_exclusion.exclude_rob_dir_nd(hook_cell)
+    hook_cell = bound_exclusion.exclude_robin_dirichlet_nd(hook_cell)
 
     # For the Robin boundary conditions we need to pair the forces with the
     # displacement
@@ -1069,8 +1068,8 @@ def __get_displacement_submatrices(
 
     # Expand equations for displacement balance, and eliminate rows
     # associated with neumann boundary conditions
-    d_cont_grad = bound_exclusion.exclude_neu_rob_nd(d_cont_grad)
-    d_cont_cell = bound_exclusion.exclude_neu_rob_nd(d_cont_cell)
+    d_cont_grad = bound_exclusion.exclude_neumann_robin_nd(d_cont_grad)
+    d_cont_cell = bound_exclusion.exclude_neumann_robin_nd(d_cont_cell)
 
     # The column ordering of the displacement equilibrium equations are
     # formed as a Kronecker product of scalar equations. Bring them to the
@@ -1377,8 +1376,8 @@ def _block_diagonal_structure(
     # get block-structure. First eliminate node numbers at the boundary, where
     # the equations are either of flux or pressure continuity (not both)
 
-    nno_stress = bound_exclusion.exclude_rob_dir(nno)
-    nno_displacement = bound_exclusion.exclude_neu_rob(nno)
+    nno_stress = bound_exclusion.exclude_robin_dirichlet(nno)
+    nno_displacement = bound_exclusion.exclude_neumann_robin(nno)
     # we have now eliminated all nodes related to robin, we therefore add them
     nno_rob = bound_exclusion.keep_robin(nno)
 
@@ -1431,9 +1430,9 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
                basis functions for boundary values
     """
     nd = g.dim
-    num_stress = bound_exclusion._exclude_rob_dir.shape[0] * nd
-    num_displ = bound_exclusion._exclude_neu_rob.shape[0] * nd
-    num_rob = bound_exclusion._keep_robin.shape[0] * nd
+    num_stress = bound_exclusion.exclude_rob_dir.shape[0] * nd
+    num_displ = bound_exclusion.exclude_neu_rob.shape[0] * nd
+    num_rob = bound_exclusion.keep_rob.shape[0] * nd
 
     fno = subcell_topology.fno_unique
     subfno = subcell_topology.subfno_unique
@@ -1458,7 +1457,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
-    is_neu = bound_exclusion.exclude_rob_dir(bound.is_neu[fno].astype("int64"))
+    is_neu = bound_exclusion.exclude_robin_dirichlet(bound.is_neu[fno].astype("int64"))
     neu_ind_single = np.argwhere(is_neu).ravel("F")
     is_rob = bound_exclusion.keep_robin(bound.is_rob[fno].astype("int64"))
     rob_ind_single = np.argwhere(is_rob).ravel("F")    
@@ -1510,7 +1509,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
         neu_cell = sps.coo_matrix((num_stress + num_rob, num_bound)).tocsr()
 
     # Dirichlet boundary conditions, procedure is similar to that for Neumann
-    is_dir = bound_exclusion.exclude_neu_rob(bound.is_dir[fno].astype("int64"))
+    is_dir = bound_exclusion.exclude_neumann_robin(bound.is_dir[fno].astype("int64"))
     dir_ind_single = np.argwhere(is_dir).ravel("F")
 
     dir_ind = expand_ind(dir_ind_single, nd, is_dir.size)
