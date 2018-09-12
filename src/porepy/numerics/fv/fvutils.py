@@ -685,7 +685,7 @@ class ExcludeBoundaries(object):
             self.exclude_neu_rob = self.__exclude_matrix(bound.is_neu | bound.is_rob)
             self.exclude_rob_dir = self.__exclude_matrix(bound.is_rob | bound.is_dir)
             self.keep_rob = self.__exclude_matrix(~bound.is_rob)
-            
+
         elif self.bc_type == "vectorial":
             # Neumann
             col_neu_x = np.argwhere([not it for it in bound.is_neu[0, fno]])
@@ -773,7 +773,6 @@ class ExcludeBoundaries(object):
             (np.ones(row.size), (row, col.ravel("C"))),
             shape=(row.size, self.num_subfno),
         ).tocsr()
-
 
     def exclude_dirichlet(self, other):
         """ Mapping to exclude faces/components with Dirichlet boundary conditions from
@@ -894,10 +893,10 @@ class ExcludeBoundaries(object):
             exclude_rob = self.exclude_rob * other
 
         elif self.bc_type == "vectorial":
-            raise NotImplementedError('can not exclude robin for vectorial bc')
+            raise NotImplementedError("can not exclude robin for vectorial bc")
 
         return exclude_rob
-    
+
     def exclude_neumann_robin(self, other):
         """ Mapping to exclude faces/components with Neumann and Robin boundary
         conditions from local systems.
@@ -912,7 +911,7 @@ class ExcludeBoundaries(object):
 
         """
         if self.bc_type == "scalar":
-            exclude_neu = self.exclude_neu_rob* other
+            exclude_neu = self.exclude_neu_rob * other
 
         elif self.bc_type == "vectorial":
             raise NotImplementedError()
@@ -952,7 +951,7 @@ class ExcludeBoundaries(object):
 
         """
         if self.bc_type == "scalar":
-            exclude_rob = self.exclude_rob_dir* other
+            exclude_rob = self.exclude_rob_dir * other
 
         elif self.bc_type == "vectorial":
             raise NotImplementedError()
@@ -1106,6 +1105,7 @@ class ExcludeBoundaries(object):
             raise NotImplementedError()
 
         return exclude_neu_dir_nd * other
+
 
 # -----------------End of class ExcludeBoundaries-----------------------------
 

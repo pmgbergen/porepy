@@ -133,6 +133,7 @@ class Mpsa(Solver):
 
         return -div * bound_stress * bc_val - f
 
+
 class FracturedMpsa(Mpsa):
     """
     Subclass of MPSA for discretizing a fractured domain. Adds DOFs on each
@@ -375,8 +376,8 @@ class FracturedMpsa(Mpsa):
             bound.is_neu[:, frac_faces] = False
         else:
             raise ValueError("Unknow boundary condition type: " + bound.bc_type)
-        if np.sum(bound.is_dir * bound.is_neu) !=0:
-            raise AssertionError('Found faces that are both dirichlet and neuman')
+        if np.sum(bound.is_dir * bound.is_neu) != 0:
+            raise AssertionError("Found faces that are both dirichlet and neuman")
         # Discretize with normal mpsa
         self.discretize(g, data, **kwargs)
         stress, bound_stress = data["stress"], data["bound_stress"]
@@ -523,7 +524,16 @@ class FracturedMpsa(Mpsa):
 # ------------------------------------------------------------------------------#
 
 
-def mpsa(g, constit, bound, robin_weight=None, eta=None, inverter=None, max_memory=None, **kwargs):
+def mpsa(
+    g,
+    constit,
+    bound,
+    robin_weight=None,
+    eta=None,
+    inverter=None,
+    max_memory=None,
+    **kwargs
+):
     """
     Discretize the vector elliptic equation by the multi-point stress
     approximation method, specifically the weakly symmetric MPSA-W method.
@@ -658,8 +668,13 @@ def mpsa(g, constit, bound, robin_weight=None, eta=None, inverter=None, max_memo
 
             # Perform local discretization.
             loc_stress, loc_bound_stress, loc_faces = mpsa_partial(
-                g, constit, bound, eta=eta, inverter=inverter, nodes=active_nodes,
-                robin_weight=robin_weight
+                g,
+                constit,
+                bound,
+                eta=eta,
+                inverter=inverter,
+                nodes=active_nodes,
+                robin_weight=robin_weight,
             )
 
             # Eliminate contribution from faces already covered
@@ -685,7 +700,7 @@ def mpsa_partial(
     faces=None,
     nodes=None,
     apertures=None,
-    robin_weight=None
+    robin_weight=None,
 ):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
@@ -870,7 +885,13 @@ def _mpsa_local(g, constit, bound, eta=0, robin_weight=None, inverter="numba"):
     # elasticity and poro-elasticity).
 
     hook, igrad, rhs_cells, _, _ = mpsa_elasticity(
-        g, constit, subcell_topology, bound_exclusion, eta, inverter, robin_weight=robin_weight
+        g,
+        constit,
+        subcell_topology,
+        bound_exclusion,
+        eta,
+        inverter,
+        robin_weight=robin_weight,
     )
 
     hook_igrad = hook * igrad
@@ -898,7 +919,9 @@ def _mpsa_local(g, constit, bound, eta=0, robin_weight=None, inverter="numba"):
     return stress, bound_stress
 
 
-def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter, robin_weight=None):
+def mpsa_elasticity(
+    g, constit, subcell_topology, bound_exclusion, eta, inverter, robin_weight=None
+):
     """
     This is the function where the real discretization takes place. It contains
     the parts that are common for elasticity and poro-elasticity, and was thus
@@ -973,8 +996,10 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     ncsym_rob = bound_exclusion.keep_robin_nd(ncsym_all)
 
     if robin_weight is None:
-        if  ncsym_rob.shape[0] !=0:
-            raise ValueError('If applying Robin conditions you must supply an robin_weight')
+        if ncsym_rob.shape[0] != 0:
+            raise ValueError(
+                "If applying Robin conditions you must supply an robin_weight"
+            )
         else:
             robin_weight = 1
 
@@ -1080,6 +1105,7 @@ def __get_displacement_submatrices(
 
     return d_cont_grad, d_cont_cell
 
+
 def __get_displacement_submatrices_rob(
     g, subcell_topology, eta, num_sub_cells, bound_exclusion, robin_weight
 ):
@@ -1088,22 +1114,28 @@ def __get_displacement_submatrices_rob(
     # contribution from gradient unknown to equations for displacement
     # at the boundary
     rob_grad = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
-    
+
     # For the Robin condition the distance from the cell centers to face centers
     # will be the contribution from the gradients. We integrate over the subface
     # and multiply by the area
     num_nodes = np.diff(g.face_nodes.indptr)
     sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
     scaled_sgn = (
-        robin_weight * sgn[0] * g.face_areas[subcell_topology.fno_unique] \
+        robin_weight
+        * sgn[0]
+        * g.face_areas[subcell_topology.fno_unique]
         / num_nodes[subcell_topology.fno_unique]
-        )
+    )
     # pair_over_subfaces flips the sign so we flip it back
-    rob_grad = sps.kron(sps.eye(nd), sps.diags(scaled_sgn)*rob_grad)
+    rob_grad = sps.kron(sps.eye(nd), sps.diags(scaled_sgn) * rob_grad)
     # Contribution from cell center potentials to local systems
     rob_cell = sps.coo_matrix(
-        (robin_weight * g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
-         (subcell_topology.subfno, subcell_topology.cno))
+        (
+            robin_weight
+            * g.face_areas[subcell_topology.fno]
+            / num_nodes[subcell_topology.fno],
+            (subcell_topology.subfno, subcell_topology.cno),
+        )
     ).tocsr()
     rob_cell = sps.kron(sps.eye(nd), rob_cell)
 
@@ -1382,13 +1414,17 @@ def _block_diagonal_structure(
     nno_rob = bound_exclusion.keep_robin(nno)
 
     if bound_exclusion.bc_type == "scalar":
-        node_occ = np.hstack((np.tile(nno_stress, nd),
-                              np.tile(nno_rob, nd),
-                              np.tile(nno_displacement, nd)))
+        node_occ = np.hstack(
+            (
+                np.tile(nno_stress, nd),
+                np.tile(nno_rob, nd),
+                np.tile(nno_displacement, nd),
+            )
+        )
 
     elif bound_exclusion.bc_type == "vectorial":
         node_occ = np.hstack((nno_stress, nno_displacement))
-        if nno_rob.size >=0:
+        if nno_rob.size >= 0:
             raise NotImplementedError()
     sorted_ind = np.argsort(node_occ, kind="mergesort")
     rows2blk_diag = sps.coo_matrix(
@@ -1460,24 +1496,24 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     is_neu = bound_exclusion.exclude_robin_dirichlet(bound.is_neu[fno].astype("int64"))
     neu_ind_single = np.argwhere(is_neu).ravel("F")
     is_rob = bound_exclusion.keep_robin(bound.is_rob[fno].astype("int64"))
-    rob_ind_single = np.argwhere(is_rob).ravel("F")    
+    rob_ind_single = np.argwhere(is_rob).ravel("F")
 
     # There are is_neu.size Neumann conditions per dimension and
     # there are is_rob.size Robin conditions per dimension
     neu_ind = expand_ind(neu_ind_single, nd, is_neu.size)
     rob_ind = expand_ind(rob_ind_single, nd, is_rob.size)
     # We now merge the neuman and robin indices since they are treated equivalent
-    if rob_ind.size==0:
+    if rob_ind.size == 0:
         neu_rob_ind = neu_ind
-    elif neu_ind.size==0:
+    elif neu_ind.size == 0:
         neu_rob_ind = rob_ind + num_stress
     else:
         neu_rob_ind = np.hstack((neu_ind, rob_ind + num_stress))
-        
+
     # We also need to account for all half faces, that is, do not exclude
     # Dirichlet and Neumann boundaries.
     neu_ind_single_all = np.argwhere(bound.is_neu[fno].astype("int")).ravel("F")
-    rob_ind_single_all = np.argwhere(bound.is_rob[fno].astype("int")).ravel("F")    
+    rob_ind_single_all = np.argwhere(bound.is_rob[fno].astype("int")).ravel("F")
     dir_ind_single_all = np.argwhere(bound.is_dir[fno].astype("int")).ravel("F")
 
     neu_rob_ind_single_all = np.hstack((neu_ind_single_all, rob_ind_single_all))
@@ -1500,7 +1536,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     if neu_rob_ind.size > 0:
         neu_cell = sps.coo_matrix(
             (neu_val.ravel("F"), (neu_rob_ind, np.arange(neu_rob_ind.size))),
-            shape=(num_stress+num_rob, num_bound),
+            shape=(num_stress + num_rob, num_bound),
         ).tocsr()
 
     else:

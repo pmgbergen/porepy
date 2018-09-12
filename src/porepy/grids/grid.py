@@ -649,7 +649,6 @@ class Grid(object):
                 nodes = self.face_nodes.indices[mcolon.mcolon(first, second)]
                 self.tags[node_tag][nodes] = True
 
-
     def cell_diameters(self, cn=None):
         """
         Compute the cell diameters. If self.dim == 0, return 0
