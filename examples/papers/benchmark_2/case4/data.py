@@ -82,7 +82,7 @@ def add_data(gb, data, solver_name):
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size != 0:
 
-            b_in, b_out, b_out_1, b_out_2 = b_pressure(g)
+            b_in, b_out, _, b_out_2 = b_pressure(g)
             if b_in is not None and b_out is not None:
 
                 labels = np.array(["neu"] * b_faces.size)

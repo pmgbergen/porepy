@@ -1,5 +1,4 @@
 import numpy as np
-import porepy as pp
 import data as problem_data
 
 from examples.papers.benchmark_2.case3.main import mean_inlet_pressure
@@ -63,7 +62,6 @@ def summarize_data(solver_names):
 
 def main(folder, solver, solver_name, dt):
 
-    tol = 1e-8
     gb, domain = problem_data.create_grid(from_file=True)
 
     data = {"domain": domain, "t_max": 5000}

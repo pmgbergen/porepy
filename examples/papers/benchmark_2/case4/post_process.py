@@ -1,8 +1,5 @@
 import paraview.simple as pv
 
-import vtk
-from vtk.util.numpy_support import vtk_to_numpy
-
 import csv
 import numpy as np
 from scipy.io import mmread

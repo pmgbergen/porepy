@@ -1,5 +1,4 @@
 import numpy as np
-import porepy as pp
 import data as problem_data
 import examples.papers.benchmark_2.solvers as solvers
 
@@ -67,7 +66,6 @@ def summarize_data(mesh_id, solver_names):
 
 def main(grid_file, folder, solver, solver_name, dt):
 
-    tol = 1e-8
     gb, domain = problem_data.create_grid(grid_file)
 
     data = {"domain": domain, "t_max": 1}
