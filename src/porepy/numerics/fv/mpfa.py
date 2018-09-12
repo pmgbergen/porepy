@@ -61,7 +61,6 @@ class MpfaDFN(SolverMixedDim):
 # ------------------------------------------------------------------------------
 
 
-<<<<<<< eb22cd1601407d0700a73461676101219dc7c949
 class Mpfa(Solver):
     def __init__(self, physics="flow"):
         self.physics = physics
@@ -81,6 +80,9 @@ class Mpfa(Solver):
 
         """
         return g.num_cells
+    def __init__(self, keyword):
+        super(Mpfa, self).__init__(keyword)
+
 
     # ------------------------------------------------------------------------------#
 
@@ -186,7 +188,6 @@ class Mpfa(Solver):
             proj = mg.low_to_mortar_avg()
 
         matrix[self_ind, 2] += proj.T
-class Mpfa(FVElliptic):
 
     # ------------------------------------------------------------------------------#
 
