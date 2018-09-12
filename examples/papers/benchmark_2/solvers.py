@@ -171,7 +171,7 @@ class Transport(TransportSolver):
     def __init__(self, problem):
         self.gb = problem.grid()
         self.outflow = np.empty(0)
-        pp.numerics.time_stepper.AbstractSolver.__init__(self, problem)
+        super().__init__(problem)
 
     def step(self, IE_solver):
         "Take one time step"
