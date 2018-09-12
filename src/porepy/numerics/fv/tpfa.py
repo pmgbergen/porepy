@@ -70,7 +70,7 @@ class TpfaDFN(pp.numerics.mixed_dim.solver.SolverMixedDim):
 # ------------------------------------------------------------------------------
 
 
-class Tpfa(pp.numerics.mixed_dim.solver.Solver):
+class Tpfa(FVElliptic):
     """ Discretize elliptic equations by a two-point flux approximation.
 
     Attributes:
