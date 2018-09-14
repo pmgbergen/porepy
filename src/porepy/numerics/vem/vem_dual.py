@@ -143,10 +143,13 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics="flow"):
-        self.physics = physics
+    def __init__(self, keyword):
+        self.keyword = keyword
 
     # ------------------------------------------------------------------------------#
+
+    def key(self):
+        return self.keyword + '_'
 
     def ndof(self, g):
         """
@@ -174,7 +177,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(self, g, data):
         """
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using dual virtual element method.
@@ -192,12 +195,20 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        M, bc_weight = self.matrix(g, data, bc_weight=True)
+
+        # First assemble the matrix
+        M = self.assemble_matrix(g, data)
+
+        # Impose Neumann boundary conditions, with appropriate scaling of the
+        # diagonal element
+        M, bc_weight = self.matrix(g, data, M, bc_weight=True)
+
+        # Assemble right hand side term
         return M, self.rhs(g, data, bc_weight)
 
     # ------------------------------------------------------------------------------#
 
-    def matrix(self, g, data, bc_weight=False):
+    def discretize(self, g, data):
         """
         Return the matrix for a discretization of a second order elliptic equation
         using dual virtual element method. See self.matrix_rhs for a detaild
@@ -218,8 +229,6 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             M = sps.dia_matrix(([1, 0], 0), (self.ndof(g), self.ndof(g)))
-            if bc_weight:
-                return M, 1
             return M
 
         # Retrieve the permeability, boundary conditions, and aperture
@@ -227,7 +236,6 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         # assumed unitary
         param = data["param"]
         k = param.get_tensor(self)
-        bc = param.get_bc(self)
         a = param.get_aperture()
 
         faces, cells, sign = sps.find(g.cell_faces)
@@ -290,9 +298,26 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
-        M = sps.bmat([[mass, div.T], [div, None]], format="csr")
+        data[self.key() + 'vem_mass'] = mass
+        data[self.key() + 'vem_div'] = div
 
+    def assemble_matrix(self, g, data):
+        """ Assemble VEM matrix from an existing discretization.
+        """
+        mass = data[self.key() + 'vem_mass']
+        div = data[self.key() + 'vem_div']
+        return sps.bmat([[mass, div.T], [div, None]], format="csr")
+
+    def assemble_neumann(self, g, data, M, bc_weight=None):
+        """ Impose Neumann boundary discretization on an already assembled
+        system matrix.
+        """
+
+        mass = data[self.key() + 'vem_mass']
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
+
+        param = data["param"]
+        bc = param.get_bc(self)
 
         # assign the Neumann boundary conditions
         # For dual discretizations, internal boundaries
@@ -319,7 +344,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def rhs(self, g, data, bc_weight=1):
+    def assemble_rhs(self, g, data, bc_weight=1):
         """
         Return the righ-hand side for a discretization of a second order elliptic
         equation using dual virtual element method. See self.matrix_rhs for a detaild
