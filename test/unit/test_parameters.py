@@ -190,11 +190,11 @@ class TestGettersAndSetters(unittest.TestCase):
     #####
 
     def _validate_robin_weight(self, p, physics, val=1):
-        if physics=='flow':
+        if physics == "flow":
             self.assertTrue(np.allclose(p.robin_weight_flow, val))
-        elif physics=='transport':
+        elif physics == "transport":
             self.assertTrue(np.allclose(p.robin_weight_transport, val))
-        elif physics=='mechanics':
+        elif physics == "mechanics":
             self.assertTrue(np.allclose(p.robin_weight_mechanics, val))
         else:
             self.assertTrue(False)
@@ -206,6 +206,7 @@ class TestGettersAndSetters(unittest.TestCase):
             self._validate_robin_weight(p, name)
 
         # Set by scalar
+
     def test_robin_weight_set(self):
         p = Parameters(self.g)
         for name in p.known_physics:

@@ -988,7 +988,7 @@ def mpsa_elasticity(
     ncsym_rob = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
     del ncasym
     ncsym_rob = bound_exclusion.keep_robin_nd(ncsym_rob)
-    
+
     if robin_weight is None:
         if ncsym_rob.shape[0] != 0:
             raise ValueError(
@@ -1004,7 +1004,15 @@ def mpsa_elasticity(
         g, subcell_topology, eta, num_sub_cells, bound_exclusion, robin_weight
     )
 
-    # Pair the forces from each side
+    # Pair the forces from each side. For the Neumann faces this does in fact
+    # lead to an inconsistency because the asymetric parts does not cancell.
+    # We can add the asymmetric term for the Neumann faces, as is done above
+    # for the Robin faces, however, in some cases this might lead to sigular
+    # local matrices (when a subcell only have Neumann faces). We need to
+    # come back and adress this issue.
+
+    # ncsym * G is in fact (due to pair_over_subfaces)
+    # ncsym_L * G_L + ncsym_R * G_R for the left and right faces.
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym_all)
     del ncsym_all
     ncsym = bound_exclusion.exclude_robin_dirichlet_nd(ncsym)
