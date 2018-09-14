@@ -114,8 +114,8 @@ class RobinBoundTest(unittest.TestCase):
         right = g.face_centers[0] > 1 - 1e-10
 
         dir_ind = np.ravel(np.argwhere(left))
-        neu_ind = np.ravel(np.argwhere(top))
-        rob_ind = np.ravel(np.argwhere(right + bot))
+        neu_ind = np.ravel(np.argwhere(()))
+        rob_ind = np.ravel(np.argwhere(right + top + bot))
 
         names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
         bnd_ind = np.hstack((dir_ind, rob_ind))
@@ -161,9 +161,9 @@ class RobinBoundTest(unittest.TestCase):
         left = g.face_centers[0] < 1e-10
         right = g.face_centers[0] > 1 - 1e-10
 
-        dir_ind = np.ravel(np.argwhere(left))
-        neu_ind = np.ravel(np.argwhere(top))
-        rob_ind = np.ravel(np.argwhere(right + bot))
+        dir_ind = np.ravel(np.argwhere(()))
+        neu_ind = np.ravel(np.argwhere(()))
+        rob_ind = np.ravel(np.argwhere(right + left + top + bot))
 
         names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
         bnd_ind = np.hstack((dir_ind, rob_ind))
