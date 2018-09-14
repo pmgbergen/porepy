@@ -978,11 +978,36 @@ def mpsa_elasticity(
     # sides of the faces.
     hook = __unique_hooks_law(ncsym_all, ncasym, subcell_topology, nd)
 
-    # Pair the forces from each side
-    ncsym_all = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
+    # For the Robin boundary conditions we need to pair the forces with the
+    # displacement.
+    # The contribution of the displacement at the Robin boundary is
+    # rob_grad * G + rob_cell * u (this is the displacement at the boundary scaled
+    # with the Robin weight times the area of the faces),
+    # where G are the gradients and u the cell center displacement. The Robin
+    # condtion is then ncsym_rob * G + rob_grad * G + rob_cell * u
+    ncsym_rob = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
     del ncasym
+    ncsym_rob = bound_exclusion.keep_robin_nd(ncsym_rob)
+    
+    if robin_weight is None:
+        if ncsym_rob.shape[0] != 0:
+            raise ValueError(
+                "If applying Robin conditions you must supply a robin_weight"
+            )
+        else:
+            robin_weight = 1
 
-    ncsym = bound_exclusion.exclude_robin_dirichlet_nd(ncsym_all)
+    # Book keeping
+    num_sub_cells = cell_node_blocks[0].size
+
+    rob_grad, rob_cell = __get_displacement_submatrices_rob(
+        g, subcell_topology, eta, num_sub_cells, bound_exclusion, robin_weight
+    )
+
+    # Pair the forces from each side
+    ncsym = subcell_topology.pair_over_subfaces_nd(ncsym_all)
+    del ncsym_all
+    ncsym = bound_exclusion.exclude_robin_dirichlet_nd(ncsym)
 
     num_subfno = subcell_topology.subfno.max() + 1
     hook_cell = sps.coo_matrix(
@@ -991,24 +1016,6 @@ def mpsa_elasticity(
     ).tocsr()
 
     hook_cell = bound_exclusion.exclude_robin_dirichlet_nd(hook_cell)
-
-    # For the Robin boundary conditions we need to pair the forces with the
-    # displacement
-    ncsym_rob = bound_exclusion.keep_robin_nd(ncsym_all)
-
-    if robin_weight is None:
-        if ncsym_rob.shape[0] != 0:
-            raise ValueError(
-                "If applying Robin conditions you must supply an robin_weight"
-            )
-        else:
-            robin_weight = 1
-
-    # Book keeping
-    num_sub_cells = cell_node_blocks[0].size
-    rob_grad, rob_cell = __get_displacement_submatrices_rob(
-        g, subcell_topology, eta, num_sub_cells, bound_exclusion, robin_weight
-    )
 
     # Matrices to enforce displacement continuity
     d_cont_grad, d_cont_cell = __get_displacement_submatrices(
