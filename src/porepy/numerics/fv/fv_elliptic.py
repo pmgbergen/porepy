@@ -38,6 +38,9 @@ class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
     # ------------------------------------------------------------------------------#
 
+    def assemble_matrix_rhs(self, g, data):
+        return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
+
     def assemble_matrix(self, g, data):
         """
         Return the matrix and right-hand side for a discretization of a second
@@ -65,7 +68,7 @@ class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
             Discretization matrix.
 
         """
-        div = fvutils.scalar_divergence(g)
+        div = pp.fvutils.scalar_divergence(g)
         flux = data["flux"]
         M = div * flux
 
