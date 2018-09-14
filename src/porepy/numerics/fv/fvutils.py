@@ -756,7 +756,7 @@ class ExcludeBoundaries(object):
             col_neu = np.append(col_neu, [col_z])
 
         else:
-            exclude_z = sps.coo_matrix(shape=(0, self.num_subfno))
+            exclude_z = sps.coo_matrix([], shape=(0, self.num_subfno))
         row_neu = np.arange(col_neu.size)
         exclude_nd = sps.coo_matrix(
             (np.ones(row_neu.size), (row_neu, col_neu.ravel("C"))),
