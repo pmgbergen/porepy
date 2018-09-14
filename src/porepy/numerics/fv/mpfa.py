@@ -162,7 +162,9 @@ class Mpfa(Solver):
         a = param.aperture
         robin_weight = param.get_robin_weight(self)
 
-        trm, bound_flux, bp_cell, bp_face = mpfa(g, k, bnd, apertures=a, robin_weight=robin_weight)
+        trm, bound_flux, bp_cell, bp_face = mpfa(
+            g, k, bnd, apertures=a, robin_weight=robin_weight
+        )
         data["flux"] = trm
         data["bound_flux"] = bound_flux
         data["bound_pressure_cell"] = bp_cell
