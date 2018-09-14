@@ -640,36 +640,6 @@ class Mpfa(Solver):
 
         del grad, cols2blk_diag, rows2blk_diag
 
-        # Technical note: The elements in igrad are organized as follows:
-        # The fields subcell_topology.cno and .nno will together identify Nd
-        # placements in igrad that are associated with the same cell and the same
-        # node, that is, they belong to the same subcell. These placements are used
-        # to store the discrete gradient of that cell, with the first item
-        # representing the x-component etc.
-        # As an example, to find the gradient in the subcell of cell ci, associated
-        # with node ni, first find the indexes of subcell_topology.cno and .nno
-        # that contain ci and ni, respectively. The first of these indexes give the
-        # row of the x-component of the gradient, the second the y-component etc.
-        #
-        # The columns of igrad corresponds to the ordering of the equations in
-        # grad; as recovered in _block_diagonal_structure. In practice, the first
-        # columns correspond to unit pressures assigned to faces (as used for
-        # boundary conditions or to discretize discontinuities over internal faces,
-        # say, to represent heterogeneous gravity), while the latter group
-        # gives gradients induced by cell center pressures.
-        #
-        # Note tacit assumptions: 1) Each cell has exactly Nd faces meeting in a
-        # vertex; or else, there would not be an exact match between the
-        # number of equal (nno-cno) pairs and the number of components in the
-        # gradient. This assumption is always okay in 2d, in 3d it rules out cells
-        # shaped as pyramids, in which case mpfa is not defined without making
-        # further specifications of the method.
-        # 2) The number of components in the gradient is equal to the spatial
-        # dimension of the grid, as defined in g.dim. Thus 2d grids embedded in 3d
-        # will run into trouble, unless the grid is first projected down to its
-        # natural plane. This can be fixed by a more general implementation, but
-        # it would require quite deep changes to the code.
-
         # Flux discretization:
         flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, pr_cont_cell]))
 
@@ -707,94 +677,42 @@ class Mpfa(Solver):
         is_neu = is_neu[l2g_faces[loc_bound_ind]]
 
         loc_cond[is_dir] = "dir"
-    #
-    # The functions below are helper functions, which are not really necessary to
-    # understand in detail to use the method. They also tend to be less well
-    # documented.
-    #
-    # Note tacit assumptions: 1) Each cell has exactly Nd faces meeting in a
-    # vertex; or else, there would not be an exact match between the
-    # number of equal (nno-cno) pairs and the number of components in the
-    # gradient. This assumption is always okay in 2d, in 3d it rules out cells
-    # shaped as pyramids, in which case mpfa is not defined without making
-    # further specifications of the method.
-    # 2) The number of components in the gradient is equal to the spatial
-    # dimension of the grid, as defined in g.dim. Thus 2d grids embedded in 3d
-    # will run into trouble, unless the grid is first projected down to its
-    # natural plane. This can be fixed by a more general implementation, but
-    # it would require quite deep changes to the code.
+        # Internal faces, and boundary faces with a Dirichle condition do not need
+        # information on the gradient.
+        # Implementation note: This can be expanded to pressure recovery also
+        # on internal faces by including them here, and below.
+        remove_not_neumann = sps.diags(bnd.is_neu.astype(np.int))
+        dp = remove_not_neumann * dp
 
-    # Flux discretization:
-    # The negative in front of pr_trace_cell comes from the grad_egs
-    flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell]))
+        # We also need pressure in the cell next to the boundary face.
+        bound_faces = g.get_all_boundary_faces()
+        # A trick to get the boundary face: We know that one element is -1 (e.g.
+        # outside the domain). Add 1, sum cell indices (will only contain the
+        # internal cell; the one outside is now zero), and then subtract 1 again.
+        bound_cells = np.sum(g.cell_face_as_dense()[:, bound_faces] + 1, axis=0) - 1
+        cell_contrib = sps.coo_matrix(
+            (np.ones_like(bound_faces), (bound_faces, bound_cells)),
+            shape=(g.num_faces, g.num_cells),
+        )
+        cell_contrib = remove_not_neumann * cell_contrib
 
-    ####
-    # Boundary conditions
-    rhs_bound = _create_bound_rhs(
-        bnd,
-        bound_exclusion,
-        subcell_topology,
-        sgn_unique,
-        g,
-        num_nk_cell,
-        num_nk_rob,
-        num_pr_cont_grad,
-    )
-    # Discretization of boundary values
-    bound_flux = hf2f * darcy * igrad * rhs_bound
+        bound_pressure_cell = dp + cell_contrib
 
-    # Below here, fields necessary for reconstruction of boundary pressures
+        sgn_arr = np.zeros(g.num_faces)
+        sgn_arr[bound_faces] = g.cell_faces[bound_faces].sum(axis=1).A.ravel()
+        sgn_mat = sps.diags(sgn_arr)
 
-    # Diagonal matrix that divides by number of sub-faces per face
-    half_face_per_face = sps.diags(1. / (hf2f * np.ones(hf2f.shape[1])))
+        bound_pressure_face_neu = (
+            sgn_mat * half_face_per_face * hf2f * pr_cont_grad_all * igrad * rhs_bound
+        )
+        # For Dirichlet faces, simply recover the boundary condition
+        bound_pressure_face_dir = sps.diags(bnd.is_dir.astype(np.int))
 
-    # Contribution to face pressure from sub-cell gradients, calculated as
-    # gradient times distance. Then further map to faces, and divide by number
-    # of contributions per face
-    dp = (
-        half_face_per_face
-        * hf2f
-        * pr_cont_grad_all
-        * igrad
-        * (-sps.vstack([nk_cell, pr_trace_cell, pr_cont_cell]))
-    )
+        bound_pressure_face = (
+            bound_pressure_face_dir + remove_not_neumann * bound_pressure_face_neu
+        )
 
-    # Internal faces, and boundary faces with a Dirichle condition do not need
-    # information on the gradient.
-    # Implementation note: This can be expanded to pressure recovery also
-    # on internal faces by including them here, and below.
-    remove_not_neumann = sps.diags(bnd.is_neu.astype(np.int))
-    dp = remove_not_neumann * dp
-
-    # We also need pressure in the cell next to the boundary face.
-    bound_faces = g.get_all_boundary_faces()
-    # A trick to get the boundary face: We know that one element is -1 (e.g.
-    # outside the domain). Add 1, sum cell indices (will only contain the
-    # internal cell; the one outside is now zero), and then subtract 1 again.
-    bound_cells = np.sum(g.cell_face_as_dense()[:, bound_faces] + 1, axis=0) - 1
-    cell_contrib = sps.coo_matrix(
-        (np.ones_like(bound_faces), (bound_faces, bound_cells)),
-        shape=(g.num_faces, g.num_cells),
-    )
-    cell_contrib = remove_not_neumann * cell_contrib
-
-    bound_pressure_cell = dp + cell_contrib
-
-    sgn_arr = np.zeros(g.num_faces)
-    sgn_arr[bound_faces] = g.cell_faces[bound_faces].sum(axis=1).A.ravel()
-    sgn_mat = sps.diags(sgn_arr)
-
-    bound_pressure_face_neu = (
-        sgn_mat * half_face_per_face * hf2f * pr_cont_grad_all * igrad * rhs_bound
-    )
-    # For Dirichlet faces, simply recover the boundary condition
-    bound_pressure_face_dir = sps.diags(bnd.is_dir.astype(np.int))
-
-    bound_pressure_face = (
-        bound_pressure_face_dir + remove_not_neumann * bound_pressure_face_neu
-    )
-
-    return flux, bound_flux, bound_pressure_cell, bound_pressure_face
+        return flux, bound_flux, bound_pressure_cell, bound_pressure_face
 
 
     def _estimate_peak_memory(g):
