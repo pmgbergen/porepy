@@ -89,14 +89,12 @@ class Mpfa(Solver):
         order elliptic equation using a FV method with a multi-point flux
         approximation.
 
-        The name of data in the input dictionary (data) are:
-        k : second_order_tensor
-            Permeability defined cell-wise.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
+        The data should contain a parameter class under the field "param".
+        The following parameters will be accessed:
+        get_tensor : SecondOrderTensor. Permeability defined cell-wise.
+        get_bc : boundary conditions
+        get_bc_val : boundary values
+        get_robin_weight : float. Weight for pressure in Robin condition
 
         Parameters
         ----------
@@ -147,16 +145,11 @@ class Mpfa(Solver):
 
     def discretize(self, g, data):
         """
-        The name of data in the input dictionary (data) are:
-        k : second_order_tensor
-            Permeability defined cell-wise. If not given a identity permeability
-            is assumed and a warning arised.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
-
+        The data should contain a parameter class under the field "param".
+        The following parameters will be accessed:
+        get_tensor : SecondOrderTensor. Permeability defined cell-wise.
+        get_bc : boundary conditions
+        get_robin_weight : float. Weight for pressure in Robin condition
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -167,8 +160,9 @@ class Mpfa(Solver):
         k = param.get_tensor(self)
         bnd = param.get_bc(self)
         a = param.aperture
+        robin_weight = param.get_robin_weight(self)
 
-        trm, bound_flux, bp_cell, bp_face = mpfa(g, k, bnd, apertures=a)
+        trm, bound_flux, bp_cell, bp_face = mpfa(g, k, bnd, apertures=a, robin_weight=robin_weight)
         data["flux"] = trm
         data["bound_flux"] = bound_flux
         data["bound_pressure_cell"] = bp_cell
