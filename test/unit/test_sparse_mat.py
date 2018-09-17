@@ -13,9 +13,9 @@ class TestSparseMath(unittest.TestCase):
             shape=(3, 3),
         )
         sparse_mat.zero_columns(A, 0)
-        assert np.all(A.A == np.array([[0, 0, 0], [0, 0, 3], [0, 2, 0]]))
-        assert A.nnz == 3
-        assert A.getformat() == "csc"
+        self.assertTrue(np.all(A.A == np.array([[0, 0, 0], [0, 0, 3], [0, 2, 0]])))
+        self.assertTrue(A.nnz == 3)
+        self.assertTrue(A.getformat() == "csc")
 
     def zero_2_columns(self):
         A = sps.csc_matrix(
@@ -23,9 +23,9 @@ class TestSparseMath(unittest.TestCase):
             shape=(3, 3),
         )
         sparse_mat.zero_columns(A, np.array([0, 2]))
-        assert np.all(A.A == np.array([[0, 0, 0], [0, 0, 0], [0, 2, 0]]))
-        assert A.nnz == 3
-        assert A.getformat() == "csc"
+        self.assertTrue(np.all(A.A == np.array([[0, 0, 0], [0, 0, 0], [0, 2, 0]])))
+        self.assertTrue(A.nnz == 3)
+        self.assertTrue(A.getformat() == "csc")
 
     def test_zero_columns(self):
         # Test slicing of csr_matrix
@@ -41,9 +41,9 @@ class TestSparseMath(unittest.TestCase):
         sparse_mat.zero_columns(A2, 2)
         sparse_mat.zero_columns(A0_2, np.array([0, 1, 2]))
 
-        assert np.sum(A0 != A0_t) == 0
-        assert np.sum(A2 != A2_t) == 0
-        assert np.sum(A0_2 != A0_2_t) == 0
+        self.assertTrue(np.sum(A0 != A0_t) == 0)
+        self.assertTrue(np.sum(A2 != A2_t) == 0)
+        self.assertTrue(np.sum(A0_2 != A0_2_t) == 0)
 
     # ------------------- get slicing indices ------------------
     def test_csr_slice(self):
@@ -56,11 +56,11 @@ class TestSparseMath(unittest.TestCase):
         cols_split = sparse_mat.slice_indices(A, np.array([0, 2]))
         cols0_2 = sparse_mat.slice_indices(A, np.array([0, 1, 2]))
 
-        assert cols_0.size == 0
-        assert cols_1 == np.array([0])
-        assert cols_2 == np.array([2])
-        assert np.all(cols_split == np.array([2]))
-        assert np.all(cols0_2 == np.array([0, 2]))
+        self.assertTrue(cols_0.size == 0)
+        self.assertTrue(cols_1 == np.array([0]))
+        self.assertTrue(cols_2 == np.array([2]))
+        self.assertTrue(np.all(cols_split == np.array([2])))
+        self.assertTrue(np.all(cols0_2 == np.array([0, 2])))
 
     def test_csc_slice(self):
         # Test slicing of csr_matrix
@@ -71,11 +71,11 @@ class TestSparseMath(unittest.TestCase):
         cols_split = sparse_mat.slice_indices(A, np.array([0, 2]))
         rows0_2 = sparse_mat.slice_indices(A, np.array([0, 1, 2]))
 
-        assert rows_0 == np.array([1])
-        assert rows_1.size == 0
-        assert rows_2 == np.array([2])
-        assert np.all(cols_split == np.array([1, 2]))
-        assert np.all(rows0_2 == np.array([1, 2]))
+        self.assertTrue(rows_0 == np.array([1]))
+        self.assertTrue(rows_1.size == 0)
+        self.assertTrue(rows_2 == np.array([2]))
+        self.assertTrue(np.all(cols_split == np.array([1, 2])))
+        self.assertTrue(np.all(rows0_2 == np.array([1, 2])))
 
     # ------------------ Test sliced_mat() -----------------------
     def test_sliced_mat_columns(self):
@@ -100,12 +100,12 @@ class TestSparseMath(unittest.TestCase):
         A4 = sparse_mat.slice_mat(A, np.array([0, 2], dtype=np.int))
         A5 = sparse_mat.slice_mat(A, np.array([1, 1], dtype=np.int))
 
-        assert np.sum(A0 != A0_t) == 0
-        assert np.sum(A1 != A1_t) == 0
-        assert np.sum(A2 != A2_t) == 0
-        assert np.sum(A3 != A3_t) == 0
-        assert np.sum(A4 != A4_t) == 0
-        assert np.sum(A5 != A5_t) == 0
+        self.assertTrue(np.sum(A0 != A0_t) == 0)
+        self.assertTrue(np.sum(A1 != A1_t) == 0)
+        self.assertTrue(np.sum(A2 != A2_t) == 0)
+        self.assertTrue(np.sum(A3 != A3_t) == 0)
+        self.assertTrue(np.sum(A4 != A4_t) == 0)
+        self.assertTrue(np.sum(A5 != A5_t) == 0)
 
     def test_sliced_mat_rows(self):
         # Test slicing of csr_matrix
@@ -125,12 +125,12 @@ class TestSparseMath(unittest.TestCase):
         A4 = sparse_mat.slice_mat(A, np.array([0, 2], dtype=np.int))
         A5 = sparse_mat.slice_mat(A, np.array([1, 1], dtype=np.int))
 
-        assert np.sum(A0 != A0_t) == 0
-        assert np.sum(A1 != A1_t) == 0
-        assert np.sum(A2 != A2_t) == 0
-        assert np.sum(A3 != A3_t) == 0
-        assert np.sum(A4 != A4_t) == 0
-        assert np.sum(A5 != A5_t) == 0
+        self.assertTrue(np.sum(A0 != A0_t) == 0)
+        self.assertTrue(np.sum(A1 != A1_t) == 0)
+        self.assertTrue(np.sum(A2 != A2_t) == 0)
+        self.assertTrue(np.sum(A3 != A3_t) == 0)
+        self.assertTrue(np.sum(A4 != A4_t) == 0)
+        self.assertTrue(np.sum(A5 != A5_t) == 0)
 
     # ------------------ Test stack_mat() -----------------------
     def test_stack_mat_columns(self):
@@ -145,7 +145,7 @@ class TestSparseMath(unittest.TestCase):
 
         sparse_mat.stack_mat(A, B)
 
-        assert np.sum(A != A_t) == 0
+        self.assertTrue(np.sum(A != A_t) == 0)
 
     def test_stack_empty_mat_columns(self):
         # Test slicing of csr_matrix
@@ -155,10 +155,10 @@ class TestSparseMath(unittest.TestCase):
 
         A_t = A.copy()
         sparse_mat.stack_mat(A, B)
-        assert np.sum(A != A_t) == 0
+        self.assertTrue(np.sum(A != A_t) == 0)
         B_t = A.copy()
         sparse_mat.stack_mat(B, A)
-        assert np.sum(B != B_t) == 0
+        self.assertTrue(np.sum(B != B_t) == 0)
 
     def test_stack_mat_rows(self):
         # Test slicing of csr_matrix
@@ -172,7 +172,7 @@ class TestSparseMath(unittest.TestCase):
 
         sparse_mat.stack_mat(A, B)
 
-        assert np.sum(A != A_t) == 0
+        self.assertTrue(np.sum(A != A_t) == 0)
 
     def test_stack_empty_mat_rows(self):
         # Test slicing of csr_matrix
@@ -182,10 +182,10 @@ class TestSparseMath(unittest.TestCase):
 
         A_t = A.copy()
         sparse_mat.stack_mat(A, B)
-        assert np.sum(A != A_t) == 0
+        self.assertTrue(np.sum(A != A_t) == 0)
         B_t = A.copy()
         sparse_mat.stack_mat(B, A)
-        assert np.sum(B != B_t) == 0
+        self.assertTrue(np.sum(B != B_t) == 0)
 
     # ------------------ Test merge_mat() -----------------------
 
@@ -199,7 +199,7 @@ class TestSparseMath(unittest.TestCase):
 
         sparse_mat.merge_matrices(A, B, np.array([0, 2], dtype=np.int))
 
-        assert np.sum(A != A_t) == 0
+        self.assertTrue(np.sum(A != A_t) == 0)
 
     def test_merge_mat_columns(self):
         # Test slicing of csr_matrix
@@ -211,7 +211,7 @@ class TestSparseMath(unittest.TestCase):
 
         sparse_mat.merge_matrices(A, B, np.array([1, 2], dtype=np.int))
 
-        assert np.sum(A != A_t) == 0
+        self.assertTrue(np.sum(A != A_t) == 0)
 
     def test_merge_mat_split_columns_same_pos(self):
         # Test slicing of csr_matrix
@@ -235,7 +235,7 @@ class TestSparseMath(unittest.TestCase):
 
         sparse_mat.merge_matrices(A, B, np.array([0, 2], dtype=np.int))
 
-        assert np.sum(A != A_t) == 0
+        self.assertTrue(np.sum(A != A_t) == 0)
 
     def test_merge_mat_rows(self):
         # Test slicing of csr_matrix
@@ -247,7 +247,7 @@ class TestSparseMath(unittest.TestCase):
 
         sparse_mat.merge_matrices(A, B, np.array([0, 1], dtype=np.int))
 
-        assert np.sum(A != A_t) == 0
+        self.assertTrue(np.sum(A != A_t) == 0)
 
     if __name__ == "__main__":
         unittest.main()

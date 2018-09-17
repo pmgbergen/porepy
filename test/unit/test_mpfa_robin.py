@@ -162,8 +162,8 @@ class RobinBoundTest(unittest.TestCase):
         u_ex = np.array(u_ex).ravel("F")
         p_ex = g.cell_centers[1]
 
-        assert np.allclose(p, p_ex)
-        assert np.allclose(flux * p + bound_flux * u_bound, u_ex)
+        self.assertTrue(np.allclose(p, p_ex))
+        self.assertTrue(np.allclose(flux * p + bound_flux * u_bound, u_ex))
 
     def solve_robin(
         self, g, k, bnd, robin_weight, p_bound, rob_bound, dir_ind, rob_ind, p_ex, u_ex
@@ -182,5 +182,5 @@ class RobinBoundTest(unittest.TestCase):
         b = -div * bound_flux * u_bound
 
         p = np.linalg.solve(a.A, b)
-        assert np.allclose(p, p_ex)
-        assert np.allclose(flux * p + bound_flux * u_bound, u_ex)
+        self.assertTrue(np.allclose(p, p_ex))
+        self.assertTrue(np.allclose(flux * p + bound_flux * u_bound, u_ex))
