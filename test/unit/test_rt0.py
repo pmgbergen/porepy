@@ -40,8 +40,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -72,8 +72,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -113,8 +113,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -147,8 +147,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -185,8 +185,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -225,8 +225,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -248,8 +248,8 @@ class BasicsTest(unittest.TestCase):
         M = solver.matrix(g, {"param": param}).todense()
         M_known = matrix_for_test_rt0_3d()
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -285,8 +285,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -322,9 +322,9 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
+        self.assertTrue(np.allclose(M, M.T))
         # We test only the mass-Hdiv part
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -366,9 +366,9 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
+        self.assertTrue(np.allclose(M, M.T))
         # We test only the mass-Hdiv part
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -399,7 +399,7 @@ class BasicsTest(unittest.TestCase):
             p = solver.extract_p(g, up)
             err = np.sum(np.abs(p - p_ex(g.cell_centers)))
 
-            assert np.isclose(err, 0)
+            self.assertTrue(np.isclose(err, 0))
 
     # ------------------------------------------------------------------------------#
 
@@ -452,7 +452,7 @@ class BasicsTest(unittest.TestCase):
                     np.multiply(g.cell_volumes, np.power(p - p_ex(g.cell_centers), 2))
                 )
             )
-            assert np.isclose(err, err_known)
+            self.assertTrue(np.isclose(err, err_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -507,7 +507,7 @@ class BasicsTest(unittest.TestCase):
                     np.multiply(g.cell_volumes, np.power(p - p_ex(g.cell_centers), 2))
                 )
             )
-            assert np.isclose(err, err_known)
+            self.assertTrue(np.isclose(err, err_known))
 
 
 # ------------------------------------------------------------------------------#

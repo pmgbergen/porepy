@@ -20,9 +20,9 @@ class TestGridMappings1d(unittest.TestCase):
         g = TensorGrid(np.arange(3))
         weights, new, old = mortars.match_grids_1d(g, g, tol=1e-4)
 
-        assert np.allclose(weights, np.ones(2))
-        assert np.allclose(old, np.arange(2))
-        assert np.allclose(new, np.arange(2))
+        self.assertTrue(np.allclose(weights, np.ones(2)))
+        self.assertTrue(np.allclose(old, np.arange(2)))
+        self.assertTrue(np.allclose(new, np.arange(2)))
 
     def test_merge_grids_non_matching(self):
         g = TensorGrid(np.arange(3))
@@ -33,9 +33,9 @@ class TestGridMappings1d(unittest.TestCase):
         # Weights give mappings from h to g. The first cell in h is
         # fully within the first cell in g. The second in h is split 1/3
         # in first of g, 2/3 in second.
-        assert np.allclose(weights, np.array([1, 1. / 3, 2. / 3]))
-        assert np.allclose(new, np.array([0, 0, 1]))
-        assert np.allclose(old, np.array([0, 1, 1]))
+        self.assertTrue(np.allclose(weights, np.array([1, 1. / 3, 2. / 3])))
+        self.assertTrue(np.allclose(new, np.array([0, 0, 1])))
+        self.assertTrue(np.allclose(old, np.array([0, 1, 1])))
 
     def test_merge_grids_reverse_order(self):
         g = TensorGrid(np.arange(3))
@@ -43,11 +43,11 @@ class TestGridMappings1d(unittest.TestCase):
         h.nodes = h.nodes[:, ::-1]
         weights, new, old = mortars.match_grids_1d(g, h, tol=1e-4)
 
-        assert np.allclose(weights, np.array([1, 1]))
+        self.assertTrue(np.allclose(weights, np.array([1, 1])))
         # In this case, we don't know which ordering the combined grid uses
         # Instead, make sure that the two mappings are ordered in separate
         # directions
-        assert np.allclose(new[::-1], old)
+        self.assertTrue(np.allclose(new[::-1], old))
 
 
 class TestReplaceHigherDimensionalGrid(unittest.TestCase):
@@ -83,7 +83,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         new_projection = mg.high_to_mortar_int
 
         # The projections should be identical
-        assert (old_projection != new_projection).nnz == 0
+        self.assertTrue((old_projection != new_projection).nnz == 0)
 
     def test_refine_high_dim(self):
         # Replace the 2d grid with a finer one
@@ -117,19 +117,19 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         new_projection = mg.high_to_mortar_int
 
         # Check shape
-        assert new_projection.shape[0] == old_projection.shape[0]
-        assert new_projection.shape[1] == g_new.num_faces
+        self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
+        self.assertTrue(new_projection.shape[1] == g_new.num_faces)
         # Projection sums to unity.
-        assert np.all(new_projection.toarray().sum(axis=1) == 1)
+        self.assertTrue(np.all(new_projection.toarray().sum(axis=1) == 1))
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
-        assert fi.size == 4
+        self.assertTrue(fi.size == 4)
         # Hard coded test (based on knowledge of how the grids and meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
         # definition.
-        assert np.all(new_projection[0, fi[:2]].toarray() == 0.5)
-        assert np.all(new_projection[1, fi[2:]].toarray() == 0.5)
+        self.assertTrue(np.all(new_projection[0, fi[:2]].toarray() == 0.5))
+        self.assertTrue(np.all(new_projection[1, fi[2:]].toarray() == 0.5))
 
     def test_coarsen_high_dim(self):
         # Replace the 2d grid with a coarser one
@@ -163,21 +163,21 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         new_projection = mg.high_to_mortar_int
 
         # Check shape
-        assert new_projection.shape[0] == old_projection.shape[0]
-        assert new_projection.shape[1] == g_new.num_faces
+        self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
+        self.assertTrue(new_projection.shape[1] == g_new.num_faces)
         # Projection sums to unity.
-        assert np.all(new_projection.toarray().sum(axis=1) == 1)
+        self.assertTrue(np.all(new_projection.toarray().sum(axis=1) == 1))
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
-        assert fi.size == 2
+        self.assertTrue(fi.size == 2)
         # Hard coded test (based on knowledge of how the grids and meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
         # definition.
-        assert np.all(new_projection[0, fi[0]] == 1)
-        assert np.all(new_projection[1, fi[0]] == 1)
-        assert np.all(new_projection[2, fi[1]] == 1)
-        assert np.all(new_projection[3, fi[1]] == 1)
+        self.assertTrue(np.all(new_projection[0, fi[0]] == 1))
+        self.assertTrue(np.all(new_projection[1, fi[0]] == 1))
+        self.assertTrue(np.all(new_projection[2, fi[1]] == 1))
+        self.assertTrue(np.all(new_projection[3, fi[1]] == 1))
 
     def test_refine_distort_high_dim(self):
         # Replace the 2d grid with a finer one, and move the nodes along the
@@ -220,21 +220,21 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         new_projection = mg.high_to_mortar_int
 
         # Check shape
-        assert new_projection.shape[0] == old_projection.shape[0]
-        assert new_projection.shape[1] == g_new.num_faces
+        self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
+        self.assertTrue(new_projection.shape[1] == g_new.num_faces)
         # Projection sums to unity.
-        assert np.all(new_projection.toarray().sum(axis=1) == 1)
+        self.assertTrue(np.all(new_projection.toarray().sum(axis=1) == 1))
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
-        assert fi.size == 4
+        self.assertTrue(fi.size == 4)
         # Hard coded test (based on knowledge of how the grids and meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
         # definition.
-        assert np.abs(new_projection[0, 8] - 0.7 < 1e-6)
-        assert np.abs(new_projection[0, 9] - 0.3 < 1e-6)
-        assert np.abs(new_projection[1, 12] - 0.2 < 1e-6)
-        assert np.abs(new_projection[1, 13] - 0.8 < 1e-6)
+        self.assertTrue(np.abs(new_projection[0, 8] - 0.7 < 1e-6))
+        self.assertTrue(np.abs(new_projection[0, 9] - 0.3 < 1e-6))
+        self.assertTrue(np.abs(new_projection[1, 12] - 0.2 < 1e-6))
+        self.assertTrue(np.abs(new_projection[1, 13] - 0.8 < 1e-6))
 
     def test_distort_high_dim(self):
         # Replace the 2d grid with a finer one, and move the nodes along the
@@ -277,13 +277,13 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         new_projection = mg.high_to_mortar_int
 
         # Check shape
-        assert new_projection.shape[0] == old_projection.shape[0]
-        assert new_projection.shape[1] == g_new.num_faces
+        self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
+        self.assertTrue(new_projection.shape[1] == g_new.num_faces)
         # Projection sums to unity.
-        assert np.all(new_projection.toarray().sum(axis=1) == 1)
+        self.assertTrue(np.all(new_projection.toarray().sum(axis=1) == 1))
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
-        assert fi.size == 4
+        self.assertTrue(fi.size == 4)
         # Hard coded test (based on knowledge of how the grids and meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
@@ -292,13 +292,13 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # It seems the mortar grid is designed so that the first cell is
         # associated with face 9 in the old grid. This is split into 2/5 face
         # 8 and 3/5 face 9.
-        assert np.abs(new_projection[0, 8] - 0.4 < 1e-6)
-        assert np.abs(new_projection[0, 9] - 0.6 < 1e-6)
+        self.assertTrue(np.abs(new_projection[0, 8] - 0.4 < 1e-6))
+        self.assertTrue(np.abs(new_projection[0, 9] - 0.6 < 1e-6))
         # The second cell in mortar grid is still fully connected to face 9
-        assert np.abs(new_projection[1, 9] - 1 < 1e-6)
-        assert np.abs(new_projection[2, 13] - 1 < 1e-6)
-        assert np.abs(new_projection[3, 12] - 0.4 < 1e-6)
-        assert np.abs(new_projection[3, 13] - 0.6 < 1e-6)
+        self.assertTrue(np.abs(new_projection[1, 9] - 1 < 1e-6))
+        self.assertTrue(np.abs(new_projection[2, 13] - 1 < 1e-6))
+        self.assertTrue(np.abs(new_projection[3, 12] - 0.4 < 1e-6))
+        self.assertTrue(np.abs(new_projection[3, 13] - 0.6 < 1e-6))
 
     def test_permute_nodes_in_replacement_grid(self):
         # Replace higher dimensional grid with an identical one, except the
@@ -355,23 +355,23 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         new_projection = mg.high_to_mortar_int
 
         # Check shape
-        assert new_projection.shape[0] == old_projection.shape[0]
-        assert new_projection.shape[1] == g_new.num_faces
+        self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
+        self.assertTrue(new_projection.shape[1] == g_new.num_faces)
         # Projection sums to unity.
-        assert np.all(new_projection.toarray().sum(axis=1) == 1)
+        self.assertTrue(np.all(new_projection.toarray().sum(axis=1) == 1))
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
-        assert fi.size == 4
+        self.assertTrue(fi.size == 4)
         # Hard coded test (based on knowledge of how the grids and meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
         # definition.
-        assert (old_projection != new_projection).nnz == 0
+        self.assertTrue((old_projection != new_projection).nnz == 0)
 
-    #        assert np.abs(new_projection[0, 8] - 0.7 < 1e-6)
-    #        assert np.abs(new_projection[0, 9] - 0.3 < 1e-6)
-    #        assert np.abs(new_projection[1, 12] - 0.2 < 1e-6)
-    #        assert np.abs(new_projection[1, 13] - 0.8 < 1e-6)
+    #        self.assertTrue(np.abs(new_projection[0, 8] - 0.7 < 1e-6))
+    #        self.assertTrue(np.abs(new_projection[0, 9] - 0.3 < 1e-6))
+    #        self.assertTrue(np.abs(new_projection[1, 12] - 0.2 < 1e-6))
+    #        self.assertTrue(np.abs(new_projection[1, 13] - 0.8 < 1e-6))
 
     def test_permute_perturb_nodes_in_replacement_grid(self):
         # Replace higher dimensional grid with an identical one, except the
@@ -424,13 +424,13 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         new_projection = mg.high_to_mortar_int
 
         # Check shape
-        assert new_projection.shape[0] == old_projection.shape[0]
-        assert new_projection.shape[1] == g_new.num_faces
+        self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
+        self.assertTrue(new_projection.shape[1] == g_new.num_faces)
         # Projection sums to unity.
-        assert np.all(new_projection.toarray().sum(axis=1) == 1)
+        self.assertTrue(np.all(new_projection.toarray().sum(axis=1) == 1))
 
         fi = np.where(g_new.face_centers[1] == 0.5)[0]
-        assert fi.size == 4
+        self.assertTrue(fi.size == 4)
         # Hard coded test (based on knowledge of how the grids and meshing
         # is implemented). Faces to the uppermost cell are always kept in
         # place, the lowermost are duplicated towards the end of the face
@@ -438,13 +438,13 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # It seems the mortar grid is designed so that the first cell is
         # associated with face 9 in the old grid. This is split into 2/5 face
         # 8 and 3/5 face 9.
-        assert np.abs(new_projection[0, 8] - 0.4 < 1e-6)
-        assert np.abs(new_projection[0, 9] - 0.6 < 1e-6)
+        self.assertTrue(np.abs(new_projection[0, 8] - 0.4 < 1e-6))
+        self.assertTrue(np.abs(new_projection[0, 9] - 0.6 < 1e-6))
         # The second cell in mortar grid is still fully connected to face 9
-        assert np.abs(new_projection[1, 9] - 1 < 1e-6)
-        assert np.abs(new_projection[2, 13] - 1 < 1e-6)
-        assert np.abs(new_projection[3, 12] - 0.4 < 1e-6)
-        assert np.abs(new_projection[3, 13] - 0.6 < 1e-6)
+        self.assertTrue(np.abs(new_projection[1, 9] - 1 < 1e-6))
+        self.assertTrue(np.abs(new_projection[2, 13] - 1 < 1e-6))
+        self.assertTrue(np.abs(new_projection[3, 12] - 0.4 < 1e-6))
+        self.assertTrue(np.abs(new_projection[3, 13] - 0.6 < 1e-6))
 
 
 class MockGrid(object):
@@ -901,8 +901,8 @@ class TestMeshReplacement3d(unittest.TestCase):
         p1h = mg1.high_to_mortar_int.copy()
         p1l = mg1.low_to_mortar_int.copy()
 
-        assert (proj_1_h != p1h).nnz == 0
-        assert (proj_1_l != p1l).nnz == 0
+        self.assertTrue((proj_1_h != p1h).nnz == 0)
+        self.assertTrue((proj_1_l != p1l).nnz == 0)
 
     def test_replace_2d_with_identity_no_1d(self):
         gb = self.setup_bucket(pert=False, include_1d=False)
@@ -919,8 +919,8 @@ class TestMeshReplacement3d(unittest.TestCase):
         p2h = mg2.high_to_mortar_int.copy()
         p2l = mg2.low_to_mortar_int.copy()
 
-        assert (proj_2_h != p2h).nnz == 0
-        assert (proj_2_l != p2l).nnz == 0
+        self.assertTrue((proj_2_h != p2h).nnz == 0)
+        self.assertTrue((proj_2_l != p2l).nnz == 0)
 
     def test_replace_2d_with_finer_no_1d(self):
         gb = self.setup_bucket(pert=False, include_1d=False)
@@ -935,11 +935,11 @@ class TestMeshReplacement3d(unittest.TestCase):
         p2h = mg2.high_to_mortar_int.copy()
         p2l = mg2.low_to_mortar_int.copy()
 
-        assert (proj_2_h != p2h).nnz == 0
-        assert np.abs(p2l[0, 0] - 0.5) < 1e-6
-        assert np.abs(p2l[0, 1] - 0.5) < 1e-6
-        assert np.abs(p2l[1, 2] - 0.5) < 1e-6
-        assert np.abs(p2l[1, 3] - 0.5) < 1e-6
+        self.assertTrue((proj_2_h != p2h).nnz == 0)
+        self.assertTrue(np.abs(p2l[0, 0] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[0, 1] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[1, 2] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[1, 3] - 0.5) < 1e-6)
 
     def test_replace_2d_with_finer_no_1d_pert(self):
         gb = self.setup_bucket(pert=True, include_1d=False)
@@ -954,15 +954,15 @@ class TestMeshReplacement3d(unittest.TestCase):
         p2h = mg2.high_to_mortar_int.copy()
         p2l = mg2.low_to_mortar_int.copy()
 
-        assert (proj_2_h != p2h).nnz == 0
-        assert np.abs(p2l[0, 0] - 0.5) < 1e-6
-        assert np.abs(p2l[0, 1] - 0.5) < 1e-6
-        assert np.abs(p2l[1, 2] - 0.5) < 1e-6
-        assert np.abs(p2l[1, 3] - 0.5) < 1e-6
-        assert np.abs(p2l[2, 0] - 0.5) < 1e-6
-        assert np.abs(p2l[2, 1] - 0.5) < 1e-6
-        assert np.abs(p2l[3, 2] - 0.5) < 1e-6
-        assert np.abs(p2l[3, 3] - 0.5) < 1e-6
+        self.assertTrue((proj_2_h != p2h).nnz == 0)
+        self.assertTrue(np.abs(p2l[0, 0] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[0, 1] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[1, 2] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[1, 3] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[2, 0] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[2, 1] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[3, 2] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[3, 3] - 0.5) < 1e-6)
 
     def test_replace_2d_with_identity(self):
         gb = self.setup_bucket(pert=False, include_1d=True)
@@ -983,10 +983,10 @@ class TestMeshReplacement3d(unittest.TestCase):
         p2h = mg2.high_to_mortar_int.copy()
         p2l = mg2.low_to_mortar_int.copy()
 
-        assert (proj_1_h != p1h).nnz == 0
-        assert (proj_1_l != p1l).nnz == 0
-        assert (proj_2_h != p2h).nnz == 0
-        assert (proj_2_l != p2l).nnz == 0
+        self.assertTrue((proj_1_h != p1h).nnz == 0)
+        self.assertTrue((proj_1_l != p1l).nnz == 0)
+        self.assertTrue((proj_2_h != p2h).nnz == 0)
+        self.assertTrue((proj_2_l != p2l).nnz == 0)
 
     def test_replace_2d_with_finer_pert(self):
         gb = self.setup_bucket(pert=True, include_1d=True)
@@ -1006,22 +1006,22 @@ class TestMeshReplacement3d(unittest.TestCase):
         p2h = mg2.high_to_mortar_int.copy()
         p2l = mg2.low_to_mortar_int.copy()
 
-        assert (proj_1_l != p1l).nnz == 0
-        assert (proj_2_h != p2h).nnz == 0
+        self.assertTrue((proj_1_l != p1l).nnz == 0)
+        self.assertTrue((proj_2_h != p2h).nnz == 0)
 
-        assert np.abs(p2l[0, 0] - 0.5) < 1e-6
-        assert np.abs(p2l[0, 1] - 0.5) < 1e-6
-        assert np.abs(p2l[1, 2] - 0.5) < 1e-6
-        assert np.abs(p2l[1, 3] - 0.5) < 1e-6
-        assert np.abs(p2l[2, 0] - 0.5) < 1e-6
-        assert np.abs(p2l[2, 1] - 0.5) < 1e-6
-        assert np.abs(p2l[3, 2] - 0.5) < 1e-6
-        assert np.abs(p2l[3, 3] - 0.5) < 1e-6
+        self.assertTrue(np.abs(p2l[0, 0] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[0, 1] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[1, 2] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[1, 3] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[2, 0] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[2, 1] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[3, 2] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p2l[3, 3] - 0.5) < 1e-6)
 
-        assert np.abs(p1h[0, 2] - 0.5) < 1e-6
-        assert np.abs(p1h[0, 4] - 0.5) < 1e-6
-        assert np.abs(p1h[1, 7] - 0.5) < 1e-6
-        assert np.abs(p1h[1, 8] - 0.5) < 1e-6
+        self.assertTrue(np.abs(p1h[0, 2] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p1h[0, 4] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p1h[1, 7] - 0.5) < 1e-6)
+        self.assertTrue(np.abs(p1h[1, 8] - 0.5) < 1e-6)
 
 
 if __name__ == "__main__":
