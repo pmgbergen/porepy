@@ -128,7 +128,7 @@ class Granite(UnitRock):
         self.POISSON_RATIO = 0.2
 
         # Reported density
-        self.DENSITY = 2700 * pp.KILOGRAM / pp.METER**3
+        self.DENSITY = 2700 * pp.KILOGRAM / pp.METER ** 3
         self.LAMBDA, self.MU = lame_from_young_poisson(
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
