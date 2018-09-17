@@ -280,10 +280,6 @@ class MpsaBoundTest(unittest.TestCase):
         left = g.face_centers[0] < 1e-10
         right = g.face_centers[0] > 1 - 1e-10
 
-        is_dir = left + right + top
-        is_neu = left + bot
-        is_rob = right + bot + top
-
         bnd = pp.BoundaryConditionVectorial(g)
         bnd.is_neu[:] = False
 
