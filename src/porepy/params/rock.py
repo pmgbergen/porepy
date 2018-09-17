@@ -108,11 +108,9 @@ class Shale(UnitRock):
 
 class Granite(UnitRock):
     """ Generic values for granite.
-
-
     Data partially from:
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
-    And 
+    And:
     https://www.jsg.utexas.edu/tyzhu/files/Some-Useful-Numbers.pdf
     """
 

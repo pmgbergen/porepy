@@ -84,34 +84,35 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         neu_ind[ind_is_bnd_neu_x] = neu_ind_single_x
         neu_ind[ind_is_bnd_neu_y] = neu_ind_single_y
 
-        assert np.alltrue(
-            neu_ind
-            == [
-                30,
-                31,
-                36,
-                37,
-                38,
-                39,
-                44,
-                45,
-                46,
-                47,
-                52,
-                53,
-                24,
-                66,
-                25,
-                67,
-                26,
-                27,
-                28,
-                68,
-                29,
-                69,
-            ]
+        self.assertTrue(
+            np.alltrue(
+                neu_ind
+                == [
+                    30,
+                    31,
+                    36,
+                    37,
+                    38,
+                    39,
+                    44,
+                    45,
+                    46,
+                    47,
+                    52,
+                    53,
+                    24,
+                    66,
+                    25,
+                    67,
+                    26,
+                    27,
+                    28,
+                    68,
+                    29,
+                    69,
+                ]
+            )
         )
-
         # Dirichlet, same procedure
         is_dir_x = bound_exclusion.exclude_neumann_x(
             bound.is_dir[0, fno].astype("int64")
@@ -148,36 +149,38 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         dir_ind[ind_is_bnd_dir_x] = dir_ind_single_x
         dir_ind[ind_is_bnd_dir_y] = dir_ind_single_y
 
-        assert np.alltrue(
-            dir_ind
-            == [
-                0,
-                1,
-                6,
-                7,
-                8,
-                9,
-                14,
-                15,
-                16,
-                17,
-                22,
-                23,
-                24,
-                54,
-                25,
-                55,
-                26,
-                56,
-                27,
-                57,
-                28,
-                58,
-                29,
-                59,
-                72,
-                73,
-            ]
+        self.assertTrue(
+            np.alltrue(
+                dir_ind
+                == [
+                    0,
+                    1,
+                    6,
+                    7,
+                    8,
+                    9,
+                    14,
+                    15,
+                    16,
+                    17,
+                    22,
+                    23,
+                    24,
+                    54,
+                    25,
+                    55,
+                    26,
+                    56,
+                    27,
+                    57,
+                    28,
+                    58,
+                    29,
+                    59,
+                    72,
+                    73,
+                ]
+            )
         )
 
 
