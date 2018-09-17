@@ -1592,7 +1592,6 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     is_bnd = np.hstack((neu_rob_ind_single_all, dir_ind_single_all))
     bnd_ind = fvutils.expand_indices_nd(is_bnd, nd)
-
     bnd_2_all_hf = sps.coo_matrix(
         (np.ones(num_bound), (np.arange(num_bound), bnd_ind)),
         shape=(num_bound, num_subfno * nd),
@@ -1619,12 +1618,8 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     """
     nd = g.dim
 
-    num_stress = (
-        bound_exclusion.exclude_rob_dir_nd.shape[0]
-    )
-    num_displ = (
-        bound_exclusion.exclude_neu_rob_nd.shape[0]
-    )
+    num_stress = bound_exclusion.exclude_rob_dir_nd.shape[0]
+    num_displ = bound_exclusion.exclude_neu_rob_nd.shape[0]
 
     num_rob = bound_exclusion.keep_rob_nd.shape[0]
 
@@ -1644,31 +1639,39 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
     is_neu_nd = bound_exclusion.exclude_robin_dirichlet_nd(
-        bound.is_neu[:, fno].ravel('C')
-    ).ravel('F')
-    neu_ind_nd = np.argwhere(is_neu_nd).ravel('F')
-    neu_ind = np.reshape(neu_ind_nd, (3, -1), order='C').ravel('F')
+        bound.is_neu[:, fno].ravel("C")
+    ).ravel("F")
+    neu_ind_nd = np.argwhere(is_neu_nd).ravel("F")
+    neu_ind = np.reshape(neu_ind_nd, (3, -1), order="C").ravel("F")
 
     # Robin, same procedure
-    is_rob_nd = bound_exclusion.keep_robin_nd(
-        bound.is_rob[:, fno].ravel('C')
-    ).ravel('F')
-    rob_ind_nd = np.argwhere(is_rob_nd).ravel('F')
-    rob_ind = np.reshape(rob_ind_nd, (3, -1), order='C').ravel('F')
+    is_rob_nd = bound_exclusion.keep_robin_nd(bound.is_rob[:, fno].ravel("C")).ravel(
+        "F"
+    )
+    rob_ind_nd = np.argwhere(is_rob_nd).ravel("F")
+    rob_ind = np.reshape(rob_ind_nd, (3, -1), order="C").ravel("F")
 
     # Dirichlet, same procedure
-    is_dir_nd = bound_exclusion.exclude_neumann_robin_nd(bound.is_dir[:, fno].ravel('C')).ravel('F')
-    dir_ind_nd = np.argwhere(is_dir_nd).ravel('F')
-    dir_ind = np.reshape(dir_ind_nd, (3, -1), order='C').ravel('F')
+    is_dir_nd = bound_exclusion.exclude_neumann_robin_nd(
+        bound.is_dir[:, fno].ravel("C")
+    ).ravel("F")
+    dir_ind_nd = np.argwhere(is_dir_nd).ravel("F")
+    dir_ind = np.reshape(dir_ind_nd, (3, -1), order="C").ravel("F")
 
     # We also need to account for all half faces, that is, do not exclude
     # Dirichlet and Neumann boundaries. This is the global indexing.
-    is_neu_all = bound.is_neu[:, fno].ravel('C')
-    neu_ind_all = np.argwhere(np.reshape(is_neu_all, (3, -1), order='C').ravel('F')).ravel('F')
-    is_dir_all = bound.is_dir[:, fno].ravel('C')
-    dir_ind_all = np.argwhere(np.reshape(is_dir_all, (3, -1), order='C').ravel('F')).ravel('F')
-    is_rob_all = bound.is_rob[:, fno].ravel('C')
-    rob_ind_all = np.argwhere(np.reshape(is_rob_all, (3, -1), order='C').ravel('F')).ravel('F')
+    is_neu_all = bound.is_neu[:, fno].ravel("C")
+    neu_ind_all = np.argwhere(
+        np.reshape(is_neu_all, (3, -1), order="C").ravel("F")
+    ).ravel("F")
+    is_dir_all = bound.is_dir[:, fno].ravel("C")
+    dir_ind_all = np.argwhere(
+        np.reshape(is_dir_all, (3, -1), order="C").ravel("F")
+    ).ravel("F")
+    is_rob_all = bound.is_rob[:, fno].ravel("C")
+    rob_ind_all = np.argwhere(
+        np.reshape(is_rob_all, (3, -1), order="C").ravel("F")
+    ).ravel("F")
 
     # We now merge the neuman and robin indices since they are treated equivalent
     if rob_ind.size == 0:
@@ -1709,7 +1712,7 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
 
     # For Dirichlet, the coefficients in the matrix should be duplicated the same way as
     # the row indices, but with no increment
-    sgn_nd = np.tile(sgn, (nd, 1)).ravel('F')
+    sgn_nd = np.tile(sgn, (nd, 1)).ravel("F")
     dir_val = sgn_nd[dir_ind_all]
     del sgn_nd
     # Column numbering starts right after the last Neumann column. dir_val
@@ -1718,7 +1721,7 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     # for each face, then the y-component, etc.
     if dir_ind.size > 0:
         dir_cell = sps.coo_matrix(
-            (dir_val, (dir_ind, num_neu + np.arange(dir_ind.size))),
+            (dir_val, (dir_ind, num_neu + num_rob + np.arange(dir_ind.size))),
             shape=(num_displ, num_bound),
         ).tocsr()
     else:
@@ -1730,7 +1733,6 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
 
     # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
     # Map these to all half-face indices
-
     bnd_2_all_hf = sps.coo_matrix(
         (np.ones(num_bound), (np.arange(num_bound), bnd_ind)),
         shape=(num_bound, num_subfno * nd),
