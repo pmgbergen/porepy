@@ -33,8 +33,8 @@ class BasicsTest(unittest.TestCase):
         u = np.linalg.solve(A.A, b)
         T = solver.traction(g, data, u)
 
-        assert np.all(np.abs(u) < 1e-10)
-        assert np.all(np.abs(T) < 1e-10)
+        self.assertTrue(np.all(np.abs(u) < 1e-10))
+        self.assertTrue(np.all(np.abs(T) < 1e-10))
 
     def test_unit_slip(self):
         """
@@ -80,20 +80,20 @@ class BasicsTest(unittest.TestCase):
         T_left = T[:, frac_left]
         T_right = T[:, frac_right]
 
-        assert np.allclose(T_left, T_right)
+        self.assertTrue(np.allclose(T_left, T_right))
 
         # we have u_lhs - u_rhs = 1 so u_lhs should be positive
-        assert np.all(u_c[:, cell_left] > 0)
-        assert np.all(u_c[:, cell_right] < 0)
+        self.assertTrue(np.all(u_c[:, cell_left] > 0))
+        self.assertTrue(np.all(u_c[:, cell_right] < 0))
         mid_ind = int(round(u_f.size / 2))
         u_left = u_f[:mid_ind]
         u_right = u_f[mid_ind:]
-        assert np.all(np.abs(u_left - u_right - 1) < 1e-10)
+        self.assertTrue(np.all(np.abs(u_left - u_right - 1) < 1e-10))
 
         # fracture displacement should be symetric since everything else is
         # symetric
-        assert np.allclose(u_left, 0.5)
-        assert np.allclose(u_right, -0.5)
+        self.assertTrue(np.allclose(u_left, 0.5))
+        self.assertTrue(np.allclose(u_right, -0.5))
 
     def test_non_zero_bc_val(self):
         """
@@ -142,7 +142,7 @@ class BasicsTest(unittest.TestCase):
         T_left = T[:, frac_left]
         T_right = T[:, frac_right]
 
-        assert np.allclose(T_left, T_right)
+        self.assertTrue(np.allclose(T_left, T_right))
 
         # we have u_lhs - u_rhs = 1 so u_lhs should be positive
         mid_ind = int(round(u_f.size / 2))
@@ -152,10 +152,10 @@ class BasicsTest(unittest.TestCase):
         true_diff = np.atleast_2d(np.array([1, 0, 0])).T
         u_left = u_left.reshape((3, -1), order="F")
         u_right = u_right.reshape((3, -1), order="F")
-        assert np.all(np.abs(u_left - u_right - true_diff) < 1e-10)
+        self.assertTrue(np.all(np.abs(u_left - u_right - true_diff) < 1e-10))
 
         # should have a positive displacement for all cells
-        assert np.all(u_c > 0)
+        self.assertTrue(np.all(u_c > 0))
 
     def test_given_traction_on_fracture(self):
         """
@@ -204,7 +204,7 @@ class BasicsTest(unittest.TestCase):
         T = T.reshape((3, -1), order="F")
         T_left = T[:, frac_left]
         T_right = T[:, frac_right]
-        assert np.all(np.isclose(T_left - T_right, 0))
+        self.assertTrue(np.all(np.isclose(T_left - T_right, 0)))
 
         # we have u_lhs - u_rhs = 1 so u_lhs should be positive
         mid_ind = int(round(u_f.size / 2))
@@ -214,12 +214,12 @@ class BasicsTest(unittest.TestCase):
         u_left = u_left.reshape((3, -1), order="F")
         u_right = u_right.reshape((3, -1), order="F")
         # The normal displacements should be equal and of opposite direction.
-        assert np.all(np.isclose(u_left + u_right, 0))
+        self.assertTrue(np.all(np.isclose(u_left + u_right, 0)))
         # They should also correspond to an opening of the fracture
-        assert np.all((u_left - u_right)[normal_ind] > .2)
+        self.assertTrue(np.all((u_left - u_right)[normal_ind] > .2))
 
         # The maximum displacement magnitude should be observed at the fracture
-        assert np.all(np.abs(u_c) < np.max(u_left[normal_ind]))
+        self.assertTrue(np.all(np.abs(u_c) < np.max(u_left[normal_ind])))
 
     def test_domain_cut_in_two(self):
         """
@@ -267,11 +267,11 @@ class BasicsTest(unittest.TestCase):
         u_left = u_f[:mid_ind]
         u_right = u_f[mid_ind:]
 
-        assert np.allclose(u_left, 1)
-        assert np.allclose(u_right, 0)
-        assert np.allclose(u_c[:, top_cells], 1)
-        assert np.allclose(u_c[:, ~top_cells], 0)
-        assert np.allclose(T, 0)
+        self.assertTrue(np.allclose(u_left, 1))
+        self.assertTrue(np.allclose(u_right, 0))
+        self.assertTrue(np.allclose(u_c[:, top_cells], 1))
+        self.assertTrue(np.allclose(u_c[:, ~top_cells], 0))
+        self.assertTrue(np.allclose(T, 0))
 
     def test_vectorial_bc(self):
         """
@@ -320,7 +320,7 @@ class BasicsTest(unittest.TestCase):
         T_left = T[:, frac_left]
         T_right = T[:, frac_right]
 
-        assert np.allclose(T_left, T_right)
+        self.assertTrue(np.allclose(T_left, T_right))
 
         # we have u_lhs - u_rhs = 1 so u_lhs should be positive
         mid_ind = int(round(u_f.size / 2))
@@ -330,10 +330,10 @@ class BasicsTest(unittest.TestCase):
         true_diff = np.atleast_2d(np.array([1, 0, 0])).T
         u_left = u_left.reshape((3, -1), order="F")
         u_right = u_right.reshape((3, -1), order="F")
-        assert np.all(np.abs(u_left - u_right - true_diff) < 1e-10)
+        self.assertTrue(np.all(np.abs(u_left - u_right - true_diff) < 1e-10))
 
         # should have a positive displacement for all cells
-        assert np.all(u_c > 0)
+        self.assertTrue(np.all(u_c > 0))
 
 
 if __name__ == "__main__":
