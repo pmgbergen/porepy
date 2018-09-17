@@ -1620,14 +1620,13 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     nd = g.dim
 
     num_stress = (
-        bound_exclusion.exclude_dir_x.shape[0] + bound_exclusion.exclude_dir_y.shape[0]
+        bound_exclusion.exclude_rob_dir_nd.shape[0]
     )
     num_displ = (
-        bound_exclusion.exclude_neu_x.shape[0] + bound_exclusion.exclude_neu_y.shape[0]
+        bound_exclusion.exclude_neu_rob_nd.shape[0]
     )
-    if nd == 3:
-        num_stress += bound_exclusion.exclude_dir_z.shape[0]
-        num_displ += bound_exclusion.exclude_neu_z.shape[0]
+
+    num_rob = bound_exclusion.keep_rob_nd.shape[0]
 
     fno = subcell_topology.fno_unique
     subfno = subcell_topology.subfno_unique
@@ -1635,134 +1634,40 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
         subcell_topology.fno_unique, subcell_topology.cno_unique
     ].A.ravel("F")
 
-    num_neu = sum(bound.is_neu[0, fno]) + sum(bound.is_neu[1, fno])
-    num_dir = sum(bound.is_dir[0, fno]) + sum(bound.is_dir[1, fno])
-    if nd == 3:
-        num_neu += sum(bound.is_neu[2, fno])
-        num_dir += sum(bound.is_dir[2, fno])
+    num_neu = np.sum(bound.is_neu[:, fno])
+    num_dir = np.sum(bound.is_dir[:, fno])
+    if not num_rob == np.sum(bound.is_rob[:, fno]):
+        raise AssertionError()
 
-    num_bound = num_neu + num_dir
+    num_bound = num_neu + num_dir + num_rob
 
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
-    is_neu_x = bound_exclusion.exclude_dirichlet_x(bound.is_neu[0, fno].astype("int64"))
-    neu_ind_single_x = np.argwhere(is_neu_x).ravel("F")
+    is_neu_nd = bound_exclusion.exclude_dirichlet_nd(
+        bound.is_neu[:, fno].ravel('C')
+    ).ravel('F')
+    neu_ind_nd = np.argwhere(is_neu_nd).ravel('F')
+    neu_ind = np.reshape(neu_ind_nd, (3, -1), order='C').ravel('F')
 
-    is_neu_y = bound_exclusion.exclude_dirichlet_y(bound.is_neu[1, fno].astype("int64"))
-    neu_ind_single_y = np.argwhere(is_neu_y).ravel("F")
-    neu_ind_single_y += is_neu_x.size
+    # Dirichlet, same procedure
+    is_dir_nd = bound_exclusion.exclude_neumann_nd(bound.is_dir[:, fno].ravel('C')).ravel('F')
+    dir_ind_nd = np.argwhere(is_dir_nd).ravel('F')
+    dir_ind = np.reshape(dir_ind_nd, (3, -1), order='C').ravel('F')
+
 
     # We also need to account for all half faces, that is, do not exclude
     # Dirichlet and Neumann boundaries.
-    neu_ind_single_all_x = np.argwhere(bound.is_neu[0, fno].astype("int")).ravel("F")
-    neu_ind_single_all_y = np.argwhere(bound.is_neu[1, fno].astype("int")).ravel("F")
-
-    neu_ind_all = np.append(neu_ind_single_all_x, [neu_ind_single_all_y])
-
-    # expand the indices
-    # this procedure replaces the method 'expand_ind' in the above
-    # method 'create_bound_rhs'
-
-    # 1 - stack and sort indices
-
-    is_bnd_neu_x = nd * neu_ind_single_all_x
-    is_bnd_neu_y = nd * neu_ind_single_all_y + 1
-
-    is_bnd_neu = np.sort(np.append(is_bnd_neu_x, [is_bnd_neu_y]))
-
-    if nd == 3:
-        is_neu_z = bound_exclusion.exclude_dirichlet_z(
-            bound.is_neu[2, fno].astype("int64")
-        )
-        neu_ind_single_z = np.argwhere(is_neu_z).ravel("F")
-        neu_ind_single_z += is_neu_x.size + is_neu_y.size
-
-        neu_ind_single_all_z = np.argwhere(bound.is_neu[2, fno].astype("int")).ravel(
-            "F"
-        )
-
-        neu_ind_all = np.append(neu_ind_all, [neu_ind_single_all_z])
-
-        is_bnd_neu_z = nd * neu_ind_single_all_z + 2
-        is_bnd_neu = np.sort(np.append(is_bnd_neu, [is_bnd_neu_z]))
-
-    # 2 - find the indices corresponding to the boundary components
-    # having Neumann condtion
-
-    ind_is_bnd_neu_x = np.argwhere(np.isin(is_bnd_neu, is_bnd_neu_x)).ravel("F")
-    ind_is_bnd_neu_y = np.argwhere(np.isin(is_bnd_neu, is_bnd_neu_y)).ravel("F")
-
-    neu_ind_sz = ind_is_bnd_neu_x.size + ind_is_bnd_neu_y.size
-
-    if nd == 3:
-        ind_is_bnd_neu_z = np.argwhere(np.isin(is_bnd_neu, is_bnd_neu_z)).ravel("F")
-        neu_ind_sz += ind_is_bnd_neu_z.size
-
-    # 3 - create the expanded neu_ind array
-
-    neu_ind = np.zeros(neu_ind_sz, dtype="int")
-
-    neu_ind[ind_is_bnd_neu_x] = neu_ind_single_x
-    neu_ind[ind_is_bnd_neu_y] = neu_ind_single_y
-    if nd == 3:
-        neu_ind[ind_is_bnd_neu_z] = neu_ind_single_z
-
-    # Dirichlet, same procedure
-    is_dir_x = bound_exclusion.exclude_neumann_x(bound.is_dir[0, fno].astype("int64"))
-    dir_ind_single_x = np.argwhere(is_dir_x).ravel("F")
-
-    is_dir_y = bound_exclusion.exclude_neumann_y(bound.is_dir[1, fno].astype("int64"))
-    dir_ind_single_y = np.argwhere(is_dir_y).ravel("F")
-    dir_ind_single_y += is_dir_x.size
-
-    dir_ind_single_all_x = np.argwhere(bound.is_dir[0, fno].astype("int")).ravel("F")
-    dir_ind_single_all_y = np.argwhere(bound.is_dir[1, fno].astype("int")).ravel("F")
-
-    # expand indices
-
-    is_bnd_dir_x = nd * dir_ind_single_all_x
-    is_bnd_dir_y = nd * dir_ind_single_all_y + 1
-
-    is_bnd_dir = np.sort(np.append(is_bnd_dir_x, [is_bnd_dir_y]))
-
-    if nd == 3:
-        is_dir_z = bound_exclusion.exclude_neumann_z(
-            bound.is_dir[2, fno].astype("int64")
-        )
-        dir_ind_single_z = np.argwhere(is_dir_z).ravel("F")
-        dir_ind_single_z += is_dir_x.size + is_dir_y.size
-
-        dir_ind_single_all_z = np.argwhere(bound.is_dir[2, fno].astype("int")).ravel(
-            "F"
-        )
-
-        is_bnd_dir_z = nd * dir_ind_single_all_z + 2
-        is_bnd_dir = np.sort(np.append(is_bnd_dir, [is_bnd_dir_z]))
-
-    ind_is_bnd_dir_x = np.argwhere(np.isin(is_bnd_dir, is_bnd_dir_x)).ravel("F")
-    ind_is_bnd_dir_y = np.argwhere(np.isin(is_bnd_dir, is_bnd_dir_y)).ravel("F")
-
-    dir_ind_sz = ind_is_bnd_dir_x.size + ind_is_bnd_dir_y.size
-
-    if nd == 3:
-        ind_is_bnd_dir_z = np.argwhere(np.isin(is_bnd_dir, is_bnd_dir_z)).ravel("F")
-        dir_ind_sz += ind_is_bnd_dir_z.size
-
-    dir_ind = np.zeros(dir_ind_sz, dtype="int")
-
-    dir_ind[ind_is_bnd_dir_x] = dir_ind_single_x
-    dir_ind[ind_is_bnd_dir_y] = dir_ind_single_y
-
-    if nd == 3:
-        dir_ind[ind_is_bnd_dir_z] = dir_ind_single_z
+    is_neu_all = bound.is_neu[:, fno].ravel('C')
+    neu_ind_all = np.argwhere(np.reshape(is_neu_all, (3, -1), order='C').ravel('F')).ravel('F')
+    is_dir_all = bound.is_dir[:, fno].ravel('C')
+    dir_ind_all = np.argwhere(np.reshape(is_dir_all, (3, -1), order='C').ravel('F')).ravel('F')
 
     # stack together
-    bnd_ind = np.hstack((is_bnd_neu, is_bnd_dir))
+    bnd_ind = np.hstack((neu_ind_all, dir_ind_all))
 
     # Some care is needed to compute coefficients in Neumann matrix: sgn is
     # already defined according to the subcell topology [fno], while areas
     # must be drawn from the grid structure, and thus go through fno
-
     fno_ext = np.tile(fno, nd)
     num_face_nodes = g.face_nodes.sum(axis=0).A.ravel("F")
 
@@ -1786,19 +1691,9 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
 
     # For Dirichlet, the coefficients in the matrix should be duplicated the same way as
     # the row indices, but with no increment
-
-    dir_val_x = sgn[dir_ind_single_all_x]
-    dir_val_y = sgn[dir_ind_single_all_y]
-
-    dir_val = np.zeros(dir_ind_sz)
-
-    dir_val[ind_is_bnd_dir_x] = dir_val_x
-    dir_val[ind_is_bnd_dir_y] = dir_val_y
-
-    if nd == 3:
-        dir_val_z = sgn[dir_ind_single_all_z]
-        dir_val[ind_is_bnd_dir_z] = dir_val_z
-
+    sgn_nd = np.tile(sgn, (nd, 1)).ravel('F')
+    dir_val = sgn_nd[dir_ind_all]
+    del sgn_nd
     # Column numbering starts right after the last Neumann column. dir_val
     # is ordered [u_x_1, u_y_1, u_x_2, u_y_2, ...], and dir_ind shuffles this
     # ordering. The final matrix will first have the x-coponent of the displacement
