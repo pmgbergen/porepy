@@ -1642,35 +1642,35 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
         bound.is_neu[:, fno].ravel("C")
     ).ravel("F")
     neu_ind_nd = np.argwhere(is_neu_nd).ravel("F")
-    neu_ind = np.reshape(neu_ind_nd, (3, -1), order="C").ravel("F")
+    neu_ind = np.reshape(neu_ind_nd, (nd, -1), order="C").ravel("F")
 
     # Robin, same procedure
     is_rob_nd = bound_exclusion.keep_robin_nd(bound.is_rob[:, fno].ravel("C")).ravel(
         "F"
     )
     rob_ind_nd = np.argwhere(is_rob_nd).ravel("F")
-    rob_ind = np.reshape(rob_ind_nd, (3, -1), order="C").ravel("F")
+    rob_ind = np.reshape(rob_ind_nd, (nd, -1), order="C").ravel("F")
 
     # Dirichlet, same procedure
     is_dir_nd = bound_exclusion.exclude_neumann_robin_nd(
         bound.is_dir[:, fno].ravel("C")
     ).ravel("F")
     dir_ind_nd = np.argwhere(is_dir_nd).ravel("F")
-    dir_ind = np.reshape(dir_ind_nd, (3, -1), order="C").ravel("F")
+    dir_ind = np.reshape(dir_ind_nd, (nd, -1), order="C").ravel("F")
 
     # We also need to account for all half faces, that is, do not exclude
     # Dirichlet and Neumann boundaries. This is the global indexing.
     is_neu_all = bound.is_neu[:, fno].ravel("C")
     neu_ind_all = np.argwhere(
-        np.reshape(is_neu_all, (3, -1), order="C").ravel("F")
+        np.reshape(is_neu_all, (nd, -1), order="C").ravel("F")
     ).ravel("F")
     is_dir_all = bound.is_dir[:, fno].ravel("C")
     dir_ind_all = np.argwhere(
-        np.reshape(is_dir_all, (3, -1), order="C").ravel("F")
+        np.reshape(is_dir_all, (nd, -1), order="C").ravel("F")
     ).ravel("F")
     is_rob_all = bound.is_rob[:, fno].ravel("C")
     rob_ind_all = np.argwhere(
-        np.reshape(is_rob_all, (3, -1), order="C").ravel("F")
+        np.reshape(is_rob_all, (nd, -1), order="C").ravel("F")
     ).ravel("F")
 
     # We now merge the neuman and robin indices since they are treated equivalent
