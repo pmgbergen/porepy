@@ -379,7 +379,6 @@ def triangle_grid(fracs, domain, **kwargs):
     intersections = __find_intersection_points(lines_split)
 
     # Gridding size
-
     if "mesh_size_frac" in kwargs.keys():
         # Tag points at the domain corners
         logger.info("Determine mesh size")
@@ -467,7 +466,8 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
     logger.info("Create grids of various dimensions")
     g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False)
     g_1d, _ = mesh_2_grid.create_1d_grids(
-        pts, cells, phys_names, cell_info, line_tag=const.PHYSICAL_NAME_FRACTURES
+        pts, cells, phys_names, cell_info, line_tag=const.PHYSICAL_NAME_FRACTURES,
+        **kwargs
     )
     g_0d = mesh_2_grid.create_0d_grids(pts, cells)
     grids = [g_2d, g_1d, g_0d]
