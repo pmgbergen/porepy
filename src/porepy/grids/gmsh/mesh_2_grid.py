@@ -134,6 +134,7 @@ def create_1d_grids(
     phys_names,
     cell_info,
     line_tag=constants.GmshConstants().PHYSICAL_NAME_FRACTURE_LINE,
+    tol=1e-4, **kwargs
 ):
     # Recover lines
     # There will be up to three types of physical lines: intersections (between
@@ -178,7 +179,7 @@ def create_1d_grids(
         elif line_type == line_tag[:-1]:
             loc_pts_1d = np.unique(loc_line_pts)  # .flatten()
             loc_coord = pts[loc_pts_1d, :].transpose()
-            g = create_embedded_line_grid(loc_coord, loc_pts_1d)
+            g = create_embedded_line_grid(loc_coord, loc_pts_1d, tol=tol)
             frac_num = pn[offset_index + 1 :]
             g.frac_num = int(frac_num)
             g_1d.append(g)
@@ -204,11 +205,11 @@ def create_0d_grids(pts, cells):
     return g_0d
 
 
-def create_embedded_line_grid(loc_coord, glob_id, atol=1e-4):
+def create_embedded_line_grid(loc_coord, glob_id, tol=1e-4):
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
     loc_coord -= loc_center
     # Check that the points indeed form a line
-    assert cg.is_collinear(loc_coord, atol)
+    assert cg.is_collinear(loc_coord, tol)
     # Find the tangent of the line
     tangent = cg.compute_tangent(loc_coord)
     # Projection matrix
@@ -220,7 +221,7 @@ def create_embedded_line_grid(loc_coord, glob_id, atol=1e-4):
 
     sum_coord = np.sum(np.abs(loc_coord_1d), axis=1)
     sum_coord /= np.amax(sum_coord)
-    active_dimension = np.logical_not(np.isclose(sum_coord, 0, atol=atol, rtol=0))
+    active_dimension = np.logical_not(np.isclose(sum_coord, 0, atol=tol, rtol=0))
     # Check that we are indeed in 1d
     assert np.sum(active_dimension) == 1
     # Sort nodes, and create grid
