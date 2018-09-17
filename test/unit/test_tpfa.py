@@ -79,21 +79,6 @@ class TestTPFA(unittest.TestCase):
 
         return a
 
-    def test_uniform_flow_cart_2d(self):
-        nx = np.array([13, 13])
-        g = structured.CartGrid(nx)
-        g.compute_geometry()
-
-        kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrderTensor(g.dim, kxx)
-        bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel("F") == 1)
-        bound = bc.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)
-
-        discr = tpfa.Tpfa()
-        d = _assign_params(g, perm, bound)
-        discr.discretize(g, d)
-        flux, bound_flux = d["flux"], d["bound_flux"]
-
 
 if __name__ == "__main__":
     test_tpfa_cart_2d()
