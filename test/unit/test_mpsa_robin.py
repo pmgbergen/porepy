@@ -200,8 +200,6 @@ class RobinBoundTest(unittest.TestCase):
 
         g = pp.meshing.simplex_grid([], box, mesh_size_min=3, mesh_size_frac=3)
         g = g.grids_of_dimension(3)[0]
-        g = pp.CartGrid([4, 4, 4], [1, 1, 1])
-        g.compute_geometry()
         c = pp.FourthOrderTensor(3, np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = 1.0
 
