@@ -1643,27 +1643,45 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
 
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
-    is_neu_nd = bound_exclusion.exclude_dirichlet_nd(
+    is_neu_nd = bound_exclusion.exclude_robin_dirichlet_nd(
         bound.is_neu[:, fno].ravel('C')
     ).ravel('F')
     neu_ind_nd = np.argwhere(is_neu_nd).ravel('F')
     neu_ind = np.reshape(neu_ind_nd, (3, -1), order='C').ravel('F')
 
+    # Robin, same procedure
+    is_rob_nd = bound_exclusion.keep_robin_nd(
+        bound.is_rob[:, fno].ravel('C')
+    ).ravel('F')
+    rob_ind_nd = np.argwhere(is_rob_nd).ravel('F')
+    rob_ind = np.reshape(rob_ind_nd, (3, -1), order='C').ravel('F')
+
     # Dirichlet, same procedure
-    is_dir_nd = bound_exclusion.exclude_neumann_nd(bound.is_dir[:, fno].ravel('C')).ravel('F')
+    is_dir_nd = bound_exclusion.exclude_neumann_robin_nd(bound.is_dir[:, fno].ravel('C')).ravel('F')
     dir_ind_nd = np.argwhere(is_dir_nd).ravel('F')
     dir_ind = np.reshape(dir_ind_nd, (3, -1), order='C').ravel('F')
 
-
     # We also need to account for all half faces, that is, do not exclude
-    # Dirichlet and Neumann boundaries.
+    # Dirichlet and Neumann boundaries. This is the global indexing.
     is_neu_all = bound.is_neu[:, fno].ravel('C')
     neu_ind_all = np.argwhere(np.reshape(is_neu_all, (3, -1), order='C').ravel('F')).ravel('F')
     is_dir_all = bound.is_dir[:, fno].ravel('C')
     dir_ind_all = np.argwhere(np.reshape(is_dir_all, (3, -1), order='C').ravel('F')).ravel('F')
+    is_rob_all = bound.is_rob[:, fno].ravel('C')
+    rob_ind_all = np.argwhere(np.reshape(is_rob_all, (3, -1), order='C').ravel('F')).ravel('F')
+
+    # We now merge the neuman and robin indices since they are treated equivalent
+    if rob_ind.size == 0:
+        neu_rob_ind = neu_ind
+    elif neu_ind.size == 0:
+        neu_rob_ind = rob_ind + num_stress
+    else:
+        neu_rob_ind = np.hstack((neu_ind, rob_ind + num_stress))
+
+    neu_rob_ind_all = np.hstack((neu_ind_all, rob_ind_all))
 
     # stack together
-    bnd_ind = np.hstack((neu_ind_all, dir_ind_all))
+    bnd_ind = np.hstack((neu_rob_ind_all, dir_ind_all))
 
     # Some care is needed to compute coefficients in Neumann matrix: sgn is
     # already defined according to the subcell topology [fno], while areas
@@ -1676,18 +1694,18 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     # have to do
     # so, and we will flip the sign later. This means that a stress [1,1] on a
     # boundary face pushes(or pulls) the face to the top right corner.
-    neu_val = 1 / num_face_nodes[fno_ext[neu_ind_all]]
+    neu_val = 1 / num_face_nodes[fno_ext[neu_rob_ind_all]]
 
-    # The columns will be 0:neu_ind.size
-    if neu_ind.size > 0:
+    # The columns will be 0:neu_rob_ind.size
+    if neu_rob_ind.size > 0:
         neu_cell = sps.coo_matrix(
-            (neu_val.ravel("F"), (neu_ind, np.arange(neu_ind.size))),
-            shape=(num_stress, num_bound),
+            (neu_val.ravel("F"), (neu_rob_ind, np.arange(neu_rob_ind.size))),
+            shape=(num_stress + num_rob, num_bound),
         ).tocsr()
     else:
         # Special handling when no elements are found. Not sure if this is
         # necessary, or if it is me being stupid
-        neu_cell = sps.coo_matrix((num_stress, num_bound)).tocsr()
+        neu_cell = sps.coo_matrix((num_stress + num_rob, num_bound)).tocsr()
 
     # For Dirichlet, the coefficients in the matrix should be duplicated the same way as
     # the row indices, but with no increment
