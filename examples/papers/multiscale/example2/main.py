@@ -251,7 +251,7 @@ if __name__ == "__main__":
                     "aperture": 1e-4,
                     "beta": beta,
                     "mesh_size": 0.045,
-                    "fix_pt_err": 1e-5,
+                    "fix_pt_err": 1e-6,
                     "fix_pt_maxiter": 1e3}
 
             main_ms(data, name)
