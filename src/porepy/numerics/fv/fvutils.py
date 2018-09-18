@@ -675,6 +675,7 @@ class ExcludeBoundaries(object):
         self.num_subfno = num_subfno
 
         # Define mappings to exclude boundary values
+        self.basis_matrix = self.__basis_transformation(bound.basis)
 
         if self.bc_type == "scalar":
 
@@ -687,27 +688,60 @@ class ExcludeBoundaries(object):
             self.keep_rob = self.__exclude_matrix(~bound.is_rob)
 
         elif self.bc_type == "vectorial":
-            self.exclude_neu_nd, self.exclude_neu_x, self.exclude_neu_y, self.exclude_neu_z = self.__exclude_matrix_xyz(
-                bound.is_neu
-            )
-            self.exclude_dir_nd, self.exclude_dir_x, self.exclude_dir_y, self.exclude_dir_z = self.__exclude_matrix_xyz(
-                bound.is_dir
-            )
-            self.exclude_rob_nd, self.exclude_rob_x, self.exclude_rob_y, self.exclude_rob_z = self.__exclude_matrix_xyz(
-                bound.is_rob
-            )
-            self.exclude_neu_dir_nd, self.exclude_neu_dir_x, self.exclude_neu_dir_y, self.exclude_neu_dir_z = self.__exclude_matrix_xyz(
-                bound.is_neu | bound.is_dir
-            )
-            self.exclude_neu_rob_nd, self.exclude_neu_rob_x, self.exclude_neu_rob_y, self.exclude_neu_rob_z = self.__exclude_matrix_xyz(
-                bound.is_neu | bound.is_rob
-            )
-            self.exclude_rob_dir_nd, self.exclude_rob_dir_x, self.exclude_rob_dir_y, self.exclude_rob_dir_z = self.__exclude_matrix_xyz(
-                bound.is_rob | bound.is_dir
-            )
-            self.keep_rob_nd, self.keep_rob_x, self.keep_rob_y, self.keep_rob_z = self.__exclude_matrix_xyz(
-                ~bound.is_rob
-            )
+            (
+                self.exclude_neu_nd,
+                self.exclude_neu_x,
+                self.exclude_neu_y,
+                self.exclude_neu_z,
+            ) = self.__exclude_matrix_xyz(bound.is_neu)
+            (
+                self.exclude_dir_nd,
+                self.exclude_dir_x,
+                self.exclude_dir_y,
+                self.exclude_dir_z,
+            ) = self.__exclude_matrix_xyz(bound.is_dir)
+
+            (
+                self.exclude_rob_nd,
+                self.exclude_rob_x,
+                self.exclude_rob_y,
+                self.exclude_rob_z,
+            ) = self.__exclude_matrix_xyz(bound.is_rob)
+            (
+                self.exclude_neu_dir_nd,
+                self.exclude_neu_dir_x,
+                self.exclude_neu_dir_y,
+                self.exclude_neu_dir_z,
+            ) = self.__exclude_matrix_xyz(bound.is_neu | bound.is_dir)
+            (
+                self.exclude_neu_rob_nd,
+                self.exclude_neu_rob_x,
+                self.exclude_neu_rob_y,
+                self.exclude_neu_rob_z,
+            ) = self.__exclude_matrix_xyz(bound.is_neu | bound.is_rob)
+            (
+                self.exclude_rob_dir_nd,
+                self.exclude_rob_dir_x,
+                self.exclude_rob_dir_y,
+                self.exclude_rob_dir_z,
+            ) = self.__exclude_matrix_xyz(bound.is_rob | bound.is_dir)
+            (
+                self.keep_rob_nd,
+                self.keep_rob_x,
+                self.keep_rob_y,
+                self.keep_rob_z,
+            ) = self.__exclude_matrix_xyz(~bound.is_rob)
+
+    def __basis_transformation(self, basis):
+        # Add the number of coordinates
+        data = basis[:, self.fno].ravel("F")
+        col = np.reshape(np.arange(self.num_subfno * self.nd), (self.nd, -1)).ravel("F")
+        col = np.tile(col, (self.nd, 1)).ravel("C")
+        row = np.tile(np.arange(self.num_subfno * self.nd), (self.nd, 1)).ravel("F")
+        return sps.coo_matrix(
+            (data, (row, col)),
+            shape=(self.num_subfno * self.nd, self.num_subfno * self.nd),
+        ).tocsr()
 
     def __exclude_matrix(self, ids):
         """
@@ -730,6 +764,7 @@ class ExcludeBoundaries(object):
     def __exclude_matrix_xyz(self, ids):
         col_x = np.argwhere([not it for it in ids[0, self.fno]])
         row_x = np.arange(col_x.size)
+
         exclude_x = sps.coo_matrix(
             (np.ones(row_x.size), (row_x, col_x.ravel("C"))),
             shape=(row_x.size, self.num_subfno),
@@ -762,6 +797,7 @@ class ExcludeBoundaries(object):
             (np.ones(row_neu.size), (row_neu, col_neu.ravel("C"))),
             shape=(row_neu.size, self.nd * self.num_subfno),
         ).tocsr()
+
         return exclude_nd, exclude_x, exclude_y, exclude_z
 
     def exclude_dirichlet(self, other):
