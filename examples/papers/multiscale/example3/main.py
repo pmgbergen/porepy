@@ -238,7 +238,7 @@ def main(pb_data):
 
 if __name__ == "__main__":
 
-    betas = np.array([1e-1, 0, 1e1])
+    betas = np.array([1e-2, 1e-1, 0, 1e1, 1e2])
     alpha = 4
 
     for beta in betas:
