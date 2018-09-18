@@ -5,6 +5,7 @@ import unittest
 
 import porepy as pp
 
+
 class TestRock(unittest.TestCase):
     def test_lame_from_young_poisson(self):
         e = 1
