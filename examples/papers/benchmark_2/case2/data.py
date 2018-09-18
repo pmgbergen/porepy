@@ -187,10 +187,10 @@ def add_data(gb, data, solver_name):
 
             b_face_centers = g.face_centers[:, b_faces]
             b_flux = np.logical_and.reduce(
-                tuple(b_face_centers[i, :] < 0.5 - tol for i in range(3))
+                tuple(b_face_centers[i, :] < 0.25 - tol for i in range(3))
             )
             b_pressure = np.logical_and.reduce(
-                tuple(b_face_centers[i, :] > 0.75 + tol for i in range(3))
+                tuple(b_face_centers[i, :] > 0.875 + tol for i in range(3))
             )
 
             labels = np.array(["neu"] * b_faces.size)
@@ -242,10 +242,10 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
             b_face_centers = g.face_centers[:, b_faces]
 
             self.inflow = np.logical_and.reduce(
-                tuple(b_face_centers[i, :] < 0.5 - self.tol for i in range(3))
+                tuple(b_face_centers[i, :] < 0.25 - self.tol for i in range(3))
             )
             self.outflow = np.logical_and.reduce(
-                tuple(b_face_centers[i, :] > 0.75 + self.tol for i in range(3))
+                tuple(b_face_centers[i, :] > 0.875 + self.tol for i in range(3))
             )
 
         pp.ParabolicDataAssigner.__init__(self, g, data, physics)
