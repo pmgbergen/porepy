@@ -108,11 +108,9 @@ class Shale(UnitRock):
 
 class Granite(UnitRock):
     """ Generic values for granite.
-
-
     Data partially from:
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
-    And 
+    And:
     https://www.jsg.utexas.edu/tyzhu/files/Some-Useful-Numbers.pdf
     """
 
@@ -128,7 +126,7 @@ class Granite(UnitRock):
         self.POISSON_RATIO = 0.2
 
         # Reported density
-        self.DENSITY = 2700 * pp.KILOGRAM / pp.METER**3
+        self.DENSITY = 2700 * pp.KILOGRAM / pp.METER ** 3
         self.LAMBDA, self.MU = lame_from_young_poisson(
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
