@@ -50,8 +50,8 @@ class RobinBoundTest(unittest.TestCase):
         )
         u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
 
-        assert np.allclose(u, u_ex(g.cell_centers).ravel("F"))
-        assert np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F"))
+        self.assertTrue(np.allclose(u, u_ex(g.cell_centers).ravel("F")))
+        self.assertTrue(np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F")))
 
     def test_dir_neu_rob(self):
         nx = 2
@@ -97,8 +97,8 @@ class RobinBoundTest(unittest.TestCase):
         )
         u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
 
-        assert np.allclose(u, u_ex(g.cell_centers).ravel("F"))
-        assert np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F"))
+        self.assertTrue(np.allclose(u, u_ex(g.cell_centers).ravel("F")))
+        self.assertTrue(np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F")))
 
     def test_structured_triang(self):
         nx = 1
@@ -144,8 +144,8 @@ class RobinBoundTest(unittest.TestCase):
         )
         u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
 
-        assert np.allclose(u, u_ex(g.cell_centers).ravel("F"))
-        assert np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F"))
+        self.assertTrue(np.allclose(u, u_ex(g.cell_centers).ravel("F")))
+        self.assertTrue(np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F")))
 
     def test_unstruct_triang(self):
         corners = np.array([[0, 0, 1, 1], [0, 1, 1, 0]])
@@ -192,8 +192,8 @@ class RobinBoundTest(unittest.TestCase):
         )
         u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
 
-        assert np.allclose(u, u_ex(g.cell_centers).ravel("F"))
-        assert np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F"))
+        self.assertTrue(np.allclose(u, u_ex(g.cell_centers).ravel("F")))
+        self.assertTrue(np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F")))
 
     def test_unstruct_tetrahedron(self):
         box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
@@ -243,8 +243,8 @@ class RobinBoundTest(unittest.TestCase):
         )
         u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
 
-        assert np.allclose(u, u_ex(g.cell_centers).ravel("F"))
-        assert np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F"))
+        self.assertTrue(np.allclose(u, u_ex(g.cell_centers).ravel("F")))
+        self.assertTrue(np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F")))
 
     def solve_mpsa(self, g, c, robin_weight, bnd, u_bound):
         stress, bound_stress = pp.numerics.fv.mpsa._mpsa_local(
