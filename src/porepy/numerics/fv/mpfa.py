@@ -14,7 +14,7 @@ from porepy.utils import matrix_compression
 from porepy.utils import comp_geom as cg
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
-from porepy.numerics.fv import TpfaCoupling, TpfaCouplingDFN, FVElliptic
+from porepy.numerics.fv import TpfaCoupling, FVElliptic
 
 # ------------------------------------------------------------------------------
 
@@ -29,36 +29,6 @@ class MpfaMixedDim(SolverMixedDim):
 
         self.solver = Coupler(self.discr, self.coupling_conditions)
 
-
-# ------------------------------------------------------------------------------
-
-
-class MpfaDFN(SolverMixedDim):
-    def __init__(self, dim_max, physics="flow"):
-        # NOTE: There is no flow along the intersections of the fractures.
-
-        self.physics = physics
-        self.dim_max = dim_max
-
-        self.discr = Mpfa(self.physics)
-        self.coupling_conditions = TpfaCouplingDFN(self.discr)
-
-        kwargs = {"discr_ndof": self.discr.ndof, "discr_fct": self.__matrix_rhs__}
-        self.solver = Coupler(coupling=self.coupling_conditions, **kwargs)
-        SolverMixDim.__init__(self)
-
-    def __matrix_rhs__(self, g, data):
-        # The highest dimensional problem compute the matrix and rhs, the lower
-        # dimensional problem and empty matrix. For the latter, the size of the
-        # matrix is the number of cells.
-        if g.dim == self.dim_max:
-            return self.discr.matrix_rhs(g, data)
-        else:
-            ndof = self.discr.ndof(g)
-            return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
-
-
-# ------------------------------------------------------------------------------
 
 
 class Mpfa(Solver):
