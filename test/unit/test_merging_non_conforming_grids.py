@@ -31,7 +31,7 @@ class TestMeshMerging(unittest.TestCase):
             g, g, global_ind_offset=0, tol=1e-4
         )
 
-        assert np.allclose(h.nodes[:, g_in_comb], g.nodes[:, g_sort])
+        self.assertTrue(np.allclose(h.nodes[:, g_in_comb], g.nodes[:, g_sort]))
 
     def test_merge_1d_grids_partly_equal_nodes(self):
         g = TensorGrid(np.array([0, 1, 2]))
@@ -42,8 +42,8 @@ class TestMeshMerging(unittest.TestCase):
             g, h, global_ind_offset=0, tol=1e-4
         )
 
-        assert np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort])
-        assert np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort])
+        self.assertTrue(np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort]))
+        self.assertTrue(np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort]))
 
     def test_merge_1d_grids_unequal_nodes(self):
         # Unequal nodes along the x-axis
@@ -55,8 +55,8 @@ class TestMeshMerging(unittest.TestCase):
             g, h, global_ind_offset=0, tol=1e-4
         )
 
-        assert np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort])
-        assert np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort])
+        self.assertTrue(np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort]))
+        self.assertTrue(np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort]))
 
     def test_merge_1d_grids_rotation(self):
         # 1d grids rotated
@@ -70,8 +70,8 @@ class TestMeshMerging(unittest.TestCase):
         gh, offset, g_in_comb, h_in_comb, g_sort, h_sort = non_conforming.merge_1d_grids(
             g, h, global_ind_offset=0
         )
-        assert np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort])
-        assert np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort])
+        self.assertTrue(np.allclose(gh.nodes[:, g_in_comb], g.nodes[:, g_sort]))
+        self.assertTrue(np.allclose(gh.nodes[:, h_in_comb], h.nodes[:, h_sort]))
 
     def test_merge_1d_permuted_nodes(self):
         g = TensorGrid(np.array([0, 1, 2]))
@@ -86,11 +86,11 @@ class TestMeshMerging(unittest.TestCase):
         c, _, _, _, _, _ = non_conforming.merge_1d_grids(g, h)
 
         ismem, maps = ismember_rows(c.global_point_ind, g.global_point_ind)
-        assert ismem.sum() == c.num_nodes
-        assert np.allclose(g.nodes[:, maps], c.nodes)
+        self.assertTrue(ismem.sum() == c.num_nodes)
+        self.assertTrue(np.allclose(g.nodes[:, maps], c.nodes))
         ismem, maps = ismember_rows(c.global_point_ind, h.global_point_ind)
-        assert ismem.sum() == c.num_nodes
-        assert np.allclose(h.nodes[:, maps], c.nodes)
+        self.assertTrue(ismem.sum() == c.num_nodes)
+        self.assertTrue(np.allclose(h.nodes[:, maps], c.nodes))
 
     def test_update_face_nodes_equal_2d(self):
         data = np.ones(4)
@@ -101,11 +101,11 @@ class TestMeshMerging(unittest.TestCase):
 
         delete_faces = np.array([0])
         new_face_ind = non_conforming.update_face_nodes(g, delete_faces, 1, 2)
-        assert new_face_ind.size == 1
-        assert new_face_ind[0] == 1
+        self.assertTrue(new_face_ind.size == 1)
+        self.assertTrue(new_face_ind[0] == 1)
         fn_known = np.array([[0, 0], [0, 0], [1, 1], [1, 1]], dtype=np.bool)
 
-        assert np.allclose(fn_known, g.face_nodes.A)
+        self.assertTrue(np.allclose(fn_known, g.face_nodes.A))
 
     def test_update_face_nodes_equal_3d(self):
         data = np.ones(6)
@@ -116,11 +116,11 @@ class TestMeshMerging(unittest.TestCase):
 
         delete_faces = np.array([0])
         new_face_ind = non_conforming.update_face_nodes(g, delete_faces, 1, 0)
-        assert new_face_ind.size == 1
-        assert new_face_ind[0] == 1
+        self.assertTrue(new_face_ind.size == 1)
+        self.assertTrue(new_face_ind[0] == 1)
         fn_known = np.array([[0, 1], [1, 1], [1, 1], [1, 0]], dtype=np.bool)
 
-        assert np.allclose(fn_known, g.face_nodes.A)
+        self.assertTrue(np.allclose(fn_known, g.face_nodes.A))
 
     def test_update_face_nodes_add_none(self):
         # Only delete cells
@@ -134,10 +134,10 @@ class TestMeshMerging(unittest.TestCase):
         new_face_ind = non_conforming.update_face_nodes(
             g, delete_faces, num_new_faces=0, new_node_offset=2
         )
-        assert new_face_ind.size == 0
+        self.assertTrue(new_face_ind.size == 0)
         fn_known = np.array([[0], [0], [1], [1]], dtype=np.bool)
 
-        assert np.allclose(fn_known, g.face_nodes.A)
+        self.assertTrue(np.allclose(fn_known, g.face_nodes.A))
 
     def test_update_face_nodes_remove_all(self):
         # only add cells
@@ -149,11 +149,11 @@ class TestMeshMerging(unittest.TestCase):
 
         delete_faces = np.array([0, 1])
         new_face_ind = non_conforming.update_face_nodes(g, delete_faces, 1, 2)
-        assert new_face_ind.size == 1
-        assert new_face_ind[0] == 0
+        self.assertTrue(new_face_ind.size == 1)
+        self.assertTrue(new_face_ind[0] == 0)
         fn_known = np.array([[0], [0], [1], [1]], dtype=np.bool)
 
-        assert np.allclose(fn_known, g.face_nodes.A)
+        self.assertTrue(np.allclose(fn_known, g.face_nodes.A))
 
     def test_update_cell_faces_no_update(self):
         # Same number of delete and new faces
@@ -183,7 +183,7 @@ class TestMeshMerging(unittest.TestCase):
         )
 
         cf_expected = np.array([0, 1, 2])
-        assert np.allclose(np.sort(g.cell_faces.indices), cf_expected)
+        self.assertTrue(np.allclose(np.sort(g.cell_faces.indices), cf_expected))
 
     def test_update_cell_faces_one_by_two(self):
         # cell-face
@@ -212,7 +212,7 @@ class TestMeshMerging(unittest.TestCase):
         )
 
         cf_expected = np.array([0, 1, 2, 3])
-        assert np.allclose(np.sort(g.cell_faces.indices), cf_expected)
+        self.assertTrue(np.allclose(np.sort(g.cell_faces.indices), cf_expected))
 
     def test_update_cell_faces_one_by_two_reverse_order(self):
         # cell-face
@@ -241,7 +241,7 @@ class TestMeshMerging(unittest.TestCase):
         )
 
         cf_expected = np.array([0, 1, 2, 3])
-        assert np.allclose(np.sort(g.cell_faces.indices), cf_expected)
+        self.assertTrue(np.allclose(np.sort(g.cell_faces.indices), cf_expected))
 
     def test_update_cell_faces_delete_shared(self):
         # Two cells sharing a face
@@ -271,7 +271,7 @@ class TestMeshMerging(unittest.TestCase):
         )
 
         cf_expected = np.array([[1, 1, 0, 1, 1], [0, 0, 1, 1, 1]], dtype=np.bool).T
-        assert np.allclose(np.abs(g.cell_faces.toarray()), cf_expected)
+        self.assertTrue(np.allclose(np.abs(g.cell_faces.toarray()), cf_expected))
 
     def test_update_cell_faces_delete_shared_reversed(self):
         # cell-face
@@ -300,7 +300,7 @@ class TestMeshMerging(unittest.TestCase):
         )
 
         cf_expected = np.array([[1, 1, 0, 1, 1], [0, 0, 1, 1, 1]], dtype=np.bool).T
-        assert np.allclose(np.abs(g.cell_faces.toarray()), cf_expected)
+        self.assertTrue(np.allclose(np.abs(g.cell_faces.toarray()), cf_expected))
 
     def test_update_cell_faces_change_all(self):
         data = np.ones(2)
@@ -328,7 +328,7 @@ class TestMeshMerging(unittest.TestCase):
         )
 
         cf_expected = np.array([[1, 1, 0, 0, 0], [0, 0, 1, 1, 1]], dtype=np.bool).T
-        assert np.allclose(np.abs(g.cell_faces.toarray()), cf_expected)
+        self.assertTrue(np.allclose(np.abs(g.cell_faces.toarray()), cf_expected))
 
     def test_update_tag_simple(self):
         n_tags = 3
@@ -339,7 +339,7 @@ class TestMeshMerging(unittest.TestCase):
         non_conforming.update_face_tags(g, delete_face, new_face)
 
         known_tag = np.array([False, False, True])  # np.array([1, 2, 0])
-        assert np.allclose(known_tag, g.tags["tip_faces"])
+        self.assertTrue(np.allclose(known_tag, g.tags["tip_faces"]))
 
     def test_update_tag_one_to_many(self):
         n_tags = 3
@@ -350,7 +350,7 @@ class TestMeshMerging(unittest.TestCase):
         non_conforming.update_face_tags(g, delete_face, new_face)
 
         known_tag = np.array([False, False, True, True])  # np.array([1, 2, 0, 0])
-        assert np.allclose(known_tag, g.tags["tip_faces"])
+        self.assertTrue(np.allclose(known_tag, g.tags["tip_faces"]))
 
     def test_update_tag_two_to_many(self):
         n_tags = 3
@@ -361,7 +361,7 @@ class TestMeshMerging(unittest.TestCase):
         non_conforming.update_face_tags(g, delete_face, new_face)
 
         known_tag = np.array([False, True, True, False])  # np.array([1, 0, 0, 2])
-        assert np.allclose(known_tag, g.tags["tip_faces"])
+        self.assertTrue(np.allclose(known_tag, g.tags["tip_faces"]))
 
     def test_update_tag_pure_deletion(self):
         n_tags = 3
@@ -372,7 +372,7 @@ class TestMeshMerging(unittest.TestCase):
         non_conforming.update_face_tags(g, delete_face, new_face)
 
         known_tag = np.array([True, False])  # np.array([1, 2])
-        assert np.allclose(known_tag, g.tags["tip_faces"])
+        self.assertTrue(np.allclose(known_tag, g.tags["tip_faces"]))
 
     def test_global_ind_assignment(self):
         data = np.ones(3)
@@ -390,11 +390,13 @@ class TestMeshMerging(unittest.TestCase):
 
         list_of_grids, glob_ind = non_conforming.init_global_ind(gl)
 
-        assert list_of_grids[0].frac_num == 0
-        assert list_of_grids[1].frac_num == 1
+        self.assertTrue(list_of_grids[0].frac_num == 0)
+        self.assertTrue(list_of_grids[1].frac_num == 1)
 
-        assert np.allclose(list_of_grids[0].global_point_ind, np.arange(3))
-        assert np.allclose(list_of_grids[1].global_point_ind, 3 + np.arange(3))
+        self.assertTrue(np.allclose(list_of_grids[0].global_point_ind, np.arange(3)))
+        self.assertTrue(
+            np.allclose(list_of_grids[1].global_point_ind, 3 + np.arange(3))
+        )
 
     def test_merge_two_grids(self):
         # Merge two grids that have a common face. Check that global indices are
@@ -432,12 +434,12 @@ class TestMeshMerging(unittest.TestCase):
 
         g_1d = grid_list_1d[0]
         ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g1.nodes[:, maps], g_1d.nodes))
 
         ismem, maps = ismember_rows(g_1d.global_point_ind, g2.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g2.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g2.nodes[:, maps], g_1d.nodes))
 
     def test_merge_three_grids_no_common_point(self):
         # Merge three grids: One in the mid
@@ -505,23 +507,23 @@ class TestMeshMerging(unittest.TestCase):
         grid_list_1d = non_conforming.process_intersections(
             gl, intersections, glob_ind, list_of_grids, tol=1e-4
         )
-        assert len(grid_list_1d) == 2
+        self.assertTrue(len(grid_list_1d) == 2)
 
         g_1d = grid_list_1d[0]
         ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g1.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, g2.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g2.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g2.nodes[:, maps], g_1d.nodes))
 
         g_1d = grid_list_1d[1]
         ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g1.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, g3.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g3.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g3.nodes[:, maps], g_1d.nodes))
 
     def test_merge_three_grids_common_point(self):
         # Merge three grids, where a central cell share one face each with the two
@@ -575,23 +577,23 @@ class TestMeshMerging(unittest.TestCase):
         grid_list_1d = non_conforming.process_intersections(
             gl, intersections, glob_ind, list_of_grids, tol=1e-4
         )
-        assert len(grid_list_1d) == 2
+        self.assertTrue(len(grid_list_1d) == 2)
 
         g_1d = grid_list_1d[0]
         ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g1.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, g2.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g2.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g2.nodes[:, maps], g_1d.nodes))
 
         g_1d = grid_list_1d[1]
         ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g1.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, g3.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g3.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g3.nodes[:, maps], g_1d.nodes))
 
     def test_merge_two_grids_hanging_node(self):
         # Merge three grids, where a central cell share one face each with the two
@@ -644,16 +646,16 @@ class TestMeshMerging(unittest.TestCase):
         grid_list_1d = non_conforming.process_intersections(
             gl, intersections, glob_ind, list_of_grids, tol=1e-4
         )
-        assert len(grid_list_1d) == 1
+        self.assertTrue(len(grid_list_1d) == 1)
 
         g_1d = grid_list_1d[0]
         ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g1.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, g2.global_point_ind)
 
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g2.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g2.nodes[:, maps], g_1d.nodes))
 
     def test_merge_three_grids_hanging_node_shared_node(self):
         # Merge three grids, where a central cell share one face each with the two
@@ -717,23 +719,23 @@ class TestMeshMerging(unittest.TestCase):
         grid_list_1d = non_conforming.process_intersections(
             gl, intersections, glob_ind, list_of_grids, tol=1e-4
         )
-        assert len(grid_list_1d) == 2
+        self.assertTrue(len(grid_list_1d) == 2)
 
         g_1d = grid_list_1d[0]
         ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g1.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, g2.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g2.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g2.nodes[:, maps], g_1d.nodes))
 
         g_1d = grid_list_1d[1]
         ismem, maps = ismember_rows(g_1d.global_point_ind, g1.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g1.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g1.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, g3.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(g3.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(g3.nodes[:, maps], g_1d.nodes))
 
     def test_merge_three_grids_internal_intersection_no_hanging_node(self):
         # Merge three grids, where a central cell share one face each with the two
@@ -799,32 +801,32 @@ class TestMeshMerging(unittest.TestCase):
         grid_list_1d = non_conforming.process_intersections(
             gl, intersections, glob_ind, list_of_grids, tol=1e-4
         )
-        assert len(grid_list_1d) == 3
+        self.assertTrue(len(grid_list_1d) == 3)
 
         g_1d = grid_list_1d[0]
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxy.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxz.nodes[:, maps], g_1d.nodes))
 
         g_1d = grid_list_1d[1]
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxy.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gyz.nodes[:, maps], g_1d.nodes))
 
         g_1d = grid_list_1d[2]
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxz.nodes[:, maps], g_1d.nodes))
 
         ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gyz.nodes[:, maps], g_1d.nodes))
 
     def test_merge_three_grids_internal_intersection_no_hanging_node_reverse_order(
         self
@@ -893,32 +895,32 @@ class TestMeshMerging(unittest.TestCase):
         grid_list_1d = non_conforming.process_intersections(
             gl, intersections, glob_ind, list_of_grids, tol=1e-4
         )
-        assert len(grid_list_1d) == 3
+        self.assertTrue(len(grid_list_1d) == 3)
 
         g_1d = grid_list_1d[0]
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxy.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxz.nodes[:, maps], g_1d.nodes))
 
         g_1d = grid_list_1d[1]
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxy.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gyz.nodes[:, maps], g_1d.nodes))
 
         g_1d = grid_list_1d[2]
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxz.nodes[:, maps], g_1d.nodes))
 
         ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gyz.nodes[:, maps], g_1d.nodes))
 
     def test_merge_three_grids_internal_intersection_hanging_node(self):
         # Merge three grids, where a central cell share one face each with the two
@@ -1001,32 +1003,32 @@ class TestMeshMerging(unittest.TestCase):
         grid_list_1d = non_conforming.process_intersections(
             gl, intersections, glob_ind, list_of_grids, tol=1e-4
         )
-        assert len(grid_list_1d) == 3
+        self.assertTrue(len(grid_list_1d) == 3)
 
         g_1d = grid_list_1d[0]
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxz.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gyz.nodes[:, maps], g_1d.nodes))
 
         g_1d = grid_list_1d[1]
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxy.nodes[:, maps], g_1d.nodes))
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxz.nodes[:, maps], g_1d.nodes))
 
         g_1d = grid_list_1d[2]
         ismem, maps = ismember_rows(g_1d.global_point_ind, gxy.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gxy.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gxy.nodes[:, maps], g_1d.nodes))
 
         ismem, maps = ismember_rows(g_1d.global_point_ind, gyz.global_point_ind)
-        assert ismem.sum() == g_1d.num_nodes
-        assert np.allclose(gyz.nodes[:, maps], g_1d.nodes)
+        self.assertTrue(ismem.sum() == g_1d.num_nodes)
+        self.assertTrue(np.allclose(gyz.nodes[:, maps], g_1d.nodes))
 
     if __name__ == "__main__":
         unittest.main()
