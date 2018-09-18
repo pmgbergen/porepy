@@ -14,31 +14,31 @@ class BasicsTest(unittest.TestCase):
         pts = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]], dtype=np.float)
 
         pt = np.array([0.2, 0.3, 0])
-        assert cg.is_point_in_cell(pts, pt)
+        self.assertTrue(cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.1, 0.5, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 0.5, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([0.5, 1.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([0.5, -0.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.1, 1.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 1.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([-0.1, -0.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.1, -0.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
     # ------------------------------------------------------------------------------#
 
@@ -48,31 +48,31 @@ class BasicsTest(unittest.TestCase):
         )
 
         pt = np.array([0.2, 0.3, 0])
-        assert cg.is_point_in_cell(pts, pt)
+        self.assertTrue(cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.1, 0.5, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 0.5, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([0.5, 1.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([0.5, -0.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.1, 1.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 1.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([-0.1, -0.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.1, -0.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
     # ------------------------------------------------------------------------------#
 
@@ -82,19 +82,19 @@ class BasicsTest(unittest.TestCase):
         )
 
         pt = np.array([0.2, 0.3, 0])
-        assert cg.is_point_in_cell(pts, pt)
+        self.assertTrue(cg.is_point_in_cell(pts, pt))
 
         pt = np.array([0.5, 1, 0])
-        assert cg.is_point_in_cell(pts, pt)
+        self.assertTrue(cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.3, 0.5, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 0.5, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.1, -0.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
     # ------------------------------------------------------------------------------#
 
@@ -105,19 +105,19 @@ class BasicsTest(unittest.TestCase):
         )
 
         pt = np.array([0.2, 0.3, 0])
-        assert cg.is_point_in_cell(pts, pt)
+        self.assertTrue(cg.is_point_in_cell(pts, pt))
 
         pt = np.array([0.5, 1, 0])
-        assert cg.is_point_in_cell(pts, pt)
+        self.assertTrue(cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.3, 0.5, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 0.5, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.1, -0.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
     # ------------------------------------------------------------------------------#
 
@@ -128,19 +128,19 @@ class BasicsTest(unittest.TestCase):
         )
 
         pt = np.array([0.2, 0.3, 0])
-        assert cg.is_point_in_cell(pts, pt)
+        self.assertTrue(cg.is_point_in_cell(pts, pt))
 
         pt = np.array([0.5, 1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.3, 0.5, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([-0.1, 0.5, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
         pt = np.array([1.1, -0.1, 0])
-        assert not cg.is_point_in_cell(pts, pt)
+        self.assertTrue(not cg.is_point_in_cell(pts, pt))
 
 
 # ------------------------------------------------------------------------------#

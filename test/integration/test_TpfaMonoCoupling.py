@@ -43,7 +43,7 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
         # test pressure
         for g, d in gb:
-            assert np.allclose(d["pressure"], xmax - g.cell_centers[0])
+            self.assertTrue(np.allclose(d["pressure"], xmax - g.cell_centers[0]))
 
         # test mortar solution
         for e, d_e in gb.edges():
@@ -55,8 +55,8 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             left_area = left_to_m * g1.face_areas
             right_area = right_to_m * g2.face_areas
 
-            assert np.allclose(d_e["mortar_solution"] / left_area, 1)
-            assert np.allclose(d_e["mortar_solution"] / right_area, 1)
+            self.assertTrue(np.allclose(d_e["mortar_solution"] / left_area, 1))
+            self.assertTrue(np.allclose(d_e["mortar_solution"] / right_area, 1))
 
     def generate_grids(self, n, xmax, ymax, split):
         g1 = pp.CartGrid([split * n, ymax * n], physdims=[split, ymax])
@@ -250,7 +250,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         # test pressure
         for g, d in gb:
             ap, _, _ = analytic_p(g.cell_centers)
-            assert np.max(np.abs(d["pressure"] - ap)) < 5e-2
+            self.assertTrue(np.max(np.abs(d["pressure"] - ap)) < 5e-2)
 
         # test mortar solution
         for e, d_e in gb.edges():
@@ -274,8 +274,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             right_flux = a2 * np.sum(analytic_flux * g2.face_normals[:2], 0)
             right_flux = -right_to_m * (d2["bound_flux"] * right_flux)
 
-            assert np.max(np.abs(d_e["mortar_solution"] - left_flux)) < 5e-2
-            assert np.max(np.abs(d_e["mortar_solution"] - right_flux)) < 5e-2
+            self.assertTrue(np.max(np.abs(d_e["mortar_solution"] - left_flux)) < 5e-2)
+            self.assertTrue(np.max(np.abs(d_e["mortar_solution"] - right_flux)) < 5e-2)
 
     def generate_2d_grid(self, n, xmax, ymax):
         g1 = pp.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])
@@ -375,8 +375,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         left = gi.left[left_right_faces[:, 0]]
         right = gj.right[left_right_faces[:, 1]]
 
-        assert left.size == np.unique(left).size
-        assert right.size == np.unique(right).size
+        self.assertTrue(left.size == np.unique(left).size)
+        self.assertTrue(right.size == np.unique(right).size)
 
         val = np.ones(left.shape, dtype=bool)
         shape = [gj.num_faces, gi.num_faces]
