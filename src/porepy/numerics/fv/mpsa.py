@@ -1424,12 +1424,12 @@ def _block_diagonal_structure(
     # get block-structure. First eliminate node numbers at the boundary, where
     # the equations are either of flux or pressure continuity (not both)
 
-    nno_stress = bound_exclusion.exclude_robin_dirichlet(nno)
-    nno_displacement = bound_exclusion.exclude_neumann_robin(nno)
-    # we have now eliminated all nodes related to robin, we therefore add them
-    nno_rob = bound_exclusion.keep_robin(nno)
-
     if bound_exclusion.bc_type == "scalar":
+        nno_stress = bound_exclusion.exclude_robin_dirichlet(nno)
+        nno_displacement = bound_exclusion.exclude_neumann_robin(nno)
+        # we have now eliminated all nodes related to robin, we therefore add them
+        nno_rob = bound_exclusion.keep_robin(nno)
+
         node_occ = np.hstack(
             (
                 np.tile(nno_stress, nd),
@@ -1439,6 +1439,10 @@ def _block_diagonal_structure(
         )
 
     elif bound_exclusion.bc_type == "vectorial":
+        nno = np.tile(nno, nd)
+        nno_stress = bound_exclusion.exclude_robin_dirichlet_nd(nno)
+        nno_displacement = bound_exclusion.exclude_neumann_robin_nd(nno)
+        nno_rob = bound_exclusion.keep_robin_nd(nno)
         node_occ = np.hstack((nno_stress, nno_rob, nno_displacement))
 
     sorted_ind = np.argsort(node_occ, kind="mergesort")
