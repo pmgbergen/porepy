@@ -62,8 +62,10 @@ class MpfaDFN(SolverMixedDim):
 
 
 class Mpfa(Solver):
-    def __init__(self, physics="flow"):
-        self.physics = physics
+
+    def __init__(self, keyword):
+        super(Mpfa, self).__init__(keyword)
+
 
     def ndof(self, g):
         """
@@ -80,9 +82,6 @@ class Mpfa(Solver):
 
         """
         return g.num_cells
-    def __init__(self, keyword):
-        super(Mpfa, self).__init__(keyword)
-
 
     # ------------------------------------------------------------------------------#
 
@@ -277,13 +276,19 @@ class Mpfa(Solver):
             # entire grid.
             # TODO: We may want to estimate the memory need, and give a warning if
             # this seems excessive
-            flux, bound_flux, bound_pressure_cell, bound_pressure_face = self._local_discr(
-                g, k, bnd, eta=eta, inverter=inverter, apertures=apertures
+            flux, bound_flux, bound_pressure_cell, bound_pressure_face = _mpfa_local(
+                g,
+                k,
+                bnd,
+                eta=eta,
+                inverter=inverter,
+                apertures=apertures,
+                robin_weight=robin_weight,
             )
         else:
             # Estimate number of partitions necessary based on prescribed memory
             # usage
-            peak_mem = self._estimate_peak_memory(g)
+            peak_mem = _estimate_peak_memory(g)
             num_part = np.ceil(peak_mem / max_memory)
 
             # Let partitioning module apply the best available method
@@ -316,7 +321,7 @@ class Mpfa(Solver):
                 active_nodes = np.squeeze(np.where((cn * active_cells) > 0))
 
                 # Perform local discretization.
-                loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_faces = self.partial_discr(
+                loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_faces = mpfa_partial(
                     g, k, bnd, eta=eta, inverter=inverter, nodes=active_nodes
                 )
 
@@ -497,8 +502,8 @@ class Mpfa(Solver):
         Dirichlet gives a right hand side for (ii).
 
         """
-        if eta is None:
-            eta = fvutils.determine_eta(g)
+     if eta is None:
+        eta = fvutils.determine_eta(g)
 
         # The method reduces to the more efficient TPFA in one dimension, so that
         # method may be called. In 0D, there is no internal discretization to be
@@ -520,6 +525,13 @@ class Mpfa(Solver):
         elif g.dim == 0:
             return sps.csr_matrix([0]), 0, 0, 0
 
+        if robin_weight is None:
+            if np.sum(bnd.is_rob) != 0:
+                raise ValueError(
+                    "If applying Robin conditions you must supply an robin_weight"
+                )
+            else:
+                robin_weight = 1
         # The grid coordinates are always three-dimensional, even if the grid is
         # really 2D. This means that there is not a 1-1 relation between the number
         # of coordinates of a point / vector and the real dimension. This again
@@ -554,19 +566,19 @@ class Mpfa(Solver):
         # Obtain normal_vector * k, pairings of cells and nodes (which together
         # uniquely define sub-cells, and thus index for gradients. See comment
         # below for the ordering of elements in the subcell gradient.
-        nk_grad, cell_node_blocks, sub_cell_index = self._tensor_vector_prod(
+        nk_grad_all, cell_node_blocks, sub_cell_index = _tensor_vector_prod(
             g, k, subcell_topology, apertures
         )
 
         # Distance from cell centers to face centers, this will be the
         # contribution from gradient unknown to equations for pressure continuity
-        pr_cont_grad = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
+        pr_cont_grad_all = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
 
         # Darcy's law
-        darcy = -nk_grad[subcell_topology.unique_subfno]
+        darcy = -nk_grad_all[subcell_topology.unique_subfno]
 
         # Pair fluxes over subfaces, that is, enforce conservation
-        nk_grad = subcell_topology.pair_over_subfaces(nk_grad)
+        nk_grad_all = subcell_topology.pair_over_subfaces(nk_grad_all)
 
         # Contribution from cell center potentials to local systems
         # For pressure continuity, +-1 (Depending on whether the cell is on the
@@ -574,7 +586,7 @@ class Mpfa(Solver):
         # The .A suffix is necessary to get a numpy array, instead of a scipy
         # matrix.
         sgn = g.cell_faces[subcell_topology.fno, subcell_topology.cno].A
-        pr_cont_cell = sps.coo_matrix(
+        pr_cont_cell_all = sps.coo_matrix(
             (sgn[0], (subcell_topology.subfno, subcell_topology.cno))
         ).tocsr()
         # The cell centers give zero contribution to flux continuity
@@ -582,7 +594,30 @@ class Mpfa(Solver):
             (np.zeros(1), (np.zeros(1), np.zeros(1))),
             shape=(subcell_topology.num_subfno, subcell_topology.num_cno),
         ).tocsr()
-        del sgn
+
+        # For the Robin condition the distance from the cell centers to face centers
+        # will be the contribution from the gradients. We integrate over the subface
+        # and multiply by the area
+        num_nodes = np.diff(g.face_nodes.indptr)
+        sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
+        scaled_sgn = (
+            robin_weight
+            * sgn[0]
+            * g.face_areas[subcell_topology.fno_unique]
+            / num_nodes[subcell_topology.fno_unique]
+        )
+        # pair_over_subfaces flips the sign so we flip it back
+        pr_trace_grad_all = sps.diags(scaled_sgn) * pr_cont_grad_all
+        pr_trace_cell_all = sps.coo_matrix(
+            (
+                robin_weight
+                * g.face_areas[subcell_topology.fno]
+                / num_nodes[subcell_topology.fno],
+                (subcell_topology.subfno, subcell_topology.cno),
+            )
+        ).tocsr()
+
+        del sgn, scaled_sgn
 
         # Mapping from sub-faces to faces
         hf2f = sps.coo_matrix(
@@ -603,19 +638,26 @@ class Mpfa(Solver):
         bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
 
         # No flux conditions for Dirichlet boundary faces
-        nk_grad = bound_exclusion.exclude_dirichlet(nk_grad)
-        nk_cell = bound_exclusion.exclude_dirichlet(nk_cell)
-        # No pressure condition for Neumann boundary faces
-        pr_cont_grad_all = pr_cont_grad
-        pr_cont_grad = bound_exclusion.exclude_neumann(pr_cont_grad)
-        pr_cont_cell = bound_exclusion.exclude_neumann(pr_cont_cell)
+        nk_grad_n = bound_exclusion.exclude_robin_dirichlet(nk_grad_all)
+        nk_cell = bound_exclusion.exclude_robin_dirichlet(nk_cell)
+
+        # Robin condition is only applied to Robin boundary faces
+        nk_grad_r = bound_exclusion.keep_robin(nk_grad_all)
+        pr_trace_grad = bound_exclusion.keep_robin(pr_trace_grad_all)
+        pr_trace_cell = bound_exclusion.keep_robin(pr_trace_cell_all)
+
+        del nk_grad_all
+        # No pressure condition for Neumann or Robin boundary faces
+        pr_cont_grad = bound_exclusion.exclude_neumann_robin(pr_cont_grad_all)
+        pr_cont_cell = bound_exclusion.exclude_neumann_robin(pr_cont_cell_all)
 
         # So far, the local numbering has been based on the numbering scheme
         # implemented in SubcellTopology (which treats one cell at a time). For
         # efficient inversion (below), it is desirable to get the system over to a
         # block-diagonal structure, with one block centered around each vertex.
         # Obtain the necessary mappings.
-        rows2blk_diag, cols2blk_diag, size_of_blocks = self._block_diagonal_structure(
+
+        rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
             sub_cell_index, cell_node_blocks, subcell_topology.nno_unique, bound_exclusion
         )
 
@@ -623,11 +665,19 @@ class Mpfa(Solver):
 
         # System of equations for the subcell gradient variables. On block diagonal
         # form.
-        grad_eqs = sps.vstack([nk_grad, pr_cont_grad])
+        # NOTE: I think in the discretization for sub_cells a flow out of the cell is
+        # negative. This is a contradiction to what is done for the boundary conditions
+        # where we want to set dot(n, flux) where n is the normal pointing outwards.
+        # thats why we need +nk_grad_r - pr_trace_grad -pr_trace_cell instead of = rhs
+        # instead of how we would expect: -nk_grad_r + pr_trace_grad +pr_trace_cell= rhs.
+        # This is also why we multiply with -1 in scaled_sgn in _create_bound_rhs
+        grad_eqs = sps.vstack([nk_grad_n, nk_grad_r - pr_trace_grad, pr_cont_grad])
 
         num_nk_cell = nk_cell.shape[0]
+        num_nk_rob = nk_grad_r.shape[0]
         num_pr_cont_grad = pr_cont_grad.shape[0]
-        del nk_grad
+
+        del nk_grad_n, nk_grad_r, pr_trace_grad
 
         grad = rows2blk_diag * grad_eqs * cols2blk_diag
 
@@ -640,18 +690,50 @@ class Mpfa(Solver):
 
         del grad, cols2blk_diag, rows2blk_diag
 
+        # Technical note: The elements in igrad are organized as follows:
+        # The fields subcell_topology.cno and .nno will together identify Nd
+        # placements in igrad that are associated with the same cell and the same
+        # node, that is, they belong to the same subcell. These placements are used
+        # to store the discrete gradient of that cell, with the first item
+        # representing the x-component etc.
+        # As an example, to find the gradient in the subcell of cell ci, associated
+        # with node ni, first find the indexes of subcell_topology.cno and .nno
+        # that contain ci and ni, respectively. The first of these indexes give the
+        # row of the x-component of the gradient, the second the y-component etc.
+        #
+        # The columns of igrad corresponds to the ordering of the equations in
+        # grad; as recovered in _block_diagonal_structure. In practice, the first
+        # columns correspond to unit pressures assigned to faces (as used for
+        # boundary conditions or to discretize discontinuities over internal faces,
+        # say, to represent heterogeneous gravity), while the latter group
+        # gives gradients induced by cell center pressures.
+        #
+        # Note tacit assumptions: 1) Each cell has exactly Nd faces meeting in a
+        # vertex; or else, there would not be an exact match between the
+        # number of equal (nno-cno) pairs and the number of components in the
+        # gradient. This assumption is always okay in 2d, in 3d it rules out cells
+        # shaped as pyramids, in which case mpfa is not defined without making
+        # further specifications of the method.
+        # 2) The number of components in the gradient is equal to the spatial
+        # dimension of the grid, as defined in g.dim. Thus 2d grids embedded in 3d
+        # will run into trouble, unless the grid is first projected down to its
+        # natural plane. This can be fixed by a more general implementation, but
+        # it would require quite deep changes to the code.
+
         # Flux discretization:
-        flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, pr_cont_cell]))
+        # The negative in front of pr_trace_cell comes from the grad_egs
+        flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell]))
 
         ####
         # Boundary conditions
-        rhs_bound = self._create_bound_rhs(
+        rhs_bound = _create_bound_rhs(
             bnd,
             bound_exclusion,
             subcell_topology,
             sgn_unique,
             g,
             num_nk_cell,
+            num_nk_rob,
             num_pr_cont_grad,
         )
         # Discretization of boundary values
@@ -670,13 +752,9 @@ class Mpfa(Solver):
             * hf2f
             * pr_cont_grad_all
             * igrad
-            * (-sps.vstack([nk_cell, pr_cont_cell]))
+            * (-sps.vstack([nk_cell, pr_trace_cell, pr_cont_cell]))
         )
 
-        is_dir = is_dir[l2g_faces[loc_bound_ind]]
-        is_neu = is_neu[l2g_faces[loc_bound_ind]]
-
-        loc_cond[is_dir] = "dir"
         # Internal faces, and boundary faces with a Dirichle condition do not need
         # information on the gradient.
         # Implementation note: This can be expanded to pressure recovery also
@@ -714,6 +792,11 @@ class Mpfa(Solver):
 
         return flux, bound_flux, bound_pressure_cell, bound_pressure_face
 
+    """
+     The functions below are helper functions, which are not really necessary to
+     understand in detail to use the method. They also tend to be less well
+     documented.
+    """
 
     def _estimate_peak_memory(g):
         """
