@@ -1,4 +1,5 @@
 import numpy as np
+import unittest
 
 import porepy as pp
 
@@ -39,18 +40,19 @@ def setup_cart_2d(nx):
     return gb
 
 
-def test_uniform_flow_cart_2d():
-    # Structured Cartesian grid
-    gb = setup_cart_2d(np.array([10, 10]))
+class TestMpfaMultiDim(unittest.TestCase):
+    def test_uniform_flow_cart_2d(self):
+        # Structured Cartesian grid
+        gb = setup_cart_2d(np.array([10, 10]))
 
-    # Python inverter is most efficient for small problems
-    flux_discr = pp.MpfaMixedDim("flow")
-    A, rhs = flux_discr.matrix_rhs(gb)
-    p = np.linalg.solve(A.A, rhs)
+        # Python inverter is most efficient for small problems
+        flux_discr = pp.MpfaMixedDim("flow")
+        A, rhs = flux_discr.matrix_rhs(gb)
+        p = np.linalg.solve(A.A, rhs)
 
-    flux_discr.split(gb, "pressure", p)
-    for g, d in gb:
-        pressure = d["pressure"]
-        pressure_analytic = g.cell_centers[1]
-        p_diff = pressure - pressure_analytic
-        assert np.max(np.abs(p_diff)) < 0.05
+        flux_discr.split(gb, "pressure", p)
+        for g, d in gb:
+            pressure = d["pressure"]
+            pressure_analytic = g.cell_centers[1]
+            p_diff = pressure - pressure_analytic
+            self.assertTrue(np.max(np.abs(p_diff)) < 0.05)

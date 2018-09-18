@@ -14,10 +14,10 @@ class TestSource(unittest.TestCase):
         lhs, rhs = src_disc.matrix_rhs(g, d)
 
         rhs_t = np.array([0, 0, 0, 0, 1, 0, 0, 0])
-        assert src_disc.ndof(g) == g.num_cells
-        assert np.all(rhs == rhs_t)
-        assert lhs.shape == (8, 8)
-        assert lhs.nnz == 0
+        self.assertTrue(src_disc.ndof(g) == g.num_cells)
+        self.assertTrue(np.all(rhs == rhs_t))
+        self.assertTrue(lhs.shape == (8, 8))
+        self.assertTrue(lhs.nnz == 0)
 
     if __name__ == "__main__":
         unittest.main()

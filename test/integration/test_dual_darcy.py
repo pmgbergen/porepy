@@ -60,7 +60,7 @@ class BasicsTest(unittest.TestCase):
         up_mono = problem_mono.solve()
         up_mult = problem_mult.solve()
 
-        assert np.allclose(up_mono, up_mult)
+        self.assertTrue(np.allclose(up_mono, up_mult))
 
         g_gb = next(problem_mult.grid().nodes())
 
@@ -68,12 +68,14 @@ class BasicsTest(unittest.TestCase):
         problem_mult.split()
         problem_mult.pressure("pressure")
 
-        assert np.allclose(problem_mono.data()["pressure"], g_gb[1]["pressure"])
+        self.assertTrue(
+            np.allclose(problem_mono.data()["pressure"], g_gb[1]["pressure"])
+        )
 
         problem_mono.discharge("u")
         problem_mult.discharge("u")
 
-        assert np.allclose(problem_mono.data()["u"], g_gb[1]["u"])
+        self.assertTrue(np.allclose(problem_mono.data()["u"], g_gb[1]["u"]))
 
         problem_mono.project_discharge("P0u")
         problem_mult.project_discharge("P0u")
@@ -81,7 +83,7 @@ class BasicsTest(unittest.TestCase):
         problem_mono.save(["pressure", "P0u"])
         problem_mult.save(["pressure", "P0u"])
 
-        assert np.allclose(problem_mono.data()["P0u"], g_gb[1]["P0u"])
+        self.assertTrue(np.allclose(problem_mono.data()["P0u"], g_gb[1]["P0u"]))
 
     # ------------------------------------------------------------------------------#
 
@@ -96,7 +98,7 @@ class BasicsTest(unittest.TestCase):
             pressure = d["pressure"]
             p_analytic = g.cell_centers[1]
             p_diff = pressure - p_analytic
-            assert np.max(np.abs(p_diff)) < 0.0004
+            self.assertTrue(np.max(np.abs(p_diff)) < 0.0004)
 
     # ------------------------------------------------------------------------------#
 
@@ -116,7 +118,7 @@ class BasicsTest(unittest.TestCase):
             pressure = d["pressure"]
             p_analytic = g.cell_centers[1]
             p_diff = pressure - p_analytic
-            assert np.max(np.abs(p_diff)) < 0.0004
+            self.assertTrue(np.max(np.abs(p_diff)) < 0.0004)
 
     # ------------------------------------------------------------------------------#
 
@@ -130,10 +132,10 @@ class BasicsTest(unittest.TestCase):
         for g, d in gb:
             if g.dim == 3:
                 p_ref = elliptic_dirich_neumann_source_sink_cart_ref_3d()
-                assert np.allclose(d["pressure"], p_ref)
+                self.assertTrue(np.allclose(d["pressure"], p_ref))
             if g.dim == 0:
                 p_ref = [-260.13394502]
-                assert np.allclose(d["pressure"], p_ref)
+                self.assertTrue(np.allclose(d["pressure"], p_ref))
         return gb
 
 

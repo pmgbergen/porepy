@@ -113,6 +113,7 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
                 ]
             )
         )
+
         # Dirichlet, same procedure
         is_dir_x = bound_exclusion.exclude_neumann_x(
             bound.is_dir[0, fno].astype("int64")

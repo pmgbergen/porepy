@@ -69,9 +69,9 @@ class TestUpwindCoupling(unittest.TestCase):
                 [3, 0, 0, 0, 0, 0, 0, 0, 0, -1],
             ]
         )
-        assert np.allclose(sps.hstack(matrix[0, :]).A, matrix_2)
-        assert np.allclose(sps.hstack(matrix[1, :]).A, matrix_1)
-        assert np.allclose(sps.hstack(matrix[2, :]).A, matrix_l)
+        self.assertTrue(np.allclose(sps.hstack(matrix[0, :]).A, matrix_2))
+        self.assertTrue(np.allclose(sps.hstack(matrix[1, :]).A, matrix_1))
+        self.assertTrue(np.allclose(sps.hstack(matrix[2, :]).A, matrix_l))
 
     def test_upwind_2d_1d_negative_flux(self):
         # test coupling between 2D grid and 1D grid with a fluid flux going from
@@ -115,9 +115,9 @@ class TestUpwindCoupling(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(sps.hstack(matrix[0, :]).A, matrix_2)
-        assert np.allclose(sps.hstack(matrix[1, :]).A, matrix_1)
-        assert np.allclose(sps.hstack(matrix[2, :]).A, matrix_l)
+        self.assertTrue(np.allclose(sps.hstack(matrix[0, :]).A, matrix_2))
+        self.assertTrue(np.allclose(sps.hstack(matrix[1, :]).A, matrix_1))
+        self.assertTrue(np.allclose(sps.hstack(matrix[2, :]).A, matrix_l))
 
 
 if __name__ == "__main__":
