@@ -1498,16 +1498,6 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     num_bound = num_neu + num_dir + num_rob
 
-    # Convenience method for duplicating a list, with a certain increment
-    def expand_ind(ind, dim, increment):
-        # Duplicate rows
-        ind_nd = np.tile(ind, (dim, 1))
-        # Add same increment to each row (0*incr, 1*incr etc.)
-        ind_incr = ind_nd + increment * np.array([np.arange(dim)]).transpose()
-        # Back to row vector
-        ind_new = ind_incr.reshape(-1, order="F")
-        return ind_new
-
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
     is_neu = bound_exclusion.exclude_robin_dirichlet(bound.is_neu[fno].astype("int64"))
@@ -1636,27 +1626,50 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
 
     num_bound = num_neu + num_dir + num_rob
 
+    # Obtain the face number for each coordinate
+    subfno_nd = np.tile(subfno, (nd, 1)) * nd + np.atleast_2d(np.arange(0, nd)).T
+
+    # expand the indices
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
-    is_neu_nd = bound_exclusion.exclude_robin_dirichlet_nd(
-        bound.is_neu[:, fno].ravel("C")
-    ).ravel("F")
-    neu_ind_nd = np.argwhere(is_neu_nd).ravel("F")
-    neu_ind = np.reshape(neu_ind_nd, (nd, -1), order="C").ravel("F")
-
-    # Robin, same procedure
-    is_rob_nd = bound_exclusion.keep_robin_nd(bound.is_rob[:, fno].ravel("C")).ravel(
+    # Pick out the subface indices
+    subfno_neu = bound_exclusion.exclude_robin_dirichlet_nd(subfno_nd.ravel("C")).ravel(
         "F"
     )
-    rob_ind_nd = np.argwhere(is_rob_nd).ravel("F")
-    rob_ind = np.reshape(rob_ind_nd, (nd, -1), order="C").ravel("F")
+    # Pick out the Neumann boundary
+    is_neu_nd = (
+        bound_exclusion.exclude_robin_dirichlet_nd(bound.is_neu[:, fno].ravel("C"))
+        .ravel("F")
+        .astype(np.bool)
+    )
+
+    neu_ind = np.argsort(subfno_neu)
+    neu_ind = neu_ind[is_neu_nd[neu_ind]]
+
+    # Robin, same procedure
+    subfno_rob = bound_exclusion.keep_robin_nd(subfno_nd.ravel("C")).ravel("F")
+    is_rob_nd = (
+        bound_exclusion.keep_robin_nd(bound.is_rob[:, fno].ravel("C"))
+        .ravel("F")
+        .astype(np.bool)
+    )
+
+    rob_ind = np.argsort(subfno_rob)
+    rob_ind = rob_ind[is_rob_nd[rob_ind]]
 
     # Dirichlet, same procedure
-    is_dir_nd = bound_exclusion.exclude_neumann_robin_nd(
-        bound.is_dir[:, fno].ravel("C")
-    ).ravel("F")
-    dir_ind_nd = np.argwhere(is_dir_nd).ravel("F")
-    dir_ind = np.reshape(dir_ind_nd, (nd, -1), order="C").ravel("F")
+    # remove neumann and robin subfno
+    subfno_dir = bound_exclusion.exclude_neumann_robin_nd(subfno_nd.ravel("C")).ravel(
+        "F"
+    )
+    is_dir_nd = (
+        bound_exclusion.exclude_neumann_robin_nd(bound.is_dir[:, fno].ravel("C"))
+        .ravel("F")
+        .astype(np.bool)
+    )
+
+    dir_ind = np.argsort(subfno_dir)
+    dir_ind = dir_ind[is_dir_nd[dir_ind]]
 
     # We also need to account for all half faces, that is, do not exclude
     # Dirichlet and Neumann boundaries. This is the global indexing.
@@ -1668,6 +1681,7 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     dir_ind_all = np.argwhere(
         np.reshape(is_dir_all, (nd, -1), order="C").ravel("F")
     ).ravel("F")
+
     is_rob_all = bound.is_rob[:, fno].ravel("C")
     rob_ind_all = np.argwhere(
         np.reshape(is_rob_all, (nd, -1), order="C").ravel("F")
@@ -1940,3 +1954,14 @@ def _sign_matrix(g, faces):
     sgn = sps.diags(sgn_d, 0)
 
     return sgn
+
+
+# Convenience method for duplicating a list, with a certain increment
+def expand_ind(ind, dim, increment):
+    # Duplicate rows
+    ind_nd = np.tile(ind, (dim, 1))
+    # Add same increment to each row (0*incr, 1*incr etc.)
+    ind_incr = ind_nd + increment * np.array([np.arange(dim)]).transpose()
+    # Back to row vector
+    ind_new = ind_incr.reshape(-1, order="F")
+    return ind_new

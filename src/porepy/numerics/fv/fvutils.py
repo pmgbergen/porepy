@@ -723,7 +723,7 @@ class ExcludeBoundaries(object):
         col = np.argwhere([not it for it in ids[self.fno]])
         row = np.arange(col.size)
         return sps.coo_matrix(
-            (np.ones(row.size), (row, col.ravel("C"))),
+            (np.ones(row.size, dtype=np.bool), (row, col.ravel("C"))),
             shape=(row.size, self.num_subfno),
         ).tocsr()
 
