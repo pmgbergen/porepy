@@ -3,9 +3,7 @@ import numpy as np
 
 import math
 
-from porepy.grids import structured
-from porepy.params.bc import BoundaryConditionVectorial
-from porepy.numerics.fv import fvutils
+import porepy as pp
 
 """
 Checks the actions done in porepy.numerics.fv.mpsa.create_bound_rhs_nd
@@ -14,6 +12,26 @@ for handling boundary conditions expressed in a vectorial form
 
 
 class testBoundaryConditionsVectorial(unittest.TestCase):
+    def test_default_basis_2d(self):
+        g = pp.StructuredTriangleGrid([1, 1])
+        bc = pp.BoundaryConditionVectorial(g)
+        basis_known = np.array(
+            [
+                [[1, 0], [1, 0], [1, 0], [1, 0], [1, 0]],
+                [[0, 1], [0, 1], [0, 1], [0, 1], [0, 1]],
+            ]
+        )
+        self.assertTrue(np.allclose(bc.basis, basis_known))
+
+    def test_default_basis_3d(self):
+        g = pp.StructuredTetrahedralGrid([1, 1, 1])
+        bc = pp.BoundaryConditionVectorial(g)
+        basis_known = np.squeeze(
+            np.array([[[[1, 0, 0]] * 18], [[[0, 1, 0]] * 18], [[[0, 0, 1]] * 18]])
+        )
+
+        self.assertTrue(np.allclose(bc.basis, basis_known))
+
     def test_2d(self):
 
         """
@@ -24,22 +42,22 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         Top left and right faces are neumann
         """
 
-        g = structured.CartGrid([3, 3])
+        g = pp.CartGrid([3, 3])
         g.compute_geometry()
         nd = g.dim
 
         boundary_faces = np.array([0, 3, 4, 7, 8, 11, 12, 13, 14, 22])
         boundary_faces_type = ["dir_x"] * 6 + ["dir"] * 3 + ["dir_y"] * 1
 
-        bound = BoundaryConditionVectorial(g, boundary_faces, boundary_faces_type)
+        bound = pp.BoundaryConditionVectorial(g, boundary_faces, boundary_faces_type)
 
-        subcell_topology = fvutils.SubcellTopology(g)
+        subcell_topology = pp.fvutils.SubcellTopology(g)
         # Obtain the face number for each coordinate
         fno = subcell_topology.fno_unique
         subfno = subcell_topology.subfno_unique
         subfno_nd = np.tile(subfno, (nd, 1)) * nd + np.atleast_2d(np.arange(0, nd)).T
 
-        bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
+        bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
 
         # expand the indices
         # Define right hand side for Neumann boundary conditions
