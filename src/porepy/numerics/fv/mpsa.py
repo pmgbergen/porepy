@@ -1031,8 +1031,8 @@ def mpsa_elasticity(
     )
 
     grad_eqs = sps.vstack([ncsym, ncsym_rob + rob_grad, d_cont_grad])
-    del ncsym, d_cont_grad, ncsym_rob, rob_grad
 
+    del ncsym, d_cont_grad, ncsym_rob, rob_grad
     igrad = _inverse_gradient(
         grad_eqs,
         sub_cell_index,
@@ -1440,9 +1440,13 @@ def _block_diagonal_structure(
 
     elif bound_exclusion.bc_type == "vectorial":
         nno = np.tile(nno, nd)
-        nno_stress = bound_exclusion.exclude_robin_dirichlet_nd(nno)
-        nno_displacement = bound_exclusion.exclude_neumann_robin_nd(nno)
-        nno_rob = bound_exclusion.keep_robin_nd(nno)
+        # The node numbers do not have a basis, so no transformation here. We just
+        # want to pick out the correct node numbers for the correct equations.
+        nno_stress = bound_exclusion.exclude_robin_dirichlet_nd(nno, transform=False)
+        nno_displacement = bound_exclusion.exclude_neumann_robin_nd(
+            nno, transform=False
+        )
+        nno_rob = bound_exclusion.keep_robin_nd(nno, transform=False)
         node_occ = np.hstack((nno_stress, nno_rob, nno_displacement))
 
     sorted_ind = np.argsort(node_occ, kind="mergesort")
@@ -1637,12 +1641,16 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
     # Pick out the subface indices
-    subfno_neu = bound_exclusion.exclude_robin_dirichlet_nd(subfno_nd.ravel("C")).ravel(
-        "F"
-    )
+
+    # The boundary conditions should be given in the given basis, therefore no transformation
+    subfno_neu = bound_exclusion.exclude_robin_dirichlet_nd(
+        subfno_nd.ravel("C"), transform=False
+    ).ravel("F")
     # Pick out the Neumann boundary
     is_neu_nd = (
-        bound_exclusion.exclude_robin_dirichlet_nd(bound.is_neu[:, fno].ravel("C"))
+        bound_exclusion.exclude_robin_dirichlet_nd(
+            bound.is_neu[:, fno].ravel("C"), transform=False
+        )
         .ravel("F")
         .astype(np.bool)
     )
@@ -1651,9 +1659,12 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     neu_ind = neu_ind[is_neu_nd[neu_ind]]
 
     # Robin, same procedure
-    subfno_rob = bound_exclusion.keep_robin_nd(subfno_nd.ravel("C")).ravel("F")
+    subfno_rob = bound_exclusion.keep_robin_nd(
+        subfno_nd.ravel("C"), transform=False
+    ).ravel("F")
+
     is_rob_nd = (
-        bound_exclusion.keep_robin_nd(bound.is_rob[:, fno].ravel("C"))
+        bound_exclusion.keep_robin_nd(bound.is_rob[:, fno].ravel("C"), transform=False)
         .ravel("F")
         .astype(np.bool)
     )
@@ -1663,11 +1674,13 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
 
     # Dirichlet, same procedure
     # remove neumann and robin subfno
-    subfno_dir = bound_exclusion.exclude_neumann_robin_nd(subfno_nd.ravel("C")).ravel(
-        "F"
-    )
+    subfno_dir = bound_exclusion.exclude_neumann_robin_nd(
+        subfno_nd.ravel("C"), transform=False
+    ).ravel("F")
     is_dir_nd = (
-        bound_exclusion.exclude_neumann_robin_nd(bound.is_dir[:, fno].ravel("C"))
+        bound_exclusion.exclude_neumann_robin_nd(
+            bound.is_dir[:, fno].ravel("C"), transform=False
+        )
         .ravel("F")
         .astype(np.bool)
     )

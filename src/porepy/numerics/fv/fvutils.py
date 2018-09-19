@@ -688,27 +688,30 @@ class ExcludeBoundaries(object):
         elif self.bc_type == "vectorial":
             self.basis_matrix = self.__basis_transformation(bound.basis)
 
-            (self.exclude_neu_nd) = self.__exclude_matrix_xyz(bound.is_neu)
-            (self.exclude_dir_nd) = self.__exclude_matrix_xyz(bound.is_dir)
+            self.exclude_neu_nd = self.__exclude_matrix_xyz(bound.is_neu)
+            self.exclude_dir_nd = self.__exclude_matrix_xyz(bound.is_dir)
 
-            (self.exclude_rob_nd) = self.__exclude_matrix_xyz(bound.is_rob)
-            (self.exclude_neu_dir_nd) = self.__exclude_matrix_xyz(
+            self.exclude_rob_nd = self.__exclude_matrix_xyz(bound.is_rob)
+            self.exclude_neu_dir_nd = self.__exclude_matrix_xyz(
                 bound.is_neu | bound.is_dir
             )
-            (self.exclude_neu_rob_nd) = self.__exclude_matrix_xyz(
+            self.exclude_neu_rob_nd = self.__exclude_matrix_xyz(
                 bound.is_neu | bound.is_rob
             )
-            (self.exclude_rob_dir_nd) = self.__exclude_matrix_xyz(
+            self.exclude_rob_dir_nd = self.__exclude_matrix_xyz(
                 bound.is_rob | bound.is_dir
             )
             (self.keep_rob_nd) = self.__exclude_matrix_xyz(~bound.is_rob)
 
     def __basis_transformation(self, basis):
         # Add the number of coordinates
-        data = basis[:, self.fno].ravel("F")
-        col = np.reshape(np.arange(self.num_subfno * self.nd), (self.nd, -1)).ravel("F")
-        col = np.tile(col, (self.nd, 1)).ravel("C")
-        row = np.tile(np.arange(self.num_subfno * self.nd), (self.nd, 1)).ravel("F")
+        data = basis[:, self.fno].reshape(-1, basis.shape[-1], order="C").ravel("F")
+        col = np.arange(self.num_subfno * self.nd).reshape((-1, self.num_subfno))
+        col = np.tile(col, (1, self.nd)).ravel("C")
+        # col = np.tile(col, (self.nd, 1)).ravel("C")
+        # col = np.tile(np.arange(self.num_subfno * self.nd), (1,self.nd)).ravel()
+        row = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
+        # row = np.tile(np.arange(self.num_subfno * self.nd), (self.nd, 1)).ravel("F")
         return sps.coo_matrix(
             (data, (row, col)),
             shape=(self.num_subfno * self.nd, self.num_subfno * self.nd),
@@ -896,7 +899,7 @@ class ExcludeBoundaries(object):
 
         return keep_rob
 
-    def exclude_dirichlet_nd(self, other, transform=False):
+    def exclude_dirichlet_nd(self, other, transform=True):
         """ Exclusion of Dirichlet conditions for vector equations (elasticity).
         See above method without _nd suffix for description.
         """
@@ -909,7 +912,7 @@ class ExcludeBoundaries(object):
                 return exclude_dirichlet_nd * self.basis_matrix * other
         return exclude_dirichlet_nd * other
 
-    def exclude_neumann_nd(self, other, transform=False):
+    def exclude_neumann_nd(self, other, transform=True):
         """ Exclusion of Neumann conditions for vector equations (elasticity).
         See above method without _nd suffix for description.
 
@@ -923,7 +926,7 @@ class ExcludeBoundaries(object):
                 return exclude_neumann_nd * self.basis_matrix * other
         return exclude_neumann_nd * other
 
-    def exclude_neumann_robin_nd(self, other, transform=False):
+    def exclude_neumann_robin_nd(self, other, transform=True):
         """ Exclusion of Neumann and robin conditions for vector equations (elasticity).
         See above method without _nd suffix for description.
 
@@ -938,7 +941,7 @@ class ExcludeBoundaries(object):
                 return exclude_neu_rob_nd * self.basis_matrix * other
         return exclude_neu_rob_nd * other
 
-    def exclude_neumann_dirichlet_nd(self, other, transform=False):
+    def exclude_neumann_dirichlet_nd(self, other, transform=True):
         """ Exclusion of Neumann and Dirichlet conditions for vector equations
         (elasticity). See above method without _nd suffix for description.
 
@@ -953,7 +956,7 @@ class ExcludeBoundaries(object):
 
         return exclude_neu_dir_nd * other
 
-    def exclude_robin_dirichlet_nd(self, other, transform=False):
+    def exclude_robin_dirichlet_nd(self, other, transform=True):
         """ Exclusion of Robin and Dirichlet conditions for vector equations
         (elasticity). See above method without _nd suffix for description.
 
@@ -969,7 +972,7 @@ class ExcludeBoundaries(object):
 
         return exclude_rob_dir_nd * other
 
-    def keep_robin_nd(self, other, transform=False):
+    def keep_robin_nd(self, other, transform=True):
         """ Keep Robin conditions for vector equations (elasticity).
         See above method without _nd suffix for description.
         """
