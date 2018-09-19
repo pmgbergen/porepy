@@ -332,7 +332,7 @@ def triangle_grid(fracs, domain, **kwargs):
     pts_all, lines, domain_pts = __merge_domain_fracs_2d(domain, frac_pts, frac_con)
 
     # Snap to underlying grid before comparing points
-    pts_all = cg.snap_to_grid(pts_all, tol)
+#    pts_all = cg.snap_to_grid(pts_all, tol)
 
     assert np.all(np.diff(lines[:2], axis=0) != 0)
 
@@ -347,7 +347,7 @@ def triangle_grid(fracs, domain, **kwargs):
     # This may disturb the line tags in lines[2], but we should not be
     # dependent on those.
     li = np.sort(lines[:2], axis=0)
-    li_unique, new_2_old, old_2_new = unique_columns_tol(li)
+    li_unique, new_2_old, old_2_new = unique_columns_tol(li, tol=tol)
     lines = lines[:, new_2_old]
 
     assert np.all(np.diff(lines[:2], axis=0) != 0)
@@ -356,11 +356,11 @@ def triangle_grid(fracs, domain, **kwargs):
     # intersect, except possible at the end points
     logger.info("Remove edge crossings")
     tm = time.time()
-    pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol)
+    pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol, snap=False)
     logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points
-    pts_split = cg.snap_to_grid(pts_split, tol)
+#    pts_split = cg.snap_to_grid(pts_split, tol)
     pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=tol)
     lines_split[:2] = old_2_new[lines_split[:2]]
     to_remove = np.where(lines[0, :] == lines[1, :])[0]
@@ -387,6 +387,7 @@ def triangle_grid(fracs, domain, **kwargs):
         mesh_size, pts_split, lines_split = tools.determine_mesh_size(
             pts_split, boundary_pt_ind, lines_split, **kwargs
         )
+
         logger.info("Done. Elapsed time " + str(time.time() - tm))
     else:
         mesh_size = None
