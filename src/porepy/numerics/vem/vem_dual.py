@@ -335,6 +335,26 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
+    def assemble_int_bound_pressure_trace(g_master, data_master, data_edge, grid_swap, matrix, self_ind=0):
+        pass
+
+    def assemble_int_bound_flux(g_master, data_master, data_edge, grid_swap, matrix, self_ind=0):
+        # Projection operators to grid
+        mg = data_edge['mortar_grid']
+
+        if grid_swap:
+            proj = mg.slave_to_mortar_avg()
+        else:
+            proj = mg.master_to_mortar_avg()
+
+
+
+    def assemble_int_bound_pressure_cell(g_slave, data_slave, data_edge, grid_swap, matrix, self_ind=1):
+        pass
+
+    def assemble_int_bound_source(g_slave, data_slave, data_edge, grid_swap, matrix, self_ind=1):
+        pass
+
     def extract_u(self, g, up):
         """  Extract the velocity from a dual virtual element solution.
 
