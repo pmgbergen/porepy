@@ -296,7 +296,7 @@ class TpfaCoupling(AbstractCoupling):
     two grids of different dimension is lambda = K nabla ( P_hat  - P_check)
     and a source contribution to the lower dimensional grid equal the jump
     ||lambda||.
-    
+
     Mono dimensional coupling: The coupling condition between two grids of the
     same dimension is continuity of pressure and flux:
     P_hat - P_check = 0, v_hat = lambda, v_check = -lambda
@@ -340,7 +340,7 @@ class TpfaMixedCoupling(AbstractCoupling):
         """
         Computes the coupling terms for the faces between cells in g_h and g_l
         using the two-point flux approximation.
-        see matrix_rhs for parameters iformation
+        see matrix_rhs for parameters information
         """
         # Mortar data structure.
         mg = data_edge["mortar_grid"]

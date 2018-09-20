@@ -126,7 +126,8 @@ class P1(Solver):
         param = data["param"]
         k = param.get_tensor(self)
         bc = param.get_bc(self)
-        assert isinstance(bc, pp.BoundaryConditionNode)
+        if not isinstance(bc, pp.BoundaryConditionNode):
+            raise ValueError("Consider pp.BoundaryConditionNode to assign bc")
         a = param.get_aperture()
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
@@ -222,7 +223,8 @@ class P1(Solver):
         bc = param.get_bc(self)
         bc_val = param.get_bc_val(self)
 
-        assert not bool(bc is None) != bool(bc_val is None)
+        if bool(bc is None) != bool(bc_val is None):
+            raise ValueError("Consider to assign boundary condition value")
 
         rhs = np.zeros(self.ndof(g))
         if bc is None:
