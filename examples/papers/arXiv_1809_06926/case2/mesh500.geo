@@ -1,73 +1,89 @@
-h = 0.15; // in [0.15, 0.1, 0.075, 0.05]
+h = 0.25;
+Geometry.Tolerance = 1e-05;
+Mesh.Algorithm = 8;
 
-Geometry.Tolerance = 0.0001;
 // Define points
-p0 = newp; Point(p0) = {0.5, 0.0, 1.0, h };
-p1 = newp; Point(p1) = {0.5, 0.0, 0.0, h };
-p2 = newp; Point(p2) = {0.5, 1.0, 0.0, h };
-p3 = newp; Point(p3) = {0.5, 1.0, 1.0, h };
-p4 = newp; Point(p4) = {0.0, 0.5, 0.0, h };
-p5 = newp; Point(p5) = {1.0, 0.5, 0.0, h };
-p6 = newp; Point(p6) = {1.0, 0.5, 1.0, h };
-p7 = newp; Point(p7) = {0.0, 0.5, 1.0, h };
-p8 = newp; Point(p8) = {0.0, 0.0, 0.5, h };
-p9 = newp; Point(p9) = {1.0, 0.0, 0.5, h };
-p10 = newp; Point(p10) = {1.0, 1.0, 0.5, h };
-p11 = newp; Point(p11) = {0.0, 1.0, 0.5, h };
-p12 = newp; Point(p12) = {0.75, 0.5, 1.0, h };
-p13 = newp; Point(p13) = {0.75, 0.5, 0.5, h };
-p14 = newp; Point(p14) = {0.75, 1.0, 0.5, h };
-p15 = newp; Point(p15) = {0.75, 1.0, 1.0, h };
-p16 = newp; Point(p16) = {0.5, 0.5, 0.75, h };
-p17 = newp; Point(p17) = {1.0, 0.5, 0.75, h };
-p18 = newp; Point(p18) = {1.0, 1.0, 0.75, h };
-p19 = newp; Point(p19) = {0.5, 1.0, 0.75, h };
-p20 = newp; Point(p20) = {0.5, 0.75, 0.5, h };
-p21 = newp; Point(p21) = {1.0, 0.75, 0.5, h };
-p22 = newp; Point(p22) = {1.0, 0.75, 1.0, h };
-p23 = newp; Point(p23) = {0.5, 0.75, 1.0, h };
-p24 = newp; Point(p24) = {0.5, 0.625, 0.5, h };
-p25 = newp; Point(p25) = {0.75, 0.625, 0.5, h };
-p26 = newp; Point(p26) = {0.75, 0.625, 0.75, h };
-p27 = newp; Point(p27) = {0.5, 0.625, 0.75, h };
-p28 = newp; Point(p28) = {0.625, 0.5, 0.75, h };
-p29 = newp; Point(p29) = {0.625, 0.5, 0.5, h };
-p30 = newp; Point(p30) = {0.625, 0.75, 0.5, h };
-p31 = newp; Point(p31) = {0.625, 0.75, 0.75, h };
-p32 = newp; Point(p32) = {0.5, 0.5, 0.625, h };
-p33 = newp; Point(p33) = {0.75, 0.5, 0.625, h };
-p34 = newp; Point(p34) = {0.75, 0.75, 0.625, h };
-p35 = newp; Point(p35) = {0.5, 0.75, 0.625, h };
-p36 = newp; Point(p36) = {0.0, 0.0, 1.0, h };
-p37 = newp; Point(p37) = {0.0, 0.0, 0.0, h };
-p38 = newp; Point(p38) = {0.0, 1.0, 0.0, h };
-p39 = newp; Point(p39) = {0.0, 1.0, 1.0, h };
-p40 = newp; Point(p40) = {1.0, 0.0, 1.0, h };
-p41 = newp; Point(p41) = {1.0, 0.0, 0.0, h };
-p42 = newp; Point(p42) = {1.0, 1.0, 0.0, h };
-p43 = newp; Point(p43) = {1.0, 1.0, 1.0, h };
-p44 = newp; Point(p44) = {0.5, 0.5, 0.0, h };
-p45 = newp; Point(p45) = {0.5, 0.5, 1.0, h };
-p46 = newp; Point(p46) = {0.5, 0.0, 0.5, h };
-p47 = newp; Point(p47) = {0.5, 1.0, 0.5, h };
-p48 = newp; Point(p48) = {1.0, 0.5, 0.5, h };
-p49 = newp; Point(p49) = {0.0, 0.5, 0.5, h };
-p50 = newp; Point(p50) = {0.75, 0.5, 0.75, h };
-p51 = newp; Point(p51) = {0.75, 1.0, 0.75, h };
-p52 = newp; Point(p52) = {0.75, 0.75, 0.5, h };
-p53 = newp; Point(p53) = {0.75, 0.75, 1.0, h };
-p54 = newp; Point(p54) = {1.0, 0.75, 0.75, h };
-p55 = newp; Point(p55) = {0.5, 0.75, 0.75, h };
-p56 = newp; Point(p56) = {0.625, 0.625, 0.5, h };
-p57 = newp; Point(p57) = {0.625, 0.625, 0.75, h };
-p58 = newp; Point(p58) = {0.75, 0.625, 0.625, h };
-p59 = newp; Point(p59) = {0.5, 0.625, 0.625, h };
-p60 = newp; Point(p60) = {0.625, 0.5, 0.625, h };
-p61 = newp; Point(p61) = {0.625, 0.75, 0.625, h };
-p62 = newp; Point(p62) = {0.5, 0.5, 0.5, h };
-p63 = newp; Point(p63) = {0.75, 0.75, 0.75, h };
-p64 = newp; Point(p64) = {0.625, 0.625, 0.625, h };
+p0 = newp; Point(p0) = {0.5, 0.0, 1.0, h};
+p1 = newp; Point(p1) = {0.5, 0.0, 0.0, h};
+p2 = newp; Point(p2) = {0.5, 1.0, 0.0, h};
+p3 = newp; Point(p3) = {0.5, 1.0, 1.0, h};
+p4 = newp; Point(p4) = {0.0, 0.5, 0.0, h};
+p5 = newp; Point(p5) = {1.0, 0.5, 0.0, h};
+p6 = newp; Point(p6) = {1.0, 0.5, 1.0, h};
+p7 = newp; Point(p7) = {0.0, 0.5, 1.0, h};
+p8 = newp; Point(p8) = {0.0, 0.0, 0.5, h};
+p9 = newp; Point(p9) = {1.0, 0.0, 0.5, h};
+p10 = newp; Point(p10) = {1.0, 1.0, 0.5, h};
+p11 = newp; Point(p11) = {0.0, 1.0, 0.5, h};
+p12 = newp; Point(p12) = {0.75, 0.5, 1.0, h};
+p13 = newp; Point(p13) = {0.75, 0.5, 0.5, h};
+p14 = newp; Point(p14) = {0.75, 1.0, 0.5, h};
+p15 = newp; Point(p15) = {0.75, 1.0, 1.0, h};
+p16 = newp; Point(p16) = {0.5, 0.5, 0.75, h};
+p17 = newp; Point(p17) = {1.0, 0.5, 0.75, h};
+p18 = newp; Point(p18) = {1.0, 1.0, 0.75, h};
+p19 = newp; Point(p19) = {0.5, 1.0, 0.75, h};
+p20 = newp; Point(p20) = {0.5, 0.75, 0.5, h};
+p21 = newp; Point(p21) = {1.0, 0.75, 0.5, h};
+p22 = newp; Point(p22) = {1.0, 0.75, 1.0, h};
+p23 = newp; Point(p23) = {0.5, 0.75, 1.0, h};
+p24 = newp; Point(p24) = {0.5, 0.625, 0.5, h};
+p25 = newp; Point(p25) = {0.75, 0.625, 0.5, h};
+p26 = newp; Point(p26) = {0.75, 0.625, 0.75, h};
+p27 = newp; Point(p27) = {0.5, 0.625, 0.75, h};
+p28 = newp; Point(p28) = {0.625, 0.5, 0.75, h};
+p29 = newp; Point(p29) = {0.625, 0.5, 0.5, h};
+p30 = newp; Point(p30) = {0.625, 0.75, 0.5, h};
+p31 = newp; Point(p31) = {0.625, 0.75, 0.75, h};
+p32 = newp; Point(p32) = {0.5, 0.5, 0.625, h};
+p33 = newp; Point(p33) = {0.75, 0.5, 0.625, h};
+p34 = newp; Point(p34) = {0.75, 0.75, 0.625, h};
+p35 = newp; Point(p35) = {0.5, 0.75, 0.625, h};
+p36 = newp; Point(p36) = {0.0, 0.0, 1.0, h};
+p37 = newp; Point(p37) = {0.0, 0.0, 0.0, h};
+p38 = newp; Point(p38) = {0.0, 1.0, 0.0, h};
+p39 = newp; Point(p39) = {0.0, 1.0, 1.0, h};
+p40 = newp; Point(p40) = {1.0, 0.0, 1.0, h};
+p41 = newp; Point(p41) = {1.0, 0.0, 0.0, h};
+p42 = newp; Point(p42) = {1.0, 1.0, 0.0, h};
+p43 = newp; Point(p43) = {1.0, 1.0, 1.0, h};
+p44 = newp; Point(p44) = {0.5, 0.5, 0.0, h};
+p45 = newp; Point(p45) = {0.5, 0.5, 1.0, h};
+p46 = newp; Point(p46) = {0.5, 0.0, 0.5, h};
+p47 = newp; Point(p47) = {0.5, 1.0, 0.5, h};
+p48 = newp; Point(p48) = {1.0, 0.5, 0.5, h};
+p49 = newp; Point(p49) = {0.0, 0.5, 0.5, h};
+p50 = newp; Point(p50) = {0.75, 0.5, 0.75, h};
+p51 = newp; Point(p51) = {0.75, 1.0, 0.75, h};
+p52 = newp; Point(p52) = {0.75, 0.75, 0.5, h};
+p53 = newp; Point(p53) = {0.75, 0.75, 1.0, h};
+p54 = newp; Point(p54) = {1.0, 0.75, 0.75, h};
+p55 = newp; Point(p55) = {0.5, 0.75, 0.75, h};
+p56 = newp; Point(p56) = {0.625, 0.625, 0.5, h};
+p57 = newp; Point(p57) = {0.625, 0.625, 0.75, h};
+p58 = newp; Point(p58) = {0.75, 0.625, 0.625, h};
+p59 = newp; Point(p59) = {0.5, 0.625, 0.625, h};
+p60 = newp; Point(p60) = {0.625, 0.5, 0.625, h};
+p61 = newp; Point(p61) = {0.625, 0.75, 0.625, h};
+p62 = newp; Point(p62) = {0.5, 0.5, 0.5, h};
+p63 = newp; Point(p63) = {0.75, 0.75, 0.75, h};
+p64 = newp; Point(p64) = {0.625, 0.625, 0.625, h};
 // End of point specification
+
+pin100 = newp; Point(pin100) = {0.25, 0., 0., h};
+pin010 = newp; Point(pin010) = {0., 0.25, 0., h};
+pin001 = newp; Point(pin001) = {0., 0., 0.25, h};
+pin110 = newp; Point(pin110) = {0.25, 0.25, 0., h};
+pin101 = newp; Point(pin101) = {0.25, 0., 0.25, h};
+pin011 = newp; Point(pin011) = {0., 0.25, 0.25, h};
+
+pout100 = newp; Point(pout100) = {0.875, 1., 1., h};
+pout010 = newp; Point(pout010) = {1., 0.875, 1., h};
+pout001 = newp; Point(pout001) = {1., 1., 0.875, h};
+pout110 = newp; Point(pout110) = {0.875, 0.875, 1., h};
+pout101 = newp; Point(pout101) = {0.875, 1., 0.875, h};
+pout011 = newp; Point(pout011) = {1., 0.875, 0.875, h};
+
 
 // Define lines
 frac_line_0= newl; Line(frac_line_0) = {p0, p36};
@@ -82,8 +98,11 @@ Physical Line("AUXILIARY_LINE_2") = {frac_line_2};
 frac_line_3= newl; Line(frac_line_3) = {p0, p46};
 Physical Line("AUXILIARY_LINE_3") = {frac_line_3};
 
-frac_line_4= newl; Line(frac_line_4) = {p1, p37};
+frac_line_4= newl; Line(frac_line_4) = {p1, pin100};
 Physical Line("AUXILIARY_LINE_4") = {frac_line_4};
+frac_line_4ex= newl; Line(frac_line_4ex) = {pin100, p37};
+Physical Line("AUXILIARY_LINE_4ex") = {frac_line_4ex};
+
 
 frac_line_5= newl; Line(frac_line_5) = {p1, p41};
 Physical Line("AUXILIARY_LINE_5") = {frac_line_5};
@@ -118,8 +137,10 @@ Physical Line("AUXILIARY_LINE_14") = {frac_line_14};
 frac_line_15= newl; Line(frac_line_15) = {p3, p39};
 Physical Line("AUXILIARY_LINE_15") = {frac_line_15};
 
-frac_line_16= newl; Line(frac_line_16) = {p4, p37};
+frac_line_16= newl; Line(frac_line_16) = {p4, pin010};
 Physical Line("AUXILIARY_LINE_16") = {frac_line_16};
+frac_line_16ex= newl; Line(frac_line_16ex) = {pin010, p37};
+Physical Line("AUXILIARY_LINE_16ex") = {frac_line_16ex};
 
 frac_line_17= newl; Line(frac_line_17) = {p4, p38};
 Physical Line("AUXILIARY_LINE_17") = {frac_line_17};
@@ -169,8 +190,10 @@ Physical Line("AUXILIARY_LINE_31") = {frac_line_31};
 frac_line_32= newl; Line(frac_line_32) = {p8, p36};
 Physical Line("AUXILIARY_LINE_32") = {frac_line_32};
 
-frac_line_33= newl; Line(frac_line_33) = {p8, p37};
+frac_line_33= newl; Line(frac_line_33) = {p8, pin001};
 Physical Line("AUXILIARY_LINE_33") = {frac_line_33};
+frac_line_33ex= newl; Line(frac_line_33ex) = {pin001, p37};
+Physical Line("AUXILIARY_LINE_33ex") = {frac_line_33ex};
 
 frac_line_34= newl; Line(frac_line_34) = {p8, p46};
 Physical Line("AUXILIARY_LINE_34") = {frac_line_34};
@@ -244,8 +267,11 @@ Physical Line("AUXILIARY_LINE_56") = {frac_line_56};
 frac_line_57= newl; Line(frac_line_57) = {p14, p52};
 Physical Line("FRACTURE_LINE_57") = {frac_line_57};
 
-frac_line_58= newl; Line(frac_line_58) = {p15, p43};
+frac_line_58= newl; Line(frac_line_58) = {p15, pout100};
 Physical Line("AUXILIARY_LINE_58") = {frac_line_58};
+frac_line_58ex= newl; Line(frac_line_58ex) = {pout100, p43};
+Physical Line("AUXILIARY_LINE_58ex") = {frac_line_58ex};
+
 
 frac_line_59= newl; Line(frac_line_59) = {p15, p51};
 Physical Line("AUXILIARY_LINE_59") = {frac_line_59};
@@ -274,8 +300,11 @@ Physical Line("FRACTURE_LINE_66") = {frac_line_66};
 frac_line_67= newl; Line(frac_line_67) = {p17, p54};
 Physical Line("AUXILIARY_LINE_67") = {frac_line_67};
 
-frac_line_68= newl; Line(frac_line_68) = {p18, p43};
+frac_line_68= newl; Line(frac_line_68) = {p18, pout001};
 Physical Line("AUXILIARY_LINE_68") = {frac_line_68};
+frac_line_68ex= newl; Line(frac_line_68ex) = {pout001, p43};
+Physical Line("AUXILIARY_LINE_68ex") = {frac_line_68ex};
+
 
 frac_line_69= newl; Line(frac_line_69) = {p18, p51};
 Physical Line("AUXILIARY_LINE_69") = {frac_line_69};
@@ -313,8 +342,10 @@ Physical Line("FRACTURE_LINE_79") = {frac_line_79};
 frac_line_80= newl; Line(frac_line_80) = {p21, p54};
 Physical Line("AUXILIARY_LINE_80") = {frac_line_80};
 
-frac_line_81= newl; Line(frac_line_81) = {p22, p43};
+frac_line_81= newl; Line(frac_line_81) = {p22, pout010};
 Physical Line("AUXILIARY_LINE_81") = {frac_line_81};
+frac_line_81ex= newl; Line(frac_line_81ex) = {pout010, p43};
+Physical Line("AUXILIARY_LINE_81ex") = {frac_line_81ex};
 
 frac_line_82= newl; Line(frac_line_82) = {p22, p53};
 Physical Line("AUXILIARY_LINE_82") = {frac_line_82};
@@ -484,11 +515,39 @@ Physical Line("FRACTURE_LINE_136") = {frac_line_136};
 frac_line_137= newl; Line(frac_line_137) = {p61, p64};
 Physical Line("FRACTURE_LINE_137") = {frac_line_137};
 
+
+in_line_xy1 = newl; Line(in_line_xy1) = {pin100, pin110};
+Physical Line("In_Line_XY1") = {in_line_xy1};
+in_line_xy2 = newl; Line(in_line_xy2) = {pin010, pin110};
+Physical Line("In_Line_XY2") = {in_line_xy2};
+in_line_xz1 = newl; Line(in_line_xz1) = {pin100, pin101};
+Physical Line("In_Line_xz1") = {in_line_xz1};
+in_line_xz2 = newl; Line(in_line_xz2) = {pin001, pin101};
+Physical Line("In_Line_xz2") = {in_line_xz2};
+in_line_yz1 = newl; Line(in_line_yz1) = {pin010, pin011};
+Physical Line("In_Line_yz1") = {in_line_yz1};
+in_line_yz2 = newl; Line(in_line_yz2) = {pin001, pin011};
+Physical Line("In_Line_yz2") = {in_line_yz2};
+
+out_line_xy1 = newl; Line(out_line_xy1) = {pout100, pout110};
+Physical Line("out_Line_XY1") = {out_line_xy1};
+out_line_xy2 = newl; Line(out_line_xy2) = {pout010, pout110};
+Physical Line("out_Line_XY2") = {out_line_xy2};
+out_line_xz1 = newl; Line(out_line_xz1) = {pout100, pout101};
+Physical Line("out_Line_xz1") = {out_line_xz1};
+out_line_xz2 = newl; Line(out_line_xz2) = {pout001, pout101};
+Physical Line("out_Line_xz2") = {out_line_xz2};
+out_line_yz1 = newl; Line(out_line_yz1) = {pout010, pout011};
+Physical Line("out_Line_yz1") = {out_line_yz1};
+out_line_yz2 = newl; Line(out_line_yz2) = {pout001, pout011};
+Physical Line("out_Line_yz2") = {out_line_yz2};
+
+
 // End of line specification
 
 // Start domain specification
 frac_loop_9 = newll;
-Line Loop(frac_loop_9) = { frac_line_16, -frac_line_33, frac_line_32, -frac_line_28, frac_line_29, -frac_line_45, frac_line_44, -frac_line_17};
+Line Loop(frac_loop_9) = { frac_line_16, frac_line_16ex, -frac_line_33, -frac_line_33ex, frac_line_32, -frac_line_28, frac_line_29, -frac_line_45, frac_line_44, -frac_line_17};
 auxiliary_9 = news; Plane Surface(auxiliary_9) = {frac_loop_9};
 Physical Surface("AUXILIARY_9") = {auxiliary_9};
 Line{frac_line_19} In Surface{auxiliary_9};
@@ -497,7 +556,7 @@ Line{frac_line_35} In Surface{auxiliary_9};
 Line{frac_line_47} In Surface{auxiliary_9};
 
 frac_loop_10 = newll;
-Line Loop(frac_loop_10) = { frac_line_20, -frac_line_37, frac_line_36, -frac_line_27, frac_line_26, frac_line_81, -frac_line_68, -frac_line_41, frac_line_43, -frac_line_21};
+Line Loop(frac_loop_10) = { frac_line_20, -frac_line_37, frac_line_36, -frac_line_27, frac_line_26, frac_line_81, frac_line_81ex, -frac_line_68, -frac_line_68ex, -frac_line_41, frac_line_43, -frac_line_21};
 auxiliary_10 = news; Plane Surface(auxiliary_10) = {frac_loop_10};
 Physical Surface("AUXILIARY_10") = {auxiliary_10};
 Line{frac_line_23} In Surface{auxiliary_10};
@@ -512,7 +571,7 @@ Line{frac_line_80} In Surface{auxiliary_10};
 Line{frac_line_83} In Surface{auxiliary_10};
 
 frac_loop_11 = newll;
-Line Loop(frac_loop_11) = { frac_line_0, -frac_line_32, frac_line_33, -frac_line_4, frac_line_5, -frac_line_37, frac_line_36, -frac_line_1};
+Line Loop(frac_loop_11) = { frac_line_0, -frac_line_32, frac_line_33, frac_line_33ex, -frac_line_4, -frac_line_4ex, frac_line_5, -frac_line_37, frac_line_36, -frac_line_1};
 auxiliary_11 = news; Plane Surface(auxiliary_11) = {frac_loop_11};
 Physical Surface("AUXILIARY_11") = {auxiliary_11};
 Line{frac_line_3} In Surface{auxiliary_11};
@@ -521,7 +580,7 @@ Line{frac_line_34} In Surface{auxiliary_11};
 Line{frac_line_38} In Surface{auxiliary_11};
 
 frac_loop_12 = newll;
-Line Loop(frac_loop_12) = { frac_line_8, -frac_line_44, frac_line_45, -frac_line_15, frac_line_12, frac_line_58, -frac_line_68, -frac_line_41, frac_line_43, -frac_line_9};
+Line Loop(frac_loop_12) = { frac_line_8, -frac_line_44, frac_line_45, -frac_line_15, frac_line_12, frac_line_58, frac_line_58ex, -frac_line_68, -frac_line_68ex, -frac_line_41, frac_line_43, -frac_line_9};
 auxiliary_12 = news; Plane Surface(auxiliary_12) = {frac_loop_12};
 Physical Surface("AUXILIARY_12") = {auxiliary_12};
 Line{frac_line_11} In Surface{auxiliary_12};
@@ -536,7 +595,7 @@ Line{frac_line_71} In Surface{auxiliary_12};
 Line{frac_line_72} In Surface{auxiliary_12};
 
 frac_loop_13 = newll;
-Line Loop(frac_loop_13) = { frac_line_4, -frac_line_16, frac_line_17, -frac_line_8, frac_line_9, -frac_line_21, frac_line_20, -frac_line_5};
+Line Loop(frac_loop_13) = { frac_line_4, frac_line_4ex, -frac_line_16, -frac_line_16ex, frac_line_17, -frac_line_8, frac_line_9, -frac_line_21, frac_line_20, -frac_line_5};
 auxiliary_13 = news; Plane Surface(auxiliary_13) = {frac_loop_13};
 Physical Surface("AUXILIARY_13") = {auxiliary_13};
 Line{frac_line_6} In Surface{auxiliary_13};
@@ -545,7 +604,7 @@ Line{frac_line_18} In Surface{auxiliary_13};
 Line{frac_line_22} In Surface{auxiliary_13};
 
 frac_loop_14 = newll;
-Line Loop(frac_loop_14) = { frac_line_0, -frac_line_28, frac_line_29, -frac_line_15, frac_line_12, frac_line_58, -frac_line_81, -frac_line_26, frac_line_27, -frac_line_1};
+Line Loop(frac_loop_14) = { frac_line_0, -frac_line_28, frac_line_29, -frac_line_15, frac_line_12, frac_line_58, frac_line_58ex, -frac_line_81, -frac_line_81ex, -frac_line_26, frac_line_27, -frac_line_1};
 auxiliary_14 = news; Plane Surface(auxiliary_14) = {frac_loop_14};
 Physical Surface("AUXILIARY_14") = {auxiliary_14};
 Line{frac_line_2} In Surface{auxiliary_14};
@@ -725,6 +784,19 @@ Line{frac_line_135} In Surface{fracture_8};
 Line{frac_line_136} In Surface{fracture_8};
 Line{frac_line_137} In Surface{fracture_8};
 
+Line{in_line_xy1} In Surface{auxiliary_13};
+Line{in_line_xy2} In Surface{auxiliary_13};
+Line{in_line_xz1} In Surface{auxiliary_11};
+Line{in_line_xz2} In Surface{auxiliary_11};
+Line{in_line_yz1} In Surface{auxiliary_9};
+Line{in_line_yz2} In Surface{auxiliary_9};
+
+Line{out_line_xy1} In Surface{auxiliary_14};
+Line{out_line_xy2} In Surface{auxiliary_14};
+Line{out_line_xz1} In Surface{auxiliary_12};
+Line{out_line_xz2} In Surface{auxiliary_12};
+Line{out_line_yz1} In Surface{auxiliary_10};
+Line{out_line_yz2} In Surface{auxiliary_10};
 // End of fracture specification
 
 // Start physical point specification
@@ -756,4 +828,3 @@ Physical Point("FRACTURE_POINT_24") = {p62};
 Physical Point("FRACTURE_POINT_25") = {p63};
 Physical Point("FRACTURE_POINT_26") = {p64};
 // End of physical point specification
-

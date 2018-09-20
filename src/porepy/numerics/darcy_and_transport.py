@@ -26,7 +26,7 @@ class DarcyAndTransport:
         if not hasattr(self.flow, "el"):
             self.flow.el = False
 
-    def solve(self):
+    def solve(self, save_as=None, save_every=1):
         """
         Solve both problems.
         """
@@ -37,15 +37,15 @@ class DarcyAndTransport:
                 self.flow.full_grid, self.flow.grid(), self.flow.el_data
             )
         self.flow.discharge()
-        s = self.transport.solve()
+        s = self.transport.solve(save_as=save_as, save_every=save_every)
         return p, s[self.transport.physics]
 
-    def save(self, export_every=1):
+    def save(self, save_every=1):
         """
         Save for visualization.
         """
         self.flow.save(variables=[self.flow.pressure_name])
-        self.transport.save([self.transport.physics], save_every=export_every)
+        self.transport.save([self.transport.physics], save_every=save_every)
 
 
 class static_flow_IE_solver(AbstractSolver):

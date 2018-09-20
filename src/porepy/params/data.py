@@ -183,8 +183,8 @@ class Parameters(object):
             return 1
 
     def set_rock_specific_heat(self, val):
-        if val < 0:
-            raise ValueError("rock specific heat should be non-negative")
+        # if val < 0:
+        #    raise ValueError('rock specific heat should be non-negative')
         self._rock_specific_heat = val
 
     rock_specific_heat = property(get_rock_specific_heat, set_rock_specific_heat)

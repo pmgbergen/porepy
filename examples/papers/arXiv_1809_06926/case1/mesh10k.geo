@@ -4,52 +4,68 @@
 // embedded in the upper one. Meshing is done using tetrahedra.
 ///////////////////////////////////////////////////////////////////
 
-ref = 1.0;                    // refinement in z-direction towards fracture plane (ref < 1.0)
-numPointsZ_layer1 = 2;       // no. vertices in z in layer one
+Mesh.Algorithm = 8;
+h = 0.47;            // 1.25 to get ~1k, 0.47 to get ~10k, 0.19 to get ~100k
+ref = .90;                    // refinement in z-direction towards fracture plane (ref < 1.0)
+numPointsZ_layer1 = 3 * h;       // no. vertices in z in layer one
 numPointsZ_layer2_above = 5; // no. vertices in z in layer two above the fault
 numPointsZ_layer2_below = 5; // no. vertices in z in layer two below the fault
 numPointsX = 10;              // no. vertices in x direction
 numPointsY = 10;              // no. vertices in y direction
 
+// Dimensions: x is left-right, y is front-back and z is top-bottom
+size_at_bottom = 15 * h;
+size_between_layers_right = 12 * h;
+size_between_layers_left = 25 * h;
+size_at_top_left = size_at_bottom;
+size_at_top_right = 35 * h;
+size_inlet_top = 12 * h;
+size_fracture_left = 12 * h;
+size_fracture_right = 12 * h;
+
 // domain bounding box
-Point(1) = {0.0, 0.0, 0.0, 1.0};
-Point(2) = {100.0, 0.0, 0.0, 1.0};
-Point(3) = {100.0, 100.0, 0.0, 1.0};
-Point(4) = {0.0, 100.0, 0.0, 1.0};
-Point(5) = {0.0, 0.0, 100.0, 1.0};
-Point(6) = {100.0, 0.0, 100.0, 1.0};
-Point(7) = {100.0, 100.0, 100.0, 1.0};
-Point(8) = {0.0, 100.0, 100.0, 1.0};
+Point(1) = {0.0, 0.0, 0.0, size_at_bottom};
+Point(2) = {100.0, 0.0, 0.0, size_at_bottom};
+Point(3) = {100.0, 100.0, 0.0, size_at_bottom};
+Point(4) = {0.0, 100.0, 0.0, size_at_bottom};
+Point(5) = {0.0, 0.0, 100.0, size_at_top_left};
+Point(6) = {100.0, 0.0, 100.0, size_at_top_right};
+Point(7) = {100.0, 100.0, 100.0, size_at_top_right};
+
+Point(8) = {0.0, 100.0, 100.0, size_at_top_left};
+
 
 // Lower layer boundary points
-Point(9) = {0.0, 0.0, 10.0, 1.0};
-Point(10) = {100.0, 0.0, 10.0, 1.0};
-Point(11) = {100.0, 100.0, 10.0, 1.0};
-Point(12) = {0.0, 100.0, 10.0, 1.0};
+
+Point(9) = {0.0, 0.0, 10.0, size_between_layers_left / 2};
+
+Point(10) = {100.0, 0.0, 10.0, size_between_layers_right};
+Point(11) = {100.0, 100.0, 10.0, size_between_layers_right};
+Point(12) = {0.0, 100.0, 10.0, size_between_layers_left};
 
 // fault zone boundary points
-Point(13) = {0.0, 0.0, 80.0, 1.0};
-Point(14) = {100.0, 0.0, 20.0, 1.0};
-Point(15) = {100.0, 100.0, 20.0, 1.0};
-Point(16) = {0.0, 100.0, 80.0, 1.0};
+Point(13) = {0.0, 0.0, 80.0, size_fracture_left};
+Point(14) = {100.0, 0.0, 20.0, size_fracture_right};
+Point(15) = {100.0, 100.0, 20.0, size_fracture_right};
+Point(16) = {0.0, 100.0, 80.0, size_fracture_left};
 
 // layer for boundary condition on vertical discretization
-Point(17) = {0.0, 0.0, 90.0, 1.0};
-Point(18) = {0.0, 100.0, 90.0, 1.0};
+Point(17) = {0.0, 0.0, 90.0, size_inlet_top};
+Point(18) = {0.0, 100.0, 90.0, size_inlet_top};
 
 // layer one vertical discretization
 Line(1) = {1, 9};
 Line(2) = {4, 12};
 Line(3) = {2, 10};
 Line(4) = {3, 11};
-Transfinite Line{1:4} = numPointsZ_layer1;
+//Transfinite Line{1:4} = numPointsZ_layer1;
 
 // layer two vertical discretization below the fault
 Line(5) = {10, 14};
 Line(6) = {11, 15};
 Line(7) = {12, 16};
 Line(8) = {9, 13};
-Transfinite Line{5:8} = numPointsZ_layer2_below Using Progression ref;
+//Transfinite Line{5:8} = numPointsZ_layer2_below Using Progression ref;
 
 // layer two vertical discretization above the fault
 Line(9) = {5, 17};
@@ -58,7 +74,9 @@ Line(10) = {8, 18};
 Line(110) = {18, 16};
 Line(11) = {6, 14};
 Line(12) = {7, 15};
-Transfinite Line{9,109,10,110,11,12} = numPointsZ_layer2_above Using Progression ref;
+//Transfinite Line{9,109,10,110,11,12} = numPointsZ_layer2_above Using Progression ref;
+Transfinite Line{7, 8} = 4 / h Using Bump .5;
+
 
 // discretization in x-direction
 Line(13) = {1, 2};
@@ -69,7 +87,7 @@ Line(17) = {4, 3};
 Line(18) = {12, 11};
 Line(19) = {16, 15};
 Line(20) = {8, 7};
-Transfinite Line{13:20} = numPointsX;
+//Transfinite Line{15,16,19,20} = numPointsX;
 
 // discretization in y-direction
 Line(21) = {2, 3};
@@ -81,7 +99,7 @@ Line(26) = {9, 12};
 Line(27) = {13, 16};
 Line(28) = {5, 8};
 Line(112) = {17, 18};
-Transfinite Line{21:28,112} = numPointsY;
+//Transfinite Line{21:28,112} = numPointsY;
 
 // lower layer volume
 Line Loop(29) = {1, 14, -3, -13};
