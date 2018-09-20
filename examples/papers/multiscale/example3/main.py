@@ -95,6 +95,7 @@ def main_ms(pb_data):
     # solve the co-dimensional problem
     x_l = ms.solve_l(A, b)
     solver_flow.split(data.gb, "up", ms.concatenate(None, x_l))
+    solver_flow.extract_p(data.gb, "up", "pressure")
     solver_flow.extract_p(data.gb, "up", "pressure_old")
     solver_flow.extract_u(data.gb, "up", "discharge_old")
 
@@ -119,7 +120,8 @@ def main_ms(pb_data):
         i += 1
 
     # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", info["solve_h"])
+    print("ms")
+    print("beta", pb_data["beta"], "gamma", pb_data["gamma"], "iter", i, "err", err, "solve_h", info["solve_h"])
 
     # post-compute the higher dimensional solution
     x_h = ms.solve_h(x_l)
@@ -129,7 +131,7 @@ def main_ms(pb_data):
 
     x = ms.concatenate(x_h, x_l)
 
-    folder = "ms_" + str(pb_data["beta"])
+    folder = "ms_" + str(pb_data["beta"]) + "_" + str(pb_data["gamma"])
     export(data.gb, x, folder, solver_flow)
     write_out(data.gb, "ms.txt", info["solve_h"])
 
@@ -161,6 +163,7 @@ def main_dd(pb_data):
     x, info = dd.solve(tol, maxiter, drop_tol, info=True)
     solve_h += info["solve_h"]
     solver_flow.split(data.gb, "up", x)
+    solver_flow.extract_p(data.gb, "up", "pressure")
     solver_flow.extract_p(data.gb, "up", "pressure_old")
     solver_flow.extract_u(data.gb, "up", "discharge_old")
 
@@ -188,9 +191,10 @@ def main_dd(pb_data):
         i += 1
 
     # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", solve_h)
+    print("dd")
+    print("beta", pb_data["beta"], "gamma", pb_data["gamma"], "iter", i, "err", err, "solve_h", solve_h)
 
-    folder = "dd_" + str(pb_data["beta"])
+    folder = "dd_" + str(pb_data["beta"]) + "_" + str(pb_data["gamma"])
     export(data.gb, x, folder, solver_flow)
     write_out(data.gb, "dd.txt", solve_h)
 
@@ -209,6 +213,7 @@ def main(pb_data):
     x = sps.linalg.spsolve(A, b)
     solver_flow.split(data.gb, "up", x)
     solver_flow.extract_p(data.gb, "up", "pressure_old")
+    solver_flow.extract_p(data.gb, "up", "pressure")
     solver_flow.extract_u(data.gb, "up", "discharge_old")
 
     i = 0
@@ -229,25 +234,25 @@ def main(pb_data):
         i += 1
 
     # print the summary data
-    print("beta", pb_data["beta"], "iter", i, "err", err, "solve_h", i)
+    print("ref")
+    print("beta", pb_data["beta"], "gamma", pb_data["gamma"], "iter", i, "err", err, "solve_h", i)
 
-    folder = "ref_" + str(pb_data["beta"])
+    folder = "ref_" + str(pb_data["beta"]) + "_" + str(pb_data["gamma"])
     export(data.gb, x, folder, solver_flow)
 
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
 
-    betas = np.array([1e-2, 1e-1, 0, 1e1, 1e2])
-    alpha = 4
-
-    for beta in betas:
+    gammas = np.array([ 7.5])
+    for gamma in gammas:
         data = {"kf_n": 1e4,
                 "kf_t": 1e4,
                 "aperture": 1e-4,
-                "beta": beta,
-                "mesh_size": 0.5,
-                "alpha": alpha,
+                "beta": 20,
+                "gamma": gamma,
+                "alpha": 1,
+                "mesh_size": 0.045,
                 "fix_pt_err": 1e-5,
                 "fix_pt_maxiter": 1e3}
 
@@ -255,4 +260,4 @@ if __name__ == "__main__":
         main_dd(data)
         main(data)
 
-    summarize_data(betas)
+    #summarize_data(betas, gammas)
