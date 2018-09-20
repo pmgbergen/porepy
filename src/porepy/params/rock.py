@@ -184,8 +184,6 @@ class Granite(UnitRock):
         else:
             self.theta_ref = theta_ref
 
-        self.DENSITY = 2650 * pp.KILOGRAM/pp.METER**3
-
     def specific_heat_capacity(self, theta=None):# theta in CELSIUS
         if theta is None:
             theta = self.theta_ref
