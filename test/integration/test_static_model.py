@@ -22,8 +22,8 @@ class BasicsTest(unittest.TestCase):
         solver = StaticModel(g, data)
         d = solver.solve()
         solver.traction("T")
-        assert np.all(d == 0)
-        assert np.all(data["T"] == 0)
+        self.assertTrue(np.all(d == 0))
+        self.assertTrue(np.all(data["T"] == 0))
 
     def test_unit_slip(self):
         """
@@ -63,13 +63,13 @@ class BasicsTest(unittest.TestCase):
         T_left = data["T"][:, frac_left]
         T_right = data["T"][:, frac_right]
 
-        assert np.allclose(T_left, T_right)
+        self.assertTrue(np.allclose(T_left, T_right))
 
         # we have u_lhs - u_rhs = 1 so u_lhs should be positive
-        assert np.all(d_c[:, cell_left] > 0)
-        assert np.all(d_c[:, cell_right] < 0)
+        self.assertTrue(np.all(d_c[:, cell_left] > 0))
+        self.assertTrue(np.all(d_c[:, cell_right] < 0))
 
         # Test fracture displacement
         u_left = data["d_f"][:, : int(round(data["d_f"].shape[1] / 2))]
         u_right = data["d_f"][:, int(round(data["d_f"].shape[1] / 2)) :]
-        assert np.all(np.abs(u_left - u_right - 1) < 1e-10)
+        self.assertTrue(np.all(np.abs(u_left - u_right - 1) < 1e-10))

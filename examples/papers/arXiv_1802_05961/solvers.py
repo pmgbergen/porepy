@@ -4,9 +4,6 @@ import scipy.sparse as sps
 from porepy.viz.exporter import Exporter
 
 import porepy as pp
-from porepy.numerics import fv
-from porepy.numerics import fem
-from porepy.numerics import vem
 
 # ------------------------------------------------------------------------------#
 
@@ -98,9 +95,9 @@ def solve_p1(gb, folder, return_only_matrix=False):
     p = sps.linalg.spsolve(A, b_flow)
     solver_flow.split(gb, "pressure", p)
 
+    save = Exporter(gb, "sol", folder=folder, simplicial=True)
+    save.write_vtk("pressure", point_data=True)
 
-#    save = Exporter(gb, "sol", folder=folder, simplicial=True)
-#    save.write_vtk(["pressure"])
 
 # ------------------------------------------------------------------------------#
 

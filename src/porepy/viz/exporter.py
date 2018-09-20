@@ -24,6 +24,132 @@ from porepy.utils import sort_points
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
+# ------------------------------------------------------------------------------#
+
+
+class Field(object):
+    """
+    Internal class to store information for the data to export.
+    """
+
+    def __init__(self, name, cell_data=False, point_data=False, values=None):
+        assert np.logical_xor(cell_data, point_data)
+        # name of the field
+        self.name = name
+        # if the field is vtk cell data
+        self.cell_data = cell_data
+        # if the field is vtk point data
+        self.point_data = point_data
+        # number of components of the field
+        self.num_components = None
+        # values of the field, use set_values to set it
+        if values is not None:
+            self.set_values(values)
+        else:
+            self.values = None
+
+    def __repr__(self):
+        """
+        Repr function
+        """
+        s = self.name + " - data type: "
+        if self.cell_data:
+            s += "cell"
+        else:
+            s += "point"
+        return s + " - values: " + str(self.values)
+
+    def dtype(self):
+        """
+        Return the vtk type of the field
+        """
+        self._check_values()
+
+        # map numpy to vtk types
+        map_type = {
+            np.dtype("bool"): vtk.VTK_CHAR,
+            np.dtype("int64"): vtk.VTK_INT,
+            np.dtype("float64"): vtk.VTK_DOUBLE,
+        }
+
+        return map_type[self.values.dtype]
+
+    def check(self, values, g):
+        """
+        Some consistency check
+        """
+        if values is None:
+            raise ValueError(
+                "Field " + str(self.name) + " must be filled. It can not be None"
+            )
+        num_elem = g.num_cells if self.cell_data else g.num_nodes
+        if np.atleast_2d(values).shape[1] != num_elem:
+            raise ValueError("Field " + str(self.name) + " has wrong dimension.")
+
+    def set_values(self, values):
+        """
+        Function useful to set the values
+        """
+        self.num_components = 1 if values.ndim == 1 else 3
+        self.values = values.ravel(order="F")
+
+    def _check_values(self):
+        if self.values is None:
+            raise ValueError("Field " + str(self.name) + " values not valid")
+
+
+# ------------------------------------------------------------------------------#
+
+
+class Fields(object):
+    """
+    Internal class to store a list of field.
+    """
+
+    def __init__(self):
+        self.fields = None
+
+    def __iter__(self):
+        """
+        Iterated on all the fields
+        """
+        for f in self.fields:
+            yield f
+
+    def __repr__(self):
+        """
+        Repr function
+        """
+        return "\n".join([repr(f) for f in self])
+
+    def extend(self, fields):
+        """
+        Extend the list of fields with additional fields
+        """
+        if self.fields is None:
+            if isinstance(fields, list):
+                self.fields = fields
+            elif isinstance(fields, Fields):
+                self.fields = fields.fields
+            else:
+                raise ValueError
+        else:
+            if isinstance(fields, list):
+                self.fields.extend(fields)
+            elif isinstance(fields, Fields):
+                self.fields.extend(fields.fields)
+            else:
+                raise ValueError
+
+    def names(self):
+        """
+        Return the list of name of the fields
+        """
+        return [f.name for f in self]
+
+
+# ------------------------------------------------------------------------------#
+
 
 class Exporter:
     def __init__(self, grid, name, folder=None, **kwargs):
@@ -98,12 +224,6 @@ class Exporter:
         if self.fixed_grid:
             self._update_gb_VTK()
 
-        self.map_type = {
-            np.dtype("bool"): vtk.VTK_CHAR,
-            np.dtype("int64"): vtk.VTK_INT,
-            np.dtype("float64"): vtk.VTK_DOUBLE,
-        }
-
     # ------------------------------------------------------------------------------#
 
     def change_name(self, name):
@@ -118,7 +238,7 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def write_vtk(self, data=None, time_step=None, grid=None):
+    def write_vtk(self, data=None, time_step=None, grid=None, point_data=False):
         """ Interface function to export in VTK the grid and additional data.
 
         In 2d the cells are represented as polygon, while in 3d as polyhedra.
@@ -148,14 +268,9 @@ class Exporter:
             self._update_gVTK()
 
         if self.is_GridBucket:
-            self._export_vtk_gb(data, time_step)
+            self._export_vtk_gb(data, time_step, point_data)
         else:
-            # No need of special naming, create the folder
-            name = self._make_folder(self.folder, self.name)
-            data = dict() if data is None else data
-            data["grid_dim"] = self.gb.dim * np.ones(self.gb.num_cells)
-            data["cell_id"] = np.arange(self.gb.num_cells)
-            self._export_vtk_single(data, time_step, self.gb, name)
+            self._export_vtk_single(data, time_step, point_data)
 
     # ------------------------------------------------------------------------------#
 
@@ -204,30 +319,66 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _export_vtk_single(self, data, time_step, g, name):
+    def _export_vtk_single(self, data, time_step, point_data):
+        # No need of special naming, create the folder
+        name = self._make_folder(self.folder, self.name)
         name = self._make_file_name(name, time_step)
-        self._write_vtk(data, name, self.gb_VTK)
+
+        fields = Fields()
+        if len(data) > 0:
+            if point_data:
+                fields.extend(
+                    [Field(n, point_data=True, values=v) for n, v in data.items()]
+                )
+            else:
+                fields.extend(
+                    [Field(n, cell_data=True, values=v) for n, v in data.items()]
+                )
+
+        fields.extend(
+            [
+                Field(
+                    "grid_dim",
+                    cell_data=True,
+                    values=self.gb.dim * np.ones(self.gb.num_cells),
+                ),
+                Field("cell_id", cell_data=True, values=np.arange(self.gb.num_cells)),
+            ]
+        )
+
+        self._write_vtk(fields, name, self.gb_VTK)
 
     # ------------------------------------------------------------------------------#
 
-    def _export_vtk_gb(self, data, time_step):
+    def _export_vtk_gb(self, data, time_step, point_data):
         if data is not None:
             data = np.atleast_1d(data).tolist()
+        else:
+            data = list()
         assert isinstance(data, list) or data is None
-        data = list() if data is None else data
+
+        fields = Fields()
+        if len(data) > 0:
+            if point_data:
+                fields.extend([Field(d, point_data=True) for d in data])
+            else:
+                fields.extend([Field(d, cell_data=True) for d in data])
 
         # consider the grid_bucket node data
-        extra_data = [
-            "grid_dim",
-            "cell_id",
-            "grid_node_number",
-            "is_mortar",
-            "mortar_side",
-        ]
-        data.extend(extra_data)
+        extra_fields = Fields()
+        extra_fields.extend(
+            [
+                Field("grid_dim", cell_data=True),
+                Field("cell_id", cell_data=True),
+                Field("grid_node_number", cell_data=True),
+                Field("is_mortar", cell_data=True),
+                Field("mortar_side", cell_data=True),
+            ]
+        )
+        fields.extend(extra_fields)
 
         self.gb.assign_node_ordering(overwrite_existing=False)
-        self.gb.add_node_props(extra_data)
+        self.gb.add_node_props(extra_fields.names())
         # fill the extra data
         for g, d in self.gb:
             ones = np.ones(g.num_cells, dtype=np.int)
@@ -241,43 +392,31 @@ class Exporter:
         for dim in self.dims:
             file_name = self._make_file_name(self.name, time_step, dim)
             file_name = self._make_folder(self.folder, file_name)
-            dic_data = dict()
-            for d in data:
+            for field in fields:
                 grids = self.gb.get_grids(lambda g: g.dim == dim)
                 values = np.empty(grids.size, dtype=np.object)
                 for i, g in enumerate(grids):
-                    if self.gb.graph.node[g][d] is None:
-                        raise ValueError(
-                            "Field " + str(d) + " must be filled. It can not be None"
-                        )
-                    if np.atleast_2d(self.gb.graph.node[g][d]).shape[1] != g.num_cells:
-                        raise ValueError(
-                            "Field "
-                            + str(d)
-                            + " has wrong dimension. The size"
-                            + " must equal the number of cells"
-                        )
-                    values[i] = self.gb.graph.node[g][d]
-                    if values[i] is None:
-                        raise ValueError(
-                            "Field " + str(d) + " must be filled. It can not be None"
-                        )
-                dic_data[d] = np.hstack(values)
+                    values[i] = self.gb.graph.node[g][field.name]
+                    field.check(values[i], g)
+                field.set_values(np.hstack(values))
 
             if self.gb_VTK[dim] is not None:
-                self._write_vtk(dic_data, file_name, self.gb_VTK[dim])
+                self._write_vtk(fields, file_name, self.gb_VTK[dim])
 
-        self.gb.remove_node_props(extra_data)
+        self.gb.remove_node_props(extra_fields.names())
 
         # consider the grid_bucket edge data
-        extra_data = [
-            "grid_dim",
-            "cell_id",
-            "grid_edge_number",
-            "is_mortar",
-            "mortar_side",
-        ]
-        self.gb.add_edge_props(extra_data)
+        extra_fields = Fields()
+        extra_fields.extend(
+            [
+                Field("grid_dim", cell_data=True),
+                Field("cell_id", cell_data=True),
+                Field("grid_edge_number", cell_data=True),
+                Field("is_mortar", cell_data=True),
+                Field("mortar_side", cell_data=True),
+            ]
+        )
+        self.gb.add_edge_props(extra_fields.names())
         for _, d in self.gb.edges():
             d["grid_dim"] = {}
             d["cell_id"] = {}
@@ -297,36 +436,29 @@ class Exporter:
         for dim in self.m_dims:
             file_name = self._make_file_name_mortar(self.name, time_step, dim)
             file_name = self._make_folder(self.folder, file_name)
-            dic_data = dict()
 
             mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
             cond = lambda d: d["mortar_grid"].dim == dim
             edges = np.array([e for e, d in self.gb.edges() if cond(d)])
             num_grids = np.sum([m.num_sides() for m in mgs])
 
-            for d in extra_data:
+            for field in extra_fields:
                 values = np.empty(num_grids, dtype=np.object)
                 i = 0
                 for mg, edge in zip(mgs, edges):
-                    for side, g in mg.side_grids.items():
-                        values[i] = self.gb.edge_props(edge, d)[side]
-                        if values[i] is None:
-                            raise ValueError(
-                                "Field "
-                                + str(d)
-                                + " must be filled. It can not be None"
-                            )
+                    for side, _ in mg.side_grids.items():
+                        values[i] = self.gb.edge_props(edge, field.name)[side]
                         i += 1
 
-                dic_data[d] = np.hstack(values)
+                field.set_values(np.hstack(values))
 
             if self.m_gb_VTK[dim] is not None:
-                self._write_vtk(dic_data, file_name, self.m_gb_VTK[dim])
+                self._write_vtk(extra_fields, file_name, self.m_gb_VTK[dim])
 
         name = self._make_folder(self.folder, self.name) + ".pvd"
         self._export_pvd_gb(name)
 
-        self.gb.remove_edge_props(extra_data)
+        self.gb.remove_edge_props(extra_fields.names())
 
     # ------------------------------------------------------------------------------#
 
@@ -437,31 +569,36 @@ class Exporter:
 
     # ------------------------------------------------------------------------------#
 
-    def _write_vtk(self, data, name, g_VTK):
+    def _write_vtk(self, fields, name, g_VTK):
         writer = vtk.vtkXMLUnstructuredGridWriter()
         writer.SetInputData(g_VTK)
         writer.SetFileName(name)
 
-        if data is not None:
-            for name_field, values_field in data.items():
-                if values_field is None:
+        if fields is not None:
+            for field in fields:
+                if field.values is None:
                     continue
-                values = values_field.ravel(order="F")
-                dtype = self.map_type[values_field.dtype]
+                dataVTK = ns.numpy_to_vtk(
+                    field.values, deep=True, array_type=field.dtype()
+                )
+                dataVTK.SetName(field.name)
+                dataVTK.SetNumberOfComponents(field.num_components)
 
-                dataVTK = ns.numpy_to_vtk(values, deep=True, array_type=dtype)
-                dataVTK.SetName(str(name_field))
-                dataVTK.SetNumberOfComponents(1 if values_field.ndim == 1 else 3)
-
-                g_VTK.GetCellData().AddArray(dataVTK)
+                if field.cell_data:
+                    g_VTK.GetCellData().AddArray(dataVTK)
+                elif field.point_data:
+                    g_VTK.GetPointData().AddArray(dataVTK)
 
         if not self.binary:
             writer.SetDataModeToAscii()
         writer.Update()
 
-        if data is not None:
-            for name_field, _ in data.items():
-                cell_data = g_VTK.GetCellData().RemoveArray(str(name_field))
+        if fields is not None:
+            for field in fields:
+                if field.cell_data:
+                    g_VTK.GetCellData().RemoveArray(field.name)
+                elif field.point_data:
+                    g_VTK.GetPointData().RemoveArray(field.name)
 
     # ------------------------------------------------------------------------------#
 

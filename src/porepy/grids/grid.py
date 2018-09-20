@@ -614,7 +614,7 @@ class Grid(object):
             np.ndarray (1d), index of nodes on the boundary
 
         """
-        return np.where(self.tags["domain_boundary_nodes"])[0]
+        return self.__indices(self.tags["domain_boundary_nodes"])
 
     def update_boundary_face_tag(self):
         """ Tag faces on the boundary of the grid with boundary tag.

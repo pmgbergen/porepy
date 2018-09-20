@@ -264,7 +264,7 @@ def remesh_1d(g_old, num_nodes, tol=1e-6):
 
     # Fracture tips should be on the boundary only.
     if np.any(g_old.tags["tip_faces"]):
-        g.tags["tip_faces"] = g.tags["domain_boundary_face"]
+        g.tags["tip_faces"] = g.tags["domain_boundary_faces"]
 
     return g
 

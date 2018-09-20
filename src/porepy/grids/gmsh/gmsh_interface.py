@@ -556,6 +556,9 @@ def run_gmsh(in_file, out_file, dims, **kwargs):
             simulation completed successfully, >0 signifies problems.
 
     """
+    if not os.path.isfile(in_file):
+        raise FileNotFoundError("file " + in_file + " not found")
+
     # Import config file to get location of gmsh executable.
     config = read_config.read()
     path_to_gmsh = config["gmsh_path"]

@@ -59,7 +59,7 @@ class BasicsTest(unittest.TestCase):
         p_mono = problem_mono.solve()
         p_mult = problem_mult.solve()
 
-        assert np.allclose(p_mono, p_mult)
+        self.assertTrue(np.allclose(p_mono, p_mult))
 
     # ------------------------------------------------------------------------------#
 
@@ -73,7 +73,7 @@ class BasicsTest(unittest.TestCase):
             pressure = d["pressure"]
             p_analytic = g.cell_centers[1]
             p_diff = pressure - p_analytic
-            assert np.max(np.abs(p_diff)) < 2e-2
+            self.assertTrue(np.max(np.abs(p_diff)) < 2e-2)
 
     # ------------------------------------------------------------------------------#
 
@@ -92,7 +92,7 @@ class BasicsTest(unittest.TestCase):
             pressure = d["pressure"]
             p_analytic = g.cell_centers[1]
             p_diff = pressure - p_analytic
-            assert np.max(np.abs(p_diff)) < 0.033
+            self.assertTrue(np.max(np.abs(p_diff)) < 0.033)
 
     def test_elliptic_dirich_neumann_source_sink_cart(self):
         gb = setup_3d(np.array([4, 4, 4]), simplex_grid=False)
@@ -103,10 +103,10 @@ class BasicsTest(unittest.TestCase):
         for g, d in gb:
             if g.dim == 3:
                 p_ref = elliptic_dirich_neumann_source_sink_cart_ref_3d()
-                assert np.allclose(d["pressure"], p_ref)
+                self.assertTrue(np.allclose(d["pressure"], p_ref))
             if g.dim == 0:
                 p_ref = [-10681.52153285]
-                assert np.allclose(d["pressure"], p_ref)
+                self.assertTrue(np.allclose(d["pressure"], p_ref))
         return gb
 
 

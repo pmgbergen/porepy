@@ -18,8 +18,8 @@ class BasicsTest(unittest.TestCase):
         node_connections = sps.csc_matrix(node_connections)
         G = graph.Graph(node_connections)
         G.color_nodes()
-        assert np.all(G.color == 0)
-        assert G.regions == 1
+        self.assertTrue(np.all(G.color == 0))
+        self.assertTrue(G.regions == 1)
 
     # ------------------------------------------------------------------------------#
 
@@ -32,9 +32,9 @@ class BasicsTest(unittest.TestCase):
         node_connections = sps.csc_matrix(node_connections)
         G = graph.Graph(node_connections)
         G.color_nodes()
-        assert np.all(G.color[:2] == 0)
-        assert G.color[3] == 1
-        assert G.regions == 2
+        self.assertTrue(np.all(G.color[:2] == 0))
+        self.assertTrue(G.color[3] == 1)
+        self.assertTrue(G.regions == 2)
 
     # ------------------------------------------------------------------------------#
 
@@ -47,9 +47,9 @@ class BasicsTest(unittest.TestCase):
         node_connections = sps.csc_matrix(node_connections)
         G = graph.Graph(node_connections)
         G.color_nodes()
-        assert np.all(G.color[:2] == 0)
-        assert G.color[3] == 1
-        assert G.regions == 2
+        self.assertTrue(np.all(G.color[:2] == 0))
+        self.assertTrue(G.color[3] == 1)
+        self.assertTrue(G.regions == 2)
 
 
 # ------------------------------------------------------------------------------#

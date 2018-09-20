@@ -30,20 +30,20 @@ class TestPartialMPFA(unittest.TestCase):
             g, perm, bnd, nodes=nodes_of_cell, inverter="python"
         )
 
-        assert faces_of_cell.size == active_faces.size
-        assert np.all(np.sort(faces_of_cell) == np.sort(active_faces))
+        self.assertTrue(faces_of_cell.size == active_faces.size)
+        self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
 
         diff_flux = (flux - partial_flux).todense()
         diff_bound = (bound_flux - partial_bound).todense()
 
-        assert np.max(np.abs(diff_flux[faces_of_cell])) == 0
-        assert np.max(np.abs(diff_bound[faces_of_cell])) == 0
+        self.assertTrue(np.max(np.abs(diff_flux[faces_of_cell])) == 0)
+        self.assertTrue(np.max(np.abs(diff_bound[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be zero
         partial_flux[faces_of_cell, :] = 0
         partial_bound[faces_of_cell, :] = 0
-        assert np.max(np.abs(partial_flux.data)) == 0
-        assert np.max(np.abs(partial_bound.data)) == 0
+        self.assertTrue(np.max(np.abs(partial_flux.data)) == 0)
+        self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
 
     def test_bound_cell_node_keyword(self):
         # Compute update for a single cell on the boundary
@@ -56,20 +56,20 @@ class TestPartialMPFA(unittest.TestCase):
             g, perm, bnd, nodes=nodes_of_cell, inverter="python"
         )
 
-        assert faces_of_cell.size == active_faces.size
-        assert np.all(np.sort(faces_of_cell) == np.sort(active_faces))
+        self.assertTrue(faces_of_cell.size == active_faces.size)
+        self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
 
         diff_flux = (flux - partial_flux).todense()
         diff_bound = (bound_flux - partial_bound).todense()
 
-        assert np.max(np.abs(diff_flux[faces_of_cell])) == 0
-        assert np.max(np.abs(diff_bound[faces_of_cell])) == 0
+        self.assertTrue(np.max(np.abs(diff_flux[faces_of_cell])) == 0)
+        self.assertTrue(np.max(np.abs(diff_bound[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be zero
         partial_flux[faces_of_cell, :] = 0
         partial_bound[faces_of_cell, :] = 0
-        assert np.max(np.abs(partial_flux.data)) == 0
-        assert np.max(np.abs(partial_bound.data)) == 0
+        self.assertTrue(np.max(np.abs(partial_flux.data)) == 0)
+        self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
 
     def test_one_cell_a_time_node_keyword(self):
         # Update one and one cell, and verify that the result is the same as
@@ -112,16 +112,16 @@ class TestPartialMPFA(unittest.TestCase):
 
         flux_full, bound_flux_full, _, _ = mpfa.mpfa(g, perm, bnd, inverter="python")
 
-        assert (flux_full - flux).max() < 1e-8
-        assert (flux_full - flux).min() > -1e-8
-        assert (bound_flux - bound_flux_full).max() < 1e-8
-        assert (bound_flux - bound_flux_full).min() > -1e-8
+        self.assertTrue((flux_full - flux).max() < 1e-8)
+        self.assertTrue((flux_full - flux).min() > -1e-8)
+        self.assertTrue((bound_flux - bound_flux_full).max() < 1e-8)
+        self.assertTrue((bound_flux - bound_flux_full).min() > -1e-8)
 
     if __name__ == "__main__":
         unittest.main()
 
 
-class TestPartialMPSA:
+class TestPartialMPSA(unittest.TestCase):
     def setup(self):
         g = CartGrid([5, 5])
         g.compute_geometry()
@@ -149,21 +149,21 @@ class TestPartialMPSA:
             g, stiffness, bnd, nodes=nodes_of_cell, inverter="python"
         )
 
-        assert faces_of_cell.size == active_faces.size
-        assert np.all(np.sort(faces_of_cell) == np.sort(active_faces))
+        self.assertTrue(faces_of_cell.size == active_faces.size)
+        self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
 
         diff_stress = (stress - partial_stress).todense()
         diff_bound = (bound_stress - partial_bound).todense()
 
         faces_of_cell = self.expand_indices_nd(faces_of_cell, g.dim)
-        assert np.max(np.abs(diff_stress[faces_of_cell])) == 0
-        assert np.max(np.abs(diff_bound[faces_of_cell])) == 0
+        self.assertTrue(np.max(np.abs(diff_stress[faces_of_cell])) == 0)
+        self.assertTrue(np.max(np.abs(diff_bound[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be zero
         partial_stress[faces_of_cell, :] = 0
         partial_bound[faces_of_cell, :] = 0
-        assert np.max(np.abs(partial_stress.data)) == 0
-        assert np.max(np.abs(partial_bound.data)) == 0
+        self.assertTrue(np.max(np.abs(partial_stress.data)) == 0)
+        self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
 
     def test_bound_cell_node_keyword(self):
         # Compute update for a single cell on the boundary
@@ -176,22 +176,22 @@ class TestPartialMPSA:
             g, perm, bnd, nodes=nodes_of_cell, inverter="python"
         )
 
-        assert faces_of_cell.size == active_faces.size
-        assert np.all(np.sort(faces_of_cell) == np.sort(active_faces))
+        self.assertTrue(faces_of_cell.size == active_faces.size)
+        self.assertTrue(np.all(np.sort(faces_of_cell) == np.sort(active_faces)))
 
         faces_of_cell = self.expand_indices_nd(faces_of_cell, g.dim)
         diff_stress = (stress - partial_stress).todense()
         diff_bound = (bound_stress - partial_bound).todense()
 
-        assert np.max(np.abs(diff_stress[faces_of_cell])) == 0
-        assert np.max(np.abs(diff_bound[faces_of_cell])) == 0
+        self.assertTrue(np.max(np.abs(diff_stress[faces_of_cell])) == 0)
+        self.assertTrue(np.max(np.abs(diff_bound[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be non-zero.
         # Zero out these ones, and the entire
         partial_stress[faces_of_cell, :] = 0
         partial_bound[faces_of_cell, :] = 0
-        assert np.max(np.abs(partial_stress.data)) == 0
-        assert np.max(np.abs(partial_bound.data)) == 0
+        self.assertTrue(np.max(np.abs(partial_stress.data)) == 0)
+        self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
 
     def test_one_cell_a_time_node_keyword(self):
         # Update one and one cell, and verify that the result is the same as
@@ -231,10 +231,10 @@ class TestPartialMPSA:
             stress += partial_stress
             bound_stress += partial_bound
 
-        assert (stress_full - stress).max() < 1e-8
-        assert (stress_full - stress).min() > -1e-8
-        assert (bound_stress - bound_stress_full).max() < 1e-8
-        assert (bound_stress - bound_stress_full).min() > -1e-8
+        self.assertTrue((stress_full - stress).max() < 1e-8)
+        self.assertTrue((stress_full - stress).min() > -1e-8)
+        self.assertTrue((bound_stress - bound_stress_full).max() < 1e-8)
+        self.assertTrue((bound_stress - bound_stress_full).min() > -1e-8)
 
     if __name__ == "__main__":
         unittest.main()

@@ -78,8 +78,8 @@ class BasicsTest(unittest.TestCase):
         rtol = 1e-6
         atol = rtol
 
-        assert np.allclose(A.todense(), A_known, rtol, atol)
-        assert np.allclose(rhs, rhs_known, rtol, atol)
+        self.assertTrue(np.allclose(A.todense(), A_known, rtol, atol))
+        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -145,8 +145,8 @@ class BasicsTest(unittest.TestCase):
         rtol = 1e-6
         atol = rtol
 
-        assert np.allclose(A.todense(), A_known, rtol, atol)
-        assert np.allclose(rhs, rhs_known, rtol, atol)
+        self.assertTrue(np.allclose(A.todense(), A_known, rtol, atol))
+        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -214,8 +214,8 @@ class BasicsTest(unittest.TestCase):
         rtol = 1e-6
         atol = rtol
 
-        assert np.allclose(A.todense(), A_known, rtol, atol)
-        assert np.allclose(rhs, rhs_known, rtol, atol)
+        self.assertTrue(np.allclose(A.todense(), A_known, rtol, atol))
+        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -299,9 +299,9 @@ class BasicsTest(unittest.TestCase):
         rtol = 1e-6
         atol = rtol
 
-        assert np.allclose(A.todense(), A_known, rtol, atol)
-        assert np.allclose(rhs, rhs_known, rtol, atol)
-        assert np.allclose(p, p_known, rtol, atol)
+        self.assertTrue(np.allclose(A.todense(), A_known, rtol, atol))
+        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
+        self.assertTrue(np.allclose(p, p_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -386,8 +386,8 @@ class BasicsTest(unittest.TestCase):
         rtol = 1e-6
         atol = rtol
 
-        assert np.allclose(A.todense(), A_known, rtol, atol)
-        assert np.allclose(rhs, rhs_known, rtol, atol)
+        self.assertTrue(np.allclose(A.todense(), A_known, rtol, atol))
+        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -486,9 +486,9 @@ class BasicsTest(unittest.TestCase):
         rtol = 1e-6
         atol = rtol
 
-        assert np.allclose(A.todense(), A_known, rtol, atol)
-        assert np.allclose(rhs, rhs_known, rtol, atol)
-        assert np.allclose(p, p_known, rtol, atol)
+        self.assertTrue(np.allclose(A.todense(), A_known, rtol, atol))
+        self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
+        self.assertTrue(np.allclose(p, p_known, rtol, atol))
 
 
 # ------------------------------------------------------------------------------#
