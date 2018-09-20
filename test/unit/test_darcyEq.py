@@ -24,7 +24,7 @@ class BasicsTest(unittest.TestCase):
         EllipticDataAssigner(g, elliptic_data)
         elliptic_param = elliptic_data["param"]
 
-        check_parameters(elliptic_param, param)
+        self.check_parameters(elliptic_param, param)
 
     def test_elliptic_data_given_values(self):
         """
@@ -78,22 +78,24 @@ class BasicsTest(unittest.TestCase):
         Data(g, elliptic_data)
         elliptic_param = elliptic_data["param"]
 
-        check_parameters(elliptic_param, param)
+        self.check_parameters(elliptic_param, param)
 
+    # ------------------------------------------------------------------------------#
 
-# ------------------------------------------------------------------------------#
+    def check_parameters(self, param_c, param_t):
 
+        bc_c = param_c.get_bc("flow")
+        bc_t = param_t.get_bc("flow")
+        k_c = param_c.get_tensor("flow").perm
+        k_t = param_t.get_tensor("flow").perm
 
-def check_parameters(param_c, param_t):
-
-    bc_c = param_c.get_bc("flow")
-    bc_t = param_t.get_bc("flow")
-    k_c = param_c.get_tensor("flow").perm
-    k_t = param_t.get_tensor("flow").perm
-
-    assert np.alltrue(bc_c.is_dir == bc_t.is_dir)
-    assert np.alltrue(param_c.get_bc_val("flow") == param_t.get_bc_val("flow"))
-    assert np.alltrue(param_c.get_porosity() == param_t.get_porosity())
-    assert np.alltrue(param_c.get_aperture() == param_t.get_aperture())
-    assert np.alltrue(k_c == k_t)
-    assert np.alltrue(param_c.get_source("flow") == param_t.get_source("flow"))
+        self.assertTrue(np.alltrue(bc_c.is_dir == bc_t.is_dir))
+        self.assertTrue(
+            np.alltrue(param_c.get_bc_val("flow") == param_t.get_bc_val("flow"))
+        )
+        self.assertTrue(np.alltrue(param_c.get_porosity() == param_t.get_porosity()))
+        self.assertTrue(np.alltrue(param_c.get_aperture() == param_t.get_aperture()))
+        self.assertTrue(np.alltrue(k_c == k_t))
+        self.assertTrue(
+            np.alltrue(param_c.get_source("flow") == param_t.get_source("flow"))
+        )

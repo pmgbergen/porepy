@@ -23,12 +23,12 @@ class TestFractureNetworkBoundingBox(unittest.TestCase):
         network = pp.FractureNetwork([f1])
         d = network.bounding_box()
 
-        assert d["xmin"] == 0
-        assert d["xmax"] == 1
-        assert d["ymin"] == 0
-        assert d["ymax"] == 1
-        assert d["zmin"] == 0
-        assert d["zmax"] == 1
+        self.assertTrue(d["xmin"] == 0)
+        self.assertTrue(d["xmax"] == 1)
+        self.assertTrue(d["ymin"] == 0)
+        self.assertTrue(d["ymax"] == 1)
+        self.assertTrue(d["zmin"] == 0)
+        self.assertTrue(d["zmax"] == 1)
 
     def test_sinle_fracture_aligned_with_axis(self):
         # Test of method FractureNetwork.bounding_box() to inquire about
@@ -40,12 +40,12 @@ class TestFractureNetworkBoundingBox(unittest.TestCase):
         network = pp.FractureNetwork([f1])
         d = network.bounding_box()
 
-        assert d["xmin"] == 0
-        assert d["xmax"] == 1
-        assert d["ymin"] == 0
-        assert d["ymax"] == 1
-        assert d["zmin"] == 0
-        assert d["zmax"] == 0
+        self.assertTrue(d["xmin"] == 0)
+        self.assertTrue(d["xmax"] == 1)
+        self.assertTrue(d["ymin"] == 0)
+        self.assertTrue(d["ymax"] == 1)
+        self.assertTrue(d["zmin"] == 0)
+        self.assertTrue(d["zmax"] == 0)
 
     def test_two_fractures(self):
         # Test of method FractureNetwork.bounding_box() to inquire about
@@ -62,12 +62,12 @@ class TestFractureNetworkBoundingBox(unittest.TestCase):
         network = pp.FractureNetwork([f1, f2])
         d = network.bounding_box()
 
-        assert d["xmin"] == 0
-        assert d["xmax"] == 2
-        assert d["ymin"] == 0
-        assert d["ymax"] == 1
-        assert d["zmin"] == -1
-        assert d["zmax"] == 1
+        self.assertTrue(d["xmin"] == 0)
+        self.assertTrue(d["xmax"] == 2)
+        self.assertTrue(d["ymin"] == 0)
+        self.assertTrue(d["ymax"] == 1)
+        self.assertTrue(d["zmin"] == -1)
+        self.assertTrue(d["zmax"] == 1)
 
     def test_external_boundary_added(self):
         # Test of method FractureNetwork.bounding_box() when an external
@@ -89,12 +89,12 @@ class TestFractureNetworkBoundingBox(unittest.TestCase):
         network.impose_external_boundary(external_boundary)
         d = network.bounding_box()
 
-        assert d["xmin"] == external_boundary["xmin"]
-        assert d["xmax"] == external_boundary["xmax"]
-        assert d["ymin"] == external_boundary["ymin"]
-        assert d["ymax"] == external_boundary["ymax"]
-        assert d["zmin"] == external_boundary["zmin"]
-        assert d["zmax"] == external_boundary["zmax"]
+        self.assertTrue(d["xmin"] == external_boundary["xmin"])
+        self.assertTrue(d["xmax"] == external_boundary["xmax"])
+        self.assertTrue(d["ymin"] == external_boundary["ymin"])
+        self.assertTrue(d["ymax"] == external_boundary["ymax"])
+        self.assertTrue(d["zmin"] == external_boundary["zmin"])
+        self.assertTrue(d["zmax"] == external_boundary["zmax"])
 
 
 if __name__ == "__main__":

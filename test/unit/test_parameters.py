@@ -189,5 +189,31 @@ class TestGettersAndSetters(unittest.TestCase):
 
     #####
 
+    def _validate_robin_weight(self, p, physics, val=1):
+        if physics == "flow":
+            self.assertTrue(np.allclose(p.robin_weight_flow, val))
+        elif physics == "transport":
+            self.assertTrue(np.allclose(p.robin_weight_transport, val))
+        elif physics == "mechanics":
+            self.assertTrue(np.allclose(p.robin_weight_mechanics, val))
+        else:
+            self.assertTrue(False)
+        self.assertTrue(np.allclose(p.get_robin_weight(physics), val))
+
+    def test_robin_weight_default(self, val=1):
+        p = Parameters(self.g)
+        for name in p.known_physics:
+            self._validate_robin_weight(p, name)
+
+        # Set by scalar
+
+    def test_robin_weight_set(self):
+        p = Parameters(self.g)
+        for name in p.known_physics:
+            p.set_robin_weight(name, .1)
+            self._validate_robin_weight(p, name, .1)
+
+    #####
+
     if __name__ == "__main__":
         unittest.main()

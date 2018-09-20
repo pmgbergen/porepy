@@ -33,12 +33,11 @@ def create_gb(h, h_dfn=None):
 
     file_csv = "geiger_3d.csv"
     file_geo = geo_file_name(h, False)
-    print("Create grid")
+    print("Create grid " + file_geo)
     _, _, domain = importer.network_3d_from_csv(file_csv, tol=tol())
     network = pickle.load(open("geiger_3d_network", "rb"))
     gb = importer.dfm_from_gmsh(file_geo, 3, network=network, tol=tol())
     gb.compute_geometry()
-    print(gb)
 
     """
     if h_dfn is not None:
@@ -114,18 +113,12 @@ def add_data(gb, domain, solver, case):
 
     if case == 1:
         kf = 1e4
-        kf = 1e-8
-        kf = 1
     else:
         kf = 1e-4
     data = {"domain": domain, "aperture": 1e-4, "km": 1, "kf": kf}
 
     if_solver = solver == "vem" or solver == "rt0" or solver == "p1"
-
-    # only when solving for the vem case
-    #    if solver == "vem" or solver == "rt0":
-    #        [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, FaceTag.FRACTURE) \
-    #                                                             for g, _ in gb]
+    if_p1 = solver == "p1"
 
     gb.add_node_props(["param", "is_tangential"])
     for g, d in gb:
@@ -153,22 +146,42 @@ def add_data(gb, domain, solver, case):
 
         param.set_source("flow", np.zeros(g.num_cells))
 
-        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-        if bound_faces.size == 0:
-            bc = BoundaryCondition(g, np.empty(0), np.empty(0))
-            param.set_bc("flow", bc)
+        if if_p1:  # for P1 a different handling of the boundary conditions
+            bound_nodes = g.get_boundary_nodes()
+            if bound_nodes.size == 0:
+                bc = pp.BoundaryConditionNode(g, np.empty(0), np.empty(0))
+                bc_val = np.empty(0)
+            else:
+                p_press, b_in, b_out = b_pressure_node(g)
+
+                labels = np.array(["neu"] * bound_nodes.size)
+                labels[p_press] = "dir"
+
+                bc_val = np.zeros(g.num_nodes)
+                bc_val[bound_nodes[b_in]] = 1
+                bc_val[bound_nodes[b_out]] = -1
+                param.set_bc_val("flow", bc_val)
+
+                bc = pp.BoundaryConditionNode(g, bound_nodes, labels)
         else:
-            p_press, b_in, b_out = b_pressure(g)
+            bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+            if bound_faces.size == 0:
+                bc = BoundaryCondition(g, np.empty(0), np.empty(0))
+                param.set_bc("flow", bc)
+            else:
+                p_press, b_in, b_out = b_pressure(g)
 
-            labels = np.array(["neu"] * bound_faces.size)
-            labels[p_press] = "dir"
+                labels = np.array(["neu"] * bound_faces.size)
+                labels[p_press] = "dir"
 
-            bc_val = np.zeros(g.num_faces)
-            bc_val[bound_faces[b_in]] = 1
-            bc_val[bound_faces[b_out]] = -1
+                bc_val = np.zeros(g.num_faces)
+                bc_val[bound_faces[b_in]] = 1
+                bc_val[bound_faces[b_out]] = -1
+                param.set_bc_val("flow", bc_val)
 
-            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val("flow", bc_val)
+                bc = BoundaryCondition(g, bound_faces, labels)
+
+        param.set_bc("flow", bc)
 
         d["is_tangential"] = True
         d["param"] = param
@@ -180,7 +193,6 @@ def add_data(gb, domain, solver, case):
         check_P = mg.low_to_mortar_avg()
 
         kxx = data["kf"]
-        kxx = 1e-8
         gamma = np.power(
             check_P * gb.node_props(g_l, "param").get_aperture(),
             1. / (gb.dim_max() - g_l.dim),
@@ -208,6 +220,28 @@ def b_pressure(g):
         val = 0.8 + tol()
         b_out = np.logical_and.reduce(
             tuple(b_face_centers[i, :] > val for i in range(3))
+        )
+        return np.logical_or(b_in, b_out), b_in, b_out
+
+
+# ------------------------------------------------------------------------------#
+
+
+def b_pressure_node(g):
+
+    b_nodes = g.get_boundary_nodes()
+    null = np.zeros(b_nodes.size, dtype=np.bool)
+    if b_nodes.size == 0:
+        return null, null, null
+    else:
+        b_node_coords = g.nodes[:, b_nodes]
+
+        val = 0.4 + tol()
+        b_in = np.logical_and.reduce(tuple(b_node_coords[i, :] < val for i in range(3)))
+
+        val = 0.8 - tol()
+        b_out = np.logical_and.reduce(
+            tuple(b_node_coords[i, :] > val for i in range(3))
         )
         return np.logical_or(b_in, b_out), b_in, b_out
 

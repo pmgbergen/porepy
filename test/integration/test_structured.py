@@ -20,7 +20,7 @@ class TestStructured(unittest.TestCase):
 
         num_grids = [1, 2, 1]
         for i, g in enumerate(grids):
-            assert len(g) == num_grids[i]
+            self.assertTrue(len(g) == num_grids[i])
 
         g_2d = grids[0][0]
         g_1d_1 = grids[1][0]
@@ -33,9 +33,9 @@ class TestStructured(unittest.TestCase):
         glob_1 = np.sort(g_1d_1.global_point_ind)
         glob_2 = np.sort(g_1d_2.global_point_ind)
         glob_0 = np.sort(np.atleast_1d(g_0d.global_point_ind))
-        assert np.all(f_nodes_1 == glob_1)
-        assert np.all(f_nodes_2 == glob_2)
-        assert np.all(f_nodes_0 == glob_0)
+        self.assertTrue(np.all(f_nodes_1 == glob_1))
+        self.assertTrue(np.all(f_nodes_2 == glob_2))
+        self.assertTrue(np.all(f_nodes_0 == glob_0))
 
     def test_tripple_x_intersection_3d(self):
         """ Check that no error messages are created in the process of creating a
@@ -53,9 +53,9 @@ class TestStructured(unittest.TestCase):
         num_grids = [1, 3, 6, 1]
 
         for i, g in enumerate(grids):
-            assert len(g) == num_grids[i]
+            self.assertTrue(len(g) == num_grids[i])
 
         g_3d = grids[0][0]
         for g_loc in grids[1:]:
             for g in g_loc:
-                assert np.allclose(g.nodes, g_3d.nodes[:, g.global_point_ind])
+                self.assertTrue(np.allclose(g.nodes, g_3d.nodes[:, g.global_point_ind]))

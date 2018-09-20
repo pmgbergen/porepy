@@ -312,7 +312,7 @@ class P1Coupling(AbstractCoupling):
         cells_h = cells_h[ind_faces_h]
 
         # Mortar mass matrix
-        M = sps.diags(1. / mg.cell_volumes)
+        inv_M = sps.diags(1. / mg.cell_volumes)
 
         # Projection matrix from hight/lower grid to mortar
         hat_P = mg.high_to_mortar_avg()
@@ -331,7 +331,7 @@ class P1Coupling(AbstractCoupling):
         # Compute the mortar variables rows
         cc[2, 0] = -hat_P * hat_P0
         cc[2, 1] = check_P * check_P0
-        cc[2, 2] = Eta * M
+        cc[2, 2] = Eta * inv_M
 
         # Compute the high dimensional grid coupled to mortar grid term
         cc[0, 2] = -cc[2, 0].T
