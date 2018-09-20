@@ -86,11 +86,11 @@ class BasicsTest(unittest.TestCase):
 
         for _, d in gb:
             if d["node_number"] == 0:
-                assert np.allclose(d["discharge"], d_0, rtol, atol)
+                self.assertTrue(np.allclose(d["discharge"], d_0, rtol, atol))
             if d["node_number"] == 1:
-                assert np.allclose(d["discharge"], d_1, rtol, atol)
+                self.assertTrue(np.allclose(d["discharge"], d_1, rtol, atol))
 
-        assert np.allclose(p, p_known, rtol, atol)
+        self.assertTrue(np.allclose(p, p_known, rtol, atol))
 
         # ------------------------------------------------------------------------------#
 
@@ -163,11 +163,11 @@ class BasicsTest(unittest.TestCase):
         for _, d in gb:
 
             if d["node_number"] == 0:
-                assert np.allclose(d["discharge"], d_0, rtol, atol)
+                self.assertTrue(np.allclose(d["discharge"], d_0, rtol, atol))
             if d["node_number"] == 1:
-                assert np.allclose(d["discharge"], d_1, rtol, atol)
+                self.assertTrue(np.allclose(d["discharge"], d_1, rtol, atol))
 
-        assert np.allclose(p, p_known, rtol, atol)
+        self.assertTrue(np.allclose(p, p_known, rtol, atol))
 
     def atest_tpfa_fluxes_2d_1d_cross_with_elimination(self):
         f1 = np.array([[0, 1], [.5, .5]])
@@ -273,19 +273,19 @@ class BasicsTest(unittest.TestCase):
         atol = rtol
         for g, d in gb:
             if d["node_number"] == 0:
-                assert np.allclose(d["discharge"], d_0, rtol, atol)
+                self.assertTrue(np.allclose(d["discharge"], d_0, rtol, atol))
             if d["node_number"] == 1:
-                assert np.allclose(d["discharge"], d_1, rtol, atol)
+                self.assertTrue(np.allclose(d["discharge"], d_1, rtol, atol))
             if d["node_number"] == 2:
-                assert np.allclose(d["discharge"], d_2, rtol, atol)
+                self.assertTrue(np.allclose(d["discharge"], d_2, rtol, atol))
         for g, d in gb_r:
 
             if d["node_number"] == 0:
-                assert np.allclose(d["discharge"], d_0, rtol, atol)
+                self.assertTrue(np.allclose(d["discharge"], d_0, rtol, atol))
             if d["node_number"] == 1:
-                assert np.allclose(d["discharge"], d_1, rtol, atol)
+                self.assertTrue(np.allclose(d["discharge"], d_1, rtol, atol))
             if d["node_number"] == 2:
-                assert np.allclose(d["discharge"], d_2, rtol, atol)
+                self.assertTrue(np.allclose(d["discharge"], d_2, rtol, atol))
 
         # ... edge fluxes ...
         d_01, d_10, d_02, d_20, d_13, d_23 = coupling_fluxes_2d_1d_cross_no_el()
@@ -297,17 +297,19 @@ class BasicsTest(unittest.TestCase):
             if pa is not None:
 
                 if node_numbers == (0, 1):
-                    assert np.allclose(
-                        data["discharge"], d_01, rtol, atol
-                    ) or np.allclose(data["discharge"], d_10, rtol, atol)
+                    self.assertTrue(
+                        np.allclose(data["discharge"], d_01, rtol, atol)
+                        or np.allclose(data["discharge"], d_10, rtol, atol)
+                    )
                 if node_numbers == (0, 2):
-                    assert np.allclose(
-                        data["discharge"], d_02, rtol, atol
-                    ) or np.allclose(data["discharge"], d_20, rtol, atol)
+                    self.assertTrue(
+                        np.allclose(data["discharge"], d_02, rtol, atol)
+                        or np.allclose(data["discharge"], d_20, rtol, atol)
+                    )
                 if node_numbers == (1, 3):
-                    assert np.allclose(data["discharge"], d_13, rtol, atol)
+                    self.assertTrue(np.allclose(data["discharge"], d_13, rtol, atol))
                 if node_numbers == (2, 3):
-                    assert np.allclose(data["discharge"], d_23, rtol, atol)
+                    self.assertTrue(np.allclose(data["discharge"], d_23, rtol, atol))
 
         d_11, d_21, d_22 = coupling_fluxes_2d_1d_cross_with_el()
         for e, data in gb_r.edges():
@@ -317,23 +319,25 @@ class BasicsTest(unittest.TestCase):
             if pa is not None:
 
                 if node_numbers == (0, 1):
-                    assert np.allclose(
-                        data["discharge"], d_01, rtol, atol
-                    ) or np.allclose(data["discharge"], d_10, rtol, atol)
+                    self.assertTrue(
+                        np.allclose(data["discharge"], d_01, rtol, atol)
+                        or np.allclose(data["discharge"], d_10, rtol, atol)
+                    )
                 if node_numbers == (0, 2):
-                    assert np.allclose(
-                        data["discharge"], d_02, rtol, atol
-                    ) or np.allclose(data["discharge"], d_20, rtol, atol)
+                    self.assertTrue(
+                        np.allclose(data["discharge"], d_02, rtol, atol)
+                        or np.allclose(data["discharge"], d_20, rtol, atol)
+                    )
                 if node_numbers == (1, 1):
-                    assert np.allclose(data["discharge"], d_11, rtol, atol)
+                    self.assertTrue(np.allclose(data["discharge"], d_11, rtol, atol))
                 if node_numbers == (2, 1):
-                    assert np.allclose(data["discharge"], d_21, rtol, atol)
+                    self.assertTrue(np.allclose(data["discharge"], d_21, rtol, atol))
                 if node_numbers == (2, 2):
-                    assert np.allclose(data["discharge"], d_22, rtol, atol)
+                    self.assertTrue(np.allclose(data["discharge"], d_22, rtol, atol))
         # ... and pressures
         tol = 1e-10
-        assert (np.amax(np.absolute(p - p_cond))) < tol
-        assert (
+        self.assertTrue((np.amax(np.absolute(p - p_cond))) < tol)
+        self.assertTrue(
             np.sum(pp.error.error_L2(g, d["pressure"], d["p_cond"]) for g, d in gb)
             < tol
         )
@@ -449,8 +453,8 @@ class BasicsTest(unittest.TestCase):
 #         for _, d in gb:
 #             n = d['node_number']
 #             if discharges_known[n] is not None:
-#                 assert np.allclose(d['discharge'], discharges_known[n], rtol, atol)
-#         assert np.allclose(p, p_known, rtol, atol)
+#                 self.assertTrue(np.allclose(d['discharge'], discharges_known[n], rtol, atol))
+#         self.assertTrue(np.allclose(p, p_known, rtol, atol))
 
 # #------------------------------------------------------------------------------#
 

@@ -53,11 +53,13 @@ def check_pressures(gb):
     on the grid quality. Also sensitive to the way in which
     the tpfa half transmissibilities are computed.
     """
+    is_true = True
     for g, d in gb:
         pressure = d["pressure"]
         pressure_analytic = g.cell_centers[1]
         p_diff = pressure - pressure_analytic
-        assert np.max(np.abs(p_diff)) < 2e-2
+        is_true *= np.max(np.abs(p_diff)) < 2e-2
+    return is_true
 
 
 class BasicsTest(unittest.TestCase):
@@ -72,7 +74,7 @@ class BasicsTest(unittest.TestCase):
 
         flux_discr.solver.split(gb, "pressure", p)
 
-        check_pressures(gb)
+        self.assertTrue(check_pressures(gb))
 
     def test_uniform_flow_cart_2d_1d_simplex(self):
         # Unstructured simplex grid
@@ -85,4 +87,4 @@ class BasicsTest(unittest.TestCase):
 
         flux_discr.solver.split(gb, "pressure", p)
 
-        check_pressures(gb)
+        self.assertTrue(check_pressures(gb))
