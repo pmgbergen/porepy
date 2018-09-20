@@ -244,7 +244,7 @@ def main(pb_data):
 
 if __name__ == "__main__":
 
-    gammas = np.array([ 7.5])
+    gammas = np.array([0.5, 5, 7.5])
     for gamma in gammas:
         data = {"kf_n": 1e4,
                 "kf_t": 1e4,
