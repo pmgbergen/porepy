@@ -569,6 +569,99 @@ class Parameters(object):
 
     stiffness = property(get_stiffness)
 
+    def get_robin_weight(self, obj):
+        """ Pick out physics-specific weight for the Robin bc-condition.
+
+        Discretization methods considering Robin conditions should access this method.
+
+        Parameters:
+
+        obj : Solver
+            Discretization object. Should have attribute 'physics'.
+
+        Returns:
+
+        tensor, representing
+            Permeability if obj.physics equals 'flow'
+            conductivity if obj.physics equals 'transport'
+            stiffness if physics equals 'mechanics'
+
+        """
+        physics = self._get_physics(obj)
+
+        if physics == "flow":
+            return self.get_robin_weight_flow()
+        elif physics == "transport":
+            return self.get_robin_weight_transport()
+        elif physics == "mechanics":
+            return self.get_robin_weight_mechanics()
+        else:
+            raise ValueError(
+                'Unknown physics "%s".\n Possible physics are: %s'
+                % (physics, self.known_physics)
+            )
+
+    def get_robin_weight_flow(self):
+        """ BoundaryCondition object
+        float giving the Robin factor
+        Solvers should rather access get_tensor().
+        """
+        if hasattr(self, "_robin_weight_flow"):
+            return self._robin_weight_flow
+        else:
+            return 1.
+
+    robin_weight_flow = property(get_robin_weight_flow)
+
+    def get_robin_weight_transport(self):
+        """ BoundaryCondition object
+        float giving the Robin factor
+        Solvers should rather access get_tensor().
+        """
+        if hasattr(self, "_robin_weight_transport"):
+            return self._robin_weight_transport
+        else:
+            return 1.
+
+    robin_weight_transport = property(get_robin_weight_transport)
+
+    def get_robin_weight_mechanics(self):
+        """ BoundaryCondition object
+        float giving the Robin factor
+        Solvers should rather access get_tensor().
+        """
+        if hasattr(self, "_robin_weight_mechanics"):
+            return self._robin_weight_mechanics
+        else:
+            return 1.
+
+    robin_weight_mechanics = property(get_robin_weight_mechanics)
+
+    def set_robin_weight(self, obj, val):
+        """ Set physics-specific Robin Weight
+
+        Parameters:
+
+        obj: Solver or str
+            Identification of physical regime. Either discretization object
+            with attribute 'physics' or a str.
+
+        val : float, representing the weigth in the Robin boundary condition
+        """
+        physics = self._get_physics(obj)
+
+        if physics == "flow":
+            self._robin_weight_flow = val
+        elif physics == "transport":
+            self._robin_weight_transport = val
+        elif physics == "mechanics":
+            self._robin_weight_mechanics = val
+        else:
+            raise ValueError(
+                'Unknown physics "%s".\n Possible physics are: %s'
+                % (physics, self.known_physics)
+            )
+
     # --------------------- Boundary conditions and values ------------------------
 
     # Boundary condition

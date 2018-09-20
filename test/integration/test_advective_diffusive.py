@@ -35,7 +35,7 @@ class BasicsTest(unittest.TestCase):
         problem = SourceProblem(gb, physics="transport")
         problem.solve()
         dE = change_in_energy(problem)
-        assert np.abs(dE - 10) < 1e-6
+        self.assertTrue(np.abs(dE - 10) < 1e-6)
 
     def test_src_3d(self):
         """
@@ -58,7 +58,7 @@ class BasicsTest(unittest.TestCase):
         problem.solve()
         dE = change_in_energy(problem)
 
-        assert np.abs(dE - 10) < 1e-6
+        self.assertTrue(np.abs(dE - 10) < 1e-6)
 
     def test_src_advective(self):
         delete_node_data(self.gb3d)
@@ -76,7 +76,7 @@ class BasicsTest(unittest.TestCase):
         problem = SourceAdvectiveProblem(self.gb3d)
         problem.solve()
         dE = change_in_energy(problem)
-        assert np.abs(dE - 10) < 1e-6
+        self.assertTrue(np.abs(dE - 10) < 1e-6)
 
     def test_src_advective_diffusive(self):
         delete_node_data(self.gb3d)
@@ -93,7 +93,7 @@ class BasicsTest(unittest.TestCase):
         problem = SourceAdvectiveDiffusiveProblem(self.gb3d)
         problem.solve()
         dE = change_in_energy(problem)
-        assert np.abs(dE - 10) < 1e-6
+        self.assertTrue(np.abs(dE - 10) < 1e-6)
 
     def test_constant_temp(self):
         delete_node_data(self.gb3d)
@@ -112,7 +112,7 @@ class BasicsTest(unittest.TestCase):
         for _, d in self.gb3d:
             T_list = d["transport"]
             const_temp = [np.allclose(T, 10) for T in T_list]
-            assert np.all(const_temp)
+            self.assertTrue(np.all(const_temp))
 
 
 class SourceProblem(pp.ParabolicModel):
