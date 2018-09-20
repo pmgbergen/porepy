@@ -123,10 +123,11 @@ class Data(object):
         for g, d in self.gb:
             if g.dim == 1:
                 # define the non-linear relation with u
-                u = np.linalg.norm(d["P0u"], axis=0)
+                u = self.data["beta"]*np.linalg.norm(d["P0u"], axis=0)
+                p = np.exp(self.data["gamma"]*d["pressure"])
 
                 # to trick the code we need to do the following
-                coeff = 1./self.eff_kf_t() + self.data["beta"]*u
+                coeff = p/self.eff_kf_t() + u
                 kf = 1./coeff/self.data["aperture"]
 
                 perm = pp.SecondOrderTensor(1, kxx=kf, kyy=1, kzz=1)
