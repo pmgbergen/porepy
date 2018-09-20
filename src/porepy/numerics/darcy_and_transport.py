@@ -49,8 +49,7 @@ class DarcyAndTransport:
                 self.flow.full_grid, self.flow.grid(), self.flow.el_data
             )
         self.flow.discharge()
-        s = self.transport.solve(save_as=save_as, save_every=save_every)
-        return p, s[self.transport.physics]
+        self.transport.solve(transport_save_as, save_every)
 
     def save(self, save_every=1):
         """

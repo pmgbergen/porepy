@@ -73,6 +73,7 @@ class SandStone(UnitRock):
         http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/
 
     """
+
     def __init__(self, theta_ref=None):
 
         # Fairly permeable rock.
@@ -99,6 +100,21 @@ class SandStone(UnitRock):
         c_ref = 823.82
         eta = 8.9*1e-2
         theta_ref = 10 * pp.CELSIUS
+        return c_ref + eta*(theta-theta_ref)
+
+        if theta_ref is None:
+            self.theta_ref = 20*units.CELSIUS
+        else:
+            self.theta_ref = theta_ref
+
+        self.DENSITY = 2650 * units.KILOGRAM/units.METER**3
+
+    def specific_heat_capacity(self, theta=None):# theta in CELSIUS
+        if theta is None:
+            theta = self.theta_ref
+        c_ref = 823.82
+        eta = 8.9*1e-2
+        theta_ref = 10 * units.CELSIUS
         return c_ref + eta*(theta-theta_ref)
 
 

@@ -41,7 +41,7 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
         else:
             raise NotImplementedError("Have not thought of more than six colors")
 
-    plt.figure(**kwargs)
+    fig = plt.figure(kwargs.get("fig_id", 1))
     plt.axis([d["xmin"], d["xmax"], d["ymin"], d["ymax"]])
     plt.plot(
         [d["xmin"], d["xmax"], d["xmax"], d["xmin"], d["xmin"]],
