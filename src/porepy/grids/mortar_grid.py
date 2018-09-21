@@ -253,6 +253,9 @@ class MortarGrid(object):
     def mortar_to_master_int(self):
         return self.master_to_mortar_avg().T
 
+    def mortar_to_slave_int(self):
+        return self.slave_to_mortar_avg().T
+
     # ------------------------------------------------------------------------------#
 
     def master_to_mortar_avg(self):
