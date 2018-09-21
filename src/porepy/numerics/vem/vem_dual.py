@@ -333,27 +333,93 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         return rhs
 
-    # ------------------------------------------------------------------------------#
+    ## Methods used for discretization of mixed-dimensional couplings
 
-    def assemble_int_bound_pressure_trace(g_master, data_master, data_edge, grid_swap, matrix, self_ind=0):
-        pass
-
-    def assemble_int_bound_flux(g_master, data_master, data_edge, grid_swap, matrix, self_ind=0):
-        # Projection operators to grid
+    def _mortar_projection(self, data_edge, grid_swap, return_integration=False):
         mg = data_edge['mortar_grid']
 
         if grid_swap:
-            proj = mg.slave_to_mortar_avg()
+            if return_integration:
+                return mg.slave_to_mortar_avg(), mg.mortar_to_slave_int()
+            else:
+                return mg.slave_to_mortar_avg()
         else:
-            proj = mg.master_to_mortar_avg()
+            if return_integration:
+                return mg.master_to_mortar_avg(), mg.mortar_to_master_int()
+            else:
+                return mg.master_to_mortar_avg()
+
+    def _velocity_dof(self, g, g_m):
+        # Recover the information for the grid-grid mapping
+        faces_h, cells_h, sign_h = sps.find(g.cell_faces)
+        ind_faces_h = np.unique(faces_h, return_index=True)[1]
+        cells_h = cells_h[ind_faces_h]
+        sign_h = sign_h[ind_faces_h]
+
+        # Velocity degree of freedom matrix
+        U = sps.diags(sign_h)
+
+        shape = (g.num_cells, g_m.num_cells)
+        hat_E_int = g_m.mortar_to_high_int()
+        hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
+        return hat_E_int
 
 
+    def assemble_int_bound_pressure_trace(self, g_master, data_master, data_edge, grid_swap, matrix, cc, self_ind=0):
+        """
+        """
+        mg = data_edge['mortar_grid']
+        hat_E_int =self._velocity_dof(g_master, mg)
 
-    def assemble_int_bound_pressure_cell(g_slave, data_slave, data_edge, grid_swap, matrix, self_ind=1):
-        pass
+        cc[2, self_ind] = hat_E_int.T * matrix[0, 0]
+        cc[2, 2] += hat_E_int.T * matrix[0, 0] * hat_E_int
 
-    def assemble_int_bound_source(g_slave, data_slave, data_edge, grid_swap, matrix, self_ind=1):
-        pass
+
+    def assemble_int_bound_flux(self, g_master, data_master, data_edge, grid_swap, matrix, cc, self_ind=0):
+        # The matrix must be the VEM discretization matrix.
+        mg = data_edge['mortar_grid']
+        hat_E_int = self._velocity_dof(g_master, mg)
+
+        cc[self_ind, 2] += matrix[0, 0] * hat_E_int
+
+    def assemble_int_bound_pressure_cell(self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1):
+        proj = self._mortar_projection(data_edge, grid_swap)
+
+        A = proj.T
+        shape = (g_slave.num_faces, A.shape[1])
+
+        cc[2, self_ind] += sps.bmat([[sps.csr_matrix(shape)], [A]]).T
+
+
+    def assemble_int_bound_source(self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1):
+
+        proj = self._mortar_projection(data_edge, grid_swap)
+
+        A = proj.T
+        shape = (g_slave.num_faces, A.shape[1])
+        matrix[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
+
+    def enforce_neumann_int_bound(self, g_master, data_edge, matrix):
+        mg = data_edge['mortar_grid']
+
+        hat_E_int = self._velocity_dof(g_master, mg)
+
+        dof = np.where(hat_E_int.sum(axis=1).A.astype(np.bool))[0]
+        norm = np.linalg.norm(matrix[0, 0].diagonal(), np.inf)
+
+        for row in dof:
+            idx = slice(matrix[0, 0].indptr[row], matrix[0, 0].indptr[row + 1])
+            matrix[0, 0].data[idx] = 0.
+
+            idx = slice(matrix[0, 2].indptr[row], matrix[0, 2].indptr[row + 1])
+            matrix[0, 2].data[idx] = 0.
+
+        d = matrix[0, 0].diagonal()
+        d[dof] = norm
+        matrix[0, 0].setdiag(d)
+
+
+    ## Methods used for variable manipulation
 
     def extract_u(self, g, up):
         """  Extract the velocity from a dual virtual element solution.
