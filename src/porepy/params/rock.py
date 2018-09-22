@@ -169,25 +169,25 @@ class Granite(UnitRock):
         self.PERMEABILITY = 1e-8 * pp.DARCY
         self.POROSITY = 0.01
         # Reported range for Young's modulus by jsg is 10-70GPa
-        self.YOUNG_MODULUS = 4 * pp.GIGA * pp.PASCAL
+        self.YOUNG_MODULUS = 4. * pp.GIGA * pp.PASCAL
         # Reported range for Poisson's ratio is 0.125-0.25
         self.POISSON_RATIO = 0.2
 
         # Reported density
-        self.DENSITY = 2700 * pp.KILOGRAM / pp.METER ** 3
+        self.DENSITY = 2700. * pp.KILOGRAM / pp.METER ** 3
         self.LAMBDA, self.MU = lame_from_young_poisson(
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
 
         if theta_ref is None:
-            self.theta_ref = 20*pp.CELSIUS
+            self.theta_ref = 20.*pp.CELSIUS
         else:
             self.theta_ref = theta_ref
 
     def specific_heat_capacity(self, theta=None):# theta in CELSIUS
         if theta is None:
             theta = self.theta_ref
-        c_ref = 790
+        c_ref = 790.
         eta = 0
         theta_ref = 0
         return c_ref + eta*(theta-theta_ref)
