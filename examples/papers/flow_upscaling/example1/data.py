@@ -4,22 +4,6 @@ import porepy as pp
 # ------------------------------------------------------------------------------#
 
 
-def import_grid(file_geo, mesh_args, tol):
-
-    p, e = pp.importer.lines_from_csv(file_geo, mesh_args, polyline=True, skip_header=0)
-    p, _ = pp.frac_utils.snap_fracture_set_2d(p, e, snap_tol=tol["snap"])
-
-    domain = {'xmin': p[0].min(), 'xmax': p[0].max(),
-              'ymin': p[1].min(), 'ymax': p[1].max()}
-
-    frac_dict = {'points': p, 'edges': e}
-    gb = pp.meshing.simplex_grid(frac_dict, domain, tol=tol["geo"], **mesh_args)
-
-    return gb, domain
-
-# ------------------------------------------------------------------------------#
-
-
 def add_data(gb, data):
     tol = data["tol"]
 
@@ -51,8 +35,8 @@ def add_data(gb, data):
 
         # Assign apertures
         aperture = np.power(data['aperture'], 2-g.dim)
-        param.set_aperture(aperture*unity)
         d['aperture'] = aperture*unity
+        param.set_aperture(d['aperture'])
 
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -69,18 +53,13 @@ def add_data(gb, data):
             param.set_bc("flow", pp.BoundaryCondition(g, b_faces, labels))
 
             bc_val = np.zeros(g.num_faces)
-            bc_val[b_faces[b_left]] = 0 * pp.METER
-            bc_val[b_faces[b_right]] = 1 * pp.METER
+            bc_val[b_faces[b_left]] = 0 * pp.BAR
+            bc_val[b_faces[b_right]] = 1 * pp.BAR
             param.set_bc_val("flow", bc_val)
         else:
             param.set_bc("flow", pp.BoundaryCondition(g, empty, empty))
 
         d["param"] = param
-
-        if g.dim == 2:
-            d['porosity'] = data['porosity'] * unity
-        else:
-            d['porosity'] = data['porosity_f'] * unity
 
     # Assign coupling permeability, the aperture is read from the lower dimensional grid
     gb.add_edge_props("kn")
@@ -97,12 +76,10 @@ def add_data(gb, data):
 
 
 class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
-    def __init__(self, g, data, physics="transport", **kwargs):
-        self.tol = kwargs["tol"]
-        self.domain = kwargs["domain"]
-
-        self.porosity_m = kwargs["porosity"]
-        self.porosity_f = kwargs["porosity_f"]
+    def __init__(self, g, data_grid, data_problem):
+        self.data_problem = data_problem
+        self.tol = data_problem["tol"]
+        self.domain = data_problem["domain"]
 
         # define two pieces of the boundary, useful to impose boundary conditions
         self.inflow = np.empty(0)
@@ -114,18 +91,31 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
             self.inflow = b_face_centers[0, :] > self.domain["xmax"] - self.tol
             self.outflow = b_face_centers[0, :] < self.domain["xmin"] + self.tol
 
-        pp.ParabolicDataAssigner.__init__(self, g, data, physics)
+        pp.ParabolicDataAssigner.__init__(self, g, data_grid, "transport")
 
     def porosity(self):
+        unity = np.ones(self.grid().num_cells)
         if self.grid().dim == 2:
-            porosity = self.porosity_m * np.ones(self.grid().num_cells)
+            return self.data_problem["rock"].POROSITY * unity
         else:
-            porosity = self.porosity_f * np.ones(self.grid().num_cells)
-        return porosity
+            return self.data_problem["porosity_f"] * unity
+
+    def diffusivity(self):
+        unity = np.ones(self.grid().num_cells)
+        kxx = self.data_problem["rock"].thermal_conductivity() * unity
+        return pp.SecondOrderTensor(self.grid().dim, kxx)
 
     def rock_specific_heat(self):
-        #hack to remove the rock part
-        return 0
+        return self.data_problem["rock"].specific_heat_capacity()
+
+    def fluid_specific_heat(self):
+        return self.data_problem["fluid"].specific_heat_capacity()
+
+    def rock_density(self):
+        return self.data_problem["rock"].DENSITY
+
+    def fluid_density(self):
+        return self.data_problem["fluid"].density()
 
     def bc(self):
         b_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
@@ -142,4 +132,9 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         if b_faces.size > 0:
             bc_val[b_faces[self.inflow]] = 0.01
         return bc_val
+
+    def aperture(self):
+        aperture = np.power(self.data_problem['aperture'], 2-self.grid().dim)
+        unity = np.ones(self.grid().num_cells)
+        return aperture*unity
 
