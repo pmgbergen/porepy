@@ -277,7 +277,7 @@ def _run_gmsh(file_name, network, **kwargs):
     return pts, cells, cell_info, phys_names
 
 
-def triangle_grid(fracs, domain, **kwargs):
+def triangle_grid(fracs, domain, do_snap_to_grid=False, **kwargs):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -293,6 +293,12 @@ def triangle_grid(fracs, domain, **kwargs):
         edges (2 x num_lines) connections between points, defines fractures.
     box: (dictionary) keys xmin, xmax, ymin, ymax, [together bounding box
         for the domain]
+    do_snap_to_grid (boolean, optional): If true, points are snapped to an
+        underlying Cartesian grid with resolution tol before geometry
+        computations are carried out. This used to be the standard, but
+        indications are it is better not to do this. This keyword construct is
+        a stop-gap measure to invoke the old functionality if desired. This
+        option will most likely dissapear in the future.
     **kwargs: To be explored.
 
     Returns
@@ -332,7 +338,8 @@ def triangle_grid(fracs, domain, **kwargs):
     pts_all, lines, domain_pts = __merge_domain_fracs_2d(domain, frac_pts, frac_con)
 
     # Snap to underlying grid before comparing points
-#    pts_all = cg.snap_to_grid(pts_all, tol)
+    if do_snap_to_grid:
+        pts_all = cg.snap_to_grid(pts_all, tol)
 
     assert np.all(np.diff(lines[:2], axis=0) != 0)
 
@@ -356,11 +363,14 @@ def triangle_grid(fracs, domain, **kwargs):
     # intersect, except possible at the end points
     logger.info("Remove edge crossings")
     tm = time.time()
-    pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol, snap=False)
+    pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol,
+                                                      snap=do_snap_to_grid)
     logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points
-#    pts_split = cg.snap_to_grid(pts_split, tol)
+    if do_snap_to_grid
+        pts_split = cg.snap_to_grid(pts_split, tol)
+
     pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=tol)
     lines_split[:2] = old_2_new[lines_split[:2]]
     to_remove = np.where(lines[0, :] == lines[1, :])[0]
