@@ -137,3 +137,126 @@ def angle(pts, edges, frac):
     mean_a[mean_a > np.pi] -= np.pi
 
     return mean_a
+
+
+def count_center_point_densities(p, e, domain, nx=10, ny=10):
+    """ Divide the domain into boxes, count the number of fracture centers
+    contained within each box.
+
+    Parameters:
+        p (np.array, 2 x n): Point coordinates of the fractures
+        e (np.array, 2 x n): Connections between the coordinates
+        domain (dictionary): Description of the simulation domain. Should
+            contain fields xmin, xmax, ymin, ymax.
+        nx, ny (int, optional): Number of boxes in x and y direction. Defaults
+            to 10.
+
+    Returns:
+        np.array (nx x ny): Number of centers within each box
+
+    """
+
+    pc = _compute_center(p, e)
+
+    x0, y0, dx, dy = _decompose_domain(domain, nx, ny)
+
+
+    num_occ = np.zeros((nx, ny))
+
+    # Can probably do this more vectorized, but for now, a for loop will suffice
+    for i in range(nx):
+        for j in range(ny):
+            hit = np.logical_and.reduce([pc[0] > (x0 + i * dx), pc[0] < (x0 + (i + 1) * dx),
+                                         pc[1] > (y0 + j * dy), pc[1] < (y0 + (j + 1) * dy)])
+            num_occ[i, j] = hit.sum()
+
+    return num_occ
+
+def define_centers_by_boxes(domain, intensity, distribution='poisson'):
+    """ Define center points of fractures, intended used in a marked point
+    process.
+
+    The domain is assumed decomposed into a set of boxes, and fracture points
+    will be allocated within each box, according to the specified distribution
+    and intensity.
+
+    A tacit assumption is that the domain and intensity map corresponds to
+    values used in and computed by count_center_point_densities. If this is
+    not the case, scaling errors of the densities will arise. This should not
+    be difficult to generalize, but there is no time right now.
+
+    The implementation closely follows y Xu and Dowd:
+        A new computer code for discrete fracture network modelling
+        Computers and Geosciences, 2010
+
+    Parameters:
+        domain (dictionary): Description of the simulation domain. Should
+            contain fields xmin, xmax, ymin, ymax.
+        intensity (np.array, nx x ny): Intensity map, mean values for fracture
+            density in each of the boxes the domain will be split into.
+        distribution (str, default): Specify which distribution is followed.
+            For now a placeholder value, only 'poisson' is allowed.
+
+    Returns:
+         np.array (2 x n): Coordinates of the fracture centers.
+
+    Raises:
+        ValueError if distribution does not equal poisson.
+
+    """
+
+
+    if distribution != 'poisson':
+        return ValueError('Only Poisson point processes have been implemented')
+
+    nx, ny = intensity.shape
+    num_boxes = intensity.size
+
+    max_intensity = intensity.max()
+
+    x0, y0, dx, dy = _decompose_domain(domain, nx, ny)
+
+    # It is assumed that the intensities are computed relative to boxes of the
+    # same size that are assigned in here
+    area_of_box=1
+
+    pts = np.empty(num_boxes, dtype=np.object)
+
+    # First generate the full set of points with maximum intensity
+    counter = 0
+    for i in range(nx):
+        for j in range(ny):
+            num_p_loc = stats.poisson(max_intensity * area_of_box).rvs(1)[0]
+            p_loc = np.random.rand(2, num_p_loc)
+            p_loc[0] = x0 + i * dx + p_loc[0] * dx
+            p_loc[1] = y0 + i * dy + p_loc[1] * dy
+            pts[counter] = p_loc
+            counter += 1
+
+    # Next, carry out a thinning process, which is really only necessary if the intensity is non-uniform
+    # See Xu and Dowd Computers and Geosciences 2010, section 3.2 for a description
+    counter = 0
+    for i in range(nx):
+        for j in range(ny):
+            p_loc = pts[counter]
+            threshold = np.random.rand(p_loc.shape[1])
+            delete = np.where(intensity[i, j] / max_intensity < threshold)[0]
+            pts[counter] = np.delete(p_loc, delete, axis=1)
+            counter += 1
+
+    return np.array([pts[i][:, j] for i in range(pts.size) for j in range(pts[i].shape[1])]).T
+
+
+def _compute_center(p, edges):
+    # first compute the fracture centres and then generate them
+    avg = lambda e0, e1: 0.5*(p[:, e0] + p[:, e1])
+    pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
+    return pts_c
+
+def _decompose_domain(domain, nx, ny):
+    x0 = domain['xmin']
+    y0 = domain['ymin']
+    dx = (domain['xmax'] - domain['xmin']) / nx
+    dy = (domain['ymax'] - domain['ymin']) / ny
+    return x0, y0, dx, dy
+
