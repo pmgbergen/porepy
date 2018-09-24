@@ -233,7 +233,7 @@ class ParabolicModel:
             coupling = self._has_advective_diffusive()
             return pp.IntegralMixedDim(physics=self.physics, coupling=coupling)
         else:
-            return pp.Integral(physics=self.physics)
+            return source.Integral(physics=self.physics)
 
     def space_disc(self):
         """Space discretization. Returns the discretization terms that should be
@@ -304,6 +304,23 @@ class ParabolicModel:
         "Returns the end time"
         return self._end_time
 
+    def save(self, variables=None, save_every=1):
+        if variables is None:
+            self.exporter.write_vtk()
+        else:
+            if not self.is_GridBucket:
+                variables = {k: self._data[k] for k in variables \
+                                                             if k in self._data}
+
+            time = self._solver.data['times'][::save_every].copy()
+
+            for time_step, current_time in enumerate(time):
+                for v in variables:
+                    v_data = self._solver.data[self.physics][time_step]
+                    self._time_disc.split(self.grid(), v, v_data)
+                self.exporter.write_vtk(variables, time_step=time_step)
+            self.exporter.write_pvd(time)
+
     def _has_advective_diffusive(self):
         if self.advective_term and self.diffusive_term:
             coupling = [None, None]
@@ -312,7 +329,6 @@ class ParabolicModel:
         else:
             coupling = []
         return coupling
-
 
 class ParabolicDataAssigner:
     """
