@@ -38,7 +38,6 @@ def lame_from_young_poisson(e, nu):
 
     return lmbda, mu
 
-
 class UnitRock(object):
     """ Mother of all rocks, all values are unity.
 
@@ -51,14 +50,21 @@ class UnitRock(object):
         POISSON_RATIO:
 
     """
+    def __init__(self, theta_ref=None):
+        self.PERMEABILITY = 1
+        self.POROSITY = 1
+        self.MU = 1
+        self.LAMBDA = 1
+        self.YOUNG_MODULUS = 1
+        self.POSSION_RATIO = 1
 
-    PERMEABILITY = 1
-    POROSITY = 1
-    MU = 1
-    LAMBDA = 1
-    YOUNG_MODULUS = 1
-    POSSION_RATIO = 1
+        if theta_ref is None:
+            self.theta_ref = 1
+        else:
+            self.theta_ref = theta_ref
 
+    def specific_heat_capacity(self, _):
+        return 1.
 
 class SandStone(UnitRock):
     """ Generic values for Sandstone.
@@ -68,7 +74,7 @@ class SandStone(UnitRock):
 
     """
 
-    def __init__(self):
+    def __init__(self, theta_ref=None):
 
         # Fairly permeable rock.
         self.PERMEABILITY = 1 * pp.DARCY
@@ -81,6 +87,20 @@ class SandStone(UnitRock):
         self.LAMBDA, self.MU = lame_from_young_poisson(
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
+        if theta_ref is None:
+            self.theta_ref = 20*pp.CELSIUS
+        else:
+            self.theta_ref = theta_ref
+
+        self.DENSITY = 2650 * pp.KILOGRAM/pp.METER**3
+
+    def specific_heat_capacity(self, theta=None):# theta in CELSIUS
+        if theta is None:
+            theta = self.theta_ref
+        c_ref = 823.82
+        eta = 8.9*1e-2
+        theta_ref = 10 * pp.CELSIUS
+        return c_ref + eta*(theta-theta_ref)
 
 
 class Shale(UnitRock):
@@ -92,7 +112,7 @@ class Shale(UnitRock):
 
     """
 
-    def __init__(self):
+    def __init__(self, theta_ref=None):
         # No source for permeability and porosity.
         self.PERMEABILITY = 1e-5 * pp.DARCY
         self.POROSITY = 0.01
@@ -105,6 +125,21 @@ class Shale(UnitRock):
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
 
+        if theta_ref is None:
+            self.theta_ref = 20*pp.CELSIUS
+        else:
+            self.theta_ref = theta_ref
+
+        self.DENSITY = 2650 * pp.KILOGRAM/pp.METER**3
+
+    def specific_heat_capacity(self, theta=None):# theta in CELSIUS
+        if theta is None:
+            theta = self.theta_ref
+        c_ref = 794.37
+        eta = 10.26*1e-2
+        theta_ref = 10 * pp.CELSIUS
+        return c_ref + eta*(theta-theta_ref)
+
 
 class Granite(UnitRock):
     """ Generic values for granite.
@@ -114,19 +149,33 @@ class Granite(UnitRock):
     https://www.jsg.utexas.edu/tyzhu/files/Some-Useful-Numbers.pdf
     """
 
-    def __init__(self):
-        UnitRock.__init__(self)
-
+    def __init__(self, theta_ref=None):
+        # No source for permeability and porosity
         self.PERMEABILITY = 1e-8 * pp.DARCY
-        # jsg range: 0.005 - .015
         self.POROSITY = 0.01
         # Reported range for Young's modulus by jsg is 10-70GPa
-        self.YOUNG_MODULUS = 4 * pp.GIGA * pp.PASCAL
+        self.YOUNG_MODULUS = 4. * pp.GIGA * pp.PASCAL
         # Reported range for Poisson's ratio is 0.125-0.25
         self.POISSON_RATIO = 0.2
 
         # Reported density
-        self.DENSITY = 2700 * pp.KILOGRAM / pp.METER ** 3
+        self.DENSITY = 2700. * pp.KILOGRAM / pp.METER ** 3
         self.LAMBDA, self.MU = lame_from_young_poisson(
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
+
+        if theta_ref is None:
+            self.theta_ref = 20.*pp.CELSIUS
+        else:
+            self.theta_ref = theta_ref
+
+    def specific_heat_capacity(self, theta=None):# theta in CELSIUS
+        if theta is None:
+            theta = self.theta_ref
+        c_ref = 790.
+        eta = 0
+        theta_ref = 0
+        return c_ref + eta*(theta-theta_ref)
+
+    def thermal_conductivity(self, theta=None):
+        return 3.07

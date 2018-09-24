@@ -26,19 +26,30 @@ class DarcyAndTransport:
         if not hasattr(self.flow, "el"):
             self.flow.el = False
 
-    def solve(self, save_as=None, save_every=1):
+    def solve(self, transport_save_as=None, flow_save_as=None, save_every=1):
         """
         Solve both problems.
+
+        Arguments:
+        save_as (string), defaults to None. If a string is given, the solution
+                          variable is saved to a vtk-file as save_as
+        save_every (int), defines which time steps to save. save_every=2 will
+                          store every second time step.
         """
-        p = self.flow.step()
-        self.flow.pressure()
+        self.flow.step()
+        if flow_save_as is not None:
+            self.flow.pressure(flow_save_as)
+            self.flow.split(flow_save_as)
+            self.flow.save(variables=[flow_save_as])
+        else:
+            self.flow.pressure()
+
         if self.flow.el:
             SC.compute_elimination_fluxes(
                 self.flow.full_grid, self.flow.grid(), self.flow.el_data
             )
         self.flow.discharge()
-        s = self.transport.solve(save_as=save_as, save_every=save_every)
-        return p, s[self.transport.physics]
+        self.transport.solve(transport_save_as, save_every)
 
     def save(self, save_every=1):
         """
