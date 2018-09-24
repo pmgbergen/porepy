@@ -343,7 +343,8 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, polyline=
             edges = np.vstack((edges, data[:, tagcols].T))
 
     pts, _, old_2_new = unique_columns_tol(pts, tol=tol)
-    edges[:2] = old_2_new[edges[:2]]
+
+    edges[:2] = old_2_new[edges[:2].astype(np.int)]
 
     to_remove = np.where(edges[0, :] == edges[1, :])[0]
     edges = np.delete(edges, to_remove, axis=1)
