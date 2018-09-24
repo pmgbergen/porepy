@@ -124,7 +124,7 @@ class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
         matrix[self_ind, 2] += -proj.T
 
-    def assemble_int_bound_pressure_trace(self, g, data, data_edge, grid_swap, matrix, self_ind):
+    def assemble_int_bound_pressure_trace(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
         """ Assemble operators to represent the pressure trace.
         """
         mg = data_edge['mortar_grid']
@@ -136,11 +136,11 @@ class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
             proj = mg.master_to_mortar_avg()
 
         bp = data[self.key() + 'bound_pressure_cell']
-        matrix[2, self_ind] += proj * bp
-        matrix[2, 2] += proj * data[self.key() + 'bound_pressure_face'] * proj.T
+        cc[2, self_ind] += proj * bp
+        cc[2, 2] += proj * data[self.key() + 'bound_pressure_face'] * proj.T
 
 
-    def assemble_int_bound_pressure_cell(self, g, data, data_edge, grid_swap, matrix, self_ind):
+    def assemble_int_bound_pressure_cell(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
         mg = data_edge['mortar_grid']
 
         if grid_swap:
@@ -148,10 +148,10 @@ class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
         else:
             proj = mg.slave_to_mortar_avg()
 
-        matrix[self_ind, 2] += proj.T
+        cc[self_ind, 2] += proj.T
 
 
-    def assemble_internal_boundary_flux(self, g, data_g, data_edge, is_higher, matrix, mortar_is_flux=True):
+    def assemble_internal_boundary_flux(self, g, data_g, data_edge, is_higher, cc, matrix, mortar_is_flux=True):
 
         #
         if not mortar_is_flux:
@@ -159,14 +159,13 @@ class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
         if is_higher:
             div_h = pp.fvutils.scalar_divergence(g)
-            matrix[0, 2] += div_h * data_edge["mortar_to_hat_bc"]
+            cc[0, 2] += div_h * data_edge["mortar_to_hat_bc"]
 
         else:
-            matrix[1, 2] -= data_edge["jump"]
+            cc[1, 2] -= data_edge["jump"]
 
-        return matrix
 
-    def assemble_internal_boundary_pressure(self, g, data_g, data_edge, is_higher, matrix, mortar_is_flux=True):
+    def assemble_internal_boundary_pressure(self, g, data_g, data_edge, is_higher, cc, matrix, mortar_is_flux=True):
 
         if not mortar_is_flux:
             raise NotImplementedError('It is assumed that the mortar variable represents a flux')
@@ -176,10 +175,10 @@ class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
             hat_P = data_edge["mortar_grid"].high_to_mortar_avg()
             bound_pressure_face_h = data_g["bound_pressure_face"]
-            matrix[2, 2] += hat_P * bound_pressure_face_h * hat_P.T
+            cc[2, 2] += hat_P * bound_pressure_face_h * hat_P.T
 
         else:
-            matrix[2, 1] -= data_edge["check_P_to_mortar"]
+            cc[2, 1] -= data_edge["check_P_to_mortar"]
 
     def discretize_coupling(self, g_h, g_l, data_h, data_l, data_edge):
         """
