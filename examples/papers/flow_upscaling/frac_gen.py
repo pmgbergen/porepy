@@ -57,6 +57,35 @@ def fit(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
 
     return dist_l, dist_a
 
+def generate(pts, edges, frac, dist_l, dist_a):
+
+    num_frac = np.unique(frac).size
+    # generate lenght and angle
+    l = dist_l["dist"].rvs(*dist_l["param"], num_frac)
+    a = dist_a["dist"].rvs(*dist_a["param"], num_frac)
+
+    # first compute the fracture centres and then generate them
+    avg = lambda e0, e1: 0.5*(pts[:, e0] + pts[:, e1])
+    pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
+
+    # compute the mean centre based on the fracture id
+    mean_c = lambda f: np.mean(pts_c[:, np.isin(frac, f)], axis=1)
+    mean_c = np.array([mean_c(f) for f in np.unique(frac)]).T
+
+    dist_c = stats.uniform.rvs
+    c = dist_c(np.amin(mean_c, axis=1), np.amax(mean_c, axis=1), (num_frac, 2)).T
+
+    # generate the new set of pts and edges
+    pts_n = np.empty((2, l.size*2))
+    delta = 0.5 * l * np.array([np.cos(a), np.sin(a)])
+    for i in np.arange(num_frac):
+        pts_n[:, 2*i] = c[:, i] + delta[:, i]
+        pts_n[:, 2*i+1] = c[:, i] - delta[:, i]
+
+    edges_n = np.array([2*np.arange(num_frac), 2*np.arange(1, num_frac+1)-1])
+
+    return pts_n, edges_n
+
 def __length(pts, edges, frac):
     """
     Compute the total length of the fractures, based on the fracture id.
