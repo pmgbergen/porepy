@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.stats as stats
-import scipy.cluster.vq as vq
 
 def fit(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
     """

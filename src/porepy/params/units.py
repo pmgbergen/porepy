@@ -42,13 +42,3 @@ def KELKIN_to_CELSIUS(kelvin):
 
 # force
 NEWTON = KILOGRAM * METER / SECOND ** 2
-
-GRAVITY_ACCELERATION = 9.80665 * METER/SECOND**2
-ATMOSPHERIC_PRESSURE = BAR
-
-def CELSIUS_to_KELVIN(celsius):
-    return celsius+273.15
-
-def KELKIN_to_CELSIUS(kelvin):
-    return kelvin-273.15
-

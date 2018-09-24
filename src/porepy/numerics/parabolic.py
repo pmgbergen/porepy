@@ -330,23 +330,6 @@ class ParabolicModel:
             coupling = []
         return coupling
 
-    def save(self, variables=None, save_every=1):
-        if variables is None:
-            self.exporter.write_vtk()
-        else:
-            if not self.is_GridBucket:
-                variables = {k: self._data[k] for k in variables \
-                                                             if k in self._data}
-
-            time = self._solver.data['times'][::save_every].copy()
-
-            for time_step, current_time in enumerate(time):
-                for v in variables:
-                    v_data = self._solver.data[self.physics][time_step]
-                    self._time_disc.split(self.grid(), v, v_data)
-                self.exporter.write_vtk(variables, time_step=time_step)
-            self.exporter.write_pvd(time)
-
 class ParabolicDataAssigner:
     """
     Base class for assigning valid data to a grid.

@@ -209,7 +209,8 @@ def create_embedded_line_grid(loc_coord, glob_id, tol=1e-4):
     loc_center = np.mean(loc_coord, axis=1).reshape((-1, 1))
     loc_coord -= loc_center
     # Check that the points indeed form a line
-    assert cg.is_collinear(loc_coord, tol)
+    if not cg.is_collinear(loc_coord, tol):
+        raise ValueError("Elements are not colinear")
     # Find the tangent of the line
     tangent = cg.compute_tangent(loc_coord)
     # Projection matrix

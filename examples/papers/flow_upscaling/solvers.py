@@ -1,6 +1,5 @@
 import logging, time
 import scipy.sparse as sps
-import scipy.io as sps_io
 import numpy as np
 
 import porepy as pp
