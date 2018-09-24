@@ -133,6 +133,9 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
             source term.
         """
 
+        if not self.key() + 'vem_mass' in data.keys():
+            self.discretize(g, data)
+
         # First assemble the matrix
         M = self.assemble_matrix(g, data)
 
