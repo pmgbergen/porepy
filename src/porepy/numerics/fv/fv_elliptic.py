@@ -185,6 +185,12 @@ class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
         Computes the coupling terms for the faces between cells in g_h and g_l
         using the two-point flux approximation.
         see matrix_rhs for parameters iformation
+
+        @ALL: This method is kept for now, but I want to delete it: It is only
+        a rearrangement of more basic information; I consider it better then
+        to either construct these operators on-the-fly, or provide some
+        utility contruct for easy access.
+
         """
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
