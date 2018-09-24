@@ -365,8 +365,8 @@ class Mpfa(FVElliptic):
         Dirichlet gives a right hand side for (ii).
 
         """
-     if eta is None:
-        eta = fvutils.determine_eta(g)
+        if eta is None:
+            eta = fvutils.determine_eta(g)
 
         # The method reduces to the more efficient TPFA in one dimension, so that
         # method may be called. In 0D, there is no internal discretization to be
