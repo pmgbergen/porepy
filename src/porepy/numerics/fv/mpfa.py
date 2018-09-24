@@ -31,7 +31,7 @@ class MpfaMixedDim(SolverMixedDim):
 
 
 
-class Mpfa(Solver):
+class Mpfa(FVElliptic):
 
     def __init__(self, keyword):
         super(Mpfa, self).__init__(keyword)
@@ -52,57 +52,6 @@ class Mpfa(Solver):
 
         """
         return g.num_cells
-
-    # ------------------------------------------------------------------------------#
-
-    def assemble_matrix(self, g, data):
-        """
-        Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method with a multi-point flux
-        approximation.
-
-        The data should contain a parameter class under the field "param".
-        The following parameters will be accessed:
-        get_tensor : SecondOrderTensor. Permeability defined cell-wise.
-        get_bc : boundary conditions
-        get_bc_val : boundary values
-        get_robin_weight : float. Weight for pressure in Robin condition
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data. For details on necessary keywords,
-            see method discretize()
-
-        Return
-        ------
-        matrix: sparse csr (g_num_cells, g_num_cells)
-            Discretization matrix.
-
-        """
-        div = fvutils.scalar_divergence(g)
-        flux = data["flux"]
-        M = div * flux
-
-        return M
-
-    # ------------------------------------------------------------------------------#
-
-    def assemble_rhs(self, g, data):
-        """
-        Return the righ-hand side for a discretization of a second order elliptic
-        equation using the MPFA method. See self.matrix_rhs for a detaild
-        description.
-        """
-        bound_flux = data["bound_flux"]
-
-        param = data["param"]
-
-        bc_val = param.get_bc_val(self)
-
-        div = g.cell_faces.T
-
-        return -div * bound_flux * bc_val
 
     def assemble_neumann(self, g, data, data_edge, is_high, matrix, self_ind):
 
