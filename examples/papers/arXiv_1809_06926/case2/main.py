@@ -1,6 +1,7 @@
 import numpy as np
+
 import data as problem_data
-import examples.papers.benchmark_2.solvers as solvers
+import examples.papers.arXiv_1809_06926.solvers as solvers
 
 
 def main(test_case, file_geo, folder, solver, solver_name, N = None):
