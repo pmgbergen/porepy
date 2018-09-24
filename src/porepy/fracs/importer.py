@@ -240,7 +240,7 @@ def dfm_2d_from_csv(
 # ------------------------------------------------------------------------------#
 
 
-def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, polyline=False, **kwargs):
+def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, polyline=False, return_frac_id=False, **kwargs):
     """ Read csv file with fractures to obtain fracture description.
 
     Create the grid bucket from a set of fractures stored in a csv file and a
@@ -315,6 +315,7 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, polyline=
         fracs = np.unique(frac_id)
 
         edges = np.empty((2, 0))
+        edges_frac_id = np.empty(0)
         pt_ind = np.arange(frac_id.size)
 
         for fi in fracs:
@@ -330,8 +331,10 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, polyline=
                 edges_loc = np.vstack((start, end))
 
             edges = np.hstack((edges, edges_loc))
+            edges_frac_id = np.hstack((edges_frac_id, [fi]*edges_loc.shape[1]))
 
         edges = edges.astype(np.int)
+        edges_frac_id = edges_frac_id.astype(np.int)
 
     else:
         # Let the edges correspond to the ordering of the fractures
@@ -347,7 +350,11 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, polyline=
 
     assert np.all(np.diff(edges[:2], axis=0) != 0)
 
-    return pts, edges.astype(np.int)
+    if return_frac_id:
+        edges_frac_id = np.delete(edges_frac_id, to_remove)
+        return pts, edges.astype(np.int), edges_frac_id.astype(np.int)
+    else:
+        return pts, edges.astype(np.int)
 
 
 # ------------ End of CSV-based functions. Start of gmsh related --------------#
