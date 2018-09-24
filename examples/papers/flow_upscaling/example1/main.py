@@ -27,7 +27,7 @@ if __name__ == "__main__":
     aperture = pp.MILLIMETER
     data = {"aperture": aperture, "kf": aperture**2 / 12}
     folder = "upscaling"
-    upscaling(file_geo, data, folder, dfn=True, shrink=0.10)
+    upscaling(file_geo, data, folder, dfn=True)
 
 
     file_geo = "Algeroyna.csv"

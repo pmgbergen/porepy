@@ -102,14 +102,6 @@ class SandStone(UnitRock):
         theta_ref = 10 * pp.CELSIUS
         return c_ref + eta*(theta-theta_ref)
 
-    def specific_heat_capacity(self, theta=None):# theta in CELSIUS
-        if theta is None:
-            theta = self.theta_ref
-        c_ref = 823.82
-        eta = 8.9*1e-2
-        theta_ref = 10 * units.CELSIUS
-        return c_ref + eta*(theta-theta_ref)
-
 
 class Shale(UnitRock):
     """ Generic values for shale.
