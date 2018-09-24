@@ -1,9 +1,9 @@
 import numpy as np
 import data as problem_data
 
-from examples.papers.benchmark_2.case3.main import mean_inlet_pressure
+from examples.papers.arXiv_1809_06926.case3.main import mean_inlet_pressure
 
-import examples.papers.benchmark_2.solvers as solvers
+import examples.papers.arXiv_1809_06926.solvers as solvers
 
 # ------------------------------------------------------------------------------#
 
