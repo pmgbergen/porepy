@@ -368,7 +368,7 @@ def triangle_grid(fracs, domain, do_snap_to_grid=False, **kwargs):
     logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points
-    if do_snap_to_grid
+    if do_snap_to_grid:
         pts_split = cg.snap_to_grid(pts_split, tol)
 
     pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=tol)
