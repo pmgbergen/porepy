@@ -26,7 +26,7 @@ def fit(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
     dist = np.array([stats.expon, stats.lognorm])
 
     # fit the possible lenght distributions
-    l = __length(pts, edges, frac)
+    l = length(pts, edges, frac)
     dist_fit = np.array([d.fit(l, floc=0) for d in dist])
 
     # determine which is the best distribution with a Kolmogorov-Smirnov test
@@ -42,7 +42,7 @@ def fit(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
 
     # start the computation for the angles
     dist = stats.vonmises
-    a = __angle(pts, edges, frac)
+    a = angle(pts, edges, frac)
     dist_fit = dist.fit(a, fscale=1)
 
     # check the goodness of the fit with Kolmogorov-Smirnov test
@@ -85,7 +85,7 @@ def generate(pts, edges, frac, dist_l, dist_a):
 
     return pts_n, edges_n
 
-def __length(pts, edges, frac):
+def length(pts, edges, frac):
     """
     Compute the total length of the fractures, based on the fracture id.
     The output array has length as unique(frac) and ordered from the lower index
@@ -108,7 +108,7 @@ def __length(pts, edges, frac):
     tot_l = lambda f: np.sum(l[np.isin(frac, f)])
     return np.array([tot_l(f) for f in np.unique(frac)])
 
-def __angle(pts, edges, frac):
+def angle(pts, edges, frac):
     """
     Compute the mean angle of the fractures, based on the fracture id.
     The output array has length as unique(frac) and ordered from the lower index
