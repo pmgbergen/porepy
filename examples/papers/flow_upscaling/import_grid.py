@@ -6,7 +6,7 @@ import porepy as pp
 
 def grid(file_geo, mesh_args, tol):
 
-    p, e = raw_from_csv(file_geo, tol)
+    p, e = raw_from_csv(file_geo, mesh_args, tol)
 
     domain = {'xmin': p[0].min(), 'xmax': p[0].max(),
               'ymin': p[1].min(), 'ymax': p[1].max()}

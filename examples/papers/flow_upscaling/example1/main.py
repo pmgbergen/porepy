@@ -29,7 +29,6 @@ if __name__ == "__main__":
     folder = "upscaling"
     upscaling(file_geo, data, folder, dfn=True, shrink=0.10)
 
-    sa
 
     file_geo = "Algeroyna.csv"
     folder = "solution"

@@ -102,13 +102,6 @@ class SandStone(UnitRock):
         theta_ref = 10 * pp.CELSIUS
         return c_ref + eta*(theta-theta_ref)
 
-        if theta_ref is None:
-            self.theta_ref = 20*units.CELSIUS
-        else:
-            self.theta_ref = theta_ref
-
-        self.DENSITY = 2650 * units.KILOGRAM/units.METER**3
-
     def specific_heat_capacity(self, theta=None):# theta in CELSIUS
         if theta is None:
             theta = self.theta_ref

@@ -354,7 +354,7 @@ def triangle_grid(fracs, domain, do_snap_to_grid=False, **kwargs):
     # This may disturb the line tags in lines[2], but we should not be
     # dependent on those.
     li = np.sort(lines[:2], axis=0)
-    li_unique, new_2_old, old_2_new = unique_columns_tol(li, tol=tol)
+    _, new_2_old, old_2_new = unique_columns_tol(li, tol=tol)
     lines = lines[:, new_2_old]
 
     assert np.all(np.diff(lines[:2], axis=0) != 0)
