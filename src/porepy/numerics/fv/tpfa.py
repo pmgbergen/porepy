@@ -14,11 +14,12 @@ import porepy as pp
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 from porepy.numerics.fv import fvutils
+from porepy.numerics.fv.fv_elliptic import FVElliptic
 
 # ------------------------------------------------------------------------------
 
 
-class TpfaMixedDim(pp.numerics.fv.fv_elliptic.FVElliptic):
+class TpfaMixedDim(FVElliptic):
     def __init__(self, physics="flow"):
         self.physics = physics
 
