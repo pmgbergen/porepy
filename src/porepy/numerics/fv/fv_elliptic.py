@@ -9,7 +9,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
+class FVElliptic(object):
     """
     """
 
