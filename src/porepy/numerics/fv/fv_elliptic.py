@@ -68,6 +68,9 @@ class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
             Discretization matrix.
 
         """
+        if not self.key() + 'flux' in data.keys():
+            self.discretize(g, data)
+
         div = pp.fvutils.scalar_divergence(g)
         flux = data["flux"]
         M = div * flux
@@ -82,6 +85,10 @@ class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
         equation using the MPFA method. See self.matrix_rhs for a detaild
         description.
         """
+        if not self.key() + 'bound_flux' in data.keys():
+            self.discretize(g, data)
+
+
         bound_flux = data[self.key() + "bound_flux"]
 
         param = data["param"]
