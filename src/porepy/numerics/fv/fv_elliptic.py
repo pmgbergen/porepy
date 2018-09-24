@@ -151,23 +151,6 @@ class FVElliptic(pp.numerics.mixed_dim.solver.SolverMixedDim):
         matrix[self_ind, 2] += proj.T
 
 
-    def ndof(self, g):
-        """
-        Return the number of degrees of freedom associated to the method.
-        In this case number of cells (pressure dof).
-
-        Parameter
-        ---------
-        g: grid, or a subclass.
-
-        Return
-        ------
-        dof: the number of degrees of freedom.
-
-        """
-        return g.num_cells
-
-
     def assemble_internal_boundary_flux(self, g, data_g, data_edge, is_higher, matrix, mortar_is_flux=True):
 
         #
