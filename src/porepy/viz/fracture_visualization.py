@@ -98,7 +98,7 @@ def plot_wells(d, w, colortag=None, **kwargs):
         else:
             raise NotImplementedError('Have not thought of more than six colors')
 
-    fig = plt.figure(kwargs.get("fig_id", 1))
+    plt.figure(kwargs.get("fig_id", 1))
     plt.axis([d['xmin'], d['xmax'], d['ymin'], d['ymax']])
     plt.plot([d['xmin'], d['xmax'], d['xmax'], d['xmin'], d['xmin']],
              [d['ymin'], d['ymin'], d['ymax'], d['ymax'], d['ymin']],
