@@ -29,7 +29,7 @@ def fit(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
     return dist_l, dist_a
 
 
-def fit_length_distribution(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
+def fit_length_distribution(pts, edges, frac=None, family=None, ks_size=100, p_val_min = 0.05):
     """
     Compute the distribution from a set of fracture families for the length and angle.
 
@@ -47,6 +47,10 @@ def fit_length_distribution(pts, edges, frac, family, ks_size=100, p_val_min = 0
     Note:
     1) so far this implementation does not take care of the family
     """
+    if frac is None:
+        frac = np.arange(edges.shape[1])
+    if family is None:
+        family = np.zeros(edges.shape[1])
 
     # fit the lenght distribution
     dist = np.array([stats.expon, stats.lognorm])
@@ -68,7 +72,7 @@ def fit_length_distribution(pts, edges, frac, family, ks_size=100, p_val_min = 0
 
     return dist_l
 
-def fit_angle_distribution(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
+def fit_angle_distribution(pts, edges, frac=None, family=None, ks_size=100, p_val_min = 0.05):
     """
     Compute the distribution from a set of fracture families for the length and angle.
 
@@ -87,7 +91,10 @@ def fit_angle_distribution(pts, edges, frac, family, ks_size=100, p_val_min = 0.
     1) so far this implementation does not take care of the family
     2) the angle should be divided in two categories, since we have conjugate fractures
     """
-
+    if frac is None:
+        frac = np.arange(edges.shape[1])
+    if family is None:
+        family = np.zeros(edges.shape[1])
 
     # start the computation for the angles
     dist = stats.vonmises
