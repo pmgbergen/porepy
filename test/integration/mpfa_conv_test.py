@@ -20,6 +20,8 @@ import scipy.sparse.linalg
 import unittest
 from math import pi
 
+import porepy as pp
+
 from porepy.grids import structured, simplex
 from porepy.params import tensor, bc
 from porepy.numerics.fv import mpfa, fvutils, mpsa
@@ -96,10 +98,19 @@ class MainTester(unittest.TestCase):
         rewriting of the way analytical solutions are represented).
         """
         # Discretization. Use python inverter for speed
-        flux, bound_flux, _, _ = mpfa.mpfa(g, k, bound_cond, inverter="python", eta=0)
+        discr = pp.Mpfa(keyword='flow')
+        param = pp.Parameters(g)
+        param.set_tensor(discr, k)
+        param.set_bc(discr, bound_cond)
+        data = {'param': param, 'mpfa_eta': 0}
+        a = discr.assemble_matrix(g, data)
+
+        bound_flux = data['flow_bound_flux']
+        flux = data['flow_flux']
+
         # Set up linear system
         div = fvutils.scalar_divergence(g)
-        a = div * flux
+
 
         # Boundary values from analytical solution
         xf = g.face_centers
@@ -136,9 +147,19 @@ class MainTester(unittest.TestCase):
         # The rest of the function is similar to self.solve.system, see that
         # for comments.
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-        flux, bound_flux, _, _ = mpfa.mpfa(
-            g, perm, bound_cond, inverter="python", eta=0
-        )
+
+        discr = pp.Mpfa(keyword='flow')
+        param = pp.Parameters(g)
+        param.set_tensor(discr, perm)
+        param.set_bc(discr, bound_cond)
+        data = {'param': param, 'mpfa_eta': 0}
+        a = discr.assemble_matrix(g, data)
+
+        bound_flux = data['flow_bound_flux']
+        flux = data['flow_flux']
+
+        # Set up linear system
+        div = fvutils.scalar_divergence(g)
 
         xc = g.cell_centers
         xf = g.face_centers
