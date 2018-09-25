@@ -20,7 +20,7 @@ import porepy as pp
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 
-class RobinCoupling(AbstractCoupling):
+class RobinCoupling(object):
     """ A condition with resistance to flow between subdomains. Implementation
         of the model studied (though not originally proposed) by Martin et
         al 2005.
@@ -36,6 +36,9 @@ class RobinCoupling(AbstractCoupling):
 
     def key(self):
         return self.keyword + '_'
+
+    def ndof(self, mg):
+        return mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """ Discretize the interface law and store the discretization in the
@@ -67,14 +70,16 @@ class RobinCoupling(AbstractCoupling):
         inv_k = 1. / (2. * data_edge["kn"])
         aperture_h = data_h["param"].get_aperture()
 
-        proj = mg.high_to_mortar_avg()
+        proj = mg.master_to_mortar_avg()
 
         Eta = sps.diags(np.divide(inv_k, proj * aperture_h[cells_h]))
 
-        data_edge[self.key() + 'Robin_discr'] = inv_M * Eta
+        # @ALESSIO, @EIRIK: the tpfa and vem couplers use different sign
+        # conventions here. We should be very careful.
+        data_edge[self.key() + 'Robin_discr'] = -inv_M * Eta
 
 
-    def assemble_matrix(self, g_master, g_slave, data_master, data_slave, data_edge, matrix_master, matrix_slave):
+    def assemble_matrix(self, g_master, g_slave, data_master, data_slave, data_edge, matrix):
         """ Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
@@ -100,25 +105,34 @@ class RobinCoupling(AbstractCoupling):
         if grid_swap:
             g_master, g_slave = g_slave, g_master
             data_master, data_slave = data_slave, data_master
-            matrix_master, matrix_slave = matrix_slave, matrix_master
 
-        _, cc = self.create_block_matrix([g_master, g_slave,
-                                          data_edge["mortar_grid"]])
+        # Generate matrix for the coupling. This can probably be generalized
+        # once we have decided on a format for the general variables
+        mg = data_edge["mortar_grid"]
+
+        discr_master = data_master[self.key() + 'discr']
+        discr_slave = data_slave[self.key() + 'discr']
+
+        dof_master = discr_master.ndof(g_master)
+        dof_slave = discr_slave.ndof(g_slave)
+
+        # We know the number of dofs from the master and slave side from their
+        # discretizations
+        dof = np.array([dof_master, dof_slave, mg.num_cells])
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        cc = cc.reshape((3, 3))
 
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
         # and mortar variables in the third
         cc[2, 2] = data_edge[self.key() + 'Robin_discr']
 
-        discr_master = data_master[self.key() + 'discr']
+        discr_master.assemble_int_bound_pressure_trace(g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0)
+        discr_master.assemble_int_bound_flux(g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0)
 
-        discr_master.assemble_int_bound_pressure_trace(g_master, data_master, data_edge, grid_swap, cc, matrix_master, self_ind=0)
-        discr_master.assemble_int_bound_flux(g_master, data_master, data_edge, grid_swap, cc, matrix_master, self_ind=0)
+        discr_slave.assemble_int_bound_pressure_cell(g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1)
+        discr_slave.assemble_int_bound_source(g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1)
 
-        discr_slave = data_slave[self.key() + 'discr']
+        return matrix + cc
 
-        discr_slave.assemble_int_bound_pressure_cell(g_slave, data_slave, data_edge, grid_swap, cc, matrix_slave, self_ind=1)
-        discr_slave.assemble_int_bound_source(g_slave, data_slave, data_edge, grid_swap, cc, matrix_slave, self_ind=1)
-
-        return cc
 
