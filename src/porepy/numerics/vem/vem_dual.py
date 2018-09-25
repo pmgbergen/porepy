@@ -77,6 +77,18 @@ class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
 
 class DualVEM(pp.numerics.mixed_dim.solver.Solver):
+    """
+    @ALL: I have kept the inheritance from the general Solver for now, or else
+    the Parameter class start making trouble. It still may be useful to have a
+    parent class for all discretizations, mainly to guide the implementation of
+    new methods. Opinions?
+
+    @ALESSIO: Is it reasonable to create a parent class for RT0 and VEM?
+
+    @ALESSIO: Please check that I have not missed anything while refactoring
+    this function.
+
+    """
 
     # ------------------------------------------------------------------------------#
 
