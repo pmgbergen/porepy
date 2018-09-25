@@ -103,21 +103,31 @@ def main(kf, description, multi_point, if_export=False):
     # Assign parameters
     add_data(gb, domain, kf, mesh_size)
 
-    # Choose discretization and define the solver
-    if multi_point:
-        solver = pp.MpfaMixedDim("flow")
-    else:
-        solver = pp.TpfaMixedDim("flow")
+    for g, d in gb:
+        # Choose discretization and define the solver
+        if multi_point:
+            discr = pp.Mpfa("flow")
+        else:
+            discr = pp.Tpfa("flow")
+
+        d['flow_discr'] = discr
+
+    for e, d in gb.edges():
+        d['flow_discr'] = pp.RobinCoupling('flow')
+
+    assembler = pp.EllipticAssembler("flow")
 
     # Discretize
-    A, b = solver.matrix_rhs(gb)
+    A, b = assembler.assemble_matrix_rhs(gb)
 
+    import pdb
+    pdb.set_trace()
     # Solve the linear system
     p = sps.linalg.spsolve(A, b)
 
     # Store the solution
     gb.add_node_props(["pressure"])
-    solver.split(gb, "pressure", p)
+    assembler.split(gb, "pressure", p)
 
     if if_export:
         save = pp.Exporter(gb, "fv", folder="fv_" + description)
@@ -157,3 +167,5 @@ def test_mpfa_permeable():
 
 
 # ------------------------------------------------------------------------------#
+if __name__ == '__main__':
+    test_tpfa_blocking()
