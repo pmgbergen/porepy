@@ -277,7 +277,7 @@ def _run_gmsh(file_name, network, **kwargs):
     return pts, cells, cell_info, phys_names
 
 
-def triangle_grid(fracs, domain, **kwargs):
+def triangle_grid(fracs, domain, do_snap_to_grid=False, **kwargs):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -293,6 +293,12 @@ def triangle_grid(fracs, domain, **kwargs):
         edges (2 x num_lines) connections between points, defines fractures.
     box: (dictionary) keys xmin, xmax, ymin, ymax, [together bounding box
         for the domain]
+    do_snap_to_grid (boolean, optional): If true, points are snapped to an
+        underlying Cartesian grid with resolution tol before geometry
+        computations are carried out. This used to be the standard, but
+        indications are it is better not to do this. This keyword construct is
+        a stop-gap measure to invoke the old functionality if desired. This
+        option will most likely dissapear in the future.
     **kwargs: To be explored.
 
     Returns
@@ -332,7 +338,8 @@ def triangle_grid(fracs, domain, **kwargs):
     pts_all, lines, domain_pts = __merge_domain_fracs_2d(domain, frac_pts, frac_con)
 
     # Snap to underlying grid before comparing points
-    pts_all = cg.snap_to_grid(pts_all, tol)
+    if do_snap_to_grid:
+        pts_all = cg.snap_to_grid(pts_all, tol)
 
     assert np.all(np.diff(lines[:2], axis=0) != 0)
 
@@ -347,7 +354,7 @@ def triangle_grid(fracs, domain, **kwargs):
     # This may disturb the line tags in lines[2], but we should not be
     # dependent on those.
     li = np.sort(lines[:2], axis=0)
-    li_unique, new_2_old, old_2_new = unique_columns_tol(li)
+    _, new_2_old, old_2_new = unique_columns_tol(li, tol=tol)
     lines = lines[:, new_2_old]
 
     assert np.all(np.diff(lines[:2], axis=0) != 0)
@@ -356,11 +363,14 @@ def triangle_grid(fracs, domain, **kwargs):
     # intersect, except possible at the end points
     logger.info("Remove edge crossings")
     tm = time.time()
-    pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol)
+    pts_split, lines_split = cg.remove_edge_crossings(pts_all, lines, tol=tol,
+                                                      snap=do_snap_to_grid)
     logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points
-    pts_split = cg.snap_to_grid(pts_split, tol)
+    if do_snap_to_grid:
+        pts_split = cg.snap_to_grid(pts_split, tol)
+
     pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=tol)
     lines_split[:2] = old_2_new[lines_split[:2]]
     to_remove = np.where(lines[0, :] == lines[1, :])[0]
@@ -379,7 +389,6 @@ def triangle_grid(fracs, domain, **kwargs):
     intersections = __find_intersection_points(lines_split)
 
     # Gridding size
-
     if "mesh_size_frac" in kwargs.keys():
         # Tag points at the domain corners
         logger.info("Determine mesh size")
@@ -388,6 +397,7 @@ def triangle_grid(fracs, domain, **kwargs):
         mesh_size, pts_split, lines_split = tools.determine_mesh_size(
             pts_split, boundary_pt_ind, lines_split, **kwargs
         )
+
         logger.info("Done. Elapsed time " + str(time.time() - tm))
     else:
         mesh_size = None
@@ -467,7 +477,8 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
     logger.info("Create grids of various dimensions")
     g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False)
     g_1d, _ = mesh_2_grid.create_1d_grids(
-        pts, cells, phys_names, cell_info, line_tag=const.PHYSICAL_NAME_FRACTURES
+        pts, cells, phys_names, cell_info, line_tag=const.PHYSICAL_NAME_FRACTURES,
+        **kwargs
     )
     g_0d = mesh_2_grid.create_0d_grids(pts, cells)
     grids = [g_2d, g_1d, g_0d]

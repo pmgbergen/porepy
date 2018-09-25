@@ -25,7 +25,7 @@ def import_grid(file_geo, tol):
 
 
 def low_zones(g):
-    return g.cell_centers[2, :] < 10
+    return g.cell_centers[2, :] > 10
 
 
 # ------------------------------------------------------------------------------#
@@ -36,31 +36,32 @@ def add_data(gb, data, solver_name):
 
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
-    gb.add_node_props(["is_tangential", "problem", "frac_num", "low_zones", "phi"])
+    gb.add_node_props(['is_tangential', 'problem', 'frac_num', 'low_zones',
+                       'porosity', 'aperture'])
     for g, d in gb:
         param = pp.Parameters(g)
         d["is_tangential"] = True
         d["low_zones"] = low_zones(g)
 
-        ones = np.ones(g.num_cells)
+        unity = np.ones(g.num_cells)
         zeros = np.zeros(g.num_cells)
         empty = np.empty(0)
 
         if g.dim == 2:
-            d["frac_num"] = g.frac_num * ones
+            d['frac_num'] = g.frac_num*unity
         else:
-            d["frac_num"] = -1 * ones
+            d['frac_num'] = -1*unity
 
         # set the permeability
         if g.dim == 3:
-            kxx = data["km_high"] * ones
-            kxx[d["low_zones"]] = data["km_low"]
+            kxx = data['km_high']*unity
+            kxx[d['low_zones']] = data['km_low']
             if is_fv:
                 perm = pp.SecondOrderTensor(3, kxx=kxx)
             else:
                 perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=kxx)
-        else:  # g.dim == 2:
-            kxx = data["kf"] * ones
+        else: #g.dim == 2:
+            kxx = data['kf']*unity
             if is_fv:
                 perm = pp.SecondOrderTensor(3, kxx=kxx)
             else:
@@ -71,8 +72,9 @@ def add_data(gb, data, solver_name):
         param.set_source("flow", zeros)
 
         # Assign apertures
-        aperture = np.power(data["aperture"], 3 - g.dim)
-        param.set_aperture(aperture * ones)
+        aperture = np.power(data['aperture'], 3-g.dim)
+        param.set_aperture(aperture*unity)
+        d['aperture'] = aperture*unity
 
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -103,10 +105,10 @@ def add_data(gb, data, solver_name):
         d["param"] = param
 
         if g.dim == 3:
-            d["phi"] = data["phi_high"] * ones
-            d["phi"][low_zones(g)] = data["phi_low"]
+            d['porosity'] = data['porosity_high'] * unity
+            d['porosity'][low_zones(g)] = data['porosity_low']
         else:
-            d["phi"] = data["phi_f"] * ones
+            d['porosity'] = data['porosity_f'] * unity
 
     # Assign coupling permeability, the aperture is read from the lower dimensional grid
     gb.add_edge_props("kn")
@@ -128,9 +130,9 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         self.tol = kwargs["tol"]
         self.max_dim = kwargs.get("max_dim", 3)
 
-        self.phi_high = kwargs["phi_high"]
-        self.phi_low = kwargs["phi_low"]
-        self.phi_f = kwargs["phi_f"]
+        self.porosity_high = kwargs["porosity_high"]
+        self.porosity_low = kwargs["porosity_low"]
+        self.porosity_f = kwargs["porosity_f"]
 
         # define two pieces of the boundary, useful to impose boundary conditions
         self.inflow = np.empty(0)
@@ -144,21 +146,31 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
                 b_face_centers[2, :] > 90 - self.tol,
             )
 
+            self.outflow = np.logical_and(b_face_centers[1, :] < 0 + self.tol,
+                                          b_face_centers[2, :] < 10 + self.tol)
+
         pp.ParabolicDataAssigner.__init__(self, g, data, physics)
 
     def porosity(self):
         if self.grid().dim == 3:
-            phi = self.phi_high * np.ones(self.grid().num_cells)
-            phi[low_zones(self.grid())] = self.phi_low
+            porosity = self.porosity_high * np.ones(self.grid().num_cells)
+            porosity[low_zones(self.grid())] = self.porosity_low
         else:
-            phi = self.phi_f * np.ones(self.grid().num_cells)
-        return phi
+            porosity = self.porosity_f * np.ones(self.grid().num_cells)
+        return porosity
+
+    def rock_specific_heat(self):
+        #hack to remove the rock part
+        return 0
 
     def bc(self):
         b_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size == 0:
             return pp.BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
-        return pp.BoundaryCondition(self.grid(), b_faces, "dir")
+        else:
+            labels = np.array(['neu'] * b_faces.size)
+            labels[np.logical_or(self.inflow, self.outflow)] = 'dir'
+        return pp.BoundaryCondition(self.grid(), b_faces, labels)
 
     def bc_val(self, _):
         bc_val = np.zeros(self.grid().num_faces)
@@ -166,3 +178,4 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         if b_faces.size > 0:
             bc_val[b_faces[self.inflow]] = 0.01
         return bc_val
+
