@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.stats as stats
 
+
 def fit(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
     """
     Compute the distribution from a set of fracture families for the length and angle.
@@ -19,7 +20,32 @@ def fit(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
 
     Note:
     1) so far this implementation does not take care of the family
-    2) the angle should be divided in two categories, since we have conjugate fractures
+    """
+
+    dist_l = fit_length_distribution(pts, edges, frac, family, ks_size=ks_size,
+                                     p_val_min=p_val_min)
+    dist_a = fit_angle_distribution(pts, edges, frac, family, ks_size=ks_size,
+                                     p_val_min=p_val_min)
+    return dist_l, dist_a
+
+
+def fit_length_distribution(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
+    """
+    Compute the distribution from a set of fracture families for the length and angle.
+
+    Parameters:
+    pts: list of points
+    edges: list of edges as point ids
+    frac: fracture identification number for each edge
+    family: family identification number for each edge
+    ks_size: (optional) sample size for the Kolmogorov-Simirnov test, default 100
+    p_val_min: (optional) minimum p-value to validate the goodness of the fitting
+
+    Return:
+    dist_l: for each family distribution for the fracture length
+
+    Note:
+    1) so far this implementation does not take care of the family
     """
 
     # fit the lenght distribution
@@ -40,6 +66,29 @@ def fit(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
     # collect the data
     dist_l = {"dist": dist[best_fit], "param": dist_fit[best_fit], "p_val": p_val[best_fit]}
 
+    return dist_l
+
+def fit_angle_distribution(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
+    """
+    Compute the distribution from a set of fracture families for the length and angle.
+
+    Parameters:
+    pts: list of points
+    edges: list of edges as point ids
+    frac: fracture identification number for each edge
+    family: family identification number for each edge
+    ks_size: (optional) sample size for the Kolmogorov-Simirnov test, default 100
+    p_val_min: (optional) minimum p-value to validate the goodness of the fitting
+
+    Return:
+    dist_a: for each family distribution for the fracture angle
+
+    Note:
+    1) so far this implementation does not take care of the family
+    2) the angle should be divided in two categories, since we have conjugate fractures
+    """
+
+
     # start the computation for the angles
     dist = stats.vonmises
     a = angle(pts, edges, frac)
@@ -54,7 +103,7 @@ def fit(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
     # collect the data
     dist_a = {"dist": dist, "param": dist_fit, "p_val": p_val}
 
-    return dist_l, dist_a
+    return dist_a
 
 def generate(pts, edges, frac, dist_l, dist_a):
 
