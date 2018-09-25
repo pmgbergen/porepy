@@ -15,12 +15,12 @@ class EllipticAssembler(object):
 
     def __init__(self, keyword):
         # The keyword should be the same as for all discretization objects
-        self.keyword = keyword()
+        self.keyword = keyword
 
     def key(self):
         return self.keyword + "_"
 
-    def assemble_matrix(self, gb):
+    def assemble_matrix_rhs(self, gb, matrix_format='csr'):
 
 
         # Initialize the global matrix. In this case, we know there is a single
@@ -46,12 +46,11 @@ class EllipticAssembler(object):
             matrix[pos, pos] = loc_A
             rhs[pos] = loc_b
 
-
         num_nodes = gb.num_graph_nodes()
 
         # Loop over all edges
         for e, data_edge in gb.edges():
-            discr = data[self.key() + "discr"]
+            discr = data_edge[self.key() + "discr"]
             g_slave, g_master = gb.nodes_of_edge(e)
             data_slave = gb.node_props(g_slave)
             data_master = gb.node_props(g_master)
@@ -66,14 +65,13 @@ class EllipticAssembler(object):
             idx = np.ix_([pos_master, pos_slave, pos_edge],
 
                          [pos_master, pos_slave, pos_edge])
-            matrix_master = matrix[pos_master, pos_master]
-            matrix_slave = matrix[pos_slave, pos_slave]
 
-            loc_A = discr.discretize(g_master, g_slave, data_master, data_slave, matrix_master, matrix_slave)
+            loc_matrix = matrix[idx]
 
-            matrix[idx] = loc_A
+            matrix[idx] = discr.assemble_matrix(g_master, g_slave, data_master, data_slave, data_edge, loc_matrix)
 
-        return matrix, rhs
+        return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
+
 
     ###
     # The functions below are temporarily copied from Coupler. They will be
