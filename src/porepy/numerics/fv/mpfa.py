@@ -72,8 +72,11 @@ class Mpfa(FVElliptic):
         a = param.aperture
         robin_weight = param.get_robin_weight(self)
 
+        eta = data.get('mpfa_eta', None)
+
+
         trm, bound_flux, bp_cell, bp_face = self.mpfa(
-            g, k, bnd, apertures=a, robin_weight=robin_weight
+            g, k, bnd, eta=eta, apertures=a, robin_weight=robin_weight
         )
         data[self.key() + "flux"] = trm
         data[self.key() + "bound_flux"] = bound_flux
