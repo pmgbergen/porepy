@@ -146,10 +146,10 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         # Impose Neumann boundary conditions, with appropriate scaling of the
         # diagonal element
-        M, bc_weight = self.matrix(g, data, M, bc_weight=True)
+        M, bc_weight = self.assemble_neumann(g, data, M, bc_weight=True)
 
         # Assemble right hand side term
-        return M, self.rhs(g, data, bc_weight)
+        return M, self.assemble_rhs(g, data, bc_weight)
 
     # ------------------------------------------------------------------------------#
 
@@ -246,16 +246,24 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         data[self.key() + 'vem_mass'] = mass
         data[self.key() + 'vem_div'] = div
 
+
     def assemble_matrix(self, g, data):
         """ Assemble VEM matrix from an existing discretization.
         """
+        if not self.key() + 'vem_mass' in data.keys():
+            self.discretize(g, data)
+
         mass = data[self.key() + 'vem_mass']
         div = data[self.key() + 'vem_div']
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
 
+
     def assemble_neumann(self, g, data, M, bc_weight=None):
         """ Impose Neumann boundary discretization on an already assembled
         system matrix.
+
+        @ALESSIO: I am not sure about the bc_weight parameter here, and then in
+        assemble_rhs. Is the default value consistent, and the right one?
         """
 
         mass = data[self.key() + 'vem_mass']
@@ -616,7 +624,8 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
 
 class DualCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
-
+    """ @ALESSIO: This class should now be superfluous, and deleted.
+    """
     # ------------------------------------------------------------------------------#
 
     def __init__(self, discr):
