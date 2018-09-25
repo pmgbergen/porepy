@@ -44,6 +44,10 @@ from porepy.numerics.fem.source import P1Source, P1SourceMixedDim
 from porepy.numerics.fem.mass_matrix import P1MassMatrix, P1MassMatrixMixedDim
 from porepy.numerics.fem.rt0 import RT0, RT0MixedDim
 
+# Mixed-dimensional discretizations and assemblers
+from porepy.numerics.mixed_dim.elliptic_assembler import EllipticAssembler
+from porepy.numerics.mixed_dim.elliptic_couplers import RobinCoupling
+
 
 # Transport related
 from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim, UpwindCoupling
