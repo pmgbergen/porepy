@@ -425,7 +425,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         A = proj.T
         shape = (g_slave.num_faces, A.shape[1])
-        matrix[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
+        cc[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
 
     def enforce_neumann_int_bound(self, g_master, data_edge, matrix):
         mg = data_edge['mortar_grid']
