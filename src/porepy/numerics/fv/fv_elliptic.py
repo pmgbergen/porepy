@@ -104,7 +104,7 @@ class FVElliptic(pp.numerics.mixed_dim.solver.Solver):
 
         return -div * bound_flux * bc_val
 
-    def assemble_int_bound_flux(self, g, data, data_edge, grid_swap, matrix, self_ind):
+    def assemble_int_bound_flux(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
 
         div = g.cell_faces.T
 
@@ -116,9 +116,9 @@ class FVElliptic(pp.numerics.mixed_dim.solver.Solver):
         else:
             proj = mg.master_to_mortar_avg()
 
-        matrix[self_ind, 2] += div * data[self.key() + 'bound_flux'] * proj.T
+        cc[self_ind, 2] += div * data[self.key() + 'bound_flux'] * proj.T
 
-    def assemble_int_bound_source(self, g, data, data_edge, grid_swap, matrix, self_ind):
+    def assemble_int_bound_source(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
 
         mg = data_edge['mortar_grid']
 
@@ -127,7 +127,7 @@ class FVElliptic(pp.numerics.mixed_dim.solver.Solver):
         else:
             proj = mg.slave_to_mortar_avg()
 
-        matrix[self_ind, 2] += -proj.T
+        cc[self_ind, 2] -= proj.T
 
     def assemble_int_bound_pressure_trace(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
         """ Assemble operators to represent the pressure trace.
