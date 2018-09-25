@@ -16,6 +16,11 @@ class FVElliptic(object):
     def __init__(self, keyword):
         self.keyword = keyword
 
+        # @ALL: We kee the physics keyword for now, or else we completely
+        # break the parameter assignment workflow. The physics keyword will go
+        # to be replaced by a more generalized approach, but one step at a time
+        self.physics = keyword
+
     def key(self):
         return self.keyword + '_'
 
