@@ -159,7 +159,9 @@ class SubcellTopology(object):
 # ------------------------ End of class SubcellTopology ----------------------
 
 
-def compute_dist_face_cell(g, subcell_topology, eta):
+def compute_dist_face_cell(
+    g, subcell_topology, eta, eta_at_bnd=False, return_paired=True
+):
     """
     Compute vectors from cell centers continuity points on each sub-face.
 
@@ -190,8 +192,9 @@ def compute_dist_face_cell(g, subcell_topology, eta):
     cols += matrix_compression.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
     eta_vec = eta * np.ones(subcell_topology.fno.size)
     # Set eta values to zero at the boundary
-    bnd = np.in1d(subcell_topology.fno, g.get_all_boundary_faces())
-    eta_vec[bnd] = 0
+    if not eta_at_bnd:
+        bnd = np.in1d(subcell_topology.fno, g.get_all_boundary_faces())
+        eta_vec[bnd] = 0
     cp = g.face_centers[:, subcell_topology.fno] + eta_vec * (
         g.nodes[:, subcell_topology.nno] - g.face_centers[:, subcell_topology.fno]
     )
@@ -199,7 +202,10 @@ def compute_dist_face_cell(g, subcell_topology, eta):
 
     ind_ptr = np.hstack((np.arange(0, cols.size, dims), cols.size))
     mat = sps.csr_matrix((dist.ravel("F"), cols.ravel("F"), ind_ptr))
-    return subcell_topology.pair_over_subfaces(mat)
+    if return_paired:
+        return subcell_topology.pair_over_subfaces(mat)
+    else:
+        return mat
 
 
 def determine_eta(g):

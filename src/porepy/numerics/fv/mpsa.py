@@ -897,7 +897,7 @@ def _mpsa_local(g, constit, bound, eta=0, robin_weight=None, inverter="numba"):
 
     hook_igrad = hook * igrad
     # NOTE: This is the point where we expect to reach peak memory need.
-    del hook, igrad
+    del igrad, hook
 
     # Output should be on face-level (not sub-face)
     hf2f = fvutils.map_hf_2_f(
@@ -1046,6 +1046,55 @@ def mpsa_elasticity(
     # Right hand side for cell center variables
     rhs_cells = -sps.vstack([hook_cell, rob_cell, d_cont_cell])
     return hook, igrad, rhs_cells, cell_node_blocks, hook_normal
+
+
+def cell_centers_to_continuity_points(g, eta=None, eta_at_bnd=False, inverter="numba"):
+    if eta is None:
+        eta = fvutils.determine_eta(g)
+
+    if g.dim == 2:
+        g = g.copy()
+        g.cell_centers = np.delete(g.cell_centers, (2), axis=0)
+        g.face_centers = np.delete(g.face_centers, (2), axis=0)
+        g.face_normals = np.delete(g.face_normals, (2), axis=0)
+        g.nodes = np.delete(g.nodes, (2), axis=0)
+
+    nd = g.dim
+
+    # Define subcell topology
+    subcell_topology = fvutils.SubcellTopology(g)
+
+    # Calculate the distance from the cell centers to continuity points
+    D_g = pp.fvutils.compute_dist_face_cell(
+        g, subcell_topology, eta, eta_at_bnd=eta_at_bnd, return_paired=False
+    )
+    # expand indices to x-y-z
+    D_g = sps.kron(sps.eye(g.dim), D_g)
+    D_g = D_g.tocsr()
+
+    # Get a mapping from cell centers to half-faces
+    D_c = sps.coo_matrix(
+        (
+            np.ones(subcell_topology.subhfno.size),
+            (subcell_topology.subhfno, subcell_topology.cno),
+        )
+    ).tocsr()
+    # Expand indices to x-y-z
+    D_c = sps.kron(sps.eye(g.dim), D_c)
+    D_c = D_c.tocsc()
+    # book keeping
+    cell_node_blocks, _ = pp.utils.matrix_compression.rlencode(
+        np.vstack((subcell_topology.cno, subcell_topology.nno))
+    )
+    num_sub_cells = cell_node_blocks[0].size
+    # The column ordering of the displacement equilibrium equations are
+    # formed as a Kronecker product of scalar equations. Bring them to the
+    # same form as that applied in the force balance equations
+    cc_to_cont, cell_centers = pp.numerics.fv.mpsa.__rearange_columns_displacement_eqs(
+        D_g, D_c, num_sub_cells, g.dim
+    )
+
+    return cc_to_cont, cell_centers
 
 
 # -----------------------------------------------------------------------------

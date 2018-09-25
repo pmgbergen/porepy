@@ -9,6 +9,7 @@ import numpy as np
 import porepy as pp
 
 
+
 class TestMpsaBoundRhs(unittest.TestCase):
     def test_neu(self):
         g = pp.StructuredTriangleGrid([1, 1])
