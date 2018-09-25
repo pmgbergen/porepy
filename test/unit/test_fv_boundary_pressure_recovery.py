@@ -44,18 +44,18 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bc_type = bf.size * ["dir"]
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Tpfa()
+        fd = Tpfa("flow")
         param.set_bc(fd, bound)
         param.set_bc_val(fd, np.zeros(g.num_faces))
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
         self.assertTrue(np.allclose(p, np.zeros_like(p)))
 
-        bound_p = data["bound_pressure_cell"] * p + data[
-            "bound_pressure_face"
+        bound_p = data["flow_bound_pressure_cell"] * p + data[
+            "flow_bound_pressure_face"
         ] * np.zeros(g.num_faces)
         self.assertTrue(np.allclose(bound_p, np.zeros_like(bound_p)))
 
@@ -67,19 +67,19 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bc_type = bf.size * ["dir"]
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Tpfa()
+        fd = Tpfa("flow")
         param.set_bc(fd, bound)
 
         bc_val = np.ones(g.num_faces)
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_constant_pressure_simplex_grid(self):
@@ -90,19 +90,19 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bc_type = bf.size * ["dir"]
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Tpfa()
+        fd = Tpfa("flow")
         param.set_bc(fd, bound)
 
         bc_val = np.ones(g.num_faces)
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_linear_pressure_dirichlet_conditions(self):
@@ -113,17 +113,17 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bc_type = bf.size * ["dir"]
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Tpfa()
+        fd = Tpfa("flow")
         param.set_bc(fd, bound)
 
         bc_val = 1 * g.face_centers[0] + 2 * g.face_centers[1]
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_linear_pressure_part_neumann_conditions(self):
@@ -136,7 +136,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bc_type[2] = "dir"
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Tpfa()
+        fd = Tpfa("flow")
         param.set_bc(fd, bound)
 
         bc_val = np.zeros(g.num_faces)
@@ -145,10 +145,10 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
     def test_linear_pressure_part_neumann_conditions_small_domain(self):
@@ -161,7 +161,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bc_type[2] = "dir"
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Tpfa()
+        fd = Tpfa("flow")
         param.set_bc(fd, bound)
 
         bc_val = np.zeros(g.num_faces)
@@ -170,10 +170,10 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], -2 * g.face_centers[0, bf]))
 
     def test_linear_pressure_part_neumann_conditions_reverse_sign(self):
@@ -186,7 +186,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bc_type[2] = "dir"
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Tpfa()
+        fd = Tpfa("flow")
         param.set_bc(fd, bound)
 
         bc_val = np.zeros(g.num_faces)
@@ -195,10 +195,10 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], g.face_centers[0, bf]))
 
     def test_linear_pressure_part_neumann_conditions_smaller_domain(self):
@@ -213,7 +213,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bc_type[2] = "dir"
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Tpfa()
+        fd = Tpfa("flow")
         param.set_bc(fd, bound)
 
         bc_val = np.zeros(g.num_faces)
@@ -222,10 +222,10 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
     def test_sign_trouble_two_neumann_sides(self):
@@ -237,13 +237,13 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bv[[2, 5]] = -1
         d["param"].set_bc_val("flow", bv)
         t = Tpfa("flow")
-        A, b = t.matrix_rhs(g, d)
+        A, b = t.assemble_matrix_rhs(g, d)
         # The problem is singular, and spsolve does not work well on all systems.
         # Instead, set a consistent solution, and check that the boundary
         # pressure is recovered.
         x = g.cell_centers[0]
 
-        bound_p = d["bound_pressure_cell"] * x + d["bound_pressure_face"] * bv
+        bound_p = d["flow_bound_pressure_cell"] * x + d["flow_bound_pressure_face"] * bv
         self.assertTrue(bound_p[0] == x[0] - 0.5)
         self.assertTrue(bound_p[2] == x[1] + 0.5)
 
@@ -267,18 +267,18 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_type = bf.size * ["dir"]
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Mpfa()
+        fd = Mpfa('flow')
         param.set_bc(fd, bound)
         param.set_bc_val(fd, np.zeros(g.num_faces))
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
         self.assertTrue(np.allclose(p, np.zeros_like(p)))
 
-        bound_p = data["bound_pressure_cell"] * p + data[
-            "bound_pressure_face"
+        bound_p = data["flow_bound_pressure_cell"] * p + data[
+            "flow_bound_pressure_face"
         ] * np.zeros(g.num_faces)
         self.assertTrue(np.allclose(bound_p, np.zeros_like(bound_p)))
 
@@ -290,19 +290,19 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_type = bf.size * ["dir"]
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Mpfa()
+        fd = Mpfa('flow')
         param.set_bc(fd, bound)
 
         bc_val = np.ones(g.num_faces)
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_constant_pressure_simplex_grid(self):
@@ -313,19 +313,19 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_type = bf.size * ["dir"]
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Mpfa()
+        fd = Mpfa('flow')
         param.set_bc(fd, bound)
 
         bc_val = np.ones(g.num_faces)
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_linear_pressure_dirichlet_conditions(self):
@@ -336,17 +336,17 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_type = bf.size * ["dir"]
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Mpfa()
+        fd = Mpfa('flow')
         param.set_bc(fd, bound)
 
         bc_val = 1 * g.face_centers[0] + 2 * g.face_centers[1]
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_linear_pressure_part_neumann_conditions(self):
@@ -361,7 +361,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_type[2] = "dir"  # Not [3]
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Tpfa()
+        fd = Tpfa("flow")
         param.set_bc(fd, bound)
 
         bc_val = np.zeros(g.num_faces)
@@ -370,10 +370,10 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
     def test_linear_pressure_part_neumann_conditions_reverse_sign(self):
@@ -386,7 +386,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_type[2] = "dir"
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Tpfa()
+        fd = Tpfa("flow")
         param.set_bc(fd, bound)
 
         bc_val = np.zeros(g.num_faces)
@@ -395,10 +395,10 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], g.face_centers[0, bf]))
 
     def test_linear_pressure_part_neumann_conditions_smaller_domain(self):
@@ -413,7 +413,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_type[2] = "dir"
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Mpfa()
+        fd = Mpfa('flow')
         param.set_bc(fd, bound)
 
         bc_val = np.zeros(g.num_faces)
@@ -422,10 +422,10 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
     def test_linear_pressure_dirichlet_conditions_perturbed_grid(self):
@@ -438,17 +438,17 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_type = bf.size * ["dir"]
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Mpfa()
+        fd = Mpfa("flow")
         param.set_bc(fd, bound)
 
         bc_val = 1 * g.face_centers[0] + 2 * g.face_centers[1]
         param.set_bc_val(fd, bc_val)
         data = {"param": param}
 
-        A, b = fd.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
+        bound_p = data["flow_bound_pressure_cell"] * p + data["flow_bound_pressure_face"] * bc_val
         self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_sign_trouble_two_neumann_sides(self):
@@ -461,13 +461,13 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bv[[2, 5]] = -1
         d["param"].set_bc_val("flow", bv)
         t = Mpfa("flow")
-        A, b = t.matrix_rhs(g, d)
+        A, b = t.assemble_matrix_rhs(g, d)
         # The problem is singular, and spsolve does not work well on all systems.
         # Instead, set a consistent solution, and check that the boundary
         # pressure is recovered.
         x = g.cell_centers[0]
 
-        bound_p = d["bound_pressure_cell"] * x + d["bound_pressure_face"] * bv
+        bound_p = d["flow_bound_pressure_cell"] * x + d["flow_bound_pressure_face"] * bv
         self.assertTrue(bound_p[0] == x[0] - 0.5)
         self.assertTrue(bound_p[2] == x[1] + 0.5)
 
@@ -487,7 +487,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Mpfa()
+        fd = Mpfa("flow")
         param.set_bc(fd, bound)
 
         bv = np.zeros(g.num_faces)
@@ -496,12 +496,11 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         param.set_bc_val("flow", bv)
 
         data = {"param": param}
-        t = Mpfa("flow")
 
-        A, b = t.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         x = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * x + data["bound_pressure_face"] * bv
+        bound_p = data["flow_bound_pressure_cell"] * x + data["flow_bound_pressure_face"] * bv
         self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
     def test_structured_simplex_linear_flow_reverse_sign(self):
@@ -520,7 +519,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Mpfa()
+        fd = Mpfa("flow")
         param.set_bc(fd, bound)
 
         bv = np.zeros(g.num_faces)
@@ -529,12 +528,11 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         param.set_bc_val("flow", bv)
 
         data = {"param": param}
-        t = Mpfa("flow")
 
-        A, b = t.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         x = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * x + data["bound_pressure_face"] * bv
+        bound_p = data["flow_bound_pressure_cell"] * x + data["flow_bound_pressure_face"] * bv
         self.assertTrue(np.allclose(bound_p[bf], g.face_centers[0, bf]))
 
 
@@ -542,7 +540,6 @@ class TestMpfaSimplexGrid(unittest.TestCase):
     def grid(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
-        p = np.zeros((2, 0))
         mesh_size = {"value": 0.3, "bound_value": 0.3}
         gb = pp.meshing.simplex_grid(
             fracs=[], domain=domain, mesh_size=mesh_size, verbose=0
@@ -565,7 +562,7 @@ class TestMpfaSimplexGrid(unittest.TestCase):
 
         bound = bc.BoundaryCondition(g, bf, bc_type)
 
-        fd = Mpfa()
+        fd = Mpfa("flow")
         param.set_bc(fd, bound)
 
         bv = np.zeros(g.num_faces)
@@ -574,12 +571,11 @@ class TestMpfaSimplexGrid(unittest.TestCase):
         param.set_bc_val("flow", bv)
 
         data = {"param": param}
-        t = Mpfa("flow")
 
-        A, b = t.matrix_rhs(g, data)
+        A, b = fd.assemble_matrix_rhs(g, data)
         x = spl.spsolve(A, b)
 
-        bound_p = data["bound_pressure_cell"] * x + data["bound_pressure_face"] * bv
+        bound_p = data["flow_bound_pressure_cell"] * x + data["flow_bound_pressure_face"] * bv
         self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
 
