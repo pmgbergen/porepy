@@ -618,7 +618,7 @@ class BasicsTest(unittest.TestCase):
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.assemble_matrix_rhs(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
