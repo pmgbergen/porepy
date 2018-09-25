@@ -17,9 +17,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 
 
-class RobinCoupling(object):
+class RobinCoupling(AbstractCoupling):
     """ A condition with resistance to flow between subdomains. Implementation
         of the model studied (though not originally proposed) by Martin et
         al 2005.
@@ -91,6 +92,9 @@ class RobinCoupling(object):
             internal boundary in some numerical methods (Read: VEM, RT0)
 
         """
+        if not self.key() + "Robin_discr" in data_edge.keys():
+            self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
+
         assert g_master.dim != g_slave.dim
         grid_swap = g_master.dim < g_slave.dim
         if grid_swap:
