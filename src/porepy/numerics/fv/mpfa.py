@@ -83,7 +83,7 @@ class Mpfa(FVElliptic):
         data[self.key() + "bound_pressure_cell"] = bp_cell
         data[self.key() + "bound_pressure_face"] = bp_face
 
-    def mpfa(self, g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, **kwargs):
+    def mpfa(self, g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, robin_weight=None, **kwargs):
         """
         Discretize the scalar elliptic equation by the multi-point flux
         approximation method.
@@ -142,7 +142,7 @@ class Mpfa(FVElliptic):
             # entire grid.
             # TODO: We may want to estimate the memory need, and give a warning if
             # this seems excessive
-            flux, bound_flux, bound_pressure_cell, bound_pressure_face = _mpfa_local(
+            flux, bound_flux, bound_pressure_cell, bound_pressure_face = self._local_discr(
                 g,
                 k,
                 bnd,
@@ -154,14 +154,11 @@ class Mpfa(FVElliptic):
         else:
             # Estimate number of partitions necessary based on prescribed memory
             # usage
-            peak_mem = _estimate_peak_memory(g)
+            peak_mem = self._estimate_peak_memory(g)
             num_part = np.ceil(peak_mem / max_memory)
 
             # Let partitioning module apply the best available method
             part = partition.partition(g, num_part)
-
-            # Boundary faces on the main grid
-            glob_bound_face = g.get_all_boundary_faces()
 
             # Empty fields for flux and bound_flux. Will be expanded as we go.
             # Implementation note: It should be relatively straightforward to
@@ -187,7 +184,7 @@ class Mpfa(FVElliptic):
                 active_nodes = np.squeeze(np.where((cn * active_cells) > 0))
 
                 # Perform local discretization.
-                loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_faces = mpfa_partial(
+                loc_flux, loc_bound_flux, loc_bp_cell, loc_bp_face, loc_faces = self.partial_discr(
                     g, k, bnd, eta=eta, inverter=inverter, nodes=active_nodes
                 )
 
@@ -332,12 +329,13 @@ class Mpfa(FVElliptic):
         )
 
 
-    def _local_discr(self, g, k, bnd, eta=None, inverter="numba", apertures=None):
+    def _local_discr(
+        self, g, k, bnd, eta=None, inverter="numba", apertures=None, robin_weight=None
+    ):
         """
         Actual implementation of the MPFA O-method. To calculate MPFA on a grid
         directly, either call this method, or, to respect the privacy of this
         method, the main mpfa method with no memory constraints.
-
         Method properties and implementation details.
         The pressure is discretized as a linear function on sub-cells (see
         reference paper). In this implementation, the pressure is represented by
@@ -347,15 +345,17 @@ class Mpfa(FVElliptic):
         The method will give continuous fluxes over the faces, and pressure
         continuity for certain points (controlled by the parameter eta). This can
         be expressed as a linear system on the form
-            (i)   A * grad_p            = 0
-            (ii)  B * grad_p + C * p_cc = 0
-            (iii) 0            D * p_cc = I
+            (i)    A * grad_p              = 0
+            (ii)   Ar * grad_p + Cr * P_cc = 0
+            (iii)  B * grad_p + C * p_cc   = 0
+            (iv)   0            D * p_cc   = I
         Here, the first equation represents flux continuity, and involves only the
-        pressure gradients (grad_p). The second equation gives pressure continuity
+        pressure gradients (grad_p). The second equation gives the Robin conditions,
+        relating flux to the pressure. The third equation gives pressure continuity
         over cell faces, thus B will contain distances between cell centers and the
         face continuity points, while C consists of +- 1 (depending on which side
-        the cell is relative to the face normal vector). The third equation
-        enforces the pressure to be unity in one cell at a time. Thus (i)-(iii) can
+        the cell is relative to the face normal vector). The fourth equation
+        enforces the pressure to be unity in one cell at a time. Thus (i)-(iv) can
         be inverted to express the pressure gradients as in terms of the cell
         center variables, that is, we can compute the basis functions on the
         sub-cells. Because of the method construction (again see reference paper),
@@ -365,8 +365,7 @@ class Mpfa(FVElliptic):
         (i), that is, only consider contribution from one side of the face.
         Boundary values can be incorporated with appropriate modifications -
         Neumann conditions will have a non-zero right hand side for (i), while
-        Dirichlet gives a right hand side for (ii).
-
+        Dirichlet gives a right hand side for (iii).
         """
         if eta is None:
             eta = fvutils.determine_eta(g)
@@ -432,7 +431,7 @@ class Mpfa(FVElliptic):
         # Obtain normal_vector * k, pairings of cells and nodes (which together
         # uniquely define sub-cells, and thus index for gradients. See comment
         # below for the ordering of elements in the subcell gradient.
-        nk_grad_all, cell_node_blocks, sub_cell_index = _tensor_vector_prod(
+        nk_grad_all, cell_node_blocks, sub_cell_index = self._tensor_vector_prod(
             g, k, subcell_topology, apertures
         )
 
@@ -523,7 +522,7 @@ class Mpfa(FVElliptic):
         # block-diagonal structure, with one block centered around each vertex.
         # Obtain the necessary mappings.
 
-        rows2blk_diag, cols2blk_diag, size_of_blocks = _block_diagonal_structure(
+        rows2blk_diag, cols2blk_diag, size_of_blocks = self._block_diagonal_structure(
             sub_cell_index, cell_node_blocks, subcell_topology.nno_unique, bound_exclusion
         )
 
@@ -592,7 +591,7 @@ class Mpfa(FVElliptic):
 
         ####
         # Boundary conditions
-        rhs_bound = _create_bound_rhs(
+        rhs_bound = self._create_bound_rhs(
             bnd,
             bound_exclusion,
             subcell_topology,
@@ -772,7 +771,6 @@ class Mpfa(FVElliptic):
 
     def _block_diagonal_structure(self, sub_cell_index, cell_node_blocks, nno, bound_exclusion):
         """ Define matrices to turn linear system into block-diagonal form
-
         Parameters
         ----------
         sub_cell_index
@@ -780,7 +778,6 @@ class Mpfa(FVElliptic):
         nno node numbers associated with balance equations
         exclude_dirichlet mapping to remove rows associated with flux boundary
         exclude_neumann mapping to remove rows associated with pressure boundary
-
         Returns
         -------
         rows2blk_diag transform rows of linear system to block-diagonal form
@@ -790,10 +787,13 @@ class Mpfa(FVElliptic):
 
         # Stack node numbers of equations on top of each other, and sort them to
         # get block-structure. First eliminate node numbers at the boundary, where
-        # the equations are either of flux or pressure continuity (not both)
-        nno_flux = bound_exclusion.exclude_dirichlet(nno)
-        nno_pressure = bound_exclusion.exclude_neumann(nno)
-        node_occ = np.hstack((nno_flux, nno_pressure))
+        # the equations are either of flux, pressure continuity or robin
+        nno_flux = bound_exclusion.exclude_robin_dirichlet(nno)
+        nno_pressure = bound_exclusion.exclude_neumann_robin(nno)
+        # we have now eliminated all nodes related to robin, we therefore add them
+        nno_rob = bound_exclusion.keep_robin(nno)
+
+        node_occ = np.hstack((nno_flux, nno_rob, nno_pressure))
         sorted_ind = np.argsort(node_occ)
         sorted_nodes_rows = node_occ[sorted_ind]
         # Size of block systems
@@ -810,14 +810,16 @@ class Mpfa(FVElliptic):
         cols2blk_diag = sps.coo_matrix(
             (np.ones(sub_cell_index.size), (subcind_nodes, np.arange(sub_cell_index.size)))
         ).tocsr()
+
         return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
-    def _create_bound_rhs(self, bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, num_pr):
+    def _create_bound_rhs(
+        self, bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, num_rob, num_pr
+    ):
         """
         Define rhs matrix to get basis functions for incorporates boundary
         conditions
-
         Parameters
         ----------
         bnd
@@ -828,7 +830,6 @@ class Mpfa(FVElliptic):
         g : grid
         num_flux : number of equations for flux continuity
         num_pr: number of equations for pressure continuity
-
         Returns
         -------
         rhs_bound: Matrix that can be multiplied with inverse block matrix to get
@@ -838,49 +839,74 @@ class Mpfa(FVElliptic):
         # are handled by assigning Neumann conditions.
         is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
         is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
+        is_rob = np.logical_and(bnd.is_rob, np.logical_not(bnd.is_internal))
 
         fno = subcell_topology.fno_unique
         num_neu = np.sum(is_neu[fno])
         num_dir = np.sum(is_dir[fno])
-        num_bound = num_neu + num_dir
+        if not num_rob == np.sum(is_rob[fno]):
+            raise AssertionError()
 
-        # Neumann boundary conditions
-        # Find Neumann faces, exclude Dirichlet faces (since these are excluded
+        num_bound = num_neu + num_dir + num_rob
+
+        # Neumann and Robin boundary conditions. Neumann and Robin conditions
+        # are essentially the same for the rhs (the rhs for both is a flux).
+        # However, we need to be carefull and get the indexing correct as seen
+        # from the local system, that is, first Neumann, then Robin and last
+        # Dirichlet.
+        # Find Neumann and Robin faces, exclude Dirichlet faces (since these are excluded
         # from the right hand side linear system), and do necessary formating.
         neu_ind = np.argwhere(
-            bound_exclusion.exclude_dirichlet(is_neu[fno].astype("int64"))
+            bound_exclusion.exclude_robin_dirichlet(is_neu[fno].astype("int64"))
         ).ravel("F")
-        # We also need to map the respective Neumann and Dirichlet half-faces to
+        rob_ind = np.argwhere(
+            bound_exclusion.keep_robin(is_rob[fno].astype("int64"))
+        ).ravel("F")
+        neu_rob_ind = np.argwhere(
+            bound_exclusion.exclude_dirichlet((is_rob[fno] + is_neu[fno]).astype("int64"))
+        ).ravel("F")
+
+        # We also need to map the respective Neumann, Robin, and Dirichlet half-faces to
         # the global half-face numbering (also interior faces). The latter should
         # not have Dirichlet and Neumann excluded (respectively), and thus we need
         # new fields
         neu_ind_all = np.argwhere(is_neu[fno].astype("int")).ravel("F")
+        rob_ind_all = np.argwhere(is_rob[fno].astype("int")).ravel("F")
         dir_ind_all = np.argwhere(is_dir[fno].astype("int")).ravel("F")
         num_face_nodes = g.face_nodes.sum(axis=0).A.ravel(order="F")
 
-        # For the Neumann boundary conditions, we define the value as seen from
+        # We now merge the neuman and robin indices since they are treated equivalent
+        if rob_ind.size == 0:
+            neu_rob_ind = neu_ind
+        elif neu_ind.size == 0:
+            neu_rob_ind = rob_ind + num_flux
+        else:
+            neu_rob_ind = np.hstack((neu_ind, rob_ind + num_flux))
+        neu_rob_ind_all = np.hstack((neu_ind_all, rob_ind_all))
+
+        # For the Neumann/Robin boundary conditions, we define the value as seen from
         # the innside of the domain. E.g. outflow is defined to be positive. We
         # therefore set the matrix indices to -1. We also have to scale it with
         # the number of nodes per face because the flux of face is the sum of its
         # half-faces.
-        scaled_sgn = -1 / num_face_nodes[fno[neu_ind_all]]
-        if neu_ind.size > 0:
-            neu_cell = sps.coo_matrix(
-                (scaled_sgn, (neu_ind, np.arange(neu_ind.size))),
-                shape=(num_flux, num_bound),
+        scaled_sgn = -1 / num_face_nodes[fno[neu_rob_ind_all]]
+        if neu_rob_ind.size > 0:
+            neu_rob_cell = sps.coo_matrix(
+                (scaled_sgn, (neu_rob_ind, np.arange(neu_rob_ind.size))),
+                shape=(num_flux + num_rob, num_bound),
             )
         else:
             # Special handling when no elements are found. Not sure if this is
             # necessary, or if it is me being stupid
-            neu_cell = sps.coo_matrix((num_flux, num_bound))
+            neu_rob_cell = sps.coo_matrix((num_flux + num_rob, num_bound))
 
         # Dirichlet boundary conditions
         dir_ind = np.argwhere(
-            bound_exclusion.exclude_neumann(is_dir[fno].astype("int64"))
+            bound_exclusion.exclude_neumann_robin(is_dir[fno].astype("int64"))
         ).ravel("F")
         if dir_ind.size > 0:
             dir_cell = sps.coo_matrix(
-                (sgn[dir_ind_all], (dir_ind, num_neu + np.arange(dir_ind.size))),
+                (sgn[dir_ind_all], (dir_ind, num_neu + num_rob + np.arange(dir_ind.size))),
                 shape=(num_pr, num_bound),
             )
         else:
@@ -890,12 +916,12 @@ class Mpfa(FVElliptic):
 
         # Number of elements in neu_ind and neu_ind_all are equal, we can test with
         # any of them. Same with dir.
-        if neu_ind.size > 0 and dir_ind.size > 0:
-            neu_dir_ind = np.hstack([neu_ind_all, dir_ind_all]).ravel("F")
-        elif neu_ind.size > 0:
-            neu_dir_ind = neu_ind_all
+        if neu_rob_ind.size > 0 and dir_ind.size > 0:
+            neu_rob_dir_ind = np.hstack([neu_rob_ind_all, dir_ind_all]).ravel("F")
+        elif neu_rob_ind.size > 0:
+            neu_rob_dir_ind = neu_rob_ind_all
         elif dir_ind.size > 0:
-            neu_dir_ind = dir_ind_all
+            neu_rob_dir_ind = dir_ind_all
         else:
             raise ValueError("Boundary values should be either Dirichlet or " "Neumann")
 
@@ -904,7 +930,7 @@ class Mpfa(FVElliptic):
         # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
         # Map these to all half-face indices
         bnd_2_all_hf = sps.coo_matrix(
-            (np.ones(num_bound), (np.arange(num_bound), neu_dir_ind)),
+            (np.ones(num_bound), (np.arange(num_bound), neu_rob_dir_ind)),
             shape=(num_bound, num_subfno),
         )
         # The user of the discretization should now nothing about half faces,
@@ -916,5 +942,6 @@ class Mpfa(FVElliptic):
             ),
             shape=(num_subfno, g.num_faces),
         )
-        rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
+        rhs_bound = sps.vstack([neu_rob_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
+
         return rhs_bound
