@@ -9,7 +9,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class FVElliptic(object):
+class FVElliptic(pp.numerics.mixed_dim.solver.Solver):
     """
     """
 
@@ -77,7 +77,7 @@ class FVElliptic(object):
             self.discretize(g, data)
 
         div = pp.fvutils.scalar_divergence(g)
-        flux = data["flux"]
+        flux = data[self.key() + "flux"]
         M = div * flux
 
         return M
