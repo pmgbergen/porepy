@@ -242,7 +242,7 @@ class TpfaMixedCoupling(AbstractCoupling):
         """
         Computes the coupling terms for the faces between cells in g_h and g_l
         using the two-point flux approximation.
-        see matrix_rhs for parameters iformation
+        see matrix_rhs for parameters information
         """
         # Mortar data structure.
         mg = data_edge["mortar_grid"]

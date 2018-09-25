@@ -40,9 +40,12 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
 
     Parameters
     ----------
-    fracs (list of np.ndarray): One list item for each fracture. Each item
+    fracs (list of np.ndarray or dictionary):
+        EITHER: One list item for each fracture. Each item
         consist of a (nd x n) array describing fracture vertices. The
         fractures may be intersecting.
+        OR: dictionary with fields 'points', describing fracture vertexes, and
+            'edegs' describing connection between the points.
     domain (dict): Domain specification, determined by xmin, xmax, ...
     subdomains (list of np.ndarray or list of Fractures): One list item
         for each fracture, same format as fracs. Specifies internal boundaries
@@ -81,12 +84,20 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
                coupled to a lower domentional domain.
         The union of the above three is the tag boundary_faces.
 
-    Examples
+    Examples (2D only for now)
     --------
     frac1 = np.array([[1,4],[1,4]])
     frac2 = np.array([[1,4],[4,1]])
     fracs = [frac1, frac2]
     domain = {'xmin': 0, 'ymin': 0, 'xmax':5, 'ymax':5}
+    gb = simplex_grid(fracs, domain)
+
+        Using dictionary format:
+    domain = {'xmin': 0, 'ymin': 0, 'xmax':5, 'ymax':5}
+    p = np.array([[1, 2, 2, 1], [1, 1, 2, 2]])
+    e = np.array([[0, 1], [2, 3]]).T
+    fracs = {'points': p, 'edges': e}
+
     gb = simplex_grid(fracs, domain)
 
     """
@@ -112,15 +123,25 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
         if len(fracs) == 0:
             f_lines = np.zeros((2, 0))
             f_pts = np.zeros((2, 0))
-        else:
+            frac_dic = {"points": f_pts, "edges": f_lines}
+        elif not isinstance(fracs, dict):
             f_lines = np.reshape(np.arange(2 * len(fracs)), (2, -1), order="F")
             f_pts = np.hstack(fracs)
-        frac_dic = {"points": f_pts, "edges": f_lines}
+            frac_dic = {"points": f_pts, "edges": f_lines}
+        else:
+            frac_dic = fracs
         grids = simplex.triangle_grid(frac_dic, domain, **kwargs)
     elif ndim == 3:
         grids = simplex.tetrahedral_grid(fracs, domain, network, subdomains, **kwargs)
     else:
         raise ValueError("Only support for 2 and 3 dimensions")
+
+    if 'fracture_id' in kwargs:
+        if kwargs['fracture_id'].size != len(grids[ndim-1]):
+            raise ValueError('Wrong size of fracture Id')
+
+        for g, g_id in zip(grids[ndim-1], kwargs['fracture_id']):
+            g.tags['fracture_id'] = g_id
 
     return grid_list_to_grid_bucket(grids, time_tot=tm_tot, **kwargs)
 

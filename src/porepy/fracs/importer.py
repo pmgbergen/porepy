@@ -196,7 +196,7 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
 
 
 def dfm_2d_from_csv(
-    f_name, mesh_kwargs, domain=None, return_domain=False, tol=1e-8, **kwargs
+    f_name, mesh_kwargs, domain=None, return_domain=False, tol=1e-8, polyline=False, **kwargs
 ):
     """
     Create the grid bucket from a set of fractures stored in a csv file and a
@@ -220,13 +220,16 @@ def dfm_2d_from_csv(
         is returned.
 
     """
-    pts, edges = lines_from_csv(f_name, tol=tol, **kwargs)
+    pts, edges = lines_from_csv(f_name, tol=tol, polyline=polyline,**kwargs)
     f_set = np.array([pts[:, e] for e in edges.T])
 
     # Define the domain as bounding-box if not defined
     if domain is None:
         overlap = kwargs.get("domain_overlap", 0)
         domain = cg.bounding_box(pts, overlap)
+
+    if kwargs.get('assign_fracture_id', False):
+        mesh_kwargs['fracture_id'] = np.arange(edges.shape[1])
 
     if return_domain:
         return meshing.simplex_grid(f_set, domain, **mesh_kwargs), domain
@@ -237,16 +240,23 @@ def dfm_2d_from_csv(
 # ------------------------------------------------------------------------------#
 
 
-def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, **kwargs):
+def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, polyline=False, return_frac_id=False, **kwargs):
     """ Read csv file with fractures to obtain fracture description.
 
     Create the grid bucket from a set of fractures stored in a csv file and a
-    domain. In the csv file, we assume the following structure:
-    FID, START_X, START_Y, END_X, END_Y
+    domain. In the csv file, we assume one of the two following structures:
 
-    Where FID is the fracture id, START_X and START_Y are the abscissa and
+        a) FID, START_X, START_Y, END_X, END_Y
+        b) FID, PT_X, PT_Y
+
+    Format a) is used to describe fractures consisting of a straight line.
+    FID is the fracture id, START_X and START_Y are the abscissa and
     coordinate of the starting point, and END_X and END_Y are the abscissa and
     coordinate of the ending point.
+
+    Format b) can be used to describe polyline fractures: Each row in the file
+    represents a separate points, points with the same FID will be assigned to
+    the same fracture *in the order specified in the file*.
 
     To change the delimiter from the default comma, use kwargs passed to
     np.genfromtxt.
@@ -272,6 +282,9 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, **kwargs)
             and endpoints (first and second row). If tags are assigned to the
             fractures, these are stored in rows 2,...
 
+    Raises:
+        ValueError: If a fracture of a single point is specified.
+
     """
     npargs = {}
     # EK: Should these really be explicit keyword arguments?
@@ -283,6 +296,8 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, **kwargs)
     if data.size == 0:
         return np.empty((2, 0)), np.empty((2, 0), dtype=np.int)
     data = np.atleast_2d(data)
+
+    # Consider subset of fractures if asked for
     if max_num_fracs is not None:
         data = data[:max_num_fracs]
 
@@ -295,10 +310,37 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, **kwargs)
 
     pts = data[:, pt_cols].reshape((-1, 2)).T
 
-    # Let the edges correspond to the ordering of the fractures
-    edges = np.vstack((np.arange(0, 2 * num_fracs, 2), np.arange(1, 2 * num_fracs, 2)))
-    if tagcols is not None:
-        edges = np.vstack((edges, data[:, tagcols].T))
+    if polyline:
+        frac_id = data[:, 0]
+        fracs = np.unique(frac_id)
+
+        edges = np.empty((2, 0))
+        edges_frac_id = np.empty(0)
+        pt_ind = np.arange(frac_id.size)
+
+        for fi in fracs:
+            ind = np.argwhere(frac_id == fi).ravel()
+            if ind.size < 2:
+                raise ValueError('A fracture should consist of more than one line')
+            if ind.size == 2:
+                edges_loc = np.array([[pt_ind[ind[0]]],
+                                       [pt_ind[ind[1]]]])
+            else:
+                start = pt_ind[ind[0] : ind[-1]]
+                end = pt_ind[ind[1] : ind[-1]+1]
+                edges_loc = np.vstack((start, end))
+
+            edges = np.hstack((edges, edges_loc))
+            edges_frac_id = np.hstack((edges_frac_id, [fi]*edges_loc.shape[1]))
+
+        edges = edges.astype(np.int)
+        edges_frac_id = edges_frac_id.astype(np.int)
+
+    else:
+        # Let the edges correspond to the ordering of the fractures
+        edges = np.vstack((np.arange(0, 2 * num_fracs, 2), np.arange(1, 2 * num_fracs, 2)))
+        if tagcols is not None:
+            edges = np.vstack((edges, data[:, tagcols].T))
 
     pts, _, old_2_new = unique_columns_tol(pts, tol=tol)
     edges[:2] = old_2_new[edges[:2]]
@@ -308,7 +350,11 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, **kwargs)
 
     assert np.all(np.diff(edges[:2], axis=0) != 0)
 
-    return pts, edges.astype(np.int)
+    if return_frac_id:
+        edges_frac_id = np.delete(edges_frac_id, to_remove)
+        return pts, edges.astype(np.int), edges_frac_id.astype(np.int)
+    else:
+        return pts, edges.astype(np.int)
 
 
 # ------------ End of CSV-based functions. Start of gmsh related --------------#

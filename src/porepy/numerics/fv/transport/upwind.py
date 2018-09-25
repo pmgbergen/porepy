@@ -115,8 +115,8 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
         """
         if g.dim == 0:
-            data["flow_faces"] = sps.csr_matrix([0])
-            return sps.csr_matrix([0]), np.array([0])
+            data["flow_faces"] = sps.csr_matrix([0.])
+            return sps.csr_matrix([0.]), np.array([0.])
 
         param = data["param"]
         discharge = data[d_name]
@@ -165,6 +165,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
         flow_cells = if_faces.transpose() * flow_faces
         flow_cells.tocsr()
+        flow_cells = flow_cells.astype(np.float)
 
         data["flow_faces"] = flow_faces
         if not has_bc:
