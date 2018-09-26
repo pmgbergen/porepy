@@ -1,13 +1,13 @@
-import unittest
-import numpy as np
-import scipy.sparse as sps
-
-import porepy as pp
-
 """
 Checks the actions done in porepy.numerics.fv.mpsa.create_bound_rhs_nd
 for handling boundary conditions expressed in a vectorial form
 """
+
+import unittest
+import numpy as np
+
+import porepy as pp
+
 
 class TestMpsaBoundRhs(unittest.TestCase):
     def test_neu(self):
@@ -19,7 +19,7 @@ class TestMpsaBoundRhs(unittest.TestCase):
     def test_dir(self):
         g = pp.StructuredTriangleGrid([1, 1])
         basis = np.random.rand(g.dim, g.num_faces, g.dim)
-        bc = pp.BoundaryConditionVectorial(g,g.get_all_boundary_faces(), 'dir')
+        bc = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
         self.run_test(g, basis, bc)
 
     def test_mix(self):
@@ -67,6 +67,7 @@ class TestMpsaBoundRhs(unittest.TestCase):
         # rhs should not be affected by basis transform
         self.assertTrue(np.allclose(bound_rhs_b.A, bound_rhs.A))
 
+
 def expand_2d_grid_to_3d(g, constit=None):
     g = g.copy()
     g.cell_centers = np.delete(g.cell_centers, (2), axis=0)
@@ -80,6 +81,7 @@ def expand_2d_grid_to_3d(g, constit=None):
         constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=0)
         constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=1)
         return g, constit
+
 
 if __name__ == "__main__":
     unittest.main()
