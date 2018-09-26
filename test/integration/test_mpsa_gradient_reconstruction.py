@@ -8,7 +8,7 @@ import porepy as pp
 class MpsaReconstructDisplacement(unittest.TestCase):
     def test_cart_2d(self):
         """
-        Test that mpsa gives out the correct matrices for 
+        Test that mpsa gives out the correct matrices for
         reconstruction of the displacement at the faces
         """
         nx = 1
