@@ -602,7 +602,7 @@ def mpsa(
         If hf_disp is True the following will also be returned
         scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_cells):
             displacement reconstruction for the displacement at the half faces. This is
-            the contribution from the cell-center displacements. 
+            the contribution from the cell-center displacements.
             NOTE: The half-face displacements are ordered cell wise
             (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
         scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_faces):
@@ -1113,14 +1113,11 @@ def mpsa_elasticity(
 def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
     """
     Function for reconstructing the displacement at the half faces given the
-    local gradients. reconstruct_displacement(...) construct a matrix that 
+    local gradients. reconstruct_displacement(...) construct a matrix that
     includes the distances from the cell centers to the evaluation point eta.
-    
     """
     if eta is None:
         eta = fvutils.determine_eta(g)
-
-    nd = g.dim
 
     # Calculate the distance from the cell centers to continuity points
     D_g = fvutils.compute_dist_face_cell(
