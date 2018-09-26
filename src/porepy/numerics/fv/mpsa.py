@@ -964,10 +964,6 @@ def _mpsa_local(
         dist_grad, cell_centers = reconstruct_displacement(
             g, subcell_topology, gradient_eta, eta_at_bnd=eta_at_bnd
         )
-        import pdb
-
-        pdb.set_trace()
-
         grad_cell = dist_grad * igrad * rhs_cells + cell_centers
         grad_bound = dist_grad * igrad * rhs_bound
         return stress, bound_stress, grad_cell, grad_bound
