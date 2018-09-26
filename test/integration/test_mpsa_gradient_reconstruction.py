@@ -22,7 +22,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
 
         bc = pp.BoundaryCondition(g)
         _, _, grad_cell, grad_bound = pp.numerics.fv.mpsa.mpsa(
-            g, k, bc, return_gradient=True, inverter='python'
+            g, k, bc, hf_disp=True, inverter="python"
         )
 
         grad_bound_known = np.array(
@@ -81,7 +81,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         g.compute_geometry()
 
         np.random.seed(2)
-        
+
         lam = np.ones(g.num_cells)
         mu = np.ones(g.num_cells)
         k = pp.FourthOrderTensor(g.dim, mu, lam)
@@ -96,23 +96,22 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         u_b = g.face_centers + x0
 
         stress, bound_stress, grad_cell, grad_bound = pp.numerics.fv.mpsa.mpsa(
-            g, k, bc, eta=0, return_gradient=True, inverter='python'
+            g, k, bc, eta=0, hf_disp=True, inverter="python"
         )
 
         div = pp.fvutils.vector_divergence(g)
 
-        U  = sps.linalg.spsolve(div * stress, -div * bound_stress * u_b.ravel('F'))
+        U = sps.linalg.spsolve(div * stress, -div * bound_stress * u_b.ravel("F"))
 
-        U_hf = (grad_cell * U + grad_bound * u_b.ravel('F')).reshape((g.dim, -1))
+        U_hf = (grad_cell * U + grad_bound * u_b.ravel("F")).reshape((g.dim, -1))
 
         _, IA = np.unique(s_t.fno, True)
         U_f = U_hf[:, IA]
 
-        U = U.reshape((g.dim, -1), order='F')
-        
+        U = U.reshape((g.dim, -1), order="F")
+
         self.assertTrue(np.all(np.abs(U - g.cell_centers - x0) < 1e-10))
         self.assertTrue(np.all(np.abs(U_f - g.face_centers - x0) < 1e-10))
-
 
     def test_simplex_3d_boundary(self):
         """
@@ -126,7 +125,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         g.compute_geometry()
 
         np.random.seed(2)
-        
+
         lam = 10 * np.random.rand(g.num_cells)
         mu = 10 * np.random.rand(g.num_cells)
         k = pp.FourthOrderTensor(g.dim, mu, lam)
@@ -134,21 +133,21 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         s_t = pp.fvutils.SubcellTopology(g)
 
         bc = pp.BoundaryConditionVectorial(g)
-        dir_ind = g.get_all_boundary_faces()[[0,2,5, 8, 10, 13,15, 21]]
+        dir_ind = g.get_all_boundary_faces()[[0, 2, 5, 8, 10, 13, 15, 21]]
         bc.is_dir[:, dir_ind] = True
         bc.is_neu[bc.is_dir] = False
 
         u_b = np.random.randn(g.face_centers.shape[0], g.face_centers.shape[1])
 
         stress, bound_stress, grad_cell, grad_bound = pp.numerics.fv.mpsa.mpsa(
-            g, k, bc, eta=0, return_gradient=True, inverter='python'
+            g, k, bc, eta=0, hf_disp=True, inverter="python"
         )
 
         div = pp.fvutils.vector_divergence(g)
 
-        U  = sps.linalg.spsolve(div * stress, -div * bound_stress * u_b.ravel('F'))
+        U = sps.linalg.spsolve(div * stress, -div * bound_stress * u_b.ravel("F"))
 
-        U_hf = (grad_cell * U + grad_bound * u_b.ravel('F')).reshape((g.dim, -1))
+        U_hf = (grad_cell * U + grad_bound * u_b.ravel("F")).reshape((g.dim, -1))
 
         _, IA = np.unique(s_t.fno, True)
         U_f = U_hf[:, IA]
