@@ -533,6 +533,8 @@ def mpsa(
     eta=None,
     inverter=None,
     max_memory=None,
+    return_gradient=False,
+    gradient_eta=None,
     **kwargs
 ):
     """
@@ -632,10 +634,33 @@ def mpsa(
         # entire grid.
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
-        stress, bound_stress = _mpsa_local(
-            g, constit, bound, eta=eta, inverter=inverter, robin_weight=robin_weight
-        )
+        if return_gradient:
+            stress, bound_stress, grad_cell, grad_bound = _mpsa_local(
+                g,
+                constit,
+                bound,
+                eta=eta,
+                inverter=inverter,
+                robin_weight=robin_weight,
+                return_gradient=return_gradient,
+                gradient_eta=gradient_eta,
+            )
+        else:
+            stress, bound_stress = _mpsa_local(
+                g,
+                constit,
+                bound,
+                eta=eta,
+                inverter=inverter,
+                robin_weight=robin_weight,
+                return_gradient=return_gradient,
+                gradient_eta=gradient_eta,
+            )
     else:
+        if return_gradient:
+            raise NotImplementedError(
+                "No gradient reconstruction for partial discretization yet"
+            )
         # Estimate number of partitions necessary based on prescribed memory
         # usage
         peak_mem = _estimate_peak_memory_mpsa(g)
@@ -688,7 +713,10 @@ def mpsa(
             stress += loc_stress
             bound_stress += loc_bound_stress
 
-    return stress, bound_stress
+    if return_gradient:
+        return stress, bound_stress, grad_cell, grad_bound
+    else:
+        return stress, bound_stress
 
 
 def mpsa_partial(
@@ -814,7 +842,16 @@ def mpsa_partial(
     return stress_glob, bound_stress_glob, active_faces
 
 
-def _mpsa_local(g, constit, bound, eta=0, robin_weight=None, inverter="numba"):
+def _mpsa_local(
+    g,
+    constit,
+    bound,
+    eta=0,
+    robin_weight=None,
+    inverter="numba",
+    return_gradient=False,
+    gradient_eta=None,
+):
     """
     Actual implementation of the MPSA W-method. To calculate the MPSA
     discretization on a grid, either call this method, or, to respect the
@@ -897,7 +934,9 @@ def _mpsa_local(g, constit, bound, eta=0, robin_weight=None, inverter="numba"):
 
     hook_igrad = hook * igrad
     # NOTE: This is the point where we expect to reach peak memory need.
-    del igrad, hook
+    del hook
+    if not return_gradient:
+        del igrad
 
     # Output should be on face-level (not sub-face)
     hf2f = fvutils.map_hf_2_f(
@@ -917,7 +956,23 @@ def _mpsa_local(g, constit, bound, eta=0, robin_weight=None, inverter="numba"):
     bound_stress = hf2f * hook_igrad * rhs_bound
     stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
 
-    return stress, bound_stress
+    if return_gradient:
+        eta_at_bnd = True
+        if gradient_eta is None:
+            gradient_eta = eta
+            eta_at_bnd = False
+        dist_grad, cell_centers = reconstruct_displacement(
+            g, subcell_topology, gradient_eta, eta_at_bnd=eta_at_bnd
+        )
+        import pdb
+
+        pdb.set_trace()
+
+        grad_cell = dist_grad * igrad * rhs_cells + cell_centers
+        grad_bound = dist_grad * igrad * rhs_bound
+        return stress, bound_stress, grad_cell, grad_bound
+    else:
+        return stress, bound_stress
 
 
 def mpsa_elasticity(
@@ -1048,24 +1103,14 @@ def mpsa_elasticity(
     return hook, igrad, rhs_cells, cell_node_blocks, hook_normal
 
 
-def cell_centers_to_continuity_points(g, eta=None, eta_at_bnd=False, inverter="numba"):
+def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
     if eta is None:
         eta = fvutils.determine_eta(g)
 
-    if g.dim == 2:
-        g = g.copy()
-        g.cell_centers = np.delete(g.cell_centers, (2), axis=0)
-        g.face_centers = np.delete(g.face_centers, (2), axis=0)
-        g.face_normals = np.delete(g.face_normals, (2), axis=0)
-        g.nodes = np.delete(g.nodes, (2), axis=0)
-
     nd = g.dim
 
-    # Define subcell topology
-    subcell_topology = fvutils.SubcellTopology(g)
-
     # Calculate the distance from the cell centers to continuity points
-    D_g = pp.fvutils.compute_dist_face_cell(
+    D_g = fvutils.compute_dist_face_cell(
         g, subcell_topology, eta, eta_at_bnd=eta_at_bnd, return_paired=False
     )
     # expand indices to x-y-z
@@ -1083,18 +1128,18 @@ def cell_centers_to_continuity_points(g, eta=None, eta_at_bnd=False, inverter="n
     D_c = sps.kron(sps.eye(g.dim), D_c)
     D_c = D_c.tocsc()
     # book keeping
-    cell_node_blocks, _ = pp.utils.matrix_compression.rlencode(
+    cell_node_blocks, _ = matrix_compression.rlencode(
         np.vstack((subcell_topology.cno, subcell_topology.nno))
     )
     num_sub_cells = cell_node_blocks[0].size
     # The column ordering of the displacement equilibrium equations are
     # formed as a Kronecker product of scalar equations. Bring them to the
     # same form as that applied in the force balance equations
-    cc_to_cont, cell_centers = pp.numerics.fv.mpsa.__rearange_columns_displacement_eqs(
+    dist_grad, cell_centers = __rearange_columns_displacement_eqs(
         D_g, D_c, num_sub_cells, g.dim
     )
 
-    return cc_to_cont, cell_centers
+    return dist_grad, cell_centers
 
 
 # -----------------------------------------------------------------------------
