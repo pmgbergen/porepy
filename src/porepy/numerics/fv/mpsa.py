@@ -533,8 +533,8 @@ def mpsa(
     eta=None,
     inverter=None,
     max_memory=None,
-    return_gradient=False,
-    gradient_eta=None,
+    hf_disp=False,
+    hf_eta=None,
     **kwargs
 ):
     """
@@ -577,7 +577,13 @@ def mpsa(
             If the **estimated** memory need is larger than the provided
             threshold, the discretization will be split into an appropriate
             number of sub-calculations, using mpsa_partial().
-
+        hf_disp (bool) False: If true two matrices hf_cell, hf_bound is also returned such
+            that hf_cell * U + hf_bound * u_bound gives the reconstructed displacement
+            at the point on the face hf_eta. U is the cell centered displacement and
+            u_bound the boundary conditions
+        hf_eta (float) None: The point of displacment on the half-faces. hf_eta=0 gives the
+            displacement at the face centers while hf_eta=1 gives the displacements at
+            the nodes. If None is given, the continuity points eta will be used.
     Returns:
         scipy.sparse.csr_matrix (shape num_faces, num_cells): stress
             discretization, in the form of mapping from cell displacement to
@@ -593,6 +599,18 @@ def mpsa(
             Incorporation as a right hand side in linear system by
             multiplication with divergence operator.
             NOTE: The stresses are ordered facewise (first s_x_1, s_y_1 etc)
+        If hf_disp is True the following will also be returned
+        scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_cells):
+            displacement reconstruction for the displacement at the half faces. This is
+            the contribution from the cell-center displacements. 
+            NOTE: The half-face displacements are ordered cell wise
+            (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
+        scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_faces):
+            displacement reconstruction for the displacement at the half faces.
+            This is the contribution from the boundary conditions.
+            NOTE: The half-face displacements are ordered cell wise
+            (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
+
 
     Example:
         # Set up a Cartesian grid
@@ -634,32 +652,25 @@ def mpsa(
         # entire grid.
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
-        if return_gradient:
-            stress, bound_stress, grad_cell, grad_bound = _mpsa_local(
+        if hf_disp:
+            stress, bound_stress, hf_cell, hf_bound = _mpsa_local(
                 g,
                 constit,
                 bound,
                 eta=eta,
                 inverter=inverter,
                 robin_weight=robin_weight,
-                return_gradient=return_gradient,
-                gradient_eta=gradient_eta,
+                hf_disp=hf_disp,
+                hf_eta=hf_eta,
             )
         else:
             stress, bound_stress = _mpsa_local(
-                g,
-                constit,
-                bound,
-                eta=eta,
-                inverter=inverter,
-                robin_weight=robin_weight,
-                return_gradient=return_gradient,
-                gradient_eta=gradient_eta,
+                g, constit, bound, eta=eta, inverter=inverter, robin_weight=robin_weight
             )
     else:
-        if return_gradient:
+        if hf_disp:
             raise NotImplementedError(
-                "No gradient reconstruction for partial discretization yet"
+                "No half face reconstruction for partial discretization yet"
             )
         # Estimate number of partitions necessary based on prescribed memory
         # usage
@@ -713,8 +724,8 @@ def mpsa(
             stress += loc_stress
             bound_stress += loc_bound_stress
 
-    if return_gradient:
-        return stress, bound_stress, grad_cell, grad_bound
+    if hf_disp:
+        return stress, bound_stress, hf_cell, hf_bound
     else:
         return stress, bound_stress
 
@@ -849,8 +860,8 @@ def _mpsa_local(
     eta=0,
     robin_weight=None,
     inverter="numba",
-    return_gradient=False,
-    gradient_eta=None,
+    hf_disp=False,
+    hf_eta=None,
 ):
     """
     Actual implementation of the MPSA W-method. To calculate the MPSA
@@ -935,7 +946,7 @@ def _mpsa_local(
     hook_igrad = hook * igrad
     # NOTE: This is the point where we expect to reach peak memory need.
     del hook
-    if not return_gradient:
+    if not hf_disp:
         del igrad
 
     # Output should be on face-level (not sub-face)
@@ -956,17 +967,17 @@ def _mpsa_local(
     bound_stress = hf2f * hook_igrad * rhs_bound
     stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
 
-    if return_gradient:
+    if hf_disp:
         eta_at_bnd = True
-        if gradient_eta is None:
-            gradient_eta = eta
+        if hf_eta is None:
+            hf_eta = eta
             eta_at_bnd = False
         dist_grad, cell_centers = reconstruct_displacement(
-            g, subcell_topology, gradient_eta, eta_at_bnd=eta_at_bnd
+            g, subcell_topology, hf_eta, eta_at_bnd=eta_at_bnd
         )
-        grad_cell = dist_grad * igrad * rhs_cells + cell_centers
-        grad_bound = dist_grad * igrad * rhs_bound
-        return stress, bound_stress, grad_cell, grad_bound
+        hf_cell = dist_grad * igrad * rhs_cells + cell_centers
+        hf_bound = dist_grad * igrad * rhs_bound
+        return stress, bound_stress, hf_cell, hf_bound
     else:
         return stress, bound_stress
 
@@ -1100,6 +1111,12 @@ def mpsa_elasticity(
 
 
 def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
+    """
+    Function for reconstructing the displacement at the half faces given the
+    local gradients. reconstruct_displacement(...) construct a matrix that 
+    includes the distances from the cell centers to the evaluation point eta.
+    
+    """
     if eta is None:
         eta = fvutils.determine_eta(g)
 
