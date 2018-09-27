@@ -116,8 +116,8 @@ def generate(pts, edges, frac, dist_l, dist_a):
 
     num_frac = np.unique(frac).size
     # generate lenght and angle
-    l = dist_l["dist"].rvs(*dist_l["param"], num_frac)
-    a = dist_a["dist"].rvs(*dist_a["param"], num_frac)
+    l = generate_from_distribution(num_frac, dist_l)
+    a = generate_from_distribution(num_frac, dist_a)
 
     # first compute the fracture centres and then generate them
     avg = lambda e0, e1: 0.5*(pts[:, e0] + pts[:, e1])
@@ -130,7 +130,13 @@ def generate(pts, edges, frac, dist_l, dist_a):
     dist_c = stats.uniform.rvs
     c = dist_c(np.amin(mean_c, axis=1), np.amax(mean_c, axis=1), (num_frac, 2)).T
 
+    return fracture_from_center_angle_length(c, l, a)
+
+
+def fracture_from_center_angle_length(c, l, a):
     # generate the new set of pts and edges
+    num_frac = l.size
+
     pts_n = np.empty((2, l.size*2))
     delta = 0.5 * l * np.array([np.cos(a), np.sin(a)])
     for i in np.arange(num_frac):
@@ -140,6 +146,10 @@ def generate(pts, edges, frac, dist_l, dist_a):
     edges_n = np.array([2*np.arange(num_frac), 2*np.arange(1, num_frac+1)-1])
 
     return pts_n, edges_n
+
+def generate_from_distribution(num_fracs, dist_a):
+    return dist_a["dist"].rvs(*dist_a["param"], num_fracs)
+
 
 def length(pts, edges, frac):
     """
