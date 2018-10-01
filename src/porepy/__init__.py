@@ -67,6 +67,8 @@ from porepy.numerics.fracture_deformation import (
     FrictionSlipDataAssigner,
 )
 
+from porepy.numerics import keywords
+
 # Time steppers
 from porepy.numerics.time_stepper import Implicit, Explicit
 

@@ -20,6 +20,9 @@ class EllipticAssembler(object):
     def key(self):
         return self.keyword + "_"
 
+    def discretization_key(self):
+        return self.key() + pp.keywords.DISCRETIZATION
+
     def assemble_matrix_rhs(self, gb, matrix_format='csr'):
 
 
@@ -36,7 +39,7 @@ class EllipticAssembler(object):
 
             pos = data['node_number']
 
-            discr = data[self.key() + "discr"]
+            discr = data[self.discretization_key()]
 
             # Assemble the matrix and right hand side. This will also
             # discretize if not done before.
@@ -50,7 +53,7 @@ class EllipticAssembler(object):
 
         # Loop over all edges
         for e, data_edge in gb.edges():
-            discr = data_edge[self.key() + "discr"]
+            discr = data_edge[self.discretization_key()]
             g_slave, g_master = gb.nodes_of_edge(e)
             data_slave = gb.node_props(g_slave)
             data_master = gb.node_props(g_master)
@@ -106,12 +109,12 @@ class EllipticAssembler(object):
         # present
         for g, d in gb:
             if not dof in d.keys():
-                d[dof] = d[self.key() + "discr"].ndof(g)
+                d[dof] = d[self.discretization_key()].ndof(g)
 
         for e, d in gb.edges():
             if not dof in d.keys():
                 mg = d["mortar_grid"]
-                d[dof] = d[self.key() + "discr"].ndof(mg)
+                d[dof] = d[self.discretization_key()].ndof(mg)
 
         # Initialize the shapes for the matrices and rhs for all the sub-blocks
         for _, d_i in gb:
