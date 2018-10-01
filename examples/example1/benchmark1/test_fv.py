@@ -103,25 +103,26 @@ def main(kf, description, multi_point, if_export=False):
     # Assign parameters
     add_data(gb, domain, kf, mesh_size)
 
+    key = "flow"
+    discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
     for g, d in gb:
         # Choose discretization and define the solver
         if multi_point:
-            discr = pp.Mpfa("flow")
+            discr = pp.Mpfa(key)
         else:
-            discr = pp.Tpfa("flow")
+            discr = pp.Tpfa(key)
 
-        d['flow_discr'] = discr
+        d[discretization_key] = discr
 
-    for e, d in gb.edges():
-        d['flow_discr'] = pp.RobinCoupling('flow')
+    for _, d in gb.edges():
+        d[discretization_key] = pp.RobinCoupling(key)
 
-    assembler = pp.EllipticAssembler("flow")
+    assembler = pp.EllipticAssembler(key)
 
     # Discretize
     A, b = assembler.assemble_matrix_rhs(gb)
 
-    import pdb
-    pdb.set_trace()
     # Solve the linear system
     p = sps.linalg.spsolve(A, b)
 
