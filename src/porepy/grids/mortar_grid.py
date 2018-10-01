@@ -196,7 +196,7 @@ class MortarGrid(object):
         # Once the global matrix is constructed the new low_to_mortar_int and
         # high_to_mortar_int maps are updated.
         matrix = sps.bmat(matrix)
-        self.slave_to_mortar_int = matrix * self.master_to_mortar_int
+        self.slave_to_mortar_int = matrix * self.slave_to_mortar_int
         self.master_to_mortar_int = matrix * self.master_to_mortar_int
 
         self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
