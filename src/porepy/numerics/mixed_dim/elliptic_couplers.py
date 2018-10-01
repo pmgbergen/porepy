@@ -37,6 +37,9 @@ class RobinCoupling(object):
     def key(self):
         return self.keyword + '_'
 
+    def discretization_key(self):
+        return self.key() + pp.keywords.DISCRETIZATION
+
     def ndof(self, mg):
         return mg.num_cells
 
@@ -110,8 +113,8 @@ class RobinCoupling(object):
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
 
-        discr_master = data_master[self.key() + 'discr']
-        discr_slave = data_slave[self.key() + 'discr']
+        discr_master = data_master[self.discretization_key()]
+        discr_slave = data_slave[self.discretization_key()]
 
         dof_master = discr_master.ndof(g_master)
         dof_slave = discr_slave.ndof(g_slave)
