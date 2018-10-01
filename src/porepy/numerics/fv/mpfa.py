@@ -374,7 +374,7 @@ class Mpfa(FVElliptic):
         # method may be called. In 0D, there is no internal discretization to be
         # done.
         if g.dim == 1:
-            discr = tpfa.Tpfa()
+            discr = tpfa.Tpfa(self.keyword)
             params = data.Parameters(g)
             params.set_bc("flow", bnd)
             params.set_aperture(apertures)
@@ -382,10 +382,10 @@ class Mpfa(FVElliptic):
             d = {"param": params}
             discr.discretize(g, d)
             return (
-                d["flux"],
-                d["bound_flux"],
-                d["bound_pressure_cell"],
-                d["bound_pressure_face"],
+                d[self.key() + "flux"],
+                d[self.key() + "bound_flux"],
+                d[self.key() + "bound_pressure_cell"],
+                d[self.key() + "bound_pressure_face"],
             )
         elif g.dim == 0:
             return sps.csr_matrix([0]), 0, 0, 0
