@@ -115,7 +115,7 @@ def update_physical_low_grid(mg, new_g, tol):
             raise ValueError
 
     # Update the mortar grid class
-    mg.update_low(split_matrix)
+    mg.update_slave(split_matrix)
 
 
 # ------------------------------------------------------------------------------#
@@ -153,7 +153,7 @@ def update_physical_high_grid(mg, g_new, g_old, tol):
         # but this is not yet covered.
         raise NotImplementedError("Have not yet implemented this.")
 
-    mg.update_high(split_matrix)
+    mg.update_master(split_matrix)
 
 
 # ------------------------------------------------------------------------------#
