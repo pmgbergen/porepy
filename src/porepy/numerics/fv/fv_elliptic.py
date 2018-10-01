@@ -153,7 +153,7 @@ class FVElliptic(pp.numerics.mixed_dim.solver.Solver):
         else:
             proj = mg.slave_to_mortar_avg()
 
-        cc[self_ind, 2] += proj.T
+        cc[2, self_ind] -= proj
 
 
     def assemble_internal_boundary_flux(self, g, data_g, data_edge, is_higher, cc, matrix, mortar_is_flux=True):
