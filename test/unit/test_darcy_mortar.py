@@ -678,12 +678,22 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         solver_flow.split(gb, "pressure", p)
 
     def run_vem(self, gb):
-        solver_flow = vem_dual.DualVEMMixedDim("flow")
-        A_flow, b_flow = solver_flow.matrix_rhs(gb)
+        key = "flow"
+        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
+        for g, d in gb:
+            d[discretization_key] = pp.Mpfa(key)
+
+        for _, d in gb.edges():
+            d[discretization_key] = pp.RobinCoupling(key)
+
+
+        solver_flow = pp.EllipticAssembler("flow")
+        A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
 
         up = sps.linalg.spsolve(A_flow, b_flow)
         solver_flow.split(gb, "up", up)
-        solver_flow.extract_p(gb, "up", "pressure")
+        solver_flow.extract_pressure(gb, "up", "pressure")
 
     def test_mpfa_one_frac(self):
         gb = self.setup(num_fracs=1)
