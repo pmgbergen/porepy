@@ -388,7 +388,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         U = sps.diags(sign_h)
 
         shape = (g.num_cells, g_m.num_cells)
-        hat_E_int = g_m.mortar_to_high_int()
+        hat_E_int = g_m.mortar_to_master_int()
         hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
         return hat_E_int
 
@@ -397,7 +397,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         """
         """
         mg = data_edge['mortar_grid']
-        hat_E_int =self._velocity_dof(g_master, mg)
+        hat_E_int = self._velocity_dof(g_master, mg)
 
         cc[2, self_ind] = hat_E_int.T * matrix[0, 0]
         cc[2, 2] += hat_E_int.T * matrix[0, 0] * hat_E_int
@@ -408,7 +408,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         mg = data_edge['mortar_grid']
         hat_E_int = self._velocity_dof(g_master, mg)
 
-        cc[self_ind, 2] += matrix[0, 0] * hat_E_int
+        cc[self_ind, 2] += matrix[self_ind, self_ind] * hat_E_int
 
     def assemble_int_bound_pressure_cell(self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1):
         proj = self._mortar_projection(data_edge, grid_swap)

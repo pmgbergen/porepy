@@ -201,6 +201,13 @@ class FVElliptic(pp.numerics.mixed_dim.solver.Solver):
         cc[2, self_ind] -= proj
 
 
+    def enforce_neumann_int_bound(self, g_master, data_edge, matrix):
+        """
+        """
+        # Operation is void for finite volume methods
+        pass
+
+
     def assemble_internal_boundary_flux(self, g, data_g, data_edge, is_higher, cc, matrix, mortar_is_flux=True):
 
         #
