@@ -45,6 +45,60 @@ class TestSparseMath(unittest.TestCase):
         self.assertTrue(np.sum(A2 != A2_t) == 0)
         self.assertTrue(np.sum(A0_2 != A0_2_t) == 0)
 
+    def test_zero_columns_assert(self):
+        A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
+        try:
+            sparse_mat.zero_columns(A, 1)
+        except ValueError:
+            return None
+        self.assertTrue(False)
+
+    # ----------Zero out rows---------------
+    def zero_1_row(self):
+        A = sps.csr_matrix(
+            (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
+            shape=(3, 3),
+        )
+        sparse_mat.zero_rows(A, 0)
+        self.assertTrue(np.all(A.A == np.array([[0, 0, 0], [0, 0, 3], [0, 2, 0]])))
+        self.assertTrue(A.nnz == 3)
+        self.assertTrue(A.getformat() == "csr")
+
+    def zero_2_rows(self):
+        A = sps.csr_matrix(
+            (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
+            shape=(3, 3),
+        )
+        sparse_mat.zero_rows(A, np.array([0, 2]))
+        self.assertTrue(np.all(A.A == np.array([[0, 0, 0], [0, 0, 0], [0, 2, 0]])))
+        self.assertTrue(A.nnz == 3)
+        self.assertTrue(A.getformat() == "csr")
+
+    def test_zero_rows(self):
+        A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
+
+        A0_t = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
+        A2_t = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 0]]))
+        A0_2_t = sps.csr_matrix(np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]]))
+        A0 = A.copy()
+        A2 = A.copy()
+        A0_2 = A.copy()
+        sparse_mat.zero_rows(A0, np.array([0], dtype=int))
+        sparse_mat.zero_rows(A2, 2)
+        sparse_mat.zero_rows(A0_2, np.array([0, 1, 2]))
+
+        self.assertTrue(np.sum(A0 != A0_t) == 0)
+        self.assertTrue(np.sum(A2 != A2_t) == 0)
+        self.assertTrue(np.sum(A0_2 != A0_2_t) == 0)
+
+    def test_zero_rows_assert(self):
+        A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
+        try:
+            sparse_mat.zero_rows(A, 1)
+        except ValueError:
+            return None
+        self.assertTrue(False)
+
     # ------------------- get slicing indices ------------------
     def test_csr_slice(self):
         # Test slicing of csr_matrix
