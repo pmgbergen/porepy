@@ -23,7 +23,7 @@ def main(file_geo, folder, data, mesh_args, tol):
 
 if __name__ == "__main__":
 
-    if True: # Algeroyna_2
+    if False: # Algeroyna_2
         file_geo = "Algeroyna_2.csv"
         t_max = 1e5 * pp.SECOND
         mesh_args = {'mesh_size_frac': 0.0390625}
@@ -49,7 +49,7 @@ if __name__ == "__main__":
         "kf": aperture**2 / 12 / fluid.dynamic_viscosity(),
         "km": 1e-14 / fluid.dynamic_viscosity(),
         "porosity_f": 0.85,
-        "dt": 1e5 * pp.SECOND,
+        "dt": t_max/100,
         "t_max": t_max,
         "fluid": fluid,
         "rock": rock,
