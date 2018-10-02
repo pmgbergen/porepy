@@ -30,12 +30,12 @@ def export(gb, folder):
 # ------------------------------------------------------------------------------#
 
 
-def solve_rt0(gb, folder):
+def pressure(gb, folder):
 
     # Choose and define the solvers and coupler
-    logger.info('RT0 discretization')
+    logger.info('VEM discretization')
     tic = time.time()
-    solver_flow = pp.RT0MixedDim("flow")
+    solver_flow = pp.DualVEMMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
     logger.info('Done. Elapsed time: ' + str(time.time() - tic))
@@ -47,7 +47,7 @@ def solve_rt0(gb, folder):
     solver_flow.split(gb, "up", up)
     solver_flow.extract_p(gb, "up", "pressure")
     solver_flow.extract_u(gb, "up", "discharge")
-    #solver_flow.project_u(gb, "discharge", "P0u")
+    solver_flow.project_u(gb, "discharge", "P0u")
 
     export(gb, folder)
 
@@ -59,6 +59,18 @@ def transport(gb, data, folder, adv_data_assigner, callback=None, save_every=1):
     physics = "transport"
     for g, d in gb:
         d[physics + "_data"] = adv_data_assigner(g, d, data)
+
+    # Assign coupling diffusivity
+    gb.add_edge_props("kn")
+    for e, d in gb.edges():
+        g_l = gb.nodes_of_edge(e)[0]
+        mg = d["mortar_grid"]
+        check_P = mg.low_to_mortar_avg()
+
+        gamma = check_P * gb.node_props(g_l, "param").get_aperture()
+        k = check_P * gb.node_props(g_l, "param").get_tensor(physics).perm[0, 0, :]
+        d["kn"] = k * np.ones(mg.num_cells) / gamma
+
     advective = AdvectiveProblem(
         gb,
         physics,
@@ -73,8 +85,8 @@ def transport(gb, data, folder, adv_data_assigner, callback=None, save_every=1):
 
 
 class AdvectiveProblem(pp.ParabolicModel):
-    def space_disc(self):
-        return self.source_disc(), self.advective_disc()
+#    def space_disc(self):
+#        return self.source_disc(), self.advective_disc()
 
     def solver(self):
         "Initiate solver"
