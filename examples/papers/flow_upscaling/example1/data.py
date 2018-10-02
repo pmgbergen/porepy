@@ -137,6 +137,7 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         b_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size > 0:
             bc_val[b_faces[self.inflow]] = 20
+            bc_val[b_faces[self.outflow]] = 80
         return bc_val
 
     def aperture(self):
