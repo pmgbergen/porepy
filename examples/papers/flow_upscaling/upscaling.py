@@ -4,8 +4,9 @@ import porepy as pp
 import examples.papers.flow_upscaling.import_grid as grid
 import examples.papers.flow_upscaling.solvers as solvers
 
+
 def upscaling(file_geo, data, folder, dfn=True):
-    mesh_args = {'mesh_size_frac': 10}
+    mesh_args = {"mesh_size_frac": 10}
     tol = {"geo": 1e-4, "snap": 1e-3}
     data["tol"] = tol["geo"]
 
@@ -15,52 +16,58 @@ def upscaling(file_geo, data, folder, dfn=True):
         gb.remove_node(gb.grids_of_dimension(2)[0])
         gb.assign_node_ordering()
 
-    #compute left to right flow
+    # compute left to right flow
     left_to_right(gb, data)
     add_data(gb, data)
     solvers.solve_rt0(gb, folder)
 
-    #compute the bottom to top flow
+    # compute the bottom to top flow
     bottom_to_top(gb, data)
     add_data(gb, data)
     solvers.solve_rt0(gb, folder)
 
+
 # ------------------------------------------------------------------------------#
+
 
 def left_to_right(gb, data):
     xmin = data["domain"]["xmin"] + data["tol"]
     xmax = data["domain"]["xmax"] - data["tol"]
 
-    gb.add_node_props(['high', 'low'])
+    gb.add_node_props(["high", "low"])
     for g, d in gb:
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size != 0:
             b_face_centers = g.face_centers[:, b_faces]
-            d['low'] = b_face_centers[0, :] < xmin
-            d['high'] = b_face_centers[0, :] > xmax
+            d["low"] = b_face_centers[0, :] < xmin
+            d["high"] = b_face_centers[0, :] > xmax
+
 
 # ------------------------------------------------------------------------------#
+
 
 def bottom_to_top(gb, data):
     ymin = data["domain"]["ymin"] + data["tol"]
     ymax = data["domain"]["ymax"] - data["tol"]
 
-    gb.add_node_props(['high', 'low'])
+    gb.add_node_props(["high", "low"])
     for g, d in gb:
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size != 0:
             b_face_centers = g.face_centers[:, b_faces]
-            d['low'] = b_face_centers[1, :] < ymin
-            d['high'] = b_face_centers[1, :] > ymax
+            d["low"] = b_face_centers[1, :] < ymin
+            d["high"] = b_face_centers[1, :] > ymax
+
 
 # ------------------------------------------------------------------------------#
+
 
 def add_data(gb, data):
     tol = data["tol"]
 
-    gb.add_node_props(['is_tangential', 'frac_num'])
+    gb.add_node_props(["is_tangential", "frac_num"])
     for g, d in gb:
         param = pp.Parameters(g)
         d["is_tangential"] = True
@@ -70,16 +77,16 @@ def add_data(gb, data):
         empty = np.empty(0)
 
         if g.dim == 1:
-            d['frac_num'] = g.frac_num*unity
+            d["frac_num"] = g.frac_num * unity
         else:
-            d['frac_num'] = -1*unity
+            d["frac_num"] = -1 * unity
 
         # set the permeability
         if g.dim == 2:
-            kxx = data['km']*unity
+            kxx = data["km"] * unity
             perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kxx, kzz=1)
-        else: #g.dim == 1:
-            kxx = data['kf']*unity
+        else:  # g.dim == 1:
+            kxx = data["kf"] * unity
             perm = pp.SecondOrderTensor(1, kxx=kxx, kyy=1, kzz=1)
         param.set_tensor("flow", perm)
 
@@ -87,9 +94,9 @@ def add_data(gb, data):
         param.set_source("flow", zeros)
 
         # Assign apertures
-        aperture = np.power(data['aperture'], 2-g.dim)
-        d['aperture'] = aperture*unity
-        param.set_aperture(d['aperture'])
+        aperture = np.power(data["aperture"], 2 - g.dim)
+        d["aperture"] = aperture * unity
+        param.set_aperture(d["aperture"])
 
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -126,5 +133,3 @@ def add_data(gb, data):
 
 
 # ------------------------------------------------------------------------------#
-
-

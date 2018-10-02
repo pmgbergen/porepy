@@ -10,6 +10,7 @@ from porepy.numerics.darcy_and_transport import static_flow_IE_solver as Transpo
 
 logger = logging.getLogger(__name__)
 
+
 def export(gb, folder):
 
     gb.add_node_props(["cell_volumes", "cell_centers"])
@@ -43,23 +44,24 @@ def export(gb, folder):
 def solve_rt0(gb, folder):
 
     # Choose and define the solvers and coupler
-    logger.info('RT0 discretization')
+    logger.info("RT0 discretization")
     tic = time.time()
     solver_flow = pp.RT0MixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    logger.info('Done. Elapsed time: ' + str(time.time() - tic))
-    logger.info('Linear solver')
+    logger.info("Done. Elapsed time: " + str(time.time() - tic))
+    logger.info("Linear solver")
     tic = time.time()
     up = sps.linalg.spsolve(A_flow, b_flow)
-    logger.info('Done. Elapsed time ' + str(time.time() - tic))
+    logger.info("Done. Elapsed time " + str(time.time() - tic))
 
     solver_flow.split(gb, "up", up)
     solver_flow.extract_p(gb, "up", "pressure")
     solver_flow.extract_u(gb, "up", "discharge")
 
     export(gb, folder)
-    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
+    sps_io.mmwrite(folder + "/matrix.mtx", A_flow)
+
 
 # ------------------------------------------------------------------------------#
 
@@ -67,23 +69,23 @@ def solve_rt0(gb, folder):
 def solve_tpfa(gb, folder):
 
     # Choose and define the solvers and coupler
-    logger.info('TPFA discretization')
+    logger.info("TPFA discretization")
     tic = time.time()
     solver_flow = pp.TpfaMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
     solver_source = pp.IntegralMixedDim("flow", [None])
     A_source, b_source = solver_source.matrix_rhs(gb)
-    logger.info('Done. Elapsed time: ' + str(time.time() - tic))
-    logger.info('Linear solver')
+    logger.info("Done. Elapsed time: " + str(time.time() - tic))
+    logger.info("Linear solver")
     tic = time.time()
     p = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
-    logger.info('Done. Elapsed time ' + str(time.time() - tic))
+    logger.info("Done. Elapsed time " + str(time.time() - tic))
     solver_flow.split(gb, "pressure", p)
     pp.fvutils.compute_discharges(gb)
 
     export(gb, folder)
-    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
+    sps_io.mmwrite(folder + "/matrix.mtx", A_flow)
 
 
 # ------------------------------------------------------------------------------#
@@ -92,22 +94,22 @@ def solve_tpfa(gb, folder):
 def solve_mpfa(gb, folder):
 
     # Choose and define the solvers and coupler
-    logger.info('MPFA discretization')
+    logger.info("MPFA discretization")
     tic = time.time()
     solver_flow = pp.MpfaMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    logger.info('Done. Elapsed time: ' + str(time.time() - tic))
-    logger.info('Linear solver')
+    logger.info("Done. Elapsed time: " + str(time.time() - tic))
+    logger.info("Linear solver")
     tic = time.time()
     p = sps.linalg.spsolve(A_flow, b_flow)
-    logger.info('Done. Elapsed time ' + str(time.time() - tic))
+    logger.info("Done. Elapsed time " + str(time.time() - tic))
 
     solver_flow.split(gb, "pressure", p)
     pp.fvutils.compute_discharges(gb)
 
     export(gb, folder)
-    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
+    sps_io.mmwrite(folder + "/matrix.mtx", A_flow)
 
 
 # ------------------------------------------------------------------------------#
@@ -116,30 +118,31 @@ def solve_mpfa(gb, folder):
 def solve_vem(gb, folder):
 
     # Choose and define the solvers and coupler
-    logger.info('VEM discretization')
+    logger.info("VEM discretization")
     tic = time.time()
     solver_flow = pp.DualVEMMixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    logger.info('Done. Elapsed time: ' + str(time.time() - tic))
-    logger.info('Linear solver')
+    logger.info("Done. Elapsed time: " + str(time.time() - tic))
+    logger.info("Linear solver")
     tic = time.time()
     up = sps.linalg.spsolve(A_flow, b_flow)
-    logger.info('Done. Elapsed time ' + str(time.time() - tic))
+    logger.info("Done. Elapsed time " + str(time.time() - tic))
 
     solver_flow.split(gb, "up", up)
     solver_flow.extract_p(gb, "up", "pressure")
     solver_flow.extract_u(gb, "up", "discharge")
 
     export(gb, folder)
-    sps_io.mmwrite(folder+"/matrix.mtx", A_flow)
+    sps_io.mmwrite(folder + "/matrix.mtx", A_flow)
 
 
 # ------------------------------------------------------------------------------#
 
 
-def transport(gb, data, solver_name, folder, adv_data_assigner, callback=None,
-             save_every=1):
+def transport(
+    gb, data, solver_name, folder, adv_data_assigner, callback=None, save_every=1
+):
 
     physics = "transport"
     for g, d in gb:
@@ -167,7 +170,6 @@ class AdvectiveProblem(pp.ParabolicModel):
 
 
 class Transport(TransportSolver):
-
     def __init__(self, problem):
         self.gb = problem.grid()
         self.outflow = np.empty(0)
@@ -192,5 +194,5 @@ class Transport(TransportSolver):
             discharge[faces] *= sign
             discharge[g.get_internal_faces()] = 0
             discharge[discharge < 0] = 0
-            val = np.dot(discharge, np.abs(g.cell_faces) * self.p[:g.num_cells])
+            val = np.dot(discharge, np.abs(g.cell_faces) * self.p[: g.num_cells])
             self.outflow = np.r_[self.outflow, val]
