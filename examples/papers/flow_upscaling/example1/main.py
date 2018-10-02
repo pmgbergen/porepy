@@ -3,52 +3,57 @@ import porepy as pp
 
 import data as problem_data
 import examples.papers.flow_upscaling.solvers as solvers
-import examples.papers.flow_upscaling.import_grid as grid
-from examples.papers.flow_upscaling.upscaling import upscaling
+from examples.papers.flow_upscaling.import_grid import grid
 
-def main(file_geo, folder, data):
+def main(file_geo, folder, data, mesh_args, tol):
 
-    mesh_args = {'mesh_size_frac': 10}
-    tol = {"geo": 1e-4, "snap": 1e-3}
-    data["tol"] = tol["geo"]
+    # import the grid and the domain
+    gb, data["domain"] = grid(file_geo, mesh_args, tol)
 
-    gb, data["domain"] = grid.from_file(file_geo, mesh_args, tol)
-
+    # define the data
     problem_data.add_data(gb, data)
-    solvers.solve_rt0(gb, folder)
 
+    # solve the pressure problem
+    solvers.pressure(gb, folder)
+
+    # solve the transport problem
     advective = solvers.transport(gb, data, folder,
                                   problem_data.AdvectiveDataAssigner)
     np.savetxt(folder+"/outflow.csv", advective._solver.outflow)
 
 if __name__ == "__main__":
 
-    file_geo = "Algeroyna.csv"
-    aperture = pp.MILLIMETER
-    data = {"aperture": aperture, "kf": aperture**2 / 12}
-    folder = "upscaling"
-    upscaling(file_geo, data, folder, dfn=True)
+    if True: # Algeroyna_2
+        file_geo = "Algeroyna_2.csv"
+        t_max = 1e5 * pp.SECOND
+        mesh_args = {'mesh_size_frac': 0.0390625}
+        tol = {"geo": 1e-3, "snap": 0.5*1e-3}
 
+    else: # Algeroyna_3
+        file_geo = "Algeroyna_3.csv"
+        t_max = 1e7 * pp.SECOND
+        mesh_args = {'mesh_size_frac': 0.3125}
+        tol = {"geo": 1.25*1e-2, "snap": 0.6125*1e-2}
 
-    file_geo = "Algeroyna.csv"
     folder = "solution"
 
-    theta_ref = 30. * pp.CELSIUS
+    theta_ref = 80. * pp.CELSIUS
     fluid = pp.Water(theta_ref)
     rock = pp.Granite(theta_ref)
 
-    aperture = 2 * pp.MILLIMETER
+    aperture = 2*pp.MILLIMETER
 
     # select the permeability depending on the selected test case
     data = {
         "aperture": aperture,
-        "kf": aperture**2 / 12,
-        "km": 1e7 * rock.PERMEABILITY,
+        "kf": aperture**2 / 12 / fluid.dynamic_viscosity(),
+        "km": 1e-14 / fluid.dynamic_viscosity(),
         "porosity_f": 0.85,
-        "dt": 1e6 * pp.SECOND,
-        "t_max": 1e7 * pp.SECOND,
+        "dt": 1e5 * pp.SECOND,
+        "t_max": t_max,
         "fluid": fluid,
-        "rock": rock
+        "rock": rock,
+        "tol": tol["geo"]
     }
 
-    main(file_geo, folder, data)
+    main(file_geo, folder, data, mesh_args, tol)
