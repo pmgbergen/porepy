@@ -54,7 +54,7 @@ def add_data(gb, data):
 
             bc_val = np.zeros(g.num_faces)
             bc_val[b_faces[b_left]] = 0 * pp.BAR
-            bc_val[b_faces[b_right]] = 1 * pp.BAR
+            bc_val[b_faces[b_right]] = 2 * pp.BAR
             param.set_bc_val("flow", bc_val)
         else:
             param.set_bc("flow", pp.BoundaryCondition(g, empty, empty))
@@ -68,7 +68,8 @@ def add_data(gb, data):
         mg = d["mortar_grid"]
         check_P = mg.low_to_mortar_avg()
 
-        gamma = check_P * gb.node_props(g_l, "param").get_aperture()
+        aperture = gb.node_props(g_l, "param").get_aperture()
+        gamma = check_P * np.power(aperture, 1/(2.-g.dim))
         d["kn"] = data["kf"] * np.ones(mg.num_cells) / gamma
 
 
@@ -135,11 +136,14 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         bc_val = np.zeros(self.grid().num_faces)
         b_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size > 0:
-            bc_val[b_faces[self.inflow]] = 0.01
+            bc_val[b_faces[self.inflow]] = 20
         return bc_val
 
     def aperture(self):
         aperture = np.power(self.data_problem['aperture'], 2-self.grid().dim)
         unity = np.ones(self.grid().num_cells)
         return aperture*unity
+
+    def initial_condition(self):
+        return 80*np.ones(self.grid().num_cells)
 
