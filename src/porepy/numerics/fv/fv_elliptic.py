@@ -41,10 +41,55 @@ class FVElliptic(pp.numerics.mixed_dim.solver.Solver):
         """
         return g.num_cells
 
+
+    def extract_pressure(self, g, solution_array, d):
+        """ Extract the pressure part of a solution.
+
+        The method is trivial for finite volume methods, with the pressure
+        being the only primary variable.
+
+        Parameters:
+            g (grid): To which the solution array belongs.
+            solution_array (np.array): Solution for this grid obtained from
+                either a mono-dimensional or a mixed-dimensional problem.
+            d (dictionary): Data dictionary associated with the grid. Not used,
+                but included for consistency reasons.
+
+        Returns:
+            np.array (g.num_cells): Pressure solution vector. Will be identical
+                to solution_array.
+
+        """
+        return solution_array
+
+
+    def extract_flux(self, g, solution_array, d):
+        """ Extract the flux related to a solution.
+
+        The flux is computed from the discretization and the given pressure solution.
+
+        @ALL: We should incrude the boundary condition as well?
+
+        Parameters:
+            g (grid): To which the solution array belongs.
+            solution_array (np.array): Solution for this grid obtained from
+                either a mono-dimensional or a mixed-dimensional problem. Will
+                correspond to the pressure solution.
+            d (dictionary): Data dictionary associated with the grid.
+
+        Returns:
+            np.array (g.num_faces): Flux vector.
+
+        """
+        flux_discretization = d[self.key() + 'flux']
+        return flux_discretization * solution_array
+
+
     # ------------------------------------------------------------------------------#
 
     def assemble_matrix_rhs(self, g, data):
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
+
 
     def assemble_matrix(self, g, data):
         """

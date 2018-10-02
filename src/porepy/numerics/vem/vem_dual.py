@@ -449,7 +449,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
     ## Methods used for variable manipulation
 
-    def extract_u(self, g, up):
+    def extract_flux(self, g, up, d):
         """  Extract the velocity from a dual virtual element solution.
 
         Parameters
@@ -457,6 +457,8 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         g : grid, or a subclass, with geometry fields computed.
         up : array (g.num_faces+g.num_cells)
             Solution, stored as [velocity,pressure]
+        d: data dictionary associated with the grid.
+            Unused, but included for consistency reasons.
 
         Return
         ------
@@ -469,7 +471,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def extract_p(self, g, up):
+    def extract_pressure(self, g, up, d):
         """  Extract the pressure from a dual virtual element solution.
 
         Parameters
@@ -477,6 +479,8 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         g : grid, or a subclass, with geometry fields computed.
         up : array (g.num_faces+g.num_cells)
             Solution, stored as [velocity,pressure]
+        d: data dictionary associated with the grid.
+            Unused, but included for consistency reasons.
 
         Return
         ------
@@ -489,7 +493,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def project_u(self, g, u, data):
+    def project_flux(self, g, u, data):
         """  Project the velocity computed with a dual vem solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 

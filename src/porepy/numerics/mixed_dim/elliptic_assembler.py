@@ -76,6 +76,79 @@ class EllipticAssembler(object):
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
 
+    def extract_flux(self, gb, pressure_flux_keyword, flux_keyword):
+        """ Extract the flux variable from a solution of the elliptic equation.
+
+        This function should be called after self.split()
+
+        @ALL: This I believe replaces the old compute_discharge function for
+        mpfa and tpfa, if that is still alive.
+
+        @ALL: I don't like the word extract here - it makes sense for mixed
+        formulations, but not so for finite volumes, where this is a post
+        processing step that computes the flux. Other possible names are
+        'isolate_flux', ?. Opinions?
+
+        @ALL: I am not convinced about the word flux in the function name either,
+        but this is not that bad: We would talk about a heat flux in heat transport.
+
+        @ALL: Better names for the last two parameters are required.
+
+        @ALL: With a general variable definition in place, this function can
+            be pulled out to a generic assembler.
+
+        Parameters:
+            gb: GridBucket, mixed-dimensional grid.
+            pressure_flux_keyword (str): Keyword used to identify the solution
+                field distribtued in the GridBucket data on each node, e.g.
+                the same keyword as given to self.split()
+            flux_keyword (str): Keyword to be used to identify the flux field
+                in the data structure.
+
+        """
+        gb.add_node_props([flux_keyword])
+        for g, d in gb:
+            discretization = d[self.discretization_key()]
+            d[flux_keyword] = discretization.extract_flux(g, d[pressure_flux_keyword])
+
+
+    def extract_pressure(self, gb, presssure_flux_keyword, pressure_keyword):
+        """ Extract the pressure variable from a solution of the elliptic equation.
+
+        This function should be called after self.split()
+
+        @ALL: This I believe replaces the old compute_discharge function for
+        mpfa and tpfa, if that is still alive.
+
+        @ALL: I don't like the word extract here - it makes sense for mixed
+        formulations, but not so for finite volumes, where this is a post
+        processing step that computes the flux. Other possible names are
+        'isolate_pressure', ?. Opinions?
+
+        @ALL: I am not at all convinced about the word pressure in the function name either.
+        Potential is a tempting name, but that carries a specific, and potentially
+        misleading, meaning for flow problems with gravity.
+
+        @ALL: Better names for the last two parameters are required.
+
+        @ALL: With a general variable definition in place, this function can
+            be pulled out to a generic assembler.
+
+        Parameters:
+            gb: GridBucket, mixed-dimensional grid.
+            pressure_flux_keyword (str): Keyword used to identify the solution
+                field distribtued in the GridBucket data on each node, e.g.
+                the same keyword as given to self.split()
+            flux_keyword (str): Keyword to be used to identify the flux field
+                in the data structure.
+
+        """
+        gb.add_node_props([pressure_keyword])
+        for g, d in gb:
+            discretization = d[self.discretization_key()]
+            d[pressure_keyword] = discretization.extract_pressure(g, d[presssure_flux_keyword], d)
+
+
     ###
     # The functions below are temporarily copied from Coupler. They will be
     # generalized and moved to a more appropriate module when the furhter
