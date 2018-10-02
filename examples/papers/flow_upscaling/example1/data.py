@@ -101,9 +101,14 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
             return self.data_problem["porosity_f"] * unity
 
     def diffusivity(self):
+
+        lm = self.data_problem["rock"].thermal_conductivity()
+        lw = self.data_problem["fluid"].thermal_conductivity()
+        phi = self.porosity()
+        l = np.power(lw, phi)*np.power(lm, 1-phi)
+
         unity = np.ones(self.grid().num_cells)
-        kxx = self.data_problem["rock"].thermal_conductivity() * unity
-        return pp.SecondOrderTensor(self.grid().dim, kxx)
+        return pp.SecondOrderTensor(self.grid().dim, l*unity)
 
     def rock_specific_heat(self):
         return self.data_problem["rock"].specific_heat_capacity()
