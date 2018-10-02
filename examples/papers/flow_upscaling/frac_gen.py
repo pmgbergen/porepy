@@ -224,19 +224,30 @@ def count_center_point_densities(p, e, domain, nx=10, ny=10):
 
     pc = _compute_center(p, e)
 
-    x0, y0, dx, dy = _decompose_domain(domain, nx, ny)
+    if p.shape[0] == 1:
+        x0, dx = _decompose_domain(domain, nx, ny)
+        num_occ = np.zeros(nx)
+        for i in range(nx):
+            hit = np.logical_and.reduce([pc[0] > (x0 + i * dx),
+                                         pc[0] < (x0 + (i + 1) * dx)])
+            num_occ[i] = hit.sum()
+        return num_occ
 
+    elif p.shape[0] == 2:
+        x0, y0, dx, dy = _decompose_domain(domain, nx, ny)
+        num_occ = np.zeros((nx, ny))
+        # Can probably do this more vectorized, but for now, a for loop will suffice
+        for i in range(nx):
+            for j in range(ny):
+                hit = np.logical_and.reduce([pc[0] > (x0 + i * dx), pc[0] < (x0 + (i + 1) * dx),
+                                             pc[1] > (y0 + j * dy), pc[1] < (y0 + (j + 1) * dy)])
+                num_occ[i, j] = hit.sum()
 
-    num_occ = np.zeros((nx, ny))
+        return num_occ
 
-    # Can probably do this more vectorized, but for now, a for loop will suffice
-    for i in range(nx):
-        for j in range(ny):
-            hit = np.logical_and.reduce([pc[0] > (x0 + i * dx), pc[0] < (x0 + (i + 1) * dx),
-                                         pc[1] > (y0 + j * dy), pc[1] < (y0 + (j + 1) * dy)])
-            num_occ[i, j] = hit.sum()
+    else:
+        raise ValueError("Have not yet implemented 3D geometries")
 
-    return num_occ
 
 def define_centers_by_boxes(domain, intensity, distribution='poisson'):
     """ Define center points of fractures, intended used in a marked point
@@ -319,10 +330,14 @@ def _compute_center(p, edges):
     pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
     return pts_c
 
-def _decompose_domain(domain, nx, ny):
+def _decompose_domain(domain, nx, ny=None):
     x0 = domain['xmin']
-    y0 = domain['ymin']
     dx = (domain['xmax'] - domain['xmin']) / nx
-    dy = (domain['ymax'] - domain['ymin']) / ny
-    return x0, y0, dx, dy
+
+    if 'ymin' in domain.keys() and 'ymax' in domain.keys():
+        y0 = domain['ymin']
+        dy = (domain['ymax'] - domain['ymin']) / ny
+        return x0, y0, dx, dy
+    else:
+        return x0, dx
 
