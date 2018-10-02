@@ -113,7 +113,6 @@ class BoundaryCondition(object):
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
 
-
 class BoundaryConditionNode(object):
 
     """ Class to store information on boundary conditions for nodal numerical

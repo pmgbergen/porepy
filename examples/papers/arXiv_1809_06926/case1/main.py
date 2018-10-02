@@ -37,13 +37,15 @@ def main(file_geo, folder, solver, solver_name):
     results[3] = np.sum([g.num_cells for g in gb.grids_of_dimension(1)])
     results[4] = np.sum([g.num_cells for g in gb.grids_of_dimension(0)])
 
-    file_name = folder + '/info.txt'
+    file_name = folder + "/info.txt"
     with open(file_name, "w") as f:
         f.write(", ".join(map(str, results)))
 
-    advective = solvers.transport(gb, data, solver_name, folder,
-                                  problem_data.AdvectiveDataAssigner)
-    np.savetxt(folder+"/outflow.csv", advective._solver.outflow)
+    advective = solvers.transport(
+        gb, data, solver_name, folder, problem_data.AdvectiveDataAssigner
+    )
+    np.savetxt(folder + "/outflow.csv", advective._solver.outflow)
+
 
 if __name__ == "__main__":
     files_geo = {"mesh1k.geo": 0, "mesh10k.geo": 1, "mesh100k.geo": 2}

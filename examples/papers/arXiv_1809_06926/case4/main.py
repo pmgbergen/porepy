@@ -7,46 +7,53 @@ import examples.papers.arXiv_1809_06926.solvers as solvers
 
 # ------------------------------------------------------------------------------#
 
+
 def report_concentrations(problem):
     problem.split()
     mean = np.zeros(52)
     for g, d in problem.grid():
         if g.dim == 2:
-            pv = d['param'].porosity * g.cell_volumes
-            mean[g.frac_num] = np.sum(pv * d['solution']) / np.sum(pv)
+            pv = d["param"].porosity * g.cell_volumes
+            mean[g.frac_num] = np.sum(pv * d["solution"]) / np.sum(pv)
 
-    file_name = folder+"/mean_concentration.txt"
-    with open(file_name, 'a') as f:
-        f.write(", ".join(map(str, mean))+"\n")
+    file_name = folder + "/mean_concentration.txt"
+    with open(file_name, "a") as f:
+        f.write(", ".join(map(str, mean)) + "\n")
+
 
 # ------------------------------------------------------------------------------#
+
 
 def outlet_fluxes(gb):
     g = gb.grids_of_dimension(3)[0]
     d = gb.node_props(g)
     tol = 1e-3
 
-    flux = d['discharge']
+    flux = d["discharge"]
     b_out = problem_data.b_pressure(g)[1]
-    bound_faces = np.where(g.tags['domain_boundary_faces'])[0]
+    bound_faces = np.where(g.tags["domain_boundary_faces"])[0]
 
     xf = g.face_centers[:, bound_faces[b_out]]
     oi = bound_faces[b_out].ravel()
 
-    lower = np.where(np.logical_and.reduce(
-                (xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100)
-            ))
+    lower = np.where(
+        np.logical_and.reduce((xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100))
+    )
 
-    upper = np.where(np.logical_and.reduce(
-                (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
-            ))
+    upper = np.where(
+        np.logical_and.reduce(
+            (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
+        )
+    )
 
     n = g.face_normals[1, oi]
     bf = flux[oi] * np.sign(n)
 
     return np.sum(bf[lower[0]]), np.sum(bf[upper[0]])
 
+
 # ------------------------------------------------------------------------------#
+
 
 def summarize_data(solver_names):
 
@@ -56,9 +63,11 @@ def summarize_data(solver_names):
         for solver_name in solver_names:
             file_in = solver_name + "_results/info.txt"
             with open(file_in, "r") as f_in:
-                f_out.write(f_in.readlines()[0]+"\n")
+                f_out.write(f_in.readlines()[0] + "\n")
+
 
 # ------------------------------------------------------------------------------#
+
 
 def main(folder, solver, solver_name, dt):
 
@@ -87,24 +96,34 @@ def main(folder, solver, solver_name, dt):
     results[6] = outflow_lower
     results[7] = mean
 
-    file_name = folder + '/info.txt'
+    file_name = folder + "/info.txt"
     with open(file_name, "w") as f:
         f.write(", ".join(map(str, results)))
 
-    solvers.transport(gb, data, solver_name, folder,
-                      problem_data.AdvectiveDataAssigner,
-                      callback=report_concentrations)
+    solvers.transport(
+        gb,
+        data,
+        solver_name,
+        folder,
+        problem_data.AdvectiveDataAssigner,
+        callback=report_concentrations,
+    )
+
 
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-    solver_list = [solvers.solve_tpfa, solvers.solve_mpfa, solvers.solve_vem,
-                   solvers.solve_rt0]
-    solver_names = ['tpfa', 'mpfa', 'vem', 'rt0']
+    solver_list = [
+        solvers.solve_tpfa,
+        solvers.solve_mpfa,
+        solvers.solve_vem,
+        solvers.solve_rt0,
+    ]
+    solver_names = ["tpfa", "mpfa", "vem", "rt0"]
 
     time_step = 50
     for solver, solver_name in zip(solver_list, solver_names):
-        folder = solver_name + '_results'
+        folder = solver_name + "_results"
         main(folder, solver, solver_name, time_step)
 
     # collect all the data

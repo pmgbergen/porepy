@@ -196,7 +196,13 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
 
 
 def dfm_2d_from_csv(
-    f_name, mesh_kwargs, domain=None, return_domain=False, tol=1e-8, polyline=False, **kwargs
+    f_name,
+    mesh_kwargs,
+    domain=None,
+    return_domain=False,
+    tol=1e-8,
+    polyline=False,
+    **kwargs
 ):
     """
     Create the grid bucket from a set of fractures stored in a csv file and a
@@ -220,7 +226,7 @@ def dfm_2d_from_csv(
         is returned.
 
     """
-    pts, edges = lines_from_csv(f_name, tol=tol, polyline=polyline,**kwargs)
+    pts, edges = lines_from_csv(f_name, tol=tol, polyline=polyline, **kwargs)
     f_set = np.array([pts[:, e] for e in edges.T])
 
     # Define the domain as bounding-box if not defined
@@ -228,8 +234,8 @@ def dfm_2d_from_csv(
         overlap = kwargs.get("domain_overlap", 0)
         domain = cg.bounding_box(pts, overlap)
 
-    if kwargs.get('assign_fracture_id', False):
-        mesh_kwargs['fracture_id'] = np.arange(edges.shape[1])
+    if kwargs.get("assign_fracture_id", False):
+        mesh_kwargs["fracture_id"] = np.arange(edges.shape[1])
 
     if return_domain:
         return meshing.simplex_grid(f_set, domain, **mesh_kwargs), domain
@@ -240,7 +246,15 @@ def dfm_2d_from_csv(
 # ------------------------------------------------------------------------------#
 
 
-def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, polyline=False, return_frac_id=False, **kwargs):
+def lines_from_csv(
+    f_name,
+    tagcols=None,
+    tol=1e-8,
+    max_num_fracs=None,
+    polyline=False,
+    return_frac_id=False,
+    **kwargs
+):
     """ Read csv file with fractures to obtain fracture description.
 
     Create the grid bucket from a set of fractures stored in a csv file and a
@@ -321,24 +335,25 @@ def lines_from_csv(f_name, tagcols=None, tol=1e-8, max_num_fracs=None, polyline=
         for fi in fracs:
             ind = np.argwhere(frac_id == fi).ravel()
             if ind.size < 2:
-                raise ValueError('A fracture should consist of more than one line')
+                raise ValueError("A fracture should consist of more than one line")
             if ind.size == 2:
-                edges_loc = np.array([[pt_ind[ind[0]]],
-                                       [pt_ind[ind[1]]]])
+                edges_loc = np.array([[pt_ind[ind[0]]], [pt_ind[ind[1]]]])
             else:
                 start = pt_ind[ind[0] : ind[-1]]
-                end = pt_ind[ind[1] : ind[-1]+1]
+                end = pt_ind[ind[1] : ind[-1] + 1]
                 edges_loc = np.vstack((start, end))
 
             edges = np.hstack((edges, edges_loc))
-            edges_frac_id = np.hstack((edges_frac_id, [fi]*edges_loc.shape[1]))
+            edges_frac_id = np.hstack((edges_frac_id, [fi] * edges_loc.shape[1]))
 
         edges = edges.astype(np.int)
         edges_frac_id = edges_frac_id.astype(np.int)
 
     else:
         # Let the edges correspond to the ordering of the fractures
-        edges = np.vstack((np.arange(0, 2 * num_fracs, 2), np.arange(1, 2 * num_fracs, 2)))
+        edges = np.vstack(
+            (np.arange(0, 2 * num_fracs, 2), np.arange(1, 2 * num_fracs, 2))
+        )
         if tagcols is not None:
             edges = np.vstack((edges, data[:, tagcols].T))
 
