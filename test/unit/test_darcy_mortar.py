@@ -682,7 +682,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         discretization_key = key + "_" + pp.keywords.DISCRETIZATION
 
         for g, d in gb:
-            d[discretization_key] = pp.Mpfa(key)
+            d[discretization_key] = pp.DualVEM(key)
 
         for _, d in gb.edges():
             d[discretization_key] = pp.RobinCoupling(key)
@@ -1136,6 +1136,6 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 # a.test_vem_one_frac_coarsen_2d()
 # a.test_mpfa_1_frac_no_refinement()
 # a.test_mpfa_one_frac_refine_mg()
-#a = TestMortar2DSimplexGridStandardMeshing()
-#a.test_mpfa_one_frac_refine_mg()
-unittest.main()
+a = TestMortar2DSimplexGridStandardMeshing()
+a.test_vem_one_frac()
+#unittest.main()
