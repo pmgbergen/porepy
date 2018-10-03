@@ -399,7 +399,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         mg = data_edge['mortar_grid']
         hat_E_int = self._velocity_dof(g_master, mg)
 
-        cc[2, self_ind] = hat_E_int.T * matrix[0, 0]
+        cc[2, self_ind] += hat_E_int.T * matrix[0, 0]
         cc[2, 2] += hat_E_int.T * matrix[0, 0] * hat_E_int
 
 
@@ -411,7 +411,10 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         cc[self_ind, 2] += matrix[self_ind, self_ind] * hat_E_int
 
     def assemble_int_bound_pressure_cell(self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1):
-        proj = self._mortar_projection(data_edge, grid_swap)
+
+        mg = data_edge['mortar_grid']
+
+        proj = mg.slave_to_mortar_avg()
 
         A = proj.T
         shape = (g_slave.num_faces, A.shape[1])
@@ -421,11 +424,13 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
     def assemble_int_bound_source(self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1):
 
-        proj = self._mortar_projection(data_edge, grid_swap)
+        mg = data_edge['mortar_grid']
+        proj = mg.slave_to_mortar_avg()
 
         A = proj.T
         shape = (g_slave.num_faces, A.shape[1])
         cc[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
+
 
     def enforce_neumann_int_bound(self, g_master, data_edge, matrix):
         mg = data_edge['mortar_grid']
@@ -445,7 +450,6 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         d = matrix[0, 0].diagonal()
         d[dof] = norm
         matrix[0, 0].setdiag(d)
-
 
     ## Methods used for variable manipulation
 
