@@ -136,7 +136,7 @@ class RobinCoupling(object):
         discr_slave.assemble_int_bound_pressure_cell(g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1)
         discr_slave.assemble_int_bound_source(g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1)
 
-        discr_master.enforce_neumann_int_bound(g_master, data_master, matrix)
+        discr_master.enforce_neumann_int_bound(g_master, data_edge, matrix)
 
         return matrix + cc
 
