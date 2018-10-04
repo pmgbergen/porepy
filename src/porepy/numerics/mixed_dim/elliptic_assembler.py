@@ -109,7 +109,7 @@ class EllipticAssembler(object):
         gb.add_node_props([flux_keyword])
         for g, d in gb:
             discretization = d[self.discretization_key()]
-            d[flux_keyword] = discretization.extract_flux(g, d[pressure_flux_keyword])
+            d[flux_keyword] = discretization.extract_flux(g, d[pressure_flux_keyword], d)
 
 
     def extract_pressure(self, gb, presssure_flux_keyword, pressure_keyword):
