@@ -16,10 +16,10 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         # @ALL: We kee the physics keyword for now, or else we completely
         # break the parameter assignment workflow. The physics keyword will go
         # to be replaced by a more generalized approach, but one step at a time
-        if physics is None:
-            self.physics = keyword
-        else:
-            self.physics = physics
+        self.physics = keyword
+
+    def key(self):
+        return self.keyword + '_'
 
     def ndof(self, g):
         """
