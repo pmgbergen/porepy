@@ -15,7 +15,6 @@ import porepy as pp
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
-from porepy.numerics.vem import DualCoupling
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
