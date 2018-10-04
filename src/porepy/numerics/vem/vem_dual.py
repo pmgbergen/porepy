@@ -185,8 +185,11 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
-            M = sps.dia_matrix(([1, 0], 0), (self.ndof(g), self.ndof(g)))
-            return M
+            mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
+            data[self.key() + 'vem_mass'] = mass
+            data[self.key() + 'vem_div'] = sps.csr_matrix((g.num_faces,
+                 g.num_cells))
+            return
 
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
@@ -393,7 +396,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         return hat_E_int
 
 
-    def assemble_int_bound_pressure_trace(self, g_master, data_master, data_edge, grid_swap, matrix, cc, self_ind=0):
+    def assemble_int_bound_pressure_trace(self, g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0):
         """
         """
         mg = data_edge['mortar_grid']
@@ -403,7 +406,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         cc[2, 2] += hat_E_int.T * matrix[0, 0] * hat_E_int
 
 
-    def assemble_int_bound_flux(self, g_master, data_master, data_edge, grid_swap, matrix, cc, self_ind=0):
+    def assemble_int_bound_flux(self, g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0):
         # The matrix must be the VEM discretization matrix.
         mg = data_edge['mortar_grid']
         hat_E_int = self._velocity_dof(g_master, mg)
@@ -413,7 +416,6 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
     def assemble_int_bound_pressure_cell(self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1):
 
         mg = data_edge['mortar_grid']
-
         proj = mg.slave_to_mortar_avg()
 
         A = proj.T
@@ -453,7 +455,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
     ## Methods used for variable manipulation
 
-    def extract_flux(self, g, up, d):
+    def extract_flux(self, g, up, d=None):
         """  Extract the velocity from a dual virtual element solution.
 
         Parameters
