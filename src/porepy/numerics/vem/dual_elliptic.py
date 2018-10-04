@@ -22,8 +22,9 @@ class DualElliptic(
 
     """
 
-    def __init__(self, keyword):
+    def __init__(self, keyword, name):
         self.keyword = keyword
+        self.name = name
 
         # @ALL: We kee the physics keyword for now, or else we completely
         # break the parameter assignment workflow. The physics keyword will go
@@ -51,6 +52,94 @@ class DualElliptic(
             return g.num_cells + g.num_faces
         else:
             raise ValueError
+
+    def assemble_matrix_rhs(self, g, data):
+        """
+        Return the matrix and righ-hand side for a discretization of a second
+        order elliptic equation using mixed method.
+
+        Parameters
+        ----------
+        g : grid, or a subclass, with geometry fields computed.
+        data: dictionary to store the data.
+
+        Return
+        ------
+        matrix: sparse csr (g.num_faces+g_num_cells, g.num_faces+g_num_cells)
+            Saddle point matrix obtained from the discretization.
+        rhs: array (g.num_faces+g_num_cells)
+            Right-hand side which contains the boundary conditions and the scalar
+            source term.
+        """
+
+        if not self._key() + self.name + '_mass' in data.keys():
+            self.discretize(g, data)
+
+        # First assemble the matrix
+        M = self.assemble_matrix(g, data)
+
+        # Impose Neumann boundary conditions, with appropriate scaling of the
+        # diagonal element
+        M, bc_weight = self.assemble_neumann_robin(g, data, M, bc_weight=True)
+
+        # Assemble right hand side term
+        return M, self.assemble_rhs(g, data, bc_weight)
+
+    def assemble_matrix(self, g, data):
+        """ Assemble matrix from an existing discretization.
+        """
+        if not self._key() + self.name + '_mass' in data.keys():
+            self.discretize(g, data)
+
+        mass = data[self._key() + self.name + '_mass']
+        div = data[self._key() + self.name + '_div']
+        return sps.bmat([[mass, div.T], [div, None]], format="csr")
+
+    def assemble_neumann_robin(self, g, data, M, bc_weight=None):
+        """ Impose Neumann and Robin boundary discretization on an already assembled
+        system matrix.
+
+        """
+        # Obtain the mass matrix
+        mass = data[self._key() + self.name + '_mass']
+        norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
+
+        param = data["param"]
+        bc = param.get_bc(self)
+
+        # For mixed discretizations, internal boundaries
+        # are handled by assigning Dirichlet conditions. Thus, we remove them
+        # from the is_neu and is_rob (where they belong by default) and add them in
+        # is_dir.
+
+        # assign the Neumann boundary conditions
+        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
+        if bc and np.any(is_neu):
+            # it is assumed that the faces dof are put before the cell dof
+            is_neu = np.where(is_neu)[0]
+
+            # set in an efficient way the essential boundary conditions, by
+            # clear the rows and put norm in the diagonal
+            for row in is_neu:
+                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
+
+            d = M.diagonal()
+            d[is_neu] = norm
+            M.setdiag(d)
+
+        # assign the Robin boundary conditions
+        is_rob = np.logical_and(bc.is_rob, np.logical_not(bc.is_internal))
+        if bc and np.any(is_rob):
+            # it is assumed that the faces dof are put before the cell dof
+            is_rob = np.where(is_rob)[0]
+
+            data = np.zeros(self.ndof(g))
+            data[is_rob] = 1./(bc.robin_weight[is_rob]*g.face_areas[is_rob])
+            M += sps.dia_matrix((data, 0), shape=(data.size, data.size))
+
+        if bc_weight:
+            return M, norm
+        return M
 
     def assemble_rhs(self, g, data, bc_weight=1):
         """
@@ -82,7 +171,7 @@ class DualElliptic(
         if bc is None:
             return rhs
 
-        # For dual discretizations, internal boundaries
+        # For mixed discretizations, internal boundaries
         # are handled by assigning Dirichlet conditions. Thus, we remove them
         # from the is_neu (where they belong by default). As the dirichlet
         # values are simply added to the rhs, and the internal Dirichlet
@@ -90,6 +179,7 @@ class DualElliptic(
         # from the dirichlet condition as well.
         is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
         is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
+        is_rob = np.logical_and(bc.is_rob, np.logical_not(bc.is_internal))
 
         faces, _, sign = sps.find(g.cell_faces)
         sign = sign[np.unique(faces, return_index=True)[1]]
@@ -98,48 +188,15 @@ class DualElliptic(
             is_dir = np.where(is_dir)[0]
             rhs[is_dir] += -sign[is_dir] * bc_val[is_dir]
 
+        if np.any(is_rob):
+            is_rob = np.where(is_rob)[0]
+            rhs[is_rob] += -sign[is_rob] * bc_val[is_rob] / bc.robin_weight[is_rob]
+
         if np.any(is_neu):
             is_neu = np.where(is_neu)[0]
             rhs[is_neu] = sign[is_neu] * bc_weight * bc_val[is_neu]
 
         return rhs
-
-    def _assemble_neumann_common(self, g, data, M, mass, bc_weight=None):
-        """ Impose Neumann boundary discretization on an already assembled
-        system matrix.
-
-        Common implementation for VEM and RT0. The parameter mass should be
-        adapted to the discretization method in question
-
-        """
-
-        norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
-
-        param = data["param"]
-        bc = param.get_bc(self)
-
-        # assign the Neumann boundary conditions
-        # For dual discretizations, internal boundaries
-        # are handled by assigning Dirichlet conditions. THus, we remove them
-        # from the is_neu (where they belong by default) and add them in
-        # is_dir.
-        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
-        if bc and np.any(is_neu):
-            is_neu = np.hstack((is_neu, np.zeros(g.num_cells, dtype=np.bool)))
-            is_neu = np.where(is_neu)[0]
-
-            # set in an efficient way the essential boundary conditions, by
-            # clear the rows and put norm in the diagonal
-            for row in is_neu:
-                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
-
-            d = M.diagonal()
-            d[is_neu] = norm
-            M.setdiag(d)
-
-        if bc_weight:
-            return M, norm
-        return M
 
     def _velocity_dof(self, g, g_m):
         # Recover the information for the grid-grid mapping
