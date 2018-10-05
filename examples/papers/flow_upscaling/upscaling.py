@@ -1,64 +1,94 @@
 import numpy as np
+import scipy.sparse as sps
 import porepy as pp
 
-import examples.papers.flow_upscaling.import_grid as grid
+from examples.papers.flow_upscaling.import_grid import grid
 import examples.papers.flow_upscaling.solvers as solvers
 
-def upscaling(file_geo, data, folder, dfn=True):
-    mesh_args = {'mesh_size_frac': 10}
-    tol = {"geo": 1e-4, "snap": 1e-3}
-    data["tol"] = tol["geo"]
+# ------------------------------------------------------------------------------#
 
-    gb, data["domain"] = grid.from_file(file_geo, mesh_args, tol)
+def upscaling(file_geo, folder, dfn, data, mesh_args, tol):
+    gb, data["domain"] = grid(file_geo, mesh_args, tol)
 
     if dfn:
-        gb.remove_node(gb.grids_of_dimension(2)[0])
+        gb.remove_node(gb.grids_of_dimension(gb.dim_max())[0])
         gb.assign_node_ordering()
 
     #compute left to right flow
-    left_to_right(gb, data)
-    add_data(gb, data)
-    solvers.solve_rt0(gb, folder)
+    add_data(gb, data, left_to_right=True)
+    solvers.pressure(gb, folder+"_left_to_right")
+
+    # compute the upscaled permeability
+    kxx, kyx = permeability(gb, data, left_to_right=True)
 
     #compute the bottom to top flow
-    bottom_to_top(gb, data)
-    add_data(gb, data)
-    solvers.solve_rt0(gb, folder)
+    add_data(gb, data, bottom_to_top=True)
+    solvers.pressure(gb, folder+"_bottom_to_top")
+
+    # compute the upscaled permeability
+    kyy, kxy = permeability(gb, data, bottom_to_top=True)
+
+    print(kxx, kyy, 0.5*(kyx + kxy))
+    return pp.SecondOrderTensor(2, kxx=kxx, kyy=kyy, kxy=0.5*(kyx + kxy))
 
 # ------------------------------------------------------------------------------#
 
-def left_to_right(gb, data):
-    xmin = data["domain"]["xmin"] + data["tol"]
-    xmax = data["domain"]["xmax"] - data["tol"]
-
-    gb.add_node_props(['high', 'low'])
-    for g, d in gb:
-        # Boundaries
-        b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-        if b_faces.size != 0:
-            b_face_centers = g.face_centers[:, b_faces]
-            d['low'] = b_face_centers[0, :] < xmin
-            d['high'] = b_face_centers[0, :] > xmax
-
-# ------------------------------------------------------------------------------#
-
-def bottom_to_top(gb, data):
-    ymin = data["domain"]["ymin"] + data["tol"]
-    ymax = data["domain"]["ymax"] - data["tol"]
-
-    gb.add_node_props(['high', 'low'])
-    for g, d in gb:
-        # Boundaries
-        b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-        if b_faces.size != 0:
-            b_face_centers = g.face_centers[:, b_faces]
-            d['low'] = b_face_centers[1, :] < ymin
-            d['high'] = b_face_centers[1, :] > ymax
-
-# ------------------------------------------------------------------------------#
-
-def add_data(gb, data):
+def permeability(gb, data, left_to_right=False, bottom_to_top=False):
     tol = data["tol"]
+    domain = data["domain"]
+
+    coord_min = np.array([domain["xmin"], domain["ymin"]])
+    coord_max = np.array([domain["xmax"], domain["ymax"]])
+    delta = coord_min - coord_max
+
+    if left_to_right:
+        coord, not_coord = 0, 1
+    elif bottom_to_top:
+        coord, not_coord = 1, 0
+    else:
+        raise ValueError
+
+    k_parallel = 0
+    k_transverse = 0
+    for g, d in gb:
+        b_faces = g.tags["domain_boundary_faces"]
+        if np.any(b_faces):
+            faces, cells, sign = sps.find(g.cell_faces)
+            index = np.argsort(cells)
+            faces, cells, sign = faces[index], cells[index], sign[index]
+
+            u = d["discharge"].copy()
+            u[np.logical_not(b_faces)] = 0
+            u[faces] *= sign
+
+            # it's ok since we consider only the boundary
+            aperture = d["param"].get_aperture()
+            measure = 1./(g.face_areas * (np.abs(g.cell_faces) * aperture))
+
+            bc = g.face_centers[coord, :] > coord_max[coord] - tol
+            k_parallel += np.abs(np.dot(u[bc], measure[bc]) * delta[coord])
+
+            bc = g.face_centers[not_coord, :] < coord_max[not_coord] + tol
+            k_transverse += np.abs(np.dot(u[bc], measure[bc]) * delta[not_coord])
+
+    return k_parallel, k_transverse
+
+# ------------------------------------------------------------------------------#
+
+def add_data(gb, data, left_to_right=False, bottom_to_top=False):
+    tol = data["tol"]
+    domain = data["domain"]
+
+    coord_min = np.array([domain["xmin"], domain["ymin"]])
+    coord_max = np.array([domain["xmax"], domain["ymax"]])
+    delta = coord_max - coord_min
+
+    if left_to_right:
+        coord = 0
+    elif bottom_to_top:
+        coord = 1
+    else:
+        raise ValueError
 
     gb.add_node_props(['is_tangential', 'frac_num'])
     for g, d in gb:
@@ -94,23 +124,17 @@ def add_data(gb, data):
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size != 0:
-
-            b_face_centers = g.face_centers[:, b_faces]
-
-            b_low = b_face_centers[0, :] < data["domain"]["xmin"] + tol
-            b_high = b_face_centers[0, :] > data["domain"]["xmax"] - tol
-
-            labels = np.array(["neu"] * b_faces.size)
-            labels[d["low"]] = "dir"
-            labels[d["high"]] = "dir"
-            param.set_bc("flow", pp.BoundaryCondition(g, b_faces, labels))
+            bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
+            val = g.face_centers[coord, b_faces] - coord_min[coord]
 
             bc_val = np.zeros(g.num_faces)
-            bc_val[b_faces[d["low"]]] = 0 * pp.PASCAL
-            bc_val[b_faces[d["high"]]] = 1 * pp.PASCAL
+            bc_val[b_faces] = (1 - val/delta[coord]) * pp.PASCAL
+
             param.set_bc_val("flow", bc_val)
         else:
-            param.set_bc("flow", pp.BoundaryCondition(g, empty, empty))
+            bc = pp.BoundaryCondition(g, empty, empty)
+
+        param.set_bc("flow", bc)
 
         d["param"] = param
 
@@ -121,10 +145,8 @@ def add_data(gb, data):
         mg = d["mortar_grid"]
         check_P = mg.low_to_mortar_avg()
 
-        gamma = check_P * gb.node_props(g_l, "param").get_aperture()
+        aperture = gb.node_props(g_l, "param").get_aperture()
+        gamma = check_P * np.power(aperture, 1/(2.-g.dim))
         d["kn"] = data["kf"] * np.ones(mg.num_cells) / gamma
 
-
 # ------------------------------------------------------------------------------#
-
-
