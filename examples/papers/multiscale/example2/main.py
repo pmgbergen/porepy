@@ -133,6 +133,76 @@ def main_ms(pb_data, name):
 
 # ------------------------------------------------------------------------------#
 
+def main_ms_newton(pb_data, name):
+    # in principle we can re-compute only the matrices related to the
+    # fracture network, however to simplify the implementation we re-compute everything
+
+    data = Data(pb_data)
+    data.add_to_gb()
+
+    # Choose and define the solvers and coupler
+    solver_flow = pp.RT0MixedDim("flow")
+    A, b = solver_flow.matrix_rhs(data.gb, return_bmat=True)
+
+    # off-line computation fo the bases
+    ms = Multiscale(data.gb)
+    ms.extract_blocks_h(A, b)
+    info = ms.compute_bases()
+
+    # solve the co-dimensional problem
+    x_l = ms.solve_l(A, b)
+    solver_flow.split(data.gb, "up", ms.concatenate(None, x_l))
+    solver_flow.extract_p(data.gb, "up", "pressure_old")
+    solver_flow.extract_u(data.gb, "up", "discharge_old")
+
+    i = 0
+    err = np.inf
+    while np.any(err > pb_data["fix_pt_err"]) and i < pb_data["fix_pt_maxiter"]:
+
+        # update the non-linear term
+        solver_flow.project_u(data.gb, "discharge_old", "P0u")
+        data.update(solver_flow)
+
+        # we need to recompute the lower dimensional matrices
+        # for simplicity we do for everything
+        A, b = solver_flow.matrix_rhs(data.gb, return_bmat=True)
+        F_u = b - A*x_l
+
+        # update Jacobian
+        data.update_jacobian(solver_flow)
+        DF_u, _ = solver_flow.matrix_rhs(data.gb, returm_bmat=True)
+
+        # solve for dxn = xn+1 - xn
+        dx_l = ms.solve_l(DF_u, F_u)
+
+        # update new iteration
+        x_l = x_l + dx_l
+
+        solver_flow.split(data.gb, "up", ms.concatenate(None, x_l))
+        solver_flow.extract_p(data.gb, "up", "pressure")
+        solver_flow.extract_u(data.gb, "up", "discharge")
+
+        err = np.linalg.norm(dx_l)
+        i += 1
+
+    # post-compute the higher dimensional solution
+    x_h = ms.solve_h(x_l)
+
+    # update the number of solution of the higher dimensional problem
+    info["solve_h"] += 1
+
+    x = ms.concatenate(x_h, x_l)
+
+    folder = "ms_" + str(pb_data["beta"]) + name
+    export(data.gb, x, folder, solver_flow)
+    write_out(data.gb, "ms"+name+".txt", info["solve_h"])
+
+    # print the summary data
+    print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
+    print("iter", i, "err", err, "solve_h", info["solve_h"])
+
+# ------------------------------------------------------------------------------#
+
 def main_dd(pb_data, name):
     # in principle we can re-compute only the matrices related to the
     # fracture network, however to simplify the implementation we re-compute everything
