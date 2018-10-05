@@ -1,24 +1,25 @@
 import numpy as np
 import porepy as pp
 
-from examples.papers.flow_upscaling.import_grid import raw_from_csv
-from examples.papers.flow_upscaling.frac_gen import fit, generate
+from examples.papers.flow_upscaling.upscaling import upscaling
 
 if __name__ == "__main__":
-    file_geo = "algeroyna_1to100.csv"
+    file_geo = "algeroyna_1to10.csv"
+    folder = "solution"
 
-    pts, edges, frac = raw_from_csv(file_geo, {'mesh_size_frac': 10}, {"snap": 1e-3})
+    mesh_args = {'mesh_size_frac': 10}
+    tol = {"geo": 1e-4, "snap": 1e-3}
 
-    domain = {'xmin': pts[0].min(), 'xmax': pts[0].max(),
-              'ymin': pts[1].min(), 'ymax': pts[1].max()}
+    # define the physical data
+    aperture = pp.MILLIMETER
+    data = {
+        "aperture": aperture,
+        "kf": aperture**2 / 12,
+        "km": 1e-14,
+        "tol": tol["geo"]
+    }
 
-    pp.plot_fractures(domain, pts ,edges)
+    dfn = False
+    k = upscaling(file_geo, folder, dfn, data, mesh_args, tol)
 
-    # we assume only 1 family, need to change the next line instead
-    family = np.ones(frac.size)
-
-    dist_l, dist_a = fit(pts, edges, frac, family)
-    pts_n, edges_n = generate(pts, edges, frac, dist_l, dist_a)
-
-    pp.plot_fractures(domain, pts_n ,edges_n)
-
+    print(k.perm)
