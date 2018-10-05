@@ -120,6 +120,25 @@ class Data(object):
 
     # ------------------------------------------------------------------------------#
 
+    def update_jacobian(self, solver_flow):
+
+        for g, d in self.gb:
+            if g.dim == 1:
+                # define the non-linear relation with u
+                norm_u = np.linalg.norm(d["P0u"], axis=0)
+                u = d["P0u"]
+
+                # to trick the code we need to do the following
+                coeff = 1./self.eff_kf_t() + self.data["beta"]*norm_u
+                kf_inv = coeff * np.ones(g.num_cells) + \
+                         (self.data["beta"]/norm_u) * np.square(u)
+                kf = np.reciprocal(kf_inv/self.data["aperture"])
+
+                perm = pp.SecondOrderTensor(1, kxx=kf, kyy=1, kzz=1)
+                d["param"].set_tensor("flow", perm)
+
+    # ------------------------------------------------------------------------------#
+
     @staticmethod
     def write_network(file_name):
         network = "FID,START_X,START_Y,END_X,END_Y\n"
