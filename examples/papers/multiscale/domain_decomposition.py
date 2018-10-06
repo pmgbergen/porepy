@@ -104,7 +104,7 @@ class DomainDecomposition(object):
 
         # construct the matrix and preconditioner
         A = sps.linalg.LinearOperator(self.A_l.shape, self.schur_complement)
-        P = sps.linalg.spilu(self.A_l.tocsc(), drop_tol)
+        P = sps.linalg.splu(self.A_l.tocsc())
         M = sps.linalg.LinearOperator(self.A_l.shape, lambda x: P.solve(x))
 
         # construct the right-hand side
