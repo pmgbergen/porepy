@@ -128,8 +128,9 @@ def main_ms(pb_data, name):
     write_out(data.gb, "ms"+name+".txt", info["solve_h"])
 
     # print the summary data
+    print("ms")
     print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
-    print("iter", i, "err", err, "solve_h", info["solve_h"])
+    print("iter", i, "err", err, "solve_h", info["solve_h"], "\n")
 
 # ------------------------------------------------------------------------------#
 
@@ -190,8 +191,9 @@ def main_dd(pb_data, name):
     write_out(data.gb, "dd"+name+".txt", solve_h)
 
     # print the summary data
+    print("dd")
     print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
-    print("iter", i, "err", err, "solve_h", solve_h)
+    print("iter", i, "err", err, "solve_h", solve_h, "\n")
 
 # ------------------------------------------------------------------------------#
 
@@ -231,8 +233,9 @@ def main(pb_data, name):
     export(data.gb, x, folder, solver_flow)
 
     # print the summary data
+    print("ref")
     print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
-    print("iter", i, "err", err, "solve_h", i)
+    print("iter", i, "err", err, "solve_h", i, "\n")
 
 # ------------------------------------------------------------------------------#
 
@@ -241,7 +244,7 @@ if __name__ == "__main__":
     kf = {0: 1e-4, 1: 1e4}
     # it's (kf_t, kf_n)
     tests = np.array([[1, 1], [1, 0]])
-    betas = np.array([1e-2, 1e-1, 1, 1e1, 1e2, 1e6])
+    betas = np.array([1, 1e2, 1e4, 1e6])
 
     for t, n in tests:
         name = "_" + str(n)

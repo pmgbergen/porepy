@@ -80,13 +80,17 @@ def main_ms(pb_data, name):
 
     # update the number of solution of the higher dimensional problem
     info["solve_h"] += 1
-    print(info)
 
     x = ms.concatenate(x_h, x_l)
 
     folder = "ms_" + name + "_" + str(pb_data["mesh_size"])
     export(data.gb, x, folder, solver_flow)
     write_out(data.gb, "ms_"+name+".txt", info["solve_h"])
+
+    # print the summary data
+    print("ms")
+    print("kf_n", pb_data["kf_n"], "kf_t", pb_data["kf_t"])
+    print("solve_h", info["solve_h"], "\n")
 
 # ------------------------------------------------------------------------------#
 
@@ -109,11 +113,15 @@ def main_dd(pb_data, name):
 
     dd.factorize()
     x, info = dd.solve(tol, maxiter, drop_tol, info=True)
-    print(info)
 
     folder = "dd_" + name + "_" + str(pb_data["mesh_size"])
     export(data.gb, x, folder, solver_flow)
     write_out(data.gb, "dd_"+name+".txt", info["solve_h"])
+
+    # print the summary data
+    print("dd")
+    print("kf_n", pb_data["kf_n"], "kf_t", pb_data["kf_t"])
+    print("solve_h", info["solve_h"], "\n")
 
 # ------------------------------------------------------------------------------#
 
@@ -130,6 +138,11 @@ def main(pb_data, name):
 
     folder = "ref_" + name + "_" + str(pb_data["mesh_size"])
     export(data.gb, x, folder, solver_flow)
+
+    # print the summary data
+    print("ref")
+    print("kf_n", pb_data["kf_n"], "kf_t", pb_data["kf_t"])
+    print("solve_h", 1, "\n")
 
 # ------------------------------------------------------------------------------#
 
