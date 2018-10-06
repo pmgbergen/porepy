@@ -122,12 +122,10 @@ class Data(object):
 
         for g, d in self.gb:
             if g.dim == 1:
-                # define the non-linear relation with u
-                u = self.data["beta"]*np.linalg.norm(d["P0u"], axis=0)
-                p = np.exp(self.data["gamma"]*d["pressure"])
+                u = np.linalg.norm(d["P0u"], axis=0)
 
                 # to trick the code we need to do the following
-                coeff = p/self.eff_kf_t() + u
+                coeff = 1./self.eff_kf_t() + self.data["beta"]*u
                 kf = 1./coeff/self.data["aperture"]
 
                 perm = pp.SecondOrderTensor(1, kxx=kf, kyy=1, kzz=1)
@@ -137,6 +135,7 @@ class Data(object):
 
     @staticmethod
     def write_network(file_name):
+
         network = "FID,START_X,START_Y,END_X,END_Y\n"
 
         network += "0,0,0.5,0.5,0.5\n"

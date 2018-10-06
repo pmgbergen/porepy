@@ -244,20 +244,27 @@ def main(pb_data):
 
 if __name__ == "__main__":
 
+    kf = {0: 1e-4, 1: 1e4}
+    # it's (kf_t, kf_n)
+    tests = np.array([[1, 1], [1, 0]])
     gammas = np.array([0.5, 5, 7.5])
-    for gamma in gammas:
-        data = {"kf_n": 1e4,
-                "kf_t": 1e4,
-                "aperture": 1e-4,
-                "beta": 20,
-                "gamma": gamma,
-                "alpha": 1,
-                "mesh_size": 0.045,
-                "fix_pt_err": 1e-5,
-                "fix_pt_maxiter": 1e3}
 
-        main_ms(data)
-        main_dd(data)
-        main(data)
+    for t, n in tests:
+        name = "_" + str(n)
+        print(name)
+        for gamma in gammas:
+            data = {"kf_n": kf[n],
+                    "kf_t": kf[t],
+                    "aperture": 1e-4,
+                    "beta": 20,
+                    "gamma": gamma,
+                    "alpha": 1,
+                    "mesh_size": 0.045,
+                    "fix_pt_err": 1e-6,
+                    "fix_pt_maxiter": 1e3}
+
+            main_ms(data)
+            main_dd(data)
+            main(data)
 
     #summarize_data(betas, gammas)
