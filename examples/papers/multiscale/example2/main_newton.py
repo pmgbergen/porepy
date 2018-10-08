@@ -10,22 +10,13 @@ from examples.papers.multiscale.domain_decomposition import DomainDecomposition
 
 # ------------------------------------------------------------------------------#
 
-def compute_error(gb):
-
-    err = np.zeros(2)
-    for g in gb.grids_of_dimension(1):
-        d = gb.node_props(g)
-
-        err[0] += np.linalg.norm(d["pressure_old"]-d["pressure"])**2
-        err[1] += np.linalg.norm(d["discharge_old"]-d["discharge"])**2
-
-    err = np.sqrt(err)
+def update_solution(gb):
 
     for g, d in gb:
         d["pressure_old"] = d["pressure"]
         d["discharge_old"] = d["discharge"]
 
-    return err
+    return
 
 # ------------------------------------------------------------------------------#
 
@@ -71,11 +62,13 @@ def summarize_data(betas, tests):
             f.seek(-3, os.SEEK_END)
             f.truncate()
 
+
 # ------------------------------------------------------------------------------#
 
-def main_ms(pb_data, name):
+def main_ms_newton(pb_data, name):
     # in principle we can re-compute only the matrices related to the
-    # fracture network, however to simplify the implementation we re-compute everything
+    # fracture network, however to simplify the implementation we re-compute
+    # everything
 
     data = Data(pb_data)
     data.add_to_gb()
@@ -89,15 +82,27 @@ def main_ms(pb_data, name):
     ms.extract_blocks_h(A, b)
     info = ms.compute_bases()
 
-    # solve the co-dimensional problem
+    # solve the co-dimensional problem - this is to set the initial iteration
+    #  for Newton
     x_l = ms.solve_l(A, b)
     solver_flow.split(data.gb, "up", ms.concatenate(None, x_l))
     solver_flow.extract_p(data.gb, "up", "pressure_old")
     solver_flow.extract_u(data.gb, "up", "discharge_old")
 
+    # initiate iteration count and initial condition
     i = 0
-    err = np.inf
-    while np.any(err > pb_data["fix_pt_err"]) and i < pb_data["fix_pt_maxiter"]:
+    dx_l = x_l
+    while True:
+        # compute error
+        err = np.linalg.norm(dx_l)
+
+        # check convergence
+        if np.any(err < pb_data["newton_err"]):
+            print("Newton method CONVERGED in ", i, " iterations!")
+            break
+
+        if i > pb_data["newton_maxiter"]:
+            print("Newton method STOPPED after ", i, " iterations!")
 
         # update the non-linear term
         solver_flow.project_u(data.gb, "discharge_old", "P0u")
@@ -106,13 +111,27 @@ def main_ms(pb_data, name):
         # we need to recompute the lower dimensional matrices
         # for simplicity we do for everything
         A, b = solver_flow.matrix_rhs(data.gb, return_bmat=True)
-        x_l = ms.solve_l(A, b)
+        F_u = b - A*x_l
+
+        # update Jacobian
+        # for simplicity we do for everything
+        data.update_jacobian(solver_flow)
+        DF_u, _ = solver_flow.matrix_rhs(data.gb, returm_bmat=True)
+
+        # solve for (xn+1 - xn)
+        dx_l = ms.solve_l(DF_u, F_u)
+
+        # update new iteration
+        x_l = x_l + dx_l
 
         solver_flow.split(data.gb, "up", ms.concatenate(None, x_l))
         solver_flow.extract_p(data.gb, "up", "pressure")
         solver_flow.extract_u(data.gb, "up", "discharge")
 
-        err = compute_error(data.gb)
+        # update solution in grid bucket
+        update_solution(data.gb)
+
+        # update iteration count
         i += 1
 
     # post-compute the higher dimensional solution
@@ -123,28 +142,29 @@ def main_ms(pb_data, name):
 
     x = ms.concatenate(x_h, x_l)
 
-    folder = "ms_" + str(pb_data["beta"]) + name
+    folder = "ms_newton_" + str(pb_data["beta"]) + name
     export(data.gb, x, folder, solver_flow)
-    write_out(data.gb, "ms"+name+".txt", info["solve_h"])
+    write_out(data.gb, "ms_newton"+name+".txt", info["solve_h"])
 
     # print the summary data
-    print("ms")
+    print("ms_newton")
     print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
-    print("iter", i, "err", err, "solve_h", info["solve_h"], "\n")
+    print("iter", i, "err", err, "solve_h", info["solve_h"])
 
 # ------------------------------------------------------------------------------#
 
-def main_dd(pb_data, name):
+def main_dd_newton(pb_data, name):
     # in principle we can re-compute only the matrices related to the
-    # fracture network, however to simplify the implementation we re-compute everything
+    # fracture network, however to simplify the implementation we re-compute
+    # everything
 
     data = Data(pb_data)
     data.add_to_gb()
 
-    # parameters for the dd algorightm
+    # parameters for the dd algorithm
     tol = 1e-6
     maxiter = 1e4
-    drop_tol = 0.1*np.amin([1e-3, data.eff_kf_t(), data.eff_kf_n()])
+    drop_tol = 0.1 * np.amin([1e-3, data.eff_kf_t(), data.eff_kf_n()])
     solve_h = 0
 
     # Choose and define the solvers and coupler
@@ -163,35 +183,60 @@ def main_dd(pb_data, name):
     solver_flow.extract_p(data.gb, "up", "pressure_old")
     solver_flow.extract_u(data.gb, "up", "discharge_old")
 
+    # initiate iteration count and initial condition
     i = 0
-    err = np.inf
-    while np.any(err > pb_data["fix_pt_err"]) and i < pb_data["fix_pt_maxiter"]:
+    dx = x
+    while True:
+        # compute error
+        err = np.linalg.norm(dx)
+
+        # check convergence
+        if np.any(err < pb_data["newton_err"]):
+            print("Newton method CONVERGED in ", i, " iterations!")
+            break
+
+        if i > pb_data["newton_maxiter"]:
+            print("Newton method STOPPED after ", i, " iterations!")
 
         # update the non-linear term
         solver_flow.project_u(data.gb, "discharge_old", "P0u")
         data.update(solver_flow)
 
-        # compute the current solution
+        # we need to recompute the lower dimensional matrices
+        # for simplicity we do for everything
         A, b = solver_flow.matrix_rhs(data.gb, return_bmat=True)
-        dd.extract_blocks(A, b)
+        F_u = b - A * x
+
+        # update Jacobian
+        # for simplicity we do for everything
+        data.update_jacobian(solver_flow)
+        DF_u, _ = solver_flow.matrix_rhs(data.gb, returm_bmat=True)
+
+        # solve for (xn+1 - xn)
+        dd.extract_blocks(DF_u, F_u)
         dd.factorize()
-        x, info = dd.solve(tol, maxiter, drop_tol, info=True)
+        dx, info = dd.solve(tol, maxiter, drop_tol, info=True)
         solve_h += info["solve_h"]
+
+        # update new iteration
+        x = x + dx
 
         solver_flow.split(data.gb, "up", x)
         solver_flow.extract_p(data.gb, "up", "pressure")
         solver_flow.extract_u(data.gb, "up", "discharge")
 
-        # error evaluation
-        err = compute_error(data.gb)
+        # update solution in grid bucket
+        update_solution(data.gb)
+
+        # update iteration count
         i += 1
 
-    folder = "dd_" + str(pb_data["beta"]) + name
+    folder = "dd_newton_" + str(pb_data["beta"]) + name
     export(data.gb, x, folder, solver_flow)
-    write_out(data.gb, "dd"+name+".txt", solve_h)
+    write_out(data.gb, "dd_newton" + name + ".txt", solve_h)
 
     # print the summary data
-    print("dd")
+    print("dd_newton")
     print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
     print("iter", i, "err", err, "solve_h", solve_h, "\n")
 
@@ -254,11 +299,11 @@ if __name__ == "__main__":
                     "aperture": 1e-4,
                     "beta": beta,
                     "mesh_size": 0.045,
-                    "fix_pt_err": 1e-6,
-                    "fix_pt_maxiter": 1e3}
+                    "newton_err": 1e-6,
+                    "newton_maxiter": 1e3}
 
-            main_ms(data, name)
-            main_dd(data, name)
-            main(data, name)
+            main_ms_newton(data, name)
+            main_dd_newton(data, name)
+            # main(data, name)
 
     summarize_data(betas, tests)
