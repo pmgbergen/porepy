@@ -246,7 +246,7 @@ class RobinBoundTest(unittest.TestCase):
 
     def solve_mpsa(self, g, c, robin_weight, bnd, u_bound):
         stress, bound_stress = pp.numerics.fv.mpsa._mpsa_local(
-            g, c, bnd, robin_weight=robin_weight
+            g, c, bnd, robin_weight=robin_weight, inverter="python"
         )
         div = pp.fvutils.vector_divergence(g)
         a = div * stress
