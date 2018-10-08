@@ -1048,8 +1048,10 @@ def mpsa_elasticity(
     # where G are the gradients and u the cell center displacement. The Robin
     # condtion is then ncsym_rob * G + rob_grad * G + rob_cell * u
     ncsym_rob = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
+    ncsym_neu = subcell_topology.pair_over_subfaces_nd(ncsym_all)
     del ncasym
     ncsym_rob = bound_exclusion.keep_robin_nd(ncsym_rob)
+    ncsym_neu = bound_exclusion.keep_neumann_nd(ncsym_neu)
 
     if robin_weight is None:
         if ncsym_rob.shape[0] != 0:
@@ -1077,7 +1079,7 @@ def mpsa_elasticity(
     # ncsym_L * G_L + ncsym_R * G_R for the left and right faces.
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym_all)
     del ncsym_all
-    ncsym = bound_exclusion.exclude_robin_dirichlet_nd(ncsym)
+    ncsym = bound_exclusion.exclude_boundary_nd(ncsym)
 
     num_subfno = subcell_topology.subfno.max() + 1
     hook_cell = sps.coo_matrix(
@@ -1092,9 +1094,9 @@ def mpsa_elasticity(
         g, subcell_topology, eta, num_sub_cells, bound_exclusion
     )
 
-    grad_eqs = sps.vstack([ncsym, ncsym_rob + rob_grad, d_cont_grad])
+    grad_eqs = sps.vstack([ncsym, ncsym_neu, ncsym_rob + rob_grad, d_cont_grad])
 
-    del ncsym, d_cont_grad, ncsym_rob, rob_grad
+    del ncsym, d_cont_grad, ncsym_rob, rob_grad, ncsym_neu
     igrad = _inverse_gradient(
         grad_eqs,
         sub_cell_index,
@@ -1493,7 +1495,6 @@ def _inverse_gradient(
     )
 
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
-
     # Compute inverse gradient operator, and map back again
     igrad = (
         cols2blk_diag
@@ -1529,14 +1530,16 @@ def _block_diagonal_structure(
     # the equations are either of flux or pressure continuity (not both)
 
     if bound_exclusion.bc_type == "scalar":
-        nno_stress = bound_exclusion.exclude_robin_dirichlet(nno)
+        nno_stress = bound_exclusion.exclude_boundary(nno)
         nno_displacement = bound_exclusion.exclude_neumann_robin(nno)
         # we have now eliminated all nodes related to robin, we therefore add them
+        nno_neu = bound_exclusion.keep_neumann(nno)
         nno_rob = bound_exclusion.keep_robin(nno)
 
         node_occ = np.hstack(
             (
                 np.tile(nno_stress, nd),
+                np.tile(nno_neu, nd),
                 np.tile(nno_rob, nd),
                 np.tile(nno_displacement, nd),
             )
@@ -1546,12 +1549,13 @@ def _block_diagonal_structure(
         nno = np.tile(nno, nd)
         # The node numbers do not have a basis, so no transformation here. We just
         # want to pick out the correct node numbers for the correct equations.
-        nno_stress = bound_exclusion.exclude_robin_dirichlet_nd(nno, transform=False)
+        nno_stress = bound_exclusion.exclude_boundary_nd(nno, transform=False)
         nno_displacement = bound_exclusion.exclude_neumann_robin_nd(
             nno, transform=False
         )
+        nno_neu = bound_exclusion.keep_neumann_nd(nno, transform=False)
         nno_rob = bound_exclusion.keep_robin_nd(nno, transform=False)
-        node_occ = np.hstack((nno_stress, nno_rob, nno_displacement))
+        node_occ = np.hstack((nno_stress, nno_neu, nno_rob, nno_displacement))
 
     sorted_ind = np.argsort(node_occ, kind="mergesort")
     rows2blk_diag = sps.coo_matrix(
