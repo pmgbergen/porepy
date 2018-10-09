@@ -147,7 +147,6 @@ def main_dd(pb_data):
     # parameters for the dd algorightm
     tol = 1e-6
     maxiter = 1e4
-    drop_tol = 0.1*np.amin([1e-3, data.eff_kf_t(), data.eff_kf_n()])
     solve_h = 0
 
     # Choose and define the solvers and coupler
@@ -160,7 +159,7 @@ def main_dd(pb_data):
     dd.extract_blocks(A, b)
     dd.factorize()
 
-    x, info = dd.solve(tol, maxiter, drop_tol, info=True)
+    x, info = dd.solve(tol, maxiter, info=True)
     solve_h += info["solve_h"]
     solver_flow.split(data.gb, "up", x)
     solver_flow.extract_p(data.gb, "up", "pressure")
@@ -179,7 +178,7 @@ def main_dd(pb_data):
         A, b = solver_flow.matrix_rhs(data.gb, return_bmat=True)
         dd.extract_blocks(A, b)
         dd.factorize()
-        x, info = dd.solve(tol, maxiter, drop_tol, info=True)
+        x, info = dd.solve(tol, maxiter, info=True)
         solve_h += info["solve_h"]
 
         solver_flow.split(data.gb, "up", x)
