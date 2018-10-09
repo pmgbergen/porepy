@@ -74,8 +74,8 @@ class DomainDecomposition(object):
         A_l[0, 0] = sps.bmat(A[np.ix_(pos_ln, pos_ln)])
         self.dof_l = A_l[0, 0].shape[0]
 
-        # add to the righ-hand side the non-homogenous solution from the higher
-        # dimensional problem
+        # add to the right-hand side the non-homogeneous solution from the
+        # higher dimensional problem
         b_l[0] = np.r_[tuple(b[pos_ln])]
 
         # in the case of > 1 co-dimensional problems
@@ -155,3 +155,29 @@ class DomainDecomposition(object):
         return x
 
 #------------------------------------------------------------------------------#
+
+    def steklov_poincare(self, x_l):
+        # evaluate SP-operator on x
+        Sx_l = self.schur_complement(x_l)
+
+        # evaluate SP-operator on right-hand side
+        x_h = self.LU_h(self.b_h)
+        Sb_l = np.zeros(self.b_l.size)
+        Sb_l[:self.dof_l] = - self.C_l * x_h[self.dof_h:]
+
+        return Sx_l, Sb_l
+
+#------------------------------------------------------------------------------#
+
+    def residual_l(self, x_l):
+        # evaluate lower-dimensional part
+        print(self.b_l.shape)
+        print(self.A_l.shape)
+        print(x_l.shape)
+        f_l = self.b_l - self.A_l * x_l
+
+        # evaluate Steklov-Poincare operator part
+        Sx_l, Sb_l = self.steklov_poincare(x_l)
+        f_S = Sb_l - Sx_l
+
+        return f_l + f_S

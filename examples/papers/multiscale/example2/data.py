@@ -124,16 +124,26 @@ class Data(object):
 
         for g, d in self.gb:
             if g.dim == 1:
-                # define the non-linear relation with u
-                norm_u = np.linalg.norm(d["P0u"], axis=0)
+                # P0-projected velocity field (shape = (3, num_faces))
                 u = d["P0u"]
+                # euclidean norm of u (over xyz)
+                norm_u = np.linalg.norm(u, axis=0)
 
-                # to trick the code we need to do the following
+                # outer product of u (over xyz)
+                n_faces = u.shape[1]
+                outer_u = np.zeros(shape=(n_faces,))
+                for i in np.arange(u.shape[1]):
+                    temp = np.outer(u[:, i], u[:, i])
+                    # only kxx component in 1d
+                    outer_u[i] = temp[0, 0]
+
+                # non_linear and jacobian coefficient
                 coeff = 1./self.eff_kf_t() + self.data["beta"]*norm_u
-                kf_inv = coeff * np.ones(g.num_cells) + \
-                         (self.data["beta"]/norm_u) * np.square(u)
+                kf_inv = coeff + self.data["beta"] * \
+                                 np.multiply(np.reciprocal(norm_u), outer_u)
                 kf = np.reciprocal(kf_inv/self.data["aperture"])
 
+                # update permeability tensor
                 perm = pp.SecondOrderTensor(1, kxx=kf, kyy=1, kzz=1)
                 d["param"].set_tensor("flow", perm)
 
