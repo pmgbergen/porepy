@@ -93,7 +93,7 @@ class DomainDecomposition(object):
 
 #------------------------------------------------------------------------------#
 
-    def solve(self, tol, maxiter, drop_tol, info=False):
+    def solve(self, tol, maxiter, info=False):
 
         global iteration_number
         iteration_number = 0
