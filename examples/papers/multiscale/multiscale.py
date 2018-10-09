@@ -121,7 +121,7 @@ class Multiscale(object):
         # dimensional problem
         A_l[0, 0] = sps.bmat(A[np.ix_(self.pos_ln, self.pos_ln)])
         A_l[0, 0] += self.bases
-        # add to the righ-hand side the non-homogenous solution from the higher
+        # add to the right-hand side the non-homogenous solution from the higher
         # dimensional problem
         b_l[0] = np.r_[tuple(b[self.pos_ln])] + self.x_h
         # in the case of > 1 co-dimensional problems
@@ -138,6 +138,7 @@ class Multiscale(object):
         b_l = np.r_[tuple(b_l)]
 
         return sps.linalg.spsolve(A_l, b_l)
+
 
 #------------------------------------------------------------------------------#
 
@@ -158,3 +159,32 @@ class Multiscale(object):
         return x
 
 #------------------------------------------------------------------------------#
+
+    def assemble_l(self, A, b):
+        # construct the problem in the fracture network
+        A_l = np.empty((2, 2), dtype=np.object)
+        b_l = np.empty(2, dtype=np.object)
+
+        # the multiscale bases are thus inserted in the right block of the lower
+        # dimensional problem
+        A_l[0, 0] = sps.bmat(A[np.ix_(self.pos_ln, self.pos_ln)])
+        A_l[0, 0] += self.bases
+        # add to the right-hand side the non-homogenous solution from the higher
+        # dimensional problem
+        b_l[0] = np.r_[tuple(b[self.pos_ln])] + self.x_h
+        # in the case of > 1 co-dimensional problems
+        if len(self.pos_le) > 0:
+            A_l[0, 1] = sps.bmat(A[np.ix_(self.pos_ln, self.pos_le)])
+            A_l[1, 0] = sps.bmat(A[np.ix_(self.pos_le, self.pos_ln)])
+            A_l[1, 1] = sps.bmat(A[np.ix_(self.pos_le, self.pos_le)])
+            b_l[1] = np.r_[tuple(b[self.pos_le])]
+        else:
+            b_l[1] = np.empty(0)
+
+        # assemble and return
+        A_l = sps.bmat(A_l, "csr")
+        b_l = np.r_[tuple(b_l)]
+
+        return A_l, b_l
+
+# ------------------------------------------------------------------------------#
