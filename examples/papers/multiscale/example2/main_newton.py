@@ -65,6 +65,7 @@ def summarize_data(betas, tests):
 
 # ------------------------------------------------------------------------------#
 
+
 def main_ms_newton(pb_data, name):
     # in principle we can re-compute only the matrices related to the
     # fracture network, however to simplify the implementation we re-compute
@@ -111,15 +112,18 @@ def main_ms_newton(pb_data, name):
         # we need to recompute the lower dimensional matrices
         # for simplicity we do for everything
         A, b = solver_flow.matrix_rhs(data.gb, return_bmat=True)
-        F_u = b - A*x_l
+        A_l, b_l = ms.assemble_l(A, b)
+        F_u = b_l - A_l*x_l
 
         # update Jacobian
         # for simplicity we do for everything
         data.update_jacobian(solver_flow)
-        DF_u, _ = solver_flow.matrix_rhs(data.gb, returm_bmat=True)
+        DA, Db = solver_flow.matrix_rhs(data.gb, return_bmat=True)
+        DF_u, _ = ms.assemble_l(DA, Db)
 
         # solve for (xn+1 - xn)
-        dx_l = ms.solve_l(DF_u, F_u)
+        dx_l, info_ = sps.linalg.gmres(DF_u, F_u)
+        print("Info gmres: ", info_)
 
         # update new iteration
         x_l = x_l + dx_l
@@ -184,8 +188,10 @@ def main_dd_newton(pb_data, name):
 
     # initiate iteration count and initial condition
     i = 0
+    x = x[dd.dof_h:]
     dx = x
     while True:
+        print("Iteration: ", i)
         # compute error
         err = np.linalg.norm(dx)
 
@@ -204,16 +210,20 @@ def main_dd_newton(pb_data, name):
         # we need to recompute the lower dimensional matrices
         # for simplicity we do for everything
         A, b = solver_flow.matrix_rhs(data.gb, return_bmat=True)
-        F_u = b - A * x
+        dd.extract_blocks(A, b)
+        dd.factorize()
+        F_u = dd.residual_l(x)
 
         # update Jacobian
         # for simplicity we do for everything
         data.update_jacobian(solver_flow)
-        DF_u, _ = solver_flow.matrix_rhs(data.gb, returm_bmat=True)
+        DA, Db = solver_flow.matrix_rhs(data.gb, return_bmat=True)
+        dd.extract_blocks(DA, Db)
+        dd.factorize()
 
         # solve for (xn+1 - xn)
-        dd.extract_blocks(DF_u, F_u)
-        dd.factorize()
+        dd.b_h = np.zeros(shape=dd.b_h.shape)
+        dd.b_l = F_u
         dx, info = dd.solve(tol, maxiter, info=True)
         solve_h += info["solve_h"]
 
@@ -302,7 +312,7 @@ if __name__ == "__main__":
                     "newton_maxiter": 1e3}
 
             main_ms_newton(data, name)
-            main_dd_newton(data, name)
+            # main_dd_newton(data, name)
             # main(data, name)
 
     summarize_data(betas, tests)
