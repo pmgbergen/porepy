@@ -46,7 +46,7 @@ from porepy.numerics.fem.rt0 import RT0, RT0MixedDim
 
 # Mixed-dimensional discretizations and assemblers
 from porepy.numerics.mixed_dim.elliptic_assembler import EllipticAssembler
-from porepy.numerics.mixed_dim.elliptic_couplers import RobinCoupling
+from porepy.numerics.interface_laws.elliptic_interface_laws import RobinCoupling
 
 
 # Transport related
