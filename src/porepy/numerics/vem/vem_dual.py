@@ -400,8 +400,8 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         mg = data_edge['mortar_grid']
         hat_E_int = self._velocity_dof(g_master, mg)
 
-        cc[2, self_ind] += hat_E_int.T * matrix[0, 0]
-        cc[2, 2] += hat_E_int.T * matrix[0, 0] * hat_E_int
+        cc[2, self_ind] -= hat_E_int.T * matrix[0, 0]
+        cc[2, 2] -= hat_E_int.T * matrix[0, 0] * hat_E_int
 
 
     def assemble_int_bound_flux(self, g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0):
@@ -419,7 +419,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         A = proj.T
         shape = (g_slave.num_faces, A.shape[1])
 
-        cc[2, self_ind] += sps.bmat([[sps.csr_matrix(shape)], [A]]).T
+        cc[2, self_ind] -= sps.bmat([[sps.csr_matrix(shape)], [A]]).T
 
 
     def assemble_int_bound_source(self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1):
