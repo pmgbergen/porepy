@@ -124,8 +124,6 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         """
         if isinstance(g, pp.Grid):
             return g.num_cells + g.num_faces
-        elif isinstance(g, pp.MortarGrid):
-            return g.num_cells
         else:
             raise ValueError
 
