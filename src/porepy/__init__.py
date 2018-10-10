@@ -50,7 +50,7 @@ from porepy.numerics.mixed_dim.elliptic_couplers import RobinCoupling
 
 
 # Transport related
-from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim, UpwindCoupling
+from porepy.numerics.fv.upwind import Upwind, UpwindMixedDim, UpwindCoupling
 from porepy.numerics.fv.mass_matrix import MassMatrix, MassMatrixMixedDim
 from porepy.numerics.fv.mass_matrix import InvMassMatrix, InvMassMatrixMixedDim
 
