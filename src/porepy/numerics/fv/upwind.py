@@ -388,9 +388,9 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         dof, cc = self.create_block_matrix([g_h, g_l, g_m])
 
         # Projection from mortar to upper dimenional faces
-        hat_P_avg = g_m.high_to_mortar_avg()
+        hat_P_avg = g_m.master_to_mortar_avg()
         # Projection from mortar to lower dimensional cells
-        check_P_avg = g_m.low_to_mortar_avg()
+        check_P_avg = g_m.slave_to_mortar_avg()
 
         # mapping from upper dim cellls to faces
         # The mortars always points from upper to lower, so we don't flip any

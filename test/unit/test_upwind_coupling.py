@@ -1,5 +1,5 @@
 """
-Tests of class UpwindCoupling in module porepy.numerics.fv.transport.upwind
+Tests of class UpwindCoupling in module porepy.numerics.fv.upwind
 """
 import unittest
 import numpy as np
@@ -46,7 +46,7 @@ class TestUpwindCoupling(unittest.TestCase):
         lam = np.arange(de["mortar_grid"].num_cells)
         de["mortar_solution"] = lam
         upwind = pp.Upwind()
-        upwind_coupler = pp.numerics.fv.transport.upwind.UpwindCoupling(upwind)
+        upwind_coupler = pp.numerics.fv.upwind.UpwindCoupling(upwind)
 
         matrix = upwind_coupler.matrix_rhs(zero_mat, g2, g1, d2, d1, de)
 
@@ -91,7 +91,7 @@ class TestUpwindCoupling(unittest.TestCase):
         lam = np.arange(de["mortar_grid"].num_cells)
         de["mortar_solution"] = -lam
         upwind = pp.Upwind()
-        upwind_coupler = pp.numerics.fv.transport.upwind.UpwindCoupling(upwind)
+        upwind_coupler = pp.numerics.fv.upwind.UpwindCoupling(upwind)
 
         matrix = upwind_coupler.matrix_rhs(zero_mat, g2, g1, d2, d1, de)
 
