@@ -78,7 +78,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         M, bc_weight = self.assemble_neumann(g, data, M, bc_weight=True)
 
-        return M, self.rhs(g, data, bc_weight)
+        return M, self.assemble_rhs(g, data, bc_weight)
 
 
     def assemble_matrix(self, g, data):
