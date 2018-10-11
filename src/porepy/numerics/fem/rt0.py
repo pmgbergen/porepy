@@ -19,32 +19,6 @@ from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
-# ------------------------------------------------------------------------------#
-
-
-class RT0MixedDim(SolverMixedDim):
-    def __init__(self, physics="flow"):
-        self.physics = physics
-
-        self.discr = RT0(self.physics)
-        self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = DualCoupling(self.discr)
-
-        self.solver = Coupler(self.discr, self.coupling_conditions)
-
-    def extract_u(self, gb, up, u):
-        gb.add_node_props([u])
-        for g, d in gb:
-            d[u] = self.discr.extract_u(g, d[up])
-
-    def extract_p(self, gb, up, p):
-        gb.add_node_props([p])
-        for g, d in gb:
-            d[p] = self.discr.extract_p(g, d[up])
-
-
-# ------------------------------------------------------------------------------#
-
 
 class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
