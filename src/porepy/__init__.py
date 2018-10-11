@@ -34,7 +34,7 @@ from porepy.numerics.fv.biot import Biot
 from porepy.numerics.fv.source import Integral, IntegralMixedDim
 
 # Virtual elements, elliptic
-from porepy.numerics.vem.vem_dual import DualVEM, DualVEMMixedDim
+from porepy.numerics.vem.vem_dual import DualVEM
 from porepy.numerics.vem.vem_source import DualSource, DualSourceMixedDim
 from porepy.numerics.elliptic import DualEllipticModel
 
@@ -42,7 +42,7 @@ from porepy.numerics.elliptic import DualEllipticModel
 from porepy.numerics.fem.p1 import P1, P1MixedDim
 from porepy.numerics.fem.source import P1Source, P1SourceMixedDim
 from porepy.numerics.fem.mass_matrix import P1MassMatrix, P1MassMatrixMixedDim
-from porepy.numerics.fem.rt0 import RT0, RT0MixedDim
+from porepy.numerics.fem.rt0 import RT0
 
 # Mixed-dimensional discretizations and assemblers
 from porepy.numerics.mixed_dim.elliptic_assembler import EllipticAssembler
