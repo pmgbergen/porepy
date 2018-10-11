@@ -28,8 +28,8 @@ __all__ = []
 # Numerics
 # Control volume, elliptic
 from porepy.numerics.fv.mpsa import Mpsa, FracturedMpsa
-from porepy.numerics.fv.tpfa import Tpfa, TpfaMixedDim
-from porepy.numerics.fv.mpfa import Mpfa, MpfaMixedDim
+from porepy.numerics.fv.tpfa import Tpfa
+from porepy.numerics.fv.mpfa import Mpfa
 from porepy.numerics.fv.biot import Biot
 from porepy.numerics.fv.source import Integral, IntegralMixedDim
 

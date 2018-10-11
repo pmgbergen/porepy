@@ -16,20 +16,6 @@ from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
 from porepy.numerics.fv import TpfaCoupling, FVElliptic
 
-# ------------------------------------------------------------------------------
-
-
-class MpfaMixedDim(SolverMixedDim):
-    def __init__(self, physics="flow"):
-        self.physics = physics
-
-        self.discr = Mpfa(self.physics)
-        self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = TpfaCoupling(self.discr)
-
-        self.solver = Coupler(self.discr, self.coupling_conditions)
-
-
 
 class Mpfa(FVElliptic):
 
