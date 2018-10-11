@@ -9,6 +9,7 @@ import scipy.sparse as sps
 import logging
 
 import porepy as pp
+from porepy.numerics.vem.dual_elliptic import DualElliptic
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -22,7 +23,6 @@ class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
         self.discr = DualVEM(self.physics)
         self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = DualCoupling(self.discr)
 
         self.solver = pp.numerics.mixed_dim.coupler.Coupler(
             self.discr, self.coupling_conditions
@@ -76,7 +76,7 @@ class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
             logger.info(np.amax(np.abs(d[conservation])))
 
 
-class DualVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
+class DualVEM(DualElliptic):
     """
     @ALL: I have kept the inheritance from the general Solver for now, or else
     the Parameter class start making trouble. It still may be useful to have a
