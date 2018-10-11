@@ -11,7 +11,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class DualElliptic(pp.numerics.mixed_dim.solver.Solver):
+class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscretization):
     """ Parent class for methods based on the mixed variational form of the
     elliptic equation. The class should not be used by itself, but provides a
     sheared implementation of central methods.
@@ -27,10 +27,6 @@ class DualElliptic(pp.numerics.mixed_dim.solver.Solver):
         # break the parameter assignment workflow. The physics keyword will go
         # to be replaced by a more generalized approach, but one step at a time
         self.physics = keyword
-
-
-    def key(self):
-        return self.keyword + '_'
 
 
     def ndof(self, g):

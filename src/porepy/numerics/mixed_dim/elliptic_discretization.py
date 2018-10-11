@@ -1,31 +1,63 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Module contains superclass for mpfa and tpfa.
-"""
-import numpy as np
-import scipy.sparse as sps
+Created on Thu Oct 11 10:35:21 2018
 
+@author: eke001
+"""
 import porepy as pp
 
+from porepy.numerics.mixed_dim.solver import Solver
 
-class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
+class EllipticDiscretization(Solver):
+    """ This is the parent class of all discretizations for second order elliptic
+    problems. The class cannot be used itself, but should rather be seen as a
+    declaration of which methods are assumed implemented for all specific
+    discretization schemes.
+
+    Subclasses are intended used both on single grids, and as components in a
+    mixed-dimensional, or more generally multiple grid problem. In the latter case, this class will provide the
+    discretization on individual grids; a full discretization will also need
+    discretizations of the edge problems (coupling between grids) and a way to
+    assemble the grids.
+
+    The class methods should together take care of both the discretization
+    (defined as construction of operators used when writing down the continuous
+    form of the equations, e.g. divergence, transmissibility matrix etc), and
+    assembly of (whole or part of) the system matrix. For problems on multiple
+    grids, an assembly will only be a partial (considering a single grid)- the
+    full system matrix for multiple grids is handled somewhere else.
+
+    Attributes:
+        keyword (str): This is used for
+
     """
-    """
+
 
     def __init__(self, keyword):
+        """ Set the discretization, with the keyword used for storing various
+        information associated with the discretization.
+
+        Paramemeters:
+            keyword (str): Identifier of all information used for this
+                discretization.
+        """
         self.keyword = keyword
 
-        # @ALL: We kee the physics keyword for now, or else we completely
-        # break the parameter assignment workflow. The physics keyword will go
-        # to be replaced by a more generalized approach, but one step at a time
         self.physics = keyword
 
 
-    def ndof(self, g):
+    def key(self):
+        """ Get
+
+        Returns:
+            String, on the form self.keyword + '_'.
         """
+        return self.keyword + '_'
+
+    def ndof(self, g):
+        """ Abstract method.
         Return the number of degrees of freedom associated to the method.
-        In this case number of cells (pressure dof).
 
         Parameter
         ---------
@@ -36,8 +68,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         dof: the number of degrees of freedom.
 
         """
-        return g.num_cells
-
+        raise NotImplementedError("Method not implemented")
 
     def extract_pressure(self, g, solution_array, d):
         """ Extract the pressure part of a solution.
@@ -57,7 +88,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 to solution_array.
 
         """
-        return solution_array
+        raise NotImplementedError("Method not implemented")
 
 
     def extract_flux(self, g, solution_array, d):
@@ -78,15 +109,10 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
             np.array (g.num_faces): Flux vector.
 
         """
-        flux_discretization = d[self.key() + 'flux']
-        return flux_discretization * solution_array
-
-
-    # ------------------------------------------------------------------------------#
+        raise NotImplementedError("Method not implemented")
 
     def assemble_matrix_rhs(self, g, data):
-        return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
-
+        raise NotImplementedError("Method not implemented")
 
     def assemble_matrix(self, g, data):
         """
@@ -115,14 +141,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
             Discretization matrix.
 
         """
-        if not self.key() + 'flux' in data.keys():
-            self.discretize(g, data)
-
-        div = pp.fvutils.scalar_divergence(g)
-        flux = data[self.key() + "flux"]
-        M = div * flux
-
-        return M
+        raise NotImplementedError("Method not implemented")
 
     # ------------------------------------------------------------------------------#
 
@@ -132,74 +151,20 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         equation using the MPFA method. See self.matrix_rhs for a detaild
         description.
         """
-        if not self.key() + 'bound_flux' in data.keys():
-            self.discretize(g, data)
-
-
-        bound_flux = data[self.key() + "bound_flux"]
-
-        param = data["param"]
-
-        bc_val = param.get_bc_val(self)
-
-        div = g.cell_faces.T
-
-        return -div * bound_flux * bc_val
+        raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_flux(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
-
-        div = g.cell_faces.T
-
-        # Projection operators to grid
-        mg = data_edge['mortar_grid']
-
-        if grid_swap:
-            proj = mg.slave_to_mortar_avg()
-        else:
-            proj = mg.master_to_mortar_avg()
-
-        cc[self_ind, 2] += div * data[self.key() + 'bound_flux'] * proj.T
+        raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_source(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
-
-        mg = data_edge['mortar_grid']
-
-        if grid_swap:
-            proj = mg.master_to_mortar_avg()
-        else:
-            proj = mg.slave_to_mortar_avg()
-
-        cc[self_ind, 2] -= proj.T
+        raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_pressure_trace(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
-        """ Assemble operators to represent the pressure trace.
-        """
-        mg = data_edge['mortar_grid']
-
-        # TODO: this should become first or second or something
-        if grid_swap:
-            proj = mg.slave_to_mortar_avg()
-        else:
-            proj = mg.master_to_mortar_avg()
-
-        bp = data[self.key() + 'bound_pressure_cell']
-        cc[2, self_ind] += proj * bp
-        cc[2, 2] += proj * data[self.key() + 'bound_pressure_face'] * proj.T
-
+        raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_pressure_cell(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
-        mg = data_edge['mortar_grid']
-
-        if grid_swap:
-            proj = mg.master_to_mortar_avg()
-        else:
-            proj = mg.slave_to_mortar_avg()
-
-        cc[2, self_ind] -= proj
+        raise NotImplementedError("Method not implemented")
 
 
     def enforce_neumann_int_bound(self, g_master, data_edge, matrix):
-        """
-        """
-        # Operation is void for finite volume methods
-        pass
+        raise NotImplementedError("Method not implemented")
