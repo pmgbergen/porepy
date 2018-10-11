@@ -76,58 +76,18 @@ class DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
             logger.info(np.amax(np.abs(d[conservation])))
 
 
-class DualVEM(pp.numerics.mixed_dim.solver.Solver):
+class DualVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
     """
     @ALL: I have kept the inheritance from the general Solver for now, or else
     the Parameter class start making trouble. It still may be useful to have a
     parent class for all discretizations, mainly to guide the implementation of
     new methods. Opinions?
 
-    @ALESSIO: Is it reasonable to create a parent class for RT0 and VEM?
-
-    @ALESSIO: Please check that I have not missed anything while refactoring
-    this function.
-
     """
 
-    # ------------------------------------------------------------------------------#
 
     def __init__(self, keyword):
-        self.keyword = keyword
-
-        # @ALL: We kee the physics keyword for now, or else we completely
-        # break the parameter assignment workflow. The physics keyword will go
-        # to be replaced by a more generalized approach, but one step at a time
-        self.physics = keyword
-
-    # ------------------------------------------------------------------------------#
-
-    def key(self):
-        return self.keyword + '_'
-
-    def ndof(self, g):
-        """
-        Return the number of degrees of freedom associated to the method.
-        In this case number of faces (velocity dofs) plus the number of cells
-        (pressure dof). If a mortar grid is given the number of dof are equal to
-        the number of cells, we are considering an inter-dimensional interface
-        with flux variable as mortars.
-
-        Parameter
-        ---------
-        g: grid.
-
-        Return
-        ------
-        dof: the number of degrees of freedom.
-
-        """
-        if isinstance(g, pp.Grid):
-            return g.num_cells + g.num_faces
-        else:
-            raise ValueError
-
-    # ------------------------------------------------------------------------------#
+        super(DualVEM, self).__init__(keyword)
 
     def assemble_matrix_rhs(self, g, data):
         """
@@ -275,227 +235,12 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         """ Impose Neumann boundary discretization on an already assembled
         system matrix.
 
-        @ALESSIO: I am not sure about the bc_weight parameter here, and then in
-        assemble_rhs. Is the default value consistent, and the right one?
         """
-
+        # Obtain the VEM mass matrix
         mass = data[self.key() + 'vem_mass']
-        norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
+        # Use implementation in superclass
+        return self._assemble_neumann_common(g, data, M, mass, bc_weight=bc_weight)
 
-        param = data["param"]
-        bc = param.get_bc(self)
-
-        # assign the Neumann boundary conditions
-        # For dual discretizations, internal boundaries
-        # are handled by assigning Dirichlet conditions. THus, we remove them
-        # from the is_neu (where they belong by default) and add them in
-        # is_dir.
-        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
-        if bc and np.any(is_neu):
-            is_neu = np.hstack((is_neu, np.zeros(g.num_cells, dtype=np.bool)))
-            is_neu = np.where(is_neu)[0]
-
-            # set in an efficient way the essential boundary conditions, by
-            # clear the rows and put norm in the diagonal
-            for row in is_neu:
-                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
-
-            d = M.diagonal()
-            d[is_neu] = norm
-            M.setdiag(d)
-
-        if bc_weight:
-            return M, norm
-        return M
-
-    # ------------------------------------------------------------------------------#
-
-    def assemble_rhs(self, g, data, bc_weight=1):
-        """
-        Return the righ-hand side for a discretization of a second order elliptic
-        equation using dual virtual element method. See self.matrix_rhs for a detaild
-        description.
-
-        Additional parameter:
-        --------------------
-        bc_weight: to use the infinity norm of the matrix to impose the
-            boundary conditions. Default 1.
-
-        """
-        # Allow short variable names in backend function
-        # pylint: disable=invalid-name
-
-        param = data["param"]
-        f = param.get_source(self)
-
-        if g.dim == 0:
-            return np.hstack(([0], f))
-
-        bc = param.get_bc(self)
-        bc_val = param.get_bc_val(self)
-
-        assert not bool(bc is None) != bool(bc_val is None)
-
-        rhs = np.zeros(self.ndof(g))
-        if bc is None:
-            return rhs
-
-        # For dual discretizations, internal boundaries
-        # are handled by assigning Dirichlet conditions. Thus, we remove them
-        # from the is_neu (where they belong by default). As the dirichlet
-        # values are simply added to the rhs, and the internal Dirichlet
-        # conditions on the fractures SHOULD be homogeneous, we exclude them
-        # from the dirichlet condition as well.
-        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
-        is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
-
-        faces, _, sign = sps.find(g.cell_faces)
-        sign = sign[np.unique(faces, return_index=True)[1]]
-
-        if np.any(is_dir):
-            is_dir = np.where(is_dir)[0]
-            rhs[is_dir] += -sign[is_dir] * bc_val[is_dir]
-
-        if np.any(is_neu):
-            is_neu = np.where(is_neu)[0]
-            rhs[is_neu] = sign[is_neu] * bc_weight * bc_val[is_neu]
-
-        return rhs
-
-    ## Methods used for discretization of mixed-dimensional couplings
-
-    def _mortar_projection(self, data_edge, grid_swap, return_integration=False):
-        mg = data_edge['mortar_grid']
-
-        if grid_swap:
-            if return_integration:
-                return mg.slave_to_mortar_avg(), mg.mortar_to_slave_int()
-            else:
-                return mg.slave_to_mortar_avg()
-        else:
-            if return_integration:
-                return mg.master_to_mortar_avg(), mg.mortar_to_master_int()
-            else:
-                return mg.master_to_mortar_avg()
-
-    def _velocity_dof(self, g, g_m):
-        # Recover the information for the grid-grid mapping
-        faces_h, cells_h, sign_h = sps.find(g.cell_faces)
-        ind_faces_h = np.unique(faces_h, return_index=True)[1]
-        cells_h = cells_h[ind_faces_h]
-        sign_h = sign_h[ind_faces_h]
-
-        # Velocity degree of freedom matrix
-        U = sps.diags(sign_h)
-
-        shape = (g.num_cells, g_m.num_cells)
-        hat_E_int = g_m.mortar_to_master_int()
-        hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
-        return hat_E_int
-
-
-    def assemble_int_bound_pressure_trace(self, g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0):
-        """
-        """
-        mg = data_edge['mortar_grid']
-        hat_E_int = self._velocity_dof(g_master, mg)
-
-        cc[2, self_ind] -= hat_E_int.T * matrix[0, 0]
-        cc[2, 2] -= hat_E_int.T * matrix[0, 0] * hat_E_int
-
-
-    def assemble_int_bound_flux(self, g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0):
-        # The matrix must be the VEM discretization matrix.
-        mg = data_edge['mortar_grid']
-        hat_E_int = self._velocity_dof(g_master, mg)
-
-        cc[self_ind, 2] += matrix[self_ind, self_ind] * hat_E_int
-
-    def assemble_int_bound_pressure_cell(self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1):
-
-        mg = data_edge['mortar_grid']
-        proj = mg.slave_to_mortar_avg()
-
-        A = proj.T
-        shape = (g_slave.num_faces, A.shape[1])
-
-        cc[2, self_ind] -= sps.bmat([[sps.csr_matrix(shape)], [A]]).T
-
-
-    def assemble_int_bound_source(self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1):
-
-        mg = data_edge['mortar_grid']
-        proj = mg.slave_to_mortar_avg()
-
-        A = proj.T
-        shape = (g_slave.num_faces, A.shape[1])
-        cc[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
-
-
-    def enforce_neumann_int_bound(self, g_master, data_edge, matrix):
-        mg = data_edge['mortar_grid']
-
-        hat_E_int = self._velocity_dof(g_master, mg)
-
-        dof = np.where(hat_E_int.sum(axis=1).A.astype(np.bool))[0]
-        norm = np.linalg.norm(matrix[0, 0].diagonal(), np.inf)
-
-        for row in dof:
-            idx = slice(matrix[0, 0].indptr[row], matrix[0, 0].indptr[row + 1])
-            matrix[0, 0].data[idx] = 0.
-
-            idx = slice(matrix[0, 2].indptr[row], matrix[0, 2].indptr[row + 1])
-            matrix[0, 2].data[idx] = 0.
-
-        d = matrix[0, 0].diagonal()
-        d[dof] = norm
-        matrix[0, 0].setdiag(d)
-
-    ## Methods used for variable manipulation
-
-    def extract_flux(self, g, up, d=None):
-        """  Extract the velocity from a dual virtual element solution.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        up : array (g.num_faces+g.num_cells)
-            Solution, stored as [velocity,pressure]
-        d: data dictionary associated with the grid.
-            Unused, but included for consistency reasons.
-
-        Return
-        ------
-        u : array (g.num_faces)
-            Velocity at each face.
-
-        """
-        # pylint: disable=invalid-name
-        return up[: g.num_faces]
-
-    # ------------------------------------------------------------------------------#
-
-    def extract_pressure(self, g, up, d):
-        """  Extract the pressure from a dual virtual element solution.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        up : array (g.num_faces+g.num_cells)
-            Solution, stored as [velocity,pressure]
-        d: data dictionary associated with the grid.
-            Unused, but included for consistency reasons.
-
-        Return
-        ------
-        p : array (g.num_cells)
-            Pressure at each cell.
-
-        """
-        # pylint: disable=invalid-name
-        return up[g.num_faces :]
-
-    # ------------------------------------------------------------------------------#
 
     def project_flux(self, g, u, data):
         """  Project the velocity computed with a dual vem solver to obtain a
