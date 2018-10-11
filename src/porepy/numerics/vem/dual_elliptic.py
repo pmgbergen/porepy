@@ -241,7 +241,7 @@ class DualElliptic(pp.numerics.mixed_dim.solver.Solver):
         return up[: g.num_faces]
 
 
-    def extract_pressure(self, g, up, d):
+    def extract_pressure(self, g, up, d=None):
         """  Extract the pressure from a dual virtual element solution.
 
         Parameters
