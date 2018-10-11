@@ -287,11 +287,11 @@ def tpfa_matrix(g, perm=None):
     if perm is None:
         perm = tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
 
-    solver = tpfa.Tpfa()
+    solver = tpfa.Tpfa('flow')
     param = Parameters(g)
     param.set_tensor(solver, perm)
     param.set_bc(solver, BoundaryCondition(g, np.empty(0), ""))
-    return solver.matrix_rhs(g, {"param": param})[0]
+    return solver.assemble_matrix_rhs(g, {"param": param})[0]
 
 
 # ------------------------------------------------------------------------------#
