@@ -46,43 +46,13 @@ class RT0MixedDim(SolverMixedDim):
 # ------------------------------------------------------------------------------#
 
 
-class RT0(Solver):
+class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
+    def __init__(self, keyword):
+        super(RT0, self).__init__(keyword)
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics="flow"):
-        self.physics = physics
-
-    # ------------------------------------------------------------------------------#
-
-    def ndof(self, g):
-        """
-        Return the number of degrees of freedom associated to the method.
-        In this case number of faces (velocity dofs) plus the number of cells
-        (pressure dof). If a mortar grid is given the number of dof are equal to
-        the number of cells, we are considering an inter-dimensional interface
-        with flux variable as mortars.
-
-
-        Parameter
-        ---------
-        g: grid, or a subclass.
-
-        Return
-        ------
-        dof: the number of degrees of freedom.
-
-        """
-        if isinstance(g, pp.Grid):
-            return g.num_cells + g.num_faces
-        elif isinstance(g, pp.MortarGrid):
-            return g.num_cells
-        else:
-            raise ValueError
-
-    # ------------------------------------------------------------------------------#
-
-    def matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(self, g, data):
         """
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using RT0-P0 method.
@@ -101,12 +71,28 @@ class RT0(Solver):
             source term.
 
         """
-        M, bc_weight = self.matrix(g, data, bc_weight=True)
+        if not self.key() + 'RT0_mass' in data.keys():
+            self.discretize(g, data)
+
+        M = self.assemble_matrix(g, data)
+
+        M, bc_weight = self.assemble_neumann(g, data, M, bc_weight=True)
+
         return M, self.rhs(g, data, bc_weight)
 
-    # ------------------------------------------------------------------------------#
 
-    def matrix(self, g, data, bc_weight=False):
+    def assemble_matrix(self, g, data):
+        """ Assemble VEM matrix from an existing discretization.
+        """
+        if not self.key() + 'RT0_mass' in data.keys():
+            self.discretize(g, data)
+
+        mass = data[self.key() + 'RT0_mass']
+        div = data[self.key() + 'RT0_div']
+        return sps.bmat([[mass, div.T], [div, None]], format="csr")
+
+
+    def discretize(self, g, data):
         """
         Return the matrix for a discretization of a second order elliptic equation
         using RT0-P0 method. See self.matrix_rhs for a detaild
@@ -125,18 +111,18 @@ class RT0(Solver):
         # pylint: disable=invalid-name
 
         # If a 0-d grid is given then we return an identity matrix
+        # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
-            M = sps.dia_matrix(([1, 0], 0), (self.ndof(g), self.ndof(g)))
-            if bc_weight:
-                return M, 1
-            return M
-
+            mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
+            data[self.key() + 'RT0_mass'] = mass
+            data[self.key() + 'RT0_div'] = sps.csr_matrix((g.num_faces,
+                 g.num_cells))
+            return
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
         param = data["param"]
         k = param.get_tensor(self)
-        bc = param.get_bc(self)
         a = param.get_aperture()
 
         faces, cells, sign = sps.find(g.cell_faces)
@@ -211,124 +197,20 @@ class RT0(Solver):
         # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
-        M = sps.bmat([[mass, div.T], [div, None]], format="csr")
+        data[self.key() + 'RT0_mass'] = mass
+        data[self.key() + 'RT0_div'] = div
 
-        norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
-        # assign the Neumann boundary conditions
-        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
-        if bc and np.any(bc.is_neu):
-            is_neu = np.hstack((is_neu, np.zeros(g.num_cells, dtype=np.bool)))
-            is_neu = np.where(is_neu)[0]
-
-            # set in an efficient way the essential boundary conditions, by
-            # clear the rows and put norm in the diagonal
-            for row in is_neu:
-                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
-
-            d = M.diagonal()
-            d[is_neu] = norm
-            M.setdiag(d)
-
-        if bc_weight:
-            return M, norm
-        return M
-
-    # ------------------------------------------------------------------------------#
-
-    def rhs(self, g, data, bc_weight=1):
-        """
-        Return the righ-hand side for a discretization of a second order elliptic
-        equation using RT0-P0 method. See self.matrix_rhs for a detaild
-        description.
-
-        Additional parameter:
-        --------------------
-        bc_weight: to use the infinity norm of the matrix to impose the
-            boundary conditions. Default 1.
+    def assemble_neumann(self, g, data, M, bc_weight=None):
+        """ Impose Neumann boundary discretization on an already assembled
+        system matrix.
 
         """
-        # Allow short variable names in backend function
-        # pylint: disable=invalid-name
+        # Obtain the RT0 mass matrix
+        mass = data[self.key() + 'RT0_mass']
+        # Use implementation in superclass
+        return self._assemble_neumann_common(g, data, M, mass, bc_weight=bc_weight)
 
-        param = data["param"]
-        f = param.get_source(self)
-
-        if g.dim == 0:
-            return np.hstack(([0], f))
-
-        bc = param.get_bc(self)
-        bc_val = param.get_bc_val(self)
-
-        assert not bool(bc is None) != bool(bc_val is None)
-
-        rhs = np.zeros(self.ndof(g))
-        if bc is None:
-            return rhs
-
-        # For dual discretizations, internal boundaries
-        # are handled by assigning Dirichlet conditions. Thus, we remove them
-        # from the is_neu (where they belong by default). As the dirichlet
-        # values are simply added to the rhs, and the internal Dirichlet
-        # conditions on the fractures SHOULD be homogeneous, we exclude them
-        # from the dirichlet condition as well.
-        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
-        is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
-
-        faces, _, sign = sps.find(g.cell_faces)
-        sign = sign[np.unique(faces, return_index=True)[1]]
-
-        if np.any(is_dir):
-            is_dir = np.where(is_dir)[0]
-            rhs[is_dir] += -sign[is_dir] * bc_val[is_dir]
-
-        if np.any(is_neu):
-            is_neu = np.where(is_neu)[0]
-            rhs[is_neu] = sign[is_neu] * bc_weight * bc_val[is_neu]
-
-        return rhs
-
-    # ------------------------------------------------------------------------------#
-
-    def extract_u(self, g, up):
-        """  Extract the velocity from a RT0-P0 solution.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        up : array (g.num_faces+g.num_cells)
-            Solution, stored as [velocity,pressure]
-
-        Return
-        ------
-        u : array (g.num_faces)
-            Velocity at each face.
-
-        """
-        # pylint: disable=invalid-name
-        return up[: g.num_faces]
-
-    # ------------------------------------------------------------------------------#
-
-    def extract_p(self, g, up):
-        """  Extract the pressure from a RT0-P0 solution.
-
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        up : array (g.num_faces+g.num_cells)
-            Solution, stored as [velocity,pressure]
-
-        Return
-        ------
-        p : array (g.num_cells)
-            Pressure at each cell.
-
-        """
-        # pylint: disable=invalid-name
-        return up[g.num_faces :]
-
-    # ------------------------------------------------------------------------------#
 
     def massHdiv(self, K, c_volume, coord, sign, dim, HB):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
