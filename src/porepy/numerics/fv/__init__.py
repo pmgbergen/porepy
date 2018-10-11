@@ -1,8 +1,8 @@
-from .tpfa import TpfaMixedDim, Tpfa
+from .tpfa import Tpfa
 from .tpfa import TpfaCoupling
 from  .fv_elliptic import FVElliptic
 
-from .mpfa import MpfaMixedDim, Mpfa
+from .mpfa import Mpfa
 
 from .mpsa import FracturedMpsa, Mpsa
 

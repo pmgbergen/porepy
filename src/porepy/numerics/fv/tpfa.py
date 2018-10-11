@@ -4,8 +4,6 @@ Created on Sat Feb 27 21:09:29 2016
 
 @author: keile
 """
-import copy
-import warnings
 import numpy as np
 import scipy.sparse as sps
 
@@ -16,29 +14,6 @@ from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
 from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 
-# ------------------------------------------------------------------------------
-
-
-class TpfaMixedDim(FVElliptic):
-    def __init__(self, physics="flow"):
-        self.physics = physics
-
-        self.discr = Tpfa(self.physics)
-        self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = TpfaCoupling(self.discr)
-
-        self.solver = pp.numerics.mixed_dim.coupler.Coupler(
-            self.discr, self.coupling_conditions
-        )
-
-    def discretize(self, gb):
-        for g, d in gb:
-            self.discr.discretize(g, d)
-
-        self.coupling_conditions.discretize(gb)
-
-
-# ------------------------------------------------------------------------------
 
 class Tpfa(FVElliptic):
     """ Discretize elliptic equations by a two-point flux approximation.
