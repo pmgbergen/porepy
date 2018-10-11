@@ -9,7 +9,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class EllipticAssembler(pp.numerics.mixed_dim.abstract_assembler.AbstractAssembler):
+class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
     """ A class that assembles a mixed-dimensional elliptic equation.
     """
 
