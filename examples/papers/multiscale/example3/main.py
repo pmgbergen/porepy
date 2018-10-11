@@ -132,7 +132,7 @@ def main_ms(pb_data, name):
 
     # print the summary data
     print("ms")
-    print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"], "alpha", pb_data["alpha"])
+    print("beta", pb_data["beta"], "alpha", pb_data["alpha"])
     print("iter", i, "err", err, "solve_h", info["solve_h"], "\n")
 
 # ------------------------------------------------------------------------------#
@@ -194,7 +194,7 @@ def main_dd(pb_data, name):
 
     # print the summary data
     print("dd")
-    print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"], "alpha", pb_data["alpha"])
+    print("beta", pb_data["beta"], "alpha", pb_data["alpha"])
     print("iter", i, "err", err, "solve_h", solve_h, "\n")
 
 # ------------------------------------------------------------------------------#
@@ -236,7 +236,7 @@ def main(pb_data, name):
 
     # print the summary data
     print("ref")
-    print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"], "alpha", pb_data["alpha"])
+    print("beta", pb_data["beta"], "alpha", pb_data["alpha"])
     print("iter", i, "err", err, "solve_h", i, "\n")
 
 # ------------------------------------------------------------------------------#
@@ -244,30 +244,23 @@ def main(pb_data, name):
 if __name__ == "__main__":
 
     kf = {0: 1e-4, 1: 1e4}
-    # it's (kf_t, kf_n)
-    #tests = np.array([[1, 1], [1, 0]])
-    #betas = np.array([1e-2, 1e-1, 1, 1e1, 1e2, 1e6])
-    #alphas = np.array([])
 
-    tests = np.array([[1, 0]])
-    betas = np.array([0, 1e1, 1e2, 1e3, 1e4])
-    alphas = np.array([0.5, 1, 2])
+    betas = np.array([1, 1e2, 1e4, 1e6])
+    alphas = np.array([0.5])
 
-    for t, n in tests:
-        name = "_" + str(n)
-        for beta in betas:
-            for alpha in alphas:
-                data = {"kf_n": kf[n],
-                        "kf_t": kf[t],
-                        "aperture": 1e-4,
-                        "beta": beta,
-                        "alpha": alpha,
-                        "mesh_size": 0.045,
-                        "fix_pt_err": 1e-6,
-                        "fix_pt_maxiter": 1e3}
+    for beta in betas:
+        for alpha in alphas:
+            data = {"kf_h": kf[1],
+                    "kf_l": kf[0],
+                    "aperture": 1e-4,
+                    "beta": beta,
+                    "alpha": alpha,
+                    "mesh_size": 0.045,
+                    "fix_pt_err": 1e-6,
+                    "fix_pt_maxiter": 1e3}
 
-                main_ms(data, name)
-                main_dd(data, name)
-                main(data, name)
+            main_ms(data, "")
+            main_dd(data, "")
+            main(data, "")
 
-    summarize_data(betas, tests)
+    #summarize_data(betas, tests)

@@ -15,13 +15,16 @@ class Data(object):
 
     # ------------------------------------------------------------------------------#
 
-    def eff_kf_n(self):
-        return self.data["kf_n"]/self.data["aperture"]
+    def eff_kf_h(self):
+        return self.data["aperture"]*self.data["kf_h"]
 
     # ------------------------------------------------------------------------------#
 
-    def eff_kf_t(self):
-        return self.data["aperture"]*self.data["kf_t"]
+    def if_fracture(self, g):
+        if np.allclose(g.nodes[0, :], 0.5) or np.allclose(g.nodes[1, :], 0.5):
+            return True
+        else:
+            return False
 
     # ------------------------------------------------------------------------------#
 
@@ -39,7 +42,7 @@ class Data(object):
         g_map = {}
         if self.data["alpha"] != 1:
             for g, _ in self.gb:
-                if g.dim == 1:
+                if g.dim == 1 and not self.if_fracture(g):
                     num_nodes = int(g.num_nodes * self.data["alpha"])
                     if num_nodes < 2:
                         num_nodes = 2
@@ -69,7 +72,10 @@ class Data(object):
                 kxx = np.ones(g.num_cells)
                 perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kxx, kzz=1)
             else:
-                kxx = self.data["kf_t"] * np.ones(g.num_cells)
+                if self.if_fracture(g):
+                    kxx = self.data["kf_h"] * np.ones(g.num_cells)
+                else:
+                    kxx = self.data["kf_l"] * np.ones(g.num_cells)
                 perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=1, kzz=1)
             param.set_tensor("flow", perm)
 
@@ -105,7 +111,7 @@ class Data(object):
         # Assign coupling permeability
         self.gb.add_edge_props("kn")
         for e, d in self.gb.edges():
-            g_l = self.gb.nodes_of_edge(e)[0]
+            g_l, g_h = self.gb.nodes_of_edge(e)
             mg = d["mortar_grid"]
             check_P = mg.low_to_mortar_avg()
 
@@ -113,19 +119,21 @@ class Data(object):
                 check_P * self.gb.node_props(g_l, "param").get_aperture(),
                 1. / (2 - g_l.dim),
             )
-
-            d["kn"] = self.data["kf_n"] / gamma
+            if self.if_fracture(g_h):
+                d["kn"] = self.data["kf_h"] / gamma
+            else:
+                d["kn"] = self.data["kf_l"] / gamma
 
     # ------------------------------------------------------------------------------#
 
     def update(self, solver_flow):
 
         for g, d in self.gb:
-            if g.dim == 1:
+            if g.dim == 1 and self.if_fracture(g):
                 u = np.linalg.norm(d["P0u"], axis=0)
 
                 # to trick the code we need to do the following
-                coeff = 1./self.eff_kf_t() + self.data["beta"]*u
+                coeff = 1./self.eff_kf_h() + self.data["beta"]*u
                 kf = 1./coeff/self.data["aperture"]
 
                 perm = pp.SecondOrderTensor(1, kxx=kf, kyy=1, kzz=1)
