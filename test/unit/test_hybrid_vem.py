@@ -434,6 +434,7 @@ class BasicsTest(unittest.TestCase):
 # ------------------------------------------------------------------------------#
 
 
+
 def matrix_for_test_dual_hybrid_vem_3d_iso_cart():
     return np.array(
         [
@@ -3188,3 +3189,6 @@ def matrix_for_test_dual_hybrid_vem_3d_ani_cart():
 
 
 # ------------------------------------------------------------------------------#
+
+if __name__ == '__main__':
+    unittest.main()
