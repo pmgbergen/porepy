@@ -469,7 +469,7 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
         phi_l = data_l["param"].get_porosity()
         mg = data_edge["mortar_grid"]
         discharge = np.zeros(g_h.num_faces)
-        discharge[mg.high_to_mortar_int.nonzero()[1]] = data_edge[d_name]
+        discharge[mg.master_to_mortar_int.nonzero()[1]] = data_edge[d_name]
         if g_h.dim == g_l.dim:
             # More or less same as below, except we have cell_cells in the place
             # of face_cells (see grid_bucket.duplicate_without_dimension).

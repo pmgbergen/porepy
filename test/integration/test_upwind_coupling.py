@@ -6,7 +6,7 @@ from porepy.fracs import meshing
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
 
-from porepy.numerics.fv.transport import upwind
+from porepy.numerics.fv import upwind
 from porepy.numerics.fv.fvutils import scalar_divergence
 from porepy.numerics.mixed_dim import coupler
 
@@ -8080,10 +8080,10 @@ def add_constant_discharge(gb, solver, flux, a):
         discharge = gb.node_props(g_h, "discharge")
         sign = np.zeros(g_h.num_faces)
         sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
-        sign = d["mortar_grid"].high_to_mortar_avg() * sign
+        sign = d["mortar_grid"].master_to_mortar_avg() * sign
         d["param"] = Parameters(g_h)
         d["mortar_solution"] = sign * (
-            d["mortar_grid"].high_to_mortar_avg() * discharge
+            d["mortar_grid"].master_to_mortar_avg() * discharge
         )
 
 
