@@ -9,6 +9,8 @@ import random
 import numpy as np
 import unittest
 
+import porepy as pp
+
 from porepy.grids import structured
 from porepy.params import tensor, bc
 from porepy.numerics.fv import mpfa
@@ -47,7 +49,7 @@ class TestMpfa(unittest.TestCase):
         bound = bc.BoundaryCondition(g, bnd_faces, ["dir"] * bnd_faces.size)
 
         # Python inverter is most efficient for small problems
-        flux, bound_flux, _, _ = mpfa.mpfa(g, perm, bound, inverter="python")
+        flux, bound_flux, _, _ = pp.Mpfa('flow')._local_discr(g, perm, bound, inverter="python")
         div = g.cell_faces.T
         A = div * flux
 
@@ -86,7 +88,7 @@ class TestMpfa(unittest.TestCase):
         )
 
         # Python inverter is most efficient for small problems
-        flux, bound_flux, _, _ = mpfa.mpfa(g, perm, bound, inverter="python")
+        flux, bound_flux, _, _ = pp.Mpfa('flow')._local_discr(g, perm, bound, inverter="python")
         div = g.cell_faces.T
 
         a = div * flux
@@ -110,7 +112,7 @@ class TestMpfa(unittest.TestCase):
         )
 
         # Python inverter is most efficient for small problems
-        flux, bound_flux, _, _ = mpfa.mpfa(g, perm, bound, inverter="python")
+        flux, bound_flux, _, _ = pp.Mpfa('flow')._local_discr(g, perm, bound, inverter="python")
         div = g.cell_faces.T
 
         a = div * flux
@@ -145,7 +147,7 @@ class TestMpfa(unittest.TestCase):
         )
 
         # Python inverter is most efficient for small problems
-        flux, bound_flux, _, _ = mpfa.mpfa(g, perm, bound, inverter="python")
+        flux, bound_flux, _, _ = pp.Mpfa('flow')._local_discr(g, perm, bound, inverter="python")
         div = g.cell_faces.T
 
         a = div * flux
@@ -160,8 +162,4 @@ class TestMpfa(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    test_uniform_flow_cart_2d_structured_pert()
-    test_laplacian_stencil_cart_2d()
-    test_uniform_flow_cart_2d()
-
-    test_uniform_flow_cart_2d_pert()
+    unittest.main()
