@@ -26,7 +26,7 @@ class DualSource(Solver):
     def ndof(self, g):
         return g.num_cells + g.num_faces
 
-    def matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(self, g, data):
         param = data["param"]
         sources = param.get_source(self)
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
@@ -123,7 +123,7 @@ class Integral(Solver):
     def ndof(self, g):
         return g.num_cells + g.num_faces
 
-    def matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(self, g, data):
         param = data["param"]
         sources = param.get_source(self)
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
