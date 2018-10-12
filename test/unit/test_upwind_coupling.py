@@ -48,7 +48,7 @@ class TestUpwindCoupling(unittest.TestCase):
         upwind = pp.Upwind()
         upwind_coupler = pp.numerics.fv.upwind.UpwindCoupling(upwind)
 
-        matrix = upwind_coupler.matrix_rhs(zero_mat, g2, g1, d2, d1, de)
+        matrix = upwind_coupler.assemble_matrix_rhs(zero_mat, g2, g1, d2, d1, de)
 
         matrix_2 = np.array(
             [
@@ -93,7 +93,7 @@ class TestUpwindCoupling(unittest.TestCase):
         upwind = pp.Upwind()
         upwind_coupler = pp.numerics.fv.upwind.UpwindCoupling(upwind)
 
-        matrix = upwind_coupler.matrix_rhs(zero_mat, g2, g1, d2, d1, de)
+        matrix = upwind_coupler.assemble_matrix_rhs(zero_mat, g2, g1, d2, d1, de)
 
         matrix_2 = np.array(
             [
