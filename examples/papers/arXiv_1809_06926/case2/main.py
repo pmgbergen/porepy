@@ -4,7 +4,7 @@ import data as problem_data
 import examples.papers.arXiv_1809_06926.solvers as solvers
 
 
-def main(test_case, file_geo, folder, solver, solver_name, N = None):
+def main(test_case, file_geo, folder, solver, solver_name, N=None):
 
     tol = 1e-8
     if N is not None:
@@ -45,7 +45,7 @@ def main(test_case, file_geo, folder, solver, solver_name, N = None):
     results[3] = np.sum([g.num_cells for g in gb.grids_of_dimension(1)])
     results[4] = np.sum([g.num_cells for g in gb.grids_of_dimension(0)])
 
-    file_name = folder + '/info.txt'
+    file_name = folder + "/info.txt"
     with open(file_name, "w") as f:
         f.write(", ".join(map(str, results)))
 
@@ -53,11 +53,7 @@ def main(test_case, file_geo, folder, solver, solver_name, N = None):
 
 
 if __name__ == "__main__":
-    files_geo = {
-        "mesh500.geo": "0",
-        "mesh4k.geo": "1",
-        "mesh32k.geo": "2"
-    }
+    files_geo = {"mesh500.geo": "0", "mesh4k.geo": "1", "mesh32k.geo": "2"}
     solver_list = [
         solvers.solve_tpfa,
         solvers.solve_vem,

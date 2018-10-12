@@ -38,6 +38,7 @@ def lame_from_young_poisson(e, nu):
 
     return lmbda, mu
 
+
 class UnitRock(object):
     """ Mother of all rocks, all values are unity.
 
@@ -50,6 +51,7 @@ class UnitRock(object):
         POISSON_RATIO:
 
     """
+
     def __init__(self, theta_ref=None):
         self.PERMEABILITY = 1
         self.POROSITY = 1
@@ -65,6 +67,7 @@ class UnitRock(object):
 
     def specific_heat_capacity(self, _):
         return 1.
+
 
 class SandStone(UnitRock):
     """ Generic values for Sandstone.
@@ -88,19 +91,19 @@ class SandStone(UnitRock):
             self.YOUNG_MODULUS, self.POISSON_RATIO
         )
         if theta_ref is None:
-            self.theta_ref = 20*pp.CELSIUS
+            self.theta_ref = 20 * pp.CELSIUS
         else:
             self.theta_ref = theta_ref
 
-        self.DENSITY = 2650 * pp.KILOGRAM/pp.METER**3
+        self.DENSITY = 2650 * pp.KILOGRAM / pp.METER ** 3
 
-    def specific_heat_capacity(self, theta=None):# theta in CELSIUS
+    def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
         if theta is None:
             theta = self.theta_ref
         c_ref = 823.82
-        eta = 8.9*1e-2
+        eta = 8.9 * 1e-2
         theta_ref = 10 * pp.CELSIUS
-        return c_ref + eta*(theta-theta_ref)
+        return c_ref + eta * (theta - theta_ref)
 
 
 class Shale(UnitRock):
@@ -126,19 +129,19 @@ class Shale(UnitRock):
         )
 
         if theta_ref is None:
-            self.theta_ref = 20*pp.CELSIUS
+            self.theta_ref = 20 * pp.CELSIUS
         else:
             self.theta_ref = theta_ref
 
-        self.DENSITY = 2650 * pp.KILOGRAM/pp.METER**3
+        self.DENSITY = 2650 * pp.KILOGRAM / pp.METER ** 3
 
-    def specific_heat_capacity(self, theta=None):# theta in CELSIUS
+    def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
         if theta is None:
             theta = self.theta_ref
         c_ref = 794.37
-        eta = 10.26*1e-2
+        eta = 10.26 * 1e-2
         theta_ref = 10 * pp.CELSIUS
-        return c_ref + eta*(theta-theta_ref)
+        return c_ref + eta * (theta - theta_ref)
 
 
 class Granite(UnitRock):
@@ -165,17 +168,17 @@ class Granite(UnitRock):
         )
 
         if theta_ref is None:
-            self.theta_ref = 20.*pp.CELSIUS
+            self.theta_ref = 20. * pp.CELSIUS
         else:
             self.theta_ref = theta_ref
 
-    def specific_heat_capacity(self, theta=None):# theta in CELSIUS
+    def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
         if theta is None:
             theta = self.theta_ref
         c_ref = 790.
         eta = 0
         theta_ref = 0
-        return c_ref + eta*(theta-theta_ref)
+        return c_ref + eta * (theta - theta_ref)
 
     def thermal_conductivity(self, theta=None):
         return 3.07

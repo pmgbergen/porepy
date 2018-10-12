@@ -113,7 +113,6 @@ class BoundaryCondition(object):
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
 
-
 class BoundaryConditionNode(object):
 
     """ Class to store information on boundary conditions for nodal numerical
@@ -239,6 +238,9 @@ class BoundaryConditionVectorial(object):
 
         self.is_neu[:, self.bf] = True
         self.set_bc(faces, cond)
+
+        self.basis = np.tile(np.eye(g.dim), (1, g.num_faces))
+        self.basis = np.reshape(self.basis, (g.dim, g.num_faces, g.dim), "C")
 
     def set_bc(self, faces, cond):
 

@@ -101,6 +101,7 @@ def create_grid(fn):
 
     return gb, domain
 
+
 # ------------------------------------------------------------------------------#
 
 
@@ -128,7 +129,6 @@ def add_data(gb, data, solver_name):
         param = pp.Parameters(g)
         d["is_tangential"] = True
         d["aperture"] = aperture * one_vec
-
 
         if g.dim == 2:
             d["frac_num"] = g.frac_num * one_vec
@@ -197,7 +197,9 @@ def add_data(gb, data, solver_name):
         gamma = check_P * gb.node_props(g_l, "param").get_aperture()
         d["kn"] = kn * np.ones(mg.num_cells) / gamma
 
+
 # ------------------------------------------------------------------------------#
+
 
 def b_pressure(g):
     if g.dim != 3:
@@ -211,13 +213,13 @@ def b_pressure(g):
         xf = g.face_centers[:, b_faces]
         b_in = np.argwhere(
             np.logical_and(
-                np.abs(xf[1]) < 1e-8, np.logical_and(xf[2] > 1./3., xf[2] < 2./3.)
+                np.abs(xf[1]) < 1e-8, np.logical_and(xf[2] > 1. / 3., xf[2] < 2. / 3.)
             )
         )
         b_out = np.argwhere(
             np.logical_and(
                 np.abs(xf[1] - y_max) < 1e-8,
-                np.logical_or(xf[2] < 1./3., xf[2] > 2./3.),
+                np.logical_or(xf[2] < 1. / 3., xf[2] > 2. / 3.),
             )
         )
 
