@@ -233,7 +233,7 @@ class ParabolicModel:
             coupling = self._has_advective_diffusive()
             return pp.IntegralMixedDim(physics=self.physics, coupling=coupling)
         else:
-            return source.Integral(physics=self.physics)
+            return pp.Integral(physics=self.physics)
 
     def space_disc(self):
         """Space discretization. Returns the discretization terms that should be
