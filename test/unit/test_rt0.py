@@ -443,7 +443,7 @@ class BasicsTest(unittest.TestCase):
             param.set_source("flow", source)
 
             M, rhs_bc = solver.assemble_matrix_rhs(g, {"param": param})
-            _, rhs = solver_rhs.matrix_rhs(g, {"param": param})
+            _, rhs = solver_rhs.assemble_matrix_rhs(g, {"param": param})
 
             up = sps.linalg.spsolve(M, rhs_bc + rhs)
             p = solver.extract_pressure(g, up)
@@ -498,7 +498,7 @@ class BasicsTest(unittest.TestCase):
             param.set_source("flow", source)
 
             M, rhs_bc = solver.assemble_matrix_rhs(g, {"param": param})
-            _, rhs = solver_rhs.matrix_rhs(g, {"param": param})
+            _, rhs = solver_rhs.assemble_matrix_rhs(g, {"param": param})
 
             up = sps.linalg.spsolve(M, rhs_bc + rhs)
             p = solver.extract_pressure(g, up)
