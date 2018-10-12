@@ -57,7 +57,7 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_discharge(gb, solver, [0, 1, 0], a)
 
-        U, rhs = solver.matrix_rhs(gb)
+        U, rhs = solver.assemble_matrix_rhs(gb)
 
         theta = np.linalg.solve(U.A, rhs)
         deltaT = solver.cfl(gb)
@@ -123,7 +123,7 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_discharge(gb, solver, [1, 0, 0], a)
 
-        U, rhs = solver.matrix_rhs(gb)
+        U, rhs = solver.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
         deltaT = solver.cfl(gb)
 
@@ -239,7 +239,7 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_discharge(gb, solver, [1, 0, 0], a)
 
-        U, rhs = solver.matrix_rhs(gb)
+        U, rhs = solver.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
         deltaT = solver.cfl(gb)
         U_known = np.array(
@@ -786,7 +786,7 @@ class BasicsTest(unittest.TestCase):
             d["param"] = param
 
         add_constant_discharge(gb, solver, [0, 0, 1], a)
-        U, rhs = solver.matrix_rhs(gb)
+        U, rhs = solver.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
         deltaT = solver.cfl(gb)
 
@@ -848,7 +848,7 @@ class BasicsTest(unittest.TestCase):
 
             d["param"] = param
         add_constant_discharge(gb, solver, [1, 0, 0], a)
-        U, rhs = solver.matrix_rhs(gb)
+        U, rhs = solver.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
         deltaT = solver.cfl(gb)
         U_known = np.array(
@@ -1002,7 +1002,7 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_discharge(gb, solver, [1, 0, 0], a)
 
-        U, rhs = solver.matrix_rhs(gb)
+        U, rhs = solver.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
         deltaT = solver.cfl(gb)
 
@@ -1127,7 +1127,7 @@ class BasicsTest(unittest.TestCase):
             d["param"] = param
 
         add_constant_discharge(gb, solver, [2, 0, 0], a)
-        M, rhs = solver.matrix_rhs(gb)
+        M, rhs = solver.assemble_matrix_rhs(gb)
         # add generic mass matrix to solve system
         I_diag = np.zeros(M.shape[0])
         I_diag[: gb.num_cells()] = 1
@@ -1208,7 +1208,7 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_discharge(gb, solver, [1, 1, 0], a)
 
-        M, rhs = solver.matrix_rhs(gb)
+        M, rhs = solver.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(M.A, rhs)
         M_known = np.array(
             [
