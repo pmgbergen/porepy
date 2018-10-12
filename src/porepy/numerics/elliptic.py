@@ -350,9 +350,22 @@ class DualEllipticModel(EllipticModel):
 
     def flux_disc(self):
         if self.is_GridBucket:
-            return vem_dual.DualVEMMixedDim(physics=self.physics)
+
+            key = self.physics
+            discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
+            for g, d in self._gb:
+                # Choose discretization and define the solver
+                d[discretization_key] = pp.DualVEM(key)
+
+            for _, d in self._gb.edges():
+                d[discretization_key] = pp.RobinCoupling(key)
+
+            assembler = pp.EllipticAssembler(key)
+
+            return assembler
         else:
-            return vem_dual.DualVEM(physics=self.physics)
+            return pp.DualVEM(keyword=self.physics)
 
     def solve(self):
         """ Discretize and solve linear system by a direct solver.
@@ -374,22 +387,22 @@ class DualEllipticModel(EllipticModel):
     def pressure(self, pressure_name="pressure"):
         self.pressure_name = pressure_name
         if self.is_GridBucket:
-            self._flux_disc.extract_p(self._gb, self.x_name, self.pressure_name)
+            self._flux_disc.extract_pressure(self._gb, self.x_name, self.pressure_name)
         else:
-            pressure = self._flux_disc.extract_p(self._gb, self.x)
+            pressure = self._flux_disc.extract_pressure(self._gb, self.x)
             self._data[self.pressure_name] = pressure
 
     def discharge(self, discharge_name="discharge"):
         self.discharge_name = discharge_name
         if self.is_GridBucket:
-            self._flux_disc.extract_u(self._gb, self.x_name, self.discharge_name)
+            self._flux_disc.extract_flux(self._gb, self.x_name, self.discharge_name)
 
             for e, d in self._gb.edges():
                 g_h = self._gb.nodes_of_edge(e)[1]
                 d[discharge_name] = self._gb.node_props(g_h, discharge_name)
 
         else:
-            discharge = self._flux_disc.extract_u(self._gb, self.x)
+            discharge = self._flux_disc.extract_flux(self._gb, self.x)
             self._data[self.discharge_name] = discharge
 
     def project_discharge(self, projected_discharge_name="P0u"):
@@ -402,7 +415,7 @@ class DualEllipticModel(EllipticModel):
             )
         else:
             discharge = self._data[self.discharge_name]
-            projected_discharge = self._flux_disc.project_u(
+            projected_discharge = self._flux_disc.project_flux(
                 self._gb, discharge, self._data
             )
             self._data[self.projected_discharge_name] = projected_discharge
