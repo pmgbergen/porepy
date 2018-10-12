@@ -66,7 +66,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data, d_name="discharge"):
+    def assemble_matrix_rhs(self, g, data, d_name="discharge"):
         """
         Return the matrix and righ-hand side for a discretization of a scalar
         linear transport problem using the upwind scheme.
@@ -356,7 +356,7 @@ class UpwindCoupling(pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling):
 
     # ------------------------------------------------------------------------------#
 
-    def matrix_rhs(
+    def assemble_matrix_rhs(
         self, matrix, g_h, g_l, data_h, data_l, data_edge, lambda_key="mortar_solution"
     ):
         """
