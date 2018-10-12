@@ -63,6 +63,7 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
     if kwargs.get("plot", True):
         plt.show()
 
+
 def plot_wells(d, w, colortag=None, **kwargs):
     """
     Plot 2d wells as points in a domain.
@@ -85,29 +86,31 @@ def plot_wells(d, w, colortag=None, **kwargs):
     # For the moment, some RBG values are hard coded, do something more
     # intelligent if necessary.
     if colortag is None:
-        tagmap = np.zeros(c.shape[1], dtype='int')
-        col = [(0, 0, 0)];
+        tagmap = np.zeros(c.shape[1], dtype="int")
+        col = [(0, 0, 0)]
     else:
         utag, tagmap = np.unique(colortag, return_inverse=True)
         ntag = utag.size
         if ntag <= 3:
             col = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
         elif ntag < 6:
-            col = [(1, 0, 0), (0, 1, 0), (0, 0, 1),
-                   (1, 1, 0), (1, 0, 1), (0, 0, 1)]
+            col = [(1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 0), (1, 0, 1), (0, 0, 1)]
         else:
-            raise NotImplementedError('Have not thought of more than six colors')
+            raise NotImplementedError("Have not thought of more than six colors")
 
     plt.figure(kwargs.get("fig_id", 1))
-    plt.axis([d['xmin'], d['xmax'], d['ymin'], d['ymax']])
-    plt.plot([d['xmin'], d['xmax'], d['xmax'], d['xmin'], d['xmin']],
-             [d['ymin'], d['ymin'], d['ymax'], d['ymax'], d['ymin']],
-             '-', color='red')
+    plt.axis([d["xmin"], d["xmax"], d["ymin"], d["ymax"]])
+    plt.plot(
+        [d["xmin"], d["xmax"], d["xmax"], d["xmin"], d["xmin"]],
+        [d["ymin"], d["ymin"], d["ymax"], d["ymax"], d["ymin"]],
+        "-",
+        color="red",
+    )
 
     # Simple for-loop to draw one well after another. Not fancy, but it
     # serves its purpose.
     for i, well in enumerate(w.T):
-        plt.plot(*well, 'o', color=col[tagmap[i]])
+        plt.plot(*well, "o", color=col[tagmap[i]])
 
     # Finally set axis
     if kwargs.get("plot", True):

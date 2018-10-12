@@ -309,10 +309,9 @@ class ParabolicModel:
             self.exporter.write_vtk()
         else:
             if not self.is_GridBucket:
-                variables = {k: self._data[k] for k in variables \
-                                                             if k in self._data}
+                variables = {k: self._data[k] for k in variables if k in self._data}
 
-            time = self._solver.data['times'][::save_every].copy()
+            time = self._solver.data["times"][::save_every].copy()
 
             for time_step, current_time in enumerate(time):
                 for v in variables:
@@ -329,6 +328,7 @@ class ParabolicModel:
         else:
             coupling = []
         return coupling
+
 
 class ParabolicDataAssigner:
     """

@@ -9,6 +9,7 @@ from porepy.numerics.darcy_and_transport import static_flow_IE_solver as Transpo
 
 logger = logging.getLogger(__name__)
 
+
 def export(gb, folder):
 
     props = ["cell_volumes", "cell_centers"]
@@ -27,29 +28,31 @@ def export(gb, folder):
     save = pp.Exporter(gb, "sol", folder=folder)
     save.write_vtk(props)
 
+
 # ------------------------------------------------------------------------------#
 
 
 def solve_rt0(gb, folder):
 
     # Choose and define the solvers and coupler
-    logger.info('RT0 discretization')
+    logger.info("RT0 discretization")
     tic = time.time()
     solver_flow = pp.RT0MixedDim("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
-    logger.info('Done. Elapsed time: ' + str(time.time() - tic))
-    logger.info('Linear solver')
+    logger.info("Done. Elapsed time: " + str(time.time() - tic))
+    logger.info("Linear solver")
     tic = time.time()
     up = sps.linalg.spsolve(A_flow, b_flow)
-    logger.info('Done. Elapsed time ' + str(time.time() - tic))
+    logger.info("Done. Elapsed time " + str(time.time() - tic))
 
     solver_flow.split(gb, "up", up)
     solver_flow.extract_p(gb, "up", "pressure")
     solver_flow.extract_u(gb, "up", "discharge")
-    #solver_flow.project_u(gb, "discharge", "P0u")
+    # solver_flow.project_u(gb, "discharge", "P0u")
 
     export(gb, folder)
+
 
 # ------------------------------------------------------------------------------#
 
@@ -82,7 +85,6 @@ class AdvectiveProblem(pp.ParabolicModel):
 
 
 class Transport(TransportSolver):
-
     def __init__(self, problem):
         self.gb = problem.grid()
         self.outflow = np.empty(0)
@@ -107,5 +109,5 @@ class Transport(TransportSolver):
             discharge[faces] *= sign
             discharge[g.get_internal_faces()] = 0
             discharge[discharge < 0] = 0
-            val = np.dot(discharge, np.abs(g.cell_faces) * self.p[:g.num_cells])
+            val = np.dot(discharge, np.abs(g.cell_faces) * self.p[: g.num_cells])
             self.outflow = np.r_[self.outflow, val]

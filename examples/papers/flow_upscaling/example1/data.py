@@ -7,7 +7,7 @@ import porepy as pp
 def add_data(gb, data):
     tol = data["tol"]
 
-    gb.add_node_props(['is_tangential', 'frac_num', 'porosity', 'aperture'])
+    gb.add_node_props(["is_tangential", "frac_num", "porosity", "aperture"])
     for g, d in gb:
         param = pp.Parameters(g)
         d["is_tangential"] = True
@@ -17,16 +17,16 @@ def add_data(gb, data):
         empty = np.empty(0)
 
         if g.dim == 1:
-            d['frac_num'] = g.frac_num*unity
+            d["frac_num"] = g.frac_num * unity
         else:
-            d['frac_num'] = -1*unity
+            d["frac_num"] = -1 * unity
 
         # set the permeability
         if g.dim == 2:
-            kxx = data['km']*unity
+            kxx = data["km"] * unity
             perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kxx, kzz=1)
-        else: #g.dim == 1:
-            kxx = data['kf']*unity
+        else:  # g.dim == 1:
+            kxx = data["kf"] * unity
             perm = pp.SecondOrderTensor(1, kxx=kxx, kyy=1, kzz=1)
         param.set_tensor("flow", perm)
 
@@ -34,9 +34,9 @@ def add_data(gb, data):
         param.set_source("flow", zeros)
 
         # Assign apertures
-        aperture = np.power(data['aperture'], 2-g.dim)
-        d['aperture'] = aperture*unity
-        param.set_aperture(d['aperture'])
+        aperture = np.power(data["aperture"], 2 - g.dim)
+        d["aperture"] = aperture * unity
+        param.set_aperture(d["aperture"])
 
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -122,8 +122,8 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         if b_faces.size == 0:
             return pp.BoundaryCondition(self.grid(), np.empty(0), np.empty(0))
         else:
-            labels = np.array(['neu'] * b_faces.size)
-            labels[np.logical_or(self.inflow, self.outflow)] = 'dir'
+            labels = np.array(["neu"] * b_faces.size)
+            labels[np.logical_or(self.inflow, self.outflow)] = "dir"
         return pp.BoundaryCondition(self.grid(), b_faces, labels)
 
     def bc_val(self, _):
@@ -134,7 +134,6 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
         return bc_val
 
     def aperture(self):
-        aperture = np.power(self.data_problem['aperture'], 2-self.grid().dim)
+        aperture = np.power(self.data_problem["aperture"], 2 - self.grid().dim)
         unity = np.ones(self.grid().num_cells)
-        return aperture*unity
-
+        return aperture * unity

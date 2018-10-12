@@ -3,9 +3,7 @@ import numpy as np
 
 import math
 
-from porepy.grids import structured
-from porepy.params.bc import BoundaryConditionVectorial
-from porepy.numerics.fv import fvutils
+import porepy as pp
 
 """
 Checks the actions done in porepy.numerics.fv.mpsa.create_bound_rhs_nd
@@ -14,6 +12,26 @@ for handling boundary conditions expressed in a vectorial form
 
 
 class testBoundaryConditionsVectorial(unittest.TestCase):
+    def test_default_basis_2d(self):
+        g = pp.StructuredTriangleGrid([1, 1])
+        bc = pp.BoundaryConditionVectorial(g)
+        basis_known = np.array(
+            [
+                [[1, 0], [1, 0], [1, 0], [1, 0], [1, 0]],
+                [[0, 1], [0, 1], [0, 1], [0, 1], [0, 1]],
+            ]
+        )
+        self.assertTrue(np.allclose(bc.basis, basis_known))
+
+    def test_default_basis_3d(self):
+        g = pp.StructuredTetrahedralGrid([1, 1, 1])
+        bc = pp.BoundaryConditionVectorial(g)
+        basis_known = np.squeeze(
+            np.array([[[[1, 0, 0]] * 18], [[[0, 1, 0]] * 18], [[[0, 0, 1]] * 18]])
+        )
+
+        self.assertTrue(np.allclose(bc.basis, basis_known))
+
     def test_2d(self):
 
         """
@@ -24,65 +42,40 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         Top left and right faces are neumann
         """
 
-        g = structured.CartGrid([3, 3])
+        g = pp.CartGrid([3, 3])
         g.compute_geometry()
         nd = g.dim
 
         boundary_faces = np.array([0, 3, 4, 7, 8, 11, 12, 13, 14, 22])
         boundary_faces_type = ["dir_x"] * 6 + ["dir"] * 3 + ["dir_y"] * 1
 
-        bound = BoundaryConditionVectorial(g, boundary_faces, boundary_faces_type)
+        bound = pp.BoundaryConditionVectorial(g, boundary_faces, boundary_faces_type)
 
-        subcell_topology = fvutils.SubcellTopology(g)
+        subcell_topology = pp.fvutils.SubcellTopology(g)
+        # Obtain the face number for each coordinate
         fno = subcell_topology.fno_unique
-        bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
+        subfno = subcell_topology.subfno_unique
+        subfno_nd = np.tile(subfno, (nd, 1)) * nd + np.atleast_2d(np.arange(0, nd)).T
 
-        # Neumann
-        is_neu_x = bound_exclusion.exclude_dirichlet_x(
-            bound.is_neu[0, fno].astype("int64")
-        )
-        neu_ind_single_x = np.argwhere(is_neu_x).ravel("F")
-
-        is_neu_y = bound_exclusion.exclude_dirichlet_y(
-            bound.is_neu[1, fno].astype("int64")
-        )
-        neu_ind_single_y = np.argwhere(is_neu_y).ravel("F")
-        neu_ind_single_y += is_neu_x.size
-
-        # We also need to account for all half faces, that is, do not exclude
-        # Dirichlet and Neumann boundaries.
-        neu_ind_single_all_x = np.argwhere(bound.is_neu[0, fno].astype("int")).ravel(
-            "F"
-        )
-        neu_ind_single_all_y = np.argwhere(bound.is_neu[1, fno].astype("int")).ravel(
-            "F"
-        )
+        bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
 
         # expand the indices
-        # this procedure replaces the method 'expand_ind' in the above
-        # method 'create_bound_rhs'
+        # Define right hand side for Neumann boundary conditions
+        # First row indices in rhs matrix
+        # Pick out the subface indices
+        subfno_neu = bound_exclusion.exclude_robin_dirichlet_nd(
+            subfno_nd.ravel("C")
+        ).ravel("F")
+        # Pick out the Neumann boundary
 
-        # 1 - stack and sort indices
+        is_neu_nd = (
+            bound_exclusion.exclude_robin_dirichlet_nd(bound.is_neu[:, fno].ravel("C"))
+            .ravel("F")
+            .astype(np.bool)
+        )
 
-        is_bnd_neu_x = nd * neu_ind_single_all_x
-        is_bnd_neu_y = nd * neu_ind_single_all_y + 1
-
-        is_bnd_neu = np.sort(np.append(is_bnd_neu_x, [is_bnd_neu_y]))
-
-        # 2 - find the indices corresponding to the boundary components
-        # having Neumann condtion
-
-        ind_is_bnd_neu_x = np.argwhere(np.isin(is_bnd_neu, is_bnd_neu_x)).ravel("F")
-        ind_is_bnd_neu_y = np.argwhere(np.isin(is_bnd_neu, is_bnd_neu_y)).ravel("F")
-
-        neu_ind_sz = ind_is_bnd_neu_x.size + ind_is_bnd_neu_y.size
-
-        # 3 - create the expanded neu_ind array
-
-        neu_ind = np.zeros(neu_ind_sz, dtype="int")
-
-        neu_ind[ind_is_bnd_neu_x] = neu_ind_single_x
-        neu_ind[ind_is_bnd_neu_y] = neu_ind_single_y
+        neu_ind = np.argsort(subfno_neu)
+        neu_ind = neu_ind[is_neu_nd[neu_ind]]
 
         self.assertTrue(
             np.alltrue(
@@ -114,41 +107,17 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
             )
         )
 
-        # Dirichlet, same procedure
-        is_dir_x = bound_exclusion.exclude_neumann_x(
-            bound.is_dir[0, fno].astype("int64")
-        )
-        dir_ind_single_x = np.argwhere(is_dir_x).ravel("F")
-
-        is_dir_y = bound_exclusion.exclude_neumann_y(
-            bound.is_dir[1, fno].astype("int64")
-        )
-        dir_ind_single_y = np.argwhere(is_dir_y).ravel("F")
-        dir_ind_single_y += is_dir_x.size
-
-        dir_ind_single_all_x = np.argwhere(bound.is_dir[0, fno].astype("int")).ravel(
-            "F"
-        )
-        dir_ind_single_all_y = np.argwhere(bound.is_dir[1, fno].astype("int")).ravel(
-            "F"
+        subfno_dir = bound_exclusion.exclude_neumann_robin_nd(
+            subfno_nd.ravel("C")
+        ).ravel("F")
+        is_dir_nd = (
+            bound_exclusion.exclude_neumann_robin_nd(bound.is_dir[:, fno].ravel("C"))
+            .ravel("F")
+            .astype(np.bool)
         )
 
-        # expand indices
-
-        is_bnd_dir_x = nd * dir_ind_single_all_x
-        is_bnd_dir_y = nd * dir_ind_single_all_y + 1
-
-        is_bnd_dir = np.sort(np.append(is_bnd_dir_x, [is_bnd_dir_y]))
-
-        ind_is_bnd_dir_x = np.argwhere(np.isin(is_bnd_dir, is_bnd_dir_x)).ravel("F")
-        ind_is_bnd_dir_y = np.argwhere(np.isin(is_bnd_dir, is_bnd_dir_y)).ravel("F")
-
-        dir_ind_sz = ind_is_bnd_dir_x.size + ind_is_bnd_dir_y.size
-
-        dir_ind = np.zeros(dir_ind_sz, dtype="int")
-
-        dir_ind[ind_is_bnd_dir_x] = dir_ind_single_x
-        dir_ind[ind_is_bnd_dir_y] = dir_ind_single_y
+        dir_ind = np.argsort(subfno_dir)
+        dir_ind = dir_ind[is_dir_nd[dir_ind]]
 
         self.assertTrue(
             np.alltrue(

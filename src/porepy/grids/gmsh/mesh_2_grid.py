@@ -134,7 +134,8 @@ def create_1d_grids(
     phys_names,
     cell_info,
     line_tag=constants.GmshConstants().PHYSICAL_NAME_FRACTURE_LINE,
-    tol=1e-4, **kwargs
+    tol=1e-4,
+    **kwargs
 ):
     # Recover lines
     # There will be up to three types of physical lines: intersections (between

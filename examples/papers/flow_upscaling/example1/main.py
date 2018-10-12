@@ -6,9 +6,10 @@ import examples.papers.flow_upscaling.solvers as solvers
 import examples.papers.flow_upscaling.import_grid as grid
 from examples.papers.flow_upscaling.upscaling import upscaling
 
+
 def main(file_geo, folder, data):
 
-    mesh_args = {'mesh_size_frac': 10}
+    mesh_args = {"mesh_size_frac": 10}
     tol = {"geo": 1e-4, "snap": 1e-3}
     data["tol"] = tol["geo"]
 
@@ -17,18 +18,17 @@ def main(file_geo, folder, data):
     problem_data.add_data(gb, data)
     solvers.solve_rt0(gb, folder)
 
-    advective = solvers.transport(gb, data, folder,
-                                  problem_data.AdvectiveDataAssigner)
-    np.savetxt(folder+"/outflow.csv", advective._solver.outflow)
+    advective = solvers.transport(gb, data, folder, problem_data.AdvectiveDataAssigner)
+    np.savetxt(folder + "/outflow.csv", advective._solver.outflow)
+
 
 if __name__ == "__main__":
 
     file_geo = "Algeroyna.csv"
     aperture = pp.MILLIMETER
-    data = {"aperture": aperture, "kf": aperture**2 / 12}
+    data = {"aperture": aperture, "kf": aperture ** 2 / 12}
     folder = "upscaling"
     upscaling(file_geo, data, folder, dfn=True)
-
 
     file_geo = "Algeroyna.csv"
     folder = "solution"
@@ -42,13 +42,13 @@ if __name__ == "__main__":
     # select the permeability depending on the selected test case
     data = {
         "aperture": aperture,
-        "kf": aperture**2 / 12,
+        "kf": aperture ** 2 / 12,
         "km": 1e7 * rock.PERMEABILITY,
         "porosity_f": 0.85,
         "dt": 1e6 * pp.SECOND,
         "t_max": 1e7 * pp.SECOND,
         "fluid": fluid,
-        "rock": rock
+        "rock": rock,
     }
 
     main(file_geo, folder, data)
