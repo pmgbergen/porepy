@@ -10,6 +10,7 @@ import scipy.sparse.linalg as spl
 import time
 import logging
 
+import porepy as pp
 from porepy.numerics.fv import tpfa, source, fvutils
 from porepy.numerics.vem import vem_dual, vem_source
 from porepy.numerics.linalg.linsolve import Factory as LSFactory
@@ -171,15 +172,28 @@ class EllipticModel:
 
     def flux_disc(self):
         if self.is_GridBucket:
-            return tpfa.TpfaMixedDim(physics=self.physics)
+
+            key = self.physics
+            discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
+            for g, d in self._gb:
+                # Choose discretization and define the solver
+                d[discretization_key] = pp.Tpfa(key)
+
+            for _, d in self._gb.edges():
+                d[discretization_key] = pp.RobinCoupling(key)
+
+            assembler = pp.EllipticAssembler(key)
+
+            return assembler
         else:
-            return tpfa.Tpfa(physics=self.physics)
+            return tpfa.Tpfa(keyword=self.physics)
 
     def _discretize(self, discr):
         if self.is_GridBucket:
-            return discr.matrix_rhs(self.grid())
+            return discr.assemble_matrix_rhs(self.grid())
         else:
-            return discr.matrix_rhs(self.grid(), self.data())
+            return discr.assemble_matrix_rhs(self.grid(), self.data())
 
     def grid(self):
         return self._gb
