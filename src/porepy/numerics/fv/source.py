@@ -33,7 +33,7 @@ class Integral(Solver):
         if self.physics is "mechanics":
             return g.num_cells * g.dim
 
-    def matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(self, g, data):
         param = data["param"]
         sources = param.get_source(self)
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
