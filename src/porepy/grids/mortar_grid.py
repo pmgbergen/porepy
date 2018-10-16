@@ -123,10 +123,10 @@ class MortarGrid(object):
             + str(self.dim)
             + "\n"
             + "Face_cells mapping from the higher dimensional grid to the mortar grid\n"
-            + str(self.high_to_mortar_int)
+            + str(self.master_to_mortar_int)
             + "\n"
             + "Cell_cells mapping from the mortar grid to the lower dimensional grid\n"
-            + str(self.low_to_mortar_int)
+            + str(self.slave_to_mortar_int)
         )
 
         return s
