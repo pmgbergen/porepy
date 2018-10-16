@@ -10,7 +10,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class UpstreamCoupler(object):
+class UpwindCoupling(object):
 
     def __init__(self, keyword):
         self.keyword = keyword
@@ -59,7 +59,12 @@ class UpstreamCoupler(object):
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
         g_m = data_edge["mortar_grid"]
-        dof, cc = self.create_block_matrix([g_master, g_slave, g_m])
+
+        # We know the number of dofs from the master and slave side from their
+        # discretizations
+        dof = np.array([matrix[0, 0].shape[1], matrix[0, 1].shape[1], g_m.num_cells])
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        cc = cc.reshape((3, 3))
 
         # Projection from mortar to upper dimenional faces
         hat_P_avg = g_m.master_to_mortar_avg()
