@@ -1040,6 +1040,17 @@ def mpsa_elasticity(
     # sides of the faces.
     hook = __unique_hooks_law(ncsym_all, ncasym, subcell_topology, nd)
 
+    # To avoid singular matrices we are not abe to add the asymetric part of the stress
+    # tensor to the Neumann and Robin boundaries for nodes that only has more
+    # Neumann-boundary faces than gradients. This will typically happen in the
+    # corners where you only can have one gradient for the node. Normally if you
+    # have at least one internal face connected to the node you are should be safe.
+    import pdb
+
+    pdb.set_trace()
+
+    __eliminate_ncasym_neumann(ncasym, subcell_topology, bound_exclusion, nd)
+
     # For the Robin boundary conditions we need to pair the forces with the
     # displacement.
     # The contribution of the displacement at the Robin boundary is
@@ -1048,7 +1059,7 @@ def mpsa_elasticity(
     # where G are the gradients and u the cell center displacement. The Robin
     # condtion is then ncsym_rob * G + rob_grad * G + rob_cell * u
     ncsym_rob = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
-    ncsym_neu = subcell_topology.pair_over_subfaces_nd(ncsym_all)
+    ncsym_neu = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
     del ncasym
     ncsym_rob = bound_exclusion.keep_robin_nd(ncsym_rob)
     ncsym_neu = bound_exclusion.keep_neumann_nd(ncsym_neu)
@@ -2090,3 +2101,36 @@ def expand_ind(ind, dim, increment):
     # Back to row vector
     ind_new = ind_incr.reshape(-1, order="F")
     return ind_new
+
+
+def __eliminate_ncasym_neumann(ncasym, subcell_topology, bound_exclusion, nd):
+    # We expand the node indices such that we get one indices for each vector equation.
+    # The equations are ordered as first all x, then all y, and so on
+    num_nodes = subcell_topology.num_nodes
+    nno_nd = np.tile(subcell_topology.nno_unique, (nd, 1))
+    nno_nd += num_nodes * np.atleast_2d(np.arange(0, nd)).T
+    # We first count the number of subfaces per node, that is how many times the
+    # node indices are replicated.
+    _, idx, count = np.unique(
+        nno_nd.ravel("C"), return_inverse=True, return_counts=True
+    )
+    # then we count the number how many Neumann subfaces there are for each node.
+    nno_neu = bound_exclusion.keep_neumann_nd(nno_nd.ravel("C"), transform=False)
+    _, idx_neu, count_neu = np.unique(nno_neu, return_inverse=True, return_counts=True)
+    # The local system is invertible if we only have Neumann boundaries for a Node.
+    # We therefore have to remove the asymetric part for these subfaces
+    diff_count = count[idx] - (bound_exclusion.keep_neu_nd.T * count_neu[idx_neu]).T
+    remove_singular = np.argwhere((diff_count == 0)).ravel()
+
+    # We now need to obtain the subface number for the subfaces that should not have a
+    # asymetric part
+    num_fno = subcell_topology.fno.size
+    subfno_nd = np.tile(subcell_topology.unique_subfno, (nd, 1))
+    subfno_nd += num_fno * np.atleast_2d(np.arange(0, nd)).T
+    dof_elim = subfno_nd.ravel("C")[remove_singular]
+    # And we eliminate the rows corresponding to these subfaces
+    import pdb
+
+    pdb.set_trace()
+
+    sparse_mat.zero_rows(ncasym, dof_elim)
