@@ -1045,11 +1045,9 @@ def mpsa_elasticity(
     # Neumann-boundary faces than gradients. This will typically happen in the
     # corners where you only can have one gradient for the node. Normally if you
     # have at least one internal face connected to the node you are should be safe.
-    import pdb
-
-    pdb.set_trace()
-
-    __eliminate_ncasym_neumann(ncasym, subcell_topology, bound_exclusion, nd)
+    _eliminate_ncasym_neumann(
+        ncasym, subcell_topology, bound_exclusion, cell_node_blocks, nd
+    )
 
     # For the Robin boundary conditions we need to pair the forces with the
     # displacement.
@@ -2096,41 +2094,46 @@ def _sign_matrix(g, faces):
 def expand_ind(ind, dim, increment):
     # Duplicate rows
     ind_nd = np.tile(ind, (dim, 1))
-    # Add same increment to each row (0*incr, 1*incr etc.)
+    # Add same increment to each row (0*incr, 1*incr etc.).
     ind_incr = ind_nd + increment * np.array([np.arange(dim)]).transpose()
     # Back to row vector
     ind_new = ind_incr.reshape(-1, order="F")
     return ind_new
 
 
-def __eliminate_ncasym_neumann(ncasym, subcell_topology, bound_exclusion, nd):
+def _eliminate_ncasym_neumann(
+    ncasym, subcell_topology, bound_exclusion, cell_node_blocks, nd
+):
+    """
+    Eliminate the asymetric part of the stress tensor such that the local systems are
+    invertible.
+    """
     # We expand the node indices such that we get one indices for each vector equation.
     # The equations are ordered as first all x, then all y, and so on
-    num_nodes = subcell_topology.num_nodes
+    node_blocks_nd = np.tile(cell_node_blocks[1], (nd, 1))
+    node_blocks_nd += subcell_topology.num_nodes * np.atleast_2d(np.arange(0, nd)).T
     nno_nd = np.tile(subcell_topology.nno_unique, (nd, 1))
-    nno_nd += num_nodes * np.atleast_2d(np.arange(0, nd)).T
-    # We first count the number of subfaces per node, that is how many times the
-    # node indices are replicated.
-    _, idx, count = np.unique(
-        nno_nd.ravel("C"), return_inverse=True, return_counts=True
-    )
-    # then we count the number how many Neumann subfaces there are for each node.
+    nno_nd += subcell_topology.num_nodes * np.atleast_2d(np.arange(0, nd)).T
+
+    # Each local system is associated to a node. We count the number of subcells for
+    # assoiated with each node.
+    _, num_sub_cells = np.unique(node_blocks_nd.ravel("C"), return_counts=True)
+
+    # Then we count the number how many Neumann subfaces there are for each node.
     nno_neu = bound_exclusion.keep_neumann_nd(nno_nd.ravel("C"), transform=False)
     _, idx_neu, count_neu = np.unique(nno_neu, return_inverse=True, return_counts=True)
-    # The local system is invertible if we only have Neumann boundaries for a Node.
-    # We therefore have to remove the asymetric part for these subfaces
-    diff_count = count[idx] - (bound_exclusion.keep_neu_nd.T * count_neu[idx_neu]).T
-    remove_singular = np.argwhere((diff_count == 0)).ravel()
 
-    # We now need to obtain the subface number for the subfaces that should not have a
-    # asymetric part
-    num_fno = subcell_topology.fno.size
+    # The local system is invertible if the number of sub_cells (remember there is one
+    # gradient for each subcell) is larger than the number of Neumann sub_faces.
+    # To obtain an invertible system we remove the asymetric part around these nodes.
+    count_neu = bound_exclusion.keep_neu_nd.T * count_neu[idx_neu]
+    diff_count = num_sub_cells[nno_nd.ravel("C")] - count_neu
+    remove_singular = np.argwhere((diff_count < 0)).ravel()
+
+    # remove_singular gives the indices of the subfaces. We now obtain the indices
+    # as given in ncasym,
     subfno_nd = np.tile(subcell_topology.unique_subfno, (nd, 1))
-    subfno_nd += num_fno * np.atleast_2d(np.arange(0, nd)).T
+    subfno_nd += subcell_topology.fno.size * np.atleast_2d(np.arange(0, nd)).T
     dof_elim = subfno_nd.ravel("C")[remove_singular]
-    # And we eliminate the rows corresponding to these subfaces
-    import pdb
-
-    pdb.set_trace()
-
+    # and eliminate the rows corresponding to these subfaces
     sparse_mat.zero_rows(ncasym, dof_elim)
