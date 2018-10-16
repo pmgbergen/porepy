@@ -47,10 +47,11 @@ from porepy.numerics.fem.rt0 import RT0
 # Mixed-dimensional discretizations and assemblers
 from porepy.numerics.mixed_dim.elliptic_assembler import EllipticAssembler
 from porepy.numerics.interface_laws.elliptic_interface_laws import RobinCoupling
-
+from porepy.numerics.mixed_dim.assembler import Assembler
 
 # Transport related
-from porepy.numerics.fv.upwind import Upwind, UpwindMixedDim, UpwindCoupling
+from porepy.numerics.fv.upwind import Upwind
+from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
 from porepy.numerics.fv.mass_matrix import MassMatrix, MassMatrixMixedDim
 from porepy.numerics.fv.mass_matrix import InvMassMatrix, InvMassMatrixMixedDim
 
