@@ -96,6 +96,7 @@ class SubcellTopology(object):
         self.subhfno = np.arange(idx.size, dtype=">i4")
         self.num_subfno = self.subfno.max() + 1
         self.num_cno = self.cno.max() + 1
+        self.num_nodes = self.nno.max() + 1
 
         # Make subface indices unique, that is, pair the indices from the two
         # adjacent cells
