@@ -22,11 +22,9 @@ class TestUpwindCoupling(unittest.TestCase):
     def block_matrix(self, gs):
         def ndof(g):
             return g.num_cells
-
-        coupler = pp.numerics.mixed_dim.abstract_coupling.AbstractCoupling(
-            discr_ndof=ndof
-        )
-        return coupler.create_block_matrix(gs)
+        dof = np.array([ndof(g) for g in gs])
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        return cc.reshape((3, 3))
 
     def test_upwind_2d_1d_positive_flux(self):
         # test coupling between 2D grid and 1D grid with a fluid flux going from
@@ -41,14 +39,14 @@ class TestUpwindCoupling(unittest.TestCase):
         d1 = gb.node_props(g1)
         de = gb.edge_props((g1, g2))
 
-        _, zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
+        zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
 
         lam = np.arange(de["mortar_grid"].num_cells)
-        de["mortar_solution"] = lam
-        upwind = pp.Upwind()
-        upwind_coupler = pp.numerics.fv.upwind.UpwindCoupling(upwind)
+        de["flux_field"] = lam
 
-        matrix = upwind_coupler.assemble_matrix_rhs(zero_mat, g2, g1, d2, d1, de)
+        upwind_coupler = pp.UpwindCoupling("transport")
+
+        matrix = upwind_coupler.assemble_matrix(g2, g1, d2, d1, de, zero_mat)
 
         matrix_2 = np.array(
             [
@@ -86,14 +84,14 @@ class TestUpwindCoupling(unittest.TestCase):
         d1 = gb.node_props(g1)
         de = gb.edge_props((g1, g2))
 
-        _, zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
+        zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
 
         lam = np.arange(de["mortar_grid"].num_cells)
-        de["mortar_solution"] = -lam
-        upwind = pp.Upwind()
-        upwind_coupler = pp.numerics.fv.upwind.UpwindCoupling(upwind)
+        de["flux_field"] = -lam
 
-        matrix = upwind_coupler.assemble_matrix_rhs(zero_mat, g2, g1, d2, d1, de)
+        upwind_coupler = pp.UpwindCoupling("transport")
+
+        matrix = upwind_coupler.assemble_matrix(g2, g1, d2, d1, de, zero_mat)
 
         matrix_2 = np.array(
             [
