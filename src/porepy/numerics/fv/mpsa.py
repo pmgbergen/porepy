@@ -807,20 +807,14 @@ def mpsa_partial(
     loc_c.lmbda = loc_c.lmbda[l2g_cells]
     loc_c.mu = loc_c.mu[l2g_cells]
 
-    glob_bound_face = g.get_all_boundary_faces()
-
     # Boundary conditions are slightly more complex. Find local faces
     # that are on the global boundary.
-    loc_bound_ind = np.argwhere(np.in1d(l2g_faces, glob_bound_face)).ravel("F")
-
     # Then transfer boundary condition on those faces.
-    loc_cond = np.array(loc_bound_ind.size * ["neu"])
-    if loc_bound_ind.size > 0:
-        # Neumann condition is default, so only Dirichlet needs to be set
-        is_dir = bound.is_dir[l2g_faces[loc_bound_ind]]
-        loc_cond[is_dir] = "dir"
 
-    loc_bnd = bc.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
+    loc_bnd = bc.BoundaryConditionVectorial(sub_g)
+    loc_bnd.is_dir = bound.is_dir[:, l2g_faces]
+    loc_bnd.is_neu[loc_bnd.is_dir] = False
+
 
     # Discretization of sub-problem
     stress_loc, bound_stress_loc = _mpsa_local(
