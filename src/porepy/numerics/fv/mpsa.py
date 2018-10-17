@@ -1039,7 +1039,7 @@ def mpsa_elasticity(
                 "If applying Robin conditions you must supply a robin_weight"
             )
         else:
-            robin_weight = 1
+            robin_weight = 1 * np.ones(g.num_faces)
 
     # Book keeping
     num_sub_cells = cell_node_blocks[0].size
