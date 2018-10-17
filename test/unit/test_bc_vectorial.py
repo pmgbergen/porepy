@@ -6,7 +6,7 @@ import math
 import porepy as pp
 
 """
-Checks the actions done in porepy.numerics.fv.mpsa.create_bound_rhs_nd
+Checks the actions done in porepy.numerics.fv.mpsa.create_bound_rhs
 for handling boundary conditions expressed in a vectorial form
 """
 
@@ -63,13 +63,13 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         # Define right hand side for Neumann boundary conditions
         # First row indices in rhs matrix
         # Pick out the subface indices
-        subfno_neu = bound_exclusion.exclude_robin_dirichlet_nd(
+        subfno_neu = bound_exclusion.exclude_robin_dirichlet(
             subfno_nd.ravel("C")
         ).ravel("F")
         # Pick out the Neumann boundary
 
         is_neu_nd = (
-            bound_exclusion.exclude_robin_dirichlet_nd(bound.is_neu[:, fno].ravel("C"))
+            bound_exclusion.exclude_robin_dirichlet(bound.is_neu[:, fno].ravel("C"))
             .ravel("F")
             .astype(np.bool)
         )
@@ -107,11 +107,11 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
             )
         )
 
-        subfno_dir = bound_exclusion.exclude_neumann_robin_nd(
-            subfno_nd.ravel("C")
-        ).ravel("F")
+        subfno_dir = bound_exclusion.exclude_neumann_robin(subfno_nd.ravel("C")).ravel(
+            "F"
+        )
         is_dir_nd = (
-            bound_exclusion.exclude_neumann_robin_nd(bound.is_dir[:, fno].ravel("C"))
+            bound_exclusion.exclude_neumann_robin(bound.is_dir[:, fno].ravel("C"))
             .ravel("F")
             .astype(np.bool)
         )

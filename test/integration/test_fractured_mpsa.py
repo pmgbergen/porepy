@@ -23,13 +23,13 @@ class BasicsTest(unittest.TestCase):
         g = self.gb3d.grids_of_dimension(3)[0]
 
         data = {"param": pp.Parameters(g)}
-        bound = pp.BoundaryCondition(g, g.get_all_boundary_faces(), "dir")
+        bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
 
         data["param"].set_bc("mechanics", bound)
 
         solver = pp.FracturedMpsa()
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.matrix_rhs(g, data, inverter="python")
         u = np.linalg.solve(A.A, b)
         T = solver.traction(g, data, u)
 
@@ -47,7 +47,7 @@ class BasicsTest(unittest.TestCase):
         ).grids_of_dimension(3)[0]
 
         data = {"param": pp.Parameters(g)}
-        bound = pp.BoundaryCondition(g, g.get_all_boundary_faces(), "dir")
+        bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
 
         data["param"].set_bc("mechanics", bound)
 
@@ -59,7 +59,7 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.FracturedMpsa()
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.matrix_rhs(g, data, inverter="python")
         u = np.linalg.solve(A.A, b)
 
         u_f = solver.extract_frac_u(g, u)
@@ -118,14 +118,14 @@ class BasicsTest(unittest.TestCase):
         frac_slip[0, frac_bnd] = np.ones(np.sum(frac_bnd))
         bc_val[:, dom_bnd] = g.face_centers[:, dom_bnd]
 
-        bound = pp.BoundaryCondition(g, g.get_all_boundary_faces(), "dir")
+        bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
 
         data["param"].set_bc("mechanics", bound)
         data["param"].set_bc_val("mechanics", bc_val.ravel("F"))
         data["param"].set_slip_distance(frac_slip.ravel("F"))
         solver = pp.FracturedMpsa()
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.matrix_rhs(g, data, inverter="python")
         u = np.linalg.solve(A.A, b)
 
         u_f = solver.extract_frac_u(g, u)
@@ -179,7 +179,7 @@ class BasicsTest(unittest.TestCase):
         # pointing from the fracture to the matrix.
         frac_traction[normal_ind, frac_bnd] = np.ones(np.sum(frac_bnd))
 
-        bound = pp.BoundaryCondition(g, g.get_all_boundary_faces(), "dir")
+        bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
 
         data["param"].set_bc("mechanics", bound)
         data["param"].set_bc_val("mechanics", bc_val.ravel("F"))
@@ -188,7 +188,7 @@ class BasicsTest(unittest.TestCase):
         data["param"].set_slip_distance(frac_traction.ravel("F"))
         solver = pp.FracturedMpsa(given_traction=True)
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.matrix_rhs(g, data, inverter="python")
         u = np.linalg.solve(A.A, b)
 
         u_f = solver.extract_frac_u(g, u)
@@ -240,7 +240,7 @@ class BasicsTest(unittest.TestCase):
 
         dir_bound = top | bot | frac_bnd
 
-        bound = pp.BoundaryCondition(g, dir_bound, "dir")
+        bound = pp.BoundaryConditionVectorial(g, dir_bound, "dir")
 
         bc_val = np.zeros((g.dim, g.num_faces))
         bc_val[:, top] = np.ones((g.dim, np.sum(top)))
@@ -253,7 +253,7 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.FracturedMpsa()
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.matrix_rhs(g, data, inverter="python")
         u = np.linalg.solve(A.A, b)
 
         u_f = solver.extract_frac_u(g, u)
@@ -303,7 +303,7 @@ class BasicsTest(unittest.TestCase):
         data["param"].set_slip_distance(frac_slip.ravel("F"))
         solver = pp.FracturedMpsa()
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.matrix_rhs(g, data, inverter="python")
         u = np.linalg.solve(A.A, b)
 
         u_f = solver.extract_frac_u(g, u)
