@@ -43,17 +43,19 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     ri = block_dof[(g, row)]
                     ci = block_dof[(g, col)]
 
-
                     discr = data.get(self.discretization_key(row, col), None)
 
-                    if discr is not None:
-                        # Assemble the matrix and right hand side. This will also
-                        # discretize if not done before.
-                        loc_A, loc_b = discr.assemble_matrix_rhs(g, data)
+                    if discr is None:
+                        continue
+                    else:
+                        for d in list(discr):
+                            # Assemble the matrix and right hand side. This will also
+                            # discretize if not done before.
+                            loc_A, loc_b = d.assemble_matrix_rhs(g, data)
 
-                        # Assign values in global matrix
-                        matrix[ri, ci] = loc_A
-                        rhs[ri] += loc_b
+                            # Assign values in global matrix
+                            matrix[ri, ci] = loc_A
+                            rhs[ri] += loc_b
 
         # Loop over all edges
         for e, data_edge in gb.edges():
