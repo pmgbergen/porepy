@@ -139,8 +139,9 @@ class RobinBoundTest(unittest.TestCase):
         bnd_ind = np.hstack((dir_ind, rob_ind))
         bnd = pp.BoundaryCondition(g, bnd_ind, names)
 
+        bnd.robin_weight = robin_weight * np.ones(g.num_faces)
         flux, bound_flux, _, _ = pp.numerics.fv.mpfa._mpfa_local(
-            g, k, bnd, robin_weight=robin_weight
+            g, k, bnd
         )
 
         div = pp.fvutils.scalar_divergence(g)
@@ -168,8 +169,9 @@ class RobinBoundTest(unittest.TestCase):
     def solve_robin(
         self, g, k, bnd, robin_weight, p_bound, rob_bound, dir_ind, rob_ind, p_ex, u_ex
     ):
+        bnd.robin_weight = robin_weight * np.ones(g.num_faces)
         flux, bound_flux, _, _ = pp.numerics.fv.mpfa._mpfa_local(
-            g, k, bnd, robin_weight=robin_weight, inverter="python"
+            g, k, bnd, inverter="python"
         )
 
         div = pp.fvutils.scalar_divergence(g)
