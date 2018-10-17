@@ -159,7 +159,7 @@ class MainTester(unittest.TestCase):
         return u_num, flux_num
 
     def solve_system_homogeneous_elasticity(
-            self, g, bound_cond, bound_faces, k, an_sol
+        self, g, bound_cond, bound_faces, k, an_sol
     ):
         stress, bound_stress = mpsa.mpsa(g, k, bound_cond, inverter="python", eta=0)
         div = fvutils.vector_divergence(g)
