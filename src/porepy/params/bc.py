@@ -69,6 +69,13 @@ class BoundaryCondition(object):
         # By default, all faces are Neumann.
         self.is_neu[bf] = True
 
+        # Set robin weight
+        self.robin_weight = np.ones(g.num_faces)
+        # Basis is mostly here to be consistent with vectorial. If changing the
+        # basis to -1 it should be possible to define innflow as positive, but this
+        # has not been tested
+        self.basis = np.ones(g.num_faces)
+
         if faces is not None:
             # Validate arguments
             assert cond is not None
@@ -207,19 +214,25 @@ class BoundaryConditionNode(object):
 
 class BoundaryConditionVectorial(object):
 
-    """ Class to store information on boundary conditions.
+    """
+    Class to store information on boundary conditions.
 
-        The BCs are specified by face number and assigned to the single
-        component, and can have type Dirichlet or
-        Neumann (Robin may be included later).
-        NOTE: Currently works for boundary faces aligned with the coordinate
-        system.
+    The BCs are specified by face number and assigned to the single
+    component, and can have type Dirichlet,
+    Neumann or Robin.
 
-        For description of attributes, parameters and constructors,
-        refer to the above class BoundaryCondition.
+    The Robin condition is defined by
+        sigma*n + alpha * u = G
+    where alpha is defined by the attribute self.robin_weight
 
-        NOTE: g.dim > 1 for the procedure to make sense
+    The boundary conditions are applied in the basis given by the attribute
+    self.basis (defaults to the coordinate system). The basis is defined face-wise,
+    and the boundary condition should be given in the coordinates of these basis.
 
+    For description of attributes, parameters and constructors,
+    refer to the above class BoundaryCondition.
+
+    NOTE: g.dim > 1 for the procedure to make sense
     """
 
     def __init__(self, g, faces=None, cond=None):
@@ -239,6 +252,7 @@ class BoundaryConditionVectorial(object):
         self.is_neu[:, self.bf] = True
         self.set_bc(faces, cond)
 
+        self.robin_weight = np.ones(g.num_faces)
         self.basis = np.tile(np.eye(g.dim), (1, g.num_faces))
         self.basis = np.reshape(self.basis, (g.dim, g.num_faces, g.dim), "C")
 

@@ -149,7 +149,6 @@ class Mpfa(Solver):
         The following parameters will be accessed:
         get_tensor : SecondOrderTensor. Permeability defined cell-wise.
         get_bc : boundary conditions
-        get_robin_weight : float. Weight for pressure in Robin condition
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -160,10 +159,9 @@ class Mpfa(Solver):
         k = param.get_tensor(self)
         bnd = param.get_bc(self)
         a = param.aperture
-        robin_weight = param.get_robin_weight(self)
 
         trm, bound_flux, bp_cell, bp_face = mpfa(
-            g, k, bnd, apertures=a, robin_weight=robin_weight
+            g, k, bnd, apertures=a
         )
         data["flux"] = trm
         data["bound_flux"] = bound_flux
@@ -178,7 +176,6 @@ def mpfa(
     g,
     k,
     bnd,
-    robin_weight=None,
     eta=None,
     inverter=None,
     apertures=None,
@@ -283,7 +280,6 @@ def mpfa(
             eta=eta,
             inverter=inverter,
             apertures=apertures,
-            robin_weight=robin_weight,
         )
     else:
         # Estimate number of partitions necessary based on prescribed memory
@@ -471,7 +467,7 @@ def mpfa_partial(
 
 
 def _mpfa_local(
-    g, k, bnd, eta=None, inverter="numba", apertures=None, robin_weight=None
+    g, k, bnd, eta=None, inverter="numba", apertures=None
 ):
     """
     Actual implementation of the MPFA O-method. To calculate MPFA on a grid
@@ -533,13 +529,6 @@ def _mpfa_local(
     elif g.dim == 0:
         return sps.csr_matrix([0]), 0, 0, 0
 
-    if robin_weight is None:
-        if np.sum(bnd.is_rob) != 0:
-            raise ValueError(
-                "If applying Robin conditions you must supply an robin_weight"
-            )
-        else:
-            robin_weight = 1
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
     # of coordinates of a point / vector and the real dimension. This again
@@ -609,7 +598,7 @@ def _mpfa_local(
     num_nodes = np.diff(g.face_nodes.indptr)
     sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
     scaled_sgn = (
-        robin_weight
+        bnd.robin_weight[subcell_topology.fno_unique]
         * sgn[0]
         * g.face_areas[subcell_topology.fno_unique]
         / num_nodes[subcell_topology.fno_unique]
@@ -618,7 +607,7 @@ def _mpfa_local(
     pr_trace_grad_all = sps.diags(scaled_sgn) * pr_cont_grad_all
     pr_trace_cell_all = sps.coo_matrix(
         (
-            robin_weight
+            bnd.robin_weight[subcell_topology.fno]
             * g.face_areas[subcell_topology.fno]
             / num_nodes[subcell_topology.fno],
             (subcell_topology.subfno, subcell_topology.cno),
