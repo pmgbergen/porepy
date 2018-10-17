@@ -44,7 +44,7 @@ class Mpsa(Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data, discretize=True):
+    def matrix_rhs(self, g, data, discretize=True, **kwargs):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point stress
@@ -68,7 +68,7 @@ class Mpsa(Solver):
             source term.
         """
         if discretize:
-            self.discretize(g, data)
+            self.discretize(g, data, **kwargs)
         div = fvutils.vector_divergence(g)
         stress = data["stress"]
         bound_stress = data["bound_stress"]
@@ -814,7 +814,6 @@ def mpsa_partial(
     loc_bnd = bc.BoundaryConditionVectorial(sub_g)
     loc_bnd.is_dir = bound.is_dir[:, l2g_faces]
     loc_bnd.is_neu[loc_bnd.is_dir] = False
-
 
     # Discretization of sub-problem
     stress_loc, bound_stress_loc = _mpsa_local(
