@@ -529,7 +529,6 @@ def mpsa(
     g,
     constit,
     bound,
-    robin_weight=None,
     eta=None,
     inverter=None,
     max_memory=None,
@@ -566,8 +565,6 @@ def mpsa(
         g (core.grids.grid): grid to be discretized
         constit (pp.FourthOrderTensor) Constitutive law
         bound (pp.BoundarCondition) Class for boundary condition
-        robin_weight (float): Weight alpha for displacement term in Robin conditions
-            sigma*n + alpha * u = G
         eta Location of pressure continuity point. Should be 1/3 for simplex
             grids, 0 otherwise. On boundary faces with Dirichlet conditions,
             eta=0 will be enforced.
@@ -659,13 +656,12 @@ def mpsa(
                 bound,
                 eta=eta,
                 inverter=inverter,
-                robin_weight=robin_weight,
                 hf_disp=hf_disp,
                 hf_eta=hf_eta,
             )
         else:
             stress, bound_stress = _mpsa_local(
-                g, constit, bound, eta=eta, inverter=inverter, robin_weight=robin_weight
+                g, constit, bound, eta=eta, inverter=inverter
             )
     else:
         if hf_disp:
@@ -711,7 +707,6 @@ def mpsa(
                 eta=eta,
                 inverter=inverter,
                 nodes=active_nodes,
-                robin_weight=robin_weight,
             )
 
             # Eliminate contribution from faces already covered
@@ -740,7 +735,6 @@ def mpsa_partial(
     faces=None,
     nodes=None,
     apertures=None,
-    robin_weight=None,
 ):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
@@ -832,7 +826,7 @@ def mpsa_partial(
 
     # Discretization of sub-problem
     stress_loc, bound_stress_loc = _mpsa_local(
-        sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, robin_weight=robin_weight
+        sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter
     )
 
     face_map, cell_map = fvutils.map_subgrid_to_grid(
@@ -858,7 +852,6 @@ def _mpsa_local(
     constit,
     bound,
     eta=0,
-    robin_weight=None,
     inverter="numba",
     hf_disp=False,
     hf_eta=None,
@@ -940,7 +933,7 @@ def _mpsa_local(
         bound_exclusion,
         eta,
         inverter,
-        robin_weight=robin_weight,
+        robin_weight=bound.robin_weight,
     )
 
     hook_igrad = hook * igrad
@@ -958,10 +951,7 @@ def _mpsa_local(
     stress = hf2f * hook_igrad * rhs_cells
 
     # Right hand side for boundary discretization
-    if bound_exclusion.bc_type == "scalar":
-        rhs_bound = create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
-    elif bound_exclusion.bc_type == "vectorial":
-        rhs_bound = create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g)
+    rhs_bound = create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g)
 
     # Discretization of boundary values
     bound_stress = hf2f * hook_igrad * rhs_bound
@@ -1241,7 +1231,7 @@ def __get_displacement_submatrices_rob(
     num_nodes = np.diff(g.face_nodes.indptr)
     sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
     scaled_sgn = (
-        robin_weight
+        robin_weight[subcell_topology.fno_unique]
         * sgn[0]
         * g.face_areas[subcell_topology.fno_unique]
         / num_nodes[subcell_topology.fno_unique]
@@ -1251,7 +1241,7 @@ def __get_displacement_submatrices_rob(
     # Contribution from cell center potentials to local systems
     rob_cell = sps.coo_matrix(
         (
-            robin_weight
+            robin_weight[subcell_topology.fno]
             * g.face_areas[subcell_topology.fno]
             / num_nodes[subcell_topology.fno],
             (subcell_topology.subfno, subcell_topology.cno),
