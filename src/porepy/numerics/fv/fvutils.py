@@ -684,6 +684,7 @@ class ExcludeBoundaries(object):
         # Define mappings to exclude boundary values
         if self.bc_type == "scalar":
             self.basis_matrix = self.__basis_transformation(bound.basis)
+            self.robin_weight = self.__basis_transformation(bound.robin_weight)
 
             self.exclude_neu = self.__exclude_matrix(bound.is_neu)
             self.exclude_dir = self.__exclude_matrix(bound.is_dir)
@@ -699,6 +700,7 @@ class ExcludeBoundaries(object):
 
         elif self.bc_type == "vectorial":
             self.basis_matrix = self.__basis_transformation(bound.basis)
+            self.robin_weight = self.__basis_transformation(bound.robin_weight)
 
             self.exclude_neu = self.__exclude_matrix_xyz(bound.is_neu)
             self.exclude_dir = self.__exclude_matrix_xyz(bound.is_dir)

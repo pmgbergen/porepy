@@ -918,7 +918,6 @@ def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_et
         bound_exclusion,
         eta,
         inverter,
-        robin_weight=bound.robin_weight,
     )
 
     hook_igrad = hook * igrad
@@ -958,7 +957,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_et
 
 
 def mpsa_elasticity(
-    g, constit, subcell_topology, bound_exclusion, eta, inverter, robin_weight=None
+    g, constit, subcell_topology, bound_exclusion, eta, inverter
 ):
     """
     This is the function where the real discretization takes place. It contains
@@ -1039,19 +1038,11 @@ def mpsa_elasticity(
     ncsym_rob = bound_exclusion.keep_robin(ncsym_rob)
     ncsym_neu = bound_exclusion.keep_neumann(ncsym_neu)
 
-    if robin_weight is None:
-        if ncsym_rob.shape[0] != 0:
-            raise ValueError(
-                "If applying Robin conditions you must supply a robin_weight"
-            )
-        else:
-            robin_weight = 1 * np.ones(g.num_faces)
-
     # Book keeping
     num_sub_cells = cell_node_blocks[0].size
 
     rob_grad, rob_cell = __get_displacement_submatrices_rob(
-        g, subcell_topology, eta, num_sub_cells, bound_exclusion, robin_weight
+        g, subcell_topology, eta, num_sub_cells, bound_exclusion
     )
 
     # Pair the forces from each side. For the Neumann faces this does in fact
@@ -1215,7 +1206,7 @@ def __get_displacement_submatrices(
 
 
 def __get_displacement_submatrices_rob(
-    g, subcell_topology, eta, num_sub_cells, bound_exclusion, robin_weight
+    g, subcell_topology, eta, num_sub_cells, bound_exclusion
 ):
     nd = g.dim
     # Distance from cell centers to face centers, this will be the
@@ -1229,8 +1220,7 @@ def __get_displacement_submatrices_rob(
     num_nodes = np.diff(g.face_nodes.indptr)
     sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
     scaled_sgn = (
-        robin_weight[subcell_topology.fno_unique]
-        * sgn[0]
+        sgn[0]
         * g.face_areas[subcell_topology.fno_unique]
         / num_nodes[subcell_topology.fno_unique]
     )
@@ -1239,18 +1229,24 @@ def __get_displacement_submatrices_rob(
     # Contribution from cell center potentials to local systems
     rob_cell = sps.coo_matrix(
         (
-            robin_weight[subcell_topology.fno]
-            * g.face_areas[subcell_topology.fno]
+            g.face_areas[subcell_topology.fno]
             / num_nodes[subcell_topology.fno],
             (subcell_topology.subfno, subcell_topology.cno),
         )
     ).tocsr()
     rob_cell = sps.kron(sps.eye(nd), rob_cell)
 
-    # Expand equations for displacement balance, and eliminate rows
-    # associated with neumann boundary conditions
-    rob_grad = bound_exclusion.keep_robin(rob_grad)
-    rob_cell = bound_exclusion.keep_robin(rob_cell)
+    # First do a basis transformation
+    rob_grad = bound_exclusion.basis_matrix * rob_grad
+    rob_cell = bound_exclusion.basis_matrix * rob_cell
+    # And apply the robin weight in the rotated basis
+    rob_grad = bound_exclusion.robin_weight * rob_grad
+    rob_cell = bound_exclusion.robin_weight * rob_cell
+    # Expand equations for displacement balance, and keep rows
+    # associated with neumann boundary conditions. Remember we have already
+    # rotated the basis above
+    rob_grad = bound_exclusion.keep_robin(rob_grad, transform=False)
+    rob_cell = bound_exclusion.keep_robin(rob_cell, transform=False)
 
     # The column ordering of the displacement equilibrium equations are
     # formed as a Kronecker product of scalar equations. Bring them to the

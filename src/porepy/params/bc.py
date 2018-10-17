@@ -252,7 +252,8 @@ class BoundaryConditionVectorial(object):
         self.is_neu[:, self.bf] = True
         self.set_bc(faces, cond)
 
-        self.robin_weight = np.ones(g.num_faces)
+        self.robin_weight = np.tile(np.eye(g.dim), (1, g.num_faces))
+        self.robin_weight = np.reshape(self.robin_weight, (g.dim, g.num_faces, g.dim), "C")
         self.basis = np.tile(np.eye(g.dim), (1, g.num_faces))
         self.basis = np.reshape(self.basis, (g.dim, g.num_faces, g.dim), "C")
 
