@@ -81,7 +81,7 @@ class Mpsa(Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def discretize(self, g, data):
+    def discretize(self, g, data, **kwargs):
         """
         Discretize the vector elliptic equation by the multi-point stress
 
@@ -112,7 +112,7 @@ class Mpsa(Solver):
 
         partial = data.get("partial_update", False)
         if not partial:
-            stress, bound_stress = mpsa(g, c, bnd)
+            stress, bound_stress = mpsa(g, c, bnd, **kwargs)
             data["stress"] = stress
             data["bound_stress"] = bound_stress
         else:
@@ -163,7 +163,7 @@ class FracturedMpsa(Mpsa):
         num_fracs = np.sum(g.tags["fracture_faces"])
         return g.dim * (g.num_cells + num_fracs)
 
-    def matrix_rhs(self, g, data, discretize=True):
+    def matrix_rhs(self, g, data, discretize=True, **kwargs):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point stress
@@ -188,7 +188,7 @@ class FracturedMpsa(Mpsa):
             source term.
         """
         if discretize:
-            self.discretize_fractures(g, data)
+            self.discretize_fractures(g, data, **kwargs)
 
         stress = data["stress"]
         bound_stress = data["bound_stress"]

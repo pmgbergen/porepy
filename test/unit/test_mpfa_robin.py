@@ -169,7 +169,7 @@ class RobinBoundTest(unittest.TestCase):
         self, g, k, bnd, robin_weight, p_bound, rob_bound, dir_ind, rob_ind, p_ex, u_ex
     ):
         flux, bound_flux, _, _ = pp.numerics.fv.mpfa._mpfa_local(
-            g, k, bnd, robin_weight=robin_weight
+            g, k, bnd, robin_weight=robin_weight, inverter="python"
         )
 
         div = pp.fvutils.scalar_divergence(g)

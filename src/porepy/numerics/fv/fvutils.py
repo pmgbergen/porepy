@@ -711,7 +711,7 @@ class ExcludeBoundaries(object):
 
     def __basis_transformation(self, basis):
         if self.bc_type == "scalar":
-            data = basis[:, self.fno]
+            data = basis[self.fno]
             col = np.arange(self.num_subfno)
             row = np.arange(self.num_subfno)
             return sps.coo_matrix(

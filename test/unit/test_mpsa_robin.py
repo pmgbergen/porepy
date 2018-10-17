@@ -25,7 +25,7 @@ class RobinBoundTest(unittest.TestCase):
 
         names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
         bnd_ind = np.hstack((dir_ind, rob_ind))
-        bnd = pp.BoundaryCondition(g, bnd_ind, names)
+        bnd = pp.BoundaryConditionVectorial(g, bnd_ind, names)
 
         def u_ex(x):
             return np.vstack((x[0], 0 * x[1]))
@@ -72,7 +72,7 @@ class RobinBoundTest(unittest.TestCase):
 
         names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
         bnd_ind = np.hstack((dir_ind, rob_ind))
-        bnd = pp.BoundaryCondition(g, bnd_ind, names)
+        bnd = pp.BoundaryConditionVectorial(g, bnd_ind, names)
 
         def u_ex(x):
             return np.vstack((x[0], 0 * x[1]))
@@ -119,7 +119,7 @@ class RobinBoundTest(unittest.TestCase):
 
         names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
         bnd_ind = np.hstack((dir_ind, rob_ind))
-        bnd = pp.BoundaryCondition(g, bnd_ind, names)
+        bnd = pp.BoundaryConditionVectorial(g, bnd_ind, names)
 
         def u_ex(x):
             return np.vstack((x[1], x[0]))
@@ -167,7 +167,7 @@ class RobinBoundTest(unittest.TestCase):
 
         names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
         bnd_ind = np.hstack((dir_ind, rob_ind))
-        bnd = pp.BoundaryCondition(g, bnd_ind, names)
+        bnd = pp.BoundaryConditionVectorial(g, bnd_ind, names)
 
         def u_ex(x):
             return np.vstack((x[1], x[0]))
@@ -216,7 +216,7 @@ class RobinBoundTest(unittest.TestCase):
 
         names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
         bnd_ind = np.hstack((dir_ind, rob_ind))
-        bnd = pp.BoundaryCondition(g, bnd_ind, names)
+        bnd = pp.BoundaryConditionVectorial(g, bnd_ind, names)
 
         def u_ex(x):
             return np.vstack((x[1], x[0], 0 * x[2]))
@@ -245,8 +245,9 @@ class RobinBoundTest(unittest.TestCase):
         self.assertTrue(np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F")))
 
     def solve_mpsa(self, g, c, robin_weight, bnd, u_bound):
+        bnd.robin_weight = robin_weight * np.ones(g.num_faces)
         stress, bound_stress = pp.numerics.fv.mpsa._mpsa_local(
-            g, c, bnd, robin_weight=robin_weight
+            g, c, bnd, inverter="python"
         )
         div = pp.fvutils.vector_divergence(g)
         a = div * stress
