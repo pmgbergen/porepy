@@ -76,17 +76,26 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 master_keys = {m for m in master_var.keys()}.intersection(dependencies)
                 slave_keys = {m for m in slave_var.keys()}.intersection(dependencies)
 
-                mi = [block_dof[(g_master, k)] for k in master_keys]
-                si = [block_dof[(g_slave, k)] for k in slave_keys]
+                mi = []
+                loc_master_vars = []
+                for k in master_keys:
+                    mi.append(block_dof[(g_master, k)])
+                    loc_master_vars.append(k)
+
+                si = []
+                loc_slave_vars = []
+                for k in slave_keys:
+                    si.append(block_dof[(g_slave, k)])
+                    loc_slave_vars.append(k)
+
                 ei = [block_dof[(mg, edge_key)]]
 
                 idx = np.ix_(mi + si + ei,
                              mi + si + ei)
                 local_matrix = matrix[idx]
-                # TODO: Do we need = or += here? The edge assembly may modify
-                # the local matrix, thus =, but may there also be different
-                # terms modifying the same block?
-                matrix[idx] = discr_edge.assemble_matrix(g_master, g_slave, data_master, data_slave, data_edge, local_matrix)
+
+
+                matrix[idx] = discr_edge.assemble_matrix(g_master, g_slave, data_master, data_slave, data_edge, local_matrix, loc_master_vars, loc_slave_vars)
 
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
