@@ -169,8 +169,8 @@ class Multiscale(object):
         # dimensional problem
         A_l[0, 0] = sps.bmat(A[np.ix_(self.pos_ln, self.pos_ln)])
         A_l[0, 0] += self.bases
-        # add to the right-hand side the non-homogenous solution from the higher
-        # dimensional problem
+        # add to the right-hand side the non-homogeneous solution from the
+        # higher dimensional problem
         b_l[0] = np.r_[tuple(b[self.pos_ln])] + self.x_h
         # in the case of > 1 co-dimensional problems
         if len(self.pos_le) > 0:
