@@ -287,6 +287,10 @@ class Simulation(darcy_and_transport.DarcyAndTransport):
 
         for g, d in gb:
             d[data_key] = data_class(g, d, **pb)
+            
+        for e, d in gb.edges():
+            gh = gb.nodes_of_edge(e)[0]
+            d['kn'] = np.max(gb.node_props(gh)['param'].get_permeability().perm)
 
 
 # ------------------------------------------------------------------------------#

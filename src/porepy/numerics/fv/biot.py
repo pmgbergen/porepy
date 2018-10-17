@@ -364,7 +364,7 @@ class Biot(Solver):
             this_dim = build_rhs_normals_single_dimension(iter1)
             rhs_normals = sps.vstack([rhs_normals, this_dim])
 
-        rhs_normals = bound_exclusion_mech.exclude_dirichlet_nd(rhs_normals)
+        rhs_normals = bound_exclusion_mech.exclude_dirichlet(rhs_normals)
 
         num_dir_subface = (
             bound_exclusion_mech.exclude_neu.shape[1]

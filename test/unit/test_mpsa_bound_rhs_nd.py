@@ -31,7 +31,7 @@ class MpsaBoundTest(unittest.TestCase):
         sc_top = pp.fvutils.SubcellTopology(g)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs_nd(bnd, bnd_excl, sc_top, g)
+        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
 
         rhs_known = np.array(
             [
@@ -80,7 +80,7 @@ class MpsaBoundTest(unittest.TestCase):
         sc_top = pp.fvutils.SubcellTopology(g)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs_nd(bnd, bnd_excl, sc_top, g)
+        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
         rhs_known = np.array(
             [
                 [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
@@ -145,7 +145,7 @@ class MpsaBoundTest(unittest.TestCase):
         sc_top = pp.fvutils.SubcellTopology(g)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs_nd(bnd, bnd_excl, sc_top, g)
+        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
 
         rhs_known = np.array(
             [
@@ -194,7 +194,7 @@ class MpsaBoundTest(unittest.TestCase):
         sc_top = pp.fvutils.SubcellTopology(g)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs_nd(bnd, bnd_excl, sc_top, g)
+        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
 
         rhs_known = np.array(
             [
@@ -244,7 +244,7 @@ class MpsaBoundTest(unittest.TestCase):
         sc_top = pp.fvutils.SubcellTopology(g)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs_nd(bnd, bnd_excl, sc_top, g)
+        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
 
         rhs_known = np.array(
             [
@@ -298,7 +298,7 @@ class MpsaBoundTest(unittest.TestCase):
         sc_top = pp.fvutils.SubcellTopology(g)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs_nd(bnd, bnd_excl, sc_top, g)
+        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
         rhs_known = np.array(
             [
                 [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
@@ -362,7 +362,7 @@ class MpsaBoundTest(unittest.TestCase):
         sc_top = pp.fvutils.SubcellTopology(g)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs_nd(bnd, bnd_excl, sc_top, g)
+        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
         rhs_known = np.array(
             [
                 [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
@@ -419,7 +419,7 @@ class MpsaBoundTest(unittest.TestCase):
         sc_top = pp.fvutils.SubcellTopology(g)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
-        rhs = pp.numerics.fv.mpsa.create_bound_rhs_nd(bnd, bnd_excl, sc_top, g)
+        rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
 
         rhs_indptr = np.array(
             [

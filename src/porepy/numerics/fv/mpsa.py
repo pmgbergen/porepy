@@ -81,7 +81,7 @@ class Mpsa(Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def discretize(self, g, data):
+    def discretize(self, g, data, **kwargs):
         """
         Discretize the vector elliptic equation by the multi-point stress
 
@@ -112,7 +112,7 @@ class Mpsa(Solver):
 
         partial = data.get("partial_update", False)
         if not partial:
-            stress, bound_stress = mpsa(g, c, bnd)
+            stress, bound_stress = mpsa(g, c, bnd, **kwargs)
             data["stress"] = stress
             data["bound_stress"] = bound_stress
         else:
@@ -163,7 +163,7 @@ class FracturedMpsa(Mpsa):
         num_fracs = np.sum(g.tags["fracture_faces"])
         return g.dim * (g.num_cells + num_fracs)
 
-    def matrix_rhs(self, g, data, discretize=True):
+    def matrix_rhs(self, g, data, discretize=True, **kwargs):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point stress
@@ -188,7 +188,7 @@ class FracturedMpsa(Mpsa):
             source term.
         """
         if discretize:
-            self.discretize_fractures(g, data)
+            self.discretize_fractures(g, data, **kwargs)
 
         stress = data["stress"]
         bound_stress = data["bound_stress"]
@@ -529,7 +529,6 @@ def mpsa(
     g,
     constit,
     bound,
-    robin_weight=None,
     eta=None,
     inverter=None,
     max_memory=None,
@@ -566,8 +565,6 @@ def mpsa(
         g (core.grids.grid): grid to be discretized
         constit (pp.FourthOrderTensor) Constitutive law
         bound (pp.BoundarCondition) Class for boundary condition
-        robin_weight (float): Weight alpha for displacement term in Robin conditions
-            sigma*n + alpha * u = G
         eta Location of pressure continuity point. Should be 1/3 for simplex
             grids, 0 otherwise. On boundary faces with Dirichlet conditions,
             eta=0 will be enforced.
@@ -644,6 +641,9 @@ def mpsa(
         s = stress * x + bound_stress * bound_vals
 
     """
+    if bound.bc_type != "vectorial":
+        raise AttributeError("MPSA must be given a vectorial boundary condition")
+
     if eta is None:
         eta = fvutils.determine_eta(g)
 
@@ -659,13 +659,12 @@ def mpsa(
                 bound,
                 eta=eta,
                 inverter=inverter,
-                robin_weight=robin_weight,
                 hf_disp=hf_disp,
                 hf_eta=hf_eta,
             )
         else:
             stress, bound_stress = _mpsa_local(
-                g, constit, bound, eta=eta, inverter=inverter, robin_weight=robin_weight
+                g, constit, bound, eta=eta, inverter=inverter
             )
     else:
         if hf_disp:
@@ -705,13 +704,7 @@ def mpsa(
 
             # Perform local discretization.
             loc_stress, loc_bound_stress, loc_faces = mpsa_partial(
-                g,
-                constit,
-                bound,
-                eta=eta,
-                inverter=inverter,
-                nodes=active_nodes,
-                robin_weight=robin_weight,
+                g, constit, bound, eta=eta, inverter=inverter, nodes=active_nodes
             )
 
             # Eliminate contribution from faces already covered
@@ -740,7 +733,6 @@ def mpsa_partial(
     faces=None,
     nodes=None,
     apertures=None,
-    robin_weight=None,
 ):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
@@ -815,24 +807,18 @@ def mpsa_partial(
     loc_c.lmbda = loc_c.lmbda[l2g_cells]
     loc_c.mu = loc_c.mu[l2g_cells]
 
-    glob_bound_face = g.get_all_boundary_faces()
-
     # Boundary conditions are slightly more complex. Find local faces
     # that are on the global boundary.
-    loc_bound_ind = np.argwhere(np.in1d(l2g_faces, glob_bound_face)).ravel("F")
-
     # Then transfer boundary condition on those faces.
-    loc_cond = np.array(loc_bound_ind.size * ["neu"])
-    if loc_bound_ind.size > 0:
-        # Neumann condition is default, so only Dirichlet needs to be set
-        is_dir = bound.is_dir[l2g_faces[loc_bound_ind]]
-        loc_cond[is_dir] = "dir"
 
-    loc_bnd = bc.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
+    loc_bnd = bc.BoundaryConditionVectorial(sub_g)
+    loc_bnd.is_dir = bound.is_dir[:, l2g_faces]
+    loc_bnd.is_neu[loc_bnd.is_dir] = False
+
 
     # Discretization of sub-problem
     stress_loc, bound_stress_loc = _mpsa_local(
-        sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter, robin_weight=robin_weight
+        sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter
     )
 
     face_map, cell_map = fvutils.map_subgrid_to_grid(
@@ -853,16 +839,7 @@ def mpsa_partial(
     return stress_glob, bound_stress_glob, active_faces
 
 
-def _mpsa_local(
-    g,
-    constit,
-    bound,
-    eta=0,
-    robin_weight=None,
-    inverter="numba",
-    hf_disp=False,
-    hf_eta=None,
-):
+def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_eta=None):
     """
     Actual implementation of the MPSA W-method. To calculate the MPSA
     discretization on a grid, either call this method, or, to respect the
@@ -903,7 +880,8 @@ def _mpsa_local(
     Dirichlet gives a right hand side for (ii).
 
     """
-
+    if bound.bc_type != "vectorial":
+        raise AttributeError("MPSA must be given a vectorial boundary condition")
     # The grid coordinates are always three-dimensional, even if the grid is
     # really 2D. This means that there is not a 1-1 relation between the number
     # of coordinates of a point / vector and the real dimension. This again
@@ -940,7 +918,7 @@ def _mpsa_local(
         bound_exclusion,
         eta,
         inverter,
-        robin_weight=robin_weight,
+        robin_weight=bound.robin_weight,
     )
 
     hook_igrad = hook * igrad
@@ -958,10 +936,7 @@ def _mpsa_local(
     stress = hf2f * hook_igrad * rhs_cells
 
     # Right hand side for boundary discretization
-    if bound_exclusion.bc_type == "scalar":
-        rhs_bound = create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
-    elif bound_exclusion.bc_type == "vectorial":
-        rhs_bound = create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g)
+    rhs_bound = create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
 
     # Discretization of boundary values
     bound_stress = hf2f * hook_igrad * rhs_bound
@@ -1015,7 +990,8 @@ def mpsa_elasticity(
             equations in linear system.
         hook_normal: Hooks law for the term div(I*p) in poro-elasticity
     """
-
+    if bound_exclusion.bc_type != "vectorial":
+        raise AttributeError("MPSA must be given a vectorial boundary condition")
     nd = g.dim
 
     # Compute product between normal vectors and stiffness matrices
@@ -1059,8 +1035,9 @@ def mpsa_elasticity(
     ncsym_rob = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
     ncsym_neu = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
     del ncasym
-    ncsym_rob = bound_exclusion.keep_robin_nd(ncsym_rob)
-    ncsym_neu = bound_exclusion.keep_neumann_nd(ncsym_neu)
+
+    ncsym_rob = bound_exclusion.keep_robin(ncsym_rob)
+    ncsym_neu = bound_exclusion.keep_neumann(ncsym_neu)
 
     if robin_weight is None:
         if ncsym_rob.shape[0] != 0:
@@ -1068,7 +1045,7 @@ def mpsa_elasticity(
                 "If applying Robin conditions you must supply a robin_weight"
             )
         else:
-            robin_weight = 1
+            robin_weight = 1 * np.ones(g.num_faces)
 
     # Book keeping
     num_sub_cells = cell_node_blocks[0].size
@@ -1088,7 +1065,7 @@ def mpsa_elasticity(
     # ncsym_L * G_L + ncsym_R * G_R for the left and right faces.
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym_all)
     del ncsym_all
-    ncsym = bound_exclusion.exclude_boundary_nd(ncsym)
+    ncsym = bound_exclusion.exclude_boundary(ncsym)
 
     num_subfno = subcell_topology.subfno.max() + 1
     hook_cell = sps.coo_matrix(
@@ -1096,7 +1073,7 @@ def mpsa_elasticity(
         shape=(num_subfno * nd, (np.max(subcell_topology.cno) + 1) * nd),
     ).tocsr()
 
-    hook_cell = bound_exclusion.exclude_robin_dirichlet_nd(hook_cell)
+    hook_cell = bound_exclusion.exclude_robin_dirichlet(hook_cell)
 
     # Matrices to enforce displacement continuity
     d_cont_grad, d_cont_cell = __get_displacement_submatrices(
@@ -1224,8 +1201,8 @@ def __get_displacement_submatrices(
 
     # Expand equations for displacement balance, and eliminate rows
     # associated with neumann boundary conditions
-    d_cont_grad = bound_exclusion.exclude_neumann_robin_nd(d_cont_grad)
-    d_cont_cell = bound_exclusion.exclude_neumann_robin_nd(d_cont_cell)
+    d_cont_grad = bound_exclusion.exclude_neumann_robin(d_cont_grad)
+    d_cont_cell = bound_exclusion.exclude_neumann_robin(d_cont_cell)
 
     # The column ordering of the displacement equilibrium equations are
     # formed as a Kronecker product of scalar equations. Bring them to the
@@ -1252,7 +1229,7 @@ def __get_displacement_submatrices_rob(
     num_nodes = np.diff(g.face_nodes.indptr)
     sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
     scaled_sgn = (
-        robin_weight
+        robin_weight[subcell_topology.fno_unique]
         * sgn[0]
         * g.face_areas[subcell_topology.fno_unique]
         / num_nodes[subcell_topology.fno_unique]
@@ -1262,7 +1239,7 @@ def __get_displacement_submatrices_rob(
     # Contribution from cell center potentials to local systems
     rob_cell = sps.coo_matrix(
         (
-            robin_weight
+            robin_weight[subcell_topology.fno]
             * g.face_areas[subcell_topology.fno]
             / num_nodes[subcell_topology.fno],
             (subcell_topology.subfno, subcell_topology.cno),
@@ -1272,8 +1249,8 @@ def __get_displacement_submatrices_rob(
 
     # Expand equations for displacement balance, and eliminate rows
     # associated with neumann boundary conditions
-    rob_grad = bound_exclusion.keep_robin_nd(rob_grad)
-    rob_cell = bound_exclusion.keep_robin_nd(rob_cell)
+    rob_grad = bound_exclusion.keep_robin(rob_grad)
+    rob_cell = bound_exclusion.keep_robin(rob_cell)
 
     # The column ordering of the displacement equilibrium equations are
     # formed as a Kronecker product of scalar equations. Bring them to the
@@ -1538,33 +1515,17 @@ def _block_diagonal_structure(
     # get block-structure. First eliminate node numbers at the boundary, where
     # the equations are either of flux or pressure continuity (not both)
 
-    if bound_exclusion.bc_type == "scalar":
-        nno_stress = bound_exclusion.exclude_boundary(nno)
-        nno_displacement = bound_exclusion.exclude_neumann_robin(nno)
-        # we have now eliminated all nodes related to robin, we therefore add them
-        nno_neu = bound_exclusion.keep_neumann(nno)
-        nno_rob = bound_exclusion.keep_robin(nno)
 
-        node_occ = np.hstack(
-            (
-                np.tile(nno_stress, nd),
-                np.tile(nno_neu, nd),
-                np.tile(nno_rob, nd),
-                np.tile(nno_displacement, nd),
-            )
-        )
-
-    elif bound_exclusion.bc_type == "vectorial":
-        nno = np.tile(nno, nd)
-        # The node numbers do not have a basis, so no transformation here. We just
-        # want to pick out the correct node numbers for the correct equations.
-        nno_stress = bound_exclusion.exclude_boundary_nd(nno, transform=False)
-        nno_displacement = bound_exclusion.exclude_neumann_robin_nd(
-            nno, transform=False
-        )
-        nno_neu = bound_exclusion.keep_neumann_nd(nno, transform=False)
-        nno_rob = bound_exclusion.keep_robin_nd(nno, transform=False)
-        node_occ = np.hstack((nno_stress, nno_neu, nno_rob, nno_displacement))
+    nno = np.tile(nno, nd)
+    # The node numbers do not have a basis, so no transformation here. We just
+    # want to pick out the correct node numbers for the correct equations.
+    nno_stress = bound_exclusion.exclude_boundary(nno, transform=False)
+    nno_displacement = bound_exclusion.exclude_neumann_robin(
+        nno, transform=False
+    )
+    nno_neu = bound_exclusion.keep_neumann(nno, transform=False)
+    nno_rob = bound_exclusion.keep_robin(nno, transform=False)
+    node_occ = np.hstack((nno_stress, nno_neu, nno_rob, nno_displacement))
 
     sorted_ind = np.argsort(node_occ, kind="mergesort")
     rows2blk_diag = sps.coo_matrix(
@@ -1606,137 +1567,11 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
                basis functions for boundary values
     """
     nd = g.dim
-    num_stress = bound_exclusion.exclude_rob_dir.shape[0] * nd
-    num_displ = bound_exclusion.exclude_neu_rob.shape[0] * nd
-    num_rob = bound_exclusion.keep_rob.shape[0] * nd
 
-    fno = subcell_topology.fno_unique
-    subfno = subcell_topology.subfno_unique
-    sgn = g.cell_faces[
-        subcell_topology.fno_unique, subcell_topology.cno_unique
-    ].A.ravel("F")
+    num_stress = bound_exclusion.exclude_rob_dir.shape[0]
+    num_displ = bound_exclusion.exclude_neu_rob.shape[0]
 
-    num_neu = sum(bound.is_neu[fno]) * nd
-    num_dir = sum(bound.is_dir[fno]) * nd
-    if not num_rob == sum(bound.is_rob[fno]) * nd:
-        raise AssertionError()
-
-    num_bound = num_neu + num_dir + num_rob
-
-    # Define right hand side for Neumann boundary conditions
-    # First row indices in rhs matrix
-    is_neu = bound_exclusion.exclude_robin_dirichlet(bound.is_neu[fno].astype("int64"))
-    neu_ind_single = np.argwhere(is_neu).ravel("F")
-    is_rob = bound_exclusion.keep_robin(bound.is_rob[fno].astype("int64"))
-    rob_ind_single = np.argwhere(is_rob).ravel("F")
-
-    # There are is_neu.size Neumann conditions per dimension and
-    # there are is_rob.size Robin conditions per dimension
-    neu_ind = expand_ind(neu_ind_single, nd, is_neu.size)
-    rob_ind = expand_ind(rob_ind_single, nd, is_rob.size)
-    # We now merge the neuman and robin indices since they are treated equivalent
-    if rob_ind.size == 0:
-        neu_rob_ind = neu_ind
-    elif neu_ind.size == 0:
-        neu_rob_ind = rob_ind + num_stress
-    else:
-        neu_rob_ind = np.hstack((neu_ind, rob_ind + num_stress))
-
-    # We also need to account for all half faces, that is, do not exclude
-    # Dirichlet and Neumann boundaries.
-    neu_ind_single_all = np.argwhere(bound.is_neu[fno].astype("int")).ravel("F")
-    rob_ind_single_all = np.argwhere(bound.is_rob[fno].astype("int")).ravel("F")
-    dir_ind_single_all = np.argwhere(bound.is_dir[fno].astype("int")).ravel("F")
-
-    neu_rob_ind_single_all = np.hstack((neu_ind_single_all, rob_ind_single_all))
-    neu_rob_ind_all = np.tile(neu_rob_ind_single_all, nd)
-
-    # Some care is needed to compute coefficients in Neumann matrix: sgn is
-    # already defined according to the subcell topology [fno], while areas
-    # must be drawn from the grid structure, and thus go through fno
-
-    fno_ext = np.tile(fno, nd)
-    num_face_nodes = g.face_nodes.sum(axis=0).A.ravel("F")
-
-    # Coefficients in the matrix. For the Neumann boundary faces we set the
-    # value as seen from the outside of the domain. Note that they do not
-    # have to do
-    # so, and we will flip the sign later. This means that a stress [1,1] on a
-    # boundary face pushes(or pulls) the face to the top right corner.
-    neu_val = 1 / num_face_nodes[fno_ext[neu_rob_ind_all]]
-    # The columns will be 0:neu_rob_ind.size
-    if neu_rob_ind.size > 0:
-        neu_cell = sps.coo_matrix(
-            (neu_val.ravel("F"), (neu_rob_ind, np.arange(neu_rob_ind.size))),
-            shape=(num_stress + num_rob, num_bound),
-        ).tocsr()
-
-    else:
-        # Special handling when no elements are found. Not sure if this is
-        # necessary, or if it is me being stupid
-        neu_cell = sps.coo_matrix((num_stress + num_rob, num_bound)).tocsr()
-
-    # Dirichlet boundary conditions, procedure is similar to that for Neumann
-    is_dir = bound_exclusion.exclude_neumann_robin(bound.is_dir[fno].astype("int64"))
-    dir_ind_single = np.argwhere(is_dir).ravel("F")
-
-    dir_ind = expand_ind(dir_ind_single, nd, is_dir.size)
-
-    # The coefficients in the matrix should be duplicated the same way as
-    # the row indices, but with no increment
-    dir_val = expand_ind(sgn[dir_ind_single_all], nd, 0)
-
-    # Column numbering starts right after the last Neumann column. dir_val
-    # is ordered [u_x_1, u_y_1, u_x_2, u_y_2, ...], and dir_ind shuffles this
-    # ordering. The final matrix will first have the x-coponent of the displacement
-    # for each face, then the y-component, etc.
-    if dir_ind.size > 0:
-        dir_cell = sps.coo_matrix(
-            (dir_val, (dir_ind, num_neu + num_rob + np.arange(dir_ind.size))),
-            shape=(num_displ, num_bound),
-        ).tocsr()
-    else:
-        # Special handling when no elements are found. Not sure if this is
-        # necessary, or if it is me being stupid
-        dir_cell = sps.coo_matrix((num_displ, num_bound)).tocsr()
-
-    num_subfno = np.max(subfno) + 1
-
-    # The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.
-    # Map these to all half-face indices
-
-    is_bnd = np.hstack((neu_rob_ind_single_all, dir_ind_single_all))
-    bnd_ind = fvutils.expand_indices_nd(is_bnd, nd)
-    bnd_2_all_hf = sps.coo_matrix(
-        (np.ones(num_bound), (np.arange(num_bound), bnd_ind)),
-        shape=(num_bound, num_subfno * nd),
-    )
-    # The user of the discretization should now nothing about half faces,
-    # thus map from half face to face indices.
-    hf_2_f = fvutils.map_hf_2_f(fno, subfno, nd).transpose()
-    # the rows of rhs_bound will be ordered with first the x-component of all
-    # neumann faces, then the y-component of all neumann faces, then the
-    # z-component of all neumann faces. Then we will have the equivalent for
-    # the dirichlet faces.
-    rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
-
-    return rhs_bound
-
-
-def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
-    """
-    Define rhs matrix to get basis functions for boundary
-    conditions assigned component-wise.
-
-    For parameters and return, refer to the above create_bound_rhs
-
-    """
-    nd = g.dim
-
-    num_stress = bound_exclusion.exclude_rob_dir_nd.shape[0]
-    num_displ = bound_exclusion.exclude_neu_rob_nd.shape[0]
-
-    num_rob = bound_exclusion.keep_rob_nd.shape[0]
+    num_rob = bound_exclusion.keep_rob.shape[0]
 
     fno = subcell_topology.fno_unique
     subfno = subcell_topology.subfno_unique
@@ -1760,12 +1595,12 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     # Pick out the subface indices
 
     # The boundary conditions should be given in the given basis, therefore no transformation
-    subfno_neu = bound_exclusion.exclude_robin_dirichlet_nd(
+    subfno_neu = bound_exclusion.exclude_robin_dirichlet(
         subfno_nd.ravel("C"), transform=False
     ).ravel("F")
     # Pick out the Neumann boundary
     is_neu_nd = (
-        bound_exclusion.exclude_robin_dirichlet_nd(
+        bound_exclusion.exclude_robin_dirichlet(
             bound.is_neu[:, fno].ravel("C"), transform=False
         )
         .ravel("F")
@@ -1776,12 +1611,12 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
     neu_ind = neu_ind[is_neu_nd[neu_ind]]
 
     # Robin, same procedure
-    subfno_rob = bound_exclusion.keep_robin_nd(
+    subfno_rob = bound_exclusion.keep_robin(
         subfno_nd.ravel("C"), transform=False
     ).ravel("F")
 
     is_rob_nd = (
-        bound_exclusion.keep_robin_nd(bound.is_rob[:, fno].ravel("C"), transform=False)
+        bound_exclusion.keep_robin(bound.is_rob[:, fno].ravel("C"), transform=False)
         .ravel("F")
         .astype(np.bool)
     )
@@ -1791,11 +1626,11 @@ def create_bound_rhs_nd(bound, bound_exclusion, subcell_topology, g):
 
     # Dirichlet, same procedure
     # remove neumann and robin subfno
-    subfno_dir = bound_exclusion.exclude_neumann_robin_nd(
+    subfno_dir = bound_exclusion.exclude_neumann_robin(
         subfno_nd.ravel("C"), transform=False
     ).ravel("F")
     is_dir_nd = (
-        bound_exclusion.exclude_neumann_robin_nd(
+        bound_exclusion.exclude_neumann_robin(
             bound.is_dir[:, fno].ravel("C"), transform=False
         )
         .ravel("F")
@@ -2120,13 +1955,13 @@ def _eliminate_ncasym_neumann(
     _, num_sub_cells = np.unique(node_blocks_nd.ravel("C"), return_counts=True)
 
     # Then we count the number how many Neumann subfaces there are for each node.
-    nno_neu = bound_exclusion.keep_neumann_nd(nno_nd.ravel("C"), transform=False)
+    nno_neu = bound_exclusion.keep_neumann(nno_nd.ravel("C"), transform=False)
     _, idx_neu, count_neu = np.unique(nno_neu, return_inverse=True, return_counts=True)
 
     # The local system is invertible if the number of sub_cells (remember there is one
     # gradient for each subcell) is larger than the number of Neumann sub_faces.
     # To obtain an invertible system we remove the asymetric part around these nodes.
-    count_neu = bound_exclusion.keep_neu_nd.T * count_neu[idx_neu]
+    count_neu = bound_exclusion.keep_neu.T * count_neu[idx_neu]
     diff_count = num_sub_cells[nno_nd.ravel("C")] - count_neu
     remove_singular = np.argwhere((diff_count < 0)).ravel()
 
