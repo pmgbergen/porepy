@@ -682,34 +682,34 @@ class ExcludeBoundaries(object):
 
         # Define mappings to exclude boundary values
         if self.bc_type == "scalar":
-            self.basis_matrix = self.__basis_transformation(bound.basis)
+            self.basis_matrix = self._basis_transformation(bound.basis)
 
-            self.exclude_neu = self.__exclude_matrix(bound.is_neu)
-            self.exclude_dir = self.__exclude_matrix(bound.is_dir)
-            self.exclude_rob = self.__exclude_matrix(bound.is_rob)
-            self.exclude_neu_dir = self.__exclude_matrix(bound.is_neu | bound.is_dir)
-            self.exclude_neu_rob = self.__exclude_matrix(bound.is_neu | bound.is_rob)
-            self.exclude_rob_dir = self.__exclude_matrix(bound.is_rob | bound.is_dir)
-            self.keep_rob = self.__exclude_matrix(~bound.is_rob)
+            self.exclude_neu = self._exclude_matrix(bound.is_neu)
+            self.exclude_dir = self._exclude_matrix(bound.is_dir)
+            self.exclude_rob = self._exclude_matrix(bound.is_rob)
+            self.exclude_neu_dir = self._exclude_matrix(bound.is_neu | bound.is_dir)
+            self.exclude_neu_rob = self._exclude_matrix(bound.is_neu | bound.is_rob)
+            self.exclude_rob_dir = self._exclude_matrix(bound.is_rob | bound.is_dir)
+            self.keep_rob = self._exclude_matrix(~bound.is_rob)
 
         elif self.bc_type == "vectorial":
-            self.basis_matrix = self.__basis_transformation(bound.basis)
+            self.basis_matrix = self._basis_transformation(bound.basis)
 
-            self.exclude_neu = self.__exclude_matrix_xyz(bound.is_neu)
-            self.exclude_dir = self.__exclude_matrix_xyz(bound.is_dir)
-            self.exclude_rob = self.__exclude_matrix_xyz(bound.is_rob)
-            self.exclude_neu_dir = self.__exclude_matrix_xyz(
+            self.exclude_neu = self._exclude_matrix_xyz(bound.is_neu)
+            self.exclude_dir = self._exclude_matrix_xyz(bound.is_dir)
+            self.exclude_rob = self._exclude_matrix_xyz(bound.is_rob)
+            self.exclude_neu_dir = self._exclude_matrix_xyz(
                 bound.is_neu | bound.is_dir
             )
-            self.exclude_neu_rob = self.__exclude_matrix_xyz(
+            self.exclude_neu_rob = self._exclude_matrix_xyz(
                 bound.is_neu | bound.is_rob
             )
-            self.exclude_rob_dir = self.__exclude_matrix_xyz(
+            self.exclude_rob_dir = self._exclude_matrix_xyz(
                 bound.is_rob | bound.is_dir
             )
-            self.keep_rob = self.__exclude_matrix_xyz(~bound.is_rob)
+            self.keep_rob = self._exclude_matrix_xyz(~bound.is_rob)
 
-    def __basis_transformation(self, basis):
+    def _basis_transformation(self, basis):
         if self.bc_type == "scalar":
             data = basis[self.fno]
             col = np.arange(self.num_subfno)
@@ -730,14 +730,14 @@ class ExcludeBoundaries(object):
         else:
             raise AttributeError("Unknow basis type: " + self.bc_type)
 
-    def __exclude_matrix(self, ids):
+    def _exclude_matrix(self, ids):
         """
         creates an exclusion matrix. This is a mapping from sub-faces to
         all sub-faces except those given by ids.
         Example:
         ids = [0, 2]
         self.num_subfno = 4
-        print(sef.__exclude_matrix(ids))
+        print(sef._exclude_matrix(ids))
             [[0, 1, 0, 0],
               [0, 0, 0, 1]]
         """
@@ -748,7 +748,7 @@ class ExcludeBoundaries(object):
             shape=(row.size, self.num_subfno),
         ).tocsr()
 
-    def __exclude_matrix_xyz(self, ids):
+    def _exclude_matrix_xyz(self, ids):
         col_x = np.argwhere([not it for it in ids[0, self.fno]])
 
         col_y = np.argwhere([not it for it in ids[1, self.fno]])
