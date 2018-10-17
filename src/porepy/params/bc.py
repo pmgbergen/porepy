@@ -166,6 +166,13 @@ class BoundaryConditionNode(object):
         # By default, all nodes are Neumann.
         self.is_neu[bn] = True
 
+        # Set robin weight
+        self.robin_weight = np.ones(g.num_faces)
+        # Basis is mostly here to be consistent with vectorial. If changing the
+        # basis to -1 it should be possible to define innflow as positive, but this
+        # has not been tested
+        self.basis = np.ones(g.num_faces)
+
         if nodes is not None:
             # Validate arguments
             assert cond is not None
