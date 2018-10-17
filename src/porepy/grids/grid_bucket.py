@@ -1186,7 +1186,8 @@ class GridBucket(object):
 
     def __repr__(self):
         s = "Grid bucket containing " + str(self.num_graph_nodes()) + " grids:\n"
-        for dim in range(self.dim_max(), self.dim_min() - 1, -1):
-            gl = self.grids_of_dimension(dim)
-            s += str(len(gl)) + " grids of dimension " + str(dim) + "\n"
+        if self.num_graph_nodes() > 0:
+            for dim in range(self.dim_max(), self.dim_min() - 1, -1):
+                gl = self.grids_of_dimension(dim)
+                s += str(len(gl)) + " grids of dimension " + str(dim) + "\n"
         return s
