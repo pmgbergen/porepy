@@ -11,7 +11,15 @@ import porepy as pp
 
 
 class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
-    """ A class that assembles a mixed-dimensional elliptic equation.
+    """ A class that assembles multi-physics problems on mixed-dimensional
+    domains.
+
+    The class is designed to combine different variables on different grids,
+    different discretizations for the same variable, various coupling schemes
+    between the grids etc. To use the functionality, discretization schemes
+    for the individual terms in the equation must be defined and follow certain
+    rules. For further description, see the documentation of self.assemble_matrix_rhs().
+
     """
 
     def __init__(self):
@@ -25,11 +33,84 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
 
     def assemble_matrix_rhs(self, gb, matrix_format='csr', variables=None):
+        """ Assemble the system matrix and right hand side for a general
+        multi-physics problem, and return a block matrix and right hand side.
 
-        # Initialize the global matrix. In this case, we know there is a single
-        # variable (or two, depending on how we end up interpreting the mixed
-        # methods) for each node and edge. This concept must be made more
-        # general quite soon.
+        Variables can be defined on nodes in the GridBucket (grids in a certain
+        dimension) or on the edge between nodes (e.g. on the mortar grid). Node
+        variables can be defined on a combination of cells, faces and
+        grid-nodes, while edge variables live only on the cells of the mortar
+        grid. It is not possible to define a variable only on a subset of these
+        objects (say, only on some of the cells in the grid), but it is allowed
+        to have a cell variable living on one node in the GridBucket, but not
+        in another.
+
+        Variables for a node or edge, together with information on how many
+        degrees of freedom they define, are defined on the relevant data
+        dictionary, with the following syntax:
+
+            d[pp.keywords.PRIMARY_VARIABLE] = {'var_1': {'cells': 3},
+                                               'var_2': {'cells': 1, 'faces': 2}}
+
+        This defines a variable identified by the string 'var_1' as living on
+        this object (node or edge), having 3 degrees of freedom per cell in the
+        corresponding grid (and tacitly no face or node variables). Similarly,
+        'var_2' identifies a variable with one degree of freedom per cell and
+        two per face.
+
+        To define a discretization for a variable, the data dictionary should
+        contain one or a list of discretization objects that can be accessed by
+        the call
+
+            d['var_1' + '_' + pp.keywords.DISCRETIZATION]
+
+        The object should have a method termed assemble_matrix_rhs, that takes
+        arguments grid (on a node) or a mortar grid (on an edge) and the
+        corresponding data dictionary, and returns the system matrix and right
+        hand side for this variable on this node / edge. If several
+        discretization objcets are provided as a list, their values will be
+        added.
+
+        Coupling between variables on the same node are similarly defined by
+        one or a list of discretizations, identified by the fields
+
+            d['var_1' + '_' + 'var_2' + '_' + pp.keywords.DISCRETIZATION]
+            d['var_2' + '_' + 'var_1' + '_' + pp.keywords.DISCRETIZATION]
+
+        Here, the first item represents the impact of var_2 on var_1, stored in
+        block (var_1, var_2); the definition of the second term is similar.
+
+        Discretization of edge-node couplings are similar to internal interactions
+        on nodes and edges, but more general, and thus with a more complex
+        syntax. The variable definition on mortar variables has, in addition to
+        fields for degrees of freedom, a dictionary of dependencies on
+        variables on the neighboring nodes (or list of dictionaries if there is
+        more than one dependency). This inner dictionary has fields
+
+            {g1: 'var_1', g2: 'var_2', pp.keywords.DISCRETIZATION: foo()}
+
+        Here, 'var_1' (str) is the identifier of the coupled variable on the
+        node identified by the neighboring grid g1, similar for g2. foo() is a
+        discretization object for the coupling term. It should have a method
+        assemble_matrix_rhs, that takes the arguments
+
+            (g1, g2, data_1, data_2, data_edge, local_matrix)
+
+        where local_matrix is the current (partly assembled) discretization
+        matrix for the coupling of these terms. A coupling between a mortar
+        variable and only one of its neighboring grids can be constructed by
+        letting the inactive grid map to None, e.g.
+
+            {g1: 'var_1', g2: None, pp.keywords.DISCRETIZATION: foo()}
+
+        In this case, foo should have a method assemble_matrix_rhs that takes
+        arguments
+
+            (g1, data_1, data_edge, local_matrix)
+
+        """
+
+        # Initialize the global matrix.
         matrix, rhs, block_dof = self._initialize_matrix_rhs(gb, variables)
 
 
