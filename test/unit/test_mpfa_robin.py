@@ -140,9 +140,7 @@ class RobinBoundTest(unittest.TestCase):
         bnd = pp.BoundaryCondition(g, bnd_ind, names)
 
         bnd.robin_weight = robin_weight * np.ones(g.num_faces)
-        flux, bound_flux, _, _ = pp.numerics.fv.mpfa._mpfa_local(
-            g, k, bnd
-        )
+        flux, bound_flux, _, _ = pp.numerics.fv.mpfa._mpfa_local(g, k, bnd)
 
         div = pp.fvutils.scalar_divergence(g)
 

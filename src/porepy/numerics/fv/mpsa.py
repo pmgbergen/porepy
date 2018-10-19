@@ -1483,6 +1483,7 @@ def _inverse_gradient(
         * fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
         * rows2blk_diag
     )
+    print('max igrad: ', np.max(np.abs(igrad)))
     return igrad
 
 
