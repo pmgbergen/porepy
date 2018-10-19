@@ -139,7 +139,6 @@ class Multiscale(object):
 
         return sps.linalg.spsolve(A_l, b_l)
 
-
 #------------------------------------------------------------------------------#
 
     def solve_h(self, x_l):
