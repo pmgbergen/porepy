@@ -19,6 +19,9 @@ class BiotTest(unittest.TestCase):
             bound = bc.BoundaryCondition(
                 g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
             )
+            bound_mech = bc.BoundaryConditionVectorial(
+                g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
+            )
 
             mu = np.ones(g.num_cells)
             c = tensor.FourthOrderTensor(g.dim, mu, mu)
@@ -28,7 +31,7 @@ class BiotTest(unittest.TestCase):
 
             param = Parameters(g)
             param.set_bc("flow", bound)
-            param.set_bc("mechanics", bound)
+            param.set_bc("mechanics", bound_mech)
             param.set_tensor("flow", k)
             param.set_tensor("mechanics", c)
             param.set_bc_val("mechanics", np.tile(bound_val, g.dim))

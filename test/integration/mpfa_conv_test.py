@@ -277,6 +277,9 @@ class CartGrid2D(MainTester):
         self.bc = bc.BoundaryCondition(
             g, self.bound_faces, ["dir"] * self.bound_faces.size
         )
+        self.bc_vec = bc.BoundaryConditionVectorial(
+            g, self.bound_faces, ["dir"] * self.bound_faces.size
+        )
 
     def test_homogeneous_mpfa(self):
         """
@@ -406,7 +409,7 @@ class CartGrid2D(MainTester):
         k = tensor.FourthOrderTensor(2, muc, lambdac)
 
         u_num, stress_num = self.solve_system_homogeneous_elasticity(
-            self.g_nolines, self.bc, self.bound_faces, k, an_sol
+            self.g_nolines, self.bc_vec, self.bound_faces, k, an_sol
         )
         # Hard coded values for potential and flux
         u_precomp = np.array(
@@ -774,7 +777,7 @@ class CartGrid2D(MainTester):
             return np.logical_and(np.greater(xc, 0.5), np.greater(yc, 0.5))
 
         u_num, stress_num = self.solve_system_chi_type_elasticity(
-            self.g_lines, self.bc, an_sol, chi, kappa
+            self.g_lines, self.bc_vec, an_sol, chi, kappa
         )
         # Hard coded values for potential and flux
 
@@ -961,6 +964,9 @@ class TriangleGrid2D(MainTester):
         self.bc = bc.BoundaryCondition(
             g, self.bound_faces, ["dir"] * self.bound_faces.size
         )
+        self.bc_vec = bc.BoundaryConditionVectorial(
+            g, self.bound_faces, ["dir"] * self.bound_faces.size
+        )
 
     def test_homogeneous_mpfa(self):
         """
@@ -1126,7 +1132,7 @@ class TriangleGrid2D(MainTester):
         k = tensor.FourthOrderTensor(2, muc, lambdac)
 
         u_num, stress_num = self.solve_system_homogeneous_elasticity(
-            self.g_nolines, self.bc, self.bound_faces, k, an_sol
+            self.g_nolines, self.bc_vec, self.bound_faces, k, an_sol
         )
         # Hard coded values for potential and flux
         u_precomp = np.array(
@@ -1488,7 +1494,7 @@ class TriangleGrid2D(MainTester):
             return np.logical_and(np.greater(xc, 0.5), np.greater(yc, 0.5))
 
         u_num, stress_num = self.solve_system_chi_type_elasticity(
-            self.g_lines, self.bc, an_sol, chi, kappa
+            self.g_lines, self.bc_vec, an_sol, chi, kappa
         )
         # Hard coded values for potential and flux
 

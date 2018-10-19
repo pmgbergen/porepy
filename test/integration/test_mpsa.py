@@ -22,7 +22,7 @@ class TestMpsa(unittest.TestCase):
             bound_faces = np.argwhere(
                 np.abs(g.cell_faces).sum(axis=1).A.ravel("F") == 1
             )
-            bound = bc.BoundaryCondition(
+            bound = bc.BoundaryConditionVectorial(
                 g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
             )
             mu = 1
@@ -47,8 +47,9 @@ class TestMpsa(unittest.TestCase):
             df_y = np.sum(xf * gy, axis=0)
 
             d_bound = np.zeros((g.dim, g.num_faces))
-            d_bound[0, bound.is_dir] = df_x[bound.is_dir]
-            d_bound[1, bound.is_dir] = df_y[bound.is_dir]
+
+            d_bound[0, bound.is_dir[0]] = df_x[bound.is_dir[0]]
+            d_bound[1, bound.is_dir[1]] = df_y[bound.is_dir[1]]
 
             rhs = div * bound_stress * d_bound.ravel("F")
 
@@ -78,7 +79,7 @@ class TestMpsa(unittest.TestCase):
             bound_faces = np.argwhere(
                 np.abs(g.cell_faces).sum(axis=1).A.ravel("F") == 1
             )
-            bound = bc.BoundaryCondition(
+            bound = bc.BoundaryConditionVectorial(
                 g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
             )
             constit = setup_stiffness(g)
@@ -92,8 +93,8 @@ class TestMpsa(unittest.TestCase):
             d_x = np.random.rand(1)
             d_y = np.random.rand(1)
             d_bound = np.zeros((g.dim, g.num_faces))
-            d_bound[0, bound.is_dir] = d_x
-            d_bound[1, bound.is_dir] = d_y
+            d_bound[0, bound.is_dir[0]] = d_x
+            d_bound[1, bound.is_dir[1]] = d_y
 
             rhs = div * bound_stress * d_bound.ravel("F")
 
@@ -115,7 +116,7 @@ class TestMpsa(unittest.TestCase):
             bot = np.ravel(np.argwhere(g.face_centers[1, :] < 1e-10))
             left = np.ravel(np.argwhere(g.face_centers[0, :] < 1e-10))
             dir_faces = np.hstack((left, bot))
-            bound = bc.BoundaryCondition(
+            bound = bc.BoundaryConditionVectorial(
                 g, dir_faces.ravel("F"), ["dir"] * dir_faces.size
             )
             constit = setup_stiffness(g)
@@ -129,8 +130,9 @@ class TestMpsa(unittest.TestCase):
             d_x = np.random.rand(1)
             d_y = np.random.rand(1)
             d_bound = np.zeros((g.dim, g.num_faces))
-            d_bound[0, bound.is_dir] = d_x
-            d_bound[1, bound.is_dir] = d_y
+
+            d_bound[0, bound.is_dir[0]] = d_x
+            d_bound[1, bound.is_dir[1]] = d_y
 
             rhs = div * bound_stress * d_bound.ravel("F")
 
@@ -158,7 +160,7 @@ class TestMpsa(unittest.TestCase):
             bot = np.ravel(np.argwhere(g.face_centers[1, :] < 1e-10))
             left = np.ravel(np.argwhere(g.face_centers[0, :] < 1e-10))
             dir_faces = np.hstack((left, bot))
-            bound = bc.BoundaryCondition(
+            bound = bc.BoundaryConditionVectorial(
                 g, dir_faces.ravel("F"), ["dir"] * dir_faces.size
             )
             constit = setup_stiffness(g)
