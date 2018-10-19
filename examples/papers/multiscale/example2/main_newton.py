@@ -35,8 +35,6 @@ def update_solution(gb):
         d["pressure_old"] = d["pressure"]
         d["discharge_old"] = d["discharge"]
 
-    return
-
 # ------------------------------------------------------------------------------#
 
 def export(gb, x, name, solver_flow):
@@ -87,7 +85,7 @@ def summarize_data(betas, tests):
 # ------------------------------------------------------------------------------#
 
 
-def main_ms_newton(pb_data, name):
+def main_ms(pb_data, name):
     # in principle we can re-compute only the matrices related to the
     # fracture network, however to simplify the implementation we re-compute
     # everything
@@ -113,8 +111,9 @@ def main_ms_newton(pb_data, name):
 
     # initiate iteration count and initial condition
     i = 0
-    # dx_l = x_l
-    while True:
+    err = np.inf
+    while np.any(err > pb_data["newton_err"]) and i < pb_data["newton_maxiter"]:
+
         # update the non-linear term
         solver_flow.project_u(data.gb, "discharge_old", "P0u")
         data.update(solver_flow)
@@ -125,40 +124,23 @@ def main_ms_newton(pb_data, name):
         A_l, b_l = ms.assemble_l(A, b)
         F_u = b_l - A_l*x_l
 
+
         # update Jacobian
         # for simplicity we do for everything
         data.update_jacobian(solver_flow)
         DA, Db = solver_flow.matrix_rhs(data.gb, return_bmat=True)
         DF_u, _ = ms.assemble_l(DA, Db)
 
-        # solve for (xn+1 - xn)
-        dx_l, info_ = sps.linalg.gmres(DF_u, F_u)
-        print("Info gmres: ", info_)
-
-        # update new iteration
-        x_l = x_l + dx_l
+        # solve for (xn+1 - xn), update new iteration
+        dx = sps.linalg.spsolve(DF_u, F_u)
+        x_l += dx
 
         solver_flow.split(data.gb, "up", ms.concatenate(None, x_l))
         solver_flow.extract_p(data.gb, "up", "pressure")
         solver_flow.extract_u(data.gb, "up", "discharge")
 
-        # update solution in grid bucket
-        update_solution(data.gb)
-
-        # update iteration count
+        err = compute_error(data.gb)
         i += 1
-
-        # compute error
-        err = np.linalg.norm(dx_l)
-
-        # check convergence
-        if np.any(err < pb_data["newton_err"]):
-            print("Newton method CONVERGED in ", i, " iterations!")
-            break
-
-        if i > pb_data["newton_maxiter"]:
-            print("Newton method STOPPED after ", i, " iterations!")
-            break
 
     # post-compute the higher dimensional solution
     x_h = ms.solve_h(x_l)
@@ -175,11 +157,11 @@ def main_ms_newton(pb_data, name):
     # print the summary data
     print("ms_newton")
     print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
-    print("iter", i, "err", err, "solve_h", info["solve_h"])
+    print("iter", i, "err", err, "solve_h", info["solve_h"], "\n\n")
 
 # ------------------------------------------------------------------------------#
 
-def main_dd_newton(pb_data, name):
+def main_dd(pb_data, name):
     # in principle we can re-compute only the matrices related to the
     # fracture network, however to simplify the implementation we re-compute
     # everything
@@ -202,18 +184,16 @@ def main_dd_newton(pb_data, name):
     dd.extract_blocks(A, b)
     dd.factorize()
 
-    x, info = dd.solve(tol, maxiter, info=True)
+    x_l, info = dd.solve(tol, maxiter, info=True, return_lower=True)
     solve_h += info["solve_h"]
-    solver_flow.split(data.gb, "up", x)
+    solver_flow.split(data.gb, "up", dd.concatenate(None, x_l))
     solver_flow.extract_p(data.gb, "up", "pressure_old")
     solver_flow.extract_u(data.gb, "up", "discharge_old")
 
     # initiate iteration count and initial condition
     i = 0
-    x_l = x[dd.A_h.shape[0]:]
-    # dx = x_l
-    while True:
-        print("Iteration: ", i)
+    err = np.inf
+    while np.any(err > pb_data["newton_err"]) and i < pb_data["newton_maxiter"]:
 
         # update the non-linear term
         solver_flow.project_u(data.gb, "discharge_old", "P0u")
@@ -221,63 +201,33 @@ def main_dd_newton(pb_data, name):
 
         # we need to recompute the lower dimensional matrices
         # for simplicity we do for everything
-        A, b = solver_flow.matrix_rhs(data.gb, return_bmat=True)
+        A, _ = solver_flow.matrix_rhs(data.gb, return_bmat=True)
         dd.update_lower_blocks(A)
-        dd.update_lower_factorize()
-        F_u, info = dd.residual_l(x_l, info=True)
-        solve_h += info["solve_h"]
-        # A, b = solver_flow.matrix_rhs(data.gb)
-        # F_gamma = b - A*x
+        F_u = dd.residual_l(x_l)
 
         # update Jacobian
         # for simplicity we do for everything
         data.update_jacobian(solver_flow)
-        DA, Db = solver_flow.matrix_rhs(data.gb, return_bmat=True)
+        DA, _ = solver_flow.matrix_rhs(data.gb, return_bmat=True)
         dd.update_lower_blocks(DA)
-        dd.update_lower_factorize()
-        # dd.extract_blocks(DA, Db)
-        # dd.factorize()
 
-        # solve for (xn+1 - xn)
-        # dd.b_h = F_gamma[:dd.b_h.size]
-        # dd.b_l = F_gamma[dd.b_h.size:]
+        # solve for (xn+1 - xn), update new iteration
         dx, info = dd.solve_jacobian(F_u, tol, maxiter, info=True)
-        # dx, info = dd.solve(tol, maxiter, info=True)
-        solve_h += info["solve_h"]
+        x_l += dx
 
-        # update new iteration
-        x_l = x_l + dx
-        # x = x + dx
-
-        solver_flow.split(data.gb, "up", dd.concatenate(np.zeros(\
-                                            dd.A_h.shape[1]), x_l))
+        solver_flow.split(data.gb, "up", dd.concatenate(None, x_l))
         solver_flow.extract_p(data.gb, "up", "pressure")
         solver_flow.extract_u(data.gb, "up", "discharge")
 
-        # update solution in grid bucket
-        update_solution(data.gb)
-
-        # update iteration count
+        err = compute_error(data.gb)
         i += 1
-
-        # compute error
-        err = np.linalg.norm(dx)
-        print("residual: ", err)
-
-        # check convergence
-        if np.any(err < pb_data["newton_err"]):
-            print("Newton method CONVERGED in ", i, " iterations!")
-            break
-
-        if i > pb_data["newton_maxiter"]:
-            print("Newton method STOPPED after ", i, " iterations!")
-            break
+        solve_h += info["solve_h"] + 1
 
     # post-compute the higher dimensional solution
     x_h = dd.solve_h(x_l)
-    x[:dd.A_h.shape[0]] = x_h
-    # update the number of solution of the higher dimensional problem
     solve_h += 1
+
+    x = dd.concatenate(x_h, x_l)
 
     folder = "dd_newton_" + str(pb_data["beta"]) + name
     export(data.gb, x, folder, solver_flow)
@@ -286,7 +236,7 @@ def main_dd_newton(pb_data, name):
     # print the summary data
     print("dd_newton")
     print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
-    print("iter", i, "err", err, "solve_h", solve_h, "\n")
+    print("iter", i, "err", err, "solve_h", solve_h, "\n\n")
 
 # ------------------------------------------------------------------------------#
 
@@ -328,7 +278,7 @@ def main(pb_data, name):
     # print the summary data
     print("ref")
     print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
-    print("iter", i, "err", err, "solve_h", i, "\n")
+    print("iter", i, "err", err, "solve_h", i, "\n\n")
 
 # ------------------------------------------------------------------------------#
 
@@ -337,7 +287,7 @@ if __name__ == "__main__":
     kf = {0: 1e-4, 1: 1e4}
     # it's (kf_t, kf_n)
     tests = np.array([[1, 1], [1, 0]])
-    betas = np.array([0., 1., 1e2, 1e4, 1e6])
+    betas = np.array([1., 1e2, 1e4, 1e6])
 
     for t, n in tests:
         name = "_" + str(n)
@@ -347,11 +297,11 @@ if __name__ == "__main__":
                     "aperture": 1e-4,
                     "beta": beta,
                     "mesh_size": 0.045,
-                    "newton_err": 1e-5,
-                    "newton_maxiter": 1e1}
+                    "newton_err": 1e-6,
+                    "newton_maxiter": 1e2}
 
-            main_ms_newton(data, name)
-            main_dd_newton(data, name)
+            main_ms(data, name)
+            main_dd(data, name)
             #main(data, name)
 
-    summarize_data(betas, tests)
+    #summarize_data(betas, tests)
