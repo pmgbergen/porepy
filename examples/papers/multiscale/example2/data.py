@@ -124,24 +124,15 @@ class Data(object):
 
         for g, d in self.gb:
             if g.dim == 1:
-                # P0-projected velocity field (shape = (3, num_faces))
-                u = d["P0u"]
-                # euclidean norm of u (over xyz)
-                norm_u = np.linalg.norm(u, axis=0)
-
-                # outer product of u (over xyz)
-                n_faces = u.shape[1]
-                outer_u = np.zeros(shape=(n_faces,))
-                for i in np.arange(u.shape[1]):
-                    temp = np.outer(u[:, i], u[:, i])
-                    # only kxx component in 1d
-                    outer_u[i] = temp[0, 0]
+                # P0-projected velocity field
+                P0u = d["P0u"]
+                norm_u = np.linalg.norm(P0u, axis=0)
+                outer_u = np.array([np.amax(np.tensordot(u, u, axes=0)) for u in P0u.T])
 
                 # non_linear and jacobian coefficient
                 coeff = 1./self.eff_kf_t() + self.data["beta"]*norm_u
-                kf_inv = coeff + self.data["beta"] * \
-                                 np.multiply(np.reciprocal(norm_u), outer_u)
-                kf = np.reciprocal(kf_inv/self.data["aperture"])
+                kf_inv = coeff + self.data["beta"]*np.divide(outer_u, norm_u)
+                kf = 1./kf_inv/self.data["aperture"]
 
                 # update permeability tensor
                 perm = pp.SecondOrderTensor(1, kxx=kf, kyy=1, kzz=1)
