@@ -12,3 +12,5 @@ pytest-runner >= 2.0
 coverage
 coveralls
 six
+shapely
+shapely[vectorized]

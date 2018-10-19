@@ -557,7 +557,7 @@ def run_gmsh(in_file, out_file, dims, **kwargs):
 
     """
     if not os.path.isfile(in_file):
-        raise FileNotFoundError("file "+in_file+" not found")
+        raise FileNotFoundError("file " + in_file + " not found")
 
     # Import config file to get location of gmsh executable.
     config = read_config.read()

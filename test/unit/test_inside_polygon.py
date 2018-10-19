@@ -12,7 +12,7 @@ class TestInsidePolygon(unittest.TestCase):
         poly = self.setup()
 
         p = np.array([0.5, 0.5])
-        assert np.all(cg.is_inside_polygon(poly, p))
+        self.assertTrue(np.all(cg.is_inside_polygon(poly, p)))
 
     def test_outside(self):
         poly = self.setup()
@@ -20,7 +20,7 @@ class TestInsidePolygon(unittest.TestCase):
 
         inside = cg.is_inside_polygon(poly, p)
 
-        assert not inside[0]
+        self.assertTrue(not inside[0])
 
     def test_on_line(self):
         # Point on the line, but not the segment, of the polygon
@@ -28,19 +28,19 @@ class TestInsidePolygon(unittest.TestCase):
         p = np.array([2, 0])
 
         inside = cg.is_inside_polygon(poly, p)
-        assert not inside[0]
+        self.assertTrue(not inside[0])
 
     def test_on_boundary(self):
         poly = self.setup()
         p = np.array([0, 0.5])
 
         inside = cg.is_inside_polygon(poly, p)
-        assert not inside[0]
+        self.assertTrue(not inside[0])
 
     def test_just_inside(self):
         poly = self.setup()
         p = np.array([0.5, 1e-6])
-        assert cg.is_inside_polygon(poly, p)
+        self.assertTrue(cg.is_inside_polygon(poly, p))
 
     def test_multiple_points(self):
         poly = self.setup()
@@ -48,8 +48,8 @@ class TestInsidePolygon(unittest.TestCase):
 
         inside = cg.is_inside_polygon(poly, p)
 
-        assert inside[0]
-        assert not inside[1]
+        self.assertTrue(inside[0])
+        self.assertTrue(not inside[1])
 
     def test_large_polygon(self):
         a = np.array(
@@ -98,8 +98,8 @@ class TestInsidePolygon(unittest.TestCase):
         )
         b = np.array([[0.1281648, 0.04746067], [-0.22076491, 0.16421546]])
         inside = cg.is_inside_polygon(a, b)
-        assert not inside[0]
-        assert inside[1]
+        self.assertTrue(not inside[0])
+        self.assertTrue(inside[1])
 
     if __name__ == "__main__":
         unittest.main()

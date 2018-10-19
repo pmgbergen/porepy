@@ -20,17 +20,17 @@ class TestCartGridFrac(unittest.TestCase):
         g_1 = gb.grids_of_dimension(1)
         g_0 = gb.grids_of_dimension(0)
 
-        assert len(g_3) == 1
-        assert len(g_2) == 3
-        assert len(g_1) == 6
-        assert len(g_0) == 1
+        self.assertTrue(len(g_3) == 1)
+        self.assertTrue(len(g_2) == 3)
+        self.assertTrue(len(g_1) == 6)
+        self.assertTrue(len(g_0) == 1)
 
-        assert np.all([g.num_cells == 4 for g in g_2])
-        assert np.all([g.num_faces == 16 for g in g_2])
-        assert np.all([g.num_cells == 1 for g in g_1])
-        assert np.all([g.num_faces == 2 for g in g_1])
+        self.assertTrue(np.all([g.num_cells == 4 for g in g_2]))
+        self.assertTrue(np.all([g.num_faces == 16 for g in g_2]))
+        self.assertTrue(np.all([g.num_cells == 1 for g in g_1]))
+        self.assertTrue(np.all([g.num_faces == 2 for g in g_1]))
 
         g_all = np.hstack([g_3, g_2, g_1, g_0])
         for g in g_all:
             d = np.all(np.abs(g.nodes - np.array([[.5], [.5], [.5]])) < 1e-6, axis=0)
-            assert any(d)
+            self.assertTrue(any(d))

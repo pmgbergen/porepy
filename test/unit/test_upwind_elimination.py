@@ -159,10 +159,10 @@ class BasicsTest(unittest.TestCase):
 
         U_known, rhs_known, theta_known, deltaT_known = known_for_elimination()
         tol = 1e-7
-        assert np.isclose(deltaT, deltaT_known, tol, tol)
-        assert (np.amax(np.absolute(U_r - U_known))) < tol
-        assert (np.amax(np.absolute(rhs_u_r - rhs_known))) < tol
-        assert (np.amax(np.absolute(theta_r - theta_known))) < tol
+        self.assertTrue(np.isclose(deltaT, deltaT_known, tol, tol))
+        self.assertTrue((np.amax(np.absolute(U_r - U_known))) < tol)
+        self.assertTrue((np.amax(np.absolute(rhs_u_r - rhs_known))) < tol)
+        self.assertTrue((np.amax(np.absolute(theta_r - theta_known))) < tol)
 
 
 # #------------------------------------------------------------------------------#

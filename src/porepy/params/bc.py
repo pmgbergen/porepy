@@ -64,6 +64,7 @@ class BoundaryCondition(object):
 
         self.is_neu = np.zeros(self.num_faces, dtype=bool)
         self.is_dir = np.zeros(self.num_faces, dtype=bool)
+        self.is_rob = np.zeros(self.num_faces, dtype=bool)
 
         # By default, all faces are Neumann.
         self.is_neu[bf] = True
@@ -103,8 +104,14 @@ class BoundaryCondition(object):
                 elif s.lower() == "dir":
                     self.is_dir[faces[l]] = True
                     self.is_neu[faces[l]] = False
+                    self.is_rob[faces[l]] = False
+                elif s.lower() == "rob":
+                    self.is_dir[faces[l]] = False
+                    self.is_neu[faces[l]] = False
+                    self.is_rob[faces[l]] = True
                 else:
-                    raise ValueError("Boundary should be Dirichlet or Neumann")
+                    raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
+
 
 class BoundaryConditionNode(object):
 
@@ -227,9 +234,13 @@ class BoundaryConditionVectorial(object):
 
         self.is_neu = np.zeros((g.dim, self.num_faces), dtype=bool)
         self.is_dir = np.zeros((g.dim, self.num_faces), dtype=bool)
+        self.is_rob = np.zeros((g.dim, self.num_faces), dtype=bool)
 
         self.is_neu[:, self.bf] = True
         self.set_bc(faces, cond)
+
+        self.basis = np.tile(np.eye(g.dim), (1, g.num_faces))
+        self.basis = np.reshape(self.basis, (g.dim, g.num_faces, g.dim), "C")
 
     def set_bc(self, faces, cond):
 
@@ -258,6 +269,10 @@ class BoundaryConditionVectorial(object):
                 elif s.lower() == "dir":
                     self.is_dir[:, faces[j]] = True
                     self.is_neu[:, faces[j]] = False
+                elif s.lower() == "rob":
+                    self.is_rob[:, faces[j]] = True
+                    self.is_neu[:, faces[j]] = False
+                    self.is_dir[:, faces[j]] = False
                 elif s.lower() == "dir_x":
                     self.is_dir[0, faces[j]] = True
                     self.is_neu[0, faces[j]] = False

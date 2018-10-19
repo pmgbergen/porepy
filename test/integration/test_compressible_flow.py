@@ -13,7 +13,7 @@ class TestCompressibleFlow(unittest.TestCase):
             if g.dim == 3:
                 pT = d["pressure"]
         p_refT = _reference_solution_multi_grid()
-        assert np.allclose(pT, p_refT)
+        self.assertTrue(np.allclose(pT, p_refT))
 
 
 ###############################################################################
@@ -40,7 +40,8 @@ class IntersectionDomain(FractureDomain):
         FractureDomain.__init__(self, g, d)
 
     def source(self, t):
-        assert self.grid().num_cells == 1, "0D grid should only have 1 cell"
+        if not self.grid().num_cells == 1:
+            raise AssertionError("0D grid should only have 1 cell")
         f = .4 * self.grid().cell_volumes  # m**3/s
         return f * (t < .05)
 

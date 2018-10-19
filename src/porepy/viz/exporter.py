@@ -26,11 +26,13 @@ logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------#
 
+
 class Field(object):
     """
     Internal class to store information for the data to export.
     """
-    def __init__(self, name, cell_data = False, point_data = False, values = None):
+
+    def __init__(self, name, cell_data=False, point_data=False, values=None):
         assert np.logical_xor(cell_data, point_data)
         # name of the field
         self.name = name
@@ -82,12 +84,7 @@ class Field(object):
             )
         num_elem = g.num_cells if self.cell_data else g.num_nodes
         if np.atleast_2d(values).shape[1] != num_elem:
-            raise ValueError(
-                "Field "
-                + str(self.name)
-                + " has wrong dimension."
-            )
-
+            raise ValueError("Field " + str(self.name) + " has wrong dimension.")
 
     def set_values(self, values):
         """
@@ -100,12 +97,15 @@ class Field(object):
         if self.values is None:
             raise ValueError("Field " + str(self.name) + " values not valid")
 
+
 # ------------------------------------------------------------------------------#
+
 
 class Fields(object):
     """
     Internal class to store a list of field.
     """
+
     def __init__(self):
         self.fields = None
 
@@ -147,7 +147,9 @@ class Fields(object):
         """
         return [f.name for f in self]
 
+
 # ------------------------------------------------------------------------------#
+
 
 class Exporter:
     def __init__(self, grid, name, folder=None, **kwargs):
@@ -325,18 +327,24 @@ class Exporter:
         fields = Fields()
         if len(data) > 0:
             if point_data:
-                fields.extend([Field(n, point_data = True, values = v)
-                               for n, v in data.items()])
+                fields.extend(
+                    [Field(n, point_data=True, values=v) for n, v in data.items()]
+                )
             else:
-                fields.extend([Field(n, cell_data = True, values = v)
-                               for n, v in data.items()])
+                fields.extend(
+                    [Field(n, cell_data=True, values=v) for n, v in data.items()]
+                )
 
-        fields.extend([
-            Field("grid_dim", cell_data = True,
-                  values = self.gb.dim * np.ones(self.gb.num_cells)),
-            Field("cell_id", cell_data = True,
-                  values = np.arange(self.gb.num_cells))
-        ])
+        fields.extend(
+            [
+                Field(
+                    "grid_dim",
+                    cell_data=True,
+                    values=self.gb.dim * np.ones(self.gb.num_cells),
+                ),
+                Field("cell_id", cell_data=True, values=np.arange(self.gb.num_cells)),
+            ]
+        )
 
         self._write_vtk(fields, name, self.gb_VTK)
 
@@ -358,13 +366,15 @@ class Exporter:
 
         # consider the grid_bucket node data
         extra_fields = Fields()
-        extra_fields.extend([
-            Field("grid_dim", cell_data=True),
-            Field("cell_id", cell_data=True),
-            Field("grid_node_number", cell_data=True),
-            Field("is_mortar", cell_data=True),
-            Field("mortar_side", cell_data=True),
-        ])
+        extra_fields.extend(
+            [
+                Field("grid_dim", cell_data=True),
+                Field("cell_id", cell_data=True),
+                Field("grid_node_number", cell_data=True),
+                Field("is_mortar", cell_data=True),
+                Field("mortar_side", cell_data=True),
+            ]
+        )
         fields.extend(extra_fields)
 
         self.gb.assign_node_ordering(overwrite_existing=False)
@@ -397,13 +407,15 @@ class Exporter:
 
         # consider the grid_bucket edge data
         extra_fields = Fields()
-        extra_fields.extend([
-            Field("grid_dim", cell_data=True),
-            Field("cell_id", cell_data=True),
-            Field("grid_edge_number", cell_data=True),
-            Field("is_mortar", cell_data=True),
-            Field("mortar_side", cell_data=True),
-        ])
+        extra_fields.extend(
+            [
+                Field("grid_dim", cell_data=True),
+                Field("cell_id", cell_data=True),
+                Field("grid_edge_number", cell_data=True),
+                Field("is_mortar", cell_data=True),
+                Field("mortar_side", cell_data=True),
+            ]
+        )
         self.gb.add_edge_props(extra_fields.names())
         for _, d in self.gb.edges():
             d["grid_dim"] = {}
@@ -566,9 +578,9 @@ class Exporter:
             for field in fields:
                 if field.values is None:
                     continue
-                dataVTK = ns.numpy_to_vtk(field.values,
-                                          deep = True,
-                                          array_type=field.dtype())
+                dataVTK = ns.numpy_to_vtk(
+                    field.values, deep=True, array_type=field.dtype()
+                )
                 dataVTK.SetName(field.name)
                 dataVTK.SetNumberOfComponents(field.num_components)
 

@@ -37,8 +37,8 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -70,8 +70,8 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -106,8 +106,8 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -200,8 +200,8 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -258,9 +258,9 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
+        self.assertTrue(np.allclose(M, M.T, rtol, atol))
         # We test only the mass-Hdiv part
-        assert np.allclose(M, M_known, rtol, atol)
+        self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -301,9 +301,9 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
+        self.assertTrue(np.allclose(M, M.T, rtol, atol))
         # We test only the mass-Hdiv part
-        assert np.allclose(M, M_known, rtol, atol)
+        self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -330,8 +330,8 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-14
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -360,8 +360,8 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -397,8 +397,8 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
     # ------------------------------------------------------------------------------#
 
@@ -427,8 +427,8 @@ class BasicsTest(unittest.TestCase):
 
         rtol = 1e-15
         atol = rtol
-        assert np.allclose(M, M.T, rtol, atol)
-        assert np.allclose(M, M_known, rtol, atol)
+        self.assertTrue(np.allclose(M, M.T, rtol, atol))
+        self.assertTrue(np.allclose(M, M_known, rtol, atol))
 
 
 # ------------------------------------------------------------------------------#

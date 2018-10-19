@@ -37,7 +37,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         f.p[0] -= 2
         network = FractureNetwork([f])
         network.impose_external_boundary(self.domain)
-        assert len(network._fractures) == (0 + 6)
+        self.assertTrue(len(network._fractures) == (0 + 6))
 
     def test_outside_west_bottom(self):
         self.setup()
@@ -46,7 +46,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         f.p[2] -= 1.5
         network = FractureNetwork([f])
         network.impose_external_boundary(self.domain)
-        assert len(network._fractures) == (0 + 6)
+        self.assertTrue(len(network._fractures) == (0 + 6))
 
     def test_intersect_one(self):
         self.setup()
@@ -58,9 +58,9 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         p_known = np.array(
             [[0., 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
         )
-        assert len(network._fractures) == (1 + 6)
+        self.assertTrue(len(network._fractures) == (1 + 6))
         p_comp = network._fractures[0].p
-        assert self._arrays_equal(p_known, p_comp)
+        self.assertTrue(self._arrays_equal(p_known, p_comp))
 
     def test_intersect_two_same(self):
         self.setup()
@@ -70,9 +70,9 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         network = FractureNetwork([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array([[0., 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
-        assert len(network._fractures) == (1 + 6)
+        self.assertTrue(len(network._fractures) == (1 + 6))
         p_comp = network._fractures[0].p
-        assert self._arrays_equal(p_known, p_comp)
+        self.assertTrue(self._arrays_equal(p_known, p_comp))
 
     def test_incline_in_plane(self):
         self.setup()
@@ -84,9 +84,9 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         p_known = np.array(
             [[0., 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0., 0., 0.5, 0.75]]
         )
-        assert len(network._fractures) == (1 + 6)
+        self.assertTrue(len(network._fractures) == (1 + 6))
         p_comp = network._fractures[0].p
-        assert self._arrays_equal(p_known, p_comp)
+        self.assertTrue(self._arrays_equal(p_known, p_comp))
 
     def test_full_incline(self):
         self.setup()
@@ -97,9 +97,9 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         p_known = np.array(
             [[0., 0.5, 0.5, 0], [5. / 6, 5. / 6, 1, 1], [0., 0., 0.25, 0.25]]
         )
-        assert len(network._fractures) == (1 + 6)
+        self.assertTrue(len(network._fractures) == (1 + 6))
         p_comp = network._fractures[0].p
-        assert self._arrays_equal(p_known, p_comp)
+        self.assertTrue(self._arrays_equal(p_known, p_comp))
 
     if __name__ == "__main__":
         unittest.main()

@@ -52,12 +52,12 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        assert np.allclose(p, np.zeros_like(p))
+        self.assertTrue(np.allclose(p, np.zeros_like(p)))
 
         bound_p = data["bound_pressure_cell"] * p + data[
             "bound_pressure_face"
         ] * np.zeros(g.num_faces)
-        assert np.allclose(bound_p, np.zeros_like(bound_p))
+        self.assertTrue(np.allclose(bound_p, np.zeros_like(bound_p)))
 
     def test_constant_pressure(self):
         g = self.grid()
@@ -77,10 +77,10 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        assert np.allclose(p, np.ones_like(p))
+        self.assertTrue(np.allclose(p, np.ones_like(p)))
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], bc_val[bf])
+        self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_constant_pressure_simplex_grid(self):
         g = self.simplex_grid()
@@ -100,10 +100,10 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        assert np.allclose(p, np.ones_like(p))
+        self.assertTrue(np.allclose(p, np.ones_like(p)))
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], bc_val[bf])
+        self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_linear_pressure_dirichlet_conditions(self):
         g = self.grid()
@@ -124,7 +124,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         p = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], bc_val[bf])
+        self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_linear_pressure_part_neumann_conditions(self):
         g = self.grid()
@@ -149,7 +149,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         p = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], -g.face_centers[0, bf])
+        self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
     def test_linear_pressure_part_neumann_conditions_small_domain(self):
         g = self.grid(physdims=[1, 1])
@@ -174,7 +174,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         p = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], -2 * g.face_centers[0, bf])
+        self.assertTrue(np.allclose(bound_p[bf], -2 * g.face_centers[0, bf]))
 
     def test_linear_pressure_part_neumann_conditions_reverse_sign(self):
         g = self.grid()
@@ -199,7 +199,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         p = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], g.face_centers[0, bf])
+        self.assertTrue(np.allclose(bound_p[bf], g.face_centers[0, bf]))
 
     def test_linear_pressure_part_neumann_conditions_smaller_domain(self):
         # Smaller domain, check that the smaller pressure gradient is captured
@@ -226,7 +226,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         p = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], -g.face_centers[0, bf])
+        self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
     def test_sign_trouble_two_neumann_sides(self):
         g = CartGrid(np.array([2, 2]), physdims=[2, 2])
@@ -244,8 +244,8 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         x = g.cell_centers[0]
 
         bound_p = d["bound_pressure_cell"] * x + d["bound_pressure_face"] * bv
-        assert bound_p[0] == x[0] - 0.5
-        assert bound_p[2] == x[1] + 0.5
+        self.assertTrue(bound_p[0] == x[0] - 0.5)
+        self.assertTrue(bound_p[2] == x[1] + 0.5)
 
 
 class TestMpfaBoundaryPressure(unittest.TestCase):
@@ -275,12 +275,12 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        assert np.allclose(p, np.zeros_like(p))
+        self.assertTrue(np.allclose(p, np.zeros_like(p)))
 
         bound_p = data["bound_pressure_cell"] * p + data[
             "bound_pressure_face"
         ] * np.zeros(g.num_faces)
-        assert np.allclose(bound_p, np.zeros_like(bound_p))
+        self.assertTrue(np.allclose(bound_p, np.zeros_like(bound_p)))
 
     def test_constant_pressure(self):
         g = self.grid()
@@ -300,10 +300,10 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        assert np.allclose(p, np.ones_like(p))
+        self.assertTrue(np.allclose(p, np.ones_like(p)))
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], bc_val[bf])
+        self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_constant_pressure_simplex_grid(self):
         g = self.simplex_grid()
@@ -323,10 +323,10 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        assert np.allclose(p, np.ones_like(p))
+        self.assertTrue(np.allclose(p, np.ones_like(p)))
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], bc_val[bf])
+        self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_linear_pressure_dirichlet_conditions(self):
         g = self.grid()
@@ -347,7 +347,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         p = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], bc_val[bf])
+        self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_linear_pressure_part_neumann_conditions(self):
         g = self.grid()
@@ -374,7 +374,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         p = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], -g.face_centers[0, bf])
+        self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
     def test_linear_pressure_part_neumann_conditions_reverse_sign(self):
         g = self.grid()
@@ -399,7 +399,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         p = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], g.face_centers[0, bf])
+        self.assertTrue(np.allclose(bound_p[bf], g.face_centers[0, bf]))
 
     def test_linear_pressure_part_neumann_conditions_smaller_domain(self):
         # Smaller domain, check that the smaller pressure gradient is captured
@@ -426,7 +426,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         p = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], -g.face_centers[0, bf])
+        self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
     def test_linear_pressure_dirichlet_conditions_perturbed_grid(self):
         g = self.grid()
@@ -449,7 +449,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         p = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * p + data["bound_pressure_face"] * bc_val
-        assert np.allclose(bound_p[bf], bc_val[bf])
+        self.assertTrue(np.allclose(bound_p[bf], bc_val[bf]))
 
     def test_sign_trouble_two_neumann_sides(self):
         g = CartGrid(np.array([2, 2]), physdims=[2, 2])
@@ -468,8 +468,8 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         x = g.cell_centers[0]
 
         bound_p = d["bound_pressure_cell"] * x + d["bound_pressure_face"] * bv
-        assert bound_p[0] == x[0] - 0.5
-        assert bound_p[2] == x[1] + 0.5
+        self.assertTrue(bound_p[0] == x[0] - 0.5)
+        self.assertTrue(bound_p[2] == x[1] + 0.5)
 
     def test_structured_simplex_linear_flow(self):
         g = self.simplex_grid()
@@ -502,7 +502,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         x = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * x + data["bound_pressure_face"] * bv
-        assert np.allclose(bound_p[bf], -g.face_centers[0, bf])
+        self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
     def test_structured_simplex_linear_flow_reverse_sign(self):
         g = self.simplex_grid()
@@ -535,10 +535,10 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         x = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * x + data["bound_pressure_face"] * bv
-        assert np.allclose(bound_p[bf], g.face_centers[0, bf])
+        self.assertTrue(np.allclose(bound_p[bf], g.face_centers[0, bf]))
 
 
-class TestMpfaSimplexGrid:
+class TestMpfaSimplexGrid(unittest.TestCase):
     def grid(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
@@ -580,7 +580,7 @@ class TestMpfaSimplexGrid:
         x = spl.spsolve(A, b)
 
         bound_p = data["bound_pressure_cell"] * x + data["bound_pressure_face"] * bv
-        assert np.allclose(bound_p[bf], -g.face_centers[0, bf])
+        self.assertTrue(np.allclose(bound_p[bf], -g.face_centers[0, bf]))
 
 
 if __name__ == "__main__":

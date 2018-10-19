@@ -18,8 +18,10 @@ class MpsaTest(unittest.TestCase):
             solver = mpsa.Mpsa()
             data = {"param": Parameters(g)}
             A, b = solver.matrix_rhs(g, data)
-            assert np.all(A.shape == (g.dim * g.num_cells, g.dim * g.num_cells))
-            assert b.size == g.dim * g.num_cells
+            self.assertTrue(
+                np.all(A.shape == (g.dim * g.num_cells, g.dim * g.num_cells))
+            )
+            self.assertTrue(b.size == g.dim * g.num_cells)
 
     def test_matrix_rhs_no_disc(self):
         g_list = setup_grids.setup_2d()
@@ -32,5 +34,5 @@ class MpsaTest(unittest.TestCase):
             data["stress"] = sps.csc_matrix((face_dof, cell_dof))
             data["bound_stress"] = sps.csc_matrix((face_dof, face_dof))
             A, b = solver.matrix_rhs(g, data, discretize=False)
-            assert np.sum(A != 0) == 0
-            assert np.all(b == 0)
+            self.assertTrue(np.sum(A != 0) == 0)
+            self.assertTrue(np.all(b == 0))

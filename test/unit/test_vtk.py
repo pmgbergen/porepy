@@ -39,7 +39,7 @@ class BasicsTest(unittest.TestCase):
         with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
 
-        assert content == self._single_grid_1d_grid_vtu()
+        self.assertTrue(content == self._single_grid_1d_grid_vtu())
 
     # ------------------------------------------------------------------------------#
 
@@ -60,7 +60,7 @@ class BasicsTest(unittest.TestCase):
 
         with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
-        assert content == self._single_grid_2d_simplex_grid_vtu()
+        self.assertTrue(content == self._single_grid_2d_simplex_grid_vtu())
 
     # ------------------------------------------------------------------------------#
 
@@ -81,7 +81,7 @@ class BasicsTest(unittest.TestCase):
 
         with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
-        assert content == self._single_grid_2d_cart_grid_vtu()
+        self.assertTrue(content == self._single_grid_2d_cart_grid_vtu())
 
     # ------------------------------------------------------------------------------#
 
@@ -104,7 +104,7 @@ class BasicsTest(unittest.TestCase):
 
         with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
-        assert content == self._single_grid_2d_polytop_grid_vtu()
+        self.assertTrue(content == self._single_grid_2d_polytop_grid_vtu())
 
     # ------------------------------------------------------------------------------#
 
@@ -125,7 +125,7 @@ class BasicsTest(unittest.TestCase):
 
         with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
-        assert content == self._single_grid_3d_simplex_grid_vtu()
+        self.assertTrue(content == self._single_grid_3d_simplex_grid_vtu())
 
     # ------------------------------------------------------------------------------#
 
@@ -146,7 +146,7 @@ class BasicsTest(unittest.TestCase):
 
         with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
-        assert content == self._single_grid_3d_cart_grid_vtu()
+        self.assertTrue(content == self._single_grid_3d_cart_grid_vtu())
 
     # ------------------------------------------------------------------------------#
 
@@ -171,7 +171,7 @@ class BasicsTest(unittest.TestCase):
 
         with open(folder + file_name + ".vtu", "r") as content_file:
             content = content_file.read()
-        assert content == self._single_grid_3d_polytop_grid_vtu()
+        self.assertTrue(content == self._single_grid_3d_polytop_grid_vtu())
 
     # ------------------------------------------------------------------------------#
 
@@ -196,21 +196,21 @@ class BasicsTest(unittest.TestCase):
 
         with open(folder + file_name + ".pvd", "r") as content_file:
             content = content_file.read()
-        assert content == self._gb_1_grid_pvd()
+        self.assertTrue(content == self._gb_1_grid_pvd())
 
         with open(folder + file_name + "_1.vtu", "r") as content_file:
             content = content_file.read()
-        assert content == self._gb_1_grid_1_vtu()
+        self.assertTrue(content == self._gb_1_grid_1_vtu())
 
         with open(folder + file_name + "_2.vtu", "r") as content_file:
             content = content_file.read()
-        assert content == self._gb_1_grid_2_vtu()
+        self.assertTrue(content == self._gb_1_grid_2_vtu())
 
-        with open(folder+"grid_mortar_1.vtu", "r") as content_file:
+        with open(folder + "grid_mortar_1.vtu", "r") as content_file:
             content = content_file.read()
-        assert content == self._gb_1_mortar_grid_vtu()
+        self.assertTrue(content == self._gb_1_mortar_grid_vtu())
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def test_gb_2(self):
         if not if_vtk:
@@ -234,22 +234,22 @@ class BasicsTest(unittest.TestCase):
 
         with open(folder + file_name + ".pvd", "r") as content_file:
             content = content_file.read()
-        assert content == self._gb_2_grid_pvd()
+        self.assertTrue(content == self._gb_2_grid_pvd())
 
         with open(folder + file_name + "_1.vtu", "r") as content_file:
             content = content_file.read()
-        assert content == self._gb_2_grid_1_vtu()
+        self.assertTrue(content == self._gb_2_grid_1_vtu())
 
         with open(folder + file_name + "_2.vtu", "r") as content_file:
             content = content_file.read()
         print(content)
-        assert content == self._gb_2_grid_2_vtu()
+        self.assertTrue(content == self._gb_2_grid_2_vtu())
 
-        with open(folder+"grid_mortar_1.vtu", "r") as content_file:
+        with open(folder + "grid_mortar_1.vtu", "r") as content_file:
             content = content_file.read()
-        assert content == self._gb_2_mortar_grid_1_vtu()
+        self.assertTrue(content == self._gb_2_mortar_grid_1_vtu())
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _single_grid_1d_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -2388,7 +2388,7 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _gb_1_mortar_grid_vtu(self):
         return """<?xml version="1.0"?>
@@ -2448,7 +2448,7 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _gb_2_grid_pvd(self):
         return """<?xml version="1.0"?>
@@ -2622,7 +2622,7 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def _gb_2_mortar_grid_1_vtu(self):
         return """<?xml version="1.0"?>
@@ -2688,8 +2688,9 @@ class BasicsTest(unittest.TestCase):
 </VTKFile>
 """
 
-#------------------------------------------------------------------------------#
 
-if __name__ == '__main__':
+# ------------------------------------------------------------------------------#
+
+if __name__ == "__main__":
     BasicsTest().test_gb_2()
     unittest.main()

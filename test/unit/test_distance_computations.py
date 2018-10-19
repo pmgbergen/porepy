@@ -15,15 +15,15 @@ class TestSegmentDistance(unittest.TestCase):
     def test_segment_no_intersect_2d(self):
         p00, p10, p11, p01 = self.setup_2d_unit_square()
         d, _, _ = cg.dist_two_segments(p00, p01, p11, p10)
-        assert d == 1
+        self.assertTrue(d == 1)
 
     def test_segment_intersect_2d(self):
         p00, p10, p11, p01 = self.setup_2d_unit_square()
         d, cp_1, cp_2 = cg.dist_two_segments(p00, p11, p10, p01)
-        assert d == 0
+        self.assertTrue(d == 0)
 
-        assert np.allclose(cp_1, np.array([0.5, 0.5]))
-        assert np.allclose(cp_2, np.array([0.5, 0.5]))
+        self.assertTrue(np.allclose(cp_1, np.array([0.5, 0.5])))
+        self.assertTrue(np.allclose(cp_2, np.array([0.5, 0.5])))
 
     def test_line_passing(self):
         # Lines not crossing
@@ -32,9 +32,9 @@ class TestSegmentDistance(unittest.TestCase):
         p3 = np.array([2, -1])
         p4 = np.array([2, 1])
         d, cp1, cp2 = cg.dist_two_segments(p1, p2, p3, p4)
-        assert d == 1
-        assert np.allclose(cp1, np.array([1, 0]))
-        assert np.allclose(cp2, np.array([2, 0]))
+        self.assertTrue(d == 1)
+        self.assertTrue(np.allclose(cp1, np.array([1, 0])))
+        self.assertTrue(np.allclose(cp2, np.array([2, 0])))
 
     def test_share_point(self):
         # Two lines share a point
@@ -42,9 +42,9 @@ class TestSegmentDistance(unittest.TestCase):
         p2 = np.array([0, 1])
         p3 = np.array([1, 1])
         d, cp1, cp2 = cg.dist_two_segments(p1, p2, p2, p3)
-        assert d == 0
-        assert np.allclose(cp1, p2)
-        assert np.allclose(cp2, p2)
+        self.assertTrue(d == 0)
+        self.assertTrue(np.allclose(cp1, p2))
+        self.assertTrue(np.allclose(cp2, p2))
 
     def test_intersection_3d(self):
         p000 = np.array([0, 0, 0])
@@ -52,9 +52,9 @@ class TestSegmentDistance(unittest.TestCase):
         p100 = np.array([1, 0, 0])
         p011 = np.array([0, 1, 1])
         d, cp1, cp2 = cg.dist_two_segments(p000, p111, p100, p011)
-        assert d == 0
-        assert np.allclose(cp1, np.array([0.5, 0.5, 0.5]))
-        assert np.allclose(cp2, np.array([0.5, 0.5, 0.5]))
+        self.assertTrue(d == 0)
+        self.assertTrue(np.allclose(cp1, np.array([0.5, 0.5, 0.5])))
+        self.assertTrue(np.allclose(cp2, np.array([0.5, 0.5, 0.5])))
 
     def test_changed_order_3d(self):
         # The order of the start and endpoints of the segments should not matter
@@ -67,19 +67,19 @@ class TestSegmentDistance(unittest.TestCase):
         d3, cp31, cp32 = cg.dist_two_segments(p1, p2, p4, p3)
         d4, cp41, cp42 = cg.dist_two_segments(p2, p1, p4, p3)
         d5, cp51, cp52 = cg.dist_two_segments(p4, p3, p2, p1)
-        assert np.allclose(d1, d2)
-        assert np.allclose(d1, d3)
-        assert np.allclose(d1, d4)
-        assert np.allclose(d1, d5)
+        self.assertTrue(np.allclose(d1, d2))
+        self.assertTrue(np.allclose(d1, d3))
+        self.assertTrue(np.allclose(d1, d4))
+        self.assertTrue(np.allclose(d1, d5))
 
-        assert np.allclose(cp11, cp21)
-        assert np.allclose(cp31, cp11)
-        assert np.allclose(cp41, cp11)
-        assert np.allclose(cp52, cp11)
-        assert np.allclose(cp12, cp22)
-        assert np.allclose(cp12, cp32)
-        assert np.allclose(cp12, cp42)
-        assert np.allclose(cp12, cp51)
+        self.assertTrue(np.allclose(cp11, cp21))
+        self.assertTrue(np.allclose(cp31, cp11))
+        self.assertTrue(np.allclose(cp41, cp11))
+        self.assertTrue(np.allclose(cp52, cp11))
+        self.assertTrue(np.allclose(cp12, cp22))
+        self.assertTrue(np.allclose(cp12, cp32))
+        self.assertTrue(np.allclose(cp12, cp42))
+        self.assertTrue(np.allclose(cp12, cp51))
 
 
 class TestDistancePointSet(unittest.TestCase):
@@ -88,30 +88,30 @@ class TestDistancePointSet(unittest.TestCase):
         d = cg.dist_pointset(p)
         s2 = np.sqrt(2)
         known = np.array([[0, 1, s2, 1], [1, 0, 1, s2], [s2, 1, 0, 1], [1, s2, 1, 0]])
-        assert np.allclose(d, known)
+        self.assertTrue(np.allclose(d, known))
 
     def test_3d(self):
         p = np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0]]).T
         d = cg.dist_pointset(p)
         known = np.array([[0, 1, 1], [1, 0, np.sqrt(2)], [1, np.sqrt(2), 0]])
-        assert np.allclose(d, known)
+        self.assertTrue(np.allclose(d, known))
 
     def test_zero_diagonal(self):
         sz = 5
         p = np.random.rand(3, sz)
         d = cg.dist_pointset(p)
-        assert np.allclose(np.diagonal(d), np.zeros(sz))
+        self.assertTrue(np.allclose(np.diagonal(d), np.zeros(sz)))
 
     def test_symmetry(self):
         p = np.random.rand(3, 7)
         d = cg.dist_pointset(p)
-        assert np.allclose(d, d.T)
+        self.assertTrue(np.allclose(d, d.T))
 
     def test_single_point(self):
         p = np.random.rand(2)
         d = cg.dist_pointset(p)
-        assert d.shape == (1, 1)
-        assert d[0, 0] == 0
+        self.assertTrue(d.shape == (1, 1))
+        self.assertTrue(d[0, 0] == 0)
 
 
 class TestDistancePointSegments(unittest.TestCase):
@@ -122,8 +122,8 @@ class TestDistancePointSegments(unittest.TestCase):
 
         d, cp = cg.dist_points_segments(p, start, end)
 
-        assert d[0, 0] == 1
-        assert np.allclose(cp[0, 0, :], np.array([1, 0]))
+        self.assertTrue(d[0, 0] == 1)
+        self.assertTrue(np.allclose(cp[0, 0, :], np.array([1, 0])))
 
     def test_many_points_single_segment(self):
         p = np.array([[0, 1], [1, 1], [1.5, 1], [2, 1], [3, 1]]).T
@@ -132,14 +132,14 @@ class TestDistancePointSegments(unittest.TestCase):
 
         d, cp = cg.dist_points_segments(p, start, end)
 
-        assert d.shape[0] == 5
-        assert d.shape[1] == 1
+        self.assertTrue(d.shape[0] == 5)
+        self.assertTrue(d.shape[1] == 1)
 
         known_d = np.array([np.sqrt(2), 1, 1, 1, np.sqrt(2)]).reshape((-1, 1))
-        assert np.allclose(d, known_d)
+        self.assertTrue(np.allclose(d, known_d))
 
         known_cp = np.array([[[1, 0]], [[1, 0]], [[1.5, 0]], [[2, 0]], [[2, 0]]])
-        assert np.allclose(cp, known_cp)
+        self.assertTrue(np.allclose(cp, known_cp))
 
     def test_single_point_many_segments(self):
         p = np.array([1, 1])
@@ -148,14 +148,14 @@ class TestDistancePointSegments(unittest.TestCase):
 
         d, cp = cg.dist_points_segments(p, start, end)
 
-        assert d.shape[0] == 1
-        assert d.shape[1] == 3
+        self.assertTrue(d.shape[0] == 1)
+        self.assertTrue(d.shape[1] == 3)
 
         known_d = np.array([1, 0, 1])
-        assert np.allclose(d[0], known_d)
+        self.assertTrue(np.allclose(d[0], known_d))
 
         known_cp = np.array([[[1, 0], [1, 1], [1, 2]]])
-        assert np.allclose(cp, known_cp)
+        self.assertTrue(np.allclose(cp, known_cp))
 
     def test_many_points_and_segments(self):
         p = np.array([[0, 0, 0], [1, 0, 0]]).T
@@ -165,14 +165,14 @@ class TestDistancePointSegments(unittest.TestCase):
 
         d, cp = cg.dist_points_segments(p, start, end)
 
-        assert d.shape[0] == 2
-        assert d.shape[1] == 2
+        self.assertTrue(d.shape[0] == 2)
+        self.assertTrue(d.shape[1] == 2)
 
         known_d = np.array([[0, np.sqrt(2)], [1, np.sqrt(2)]])
-        assert np.allclose(d, known_d)
+        self.assertTrue(np.allclose(d, known_d))
 
         known_cp = np.array([[[0, 0, 0], [0, 1, 1]], [[0, 0, 0], [1, 1, 1]]])
-        assert np.allclose(cp, known_cp)
+        self.assertTrue(np.allclose(cp, known_cp))
 
     def test_point_closest_segment_end(self):
         p = np.array([0, 0])
@@ -182,10 +182,10 @@ class TestDistancePointSegments(unittest.TestCase):
         d, cp = cg.dist_points_segments(p, start, end)
 
         known_d = np.array([1, np.sqrt(2)])
-        assert np.allclose(d[0], known_d)
+        self.assertTrue(np.allclose(d[0], known_d))
 
         known_cp = np.array([[[1, 0], [1, 1]]])
-        assert np.allclose(cp, known_cp)
+        self.assertTrue(np.allclose(cp, known_cp))
 
     def test_flipped_lines(self):
         p = np.array([0, 0])
@@ -194,10 +194,10 @@ class TestDistancePointSegments(unittest.TestCase):
 
         d, cp = cg.dist_points_segments(p, start, end)
         known_d = np.array([1, 1])
-        assert np.allclose(d[0], known_d)
+        self.assertTrue(np.allclose(d[0], known_d))
 
         known_cp = np.array([[[1, 0], [1, 0]]])
-        assert np.allclose(cp, known_cp)
+        self.assertTrue(np.allclose(cp, known_cp))
 
 
 class TestDistancePointPolygon(unittest.TestCase):
@@ -230,8 +230,8 @@ class TestDistancePointPolygon(unittest.TestCase):
             ]
         ).T
 
-        assert np.allclose(d, known_d)
-        assert np.allclose(cp, known_cp)
+        self.assertTrue(np.allclose(d, known_d))
+        self.assertTrue(np.allclose(cp, known_cp))
 
     def test_rot_poly(self):
         poly = np.array([[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]]).T
@@ -263,8 +263,8 @@ class TestDistancePointPolygon(unittest.TestCase):
             ]
         ).T
 
-        assert np.allclose(d, known_d)
-        assert np.allclose(cp, known_cp)
+        self.assertTrue(np.allclose(d, known_d))
+        self.assertTrue(np.allclose(cp, known_cp))
 
 
 class TestDistanceSegmentPolygon(unittest.TestCase):
@@ -279,8 +279,8 @@ class TestDistanceSegmentPolygon(unittest.TestCase):
         known_d = np.array([0])
         known_cp = np.array([0.5, 0.5, 0]).reshape((-1, 1))
 
-        assert np.allclose(d, known_d)
-        assert np.allclose(cp, known_cp)
+        self.assertTrue(np.allclose(d, known_d))
+        self.assertTrue(np.allclose(cp, known_cp))
 
     def test_segment_no_intersection_intersect_extrusion__no_rot(self):
         p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
@@ -293,8 +293,8 @@ class TestDistanceSegmentPolygon(unittest.TestCase):
         known_d = np.array([1])
         known_cp = np.array([0.5, 0.5, 0]).reshape((-1, 1))
 
-        assert np.allclose(d, known_d)
-        assert np.allclose(cp, known_cp)
+        self.assertTrue(np.allclose(d, known_d))
+        self.assertTrue(np.allclose(cp, known_cp))
 
     def test_segment_intersects_in_endpoint_no_rot(self):
         p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
@@ -307,8 +307,8 @@ class TestDistanceSegmentPolygon(unittest.TestCase):
         known_d = np.array([0])
         known_cp = np.array([0.5, 0.5, 0]).reshape((-1, 1))
 
-        assert np.allclose(d, known_d)
-        assert np.allclose(cp, known_cp)
+        self.assertTrue(np.allclose(d, known_d))
+        self.assertTrue(np.allclose(cp, known_cp))
 
     def test_segment_no_intersection_no_rot(self):
         p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
@@ -321,8 +321,8 @@ class TestDistanceSegmentPolygon(unittest.TestCase):
         known_d = np.array([0.5])
         known_cp = np.array([1.5, 0.5, 0]).reshape((-1, 1))
 
-        assert np.allclose(d, known_d)
-        assert np.allclose(cp, known_cp)
+        self.assertTrue(np.allclose(d, known_d))
+        self.assertTrue(np.allclose(cp, known_cp))
 
     def test_segment_in_polygon(self):
         p = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
@@ -334,8 +334,8 @@ class TestDistanceSegmentPolygon(unittest.TestCase):
 
         known_d = np.array([0])
 
-        assert np.allclose(d, known_d)
-        assert cp[2] == 0  # x and y coordinate of closest point is not clear
+        self.assertTrue(np.allclose(d, known_d))
+        self.assertTrue(cp[2] == 0)  # x and y coordinate of closest point is not clear
         # in this case
 
     def test_segment_parallel_polygon(self):
@@ -348,8 +348,8 @@ class TestDistanceSegmentPolygon(unittest.TestCase):
 
         known_d = np.array([1])
 
-        assert np.allclose(d, known_d)
-        assert cp[2] == 0  # x and y coordinate of closest point is not clear
+        self.assertTrue(np.allclose(d, known_d))
+        self.assertTrue(cp[2] == 0)  # x and y coordinate of closest point is not clear
         # in this case
 
     def test_segment_parallel_polygon_extends_outside_both_sides(self):
@@ -362,8 +362,8 @@ class TestDistanceSegmentPolygon(unittest.TestCase):
 
         known_d = np.array([0])
 
-        assert np.allclose(d, known_d)
-        assert cp[2] == 0  # x and y coordinate of closest point is not clear
+        self.assertTrue(np.allclose(d, known_d))
+        self.assertTrue(cp[2] == 0)  # x and y coordinate of closest point is not clear
         # in this case
 
     def test_segment_parallel_polygon_extends_outside_intersection(self):
@@ -376,8 +376,8 @@ class TestDistanceSegmentPolygon(unittest.TestCase):
 
         known_d = np.array([0])
 
-        assert np.allclose(d, known_d)
-        assert cp[2] == 0  # x and y coordinate of closest point is not clear
+        self.assertTrue(np.allclose(d, known_d))
+        self.assertTrue(cp[2] == 0)  # x and y coordinate of closest point is not clear
         # in this case
 
     def test_segment_parallel_polygon_extends_outside_no_intersection(self):
@@ -390,8 +390,8 @@ class TestDistanceSegmentPolygon(unittest.TestCase):
 
         known_d = np.array([1])
 
-        assert np.allclose(d, known_d)
-        assert cp[2] == 0  # x and y coordinate of closest point is not clear
+        self.assertTrue(np.allclose(d, known_d))
+        self.assertTrue(cp[2] == 0)  # x and y coordinate of closest point is not clear
         # in this case
 
 

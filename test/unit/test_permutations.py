@@ -19,9 +19,9 @@ class TestPermutations(unittest.TestCase):
                 if np.array_equal(np.array(a), np.array(b)):
                     found = True
                     break
-            assert found
+            self.assertTrue(found)
             iter_cnt += 1
-        assert iter_cnt == len(lst)
+        self.assertTrue(iter_cnt == len(lst))
 
     def test_length_2(self):
         # Explicitly construct a 2D array of all combination of base 3

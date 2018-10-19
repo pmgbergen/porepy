@@ -18,8 +18,8 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
         known_faces = np.array([14, 15, 42, 47])
 
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_2d, nodes=n)
-        assert np.allclose(known_cells, cell_ind)
-        assert np.allclose(known_faces, face_ind)
+        self.assertTrue(np.allclose(known_cells, cell_ind))
+        self.assertTrue(np.allclose(known_faces, face_ind))
 
     def test_node_based_ind_2d_bound(self):
         # Nodes of cell 1
@@ -29,8 +29,8 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
 
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_2d, nodes=n)
 
-        assert np.alltrue(known_cells == cell_ind)
-        assert np.alltrue(known_faces == face_ind)
+        self.assertTrue(np.alltrue(known_cells == cell_ind))
+        self.assertTrue(np.alltrue(known_faces == face_ind))
 
     def test_node_based_ind_3d(self):
         # Nodes of cell 13 (middle one) - from counting
@@ -41,8 +41,8 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
 
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_3d, nodes=n)
 
-        assert np.alltrue(known_cells == cell_ind)
-        assert np.alltrue(known_faces == face_ind)
+        self.assertTrue(np.alltrue(known_cells == cell_ind))
+        self.assertTrue(np.alltrue(known_faces == face_ind))
 
     def test_node_based_ind_3d_bound(self):
         # Nodes of cell 1
@@ -52,13 +52,13 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
 
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_3d, nodes=n)
 
-        assert np.alltrue(known_cells == cell_ind)
-        assert np.alltrue(known_faces == face_ind)
+        self.assertTrue(np.alltrue(known_cells == cell_ind))
+        self.assertTrue(np.alltrue(known_faces == face_ind))
 
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_3d, nodes=n)
 
-        assert np.alltrue(known_cells == cell_ind)
-        assert np.alltrue(known_faces == face_ind)
+        self.assertTrue(np.alltrue(known_cells == cell_ind))
+        self.assertTrue(np.alltrue(known_faces == face_ind))
 
     def test_cell_based_ind_2d(self):
 
@@ -68,8 +68,8 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
 
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_2d, cells=c)
 
-        assert np.alltrue(known_cells == cell_ind)
-        assert np.alltrue(known_faces == face_ind)
+        self.assertTrue(np.alltrue(known_cells == cell_ind))
+        self.assertTrue(np.alltrue(known_faces == face_ind))
 
     def test_cell_based_ind_3d(self):
         # Use cell 13 (middle one)
@@ -94,8 +94,8 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
 
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_3d, cells=c)
 
-        assert np.alltrue(known_cells == cell_ind)
-        assert np.alltrue(known_faces == face_ind)
+        self.assertTrue(np.alltrue(known_cells == cell_ind))
+        self.assertTrue(np.alltrue(known_faces == face_ind))
 
     def test_cell_based_ind_bound_3d(self):
         c = np.array([1])
@@ -106,8 +106,8 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
         known_faces = np.hstack((fx, fy, fz))
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_3d, cells=c)
 
-        assert np.alltrue(known_cells == cell_ind)
-        assert np.alltrue(known_faces == face_ind)
+        self.assertTrue(np.alltrue(known_cells == cell_ind))
+        self.assertTrue(np.alltrue(known_faces == face_ind))
 
     def test_face_based_ind_2d(self):
 
@@ -120,8 +120,8 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
         known_faces = np.array([8, 14, 20, 41, 42, 46, 47])
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_2d, faces=f)
 
-        assert np.alltrue(known_cells == cell_ind)
-        assert np.alltrue(known_faces == face_ind)
+        self.assertTrue(np.alltrue(known_cells == cell_ind))
+        self.assertTrue(np.alltrue(known_faces == face_ind))
 
     def test_face_based_ind_2d_bound(self):
         f = np.array([2])
@@ -129,8 +129,8 @@ class TestCellIndForPartialUpdate(unittest.TestCase):
         known_faces = np.array([2, 8, 31, 32, 36, 37])
         cell_ind, face_ind = fvutils.cell_ind_for_partial_update(self.g_2d, faces=f)
 
-        assert np.alltrue(known_cells == cell_ind)
-        assert np.alltrue(known_faces == face_ind)
+        self.assertTrue(np.alltrue(known_cells == cell_ind))
+        self.assertTrue(np.alltrue(known_faces == face_ind))
 
     if __name__ == "__main__":
         unittest.main()

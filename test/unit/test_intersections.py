@@ -26,8 +26,8 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
 
         lines_known = np.array([[0, 4, 2, 4], [4, 1, 4, 3], [1, 1, 2, 2], [3, 3, 4, 4]])
 
-        assert np.allclose(new_pts, p_known)
-        assert np.allclose(new_lines, lines_known)
+        self.assertTrue(np.allclose(new_pts, p_known))
+        self.assertTrue(np.allclose(new_lines, lines_known))
 
     def test_lines_no_crossing(self):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
@@ -35,8 +35,8 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         lines = np.array([[0, 1], [2, 3]])
         box = np.array([[2], [2]])
         new_pts, new_lines = cg.remove_edge_crossings(p, lines, box=box)
-        assert np.allclose(new_pts, p)
-        assert np.allclose(new_lines, lines)
+        self.assertTrue(np.allclose(new_pts, p))
+        self.assertTrue(np.allclose(new_lines, lines))
 
     def test_three_lines_no_crossing(self):
         # This test gave an error at some point
@@ -48,8 +48,8 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
 
         new_pts, new_lines = cg.remove_edge_crossings(p, lines, box=box)
         p_known = cg.snap_to_grid(p, box=box)
-        assert np.allclose(new_pts, p_known)
-        assert np.allclose(new_lines, lines)
+        self.assertTrue(np.allclose(new_pts, p_known))
+        self.assertTrue(np.allclose(new_lines, lines))
 
     def test_three_lines_one_crossing(self):
         # This test gave an error at some point
@@ -61,8 +61,8 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p_known = np.hstack((p, np.array([[0.4], [0.4]])))
         p_known = cg.snap_to_grid(p_known, box=box)
         lines_known = np.array([[0, 3], [2, 6], [6, 5], [1, 6], [6, 4]]).T
-        assert np.allclose(new_pts, p_known)
-        assert np.allclose(new_lines, lines_known)
+        self.assertTrue(np.allclose(new_pts, p_known))
+        self.assertTrue(np.allclose(new_lines, lines_known))
 
     def test_split_segment_partly_overlapping(self):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
@@ -74,8 +74,8 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p_known = cg.snap_to_grid(p, box=box)
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
 
-        assert np.allclose(new_pts, p_known)
-        assert np.allclose(new_lines, lines_known)
+        self.assertTrue(np.allclose(new_pts, p_known))
+        self.assertTrue(np.allclose(new_lines, lines_known))
 
     def test_split_segment_partly_overlapping_switched_order(self):
         # Same partly overlapping test, but switch order of edge-point
@@ -90,8 +90,8 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p_known = cg.snap_to_grid(p, box=box)
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
 
-        assert np.allclose(new_pts, p_known)
-        assert np.allclose(new_lines, lines_known)
+        self.assertTrue(np.allclose(new_pts, p_known))
+        self.assertTrue(np.allclose(new_lines, lines_known))
 
     def test_split_segment_fully_overlapping(self):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
@@ -104,8 +104,8 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p_known = cg.snap_to_grid(p, box=box)
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
 
-        assert np.allclose(new_pts, p_known)
-        assert np.allclose(new_lines, lines_known)
+        self.assertTrue(np.allclose(new_pts, p_known))
+        self.assertTrue(np.allclose(new_lines, lines_known))
 
     def test_split_segment_fully_overlapping_switched_order(self):
         p = np.array([[0, 1, 2, 3], [0, 0, 0, 0]])
@@ -118,8 +118,8 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         p_known = cg.snap_to_grid(p, box=box)
         lines_known = np.array([[0, 1], [1, 2], [2, 3]]).T
 
-        assert np.allclose(new_pts, p_known)
-        assert np.allclose(new_lines, lines_known)
+        self.assertTrue(np.allclose(new_pts, p_known))
+        self.assertTrue(np.allclose(new_lines, lines_known))
 
     if __name__ == "__main__":
         unittest.main()
@@ -133,11 +133,11 @@ class SnapToGridTest(unittest.TestCase):
 
     def test_snapping(self):
         p_snapped = cg.snap_to_grid(self.p, box=self.box, tol=1)
-        assert np.allclose(p_snapped, np.array([1, 1]))
+        self.assertTrue(np.allclose(p_snapped, np.array([1, 1])))
 
     def test_aniso_snapping(self):
         p_snapped = cg.snap_to_grid(self.p, box=self.anisobox, tol=1)
-        assert np.allclose(p_snapped, np.array([0, 1]))
+        self.assertTrue(np.allclose(p_snapped, np.array([0, 1])))
 
     if __name__ == "__main__":
         unittest.main()
@@ -150,7 +150,7 @@ class LinesIntersectTest(unittest.TestCase):
         s1 = np.array([0, 2 / 3])
         e1 = np.array([1, 2 / 3])
         pi = cg.lines_intersect(s0, e0, s1, e1)
-        assert pi is None or len(pi) == 0
+        self.assertTrue(pi is None or len(pi) == 0)
 
     def test_parallel_not_colinear(self):
         s0 = np.array([0, 0])
@@ -159,7 +159,7 @@ class LinesIntersectTest(unittest.TestCase):
         e1 = np.array([1, 1])
 
         pi = cg.lines_intersect(s0, e0, s1, e1)
-        assert pi is None
+        self.assertTrue(pi is None)
 
     def test_colinear_not_intersecting(self):
         s0 = np.array([0, 0])
@@ -168,7 +168,7 @@ class LinesIntersectTest(unittest.TestCase):
         e1 = np.array([3, 0])
 
         pi = cg.lines_intersect(s0, e0, s1, e1)
-        assert pi is None
+        self.assertTrue(pi is None)
 
     def test_partly_overlapping_segments(self):
         s0 = np.array([0, 0])
@@ -177,21 +177,29 @@ class LinesIntersectTest(unittest.TestCase):
         e1 = np.array([3, 0])
 
         pi = cg.lines_intersect(s0, e0, s1, e1)
-        assert (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
-        assert np.allclose(pi[1], 0)
+        self.assertTrue(
+            (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
+        )
+        self.assertTrue(np.allclose(pi[1], 0))
 
         # Then test order of arguments
         pi = cg.lines_intersect(e0, s0, s1, e1)
-        assert (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
-        assert np.allclose(pi[1], 0)
+        self.assertTrue(
+            (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
+        )
+        self.assertTrue(np.allclose(pi[1], 0))
 
         pi = cg.lines_intersect(s0, e0, e1, s1)
-        assert (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
-        assert np.allclose(pi[1], 0)
+        self.assertTrue(
+            (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
+        )
+        self.assertTrue(np.allclose(pi[1], 0))
 
         pi = cg.lines_intersect(e0, s0, e1, s1)
-        assert (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
-        assert np.allclose(pi[1], 0)
+        self.assertTrue(
+            (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
+        )
+        self.assertTrue(np.allclose(pi[1], 0))
 
     def test_fully_overlapping_segments(self):
         s0 = np.array([0, 0])
@@ -200,8 +208,10 @@ class LinesIntersectTest(unittest.TestCase):
         e1 = np.array([2, 0])
 
         pi = cg.lines_intersect(s0, e0, s1, e1)
-        assert (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
-        assert np.allclose(pi[1], 0)
+        self.assertTrue(
+            (pi[0, 0] == 1 and pi[0, 1] == 2) or (pi[0, 0] == 2 and pi[0, 1] == 1)
+        )
+        self.assertTrue(np.allclose(pi[1], 0))
 
     def test_meeting_in_point(self):
         s0 = np.array([0, 0])
@@ -210,7 +220,7 @@ class LinesIntersectTest(unittest.TestCase):
         e1 = np.array([2, 0])
 
         pi = cg.lines_intersect(s0, e0, s1, e1)
-        assert pi[0, 0] == 1 and pi[1, 0] == 0
+        self.assertTrue(pi[0, 0] == 1 and pi[1, 0] == 0)
 
     if __name__ == "__main__":
         unittest.main()

@@ -40,7 +40,7 @@ class BiotTest(unittest.TestCase):
             A, b = discr.matrix_rhs(g, data)
             sol = np.linalg.solve(A.todense(), b)
 
-            assert np.isclose(sol, np.zeros(g.num_cells * (g.dim + 1))).all()
+            self.assertTrue(np.isclose(sol, np.zeros(g.num_cells * (g.dim + 1))).all())
 
     #    def test_uniform_displacement(self):
     #        # Uniform displacement in mechanics (enforced by boundary conditions).
@@ -71,7 +71,7 @@ class BiotTest(unittest.TestCase):
     #            sol = np.linalg.solve(a_biot.todense(), rhs)
     #
     #            sz_mech = g.num_cells * g.dim
-    #            assert np.isclose(sol[:sz_mech],
+    #            self.assertTrue(np.isclose(sol[:sz_mech],)
     #                              const_bound_val_mech * np.ones(sz_mech)).all()
 
     def test_face_vector_to_scalar(self):
@@ -83,7 +83,7 @@ class BiotTest(unittest.TestCase):
         vals = np.ones(6)
         known_matrix = sps.coo_matrix((vals, (rows, cols))).tocsr().toarray()
         a = biot.Biot()._face_vector_to_scalar(3, 2).toarray()
-        assert np.allclose(known_matrix, a)
+        self.assertTrue(np.allclose(known_matrix, a))
 
     if __name__ == "__main__":
         unittest.main()

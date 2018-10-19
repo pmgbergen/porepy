@@ -35,12 +35,12 @@ class TestGridMappings1d(unittest.TestCase):
         side_grids = {pp.grids.mortar_grid.LEFT_SIDE: left_side}
         mg = pp.grids.mortar_grid.BoundaryMortar(0, side_grids, face_faces)
 
-        assert mg.num_cells == 1
-        assert mg.num_sides() == 1
-        assert np.all(mg.left_to_mortar_avg().A == [1, 0, 0])
-        assert np.all(mg.left_to_mortar_int.A == [1, 0, 0])
-        assert np.all(mg.right_to_mortar_avg().A == [0, 0, 1])
-        assert np.all(mg.right_to_mortar_int.A == [0, 0, 1])
+        self.assertTrue(mg.num_cells == 1)
+        self.assertTrue(mg.num_sides() == 1)
+        self.assertTrue(np.all(mg.left_to_mortar_avg().A == [1, 0, 0]))
+        self.assertTrue(np.all(mg.left_to_mortar_int.A == [1, 0, 0]))
+        self.assertTrue(np.all(mg.right_to_mortar_avg().A == [0, 0, 1]))
+        self.assertTrue(np.all(mg.right_to_mortar_int.A == [0, 0, 1]))
 
     def test_merge_two_grid(self):
         """
@@ -62,12 +62,12 @@ class TestGridMappings1d(unittest.TestCase):
 
         mg = pp.grids.mortar_grid.BoundaryMortar(0, side_grids, face_faces)
 
-        assert mg.num_cells == 1
-        assert mg.num_sides() == 1
-        assert np.all(mg.left_to_mortar_avg().A == [0, 1, 0])
-        assert np.all(mg.left_to_mortar_int.A == [0, 1, 0])
-        assert np.all(mg.right_to_mortar_avg().A == [0, 1])
-        assert np.all(mg.right_to_mortar_int.A == [0, 1])
+        self.assertTrue(mg.num_cells == 1)
+        self.assertTrue(mg.num_sides() == 1)
+        self.assertTrue(np.all(mg.left_to_mortar_avg().A == [0, 1, 0]))
+        self.assertTrue(np.all(mg.left_to_mortar_int.A == [0, 1, 0]))
+        self.assertTrue(np.all(mg.right_to_mortar_avg().A == [0, 1]))
+        self.assertTrue(np.all(mg.right_to_mortar_int.A == [0, 1]))
 
 
 if __name__ == "__main__":

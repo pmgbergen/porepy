@@ -19,17 +19,17 @@ class TestGridPerturbation(unittest.TestCase):
     def test_grid_perturbation_1d_bound_nodes_fixed(self):
         g = TensorGrid(np.array([0, 1, 2]))
         h = refinement.distort_grid_1d(g)
-        assert np.allclose(g.nodes[:, [0, 2]], h.nodes[:, [0, 2]])
+        self.assertTrue(np.allclose(g.nodes[:, [0, 2]], h.nodes[:, [0, 2]]))
 
     def test_grid_perturbation_1d_internal_and_bound_nodes_fixed(self):
         g = TensorGrid(np.arange(4))
         h = refinement.distort_grid_1d(g, fixed_nodes=[0, 1, 3])
-        assert np.allclose(g.nodes[:, [0, 1, 3]], h.nodes[:, [0, 1, 3]])
+        self.assertTrue(np.allclose(g.nodes[:, [0, 1, 3]], h.nodes[:, [0, 1, 3]]))
 
     def test_grid_perturbation_1d_internal_nodes_fixed(self):
         g = TensorGrid(np.arange(4))
         h = refinement.distort_grid_1d(g, fixed_nodes=[1])
-        assert np.allclose(g.nodes[:, [0, 1, 3]], h.nodes[:, [0, 1, 3]])
+        self.assertTrue(np.allclose(g.nodes[:, [0, 1, 3]], h.nodes[:, [0, 1, 3]]))
 
 
 class TestGridRefinement1d(unittest.TestCase):
@@ -37,21 +37,23 @@ class TestGridRefinement1d(unittest.TestCase):
         x = np.array([0, 2, 4])
         g = TensorGrid(x)
         h = refinement.refine_grid_1d(g, ratio=2)
-        assert np.allclose(h.nodes[0], np.arange(5))
+        self.assertTrue(np.allclose(h.nodes[0], np.arange(5)))
 
     def test_refinement_grid_1d_non_uniform(self):
         x = np.array([0, 2, 6])
         g = TensorGrid(x)
         h = refinement.refine_grid_1d(g, ratio=2)
-        assert np.allclose(h.nodes[0], np.array([0, 1, 2, 4, 6]))
+        self.assertTrue(np.allclose(h.nodes[0], np.array([0, 1, 2, 4, 6])))
 
     def test_refinement_grid_1d_general_orientation(self):
         x = np.array([0, 2, 6]) * np.ones((3, 1))
         g = TensorGrid(x[0])
         g.nodes = x
         h = refinement.refine_grid_1d(g, ratio=2)
-        assert np.allclose(
-            h.nodes, np.array([[0, 1, 2, 4, 6], [0, 1, 2, 4, 6], [0, 1, 2, 4, 6]])
+        self.assertTrue(
+            np.allclose(
+                h.nodes, np.array([[0, 1, 2, 4, 6], [0, 1, 2, 4, 6], [0, 1, 2, 4, 6]])
+            )
         )
 
 
@@ -97,7 +99,7 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
     def compare_arrays(self, a1, a2):
         def cmp(a, b):
             for i in range(a.shape[1]):
-                assert (
+                self.assertTrue(
                     np.sum(np.sum((a[:, i].reshape((-1, 1)) - b) ** 2, axis=0) < 1e-5)
                     == 1
                 )
@@ -110,34 +112,34 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
         h, parent = refinement.refine_triangle_grid(g)
         h.compute_geometry()
 
-        assert h.num_cells == 4
-        assert h.num_faces == 9
-        assert h.num_nodes == 6
-        assert h.cell_volumes.sum() == 0.5
-        assert np.allclose(h.cell_volumes, 1 / 8)
+        self.assertTrue(h.num_cells == 4)
+        self.assertTrue(h.num_faces == 9)
+        self.assertTrue(h.num_nodes == 6)
+        self.assertTrue(h.cell_volumes.sum() == 0.5)
+        self.assertTrue(np.allclose(h.cell_volumes, 1 / 8))
 
         known_nodes = np.array([[0, 0.5, 1, 0.5, 0, 0], [0, 0, 0, 0.5, 1, 0.5]])
         self.compare_arrays(h.nodes[:2], known_nodes)
-        assert np.all(parent == 0)
+        self.assertTrue(np.all(parent == 0))
 
     def test_refinement_two_cells(self):
         g = self.TwoCellsGrid()
         h, parent = refinement.refine_triangle_grid(g)
         h.compute_geometry()
 
-        assert h.num_cells == 8
-        assert h.num_faces == 16
-        assert h.num_nodes == 9
-        assert h.cell_volumes.sum() == 1
-        assert np.allclose(h.cell_volumes, 1 / 8)
+        self.assertTrue(h.num_cells == 8)
+        self.assertTrue(h.num_faces == 16)
+        self.assertTrue(h.num_nodes == 9)
+        self.assertTrue(h.cell_volumes.sum() == 1)
+        self.assertTrue(np.allclose(h.cell_volumes, 1 / 8))
 
         known_nodes = np.array(
             [[0, 0.5, 1, 0.5, 0, 0, 1, 1, 0.5], [0, 0, 0, 0.5, 1, 0.5, 0.5, 1, 1]]
         )
         self.compare_arrays(h.nodes[:2], known_nodes)
-        assert np.sum(parent == 0) == 4
-        assert np.sum(parent == 1) == 4
-        assert np.allclose(np.bincount(parent, h.cell_volumes), 0.5)
+        self.assertTrue(np.sum(parent == 0) == 4)
+        self.assertTrue(np.sum(parent == 1) == 4)
+        self.assertTrue(np.allclose(np.bincount(parent, h.cell_volumes), 0.5))
 
 
 # ------------------------------------------------------------------------------#
@@ -170,7 +172,7 @@ class TestRefinementGridBucket(unittest.TestCase):
                             0.  ,  0.,  0.,  0.5,  0.  ]])
 
         for _, d in gb.edges():
-            assert np.allclose(d["face_cells"].todense(), known_face_cells)
+            self.assertTrue(np.allclose(d["face_cells"].todense(), known_face_cells))
 
 #------------------------------------------------------------------------------#
 
@@ -208,7 +210,7 @@ class TestRefinementGridBucket(unittest.TestCase):
                                 0.,  0.,  0.33333333,  0.        ]])
 
         for _, d in gb.edges():
-            assert np.allclose(d["face_cells"].todense(), known_face_cells)
+            self.assertTrue(np.allclose(d["face_cells"].todense(), known_face_cells))
 
 #------------------------------------------------------------------------------#
 
@@ -237,7 +239,7 @@ class TestRefinementGridBucket(unittest.TestCase):
                                 0.,  0.,  0.        ,  0.66666667]])
 
         for _, d in gb.edges():
-            assert np.allclose(d["face_cells"].todense(), known_face_cells)
+            self.assertTrue(np.allclose(d["face_cells"].todense(), known_face_cells))
 
 #------------------------------------------------------------------------------#
 
@@ -275,7 +277,7 @@ class TestRefinementGridBucket(unittest.TestCase):
                  1.        ]])
 
         for _, d in gb.edges():
-            assert np.allclose(d["face_cells"].todense(), known_face_cells)
+            self.assertTrue(np.allclose(d["face_cells"].todense(), known_face_cells))
 """
 
 # ------------------------------------------------------------------------------#
@@ -303,8 +305,12 @@ class TestRefinementMortarGrid(unittest.TestCase):
             low_to_mortar_known = np.matrix([[1., 0.], [0., 1.], [1., 0.], [0., 1.]])
 
             mg = d["mortar_grid"]
-            assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
-            assert np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
+            self.assertTrue(
+                np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            )
+            self.assertTrue(
+                np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
+            )
 
     # ------------------------------------------------------------------------------#
 
@@ -349,8 +355,12 @@ class TestRefinementMortarGrid(unittest.TestCase):
                 )
             )
 
-            assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
-            assert np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
+            self.assertTrue(
+                np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            )
+            self.assertTrue(
+                np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
+            )
 
     # ------------------------------------------------------------------------------#
 
@@ -410,8 +420,12 @@ class TestRefinementMortarGrid(unittest.TestCase):
                 ]
             )
 
-            assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
-            assert np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
+            self.assertTrue(
+                np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            )
+            self.assertTrue(
+                np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
+            )
 
     # ------------------------------------------------------------------------------#
 
@@ -455,13 +469,19 @@ class TestRefinementMortarGrid(unittest.TestCase):
                 ]
             )
 
-            assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            self.assertTrue(
+                np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            )
 
             # The ordering of the cells in the new 1d grid may be flipped on
             # some systems; therefore allow two configurations
-            assert np.logical_or(
-                np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()),
-                np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()[::-1]),
+            self.assertTrue(
+                np.logical_or(
+                    np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()),
+                    np.allclose(
+                        low_to_mortar_known, mg.low_to_mortar_int.todense()[::-1]
+                    ),
+                )
             )
 
     # ------------------------------------------------------------------------------#
@@ -502,12 +522,18 @@ class TestRefinementMortarGrid(unittest.TestCase):
                 * np.matrix([[0., 1., 2.], [2., 1., 0.], [0., 1., 2.], [2., 1., 0.]])
             )
 
-            assert np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            self.assertTrue(
+                np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+            )
             # The ordering of the cells in the new 1d grid may be flipped on
             # some systems; therefore allow two configurations
-            assert np.logical_or(
-                np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()),
-                np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()[::-1]),
+            self.assertTrue(
+                np.logical_or(
+                    np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()),
+                    np.allclose(
+                        low_to_mortar_known, mg.low_to_mortar_int.todense()[::-1]
+                    ),
+                )
             )
 
     # ------------------------------------------------------------------------------#
@@ -525,7 +551,9 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
             mg = d["mortar_grid"]
             indices_known = np.array([0, 1, 2, 3, 4, 5, 6, 7])
-            assert np.array_equal(mg.high_to_mortar_int.indices, indices_known)
+            self.assertTrue(
+                np.array_equal(mg.high_to_mortar_int.indices, indices_known)
+            )
 
             indptr_known = np.array(
                 [
@@ -572,19 +600,19 @@ class TestRefinementMortarGrid(unittest.TestCase):
                     8,
                 ]
             )
-            assert np.array_equal(mg.high_to_mortar_int.indptr, indptr_known)
+            self.assertTrue(np.array_equal(mg.high_to_mortar_int.indptr, indptr_known))
 
             data_known = np.array([1., 1., 1., 1., 1., 1., 1., 1.])
-            assert np.array_equal(mg.high_to_mortar_int.data, data_known)
+            self.assertTrue(np.array_equal(mg.high_to_mortar_int.data, data_known))
 
             indices_known = np.array([0, 4, 1, 5, 2, 6, 3, 7])
-            assert np.array_equal(mg.low_to_mortar_int.indices, indices_known)
+            self.assertTrue(np.array_equal(mg.low_to_mortar_int.indices, indices_known))
 
             indptr_known = np.array([0, 2, 4, 6, 8])
-            assert np.array_equal(mg.low_to_mortar_int.indptr, indptr_known)
+            self.assertTrue(np.array_equal(mg.low_to_mortar_int.indptr, indptr_known))
 
             data_known = np.array([1., 1., 1., 1., 1., 1., 1., 1.])
-            assert np.array_equal(mg.low_to_mortar_int.data, data_known)
+            self.assertTrue(np.array_equal(mg.low_to_mortar_int.data, data_known))
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ class BasicsTest(unittest.TestCase):
         x0 = np.array([[0], [0], [0]])
         pts = np.array([[1, -1], [0, 0], [0, 0]])
         out = half_space.half_space_int(n, x0, pts)
-        assert np.all(out == np.array([True, False]))
+        self.assertTrue(np.all(out == np.array([True, False])))
 
     # ------------------------------------------------------------------------------#
 
@@ -25,7 +25,7 @@ class BasicsTest(unittest.TestCase):
         x0 = np.array([[0, 0], [0, 1], [0, 0]])
         pts = np.array([[1, -1, 1, 0], [2, 0, 2, 0], [0, 0, 0, 0]])
         out = half_space.half_space_int(n, x0, pts)
-        assert np.all(out == np.array([True, False, True, False]))
+        self.assertTrue(np.all(out == np.array([True, False, True, False])))
 
     # ------------------------------------------------------------------------------#
 
@@ -40,7 +40,7 @@ class BasicsTest(unittest.TestCase):
         )
         pts = np.array([[0, 2. / 3.], [0, 1. / 3.], [0, 0]])
         pt = half_space.half_space_pt(n, x0, pts)
-        assert np.allclose(pt, [1. / 6., 1. / 6., 0.])
+        self.assertTrue(np.allclose(pt, [1. / 6., 1. / 6., 0.]))
 
     # ------------------------------------------------------------------------------#
 
@@ -57,7 +57,7 @@ class BasicsTest(unittest.TestCase):
         )
         pts = np.array([[0, 1], [0, 2. / 3.], [0, 0]])
         pt = half_space.half_space_pt(n, x0, pts)
-        assert np.allclose(pt, [5. / 6., 1. / 2., 0.])
+        self.assertTrue(np.allclose(pt, [5. / 6., 1. / 2., 0.]))
 
     # ------------------------------------------------------------------------------#
 
@@ -66,7 +66,7 @@ class BasicsTest(unittest.TestCase):
         x0 = np.array([[0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 1]])
         pts = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
         pt = half_space.half_space_pt(n, x0, pts)
-        assert np.allclose(pt, [1. / 2., 1. / 2., 1. / 2.])
+        self.assertTrue(np.allclose(pt, [1. / 2., 1. / 2., 1. / 2.]))
 
     # ------------------------------------------------------------------------------#
 
@@ -87,7 +87,7 @@ class BasicsTest(unittest.TestCase):
         )
         pts = np.array([[0, 1], [0, 2. / 3.], [0, 1]])
         pt = half_space.half_space_pt(n, x0, pts)
-        assert np.allclose(pt, [5. / 6., 1. / 2., 1. / 6.])
+        self.assertTrue(np.allclose(pt, [5. / 6., 1. / 2., 1. / 6.]))
 
     # ------------------------------------------------------------------------------#
 
@@ -173,7 +173,7 @@ class BasicsTest(unittest.TestCase):
 
         pt = half_space.half_space_pt(n, x0, pts)
         pt_known = np.array([0.6484723969922208, 0.8225131504113889, 0.])
-        assert np.allclose(pt, pt_known)
+        self.assertTrue(np.allclose(pt, pt_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -266,7 +266,7 @@ class BasicsTest(unittest.TestCase):
         pt = half_space.half_space_pt(n, x0, pts)
 
         pt_known = np.array([0.9411337621203867, 0.3417142038105351, 0])
-        assert np.allclose(pt, pt_known)
+        self.assertTrue(np.allclose(pt, pt_known))
 
 
 # ------------------------------------------------------------------------------#

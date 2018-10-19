@@ -16,7 +16,7 @@ viz: Visualization; paraview, matplotlib.
 
 """
 
-__version__ = "0.4.1"
+__version__ = "0.4.3"
 
 # ------------------------------------
 # Simplified namespaces. The rue of thumb is that classes and modules that a
@@ -86,11 +86,12 @@ from porepy.params.bc import (
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
 from porepy.params.data import Parameters
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
+from porepy.params.water import Water
 
 # Visualization
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid
-from porepy.viz.fracture_visualization import plot_fractures
+from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 # Modules
 from porepy.utils import permutations
