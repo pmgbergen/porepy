@@ -41,8 +41,8 @@ class TestMeshSize(unittest.TestCase):
             mesh_size_bound=mesh_size_bound,
         )
 
-        assert np.all(np.isclose(mesh_sizes, mesh_sizes_known))
-        assert np.all(np.isclose(pts_split, pts_split_known))
+        self.assertTrue(np.all(np.isclose(mesh_sizes, mesh_sizes_known)))
+        self.assertTrue(np.all(np.isclose(pts_split, pts_split_known)))
 
     def test_one_to_boundary_2d(self):
         """
@@ -83,8 +83,8 @@ class TestMeshSize(unittest.TestCase):
             mesh_size_bound=mesh_size_bound,
         )
 
-        assert np.all(np.isclose(mesh_sizes, mesh_sizes_known))
-        assert np.all(np.isclose(pts_split, pts_split_known))
+        self.assertTrue(np.all(np.isclose(mesh_sizes, mesh_sizes_known)))
+        self.assertTrue(np.all(np.isclose(pts_split, pts_split_known)))
 
     def test_one_to_boundar_3d(self):
         """
@@ -116,7 +116,7 @@ class TestMeshSize(unittest.TestCase):
         mesh_size_known = np.array(
             [0.1, 0.1, 0.1, 0.1, 2., 1.73205081, 2., 2., 2., 1.41421356, 2., 2.]
         )
-        assert np.all(np.isclose(mesh_size, mesh_size_known))
+        self.assertTrue(np.all(np.isclose(mesh_size, mesh_size_known)))
 
 
 def make_bucket_2d():

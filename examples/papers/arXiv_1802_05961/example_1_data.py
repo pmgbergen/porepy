@@ -29,7 +29,7 @@ def create_gb(cells_2d, alpha_1d=None, alpha_mortar=None):
     mesh_kwargs = {
         "tol": tol(),
         "mesh_size_frac": mesh_size,
-        "mesh_size_min": mesh_size / 20
+        "mesh_size_min": mesh_size / 20,
     }
 
     mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
@@ -99,7 +99,7 @@ def add_data(gb, solver):
 
         param.set_source("flow", np.zeros(g.num_cells))
 
-        if if_p1: # for P1 a different handling of the boundary conditions
+        if if_p1:  # for P1 a different handling of the boundary conditions
             bound_nodes = g.get_boundary_nodes()
             if bound_nodes.size == 0:
                 bc = pp.BoundaryConditionNode(g, np.empty(0), np.empty(0))

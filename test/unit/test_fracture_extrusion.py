@@ -16,10 +16,10 @@ class TestFractureExtrusion(unittest.TestCase):
         known_sec = [1]
         known_other = [3]
 
-        assert np.all(known_abut == abut)
-        assert np.all(known_prim == prim)
-        assert np.all(known_sec == sec)
-        assert np.all(known_other == other)
+        self.assertTrue(np.all(known_abut == abut))
+        self.assertTrue(np.all(known_prim == prim))
+        self.assertTrue(np.all(known_sec == sec))
+        self.assertTrue(np.all(known_other == other))
 
     def test_single_t_intersection_different_family(self):
         # Three fractures meeting in a T. Different family on all, so no
@@ -27,10 +27,10 @@ class TestFractureExtrusion(unittest.TestCase):
         edges = np.array([[0, 1, 0], [1, 2, 1], [1, 3, 2]]).T
         abut, prim, sec, other = extrusion.t_intersections(edges)
 
-        assert abut.size == 0
-        assert prim.size == 0
-        assert sec.size == 0
-        assert other.size == 0
+        self.assertTrue(abut.size == 0)
+        self.assertTrue(prim.size == 0)
+        self.assertTrue(sec.size == 0)
+        self.assertTrue(other.size == 0)
 
     def test_single_t_intersection_disregard_family_tag(self):
         # Three fractures meeting in a T. Different family on all, but we
@@ -44,10 +44,10 @@ class TestFractureExtrusion(unittest.TestCase):
         known_sec = [1]
         known_other = [3]
 
-        assert np.all(known_abut == abut)
-        assert np.all(known_prim == prim)
-        assert np.all(known_sec == sec)
-        assert np.all(known_other == other)
+        self.assertTrue(np.all(known_abut == abut))
+        self.assertTrue(np.all(known_prim == prim))
+        self.assertTrue(np.all(known_sec == sec))
+        self.assertTrue(np.all(known_other == other))
 
     def test_disc_radius_center(self):
 
@@ -59,17 +59,17 @@ class TestFractureExtrusion(unittest.TestCase):
         known_cc = np.array([[0], [0.5], [0]])
 
         rad, cc, _ = extrusion.disc_radius_center(length, p0, p1, theta)
-        assert rad[0] == 0.5
-        assert np.allclose(cc, known_cc)
+        self.assertTrue(rad[0] == 0.5)
+        self.assertTrue(np.allclose(cc, known_cc))
 
     def compare_arrays(self, a, b):
-        assert a.shape == b.shape
+        self.assertTrue(a.shape == b.shape)
 
         for i in range(a.shape[1]):
             ai = a[:, i].reshape((3, 1))
-            assert np.min(np.sum((b - ai) ** 2, axis=0)) < 1e-5
+            self.assertTrue(np.min(np.sum((b - ai) ** 2, axis=0)) < 1e-5)
             bi = b[:, i].reshape((3, 1))
-            assert np.min(np.sum((a - bi) ** 2, axis=0)) < 1e-5
+            self.assertTrue(np.min(np.sum((a - bi) ** 2, axis=0)) < 1e-5)
 
     def test_fracture_rotation_90_deg(self):
 

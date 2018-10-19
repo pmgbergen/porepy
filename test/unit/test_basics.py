@@ -16,11 +16,14 @@ class BasicsTest(unittest.TestCase):
         normal_test = np.array([0., 0., 1.])
         pt = pts[:, 0]
 
-        assert np.allclose(np.linalg.norm(normal), 1.)
-        assert np.allclose(
-            [np.dot(normal, p - pt) for p in pts[:, 1:].T], np.zeros(pts.shape[1] - 1)
+        self.assertTrue(np.allclose(np.linalg.norm(normal), 1.))
+        self.assertTrue(
+            np.allclose(
+                [np.dot(normal, p - pt) for p in pts[:, 1:].T],
+                np.zeros(pts.shape[1] - 1),
+            )
         )
-        assert np.allclose(normal, normal_test)
+        self.assertTrue(np.allclose(normal, normal_test))
 
     # ------------------------------------------------------------------------------#
 
@@ -31,19 +34,22 @@ class BasicsTest(unittest.TestCase):
         normal = cg.compute_normal(pts)
         pt = pts[:, 0]
 
-        assert np.allclose(np.linalg.norm(normal), 1.)
-        assert np.allclose(
-            [np.dot(normal, p - pt) for p in pts[:, 1:].T], np.zeros(pts.shape[1] - 1)
+        self.assertTrue(np.allclose(np.linalg.norm(normal), 1.))
+        self.assertTrue(
+            np.allclose(
+                [np.dot(normal, p - pt) for p in pts[:, 1:].T],
+                np.zeros(pts.shape[1] - 1),
+            )
         )
-        assert np.allclose(normal, normal_test) or np.allclose(
-            normal, -1. * normal_test
+        self.assertTrue(
+            np.allclose(normal, normal_test) or np.allclose(normal, -1. * normal_test)
         )
 
     # ------------------------------------------------------------------------------#
 
     def test_is_planar_2d(self):
         pts = np.array([[0., 2., -1.], [0., 4., 2.], [2., 2., 2.]])
-        assert cg.is_planar(pts)
+        self.assertTrue(cg.is_planar(pts))
 
     # ------------------------------------------------------------------------------#
 
@@ -55,7 +61,7 @@ class BasicsTest(unittest.TestCase):
                 [5. / 8., 7. / 8., 7. / 4., 1. / 8.],
             ]
         )
-        assert cg.is_planar(pts)
+        self.assertTrue(cg.is_planar(pts))
 
     # ------------------------------------------------------------------------------#
 
@@ -64,7 +70,7 @@ class BasicsTest(unittest.TestCase):
         R = cg.project_plane_matrix(pts)
         P_pts = np.dot(R, pts)
 
-        assert np.allclose(P_pts[2, :], -1.15470054 * np.ones(4))
+        self.assertTrue(np.allclose(P_pts[2, :], -1.15470054 * np.ones(4)))
 
 
 # ------------------------------------------------------------------------------#

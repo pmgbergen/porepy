@@ -15,7 +15,7 @@ class TestFractureCenters(unittest.TestCase):
             check_convexity=False,
         )
         c_known = np.array([1, 1, 0]).reshape((3, 1))
-        assert np.allclose(c_known, f_1.center)
+        self.assertTrue(np.allclose(c_known, f_1.center))
 
     def test_frac_2(self):
         # Center away from xy-plane
@@ -23,7 +23,7 @@ class TestFractureCenters(unittest.TestCase):
             np.array([[0, 2, 2, 0], [0, 2, 2, 0], [0, 0, 1, 1]]), check_convexity=False
         )
         c_known = np.array([1, 1, 0.5]).reshape((3, 1))
-        assert np.allclose(c_known, f_1.center)
+        self.assertTrue(np.allclose(c_known, f_1.center))
 
     def test_frac_3(self):
         # Fracture plane defined by x + y + z = 1
@@ -31,7 +31,7 @@ class TestFractureCenters(unittest.TestCase):
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 0, -1, 0]]), check_convexity=False
         )
         c_known = np.array([0.5, 0.5, 0]).reshape((3, 1))
-        assert np.allclose(c_known, f_1.center)
+        self.assertTrue(np.allclose(c_known, f_1.center))
 
     def test_frac_4(self):
         # Fracture plane defined by x + y + z = 4
@@ -39,7 +39,7 @@ class TestFractureCenters(unittest.TestCase):
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [4, 3, 2, 3]]), check_convexity=False
         )
         c_known = np.array([0.5, 0.5, 3]).reshape((3, 1))
-        assert np.allclose(c_known, f_1.center)
+        self.assertTrue(np.allclose(c_known, f_1.center))
 
     def test_frac_rand(self):
         # Random normal vector.
@@ -50,7 +50,7 @@ class TestFractureCenters(unittest.TestCase):
         f = pp.Fracture(np.vstack((x, y, z)), check_convexity=False)
         z_cc = (r[0] - 0.5 * r[1] - 0.5 * r[2]) / r[3]
         c_known = np.array([0.5, 0.5, z_cc]).reshape((3, 1))
-        assert np.allclose(c_known, f.center)
+        self.assertTrue(np.allclose(c_known, f.center))
 
 
 class TestFractureIndex(unittest.TestCase):
@@ -66,18 +66,18 @@ class TestFractureIndex(unittest.TestCase):
     def test_equal_index(self):
         f1 = pp.Fracture(self.array(), index=1, check_convexity=False)
         f2 = pp.Fracture(self.array(), index=1, check_convexity=False)
-        assert f1 == f2
+        self.assertTrue(f1 == f2)
 
     def test_unequal_index(self):
         f1 = pp.Fracture(self.array(), index=1, check_convexity=False)
         f2 = pp.Fracture(self.array(), index=4, check_convexity=False)
-        assert f1 != f2
+        self.assertTrue(f1 != f2)
 
     def test_no_index(self):
         # One fracture has no index set. Should not be equal
         f1 = pp.Fracture(self.array(), index=1, check_convexity=False)
         f2 = pp.Fracture(self.array(), check_convexity=False)
-        assert f1 != f2
+        self.assertTrue(f1 != f2)
 
 
 class TestFractureIsVertex(unittest.TestCase):
@@ -93,27 +93,27 @@ class TestFractureIsVertex(unittest.TestCase):
         p = np.array([0.5, 0.5, 0])
         f = self.frac()
         is_vert, ind = f.is_vertex(p)
-        assert is_vert == False
-        assert ind is None
+        self.assertTrue(is_vert == False)
+        self.assertTrue(ind is None)
 
     def test_is_vertex(self):
         p = np.array([0., 0., 0])
         f = self.frac()
         is_vert, ind = f.is_vertex(p)
-        assert is_vert == True
-        assert ind == 0
+        self.assertTrue(is_vert == True)
+        self.assertTrue(ind == 0)
 
     def test_tolerance_sensitivity(self):
         # Borderline, is a vertex depending on the tolerance
         p = np.array([1e-4, 0, 0])
         f = self.frac()
         is_vert, ind = f.is_vertex(p, tol=1e-5)
-        assert is_vert == False
-        assert ind is None
+        self.assertTrue(is_vert == False)
+        self.assertTrue(ind is None)
 
         is_vert, ind = f.is_vertex(p, tol=1e-3)
-        assert is_vert == True
-        assert ind == 0
+        self.assertTrue(is_vert == True)
+        self.assertTrue(ind == 0)
 
 
 class TestCopyFracture(unittest.TestCase):
@@ -125,17 +125,17 @@ class TestCopyFracture(unittest.TestCase):
     def test_copy(self):
         f1 = self.frac()
         f2 = f1.copy()
-        assert id(f1) != id(f2)
+        self.assertTrue(id(f1) != id(f2))
 
     def test_deep_copy(self):
         f1 = self.frac()
         f2 = f1.copy()
 
         # Points should be identical
-        assert np.allclose(f1.p, f2.p)
+        self.assertTrue(np.allclose(f1.p, f2.p))
 
         f2.p[0, 0] = 7
-        assert not np.allclose(f1.p, f2.p)
+        self.assertTrue(not np.allclose(f1.p, f2.p))
 
 
 class TestReprStr(unittest.TestCase):

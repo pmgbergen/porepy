@@ -10,17 +10,21 @@ To get the code fully working requires a few more steps, as described below.
 Instructions are found on the GitHub webpage. The best option is to download the source code from github, and install by `pip install porepy`.
 
 ## Intall on Windows
-This is a bit more tricky, since installing the dependencies (e.g. `numpy`, `scipy`) using pip requires access to a compiler.
-The recommended solution (for working with Python on Windows in general, it seems)
-is to install the dependencies using `conda`, and then `pip install porepy`, preferrably installing from source.
+The recommended solution for Windows is to use VirtualBox with a Linux image, or equivalent options.
+
+If you do not want to use VirtualBox, we recommended 
+to install the dependencies using `conda`, and then `pip install porepy`, preferrably installing from source.
 Most likely, parts of PorePy will not work on Windows due to missing libraries etc. This is not fully clear.
+
+## Installation on Mac
+Use VirtualBox or similar. 
+
+Preliminary trials with a standard installation on Mac has not been successful. None of the devopers use Mac, so testing this has not been a priority.
+
 
 ## Docker
 There is also a third-party option using Docker containers. For now this should be considered an experimental option.
 
-## How about Mac?
-Frankly, we are not sure. None of the devopers use Mac, so testing this has not been a priority.
-The expectation is that it should work out nicely. If you try this, please let us know.
 
 # Setting up GMSH
 PorePy currently depends on `GMSH` for meshing of fractured domains. 

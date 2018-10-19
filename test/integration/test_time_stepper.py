@@ -31,10 +31,10 @@ class TestBase(unittest.TestCase):
         solver = Implicit(problem)
         solver.solve()
 
-        assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
-        assert np.sum(np.abs(solver.rhs - 1) < 1e-6) == 1
-        assert np.sum(np.abs(solver.p) > 1e-6) == 1
-        assert np.sum(np.abs(solver.p - 1) < 1e-6) == 1
+        self.assertTrue(np.sum(np.abs(solver.rhs) > 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.rhs - 1) < 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.p) > 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.p - 1) < 1e-6) == 1)
 
     def test_BDF2_solver(self):
         """Inject 1 in cell 0. Test that rhs and pressure solution
@@ -46,23 +46,23 @@ class TestBase(unittest.TestCase):
         solver.reassemble()
         solver.step()
         # The first step should be an implicit step
-        assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
-        assert np.sum(np.abs(solver.rhs - 1.0) < 1e-6) == 1
-        assert np.sum(np.abs(solver.p) > 1e-6) == 1
-        assert np.sum(np.abs(solver.p - 1.0 / 2.0) < 1e-6) == 1
-        assert np.allclose(solver.p0, 0)
-        assert np.allclose(solver.p_1, 0)
+        self.assertTrue(np.sum(np.abs(solver.rhs) > 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.rhs - 1.0) < 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.p) > 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.p - 1.0 / 2.0) < 1e-6) == 1)
+        self.assertTrue(np.allclose(solver.p0, 0))
+        self.assertTrue(np.allclose(solver.p_1, 0))
 
         solver.update(2 * solver.dt)
         solver.reassemble()
         solver.step()
         # The second step should be a full bdf2 step
-        assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
-        assert np.sum(np.abs(solver.rhs - 2.0) < 1e-6) == 1
-        assert np.sum(np.abs(solver.p) > 1e-6) == 1
-        assert np.sum(np.abs(solver.p - 1) < 1e-6) == 1
-        assert np.sum(np.abs(solver.p0 - 0.5) < 1e-6) == 1
-        assert np.allclose(solver.p_1, 0.0)
+        self.assertTrue(np.sum(np.abs(solver.rhs) > 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.rhs - 2.0) < 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.p) > 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.p - 1) < 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.p0 - 0.5) < 1e-6) == 1)
+        self.assertTrue(np.allclose(solver.p_1, 0.0))
 
     def test_explicit_solver(self):
         """Inject 1 in cell 0. Test that rhs and pressure solution
@@ -71,8 +71,8 @@ class TestBase(unittest.TestCase):
         problem.update(0.0)
         solver = Explicit(problem)
         solver.solve()
-        assert np.sum(np.abs(solver.rhs) > 1e-6) == 0
-        assert np.sum(np.abs(solver.p) > 1e-6) == 0
+        self.assertTrue(np.sum(np.abs(solver.rhs) > 1e-6) == 0)
+        self.assertTrue(np.sum(np.abs(solver.p) > 1e-6) == 0)
 
     def test_CrankNicolson_solver(self):
         """Inject 1 in cell 0. Test that rhs and pressure solution
@@ -82,10 +82,10 @@ class TestBase(unittest.TestCase):
         solver = CrankNicolson(problem)
         solver.solve()
 
-        assert np.sum(np.abs(solver.rhs) > 1e-6) == 1
-        assert np.sum(np.abs(solver.rhs - 0.5) < 1e-6) == 1
-        assert np.sum(np.abs(solver.p) > 1e-6) == 1
-        assert np.sum(np.abs(solver.p - 0.5) < 1e-6) == 1
+        self.assertTrue(np.sum(np.abs(solver.rhs) > 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.rhs - 0.5) < 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.p) > 1e-6) == 1)
+        self.assertTrue(np.sum(np.abs(solver.p - 0.5) < 1e-6) == 1)
 
 
 ###############################################################################

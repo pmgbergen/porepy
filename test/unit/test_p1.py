@@ -30,14 +30,14 @@ class BasicsTest(unittest.TestCase):
 
         M_known = np.matrix([[1., -1.], [-1., 1.]])
 
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M_known))
 
         solver = pp.P1MassMatrix(physics="flow")
         M = solver.matrix(g, {"param": param}).todense()
 
         M_known = np.matrix([[2., 1.], [1., 2.]]) / 6.
 
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -66,7 +66,7 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M_known))
 
         solver = pp.P1MassMatrix(physics="flow")
         M = solver.matrix(g, {"param": param}).todense()
@@ -78,7 +78,7 @@ class BasicsTest(unittest.TestCase):
             / 18.
         )
 
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -106,8 +106,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -137,8 +137,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
         solver = pp.P1MassMatrix(physics="flow")
         M = solver.matrix(g, {"param": param}).todense()
@@ -155,7 +155,7 @@ class BasicsTest(unittest.TestCase):
             / 6.
         )
 
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -188,8 +188,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -212,8 +212,8 @@ class BasicsTest(unittest.TestCase):
 
         M_known = matrix_for_test_p1_3d()
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
         solver = pp.P1MassMatrix(physics="flow")
         M = solver.matrix(g, {"param": param}).todense()
@@ -234,7 +234,7 @@ class BasicsTest(unittest.TestCase):
             / 60.
         )
 
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -267,7 +267,7 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M_known))
 
         solver = pp.P1MassMatrix(physics="flow")
         M = solver.matrix(g, {"param": param}).todense()
@@ -279,7 +279,7 @@ class BasicsTest(unittest.TestCase):
             / 18.
         )
 
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -312,8 +312,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
         solver = pp.P1MassMatrix(physics="flow")
         M = solver.matrix(g, {"param": param}).todense()
@@ -330,7 +330,7 @@ class BasicsTest(unittest.TestCase):
             / 6.
         )
 
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -367,8 +367,8 @@ class BasicsTest(unittest.TestCase):
             ]
         )
 
-        assert np.allclose(M, M.T)
-        assert np.allclose(M, M_known)
+        self.assertTrue(np.allclose(M, M.T))
+        self.assertTrue(np.allclose(M, M_known))
 
     # ------------------------------------------------------------------------------#
 
@@ -398,7 +398,7 @@ class BasicsTest(unittest.TestCase):
             p = sps.linalg.spsolve(M, rhs)
             err = np.sum(np.abs(p - p_ex(g.nodes)))
 
-            assert np.isclose(err, 0)
+            self.assertTrue(np.isclose(err, 0))
 
     # ------------------------------------------------------------------------------#
 
@@ -443,7 +443,7 @@ class BasicsTest(unittest.TestCase):
             M = mass.matrix(g, {"param": param})
 
             error = np.sum(M.dot(np.abs(p - p_ex(g.nodes))))
-            assert np.isclose(error, known_error)
+            self.assertTrue(np.isclose(error, known_error))
 
     # ------------------------------------------------------------------------------#
 
@@ -472,7 +472,7 @@ class BasicsTest(unittest.TestCase):
 
             p = sps.linalg.spsolve(M, rhs)
             err = np.sum(np.abs(p - p_ex(g.nodes)))
-            assert np.isclose(err, 0)
+            self.assertTrue(np.isclose(err, 0))
 
 
 # ------------------------------------------------------------------------------#

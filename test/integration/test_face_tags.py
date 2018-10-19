@@ -87,9 +87,9 @@ class TestFaceTags(unittest.TestCase):
         )  # Added Faces
         t_tags_2d = np.zeros(f_tags_2d.size, dtype=bool)
 
-        assert np.all(g_2d.tags["tip_faces"] == t_tags_2d)
-        assert np.all(g_2d.tags["fracture_faces"] == f_tags_2d)
-        assert np.all(g_2d.tags["domain_boundary_faces"] == d_tags_2d)
+        self.assertTrue(np.all(g_2d.tags["tip_faces"] == t_tags_2d))
+        self.assertTrue(np.all(g_2d.tags["fracture_faces"] == f_tags_2d))
+        self.assertTrue(np.all(g_2d.tags["domain_boundary_faces"] == d_tags_2d))
 
         # 1D grids:
         for g_1d in grids.grids_of_dimension(1):
@@ -101,6 +101,6 @@ class TestFaceTags(unittest.TestCase):
                 t_tags_1d = np.array([False, False, True, False])
                 d_tags_1d = np.array([True, False, False, False])
 
-            assert np.all(g_1d.tags["tip_faces"] == t_tags_1d)
-            assert np.all(g_1d.tags["fracture_faces"] == f_tags_1d)
-            assert np.all(g_1d.tags["domain_boundary_faces"] == d_tags_1d)
+            self.assertTrue(np.all(g_1d.tags["tip_faces"] == t_tags_1d))
+            self.assertTrue(np.all(g_1d.tags["fracture_faces"] == f_tags_1d))
+            self.assertTrue(np.all(g_1d.tags["domain_boundary_faces"] == d_tags_1d))

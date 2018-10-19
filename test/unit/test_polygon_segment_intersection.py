@@ -20,12 +20,12 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         p_1_2 = cg.polygon_segment_intersect(p_1, p_2)
         p_i_known_1 = np.array([0, 0, -0.7]).reshape((-1, 1))
         p_i_known_2 = np.array([0, 0, 0.8]).reshape((-1, 1))
-        assert np.min(np.sum(np.abs(p_1_2 - p_i_known_1), axis=0)) < 1e-5
-        assert np.min(np.sum(np.abs(p_1_2 - p_i_known_2), axis=0)) < 1e-5
+        self.assertTrue(np.min(np.sum(np.abs(p_1_2 - p_i_known_1), axis=0)) < 1e-5)
+        self.assertTrue(np.min(np.sum(np.abs(p_1_2 - p_i_known_2), axis=0)) < 1e-5)
 
         # Then intersection of plane of 2 by edges of 1. This should be empty
         p_2_1 = cg.polygon_segment_intersect(p_2, p_1)
-        assert p_2_1 is None
+        self.assertTrue(p_2_1 is None)
 
     def test_mutual_intersection(self):
         p1, _, p3, _ = self.setup_polygons()
@@ -34,13 +34,13 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         p_1_3 = cg.polygon_segment_intersect(p1, p3)
         p_i_known_1 = np.array([0, 0, 0.5]).reshape((-1, 1))
         p_i_known_2 = np.array([0, 0, 1.0]).reshape((-1, 1))
-        assert np.min(np.sum(np.abs(p_1_3 - p_i_known_1), axis=0)) < 1e-5
+        self.assertTrue(np.min(np.sum(np.abs(p_1_3 - p_i_known_1), axis=0)) < 1e-5)
 
         # Then intersection of plane of 3 by edges of 1.
         p_3_1 = cg.polygon_segment_intersect(p3, p1)
         p_i_known_2 = np.array([0, 0, 1.0]).reshape((-1, 1))
 
-        assert np.min(np.sum(np.abs(p_3_1 - p_i_known_2), axis=0)) < 1e-5
+        self.assertTrue(np.min(np.sum(np.abs(p_3_1 - p_i_known_2), axis=0)) < 1e-5)
 
     def test_mutual_intersection_not_at_origin(self):
         p1, _, p3, _ = self.setup_polygons()
@@ -52,26 +52,26 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         # First intersection of 1 by edges of 3
         p_1_3 = cg.polygon_segment_intersect(p1, p3)
         p_i_known_1 = np.array([0, 0, 0.5]).reshape((-1, 1)) + incr
-        assert np.min(np.sum(np.abs(p_1_3 - p_i_known_1), axis=0)) < 1e-5
+        self.assertTrue(np.min(np.sum(np.abs(p_1_3 - p_i_known_1), axis=0)) < 1e-5)
 
         # Then intersection of plane of 3 by edges of 1.
         p_3_1 = cg.polygon_segment_intersect(p3, p1)
         p_i_known_2 = np.array([0, 0, 1.0]).reshape((-1, 1)) + incr
 
-        assert np.min(np.sum(np.abs(p_3_1 - p_i_known_2), axis=0)) < 1e-5
+        self.assertTrue(np.min(np.sum(np.abs(p_3_1 - p_i_known_2), axis=0)) < 1e-5)
 
     def test_parallel_planes(self):
         p_1, _, _, _ = self.setup_polygons()
         p_2 = p_1 + np.array([0, 1, 0]).reshape((-1, 1))
         isect = cg.polygon_segment_intersect(p_1, p_2)
-        assert isect is None
+        self.assertTrue(isect is None)
 
     def test_extension_would_intersect(self):
         # The extension of p_2 would intersect, but should detect nothing
         p_1, p_2, _, _ = self.setup_polygons()
         p_2 += np.array([2, 0, 0]).reshape((-1, 1))
         isect = cg.polygon_segment_intersect(p_1, p_2)
-        assert isect is None
+        self.assertTrue(isect is None)
 
     def test_segments_intersect(self):
         # Test where the planes intersect in a way where vertex only touches
@@ -83,13 +83,13 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         isect_known_1 = np.array([[0, 0, -1]]).T
         isect_known_2 = np.array([[0, 0, 1]]).T
 
-        assert np.min(np.sum(np.abs(isect - isect_known_1), axis=0)) < 1e-5
-        assert np.min(np.sum(np.abs(isect - isect_known_2), axis=0)) < 1e-5
+        self.assertTrue(np.min(np.sum(np.abs(isect - isect_known_1), axis=0)) < 1e-5)
+        self.assertTrue(np.min(np.sum(np.abs(isect - isect_known_2), axis=0)) < 1e-5)
 
         # Also try the other way around
         isect = cg.polygon_segment_intersect(p_4, p_1)
-        assert np.min(np.sum(np.abs(isect - isect_known_1), axis=0)) < 1e-5
-        assert np.min(np.sum(np.abs(isect - isect_known_2), axis=0)) < 1e-5
+        self.assertTrue(np.min(np.sum(np.abs(isect - isect_known_1), axis=0)) < 1e-5)
+        self.assertTrue(np.min(np.sum(np.abs(isect - isect_known_2), axis=0)) < 1e-5)
 
     def test_issue_16(self):
         # Test motivated from debuging Issue #16 (GitHub)
@@ -103,12 +103,12 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         isect_known_1 = np.array([[2, 5 / 3, 2]]).T
         isect_known_2 = np.array([[2, 4, 2]]).T
         isect = cg.polygon_segment_intersect(frac1, frac2)
-        assert np.min(np.sum(np.abs(isect - isect_known_1), axis=0)) < 1e-5
-        assert np.min(np.sum(np.abs(isect - isect_known_2), axis=0)) < 1e-5
+        self.assertTrue(np.min(np.sum(np.abs(isect - isect_known_1), axis=0)) < 1e-5)
+        self.assertTrue(np.min(np.sum(np.abs(isect - isect_known_2), axis=0)) < 1e-5)
 
         isect = cg.polygon_segment_intersect(frac1[:, [0, 2, 1]], frac2)
-        assert np.min(np.sum(np.abs(isect - isect_known_1), axis=0)) < 1e-5
-        assert np.min(np.sum(np.abs(isect - isect_known_2), axis=0)) < 1e-5
+        self.assertTrue(np.min(np.sum(np.abs(isect - isect_known_1), axis=0)) < 1e-5)
+        self.assertTrue(np.min(np.sum(np.abs(isect - isect_known_2), axis=0)) < 1e-5)
 
     def test_segment_in_polygon_plane(self):
         # One segment lies fully within a plane
@@ -116,13 +116,13 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         p2 = np.array([[0.3, 0.5, 0], [0.7, 0.5, 0], [0.7, 0.5, 1], [0.3, 0.5, 1]]).T
         isect_known = np.array([[0.3, 0.5, 0], [0.7, 0.5, 0]]).T
         isect = cg.polygon_segment_intersect(p1, p2)
-        assert np.allclose(isect, isect_known)
+        self.assertTrue(np.allclose(isect, isect_known))
 
     def test_segment_in_plane_but_not_in_polygon(self):
         p1 = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T
         p2 = np.array([[1.3, 0.5, 0], [1.7, 0.5, 0], [1.7, 0.5, 1], [1.3, 0.5, 1]]).T
         isect = cg.polygon_segment_intersect(p1, p2)
-        assert isect is None
+        self.assertTrue(isect is None)
 
     def test_segment_partly_in_polygon(self):
         # Segment in plane, one point inside, one point outside polygon
@@ -130,7 +130,7 @@ class PolygonSegmentIntersectionTest(unittest.TestCase):
         p2 = np.array([[0.3, 0.5, 0], [1.7, 0.5, 0], [0.7, 0.5, 1], [0.3, 0.5, 1]]).T
         isect_known = np.array([[0.3, 0.5, 0], [1, 0.5, 0]]).T
         isect = cg.polygon_segment_intersect(p1, p2)
-        assert np.allclose(isect, isect_known)
+        self.assertTrue(np.allclose(isect, isect_known))
 
     if __name__ == "__main__":
         unittest.main()

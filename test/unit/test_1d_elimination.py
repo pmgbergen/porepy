@@ -81,8 +81,8 @@ class BasicsTest(unittest.TestCase):
         solver_coupler.split(gb, "p_cond", p_cond)
 
         tol = 1e-10
-        assert (np.amax(np.absolute(p - p_cond))) < tol
-        assert (
+        self.assertTrue((np.amax(np.absolute(p - p_cond))) < tol)
+        self.assertTrue(
             np.sum(error.error_L2(g, d["pressure"], d["p_cond"]) for g, d in gb) < tol
         )
 
@@ -143,8 +143,8 @@ class BasicsTest(unittest.TestCase):
         solver_coupler.split(gb, "p_cond", p_cond)
 
         tol = 1e-5
-        assert (np.amax(np.absolute(p - p_cond))) < tol
-        assert (
+        self.assertTrue((np.amax(np.absolute(p - p_cond))) < tol)
+        self.assertTrue(
             np.sum(error.error_L2(g, d["pressure"], d["p_cond"]) for g, d in gb) < tol
         )
 

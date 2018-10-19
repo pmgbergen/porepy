@@ -14,7 +14,7 @@ class TestGridBucket(unittest.TestCase):
         gb.cell_global2loc()
         R = sps.eye(4)
         for g, d in gb:
-            assert np.sum(d["cell_global2loc"] != R) == 0
+            self.assertTrue(np.sum(d["cell_global2loc"] != R) == 0)
 
     def test_cell_global2loc_1_frac(self):
         f = np.array([[0, 1], [1, 1]])
@@ -28,15 +28,15 @@ class TestGridBucket(unittest.TestCase):
             elif g.dim == 1:
                 loc = np.array([4])
             else:
-                assert False
+                self.assertTrue(False)
             R = d["cell_global2loc"]
-            assert np.all(R * glob == loc)
+            self.assertTrue(np.all(R * glob == loc))
         # test mortars
         glob = np.array([0, 1])
         for _, d in gb.edges():
             loc = np.array([0, 1])
             R = d["cell_global2loc"]
-            assert np.all(R * glob == loc)
+            self.assertTrue(np.all(R * glob == loc))
 
     def test_cell_global2loc_2_fracs(self):
         f1 = np.array([[0, 1], [1, 1]])
@@ -57,7 +57,7 @@ class TestGridBucket(unittest.TestCase):
             else:
                 loc = np.array([8])
             R = d["cell_global2loc"]
-            assert np.all(R * glob == loc)
+            self.assertTrue(np.all(R * glob == loc))
 
         # test mortars
         glob = np.arange(12)
@@ -69,7 +69,7 @@ class TestGridBucket(unittest.TestCase):
             loc = np.arange(start, end)
             start = end
             R = d["cell_global2loc"]
-            assert np.all(R * glob == loc)
+            self.assertTrue(np.all(R * glob == loc))
 
 
 class MockGrid:
@@ -106,7 +106,7 @@ class TestBucket(unittest.TestCase):
 
     def test_size(self):
         gb = self.simple_bucket(3)
-        assert gb.size() == 3
+        self.assertTrue(gb.size() == 3)
 
     def test_add_nodes(self):
         # Simply add grid. Should work.
@@ -149,13 +149,13 @@ class TestBucket(unittest.TestCase):
         gb.add_edge([g2, g3], None)
 
         neigh_1 = gb.node_neighbors(g1)
-        assert neigh_1.size == 1
-        assert neigh_1[0] == g2
+        self.assertTrue(neigh_1.size == 1)
+        self.assertTrue(neigh_1[0] == g2)
 
         neigh_2 = gb.node_neighbors(g2)
-        assert neigh_2.size == 2
-        assert neigh_2[0] == g1 or neigh_2[0] == g3
-        assert neigh_2[1] == g1 or neigh_2[1] == g3
+        self.assertTrue(neigh_2.size == 2)
+        self.assertTrue(neigh_2[0] == g1 or neigh_2[0] == g3)
+        self.assertTrue(neigh_2[1] == g1 or neigh_2[1] == g3)
 
     def test_node_neighbor_with_dim(self):
         # Test node neighbors, using dim keywords
@@ -170,17 +170,17 @@ class TestBucket(unittest.TestCase):
         gb.add_edge([g2, g3], None)
 
         neigh_1 = gb.node_neighbors(g1, only_higher=True)
-        assert neigh_1.size == 1
-        assert neigh_1[0] == g2
+        self.assertTrue(neigh_1.size == 1)
+        self.assertTrue(neigh_1[0] == g2)
         neigh_1 = gb.node_neighbors(g1, only_lower=True)
-        assert neigh_1.size == 0
+        self.assertTrue(neigh_1.size == 0)
 
         neigh_2 = gb.node_neighbors(g2, only_higher=True)
-        assert neigh_2.size == 1
-        assert neigh_2[0] == g3
+        self.assertTrue(neigh_2.size == 1)
+        self.assertTrue(neigh_2[0] == g3)
         neigh_2 = gb.node_neighbors(g2, only_lower=True)
-        assert neigh_2.size == 1
-        assert neigh_2[0] == g1
+        self.assertTrue(neigh_2.size == 1)
+        self.assertTrue(neigh_2[0] == g1)
 
         self.assertRaises(ValueError, gb.node_neighbors, g1, True, True)
 
@@ -191,7 +191,7 @@ class TestBucket(unittest.TestCase):
         gb.add_node_props("a")
 
         for _, d in gb:
-            assert "a" in d.keys()
+            self.assertTrue("a" in d.keys())
 
     def test_add_multiple_node_props(self):
         gb = self.simple_bucket(2)
@@ -200,7 +200,7 @@ class TestBucket(unittest.TestCase):
 
         for _, d in gb:
             for p in props:
-                assert p in d.keys()
+                self.assertTrue(p in d.keys())
 
     def test_add_selective_node_props(self):
         gb = pp.GridBucket()
@@ -221,13 +221,13 @@ class TestBucket(unittest.TestCase):
         gb.add_node_props(pboth, [g1, g2])
 
         for g, d in gb:
-            assert pboth in d.keys()
+            self.assertTrue(pboth in d.keys())
             if g == g1:
-                assert p1 in d.keys()
-                assert not p2 in d.keys()
+                self.assertTrue(p1 in d.keys())
+                self.assertTrue(not p2 in d.keys())
             else:
-                assert p2 in d.keys()
-                assert not p1 in d.keys()
+                self.assertTrue(p2 in d.keys())
+                self.assertTrue(not p1 in d.keys())
 
     def test_add_node_prop_node_number(self):
         gb = self.simple_bucket(1)
@@ -246,7 +246,7 @@ class TestBucket(unittest.TestCase):
         gb.add_edge_props("a")
 
         for _, d in gb.edges():
-            assert "a" in d.keys()
+            self.assertTrue("a" in d.keys())
 
     def test_add_single_edge_prop_reverse_order(self):
         # Add property when reverting the order of the grid_pair
@@ -261,7 +261,7 @@ class TestBucket(unittest.TestCase):
         gb.add_edge_props("a", grid_pairs=[[g2, g1]])
 
         for _, d in gb.edges():
-            assert "a" in d.keys()
+            self.assertTrue("a" in d.keys())
 
     def test_add_multiple_edge_props(self):
         gb = pp.GridBucket()
@@ -276,7 +276,7 @@ class TestBucket(unittest.TestCase):
 
         for _, d in gb.edges():
             for p in props:
-                assert p in d.keys()
+                self.assertTrue(p in d.keys())
 
     def test_add_selective_edge_props(self):
         gb = pp.GridBucket()
@@ -304,13 +304,13 @@ class TestBucket(unittest.TestCase):
         self.assertRaises(KeyError, gb.add_edge_props, pboth, [[g1, g3]])
 
         for g, d in gb.edges():
-            assert pboth in d.keys()
+            self.assertTrue(pboth in d.keys())
             if g1 in g and g2 in g:
-                assert p1 in d.keys()
-                assert not p2 in d.keys()
+                self.assertTrue(p1 in d.keys())
+                self.assertTrue(not p2 in d.keys())
             else:
-                assert p2 in d.keys()
-                assert not p1 in d.keys()
+                self.assertTrue(p2 in d.keys())
+                self.assertTrue(not p1 in d.keys())
 
     # ----------- Tests for getters of node properties ----------
 
@@ -329,13 +329,13 @@ class TestBucket(unittest.TestCase):
 
         # Obtain all keys, check that we have them all
         all_keys = gb.node_props(g1)
-        assert all([k in keys for k in all_keys.keys()])
-        assert all([k in all_keys.keys() for k in keys])
+        self.assertTrue(all([k in keys for k in all_keys.keys()]))
+        self.assertTrue(all([k in all_keys.keys() for k in keys]))
 
         # Next obtain values by keyword
         for k, v in zip(keys, vals):
             v2 = gb.node_props(g1, k)
-            assert v == v2
+            self.assertTrue(v == v2)
 
     def test_set_get_edge_props(self):
 
@@ -360,10 +360,10 @@ class TestBucket(unittest.TestCase):
 
         # Obtain all keys, check that we have them all
         all_keys = gb.edge_props(pairs[0])
-        assert all([k in all_keys.keys() for k in keys])
+        self.assertTrue(all([k in all_keys.keys() for k in keys]))
 
         all_keys = gb.edge_props(pairs[0][::-1])
-        assert all([k in all_keys.keys() for k in keys])
+        self.assertTrue(all([k in all_keys.keys() for k in keys]))
 
         # The other edge has no properties, Python should raise KeyError
         self.assertRaises(KeyError, gb.edge_props, gp=pairs[1], key="a")
@@ -393,9 +393,9 @@ class TestBucket(unittest.TestCase):
         # Check that the new grid and edge inherited data
         for k, v in zip(keys, vals):
             v2 = gb.node_props(g3, k)
-            assert v == v2
+            self.assertTrue(v == v2)
             v2 = gb.edge_props([g2, g3], k)
-            assert v == v2
+            self.assertTrue(v == v2)
 
         # g1 is no longer associated with gb
         self.assertRaises(KeyError, gb.node_props, g1, "a")
@@ -407,8 +407,8 @@ class TestBucket(unittest.TestCase):
         gb.add_nodes(g1)
         gb.add_nodes(g2)
 
-        assert gb.diameter() == 3
-        assert gb.diameter(lambda g: g.dim == 1) == 2
+        self.assertTrue(gb.diameter() == 3)
+        self.assertTrue(gb.diameter(lambda g: g.dim == 1) == 2)
 
     def test_bounding_box(self):
         gb = pp.GridBucket()
@@ -423,16 +423,16 @@ class TestBucket(unittest.TestCase):
         bmin, bmax = gb.bounding_box()
 
         # Since g2 is shifted, minimum should be at g1, maximum in g2
-        assert np.allclose(bmin, g1.nodes.min(axis=1))
-        assert np.allclose(bmax, g2.nodes.max(axis=1))
+        self.assertTrue(np.allclose(bmin, g1.nodes.min(axis=1)))
+        self.assertTrue(np.allclose(bmax, g2.nodes.max(axis=1)))
 
         d = gb.bounding_box(as_dict=True)
-        assert d["xmin"] == np.min(g1.nodes[0])
-        assert d["ymin"] == np.min(g1.nodes[1])
-        assert d["zmin"] == np.min(g1.nodes[2])
-        assert d["xmax"] == np.max(g2.nodes[0])
-        assert d["ymax"] == np.max(g2.nodes[1])
-        assert d["zmax"] == np.max(g2.nodes[2])
+        self.assertTrue(d["xmin"] == np.min(g1.nodes[0]))
+        self.assertTrue(d["ymin"] == np.min(g1.nodes[1]))
+        self.assertTrue(d["zmin"] == np.min(g1.nodes[2]))
+        self.assertTrue(d["xmax"] == np.max(g2.nodes[0]))
+        self.assertTrue(d["ymax"] == np.max(g2.nodes[1]))
+        self.assertTrue(d["zmax"] == np.max(g2.nodes[2]))
 
     def test_num_cells_faces_nodes(self):
 
@@ -441,14 +441,14 @@ class TestBucket(unittest.TestCase):
         gb = pp.GridBucket()
         gb.add_nodes([g1, g2])
 
-        assert gb.num_cells() == (g1.num_cells + g2.num_cells)
-        assert gb.num_faces() == (g1.num_faces + g2.num_faces)
-        assert gb.num_nodes() == (g1.num_nodes + g2.num_nodes)
+        self.assertTrue(gb.num_cells() == (g1.num_cells + g2.num_cells))
+        self.assertTrue(gb.num_faces() == (g1.num_faces + g2.num_faces))
+        self.assertTrue(gb.num_nodes() == (g1.num_nodes + g2.num_nodes))
 
         l = lambda g: g.dim == 1
-        assert gb.num_cells(l) == g1.num_cells
-        assert gb.num_faces(l) == g1.num_faces
-        assert gb.num_nodes(l) == g1.num_nodes
+        self.assertTrue(gb.num_cells(l) == g1.num_cells)
+        self.assertTrue(gb.num_faces(l) == g1.num_faces)
+        self.assertTrue(gb.num_nodes(l) == g1.num_nodes)
 
     def test_str_repr(self):
 
@@ -468,8 +468,8 @@ class TestBucket(unittest.TestCase):
         gb.remove_node_props("a")
 
         for _, d in gb:
-            assert not "a" in d.keys()
-            assert "b" in d.keys()
+            self.assertTrue(not "a" in d.keys())
+            self.assertTrue("b" in d.keys())
 
     def test_remove_multiple_node_props(self):
         gb = self.simple_bucket(2)
@@ -479,7 +479,7 @@ class TestBucket(unittest.TestCase):
 
         for _, d in gb:
             for p in props:
-                assert not p in d.keys()
+                self.assertTrue(not p in d.keys())
 
     def test_remove_selective_node_props(self):
         gb = pp.GridBucket()
@@ -496,13 +496,13 @@ class TestBucket(unittest.TestCase):
         gb.remove_node_props("c", [g1, g2])
 
         for g, d in gb:
-            assert not "c" in d.keys()
+            self.assertTrue(not "c" in d.keys())
             if g == g1:
-                assert not "a" in d.keys()
-                assert "b" in d.keys()
+                self.assertTrue(not "a" in d.keys())
+                self.assertTrue("b" in d.keys())
             else:
-                assert not "b" in d.keys()
-                assert "a" in d.keys()
+                self.assertTrue(not "b" in d.keys())
+                self.assertTrue("a" in d.keys())
 
     def test_remove_node_prop_node_number(self):
         gb = self.simple_bucket(1)

@@ -20,16 +20,16 @@ class TestCartGrideGeometry2DUnpert(unittest.TestCase):
     def test_node_coord(self):
         xn = np.array([0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2])
         yn = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3])
-        assert np.isclose(xn, self.g.nodes[0]).all()
-        assert np.isclose(yn, self.g.nodes[1]).all()
+        self.assertTrue(np.isclose(xn, self.g.nodes[0]).all())
+        self.assertTrue(np.isclose(yn, self.g.nodes[1]).all())
 
     def test_faces_areas(self):
         areas = 1 * np.ones(self.g.num_faces)
-        assert np.isclose(areas, self.g.face_areas).all()
+        self.assertTrue(np.isclose(areas, self.g.face_areas).all())
 
     def test_cell_volumes(self):
         volumes = 1 * np.ones(self.g.num_cells)
-        assert np.isclose(volumes, self.g.cell_volumes).all()
+        self.assertTrue(np.isclose(volumes, self.g.cell_volumes).all())
 
     if __name__ == "__main__":
         unittest.main()
@@ -47,25 +47,25 @@ class TestCartGridGeometry2DPert(unittest.TestCase):
     def test_node_coord(self):
         xn = np.array([0, 1, 2, 0, 1.5, 2, 0, 1, 2])
         yn = np.array([0, 0, 0, 1, 1, 1, 2, 2, 2])
-        assert np.isclose(xn, self.g.nodes[0]).all()
-        assert np.isclose(yn, self.g.nodes[1]).all()
+        self.assertTrue(np.isclose(xn, self.g.nodes[0]).all())
+        self.assertTrue(np.isclose(yn, self.g.nodes[1]).all())
 
     def test_faces_areas(self):
         areas = np.array(
             [1, np.sqrt(1.25), 1, 1, np.sqrt(1.25), 1, 1, 1, 1.5, 0.5, 1, 1]
         )
-        assert np.isclose(areas, self.g.face_areas).all()
+        self.assertTrue(np.isclose(areas, self.g.face_areas).all())
 
     def test_cell_volumes(self):
         volumes = np.array([1.25, 0.75, 1.25, 0.75])
-        assert np.isclose(volumes, self.g.cell_volumes).all()
+        self.assertTrue(np.isclose(volumes, self.g.cell_volumes).all())
 
     def test_face_normals(self):
         nx = np.array([1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0])
         ny = np.array([0, -0.5, 0, 0, 0.5, 0, 1, 1, 1.5, 0.5, 1, 1])
         fn = self.g.face_normals
-        assert np.isclose(nx, fn[0]).all()
-        assert np.isclose(ny, fn[1]).all()
+        self.assertTrue(np.isclose(nx, fn[0]).all())
+        self.assertTrue(np.isclose(ny, fn[1]).all())
 
     if __name__ == "__main__":
         unittest.main()
@@ -173,13 +173,13 @@ class TestCartGridGeometryUnpert3D(unittest.TestCase):
             ]
         )
 
-        assert np.isclose(x, self.g.nodes[0]).all()
-        assert np.isclose(y, self.g.nodes[1]).all()
-        assert np.isclose(z, self.g.nodes[2]).all()
+        self.assertTrue(np.isclose(x, self.g.nodes[0]).all())
+        self.assertTrue(np.isclose(y, self.g.nodes[1]).all())
+        self.assertTrue(np.isclose(z, self.g.nodes[2]).all())
 
     def test_faces_areas(self):
         areas = 1 * np.ones(self.g.num_faces)
-        assert np.isclose(areas, self.g.face_areas).all()
+        self.assertTrue(np.isclose(areas, self.g.face_areas).all())
 
     def test_face_normals(self):
         face_per_dim = 3 * 2 * 2
@@ -191,13 +191,13 @@ class TestCartGridGeometryUnpert3D(unittest.TestCase):
         nz = np.hstack((zeros, zeros, ones))
 
         fn = self.g.face_normals
-        assert np.isclose(nx, fn[0]).all()
-        assert np.isclose(ny, fn[1]).all()
-        assert np.isclose(nz, fn[2]).all()
+        self.assertTrue(np.isclose(nx, fn[0]).all())
+        self.assertTrue(np.isclose(ny, fn[1]).all())
+        self.assertTrue(np.isclose(nz, fn[2]).all())
 
     def test_cell_volumes(self):
         volumes = 1 * np.ones(self.g.num_cells)
-        assert np.isclose(volumes, self.g.cell_volumes).all()
+        self.assertTrue(np.isclose(volumes, self.g.cell_volumes).all())
 
     def test_cell_centers(self):
         cx = np.array([0.5, 1.5, 0.5, 1.5, 0.5, 1.5, 0.5, 1.5])
@@ -206,9 +206,9 @@ class TestCartGridGeometryUnpert3D(unittest.TestCase):
 
         cc = self.g.cell_centers
 
-        assert np.isclose(cx, cc[0]).all()
-        assert np.isclose(cy, cc[1]).all()
-        assert np.isclose(cz, cc[2]).all()
+        self.assertTrue(np.isclose(cx, cc[0]).all())
+        self.assertTrue(np.isclose(cy, cc[1]).all())
+        self.assertTrue(np.isclose(cz, cc[2]).all())
 
     if __name__ == "__main__":
         unittest.main()
@@ -227,15 +227,15 @@ class TestCartGridGeometry1CellPert3D(unittest.TestCase):
         y = np.array([0, 0, 1, 1, 0, 0, 1, 2])
         z = np.array([0, 0, 0, 0, 1, 1, 1, 2])
 
-        assert np.isclose(x, self.g.nodes[0]).all()
-        assert np.isclose(y, self.g.nodes[1]).all()
-        assert np.isclose(z, self.g.nodes[2]).all()
+        self.assertTrue(np.isclose(x, self.g.nodes[0]).all())
+        self.assertTrue(np.isclose(y, self.g.nodes[1]).all())
+        self.assertTrue(np.isclose(z, self.g.nodes[2]).all())
 
     def test_faces_areas(self):
         a1 = 1
         a2 = 2.159875808805010  # Face area computed another place
         areas = np.array([a1, a2, a1, a2, a1, a2])
-        assert np.isclose(areas, self.g.face_areas).all()
+        self.assertTrue(np.isclose(areas, self.g.face_areas).all())
 
     def test_face_normals(self):
         nx = np.array([1, 2, 0, -0.5, 0, -0.5])
@@ -243,9 +243,9 @@ class TestCartGridGeometry1CellPert3D(unittest.TestCase):
         nz = np.array([0, -0.5, 0, -0.5, 1, 2])
 
         fn = self.g.face_normals
-        assert np.isclose(nx, fn[0]).all()
-        assert np.isclose(ny, fn[1]).all()
-        assert np.isclose(nz, fn[2]).all()
+        self.assertTrue(np.isclose(nx, fn[0]).all())
+        self.assertTrue(np.isclose(ny, fn[1]).all())
+        self.assertTrue(np.isclose(nz, fn[2]).all())
 
     def test_face_centers(self):
         f1 = 1.294658198738520
@@ -257,12 +257,12 @@ class TestCartGridGeometry1CellPert3D(unittest.TestCase):
 
         fc = self.g.face_centers
 
-        assert np.isclose(fx, fc[0]).all()
-        assert np.isclose(fy, fc[1]).all()
-        assert np.isclose(fz, fc[2]).all()
+        self.assertTrue(np.isclose(fx, fc[0]).all())
+        self.assertTrue(np.isclose(fy, fc[1]).all())
+        self.assertTrue(np.isclose(fz, fc[2]).all())
 
     def test_cell_volumes(self):
-        assert np.isclose(self.g.cell_volumes, 1.75)
+        self.assertTrue(np.isclose(self.g.cell_volumes, 1.75))
 
     def test_cell_centers(self):
         # Center coordinate imported from other places
@@ -270,9 +270,9 @@ class TestCartGridGeometry1CellPert3D(unittest.TestCase):
         cy = cx
         cz = cx
         cc = self.g.cell_centers
-        assert np.isclose(cx, cc[0]).all()
-        assert np.isclose(cy, cc[1]).all()
-        assert np.isclose(cz, cc[2]).all()
+        self.assertTrue(np.isclose(cx, cc[0]).all())
+        self.assertTrue(np.isclose(cy, cc[1]).all())
+        self.assertTrue(np.isclose(cz, cc[2]).all())
 
     if __name__ == "__main__":
         unittest.main()
@@ -290,27 +290,27 @@ class TestStructuredTriangleGridGeometry(unittest.TestCase):
 
     def test_node_coords(self):
         nodes = np.array([[0, 1, 0, 1], [0, 0, 1, 1], [0, 0, 0, 0]])
-        assert np.allclose(self.g.nodes, nodes)
+        self.assertTrue(np.allclose(self.g.nodes, nodes))
 
     def test_face_centers(self):
         fc = np.array([[0.5, 0, 0.5, 1, 0.5], [0, 0.5, 0.5, 0.5, 1], [0, 0, 0, 0, 0]])
-        assert np.allclose(self.g.face_centers, fc)
+        self.assertTrue(np.allclose(self.g.face_centers, fc))
 
     def test_cell_centers(self):
         cc = np.array([[2 / 3, 1 / 3], [1 / 3, 2 / 3], [0, 0]])
-        assert np.allclose(self.g.cell_centers, cc)
+        self.assertTrue(np.allclose(self.g.cell_centers, cc))
 
     def test_cell_volumes(self):
         cv = np.array([0.5, 0.5])
-        assert np.allclose(self.g.cell_volumes, cv)
+        self.assertTrue(np.allclose(self.g.cell_volumes, cv))
 
     def test_face_areas(self):
         fa = np.array([1, 1, np.sqrt(2), 1, 1])
-        assert np.allclose(self.g.face_areas, fa)
+        self.assertTrue(np.allclose(self.g.face_areas, fa))
 
     def test_face_normals(self):
         fn = np.array([[0, -1, -1, 1, 0], [-1, 0, 1, 0, 1], [0, 0, 0, 0, 0]])
-        assert np.allclose(self.g.face_normals, fn)
+        self.assertTrue(np.allclose(self.g.face_normals, fn))
 
     if __name__ == "__main__":
         unittest.main()
@@ -420,10 +420,10 @@ class TestStructuredTetrahedralGrid(unittest.TestCase):
     def test_face_centers_areas(self):
         face_nodes = self.g.face_nodes.indices.reshape((3, self.g.num_faces), order="F")
         ismem, ind_map = setmembership.ismember_rows(self.fn, face_nodes)
-        assert np.all(ismem)
+        self.assertTrue(np.all(ismem))
 
-        assert np.allclose(self.face_areas, self.g.face_areas[ind_map])
-        assert np.allclose(self.face_center, self.g.face_centers[:, ind_map])
+        self.assertTrue(np.allclose(self.face_areas, self.g.face_areas[ind_map]))
+        self.assertTrue(np.allclose(self.face_center, self.g.face_centers[:, ind_map]))
 
     def test_node_coords(self):
         nodes = np.array(
@@ -433,7 +433,7 @@ class TestStructuredTetrahedralGrid(unittest.TestCase):
                 [0, 0, 0, 0, 1, 1, 1, 1],
             ]
         )
-        assert np.allclose(self.g.nodes, nodes)
+        self.assertTrue(np.allclose(self.g.nodes, nodes))
 
     def test_cell_centers(self):
         cc = np.array(
@@ -446,11 +446,11 @@ class TestStructuredTetrahedralGrid(unittest.TestCase):
                 [3 / 4, 3 / 4, 3 / 4],
             ]
         ).T
-        assert np.allclose(self.g.cell_centers, cc)
+        self.assertTrue(np.allclose(self.g.cell_centers, cc))
 
     def test_cell_volumes(self):
         cv = np.array([1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6])
-        assert np.allclose(self.g.cell_volumes, cv)
+        self.assertTrue(np.allclose(self.g.cell_volumes, cv))
 
     if __name__ == "__main__":
         unittest.main()
@@ -465,14 +465,14 @@ class TestStructuredSimplexGridCoverage(unittest.TestCase):
         grid_size = np.array([3, 5])
         g = simplex.StructuredTriangleGrid(grid_size, domain)
         g.compute_geometry()
-        assert np.abs(domain.prod() - np.sum(g.cell_volumes)) < 1e-10
+        self.assertTrue(np.abs(domain.prod() - np.sum(g.cell_volumes)) < 1e-10)
 
     def test_coverage_tets(self):
         domain = np.array([2, 3, 0.7])
         grid_size = np.array([3, 5, 2])
         g = simplex.StructuredTetrahedralGrid(grid_size, domain)
         g.compute_geometry()
-        assert np.abs(domain.prod() - np.sum(g.cell_volumes)) < 1e-10
+        self.assertTrue(np.abs(domain.prod() - np.sum(g.cell_volumes)) < 1e-10)
 
     if __name__ == "__main__":
         unittest.main()

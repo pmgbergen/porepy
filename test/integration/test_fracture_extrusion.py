@@ -13,7 +13,7 @@ class TestFractureExtrusion(unittest.TestCase):
         e = np.array([[0, 1], [2, 3]]).T
 
         fractures = extrusion.fractures_from_outcrop(p, e, tol=tol)
-        assert np.all(fractures[1].p[1] > -tol)
+        self.assertTrue(np.all(fractures[1].p[1] > -tol))
 
     def test_not_aligned_outcrop(self):
         # The fractures are not aligned with the mesh
@@ -24,7 +24,7 @@ class TestFractureExtrusion(unittest.TestCase):
 
         fractures = extrusion.fractures_from_outcrop(p, e, tol=tol)
         #
-        assert np.all(fractures[1].p[1] >= fractures[1].p[0] - tol)
+        self.assertTrue(np.all(fractures[1].p[1] >= fractures[1].p[0] - tol))
 
     def test_no_family_given(self):
         # Assign fracture family automatically
@@ -33,7 +33,7 @@ class TestFractureExtrusion(unittest.TestCase):
         e = np.array([[0, 1], [2, 3]]).T
 
         fractures = extrusion.fractures_from_outcrop(p, e, tol=tol)
-        assert np.all(fractures[1].p[1] >= -tol)
+        self.assertTrue(np.all(fractures[1].p[1] >= -tol))
 
     if __name__ == "__main__":
         unittest.main()

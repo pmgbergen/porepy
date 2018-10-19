@@ -18,9 +18,9 @@ class TestUniqueRows(unittest.TestCase):
         ia_expected = np.array([0, 1, 2])
         ic_expected = np.array([0, 1, 2, 1, 2])
         ua, ia, ic = setmembership.unique_rows(a)
-        assert np.sum(np.abs(ua) - np.abs(ua_expected)) == 0
-        assert np.all(ia - ia_expected == 0)
-        assert np.all(ic - ic_expected == 0)
+        self.assertTrue(np.sum(np.abs(ua) - np.abs(ua_expected)) == 0)
+        self.assertTrue(np.all(ia - ia_expected == 0))
+        self.assertTrue(np.all(ic - ic_expected == 0))
 
 
 class TestIsmember(unittest.TestCase):
@@ -32,8 +32,8 @@ class TestIsmember(unittest.TestCase):
         ma_known = np.array([1, 1, 1, 1, 0], dtype=bool)
         ia_known = np.array([1, 0, 2, 1])
 
-        assert np.allclose(ma, ma_known)
-        assert np.allclose(ia, ia_known)
+        self.assertTrue(np.allclose(ma, ma_known))
+        self.assertTrue(np.allclose(ia, ia_known))
 
     def test_ismember_rows_no_sort(self):
         a = np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]])
@@ -43,8 +43,8 @@ class TestIsmember(unittest.TestCase):
         ma_known = np.array([1, 1, 0, 1, 0], dtype=bool)
         ia_known = np.array([1, 0, 1])
 
-        assert np.allclose(ma, ma_known)
-        assert np.allclose(ia, ia_known)
+        self.assertTrue(np.allclose(ma, ma_known))
+        self.assertTrue(np.allclose(ia, ia_known))
 
     def test_ismember_rows_unqual_sizes_1(self):
         # a larger than b
@@ -55,8 +55,8 @@ class TestIsmember(unittest.TestCase):
         ma_known = np.array([1, 1, 1, 1, 0], dtype=bool)
         ia_known = np.array([1, 0, 2, 1])
 
-        assert np.allclose(ma, ma_known)
-        assert np.allclose(ia, ia_known)
+        self.assertTrue(np.allclose(ma, ma_known))
+        self.assertTrue(np.allclose(ia, ia_known))
 
     def test_ismember_rows_unqual_sizes_1(self):
         # b larger than b
@@ -67,8 +67,8 @@ class TestIsmember(unittest.TestCase):
         ma_known = np.array([1, 1, 1, 1, 0], dtype=bool)
         ia_known = np.array([1, 0, 2, 1])
 
-        assert np.allclose(ma, ma_known)
-        assert np.allclose(ia, ia_known)
+        self.assertTrue(np.allclose(ma, ma_known))
+        self.assertTrue(np.allclose(ia, ia_known))
 
     def test_ismember_rows_double_occurence_a_no_b(self):
         # There are duplicate occurences in a that are not found in b
@@ -79,8 +79,8 @@ class TestIsmember(unittest.TestCase):
         ma_known = np.array([0, 1, 1, 0, 0], dtype=bool)
         ia_known = np.array([0, 1])
 
-        assert np.allclose(ma, ma_known)
-        assert np.allclose(ia, ia_known)
+        self.assertTrue(np.allclose(ma, ma_known))
+        self.assertTrue(np.allclose(ia, ia_known))
 
     def test_ismember_rows_double_occurence_a_and_b(self):
         # There are duplicate occurences in a, and the same item is found in b
@@ -91,8 +91,8 @@ class TestIsmember(unittest.TestCase):
         ma_known = np.array([1, 1, 1, 1, 0], dtype=bool)
         ia_known = np.array([1, 0, 2, 1])
 
-        assert np.allclose(ma, ma_known)
-        assert np.allclose(ia, ia_known)
+        self.assertTrue(np.allclose(ma, ma_known))
+        self.assertTrue(np.allclose(ia, ia_known))
 
     def test_ismember_rows_1d(self):
         a = np.array([0, 2, 1, 3, 0])
@@ -103,8 +103,8 @@ class TestIsmember(unittest.TestCase):
         ma_known = np.array([0, 1, 0, 1, 0], dtype=bool)
         ia_known = np.array([0, 2])
 
-        assert np.allclose(ma, ma_known)
-        assert np.allclose(ia, ia_known)
+        self.assertTrue(np.allclose(ma, ma_known))
+        self.assertTrue(np.allclose(ia, ia_known))
 
     def test_ismember_rows_1d(self):
         a = np.array([0, 2, 1, 13, 0])
@@ -115,8 +115,8 @@ class TestIsmember(unittest.TestCase):
         ma_known = np.array([1, 1, 0, 1, 1], dtype=bool)
         ia_known = np.array([3, 0, 2, 3])
 
-        assert np.allclose(ma, ma_known)
-        assert np.allclose(ia, ia_known)
+        self.assertTrue(np.allclose(ma, ma_known))
+        self.assertTrue(np.allclose(ia, ia_known))
 
     def test_issue_123(self):
         # Reported bug #123.
@@ -133,8 +133,8 @@ class TestIsmember(unittest.TestCase):
         ma_known = np.array([1, 1, 1, 1, 0, 0, 0, 0, 0], dtype=bool)
         ia_known = np.array([0, 1, 2, 1])
 
-        assert np.allclose(ma, ma_known)
-        assert np.allclose(ia, ia_known)
+        self.assertTrue(np.allclose(ma, ma_known))
+        self.assertTrue(np.allclose(ia, ia_known))
 
 
 class TestUniqueColumns(unittest.TestCase):
@@ -142,17 +142,17 @@ class TestUniqueColumns(unittest.TestCase):
         p = np.array([[0, 1, 2], [0, 0, 0]])
         p_unique, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
 
-        assert np.allclose(p, p_unique)
-        assert np.alltrue(old_2_new == np.arange(3))
-        assert np.alltrue(old_2_new == new_2_old)
+        self.assertTrue(np.allclose(p, p_unique))
+        self.assertTrue(np.alltrue(old_2_new == np.arange(3)))
+        self.assertTrue(np.alltrue(old_2_new == new_2_old))
 
     def test_remove_one_point(self):
         p = np.ones((2, 2))
         p_unique, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
 
-        assert np.allclose(p, np.ones((2, 1)))
-        assert np.alltrue(old_2_new == np.zeros(2))
-        assert np.alltrue(new_2_old == np.zeros(1))
+        self.assertTrue(np.allclose(p, np.ones((2, 1))))
+        self.assertTrue(np.alltrue(old_2_new == np.zeros(2)))
+        self.assertTrue(np.alltrue(new_2_old == np.zeros(1)))
 
     def test_remove_one_of_tree(self):
         p = np.array([[1, 1, 0], [1, 1, 0]])
@@ -162,18 +162,22 @@ class TestUniqueColumns(unittest.TestCase):
         # (see unique_columns_tol for the various options that may be applied).
         # Do a simple sort to ensure we're safe.
         if p_unique[0, 0] == 0:
-            assert np.alltrue(np.sort(old_2_new) == np.array([0, 1, 1]))
-            assert np.alltrue(np.sort(new_2_old) == np.array([0, 2]))
+            self.assertTrue(np.alltrue(np.sort(old_2_new) == np.array([0, 1, 1])))
+            self.assertTrue(np.alltrue(np.sort(new_2_old) == np.array([0, 2])))
         else:
-            assert np.alltrue(np.sort(old_2_new) == np.array([0, 0, 1]))
-            assert np.alltrue(np.sort(new_2_old) == np.array([0, 2]))
+            self.assertTrue(np.alltrue(np.sort(old_2_new) == np.array([0, 0, 1])))
+            self.assertTrue(np.alltrue(np.sort(new_2_old) == np.array([0, 2])))
 
         p_known = np.array([[0, 1], [0, 1]])
 
         for i in range(p_unique.shape[1]):
-            assert np.min(np.sum(np.abs(p_known - p_unique[:, i]), axis=0)) == 0
+            self.assertTrue(
+                np.min(np.sum(np.abs(p_known - p_unique[:, i]), axis=0)) == 0
+            )
         for i in range(p_known.shape[1]):
-            assert np.min(np.sum(np.abs(p_known[:, i] - p_unique), axis=0)) == 0
+            self.assertTrue(
+                np.min(np.sum(np.abs(p_known[:, i] - p_unique), axis=0)) == 0
+            )
 
 
 if __name__ == "__main__":
