@@ -939,7 +939,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_et
 
     # Discretization of boundary values
     bound_stress = hf2f * hook_igrad * rhs_bound
-    stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
+#    stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
 
     if hf_disp:
         eta_at_bnd = True
