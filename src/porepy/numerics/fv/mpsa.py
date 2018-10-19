@@ -1564,10 +1564,11 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     """
     nd = g.dim
 
-    num_stress = bound_exclusion.exclude_rob_dir.shape[0]
+    num_stress = bound_exclusion.exclude_bnd.shape[0]
     num_displ = bound_exclusion.exclude_neu_rob.shape[0]
 
     num_rob = bound_exclusion.keep_rob.shape[0]
+    num_neu = bound_exclusion.keep_neu.shape[0]
 
     fno = subcell_topology.fno_unique
     subfno = subcell_topology.subfno_unique
@@ -1575,9 +1576,10 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
         subcell_topology.fno_unique, subcell_topology.cno_unique
     ].A.ravel("F")
 
-    num_neu = np.sum(bound.is_neu[:, fno])
     num_dir = np.sum(bound.is_dir[:, fno])
     if not num_rob == np.sum(bound.is_rob[:, fno]):
+        raise AssertionError()
+    if not num_neu == np.sum(bound.is_neu[:, fno]):
         raise AssertionError()
 
     num_bound = num_neu + num_dir + num_rob
@@ -1589,14 +1591,13 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
     # Pick out the subface indices
-
     # The boundary conditions should be given in the given basis, therefore no transformation
-    subfno_neu = bound_exclusion.exclude_robin_dirichlet(
+    subfno_neu = bound_exclusion.keep_neumann(
         subfno_nd.ravel("C"), transform=False
     ).ravel("F")
     # Pick out the Neumann boundary
     is_neu_nd = (
-        bound_exclusion.exclude_robin_dirichlet(
+        bound_exclusion.keep_neumann(
             bound.is_neu[:, fno].ravel("C"), transform=False
         )
         .ravel("F")
@@ -1654,11 +1655,11 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     # We now merge the neuman and robin indices since they are treated equivalent
     if rob_ind.size == 0:
-        neu_rob_ind = neu_ind
+        neu_rob_ind = neu_ind + num_stress
     elif neu_ind.size == 0:
         neu_rob_ind = rob_ind + num_stress
     else:
-        neu_rob_ind = np.hstack((neu_ind, rob_ind + num_stress))
+        neu_rob_ind = np.hstack((neu_ind + num_stress, rob_ind + num_stress + num_neu))
 
     neu_rob_ind_all = np.hstack((neu_ind_all, rob_ind_all))
 
@@ -1682,7 +1683,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     if neu_rob_ind.size > 0:
         neu_cell = sps.coo_matrix(
             (neu_val.ravel("F"), (neu_rob_ind, np.arange(neu_rob_ind.size))),
-            shape=(num_stress + num_rob, num_bound),
+            shape=(num_stress + num_neu + num_rob, num_bound),
         ).tocsr()
     else:
         # Special handling when no elements are found. Not sure if this is
