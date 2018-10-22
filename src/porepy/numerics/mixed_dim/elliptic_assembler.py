@@ -11,19 +11,49 @@ import porepy as pp
 
 class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
     """ A class that assembles a mixed-dimensional elliptic equation.
+
+    In terms of functionality, this is a specialized version of pp.Assembler(),
+    dedicated to assembly of scalar elliptic equations. Compared to the general
+    approach, this class has:
+        1) A much simpler syntaxt for defining the variable, based on a single
+           keyword.
+        2) The number of degrees of freedom on each node is not specified, but
+           instead inferred from the discretization applied. This is heavily
+           motivated by experimentation with heterogeneous discretizations.
+
+    For details on how to use the function, see the method assemble_matrix_rhs().
+
+    Attributes:
+        keyword (str): String identifying all quantities (discretization,
+                parameters) this object will work on.
+
     """
 
     def __init__(self, keyword):
-        # The keyword should be the same as for all discretization objects
+        """ Create an assembler object associated with a specific keyword that
+        identifies its variable, discretization and parameters.
+
+        Parameters:
+            keyword (str): String used for identifying all quantities this
+                object will work on. See assemble_matrix_rhs() for details.
+        """
         self.keyword = keyword
 
-    def key(self):
+    def _key(self):
+
         return self.keyword + "_"
 
-    def discretization_key(self):
-        return self.key() + pp.keywords.DISCRETIZATION
+    def _discretization_key(self):
+        # Convenience method to get a string representation for whatever
+        return self._key() + pp.keywords.DISCRETIZATION
 
     def assemble_matrix_rhs(self, gb, matrix_format='csr'):
+        """ Assemble the system matrix and right hand side  for the elliptic
+        equation.
+
+        The function loops over all nodes in the GridBucket and looks for
+
+        """
 
 
         # Initialize the global matrix. In this case, we know there is a single
@@ -37,9 +67,12 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
         # will populate the main diagonal of the equation.
         for g, data in gb:
 
+            # The structure of the GridBucked nodes in the system matrix is
+            # based on the keyword node_number.
+            # TODO: We should rather use a
             pos = data['node_number']
 
-            discr = data[self.discretization_key()]
+            discr = data[self._discretization_key()]
 
             # Assemble the matrix and right hand side. This will also
             # discretize if not done before.
@@ -53,7 +86,7 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
 
         # Loop over all edges
         for e, data_edge in gb.edges():
-            discr = data_edge[self.discretization_key()]
+            discr = data_edge[self._discretization_key()]
             g_slave, g_master = gb.nodes_of_edge(e)
             data_slave = gb.node_props(g_slave)
             data_master = gb.node_props(g_master)
@@ -108,7 +141,7 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
         """
         gb.add_node_props([flux_keyword])
         for g, d in gb:
-            discretization = d[self.discretization_key()]
+            discretization = d[self._discretization_key()]
             d[flux_keyword] = discretization.extract_flux(g, d[pressure_flux_keyword], d)
 
 
@@ -145,5 +178,5 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
         """
         gb.add_node_props([pressure_keyword])
         for g, d in gb:
-            discretization = d[self.discretization_key()]
+            discretization = d[self._discretization_key()]
             d[pressure_keyword] = discretization.extract_pressure(g, d[presssure_flux_keyword], d)
