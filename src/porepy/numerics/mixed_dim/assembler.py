@@ -202,6 +202,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     # active variables, we skip this coupling.
                     if (master_key is not None and not master_key in active_master_var.keys()) or \
                         (slave_key is not None and not slave_key in active_slave_var.keys()):
+                            # Not sure about this one - maybe it is better to include something
                             continue
 
                     mi = block_dof.get((g_master, master_key), None)
@@ -224,6 +225,9 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                         for discr in self._iterable(dep[pp.keywords.DISCRETIZATION]):
                             matrix[idx], loc_rhs = discr.assemble_matrix_rhs(g_slave, data_slave, data_edge, matrix[idx])
                             rhs[[si, ei]] += loc_rhs
+
+                    else:
+                        raise ValueError('Invalid combination of variables on node-edge relation')
 
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
