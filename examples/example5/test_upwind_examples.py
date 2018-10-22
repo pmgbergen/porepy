@@ -9,16 +9,9 @@ import numpy as np
 import unittest
 
 import scipy.sparse as sps
-
-from porepy.grids import structured
-from porepy.params.bc import BoundaryCondition
-from porepy.params import tensor
-from porepy.params.data import Parameters
+import porepy as pp
 
 from porepy.numerics.vem import vem_dual, vem_source
-from porepy.numerics.fv.transport import upwind
-from porepy.numerics.fv import mass_matrix
-from porepy.viz.exporter import Exporter
 
 # ------------------------------------------------------------------------------#
 
@@ -33,15 +26,15 @@ class BasicsTest(unittest.TestCase):
         #######################
         T = 1
         Nx, Ny = 4, 1
-        g = structured.CartGrid([Nx, Ny], [1, 1])
+        g = pp.CartGrid([Nx, Ny], [1, 1])
         g.compute_geometry()
 
-        advect = upwind.Upwind("transport")
-        param = Parameters(g)
+        advect = pp.Upwind("transport")
+        param = pp.Parameters(g)
         dis = advect.discharge(g, [1, 0, 0])
 
         b_faces = g.get_all_boundary_faces()
-        bc = BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
+        bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
         param.set_bc("transport", bc)
         param.set_bc_val("transport", bc_val)
@@ -49,21 +42,21 @@ class BasicsTest(unittest.TestCase):
         data = {"param": param, "discharge": dis}
         data["deltaT"] = advect.cfl(g, data)
 
-        U, rhs = advect.matrix_rhs(g, data)
+        U, rhs = advect.assemble_matrix_rhs(g, data)
         OF = advect.outflow(g, data)
-        M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
+        M, _ = pp.MassMatrix().matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
 
         M_minus_U = M - U
-        invM, _ = mass_matrix.InvMassMatrix().matrix_rhs(g, data)
+        invM, _ = pp.InvMassMatrix().matrix_rhs(g, data)
 
         # Loop over the time
         Nt = int(T / data["deltaT"])
         time = np.empty(Nt)
         folder = "example0"
         production = np.zeros(Nt)
-        save = Exporter(g, "conc_EE", folder)
+        save = pp.Exporter(g, "conc_EE", folder)
         for i in np.arange(Nt):
 
             # Update the solution
@@ -87,15 +80,15 @@ class BasicsTest(unittest.TestCase):
         #######################
         T = 1
         Nx, Ny = 10, 1
-        g = structured.CartGrid([Nx, Ny], [1, 1])
+        g = pp.CartGrid([Nx, Ny], [1, 1])
         g.compute_geometry()
 
-        advect = upwind.Upwind("transport")
-        param = Parameters(g)
+        advect = pp.Upwind("transport")
+        param = pp.Parameters(g)
         dis = advect.discharge(g, [1, 0, 0])
 
         b_faces = g.get_all_boundary_faces()
-        bc = BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
+        bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
         param.set_bc("transport", bc)
         param.set_bc_val("transport", bc_val)
@@ -104,7 +97,7 @@ class BasicsTest(unittest.TestCase):
         data["deltaT"] = advect.cfl(g, data)
 
         U, rhs = advect.matrix_rhs(g, data)
-        M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
+        M, _ = pp.MassMatrix().matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
 
@@ -115,7 +108,7 @@ class BasicsTest(unittest.TestCase):
         Nt = int(T / data["deltaT"])
         time = np.empty(Nt)
         folder = "example1"
-        save = Exporter(g, "conc_IE", folder)
+        save = pp.Exporter(g, "conc_IE", folder)
         for i in np.arange(Nt):
 
             # Update the solution
@@ -158,13 +151,13 @@ class BasicsTest(unittest.TestCase):
         def funp_ex(pt):
             return -np.sin(pt[0]) * np.sin(pt[1]) - pt[0]
 
-        g = structured.CartGrid([Nx, Ny], [1, 1])
+        g = pp.CartGrid([Nx, Ny], [1, 1])
         g.compute_geometry()
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
 
         # Permeability
-        perm = tensor.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+        perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         # Source term
@@ -172,7 +165,7 @@ class BasicsTest(unittest.TestCase):
 
         # Boundaries
         b_faces = g.get_all_boundary_faces()
-        bc = BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
+        bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.zeros(g.num_faces)
         bc_val[b_faces] = funp_ex(g.face_centers[:, b_faces])
         param.set_bc("flow", bc)
@@ -191,7 +184,7 @@ class BasicsTest(unittest.TestCase):
         p, u = solver.extract_p(g, up), solver.extract_u(g, up)
         P0u = solver.project_u(g, u, data)
 
-        save = Exporter(g, "darcy", folder)
+        save = pp.Exporter(g, "darcy", folder)
 
         if if_export:
             save.write_vtk({"pressure": p, "P0u": P0u})
@@ -200,7 +193,7 @@ class BasicsTest(unittest.TestCase):
         dis = u
 
         # Boundaries
-        bc = BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
+        bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
         param.set_bc("transport", bc)
         param.set_bc_val("transport", bc_val)
@@ -208,16 +201,16 @@ class BasicsTest(unittest.TestCase):
         data = {"param": param, "discharge": dis}
 
         # Advect solver
-        advect = upwind.Upwind("transport")
+        advect = pp.Upwind("transport")
 
         U, rhs = advect.matrix_rhs(g, data)
 
         data["deltaT"] = advect.cfl(g, data)
-        M, _ = mass_matrix.MassMatrix().matrix_rhs(g, data)
+        M, _ = pp.MassMatrix().matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
         M_minus_U = M - U
-        invM, _ = mass_matrix.InvMassMatrix().matrix_rhs(g, data)
+        invM, _ = pp.InvMassMatrix().matrix_rhs(g, data)
 
         # Loop over the time
         Nt = int(T / data["deltaT"])

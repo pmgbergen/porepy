@@ -569,7 +569,7 @@ class Exporter:
                         for f in faces_cells[loc]
                     ]
                 ).T
-                ptsId = pp.sort_points.sort_point_pairs(ptsId)[0, :] + ptsId_global
+                ptsId = pp.utils.sort_points.sort_point_pairs(ptsId)[0, :] + ptsId_global
 
                 fsVTK = vtk.vtkIdList()
                 [fsVTK.InsertNextId(p) for p in ptsId]
