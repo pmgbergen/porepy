@@ -10,7 +10,11 @@ import porepy as pp
 
 
 class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
-    """
+    """ Superclass for finite volume discretizations of the elliptic equation.
+
+    Should not be used by itself, instead use a subclass that implements an
+    actual discretization method. Known subclasses are Tpfa and Mpfa.
+
     """
 
     def __init__(self, keyword):
