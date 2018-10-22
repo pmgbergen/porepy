@@ -1,15 +1,11 @@
+"""
+3d convergence test for dual VEM for heterogeneous permeability.
+"""
 import numpy as np
 import scipy.sparse as sps
 import unittest
+import porepy as pp
 
-from porepy.params import tensor
-from porepy.params.bc import BoundaryCondition
-from porepy.params.data import Parameters
-
-from porepy.grids import structured, simplex
-from porepy.grids import coarsening as co
-
-from porepy.numerics.vem import vem_dual, vem_source
 
 # ------------------------------------------------------------------------------#
 
@@ -47,11 +43,11 @@ def add_data(g):
     """
     Define the permeability, apertures, boundary conditions
     """
-    param = Parameters(g)
+    param = pp.Parameters(g)
 
     # Permeability
     kxx = np.array([permeability(*pt) for pt in g.cell_centers.T])
-    param.set_tensor("flow", tensor.SecondOrderTensor(3, kxx))
+    param.set_tensor("flow", pp.SecondOrderTensor(3, kxx))
 
     # Source term
     source = np.array([rhs(*pt) for pt in g.cell_centers.T])
@@ -66,7 +62,7 @@ def add_data(g):
     bc_val = np.zeros(g.num_faces)
     bc_val[bound_faces] = np.array([solution(*pt) for pt in bound_face_centers.T])
 
-    param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+    param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
     param.set_bc_val("flow", bc_val)
 
     return {"param": param}
@@ -88,7 +84,7 @@ def main(N):
     Nx = Ny = N
 
     # g = structured.CartGrid([Nx, Ny], [2, 2])
-    g = simplex.StructuredTriangleGrid([Nx, Ny], [1, 1])
+    g = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
     g.compute_geometry()
     # co.coarsen(g, 'by_volume')
 
@@ -96,10 +92,10 @@ def main(N):
     data = add_data(g)
 
     # Choose and define the solvers
-    solver_flow = vem_dual.DualVEM("flow")
+    solver_flow = pp.DualVEM("flow")
     A_flow, b_flow = solver_flow.matrix_rhs(g, data)
 
-    solver_source = vem_source.DualSource("flow")
+    solver_source = pp.DualSource("flow")
     A_source, b_source = solver_source.matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
@@ -116,7 +112,7 @@ def main(N):
 
 
 class BasicsTest(unittest.TestCase):
-    def test_vem_varing_k(self):
+    def test_vem_varying_k(self):
         diam_10, error_10 = main(10)
         diam_20, error_20 = main(20)
 
