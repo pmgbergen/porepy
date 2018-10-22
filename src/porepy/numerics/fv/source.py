@@ -1,5 +1,5 @@
 """
-Discretization of the flux term of an equation.
+Discretization of the source term of an equation for FV methods.
 """
 
 import numpy as np
