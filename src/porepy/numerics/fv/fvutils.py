@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Mar  4 09:04:16 2016
-
-@author: eke001
+Various FV specific utility functions.
 """
 from __future__ import division
+import warnings
 import numpy as np
 import scipy.sparse as sps
 
@@ -1253,16 +1251,15 @@ def compute_discharges(
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
+    keyword = physics
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
         pa = data["param"]
-        if data.get("flux") is not None:
-            dis = data["flux"] * data[p_name] + data["bound_flux"] * pa.get_bc_val(
-                physics
-            )
+        if data.get(keyword + "_flux") is not None:
+            dis = data[keyword + "_flux"] * data[p_name] \
+                + data[keyword + "_bound_flux"] * pa.get_bc_val(physics)
         else:
-            raise ValueError(
-                "Discharges can only be computed if a flux-based discretization has been applied"
-            )
+            raise ValueError("""Discharges can only be computed if a flux-based
+                                 discretization has been applied""")
         data[d_name] = dis
         return
 
@@ -1271,12 +1268,12 @@ def compute_discharges(
     for g, d in gb:
         if g.dim > 0:
             pa = d["param"]
-            if d.get("flux") is not None:
-                dis = d["flux"] * d[p_name] + d["bound_flux"] * pa.get_bc_val(physics)
+            if d.get(keyword + "_flux") is not None:
+                dis = d[keyword + "_flux"] * d[p_name] \
+                    + d[keyword + "_bound_flux"] * pa.get_bc_val(physics)
             else:
-                raise ValueError(
-                    "Discharges can only be computed if a flux-based discretization has been applied"
-                )
+                raise ValueError("""Discharges can only be computed if a flux-based
+                                 discretization has been applied""")
 
             d[d_name] = dis
 
