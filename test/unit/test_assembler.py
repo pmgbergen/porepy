@@ -714,6 +714,3 @@ class MockEdgeDiscretizationOneSided(object):
 
 if __name__ == '__main__':
     unittest.main()
-#TestAssembler().test_single_variable_not_active()
-#TestAssembler().one_variable_one_sided_coupling_between_node_and_edge()
-#unittest.main()
