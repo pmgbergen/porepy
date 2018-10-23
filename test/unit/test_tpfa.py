@@ -40,7 +40,7 @@ class TestTPFA(unittest.TestCase):
         discr = tpfa.Tpfa(key)
         d = _assign_params(g, perm, bound)
         discr.discretize(g, d)
-        trm, bound_flux = d[discr.key() + "flux"], d[discr.key() + "bound_flux"]
+        trm, bound_flux = d[discr._key() + "flux"], d[discr._key() + "bound_flux"]
         div = g.cell_faces.T
         a = div * trm
         b = -(div * bound_flux).A

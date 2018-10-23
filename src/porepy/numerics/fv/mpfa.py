@@ -64,10 +64,10 @@ class Mpfa(FVElliptic):
         trm, bound_flux, bp_cell, bp_face = self.mpfa(
             g, k, bnd, eta=eta, apertures=a, robin_weight=robin_weight
         )
-        data[self.key() + "flux"] = trm
-        data[self.key() + "bound_flux"] = bound_flux
-        data[self.key() + "bound_pressure_cell"] = bp_cell
-        data[self.key() + "bound_pressure_face"] = bp_face
+        data[self._key() + "flux"] = trm
+        data[self._key() + "bound_flux"] = bound_flux
+        data[self._key() + "bound_pressure_cell"] = bp_cell
+        data[self._key() + "bound_pressure_face"] = bp_face
 
     def mpfa(self, g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, robin_weight=None, **kwargs):
         """
@@ -368,10 +368,10 @@ class Mpfa(FVElliptic):
             d = {"param": params}
             discr.discretize(g, d)
             return (
-                d[self.key() + "flux"],
-                d[self.key() + "bound_flux"],
-                d[self.key() + "bound_pressure_cell"],
-                d[self.key() + "bound_pressure_face"],
+                d[self._key() + "flux"],
+                d[self._key() + "bound_flux"],
+                d[self._key() + "bound_pressure_cell"],
+                d[self._key() + "bound_pressure_face"],
             )
         elif g.dim == 0:
             return sps.csr_matrix([0]), 0, 0, 0

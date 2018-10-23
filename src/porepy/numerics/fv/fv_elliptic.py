@@ -82,7 +82,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
             np.array (g.num_faces): Flux vector.
 
         """
-        flux_discretization = d[self.key() + 'flux']
+        flux_discretization = d[self._key() + 'flux']
         return flux_discretization * solution_array
 
 
@@ -134,11 +134,11 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 size of the matrix will depend on the specific discretization.
 
         """
-        if not self.key() + 'flux' in data.keys():
+        if not self._key() + 'flux' in data.keys():
             self.discretize(g, data)
 
         div = pp.fvutils.scalar_divergence(g)
-        flux = data[self.key() + "flux"]
+        flux = data[self._key() + "flux"]
         M = div * flux
 
         return M
@@ -161,10 +161,10 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 conditions. The size of the vector will depend on the
                 discretization.
         """
-        if not self.key() + 'bound_flux' in data.keys():
+        if not self._key() + 'bound_flux' in data.keys():
             self.discretize(g, data)
 
-        bound_flux = data[self.key() + "bound_flux"]
+        bound_flux = data[self._key() + "bound_flux"]
 
         param = data["param"]
 
@@ -214,7 +214,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         else:
             proj = mg.master_to_mortar_avg()
 
-        cc[self_ind, 2] += div * data[self.key() + 'bound_flux'] * proj.T
+        cc[self_ind, 2] += div * data[self._key() + 'bound_flux'] * proj.T
 
     def assemble_int_bound_source(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
         """ Abstract method. Assemble the contribution from an internal
@@ -293,9 +293,9 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         else:
             proj = mg.master_to_mortar_avg()
 
-        bp = data[self.key() + 'bound_pressure_cell']
+        bp = data[self._key() + 'bound_pressure_cell']
         cc[2, self_ind] += proj * bp
-        cc[2, 2] += proj * data[self.key() + 'bound_pressure_face'] * proj.T
+        cc[2, 2] += proj * data[self._key() + 'bound_pressure_face'] * proj.T
 
 
     def assemble_int_bound_pressure_cell(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
