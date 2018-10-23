@@ -44,12 +44,12 @@ class BasicsTest(unittest.TestCase):
 
         U, rhs = advect.assemble_matrix_rhs(g, data)
         OF = advect.outflow(g, data)
-        M, _ = pp.MassMatrix().matrix_rhs(g, data)
+        M, _ = pp.MassMatrix().assemble_matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
 
         M_minus_U = M - U
-        invM, _ = pp.InvMassMatrix().matrix_rhs(g, data)
+        invM, _ = pp.InvMassMatrix().assemble_matrix_rhs(g, data)
 
         # Loop over the time
         Nt = int(T / data["deltaT"])
@@ -96,8 +96,8 @@ class BasicsTest(unittest.TestCase):
         data = {"param": param, "discharge": dis}
         data["deltaT"] = advect.cfl(g, data)
 
-        U, rhs = advect.matrix_rhs(g, data)
-        M, _ = pp.MassMatrix().matrix_rhs(g, data)
+        U, rhs = advect.assemble_matrix_rhs(g, data)
+        M, _ = pp.MassMatrix().assemble_matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
 
@@ -174,15 +174,15 @@ class BasicsTest(unittest.TestCase):
         # Darcy solver
         data = {"param": param}
         solver = vem_dual.DualVEM("flow")
-        D_flow, b_flow = solver.matrix_rhs(g, data)
+        D_flow, b_flow = solver.assemble_matrix_rhs(g, data)
 
         solver_source = vem_source.DualSource("flow")
-        D_source, b_source = solver_source.matrix_rhs(g, data)
+        D_source, b_source = solver_source.assemble_matrix_rhs(g, data)
 
         up = sps.linalg.spsolve(D_flow + D_source, b_flow + b_source)
 
-        p, u = solver.extract_p(g, up), solver.extract_u(g, up)
-        P0u = solver.project_u(g, u, data)
+        p, u = solver.extract_pressure(g, up), solver.extract_flux(g, up)
+        P0u = solver.project_flux(g, u, data)
 
         save = pp.Exporter(g, "darcy", folder)
 
@@ -203,14 +203,14 @@ class BasicsTest(unittest.TestCase):
         # Advect solver
         advect = pp.Upwind("transport")
 
-        U, rhs = advect.matrix_rhs(g, data)
+        U, rhs = advect.assemble_matrix_rhs(g, data)
 
         data["deltaT"] = advect.cfl(g, data)
-        M, _ = pp.MassMatrix().matrix_rhs(g, data)
+        M, _ = pp.MassMatrix().assemble_matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
         M_minus_U = M - U
-        invM, _ = pp.InvMassMatrix().matrix_rhs(g, data)
+        invM, _ = pp.InvMassMatrix().assemble_matrix_rhs(g, data)
 
         # Loop over the time
         Nt = int(T / data["deltaT"])

@@ -93,16 +93,16 @@ def main(N):
 
     # Choose and define the solvers
     solver_flow = pp.DualVEM("flow")
-    A_flow, b_flow = solver_flow.matrix_rhs(g, data)
+    A_flow, b_flow = solver_flow.assemble_matrix_rhs(g, data)
 
     solver_source = pp.DualSource("flow")
-    A_source, b_source = solver_source.matrix_rhs(g, data)
+    A_source, b_source = solver_source.assemble_matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 
-    u = solver_flow.extract_u(g, up)
-    p = solver_flow.extract_p(g, up)
-    P0u = solver_flow.project_u(g, u, data)
+    u = solver_flow.extract_flux(g, up)
+    p = solver_flow.extract_pressure(g, up)
+    P0u = solver_flow.project_flux(g, u, data)
 
     diam = np.amax(g.cell_diameters())
     return diam, error_p(g, p)
