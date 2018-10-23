@@ -29,7 +29,7 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.FracturedMpsa()
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.assemble_matrix_rhs(g, data)
         u = np.linalg.solve(A.A, b)
         T = solver.traction(g, data, u)
 
@@ -59,7 +59,7 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.FracturedMpsa()
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.assemble_matrix_rhs(g, data)
         u = np.linalg.solve(A.A, b)
 
         u_f = solver.extract_frac_u(g, u)
@@ -125,7 +125,7 @@ class BasicsTest(unittest.TestCase):
         data["param"].set_slip_distance(frac_slip.ravel("F"))
         solver = pp.FracturedMpsa()
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.assemble_matrix_rhs(g, data)
         u = np.linalg.solve(A.A, b)
 
         u_f = solver.extract_frac_u(g, u)
@@ -188,7 +188,7 @@ class BasicsTest(unittest.TestCase):
         data["param"].set_slip_distance(frac_traction.ravel("F"))
         solver = pp.FracturedMpsa(given_traction=True)
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.assemble_matrix_rhs(g, data)
         u = np.linalg.solve(A.A, b)
 
         u_f = solver.extract_frac_u(g, u)
@@ -253,7 +253,7 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.FracturedMpsa()
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.assemble_matrix_rhs(g, data)
         u = np.linalg.solve(A.A, b)
 
         u_f = solver.extract_frac_u(g, u)
@@ -303,7 +303,7 @@ class BasicsTest(unittest.TestCase):
         data["param"].set_slip_distance(frac_slip.ravel("F"))
         solver = pp.FracturedMpsa()
 
-        A, b = solver.matrix_rhs(g, data)
+        A, b = solver.assemble_matrix_rhs(g, data)
         u = np.linalg.solve(A.A, b)
 
         u_f = solver.extract_frac_u(g, u)
