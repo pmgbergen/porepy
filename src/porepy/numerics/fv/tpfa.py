@@ -67,8 +67,8 @@ class Tpfa(FVElliptic):
         aperture = param.get_aperture()
 
         if g.dim == 0:
-            data[self.key() + "flux"] = sps.csr_matrix([0])
-            data[self.key() + "bound_flux"] = 0
+            data[self._key() + "flux"] = sps.csr_matrix([0])
+            data[self._key() + "bound_flux"] = 0
             return None
         if faces is None:
             is_not_active = np.zeros(g.num_faces, dtype=np.bool)
@@ -138,8 +138,8 @@ class Tpfa(FVElliptic):
             (t_b * bndr_sgn, (bndr_ind, bndr_ind)), (g.num_faces, g.num_faces)
         )
 
-        data[self.key() + "flux"] = flux
-        data[self.key() + "bound_flux"] = bound_flux
+        data[self._key() + "flux"] = flux
+        data[self._key() + "bound_flux"] = bound_flux
 
         # Next, construct operator to reconstruct pressure on boundaries
         # Fields for data storage
@@ -155,8 +155,8 @@ class Tpfa(FVElliptic):
             (v_cell, (fi, ci)), (g.num_faces, g.num_cells)
         )
         bound_pressure_face = sps.dia_matrix((v_face, 0), (g.num_faces, g.num_faces))
-        data[self.key() + "bound_pressure_cell"] = bound_pressure_cell
-        data[self.key() + "bound_pressure_face"] = bound_pressure_face
+        data[self._key() + "bound_pressure_cell"] = bound_pressure_cell
+        data[self._key() + "bound_pressure_face"] = bound_pressure_face
 
 
 # ------------------------------------------------------------------------------

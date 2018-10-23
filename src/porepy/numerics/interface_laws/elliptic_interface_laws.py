@@ -34,11 +34,11 @@ class RobinCoupling(object):
     def __init__(self, keyword):
         self.keyword = keyword
 
-    def key(self):
+    def _key(self):
         return self.keyword + '_'
 
-    def discretization_key(self):
-        return self.key() + pp.keywords.DISCRETIZATION
+    def _discretization_key(self):
+        return self._key() + pp.keywords.DISCRETIZATION
 
     def ndof(self, mg):
         return mg.num_cells
@@ -79,7 +79,7 @@ class RobinCoupling(object):
 
         # @ALESSIO, @EIRIK: the tpfa and vem couplers use different sign
         # conventions here. We should be very careful.
-        data_edge[self.key() + 'Robin_discr'] = -inv_M * Eta
+        data_edge[self._key() + 'Robin_discr'] = -inv_M * Eta
 
 
     def assemble_matrix(self, g_master, g_slave, data_master, data_slave, data_edge, matrix):
@@ -100,7 +100,7 @@ class RobinCoupling(object):
             internal boundary in some numerical methods (Read: VEM, RT0)
 
         """
-        if not self.key() + "Robin_discr" in data_edge.keys():
+        if not self._key() + "Robin_discr" in data_edge.keys():
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         assert g_master.dim != g_slave.dim
@@ -113,8 +113,8 @@ class RobinCoupling(object):
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
 
-        discr_master = data_master[self.discretization_key()]
-        discr_slave = data_slave[self.discretization_key()]
+        discr_master = data_master[self._discretization_key()]
+        discr_slave = data_slave[self._discretization_key()]
 
         dof_master = discr_master.ndof(g_master)
         dof_slave = discr_slave.ndof(g_slave)
@@ -128,7 +128,7 @@ class RobinCoupling(object):
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
         # and mortar variables in the third
-        cc[2, 2] = data_edge[self.key() + 'Robin_discr']
+        cc[2, 2] = data_edge[self._key() + 'Robin_discr']
 
         discr_master.assemble_int_bound_pressure_trace(g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0)
         discr_master.assemble_int_bound_flux(g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0)

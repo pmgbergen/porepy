@@ -51,7 +51,7 @@ class EllipticDiscretization(Solver):
         # The physics keyword is kept for consistency for now, but will soon be purged.
         self.physics = keyword
 
-    def key(self):
+    def _key(self):
         """ Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
