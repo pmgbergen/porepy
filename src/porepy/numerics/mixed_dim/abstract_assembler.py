@@ -37,17 +37,17 @@ class AbstractAssembler(object):
         size = num_nodes + num_edges
         shapes = np.empty((size, size), dtype=np.object)
 
-        dof = self.key() + "dof"
+        dof = self._key() + "dof"
         # First loop over all nodes and edges. Assign dof numbers if not already
         # present
         for g, d in gb:
             if not dof in d.keys():
-                d[dof] = d[self.discretization_key()].ndof(g)
+                d[dof] = d[self._discretization_key()].ndof(g)
 
         for e, d in gb.edges():
             if not dof in d.keys():
                 mg = d["mortar_grid"]
-                d[dof] = d[self.discretization_key()].ndof(mg)
+                d[dof] = d[self._discretization_key()].ndof(mg)
 
         # Initialize the shapes for the matrices and rhs for all the sub-blocks
         for _, d_i in gb:
@@ -142,11 +142,11 @@ class AbstractAssembler(object):
         dofs = np.zeros(size, dtype=int)
 
         for _, d in gb:
-            dofs[d["node_number"]] = d[self.key() + "dof"]
+            dofs[d["node_number"]] = d[self._key() + "dof"]
 
         for e, d in gb.edges():
             i = d["edge_number"] + gb.num_graph_nodes()
-            dofs[i] = d[self.key() + "dof"]
+            dofs[i] = d[self._key() + "dof"]
 
         return np.r_[0, np.cumsum(dofs)]
 
