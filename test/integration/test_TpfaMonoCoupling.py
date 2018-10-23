@@ -241,7 +241,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         flow_disc = pp.TpfaMixedDim()
         source_disc = pp.IntegralMixedDim(coupling=[None])
 
-        _, src = source_disc.matrix_rhs(gb)
+        _, src = source_disc.assemble_matrix_rhs(gb)
 
         A, b = flow_disc.matrix_rhs(gb)
         x = sps.linalg.spsolve(A, b + src)
