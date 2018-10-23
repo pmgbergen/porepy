@@ -34,7 +34,7 @@ class Parameters(object):
     Physic-specific
         tensor (Returns permeability, conductivtiy or stiffness)
         bc (BoundaryCondition object)
-        bc_val (Boundary values
+        bc_val (Boundary values)
         sources (flow and transport)
 
     Solvers will access data as needed. If a solver inquires for unassigned

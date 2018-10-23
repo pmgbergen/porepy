@@ -1,11 +1,6 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Module contains superclass for mpfa and tpfa.
 """
-import numpy as np
-import scipy.sparse as sps
-
 import porepy as pp
 
 
@@ -113,8 +108,8 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
     def assemble_matrix(self, g, data):
         """
-        Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method.
+        Return the matrix for a discretization of a second order elliptic equation
+        using a FV method.
 
         The name of data in the input dictionary (data) are:
         k : second_order_tensor
