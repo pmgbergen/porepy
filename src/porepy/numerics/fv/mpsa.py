@@ -44,7 +44,7 @@ class Mpsa(Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data, discretize=True):
+    def assemble_matrix_rhs(self, g, data, discretize=True):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point stress
@@ -163,7 +163,7 @@ class FracturedMpsa(Mpsa):
         num_fracs = np.sum(g.tags["fracture_faces"])
         return g.dim * (g.num_cells + num_fracs)
 
-    def matrix_rhs(self, g, data, discretize=True):
+    def assemble_matrix_rhs(self, g, data, discretize=True):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point stress
