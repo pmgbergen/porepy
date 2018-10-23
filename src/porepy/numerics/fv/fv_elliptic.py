@@ -10,7 +10,11 @@ import porepy as pp
 
 
 class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
-    """
+    """ Superclass for finite volume discretizations of the elliptic equation.
+
+    Should not be used by itself, instead use a subclass that implements an
+    actual discretization method. Known subclasses are Tpfa and Mpfa.
+
     """
 
     def __init__(self, keyword):
@@ -85,14 +89,32 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
     # ------------------------------------------------------------------------------#
 
     def assemble_matrix_rhs(self, g, data):
+        """ Return the matrix and right-hand side for a discretization of a second
+        order elliptic equation.
+
+        Also discretize the necessary operators if the data dictionary does not
+        contain a transmissibility matrix.
+
+        Parameters:
+            g (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+
+        Returns:
+            scipy.sparse.csr_matrix: System matrix of this discretization. The
+                size of the matrix will depend on the specific discretization.
+            np.ndarray: Right hand side vector with representation of boundary
+                conditions. The size of the vector will depend on the
+                discretization.
+
+        """
+
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
 
     def assemble_matrix(self, g, data):
         """
         Return the matrix and right-hand side for a discretization of a second
-        order elliptic equation using a FV method with a multi-point flux
-        approximation.
+        order elliptic equation using a FV method.
 
         The name of data in the input dictionary (data) are:
         k : second_order_tensor
@@ -103,16 +125,13 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
             following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
             conditions, respectively.
 
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data. For details on necessary keywords,
-            see method discretize()
+        Parameters:
+            g (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
 
-        Return
-        ------
-        matrix: sparse csr (g_num_cells, g_num_cells)
-            Discretization matrix.
+        Returns:
+            scipy.sparse.csr_matrix: System matrix of this discretization. The
+                size of the matrix will depend on the specific discretization.
 
         """
         if not self.key() + 'flux' in data.keys():
@@ -127,14 +146,23 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
     # ------------------------------------------------------------------------------#
 
     def assemble_rhs(self, g, data):
-        """
-        Return the righ-hand side for a discretization of a second order elliptic
-        equation using the MPFA method. See self.matrix_rhs for a detaild
-        description.
+        """ Return the right-hand side for a discretization of a second
+        order elliptic equation using a finite volume method.
+
+        Also discretize the necessary operators if the data dictionary does not
+        contain a discretization of the boundary equation.
+
+        Parameters:
+            g (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+
+        Returns:
+            np.ndarray: Right hand side vector with representation of boundary
+                conditions. The size of the vector will depend on the
+                discretization.
         """
         if not self.key() + 'bound_flux' in data.keys():
             self.discretize(g, data)
-
 
         bound_flux = data[self.key() + "bound_flux"]
 
@@ -147,7 +175,35 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         return -div * bound_flux * bc_val
 
     def assemble_int_bound_flux(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
+        """Assemble the contribution from an internal boundary, manifested as a
+        flux boundary condition.
 
+        The intended use is when the internal boundary is coupled to another
+        node in a mixed-dimensional method. Specific usage depends on the
+        interface condition between the nodes; this method will typically be
+        used to impose flux continuity on a higher-dimensional domain.
+
+        Implementations of this method will use an interplay between the grid
+        on the node and the mortar grid on the relevant edge.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            grid_swap (boolean): If True, the grid g is identified with the @
+                slave side of the mortar grid in data_adge.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                master and slave side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+
+        """
         div = g.cell_faces.T
 
         # Projection operators to grid
@@ -161,7 +217,35 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         cc[self_ind, 2] += div * data[self.key() + 'bound_flux'] * proj.T
 
     def assemble_int_bound_source(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
+        """ Abstract method. Assemble the contribution from an internal
+        boundary, manifested as a source term.
 
+        The intended use is when the internal boundary is coupled to another
+        node in a mixed-dimensional method. Specific usage depends on the
+        interface condition between the nodes; this method will typically be
+        used to impose flux continuity on a lower-dimensional domain.
+
+        Implementations of this method will use an interplay between the grid on
+        the node and the mortar grid on the relevant edge.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            grid_swap (boolean): If True, the grid g is identified with the @
+                slave side of the mortar grid in data_adge.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                master and slave side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+
+        """
         mg = data_edge['mortar_grid']
 
         if grid_swap:
@@ -172,7 +256,34 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         cc[self_ind, 2] -= proj.T
 
     def assemble_int_bound_pressure_trace(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
-        """ Assemble operators to represent the pressure trace.
+        """ Abstract method. Assemble the contribution from an internal
+        boundary, manifested as a condition on the boundary pressure.
+
+        The intended use is when the internal boundary is coupled to another
+        node in a mixed-dimensional method. Specific usage depends on the
+        interface condition between the nodes; this method will typically be
+        used to impose flux continuity on a higher-dimensional domain.
+
+        Implementations of this method will use an interplay between the grid on
+        the node and the mortar grid on the relevant edge.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            grid_swap (boolean): If True, the grid g is identified with the @
+                slave side of the mortar grid in data_adge.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                master and slave side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+
         """
         mg = data_edge['mortar_grid']
 
@@ -188,6 +299,35 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
 
     def assemble_int_bound_pressure_cell(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
+        """ Abstract method. Assemble the contribution from an internal
+        boundary, manifested as a condition on the cell pressure.
+
+        The intended use is when the internal boundary is coupled to another
+        node in a mixed-dimensional method. Specific usage depends on the
+        interface condition between the nodes; this method will typically be
+        used to impose flux continuity on a lower-dimensional domain.
+
+        Implementations of this method will use an interplay between the grid on
+        the node and the mortar grid on the relevant edge.
+
+        Parameters:
+            g (Grid): Grid which the condition should be imposed on.
+            data (dictionary): Data dictionary for the node in the
+                mixed-dimensional grid.
+            data_edge (dictionary): Data dictionary for the edge in the
+                mixed-dimensional grid.
+            grid_swap (boolean): If True, the grid g is identified with the @
+                slave side of the mortar grid in data_adge.
+            cc (block matrix, 3x3): Block matrix for the coupling condition.
+                The first and second rows and columns are identified with the
+                master and slave side; the third belongs to the edge variable.
+                The discretization of the relevant term is done in-place in cc.
+            matrix (block matrix 3x3): Discretization matrix for the edge and
+                the two adjacent nodes.
+            self_ind (int): Index in cc and matrix associated with this node.
+                Should be either 1 or 2.
+
+        """
         mg = data_edge['mortar_grid']
 
         if grid_swap:
@@ -199,7 +339,16 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
 
     def enforce_neumann_int_bound(self, g_master, data_edge, matrix):
-        """
+        """ Enforce Neumann boundary conditions on a given system matrix.
+
+        The method is void for finite volume approaches, but is implemented
+        to be compatible with the general framework.
+
+        Parameters:
+            g (Grid): On which the equation is discretized
+            data (dictionary): Of data related to the discretization.
+            matrix (scipy.sparse.matrix): Discretization matrix to be modified.
+
         """
         # Operation is void for finite volume methods
         pass
