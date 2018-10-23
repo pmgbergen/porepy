@@ -206,8 +206,8 @@ class Biot(Solver):
         md = mpfa.Mpfa(key)
 
         md.discretize(g, data)
-        data["flux"] = data[md.key() + "flux"]
-        data["bound_flux"] = data[md.key() + "bound_flux"]
+        data["flux"] = data[md._key() + "flux"]
+        data["bound_flux"] = data[md._key() + "bound_flux"]
 
     def _discretize_compr(self, g, data):
         param = data["param"]

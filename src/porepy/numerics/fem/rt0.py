@@ -45,7 +45,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             source term.
 
         """
-        if not self.key() + 'RT0_mass' in data.keys():
+        if not self._key() + 'RT0_mass' in data.keys():
             self.discretize(g, data)
 
         M = self.assemble_matrix(g, data)
@@ -58,11 +58,11 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
     def assemble_matrix(self, g, data):
         """ Assemble VEM matrix from an existing discretization.
         """
-        if not self.key() + 'RT0_mass' in data.keys():
+        if not self._key() + 'RT0_mass' in data.keys():
             self.discretize(g, data)
 
-        mass = data[self.key() + 'RT0_mass']
-        div = data[self.key() + 'RT0_div']
+        mass = data[self._key() + 'RT0_mass']
+        div = data[self._key() + 'RT0_div']
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
 
 
@@ -88,8 +88,8 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
-            data[self.key() + 'RT0_mass'] = mass
-            data[self.key() + 'RT0_div'] = sps.csr_matrix((g.num_faces,
+            data[self._key() + 'RT0_mass'] = mass
+            data[self._key() + 'RT0_div'] = sps.csr_matrix((g.num_faces,
                  g.num_cells))
             return
         # Retrieve the permeability, boundary conditions, and aperture
@@ -171,8 +171,8 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
-        data[self.key() + 'RT0_mass'] = mass
-        data[self.key() + 'RT0_div'] = div
+        data[self._key() + 'RT0_mass'] = mass
+        data[self._key() + 'RT0_div'] = div
 
 
     def assemble_neumann(self, g, data, M, bc_weight=None):
@@ -181,7 +181,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         """
         # Obtain the RT0 mass matrix
-        mass = data[self.key() + 'RT0_mass']
+        mass = data[self._key() + 'RT0_mass']
         # Use implementation in superclass
         return self._assemble_neumann_common(g, data, M, mass, bc_weight=bc_weight)
 
