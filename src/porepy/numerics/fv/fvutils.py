@@ -869,7 +869,6 @@ class ExcludeBoundaries(object):
             return self.exclude_rob_dir * self.basis_matrix * other
         return self.exclude_rob_dir * other
 
-
     def exclude_boundary(self, other, transform=False):
         """ Mapping to exclude faces/component with any boundary condition from
         local systems.
@@ -887,7 +886,6 @@ class ExcludeBoundaries(object):
             return self.exclude_bnd * self.basis_matrix * other
         return self.exclude_bnd * other
 
-
     def keep_robin(self, other, transform=True):
         """
         Mapping to exclude faces/components that is not on the Robin boundary
@@ -904,7 +902,6 @@ class ExcludeBoundaries(object):
         if transform:
             return self.keep_rob * self.basis_matrix * other
         return self.keep_rob * other
-
 
     def keep_neumann(self, other, transform=True):
         """
