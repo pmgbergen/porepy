@@ -723,11 +723,63 @@ def mpsa(
         return stress, bound_stress
 
 
+def mpsa_update_partial(
+    stress,
+    bound_stress,
+    g,
+    constit,
+    bound,
+    eta=None,
+    inverter="numba",
+    cells=None,
+    faces=None,
+    nodes=None,
+    apertures=None,
+):
+    """
+    Given a discretization this function rediscretize parts of the domain.
+    This is a fast way to update the discretization if you change, say the 
+    boundary conditions, have a growth of fractures, or a change in aperture.
+
+    Parameters:
+    stress (scipy.sparse.csr_matrix (shape num_faces, num_cells)): stress
+            discretization to be updated. As returned from mpsa(...).
+    bound_stress (scipy.sparse.csr_matrix (shape num_faces, num_faces)): bound stress
+            discretization of boundary conditions as returned form mpsa(...).
+    This is just a wrapper for the mpsa_partial(...), see this function for information
+    abount the remainding parameters.
+
+    returns:
+    stress (scipy.sparse.csr_matrix (shape num_faces, num_cells)): stress
+            discretization that has been updated for given cells, faces or nodes.
+    bound_stress (scipy.sparse.csr_matrix (shape num_faces, num_faces)): bound stress
+            discretization of boundary conditions that has been updated for given cells,
+            faces or nodes.
+    """
+    stress = stress.copy()
+    bound_stress = bound_stress.copy()
+
+    if nodes is not None:
+        faces = np.argwhere(g.face_nodes[nodes])[:, 1].ravel()
+        faces = np.unique(faces)
+    # New discretization
+    stress_loc, bound_stress_loc, active_faces = mpsa_partial(
+        g, constit, bound, eta, inverter, cells, faces, nodes=None, apertures=apertures
+    )
+    # Remove old rows
+    eliminate_ind = fvutils.expand_indices_nd(active_faces, g.dim)
+    fvutils.zero_out_sparse_rows(stress, eliminate_ind)
+    fvutils.zero_out_sparse_rows(bound_stress, eliminate_ind)
+    stress += stress_loc
+    bound_stress += bound_stress_loc
+    return stress, bound_stress
+
+
 def mpsa_partial(
     g,
     constit,
     bound,
-    eta=0,
+    eta=None,
     inverter="numba",
     cells=None,
     faces=None,
@@ -777,6 +829,9 @@ def mpsa_partial(
             computed.
 
     """
+    if eta is None:
+        eta = fvutils.determine_eta(g)
+
     if cells is not None:
         warnings.warn("Cells keyword for partial mpfa has not been tested")
     if faces is not None:
@@ -813,8 +868,8 @@ def mpsa_partial(
 
     loc_bnd = bc.BoundaryConditionVectorial(sub_g)
     loc_bnd.is_dir = bound.is_dir[:, l2g_faces]
-    loc_bnd.is_neu[loc_bnd.is_dir] = False
-
+    loc_bnd.is_rob = bound.is_rob[:, l2g_faces]
+    loc_bnd.is_neu[loc_bnd.is_dir + loc_bnd.is_rob] = False
 
     # Discretization of sub-problem
     stress_loc, bound_stress_loc = _mpsa_local(
@@ -839,7 +894,9 @@ def mpsa_partial(
     return stress_glob, bound_stress_glob, active_faces
 
 
-def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_eta=None):
+def _mpsa_local(
+    g, constit, bound, eta=None, inverter="numba", hf_disp=False, hf_eta=None
+):
     """
     Actual implementation of the MPSA W-method. To calculate the MPSA
     discretization on a grid, either call this method, or, to respect the
@@ -880,6 +937,9 @@ def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_et
     Dirichlet gives a right hand side for (ii).
 
     """
+    if eta is None:
+        eta = fvutils.determine_eta(g)
+
     if bound.bc_type != "vectorial":
         raise AttributeError("MPSA must be given a vectorial boundary condition")
     # The grid coordinates are always three-dimensional, even if the grid is
@@ -912,12 +972,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_et
     # elasticity and poro-elasticity).
 
     hook, igrad, rhs_cells, _, _ = mpsa_elasticity(
-        g,
-        constit,
-        subcell_topology,
-        bound_exclusion,
-        eta,
-        inverter,
+        g, constit, subcell_topology, bound_exclusion, eta, inverter
     )
 
     hook_igrad = hook * igrad
@@ -939,7 +994,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_et
 
     # Discretization of boundary values
     bound_stress = hf2f * hook_igrad * rhs_bound
-#    stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
+    #    stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
 
     if hf_disp:
         eta_at_bnd = True
@@ -956,9 +1011,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_et
         return stress, bound_stress
 
 
-def mpsa_elasticity(
-    g, constit, subcell_topology, bound_exclusion, eta, inverter
-):
+def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter):
     """
     This is the function where the real discretization takes place. It contains
     the parts that are common for elasticity and poro-elasticity, and was thus
@@ -1229,8 +1282,7 @@ def __get_displacement_submatrices_rob(
     # Contribution from cell center potentials to local systems
     rob_cell = sps.coo_matrix(
         (
-            g.face_areas[subcell_topology.fno]
-            / num_nodes[subcell_topology.fno],
+            g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
             (subcell_topology.subfno, subcell_topology.cno),
         )
     ).tocsr()
@@ -1483,7 +1535,7 @@ def _inverse_gradient(
         * fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
         * rows2blk_diag
     )
-    print('max igrad: ', np.max(np.abs(igrad)))
+    print("max igrad: ", np.max(np.abs(igrad)))
     return igrad
 
 
@@ -1512,14 +1564,11 @@ def _block_diagonal_structure(
     # get block-structure. First eliminate node numbers at the boundary, where
     # the equations are either of flux or pressure continuity (not both)
 
-
     nno = np.tile(nno, nd)
     # The node numbers do not have a basis, so no transformation here. We just
     # want to pick out the correct node numbers for the correct equations.
     nno_stress = bound_exclusion.exclude_boundary(nno, transform=False)
-    nno_displacement = bound_exclusion.exclude_neumann_robin(
-        nno, transform=False
-    )
+    nno_displacement = bound_exclusion.exclude_neumann_robin(nno, transform=False)
     nno_neu = bound_exclusion.keep_neumann(nno, transform=False)
     nno_rob = bound_exclusion.keep_robin(nno, transform=False)
     node_occ = np.hstack((nno_stress, nno_neu, nno_rob, nno_displacement))
@@ -1598,9 +1647,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     ).ravel("F")
     # Pick out the Neumann boundary
     is_neu_nd = (
-        bound_exclusion.keep_neumann(
-            bound.is_neu[:, fno].ravel("C"), transform=False
-        )
+        bound_exclusion.keep_neumann(bound.is_neu[:, fno].ravel("C"), transform=False)
         .ravel("F")
         .astype(np.bool)
     )
