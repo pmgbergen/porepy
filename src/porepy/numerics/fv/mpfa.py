@@ -160,9 +160,7 @@ class Mpfa(Solver):
         bnd = param.get_bc(self)
         a = param.aperture
 
-        trm, bound_flux, bp_cell, bp_face = mpfa(
-            g, k, bnd, apertures=a
-        )
+        trm, bound_flux, bp_cell, bp_face = mpfa(g, k, bnd, apertures=a)
         data["flux"] = trm
         data["bound_flux"] = bound_flux
         data["bound_pressure_cell"] = bp_cell
@@ -172,16 +170,7 @@ class Mpfa(Solver):
 # ------------------------------------------------------------------------------#
 
 
-def mpfa(
-    g,
-    k,
-    bnd,
-    eta=None,
-    inverter=None,
-    apertures=None,
-    max_memory=None,
-    **kwargs
-):
+def mpfa(g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, **kwargs):
     """
     Discretize the scalar elliptic equation by the multi-point flux
     approximation method.
@@ -274,12 +263,7 @@ def mpfa(
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
         flux, bound_flux, bound_pressure_cell, bound_pressure_face = _mpfa_local(
-            g,
-            k,
-            bnd,
-            eta=eta,
-            inverter=inverter,
-            apertures=apertures,
+            g, k, bnd, eta=eta, inverter=inverter, apertures=apertures
         )
     else:
         # Estimate number of partitions necessary based on prescribed memory
@@ -466,9 +450,7 @@ def mpfa_partial(
     )
 
 
-def _mpfa_local(
-    g, k, bnd, eta=None, inverter="numba", apertures=None
-):
+def _mpfa_local(g, k, bnd, eta=None, inverter="numba", apertures=None):
     """
     Actual implementation of the MPFA O-method. To calculate MPFA on a grid
     directly, either call this method, or, to respect the privacy of this
