@@ -87,24 +87,23 @@ class TestUpdateDisc(unittest.TestCase):
         """
         Test that we can change the boundary condition by specifying the boundary nodes
         """
-        g = pp.StructuredTriangleGrid([2, 2], physdims=(1, 1))
+        g = pp.CartGrid([2, 2], physdims=(1, 1))
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
         stress_neu, bound_stress_neu = pp.numerics.fv.mpsa.mpsa(
             g, k, bc, inverter="python"
         )
-        faces = g.get_all_boundary_faces()
+        faces = g.face_centers[1] > 1 - 1e-10
 
-        bc.is_dir[:, g.get_all_boundary_faces()] = True
+        bc.is_dir[:, faces] = True
         bc.is_neu[bc.is_dir] = False
 
         stress_dir, bound_stress_dir = pp.numerics.fv.mpsa.mpsa(
             g, k, bc, inverter="python"
         )
         # Update should not change anything
-        nodes = np.argwhere(g.face_nodes[:, faces])[:, 0].ravel()
-        nodes = np.unique(nodes)
+        nodes = np.array([3, 5, 4, 6, 7, 8])
         stress, bound_stress = pp.numerics.fv.mpsa.mpsa_update_partial(
             stress_neu, bound_stress_neu, g, k, bc, nodes=nodes, inverter="python"
         )
@@ -226,7 +225,6 @@ class TestDisplacementReconstruction(unittest.TestCase):
         We test that we can change the boundary condition
         """
         g = pp.StructuredTriangleGrid([1, 1], physdims=(1, 1))
-        g = pp.CartGrid([1, 1], physdims=(1, 1))
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
@@ -268,7 +266,6 @@ class TestDisplacementReconstruction(unittest.TestCase):
         Test that we can change the boundary condition by specifying the boundary cells
         """
         g = pp.StructuredTetrahedralGrid([2, 2, 2], physdims=(1, 1, 1))
-        g = pp.CartGrid([2, 2, 2], physdims=(1, 1, 1))
         g.compute_geometry()
         bc = pp.BoundaryConditionVectorial(g)
         k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
@@ -294,12 +291,51 @@ class TestDisplacementReconstruction(unittest.TestCase):
             g,
             k,
             bc,
-            faces=faces,
+            cells=cells,
             hf_cell=hf_cell_neu,
             hf_bound=hf_bound_neu,
             inverter="python",
             temp=hf_cell_rob,
         )
+        self.assertTrue(np.allclose((stress - stress_rob).data, 0))
+        self.assertTrue(np.allclose((bound_stress - bound_stress_rob).data, 0))
+        self.assertTrue(np.allclose((hf_cell - hf_cell_rob).data, 0))
+        self.assertTrue(np.allclose((hf_bound - hf_bound_rob).data, 0))
+
+    def test_mixed_bc(self):
+        """
+        We test that we can change the boundary condition in given direction
+        """
+        g = pp.StructuredTriangleGrid([2, 2], physdims=(1, 1))
+        g.compute_geometry()
+        bc = pp.BoundaryConditionVectorial(g)
+        k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
+        stress_neu, bound_stress_neu, hf_cell_neu, hf_bound_neu = pp.numerics.fv.mpsa.mpsa(
+            g, k, bc, hf_disp=True, inverter="python"
+        )
+
+        faces = g.face_centers[0] > 1 - 1e-10
+
+        bc.is_rob[1, faces] = True
+        bc.is_neu[bc.is_rob] = False
+
+        # Full discretization
+        stress_rob, bound_stress_rob, hf_cell_rob, hf_bound_rob = pp.numerics.fv.mpsa.mpsa(
+            g, k, bc, hf_disp=True, inverter="python"
+        )
+        # Partiall should give same ressult as full
+        stress, bound_stress, hf_cell, hf_bound = pp.numerics.fv.mpsa.mpsa_update_partial(
+            stress_neu,
+            bound_stress_neu,
+            g,
+            k,
+            bc,
+            faces=faces,
+            hf_cell=hf_cell_neu,
+            hf_bound=hf_bound_neu,
+            inverter="python",
+        )
+
         self.assertTrue(np.allclose((stress - stress_rob).data, 0))
         self.assertTrue(np.allclose((bound_stress - bound_stress_rob).data, 0))
         self.assertTrue(np.allclose((hf_cell - hf_cell_rob).data, 0))
