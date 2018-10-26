@@ -578,7 +578,7 @@ def mpsa(
             that hf_cell * U + hf_bound * u_bound gives the reconstructed displacement
             at the point on the face hf_eta. U is the cell centered displacement and
             u_bound the boundary conditions
-        hf_eta (float) None: The point of displacment on the half-faces. hf_eta=0 gives the
+        hf_eta (float) None: The point of displacment on the sub-faces. hf_eta=0 gives the
             displacement at the face centers while hf_eta=1 gives the displacements at
             the nodes. If None is given, the continuity points eta will be used.
     Returns:
@@ -598,9 +598,9 @@ def mpsa(
             NOTE: The stresses are ordered facewise (first s_x_1, s_y_1 etc)
         If hf_disp is True the following will also be returned
         scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_cells):
-            displacement reconstruction for the displacement at the half faces. This is
+            displacement reconstruction for the displacement at the sub-faces. This is
             the contribution from the cell-center displacements.
-            NOTE: The half-face displacements are ordered cell wise
+            NOTE: The sub-face displacements are ordered cell wise
             (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
         scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_faces):
             displacement reconstruction for the displacement at the half faces.
@@ -749,6 +749,14 @@ def mpsa_update_partial(
             discretization to be updated. As returned from mpsa(...).
     bound_stress (scipy.sparse.csr_matrix (shape num_faces, num_faces)): bound stress
             discretization of boundary conditions as returned form mpsa(...).
+    hf_cell (scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_cells)):
+            Defaults to None. If None is given only stress and bound_stress is updated.
+            If a matrix is given it is updated for the displacement reconstruction
+            at the sub faces.
+    hf_bound (scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_faces)):
+            Defaults to None. If None is given only stress and bound_stress is updated.
+            If a matrix is given it is updated for the displacement reconstruction
+            at the sub faces.
     This is just a wrapper for the mpsa_partial(...), see this function for information
     abount the remainding parameters.
 
@@ -758,6 +766,13 @@ def mpsa_update_partial(
     bound_stress (scipy.sparse.csr_matrix (shape num_faces, num_faces)): bound stress
             discretization of boundary conditions that has been updated for given cells,
             faces or nodes.
+    if hf_cell is not None:
+    hf_cell (scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_cells)):
+        The matrix for reconstruction the displacement at the sub_faces that has been
+        updated for the given cells, faces or nodes
+    hf_bound (scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_faces)):
+        The matrix for reconstruction the displacement at the sub_faces that has been
+        updated for the given cells, faces or nodes
     """
     stress = stress.copy()
     bound_stress = bound_stress.copy()
@@ -765,10 +780,6 @@ def mpsa_update_partial(
         hf_cell = hf_cell.copy()
         hf_bound = hf_bound.copy()
 
-    # if nodes is not None:
-    #     faces = np.argwhere(g.face_nodes[nodes])[:, 1].ravel()
-    #     faces = np.unique(faces)
-    # New discretization
     if hf_cell is not None:
         stress_loc, bound_stress_loc, hf_cell_loc, hf_bound_loc, active_faces = mpsa_partial(
             g,
@@ -803,18 +814,26 @@ def mpsa_update_partial(
     bound_stress += bound_stress_loc
 
     if hf_cell is not None:
+        # If we are given a matrix for the displacment reconstruction at the subfaces
+        # we also update this. This is equivalent to what is done for the stress and
+        # bound_stress, but as we are working with subfaces some more care has to be
+        # taken.
+        # First, find the active subfaces associated with the active_faces
         subcell_topology = fvutils.SubcellTopology(g)
         active_subfaces = np.where(np.in1d(subcell_topology.fno_unique, active_faces))[
             0
         ]
-        #        sub_eliminate_ind = fvutils.expand_indices_nd(active_sub_faces, g.dim)
+        # We now expand the indices for each dimension
         num_subfno = subcell_topology.num_subfno
         sub_eliminate_ind = np.tile(active_subfaces, (g.dim, 1))
+        # The displacement is ordered as first x for all subfaces then y and so on.
+        # Add an increment to the indices belonging to the y and z dimension.
         sub_eliminate_ind += num_subfno * np.atleast_2d(np.arange(0, g.dim)).T
         sub_eliminate_ind = sub_eliminate_ind.ravel("C")
-
+        # Zero out the faces we have updated
         fvutils.zero_out_sparse_rows(hf_cell, sub_eliminate_ind)
         fvutils.zero_out_sparse_rows(hf_bound, sub_eliminate_ind)
+        # and add the update.
         hf_cell += hf_cell_loc
         hf_bound += hf_bound_loc
         return stress, bound_stress, hf_cell, hf_bound
@@ -865,6 +884,13 @@ def mpsa_partial(
             subgrid computation. Defaults to None.
         apertures (np.array, int, optional): Cell apertures. Defaults to None.
             Unused for now, added for similarity to mpfa_partial.
+        hf_disp (bool) False: If true two matrices hf_cell, hf_bound is also returned such
+            that hf_cell * U + hf_bound * u_bound gives the reconstructed displacement
+            at the point on the face hf_eta. U is the cell centered displacement and
+            u_bound the boundary conditions
+        hf_eta (float) None: The point of displacment on the half-faces. hf_eta=0 gives the
+            displacement at the face centers while hf_eta=1 gives the displacements at
+            the nodes. If None is given, the continuity points eta will be used.
 
         Note that if all of {cells, faces, nodes} are None, empty matrices will
         be returned.
@@ -876,7 +902,17 @@ def mpsa_partial(
             discretization, computed on a subgrid
         np.array (int): Global of the faces where the stress discretization is
             computed.
-
+        If hf_disp is True the following will also be returned
+        scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_cells):
+            displacement reconstruction for the displacement at the sub faces. This is
+            the contribution from the cell-center displacements.
+            NOTE: The half-face displacements are ordered sub_face wise
+            (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
+        scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_faces):
+            displacement reconstruction for the displacement at the half faces.
+            This is the contribution from the boundary conditions.
+            NOTE: The half-face displacements are ordered sub_face wise
+            (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
     """
     if eta is None:
         eta = fvutils.determine_eta(g)
@@ -949,22 +985,39 @@ def mpsa_partial(
     fvutils.zero_out_sparse_rows(stress_glob, eliminate_ind)
     fvutils.zero_out_sparse_rows(bound_stress_glob, eliminate_ind)
     if hf_disp:
+        # If we are returning the subface displacement reconstruction matrices we have
+        # to do some more work. The following is equivalent to what is done for the stresses,
+        # but as they are working on faces, the displacement reconstruction has to work on
+        # subfaces.
+        # First, we find the mappings from local subfaces to global subfaces
         subcell_topology = fvutils.SubcellTopology(g)
         l2g_sub_faces = np.where(np.in1d(subcell_topology.fno_unique, l2g_faces))[0]
+        # We now create a fake grid, just to be able to use the function map_subgrid_to_grid.
         subgrid = structured.CartGrid([1] * g.dim)
         subgrid.num_faces = subcell_topology.fno_unique.size
         subgrid.num_cells = g.num_cells
         sub_face_map, _ = fvutils.map_subgrid_to_grid(
             subgrid, l2g_sub_faces, l2g_cells, is_vector=True
         )
+        # The sub_face_map is now a map from local sub_faces to global subfaces.
+        # Next we need to mat the the local sub face reconstruction "hf_cell_loc"
+        # onto the global grid. The cells are ordered the same, so we can use the
+        # cell_map from the stress computation. Similarly for the faces.
         hf_cell_glob = sub_face_map * hf_cell_loc * cell_map
         hf_bound_glob = sub_face_map * hf_bound_loc * face_map.T
+        # Next we need to eliminate the subfaces outside the active faces.
+        # We map from outside faces to outside subfaces
         sub_outside = np.where(np.in1d(subcell_topology.fno_unique, outside))[0]
-        #        sub_eliminate_ind = fvutils.expand_indices_nd(sub_outside, g.dim)
+        # Then expand the indices.
         num_subfno = subcell_topology.num_subfno
+        # Duplicate indices for each dimension.
         sub_eliminate_ind = np.tile(sub_outside, (g.dim, 1))
+        # The displacement reconstruction is ordered as all subfaces for x, then y and
+        # so on. Therefore add an increment to the indices of the y and z dimension equal
+        # the number of subfaces.
         sub_eliminate_ind += num_subfno * np.atleast_2d(np.arange(0, g.dim)).T
         sub_eliminate_ind = sub_eliminate_ind.ravel("C")
+        # now kill the contribution of these faces
         fvutils.zero_out_sparse_rows(hf_cell_glob, sub_eliminate_ind)
         fvutils.zero_out_sparse_rows(hf_bound_glob, sub_eliminate_ind)
         return stress_glob, bound_stress_glob, hf_cell_glob, hf_bound_glob, active_faces
