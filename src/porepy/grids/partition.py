@@ -448,7 +448,9 @@ def __extract_submatrix(mat, ind):
     are stripped from the sub-matrix. Mappings from global to local row numbers
     are also returned.
     """
-    sub_mat = mat[:, ind]
+    if mat.getformat() != 'csc':
+        raise ValueError('To coulums from a matrix it must be csc')
+    sub_mat = pp.utils.sparse_mat.slice_mat(mat, ind)
     cols = sub_mat.indptr
     data = sub_mat.data
     unique_rows, rows_sub = np.unique(sub_mat.indices, return_inverse=True)
