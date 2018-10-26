@@ -1223,8 +1223,39 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
 def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
     """
     Function for reconstructing the displacement at the half faces given the
-    local gradients. reconstruct_displacement(...) construct a matrix that
-    includes the distances from the cell centers to the evaluation point eta.
+    local gradients. For a subcell Ks associated with cell K and node s, the
+    displacement at a point x is given by
+    U_Ks + G_Ks (x - x_k),
+    x_K is the cell center of cell k. The point at which we evaluate the displacement
+    is given by eta, which is equivalent to the continuity points in mpsa.
+    For an internal subface we will obtain two values for the displacement,
+    one for each of the cells associated with the subface. The displacement given
+    here is the average of the two. Note that at the continuity points the two
+    displacements will by construction be equal.
+    
+    Parameters:
+    Parameters:
+        g: Grid
+        subcell_topology: Wrapper class for numbering of subcell faces, cells
+            etc.
+        eta (float, range=[0,1]): Optional. Parameter determining the point at which the
+            displacement is evaluated. If eta is not given the method will call
+            fvutils.determine_eta(g) to set it.
+        eta_at_bnd (bool): Optional, defaults to False.
+            In MPSA eta is only enforced at internal faces, while is always set to
+            eta=0 at the boundary. eta_at_bnd=True will override this behaviour,
+            and give the displacement at the points given by eta, also for the boundary.
+    Returns:
+        scipy.sparse.csr_matrix (g.dim*num_sub_faces, g.dim*num_cells):
+            displacement reconstruction for the displacement at the half faces. This is
+            the contribution from the cell-center displacements.
+            NOTE: The half-face displacements are ordered sub-face_wise
+            (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
+        scipy.sparse.csr_matrix (g.dim*num_sub_faces, g.dim*num_faces):
+            displacement reconstruction for the displacement at the half faces.
+            This is the contribution from the boundary conditions.
+            NOTE: The half-face displacements are ordered sub_face wise
+            (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
     """
     if eta is None:
         eta = fvutils.determine_eta(g)
@@ -1233,6 +1264,9 @@ def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
     D_g = fvutils.compute_dist_face_cell(
         g, subcell_topology, eta, eta_at_bnd=eta_at_bnd, return_paired=False
     )
+    # We here average the contribution on internal sub-faces.
+    # If you want to get out both displacements on a sub-face your can remove
+    # the averaging.
     _, IC, counts = np.unique(
         subcell_topology.subfno, return_inverse=True, return_counts=True
     )
