@@ -1155,6 +1155,10 @@ def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
     D_g = fvutils.compute_dist_face_cell(
         g, subcell_topology, eta, eta_at_bnd=eta_at_bnd, return_paired=False
     )
+    _, IC, counts = np.unique(subcell_topology.subfno, return_inverse=True, return_counts=True)
+    
+    avg_over_subfaces = sps.coo_matrix((1/counts[IC], (subcell_topology.subfno, subcell_topology.subhfno)))
+    D_g = avg_over_subfaces * D_g
     # expand indices to x-y-z
     D_g = sps.kron(sps.eye(g.dim), D_g)
     D_g = D_g.tocsr()
@@ -1162,8 +1166,8 @@ def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
     # Get a mapping from cell centers to half-faces
     D_c = sps.coo_matrix(
         (
-            np.ones(subcell_topology.subhfno.size),
-            (subcell_topology.subhfno, subcell_topology.cno),
+            1 / counts[IC],
+            (subcell_topology.subfno, subcell_topology.cno),
         )
     ).tocsr()
     # Expand indices to x-y-z
