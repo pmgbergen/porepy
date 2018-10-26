@@ -448,8 +448,8 @@ def __extract_submatrix(mat, ind):
     are stripped from the sub-matrix. Mappings from global to local row numbers
     are also returned.
     """
-    if mat.getformat() != 'csc':
-        raise ValueError('To coulums from a matrix it must be csc')
+    if mat.getformat() != "csc":
+        raise ValueError("To coulums from a matrix it must be csc")
     sub_mat = pp.utils.sparse_mat.slice_mat(mat, ind)
     cols = sub_mat.indptr
     data = sub_mat.data
