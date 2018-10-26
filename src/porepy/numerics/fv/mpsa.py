@@ -729,12 +729,16 @@ def mpsa_update_partial(
     g,
     constit,
     bound,
+    hf_cell=None,
+    hf_bound=None,
+    hf_eta=None,
     eta=None,
     inverter="numba",
     cells=None,
     faces=None,
     nodes=None,
     apertures=None,
+    temp = None
 ):
     """
     Given a discretization this function rediscretize parts of the domain.
@@ -758,13 +762,21 @@ def mpsa_update_partial(
     """
     stress = stress.copy()
     bound_stress = bound_stress.copy()
+    if hf_cell is not None:
+        hf_cell = hf_cell.copy()
+        hf_bound = hf_bound.copy()
 
     if nodes is not None:
         faces = np.argwhere(g.face_nodes[nodes])[:, 1].ravel()
         faces = np.unique(faces)
     # New discretization
-    stress_loc, bound_stress_loc, active_faces = mpsa_partial(
-        g, constit, bound, eta, inverter, cells, faces, nodes=None, apertures=apertures
+    if hf_cell is not None:
+        stress_loc, bound_stress_loc, hf_cell_loc, hf_bound_loc, active_faces = mpsa_partial(
+            g, constit, bound, eta, inverter, cells, faces, nodes=None, apertures=apertures, hf_disp=True, hf_eta=hf_eta
+    )
+    else:
+        stress_loc, bound_stress_loc, active_faces = mpsa_partial(
+            g, constit, bound, eta, inverter, cells, faces, nodes=None, apertures=apertures
     )
     # Remove old rows
     eliminate_ind = fvutils.expand_indices_nd(active_faces, g.dim)
@@ -772,7 +784,23 @@ def mpsa_update_partial(
     fvutils.zero_out_sparse_rows(bound_stress, eliminate_ind)
     stress += stress_loc
     bound_stress += bound_stress_loc
-    return stress, bound_stress
+
+    if hf_cell is not None:
+        subcell_topology = fvutils.SubcellTopology(g)
+        active_subfaces = np.where(np.in1d(subcell_topology.fno_unique, active_faces))[0]
+#        sub_eliminate_ind = fvutils.expand_indices_nd(active_sub_faces, g.dim)
+        num_subfno = subcell_topology.num_subfno
+        sub_eliminate_ind = np.tile(active_subfaces, (g.dim, 1))
+        sub_eliminate_ind += num_subfno * np.atleast_2d(np.arange(0, g.dim)).T
+        sub_eliminate_ind = sub_eliminate_ind.ravel('C')
+
+        fvutils.zero_out_sparse_rows(hf_cell, sub_eliminate_ind)
+        fvutils.zero_out_sparse_rows(hf_bound, sub_eliminate_ind)
+        hf_cell += hf_cell_loc
+        hf_bound += hf_bound_loc
+        return stress, bound_stress, hf_cell, hf_bound
+    else:
+        return stress, bound_stress
 
 
 def mpsa_partial(
@@ -785,6 +813,8 @@ def mpsa_partial(
     faces=None,
     nodes=None,
     apertures=None,
+    hf_disp=False,
+    hf_eta=None,
 ):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
@@ -872,14 +902,15 @@ def mpsa_partial(
     loc_bnd.is_neu[loc_bnd.is_dir + loc_bnd.is_rob] = False
 
     # Discretization of sub-problem
-    stress_loc, bound_stress_loc = _mpsa_local(
-        sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter
-    )
-
+    if hf_disp:
+        stress_loc, bound_stress_loc, hf_cell_loc, hf_bound_loc = _mpsa_local(sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter,   hf_disp=hf_disp, hf_eta=hf_eta )
+    else:
+        stress_loc, bound_stress_loc = _mpsa_local(
+            sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter
+        )
     face_map, cell_map = fvutils.map_subgrid_to_grid(
         g, l2g_faces, l2g_cells, is_vector=True
     )
-
     # Update global face fields.
     stress_glob = face_map * stress_loc * cell_map
     bound_stress_glob = face_map * bound_stress_loc * face_map.transpose()
@@ -890,8 +921,28 @@ def mpsa_partial(
     eliminate_ind = fvutils.expand_indices_nd(outside, g.dim)
     fvutils.zero_out_sparse_rows(stress_glob, eliminate_ind)
     fvutils.zero_out_sparse_rows(bound_stress_glob, eliminate_ind)
-
-    return stress_glob, bound_stress_glob, active_faces
+    if hf_disp:
+        subcell_topology = fvutils.SubcellTopology(g)
+        l2g_sub_faces = np.where(np.in1d(subcell_topology.fno_unique, l2g_faces))[0]
+        subgrid = structured.CartGrid([1]*g.dim)
+        subgrid.num_faces = subcell_topology.fno_unique.size
+        subgrid.num_cells = g.num_cells
+        sub_face_map, _ = fvutils.map_subgrid_to_grid(
+            subgrid, l2g_sub_faces, l2g_cells, is_vector=True
+        )
+        hf_cell_glob = sub_face_map * hf_cell_loc * cell_map
+        hf_bound_glob = sub_face_map * hf_bound_loc * face_map.T
+        sub_outside = np.where(np.in1d(subcell_topology.fno_unique, outside))[0]
+#        sub_eliminate_ind = fvutils.expand_indices_nd(sub_outside, g.dim)
+        num_subfno = subcell_topology.num_subfno
+        sub_eliminate_ind = np.tile(sub_outside, (g.dim, 1))
+        sub_eliminate_ind += num_subfno * np.atleast_2d(np.arange(0, g.dim)).T
+        sub_eliminate_ind = sub_eliminate_ind.ravel('C')
+        fvutils.zero_out_sparse_rows(hf_cell_glob, sub_eliminate_ind)
+        fvutils.zero_out_sparse_rows(hf_bound_glob, sub_eliminate_ind)
+        return stress_glob, bound_stress_glob, hf_cell_glob, hf_bound_glob, active_faces
+    else:
+        return stress_glob, bound_stress_glob, active_faces
 
 
 def _mpsa_local(
