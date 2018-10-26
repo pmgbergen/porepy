@@ -253,7 +253,6 @@ class TestDisplacementReconstruction(unittest.TestCase):
             hf_cell=hf_cell_neu,
             hf_bound=hf_bound_neu,
             inverter="python",
-            temp=hf_cell_dir,
         )
 
         self.assertTrue(np.allclose((stress - stress_dir).data, 0))
@@ -295,7 +294,6 @@ class TestDisplacementReconstruction(unittest.TestCase):
             hf_cell=hf_cell_neu,
             hf_bound=hf_bound_neu,
             inverter="python",
-            temp=hf_cell_rob,
         )
         self.assertTrue(np.allclose((stress - stress_rob).data, 0))
         self.assertTrue(np.allclose((bound_stress - bound_stress_rob).data, 0))
