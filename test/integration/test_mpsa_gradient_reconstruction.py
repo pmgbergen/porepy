@@ -28,24 +28,23 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         grad_bound_known = np.array(
             [
                 [0.10416667, 0., 0., 0., 0., -0.02083333, 0., 0.],
-                [0., 0., 0., 0., 0.25, 0., 0., 0.],
-                [0., 0., 0.10416667, 0., 0., 0.02083333, 0., 0.],
-                [0., 0., 0., 0., 0.25, 0., 0., 0.],
                 [0.10416667, 0., 0., 0., 0., 0., 0., 0.02083333],
-                [0., 0., 0., 0., 0., 0., 0.25, 0.],
+                [0., 0., 0.10416667, 0., 0., 0.02083333, 0., 0.],
                 [0., 0., 0.10416667, 0., 0., 0., 0., -0.02083333],
+                [0., 0., 0., 0., 0.25, 0., 0., 0.],
+                [0., 0., 0., 0., 0.25, 0., 0., 0.],
+                [0., 0., 0., 0., 0., 0., 0.25, 0.],
                 [0., 0., 0., 0., 0., 0., 0.25, 0.],
                 [0., 0.25, 0., 0., 0., 0., 0., 0.],
-                [-0.02083333, 0., 0., 0., 0., 0.10416667, 0., 0.],
-                [0., 0., 0., 0.25, 0., 0., 0., 0.],
-                [0., 0., 0.02083333, 0., 0., 0.10416667, 0., 0.],
                 [0., 0.25, 0., 0., 0., 0., 0., 0.],
-                [0.02083333, 0., 0., 0., 0., 0., 0., 0.10416667],
                 [0., 0., 0., 0.25, 0., 0., 0., 0.],
+                [0., 0., 0., 0.25, 0., 0., 0., 0.],
+                [-0.02083333, 0., 0., 0., 0., 0.10416667, 0., 0.],
+                [0., 0., 0.02083333, 0., 0., 0.10416667, 0., 0.],
+                [0.02083333, 0., 0., 0., 0., 0., 0., 0.10416667],
                 [0., 0., -0.02083333, 0., 0., 0., 0., 0.10416667],
             ]
         )
-
         grad_cell_known = np.array(
             [
                 [1., 0.],
@@ -66,7 +65,6 @@ class MpsaReconstructDisplacement(unittest.TestCase):
                 [0., 1.],
             ]
         )
-
         self.assertTrue(np.all(np.abs(grad_bound - grad_bound_known) < 1e-7))
         self.assertTrue(np.all(np.abs(grad_cell - grad_cell_known) < 1e-12))
 
@@ -105,7 +103,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
 
         U_hf = (grad_cell * U + grad_bound * u_b.ravel("F")).reshape((g.dim, -1))
 
-        _, IA = np.unique(s_t.fno, True)
+        _, IA = np.unique(s_t.fno_unique, True)
         U_f = U_hf[:, IA]
 
         U = U.reshape((g.dim, -1), order="F")
@@ -149,7 +147,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
 
         U_hf = (grad_cell * U + grad_bound * u_b.ravel("F")).reshape((g.dim, -1))
 
-        _, IA = np.unique(s_t.fno, True)
+        _, IA = np.unique(s_t.fno_unique, True)
         U_f = U_hf[:, IA]
 
         self.assertTrue(np.all(np.abs(U_f[:, dir_ind] - u_b[:, dir_ind]) < 1e-10))
