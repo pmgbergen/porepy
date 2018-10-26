@@ -1064,9 +1064,22 @@ def _mpsa_local(
     face.
 
     Boundary values can be incorporated with appropriate modifications -
-    Neumann conditions will have a non-zero right hand side for (i), while
+    Neumann conditions will have a non-zero right hand side for (i), Robin conditions
+    will be on the form E * grad_u + F * u_cc = R, while
     Dirichlet gives a right hand side for (ii).
 
+    In the implementation we will order the rows of the local system as follows;
+    first enforce the force balance over the internal faces;
+    T^L + T^R = 0.
+    Then we will enforce the Neumann conditions
+    T = T_NEUMAN,
+    and the robin conditions
+    T + robin_weight * U = R.
+    The displacement continuity and Dirichlet conditions are comming last
+    U^+ - U^- = 0.
+    Note that for the Dirichlet conditions are not pulled out seperatly as the
+    Neumann condition, mainly for legacy reasons. This meens that Dirichlet
+    faces and internal faces are mixed together, decided by their face ordering.
     """
     if eta is None:
         eta = fvutils.determine_eta(g)
@@ -1132,11 +1145,14 @@ def _mpsa_local(
         if hf_eta is None:
             hf_eta = eta
             eta_at_bnd = False
+        # We obtain the reconstruction of displacments
         dist_grad, cell_centers = reconstruct_displacement(
             g, subcell_topology, hf_eta, eta_at_bnd=eta_at_bnd
         )
         hf_cell = dist_grad * igrad * rhs_cells + cell_centers
         hf_bound = dist_grad * igrad * rhs_bound
+        # The subface displacement is given by
+        # hf_cell * u_cell_centers + hf_bound * u_bound_condition
         return stress, bound_stress, hf_cell, hf_bound
     else:
         return stress, bound_stress
@@ -1204,10 +1220,11 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     # Neumann-boundary faces than gradients. This will typically happen in the
     # corners where you only can have one gradient for the node. Normally if you
     # have at least one internal face connected to the node you are should be safe.
+    # For the Neumann faces we eliminate the asymetic part this does in fact
+    # lead to an inconsistency.
     _eliminate_ncasym_neumann(
         ncasym, subcell_topology, bound_exclusion, cell_node_blocks, nd
     )
-
     # For the Robin boundary conditions we need to pair the forces with the
     # displacement.
     # The contribution of the displacement at the Robin boundary is
@@ -1215,39 +1232,41 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     # with the Robin weight times the area of the faces),
     # where G are the gradients and u the cell center displacement. The Robin
     # condtion is then ncsym_rob * G + rob_grad * G + rob_cell * u
-    ncsym_rob = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
-    ncsym_neu = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
+    ncsym_full = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym) 
     del ncasym
-
-    ncsym_rob = bound_exclusion.keep_robin(ncsym_rob)
-    ncsym_neu = bound_exclusion.keep_neumann(ncsym_neu)
+    ncsym_rob = bound_exclusion.keep_robin(ncsym_full)
+    ncsym_neu = bound_exclusion.keep_neumann(ncsym_full)
 
     # Book keeping
     num_sub_cells = cell_node_blocks[0].size
-
     rob_grad, rob_cell = __get_displacement_submatrices_rob(
         g, subcell_topology, eta, num_sub_cells, bound_exclusion
     )
 
-    # Pair the forces from each side. For the Neumann faces this does in fact
-    # lead to an inconsistency because the asymetric parts does not cancell.
-    # We can add the asymmetric term for the Neumann faces, as is done above
-    # for the Robin faces, however, in some cases this might lead to sigular
-    # local matrices (when a subcell only have Neumann faces). We need to
-    # come back and adress this issue.
-
+    # Pair the forces from each side. 
     # ncsym * G is in fact (due to pair_over_subfaces)
     # ncsym_L * G_L + ncsym_R * G_R for the left and right faces.
+    # We are here using ncsym_all and not the full tensor
+    # ncsym_full = ncsym_all + ncasym. This is because
+    # ncasym_L * G_L + ncasym_R * G_R = 0 due to symmetry.    
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym_all)
     del ncsym_all
+    # Boundary conditions are taken hand of in ncsym_rob, ncsym_neu or as Dirichlet.
     ncsym = bound_exclusion.exclude_boundary(ncsym)
 
+    # The contribution of cell center displacement to stress continuity.
+    # This is just zero (T_L + T_R = 0).
     num_subfno = subcell_topology.subfno.max() + 1
     hook_cell = sps.coo_matrix(
         (np.zeros(1), (np.zeros(1), np.zeros(1))),
         shape=(num_subfno * nd, (np.max(subcell_topology.cno) + 1) * nd),
     ).tocsr()
-
+    # Here you have to be carefull if you ever change hook_cell to something else than
+    # 0. Because we have pulled the Neumann conditions out of the stress condition
+    # the following would give an index error. Instead you would have to make a
+    # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the number
+    # of internal sub_faces and use .keep_neu and .exclude_bnd. But since this is all zeros,
+    # thi indexing does not matter.
     hook_cell = bound_exclusion.exclude_robin_dirichlet(hook_cell)
 
     # Matrices to enforce displacement continuity
@@ -1871,7 +1890,10 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
         np.reshape(is_rob_all, (nd, -1), order="C").ravel("F")
     ).ravel("F")
 
-    # We now merge the neuman and robin indices since they are treated equivalent
+    # We now merge the neuman and robin indices since they are treated equivalent.
+    # Remember that the first set of local equations are the stress equilibrium for
+    # the internall faces. The number of internal stresses therefore has to
+    # be added to the Neumann and Robin indices 
     if rob_ind.size == 0:
         neu_rob_ind = neu_ind + num_stress
     elif neu_ind.size == 0:
