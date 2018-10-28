@@ -92,47 +92,61 @@ class GmshWriter(object):
         # Both fractures and compartments are
         constants = gridding_constants.GmshConstants()
 
-        frac_ind = np.argwhere(
-            np.logical_or(
+        # We consider fractures, boundary tag, an auxiliary tag (fake fractures/mesh constraints)
+        ind = np.argwhere(
+            np.logical_or.reduce((
                 self.lines[2] == constants.COMPARTMENT_BOUNDARY_TAG,
                 self.lines[2] == constants.FRACTURE_TAG,
-            )
+                self.lines[2] == constants.AUXILIARY_TAG
+            ))
         ).ravel()
-        frac_lines = self.lines[:, frac_ind]
+        lines = self.lines[:, ind]
+        tag = self.lines[2, ind]
 
-        frac_id = frac_lines[3, :]
-        if frac_id.size == 0:
+        lines_id = lines[3, :]
+        if lines_id.size == 0:
             return str()
-        range_id = np.arange(np.amin(frac_id), np.amax(frac_id) + 1)
+        range_id = np.arange(np.amin(lines_id), np.amax(lines_id) + 1)
 
-        s = "// Start specification of fractures\n"
+        s = "// Start specification of fractures/compartment boundary/auxiliary elements\n"
         seg_id = 0
         for i in range_id:
             local_seg_id = str()
-            for mask in np.flatnonzero(frac_id == i):
+            for mask in np.flatnonzero(lines_id == i):
+
+                # give different name for fractures/boundary and auxiliary
+                if tag[mask] != constants.AUXILIARY_TAG:
+                    name = "frac_line_"
+                    physical_name = constants.PHYSICAL_NAME_FRACTURES
+                else:
+                    name = "seg_line_"
+                    physical_name = constants.PHYSICAL_NAME_AUXILIARY
+
                 s += (
-                    "frac_line_"
+                    name
                     + str(seg_id)
                     + " = newl; "
-                    + "Line(frac_line_"
+                    + "Line("
+                    + name
                     + str(seg_id)
                     + ") = {"
                     + "p"
-                    + str(int(frac_lines[0, mask]))
+                    + str(int(lines[0, mask]))
                     + ", p"
-                    + str(int(frac_lines[1, mask]))
+                    + str(int(lines[1, mask]))
                     + "};\n"
-                    + "Line{ frac_line_"
+                    + "Line{"
+                    + name
                     + str(seg_id)
                     + "} In Surface{domain_surf};\n"
                 )
-                local_seg_id += "frac_line_" + str(seg_id) + ", "
+                local_seg_id += name + str(seg_id) + ", "
                 seg_id += 1
 
             local_seg_id = local_seg_id[:-2]
             s += (
                 'Physical Line("'
-                + constants.PHYSICAL_NAME_FRACTURES
+                + physical_name
                 + str(i)
                 + '") = { '
                 + local_seg_id
@@ -140,7 +154,7 @@ class GmshWriter(object):
             )
             s += "\n"
 
-        s += "// End of fracture specification\n\n"
+        s += "// End of /compartment boundary/auxiliary elements specification\n\n"
         return s
 
     def __write_boundary_2d(self):
@@ -352,7 +366,6 @@ class GmshWriter(object):
     def __write_physical_points(self):
         ls = "\n"
         s = "// Start physical point specification" + ls
-
         constants = gridding_constants.GmshConstants()
 
         for i, p in enumerate(self.intersection_points):
