@@ -2741,6 +2741,49 @@ def intersect_triangulations(p_1, p_2, t_1, t_2):
                 intersections.append((i, j, isect.area))
     return intersections
 
+# ------------------------------------------------------------------------------#
+
+
+def intersect_polygon_lines(poly_pts, pts, edges):
+    """
+    Compute the intersections between a polygon (also not convex) and a set of lines.
+    The computation is done line by line to avoid the splitting of edges caused by other
+    edges. The implementation assume that the polygon and lines are on the plane (x, y).
+
+    Parameters:
+    poly_pts (np.ndarray, 3xn or 2xn): the points that define the polygon
+    pts (np.ndarray, 3xn or 2xn): the points associated to the lines
+    edges (np.ndarray, 2xn): for each column the id of the points for the line
+
+    Returns:
+    int_pts (np.ndarray, 2xn): the point associated to the lines after the intersection
+    int_edges (np.ndarray, 2xn): for each column the id of the points for the line after the
+        intersection
+    """
+    # it stores the points after the intersection
+    int_pts = np.empty((2, 0))
+    # define the polygon
+    poly = shapely_geometry.Polygon(poly_pts[:2, :].T)
+    # we do the computation for each edge once at time, to avoid the splitting
+    # caused by other edges.
+    for e in edges.T:
+        # define the line
+        line = shapely_geometry.LineString([pts[:2, e[0]], pts[:2, e[1]]])
+        # compute the intersections between the poligon and the current line
+        int_lines = poly.intersection(line)
+        if int_lines.geom_type == "LineString":
+            # consider the case of single intersection
+            int_pts = np.c_[int_pts, np.array(int_lines.xy)]
+        elif int_lines.geom_type == "MultiLineString":
+            # consider the case of multiple intersections
+            for int_line in int_lines:
+                int_pts = np.c_[int_pts, np.array(int_line.xy)]
+
+    # define the list of edges
+    int_edges = np.arange(int_pts.shape[1]).reshape((2, -1), order='F')
+    return int_pts, int_edges
+
+# ------------------------------------------------------------------------------#
 
 def bounding_box(pts, overlap=0):
     """ Obtain a bounding box for a point cloud.
