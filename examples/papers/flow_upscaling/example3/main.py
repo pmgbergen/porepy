@@ -104,7 +104,6 @@ if __name__ == "__main__":
 
     # read the background fractures
     fracs_pts, fracs_edges = pp.importer.lines_from_csv(file_geo)
-    edges = np.hstack((np.array([0, 1]).reshape((2, 1)), fracs_edges+2))
 
     solver = pp.MpfaMixedDim("flow")
     for g, d in gb:
@@ -123,7 +122,7 @@ if __name__ == "__main__":
                 f_nodes = g.nodes[:, n_loc]
 
                 # to make the grid conforming consider the current edge as "fracture"
-                fracs = {"points": np.hstack((f_nodes[:2, :], fracs_pts)), "edges": edges}
+                subdom = {"points": f_nodes[:2, :], "edges": np.array([0, 1]).reshape((2, 1))}
                 # keep the face nodes if are on the boundary
                 n_loc = n_loc[np.isin(n_loc, b_nodes, assume_unique=True)]
                 # collect from: faces, cells, node boundary (if)
@@ -133,15 +132,18 @@ if __name__ == "__main__":
                 mask = pp.utils.sort_points.sort_point_plane(pts, g.face_centers[:, f])
                 pts = pts[:, mask]
 
-                # IN REALTA' NON DEVE ESSERE UNA FRATTURA MA UN VINCOLO PER LA MESH, E NEMMENO
-                # UN BORDO INTERNO
                 # LE FRATTURE DI BACKGROUND DEVONO ESSERE TAGLIATE ALTRIMENTI ROMPONO
+                fracs_pts_int, fracs_edges_int = pp.cg.intersect_polygon_lines(pts, fracs_pts, fracs_edges)
+                fracs = {"points": fracs_pts_int, "edges": fracs_edges_int}
                 # prepare the data for gmsh
-                gb_loc = pp.fracs.meshing.simplex_grid(fracs, domain=pts[:2, ], **mesh_args_loc)
+                gb_loc = pp.fracs.meshing.simplex_grid(fracs, domain=pts[:2, :], subdomains=subdom, **mesh_args_loc)
+                pp.plot_grid(gb_loc, alpha=0, info="f")
+
                 # save the faces of the face f
                 g_h = gb_loc.grids_of_dimension(2)[0]
-                faces_loc_f = g_h.tags["fracture_faces"].nonzero()[0]
+                faces_loc_f = g_h.get_internal_faces()
 
+                #import pdb; pdb.set_trace()
                 dist, _ = pp.cg.dist_points_segments(g_h.face_centers[:, faces_loc_f],
                                                      f_nodes[:, 0], f_nodes[:, 1])
                 mask = np.where(np.logical_and(dist < tol, dist >=-tol))[0]
@@ -162,17 +164,16 @@ if __name__ == "__main__":
                     p = sps.linalg.spsolve(*solver.matrix_rhs(gb_loc))
                     solver.split(gb_loc, "pressure", p)
 
-                    #save = pp.Exporter(gb_loc, "fv", folder="fv")
-                    #save.write_vtk(["pressure"])
+                    save = pp.Exporter(gb_loc, "fv", folder="fv")
+                    save.write_vtk(["pressure"])
+                    s
 
                     # compute the discharge
                     pp.fvutils.compute_discharges(gb_loc)
 
                     discharge = gb_loc.node_props(g_h, "discharge")[faces_loc_f]
-                    # IL CALCOLO NON E' GIUSTO, DEVO AGGIUNGERE I MORTAR ALTRIMENTI
-                    # NON CI BECCO BENE. SEMPRE CHE TRATTO LA F COME FRATTURA
+                    # MI MANCA IL SEGNO O COMUNQUE E; DA CONTROLLARE
                     print(discharge)
                     # Store the solution
                     gb.add_node_props(["pressure"])
                     pp.plot_grid(gb_loc, "pressure")
-                ss
