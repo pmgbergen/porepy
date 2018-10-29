@@ -1232,7 +1232,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     # with the Robin weight times the area of the faces),
     # where G are the gradients and u the cell center displacement. The Robin
     # condtion is then ncsym_rob * G + rob_grad * G + rob_cell * u
-    ncsym_full = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym) 
+    ncsym_full = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
     del ncasym
     ncsym_rob = bound_exclusion.keep_robin(ncsym_full)
     ncsym_neu = bound_exclusion.keep_neumann(ncsym_full)
@@ -1243,12 +1243,12 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
         g, subcell_topology, eta, num_sub_cells, bound_exclusion
     )
 
-    # Pair the forces from each side. 
+    # Pair the forces from each side.
     # ncsym * G is in fact (due to pair_over_subfaces)
     # ncsym_L * G_L + ncsym_R * G_R for the left and right faces.
     # We are here using ncsym_all and not the full tensor
     # ncsym_full = ncsym_all + ncasym. This is because
-    # ncasym_L * G_L + ncasym_R * G_R = 0 due to symmetry.    
+    # ncasym_L * G_L + ncasym_R * G_R = 0 due to symmetry.
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym_all)
     del ncsym_all
     # Boundary conditions are taken hand of in ncsym_rob, ncsym_neu or as Dirichlet.
@@ -1893,7 +1893,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # We now merge the neuman and robin indices since they are treated equivalent.
     # Remember that the first set of local equations are the stress equilibrium for
     # the internall faces. The number of internal stresses therefore has to
-    # be added to the Neumann and Robin indices 
+    # be added to the Neumann and Robin indices
     if rob_ind.size == 0:
         neu_rob_ind = neu_ind + num_stress
     elif neu_ind.size == 0:

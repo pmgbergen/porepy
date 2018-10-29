@@ -730,8 +730,7 @@ class ExcludeBoundaries(object):
                 (data, (row, col)), shape=(self.num_subfno, self.num_subfno)
             ).tocsr()
         elif self.bc_type == "vectorial":
-            # Add the number of coordinates
-            data = basis[:, self.fno].reshape(-1, basis.shape[-1], order="C").ravel("F")
+            data = basis[:, :, self.fno].ravel("C")
             col = np.arange(self.num_subfno * self.nd).reshape((-1, self.num_subfno))
             col = np.tile(col, (1, self.nd)).ravel("C")
             row = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
