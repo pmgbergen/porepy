@@ -168,7 +168,5 @@ class RobinCoupling(object):
 
         self.discr_master.enforce_neumann_int_bound(g_master, data_edge, matrix)
         # The rhs is just zeros
-        rhs = np.array(
-            [np.zeros(dof_master), np.zeros(dof_slave), np.zeros(mg.num_cells)]
-        )
+        rhs = np.squeeze([np.zeros(dof_master), np.zeros(dof_slave), np.zeros(mg.num_cells)])
         return matrix, rhs

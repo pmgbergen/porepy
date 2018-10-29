@@ -11,12 +11,11 @@ import porepy as pp
 
 
 class UpwindCoupling(object):
-
     def __init__(self, keyword):
         self.keyword = keyword
 
     def key(self):
-        return self.keyword + '_'
+        return self.keyword + "_"
 
     def discretization_key(self):
         return self.key() + pp.keywords.DISCRETIZATION
@@ -27,8 +26,7 @@ class UpwindCoupling(object):
     def discretize(self, g_master, g_slave, data_master, data_slave, data_edge):
         pass
 
-
-    def assemble_matrix(
+    def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):
         """
@@ -108,10 +106,19 @@ class UpwindCoupling(object):
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0, 1))])
 
-        return matrix + cc
+        # rhs is zero
+        rhs = np.array([np.zeros(dof[0]), np.zeros(dof[1]), np.zeros(dof[2])])
+        return matrix + cc, rhs
 
-
-    def cfl(self, g_master, g_slave, data_master, data_slave, data_edge, d_name="mortar_solution"):
+    def cfl(
+        self,
+        g_master,
+        g_slave,
+        data_master,
+        data_slave,
+        data_edge,
+        d_name="mortar_solution",
+    ):
         """
         Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
@@ -157,7 +164,10 @@ class UpwindCoupling(object):
             if not np.any(not_zero):
                 return np.Inf
 
-            diff = g_master.cell_centers[:, cells_master] - g_slave.cell_centers[:, cells_slave]
+            diff = (
+                g_master.cell_centers[:, cells_master]
+                - g_slave.cell_centers[:, cells_slave]
+            )
             dist = np.linalg.norm(diff, 2, axis=0)
 
             # Use minimum of cell values for convenience
@@ -165,14 +175,18 @@ class UpwindCoupling(object):
             phi_master = phi_master[cells_master]
             apt_master = aperture_master[cells_master]
             apt_slave = aperture_slave[cells_slave]
-            coeff = np.minimum(phi_master, phi_slave) * np.minimum(apt_master, apt_slave)
+            coeff = np.minimum(phi_master, phi_slave) * np.minimum(
+                apt_master, apt_slave
+            )
             return np.amin(np.abs(np.divide(dist, discharge)) * coeff)
 
         # Recover the information for the grid-grid mapping
         cells_slave, faces_master, _ = sps.find(data_edge["face_cells"])
 
         # Detect and remove the faces which have zero in "discharge"
-        not_zero = ~np.isclose(np.zeros(faces_master.size), discharge[faces_master], atol=0)
+        not_zero = ~np.isclose(
+            np.zeros(faces_master.size), discharge[faces_master], atol=0
+        )
         if not np.any(not_zero):
             return np.inf
 
@@ -190,7 +204,8 @@ class UpwindCoupling(object):
         dist = 0.5 * np.divide(aperture_slave, aperture_master)
         # Since discharge is multiplied by the aperture wighted face areas, we
         # divide through that quantity to get velocities in [length/time]
-        velocity = np.divide(discharge[faces_master], g_master.face_areas[faces_master] * aperture_master)
+        velocity = np.divide(
+            discharge[faces_master], g_master.face_areas[faces_master] * aperture_master
+        )
         # deltaT is deltaX/velocity with coefficient
         return np.amin(np.abs(np.divide(dist, velocity)) * phi_slave)
-
