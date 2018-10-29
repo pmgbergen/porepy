@@ -15,6 +15,7 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
                                 |    |        |
                                 -----|---------
         with a linear pressure increase from left to right
+p pp.plot_grid(gb, 'pressure')
         """
         n = 2
         xmax = 3
@@ -32,14 +33,26 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             bc_val[left] = xmax
             bc_val[right] = 0
             d["param"].set_bc_val("flow", bc_val)
+        for _, d in gb.edges():
+            d["kn"] = 1
+        # assign discretization
+        key = "flow"
+        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
 
-        flow_disc = pp.TpfaMixedDim()
+        tpfa = pp.Tpfa(key)
+        for g, d in gb:
+            d[discretization_key] = tpfa
 
-        A, b = flow_disc.matrix_rhs(gb)
+        for _, d in gb.edges():
+            d[discretization_key] = pp.numerics.interface_laws.elliptic_interface_laws.FluxPressureContinuity(key, tpfa)
+
+        assembler = pp.EllipticAssembler(key)
+        
+        A, b = assembler.assemble_matrix_rhs(gb)
 
         x = sps.linalg.spsolve(A, b)
 
-        flow_disc.split(gb, "pressure", x)
+        assembler.split(gb, "pressure", x)
 
         # test pressure
         for g, d in gb:
@@ -49,14 +62,14 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         for e, d_e in gb.edges():
             mg = d_e["mortar_grid"]
             g2, g1 = gb.nodes_of_edge(e)
-            left_to_m = mg.left_to_mortar_avg()
-            right_to_m = mg.right_to_mortar_avg()
+            master_to_m = mg.master_to_mortar_avg()
+            slave_to_m = mg.slave_to_mortar_avg()
 
-            left_area = left_to_m * g1.face_areas
-            right_area = right_to_m * g2.face_areas
+            master_area = master_to_m * g1.face_areas
+            slave_area = slave_to_m * g2.face_areas
 
-            self.assertTrue(np.allclose(d_e["mortar_solution"] / left_area, 1))
-            self.assertTrue(np.allclose(d_e["mortar_solution"] / right_area, 1))
+            self.assertTrue(np.allclose(d_e["mortar_solution"] / master_area, 1))
+            self.assertTrue(np.allclose(d_e["mortar_solution"] / slave_area, 1))
 
     def generate_grids(self, n, xmax, ymax, split):
         g1 = pp.CartGrid([split * n, ymax * n], physdims=[split, ymax])
