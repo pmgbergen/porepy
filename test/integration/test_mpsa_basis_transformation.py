@@ -12,13 +12,13 @@ import porepy as pp
 class TestMpsaBoundRhs(unittest.TestCase):
     def test_neu(self):
         g = pp.StructuredTriangleGrid([1, 1])
-        basis = np.random.rand(g.dim, g.num_faces, g.dim)
+        basis = np.random.rand(g.dim, g.dim, g.num_faces)
         bc = pp.BoundaryConditionVectorial(g)
         self.run_test(g, basis, bc)
 
     def test_dir(self):
         g = pp.StructuredTriangleGrid([1, 1])
-        basis = np.random.rand(g.dim, g.num_faces, g.dim)
+        basis = np.random.rand(g.dim, g.dim, g.num_faces)
         bc = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
         self.run_test(g, basis, bc)
 
@@ -27,7 +27,7 @@ class TestMpsaBoundRhs(unittest.TestCase):
         ny = 1
         g = pp.CartGrid([nx, ny], physdims=[1, 1])
         g.compute_geometry()
-        basis = np.random.rand(g.dim, g.num_faces, g.dim)
+        basis = np.random.rand(g.dim, g.dim, g.num_faces)
 
         bot = g.face_centers[1] < 1e-10
         top = g.face_centers[1] > 1 - 1e-10
