@@ -80,7 +80,7 @@ class RobinCoupling(object):
         data_edge[self._key() + 'Robin_discr'] = -inv_M * Eta
 
 
-    def assemble_matrix(self, g_master, g_slave, data_master, data_slave, data_edge, matrix):
+    def assemble_matrix_rhs(self, g_master, g_slave, data_master, data_slave, data_edge, matrix):
         """ Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
@@ -137,7 +137,8 @@ class RobinCoupling(object):
         matrix += cc
 
         discr_master.enforce_neumann_int_bound(g_master, data_edge, matrix)
-
-        return matrix
+        # The rhs is just zeros
+        rhs = np.array([np.zeros(dof_master), np.zeros(dof_slave), np.zeros(mg.num_cells)])
+        return matrix, rhs
 
 
