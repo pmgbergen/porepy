@@ -71,11 +71,12 @@ class BasicsTest(unittest.TestCase):
         key = "flow"
         discretization_key = key + "_" + pp.keywords.DISCRETIZATION
 
+        tpfa = pp.Tpfa(key)
         for g, d in gb:
-            d[discretization_key] = pp.Tpfa(key)
+            d[discretization_key] = tpfa
 
         for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key)
+            d[discretization_key] = pp.RobinCoupling(key, tpfa)
 
         assembler = pp.EllipticAssembler(key)
 
@@ -94,11 +95,12 @@ class BasicsTest(unittest.TestCase):
         key = "flow"
         discretization_key = key + "_" + pp.keywords.DISCRETIZATION
 
+        tpfa = pp.Tpfa(key)
         for g, d in gb:
-            d[discretization_key] = pp.Tpfa(key)
+            d[discretization_key] = tpfa
 
         for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key)
+            d[discretization_key] = pp.RobinCoupling(key, tpfa)
 
         assembler = pp.EllipticAssembler(key)
 

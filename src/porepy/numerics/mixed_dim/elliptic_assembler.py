@@ -103,9 +103,14 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
                          [pos_master, pos_slave, pos_edge])
 
             loc_matrix = matrix[idx]
-
             matrix[idx], loc_rhs = discr.assemble_matrix_rhs(g_master, g_slave, data_master, data_slave, data_edge, loc_matrix)
-            rhs[[pos_master, pos_slave, pos_edge]] += loc_rhs
+
+            try:
+                rhs[[pos_master, pos_slave, pos_edge]] += loc_rhs
+            except ValueError:
+                import pdb; pdb.set_trace()
+                matrix[idx], loc_rhs = discr.assemble_matrix_rhs(g_master, g_slave, data_master, data_slave, data_edge, loc_matrix)
+                
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 

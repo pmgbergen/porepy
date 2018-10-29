@@ -76,7 +76,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             d[discretization_key] = discr
 
         for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key)
+            d[discretization_key] = pp.RobinCoupling(key, discr)
 
 
     def set_grids(self, N, num_nodes_mortar, num_nodes_1d, physdims=[1, 1]):
@@ -668,7 +668,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             d[discretization_key] = pp.Mpfa(key)
 
         for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key)
+            d[discretization_key] = pp.RobinCoupling(key, pp.Mpfa(key))
 
 
         solver_flow = pp.EllipticAssembler("flow")
@@ -685,7 +685,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             d[discretization_key] = pp.DualVEM(key)
 
         for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key)
+            d[discretization_key] = pp.RobinCoupling(key, pp.DualVEM(key))
 
 
         solver_flow = pp.EllipticAssembler("flow")
@@ -885,7 +885,7 @@ class TestMortar3D(unittest.TestCase):
             d[discretization_key] = pp.Mpfa(key)
 
         for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key)
+            d[discretization_key] = pp.RobinCoupling(key, pp.Mpfa(key))
 
 
         solver_flow = pp.EllipticAssembler("flow")
@@ -1067,7 +1067,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
             d[discretization_key] = pp.Mpfa(key)
 
         for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key)
+            d[discretization_key] = pp.RobinCoupling(key, pp.Mpfa(key))
 
 
         solver_flow = pp.EllipticAssembler("flow")
