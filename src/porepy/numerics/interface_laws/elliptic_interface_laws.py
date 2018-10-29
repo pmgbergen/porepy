@@ -176,14 +176,7 @@ class RobinCoupling(object):
 
 
 class FluxPressureContinuity(object):
-    """ A condition with resistance to flow between subdomains. Implementation
-        of the model studied (though not originally proposed) by Martin et
-        al 2005.
-
-        @ALL: We should probably make an abstract superclass for all couplers,
-        similar to for all elliptic discretizations, so that new
-        implementations know what must be done.
-
+    """ A condition for flux and pressure continuity between two domains.
     """
 
     def __init__(self, keyword, discr_master, discr_slave=None):
@@ -204,11 +197,8 @@ class FluxPressureContinuity(object):
         return mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
-        """ Discretize the interface law and store the discretization in the
-        edge data.
+        """ Nothing really to do here, but keep function to be consistent
 
-        TODO: Right now, we are a bit unclear on whether it is required that g_h
-        represents the higher-dimensional domain. It should not need to do so.
         TODO: Clean up in the aperture concept.
 
         Parameters:
@@ -219,27 +209,7 @@ class FluxPressureContinuity(object):
             data_edge: Data dictionary for the edge between the domains.
 
         """
-
-        # Mortar data structure.
-        mg = data_edge["mortar_grid"]
-
-        faces_h, cells_h, sign_h = sps.find(g_h.cell_faces)
-        ind_faces_h = np.unique(faces_h, return_index=True)[1]
-        cells_h = cells_h[ind_faces_h]
-
-        inv_M = sps.diags(1. / mg.cell_volumes)
-
-        # Normal permeability and aperture of the intersection
-        inv_k = 1. / (2. * data_edge["kn"])
-        aperture_h = data_h["param"].get_aperture()
-
-        proj = mg.master_to_mortar_avg()
-
-        Eta = sps.diags(np.divide(inv_k, proj * aperture_h[cells_h]))
-
-        # @ALESSIO, @EIRIK: the tpfa and vem couplers use different sign
-        # conventions here. We should be very careful.
-        data_edge[self._key() + "Robin_discr"] = -inv_M * Eta
+        pass
 
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
@@ -296,32 +266,41 @@ class FluxPressureContinuity(object):
         # discretizations
         dof = np.array([matrix[0, 0].shape[1], matrix[0, 1].shape[1], mg.num_cells])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
-        cc = cc.reshape((3, 3))
-
+        cc_master = cc.reshape((3, 3))
+        cc_slave = cc_master.copy()
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
         # and mortar variables in the third
 #       o cc[2, 2] = data_edge[self._key() + "Robin_discr"]
 
-        cc[2, 2] = data_edge[self._key() + "Robin_discr"]
-
         self.discr_master.assemble_int_bound_pressure_trace(
-            g_master, data_master, data_edge, False, cc, matrix, self_ind=0
+            g_master, data_master, data_edge, False, cc_master, matrix, self_ind=0
         )
         self.discr_master.assemble_int_bound_flux(
-            g_master, data_master, data_edge, False, cc, matrix, self_ind=0
+            g_master, data_master, data_edge, False, cc_master, matrix, self_ind=0
         )
 
-        cc = -cc
         self.discr_slave.assemble_int_bound_pressure_trace(
-            g_slave, data_slave, data_edge, True, cc, matrix, self_ind=1
+            g_slave, data_slave, data_edge, True, cc_slave, matrix, self_ind=1
         )
 
         self.discr_slave.assemble_int_bound_flux(
-            g_slave, data_slave, data_edge, True, cc, matrix, self_ind=1
+            g_slave, data_slave, data_edge, True, cc_slave, matrix, self_ind=1
         )
-
-        matrix -= cc
+        # We now have to flip the sign of some of the matrices
+        # First we flip the sign of the slave flux because the mortar flux points
+        # from the master to the slave, i.e., flux_s = -mortar_flux
+        cc_slave[1, 2] = -cc_slave[1, 2]
+        # Then we flip the sign for the pressure continuity since we have
+        # We have that p_m - p_s = 0.
+        cc_slave[2, 1] = -cc_slave[2, 1]
+        # Note that cc_slave[2, 2] is fliped twice, first for pressure continuity
+        # now, the matrix cc = cc_slave + cc_master expresses the flux and pressure
+        # continuities over the mortars.
+        # cc[0] -> flux_m = mortar_flux
+        # cc[1] -> flux_s = -mortar_flux
+        # cc[1] -> p_m - p_s = 0
+        matrix += cc_master + cc_slave
 
         self.discr_master.enforce_neumann_int_bound(g_master, data_edge, matrix)
         self.discr_slave.enforce_neumann_int_bound(g_slave, data_edge, matrix)

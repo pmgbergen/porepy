@@ -33,8 +33,6 @@ p pp.plot_grid(gb, 'pressure')
             bc_val[left] = xmax
             bc_val[right] = 0
             d["param"].set_bc_val("flow", bc_val)
-        for _, d in gb.edges():
-            d["kn"] = 1
         # assign discretization
         key = "flow"
         discretization_key = key + "_" + pp.keywords.DISCRETIZATION
@@ -44,7 +42,7 @@ p pp.plot_grid(gb, 'pressure')
             d[discretization_key] = tpfa
 
         for _, d in gb.edges():
-            d[discretization_key] = pp.numerics.interface_laws.elliptic_interface_laws.FluxPressureContinuity(key, tpfa)
+            d[discretization_key] = pp.FluxPressureContinuity(key, tpfa)
 
         assembler = pp.EllipticAssembler(key)
         
@@ -53,7 +51,6 @@ p pp.plot_grid(gb, 'pressure')
         x = sps.linalg.spsolve(A, b)
 
         assembler.split(gb, "pressure", x)
-
         # test pressure
         for g, d in gb:
             self.assertTrue(np.allclose(d["pressure"], xmax - g.cell_centers[0]))
