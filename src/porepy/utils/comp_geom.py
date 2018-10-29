@@ -2771,13 +2771,18 @@ def intersect_polygon_lines(poly_pts, pts, edges):
         line = shapely_geometry.LineString([pts[:2, e[0]], pts[:2, e[1]]])
         # compute the intersections between the poligon and the current line
         int_lines = poly.intersection(line)
-        if int_lines.geom_type == "LineString":
-            # consider the case of single intersection
-            int_pts = np.c_[int_pts, np.array(int_lines.xy)]
-        elif int_lines.geom_type == "MultiLineString":
-            # consider the case of multiple intersections
+        # only line or multilines are considered, no points
+        if type(int_lines) is shapely_geometry.LineString:
+            # consider the case of single intersection by avoiding to consider
+            # lines on the boundary of the polygon
+            if not int_lines.touches(poly):
+                int_pts = np.c_[int_pts, np.array(int_lines.xy)]
+        elif type(int_lines) is shapely_geometry.MultiLineString:
+            # consider the case of multiple intersections by avoiding to consider
+            # lines on the boundary of the polygon
             for int_line in int_lines:
-                int_pts = np.c_[int_pts, np.array(int_line.xy)]
+                if not int_line.touches(poly):
+                    int_pts = np.c_[int_pts, np.array(int_line.xy)]
 
     # define the list of edges
     int_edges = np.arange(int_pts.shape[1]).reshape((2, -1), order='F')
