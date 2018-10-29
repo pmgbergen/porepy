@@ -73,7 +73,9 @@ class MortarGrid(object):
         else:
             self.name = [name]
 
-        self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
+        self.num_cells = np.sum(
+            [g.num_cells for g in self.side_grids.values()], dtype=np.int
+        )
         self.cell_volumes = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]
         )
