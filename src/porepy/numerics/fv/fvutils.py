@@ -705,15 +705,9 @@ class ExcludeBoundaries(object):
             self.exclude_neu = self._exclude_matrix_xyz(bound.is_neu)
             self.exclude_dir = self._exclude_matrix_xyz(bound.is_dir)
             self.exclude_rob = self._exclude_matrix_xyz(bound.is_rob)
-            self.exclude_neu_dir = self._exclude_matrix_xyz(
-                bound.is_neu | bound.is_dir
-            )
-            self.exclude_neu_rob = self._exclude_matrix_xyz(
-                bound.is_neu | bound.is_rob
-            )
-            self.exclude_rob_dir = self._exclude_matrix_xyz(
-                bound.is_rob | bound.is_dir
-            )
+            self.exclude_neu_dir = self._exclude_matrix_xyz(bound.is_neu | bound.is_dir)
+            self.exclude_neu_rob = self._exclude_matrix_xyz(bound.is_neu | bound.is_rob)
+            self.exclude_rob_dir = self._exclude_matrix_xyz(bound.is_rob | bound.is_dir)
             self.exclude_bnd = self.__exclude_matrix_xyz(
                 bound.is_rob | bound.is_dir | bound.is_neu
             )
