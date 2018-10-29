@@ -956,7 +956,6 @@ def mpsa_partial(
     loc_bnd.is_rob = bound.is_rob[:, l2g_faces]
     loc_bnd.is_neu[loc_bnd.is_dir + loc_bnd.is_rob] = False
 
-
     # Discretization of sub-problem
     if hf_disp:
         stress_loc, bound_stress_loc, hf_cell_loc, hf_bound_loc = _mpsa_local(
