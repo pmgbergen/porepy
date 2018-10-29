@@ -140,6 +140,8 @@ def main(kf, description, is_coarse=False, if_export=False):
 def test_vem_blocking():
     kf = 1e-4
     main(kf, "blocking")
+
+
 #    main(kf, "blocking", is_coarse=True)
 
 
@@ -149,6 +151,8 @@ def test_vem_blocking():
 def test_vem_permeable():
     kf = 1e4
     main(kf, "permeable")
+
+
 #    main(kf, "permeable_coarse", is_coarse=True)
 
 # ------------------------------------------------------------------------------#

@@ -4,6 +4,7 @@ import porepy as pp
 
 from porepy.numerics.vem import vem_dual, vem_source
 from porepy.numerics.fv import mass_matrix, upwind
+
 # ------------------------------------------------------------------------------#
 
 

@@ -81,12 +81,13 @@ class BasicsTest(unittest.TestCase):
         # EK: With the new framework for elliptic discretizations, functionality
         # for projecting fluxes onto cells are less than clear. Disable this
         # part of the test, at least for now
-        #problem_mult.project_discharge("P0u")
+        # problem_mult.project_discharge("P0u")
 
         problem_mono.save(["pressure", "P0u"])
-#        problem_mult.save(["pressure", "P0u"])
 
-#        self.assertTrue(np.allclose(problem_mono.data()["P0u"], g_gb[1]["P0u"]))
+    #        problem_mult.save(["pressure", "P0u"])
+
+    #        self.assertTrue(np.allclose(problem_mono.data()["P0u"], g_gb[1]["P0u"]))
 
     # ------------------------------------------------------------------------------#
 

@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 # be used for anything. However, we keep it temporarily to decide on what to do
 # with the method check_conservation
 class _DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
-
     def check_conservation(self, gb, u, conservation):
         """
         Assert if the local conservation of mass is preserved for the grid
@@ -63,7 +62,6 @@ class DualVEM(DualElliptic):
 
     """
 
-
     def __init__(self, keyword):
         super(DualVEM, self).__init__(keyword)
 
@@ -86,7 +84,7 @@ class DualVEM(DualElliptic):
             source term.
         """
 
-        if not self._key() + 'vem_mass' in data.keys():
+        if not self._key() + "vem_mass" in data.keys():
             self.discretize(g, data)
 
         # First assemble the matrix
@@ -122,9 +120,8 @@ class DualVEM(DualElliptic):
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
-            data[self._key() + 'vem_mass'] = mass
-            data[self._key() + 'vem_div'] = sps.csr_matrix((g.num_faces,
-                 g.num_cells))
+            data[self._key() + "vem_mass"] = mass
+            data[self._key() + "vem_div"] = sps.csr_matrix((g.num_faces, g.num_cells))
             return
 
         # Retrieve the permeability, boundary conditions, and aperture
@@ -194,20 +191,18 @@ class DualVEM(DualElliptic):
         # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
-        data[self._key() + 'vem_mass'] = mass
-        data[self._key() + 'vem_div'] = div
-
+        data[self._key() + "vem_mass"] = mass
+        data[self._key() + "vem_div"] = div
 
     def assemble_matrix(self, g, data):
         """ Assemble VEM matrix from an existing discretization.
         """
-        if not self._key() + 'vem_mass' in data.keys():
+        if not self._key() + "vem_mass" in data.keys():
             self.discretize(g, data)
 
-        mass = data[self._key() + 'vem_mass']
-        div = data[self._key() + 'vem_div']
+        mass = data[self._key() + "vem_mass"]
+        div = data[self._key() + "vem_div"]
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
-
 
     def assemble_neumann(self, g, data, M, bc_weight=None):
         """ Impose Neumann boundary discretization on an already assembled
@@ -215,10 +210,9 @@ class DualVEM(DualElliptic):
 
         """
         # Obtain the VEM mass matrix
-        mass = data[self._key() + 'vem_mass']
+        mass = data[self._key() + "vem_mass"]
         # Use implementation in superclass
         return self._assemble_neumann_common(g, data, M, mass, bc_weight=bc_weight)
-
 
     def project_flux(self, g, u, data):
         """  Project the velocity computed with a dual vem solver to obtain a

@@ -20,7 +20,6 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         # to be replaced by a more generalized approach, but one step at a time
         self.physics = keyword
 
-
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -36,7 +35,6 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
         """
         return g.num_cells
-
 
     def extract_pressure(self, g, solution_array, d):
         """ Extract the pressure part of a solution.
@@ -58,7 +56,6 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         """
         return solution_array
 
-
     def extract_flux(self, g, solution_array, d):
         """ Extract the flux related to a solution.
 
@@ -77,9 +74,8 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
             np.array (g.num_faces): Flux vector.
 
         """
-        flux_discretization = d[self._key() + 'flux']
+        flux_discretization = d[self._key() + "flux"]
         return flux_discretization * solution_array
-
 
     # ------------------------------------------------------------------------------#
 
@@ -105,7 +101,6 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
-
     def assemble_matrix(self, g, data):
         """
         Return the matrix for a discretization of a second order elliptic equation
@@ -129,7 +124,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 size of the matrix will depend on the specific discretization.
 
         """
-        if not self._key() + 'flux' in data.keys():
+        if not self._key() + "flux" in data.keys():
             self.discretize(g, data)
 
         div = pp.fvutils.scalar_divergence(g)
@@ -156,7 +151,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 conditions. The size of the vector will depend on the
                 discretization.
         """
-        if not self._key() + 'bound_flux' in data.keys():
+        if not self._key() + "bound_flux" in data.keys():
             self.discretize(g, data)
 
         bound_flux = data[self._key() + "bound_flux"]
@@ -169,7 +164,9 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
         return -div * bound_flux * bc_val
 
-    def assemble_int_bound_flux(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
+    def assemble_int_bound_flux(
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+    ):
         """Assemble the contribution from an internal boundary, manifested as a
         flux boundary condition.
 
@@ -202,16 +199,18 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         div = g.cell_faces.T
 
         # Projection operators to grid
-        mg = data_edge['mortar_grid']
+        mg = data_edge["mortar_grid"]
 
         if grid_swap:
             proj = mg.slave_to_mortar_avg()
         else:
             proj = mg.master_to_mortar_avg()
 
-        cc[self_ind, 2] += div * data[self._key() + 'bound_flux'] * proj.T
+        cc[self_ind, 2] += div * data[self._key() + "bound_flux"] * proj.T
 
-    def assemble_int_bound_source(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
+    def assemble_int_bound_source(
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
@@ -241,7 +240,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 Should be either 1 or 2.
 
         """
-        mg = data_edge['mortar_grid']
+        mg = data_edge["mortar_grid"]
 
         if grid_swap:
             proj = mg.master_to_mortar_avg()
@@ -250,7 +249,9 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
         cc[self_ind, 2] -= proj.T
 
-    def assemble_int_bound_pressure_trace(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
+    def assemble_int_bound_pressure_trace(
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
@@ -280,7 +281,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 Should be either 1 or 2.
 
         """
-        mg = data_edge['mortar_grid']
+        mg = data_edge["mortar_grid"]
 
         # TODO: this should become first or second or something
         if grid_swap:
@@ -288,12 +289,13 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         else:
             proj = mg.master_to_mortar_avg()
 
-        bp = data[self._key() + 'bound_pressure_cell']
+        bp = data[self._key() + "bound_pressure_cell"]
         cc[2, self_ind] += proj * bp
-        cc[2, 2] += proj * data[self._key() + 'bound_pressure_face'] * proj.T
+        cc[2, 2] += proj * data[self._key() + "bound_pressure_face"] * proj.T
 
-
-    def assemble_int_bound_pressure_cell(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
+    def assemble_int_bound_pressure_cell(
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
 
@@ -323,7 +325,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 Should be either 1 or 2.
 
         """
-        mg = data_edge['mortar_grid']
+        mg = data_edge["mortar_grid"]
 
         if grid_swap:
             proj = mg.master_to_mortar_avg()
@@ -331,7 +333,6 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
             proj = mg.slave_to_mortar_avg()
 
         cc[2, self_ind] -= proj
-
 
     def enforce_neumann_int_bound(self, g_master, data_edge, matrix):
         """ Enforce Neumann boundary conditions on a given system matrix.

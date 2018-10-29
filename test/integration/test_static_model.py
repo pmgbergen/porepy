@@ -70,8 +70,8 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.all(d_c[:, cell_right] < 0))
 
         # Test fracture displacement
-        u_left = data["d_f"][:, :int(round(data["d_f"].shape[1] / 2))]
-        u_right = data["d_f"][:, int(round(data["d_f"].shape[1] / 2)):]
+        u_left = data["d_f"][:, : int(round(data["d_f"].shape[1] / 2))]
+        u_right = data["d_f"][:, int(round(data["d_f"].shape[1] / 2)) :]
         self.assertTrue(np.all(np.abs(u_left - u_right - 1) < 1e-10))
 
 

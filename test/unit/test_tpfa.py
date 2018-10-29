@@ -36,7 +36,7 @@ class TestTPFA(unittest.TestCase):
         bound_faces = np.array([0, 3, 12])
         bound = bc.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)
 
-        key = 'flow'
+        key = "flow"
         discr = tpfa.Tpfa(key)
         d = _assign_params(g, perm, bound)
         discr.discretize(g, d)

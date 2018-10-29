@@ -32,5 +32,6 @@ def setup_3d_grid():
     d["param"].set_source("flow", src)
     return g, d
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

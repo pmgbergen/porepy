@@ -69,5 +69,6 @@ class TestMpfaMultiDim(unittest.TestCase):
             p_diff = pressure - pressure_analytic
             self.assertTrue(np.max(np.abs(p_diff)) < 0.05)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

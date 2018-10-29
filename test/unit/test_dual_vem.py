@@ -4787,5 +4787,5 @@ def matrix_for_test_dual_vem_3d_ani_cart():
 
 
 # ------------------------------------------------------------------------------#
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

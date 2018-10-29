@@ -39,6 +39,7 @@ class MassMatrix(Solver):
     """ Class that provides the discretization of a L2-mass bilinear form with constant
     test and trial functions.
     """
+
     # ------------------------------------------------------------------------------#
 
     def __init__(self, keyword="flow"):
@@ -64,7 +65,7 @@ class MassMatrix(Solver):
             String, on the form self.keyword + '_'.
 
         """
-        return self.keyword + '_'
+        return self.keyword + "_"
 
     # ------------------------------------------------------------------------------#
 
@@ -146,7 +147,7 @@ class MassMatrix(Solver):
             np.ndarray (self.ndof): Null right hand side vector with representation of
                 boundary conditions.
         """
-        if not self._key() + 'bound_mass' in data.keys():
+        if not self._key() + "bound_mass" in data.keys():
             self.discretize(g, data)
 
         rhs = data[self._key() + "bound_mass"]
@@ -188,7 +189,6 @@ class MassMatrix(Solver):
 
 
 class InvMassMatrixMixedDim(SolverMixedDim):
-
     def __init__(self, physics="flow"):
         self.physics = physics
 
@@ -229,7 +229,7 @@ class InvMassMatrix(Solver):
             String, on the form self.keyword + '_'.
 
         """
-        return self.keyword + '_'
+        return self.keyword + "_"
 
     # ------------------------------------------------------------------------------#
 
@@ -348,8 +348,9 @@ class InvMassMatrix(Solver):
             assumed unitary.
         """
         M, rhs = MassMatrix(keyword=self.keyword).assemble_matrix_rhs(g, data)
-        data[self._key() + "inv_mass"] = sps.dia_matrix((1. / M.diagonal(), 0),
-                                                       shape=M.shape)
+        data[self._key() + "inv_mass"] = sps.dia_matrix(
+            (1. / M.diagonal(), 0), shape=M.shape
+        )
         data[self._key() + "bound_inv_mass"] = rhs
 
 

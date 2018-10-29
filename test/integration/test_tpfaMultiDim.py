@@ -111,5 +111,5 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(check_pressures(gb))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

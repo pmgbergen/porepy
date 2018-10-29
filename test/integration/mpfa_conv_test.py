@@ -98,19 +98,18 @@ class MainTester(unittest.TestCase):
         rewriting of the way analytical solutions are represented).
         """
         # Discretization. Use python inverter for speed
-        discr = pp.Mpfa(keyword='flow')
+        discr = pp.Mpfa(keyword="flow")
         param = pp.Parameters(g)
         param.set_tensor(discr, k)
         param.set_bc(discr, bound_cond)
-        data = {'param': param, 'mpfa_eta': 0}
+        data = {"param": param, "mpfa_eta": 0}
         a = discr.assemble_matrix(g, data)
 
-        bound_flux = data['flow_bound_flux']
-        flux = data['flow_flux']
+        bound_flux = data["flow_bound_flux"]
+        flux = data["flow_flux"]
 
         # Set up linear system
         div = fvutils.scalar_divergence(g)
-
 
         # Boundary values from analytical solution
         xf = g.face_centers
@@ -148,15 +147,15 @@ class MainTester(unittest.TestCase):
         # for comments.
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
 
-        discr = pp.Mpfa(keyword='flow')
+        discr = pp.Mpfa(keyword="flow")
         param = pp.Parameters(g)
         param.set_tensor(discr, perm)
         param.set_bc(discr, bound_cond)
-        data = {'param': param, 'mpfa_eta': 0}
+        data = {"param": param, "mpfa_eta": 0}
         a = discr.assemble_matrix(g, data)
 
-        bound_flux = data['flow_bound_flux']
-        flux = data['flow_flux']
+        bound_flux = data["flow_bound_flux"]
+        flux = data["flow_flux"]
 
         # Set up linear system
         div = fvutils.scalar_divergence(g)
