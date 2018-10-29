@@ -1079,7 +1079,7 @@ class GridBucket(object):
         """
         if cond is None:
             cond = lambda g: True
-        return np.sum([g.num_cells for g in self.graph if cond(g)])
+        return np.sum([g.num_cells for g in self.graph if cond(g)], dtype=np.int)
 
     def num_mortar_cells(self, cond=None):
         """
@@ -1100,7 +1100,8 @@ class GridBucket(object):
                 d["mortar_grid"].num_cells
                 for _, d in self.edges()
                 if d.get("mortar_grid") and cond(d["mortar_grid"])
-            ]
+            ],
+            dtype=np.int,
         )
 
     def num_faces(self, cond=None):
