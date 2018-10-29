@@ -22,6 +22,7 @@ class TestUpwindCoupling(unittest.TestCase):
     def block_matrix(self, gs):
         def ndof(g):
             return g.num_cells
+
         dof = np.array([ndof(g) for g in gs])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         return cc.reshape((3, 3))

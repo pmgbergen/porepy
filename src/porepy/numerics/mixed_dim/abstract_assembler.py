@@ -10,7 +10,6 @@ import scipy.sparse as sps
 
 
 class AbstractAssembler(object):
-
     def __init__(self):
         pass
 
@@ -137,7 +136,7 @@ class AbstractAssembler(object):
 
     def _dof_start_of_grids(self, gb):
         " Helper method to get first global dof for all grids. "
-#        self.ndof(gb)
+        #        self.ndof(gb)
         size = gb.num_graph_nodes() + gb.num_graph_edges()
         dofs = np.zeros(size, dtype=int)
 
@@ -166,4 +165,3 @@ class AbstractAssembler(object):
         dof_list = self._dof_start_of_grids(gb)
         nn = gb.node_props(g)["node_number"]
         return np.arange(dof_list[nn], dof_list[nn + 1])
-

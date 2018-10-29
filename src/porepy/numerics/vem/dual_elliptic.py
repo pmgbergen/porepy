@@ -11,7 +11,9 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscretization):
+class DualElliptic(
+    pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscretization
+):
     """ Parent class for methods based on the mixed variational form of the
     elliptic equation. The class should not be used by itself, but provides a
     sheared implementation of central methods.
@@ -27,7 +29,6 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
         # break the parameter assignment workflow. The physics keyword will go
         # to be replaced by a more generalized approach, but one step at a time
         self.physics = keyword
-
 
     def ndof(self, g):
         """
@@ -50,7 +51,6 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
             return g.num_cells + g.num_faces
         else:
             raise ValueError
-
 
     def assemble_rhs(self, g, data, bc_weight=1):
         """
@@ -141,7 +141,6 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
             return M, norm
         return M
 
-
     def _velocity_dof(self, g, g_m):
         # Recover the information for the grid-grid mapping
         faces_h, cells_h, sign_h = sps.find(g.cell_faces)
@@ -157,8 +156,9 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
         hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
         return hat_E_int
 
-
-    def assemble_int_bound_pressure_trace(self, g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0):
+    def assemble_int_bound_pressure_trace(
+        self, g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
@@ -187,14 +187,15 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
         """
-        mg = data_edge['mortar_grid']
+        mg = data_edge["mortar_grid"]
         hat_E_int = self._velocity_dof(g_master, mg)
 
         cc[2, self_ind] -= hat_E_int.T * matrix[0, 0]
         cc[2, 2] -= hat_E_int.T * matrix[0, 0] * hat_E_int
 
-
-    def assemble_int_bound_flux(self, g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0):
+    def assemble_int_bound_flux(
+        self, g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
 
@@ -226,12 +227,14 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
         """
 
         # The matrix must be the VEM discretization matrix.
-        mg = data_edge['mortar_grid']
+        mg = data_edge["mortar_grid"]
         hat_E_int = self._velocity_dof(g_master, mg)
 
         cc[self_ind, 2] += matrix[self_ind, self_ind] * hat_E_int
 
-    def assemble_int_bound_pressure_cell(self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1):
+    def assemble_int_bound_pressure_cell(
+        self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
 
@@ -261,7 +264,7 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
                 Should be either 1 or 2.
 
         """
-        mg = data_edge['mortar_grid']
+        mg = data_edge["mortar_grid"]
         proj = mg.slave_to_mortar_avg()
 
         A = proj.T
@@ -269,7 +272,9 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
 
         cc[2, self_ind] -= sps.bmat([[sps.csr_matrix(shape)], [A]]).T
 
-    def assemble_int_bound_source(self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1):
+    def assemble_int_bound_source(
+        self, g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
@@ -299,13 +304,12 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
                 Should be either 1 or 2.
 
         """
-        mg = data_edge['mortar_grid']
+        mg = data_edge["mortar_grid"]
         proj = mg.slave_to_mortar_avg()
 
         A = proj.T
         shape = (g_slave.num_faces, A.shape[1])
         cc[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
-
 
     def enforce_neumann_int_bound(self, g_master, data_edge, matrix):
         """ Enforce Neumann boundary conditions on a given system matrix.
@@ -321,7 +325,7 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
             matrix (scipy.sparse.matrix): Discretization matrix to be modified.
 
         """
-        mg = data_edge['mortar_grid']
+        mg = data_edge["mortar_grid"]
 
         hat_E_int = self._velocity_dof(g_master, mg)
 
@@ -338,7 +342,6 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
         d = matrix[0, 0].diagonal()
         d[dof] = norm
         matrix[0, 0].setdiag(d)
-
 
     def extract_flux(self, g, up, d=None):
         """  Extract the velocity from a dual virtual element solution.
@@ -359,7 +362,6 @@ class DualElliptic(pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscret
         """
         # pylint: disable=invalid-name
         return up[: g.num_faces]
-
 
     def extract_pressure(self, g, up, d=None):
         """  Extract the pressure from a dual virtual element solution.

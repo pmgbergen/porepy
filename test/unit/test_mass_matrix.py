@@ -4,6 +4,7 @@ import unittest
 
 import porepy as pp
 
+
 class MassMatrixTest(unittest.TestCase):
     def test_mass_matrix(self):
         g = pp.CartGrid([3, 3, 3])
@@ -36,5 +37,5 @@ class MassMatrixTest(unittest.TestCase):
         self.assertTrue(np.allclose(lhs.A[off_diag], 0))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

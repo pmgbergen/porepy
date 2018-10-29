@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 
 
 class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
-
     def __init__(self, keyword):
         super(RT0, self).__init__(keyword)
+
     # ------------------------------------------------------------------------------#
 
     def assemble_matrix_rhs(self, g, data):
@@ -45,7 +45,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             source term.
 
         """
-        if not self._key() + 'RT0_mass' in data.keys():
+        if not self._key() + "RT0_mass" in data.keys():
             self.discretize(g, data)
 
         M = self.assemble_matrix(g, data)
@@ -54,17 +54,15 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         return M, self.assemble_rhs(g, data, bc_weight)
 
-
     def assemble_matrix(self, g, data):
         """ Assemble VEM matrix from an existing discretization.
         """
-        if not self._key() + 'RT0_mass' in data.keys():
+        if not self._key() + "RT0_mass" in data.keys():
             self.discretize(g, data)
 
-        mass = data[self._key() + 'RT0_mass']
-        div = data[self._key() + 'RT0_div']
+        mass = data[self._key() + "RT0_mass"]
+        div = data[self._key() + "RT0_div"]
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
-
 
     def discretize(self, g, data):
         """
@@ -88,9 +86,8 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
-            data[self._key() + 'RT0_mass'] = mass
-            data[self._key() + 'RT0_div'] = sps.csr_matrix((g.num_faces,
-                 g.num_cells))
+            data[self._key() + "RT0_mass"] = mass
+            data[self._key() + "RT0_div"] = sps.csr_matrix((g.num_faces, g.num_cells))
             return
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
@@ -171,9 +168,8 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
-        data[self._key() + 'RT0_mass'] = mass
-        data[self._key() + 'RT0_div'] = div
-
+        data[self._key() + "RT0_mass"] = mass
+        data[self._key() + "RT0_div"] = div
 
     def assemble_neumann(self, g, data, M, bc_weight=None):
         """ Impose Neumann boundary discretization on an already assembled
@@ -181,10 +177,9 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         """
         # Obtain the RT0 mass matrix
-        mass = data[self._key() + 'RT0_mass']
+        mass = data[self._key() + "RT0_mass"]
         # Use implementation in superclass
         return self._assemble_neumann_common(g, data, M, mass, bc_weight=bc_weight)
-
 
     def massHdiv(self, K, c_volume, coord, sign, dim, HB):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.

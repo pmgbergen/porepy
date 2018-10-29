@@ -127,7 +127,7 @@ class HybridDualVEM(Solver):
 
         idx = 0
         # Use a dummy keyword to trick the constructor of dualVEM.
-        massHdiv = dual.DualVEM('dummy').massHdiv
+        massHdiv = dual.DualVEM("dummy").massHdiv
 
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces

@@ -31,8 +31,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         else:
             return row + "_" + col + "_" + pp.keywords.DISCRETIZATION
 
-
-    def assemble_matrix_rhs(self, gb, matrix_format='csr', variables=None):
+    def assemble_matrix_rhs(self, gb, matrix_format="csr", variables=None):
         """ Assemble the system matrix and right hand side for a general
         multi-physics problem, and return a block matrix and right hand side.
 
@@ -112,7 +111,6 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
         # Initialize the global matrix.
         matrix, rhs, block_dof = self._initialize_matrix_rhs(gb, variables)
-
 
         # Loop over all grids, discretize (if necessary) and assemble. This
         # will populate the main diagonal of the equation.
@@ -196,14 +194,19 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     slave_key = dep.get(g_slave, None)
 
                     if master_key is None and slave_key is None:
-                        raise ValueError('A coupling need at least one dependency')
+                        raise ValueError("A coupling need at least one dependency")
 
                     # If either the master or slave dependency is not among the
                     # active variables, we skip this coupling.
-                    if (master_key is not None and not master_key in active_master_var.keys()) or \
-                        (slave_key is not None and not slave_key in active_slave_var.keys()):
-                            # Not sure about this one - maybe it is better to include something
-                            continue
+                    if (
+                        master_key is not None
+                        and not master_key in active_master_var.keys()
+                    ) or (
+                        slave_key is not None
+                        and not slave_key in active_slave_var.keys()
+                    ):
+                        # Not sure about this one - maybe it is better to include something
+                        continue
 
                     mi = block_dof.get((g_master, master_key), None)
                     si = block_dof.get((g_slave, slave_key), None)
@@ -211,27 +214,38 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     if mi is not None and si is not None:
                         idx = np.ix_([mi, si, ei], [mi, si, ei])
                         for discr in self._iterable(dep[pp.keywords.DISCRETIZATION]):
-                            matrix[idx], loc_rhs = discr.assemble_matrix_rhs(g_master, g_slave, data_master, data_slave, data_edge, matrix[idx])
+                            matrix[idx], loc_rhs = discr.assemble_matrix_rhs(
+                                g_master,
+                                g_slave,
+                                data_master,
+                                data_slave,
+                                data_edge,
+                                matrix[idx],
+                            )
                             rhs[[mi, si, ei]] += loc_rhs
 
                     elif mi is not None:
                         idx = np.ix_([mi, ei])
                         for discr in self._iterable(dep[pp.keywords.DISCRETIZATION]):
-                            matrix[idx], loc_rhs = discr.assemble_matrix_rhs(g_master, data_master, data_edge, matrix[idx])
+                            matrix[idx], loc_rhs = discr.assemble_matrix_rhs(
+                                g_master, data_master, data_edge, matrix[idx]
+                            )
                             rhs[[mi, ei]] += loc_rhs
 
                     elif si is not None:
                         idx = np.ix_([si, ei])
                         for discr in self._iterable(dep[pp.keywords.DISCRETIZATION]):
-                            matrix[idx], loc_rhs = discr.assemble_matrix_rhs(g_slave, data_slave, data_edge, matrix[idx])
+                            matrix[idx], loc_rhs = discr.assemble_matrix_rhs(
+                                g_slave, data_slave, data_edge, matrix[idx]
+                            )
                             rhs[[si, ei]] += loc_rhs
 
                     else:
-                        raise ValueError('Invalid combination of variables on node-edge relation')
-
+                        raise ValueError(
+                            "Invalid combination of variables on node-edge relation"
+                        )
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
-
 
     def _initialize_matrix_rhs(self, gb, variables=None):
         """
@@ -249,19 +263,21 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         for g, d in gb:
             for k, v in self._local_variables(d, variables).items():
                 block_dof[(g, k)] = block_dof_counter
-                loc_dof = g.num_cells * v.get('cells', 0) + \
-                          g.num_faces * v.get('faces', 0) + \
-                          g.num_nodes * v.get('nodes', 0)
+                loc_dof = (
+                    g.num_cells * v.get("cells", 0)
+                    + g.num_faces * v.get("faces", 0)
+                    + g.num_nodes * v.get("nodes", 0)
+                )
                 full_dof.append(loc_dof)
                 block_dof_counter += 1
 
         for e, d in gb.edges():
-            mg = d['mortar_grid']
+            mg = d["mortar_grid"]
             for k, v in self._local_variables(d, variables).items():
                 block_dof[(mg, k)] = block_dof_counter
                 # We only allow for cell variables on the mortar grid.
                 # This will not change in the forseable future
-                loc_dof = mg.num_cells * v.get('cells', 0)
+                loc_dof = mg.num_cells * v.get("cells", 0)
                 full_dof.append(loc_dof)
                 block_dof_counter += 1
 
@@ -281,7 +297,6 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         """ @RUNAR: Placeholder method for use for non-linear problems
         """
         pass
-
 
     def _local_variables(self, d, variables):
         # Short-hand function to check if a limited number of admissible
@@ -338,8 +353,9 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         gb.add_node_props([flux_keyword])
         for g, d in gb:
             discretization = d[self.discretization_key()]
-            d[flux_keyword] = discretization.extract_flux(g, d[pressure_flux_keyword], d)
-
+            d[flux_keyword] = discretization.extract_flux(
+                g, d[pressure_flux_keyword], d
+            )
 
     def extract_pressure(self, gb, presssure_flux_keyword, pressure_keyword):
         """ Extract the pressure variable from a solution of the elliptic equation.
@@ -375,4 +391,6 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         gb.add_node_props([pressure_keyword])
         for g, d in gb:
             discretization = d[self.discretization_key()]
-            d[pressure_keyword] = discretization.extract_pressure(g, d[presssure_flux_keyword], d)
+            d[pressure_keyword] = discretization.extract_pressure(
+                g, d[presssure_flux_keyword], d
+            )

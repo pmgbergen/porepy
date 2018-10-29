@@ -10,5 +10,3 @@ Modules:
         be shown. The latter is represented either by cell-wise color maps or cell- or
         face-wise arrows for vectors.
 """
-
-

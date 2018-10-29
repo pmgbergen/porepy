@@ -59,7 +59,7 @@ class EllipticDiscretization(Solver):
             String, on the form self.keyword + '_'.
 
         """
-        return self.keyword + '_'
+        return self.keyword + "_"
 
     def ndof(self, g):
         """ Abstract method. Return the number of degrees of freedom associated to the method.
@@ -91,7 +91,6 @@ class EllipticDiscretization(Solver):
 
         """
         raise NotImplementedError("Method not implemented")
-
 
     def extract_flux(self, g, solution_array, d):
         """ Abstract method. Extract the pressure part of a solution.
@@ -175,7 +174,9 @@ class EllipticDiscretization(Solver):
         """
         raise NotImplementedError("Method not implemented")
 
-    def assemble_int_bound_flux(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
+    def assemble_int_bound_flux(
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a flux boundary condition.
 
@@ -207,7 +208,9 @@ class EllipticDiscretization(Solver):
         """
         raise NotImplementedError("Method not implemented")
 
-    def assemble_int_bound_source(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
+    def assemble_int_bound_source(
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
@@ -239,7 +242,9 @@ class EllipticDiscretization(Solver):
         """
         raise NotImplementedError("Method not implemented")
 
-    def assemble_int_bound_pressure_trace(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
+    def assemble_int_bound_pressure_trace(
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
@@ -271,7 +276,9 @@ class EllipticDiscretization(Solver):
         """
         raise NotImplementedError("Method not implemented")
 
-    def assemble_int_bound_pressure_cell(self, g, data, data_edge, grid_swap, cc, matrix, self_ind):
+    def assemble_int_bound_pressure_cell(
+        self, g, data, data_edge, grid_swap, cc, matrix, self_ind
+    ):
         """ Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the cell pressure.
 

@@ -113,8 +113,8 @@ def main(N):
 
 # ------------------------------------------------------------------------------#
 
-class BasicsTest( unittest.TestCase ):
 
+class BasicsTest(unittest.TestCase):
     def test_vem_varing_k_surface(self):
         diam_10, error_10 = main(10)
         diam_20, error_20 = main(20)

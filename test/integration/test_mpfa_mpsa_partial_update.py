@@ -16,7 +16,9 @@ class TestPartialMPFA(unittest.TestCase):
         g.compute_geometry()
         perm = PermTensor(g.dim, np.ones(g.num_cells))
         bnd = bc.BoundaryCondition(g)
-        flux, bound_flux, _, _ = pp.Mpfa('flow')._local_discr(g, perm, bnd, inverter="python")
+        flux, bound_flux, _, _ = pp.Mpfa("flow")._local_discr(
+            g, perm, bnd, inverter="python"
+        )
         return g, perm, bnd, flux, bound_flux
 
     def test_inner_cell_node_keyword(self):
@@ -27,7 +29,7 @@ class TestPartialMPFA(unittest.TestCase):
         nodes_of_cell = np.array([14, 15, 20, 21])
         faces_of_cell = np.array([14, 15, 42, 47])
 
-        partial_flux, partial_bound, _, _, active_faces = pp.Mpfa('flow').partial_discr(
+        partial_flux, partial_bound, _, _, active_faces = pp.Mpfa("flow").partial_discr(
             g, perm, bnd, nodes=nodes_of_cell, inverter="python"
         )
 
@@ -53,7 +55,7 @@ class TestPartialMPFA(unittest.TestCase):
         inner_cell = 10
         nodes_of_cell = np.array([12, 13, 18, 19])
         faces_of_cell = np.array([12, 13, 40, 45])
-        partial_flux, partial_bound, _, _, active_faces = pp.Mpfa('flow').partial_discr(
+        partial_flux, partial_bound, _, _, active_faces = pp.Mpfa("flow").partial_discr(
             g, perm, bnd, nodes=nodes_of_cell, inverter="python"
         )
 
@@ -99,9 +101,9 @@ class TestPartialMPFA(unittest.TestCase):
             ind = np.zeros(g.num_cells)
             ind[ci] = 1
             nodes = np.squeeze(np.where(cn * ind > 0))
-            partial_flux, partial_bound, _, _, active_faces = pp.Mpfa('flow').partial_discr(
-                g, perm, bnd, nodes=nodes, inverter="python"
-            )
+            partial_flux, partial_bound, _, _, active_faces = pp.Mpfa(
+                "flow"
+            ).partial_discr(g, perm, bnd, nodes=nodes, inverter="python")
 
             if np.any(faces_covered):
                 partial_flux[faces_covered, :] *= 0
@@ -111,7 +113,9 @@ class TestPartialMPFA(unittest.TestCase):
             flux += partial_flux
             bound_flux += partial_bound
 
-        flux_full, bound_flux_full, _, _ = pp.Mpfa('flow')._local_discr(g, perm, bnd, inverter="python")
+        flux_full, bound_flux_full, _, _ = pp.Mpfa("flow")._local_discr(
+            g, perm, bnd, inverter="python"
+        )
 
         self.assertTrue((flux_full - flux).max() < 1e-8)
         self.assertTrue((flux_full - flux).min() > -1e-8)
@@ -233,6 +237,7 @@ class TestPartialMPSA(unittest.TestCase):
         self.assertTrue((stress_full - stress).min() > -1e-8)
         self.assertTrue((bound_stress - bound_stress_full).max() < 1e-8)
         self.assertTrue((bound_stress - bound_stress_full).min() > -1e-8)
+
 
 if __name__ == "__main__":
     unittest.main()

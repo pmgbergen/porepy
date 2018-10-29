@@ -106,6 +106,7 @@ class Arrow3D(FancyArrowPatch):
     """
     Arrow representation intended for visualization of vector quantities.
     """
+
     def __init__(self, xs, ys, zs, *args, **kwargs):
         """
         Provide the coordinates of the vertices as xs, ys and zs, each a list of the
@@ -346,6 +347,7 @@ def add_info(g, info, ax, **kwargs):
     face numbers will be displayed at the corresponding cell centers, nodes and face
     centers, respectively.
     """
+
     def disp(i, p, c, m):
         ax.scatter(*p, c=c, marker=m)
         ax.text(*p, i)

@@ -202,7 +202,7 @@ class Biot(Solver):
     def _discretize_flow(self, g, data):
 
         # Discretiztaion using MPFA
-        key = 'flow'
+        key = "flow"
         md = mpfa.Mpfa(key)
 
         md.discretize(g, data)

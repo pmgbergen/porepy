@@ -47,7 +47,7 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
         # Convenience method to get a string representation for whatever
         return self._key() + pp.keywords.DISCRETIZATION
 
-    def assemble_matrix_rhs(self, gb, matrix_format='csr'):
+    def assemble_matrix_rhs(self, gb, matrix_format="csr"):
         """ Assemble the system matrix and right hand side  for the elliptic
         equation.
 
@@ -55,13 +55,11 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
 
         """
 
-
         # Initialize the global matrix. In this case, we know there is a single
         # variable (or two, depending on how we end up interpreting the mixed
         # methods) for each node and edge. This concept must be made more
         # general quite soon.
         matrix, rhs = self.initialize_matrix_rhs(gb)
-
 
         # Loop over all grids, discretize (if necessary) and assemble. This
         # will populate the main diagonal of the equation.
@@ -70,7 +68,7 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
             # The structure of the GridBucked nodes in the system matrix is
             # based on the keyword node_number.
             # TODO: We should rather use a
-            pos = data['node_number']
+            pos = data["node_number"]
 
             discr = data[self._discretization_key()]
 
@@ -98,22 +96,26 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
             # To be improved.
             pos_edge = data_edge["edge_number"] + num_nodes
 
-            idx = np.ix_([pos_master, pos_slave, pos_edge],
-
-                         [pos_master, pos_slave, pos_edge])
+            idx = np.ix_(
+                [pos_master, pos_slave, pos_edge], [pos_master, pos_slave, pos_edge]
+            )
 
             loc_matrix = matrix[idx]
-            matrix[idx], loc_rhs = discr.assemble_matrix_rhs(g_master, g_slave, data_master, data_slave, data_edge, loc_matrix)
+            matrix[idx], loc_rhs = discr.assemble_matrix_rhs(
+                g_master, g_slave, data_master, data_slave, data_edge, loc_matrix
+            )
 
             try:
                 rhs[[pos_master, pos_slave, pos_edge]] += loc_rhs
             except ValueError:
-                import pdb; pdb.set_trace()
-                matrix[idx], loc_rhs = discr.assemble_matrix_rhs(g_master, g_slave, data_master, data_slave, data_edge, loc_matrix)
-                
+                import pdb
+
+                pdb.set_trace()
+                matrix[idx], loc_rhs = discr.assemble_matrix_rhs(
+                    g_master, g_slave, data_master, data_slave, data_edge, loc_matrix
+                )
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
-
 
     def extract_flux(self, gb, pressure_flux_keyword, flux_keyword):
         """ Extract the flux variable from a solution of the elliptic equation.
@@ -148,8 +150,9 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
         gb.add_node_props([flux_keyword])
         for g, d in gb:
             discretization = d[self._discretization_key()]
-            d[flux_keyword] = discretization.extract_flux(g, d[pressure_flux_keyword], d)
-
+            d[flux_keyword] = discretization.extract_flux(
+                g, d[pressure_flux_keyword], d
+            )
 
     def extract_pressure(self, gb, presssure_flux_keyword, pressure_keyword):
         """ Extract the pressure variable from a solution of the elliptic equation.
@@ -185,4 +188,6 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
         gb.add_node_props([pressure_keyword])
         for g, d in gb:
             discretization = d[self._discretization_key()]
-            d[pressure_keyword] = discretization.extract_pressure(g, d[presssure_flux_keyword], d)
+            d[pressure_keyword] = discretization.extract_pressure(
+                g, d[presssure_flux_keyword], d
+            )

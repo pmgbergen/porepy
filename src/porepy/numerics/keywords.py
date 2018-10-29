@@ -12,6 +12,6 @@ submodule. The access via pp.keywords will remain.
 
 """
 """
-DISCRETIZATION = 'discretization'
+DISCRETIZATION = "discretization"
 
-PRIMARY_VARIABLES = 'primary_variables'
+PRIMARY_VARIABLES = "primary_variables"

@@ -18,6 +18,7 @@ class Integral(Solver):
     All this function does is returning a zero lhs and
     rhs = param.get_source.physics.
     """
+
     def __init__(self, keyword="flow"):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -42,7 +43,7 @@ class Integral(Solver):
             String, on the form self.keyword + '_'.
 
         """
-        return self.keyword + '_'
+        return self.keyword + "_"
 
     # ------------------------------------------------------------------------------#
 
@@ -65,8 +66,10 @@ class Integral(Solver):
         elif self.keyword == "mechanics":
             return g.num_cells * g.dim
         else:
-            raise ValueError('Unknown keyword "%s".\n Possible keywords are: %s'
-                             % (self.keyword, self.known_keywords))
+            raise ValueError(
+                'Unknown keyword "%s".\n Possible keywords are: %s'
+                % (self.keyword, self.known_keywords)
+            )
 
     # ------------------------------------------------------------------------------#
 
@@ -128,7 +131,7 @@ class Integral(Solver):
             self.discretize(g, data)
         return data[self._key() + "bound_source"]
 
-# ------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def discretize(self, g, data, faces=None):
         """ Discretize an integrated source term.
@@ -150,10 +153,12 @@ class Integral(Solver):
         param = data["param"]
         sources = param.get_source(self)
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
-        assert sources.size == self.ndof(g), \
-            "There should be one source value for each cell"
+        assert sources.size == self.ndof(
+            g
+        ), "There should be one source value for each cell"
         data[self._key() + "source"] = lhs
         data[self._key() + "bound_source"] = sources
+
 
 # ------------------------------------------------------------------------------
 

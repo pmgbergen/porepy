@@ -18,10 +18,8 @@ from porepy.numerics.fv import TpfaCoupling, FVElliptic
 
 
 class Mpfa(FVElliptic):
-
     def __init__(self, keyword):
         super(Mpfa, self).__init__(keyword)
-
 
     def ndof(self, g):
         """
@@ -58,8 +56,7 @@ class Mpfa(FVElliptic):
         a = param.aperture
         robin_weight = param.get_robin_weight(self)
 
-        eta = data.get('mpfa_eta', None)
-
+        eta = data.get("mpfa_eta", None)
 
         trm, bound_flux, bp_cell, bp_face = self.mpfa(
             g, k, bnd, eta=eta, apertures=a, robin_weight=robin_weight
@@ -69,7 +66,18 @@ class Mpfa(FVElliptic):
         data[self._key() + "bound_pressure_cell"] = bp_cell
         data[self._key() + "bound_pressure_face"] = bp_face
 
-    def mpfa(self, g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, robin_weight=None, **kwargs):
+    def mpfa(
+        self,
+        g,
+        k,
+        bnd,
+        eta=None,
+        inverter=None,
+        apertures=None,
+        max_memory=None,
+        robin_weight=None,
+        **kwargs
+    ):
         """
         Discretize the scalar elliptic equation by the multi-point flux
         approximation method.
@@ -189,7 +197,8 @@ class Mpfa(FVElliptic):
 
         return flux, bound_flux, bound_pressure_cell, bound_pressure_face
 
-    def partial_discr(self,
+    def partial_discr(
+        self,
         g,
         k,
         bnd,
@@ -313,7 +322,6 @@ class Mpfa(FVElliptic):
             bound_pressure_face_glob,
             active_faces,
         )
-
 
     def _local_discr(
         self, g, k, bnd, eta=None, inverter="numba", apertures=None, robin_weight=None
@@ -509,7 +517,10 @@ class Mpfa(FVElliptic):
         # Obtain the necessary mappings.
 
         rows2blk_diag, cols2blk_diag, size_of_blocks = self._block_diagonal_structure(
-            sub_cell_index, cell_node_blocks, subcell_topology.nno_unique, bound_exclusion
+            sub_cell_index,
+            cell_node_blocks,
+            subcell_topology.nno_unique,
+            bound_exclusion,
         )
 
         del cell_node_blocks, sub_cell_index
@@ -573,7 +584,12 @@ class Mpfa(FVElliptic):
 
         # Flux discretization:
         # The negative in front of pr_trace_cell comes from the grad_egs
-        flux = hf2f * darcy * igrad * (-sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell]))
+        flux = (
+            hf2f
+            * darcy
+            * igrad
+            * (-sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell]))
+        )
 
         ####
         # Boundary conditions
@@ -682,7 +698,6 @@ class Mpfa(FVElliptic):
         # between local and block ordering etc.
         return total_size
 
-
     def _tensor_vector_prod(self, g, k, subcell_topology, apertures=None):
         """
         Compute product of normal vectors and tensors on a sub-cell level.
@@ -736,7 +751,9 @@ class Mpfa(FVElliptic):
 
         # Distribute faces equally on the sub-faces
         num_nodes = np.diff(g.face_nodes.indptr)
-        normals = g.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
+        normals = (
+            g.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
+        )
         if apertures is not None:
             normals = normals * apertures[subcell_topology.cno]
 
@@ -754,8 +771,9 @@ class Mpfa(FVElliptic):
         sub_cell_ind = j[::, 0::nd]
         return nk, cell_node_blocks, sub_cell_ind
 
-
-    def _block_diagonal_structure(self, sub_cell_index, cell_node_blocks, nno, bound_exclusion):
+    def _block_diagonal_structure(
+        self, sub_cell_index, cell_node_blocks, nno, bound_exclusion
+    ):
         """ Define matrices to turn linear system into block-diagonal form
         Parameters
         ----------
@@ -794,11 +812,13 @@ class Mpfa(FVElliptic):
         sorted_nodes_cols = np.argsort(cell_node_blocks[1])
         subcind_nodes = sub_cell_index[::, sorted_nodes_cols].ravel("F")
         cols2blk_diag = sps.coo_matrix(
-            (np.ones(sub_cell_index.size), (subcind_nodes, np.arange(sub_cell_index.size)))
+            (
+                np.ones(sub_cell_index.size),
+                (subcind_nodes, np.arange(sub_cell_index.size)),
+            )
         ).tocsr()
 
         return rows2blk_diag, cols2blk_diag, size_of_blocks
-
 
     def _create_bound_rhs(
         self, bnd, bound_exclusion, subcell_topology, sgn, g, num_flux, num_rob, num_pr
@@ -849,7 +869,9 @@ class Mpfa(FVElliptic):
             bound_exclusion.keep_robin(is_rob[fno].astype("int64"))
         ).ravel("F")
         neu_rob_ind = np.argwhere(
-            bound_exclusion.exclude_dirichlet((is_rob[fno] + is_neu[fno]).astype("int64"))
+            bound_exclusion.exclude_dirichlet(
+                (is_rob[fno] + is_neu[fno]).astype("int64")
+            )
         ).ravel("F")
 
         # We also need to map the respective Neumann, Robin, and Dirichlet half-faces to
@@ -892,7 +914,10 @@ class Mpfa(FVElliptic):
         ).ravel("F")
         if dir_ind.size > 0:
             dir_cell = sps.coo_matrix(
-                (sgn[dir_ind_all], (dir_ind, num_neu + num_rob + np.arange(dir_ind.size))),
+                (
+                    sgn[dir_ind_all],
+                    (dir_ind, num_neu + num_rob + np.arange(dir_ind.size)),
+                ),
                 shape=(num_pr, num_bound),
             )
         else:

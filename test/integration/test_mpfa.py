@@ -49,7 +49,9 @@ class TestMpfa(unittest.TestCase):
         bound = bc.BoundaryCondition(g, bnd_faces, ["dir"] * bnd_faces.size)
 
         # Python inverter is most efficient for small problems
-        flux, bound_flux, _, _ = pp.Mpfa('flow')._local_discr(g, perm, bound, inverter="python")
+        flux, bound_flux, _, _ = pp.Mpfa("flow")._local_discr(
+            g, perm, bound, inverter="python"
+        )
         div = g.cell_faces.T
         A = div * flux
 
@@ -88,7 +90,9 @@ class TestMpfa(unittest.TestCase):
         )
 
         # Python inverter is most efficient for small problems
-        flux, bound_flux, _, _ = pp.Mpfa('flow')._local_discr(g, perm, bound, inverter="python")
+        flux, bound_flux, _, _ = pp.Mpfa("flow")._local_discr(
+            g, perm, bound, inverter="python"
+        )
         div = g.cell_faces.T
 
         a = div * flux
@@ -112,7 +116,9 @@ class TestMpfa(unittest.TestCase):
         )
 
         # Python inverter is most efficient for small problems
-        flux, bound_flux, _, _ = pp.Mpfa('flow')._local_discr(g, perm, bound, inverter="python")
+        flux, bound_flux, _, _ = pp.Mpfa("flow")._local_discr(
+            g, perm, bound, inverter="python"
+        )
         div = g.cell_faces.T
 
         a = div * flux
@@ -147,7 +153,9 @@ class TestMpfa(unittest.TestCase):
         )
 
         # Python inverter is most efficient for small problems
-        flux, bound_flux, _, _ = pp.Mpfa('flow')._local_discr(g, perm, bound, inverter="python")
+        flux, bound_flux, _, _ = pp.Mpfa("flow")._local_discr(
+            g, perm, bound, inverter="python"
+        )
         div = g.cell_faces.T
 
         a = div * flux
