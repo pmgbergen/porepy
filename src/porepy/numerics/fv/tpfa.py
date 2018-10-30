@@ -27,8 +27,8 @@ class Tpfa(FVElliptic):
 
     """
 
-    def __init__(self, keyword):
-        super(Tpfa, self).__init__(keyword)
+    def __init__(self, keyword, physics=None):
+        super(Tpfa, self).__init__(keyword, physics)
 
     def discretize(self, g, data, faces=None):
         """

@@ -19,7 +19,7 @@ class Integral(Solver):
     rhs = param.get_source.physics.
     """
 
-    def __init__(self, keyword="flow"):
+    def __init__(self, keyword="flow", physics=None):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
@@ -31,7 +31,10 @@ class Integral(Solver):
         self.known_keywords = ["flow", "transport", "mechanics"]
 
         # The physics keyword is kept for consistency for now, but will soon be purged.
-        self.physics = keyword
+        if physics is None:
+            self.physics = keyword
+        else:
+            self.physics = physics
 
     # ------------------------------------------------------------------------------#
 
@@ -59,11 +62,11 @@ class Integral(Solver):
             int: the number of degrees of freedom.
 
         """
-        if self.keyword == "flow":
+        if self.physics == "flow":
             return g.num_cells
-        elif self.keyword == "transport":
+        elif self.physics == "transport":
             return g.num_cells
-        elif self.keyword == "mechanics":
+        elif self.physics == "mechanics":
             return g.num_cells * g.dim
         else:
             raise ValueError(
