@@ -7,14 +7,9 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.fv import fvutils, tpfa
-from porepy.grids import partition
-from porepy.params import tensor, bc, data
-from porepy.utils import matrix_compression
-from porepy.utils import comp_geom as cg
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
-from porepy.numerics.fv import TpfaCoupling, FVElliptic
+import porepy as pp
+from porepy.numerics.fv import fvutils
+from porepy.numerics.fv.fv_elliptic import FVElliptic
 
 
 class Mpfa(FVElliptic):
@@ -152,7 +147,7 @@ class Mpfa(FVElliptic):
             num_part = np.ceil(peak_mem / max_memory)
 
             # Let partitioning module apply the best available method
-            part = partition.partition(g, num_part)
+            part = pp.grids.partition(g, num_part)
 
             # Empty fields for flux and bound_flux. Will be expanded as we go.
             # Implementation note: It should be relatively straightforward to
@@ -264,7 +259,7 @@ class Mpfa(FVElliptic):
 
         # Extract subgrid, together with mappings between local and global
         # cells
-        sub_g, l2g_faces, _ = partition.extract_subgrid(g, ind)
+        sub_g, l2g_faces, _ = pp.grids.partition.extract_subgrid(g, ind)
         l2g_cells = sub_g.parent_cell_ind
 
         # Local parameter fields
@@ -730,7 +725,7 @@ class Mpfa(FVElliptic):
         # correspond to a unique rows (Matlab-style) from what I understand.
         # This also means that the pairs in cell_node_blocks uniquely defines
         # subcells, and can be used to index gradients etc.
-        cell_node_blocks, blocksz = matrix_compression.rlencode(
+        cell_node_blocks, blocksz = pp.utils.matrix_compression.rlencode(
             np.vstack((subcell_topology.cno, subcell_topology.nno))
         )
 
@@ -747,7 +742,7 @@ class Mpfa(FVElliptic):
         # is adjusted according to block sizes
         _, j = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
         sum_blocksz = np.cumsum(blocksz)
-        j += matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
+        j += pp.utils.matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
 
         # Distribute faces equally on the sub-faces
         num_nodes = np.diff(g.face_nodes.indptr)
