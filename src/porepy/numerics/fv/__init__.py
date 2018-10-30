@@ -1,5 +1,4 @@
 from .tpfa import Tpfa
-from .tpfa import TpfaCoupling
 from .fv_elliptic import FVElliptic
 
 from .mpfa import Mpfa
