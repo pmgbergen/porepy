@@ -107,7 +107,7 @@ class UpwindCoupling(object):
             cc = np.array([np.sum(cc, axis=(0, 1))])
 
         # rhs is zero
-        rhs = np.array([np.zeros(dof[0]), np.zeros(dof[1]), np.zeros(dof[2])])
+        rhs = np.squeeze([np.zeros(dof[0]), np.zeros(dof[1]), np.zeros(dof[2])])
         return matrix + cc, rhs
 
     def cfl(
