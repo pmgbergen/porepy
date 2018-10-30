@@ -3,13 +3,7 @@ Coupling conditions between subdomains for elliptic equations.
 
 Current content:
     Robin-type couplings, as decsribed by Martin et al 2005.
-
-Future content:
-    Full continuity conditions between subdomains, to replace the old concept
-    of 'DFN' discretizations
-    @RUNAR: The periodic conditions you defined should also enter here, don't
-    you think?
-
+    Full continuity conditions between subdomains
 """
 import numpy as np
 import scipy.sparse as sps
@@ -175,31 +169,28 @@ class RobinCoupling(object):
 # ------------------------------------------------------------------------------
 
 
-class FluxPressureContinuity(object):
-    """ A condition for flux and pressure continuity between two domains.
+class FluxPressureContinuity(RobinCoupling):
+    """ A condition for flux and pressure continuity between two domains of equal
+    dimension. This can be used to specify full continuity between fractures,
+    two domains or a periodic boundary condition for a single domain. The faces
+    coupled by flux and pressure condition must be specified by a MortarGrid on
+    a graph edge.
+    For each face we will impose
+    v_m = lambda
+    v_s = -lambda
+    p_m - p_s = 0
+    where subscript m and s is for master and slave, v is the flux, p the pressure,
+    and lambda the mortar variable.
+
+    @Allesio, Eirik:
+    TODO: It might only works for methods that do not change the discretization
+          matrix. We flip the sign of the pressure and flux on the slave side,
+          and I don't know if this will effect the changed to the discretization
+          matrix.
     """
 
-    def __init__(self, keyword, discr_master, discr_slave=None):
-        # @ALL should the node discretization default to Tpfa?
-        self.keyword = keyword
-        if discr_slave is None:
-            discr_slave = discr_master
-        self.discr_master = discr_master
-        self.discr_slave = discr_slave
-
-    def _key(self):
-        return self.keyword + "_"
-
-    def _discretization_key(self):
-        return self._key() + pp.keywords.DISCRETIZATION
-
-    def ndof(self, mg):
-        return mg.num_cells
-
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
-        """ Nothing really to do here, but keep function to be consistent
-
-        TODO: Clean up in the aperture concept.
+        """ Nothing really to do here
 
         Parameters:
             g_h: Grid of the master domanin.
@@ -271,7 +262,6 @@ class FluxPressureContinuity(object):
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
         # and mortar variables in the third
-#       o cc[2, 2] = data_edge[self._key() + "Robin_discr"]
 
         self.discr_master.assemble_int_bound_pressure_trace(
             g_master, data_master, data_edge, False, cc_master, matrix, self_ind=0
