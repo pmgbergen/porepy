@@ -166,6 +166,7 @@ class RobinCoupling(object):
         )
         return matrix, rhs
 
+
 # ------------------------------------------------------------------------------
 
 
@@ -226,7 +227,7 @@ class FluxPressureContinuity(RobinCoupling):
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         if not g_master.dim == g_slave.dim:
-            raise AssertionError('Slave and master must have same dimension')
+            raise AssertionError("Slave and master must have same dimension")
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
@@ -259,31 +260,52 @@ class FluxPressureContinuity(RobinCoupling):
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc_master = cc.reshape((3, 3))
         cc_slave = cc_master.copy()
-        # The convention, for now, is to put the higher dimensional information
-        # in the first column and row in matrix, lower-dimensional in the second
+        # The convention, for now, is to put the master grid information
+        # in the first column and row in matrix, slave grid in the second
         # and mortar variables in the third
-
+        # If master and slave is the same grid, they should contribute to the same
+        # row and coloumn. When the assembler assigns matrix[idx] it will only add
+        # the slave information because of duplicate indices (master and slave is the same).
+        # We therefore write the both master and slave info to the slave index.
+        slave_ind = 1
+        if g_master == g_slave:
+            master_ind = 1
+        else:
+            master_ind = 0
         self.discr_master.assemble_int_bound_pressure_trace(
-            g_master, data_master, data_edge, False, cc_master, matrix, self_ind=0
+            g_master,
+            data_master,
+            data_edge,
+            False,
+            cc_master,
+            matrix,
+            self_ind=master_ind,
         )
         self.discr_master.assemble_int_bound_flux(
-            g_master, data_master, data_edge, False, cc_master, matrix, self_ind=0
+            g_master,
+            data_master,
+            data_edge,
+            False,
+            cc_master,
+            matrix,
+            self_ind=master_ind,
         )
 
         self.discr_slave.assemble_int_bound_pressure_trace(
-            g_slave, data_slave, data_edge, True, cc_slave, matrix, self_ind=1
+            g_slave, data_slave, data_edge, True, cc_slave, matrix, self_ind=slave_ind
         )
 
         self.discr_slave.assemble_int_bound_flux(
-            g_slave, data_slave, data_edge, True, cc_slave, matrix, self_ind=1
+            g_slave, data_slave, data_edge, True, cc_slave, matrix, self_ind=slave_ind
         )
         # We now have to flip the sign of some of the matrices
         # First we flip the sign of the slave flux because the mortar flux points
         # from the master to the slave, i.e., flux_s = -mortar_flux
-        cc_slave[1, 2] = -cc_slave[1, 2]
+        cc_slave[slave_ind, 2] = -cc_slave[slave_ind, 2]
         # Then we flip the sign for the pressure continuity since we have
         # We have that p_m - p_s = 0.
-        cc_slave[2, 1] = -cc_slave[2, 1]
+        cc_slave[2, slave_ind] = -cc_slave[2, slave_ind]
+
         # Note that cc_slave[2, 2] is fliped twice, first for pressure continuity
         # now, the matrix cc = cc_slave + cc_master expresses the flux and pressure
         # continuities over the mortars.
@@ -298,4 +320,5 @@ class FluxPressureContinuity(RobinCoupling):
         rhs = np.squeeze(
             [np.zeros(dof_master), np.zeros(dof_slave), np.zeros(mg.num_cells)]
         )
+
         return matrix, rhs
