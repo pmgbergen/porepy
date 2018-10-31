@@ -151,7 +151,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
     """
 
     def test_no_change_input(self):
-        """ 
+        """
         The input matrices should not be changed
         """
         g = pp.CartGrid([4, 4], physdims=(1, 1))

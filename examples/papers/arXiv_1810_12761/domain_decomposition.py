@@ -3,8 +3,8 @@ import scipy.sparse as sps
 
 iteration_number = 0
 
-class DomainDecomposition(object):
 
+class DomainDecomposition(object):
     def __init__(self, gb):
         # The grid bucket
         self.gb = gb
@@ -35,12 +35,12 @@ class DomainDecomposition(object):
         # Position in the matrix A of the mortar lower dimensional domain
         self.pos_le = None
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def ndof(self):
         return self.b_h.size + self.b_l.size
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def extract_blocks(self, A, b):
 
@@ -103,7 +103,7 @@ class DomainDecomposition(object):
         self.A_l = sps.bmat(A_l, "csr")
         self.b_l = np.r_[tuple(b_l)]
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def update_lower_blocks(self, A):
 
@@ -120,7 +120,7 @@ class DomainDecomposition(object):
         # assemble and factorize
         self.A_l = sps.bmat(A_l, "csr")
 
-# ------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def solve(self, tol, maxiter, info=False, return_lower=False):
 
@@ -139,27 +139,29 @@ class DomainDecomposition(object):
         # construct the right-hand side
         x_h = self.LU(self.b_h)
         b_h = np.zeros(self.b_l.size)
-        b_h[:self.dof_l] = - self.C_l * x_h[self.dof_h:]
+        b_h[: self.dof_l] = -self.C_l * x_h[self.dof_h :]
         b = self.b_l + b_h
 
         # solve with an iterative scheme the problem
-        x_l, _ = sps.linalg.gmres(A, b, tol=tol, maxiter=maxiter, M=M, callback=callback)
+        x_l, _ = sps.linalg.gmres(
+            A, b, tol=tol, maxiter=maxiter, M=M, callback=callback
+        )
 
         # reconstruct the higher dimensional solution
         if return_lower:
             if info:
-                return x_l, {"solve_h": iteration_number+1}
+                return x_l, {"solve_h": iteration_number + 1}
             else:
                 return x_l
         else:
             x_h += self.solve_h(x_l)
             x = self.concatenate(x_h, x_l)
             if info:
-                return x, {"solve_h": iteration_number+2}
+                return x, {"solve_h": iteration_number + 2}
             else:
                 return x
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def solve_jacobian(self, b, tol, maxiter, info=False):
 
@@ -176,7 +178,9 @@ class DomainDecomposition(object):
         M = sps.linalg.LinearOperator(self.A_l.shape, lambda x: P.solve(x))
 
         # solve with an iterative scheme the problem
-        x_l, _ = sps.linalg.gmres(J, b, tol=tol, maxiter=maxiter, M=M, callback=callback)
+        x_l, _ = sps.linalg.gmres(
+            J, b, tol=tol, maxiter=maxiter, M=M, callback=callback
+        )
 
         # reconstruct the higher dimensional solution:
         if info:
@@ -184,48 +188,48 @@ class DomainDecomposition(object):
         else:
             return x_l
 
-# -----------------------------------------------------------------------------#
+    # -----------------------------------------------------------------------------#
 
     def factorize(self):
         self.LU = sps.linalg.factorized(self.A_h.tocsc())
 
-# -----------------------------------------------------------------------------#
+    # -----------------------------------------------------------------------------#
 
     def schur_complement(self, x_l):
         x_h = np.zeros(x_l.size)
-        x_h[:self.dof_l] = self.C_l * self.solve_h(x_l)[self.dof_h:]
+        x_h[: self.dof_l] = self.C_l * self.solve_h(x_l)[self.dof_h :]
         return self.A_l * x_l + x_h
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def solve_h(self, x_l):
         # compute the higher dimensional solution
-        b = np.r_[[0]*self.dof_h, -self.C_h * x_l[:self.dof_l]]
+        b = np.r_[[0] * self.dof_h, -self.C_h * x_l[: self.dof_l]]
         return self.LU(b)
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def concatenate(self, x_h, x_l):
         # save and export using standard algorithm
         x = np.zeros(self.b_h.size + x_l.size)
         if x_h is not None:
-            x[:self.dof_h] = x_h[:self.dof_h]
+            x[: self.dof_h] = x_h[: self.dof_h]
         if x_l is not None:
-            x[self.dof_h : (self.dof_h + self.dof_l)] = x_l[:self.dof_l]
+            x[self.dof_h : (self.dof_h + self.dof_l)] = x_l[: self.dof_l]
         return x
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def steklov_poincare(self, x_l):
         Sf_l = np.zeros(x_l.size)
 
         # evaluate SP-operator on right-hand side
-        b = np.r_[[0]*self.dof_h, -self.C_h * x_l[:self.dof_l]]
-        Sf_l[:self.dof_l] = self.C_l * self.LU(b + self.b_h)[self.dof_h:]
+        b = np.r_[[0] * self.dof_h, -self.C_h * x_l[: self.dof_l]]
+        Sf_l[: self.dof_l] = self.C_l * self.LU(b + self.b_h)[self.dof_h :]
 
         return Sf_l
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def residual_l(self, x_l):
         # evaluate lower-dimensional part
@@ -235,5 +239,6 @@ class DomainDecomposition(object):
         Sf_l = self.steklov_poincare(x_l)
 
         return f_l - Sf_l
+
 
 # -----------------------------------------------------------------------------#
