@@ -221,7 +221,7 @@ def count_center_point_densities(p, e, domain, nx=10, ny=10):
         np.array (nx x ny): Number of centers within each box
 
     """
-
+    p = np.atleast_2d(p)
     pc = _compute_center(p, e)
 
     if p.shape[0] == 1:
@@ -229,9 +229,9 @@ def count_center_point_densities(p, e, domain, nx=10, ny=10):
         num_occ = np.zeros(nx)
         for i in range(nx):
             hit = np.logical_and.reduce([pc[0] > (x0 + i * dx),
-                                         pc[0] < (x0 + (i + 1) * dx)])
+                                         pc[0] <= (x0 + (i + 1) * dx)])
             num_occ[i] = hit.sum()
-        return num_occ
+        return num_occ.astype(np.int)
 
     elif p.shape[0] == 2:
         x0, y0, dx, dy = _decompose_domain(domain, nx, ny)
@@ -326,7 +326,7 @@ def define_centers_by_boxes(domain, intensity, distribution='poisson'):
 
 def _compute_center(p, edges):
     # first compute the fracture centres and then generate them
-    avg = lambda e0, e1: 0.5*(p[:, e0] + p[:, e1])
+    avg = lambda e0, e1: 0.5*(np.atleast_2d(p)[:, e0] + np.atleast_2d(p)[:, e1])
     pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
     return pts_c
 
