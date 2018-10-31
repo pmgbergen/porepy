@@ -32,6 +32,31 @@ def zero_columns(A, cols):
     A.data[col_indptr] = 0
 
 
+def zero_rows(A, rows):
+    """
+    Function to zero out rows in matrix A. Note that this function does not
+    change the sparcity structure of the matrix, it only changes the row
+    values to 0
+
+    Parameter
+    ---------
+    A (scipy.sparse.spmatrix): A sparce matrix
+    rows (ndarray): A numpy array of columns that should be zeroed
+    Return
+    ------
+    None
+
+
+    """
+
+    if A.getformat() != "csr":
+        raise ValueError("Need a csr matrix")
+
+    indptr = A.indptr
+    row_indptr = mcolon(indptr[rows], indptr[rows + 1])
+    A.data[row_indptr] = 0
+
+
 def merge_matrices(A, B, lines):
     """
     Replace rows/coloms of matrix A with rows/cols of matrix B.

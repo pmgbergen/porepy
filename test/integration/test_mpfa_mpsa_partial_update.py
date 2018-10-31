@@ -126,7 +126,7 @@ class TestPartialMPSA(unittest.TestCase):
         g = CartGrid([5, 5])
         g.compute_geometry()
         stiffness = StiffnessTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
-        bnd = bc.BoundaryCondition(g)
+        bnd = bc.BoundaryConditionVectorial(g)
         stress, bound_stress = mpsa.mpsa(g, stiffness, bnd, inverter="python")
         return g, stiffness, bnd, stress, bound_stress
 
@@ -210,7 +210,7 @@ class TestPartialMPSA(unittest.TestCase):
         bound_stress = sps.csr_matrix((g.num_faces * g.dim, g.num_faces * g.dim))
         faces_covered = np.zeros(g.num_faces, np.bool)
 
-        bnd = bc.BoundaryCondition(g)
+        bnd = bc.BoundaryConditionVectorial(g)
         stress_full, bound_stress_full = mpsa.mpsa(g, stiffness, bnd, inverter="python")
 
         cn = g.cell_nodes()

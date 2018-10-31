@@ -682,55 +682,62 @@ class ExcludeBoundaries(object):
 
         # Define mappings to exclude boundary values
         if self.bc_type == "scalar":
+            self.basis_matrix = self._basis_transformation(bound.basis)
 
-            self.exclude_neu = self.__exclude_matrix(bound.is_neu)
-            self.exclude_dir = self.__exclude_matrix(bound.is_dir)
-            self.exclude_rob = self.__exclude_matrix(bound.is_rob)
-            self.exclude_neu_dir = self.__exclude_matrix(bound.is_neu | bound.is_dir)
-            self.exclude_neu_rob = self.__exclude_matrix(bound.is_neu | bound.is_rob)
-            self.exclude_rob_dir = self.__exclude_matrix(bound.is_rob | bound.is_dir)
-            self.keep_rob = self.__exclude_matrix(~bound.is_rob)
+            self.exclude_neu = self._exclude_matrix(bound.is_neu)
+            self.exclude_dir = self._exclude_matrix(bound.is_dir)
+            self.exclude_rob = self._exclude_matrix(bound.is_rob)
+            self.exclude_neu_dir = self._exclude_matrix(bound.is_neu | bound.is_dir)
+            self.exclude_neu_rob = self._exclude_matrix(bound.is_neu | bound.is_rob)
+            self.exclude_rob_dir = self._exclude_matrix(bound.is_rob | bound.is_dir)
+            self.keep_rob = self._exclude_matrix(~bound.is_rob)
 
         elif self.bc_type == "vectorial":
-            self.basis_matrix = self.__basis_transformation(bound.basis)
+            self.basis_matrix = self._basis_transformation(bound.basis)
 
-            self.exclude_neu_nd = self.__exclude_matrix_xyz(bound.is_neu)
-            self.exclude_dir_nd = self.__exclude_matrix_xyz(bound.is_dir)
-
-            self.exclude_rob_nd = self.__exclude_matrix_xyz(bound.is_rob)
-            self.exclude_neu_dir_nd = self.__exclude_matrix_xyz(
+            self.exclude_neu = self._exclude_matrix_xyz(bound.is_neu)
+            self.exclude_dir = self._exclude_matrix_xyz(bound.is_dir)
+            self.exclude_rob = self._exclude_matrix_xyz(bound.is_rob)
+            self.exclude_neu_dir = self._exclude_matrix_xyz(
                 bound.is_neu | bound.is_dir
             )
-            self.exclude_neu_rob_nd = self.__exclude_matrix_xyz(
+            self.exclude_neu_rob = self._exclude_matrix_xyz(
                 bound.is_neu | bound.is_rob
             )
-            self.exclude_rob_dir_nd = self.__exclude_matrix_xyz(
+            self.exclude_rob_dir = self._exclude_matrix_xyz(
                 bound.is_rob | bound.is_dir
             )
-            (self.keep_rob_nd) = self.__exclude_matrix_xyz(~bound.is_rob)
+            self.keep_rob = self._exclude_matrix_xyz(~bound.is_rob)
 
-    def __basis_transformation(self, basis):
-        # Add the number of coordinates
-        data = basis[:, self.fno].reshape(-1, basis.shape[-1], order="C").ravel("F")
-        col = np.arange(self.num_subfno * self.nd).reshape((-1, self.num_subfno))
-        col = np.tile(col, (1, self.nd)).ravel("C")
-        # col = np.tile(col, (self.nd, 1)).ravel("C")
-        # col = np.tile(np.arange(self.num_subfno * self.nd), (1,self.nd)).ravel()
-        row = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
-        # row = np.tile(np.arange(self.num_subfno * self.nd), (self.nd, 1)).ravel("F")
-        return sps.coo_matrix(
-            (data, (row, col)),
-            shape=(self.num_subfno * self.nd, self.num_subfno * self.nd),
-        ).tocsr()
+    def _basis_transformation(self, basis):
+        if self.bc_type == "scalar":
+            data = basis[self.fno]
+            col = np.arange(self.num_subfno)
+            row = np.arange(self.num_subfno)
+            return sps.coo_matrix(
+                (data, (row, col)), shape=(self.num_subfno, self.num_subfno)
+            ).tocsr()
+        elif self.bc_type == "vectorial":
+            # Add the number of coordinates
+            data = basis[:, self.fno].reshape(-1, basis.shape[-1], order="C").ravel("F")
+            col = np.arange(self.num_subfno * self.nd).reshape((-1, self.num_subfno))
+            col = np.tile(col, (1, self.nd)).ravel("C")
+            row = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
+            return sps.coo_matrix(
+                (data, (row, col)),
+                shape=(self.num_subfno * self.nd, self.num_subfno * self.nd),
+            ).tocsr()
+        else:
+            raise AttributeError("Unknow basis type: " + self.bc_type)
 
-    def __exclude_matrix(self, ids):
+    def _exclude_matrix(self, ids):
         """
         creates an exclusion matrix. This is a mapping from sub-faces to
         all sub-faces except those given by ids.
         Example:
         ids = [0, 2]
         self.num_subfno = 4
-        print(sef.__exclude_matrix(ids))
+        print(sef._exclude_matrix(ids))
             [[0, 1, 0, 0],
               [0, 0, 0, 1]]
         """
@@ -741,7 +748,7 @@ class ExcludeBoundaries(object):
             shape=(row.size, self.num_subfno),
         ).tocsr()
 
-    def __exclude_matrix_xyz(self, ids):
+    def _exclude_matrix_xyz(self, ids):
         col_x = np.argwhere([not it for it in ids[0, self.fno]])
 
         col_y = np.argwhere([not it for it in ids[1, self.fno]])
@@ -762,8 +769,9 @@ class ExcludeBoundaries(object):
 
         return exclude_nd
 
-    def exclude_dirichlet(self, other):
-        """ Mapping to exclude faces/components with Dirichlet boundary conditions from
+    def exclude_dirichlet(self, other, transform=True):
+        """
+        Mapping to exclude faces/components with Dirichlet boundary conditions from
         local systems.
 
         Parameters:
@@ -775,16 +783,14 @@ class ExcludeBoundaries(object):
                 Dirichlet conditions eliminated.
 
         """
-        if self.bc_type == "scalar":
-            exclude_dir = self.exclude_dir * other
+        exclude_dirichlet = self.exclude_dir
+        if transform:
+            return exclude_dirichlet * self.basis_matrix * other
+        return exclude_dirichlet * other
 
-        elif self.bc_type == "vectorial":
-            raise AttributeError("Use exclude_dirichlet_nd for vectorial")
-
-        return exclude_dir
-
-    def exclude_neumann(self, other):
-        """ Mapping to exclude faces/components with Neumann boundary conditions from
+    def exclude_neumann(self, other, transform=True):
+        """
+        Mapping to exclude faces/components with Neumann boundary conditions from
         local systems.
 
         Parameters:
@@ -794,37 +800,14 @@ class ExcludeBoundaries(object):
         Returns:
             scipy.sparse matrix, with rows corresponding to faces/components with
                 Neumann conditions eliminated.
-
         """
-        if self.bc_type == "scalar":
-            exclude_neu = self.exclude_neu * other
+        if transform:
+            return self.exclude_neu * self.basis_matrix * other
+        return self.exclude_neu * other
 
-        elif self.bc_type == "vectorial":
-            raise AttributeError("Use exclude_neumann_nd for vectorial")
-        return exclude_neu
-
-    def exclude_robin(self, other):
-        """ Mapping to exclude faces/components with robin boundary conditions from
-        local systems.
-
-        Parameters:
-            other (scipy.sparse matrix): Matrix of local equations for
-                continuity of flux and pressure.
-
-        Returns:
-            scipy.sparse matrix, with rows corresponding to faces/components with
-                robin conditions eliminated.
-
+    def exclude_neumann_robin(self, other, transform=True):
         """
-        if self.bc_type == "scalar":
-            exclude_rob = self.exclude_rob * other
-
-        elif self.bc_type == "vectorial":
-            raise AttributeError("Use exclude_neumann_nd for vectorial")
-        return exclude_rob
-
-    def exclude_neumann_robin(self, other):
-        """ Mapping to exclude faces/components with Neumann and Robin boundary
+        Mapping to exclude faces/components with Neumann and Robin boundary
         conditions from local systems.
 
         Parameters:
@@ -834,17 +817,15 @@ class ExcludeBoundaries(object):
         Returns:
             scipy.sparse matrix, with rows corresponding to faces/components with
                 Neumann conditions eliminated.
-
         """
-        if self.bc_type == "scalar":
-            exclude_neu_rob = self.exclude_neu_rob * other
+        if transform:
+            return self.exclude_neu_rob * self.basis_matrix * other
+        else:
+            return self.exclude_neu_rob * other
 
-        elif self.bc_type == "vectorial":
-            raise AttributeError("Use exclude_neumann_nd for vectorial")
-        return exclude_neu_rob
-
-    def exclude_neumann_dirichlet(self, other):
-        """ Mapping to exclude faces/components with Neumann and Dirichlet boundary
+    def exclude_neumann_dirichlet(self, other, transform=True):
+        """
+        Mapping to exclude faces/components with Neumann and Dirichlet boundary
         conditions from local systems.
 
         Parameters:
@@ -854,17 +835,14 @@ class ExcludeBoundaries(object):
         Returns:
             scipy.sparse matrix, with rows corresponding to faces/components with
                 Neumann conditions eliminated.
-
         """
-        if self.bc_type == "scalar":
-            exclude_neu_dir = self.exclude_neu_dir * other
+        if transform:
+            return self.exclude_neu_dir * self.basis_matrix * other
+        return self.exclude_neu_dir * other
 
-        elif self.bc_type == "vectorial":
-            raise AttributeError("Use exclude_neumann_dirichlet_nd for vectorial")
-        return exclude_neu_dir
-
-    def exclude_robin_dirichlet(self, other):
-        """ Mapping to exclude faces/components with Robin and Dirichlet boundary
+    def exclude_robin_dirichlet(self, other, transform=True):
+        """
+        Mapping to exclude faces/components with Robin and Dirichlet boundary
         conditions from local systems.
 
         Parameters:
@@ -874,18 +852,14 @@ class ExcludeBoundaries(object):
         Returns:
             scipy.sparse matrix, with rows corresponding to faces/components with
                 Neumann conditions eliminated.
-
         """
-        if self.bc_type == "scalar":
-            exclude_rob_dir = self.exclude_rob_dir * other
+        if transform:
+            return self.exclude_rob_dir * self.basis_matrix * other
+        return self.exclude_rob_dir * other
 
-        elif self.bc_type == "vectorial":
-            raise AttributeError("Use exclude_robin_dirichlet_nd for vectorial")
-
-        return exclude_rob_dir
-
-    def keep_robin(self, other):
-        """ Mapping to exclude faces/components that is not on the Robin boundary
+    def keep_robin(self, other, transform=True):
+        """
+        Mapping to exclude faces/components that is not on the Robin boundary
         conditions from local systems.
 
         Parameters:
@@ -895,102 +869,10 @@ class ExcludeBoundaries(object):
         Returns:
             scipy.sparse matrix, with rows corresponding to faces/components with
                 all but robin conditions eliminated.
-
         """
-        if self.bc_type == "scalar":
-            keep_rob = self.keep_rob * other
-
-        elif self.bc_type == "vectorial":
-            raise AttributeError("Use keep_robin_nd for vectorial")
-
-        return keep_rob
-
-    def exclude_dirichlet_nd(self, other, transform=True):
-        """ Exclusion of Dirichlet conditions for vector equations (elasticity).
-        See above method without _nd suffix for description.
-        """
-        if self.bc_type == "scalar":
-            exclude_dirichlet_nd = sps.kron(sps.eye(self.nd), self.exclude_dir)
-
-        elif self.bc_type == "vectorial":
-            exclude_dirichlet_nd = self.exclude_dir_nd
-            if transform:
-                return exclude_dirichlet_nd * self.basis_matrix * other
-        return exclude_dirichlet_nd * other
-
-    def exclude_neumann_nd(self, other, transform=True):
-        """ Exclusion of Neumann conditions for vector equations (elasticity).
-        See above method without _nd suffix for description.
-
-        """
-        if self.bc_type == "scalar":
-            exclude_neumann_nd = sps.kron(sps.eye(self.nd), self.exclude_neu)
-
-        elif self.bc_type == "vectorial":
-            exclude_neumann_nd = self.exclude_neu_nd
-            if transform:
-                return exclude_neumann_nd * self.basis_matrix * other
-        return exclude_neumann_nd * other
-
-    def exclude_neumann_robin_nd(self, other, transform=True):
-        """ Exclusion of Neumann and robin conditions for vector equations (elasticity).
-        See above method without _nd suffix for description.
-
-        """
-        if self.bc_type == "scalar":
-            exclude_neu_rob_nd = sps.kron(sps.eye(self.nd), self.exclude_neu_rob)
-
-        elif self.bc_type == "vectorial":
-            exclude_neu_rob_nd = self.exclude_neu_rob_nd
-
-            if transform:
-                return exclude_neu_rob_nd * self.basis_matrix * other
-        return exclude_neu_rob_nd * other
-
-    def exclude_neumann_dirichlet_nd(self, other, transform=True):
-        """ Exclusion of Neumann and Dirichlet conditions for vector equations
-        (elasticity). See above method without _nd suffix for description.
-
-        """
-        if self.bc_type == "scalar":
-            exclude_neu_dir_nd = sps.kron(sps.eye(self.nd), self.exclude_neu_dir)
-
-        elif self.bc_type == "vectorial":
-            exclude_neu_dir_nd = self.exclude_neu_dir_nd
-            if transform:
-                return exclude_neu_dir_nd * self.basis_matrix * other
-
-        return exclude_neu_dir_nd * other
-
-    def exclude_robin_dirichlet_nd(self, other, transform=True):
-        """ Exclusion of Robin and Dirichlet conditions for vector equations
-        (elasticity). See above method without _nd suffix for description.
-
-        """
-        if self.bc_type == "scalar":
-            exclude_rob_dir_nd = sps.kron(sps.eye(self.nd), self.exclude_rob_dir)
-
-        elif self.bc_type == "vectorial":
-            exclude_rob_dir_nd = self.exclude_rob_dir_nd
-
-            if transform:
-                return exclude_rob_dir_nd * self.basis_matrix * other
-
-        return exclude_rob_dir_nd * other
-
-    def keep_robin_nd(self, other, transform=True):
-        """ Keep Robin conditions for vector equations (elasticity).
-        See above method without _nd suffix for description.
-        """
-        if self.bc_type == "scalar":
-            keep_rob_nd = sps.kron(sps.eye(self.nd), self.keep_rob)
-
-        elif self.bc_type == "vectorial":
-            keep_rob_nd = self.keep_rob_nd
-            if transform:
-                return keep_rob_nd * self.basis_matrix * other
-
-        return keep_rob_nd * other
+        if transform:
+            return self.keep_rob * self.basis_matrix * other
+        return self.keep_rob * other
 
 
 # -----------------End of class ExcludeBoundaries-----------------------------

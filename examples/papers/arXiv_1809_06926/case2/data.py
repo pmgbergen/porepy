@@ -25,6 +25,7 @@ def import_grid(file_geo, tol):
 
 # ------------------------------------------------------------------------------#
 
+
 def make_grid_cart(N):
 
     file_csv = "fracture_geometry.csv"
@@ -52,9 +53,11 @@ def make_grid_cart(N):
             pts = np.asarray(row, dtype=np.float)
             frac_list.append(pts.reshape((3, -1), order="F"))
 
-    return pp.meshing.cart_grid(frac_list, [N]*3, physdims=[1]*3), domain
+    return pp.meshing.cart_grid(frac_list, [N] * 3, physdims=[1] * 3), domain
+
 
 # ------------------------------------------------------------------------------#
+
 
 def color(g):
     if g.dim < 3:
@@ -65,34 +68,52 @@ def color(g):
     y = g.cell_centers[1, :]
     z = g.cell_centers[2, :]
 
-    val[np.logical_and.reduce((x<.5, y<.5, z<.5))] = 0
-    val[np.logical_and.reduce((x>.5, y<.5, z<.5))] = 1
-    val[np.logical_and.reduce((x<.5, y>.5, z<.5))] = 2
-    val[np.logical_and.reduce((x>.5, y>.5, z<.5))] = 3
-    val[np.logical_and.reduce((x<.5, y<.5, z>.5))] = 4
-    val[np.logical_and.reduce((x>.5, y<.5, z>.5))] = 5
-    val[np.logical_and.reduce((x<.5, y>.5, z>.5))] = 6
+    val[np.logical_and.reduce((x < .5, y < .5, z < .5))] = 0
+    val[np.logical_and.reduce((x > .5, y < .5, z < .5))] = 1
+    val[np.logical_and.reduce((x < .5, y > .5, z < .5))] = 2
+    val[np.logical_and.reduce((x > .5, y > .5, z < .5))] = 3
+    val[np.logical_and.reduce((x < .5, y < .5, z > .5))] = 4
+    val[np.logical_and.reduce((x > .5, y < .5, z > .5))] = 5
+    val[np.logical_and.reduce((x < .5, y > .5, z > .5))] = 6
 
-    val[np.logical_and.reduce((x>.75, y>.75, z>.75))] = 7
-    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.75))] = 8
-    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.75))] = 9
-    val[np.logical_and.reduce((x>.5, x<.75, y>.5, y<.75, z>.75))] = 10
-    val[np.logical_and.reduce((x>.75, y>.75, z>.5, z<.75))] = 11
-    val[np.logical_and.reduce((x>.75, y>.5, y<.75, z>.5, z<.75))] = 12
-    val[np.logical_and.reduce((x>.5, x<.75, y>.75, z>.5, z<.75))] = 13
+    val[np.logical_and.reduce((x > .75, y > .75, z > .75))] = 7
+    val[np.logical_and.reduce((x > .75, y > .5, y < .75, z > .75))] = 8
+    val[np.logical_and.reduce((x > .5, x < .75, y > .75, z > .75))] = 9
+    val[np.logical_and.reduce((x > .5, x < .75, y > .5, y < .75, z > .75))] = 10
+    val[np.logical_and.reduce((x > .75, y > .75, z > .5, z < .75))] = 11
+    val[np.logical_and.reduce((x > .75, y > .5, y < .75, z > .5, z < .75))] = 12
+    val[np.logical_and.reduce((x > .5, x < .75, y > .75, z > .5, z < .75))] = 13
 
-    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.5, z<.625))] = 14
-    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.5, z<.625))] = 15
-    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.5, z<.625))] = 16
-    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.5, z<.625))] = 17
-    val[np.logical_and.reduce((x>.5, x<.625, y>.5, y<.625, z>.625, z<.75))] = 18
-    val[np.logical_and.reduce((x>.625, x<.75, y>.5, y<.625, z>.625, z<.75))] = 19
-    val[np.logical_and.reduce((x>.5, x<.625, y>.625, y<.75, z>.625, z<.75))] = 20
-    val[np.logical_and.reduce((x>.625, x<.75, y>.625, y<.75, z>.625, z<.75))] = 21
+    val[
+        np.logical_and.reduce((x > .5, x < .625, y > .5, y < .625, z > .5, z < .625))
+    ] = 14
+    val[
+        np.logical_and.reduce((x > .625, x < .75, y > .5, y < .625, z > .5, z < .625))
+    ] = 15
+    val[
+        np.logical_and.reduce((x > .5, x < .625, y > .625, y < .75, z > .5, z < .625))
+    ] = 16
+    val[
+        np.logical_and.reduce((x > .625, x < .75, y > .625, y < .75, z > .5, z < .625))
+    ] = 17
+    val[
+        np.logical_and.reduce((x > .5, x < .625, y > .5, y < .625, z > .625, z < .75))
+    ] = 18
+    val[
+        np.logical_and.reduce((x > .625, x < .75, y > .5, y < .625, z > .625, z < .75))
+    ] = 19
+    val[
+        np.logical_and.reduce((x > .5, x < .625, y > .625, y < .75, z > .625, z < .75))
+    ] = 20
+    val[
+        np.logical_and.reduce((x > .625, x < .75, y > .625, y < .75, z > .625, z < .75))
+    ] = 21
 
     return val
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 def low_zones(g):
     if g.dim < 3:
@@ -135,7 +156,9 @@ def add_data(gb, data, solver_name):
 
     is_fv = solver_name == "tpfa" or solver_name == "mpfa"
 
-    gb.add_node_props(["is_tangential", "param", "frac_num", "low_zones", "porosity", "color"])
+    gb.add_node_props(
+        ["is_tangential", "param", "frac_num", "low_zones", "porosity", "color"]
+    )
     for g, d in gb:
         param = pp.Parameters(g)
         d["is_tangential"] = True
