@@ -1,8 +1,8 @@
 import numpy as np
 import porepy as pp
 
-class Data(object):
 
+class Data(object):
     def __init__(self, data, tol=1e-8):
 
         self.gb = None
@@ -16,19 +16,21 @@ class Data(object):
     # ------------------------------------------------------------------------------#
 
     def eff_kf_n(self):
-        return self.data["kf_n"]/self.data["aperture"]
+        return self.data["kf_n"] / self.data["aperture"]
 
     # ------------------------------------------------------------------------------#
 
     def eff_kf_t(self):
-        return self.data["aperture"]*self.data["kf_t"]
+        return self.data["aperture"] * self.data["kf_t"]
 
     # ------------------------------------------------------------------------------#
 
     def make_gb(self):
         mesh_kwargs = {}
-        mesh_kwargs = {"mesh_size_frac": self.data["mesh_size"],
-                       "mesh_size_min": self.data["mesh_size"] / 20}
+        mesh_kwargs = {
+            "mesh_size_frac": self.data["mesh_size"],
+            "mesh_size_min": self.data["mesh_size"] / 20,
+        }
 
         self.domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
@@ -38,7 +40,6 @@ class Data(object):
         self.gb.compute_geometry()
 
     # ------------------------------------------------------------------------------#
-
 
     def add_to_gb(self):
         """

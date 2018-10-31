@@ -72,16 +72,17 @@ def add_data(gb, domain, kf, mesh_value):
         d["param"] = param
 
     # Assign coupling permeability
-    gb.add_edge_props('kn')
+    gb.add_edge_props("kn")
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
-        mg = d['mortar_grid']
+        mg = d["mortar_grid"]
         check_P = mg.low_to_mortar_avg()
 
-        gamma = check_P * gb.node_props(g_l, 'param').get_aperture()
-        d['kn'] = kf * np.ones(mg.num_cells) / gamma
+        gamma = check_P * gb.node_props(g_l, "param").get_aperture()
+        d["kn"] = kf * np.ones(mg.num_cells) / gamma
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
 
 
 def write_network(file_name):

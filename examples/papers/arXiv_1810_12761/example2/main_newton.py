@@ -10,14 +10,15 @@ from examples.papers.multiscale.domain_decomposition import DomainDecomposition
 
 # ------------------------------------------------------------------------------#
 
+
 def compute_error(gb):
 
     err = np.zeros(2)
     for g in gb.grids_of_dimension(1):
         d = gb.node_props(g)
 
-        err[0] += np.linalg.norm(d["pressure_old"]-d["pressure"])**2
-        err[1] += np.linalg.norm(d["discharge_old"]-d["discharge"])**2
+        err[0] += np.linalg.norm(d["pressure_old"] - d["pressure"]) ** 2
+        err[1] += np.linalg.norm(d["discharge_old"] - d["discharge"]) ** 2
 
     err = np.sqrt(err)
 
@@ -27,7 +28,9 @@ def compute_error(gb):
 
     return err
 
+
 # ------------------------------------------------------------------------------#
+
 
 def update_solution(gb):
 
@@ -35,7 +38,9 @@ def update_solution(gb):
         d["pressure_old"] = d["pressure"]
         d["discharge_old"] = d["discharge"]
 
+
 # ------------------------------------------------------------------------------#
+
 
 def export(gb, x, name, solver_flow):
 
@@ -49,7 +54,9 @@ def export(gb, x, name, solver_flow):
     save = pp.Exporter(gb, "rt0", folder=name)
     save.write_vtk(["pressure", "P0u"])
 
+
 # ------------------------------------------------------------------------------#
+
 
 def write_out(gb, file_name, data):
 
@@ -59,7 +66,9 @@ def write_out(gb, file_name, data):
     with open(file_name, "a") as f:
         f.write(", ".join(map(str, [cell_2d, cell_1d, data])) + "\n")
 
+
 # ------------------------------------------------------------------------------#
+
 
 def summarize_data(betas, tests):
 
@@ -68,16 +77,18 @@ def summarize_data(betas, tests):
 
         name = "_" + str(n)
         data[:, 0] = betas
-        data[:, 1] = np.genfromtxt("dd_newton"+name+".txt", delimiter = ",",
-                                   dtype=np.int)[:, 2]
-        data[:, 2] = np.genfromtxt("ms_newton"+name+".txt", delimiter = ",",
-                                   dtype=np.int)[:, 2]
+        data[:, 1] = np.genfromtxt(
+            "dd_newton" + name + ".txt", delimiter=",", dtype=np.int
+        )[:, 2]
+        data[:, 2] = np.genfromtxt(
+            "ms_newton" + name + ".txt", delimiter=",", dtype=np.int
+        )[:, 2]
 
-        name = "results"+name+".csv"
-        np.savetxt(name, data, delimiter=' & ', fmt='%f', newline=' \\\\\n')
+        name = "results" + name + ".csv"
+        np.savetxt(name, data, delimiter=" & ", fmt="%f", newline=" \\\\\n")
 
         # remove the // from the end of the file
-        with open(name, 'rb+') as f:
+        with open(name, "rb+") as f:
             f.seek(-3, os.SEEK_END)
             f.truncate()
 
@@ -122,8 +133,7 @@ def main_ms(pb_data, name):
         # for simplicity we do for everything
         A, b = solver_flow.matrix_rhs(data.gb, return_bmat=True)
         A_l, b_l = ms.assemble_l(A, b)
-        F_u = b_l - A_l*x_l
-
+        F_u = b_l - A_l * x_l
 
         # update Jacobian
         # for simplicity we do for everything
@@ -152,14 +162,16 @@ def main_ms(pb_data, name):
 
     folder = "ms_newton_" + str(pb_data["beta"]) + name
     export(data.gb, x, folder, solver_flow)
-    write_out(data.gb, "ms_newton"+name+".txt", info["solve_h"])
+    write_out(data.gb, "ms_newton" + name + ".txt", info["solve_h"])
 
     # print the summary data
     print("ms_newton")
     print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
     print("iter", i, "err", err, "solve_h", info["solve_h"], "\n\n")
 
+
 # ------------------------------------------------------------------------------#
+
 
 def main_dd(pb_data, name):
     # in principle we can re-compute only the matrices related to the
@@ -238,7 +250,9 @@ def main_dd(pb_data, name):
     print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
     print("iter", i, "err", err, "solve_h", solve_h, "\n\n")
 
+
 # ------------------------------------------------------------------------------#
+
 
 def main(pb_data, name):
 
@@ -280,6 +294,7 @@ def main(pb_data, name):
     print("beta", pb_data["beta"], "kf_n", pb_data["kf_n"])
     print("iter", i, "err", err, "solve_h", i, "\n\n")
 
+
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
@@ -292,16 +307,18 @@ if __name__ == "__main__":
     for t, n in tests:
         name = "_" + str(n)
         for beta in betas:
-            data = {"kf_n": kf[n],
-                    "kf_t": kf[t],
-                    "aperture": 1e-4,
-                    "beta": beta,
-                    "mesh_size": 0.045,
-                    "newton_err": 1e-6,
-                    "newton_maxiter": 1e2}
+            data = {
+                "kf_n": kf[n],
+                "kf_t": kf[t],
+                "aperture": 1e-4,
+                "beta": beta,
+                "mesh_size": 0.045,
+                "newton_err": 1e-6,
+                "newton_maxiter": 1e2,
+            }
 
             main_ms(data, name)
             main_dd(data, name)
-            #main(data, name)
+            # main(data, name)
 
-    #summarize_data(betas, tests)
+    # summarize_data(betas, tests)

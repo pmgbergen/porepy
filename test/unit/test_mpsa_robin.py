@@ -245,7 +245,7 @@ class RobinBoundTest(unittest.TestCase):
         self.assertTrue(np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F")))
 
     def solve_mpsa(self, g, c, robin_weight, bnd, u_bound):
-        bnd.robin_weight = robin_weight * np.ones(g.num_faces)
+        bnd.robin_weight *= robin_weight
         stress, bound_stress = pp.numerics.fv.mpsa._mpsa_local(
             g, c, bnd, inverter="python"
         )

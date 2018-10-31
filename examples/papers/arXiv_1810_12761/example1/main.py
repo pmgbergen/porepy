@@ -10,6 +10,7 @@ from examples.papers.multiscale.domain_decomposition import DomainDecomposition
 
 # ------------------------------------------------------------------------------#
 
+
 def export(gb, x, name, solver_flow):
 
     solver_flow.split(gb, "up", x)
@@ -22,7 +23,9 @@ def export(gb, x, name, solver_flow):
     save = pp.Exporter(gb, "rt0", folder=name)
     save.write_vtk(["pressure", "P0u"])
 
+
 # ------------------------------------------------------------------------------#
+
 
 def write_out(gb, file_name, data):
 
@@ -32,7 +35,9 @@ def write_out(gb, file_name, data):
     with open(file_name, "a") as f:
         f.write(", ".join(map(str, [cell_2d, cell_1d, data])) + "\n")
 
+
 # ------------------------------------------------------------------------------#
+
 
 def summarize_data(mesh_size, tests):
 
@@ -42,21 +47,23 @@ def summarize_data(mesh_size, tests):
         print(data)
 
         name = "_" + str(t) + "_" + str(n)
-        dd = np.genfromtxt("dd"+name+".txt", delimiter = ",", dtype=np.int)
+        dd = np.genfromtxt("dd" + name + ".txt", delimiter=",", dtype=np.int)
         data[:, 0:3] = np.atleast_2d(dd)
         print()
-        ms = np.genfromtxt("ms"+name+".txt", delimiter = ",", dtype=np.int)
+        ms = np.genfromtxt("ms" + name + ".txt", delimiter=",", dtype=np.int)
         data[:, 3] = np.atleast_2d(ms)[:, 2]
 
-        name = "results"+name+".csv"
-        np.savetxt(name, data, delimiter=' & ', fmt='%d', newline=' \\\\\n')
+        name = "results" + name + ".csv"
+        np.savetxt(name, data, delimiter=" & ", fmt="%d", newline=" \\\\\n")
 
         # remove the // from the end of the file
-        with open(name, 'rb+') as f:
+        with open(name, "rb+") as f:
             f.seek(-3, os.SEEK_END)
             f.truncate()
 
+
 # ------------------------------------------------------------------------------#
+
 
 def main_ms(pb_data, name):
 
@@ -85,14 +92,16 @@ def main_ms(pb_data, name):
 
     folder = "ms_" + name + "_" + str(pb_data["mesh_size"])
     export(data.gb, x, folder, solver_flow)
-    write_out(data.gb, "ms_"+name+".txt", info["solve_h"])
+    write_out(data.gb, "ms_" + name + ".txt", info["solve_h"])
 
     # print the summary data
     print("ms")
     print("kf_n", pb_data["kf_n"], "kf_t", pb_data["kf_t"])
     print("solve_h", info["solve_h"], "\n")
 
+
 # ------------------------------------------------------------------------------#
+
 
 def main_dd(pb_data, name):
 
@@ -115,14 +124,16 @@ def main_dd(pb_data, name):
 
     folder = "dd_" + name + "_" + str(pb_data["mesh_size"])
     export(data.gb, x, folder, solver_flow)
-    write_out(data.gb, "dd_"+name+".txt", info["solve_h"])
+    write_out(data.gb, "dd_" + name + ".txt", info["solve_h"])
 
     # print the summary data
     print("dd")
     print("kf_n", pb_data["kf_n"], "kf_t", pb_data["kf_t"])
     print("solve_h", info["solve_h"], "\n")
 
+
 # ------------------------------------------------------------------------------#
+
 
 def main(pb_data, name):
 
@@ -143,6 +154,7 @@ def main(pb_data, name):
     print("kf_n", pb_data["kf_n"], "kf_t", pb_data["kf_t"])
     print("solve_h", 1, "\n")
 
+
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
@@ -157,10 +169,12 @@ if __name__ == "__main__":
         name = str(t) + "_" + str(n)
         for mesh_size in mesh_sizes:
             print(name, str(mesh_size))
-            data = {"kf_n": kf[n],
-                    "kf_t": kf[t],
-                    "aperture": 1e-4,
-                    "mesh_size": mesh_size}
+            data = {
+                "kf_n": kf[n],
+                "kf_t": kf[t],
+                "aperture": 1e-4,
+                "mesh_size": mesh_size,
+            }
 
             main_ms(data, name)
             main_dd(data, name)

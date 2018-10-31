@@ -17,17 +17,22 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         bc = pp.BoundaryConditionVectorial(g)
         basis_known = np.array(
             [
-                [[1, 0], [1, 0], [1, 0], [1, 0], [1, 0]],
-                [[0, 1], [0, 1], [0, 1], [0, 1], [0, 1]],
+                [[1., 1., 1., 1., 1.], [0., 0., 0., 0., 0.]],
+                [[0., 0., 0., 0., 0.], [1., 1., 1., 1., 1.]],
             ]
         )
+
         self.assertTrue(np.allclose(bc.basis, basis_known))
 
     def test_default_basis_3d(self):
         g = pp.StructuredTetrahedralGrid([1, 1, 1])
         bc = pp.BoundaryConditionVectorial(g)
-        basis_known = np.squeeze(
-            np.array([[[[1, 0, 0]] * 18], [[[0, 1, 0]] * 18], [[[0, 0, 1]] * 18]])
+        basis_known = np.array(
+            [
+                [[1] * 18, [0] * 18, [0] * 18],
+                [[0] * 18, [1] * 18, [0] * 18],
+                [[0] * 18, [0] * 18, [1] * 18],
+            ]
         )
 
         self.assertTrue(np.allclose(bc.basis, basis_known))
