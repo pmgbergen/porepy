@@ -91,7 +91,6 @@ class TestAsymmetricNeumann(unittest.TestCase):
         west = g.face_centers[0] < 1e-10
         east = g.face_centers[0] > 1 - 1e-10
         south = g.face_centers[1] < 1e-10
-        north = g.face_centers[1] > 1 - 1e-10
 
         bc = pp.BoundaryConditionVectorial(g)
         bc.is_dir[:, west + east + south] = True
