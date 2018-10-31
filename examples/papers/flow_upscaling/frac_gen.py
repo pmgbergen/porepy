@@ -2,7 +2,7 @@ import numpy as np
 import scipy.stats as stats
 
 
-def fit(pts, edges, frac, family, ks_size=100, p_val_min = 0.05):
+def fit(pts, edges, frac, family, ks_size=100, p_val_min=0.05):
     """
     Compute the distribution from a set of fracture families for the length and angle.
 
@@ -68,7 +68,11 @@ def fit_length_distribution(pts, edges, frac=None, family=None, ks_size=100, p_v
         raise ValueError("p-value not satisfactory for length fit")
 
     # collect the data
-    dist_l = {"dist": dist[best_fit], "param": dist_fit[best_fit], "p_val": p_val[best_fit]}
+    dist_l = {
+        "dist": dist[best_fit],
+        "param": dist_fit[best_fit],
+        "p_val": p_val[best_fit],
+    }
 
     return dist_l
 
@@ -112,6 +116,7 @@ def fit_angle_distribution(pts, edges, frac=None, family=None, ks_size=100, p_va
 
     return dist_a
 
+
 def generate(pts, edges, frac, dist_l, dist_a):
 
     num_frac = np.unique(frac).size
@@ -120,7 +125,7 @@ def generate(pts, edges, frac, dist_l, dist_a):
     a = generate_from_distribution(num_frac, dist_a)
 
     # first compute the fracture centres and then generate them
-    avg = lambda e0, e1: 0.5*(pts[:, e0] + pts[:, e1])
+    avg = lambda e0, e1: 0.5 * (pts[:, e0] + pts[:, e1])
     pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
 
     # compute the mean centre based on the fracture id
@@ -140,10 +145,10 @@ def fracture_from_center_angle_length(c, l, a):
     pts_n = np.empty((2, l.size*2))
     delta = 0.5 * l * np.array([np.cos(a), np.sin(a)])
     for i in np.arange(num_frac):
-        pts_n[:, 2*i] = c[:, i] + delta[:, i]
-        pts_n[:, 2*i+1] = c[:, i] - delta[:, i]
+        pts_n[:, 2 * i] = c[:, i] + delta[:, i]
+        pts_n[:, 2 * i + 1] = c[:, i] - delta[:, i]
 
-    edges_n = np.array([2*np.arange(num_frac), 2*np.arange(1, num_frac+1)-1])
+    edges_n = np.array([2 * np.arange(num_frac), 2 * np.arange(1, num_frac + 1) - 1])
 
     return pts_n, edges_n
 

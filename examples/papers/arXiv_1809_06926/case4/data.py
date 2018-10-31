@@ -8,14 +8,15 @@ def create_grid(from_file=True):
     """ Obtain domain and grid bucket. Default is to load a pickled bucket;
     alternatively, a .geo file is available.
     """
-    network = pickle.load(open('network_52_fracs', 'rb'))
+    network = pickle.load(open("network_52_fracs", "rb"))
     domain = network.domain
     if from_file:
-        gb = pickle.load(open('gridbucket_case4.grid', 'rb'))
+        gb = pickle.load(open("gridbucket_case4.grid", "rb"))
     else:
-        gb = pp.importer.dfm_from_gmsh("gmsh_frac_file.msh", 3, network,
-                                       ensure_matching_face_cell=True)
-        pickle.dump(gb, open('gridbucket_case4.grid', 'wb'))
+        gb = pp.importer.dfm_from_gmsh(
+            "gmsh_frac_file.msh", 3, network, ensure_matching_face_cell=True
+        )
+        pickle.dump(gb, open("gridbucket_case4.grid", "wb"))
 
     return gb, domain
 
@@ -128,20 +129,23 @@ def b_pressure(g):
         xf = g.face_centers[:, b_faces]
         tol = 1e-3
         b_in = np.argwhere(
-                np.logical_or(np.logical_and.reduce(
-                        (xf[0] - tol < -200, xf[1] + tol > 1500, xf[2] + tol > 300)
-                        ), np.logical_and.reduce(
-                        (xf[0] - tol < -500, xf[1] + tol > 1200, xf[2] + tol > 300)
-                        )
-            ))
+            np.logical_or(
+                np.logical_and.reduce(
+                    (xf[0] - tol < -200, xf[1] + tol > 1500, xf[2] + tol > 300)
+                ),
+                np.logical_and.reduce(
+                    (xf[0] - tol < -500, xf[1] + tol > 1200, xf[2] + tol > 300)
+                ),
+            )
+        )
 
         b_out_2 = np.logical_and.reduce(
-                        (xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100)
-            )
+            (xf[0] + tol > 350, xf[1] - tol < 400, xf[2] - tol < 100)
+        )
 
         b_out_1 = np.logical_and.reduce(
-                        (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
-            )
+            (xf[0] - tol < -500, xf[1] - tol < 400, xf[2] - tol < 100)
+        )
 
         b_out = np.argwhere(np.logical_or(b_out_1, b_out_2))
         b_out_1 = np.argwhere(b_out_1)

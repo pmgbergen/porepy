@@ -9,7 +9,7 @@ def add_data(gb, domain, kf):
     """
     Define the permeability, apertures, boundary conditions
     """
-    gb.add_node_props(["param"])
+    gb.add_node_props(["param", "is_tangential"])
     tol = 1e-5
     a = 1e-4
 
@@ -51,15 +51,18 @@ def add_data(gb, domain, kf):
         else:
             param.set_bc("flow", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
 
+        d["is_tangential"] = True
         d["param"] = param
 
     # Assign coupling permeability
     gb.add_edge_props("kn")
     for e, d in gb.edges():
-        gn = gb.nodes_of_edge(e)
-        aperture = np.power(a, gb.dim_max() - gn[0].dim)
-        d["kn"] = np.ones(d["mortar_grid"].num_cells) * kf / aperture
+        g_l = gb.nodes_of_edge(e)[0]
+        mg = d['mortar_grid']
+        check_P = mg.low_to_mortar_avg()
 
+        gamma = check_P * gb.node_props(g_l, 'param').get_aperture()
+        d['kn'] = kf * np.ones(mg.num_cells) / gamma
 
 # ------------------------------------------------------------------------------#
 
@@ -81,7 +84,9 @@ def write_network(file_name):
 
 def make_grid_bucket(mesh_size, is_coarse=False):
     mesh_kwargs = {}
-    mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
+    mesh_kwargs = {'mesh_size_frac': mesh_size,
+                   'mesh_size_min': mesh_size / 20}
+
 
     domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
@@ -127,8 +132,9 @@ def main(kf, description, is_coarse=False, if_export=False):
 
 def test_vem_blocking():
     kf = 1e-4
-    main(kf, "blocking")
-    main(kf, "blocking", is_coarse=True)
+    if_export = True
+    main(kf, "blocking", if_export=if_export)
+#    main(kf, "blocking_coarse", is_coarse=True, if_export=if_export)
 
 
 # ------------------------------------------------------------------------------#
@@ -136,8 +142,9 @@ def test_vem_blocking():
 
 def test_vem_permeable():
     kf = 1e4
-    main(kf, "permeable")
-    main(kf, "permeable_coarse", is_coarse=True)
+    if_export = True
+    main(kf, "permeable", if_export=if_export)
+#    main(kf, "permeable_coarse", is_coarse=True, if_export=if_export)
 
 
 # ------------------------------------------------------------------------------#

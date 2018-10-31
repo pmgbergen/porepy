@@ -1,5 +1,5 @@
 """
-Checks the actions done in porepy.numerics.fv.mpsa.create_bound_rhs_nd
+Checks the actions done in porepy.numerics.fv.mpsa.create_bound_rhs
 for handling boundary conditions expressed in a vectorial form
 """
 
@@ -7,7 +7,6 @@ import unittest
 import numpy as np
 
 import porepy as pp
-
 
 
 class TestMpsaBoundRhs(unittest.TestCase):
@@ -59,11 +58,11 @@ class TestMpsaBoundRhs(unittest.TestCase):
         st = pp.fvutils.SubcellTopology(g)
         be = pp.fvutils.ExcludeBoundaries(st, bc, g.dim)
 
-        bound_rhs = pp.numerics.fv.mpsa.create_bound_rhs_nd(bc, be, st, g)
+        bound_rhs = pp.numerics.fv.mpsa.create_bound_rhs(bc, be, st, g)
 
         bc.basis = basis
         be = pp.fvutils.ExcludeBoundaries(st, bc, g.dim)
-        bound_rhs_b = pp.numerics.fv.mpsa.create_bound_rhs_nd(bc, be, st, g)
+        bound_rhs_b = pp.numerics.fv.mpsa.create_bound_rhs(bc, be, st, g)
 
         # rhs should not be affected by basis transform
         self.assertTrue(np.allclose(bound_rhs_b.A, bound_rhs.A))

@@ -10,6 +10,8 @@ Created on Sat Nov 11 17:06:37 2017
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
+
 from porepy.grids.grid import Grid
 from porepy.grids.structured import TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
@@ -231,7 +233,7 @@ def remesh_1d(g_old, num_nodes, tol=1e-6):
 
     # Create equi-spaced nodes covering the same domain as the old grid
     theta = np.linspace(0, 1, num_nodes)
-    start, end = g_old.get_boundary_nodes()
+    start, end = g_old.get_all_boundary_nodes()
     # Not sure why the new axis was necessary.
     nodes = g_old.nodes[:, start, np.newaxis] * theta + g_old.nodes[
         :, end, np.newaxis
@@ -243,28 +245,23 @@ def remesh_1d(g_old, num_nodes, tol=1e-6):
     g.compute_geometry()
 
     # map the tags from the old grid to the new one
+    # normally the tags are given at faces/point that are fixed the 1d mesh
+    # we use this assumption to proceed.
+    for f_old in np.arange(g_old.num_faces):
+        # detect in the new grid which face is geometrically the same (upon a tolerance)
+        # as in the old grid
+        dist = cg.dist_point_pointset(g_old.face_centers[:, f_old], g.face_centers)
+        f_new = np.where(dist < tol)[0]
 
-    # retrieve the old faces and the corresponding coordinates
-    old_frac_faces = np.where(g_old.tags["fracture_faces"].ravel())[0]
+        # if you find a match transfer all the tags from the face in the old grid to
+        # the face in the new grid
+        if f_new.size:
+            if f_new.size != 1:
+                raise ValueError("It cannot be more than one face, something went wrong")
+            for tag in pp.utils.tags.standard_face_tags():
+                g.tags[tag][f_new] = g_old.tags[tag][f_old]
 
-    # compute the mapping from the old boundary to the new boundary
-    # we need to go through the coordinates
-
-    new_frac_face = []
-
-    for fi in old_frac_faces:
-        nfi = np.where(cg.dist_point_pointset(g_old.face_centers[:, fi], nodes) < tol)[
-            0
-        ]
-        if len(nfi) > 0:
-            new_frac_face.append(nfi[0])
-
-    # This can probably be made more elegant
-    g.tags["fracture_faces"][new_frac_face] = True
-
-    # Fracture tips should be on the boundary only.
-    if np.any(g_old.tags["tip_faces"]):
-        g.tags["tip_faces"] = g.tags["domain_boundary_faces"]
+    g.update_boundary_node_tag()
 
     return g
 

@@ -20,7 +20,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         mu = np.array([2])
         k = pp.FourthOrderTensor(g.dim, mu, lam)
 
-        bc = pp.BoundaryCondition(g)
+        bc = pp.BoundaryConditionVectorial(g)
         _, _, grad_cell, grad_bound = pp.numerics.fv.mpsa.mpsa(
             g, k, bc, hf_disp=True, inverter="python"
         )
