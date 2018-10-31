@@ -401,8 +401,6 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
     # We find the end points that are shared by more than one intersection
     intersections = _find_intersection_points(lines_split)
 
-    intersections = np.empty(0)
-
     # Gridding size
     if "mesh_size_frac" in kwargs.keys():
         # Tag points at the domain corners
