@@ -323,14 +323,15 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
 
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
-        # assign the Neumann boundary conditions
         # For dual discretizations, internal boundaries
-        # are handled by assigning Dirichlet conditions. THus, we remove them
-        # from the is_neu (where they belong by default) and add them in
+        # are handled by assigning Dirichlet conditions. Thus, we remove them
+        # from the is_neu and is_rob (where they belong by default) and add them in
         # is_dir.
+
+        # assign the Neumann boundary conditions
         is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
         if bc and np.any(is_neu):
-            is_neu = np.hstack((is_neu, np.zeros(g.num_cells, dtype=np.bool)))
+            # it is assumed that the faces dof are put before the cell dof
             is_neu = np.where(is_neu)[0]
 
             # set in an efficient way the essential boundary conditions, by
@@ -341,6 +342,16 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
             d = M.diagonal()
             d[is_neu] = norm
             M.setdiag(d)
+
+        # assign the Robin boundary conditions
+        is_rob = np.logical_and(bc.is_rob, np.logical_not(bc.is_internal))
+        if bc and np.any(is_rob):
+            # it is assumed that the faces dof are put before the cell dof
+            is_rob = np.where(is_rob)[0]
+
+            data = np.zeros(self.ndof(g))
+            data[is_rob] = 1./(bc.robin_weight[is_rob]*g.face_areas[is_rob])
+            M += sps.dia_matrix((data, 0), shape=(data.size, data.size))
 
         if bc_weight:
             return M, norm
@@ -386,6 +397,7 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         # from the dirichlet condition as well.
         is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
         is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
+        is_rob = np.logical_and(bc.is_rob, np.logical_not(bc.is_internal))
 
         faces, _, sign = sps.find(g.cell_faces)
         sign = sign[np.unique(faces, return_index=True)[1]]
@@ -393,6 +405,10 @@ class DualVEM(pp.numerics.mixed_dim.solver.Solver):
         if np.any(is_dir):
             is_dir = np.where(is_dir)[0]
             rhs[is_dir] += -sign[is_dir] * bc_val[is_dir]
+
+        if np.any(is_rob):
+            is_rob = np.where(is_rob)[0]
+            rhs[is_rob] += -sign[is_rob] * bc_val[is_rob] / bc.robin_weight[is_rob]
 
         if np.any(is_neu):
             is_neu = np.where(is_neu)[0]
