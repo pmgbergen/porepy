@@ -741,7 +741,7 @@ def mpsa_update_partial(
 ):
     """
     Given a discretization this function rediscretize parts of the domain.
-    This is a fast way to update the discretization if you change, say the 
+    This is a fast way to update the discretization if you change, say the
     boundary conditions, have a growth of fractures, or a change in aperture.
 
     Parameters:
@@ -1304,7 +1304,7 @@ def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
     one for each of the cells associated with the subface. The displacement given
     here is the average of the two. Note that at the continuity points the two
     displacements will by construction be equal.
-    
+
     Parameters:
     Parameters:
         g: Grid

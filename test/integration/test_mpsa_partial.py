@@ -1,5 +1,4 @@
 import numpy as np
-import scipy.sparse as sps
 import unittest
 
 import porepy as pp
@@ -13,7 +12,7 @@ class TestUpdateDisc(unittest.TestCase):
     """
 
     def test_no_change_input(self):
-        """ 
+        """
         The input matrices should not be changed
         """
         g = pp.CartGrid([5, 5], physdims=(1, 1))
