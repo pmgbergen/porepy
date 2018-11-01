@@ -578,7 +578,7 @@ def mpsa(
             that hf_cell * U + hf_bound * u_bound gives the reconstructed displacement
             at the point on the face hf_eta. U is the cell centered displacement and
             u_bound the boundary conditions
-        hf_eta (float) None: The point of displacment on the half-faces. hf_eta=0 gives the
+        hf_eta (float) None: The point of displacment on the sub-faces. hf_eta=0 gives the
             displacement at the face centers while hf_eta=1 gives the displacements at
             the nodes. If None is given, the continuity points eta will be used.
     Returns:
@@ -598,9 +598,9 @@ def mpsa(
             NOTE: The stresses are ordered facewise (first s_x_1, s_y_1 etc)
         If hf_disp is True the following will also be returned
         scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_cells):
-            displacement reconstruction for the displacement at the half faces. This is
+            displacement reconstruction for the displacement at the sub-faces. This is
             the contribution from the cell-center displacements.
-            NOTE: The half-face displacements are ordered cell wise
+            NOTE: The sub-face displacements are ordered cell wise
             (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
         scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_faces):
             displacement reconstruction for the displacement at the half faces.
@@ -723,16 +723,136 @@ def mpsa(
         return stress, bound_stress
 
 
-def mpsa_partial(
+def mpsa_update_partial(
+    stress,
+    bound_stress,
     g,
     constit,
     bound,
-    eta=0,
+    hf_cell=None,
+    hf_bound=None,
+    hf_eta=None,
+    eta=None,
     inverter="numba",
     cells=None,
     faces=None,
     nodes=None,
     apertures=None,
+):
+    """
+    Given a discretization this function rediscretize parts of the domain.
+    This is a fast way to update the discretization if you change, say the
+    boundary conditions, have a growth of fractures, or a change in aperture.
+
+    Parameters:
+    stress (scipy.sparse.csr_matrix (shape num_faces, num_cells)): stress
+            discretization to be updated. As returned from mpsa(...).
+    bound_stress (scipy.sparse.csr_matrix (shape num_faces, num_faces)): bound stress
+            discretization of boundary conditions as returned form mpsa(...).
+    hf_cell (scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_cells)):
+            Defaults to None. If None is given only stress and bound_stress is updated.
+            If a matrix is given it is updated for the displacement reconstruction
+            at the sub faces.
+    hf_bound (scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_faces)):
+            Defaults to None. If None is given only stress and bound_stress is updated.
+            If a matrix is given it is updated for the displacement reconstruction
+            at the sub faces.
+    This is just a wrapper for the mpsa_partial(...), see this function for information
+    abount the remainding parameters.
+
+    returns:
+    stress (scipy.sparse.csr_matrix (shape num_faces, num_cells)): stress
+            discretization that has been updated for given cells, faces or nodes.
+    bound_stress (scipy.sparse.csr_matrix (shape num_faces, num_faces)): bound stress
+            discretization of boundary conditions that has been updated for given cells,
+            faces or nodes.
+    if hf_cell is not None:
+    hf_cell (scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_cells)):
+        The matrix for reconstruction the displacement at the sub_faces that has been
+        updated for the given cells, faces or nodes
+    hf_bound (scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_faces)):
+        The matrix for reconstruction the displacement at the sub_faces that has been
+        updated for the given cells, faces or nodes
+    """
+    stress = stress.copy()
+    bound_stress = bound_stress.copy()
+    if hf_cell is not None:
+        hf_cell = hf_cell.copy()
+        hf_bound = hf_bound.copy()
+
+    if hf_cell is not None:
+        stress_loc, bound_stress_loc, hf_cell_loc, hf_bound_loc, active_faces = mpsa_partial(
+            g,
+            constit,
+            bound,
+            eta,
+            inverter,
+            cells,
+            faces,
+            nodes=nodes,
+            apertures=apertures,
+            hf_disp=True,
+            hf_eta=hf_eta,
+        )
+    else:
+        stress_loc, bound_stress_loc, active_faces = mpsa_partial(
+            g,
+            constit,
+            bound,
+            eta,
+            inverter,
+            cells,
+            faces,
+            nodes=nodes,
+            apertures=apertures,
+        )
+    # Remove old rows
+    eliminate_ind = fvutils.expand_indices_nd(active_faces, g.dim)
+    fvutils.zero_out_sparse_rows(stress, eliminate_ind)
+    fvutils.zero_out_sparse_rows(bound_stress, eliminate_ind)
+    stress += stress_loc
+    bound_stress += bound_stress_loc
+
+    if hf_cell is not None:
+        # If we are given a matrix for the displacment reconstruction at the subfaces
+        # we also update this. This is equivalent to what is done for the stress and
+        # bound_stress, but as we are working with subfaces some more care has to be
+        # taken.
+        # First, find the active subfaces associated with the active_faces
+        subcell_topology = fvutils.SubcellTopology(g)
+        active_subfaces = np.where(np.in1d(subcell_topology.fno_unique, active_faces))[
+            0
+        ]
+        # We now expand the indices for each dimension
+        num_subfno = subcell_topology.num_subfno
+        sub_eliminate_ind = np.tile(active_subfaces, (g.dim, 1))
+        # The displacement is ordered as first x for all subfaces then y and so on.
+        # Add an increment to the indices belonging to the y and z dimension.
+        sub_eliminate_ind += num_subfno * np.atleast_2d(np.arange(0, g.dim)).T
+        sub_eliminate_ind = sub_eliminate_ind.ravel("C")
+        # Zero out the faces we have updated
+        fvutils.zero_out_sparse_rows(hf_cell, sub_eliminate_ind)
+        fvutils.zero_out_sparse_rows(hf_bound, sub_eliminate_ind)
+        # and add the update.
+        hf_cell += hf_cell_loc
+        hf_bound += hf_bound_loc
+        return stress, bound_stress, hf_cell, hf_bound
+    else:
+        return stress, bound_stress
+
+
+def mpsa_partial(
+    g,
+    constit,
+    bound,
+    eta=None,
+    inverter="numba",
+    cells=None,
+    faces=None,
+    nodes=None,
+    apertures=None,
+    hf_disp=False,
+    hf_eta=None,
 ):
     """
     Run an MPFA discretization on subgrid, and return discretization in terms
@@ -764,6 +884,13 @@ def mpsa_partial(
             subgrid computation. Defaults to None.
         apertures (np.array, int, optional): Cell apertures. Defaults to None.
             Unused for now, added for similarity to mpfa_partial.
+        hf_disp (bool) False: If true two matrices hf_cell, hf_bound is also returned such
+            that hf_cell * U + hf_bound * u_bound gives the reconstructed displacement
+            at the point on the face hf_eta. U is the cell centered displacement and
+            u_bound the boundary conditions
+        hf_eta (float) None: The point of displacment on the half-faces. hf_eta=0 gives the
+            displacement at the face centers while hf_eta=1 gives the displacements at
+            the nodes. If None is given, the continuity points eta will be used.
 
         Note that if all of {cells, faces, nodes} are None, empty matrices will
         be returned.
@@ -775,8 +902,21 @@ def mpsa_partial(
             discretization, computed on a subgrid
         np.array (int): Global of the faces where the stress discretization is
             computed.
-
+        If hf_disp is True the following will also be returned
+        scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_cells):
+            displacement reconstruction for the displacement at the sub faces. This is
+            the contribution from the cell-center displacements.
+            NOTE: The half-face displacements are ordered sub_face wise
+            (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
+        scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_faces):
+            displacement reconstruction for the displacement at the half faces.
+            This is the contribution from the boundary conditions.
+            NOTE: The half-face displacements are ordered sub_face wise
+            (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
     """
+    if eta is None:
+        eta = fvutils.determine_eta(g)
+
     if cells is not None:
         warnings.warn("Cells keyword for partial mpfa has not been tested")
     if faces is not None:
@@ -813,17 +953,27 @@ def mpsa_partial(
 
     loc_bnd = bc.BoundaryConditionVectorial(sub_g)
     loc_bnd.is_dir = bound.is_dir[:, l2g_faces]
-    loc_bnd.is_neu[loc_bnd.is_dir] = False
+    loc_bnd.is_rob = bound.is_rob[:, l2g_faces]
+    loc_bnd.is_neu[loc_bnd.is_dir + loc_bnd.is_rob] = False
 
     # Discretization of sub-problem
-    stress_loc, bound_stress_loc = _mpsa_local(
-        sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter
-    )
-
+    if hf_disp:
+        stress_loc, bound_stress_loc, hf_cell_loc, hf_bound_loc = _mpsa_local(
+            sub_g,
+            loc_c,
+            loc_bnd,
+            eta=eta,
+            inverter=inverter,
+            hf_disp=hf_disp,
+            hf_eta=hf_eta,
+        )
+    else:
+        stress_loc, bound_stress_loc = _mpsa_local(
+            sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter
+        )
     face_map, cell_map = fvutils.map_subgrid_to_grid(
         g, l2g_faces, l2g_cells, is_vector=True
     )
-
     # Update global face fields.
     stress_glob = face_map * stress_loc * cell_map
     bound_stress_glob = face_map * bound_stress_loc * face_map.transpose()
@@ -834,11 +984,50 @@ def mpsa_partial(
     eliminate_ind = fvutils.expand_indices_nd(outside, g.dim)
     fvutils.zero_out_sparse_rows(stress_glob, eliminate_ind)
     fvutils.zero_out_sparse_rows(bound_stress_glob, eliminate_ind)
+    if hf_disp:
+        # If we are returning the subface displacement reconstruction matrices we have
+        # to do some more work. The following is equivalent to what is done for the stresses,
+        # but as they are working on faces, the displacement reconstruction has to work on
+        # subfaces.
+        # First, we find the mappings from local subfaces to global subfaces
+        subcell_topology = fvutils.SubcellTopology(g)
+        l2g_sub_faces = np.where(np.in1d(subcell_topology.fno_unique, l2g_faces))[0]
+        # We now create a fake grid, just to be able to use the function map_subgrid_to_grid.
+        subgrid = structured.CartGrid([1] * g.dim)
+        subgrid.num_faces = subcell_topology.fno_unique.size
+        subgrid.num_cells = g.num_cells
+        sub_face_map, _ = fvutils.map_subgrid_to_grid(
+            subgrid, l2g_sub_faces, l2g_cells, is_vector=True
+        )
+        # The sub_face_map is now a map from local sub_faces to global subfaces.
+        # Next we need to mat the the local sub face reconstruction "hf_cell_loc"
+        # onto the global grid. The cells are ordered the same, so we can use the
+        # cell_map from the stress computation. Similarly for the faces.
+        hf_cell_glob = sub_face_map * hf_cell_loc * cell_map
+        hf_bound_glob = sub_face_map * hf_bound_loc * face_map.T
+        # Next we need to eliminate the subfaces outside the active faces.
+        # We map from outside faces to outside subfaces
+        sub_outside = np.where(np.in1d(subcell_topology.fno_unique, outside))[0]
+        # Then expand the indices.
+        num_subfno = subcell_topology.num_subfno
+        # Duplicate indices for each dimension.
+        sub_eliminate_ind = np.tile(sub_outside, (g.dim, 1))
+        # The displacement reconstruction is ordered as all subfaces for x, then y and
+        # so on. Therefore add an increment to the indices of the y and z dimension equal
+        # the number of subfaces.
+        sub_eliminate_ind += num_subfno * np.atleast_2d(np.arange(0, g.dim)).T
+        sub_eliminate_ind = sub_eliminate_ind.ravel("C")
+        # now kill the contribution of these faces
+        fvutils.zero_out_sparse_rows(hf_cell_glob, sub_eliminate_ind)
+        fvutils.zero_out_sparse_rows(hf_bound_glob, sub_eliminate_ind)
+        return stress_glob, bound_stress_glob, hf_cell_glob, hf_bound_glob, active_faces
+    else:
+        return stress_glob, bound_stress_glob, active_faces
 
-    return stress_glob, bound_stress_glob, active_faces
 
-
-def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_eta=None):
+def _mpsa_local(
+    g, constit, bound, eta=None, inverter="numba", hf_disp=False, hf_eta=None
+):
     """
     Actual implementation of the MPSA W-method. To calculate the MPSA
     discretization on a grid, either call this method, or, to respect the
@@ -875,10 +1064,26 @@ def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_et
     face.
 
     Boundary values can be incorporated with appropriate modifications -
-    Neumann conditions will have a non-zero right hand side for (i), while
+    Neumann conditions will have a non-zero right hand side for (i), Robin conditions
+    will be on the form E * grad_u + F * u_cc = R, while
     Dirichlet gives a right hand side for (ii).
 
+    In the implementation we will order the rows of the local system as follows;
+    first enforce the force balance over the internal faces;
+    T^L + T^R = 0.
+    Then we will enforce the Neumann conditions
+    T = T_NEUMAN,
+    and the robin conditions
+    T + robin_weight * U = R.
+    The displacement continuity and Dirichlet conditions are comming last
+    U^+ - U^- = 0.
+    Note that for the Dirichlet conditions are not pulled out seperatly as the
+    Neumann condition, mainly for legacy reasons. This meens that Dirichlet
+    faces and internal faces are mixed together, decided by their face ordering.
     """
+    if eta is None:
+        eta = fvutils.determine_eta(g)
+
     if bound.bc_type != "vectorial":
         raise AttributeError("MPSA must be given a vectorial boundary condition")
     # The grid coordinates are always three-dimensional, even if the grid is
@@ -911,13 +1116,7 @@ def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_et
     # elasticity and poro-elasticity).
 
     hook, igrad, rhs_cells, _, _ = mpsa_elasticity(
-        g,
-        constit,
-        subcell_topology,
-        bound_exclusion,
-        eta,
-        inverter,
-        robin_weight=bound.robin_weight,
+        g, constit, subcell_topology, bound_exclusion, eta, inverter
     )
 
     hook_igrad = hook * igrad
@@ -939,26 +1138,27 @@ def _mpsa_local(g, constit, bound, eta=0, inverter="numba", hf_disp=False, hf_et
 
     # Discretization of boundary values
     bound_stress = hf2f * hook_igrad * rhs_bound
-    stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
+    #    stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
 
     if hf_disp:
         eta_at_bnd = True
         if hf_eta is None:
             hf_eta = eta
             eta_at_bnd = False
+        # We obtain the reconstruction of displacments
         dist_grad, cell_centers = reconstruct_displacement(
             g, subcell_topology, hf_eta, eta_at_bnd=eta_at_bnd
         )
         hf_cell = dist_grad * igrad * rhs_cells + cell_centers
         hf_bound = dist_grad * igrad * rhs_bound
+        # The subface displacement is given by
+        # hf_cell * u_cell_centers + hf_bound * u_bound_condition
         return stress, bound_stress, hf_cell, hf_bound
     else:
         return stress, bound_stress
 
 
-def mpsa_elasticity(
-    g, constit, subcell_topology, bound_exclusion, eta, inverter, robin_weight=None
-):
+def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter):
     """
     This is the function where the real discretization takes place. It contains
     the parts that are common for elasticity and poro-elasticity, and was thus
@@ -1015,6 +1215,16 @@ def mpsa_elasticity(
     # sides of the faces.
     hook = __unique_hooks_law(ncsym_all, ncasym, subcell_topology, nd)
 
+    # To avoid singular matrices we are not abe to add the asymetric part of the stress
+    # tensor to the Neumann and Robin boundaries for nodes that only has more
+    # Neumann-boundary faces than gradients. This will typically happen in the
+    # corners where you only can have one gradient for the node. Normally if you
+    # have at least one internal face connected to the node you are should be safe.
+    # For the Neumann faces we eliminate the asymetic part this does in fact
+    # lead to an inconsistency.
+    _eliminate_ncasym_neumann(
+        ncasym, subcell_topology, bound_exclusion, cell_node_blocks, nd
+    )
     # For the Robin boundary conditions we need to pair the forces with the
     # displacement.
     # The contribution of the displacement at the Robin boundary is
@@ -1022,44 +1232,41 @@ def mpsa_elasticity(
     # with the Robin weight times the area of the faces),
     # where G are the gradients and u the cell center displacement. The Robin
     # condtion is then ncsym_rob * G + rob_grad * G + rob_cell * u
-    ncsym_rob = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
+    ncsym_full = subcell_topology.pair_over_subfaces_nd(ncsym_all + ncasym)
     del ncasym
-    ncsym_rob = bound_exclusion.keep_robin(ncsym_rob)
-
-    if robin_weight is None:
-        if ncsym_rob.shape[0] != 0:
-            raise ValueError(
-                "If applying Robin conditions you must supply a robin_weight"
-            )
-        else:
-            robin_weight = 1 * np.ones(g.num_faces)
+    ncsym_rob = bound_exclusion.keep_robin(ncsym_full)
+    ncsym_neu = bound_exclusion.keep_neumann(ncsym_full)
 
     # Book keeping
     num_sub_cells = cell_node_blocks[0].size
-
     rob_grad, rob_cell = __get_displacement_submatrices_rob(
-        g, subcell_topology, eta, num_sub_cells, bound_exclusion, robin_weight
+        g, subcell_topology, eta, num_sub_cells, bound_exclusion
     )
 
-    # Pair the forces from each side. For the Neumann faces this does in fact
-    # lead to an inconsistency because the asymetric parts does not cancell.
-    # We can add the asymmetric term for the Neumann faces, as is done above
-    # for the Robin faces, however, in some cases this might lead to sigular
-    # local matrices (when a subcell only have Neumann faces). We need to
-    # come back and adress this issue.
-
+    # Pair the forces from each side.
     # ncsym * G is in fact (due to pair_over_subfaces)
     # ncsym_L * G_L + ncsym_R * G_R for the left and right faces.
+    # We are here using ncsym_all and not the full tensor
+    # ncsym_full = ncsym_all + ncasym. This is because
+    # ncasym_L * G_L + ncasym_R * G_R = 0 due to symmetry.
     ncsym = subcell_topology.pair_over_subfaces_nd(ncsym_all)
     del ncsym_all
-    ncsym = bound_exclusion.exclude_robin_dirichlet(ncsym)
+    # Boundary conditions are taken hand of in ncsym_rob, ncsym_neu or as Dirichlet.
+    ncsym = bound_exclusion.exclude_boundary(ncsym)
 
+    # The contribution of cell center displacement to stress continuity.
+    # This is just zero (T_L + T_R = 0).
     num_subfno = subcell_topology.subfno.max() + 1
     hook_cell = sps.coo_matrix(
         (np.zeros(1), (np.zeros(1), np.zeros(1))),
         shape=(num_subfno * nd, (np.max(subcell_topology.cno) + 1) * nd),
     ).tocsr()
-
+    # Here you have to be carefull if you ever change hook_cell to something else than
+    # 0. Because we have pulled the Neumann conditions out of the stress condition
+    # the following would give an index error. Instead you would have to make a
+    # hook_cell_neu equal the number neumann_sub_faces, and a hook_cell_int equal the number
+    # of internal sub_faces and use .keep_neu and .exclude_bnd. But since this is all zeros,
+    # thi indexing does not matter.
     hook_cell = bound_exclusion.exclude_robin_dirichlet(hook_cell)
 
     # Matrices to enforce displacement continuity
@@ -1067,9 +1274,9 @@ def mpsa_elasticity(
         g, subcell_topology, eta, num_sub_cells, bound_exclusion
     )
 
-    grad_eqs = sps.vstack([ncsym, ncsym_rob + rob_grad, d_cont_grad])
+    grad_eqs = sps.vstack([ncsym, ncsym_neu, ncsym_rob + rob_grad, d_cont_grad])
 
-    del ncsym, d_cont_grad, ncsym_rob, rob_grad
+    del ncsym, d_cont_grad, ncsym_rob, rob_grad, ncsym_neu
     igrad = _inverse_gradient(
         grad_eqs,
         sub_cell_index,
@@ -1088,8 +1295,39 @@ def mpsa_elasticity(
 def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
     """
     Function for reconstructing the displacement at the half faces given the
-    local gradients. reconstruct_displacement(...) construct a matrix that
-    includes the distances from the cell centers to the evaluation point eta.
+    local gradients. For a subcell Ks associated with cell K and node s, the
+    displacement at a point x is given by
+    U_Ks + G_Ks (x - x_k),
+    x_K is the cell center of cell k. The point at which we evaluate the displacement
+    is given by eta, which is equivalent to the continuity points in mpsa.
+    For an internal subface we will obtain two values for the displacement,
+    one for each of the cells associated with the subface. The displacement given
+    here is the average of the two. Note that at the continuity points the two
+    displacements will by construction be equal.
+
+    Parameters:
+    Parameters:
+        g: Grid
+        subcell_topology: Wrapper class for numbering of subcell faces, cells
+            etc.
+        eta (float, range=[0,1]): Optional. Parameter determining the point at which the
+            displacement is evaluated. If eta is not given the method will call
+            fvutils.determine_eta(g) to set it.
+        eta_at_bnd (bool): Optional, defaults to False.
+            In MPSA eta is only enforced at internal faces, while is always set to
+            eta=0 at the boundary. eta_at_bnd=True will override this behaviour,
+            and give the displacement at the points given by eta, also for the boundary.
+    Returns:
+        scipy.sparse.csr_matrix (g.dim*num_sub_faces, g.dim*num_cells):
+            displacement reconstruction for the displacement at the half faces. This is
+            the contribution from the cell-center displacements.
+            NOTE: The half-face displacements are ordered sub-face_wise
+            (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
+        scipy.sparse.csr_matrix (g.dim*num_sub_faces, g.dim*num_faces):
+            displacement reconstruction for the displacement at the half faces.
+            This is the contribution from the boundary conditions.
+            NOTE: The half-face displacements are ordered sub_face wise
+            (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
     """
     if eta is None:
         eta = fvutils.determine_eta(g)
@@ -1098,16 +1336,24 @@ def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
     D_g = fvutils.compute_dist_face_cell(
         g, subcell_topology, eta, eta_at_bnd=eta_at_bnd, return_paired=False
     )
+    # We here average the contribution on internal sub-faces.
+    # If you want to get out both displacements on a sub-face your can remove
+    # the averaging.
+    _, IC, counts = np.unique(
+        subcell_topology.subfno, return_inverse=True, return_counts=True
+    )
+
+    avg_over_subfaces = sps.coo_matrix(
+        (1 / counts[IC], (subcell_topology.subfno, subcell_topology.subhfno))
+    )
+    D_g = avg_over_subfaces * D_g
     # expand indices to x-y-z
     D_g = sps.kron(sps.eye(g.dim), D_g)
     D_g = D_g.tocsr()
 
     # Get a mapping from cell centers to half-faces
     D_c = sps.coo_matrix(
-        (
-            np.ones(subcell_topology.subhfno.size),
-            (subcell_topology.subhfno, subcell_topology.cno),
-        )
+        (1 / counts[IC], (subcell_topology.subfno, subcell_topology.cno))
     ).tocsr()
     # Expand indices to x-y-z
     D_c = sps.kron(sps.eye(g.dim), D_c)
@@ -1202,7 +1448,7 @@ def __get_displacement_submatrices(
 
 
 def __get_displacement_submatrices_rob(
-    g, subcell_topology, eta, num_sub_cells, bound_exclusion, robin_weight
+    g, subcell_topology, eta, num_sub_cells, bound_exclusion
 ):
     nd = g.dim
     # Distance from cell centers to face centers, this will be the
@@ -1216,8 +1462,7 @@ def __get_displacement_submatrices_rob(
     num_nodes = np.diff(g.face_nodes.indptr)
     sgn = g.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
     scaled_sgn = (
-        robin_weight[subcell_topology.fno_unique]
-        * sgn[0]
+        sgn[0]
         * g.face_areas[subcell_topology.fno_unique]
         / num_nodes[subcell_topology.fno_unique]
     )
@@ -1226,18 +1471,23 @@ def __get_displacement_submatrices_rob(
     # Contribution from cell center potentials to local systems
     rob_cell = sps.coo_matrix(
         (
-            robin_weight[subcell_topology.fno]
-            * g.face_areas[subcell_topology.fno]
-            / num_nodes[subcell_topology.fno],
+            g.face_areas[subcell_topology.fno] / num_nodes[subcell_topology.fno],
             (subcell_topology.subfno, subcell_topology.cno),
         )
     ).tocsr()
     rob_cell = sps.kron(sps.eye(nd), rob_cell)
 
-    # Expand equations for displacement balance, and eliminate rows
-    # associated with neumann boundary conditions
-    rob_grad = bound_exclusion.keep_robin(rob_grad)
-    rob_cell = bound_exclusion.keep_robin(rob_cell)
+    # First do a basis transformation
+    rob_grad = bound_exclusion.basis_matrix * rob_grad
+    rob_cell = bound_exclusion.basis_matrix * rob_cell
+    # And apply the robin weight in the rotated basis
+    rob_grad = bound_exclusion.robin_weight * rob_grad
+    rob_cell = bound_exclusion.robin_weight * rob_cell
+    # Expand equations for displacement balance, and keep rows
+    # associated with neumann boundary conditions. Remember we have already
+    # rotated the basis above
+    rob_grad = bound_exclusion.keep_robin(rob_grad, transform=False)
+    rob_cell = bound_exclusion.keep_robin(rob_cell, transform=False)
 
     # The column ordering of the displacement equilibrium equations are
     # formed as a Kronecker product of scalar equations. Bring them to the
@@ -1468,13 +1718,13 @@ def _inverse_gradient(
     )
 
     grad = rows2blk_diag * grad_eqs * cols2blk_diag
-
     # Compute inverse gradient operator, and map back again
     igrad = (
         cols2blk_diag
         * fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
         * rows2blk_diag
     )
+    print("max igrad: ", np.max(np.abs(igrad)))
     return igrad
 
 
@@ -1506,10 +1756,11 @@ def _block_diagonal_structure(
     nno = np.tile(nno, nd)
     # The node numbers do not have a basis, so no transformation here. We just
     # want to pick out the correct node numbers for the correct equations.
-    nno_stress = bound_exclusion.exclude_robin_dirichlet(nno, transform=False)
+    nno_stress = bound_exclusion.exclude_boundary(nno, transform=False)
     nno_displacement = bound_exclusion.exclude_neumann_robin(nno, transform=False)
+    nno_neu = bound_exclusion.keep_neumann(nno, transform=False)
     nno_rob = bound_exclusion.keep_robin(nno, transform=False)
-    node_occ = np.hstack((nno_stress, nno_rob, nno_displacement))
+    node_occ = np.hstack((nno_stress, nno_neu, nno_rob, nno_displacement))
 
     sorted_ind = np.argsort(node_occ, kind="mergesort")
     rows2blk_diag = sps.coo_matrix(
@@ -1552,10 +1803,11 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     """
     nd = g.dim
 
-    num_stress = bound_exclusion.exclude_rob_dir.shape[0]
+    num_stress = bound_exclusion.exclude_bnd.shape[0]
     num_displ = bound_exclusion.exclude_neu_rob.shape[0]
 
     num_rob = bound_exclusion.keep_rob.shape[0]
+    num_neu = bound_exclusion.keep_neu.shape[0]
 
     fno = subcell_topology.fno_unique
     subfno = subcell_topology.subfno_unique
@@ -1563,9 +1815,10 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
         subcell_topology.fno_unique, subcell_topology.cno_unique
     ].A.ravel("F")
 
-    num_neu = np.sum(bound.is_neu[:, fno])
     num_dir = np.sum(bound.is_dir[:, fno])
     if not num_rob == np.sum(bound.is_rob[:, fno]):
+        raise AssertionError()
+    if not num_neu == np.sum(bound.is_neu[:, fno]):
         raise AssertionError()
 
     num_bound = num_neu + num_dir + num_rob
@@ -1577,16 +1830,13 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # Define right hand side for Neumann boundary conditions
     # First row indices in rhs matrix
     # Pick out the subface indices
-
     # The boundary conditions should be given in the given basis, therefore no transformation
-    subfno_neu = bound_exclusion.exclude_robin_dirichlet(
+    subfno_neu = bound_exclusion.keep_neumann(
         subfno_nd.ravel("C"), transform=False
     ).ravel("F")
     # Pick out the Neumann boundary
     is_neu_nd = (
-        bound_exclusion.exclude_robin_dirichlet(
-            bound.is_neu[:, fno].ravel("C"), transform=False
-        )
+        bound_exclusion.keep_neumann(bound.is_neu[:, fno].ravel("C"), transform=False)
         .ravel("F")
         .astype(np.bool)
     )
@@ -1640,13 +1890,16 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
         np.reshape(is_rob_all, (nd, -1), order="C").ravel("F")
     ).ravel("F")
 
-    # We now merge the neuman and robin indices since they are treated equivalent
+    # We now merge the neuman and robin indices since they are treated equivalent.
+    # Remember that the first set of local equations are the stress equilibrium for
+    # the internall faces. The number of internal stresses therefore has to
+    # be added to the Neumann and Robin indices
     if rob_ind.size == 0:
-        neu_rob_ind = neu_ind
+        neu_rob_ind = neu_ind + num_stress
     elif neu_ind.size == 0:
         neu_rob_ind = rob_ind + num_stress
     else:
-        neu_rob_ind = np.hstack((neu_ind, rob_ind + num_stress))
+        neu_rob_ind = np.hstack((neu_ind + num_stress, rob_ind + num_stress + num_neu))
 
     neu_rob_ind_all = np.hstack((neu_ind_all, rob_ind_all))
 
@@ -1670,7 +1923,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     if neu_rob_ind.size > 0:
         neu_cell = sps.coo_matrix(
             (neu_val.ravel("F"), (neu_rob_ind, np.arange(neu_rob_ind.size))),
-            shape=(num_stress + num_rob, num_bound),
+            shape=(num_stress + num_neu + num_rob, num_bound),
         ).tocsr()
     else:
         # Special handling when no elements are found. Not sure if this is
@@ -1913,8 +2166,46 @@ def _sign_matrix(g, faces):
 def expand_ind(ind, dim, increment):
     # Duplicate rows
     ind_nd = np.tile(ind, (dim, 1))
-    # Add same increment to each row (0*incr, 1*incr etc.)
+    # Add same increment to each row (0*incr, 1*incr etc.).
     ind_incr = ind_nd + increment * np.array([np.arange(dim)]).transpose()
     # Back to row vector
     ind_new = ind_incr.reshape(-1, order="F")
     return ind_new
+
+
+def _eliminate_ncasym_neumann(
+    ncasym, subcell_topology, bound_exclusion, cell_node_blocks, nd
+):
+    """
+    Eliminate the asymetric part of the stress tensor such that the local systems are
+    invertible.
+    """
+    # We expand the node indices such that we get one indices for each vector equation.
+    # The equations are ordered as first all x, then all y, and so on
+    node_blocks_nd = np.tile(cell_node_blocks[1], (nd, 1))
+    node_blocks_nd += subcell_topology.num_nodes * np.atleast_2d(np.arange(0, nd)).T
+    nno_nd = np.tile(subcell_topology.nno_unique, (nd, 1))
+    nno_nd += subcell_topology.num_nodes * np.atleast_2d(np.arange(0, nd)).T
+
+    # Each local system is associated to a node. We count the number of subcells for
+    # assoiated with each node.
+    _, num_sub_cells = np.unique(node_blocks_nd.ravel("C"), return_counts=True)
+
+    # Then we count the number how many Neumann subfaces there are for each node.
+    nno_neu = bound_exclusion.keep_neumann(nno_nd.ravel("C"), transform=False)
+    _, idx_neu, count_neu = np.unique(nno_neu, return_inverse=True, return_counts=True)
+
+    # The local system is invertible if the number of sub_cells (remember there is one
+    # gradient for each subcell) is larger than the number of Neumann sub_faces.
+    # To obtain an invertible system we remove the asymetric part around these nodes.
+    count_neu = bound_exclusion.keep_neu.T * count_neu[idx_neu]
+    diff_count = num_sub_cells[nno_nd.ravel("C")] - count_neu
+    remove_singular = np.argwhere((diff_count < 0)).ravel()
+
+    # remove_singular gives the indices of the subfaces. We now obtain the indices
+    # as given in ncasym,
+    subfno_nd = np.tile(subcell_topology.unique_subfno, (nd, 1))
+    subfno_nd += subcell_topology.fno.size * np.atleast_2d(np.arange(0, nd)).T
+    dof_elim = subfno_nd.ravel("C")[remove_singular]
+    # and eliminate the rows corresponding to these subfaces
+    sparse_mat.zero_rows(ncasym, dof_elim)

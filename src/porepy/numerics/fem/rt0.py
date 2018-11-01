@@ -400,8 +400,7 @@ class RT0(Solver):
 
         return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K, np.dot(N, C)))))
 
-
-# ------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     @staticmethod
     def opposite_side_node(face_nodes, nodes, faces_loc):
@@ -422,10 +421,13 @@ class RT0(Solver):
 
         """
         indptr = face_nodes.indptr
-        face_nodes = [nodes[indptr[f]: indptr[f + 1]] for f in faces_loc]
+        face_nodes = [nodes[indptr[f] : indptr[f + 1]] for f in faces_loc]
 
         nodes_loc = np.unique(face_nodes)
-        opposite_node = [np.setdiff1d(nodes_loc, f, assume_unique=True) for f in face_nodes]
+        opposite_node = [
+            np.setdiff1d(nodes_loc, f, assume_unique=True) for f in face_nodes
+        ]
         return np.array(opposite_node).flatten()
+
 
 # ------------------------------------------------------------------------------#

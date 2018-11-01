@@ -1,8 +1,8 @@
 import numpy as np
 import porepy as pp
 
-class Data(object):
 
+class Data(object):
     def __init__(self, data, tol=1e-8):
 
         self.gb = None
@@ -16,19 +16,21 @@ class Data(object):
     # ------------------------------------------------------------------------------#
 
     def eff_kf_n(self):
-        return self.data["kf_n"]/self.data["aperture"]
+        return self.data["kf_n"] / self.data["aperture"]
 
     # ------------------------------------------------------------------------------#
 
     def eff_kf_t(self):
-        return self.data["aperture"]*self.data["kf_t"]
+        return self.data["aperture"] * self.data["kf_t"]
 
     # ------------------------------------------------------------------------------#
 
     def make_gb(self):
         mesh_kwargs = {}
-        mesh_kwargs = {"mesh_size_frac": self.data["mesh_size"],
-                       "mesh_size_min": self.data["mesh_size"] / 20}
+        mesh_kwargs = {
+            "mesh_size_frac": self.data["mesh_size"],
+            "mesh_size_min": self.data["mesh_size"] / 20,
+        }
 
         self.domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
@@ -52,7 +54,6 @@ class Data(object):
         self.gb.compute_geometry()
 
     # ------------------------------------------------------------------------------#
-
 
     def add_to_gb(self):
         """
@@ -123,12 +124,12 @@ class Data(object):
         for g, d in self.gb:
             if g.dim == 1:
                 # define the non-linear relation with u
-                u = self.data["beta"]*np.linalg.norm(d["P0u"], axis=0)
-                p = np.exp(self.data["gamma"]*d["pressure"])
+                u = self.data["beta"] * np.linalg.norm(d["P0u"], axis=0)
+                p = np.exp(self.data["gamma"] * d["pressure"])
 
                 # to trick the code we need to do the following
-                coeff = p/self.eff_kf_t() + u
-                kf = 1./coeff/self.data["aperture"]
+                coeff = p / self.eff_kf_t() + u
+                kf = 1. / coeff / self.data["aperture"]
 
                 perm = pp.SecondOrderTensor(1, kxx=kf, kyy=1, kzz=1)
                 d["param"].set_tensor("flow", perm)
