@@ -96,6 +96,7 @@ class SubcellTopology(object):
         self.subhfno = np.arange(idx.size, dtype=">i4")
         self.num_subfno = self.subfno.max() + 1
         self.num_cno = self.cno.max() + 1
+        self.num_nodes = self.nno.max() + 1
 
         # Make subface indices unique, that is, pair the indices from the two
         # adjacent cells
@@ -683,6 +684,7 @@ class ExcludeBoundaries(object):
         # Define mappings to exclude boundary values
         if self.bc_type == "scalar":
             self.basis_matrix = self._basis_transformation(bound.basis)
+            self.robin_weight = self._basis_transformation(bound.robin_weight)
 
             self.exclude_neu = self._exclude_matrix(bound.is_neu)
             self.exclude_dir = self._exclude_matrix(bound.is_dir)
@@ -690,24 +692,27 @@ class ExcludeBoundaries(object):
             self.exclude_neu_dir = self._exclude_matrix(bound.is_neu | bound.is_dir)
             self.exclude_neu_rob = self._exclude_matrix(bound.is_neu | bound.is_rob)
             self.exclude_rob_dir = self._exclude_matrix(bound.is_rob | bound.is_dir)
+            self.exclude_bnd = self._exclude_matrix(
+                bound.is_rob | bound.is_dir | bound.is_neu
+            )
+            self.keep_neu = self._exclude_matrix(~bound.is_neu)
             self.keep_rob = self._exclude_matrix(~bound.is_rob)
 
         elif self.bc_type == "vectorial":
             self.basis_matrix = self._basis_transformation(bound.basis)
+            self.robin_weight = self._basis_transformation(bound.robin_weight)
 
             self.exclude_neu = self._exclude_matrix_xyz(bound.is_neu)
             self.exclude_dir = self._exclude_matrix_xyz(bound.is_dir)
             self.exclude_rob = self._exclude_matrix_xyz(bound.is_rob)
-            self.exclude_neu_dir = self._exclude_matrix_xyz(
-                bound.is_neu | bound.is_dir
-            )
-            self.exclude_neu_rob = self._exclude_matrix_xyz(
-                bound.is_neu | bound.is_rob
-            )
-            self.exclude_rob_dir = self._exclude_matrix_xyz(
-                bound.is_rob | bound.is_dir
+            self.exclude_neu_dir = self._exclude_matrix_xyz(bound.is_neu | bound.is_dir)
+            self.exclude_neu_rob = self._exclude_matrix_xyz(bound.is_neu | bound.is_rob)
+            self.exclude_rob_dir = self._exclude_matrix_xyz(bound.is_rob | bound.is_dir)
+            self.exclude_bnd = self._exclude_matrix_xyz(
+                bound.is_rob | bound.is_dir | bound.is_neu
             )
             self.keep_rob = self._exclude_matrix_xyz(~bound.is_rob)
+            self.keep_neu = self._exclude_matrix_xyz(~bound.is_neu)
 
     def _basis_transformation(self, basis):
         if self.bc_type == "scalar":
@@ -718,8 +723,7 @@ class ExcludeBoundaries(object):
                 (data, (row, col)), shape=(self.num_subfno, self.num_subfno)
             ).tocsr()
         elif self.bc_type == "vectorial":
-            # Add the number of coordinates
-            data = basis[:, self.fno].reshape(-1, basis.shape[-1], order="C").ravel("F")
+            data = basis[:, :, self.fno].ravel("C")
             col = np.arange(self.num_subfno * self.nd).reshape((-1, self.num_subfno))
             col = np.tile(col, (1, self.nd)).ravel("C")
             row = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
@@ -857,6 +861,23 @@ class ExcludeBoundaries(object):
             return self.exclude_rob_dir * self.basis_matrix * other
         return self.exclude_rob_dir * other
 
+    def exclude_boundary(self, other, transform=False):
+        """ Mapping to exclude faces/component with any boundary condition from
+        local systems.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                Neumann conditions eliminated.
+
+        """
+        if transform:
+            return self.exclude_bnd * self.basis_matrix * other
+        return self.exclude_bnd * other
+
     def keep_robin(self, other, transform=True):
         """
         Mapping to exclude faces/components that is not on the Robin boundary
@@ -868,11 +889,28 @@ class ExcludeBoundaries(object):
 
         Returns:
             scipy.sparse matrix, with rows corresponding to faces/components with
-                all but robin conditions eliminated.
+                all but Robin conditions eliminated.
         """
         if transform:
             return self.keep_rob * self.basis_matrix * other
         return self.keep_rob * other
+
+    def keep_neumann(self, other, transform=True):
+        """
+        Mapping to exclude faces/components that is not on the Neumann boundary
+        conditions from local systems.
+
+        Parameters:
+            other (scipy.sparse matrix): Matrix of local equations for
+                continuity of flux and pressure.
+
+        Returns:
+            scipy.sparse matrix, with rows corresponding to faces/components with
+                all but Neumann conditions eliminated.
+        """
+        if transform:
+            return self.keep_neu * self.basis_matrix * other
+        return self.keep_neu * other
 
 
 # -----------------End of class ExcludeBoundaries-----------------------------
