@@ -152,6 +152,83 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
+    def test_rt0_2d_iso_simplex_mixed_bc(self):
+        g = pp.simplex.StructuredTriangleGrid([2, 2], [1, 1])
+        g.compute_geometry()
+
+        kxx = np.ones(g.num_cells)
+        perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kxx, kzz=1)
+
+        tol = 1e-6
+        bf = g.tags["domain_boundary_faces"].nonzero()[0]
+        bf_centers = g.face_centers[:, bf]
+        left = bf_centers[0, :] < 0 + tol
+        right = bf_centers[0, :] > 1 - tol
+
+        labels = np.array(["neu"] * bf.size)
+        labels[left] = "rob"
+        labels[right] = "dir"
+
+        bc = pp.BoundaryCondition(g, bf, labels)
+        bc.robin_weight[bf[left]] = 2
+
+        bc_val = np.zeros(g.num_faces)
+        bc_val[bf[left]] = 3
+
+        solver = pp.RT0(physics="flow")
+
+        param = pp.Parameters(g)
+        param.set_tensor(solver, perm)
+        param.set_bc(solver, bc)
+        param.set_bc_val(solver, bc_val)
+
+        data = {"param": param}
+        M, rhs = solver.matrix_rhs(g, data)
+        up = sps.linalg.spsolve(M, rhs)
+
+        p = solver.extract_p(g, up)
+        u = solver.extract_u(g, up)
+        P0u = solver.project_u(g, u, data)
+
+        p_ex = 1 - g.cell_centers[0, :]
+        P0u_ex = np.vstack((np.ones(g.num_cells),
+                            np.zeros(g.num_cells),
+                            np.zeros(g.num_cells)))
+
+        self.assertTrue(np.allclose(p, p_ex))
+        self.assertTrue(np.allclose(P0u, P0u_ex))
+
+        # Matrix computed with an already validated code
+        M_known = 1./6. * np.matrix(
+           [[ 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [ 0, 8, 0, 0, 0, 0, 0,-1, 0, 0, 0, 0, 0, 0, 0, 0, 0,-6, 0, 0, 0, 0, 0, 0],
+            [ 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,-6, 6, 0, 0, 0, 0, 0, 0],
+            [ 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [-1, 0, 0, 0, 4, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,-6, 0, 0, 6, 0, 0, 0, 0],
+            [ 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,-6, 6, 0, 0, 0, 0],
+            [ 0, 0, 0,-1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,-6, 0, 0, 0, 0, 0],
+            [ 0,-1, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 0, 0, 0, 0, 0,-6, 0, 0, 6, 0, 0, 0],
+            [ 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0,-1, 0, 0, 0, 0, 0, 0,-6, 0, 0],
+            [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,-6, 6, 0, 0],
+            [ 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 4, 0, 0, 1, 0, 0, 0, 0, 0,-6, 0, 0, 6, 0],
+            [ 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 1, 0, 0, 0, 0,-6, 0, 0, 6],
+            [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0,-6, 6],
+            [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0,-6, 0],
+            [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+            [-6, 0,-6, 0,-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [ 0,-6, 6, 0, 0, 0, 0,-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [ 0, 0, 0,-6, 0,-6,-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [ 0, 0, 0, 0, 6, 6, 0, 0, 0, 0,-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [ 0, 0, 0, 0, 0, 0, 0, 6, 0,-6, 0,-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [ 0, 0, 0, 0, 0, 0, 0, 0,-6, 6, 0, 0, 0, 0,-6, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0,-6,-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 6, 0, 0,-6, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+        self.assertTrue(np.allclose(M.todense(), M_known))
+
+    # ------------------------------------------------------------------------------#
+
     def test_rt0_2d_ani_simplex(self):
         g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
         g.compute_geometry()
