@@ -103,7 +103,7 @@ class TestParentChildrenRelations(unittest.TestCase):
 
         # Children
         p_children = np.array([[1, 2, 3, 4, 1, 2, 3, 4],
-                               [0.1, 0.1, 0.1, 0.1, 1, 1, 1, 1]], dtype=np.float)
+                               [0.1, 0.6, 0.1, 0.1, 1, 1, 1, 1]], dtype=np.float)
 
         # Children length from a lognormal distribution
         p_children[1, [4, 5, 6, 7]] += stats.lognorm.rvs(s=1, size=4)
@@ -148,12 +148,12 @@ class TestParentChildrenRelations(unittest.TestCase):
         child = ChildFractureSet(p_children, e_children, domain, parent)
 
         child.compute_statistics()
-        isolated = child.one_y_stats
+        one_y = child.one_y_stats
 
         # There should be one parent fracture
-        self.assertTrue(isolated['density'].size == 1)
+        self.assertTrue(one_y['density'].size == 1)
         # All four isolated belongs to this parent
-        self.assertTrue(isolated['density'][0] == 4)
+        self.assertTrue(one_y['density'][0] == 4)
 
     def test_only_y_two_parents_one_active(self):
         # Two parents, only one is active. All children are y-intersections for this parent
@@ -175,13 +175,98 @@ class TestParentChildrenRelations(unittest.TestCase):
         child = ChildFractureSet(p_children, e_children, domain, parent)
 
         child.compute_statistics()
-        isolated = child.one_y_stats
+        one_y = child.one_y_stats
 
         # There should be one parent fracture
-        self.assertTrue(isolated['density'].size == 2)
+        self.assertTrue(one_y['density'].size == 2)
         # All four isolated belongs to this parent
-        self.assertTrue(isolated['density'][0] == 4)
-        self.assertTrue(isolated['density'][1] == 0)
+        self.assertTrue(one_y['density'][0] == 4)
+        self.assertTrue(one_y['density'][1] == 0)
+
+    def test_only_y_two_parents_two_active(self):
+        # Two parents, only one is active. All children are y-intersections for this parent
+
+        p_parent = np.array([[0, 5, 0, 5], [0, 0, -0.5, -0.5]])
+        e_parent = np.array([[0, 2], [1, 3]])
+
+        domain = {'xmin': -1, 'xmax': 6, 'ymin': -1, 'ymax': 2}
+
+        parent = FractureSet(p_parent, e_parent, domain)
+
+        # Define children points. The edge p1-p5 (second child) will be associated
+        # with the second parent
+        p_children = np.array([[1, 2, 3, 4, 1, 2, 3, 4],
+                               [0., -0.5, 0., 0., 1, 1, 1, 1]], dtype=np.float)
+
+        # Children length from a lognormal distribution
+        p_children[1, [4, 5, 6, 7]] += stats.lognorm.rvs(s=1, size=4)
+
+        # Flip the far end of the second child, the other end is already defined
+        # to be on the second parent
+        p_children[1, 5] *= -1
+
+        e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
+        child = ChildFractureSet(p_children, e_children, domain, parent)
+
+        child.compute_statistics()
+        one_y = child.one_y_stats
+
+        # There should be one parent fracture
+        self.assertTrue(one_y['density'].size == 2)
+        # All four isolated belongs to this parent
+        self.assertTrue(one_y['density'][0] == 3)
+        self.assertTrue(one_y['density'][1] == 1)
+
+    def test_isolated_and_only_y_two_parents_two_active(self):
+        # Two parents, only one is active. All children are y-intersections for this parent
+
+        p_parent = np.array([[0, 5, 0, 5], [0, 0, -0.5, -0.5]])
+        e_parent = np.array([[0, 2], [1, 3]])
+
+        domain = {'xmin': -1, 'xmax': 6, 'ymin': -1, 'ymax': 2}
+
+        parent = FractureSet(p_parent, e_parent, domain)
+
+        # Define children points. The edge p1-p5 (second child) will be associated
+        # with the second parent as a y-node. The edge p2-p6 will be associated
+        # with the second parent as an isolated node
+        # The edges p0-p4 and p3-p7 will be closest to first parent, as
+        # I and Y-nodes, respectively
+        p_children = np.array([[1, 2, 3, 4, 1, 2, 3, 4],
+                               [0.1, -0.5, -0.6, 0., 1, 1, 1, 1]], dtype=np.float)
+
+        # Children length from a lognormal distribution
+        p_children[1, [4, 5, 6, 7]] += stats.lognorm.rvs(s=1, size=4)
+
+        # Flip the far end of the second and third child, the other end is already defined
+        # to be on the second parent
+        p_children[1, [5, 6]] *= -1
+
+        e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
+        child = ChildFractureSet(p_children, e_children, domain, parent)
+
+        child.compute_statistics()
+        isolated = child.isolated_stats
+        one_y = child.one_y_stats
+
+        self.assertTrue(isolated['density'].size == 2)
+        self.assertTrue(isolated['density'][0] == 1)
+        self.assertTrue(isolated['density'][1] == 1)
+
+        self.assertTrue(isolated['center_distance'].size == 2)
+        self.assertTrue(np.allclose(isolated['center_distance'][0],
+                                    np.array([0.5 * p_children[1, [0, 4]].sum()])))
+        self.assertTrue(np.allclose(isolated['center_distance'][1],
+                                    -0.5 - 0.5 * p_children[1, [2, 6]].sum()))
+
+        self.assertTrue(np.all(child.isolated == np.array([0, 2])))
+
+        # Y-nodes
+        self.assertTrue(one_y['density'].size == 2)
+        self.assertTrue(one_y['density'][0] == 1)
+        self.assertTrue(one_y['density'][1] == 1)
+
+
 
 class TestDensityCounting(unittest.TestCase):
 
@@ -214,7 +299,6 @@ class TestDensityCounting(unittest.TestCase):
 
 #if __name__ == '__main__':
 #    unittest.main()
-TestParentChildrenRelations().test_only_y_one_parent()
-TestParentChildrenRelations().test_only_y_two_parents_one_active()
+#TestParentChildrenRelations().test_isolated_and_only_y_two_parents_two_active()
 unittest.main()
 #TestDensityCounting().test_1d_counting_two_boxes()
