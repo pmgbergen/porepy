@@ -210,7 +210,7 @@ def angle(pts, edges, frac):
     return mean_a
 
 
-def count_center_point_densities(p, e, domain, nx=10, ny=10):
+def count_center_point_densities(p, e, domain, nx=10, ny=10, **kwargs):
     """ Divide the domain into boxes, count the number of fracture centers
     contained within each box.
 
@@ -227,6 +227,14 @@ def count_center_point_densities(p, e, domain, nx=10, ny=10):
 
     """
     p = np.atleast_2d(p)
+
+    # Special treatment when the point array is empty
+    if p.shape[1] == 0:
+        if p.shape[0] == 1:
+            return np.zeros(nx)
+        else:  # p.shape[0] == 2
+            return np.zeros((nx, ny))
+
     pc = _compute_center(p, e)
 
     if p.shape[0] == 1:
@@ -236,6 +244,7 @@ def count_center_point_densities(p, e, domain, nx=10, ny=10):
             hit = np.logical_and.reduce([pc[0] > (x0 + i * dx),
                                          pc[0] <= (x0 + (i + 1) * dx)])
             num_occ[i] = hit.sum()
+
         return num_occ.astype(np.int)
 
     elif p.shape[0] == 2:
