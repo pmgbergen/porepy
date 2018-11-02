@@ -22,8 +22,25 @@ class TestSingleSet(unittest.TestCase):
         vector = p_end - p_start
         return np.arctan2(vector[1], vector[0])
 
-    def test_angle_length(self):
-        pass
+    def test_set_distributions_run_population(self):
+        # Define a small fracture set, set distributions, and use this to
+        # populate a set
+
+        p = np.array([[0, 5], [0, 0]])
+        e = np.array([[0], [1]])
+
+        domain = {'xmin': -1, 'xmax': 6, 'ymin': -1, 'ymax': 2}
+
+        original= FractureSet(p, e, domain)
+
+        # Lognormal distribution for length
+        original.set_length_distribution(stats.lognorm, (0.5, -1, 2))
+        original.set_angle_distribution(stats.uniform, (0, 1))
+
+        original.set_intensity_map(np.array([[1]]))
+
+        realization = original.populate(fit_distributions=False)
+
 
 class TestParentChildrenRelations(unittest.TestCase):
 
