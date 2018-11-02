@@ -67,6 +67,9 @@ class ChildFractureSet(FractureSet):
 
     def compute_statistics(self, **kwargs):
 
+        # NOTE: Isolated nodes for the moment does not rule out that the child
+        # intersects with a parent
+
         # Angle and length distribution as usual
         self.fit_angle_distribution(**kwargs)
         self.fit_length_distribution(**kwargs)
