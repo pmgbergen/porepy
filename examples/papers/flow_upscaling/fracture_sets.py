@@ -55,6 +55,17 @@ class FractureSet(object):
 
         return FractureSet(p, e, domain)
 
+    def plot(self, **kwargs):
+        """ Plote the fracture set.
+
+        The function passes this fracture set to PorePy plot_fractures
+
+        Parameters:
+            **kwargs: Keyword arguments to be passed on to matplotlib.
+
+        """
+        pp.plot_fractures(self.domain, self.pts, self.edges)
+
 
 class ChildFractureSet(FractureSet):
     """ Fracture set that is defined based on its distance from a member of
