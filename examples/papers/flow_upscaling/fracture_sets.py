@@ -22,7 +22,7 @@ class FractureSet(object):
 
         self.num_frac = self.edges.shape[1]
 
-    def compute_statistics(self, **kwargs):
+    def fit_distributions(self, **kwargs):
         self.fit_length_distribution(**kwargs)
         self.fit_angle_distribution(**kwargs)
         self.fit_intensity_map(**kwargs)
@@ -38,9 +38,12 @@ class FractureSet(object):
     def fit_intensity_map(self, **kwargs):
         self.intensity = frac_gen.count_center_point_densities(self.pts, self.edges, self.domain, **kwargs)
 
-    def populate(self, domain=None, **kwargs):
+    def populate(self, domain=None, fit_distributions=True, **kwargs):
         if domain is None:
             domain = self.domain
+
+        if fit_distributions:
+            self.fit_distributions()
 
         # First define points
         p = frac_gen.define_centers_by_boxes(domain, self.intensity)
