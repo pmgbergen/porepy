@@ -38,6 +38,15 @@ class FractureSet(object):
     def fit_intensity_map(self, **kwargs):
         self.intensity = frac_gen.count_center_point_densities(self.pts, self.edges, self.domain, **kwargs)
 
+    def set_length_distribution(self, dist, params):
+        self.dist_length = {'dist': dist, 'param': params}
+
+    def set_angle_distribution(self, dist, params):
+        self.dist_angle = {'dist': dist, 'param': params}
+
+    def set_intensity_map(self, box):
+        self.intensity = box
+
     def populate(self, domain=None, fit_distributions=True, **kwargs):
         if domain is None:
             domain = self.domain
@@ -48,11 +57,14 @@ class FractureSet(object):
         # First define points
         p = frac_gen.define_centers_by_boxes(domain, self.intensity)
         # bookkeeping
-        num_fracs = p.shape[1]
+        if p.size == 0:
+            num_fracs = 0
+        else:
+            num_fracs = p.shape[1]
 
         # Then assign length and orientation
         angles = frac_gen.generate_from_distribution(num_fracs, self.dist_angle)
-        lengths = frac_gen.generate_from_distribution(num_fracs, self.dist_angle)
+        lengths = frac_gen.generate_from_distribution(num_fracs, self.dist_length)
 
         p, e = frac_gen.fracture_from_center_angle_length(p, angles, lengths)
 
