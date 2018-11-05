@@ -8,9 +8,10 @@ import numpy as np
 from numpy.linalg import solve
 import scipy.sparse as sps
 
+import porepy as pp
+
 from porepy.numerics.mixed_dim.solver import Solver
 from porepy.utils import comp_geom as cg
-from porepy.numerics.vem import vem_dual as dual
 from porepy.params import tensor
 
 
@@ -127,7 +128,7 @@ class HybridDualVEM(Solver):
 
         idx = 0
         # Use a dummy keyword to trick the constructor of dualVEM.
-        massHdiv = dual.DualVEM("dummy").massHdiv
+        massHdiv = pp.MVEM("dummy").massHdiv
 
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces

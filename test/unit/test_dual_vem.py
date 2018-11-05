@@ -20,7 +20,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
@@ -55,7 +55,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
@@ -107,7 +107,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
@@ -147,7 +147,7 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
@@ -256,7 +256,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
 
         param = pp.Parameters(g)
@@ -325,7 +325,7 @@ class BasicsTest(unittest.TestCase):
         bc_val = np.zeros(g.num_faces)
         bc_val[bf[left]] = 3
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
@@ -333,11 +333,11 @@ class BasicsTest(unittest.TestCase):
         param.set_bc_val(solver, bc_val)
 
         data = {"param": param}
-        M, rhs = solver.matrix_rhs(g, data)
+        M, rhs = solver.assemble_matrix_rhs(g, data)
         up = sps.linalg.spsolve(M, rhs)
 
-        p = solver.extract_p(g, up)
-        u = solver.extract_u(g, up)
+        p = solver.extract_pressure(g, up)
+        u = solver.extract_flux(g, up)
         P0u = solver.project_u(g, u, data)
 
         p_ex = 1 - g.cell_centers[0, :]
@@ -367,7 +367,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
@@ -422,7 +422,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
 
         param = pp.Parameters(g)
@@ -452,7 +452,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
 
         param = pp.Parameters(g)
@@ -483,7 +483,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
 
         param = pp.Parameters(g)
@@ -524,7 +524,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
 
         param = pp.Parameters(g)
@@ -570,7 +570,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
 
         param = pp.Parameters(g)
@@ -683,7 +683,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
 
         param = pp.Parameters(g)
@@ -746,7 +746,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.MVEM(physics="flow")
+        solver = pp.MVEM(keyword="flow")
 
 
         param = pp.Parameters(g)

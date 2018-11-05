@@ -163,9 +163,12 @@ class RobinCoupling(object):
 
         self.discr_master.enforce_neumann_int_bound(g_master, data_edge, matrix)
         # The rhs is just zeros
-        rhs = np.squeeze(
-            [np.zeros(dof_master), np.zeros(dof_slave), np.zeros(mg.num_cells)]
-        )
+        # EK: For some reason, the following lines were necessary to apease python
+        rhs = np.zeros(3, dtype=np.object)
+        rhs[0] = np.zeros(dof_master)
+        rhs[1] = np.zeros(dof_slave)
+        rhs[2] = np.zeros(mg.num_cells)
+
         return matrix, rhs
 
 # ------------------------------------------------------------------------------
@@ -318,8 +321,10 @@ class FluxPressureContinuity(RobinCoupling):
         self.discr_master.enforce_neumann_int_bound(g_master, data_edge, matrix)
         self.discr_slave.enforce_neumann_int_bound(g_slave, data_edge, matrix)
         # The rhs is just zeros
-        rhs = np.squeeze(
-            [np.zeros(dof_master), np.zeros(dof_slave), np.zeros(mg.num_cells)]
-        )
+        # EK: For some reason, the following lines were necessary to apease python
+        rhs = np.zeros(3, dtype=np.object)
+        rhs[0] = np.zeros(dof_master)
+        rhs[1] = np.zeros(dof_slave)
+        rhs[2] = np.zeros(mg.num_cells)
 
         return matrix, rhs

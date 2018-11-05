@@ -142,11 +142,14 @@ class TestFvutils(unittest.TestCase):
         data = {"param": Parameters(g)}
         bc_val = np.array([1, 2, 3, 4])
         data["param"].set_bc_val("flow", bc_val)
-        data["flux"] = flux
-        data["bound_flux"] = bound_flux
+        data["flow_flux"] = flux
+        data["flow_bound_flux"] = bound_flux
         data["pressure"] = np.array([3.14])
         fvutils.compute_discharges(g, data=data)
         dis = data["discharge"]
 
         dis_true = flux * data["pressure"] + bound_flux * bc_val
         self.assertTrue(np.allclose(dis, dis_true))
+
+if __name__ == '__main__':
+    unittest.main()
