@@ -101,7 +101,6 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
             )
 
             rhs_idx = [[pos_master, pos_slave, pos_edge]]
-
             loc_matrix = matrix[idx]
             matrix[idx], loc_rhs = discr.assemble_matrix_rhs(
                 g_master, g_slave, data_master, data_slave, data_edge, loc_matrix

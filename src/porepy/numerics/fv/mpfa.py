@@ -76,12 +76,11 @@ class Mpfa(FVElliptic):
             2) It probably makes sense to create a wrapper class to store the
             discretization, interface to linear solvers etc.
         Right now, there are concrete plans for 2).
+
         Parameters:
             g (core.grids.grid): grid to be discretized
             k (core.constit.second_order_tensor) permeability tensor
             bnd (core.bc.bc) class for boundary values
-            robin_weight (float): Weight robin_weight for displacement term in Robin conditions
-                sigma*n + robin_weight * u = G
             eta Location of pressure continuity point. Defaults to 1/3 for simplex
                 grids, 0 otherwise. On boundary faces with Dirichlet conditions,
                 eta=0 will be enforced.
@@ -93,6 +92,7 @@ class Mpfa(FVElliptic):
                 If the **estimated** memory need is larger than the provided
                 threshold, the discretization will be split into an appropriate
                 number of sub-calculations, using mpfa_partial().
+
         Returns:
             scipy.sparse.csr_matrix (shape num_faces, num_cells): flux
                 discretization, in the form of mapping from cell pressures to face
@@ -298,7 +298,7 @@ class Mpfa(FVElliptic):
             is_neu = is_neu[l2g_faces[loc_bound_ind]]
 
             loc_cond[is_dir] = "dir"
-        loc_bnd = bc.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
+        loc_bnd = pp.BoundaryCondition(sub_g, faces=loc_bound_ind, cond=loc_cond)
 
         # Discretization of sub-problem
         flux_loc, bound_flux_loc, bound_pressure_cell, bound_pressure_face = self._local_discr(
@@ -376,8 +376,8 @@ class Mpfa(FVElliptic):
         # method may be called. In 0D, there is no internal discretization to be
         # done.
         if g.dim == 1:
-            discr = tpfa.Tpfa(self.keyword)
-            params = data.Parameters(g)
+            discr = pp.Tpfa(self.keyword)
+            params = pp.Parameters(g)
             params.set_bc("flow", bnd)
             params.set_aperture(apertures)
             params.set_tensor("flow", k)
@@ -392,13 +392,6 @@ class Mpfa(FVElliptic):
         elif g.dim == 0:
             return sps.csr_matrix([0]), 0, 0, 0
 
-        if robin_weight is None:
-            if np.sum(bnd.is_rob) != 0:
-                raise ValueError(
-                    "If applying Robin conditions you must supply an robin_weight"
-                )
-            else:
-                robin_weight = 1
         # The grid coordinates are always three-dimensional, even if the grid is
         # really 2D. This means that there is not a 1-1 relation between the number
         # of coordinates of a point / vector and the real dimension. This again
@@ -413,7 +406,7 @@ class Mpfa(FVElliptic):
             # Rotate the grid into the xy plane and delete third dimension. First
             # make a copy to avoid alterations to the input grid
             g = g.copy()
-            cell_centers, face_normals, face_centers, R, _, nodes = cg.map_grid(g)
+            cell_centers, face_normals, face_centers, R, _, nodes = pp.cg.map_grid(g)
             g.cell_centers = cell_centers
             g.face_normals = face_normals
             g.face_centers = face_centers

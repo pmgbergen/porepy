@@ -24,7 +24,7 @@ from porepy.grids.grid import Grid
 from porepy.params import tensor
 
 
-from porepy.numerics.vem import vem_dual, vem_source
+from porepy.numerics.vem import vem_source
 from porepy.numerics.fv import tpfa, mpfa
 
 
@@ -680,10 +680,10 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         discretization_key = key + "_" + pp.keywords.DISCRETIZATION
 
         for g, d in gb:
-            d[discretization_key] = pp.DualVEM(key)
+            d[discretization_key] = pp.MVEM(key)
 
         for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key, pp.DualVEM(key))
+            d[discretization_key] = pp.RobinCoupling(key, pp.MVEM(key))
 
         solver_flow = pp.EllipticAssembler("flow")
         A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
@@ -891,7 +891,7 @@ class TestMortar3D(unittest.TestCase):
         solver_flow.split(gb, "pressure", p)
 
     def run_vem(self, gb):
-        solver_flow = vem_dual.DualVEMMixedDim("flow")
+        solver_flow = pp.MVEM("flow")
         A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
         up = sps.linalg.spsolve(A_flow, b_flow)
@@ -1072,7 +1072,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         solver_flow.split(gb, "pressure", p)
 
     def run_vem(self, gb):
-        solver_flow = vem_dual.DualVEMMixedDim("flow")
+        solver_flow = pp.MVEM("flow")
         A_flow, b_flow = solver_flow.matrix_rhs(gb)
 
         up = sps.linalg.spsolve(A_flow, b_flow)
@@ -1112,3 +1112,4 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+#TestMortar2dSingleFractureCartesianGrid().test_tpfa_matching_grids_refine_1d_uniform_flow_larger_domain()
