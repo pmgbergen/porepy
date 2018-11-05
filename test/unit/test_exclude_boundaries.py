@@ -10,7 +10,7 @@ class TestBasisTransformation(unittest.TestCase):
         bc = pp.BoundaryConditionVectorial(g)
         subcell_topology = pp.fvutils.SubcellTopology(g)
         BM = pp.fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim).basis_matrix
-        bm_ref = np.eye(2 * 4 * 2)
+        bm_ref = np.eye(2 * 2 * 4)
         self.assertTrue(np.allclose(BM.A, bm_ref))
 
     def test_rotation(self):
@@ -19,8 +19,9 @@ class TestBasisTransformation(unittest.TestCase):
         bc = pp.BoundaryConditionVectorial(g)
         subcell_topology = pp.fvutils.SubcellTopology(g)
         bc.basis = np.array(
-            [[[1, 1], [1, 1], [1, 1], [1, 1]], [[1, -1], [1, -1], [1, -1], [1, -1]]]
+            [[[1, 1, 1, 1], [1, 1, 1, 1]], [[1, 1, 1, 1], [-1, -1, -1, -1]]]
         )
+
         BM = pp.fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim).basis_matrix
 
         bm_ref = np.array(

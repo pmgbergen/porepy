@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.sparse as sps
 
-class Multiscale(object):
 
+class Multiscale(object):
     def __init__(self, gb):
         # The grid bucket
         self.gb = gb
@@ -34,7 +34,7 @@ class Multiscale(object):
         # Number of dofs for the co-dimensional grids
         self.dof_l = None
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def extract_blocks_h(self, A, b):
         # Select the position in the matrix A of the higher dimensional domain
@@ -67,7 +67,7 @@ class Multiscale(object):
         # Realise the jump operator given the mortar variables
         self.C_l = sps.bmat(A[np.ix_(self.pos_ln, pos_he)])
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def compute_bases(self):
 
@@ -97,7 +97,7 @@ class Multiscale(object):
             rhs[dof_basis] = 1.
             # project from the co-dimensional pressure to the Robin boundary
             # condition
-            rhs = np.r_[[0]*self.dof_h, -self.C_h * rhs]
+            rhs = np.r_[[0] * self.dof_h, -self.C_h * rhs]
             # compute the jump of the mortars
             self.bases[:, dof_basis] = self.C_l * self.LU(rhs)[-dof_bases:]
 
@@ -106,11 +106,11 @@ class Multiscale(object):
         self.dof_l = self.bases.shape[0]
 
         # solve for non-zero boundary conditions
-        self.x_h = - self.C_l * self.LU(self.b_h)[-dof_bases:]
+        self.x_h = -self.C_l * self.LU(self.b_h)[-dof_bases:]
 
-        return {"solve_h": num_bases+1}
+        return {"solve_h": num_bases + 1}
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def solve_l(self, A, b):
         # construct the problem in the fracture network
@@ -139,25 +139,25 @@ class Multiscale(object):
 
         return sps.linalg.spsolve(A_l, b_l)
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def solve_h(self, x_l):
         # compute the higher dimensional solution
-        b = np.r_[[0]*self.dof_h, -self.C_h * x_l[:self.C_h.shape[1]]]
+        b = np.r_[[0] * self.dof_h, -self.C_h * x_l[: self.C_h.shape[1]]]
         return self.LU(self.b_h + b)
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def concatenate(self, x_h=None, x_l=None):
         # save and export using standard algorithm
         x = np.zeros(self.b_h.size + x_l.size)
         if x_h is not None:
-            x[:self.dof_h] = x_h[:self.dof_h]
+            x[: self.dof_h] = x_h[: self.dof_h]
         if x_l is not None:
-            x[self.dof_h : (self.dof_h + self.dof_l)] = x_l[:self.dof_l]
+            x[self.dof_h : (self.dof_h + self.dof_l)] = x_l[: self.dof_l]
         return x
 
-#------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------#
 
     def assemble_l(self, A, b):
         # construct the problem in the fracture network
@@ -185,5 +185,6 @@ class Multiscale(object):
         b_l = np.r_[tuple(b_l)]
 
         return A_l, b_l
+
 
 # ------------------------------------------------------------------------------#
