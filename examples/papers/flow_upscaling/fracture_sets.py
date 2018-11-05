@@ -91,6 +91,117 @@ class ChildFractureSet(FractureSet):
         super(ChildFractureSet, self).__init__(pts, edges, domain)
         self.parent = parent
 
+    def populate(self, parent_realiz, domain=None):
+
+        if domain is None:
+            domain = self.domain
+
+        num_parents = parent_realiz.edges.shape[1]
+
+        all_p = np.empty((2, 0))
+        all_edges = np.empty((2, 0))
+
+        for pi in range(num_parents):
+            num_children = self._num_children(parent_realiz, pi)
+
+            # If this fracture has no children, continue
+            if num_children == 0:
+                continue
+
+            # Find the location of children points along the parent
+            children_points = self._draw_children_along_parent(parent_realiz, pi, num_children)
+
+            is_isolated = self._children_are_isolated(parent_realiz, pi, num_children)
+
+            start_parent = parent_realiz.pts[:, parent_realiz.edges[0, pi]].reshape((-1, 1))
+            end_parent = parent_realiz.pts[:, parent_realiz.edges[1, pi]].reshape((-1, 1))
+
+            p_i, edges_i = self._populate_isolated_fractures(children_points[:, is_isolated], start_parent, end_parent)
+
+            p_y, edges_y = self._populate_y_fractures(children_points[:, np.logical_not(is_isolated)])
+
+            all_p = np.hstack((all_p, p_i, p_y))
+
+            edges_i += all_p.shape[1]
+            edges_y += all_p.shape[1] + p_i.shape[1]
+
+            all_edges = np.hstack((all_edges, edges_i, edges_y))
+
+        return ChildFractureSet(all_p, all_edges, domain, parent_realiz)
+
+    def _num_children(self, parent_realiz, pi):
+        # Decide whether a specific fracture in a generated realization has children
+        # Tentative algorithm: 1) Decide whether the fracture should have
+        # children or not. 2) Decide how many children
+        # Read up on Cox processes etc for this.
+        has_children = self.
+
+    def _draw_children_along_parent(self, parent_realiz, pi, num_children):
+
+        # Start and end of the parent fracture
+        start = parent_realiz.pts[:, parent_realiz.edges[0, pi]].reshape((-1, 1))
+        end = parent_realiz.pts[:, parent_realiz.edges[1, pi]].reshape((-1, 1))
+
+        dx = end - start
+        return start * np.random.rand(num_children) * dx
+
+    def _children_are_isolated(self, parent_realiz, pi, num_children):
+        return np.random.rand(num_children) < self.fraction_isolated_children
+
+    def _populate_isolated_fractures(self, children_points, start_parent, end_parent):
+
+        dx = end_parent - start_parent
+        theta = np.arctan2(dx[1], dx[0])
+
+        if children_points.ndim == 1:
+            children_points = children_points.reshape((-1, 1))
+
+        num_children = children_points.shape[1]
+
+        dist_from_parent = self._draw_dist_from_central(num_children)
+
+        # Assign equal probability that the points are on each side of the parent
+        side = 2 * (np.random.rand(num_children) > 0.5) - 1
+
+        # Vector from the parent line to the new center points
+        vec = np.array([[-np.sin(theta)], [np.cos(theta)]]) * dist_from_parent
+
+        children_center = children_points + side * vec
+
+        child_angle = frac_gen.generate_from_distribution(num_children, self.dist_angle)
+        child_length = frac_gen.generate_from_distribution(num_children, self.dist_length)
+
+        p_start = children_center + 0.5 * child_length * np.vstack((np.cos(child_angle), np.sin(child_angle)))
+        p_end = children_center - 0.5 * child_length * np.vstack((np.cos(child_angle), np.sin(child_angle)))
+
+        p = np.hstack((p_start, p_end))
+        edges = np.vstack((np.arange(num_children), num_children + np.arange(num_children)))
+
+        return p, edges
+
+    def _populate_y_fractures(self, start):
+
+        if start.ndim == 1:
+            start = start.reshape((-1, 1))
+
+        num_children = start.shape[1]
+
+        # Assign equal probability that the points are on each side of the parent
+        side = 2 * (np.random.rand(num_children) > 0.5) - 1
+
+        child_angle = frac_gen.generate_from_distribution(num_children, self.dist_angle)
+        child_length = frac_gen.generate_from_distribution(num_children, self.dist_length)
+
+        # Vector from the parent line to the new center points
+        vec = np.array([[-np.sin(child_angle)], [np.cos(child_angle)]]) * child_length
+
+        end = start + side * vec
+
+        p = np.hstack((start, end))
+        edges = np.vstack((np.arange(num_children), num_children + np.arange(num_children)))
+
+        return p, edges
+
     def compute_statistics(self, **kwargs):
 
         # NOTE: Isolated nodes for the moment does not rule out that the child
@@ -131,12 +242,22 @@ class ChildFractureSet(FractureSet):
         if isolated.size > 0:
             density, center_distance = self.compute_line_density_isolated_nodes(isolated)
             self.isolated_stats = {'density': density, 'center_distance': center_distance}
+            num_parents_with_isolated = np.sum(density > 0)
+        else:
+            num_parents_with_isolated = 0
 
         ## fractures that have one Y-intersection with a parent
         # First, identify the parent-child relation
         if one_y.size > 0:
             density = self.compute_line_density_one_y_node(one_y)
             self.one_y_stats = {'density': density}
+            num_parents_with_one_y = np.sum(density > 0)
+        else:
+            num_parents_with_one_y = 0
+
+        # Compute bulk statistical properties of the parent family.
+        #
+        self.fraction_of_parents_with_child = (num_parents_with_isolated + num_parents_with_one_y) / self.parents.edges.shape[1]
 
 
     def compute_line_density_one_y_node(self, one_y):
@@ -239,8 +360,8 @@ class ChildFractureSet(FractureSet):
 
         return num_occ_all, pert_dist_isolated
 
-    def compute_density_along_line(self, p, start, end, **kwargs):
 
+    def _project_points_to_line(self, p, start, end, theta):
         if p.ndim == 1:
             p = p.reshape((-1, 1))
         if start.ndim == 1:
@@ -270,6 +391,11 @@ class ChildFractureSet(FractureSet):
         # based on an assumption that the fracture consist of two points.
         # Make a line out of the points, with identical start and end points
         loc_edge = np.tile(np.arange(p_x.size), (2, 1))
+        return p_x, loc_edge, domain_loc, theta
+
+    def compute_density_along_line(self, p, start, end, **kwargs):
+
+        p_x, loc_edge, domain_loc, _ = self._project_points_to_line(p, start, end)
 
         # Count the point density along this fracture.
         return frac_gen.count_center_point_densities(p_x, loc_edge, domain_loc, **kwargs)
