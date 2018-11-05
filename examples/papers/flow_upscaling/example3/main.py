@@ -155,13 +155,11 @@ if __name__ == "__main__":
 
                 # save the faces of the face f
                 g_h = gb_loc.grids_of_dimension(2)[0]
-                faces_loc_f = g_h.get_internal_faces()
 
-                #import pdb; pdb.set_trace()
-                dist, _ = pp.cg.dist_points_segments(g_h.face_centers[:, faces_loc_f],
-                                                     f_nodes[:, 0], f_nodes[:, 1])
-                mask = np.where(np.logical_and(dist < tol_small, dist >=-tol_small))[0]
-                faces_loc_f = faces_loc_f[mask]
+                dist, _ = pp.cg.dist_points_segments(g_h.face_centers, f_nodes[:, 0], f_nodes[:, 1])
+                f_loc = np.where(np.logical_and(dist < tol_small, dist >=-tol_small))[0]
+                # compute the sign with respect to f and normalize the result
+                sign = np.sign(np.einsum('ij,i->j', g_h.face_normals[:, f_loc], g.face_normals[:, f]))
 
                 # assign common data
                 set_data(gb_loc, data)
@@ -175,17 +173,9 @@ if __name__ == "__main__":
                     # Discretize and solve the linear system
                     p = sps.linalg.spsolve(*solver.matrix_rhs(gb_loc))
 
-                    # compute the discharge
+                    # compute the discharge and fix the sign with f
                     solver.split(gb_loc, "pressure", p)
-                    #pp.fvutils.compute_discharges(gb_loc)
-
-                    #discharge = gb_loc.node_props(g_h, "discharge")[faces_loc_f]
-
-                    # MI MANCA IL SEGNO O COMUNQUE E; DA CONTROLLARE
-                    #print(discharge, np.sum(discharge))
-                    # Store the solution
-                    save = pp.Exporter(gb_loc, "fv", folder="fv")
-                    save.write_vtk(["pressure"])
-                    print("prot")
-                    #pp.plot_grid(gb_loc, "pressure")
-                    s
+                    pp.fvutils.compute_discharges(gb_loc)
+                    discharge = sign * gb_loc.node_props(g_h, "discharge")[f_loc]
+                    print(np.sum(discharge))
+                    d
