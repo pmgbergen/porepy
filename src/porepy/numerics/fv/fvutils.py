@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Mar  4 09:04:16 2016
-
-@author: eke001
+Various FV specific utility functions.
 """
 from __future__ import division
+import warnings
 import numpy as np
 import scipy.sparse as sps
 
@@ -1173,6 +1171,7 @@ def compute_discharges(
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
+    keyword = physics
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
         pa = data["param"]
         if data.get(keyword + "_flux") is not None:

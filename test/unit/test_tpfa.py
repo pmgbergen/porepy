@@ -82,4 +82,4 @@ class TestTPFA(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    test_tpfa_cart_2d()
+    unittest.main()

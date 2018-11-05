@@ -12,6 +12,7 @@ import logging
 
 import porepy as pp
 
+
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,6 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
     def __init__(self, keyword):
         super(RT0, self).__init__(keyword, "RT0")
-
 
     def discretize(self, g, data):
         """
@@ -47,6 +47,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             data[self._key() + 'RT0_div'] = sps.csr_matrix((g.num_faces,
                  g.num_cells))
             return
+
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
@@ -118,6 +119,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
+
         data[self._key() + 'RT0_mass'] = mass
         data[self._key() + 'RT0_div'] = div
 
@@ -175,7 +177,6 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             P0u[:, c] = np.dot(R.T, P0u[:, c])
 
         return P0u
-
 
     def massHdiv(self, K, c_volume, coord, sign, dim, HB):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.

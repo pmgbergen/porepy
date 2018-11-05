@@ -1,12 +1,10 @@
 """
-Discretization of the flux term of an equation.
+Discretization of the source term of an equation for FV methods.
 """
 
-import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
+from porepy.numerics.mixed_dim.solver import Solver
 
 
 class Integral(Solver):
@@ -19,7 +17,7 @@ class Integral(Solver):
     rhs = param.get_source.physics.
     """
 
-    def __init__(self, keyword="flow"):
+    def __init__(self, keyword="flow", physics=None):
         """ Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
@@ -31,7 +29,10 @@ class Integral(Solver):
         self.known_keywords = ["flow", "transport", "mechanics"]
 
         # The physics keyword is kept for consistency for now, but will soon be purged.
-        self.physics = keyword
+        if physics is None:
+            self.physics = keyword
+        else:
+            self.physics = physics
 
     # ------------------------------------------------------------------------------#
 
@@ -48,13 +49,22 @@ class Integral(Solver):
     # ------------------------------------------------------------------------------#
 
     def ndof(self, g):
-        if self.physics is "flow":
-            return g.num_cells
+        """ Return the number of degrees of freedom associated to the method.
+        For scalar equations, the ndof equals the number of cells. For vector equations,
+        we multiply by the dimension.
 
-        if self.physics is "transport":
-            return g.num_cells
+        Parameter:
+            g: grid, or a subclass.
 
-        if self.physics is "mechanics":
+        Returns:
+            int: the number of degrees of freedom.
+
+        """
+        if self.physics == "flow":
+            return g.num_cells
+        elif self.physics == "transport":
+            return g.num_cells
+        elif self.physics == "mechanics":
             return g.num_cells * g.dim
         else:
             raise ValueError(
@@ -149,49 +159,3 @@ class Integral(Solver):
         ), "There should be one source value for each cell"
         data[self._key() + "source"] = lhs
         data[self._key() + "bound_source"] = sources
-
-
-# ------------------------------------------------------------------------------
-
-
-class IntegralMixedDim(SolverMixedDim):
-    def __init__(self, physics="flow", coupling=None):
-        self.physics = physics
-
-        self.discr = Integral(self.physics)
-        self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = coupling
-
-        self.solver = Coupler(self.discr, self.coupling_conditions)
-        SolverMixedDim.__init__(self)
-
-
-# ------------------------------------------------------------------------------
-
-
-class IntegralDFN(SolverMixedDim):
-    def __init__(self, dim_max, physics="flow"):
-        # NOTE: There is no flow along the intersections of the fractures.
-
-        self.physics = physics
-        self.dim_max = dim_max
-
-        self.discr = Integral(self.physics)
-        self.coupling_conditions = None
-
-        kwargs = {"discr_ndof": self.discr.ndof, "discr_fct": self.__matrix_rhs__}
-        self.solver = Coupler(coupling=None, **kwargs)
-        SolverMixedDim.__init__(self)
-
-    def __matrix_rhs__(self, g, data):
-        # The highest dimensional problem compute the matrix and rhs, the lower
-        # dimensional problem and empty matrix. For the latter, the size of the
-        # matrix is the number of cells.
-        if g.dim == self.dim_max:
-            return self.discr.matrix_rhs(g, data)
-        else:
-            ndof = self.discr.ndof(g)
-            return sps.csr_matrix((ndof, ndof)), np.zeros(ndof)
-
-
-# ------------------------------------------------------------------------------

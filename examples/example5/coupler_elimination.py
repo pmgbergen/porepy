@@ -7,24 +7,11 @@ into account, but illustrates the power of the elimination neatly.
 The example is based on the test_coupler.py from transport/examples.
 """
 import numpy as np
-import time
-import scipy.sparse as sps
-import scipy.spatial as spat
+import porepy as pp
 
-from porepy.grids import structured, simplex
-from porepy.params import bc
-
-from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.exporter import export_vtk, export_pvd
 
-from porepy.grids.coarsening import *
-from porepy.grids import grid_bucket, remove_grids
-from porepy.fracs import meshing, split_grid
-
 from porepy.numerics.mixed_dim import coupler, condensation
-
-from porepy.numerics.fv.transport import upwind
-from porepy.numerics.fv import mass_matrix
 
 # ------------------------------------------------------------------------------#
 
@@ -38,10 +25,10 @@ def add_data_transport(gb):
             abs(g.face_centers[:, b_faces]) == np.ones([3, b_faces.size])
         )[1]
         b_faces = b_faces[index]
-        d["bc"] = bc.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
+        d["bc"] = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         d["bc_val"] = {"dir": np.ones(b_faces.size)}
         d["apertures"] = np.ones(g.num_cells) * np.power(.01, float(g.dim < 3))
-        d["discharge"] = upwind.Upwind().discharge(
+        d["discharge"] = pp.Upwind().discharge(
             g, [1, 1, 2 * np.power(1000, g.dim < 2)], d["apertures"]
         )
 
@@ -66,14 +53,10 @@ if __name__ == "__main__":
 
     domain = {"xmin": -1, "xmax": 1, "ymin": -1, "ymax": 1, "zmin": -1, "zmax": 1}
 
-    # gb = meshing.cart_grid(f, [2, 4], physdims=[2, 4])
     Nx, Ny = 10, 10
-    # gb = meshing.cart_grid([np.array([[Nx / 2, Nx / 2], [1, Ny]])],
-    #                       [Nx, Ny], physdims=[Nx, Ny])
-    # gb = meshing.cart_grid(f_set, [Nx, Nx, Nx])
     path_to_gmsh = "~/gmsh-2.16.0-Linux/bin/gmsh"
 
-    gb = meshing.simplex_grid(f_set, domain, gmsh_path=path_to_gmsh)
+    gb = pp.fracs.meshing.simplex_grid(f_set, domain, gmsh_path=path_to_gmsh)
     gb.assign_node_ordering()
 
     ################## Transport solver ##################
@@ -85,8 +68,8 @@ if __name__ == "__main__":
     add_data_transport(gb)
     add_data_transport(gb_r)
 
-    upwind_solver = upwind.Upwind()
-    upwind_cc = upwind.UpwindCoupling(upwind_solver)
+    upwind_solver = pp.Upwind()
+    upwind_cc = pp.UpwindCoupling(upwind_solver)
     coupler_solver = coupler.Coupler(upwind_solver, upwind_cc)
     U, rhs = coupler_solver.matrix_rhs(gb)
     U_r, rhs_r = coupler_solver.matrix_rhs(gb_r)
@@ -99,12 +82,12 @@ if __name__ == "__main__":
     gb.add_node_prop("deltaT", None, deltaT)
     gb_r.add_node_prop("deltaT", None, deltaT_r)
 
-    mass_solver = mass_matrix.MassMatrix()
+    mass_solver = pp.MassMatrix()
     coupler_solver = coupler.Coupler(mass_solver)
     M, _ = coupler_solver.matrix_rhs(gb)
     M_r, _ = coupler_solver.matrix_rhs(gb_r)
 
-    inv_mass_solver = mass_matrix.InvMassMatrix()
+    inv_mass_solver = pp.InvMassMatrix()
     coupler_solver = coupler.Coupler(inv_mass_solver)
     invM, _ = coupler_solver.matrix_rhs(gb)
     invM_r, _ = coupler_solver.matrix_rhs(gb_r)

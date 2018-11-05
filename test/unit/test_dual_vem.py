@@ -25,7 +25,7 @@ class BasicsTest(unittest.TestCase):
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         M_known = 1e-2 * np.array(
             [
@@ -54,12 +54,13 @@ class BasicsTest(unittest.TestCase):
         perm = pp.SecondOrderTensor(3, kxx, kyy=1, kzz=1)
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+
         solver = pp.MVEM(physics="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         M_known = 1e-2 * np.array(
             [
@@ -105,12 +106,13 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+
         solver = pp.MVEM(physics="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = np.array(
@@ -150,7 +152,7 @@ class BasicsTest(unittest.TestCase):
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = np.array(
@@ -253,12 +255,14 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+
         solver = pp.MVEM(physics="flow")
+
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
@@ -362,12 +366,13 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+
         solver = pp.MVEM(physics="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
@@ -416,12 +421,14 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+
         solver = pp.MVEM(physics="flow")
+
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
         # np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
         M_known = matrix_for_test_dual_vem_3d_iso_cart()
 
@@ -444,12 +451,14 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+
         solver = pp.MVEM(physics="flow")
+
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
         M_known = matrix_for_test_dual_vem_3d_ani_cart()
@@ -473,12 +482,14 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+
         solver = pp.MVEM(physics="flow")
+
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = 1e-2 * np.array(
@@ -512,12 +523,14 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+
         solver = pp.MVEM(physics="flow")
+
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
         # Matrix computed with an already validated code (MRST)
         M_known = np.array(
             [
@@ -556,12 +569,14 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+
         solver = pp.MVEM(physics="flow")
+
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         M_known = np.array(
@@ -667,12 +682,14 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+
         solver = pp.MVEM(physics="flow")
+
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
@@ -728,14 +745,16 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
+
         solver = pp.MVEM(physics="flow")
+
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
-        # Matrix computed with an already validated code (MRST)
+        # assemble_matrix_rhs computed with an already validated code (MRST)
         faces = np.arange(5)
         map_faces = np.array([1, 4, 0, 2, 3])
         M_known = np.array(

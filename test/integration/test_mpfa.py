@@ -9,6 +9,8 @@ import random
 import numpy as np
 import unittest
 
+import porepy as pp
+
 from porepy.grids import structured
 from porepy.params import tensor, bc
 from porepy.numerics.fv import mpfa

@@ -106,21 +106,32 @@ def main(kf, description, multi_point, if_export=False):
     # Assign parameters
     add_data(gb, domain, kf, mesh_size)
 
-    # Choose discretization and define the solver
-    if multi_point:
-        solver = pp.MpfaMixedDim("flow")
-    else:
-        solver = pp.TpfaMixedDim("flow")
+    key = "flow"
+    discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
+    for g, d in gb:
+        # Choose discretization and define the solver
+        if multi_point:
+            discr = pp.Mpfa(key)
+        else:
+            discr = pp.Tpfa(key)
+
+        d[discretization_key] = discr
+
+    for _, d in gb.edges():
+        d[discretization_key] = pp.RobinCoupling(key)
+
+    assembler = pp.EllipticAssembler(key)
 
     # Discretize
-    A, b = solver.matrix_rhs(gb)
+    A, b = assembler.assemble_matrix_rhs(gb)
 
     # Solve the linear system
     p = sps.linalg.spsolve(A, b)
 
     # Store the solution
     gb.add_node_props(["pressure"])
-    solver.split(gb, "pressure", p)
+    assembler.split(gb, "pressure", p)
 
     if if_export:
         save = pp.Exporter(gb, "fv", folder="fv_" + description)

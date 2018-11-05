@@ -11,7 +11,7 @@ class TestSource(unittest.TestCase):
     def test_integral(self):
         g, d = setup_3d_grid()
         src_disc = source.Integral()
-        lhs, rhs = src_disc.matrix_rhs(g, d)
+        lhs, rhs = src_disc.assemble_matrix_rhs(g, d)
 
         rhs_t = np.array([0, 0, 0, 0, 1, 0, 0, 0])
         self.assertTrue(src_disc.ndof(g) == g.num_cells)

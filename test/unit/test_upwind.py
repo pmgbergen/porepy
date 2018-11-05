@@ -6,7 +6,7 @@ from porepy.grids import structured, simplex
 import porepy.utils.comp_geom as cg
 from porepy.params.bc import BoundaryCondition
 from porepy.params.data import Parameters
-from porepy.numerics.fv.transport import upwind
+from porepy.numerics.fv import upwind
 
 # ------------------------------------------------------------------------------#
 
@@ -28,7 +28,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[2, 0, 0], [-2, 2, 0], [0, -2, 0]])
@@ -54,7 +54,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[0, -2, 0], [0, 2, -2], [0, 0, 2]])
@@ -80,7 +80,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = np.array(
@@ -116,7 +116,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = np.array(
@@ -151,7 +151,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[1, -1, 0, 0], [0, 1, 0, 0], [0, 0, 0, -1], [-1, 0, 0, 1]])
@@ -177,7 +177,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[1, 0, 0, -1], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, -1, 1]])
@@ -203,7 +203,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = 0.25 * np.array(
@@ -241,7 +241,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = 0.25 * np.array(
@@ -281,7 +281,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[1, 0, 0], [-1, 1, 0], [0, -1, 0]])
@@ -309,7 +309,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[0, -1, 0], [0, 1, -1], [0, 0, 1]])
@@ -337,7 +337,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = 0.5 * np.array(
@@ -375,7 +375,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = 0.5 * np.array(
@@ -413,7 +413,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[1, -1, 0, 0], [0, 1, 0, 0], [0, 0, 0, -1], [-1, 0, 0, 1]])
@@ -441,7 +441,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc(solver, bc)
 
         data = {"param": param, "discharge": dis}
-        M = solver.matrix_rhs(g, data)[0].todense()
+        M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[1, 0, 0, -1], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, -1, 1]])
@@ -469,7 +469,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc_val(solver, bc_val)
 
         data = {"param": param, "discharge": dis}
-        M, rhs = solver.matrix_rhs(g, data)
+        M, rhs = solver.assemble_matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[2, -2, 0], [0, 2, -2], [0, 0, 2]])
@@ -499,7 +499,7 @@ class BasicsTest(unittest.TestCase):
         param.set_bc_val(solver, bc_val)
 
         data = {"param": param, "discharge": dis}
-        M, rhs = solver.matrix_rhs(g, data)
+        M, rhs = solver.assemble_matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)
 
         M_known = np.array([[0, -2, 0], [0, 2, -2], [0, 0, 2]])

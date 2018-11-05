@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
 from porepy.numerics.fv import mpfa, mpsa, fvutils
 from porepy.params.tensor import SecondOrderTensor as PermTensor
 from porepy.params.tensor import FourthOrderTensor as StiffnessTensor
@@ -120,9 +121,6 @@ class TestPartialMPFA(unittest.TestCase):
         self.assertTrue((flux_full - flux).min() > -1e-8)
         self.assertTrue((bound_flux - bound_flux_full).max() < 1e-8)
         self.assertTrue((bound_flux - bound_flux_full).min() > -1e-8)
-
-    if __name__ == "__main__":
-        unittest.main()
 
 
 class TestPartialMPSA(unittest.TestCase):
