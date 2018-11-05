@@ -77,6 +77,7 @@ from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
 
 # Fractures
 from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
+
 # Parameters
 from porepy.params.bc import (
     BoundaryCondition,

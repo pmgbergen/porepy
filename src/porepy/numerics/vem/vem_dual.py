@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------#
 
+
 class DualMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
     def __init__(self, physics="flow"):
         raise NotImplementedError("Abstract class")
@@ -86,6 +87,7 @@ class DualMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
                     u_e += sign * g_m.mortar_to_high_int() * d_e[mortar_key]
 
             d[P0u] = self.discr.project_u(g, u_e + d[u], d)
+
 
 # ------------------------------------------------------------------------------#
 
