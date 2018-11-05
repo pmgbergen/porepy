@@ -20,6 +20,8 @@ import scipy.sparse.linalg
 import unittest
 from math import pi
 
+import porepy as pp
+
 from porepy.grids import structured, simplex
 from porepy.params import tensor, bc
 from porepy.numerics.fv import mpfa, fvutils, mpsa

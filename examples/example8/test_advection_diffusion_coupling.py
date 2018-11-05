@@ -1,21 +1,14 @@
 import numpy as np
 import scipy.sparse as sps
 import os
-import sys
+import porepy as pp
 
 from porepy.viz import exporter
 from porepy.fracs import importer
 
-from porepy.params import tensor
-from porepy.grids import structured
 
-from porepy.numerics.mixed_dim import coupler
 from porepy.numerics.vem import vem_dual, vem_source
-from porepy.numerics.fv.transport import upwind
-from porepy.numerics.fv import tpfa
-
-from porepy.params.bc import BoundaryCondition
-from porepy.params.data import Parameters
+from porepy.numerics.fv import tpfa, upwind
 
 
 # ------------------------------------------------------------------------------#
@@ -26,10 +19,10 @@ def add_data_darcy(gb, domain, tol):
 
     kf = 1e-4
     for g, d in gb:
-        param = Parameters(g)
+        param = pp.Parameters(g)
 
         kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
-        perm = tensor.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(g.dim, kxx)
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))
@@ -56,10 +49,10 @@ def add_data_darcy(gb, domain, tol):
             bc_dir = bound_faces[boundary]
             bc_val[bc_dir] = np.sum(g.face_centers[:, bc_dir], axis=0) * aperture
 
-            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("flow", bc_val)
         else:
-            param.set_bc("flow", BoundaryCondition(g, np.empty(0), np.empty(0)))
+            param.set_bc("flow", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
 
         d["param"] = param
 
@@ -85,7 +78,7 @@ def add_data_advection_diffusion(gb, domain, tol):
         param = d["param"]
 
         kxx = 5 * 1e-2 * np.ones(g.num_cells)
-        perm = tensor.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(g.dim, kxx)
         param.set_tensor("transport", perm)
 
         # The 0.5 needs to be fixed in a better way
@@ -108,19 +101,18 @@ def add_data_advection_diffusion(gb, domain, tol):
             labels[boundary] = ["dir"]
 
             bc_val = np.zeros(g.num_faces)
-            bc_dir = bound_faces[boundary]
 
-            param.set_bc("transport", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("transport", pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("transport", bc_val)
         else:
-            param.set_bc("transport", BoundaryCondition(g, np.empty(0), np.empty(0)))
+            param.set_bc("transport", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
 
     # Assign coupling discharge
     gb.add_edge_props("param")
     for e, d in gb.edges():
         g_h = gb.nodes_of_edge(e)[1]
         discharge = gb.node_props(g_h)["discharge"]
-        d["param"] = Parameters(g_h)
+        d["param"] = pp.Parameters(g_h)
         d["discharge"] = discharge
 
 
@@ -142,7 +134,7 @@ gb.assign_node_ordering()
 add_data_darcy(gb, domain, tol)
 
 # Choose and define the solvers and coupler
-darcy = vem_dual.DualVEMMixedDim("flow")
+darcy = vem_dual._DualVEMMixedDim("flow")
 A_flow, b_flow = darcy.matrix_rhs(gb)
 
 solver_source = vem_source.DualSourceMixedDim("flow", coupling=[None])

@@ -68,11 +68,22 @@ class BasicsTest(unittest.TestCase):
         gb = setup_2d_1d(np.array([10, 10]))
 
         # Python inverter is most efficient for small problems
-        flux_discr = pp.TpfaMixedDim("flow")
-        A, rhs = flux_discr.matrix_rhs(gb)
-        p = np.linalg.solve(A.A, rhs)
+        key = "flow"
+        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
 
-        flux_discr.solver.split(gb, "pressure", p)
+        tpfa = pp.Tpfa(key)
+        for g, d in gb:
+            d[discretization_key] = tpfa
+
+        for _, d in gb.edges():
+            d[discretization_key] = pp.RobinCoupling(key, tpfa)
+
+        assembler = pp.EllipticAssembler(key)
+
+        # Discretize
+        A, b = assembler.assemble_matrix_rhs(gb)
+        p = np.linalg.solve(A.A, b)
+        assembler.split(gb, "pressure", p)
 
         self.assertTrue(check_pressures(gb))
 
@@ -81,12 +92,22 @@ class BasicsTest(unittest.TestCase):
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
 
         # Python inverter is most efficient for small problems
-        flux_discr = pp.TpfaMixedDim("flow")
-        A, rhs = flux_discr.matrix_rhs(gb)
-        p = np.linalg.solve(A.A, rhs)
+        key = "flow"
+        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
 
-        flux_discr.solver.split(gb, "pressure", p)
+        tpfa = pp.Tpfa(key)
+        for g, d in gb:
+            d[discretization_key] = tpfa
 
+        for _, d in gb.edges():
+            d[discretization_key] = pp.RobinCoupling(key, tpfa)
+
+        assembler = pp.EllipticAssembler(key)
+
+        # Discretize
+        A, b = assembler.assemble_matrix_rhs(gb)
+        p = np.linalg.solve(A.A, b)
+        assembler.split(gb, "pressure", p)
         self.assertTrue(check_pressures(gb))
 
 

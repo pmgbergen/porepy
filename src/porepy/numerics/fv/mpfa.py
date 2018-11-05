@@ -38,6 +38,7 @@ class Mpfa(FVElliptic):
         The following parameters will be accessed:
         get_tensor : SecondOrderTensor. Permeability defined cell-wise.
         get_bc : boundary conditions
+        get_robin_weight : float. Weight for pressure in Robin condition
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
@@ -52,13 +53,12 @@ class Mpfa(FVElliptic):
         eta = data.get("mpfa_eta", None)
 
         trm, bound_flux, bp_cell, bp_face = self.mpfa(
-            g, k, bnd, eta=eta, apertures=a, robin_weight=robin_weight
+            g, k, bnd, eta=eta, apertures=a
         )
         data[self._key() + "flux"] = trm
         data[self._key() + "bound_flux"] = bound_flux
         data[self._key() + "bound_pressure_cell"] = bp_cell
         data[self._key() + "bound_pressure_face"] = bp_face
-
 
     def mpfa(self, g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, **kwargs):
         """
@@ -305,6 +305,7 @@ class Mpfa(FVElliptic):
             sub_g, loc_k, loc_bnd, eta=eta, inverter=inverter, apertures=apertures
         )
 
+
         # Map to global indices
         face_map, cell_map = fvutils.map_subgrid_to_grid(
             g, l2g_faces, l2g_cells, is_vector=False
@@ -332,7 +333,7 @@ class Mpfa(FVElliptic):
 
 
     def _local_discr(self, g, k, bnd, eta=None, inverter="numba", apertures=None):
-     """
+        """
         Actual implementation of the MPFA O-method. To calculate MPFA on a grid
         directly, either call this method, or, to respect the privacy of this
         method, the main mpfa method with no memory constraints.
@@ -367,8 +368,9 @@ class Mpfa(FVElliptic):
         Neumann conditions will have a non-zero right hand side for (i), while
         Dirichlet gives a right hand side for (iii).
         """
-     if eta is None:
-        eta = fvutils.determine_eta(g)
+
+        if eta is None:
+           eta = fvutils.determine_eta(g)
 
         # The method reduces to the more efficient TPFA in one dimension, so that
         # method may be called. In 0D, there is no internal discretization to be
@@ -958,4 +960,3 @@ class Mpfa(FVElliptic):
         rhs_bound = sps.vstack([neu_rob_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
 
         return rhs_bound
-        

@@ -21,12 +21,12 @@ class BasicsTest(unittest.TestCase):
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
 
-        solver = pp.RT0(physics="flow")
+        solver = pp.RT0(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         M_known = np.matrix(
             [
@@ -53,12 +53,12 @@ class BasicsTest(unittest.TestCase):
         perm = pp.SecondOrderTensor(3, kxx, kyy=1, kzz=1)
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(physics="flow")
+        solver = pp.RT0(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         M_known = np.matrix(
             [
@@ -96,12 +96,12 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(physics="flow")
+        solver = pp.RT0(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -127,12 +127,12 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(physics="flow")
+        solver = pp.RT0(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -242,12 +242,12 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(physics="flow")
+        solver = pp.RT0(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -286,12 +286,12 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(physics="flow")
+        solver = pp.RT0(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
         M_known = np.matrix(
             [
                 [0.53333333, 0.03333333, -0.13333333, -0.13333333, -1.],
@@ -317,12 +317,12 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(physics="flow")
+        solver = pp.RT0(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
         M_known = matrix_for_test_rt0_3d()
 
         self.assertTrue(np.allclose(M, M.T))
@@ -342,12 +342,12 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(physics="flow")
+        solver = pp.RT0(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -379,12 +379,12 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(physics="flow")
+        solver = pp.RT0(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -423,12 +423,12 @@ class BasicsTest(unittest.TestCase):
 
         bf = g.get_boundary_faces()
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
-        solver = pp.RT0(physics="flow")
+        solver = pp.RT0(keyword="flow")
 
         param = pp.Parameters(g)
         param.set_tensor(solver, perm)
         param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        M = solver.assemble_matrix(g, {"param": param}).todense()
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
@@ -464,16 +464,16 @@ class BasicsTest(unittest.TestCase):
             bc_val = np.zeros(g.num_faces)
             bc_val[bf] = p_ex(g.face_centers[:, bf])
 
-            solver = pp.RT0(physics="flow")
+            solver = pp.RT0(keyword="flow")
 
             param = pp.Parameters(g)
             param.set_tensor(solver, perm)
             param.set_bc(solver, bc)
             param.set_bc_val(solver, bc_val)
-            M, rhs = solver.matrix_rhs(g, {"param": param})
+            M, rhs = solver.assemble_matrix_rhs(g, {"param": param})
 
             up = sps.linalg.spsolve(M, rhs)
-            p = solver.extract_p(g, up)
+            p = solver.extract_pressure(g, up)
             err = np.sum(np.abs(p - p_ex(g.cell_centers)))
 
             self.assertTrue(np.isclose(err, 0))
@@ -510,7 +510,7 @@ class BasicsTest(unittest.TestCase):
             bc_val[bf] = p_ex(g.face_centers[:, bf])
             source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
 
-            solver = pp.RT0(physics="flow")
+            solver = pp.RT0(keyword="flow")
             solver_rhs = pp.DualSource(physics="flow")
 
             param = pp.Parameters(g)
@@ -523,7 +523,7 @@ class BasicsTest(unittest.TestCase):
             _, rhs = solver_rhs.assemble_matrix_rhs(g, {"param": param})
 
             up = sps.linalg.spsolve(M, rhs_bc + rhs)
-            p = solver.extract_p(g, up)
+            p = solver.extract_pressure(g, up)
             err = np.sqrt(
                 np.sum(
                     np.multiply(g.cell_volumes, np.power(p - p_ex(g.cell_centers), 2))
@@ -565,7 +565,7 @@ class BasicsTest(unittest.TestCase):
             bc_val[bf] = p_ex(g.face_centers[:, bf])
             source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
 
-            solver = pp.RT0(physics="flow")
+            solver = pp.RT0(keyword="flow")
             solver_rhs = pp.DualSource(physics="flow")
 
             param = pp.Parameters(g)
@@ -578,7 +578,7 @@ class BasicsTest(unittest.TestCase):
             _, rhs = solver_rhs.assemble_matrix_rhs(g, {"param": param})
 
             up = sps.linalg.spsolve(M, rhs_bc + rhs)
-            p = solver.extract_p(g, up)
+            p = solver.extract_pressure(g, up)
             err = np.sqrt(
                 np.sum(
                     np.multiply(g.cell_volumes, np.power(p - p_ex(g.cell_centers), 2))

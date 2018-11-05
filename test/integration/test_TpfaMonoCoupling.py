@@ -32,15 +32,24 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             bc_val[left] = xmax
             bc_val[right] = 0
             d["param"].set_bc_val("flow", bc_val)
+        # assign discretization
+        key = "flow"
+        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
 
-        flow_disc = pp.TpfaMixedDim()
+        tpfa = pp.Tpfa(key)
+        for g, d in gb:
+            d[discretization_key] = tpfa
 
-        A, b = flow_disc.matrix_rhs(gb)
+        for _, d in gb.edges():
+            d[discretization_key] = pp.FluxPressureContinuity(key, tpfa)
+
+        assembler = pp.EllipticAssembler(key)
+
+        A, b = assembler.assemble_matrix_rhs(gb)
 
         x = sps.linalg.spsolve(A, b)
 
-        flow_disc.split(gb, "pressure", x)
-
+        assembler.split(gb, "pressure", x)
         # test pressure
         for g, d in gb:
             self.assertTrue(np.allclose(d["pressure"], xmax - g.cell_centers[0]))
@@ -49,14 +58,14 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         for e, d_e in gb.edges():
             mg = d_e["mortar_grid"]
             g2, g1 = gb.nodes_of_edge(e)
-            left_to_m = mg.left_to_mortar_avg()
-            right_to_m = mg.right_to_mortar_avg()
+            master_to_m = mg.master_to_mortar_avg()
+            slave_to_m = mg.slave_to_mortar_avg()
 
-            left_area = left_to_m * g1.face_areas
-            right_area = right_to_m * g2.face_areas
+            master_area = master_to_m * g1.face_areas
+            slave_area = slave_to_m * g2.face_areas
 
-            self.assertTrue(np.allclose(d_e["mortar_solution"] / left_area, 1))
-            self.assertTrue(np.allclose(d_e["mortar_solution"] / right_area, 1))
+            self.assertTrue(np.allclose(d_e["mortar_solution"] / master_area, 1))
+            self.assertTrue(np.allclose(d_e["mortar_solution"] / slave_area, 1))
 
     def generate_grids(self, n, xmax, ymax, split):
         g1 = pp.CartGrid([split * n, ymax * n], physdims=[split, ymax])
@@ -238,28 +247,49 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         self.solve(gb, analytic_p)
 
     def solve(self, gb, analytic_p):
-        flow_disc = pp.TpfaMixedDim()
-        source_disc = pp.IntegralMixedDim(coupling=[None])
+        flux_key = "flux"
+        src_key = "src"
+        flux_disc = flux_key + "_" + pp.keywords.DISCRETIZATION
+        src_disc = src_key + "_" + pp.keywords.DISCRETIZATION
+        # we need to specify physics because of legacy. Should change when
+        # parameter class is updated
+        tpfa = pp.Tpfa(flux_key, "flow")
+        src = pp.Integral(src_key, "flow")
+        for g, d in gb:
+            d[flux_disc] = tpfa
+            d[src_disc] = src
+            d[pp.keywords.PRIMARY_VARIABLES] = {src_key: {"cells": 1}}
 
-        _, src = source_disc.matrix_rhs(gb)
+        for e, d in gb.edges():
+            g1, g2 = gb.nodes_of_edge(e)
+            d[pp.keywords.PRIMARY_VARIABLES] = {src_key: {"cells": 1}}
+            if g1.dim == g2.dim:
+                d[flux_disc] = pp.FluxPressureContinuity(flux_key, tpfa)
+            else:
+                d[flux_disc] = pp.RobinCoupling(flux_key, tpfa)
 
-        A, b = flow_disc.matrix_rhs(gb)
-        x = sps.linalg.spsolve(A, b + src)
+        flux_assembler = pp.EllipticAssembler(flux_key)
+        src_assembler = pp.Assembler()
+        A, b = flux_assembler.assemble_matrix_rhs(gb)
 
-        flow_disc.split(gb, "pressure", x)
+        _, src_term = src_assembler.assemble_matrix_rhs(gb, variables=src_key)
+        x = sps.linalg.spsolve(A, b + src_term)
+
+        flux_assembler.split(gb, "pressure", x)
         # test pressure
         for g, d in gb:
             ap, _, _ = analytic_p(g.cell_centers)
             self.assertTrue(np.max(np.abs(d["pressure"] - ap)) < 5e-2)
 
         # test mortar solution
+        bnd_flx_key = flux_key + "_bound_flux"
         for e, d_e in gb.edges():
             mg = d_e["mortar_grid"]
-            g2, g1 = gb.nodes_of_edge(e)
-            try:
-                left_to_m = mg.left_to_mortar_avg()
-                right_to_m = mg.right_to_mortar_avg()
-            except AttributeError:
+            g1, g2 = gb.nodes_of_edge(e)
+            if g1 == g2:
+                left_to_m = mg.master_to_mortar_avg()
+                right_to_m = mg.slave_to_mortar_avg()
+            else:
                 continue
             d1 = gb.node_props(g1)
             d2 = gb.node_props(g2)
@@ -268,12 +298,11 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             # the aperture is assumed constant
             a1 = np.max(d1["param"].aperture)
             left_flux = a1 * np.sum(analytic_flux * g1.face_normals[:2], 0)
-            left_flux = left_to_m * (d1["bound_flux"] * left_flux)
+            left_flux = left_to_m * (d1[bnd_flx_key] * left_flux)
             # right flux is negative lambda
             a2 = np.max(d2["param"].aperture)
             right_flux = a2 * np.sum(analytic_flux * g2.face_normals[:2], 0)
-            right_flux = -right_to_m * (d2["bound_flux"] * right_flux)
-
+            right_flux = -right_to_m * (d2[bnd_flx_key] * right_flux)
             self.assertTrue(np.max(np.abs(d_e["mortar_solution"] - left_flux)) < 5e-2)
             self.assertTrue(np.max(np.abs(d_e["mortar_solution"] - right_flux)) < 5e-2)
 
@@ -283,7 +312,6 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         gb = pp.GridBucket()
 
         gb.add_nodes(g1)
-
         tol = 1e-6
         left_faces = np.argwhere(g1.face_centers[1] > ymax - tol).ravel()
         right_faces = np.argwhere(g1.face_centers[1] < 0 + tol).ravel()

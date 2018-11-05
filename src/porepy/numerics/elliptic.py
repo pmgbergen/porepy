@@ -10,14 +10,7 @@ import scipy.sparse.linalg as spl
 import time
 import logging
 
-from porepy.numerics.fv import tpfa, source, fvutils
-from porepy.numerics.vem import vem_dual, vem_source
-from porepy.numerics.linalg.linsolve import Factory as LSFactory
-from porepy.grids.grid_bucket import GridBucket
-from porepy.params import bc, tensor
-from porepy.params.data import Parameters
-from porepy.viz.exporter import Exporter
-
+import porepy as pp
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -67,7 +60,7 @@ class EllipticModel:
     def __init__(self, gb, data=None, physics="flow", **kwargs):
         self.physics = physics
         self._gb = gb
-        self.is_GridBucket = isinstance(self._gb, GridBucket)
+        self.is_GridBucket = isinstance(self._gb, pp.GridBucket)
         self._data = data
 
         self.lhs = []
@@ -80,7 +73,7 @@ class EllipticModel:
 
         tic = time.time()
         logger.info("Create exporter")
-        self.exporter = Exporter(self._gb, file_name, folder_name, **mesh_kw)
+        self.exporter = pp.Exporter(self._gb, file_name, folder_name, **mesh_kw)
         logger.info("Elapsed time: " + str(time.time() - tic))
 
         self._flux_disc = self.flux_disc()
@@ -123,7 +116,7 @@ class EllipticModel:
 
         # Solve
         tic = time.time()
-        ls = LSFactory()
+        ls = pp.numerics.linalg.linsolve.Factory()
         if self.rhs.size < max_direct:
             logger.warning("Solve linear system using direct solver")
             self.x = ls.direct(self.lhs, self.rhs)
@@ -165,21 +158,35 @@ class EllipticModel:
 
     def source_disc(self):
         if self.is_GridBucket:
-            return source.IntegralMixedDim(physics=self.physics, coupling=[None])
+            return pp.IntegralMixedDim(physics=self.physics, coupling=[None])
         else:
-            return source.Integral(physics=self.physics)
+            return pp.Integral(keyword=self.physics)
 
     def flux_disc(self):
         if self.is_GridBucket:
-            return tpfa.TpfaMixedDim(physics=self.physics)
+
+            key = self.physics
+            discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
+            tpfa = pp.Tpfa(key)
+            for g, d in self._gb:
+                # Choose discretization and define the solver
+                d[discretization_key] = tpfa
+
+            for _, d in self._gb.edges():
+                d[discretization_key] = pp.RobinCoupling(key, tpfa)
+
+            assembler = pp.EllipticAssembler(key)
+
+            return assembler
         else:
-            return tpfa.Tpfa(physics=self.physics)
+            return pp.Tpfa(keyword=self.physics)
 
     def _discretize(self, discr):
         if self.is_GridBucket:
-            return discr.matrix_rhs(self.grid())
+            return discr.assemble_matrix_rhs(self.grid())
         else:
-            return discr.matrix_rhs(self.grid(), self.data())
+            return discr.assemble_matrix_rhs(self.grid(), self.data())
 
     def grid(self):
         return self._gb
@@ -200,11 +207,11 @@ class EllipticModel:
 
     def discharge(self, discharge_name="discharge"):
         if self.is_GridBucket:
-            fvutils.compute_discharges(
+            pp.numerics.fv.fvutils.compute_discharges(
                 self.grid(), self.physics, p_name=self.pressure_name
             )
         else:
-            fvutils.compute_discharges(
+            pp.numerics.fv.fvutils.compute_discharges(
                 self.grid(),
                 self.physics,
                 discharge_name,
@@ -285,7 +292,7 @@ class EllipticModel:
         all_ind = np.arange(self.rhs.size)
         not_ind = [np.setdiff1d(all_ind, i) for i in ind]
 
-        factory = LSFactory()
+        factory = pp.numerics.linalg.linsolve.Factory()
         num_mat = len(mat)
         solvers = np.empty(num_mat, dtype=np.object)
         for i, A in enumerate(mat):
@@ -303,7 +310,7 @@ class EllipticModel:
 
     def _obtain_submatrix(self):
 
-        if isinstance(self.grid(), GridBucket):
+        if isinstance(self.grid(), pp.GridBucket):
             gb = self.grid()
             fd = self.flux_disc()
             mat = []
@@ -330,15 +337,29 @@ class DualEllipticModel(EllipticModel):
 
     def source_disc(self):
         if self.is_GridBucket:
-            return vem_source.DualSourceMixedDim(physics=self.physics, coupling=[None])
+            return pp.DualSourceMixedDim(physics=self.physics, coupling=[None])
         else:
-            return vem_source.DualSource(physics=self.physics)
+            return pp.DualSource(physics=self.physics)
 
     def flux_disc(self):
         if self.is_GridBucket:
-            return vem_dual.DualVEMMixedDim(physics=self.physics)
+
+            key = self.physics
+            discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
+            dual_vem = pp.DualVEM(key)
+            for g, d in self._gb:
+                # Choose discretization and define the solver
+                d[discretization_key] = dual_vem
+
+            for _, d in self._gb.edges():
+                d[discretization_key] = pp.RobinCoupling(key, dual_vem)
+
+            assembler = pp.EllipticAssembler(key)
+
+            return assembler
         else:
-            return vem_dual.DualVEM(physics=self.physics)
+            return pp.DualVEM(keyword=self.physics)
 
     def solve(self):
         """ Discretize and solve linear system by a direct solver.
@@ -347,7 +368,7 @@ class DualEllipticModel(EllipticModel):
         other block solvers are needed. TODO.
 
         """
-        ls = LSFactory()
+        ls = pp.numerics.linalg.linsolve.Factory()
         lhs, rhs = self.reassemble()
 
         import scipy.io as sps_io
@@ -360,22 +381,22 @@ class DualEllipticModel(EllipticModel):
     def pressure(self, pressure_name="pressure"):
         self.pressure_name = pressure_name
         if self.is_GridBucket:
-            self._flux_disc.extract_p(self._gb, self.x_name, self.pressure_name)
+            self._flux_disc.extract_pressure(self._gb, self.x_name, self.pressure_name)
         else:
-            pressure = self._flux_disc.extract_p(self._gb, self.x)
+            pressure = self._flux_disc.extract_pressure(self._gb, self.x)
             self._data[self.pressure_name] = pressure
 
     def discharge(self, discharge_name="discharge"):
         self.discharge_name = discharge_name
         if self.is_GridBucket:
-            self._flux_disc.extract_u(self._gb, self.x_name, self.discharge_name)
+            self._flux_disc.extract_flux(self._gb, self.x_name, self.discharge_name)
 
             for e, d in self._gb.edges():
                 g_h = self._gb.nodes_of_edge(e)[1]
                 d[discharge_name] = self._gb.node_props(g_h, discharge_name)
 
         else:
-            discharge = self._flux_disc.extract_u(self._gb, self.x)
+            discharge = self._flux_disc.extract_flux(self._gb, self.x)
             self._data[self.discharge_name] = discharge
 
     def project_discharge(self, projected_discharge_name="P0u"):
@@ -388,7 +409,7 @@ class DualEllipticModel(EllipticModel):
             )
         else:
             discharge = self._data[self.discharge_name]
-            projected_discharge = self._flux_disc.project_u(
+            projected_discharge = self._flux_disc.project_flux(
                 self._gb, discharge, self._data
             )
             self._data[self.projected_discharge_name] = projected_discharge
@@ -441,7 +462,7 @@ class EllipticDataAssigner:
         self._set_data()
 
     def bc(self):
-        return bc.BoundaryCondition(self.grid())
+        return pp.BoundaryCondition(self.grid())
 
     def bc_val(self):
         return np.zeros(self.grid().num_faces)
@@ -458,7 +479,7 @@ class EllipticDataAssigner:
 
     def permeability(self):
         kxx = np.ones(self.grid().num_cells)
-        return tensor.SecondOrderTensor(self.grid().dim, kxx)
+        return pp.SecondOrderTensor(self.grid().dim, kxx)
 
     def source(self):
         return np.zeros(self.grid().num_cells)
@@ -471,7 +492,7 @@ class EllipticDataAssigner:
 
     def _set_data(self):
         if "param" not in self._data:
-            self._data["param"] = Parameters(self.grid())
+            self._data["param"] = pp.Parameters(self.grid())
         self._data["param"].set_tensor(self.physics, self.permeability())
         self._data["param"].set_bc(self.physics, self.bc())
         self._data["param"].set_bc_val(self.physics, self.bc_val())

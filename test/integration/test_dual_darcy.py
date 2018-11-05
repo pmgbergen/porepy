@@ -193,7 +193,7 @@ def setup_3d(nx, simplex_grid=False):
     for e, d in gb.edges():
         g = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
+        check_P = mg.slave_to_mortar_avg()
         d["kn"] = 1 / (check_P * gb.node_props(g, "param").get_aperture())
 
     return gb
@@ -240,7 +240,7 @@ def setup_2d_1d(nx, simplex_grid=False):
     for e, d in gb.edges():
         g = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
+        check_P = mg.slave_to_mortar_avg()
         d["kn"] = 1 / (check_P * gb.node_props(g, "param").get_aperture())
 
     return gb

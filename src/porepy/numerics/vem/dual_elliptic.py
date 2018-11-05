@@ -141,6 +141,7 @@ class DualElliptic(
             return M, norm
         return M
 
+
     def assemble_rhs(self, g, data, bc_weight=1):
         """
         Return the righ-hand side for a discretization of a second order elliptic
@@ -192,11 +193,49 @@ class DualElliptic(
             is_rob = np.where(is_rob)[0]
             rhs[is_rob] += -sign[is_rob] * bc_val[is_rob] / bc.robin_weight[is_rob]
 
+
         if np.any(is_neu):
             is_neu = np.where(is_neu)[0]
             rhs[is_neu] = sign[is_neu] * bc_weight * bc_val[is_neu]
 
         return rhs
+
+    def _assemble_neumann_common(self, g, data, M, mass, bc_weight=None):
+        """ Impose Neumann boundary discretization on an already assembled
+        system matrix.
+
+        Common implementation for VEM and RT0. The parameter mass should be
+        adapted to the discretization method in question
+
+        """
+
+        norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
+
+        param = data["param"]
+        bc = param.get_bc(self)
+
+        # assign the Neumann boundary conditions
+        # For dual discretizations, internal boundaries
+        # are handled by assigning Dirichlet conditions. THus, we remove them
+        # from the is_neu (where they belong by default) and add them in
+        # is_dir.
+        is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
+        if bc and np.any(is_neu):
+            is_neu = np.hstack((is_neu, np.zeros(g.num_cells, dtype=np.bool)))
+            is_neu = np.where(is_neu)[0]
+
+            # set in an efficient way the essential boundary conditions, by
+            # clear the rows and put norm in the diagonal
+            for row in is_neu:
+                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
+
+            d = M.diagonal()
+            d[is_neu] = norm
+            M.setdiag(d)
+
+        if bc_weight:
+            return M, norm
+        return M
 
     def _velocity_dof(self, g, g_m):
         # Recover the information for the grid-grid mapping

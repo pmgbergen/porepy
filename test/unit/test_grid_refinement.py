@@ -306,10 +306,10 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
             mg = d["mortar_grid"]
             self.assertTrue(
-                np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+                np.allclose(high_to_mortar_known, mg.master_to_mortar_int.todense())
             )
             self.assertTrue(
-                np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
+                np.allclose(low_to_mortar_known, mg.slave_to_mortar_int.todense())
             )
 
     # ------------------------------------------------------------------------------#
@@ -356,10 +356,10 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
             self.assertTrue(
-                np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+                np.allclose(high_to_mortar_known, mg.master_to_mortar_int.todense())
             )
             self.assertTrue(
-                np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
+                np.allclose(low_to_mortar_known, mg.slave_to_mortar_int.todense())
             )
 
     # ------------------------------------------------------------------------------#
@@ -421,10 +421,10 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
             self.assertTrue(
-                np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+                np.allclose(high_to_mortar_known, mg.master_to_mortar_int.todense())
             )
             self.assertTrue(
-                np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense())
+                np.allclose(low_to_mortar_known, mg.slave_to_mortar_int.todense())
             )
 
     # ------------------------------------------------------------------------------#
@@ -470,16 +470,16 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
             self.assertTrue(
-                np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+                np.allclose(high_to_mortar_known, mg.master_to_mortar_int.todense())
             )
 
             # The ordering of the cells in the new 1d grid may be flipped on
             # some systems; therefore allow two configurations
             self.assertTrue(
                 np.logical_or(
-                    np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()),
+                    np.allclose(low_to_mortar_known, mg.slave_to_mortar_int.todense()),
                     np.allclose(
-                        low_to_mortar_known, mg.low_to_mortar_int.todense()[::-1]
+                        low_to_mortar_known, mg.slave_to_mortar_int.todense()[::-1]
                     ),
                 )
             )
@@ -523,15 +523,15 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
             self.assertTrue(
-                np.allclose(high_to_mortar_known, mg.high_to_mortar_int.todense())
+                np.allclose(high_to_mortar_known, mg.master_to_mortar_int.todense())
             )
             # The ordering of the cells in the new 1d grid may be flipped on
             # some systems; therefore allow two configurations
             self.assertTrue(
                 np.logical_or(
-                    np.allclose(low_to_mortar_known, mg.low_to_mortar_int.todense()),
+                    np.allclose(low_to_mortar_known, mg.slave_to_mortar_int.todense()),
                     np.allclose(
-                        low_to_mortar_known, mg.low_to_mortar_int.todense()[::-1]
+                        low_to_mortar_known, mg.slave_to_mortar_int.todense()[::-1]
                     ),
                 )
             )
@@ -552,7 +552,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
             mg = d["mortar_grid"]
             indices_known = np.array([0, 1, 2, 3, 4, 5, 6, 7])
             self.assertTrue(
-                np.array_equal(mg.high_to_mortar_int.indices, indices_known)
+                np.array_equal(mg.master_to_mortar_int.indices, indices_known)
             )
 
             indptr_known = np.array(
@@ -605,7 +605,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
             data_known = np.array([1., 1., 1., 1., 1., 1., 1., 1.])
-            self.assertTrue(np.array_equal(mg.high_to_mortar_int.data, data_known))
+            self.assertTrue(np.array_equal(mg.master_to_mortar_int.data, data_known))
 
             indices_known = np.array([0, 4, 1, 5, 2, 6, 3, 7])
             self.assertTrue(
@@ -613,10 +613,10 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
             indptr_known = np.array([0, 2, 4, 6, 8])
-            self.assertTrue(np.array_equal(mg.low_to_mortar_int.indptr, indptr_known))
+            self.assertTrue(np.array_equal(mg.slave_to_mortar_int.indptr, indptr_known))
 
             data_known = np.array([1., 1., 1., 1., 1., 1., 1., 1.])
-            self.assertTrue(np.array_equal(mg.low_to_mortar_int.data, data_known))
+            self.assertTrue(np.array_equal(mg.slave_to_mortar_int.data, data_known))
 
 
 if __name__ == "__main__":

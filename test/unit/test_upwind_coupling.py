@@ -1,5 +1,5 @@
 """
-Tests of class UpwindCoupling in module porepy.numerics.fv.transport.upwind
+Tests of class UpwindCoupling in module porepy.numerics.fv.upwind
 """
 import unittest
 import numpy as np
@@ -40,14 +40,14 @@ class TestUpwindCoupling(unittest.TestCase):
         d1 = gb.node_props(g1)
         de = gb.edge_props((g1, g2))
 
-        _, zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
+        zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
 
         lam = np.arange(de["mortar_grid"].num_cells)
-        de["mortar_solution"] = lam
-        upwind = pp.Upwind()
-        upwind_coupler = pp.numerics.fv.transport.upwind.UpwindCoupling(upwind)
+        de["flux_field"] = lam
 
-        matrix = upwind_coupler.matrix_rhs(zero_mat, g2, g1, d2, d1, de)
+        upwind_coupler = pp.UpwindCoupling("transport")
+
+        matrix = upwind_coupler.assemble_matrix(g2, g1, d2, d1, de, zero_mat)
 
         matrix_2 = np.array(
             [
@@ -85,14 +85,14 @@ class TestUpwindCoupling(unittest.TestCase):
         d1 = gb.node_props(g1)
         de = gb.edge_props((g1, g2))
 
-        _, zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
+        zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
 
         lam = np.arange(de["mortar_grid"].num_cells)
-        de["mortar_solution"] = -lam
-        upwind = pp.Upwind()
-        upwind_coupler = pp.numerics.fv.transport.upwind.UpwindCoupling(upwind)
+        de["flux_field"] = -lam
 
-        matrix = upwind_coupler.matrix_rhs(zero_mat, g2, g1, d2, d1, de)
+        upwind_coupler = pp.UpwindCoupling("transport")
+
+        matrix = upwind_coupler.assemble_matrix(g2, g1, d2, d1, de, zero_mat)
 
         matrix_2 = np.array(
             [

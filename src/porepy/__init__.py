@@ -48,9 +48,17 @@ from porepy.numerics.fem.rt0 import RT0
 from porepy.numerics.mixed_dim.elliptic_assembler import EllipticAssembler
 from porepy.numerics.interface_laws.elliptic_interface_laws import RobinCoupling
 
+# Mixed-dimensional discretizations and assemblers
+from porepy.numerics.mixed_dim.elliptic_assembler import EllipticAssembler
+from porepy.numerics.interface_laws.elliptic_interface_laws import (
+    RobinCoupling,
+    FluxPressureContinuity,
+)
+from porepy.numerics.mixed_dim.assembler import Assembler
 
 # Transport related
-from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim, UpwindCoupling
+from porepy.numerics.fv.upwind import Upwind
+from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
 from porepy.numerics.fv.mass_matrix import MassMatrix, MassMatrixMixedDim
 from porepy.numerics.fv.mass_matrix import InvMassMatrix, InvMassMatrixMixedDim
 
@@ -67,6 +75,8 @@ from porepy.numerics.fracture_deformation import (
     FrictionSlipDataAssigner,
 )
 
+from porepy.numerics import keywords
+
 # Time steppers
 from porepy.numerics.time_stepper import Implicit, Explicit
 
@@ -81,6 +91,7 @@ from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
 
 # Fractures
 from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
+from porepy.fracs.meshing import simplex_grid
 
 # Parameters
 from porepy.params.bc import (
@@ -95,7 +106,7 @@ from porepy.params.water import Water
 
 # Visualization
 from porepy.viz.exporter import Exporter
-from porepy.viz.plot_grid import plot_grid
+from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 # Modules
