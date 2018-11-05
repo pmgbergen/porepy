@@ -23,17 +23,53 @@ def main(file_geo, folder, data, mesh_args, tol):
 
 if __name__ == "__main__":
 
-    if False: # Algeroyna_2
-        file_geo = "Algeroyna_2.csv"
+    if False:
+        file_geo = "../networks/Algeroyna_2.csv"
         t_max = 1e5 * pp.SECOND
         mesh_args = {'mesh_size_frac': 0.0390625}
         tol = {"geo": 1e-3, "snap": 0.5*1e-3}
 
-    else: # Algeroyna_3
-        file_geo = "Algeroyna_3.csv"
+    elif False:
+        file_geo = "../networks/Algeroyna_3.csv"
         t_max = 1e7 * pp.SECOND
         mesh_args = {'mesh_size_frac': 0.3125}
         tol = {"geo": 1.25*1e-2, "snap": 0.6125*1e-2}
+
+    elif False:
+        file_geo = "../networks/Algeroyna_1to1_Points.csv"
+        t_max = 1e7 * pp.SECOND
+        mesh_args = {'mesh_size_frac': 0.0390625}
+        tol = {"geo": 1e-3, "snap": 0.5*1e-3}
+
+    elif False:
+        file_geo = "../networks/Algeroyna_1to1000_Points.csv"
+        t_max = 1e7 * pp.SECOND
+        mesh_args = {'mesh_size_frac': 10}
+        tol = {"geo": 1e-3, "snap": 0.5*1e-3}
+
+    elif True:
+        file_geo = "../networks/Algeroyna_1to10000_Points.csv"
+        t_max = 1e7 * pp.SECOND
+        mesh_args = {'mesh_size_frac': 100}
+        tol = {"geo": 1e-3, "snap": 0.5*1e-3}
+
+    elif False:
+        file_geo = "../networks/Vikso_1to10_Points.csv"
+        t_max = 1e5 * pp.SECOND #
+        mesh_args = {'mesh_size_frac': 0.2}
+        tol = {"geo": 1e-3, "snap": 0.5*1e-3}
+
+    elif False: # problems
+        file_geo = "../networks/Vikso_1to100_Points.csv"
+        t_max = 1e5 * pp.SECOND #
+        mesh_args = {'mesh_size_frac': 1}
+        tol = {"geo": 1e-3, "snap": 0.125*1e-4}
+
+    elif False:
+        file_geo = "../networks/Vikso_1to1000_Points.csv"
+        t_max = 1e5 * pp.SECOND #
+        mesh_args = {'mesh_size_frac': 10}
+        tol = {"geo": 0.5*1e-2, "snap": 0.0625*1e-2}
 
     folder = "solution"
 
