@@ -57,8 +57,9 @@ def pressure(gb, folder):
 def transport(gb, data, folder, adv_data_assigner, callback=None, save_every=1):
 
     physics = "transport"
+    field_name = "tracer"
     for g, d in gb:
-        d[physics + "_data"] = adv_data_assigner(g, d, data)
+        d[physics + "_data"] = adv_data_assigner(gb, field_name, g, d, data)
 
     # Assign coupling diffusivity
     gb.add_edge_props("kn")
@@ -77,10 +78,10 @@ def transport(gb, data, folder, adv_data_assigner, callback=None, save_every=1):
         time_step=data["dt"],
         end_time=data["t_max"],
         folder_name=folder,
-        file_name="tracer",
+        file_name=field_name,
         callback=callback,
     )
-    advective.solve("tracer", save_every=save_every)
+    advective.solve(field_name, save_every=save_every)
     return advective
 
 

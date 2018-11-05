@@ -54,7 +54,7 @@ def add_data(gb, data):
 
             bc_val = np.zeros(g.num_faces)
             bc_val[b_faces[b_left]] = 0 * pp.BAR
-            bc_val[b_faces[b_right]] = 2 * pp.BAR
+            bc_val[b_faces[b_right]] = 20 * pp.BAR
             param.set_bc_val("flow", bc_val)
         else:
             param.set_bc("flow", pp.BoundaryCondition(g, empty, empty))
@@ -77,7 +77,9 @@ def add_data(gb, data):
 
 
 class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
-    def __init__(self, g, data_grid, data_problem):
+    def __init__(self, gb, field_name, g, data_grid, data_problem):
+        self.gb = gb
+        self.field_name = field_name
         self.data_problem = data_problem
         self.tol = data_problem["tol"]
         self.domain = data_problem["domain"]
@@ -132,12 +134,29 @@ class AdvectiveDataAssigner(pp.ParabolicDataAssigner):
             labels[np.logical_or(self.inflow, self.outflow)] = 'dir'
         return pp.BoundaryCondition(self.grid(), b_faces, labels)
 
-    def bc_val(self, _):
+    def bc_val(self, t):
+        # we are assuming that the solution variable is split and saved on the grid
+        # bucket every step. we avoid the first one by assuming t_0 = 0.
+        if t > 0:
+            sol = self.gb.node_props(self.grid(), self.field_name)
+        else:
+            sol = 80*np.ones(self.grid().num_cells)
+
         bc_val = np.zeros(self.grid().num_faces)
         b_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size > 0:
-            bc_val[b_faces[self.inflow]] = 20
-            bc_val[b_faces[self.outflow]] = 80
+            f_inflow = b_faces[self.inflow]
+            bc_val[f_inflow] = 20
+
+            # reconstruct the cells on the outflow boundary, and then take the
+            # solution at previous time step and impose it as boundary condition
+            f_outflow = b_faces[self.outflow]
+            bc_val[f_outflow] = 80
+#            outflow = np.zeros(self.grid().num_faces, dtype=np.bool)
+#            outflow[f_outflow] = True
+#            c_outflow = np.where(self.grid().cell_faces.transpose()*outflow)[0]
+#            bc_val[f_outflow] = sol[c_outflow]
+#            print(sol[c_outflow])
         return bc_val
 
     def aperture(self):
