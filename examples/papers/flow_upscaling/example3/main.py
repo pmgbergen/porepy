@@ -2,7 +2,7 @@ import numpy as np
 import scipy.sparse as sps
 import porepy as pp
 
-from examples.papers.flow_upscaling.import_grid import grid, square_grid
+from examples.papers.flow_upscaling.import_grid import grid, square_grid, raw_from_csv
 
 def slice_out(f, m):
     return m.indices[m.indptr[f]: m.indptr[f+1]]
@@ -30,11 +30,7 @@ def set_data(gb, data):
         # Boundaries
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if b_faces.size != 0:
-            if g.dim == 2:
-                labels = ["dir"] * b_faces.size
-            else:
-                labels = ["neu"] * b_faces.size
-                print(b_faces)
+            labels = ["dir"] * b_faces.size
             param.set_bc("flow", pp.BoundaryCondition(g, b_faces, labels))
         else:
             param.set_bc("flow", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
@@ -49,41 +45,55 @@ def set_data(gb, data):
         check_P = mg.low_to_mortar_avg()
 
         aperture = gb.node_props(g_l, "param").get_aperture()
-        gamma = check_P * np.power(aperture, 1/(2.-g.dim))
+        gamma = check_P * np.power(aperture, 1./(2.-g.dim))
         d["kn"] = data["kf"] * np.ones(mg.num_cells) / gamma
 
 
-def set_boundary_conditions(gb, pts, pt, pt_others, tol):
+def set_boundary_conditions(gb, pts, pt, tol):
+
+    bd = np.array([[pt, (pt+1)%pts.shape[1], (pt+2)%pts.shape[1]],
+                   [pt, (pt-1)%pts.shape[1], (pt-2)%pts.shape[1]]])
+
+    dist = lambda i, j: np.linalg.norm(pts[:, bd[j, i]] - pts[:, bd[j, i+1]])
+    length = np.array([[dist(i, j) for i in np.arange(2)] for j in np.arange(2)])
+    sum_length = np.sum(length, axis=1)
 
     for g, d in gb:
-        if g.dim == 2:
-            # Boundaries
-            b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-            if b_faces.size != 0:
-                b_face_centers = g.face_centers[:, b_faces]
-                bc_val = np.zeros(g.num_faces)
-                start = pts[:, pt]
-                for pt_other in pt_others:
-                    end = pts[:, pt_other]
+        # Boundaries
+        b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        if b_faces.size != 0:
+            b_face_centers = g.face_centers[:, b_faces]
+            bc_val = np.zeros(g.num_faces)
+            for j in np.arange(2):
+                x_0 = np.array([0, length[j, 0]])
+                x_1 = np.array([length[j, 0], sum_length[j]])
+                y_0 = np.array([1, length[j, 0]/sum_length[j]])
+                y_1 = np.array([length[j, 0]/sum_length[j], 0])
+
+                for i in np.arange(2):
+                    start = pts[:, bd[j, i]]
+                    end = pts[:, bd[j, i+1]]
 
                     # detect all the points aligned with the segment
                     dist, _ = pp.cg.dist_points_segments(b_face_centers, start, end)
                     mask = np.where(np.logical_and(dist < tol, dist >=-tol))[0]
 
                     # compute the distance
-                    delta = b_face_centers[:, mask] - np.tile(start, (mask.size, 1)).T
-                    length = np.linalg.norm(start - end)
+                    delta = np.tile(start, (mask.size, 1)).T - b_face_centers[:, mask]
 
                     # define the boundary conditions
-                    bc_val[b_faces[mask]] = 1 - np.linalg.norm(delta, axis=0)/length
+                    val = (y_1[i] - y_0[i])/(x_1[i] - x_0[i])
+                    bc_val[b_faces[mask]] = np.linalg.norm(delta, axis=0)*val + y_0[i]
 
-                d["param"].set_bc_val("flow", bc_val)
+            d["param"].set_bc_val("flow", bc_val)
 
 
 if __name__ == "__main__":
-    file_geo = "network.csv"
+    #file_geo = "network.csv"
+    file_geo = "../example2/algeroyna_1to10.csv"
     folder = "solution"
-    tol = 1e-8
+    tol = 1e-3
+    tol_small = 1e-5
 
     mesh_args = {'mesh_size_frac': 1, "tol": tol}
     mesh_args_loc = {'mesh_size_frac': 0.125}
@@ -92,7 +102,7 @@ if __name__ == "__main__":
     aperture = 1e-2
     data = {
         "aperture": aperture,
-        "kf": 1e2,
+        "kf": 1e4,
         "km": 1,
         "tol": tol
     }
@@ -103,7 +113,9 @@ if __name__ == "__main__":
     np.set_printoptions(linewidth=9999)
 
     # read the background fractures
-    fracs_pts, fracs_edges = pp.importer.lines_from_csv(file_geo)
+    #fracs_pts, fracs_edges = pp.importer.lines_from_csv(file_geo)
+    fracs_pts, fracs_edges, _ = raw_from_csv(file_geo, mesh_args)
+    fracs_pts /= np.linalg.norm(np.amax(fracs_pts, axis=1))
 
     solver = pp.MpfaMixedDim("flow")
     for g, d in gb:
@@ -126,18 +138,20 @@ if __name__ == "__main__":
                 # keep the face nodes if are on the boundary
                 n_loc = n_loc[np.isin(n_loc, b_nodes, assume_unique=True)]
                 # collect from: faces, cells, node boundary (if)
-                pts = np.hstack((g.face_centers[:, f_loc], g.cell_centers[:, c_loc], g.nodes[:, n_loc]))
+                pts = np.hstack((g.cell_centers[:, c_loc], g.face_centers[:, f_loc], g.nodes[:, n_loc]))
+                is_cell_centers = np.hstack(([True]*c_loc.size, [False]*(f_loc.size+n_loc.size)))
 
                 # sort the nodes by assuming star shaped region
                 mask = pp.utils.sort_points.sort_point_plane(pts, g.face_centers[:, f])
                 pts = pts[:, mask]
+                is_cell_centers = is_cell_centers[mask]
 
-                # LE FRATTURE DI BACKGROUND DEVONO ESSERE TAGLIATE ALTRIMENTI ROMPONO
+                # consider the background fractures only limited to the current region
                 fracs_pts_int, fracs_edges_int = pp.cg.intersect_polygon_lines(pts, fracs_pts, fracs_edges)
                 fracs = {"points": fracs_pts_int, "edges": fracs_edges_int}
                 # prepare the data for gmsh
                 gb_loc = pp.fracs.meshing.simplex_grid(fracs, domain=pts[:2, :], subdomains=subdom, **mesh_args_loc)
-                pp.plot_grid(gb_loc, alpha=0, info="f")
+                #pp.plot_grid(gb_loc, alpha=0)
 
                 # save the faces of the face f
                 g_h = gb_loc.grids_of_dimension(2)[0]
@@ -146,34 +160,32 @@ if __name__ == "__main__":
                 #import pdb; pdb.set_trace()
                 dist, _ = pp.cg.dist_points_segments(g_h.face_centers[:, faces_loc_f],
                                                      f_nodes[:, 0], f_nodes[:, 1])
-                mask = np.where(np.logical_and(dist < tol, dist >=-tol))[0]
+                mask = np.where(np.logical_and(dist < tol_small, dist >=-tol_small))[0]
                 faces_loc_f = faces_loc_f[mask]
 
                 # assign common data
                 set_data(gb_loc, data)
 
                 # need to compute the upscaled transmissibility
-                # we loop on all the pts and give the data
-                for pt in np.arange(pts.shape[1]):
-                    pt_others = [(pt+1)%pts.shape[1], (pt-1)%pts.shape[1]]
-
+                # we loop on all the cell_centers and give the data
+                for pt in np.where(is_cell_centers)[0]:
                     # apply the boundary conditions for the current problem
-                    set_boundary_conditions(gb_loc, pts, pt, pt_others, tol)
+                    set_boundary_conditions(gb_loc, pts, pt, tol)
 
                     # Discretize and solve the linear system
                     p = sps.linalg.spsolve(*solver.matrix_rhs(gb_loc))
-                    solver.split(gb_loc, "pressure", p)
-
-                    save = pp.Exporter(gb_loc, "fv", folder="fv")
-                    save.write_vtk(["pressure"])
-                    s
 
                     # compute the discharge
-                    pp.fvutils.compute_discharges(gb_loc)
+                    solver.split(gb_loc, "pressure", p)
+                    #pp.fvutils.compute_discharges(gb_loc)
 
-                    discharge = gb_loc.node_props(g_h, "discharge")[faces_loc_f]
+                    #discharge = gb_loc.node_props(g_h, "discharge")[faces_loc_f]
+
                     # MI MANCA IL SEGNO O COMUNQUE E; DA CONTROLLARE
-                    print(discharge)
+                    #print(discharge, np.sum(discharge))
                     # Store the solution
-                    gb.add_node_props(["pressure"])
-                    pp.plot_grid(gb_loc, "pressure")
+                    save = pp.Exporter(gb_loc, "fv", folder="fv")
+                    save.write_vtk(["pressure"])
+                    print("prot")
+                    #pp.plot_grid(gb_loc, "pressure")
+                    s
