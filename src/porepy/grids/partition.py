@@ -410,6 +410,15 @@ def extract_subgrid(g, c, sort=True, faces=False):
             element i is the global index of node i in the subgrid.
 
     """
+    if np.asarray(c).dtype=='bool':
+        # convert to indices.
+        # First check for dimension
+        if faces and c.size != g.num_faces:
+            raise IndexError('boolean index did not match number of faces')
+        elif not faces and c.size != g.num_cells:
+            raise IndexError('boolean index did not match number of cells')
+        c = np.where(c)[0]
+
     if sort:
         c = np.sort(np.atleast_1d(c))
 
@@ -462,13 +471,14 @@ def __extract_cells_from_faces(g, f):
     Extracting a lower-dimensional grid from the fraces of the higher
     dimensional grid g. See extract_subgrid.
     """
-    if g.dim == 2:
+    if g.dim==3:
+        return __extract_cells_from_faces_3d(g, f)
+    elif g.dim == 2:
         return __extract_cells_from_faces_2d(g, f)
     elif g.dim == 1:
         return __extract_cells_from_faces_1d(g, f)
     else:
-        raise NotImplementedError("can only create a subgrid for dimension 1 and 2")
-
+        raise NotImplementedError("can only create a subgrid for dimension 1, 2 and 3")
 
 def __extract_cells_from_faces_1d(g, f):
     assert np.size(f) == 1
@@ -512,6 +522,59 @@ def __extract_cells_from_faces_2d(g, f):
     assert np.all(np.isclose(g.face_areas[f], h.cell_volumes))
     h.cell_volumes = g.face_areas[f]
     assert np.all(np.isclose(g.face_centers[:, f], h.cell_centers))
+    h.cell_centers = g.face_centers[:, f]
+
+    h.parent_face_ind = f
+    return h, f, unique_nodes
+
+def __extract_cells_from_faces_3d(g, f):
+    # Local cell-face and face-node maps.
+    cell_nodes, unique_nodes = __extract_submatrix(g.face_nodes, f)
+    if not pp.cg.is_planar(g.nodes[:, unique_nodes]):
+        raise ValueError('The faces extracted from a 3D grid must be planar')
+    num_cell_nodes = cell_nodes.nnz
+
+    cell_node_ptr = cell_nodes.indptr
+    num_nodes_per_cell = cell_node_ptr[1:] - cell_node_ptr[:-1]
+
+    next_node = np.arange(num_cell_nodes) + 1
+    next_node[cell_node_ptr[1:] -1] = cell_node_ptr[:-1]
+    face_start = cell_nodes.indices
+    face_end = cell_nodes.indices[next_node]
+    face_nodes_indices = np.vstack((face_start, face_end))
+    face_nodes_sorted = np.sort(face_nodes_indices, axis=0)
+    _, IA, IC = np.unique(face_nodes_sorted, return_index=True, return_inverse=True, axis=1)
+
+    face_nodes_indices = face_nodes_indices[:, IA].ravel('F')
+    num_face_nodes = face_nodes_indices.size
+    face_nodes_indptr = np.arange(0, num_face_nodes + 1, 2)
+    face_nodes = sps.csc_matrix(
+            (np.ones(num_face_nodes), face_nodes_indices, face_nodes_indptr))
+
+    cell_idx = pp.utils.matrix_compression.rldecode(
+        np.arange(num_face_nodes), num_nodes_per_cell)
+
+    data = np.ones(IC.shape)
+    _, ix = np.unique(IC, return_index=True)
+    data[ix] *= -1
+
+    cell_faces = sps.coo_matrix((data, (IC, cell_idx))).tocsc()
+
+    # Append information on subgrid extraction to the new grid's history
+    name = list(g.name)
+    name.append("Extract subgrid")
+
+    h = pp.Grid(g.dim - 1, g.nodes[:, unique_nodes], face_nodes, cell_faces, name)
+
+    h.compute_geometry()
+
+    if not np.all(np.isclose(g.face_areas[f], h.cell_volumes)):
+        raise AssertionError('''Somethign went wrong in extracting subgrid. Face area of
+        higher dim is not equal face centers of lower dim grid''')
+    h.cell_volumes = g.face_areas[f]
+    if not np.all(np.isclose(g.face_centers[:, f], h.cell_centers)):
+        raise AssertionError('''Somethign went wrong in extracting subgrid. Face centers
+        of higher dim is not equal cell centers of lower dim grid''')
     h.cell_centers = g.face_centers[:, f]
 
     h.parent_face_ind = f
