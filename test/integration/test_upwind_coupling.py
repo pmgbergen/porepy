@@ -57,7 +57,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_discharge(gb, upwind, [0, 1, 0], a)
 
         assembler = pp.Assembler()
-        U, rhs = assembler.assemble_matrix_rhs(gb)
+        U, rhs, *rest = assembler.assemble_matrix_rhs(gb)
 
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -132,7 +132,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_discharge(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler()
-        U, rhs = assembler.assemble_matrix_rhs(gb)
+        U, rhs, *rest = assembler.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
 
@@ -256,7 +256,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_discharge(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler()
-        U, rhs = assembler.assemble_matrix_rhs(gb)
+        U, rhs, *rest = assembler.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
         U_known = np.array(
@@ -811,7 +811,7 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_discharge(gb, upwind, [0, 0, 1], a)
         assembler = pp.Assembler()
-        U, rhs = assembler.assemble_matrix_rhs(gb)
+        U, rhs, *rest = assembler.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
 
@@ -882,7 +882,7 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_discharge(gb, upwind, [1, 0, 0], a)
         assembler = pp.Assembler()
-        U, rhs = assembler.assemble_matrix_rhs(gb)
+        U, rhs, *rest = assembler.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
         U_known = np.array(
@@ -1044,7 +1044,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_discharge(gb, upwind, [1, 0, 0], a)
         assembler = pp.Assembler()
 
-        U, rhs = assembler.assemble_matrix_rhs(gb)
+        U, rhs, *rest = assembler.assemble_matrix_rhs(gb)
 
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -1178,7 +1178,7 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_discharge(gb, upwind, [2, 0, 0], a)
         assembler = pp.Assembler()
-        M, rhs = assembler.assemble_matrix_rhs(gb)
+        M, rhs, *rest = assembler.assemble_matrix_rhs(gb)
         # add generic mass matrix to solve system
         I_diag = np.zeros(M.shape[0])
         I_diag[: gb.num_cells()] = 1
@@ -1265,7 +1265,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_discharge(gb, upwind, [1, 1, 0], a)
 
         assembler = pp.Assembler()
-        M, rhs = assembler.assemble_matrix_rhs(gb)
+        M, rhs, *rest = assembler.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(M.A, rhs)
         M_known = np.array(
             [
@@ -1305,20 +1305,20 @@ class BasicsTest(unittest.TestCase):
 def assign_discretization(gb, disc, coupling_disc, key):
     for _, d in gb:
         d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-        d[key + "_" + pp.keywords.DISCRETIZATION] = disc
+        d[pp.keywords.DISCRETIZATION] = {key: {key: disc}}
 
     for e, d in gb.edges():
         g1, g2 = gb.nodes_of_edge(e)
-        d[pp.keywords.PRIMARY_VARIABLES] = {
-            "lambda_u": {
-                "cells": 1,
-                "node_couplings": {
-                    g1: key,
-                    g2: key,
-                    pp.keywords.DISCRETIZATION: coupling_disc,
-                },
+        d[pp.keywords.PRIMARY_VARIABLES] = {"lambda_u": {
+                "cells": 1}}
+        d[pp.keywords.COUPLING_DISCRETIZATION] = {
+                key: {
+                    g1: (key, disc),
+                    g2: (key, disc),
+                    e: ("lambda_u", coupling_disc)
+                }
             }
-        }
+
 
 
 def add_constant_discharge(gb, upwind, flux, a):
