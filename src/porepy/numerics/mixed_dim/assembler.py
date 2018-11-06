@@ -169,8 +169,6 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
             data_slave = gb.node_props(g_slave)
             data_master = gb.node_props(g_master)
 
-            mg = data_edge["mortar_grid"]
-
             # Extract the local variables for edge and neighboring nodes
             active_edge_var = self._local_variables(data_edge, variables)
 
@@ -179,8 +177,8 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
             # nodes.
             for row in active_edge_var.keys():
                 for col in active_edge_var.keys():
-                    ri = block_dof[(mg, row)]
-                    ci = block_dof[(mg, col)]
+                    ri = block_dof[(e, row)]
+                    ci = block_dof[(e, col)]
 
                     discr_data = data_edge.get(pp.keywords.DISCRETIZATION)
                     if discr_data is None:
@@ -210,7 +208,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
             for key, terms in discr.items():
                 edge_vals = terms.get(e)
                 edge_key = edge_vals[0]
-                ei = block_dof[(mg, edge_key)]
+                ei = block_dof[(e, edge_key)]
 
                 master_vals = terms.get(g_master)
                 if master_vals is None:
@@ -341,7 +339,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
             for k, v in self._local_variables(d, variables).items():
 
                 # First count the number of dofs per variable
-                block_dof[(mg, k)] = block_dof_counter
+                block_dof[(e, k)] = block_dof_counter
                 # We only allow for cell variables on the mortar grid.
                 # This will not change in the forseable future
                 loc_dof = mg.num_cells * v.get("cells", 0)
