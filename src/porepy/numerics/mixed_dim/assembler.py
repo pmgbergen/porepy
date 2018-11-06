@@ -273,7 +273,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 sps.bmat(full_matrix, matrix_format),
                 np.concatenate(tuple(full_rhs)),
                 block_dof,
-                full_dof
+                full_dof,
             )
         else:
             for k, v in matrix.items():
@@ -435,6 +435,34 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 if key in variables:
                     var[key] = val
             return var
+
+    def distribute_variable(self, gb, var, block_dof, full_dof):
+        """ Distribute a vector to the nodes and edges in the GridBucket.
+
+        The intended use is to split a multi-physics solution vector into its
+        component parts.
+
+        Parameters:
+            gb (GridBucket): Where the variables should be distributed
+            var (np.array): Vector to be split.
+            block_dof (dictionary from tuples, each item on the form (grid, str), to ints):
+                The Grid (or MortarGrid) identifies GridBucket elements, the
+                string the local variable name. The values signifies the block
+                index of this grid-variable combination.
+            full_dof (list of ints): Number of dofs for a variable combination.
+                The ordering of the list corresponds to block_dof.
+
+        """
+        dof = np.cumsum(np.append(0, np.asarray(full_dof)))
+
+        for pair, bi in block_dof.items():
+            g = pair[0]
+            var_name = pair[1]
+            if isinstance(g, pp.Grid):
+                data = gb.node_props(g)
+            else:  # This is really an edge
+                data = gb.edge_props(g)
+            data[var_name] = var[dof[bi] : dof[bi + 1]]
 
     def extract_flux(self, gb, pressure_flux_keyword, flux_keyword):
         """ Extract the flux variable from a solution of the elliptic equation.
