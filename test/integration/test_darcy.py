@@ -67,10 +67,10 @@ class BasicsTest(unittest.TestCase):
         gb = setup_2d_1d([10, 10])
         problem = pp.EllipticModel(gb)
         p = problem.solve()
-        problem.split("pressure")
+        problem.split()
 
         for g, d in gb:
-            pressure = d["pressure"]
+            pressure = d[problem.physics]
             p_analytic = g.cell_centers[1]
             p_diff = pressure - p_analytic
             self.assertTrue(np.max(np.abs(p_diff)) < 2e-2)
@@ -86,10 +86,10 @@ class BasicsTest(unittest.TestCase):
         gb = setup_2d_1d(np.array([10, 10]), simplex_grid=True)
         problem = pp.EllipticModel(gb)
         p = problem.solve()
-        problem.split("pressure")
+        problem.split()
 
         for g, d in gb:
-            pressure = d["pressure"]
+            pressure = d[problem.physics]
             p_analytic = g.cell_centers[1]
             p_diff = pressure - p_analytic
             self.assertTrue(np.max(np.abs(p_diff)) < 0.033)
@@ -103,10 +103,10 @@ class BasicsTest(unittest.TestCase):
         for g, d in gb:
             if g.dim == 3:
                 p_ref = elliptic_dirich_neumann_source_sink_cart_ref_3d()
-                self.assertTrue(np.allclose(d["pressure"], p_ref))
+                self.assertTrue(np.allclose(d[problem.physics], p_ref))
             if g.dim == 0:
                 p_ref = [-10681.52153285]
-                self.assertTrue(np.allclose(d["pressure"], p_ref))
+                self.assertTrue(np.allclose(d[problem.physics], p_ref))
         return gb
 
 
@@ -280,4 +280,4 @@ def elliptic_dirich_neumann_source_sink_cart_ref_3d():
 
 
 if __name__ == "__main__":
-    unittest.main()
+     unittest.main()

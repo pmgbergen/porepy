@@ -76,8 +76,7 @@ class EllipticModel:
         self.exporter = pp.Exporter(self._gb, file_name, folder_name, **mesh_kw)
         logger.info("Elapsed time: " + str(time.time() - tic))
 
-        self._flux_disc = self.flux_disc()
-        self._source_disc = self.source_disc()
+        self._discr = self._set_discretization()
 
     def solve(self, max_direct=40000, callback=False, **kwargs):
         """ Reassemble and solve linear system.
@@ -149,44 +148,48 @@ class EllipticModel:
         reassemble matrices. This must be called between every time step to
         update the rhs of the system.
         """
-        lhs_flux, rhs_flux = self._discretize(self._flux_disc)
-        lhs_source, rhs_source = self._discretize(self._source_disc)
-        assert lhs_source.nnz == 0, "Source lhs different from zero!"
-        self.lhs = lhs_flux
-        self.rhs = rhs_flux + rhs_source
+        lhs, rhs = self._discretize()
+        self.lhs = lhs
+        self.rhs = rhs
         return self.lhs, self.rhs
 
-    def source_disc(self):
+    def _set_discretization(self):
         if self.is_GridBucket:
-            return pp.IntegralMixedDim(physics=self.physics, coupling=[None])
-        else:
-            return pp.Integral(keyword=self.physics)
-
-    def flux_disc(self):
-        if self.is_GridBucket:
-
             key = self.physics
-            discretization_key = key + "_" + pp.keywords.DISCRETIZATION
 
             tpfa = pp.Tpfa(key)
+            source = pp.Integral(key)
             for g, d in self._gb:
                 # Choose discretization and define the solver
-                d[discretization_key] = tpfa
+                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+                d[pp.keywords.DISCRETIZATION] = {key: {"flux": tpfa, "source": source}}
 
-            for _, d in self._gb.edges():
-                d[discretization_key] = pp.RobinCoupling(key, tpfa)
-
-            assembler = pp.EllipticAssembler(key)
+            for e, d in self._gb.edges():
+                g_slave, g_master = self._gb.nodes_of_edge(e)
+                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+                d[pp.keywords.COUPLING_DISCRETIZATION] = {
+                    "flux": {
+                        g_slave: (key, "flux"),
+                        g_master: (key, "flux"),
+                        e: (key, pp.RobinCoupling(key, tpfa)),
+                    }
+                }
+            assembler = pp.Assembler()
 
             return assembler
         else:
             return pp.Tpfa(keyword=self.physics)
 
-    def _discretize(self, discr):
+    def _discretize(self):
+
         if self.is_GridBucket:
-            return discr.assemble_matrix_rhs(self.grid())
+            A, b, block_dof, full_dof = self._discr.assemble_matrix_rhs(self.grid())
+            self._block_dof = block_dof
+            self._full_dof = full_dof
+            return A, b
         else:
-            return discr.assemble_matrix_rhs(self.grid(), self.data())
+            A, b = self._discr.assemble_matrix_rhs(self.grid(), self.data())
+            return A, b
 
     def grid(self):
         return self._gb
@@ -195,8 +198,13 @@ class EllipticModel:
         return self._data
 
     def split(self, x_name="solution"):
-        self.x_name = x_name
-        self._flux_disc.split(self.grid(), self.x_name, self.x)
+        self.x_name = self.physics
+        if self.is_GridBucket:
+            self._discr.distribute_variable(
+                self.grid(), self.x, self._block_dof, self._full_dof
+            )
+        else:
+            self._flux_disc.split(self.grid(), self.x_name, self.x)
 
     def pressure(self, pressure_name="pressure"):
         self.pressure_name = pressure_name
