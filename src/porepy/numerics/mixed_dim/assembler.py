@@ -128,9 +128,9 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         if len(full_dof) == 0:
             if add_matrices:
                 mat, vec = self._assign_matrix_vector(full_dof)
-                return mat, vec, block_dof
+                return mat, vec, block_dof, full_dof
             else:
-                return matrix, rhs, block_dof
+                return matrix, rhs, block_dof, full_dof
 
         # Loop over all grids, discretize (if necessary) and assemble. This
         # will populate the main diagonal of the equation.
@@ -273,6 +273,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 sps.bmat(full_matrix, matrix_format),
                 np.concatenate(tuple(full_rhs)),
                 block_dof,
+                full_dof
             )
         else:
             for k, v in matrix.items():
@@ -280,7 +281,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
             for k, v in rhs.items():
                 rhs[k] = np.concatenate(tuple(v))
 
-            return matrix, rhs, block_dof
+            return matrix, rhs, block_dof, full_dof
 
     def _initialize_matrix_rhs(self, gb, variables=None):
         """
