@@ -27,11 +27,24 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
     def discretization_key(self, row, col=None):
         if col is None or row == col:
-            return row + "_" + pp.keywords.DISCRETIZATION
+            return row
         else:
-            return row + "_" + col + "_" + pp.keywords.DISCRETIZATION
+            return row + "_" + col
 
-    def assemble_matrix_rhs(self, gb, matrix_format="csr", variables=None):
+    def _variable_term_key(self, term, key_1, key_2, key_3=None):
+        if key_3 is None:
+            # Internal to a node or an edge
+            if key_1 == key_2:
+                return "_".join([term, key_1])
+            else:
+                return "_".join([term, key_1, key_2])
+        else:
+            # Coupling between edge and node
+            return "_".join([term, key_1, key_2, key_3])
+
+    def assemble_matrix_rhs(
+        self, gb, matrix_format="csr", variables=None, add_matrices=True
+    ):
         """ Assemble the system matrix and right hand side for a general
         multi-physics problem, and return a block matrix and right hand side.
 
@@ -110,7 +123,14 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         """
 
         # Initialize the global matrix.
-        matrix, rhs, block_dof = self._initialize_matrix_rhs(gb, variables)
+        matrix, rhs, block_dof, full_dof = self._initialize_matrix_rhs(gb, variables)
+
+        if len(full_dof) == 0:
+            if add_matrices:
+                mat, vec = self._assign_matrix_vector(full_dof)
+                return mat, vec, block_dof
+            else:
+                return matrix, rhs, block_dof
 
         # Loop over all grids, discretize (if necessary) and assemble. This
         # will populate the main diagonal of the equation.
@@ -122,20 +142,24 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     ri = block_dof[(g, row)]
                     ci = block_dof[(g, col)]
 
-                    discr = data.get(self.discretization_key(row, col), None)
+                    discr_data = data.get(pp.keywords.DISCRETIZATION, None)
+                    if discr_data is None:
+                        continue
+                    discr = discr_data.get(self.discretization_key(row, col), None)
 
                     if discr is None:
                         continue
                     else:
                         # Loop over all discretizations
-                        for d in self._iterable(discr):
+                        for term, d in discr.items():
                             # Assemble the matrix and right hand side. This will also
                             # discretize if not done before.
                             loc_A, loc_b = d.assemble_matrix_rhs(g, data)
 
                             # Assign values in global matrix
-                            matrix[ri, ci] += loc_A
-                            rhs[ri] += loc_b
+                            var_key_name = self._variable_term_key(term, row, col)
+                            matrix[var_key_name][ri, ci] += loc_A
+                            rhs[var_key_name][ri] += loc_b
 
         # Loop over all edges
         for e, data_edge in gb.edges():
@@ -149,8 +173,6 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
             # Extract the local variables for edge and neighboring nodes
             active_edge_var = self._local_variables(data_edge, variables)
-            active_master_var = self._local_variables(data_master, variables)
-            active_slave_var = self._local_variables(data_slave, variables)
 
             # First discretize interaction between edge variables locally.
             # This is in direct analogue with the corresponding operation on
@@ -160,95 +182,112 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     ri = block_dof[(mg, row)]
                     ci = block_dof[(mg, col)]
 
-                    discr = data_edge.get(self.discretization_key(row, col), None)
+                    discr_data = data_edge.get(pp.keywords.DISCRETIZATION)
+                    if discr_data is None:
+                        continue
+                    discr = discr_data.get(self.discretization_key(row, col), None)
 
                     if discr is None:
                         continue
                     else:
                         # Loop over all discretizations
-                        for d in self._iterable(discr):
+                        for term, d in discr.items():
                             # Assemble the matrix and right hand side. This will also
                             # discretize if not done before.
-                            loc_A, loc_b = d.assemble_matrix_rhs(mg, data_edge)
+                            loc_A, loc_b = d.assemble_matrix_rhs(g, data_edge)
 
                             # Assign values in global matrix
-                            matrix[ri, ci] += loc_A
-                            rhs[ri] += loc_b
+                            var_key_name = self._variable_term_key(term, row, col)
+                            matrix[var_key_name][ri, ci] += loc_A
+                            rhs[var_key_name][ri] += loc_b
 
             # Then, discretize the interaction between the edge variables of
             # this edge, and the adjacent node variables.
+            discr = data_edge.get(pp.keywords.COUPLING_DISCRETIZATION, None)
+            if discr is None:
+                continue
 
-            # First, loop over all active edge variables
-            for edge_key in active_edge_var.keys():
+            for key, terms in discr.items():
+                edge_vals = terms.get(e)
+                edge_key = edge_vals[0]
                 ei = block_dof[(mg, edge_key)]
-                # Loop over all decleared dependencies of this variable
 
-                couplings = active_edge_var[edge_key].get("node_couplings", None)
-                if couplings is None:
-                    continue
-                if not isinstance(couplings, list):
-                    couplings = [couplings]
-                for dep in couplings:
-                    # Get the dependencies of each
-                    master_key = dep.get(g_master, None)
-                    slave_key = dep.get(g_slave, None)
+                master_vals = terms.get(g_master)
+                if master_vals is None:
+                    master_key = ""
+                    mi = None
+                else:
+                    master_key = master_vals[0]
+                    mi = block_dof.get((g_master, master_key))
 
-                    if master_key is None and slave_key is None:
-                        raise ValueError("A coupling need at least one dependency")
+                slave_vals = terms.get(g_slave)
+                if slave_vals is None:
+                    slave_key = ""
+                    si = None
+                else:
+                    slave_key = slave_vals[0]
+                    si = block_dof.get((g_slave, slave_key))
 
-                    # If either the master or slave dependency is not among the
-                    # active variables, we skip this coupling.
-                    if (
-                        master_key is not None
-                        and not master_key in active_master_var.keys()
-                    ) or (
-                        slave_key is not None
-                        and not slave_key in active_slave_var.keys()
-                    ):
-                        # Not sure about this one - maybe it is better to include something
-                        continue
+                mat_key = self._variable_term_key(key, edge_key, slave_key, master_key)
 
-                    mi = block_dof.get((g_master, master_key), None)
-                    si = block_dof.get((g_slave, slave_key), None)
+                e_discr = edge_vals[1]
+                if mi is not None and si is not None:
+                    idx = np.ix_([mi, si, ei], [mi, si, ei])
 
-                    if mi is not None and si is not None:
-                        idx = np.ix_([mi, si, ei], [mi, si, ei])
-                        for discr in self._iterable(dep[pp.keywords.DISCRETIZATION]):
-                            matrix[idx], loc_rhs = discr.assemble_matrix_rhs(
-                                g_master,
-                                g_slave,
-                                data_master,
-                                data_slave,
-                                data_edge,
-                                matrix[idx],
-                            )
-                            rhs[[mi, si, ei]] += loc_rhs
+                    matrix[mat_key][idx], loc_rhs = e_discr.assemble_matrix_rhs(
+                        g_master,
+                        g_slave,
+                        data_master,
+                        data_slave,
+                        data_edge,
+                        matrix[mat_key][idx],
+                    )
+                    rhs[mat_key][[mi, si, ei]] += loc_rhs
 
-                    elif mi is not None:
-                        idx = np.ix_([mi, ei])
-                        for discr in self._iterable(dep[pp.keywords.DISCRETIZATION]):
-                            matrix[idx], loc_rhs = discr.assemble_matrix_rhs(
-                                g_master, data_master, data_edge, matrix[idx]
-                            )
-                            rhs[[mi, ei]] += loc_rhs
+                elif mi is not None:
+                    idx = np.ix_([mi, ei], [mi, ei])
+                    matrix[mat_key][idx], loc_rhs = e_discr.assemble_matrix_rhs(
+                        g_master, data_master, data_edge, matrix[mat_key][idx]
+                    )
+                    rhs[mat_key][[mi, ei]] += loc_rhs
 
-                    elif si is not None:
-                        idx = np.ix_([si, ei])
-                        for discr in self._iterable(dep[pp.keywords.DISCRETIZATION]):
-                            matrix[idx], loc_rhs = discr.assemble_matrix_rhs(
-                                g_slave, data_slave, data_edge, matrix[idx]
-                            )
-                            rhs[[si, ei]] += loc_rhs
+                elif si is not None:
+                    idx = np.ix_([si, ei], [si, ei])
+                    matrix[mat_key][idx], loc_rhs = e_discr.assemble_matrix_rhs(
+                        g_slave, data_slave, data_edge, matrix[mat_key][idx]
+                    )
+                    rhs[mat_key][[si, ei]] += loc_rhs
 
-                    else:
-                        raise ValueError(
-                            "Invalid combination of variables on node-edge relation"
-                        )
+                else:
+                    raise ValueError(
+                        "Invalid combination of variables on node-edge relation"
+                    )
 
-        return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
+        if add_matrices:
+
+            full_matrix, full_rhs = self._assign_matrix_vector(full_dof)
+            for mat in matrix.values():
+                full_matrix += mat
+            for vec in rhs.values():
+                full_rhs += vec
+
+            return (
+                sps.bmat(full_matrix, matrix_format),
+                np.concatenate(tuple(full_rhs)),
+                block_dof,
+            )
+        else:
+            for k, v in matrix.items():
+                matrix[k] = sps.bmat(v, matrix_format)
+            for k, v in rhs.items():
+                rhs[k] = np.concatenate(tuple(v))
+
+            return matrix, rhs, block_dof
 
     def _initialize_matrix_rhs(self, gb, variables=None):
         """
+        Initialize local matrices for all combinations of variables and operators.
+
         Parameter:
             gb: grid bucket.
 
@@ -260,8 +299,15 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         block_dof_counter = 0
         block_dof = {}
         full_dof = []
+
+        variable_combinations = []
+
         for g, d in gb:
+
+            # Loop over variables, count dofs and identify variable-term combinations internal to the node
             for k, v in self._local_variables(d, variables).items():
+
+                # First count the number of dofs per variable
                 block_dof[(g, k)] = block_dof_counter
                 loc_dof = (
                     g.num_cells * v.get("cells", 0)
@@ -271,9 +317,30 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 full_dof.append(loc_dof)
                 block_dof_counter += 1
 
+                # Then identify all discretization terms for this variable
+                for k2 in self._local_variables(d, variables).keys():
+                    if k == k2:
+                        key = k
+                    else:
+                        key = k + "_" + k2
+                    discr = d.get(pp.keywords.DISCRETIZATION, None)
+                    if discr is None:
+                        continue
+                    terms = discr.get(key, None)
+                    if terms is None:
+                        continue
+                    for term in terms.keys():
+                        variable_combinations.append(
+                            self._variable_term_key(term, k, k2)
+                        )
+
         for e, d in gb.edges():
             mg = d["mortar_grid"]
+
+            # Loop over variables, count dofs and identify variable-term combinations internal to the edge
             for k, v in self._local_variables(d, variables).items():
+
+                # First count the number of dofs per variable
                 block_dof[(mg, k)] = block_dof_counter
                 # We only allow for cell variables on the mortar grid.
                 # This will not change in the forseable future
@@ -281,17 +348,73 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 full_dof.append(loc_dof)
                 block_dof_counter += 1
 
-        num_blocks = block_dof_counter
+                # Then identify all discretization terms for this variable
+                for k2 in self._local_variables(d, variables).keys():
+                    if k == k2:
+                        key = k
+                    else:
+                        key = k + "_" + k2
+                    discr = d.get(pp.keywords.DISCRETIZATION, None)
+                    if discr is None:
+                        continue
+                    terms = discr.get(key, None)
+                    if terms is None:
+                        continue
+                    for term in terms.keys():
+                        variable_combinations.append(
+                            self._variable_term_key(term, k, k2)
+                        )
 
+            # Finally, identify variable combinations for coupling terms
+            g_slave, g_master = gb.nodes_of_edge(e)
+            discr = d.get(pp.keywords.COUPLING_DISCRETIZATION, None)
+            if discr is None:
+                continue
+            for term, val in discr.items():
+                # Identify this term in the discretization by the variable names
+                # on the edge, the variable names of the first and second grid
+                # in that order, and finally the term name.
+                # There is a tacit assumption here that gb.nodes_of_edge return the
+                # grids in the same order here and in the assembly. This should be
+                # okay. The consequences for the methods if this is no longer the case is unclear.
+                k = val.get(e)[0]
+                k2 = val.get(g_slave)
+                if k2 is not None:
+                    k2 = k2[0]
+                else:
+                    k2 = ""
+                k3 = val.get(g_master)
+                if k3 is not None:
+                    k3 = k3[0]
+                else:
+                    k3 = ""
+                variable_combinations.append(self._variable_term_key(term, k, k2, k3))
+
+        # We will have one discretization matrix per variable
+        matrix_dict = {}
+        rhs_dict = {}
+
+        # Uniquify list of variable combinations. Then iterate over all variable
+        # combinations and initialize matrices of the right size
+        for var in list(set(variable_combinations)):
+            matrix, rhs = self._assign_matrix_vector(full_dof)
+            matrix_dict[var] = matrix
+            rhs_dict[var] = rhs
+
+        return matrix_dict, rhs_dict, block_dof, full_dof
+
+    def _assign_matrix_vector(self, dof):
+        # Assign a block matrix and vector with specified number of dofs per block
+        num_blocks = len(dof)
         matrix = np.empty((num_blocks, num_blocks), dtype=np.object)
         rhs = np.empty(num_blocks, dtype=np.object)
 
         for ri in range(num_blocks):
-            rhs[ri] = np.zeros(full_dof[ri])
+            rhs[ri] = np.zeros(dof[ri])
             for ci in range(num_blocks):
-                matrix[ri, ci] = sps.coo_matrix((full_dof[ri], full_dof[ci]))
+                matrix[ri, ci] = sps.coo_matrix((dof[ri], dof[ci]))
 
-        return matrix, rhs, block_dof
+        return matrix, rhs
 
     def assemble_operator(self, gb, operator_name):
         """ @RUNAR: Placeholder method for use for non-linear problems
