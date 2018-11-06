@@ -437,12 +437,6 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     var[key] = val
             return var
 
-    def _iterable(self, x):
-        if isinstance(x, collections.Iterable):
-            return x
-        else:
-            return (x,)
-
     def extract_flux(self, gb, pressure_flux_keyword, flux_keyword):
         """ Extract the flux variable from a solution of the elliptic equation.
 
