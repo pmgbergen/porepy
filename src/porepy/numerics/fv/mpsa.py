@@ -1132,14 +1132,14 @@ def _mpsa_local(
     )
 
     # Stress discretization
-    stress = hf2f * hook_igrad * rhs_cells
+    stress = hook_igrad * rhs_cells
 
     # Right hand side for boundary discretization
     rhs_bound = create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
 
+
     # Discretization of boundary values
-    bound_stress = hf2f * hook_igrad * rhs_bound
-    #    stress, bound_stress = _zero_neu_rows(g, stress, bound_stress, bound)
+    bound_stress = hook_igrad * rhs_bound
 
     if hf_disp:
         eta_at_bnd = True
@@ -1156,7 +1156,7 @@ def _mpsa_local(
         # hf_cell * u_cell_centers + hf_bound * u_bound_condition
         return stress, bound_stress, hf_cell, hf_bound
     else:
-        return stress, bound_stress
+        return hf2f * stress, hf2f * bound_stress * hf2f
 
 
 def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter):
@@ -1816,8 +1816,10 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
         subcell_topology.fno_unique, subcell_topology.cno_unique
     ].A.ravel("F")
 
-    num_dir = np.sum(bound.is_dir[:, fno])
-    if not num_rob == np.sum(bound.is_rob[:, fno]):
+    num_dir = np.sum(bound.is_dir)
+    if not num_rob == np.sum(bound.is_rob):
+        raise AssertionError()
+    if not num_neu == np.sum(bound.is_neu):
         raise AssertionError()
     if not num_neu == np.sum(bound.is_neu[:, fno]):
         raise AssertionError()
@@ -1837,7 +1839,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     ).ravel("F")
     # Pick out the Neumann boundary
     is_neu_nd = (
-        bound_exclusion.keep_neumann(bound.is_neu[:, fno].ravel("C"), transform=False)
+        bound_exclusion.keep_neumann(bound.is_neu.ravel("C"), transform=False)
         .ravel("F")
         .astype(np.bool)
     )
@@ -1851,7 +1853,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     ).ravel("F")
 
     is_rob_nd = (
-        bound_exclusion.keep_robin(bound.is_rob[:, fno].ravel("C"), transform=False)
+        bound_exclusion.keep_robin(bound.is_rob.ravel("C"), transform=False)
         .ravel("F")
         .astype(np.bool)
     )
@@ -1866,7 +1868,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     ).ravel("F")
     is_dir_nd = (
         bound_exclusion.exclude_neumann_robin(
-            bound.is_dir[:, fno].ravel("C"), transform=False
+            bound.is_dir.ravel("C"), transform=False
         )
         .ravel("F")
         .astype(np.bool)
@@ -1877,16 +1879,16 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
 
     # We also need to account for all half faces, that is, do not exclude
     # Dirichlet and Neumann boundaries. This is the global indexing.
-    is_neu_all = bound.is_neu[:, fno].ravel("C")
+    is_neu_all = bound.is_neu.ravel("C")
     neu_ind_all = np.argwhere(
         np.reshape(is_neu_all, (nd, -1), order="C").ravel("F")
     ).ravel("F")
-    is_dir_all = bound.is_dir[:, fno].ravel("C")
+    is_dir_all = bound.is_dir.ravel("C")
     dir_ind_all = np.argwhere(
         np.reshape(is_dir_all, (nd, -1), order="C").ravel("F")
     ).ravel("F")
 
-    is_rob_all = bound.is_rob[:, fno].ravel("C")
+    is_rob_all = bound.is_rob.ravel("C")
     rob_ind_all = np.argwhere(
         np.reshape(is_rob_all, (nd, -1), order="C").ravel("F")
     ).ravel("F")
@@ -1918,7 +1920,10 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # have to do
     # so, and we will flip the sign later. This means that a stress [1,1] on a
     # boundary face pushes(or pulls) the face to the top right corner.
-    neu_val = 1 / num_face_nodes[fno_ext[neu_rob_ind_all]]
+    # Note: If we set the value at a face we need to distribute the face values to
+    # the subfaces. We do this by an area-weighted average (commented line).
+    # If we set the sub-face values we just pass these on directly.
+    neu_val = 1 *np.ones(neu_rob_ind_all.size)#/ num_face_nodes[fno_ext[neu_rob_ind_all]]
 
     # The columns will be 0:neu_rob_ind.size
     if neu_rob_ind.size > 0:
@@ -1969,7 +1974,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # z-component of all neumann faces. Then we will have the equivalent for
     # the dirichlet faces.
 
-    rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf * hf_2_f
+    rhs_bound = sps.vstack([neu_cell, dir_cell]) * bnd_2_all_hf
 
     return rhs_bound
 

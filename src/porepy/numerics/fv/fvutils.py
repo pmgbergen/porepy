@@ -672,10 +672,7 @@ class ExcludeBoundaries(object):
         self.bc_type = bound.bc_type
 
         # Short hand notation
-        fno = subcell_topology.fno_unique
         num_subfno = subcell_topology.num_subfno_unique
-
-        self.fno = fno
         self.num_subfno = num_subfno
 
         # Define mappings to exclude boundary values
@@ -713,14 +710,14 @@ class ExcludeBoundaries(object):
 
     def _basis_transformation(self, basis):
         if self.bc_type == "scalar":
-            data = basis[self.fno]
+            data = basis
             col = np.arange(self.num_subfno)
             row = np.arange(self.num_subfno)
             return sps.coo_matrix(
                 (data, (row, col)), shape=(self.num_subfno, self.num_subfno)
             ).tocsr()
         elif self.bc_type == "vectorial":
-            data = basis[:, :, self.fno].ravel("C")
+            data = basis.ravel("C")
             col = np.arange(self.num_subfno * self.nd).reshape((-1, self.num_subfno))
             col = np.tile(col, (1, self.nd)).ravel("C")
             row = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
@@ -742,7 +739,7 @@ class ExcludeBoundaries(object):
             [[0, 1, 0, 0],
               [0, 0, 0, 1]]
         """
-        col = np.argwhere([not it for it in ids[self.fno]])
+        col = np.argwhere([not it for it in ids])
         row = np.arange(col.size)
         return sps.coo_matrix(
             (np.ones(row.size, dtype=np.bool), (row, col.ravel("C"))),
@@ -750,15 +747,15 @@ class ExcludeBoundaries(object):
         ).tocsr()
 
     def _exclude_matrix_xyz(self, ids):
-        col_x = np.argwhere([not it for it in ids[0, self.fno]])
+        col_x = np.argwhere([not it for it in ids[0]])
 
-        col_y = np.argwhere([not it for it in ids[1, self.fno]])
+        col_y = np.argwhere([not it for it in ids[1]])
         col_y += self.num_subfno
 
         col_neu = np.append(col_x, [col_y])
 
         if self.nd == 3:
-            col_z = np.argwhere([not it for it in ids[2, self.fno]])
+            col_z = np.argwhere([not it for it in ids[2]])
             col_z += 2 * self.num_subfno
             col_neu = np.append(col_neu, [col_z])
 
