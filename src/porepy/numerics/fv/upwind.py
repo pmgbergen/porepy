@@ -112,7 +112,6 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         # Loop over the time
         for i in np.arange( N ):
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
-
         """
         if g.dim == 0:
             data["flow_faces"] = sps.csr_matrix([0.])

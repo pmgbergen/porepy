@@ -124,7 +124,6 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
         # Initialize the global matrix.
         matrix, rhs, block_dof, full_dof = self._initialize_matrix_rhs(gb, variables)
-
         if len(full_dof) == 0:
             if add_matrices:
                 mat, vec = self._assign_matrix_vector(full_dof)
@@ -463,3 +462,39 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
             else:  # This is really an edge
                 data = gb.edge_props(g)
             data[var_name] = var[dof[bi] : dof[bi + 1]]
+
+
+    def merge_variable(self, gb, var, block_dof, full_dof):
+        """ Merge a vector to the nodes and edges in the GridBucket.
+
+        The intended use is to merge the component parts of a vector into
+        its correct position in the global solution vector.
+
+        Parameters:
+            gb (GridBucket): Where the variables should be distributed
+            var ('string'): Name of vector to be merged. Should be located at the nodes and
+                edges.
+            block_dof (dictionary from tuples, each item on the form (grid, str), to ints):
+                The Grid (or MortarGrid) identifies GridBucket elements, the
+                string the local variable name. The values signifies the block
+                index of this grid-variable combination.
+            full_dof (list of ints): Number of dofs for a variable combination.
+                The ordering of the list corresponds to block_dof.
+
+        """
+        dof = np.cumsum(np.append(0, np.asarray(full_dof)))
+
+        values = np.zeros(dof[-1])
+        for pair, bi in block_dof.items():
+            g = pair[0]
+            var_name = pair[1]
+            if isinstance(g, pp.Grid):
+                data = gb.node_props(g)
+            else:  # This is really an edge
+                data = gb.edge_props(g)
+            if var_name==var:
+                loc_value = data[var_name]
+            else:
+                loc_value = 0
+            values[dof[bi] : dof[bi + 1]] = loc_value
+        return values

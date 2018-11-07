@@ -1,7 +1,7 @@
 """
 Discretization of the source term of an equation for FV methods.
 """
-
+import numpy as np
 import scipy.sparse as sps
 
 from porepy.numerics.mixed_dim.solver import Solver
@@ -130,7 +130,13 @@ class Integral(Solver):
         """
         if not self._key() + "bound_source" in data.keys():
             self.discretize(g, data)
-        return data[self._key() + "bound_source"]
+
+        param = data["param"]
+        sources = param.get_source(self)
+        assert sources.size == self.ndof(
+            g
+        ), "There should be one source value for each cell"
+        return data[self._key() + "bound_source"] * sources
 
     # ------------------------------------------------------------------------------#
 
@@ -151,11 +157,7 @@ class Integral(Solver):
         param (Parameter Class) with the source field set for self.keyword. The assigned
             source values are assumed to be integrated over the cell volumes.
         """
-        param = data["param"]
-        sources = param.get_source(self)
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
-        assert sources.size == self.ndof(
-            g
-        ), "There should be one source value for each cell"
+        rhs = sps.dia_matrix(np.ones(self.ndof(g))).tocsc()
         data[self._key() + "source"] = lhs
-        data[self._key() + "bound_source"] = sources
+        data[self._key() + "bound_source"] = rhs
