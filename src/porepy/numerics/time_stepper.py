@@ -245,3 +245,4 @@ class CrankNicolson(AbstractSolver):
         rhs0 = 0.5 * (self.rhs_flux_0 + self.rhs_time_0)
         self.lhs = self.lhs_time + 0.5 * self.lhs_flux
         self.rhs = (self.lhs_time - 0.5 * self.lhs_flux_0) * self.p0 + rhs1 + rhs0
+
