@@ -43,7 +43,8 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics="transport"):
+    def __init__(self, keyword="transport", physics="transport"):
+        self.keyword = keyword
         self.physics = physics
 
     # ------------------------------------------------------------------------------#

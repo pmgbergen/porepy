@@ -57,8 +57,9 @@ class EllipticModel:
             physics for the file name.
     """
 
-    def __init__(self, gb, data=None, physics="flow", **kwargs):
+    def __init__(self, gb, data=None, keyword="flow", physics="flow", **kwargs):
         self.physics = physics
+        self.keyword = keyword
         self._gb = gb
         self.is_GridBucket = isinstance(self._gb, pp.GridBucket)
         self._data = data
@@ -155,10 +156,10 @@ class EllipticModel:
 
     def _set_discretization(self):
         if self.is_GridBucket:
-            key = self.physics
+            key = self.keyword
 
-            tpfa = pp.Tpfa(key)
-            source = pp.Integral(key)
+            tpfa = pp.Tpfa(self.physics)
+            source = pp.Integral(self.physics)
             for g, d in self._gb:
                 # Choose discretization and define the solver
                 d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
@@ -198,7 +199,7 @@ class EllipticModel:
         return self._data
 
     def split(self, x_name="solution"):
-        self.x_name = self.physics
+        self.x_name = self.keyword
         if self.is_GridBucket:
             self._discr.distribute_variable(
                 self.grid(), self.x, self._block_dof, self._full_dof
