@@ -160,7 +160,8 @@ class ChildFractureSet(FractureSet):
         end = parent_realiz.pts[:, parent_realiz.edges[1, pi]].reshape((-1, 1))
 
         dx = end - start
-        return start * np.random.rand(num_children) * dx
+
+        return start + np.random.rand(num_children) * dx
 
     def _children_are_isolated(self, parent_realiz, pi, num_children):
         return np.random.rand(num_children) < self.fraction_of_parents_with_child
@@ -175,13 +176,13 @@ class ChildFractureSet(FractureSet):
 
         num_children = children_points.shape[1]
 
-        dist_from_parent = self._draw_dist_from_central(num_children)
+        dist_from_parent = frac_gen.generate_from_distribution(num_children, self.dist_from_parents)
 
         # Assign equal probability that the points are on each side of the parent
         side = 2 * (np.random.rand(num_children) > 0.5) - 1
 
         # Vector from the parent line to the new center points
-        vec = np.array([[-np.sin(theta)], [np.cos(theta)]]) * dist_from_parent
+        vec = np.vstack((-np.sin(theta), np.cos(theta))) * dist_from_parent
 
         children_center = children_points + side * vec
 
@@ -205,6 +206,9 @@ class ChildFractureSet(FractureSet):
         return p, edges
 
     def _populate_y_fractures(self, start):
+
+        if start.size == 0:
+            return np.empty((2, 0)), np.empty((2, 0))
 
         if start.ndim == 1:
             start = start.reshape((-1, 1))
@@ -230,6 +234,26 @@ class ChildFractureSet(FractureSet):
         )
 
         return p, edges
+
+    def _fit_dist_from_parent_distribution(self, ks_size=100, p_val_min = 0.05):
+        """
+        """
+        data = self.isolated_stats['center_distance']
+
+        candidate_dist = np.array([stats.uniform, stats.lognorm, stats.expon])
+        dist_fit = np.array([d.fit(data, floc=0) for d in candidate_dist])
+
+        ks = lambda d, p: stats.ks_2samp(data, d.rvs(*p, size=ks_size))[1]
+        p_val = np.array([ks(d, p) for d, p in zip(candidate_dist, dist_fit)])
+        best_fit = np.argmax(p_val)
+
+        if p_val[best_fit] < p_val_min:
+            raise ValueError("p-value not satisfactory for length fit")
+
+        self.dist_from_parents = {'dist': candidate_dist[best_fit],
+                                  'param': dist_fit[best_fit],
+                                  'pval': p_val[best_fit]}
+
 
     def _fit_num_children_distribution(self):
         """ Construct a Poisson distribution for the number of children per
@@ -266,6 +290,7 @@ class ChildFractureSet(FractureSet):
             args=(num_children,),  # additional arguments for function
             method="Powell",  # minimization method, see docs
         )
+        ### End of code from stackoverflow
 
         # Define a Poisson distribution with the computed density function
         self.num_children_dist = stats.poisson(result.x)
@@ -330,6 +355,8 @@ class ChildFractureSet(FractureSet):
                 "density": np.zeros(self.parent.edges.shape[1]),
                 "center_distance": np.empty(0),
             }
+
+        self._fit_dist_from_parent_distribution()
 
         ## fractures that have one Y-intersection with a parent
         # First, identify the parent-child relation
