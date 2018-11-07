@@ -88,12 +88,13 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
+        name = self._key() + self.name + "_"
+
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
-            data[self._key() + 'MVEM_mass'] = mass
-            data[self._key() + 'MVEM_div'] = sps.csr_matrix((g.num_faces,
-                 g.num_cells))
+            data[name + "mass"] = mass
+            data[name + "div"] = sps.csr_matrix((g.num_faces, g.num_cells))
             return
 
         # Retrieve the permeability, boundary conditions, and aperture
@@ -163,9 +164,9 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Construct the global matrices
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
-        data[self._key() + 'MVEM_mass'] = mass
-        data[self._key() + 'MVEM_div'] = div
 
+        data[name + "mass"] = mass
+        data[name + "div"] = div
 
     @staticmethod
     def project_flux(g, u, data):
