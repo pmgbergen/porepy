@@ -95,11 +95,11 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             faces_loc = faces[loc]
 
             # find the opposite node id for each face
-            node = self.opposite_side_node(g.face_nodes, nodes, faces_loc)
+            node = RT0.opposite_side_node(g.face_nodes, nodes, faces_loc)
             coord_loc = node_coords[:, node]
 
             # Compute the H_div-mass local matrix
-            A = self.massHdiv(
+            A = RT0.massHdiv(
                 a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
                 g.cell_volumes[c],
                 coord_loc,
@@ -124,6 +124,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         data[self._key() + 'RT0_div'] = div
 
 
+    @staticmethod
     def project_flux(g, u, data):
         """  Project the velocity computed with a rt0 solver to obtain a
         piecewise constant vector field, one triplet for each cell.
@@ -162,7 +163,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             faces_loc = faces[loc]
 
             # find the opposite node id for each face
-            node = self.opposite_side_node(g.face_nodes, nodes, faces_loc)
+            node = RT0.opposite_side_node(g.face_nodes, nodes, faces_loc)
 
             # extract the coordinates
             center = np.tile(c_centers[:, c], (node.size, 1)).T
@@ -178,7 +179,8 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         return P0u
 
-    def massHdiv(self, K, c_volume, coord, sign, dim, HB):
+    @staticmethod
+    def massHdiv(K, c_volume, coord, sign, dim, HB):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters

@@ -141,7 +141,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             faces_loc = faces[loc]
 
             # Compute the H_div-mass local matrix
-            A = self.massHdiv(
+            A = MVEM.massHdiv(
                 a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 g.cell_volumes[c],
@@ -167,6 +167,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         data[self._key() + 'MVEM_div'] = div
 
 
+    @staticmethod
     def project_flux(g, u, data):
         """  Project the velocity computed with a dual vem solver to obtain a
         piecewise constant vector field, one triplet for each cell.
@@ -188,7 +189,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             return np.zeros(3).reshape((3, 1))
 
         # The velocity field already has permeability effects incorporated,
-        # thus we assign a unit permeability to be passed to self.massHdiv
+        # thus we assign a unit permeability to be passed to MVEM.massHdiv
         k = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
         param = data["param"]
         a = param.get_aperture()
@@ -210,7 +211,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
 
-            Pi_s = self.massHdiv(
+            Pi_s = MVEM.massHdiv(
                 a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 g.cell_volumes[c],
@@ -227,7 +228,8 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         return P0u
 
 
-    def massHdiv(self, K, c_center, c_volume, f_centers, normals, sign, diam, weight=0):
+    @staticmethod
+    def massHdiv(K, c_center, c_volume, f_centers, normals, sign, diam, weight=0):
         """ Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
@@ -286,7 +288,8 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         return A, Pi_s
 
-    def check_conservation(self, g, u):
+    @staticmethod
+    def check_conservation(g, u):
         """
         Return the local conservation of mass in the cells.
         Parameters
