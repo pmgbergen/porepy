@@ -124,7 +124,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         data[self._key() + 'RT0_div'] = div
 
 
-    def project_flux(self, g, u, data):
+    def project_flux(g, u, data):
         """  Project the velocity computed with a rt0 solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 

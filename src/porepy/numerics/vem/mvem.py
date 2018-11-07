@@ -167,7 +167,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         data[self._key() + 'MVEM_div'] = div
 
 
-    def project_flux(self, g, u, data):
+    def project_flux(g, u, data):
         """  Project the velocity computed with a dual vem solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 

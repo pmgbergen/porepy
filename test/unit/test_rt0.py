@@ -188,7 +188,7 @@ class BasicsTest(unittest.TestCase):
 
         p = solver.extract_pressure(g, up)
         u = solver.extract_flux(g, up)
-        P0u = solver.project_u(g, u, data)
+        P0u = solver.project_flux(g, u, data)
 
         p_ex = 1 - g.cell_centers[0, :]
         P0u_ex = np.vstack((np.ones(g.num_cells),
