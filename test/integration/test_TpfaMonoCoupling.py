@@ -49,10 +49,10 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
         x = sps.linalg.spsolve(A, b)
 
-        assembler.split(gb, "pressure", x)
+        assembler.split(gb, "flow", x)
         # test pressure
         for g, d in gb:
-            self.assertTrue(np.allclose(d["pressure"], xmax - g.cell_centers[0]))
+            self.assertTrue(np.allclose(d["flow"], xmax - g.cell_centers[0]))
 
         # test mortar solution
         for e, d_e in gb.edges():
@@ -110,9 +110,6 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         d_e["edge_number"] = 0
 
         return gb
-
-    if __name__ == "__main__":
-        unittest.main()
 
 
 class TestTpfaCouplingPeriodicBc(unittest.TestCase):
@@ -247,42 +244,48 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         self.solve(gb, analytic_p)
 
     def solve(self, gb, analytic_p):
-        flux_key = "flux"
-        src_key = "src"
-        flux_disc = flux_key + "_" + pp.keywords.DISCRETIZATION
-        src_disc = src_key + "_" + pp.keywords.DISCRETIZATION
+        key_flux = "flux"
+        key_src = "src"
         # we need to specify physics because of legacy. Should change when
         # parameter class is updated
-        tpfa = pp.Tpfa(flux_key, "flow")
-        src = pp.Integral(src_key, "flow")
+        key_p = "pressure" # pressure name
+        key_m = "mortar" # mortar name
+
+        tpfa = pp.Tpfa(key_p, "flow")
+        src = pp.Integral(key_p, "flow")
         for g, d in gb:
-            d[flux_disc] = tpfa
-            d[src_disc] = src
-            d[pp.keywords.PRIMARY_VARIABLES] = {src_key: {"cells": 1}}
+            d[pp.keywords.DISCRETIZATION] = {
+                key_p: {key_src: src, key_flux: tpfa}
+            }
+            d[pp.keywords.PRIMARY_VARIABLES] = {key_p: {"cells": 1}}
 
         for e, d in gb.edges():
             g1, g2 = gb.nodes_of_edge(e)
-            d[pp.keywords.PRIMARY_VARIABLES] = {src_key: {"cells": 1}}
+            d[pp.keywords.PRIMARY_VARIABLES] = {key_m: {"cells": 1}}
             if g1.dim == g2.dim:
-                d[flux_disc] = pp.FluxPressureContinuity(flux_key, tpfa)
+                mortar_disc = pp.FluxPressureContinuity(key_flux, tpfa)
             else:
-                d[flux_disc] = pp.RobinCoupling(flux_key, tpfa)
+                mortar_disc = pp.RobinCoupling(key_flux, tpfa)
+            d[pp.keywords.COUPLING_DISCRETIZATION] = (
+                {key_flux: {
+                    g1: (key_p, key_flux),
+                    g2: (key_p, key_flux),
+                    e: (key_m, mortar_disc)
+                }}
+            )
 
-        flux_assembler = pp.EllipticAssembler(flux_key)
-        src_assembler = pp.Assembler()
-        A, b = flux_assembler.assemble_matrix_rhs(gb)
+        assembler = pp.Assembler()
+        A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        x = sps.linalg.spsolve(A, b)
 
-        _, src_term = src_assembler.assemble_matrix_rhs(gb, variables=src_key)
-        x = sps.linalg.spsolve(A, b + src_term)
-
-        flux_assembler.split(gb, "pressure", x)
+        assembler.distribute_variable(gb, x, block_dof, full_dof)
         # test pressure
         for g, d in gb:
             ap, _, _ = analytic_p(g.cell_centers)
-            self.assertTrue(np.max(np.abs(d["pressure"] - ap)) < 5e-2)
+            self.assertTrue(np.max(np.abs(d[key_p] - ap)) < 5e-2)
 
         # test mortar solution
-        bnd_flx_key = flux_key + "_bound_flux"
+        bnd_flx_key = key_p + "_bound_flux"
         for e, d_e in gb.edges():
             mg = d_e["mortar_grid"]
             g1, g2 = gb.nodes_of_edge(e)
@@ -303,8 +306,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             a2 = np.max(d2["param"].aperture)
             right_flux = a2 * np.sum(analytic_flux * g2.face_normals[:2], 0)
             right_flux = -right_to_m * (d2[bnd_flx_key] * right_flux)
-            self.assertTrue(np.max(np.abs(d_e["mortar_solution"] - left_flux)) < 5e-2)
-            self.assertTrue(np.max(np.abs(d_e["mortar_solution"] - right_flux)) < 5e-2)
+            self.assertTrue(np.max(np.abs(d_e[key_m] - left_flux)) < 5e-2)
+            self.assertTrue(np.max(np.abs(d_e[key_m] - right_flux)) < 5e-2)
 
     def generate_2d_grid(self, n, xmax, ymax):
         g1 = pp.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])
