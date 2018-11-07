@@ -51,8 +51,26 @@ class TestFractureSetPopulation(unittest.TestCase):
     def test_one_parent_several_children(self):
         # Define
         #Define population methods and statistical distribution for children
+        p = np.array([[0, 5], [0, 0]])
+        e = np.array([[0], [1]])
 
-        pass
+        domain = {'xmin': -1, 'xmax': 6, 'ymin': -1, 'ymax': 2}
+
+        original_parent = FractureSet(p, e, domain)
+
+        p_children = np.array([[1, 2, 3, 4, 1, 2, 3, 4],
+                               [0.1, 0.1, 0.1, 0.1, 1, 1, 1, 1]], dtype=np.float)
+
+        # Children length from a lognormal distribution
+        p_children[1, [4, 5, 6, 7]] += stats.lognorm.rvs(s=1, size=4)
+
+
+        e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
+        child = ChildFractureSet(p_children, e_children, domain, original_parent)
+
+        child.compute_statistics()
+
+        realiz = child.populate(original_parent)
 
 
 class TestParentChildrenRelations(unittest.TestCase):
@@ -115,7 +133,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         self.assertTrue(isolated['density'].size == 2)
         # All four isolated belongs to the first parent
         self.assertTrue(isolated['density'][0] == 4)
-        self.assertTrue(isolated['density'][1] is None)
+        self.assertTrue(isolated['density'][1] == 0)
         # All four children have a center
         self.assertTrue(isolated['center_distance'].size == 4)
         # The distance from parent to child center is the midpoint of the child
@@ -329,7 +347,7 @@ class TestDensityCounting(unittest.TestCase):
 
 #if __name__ == '__main__':
 #    unittest.main()
-#TestParentChildrenRelations().test_isolated_and_only_y_two_parents_two_active()
-#TestFractureSetPopulation().test_set_distributions_run_population_single_family()
-unittest.main()
+#TestParentChildrenRelations().test_only_isolated_two_parents_one_far_away()
+TestFractureSetPopulation().test_one_parent_several_children()
+#unittest.main()
 #TestDensityCounting().test_1d_counting_two_boxes()
