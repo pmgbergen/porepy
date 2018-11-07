@@ -13,18 +13,12 @@ import porepy as pp
 from examples.papers.flow_upscaling.fracture_sets import FractureSet, ChildFractureSet
 from examples.papers.flow_upscaling import frac_gen
 
-class TestSingleSet(unittest.TestCase):
+class TestFractureSetPopulation(unittest.TestCase):
 
-    def compute_angle(self, network):
-        p_start = network.pts[:, network.edges[0]]
-        p_end = network.pts[:, network.edges[1]]
-
-        vector = p_end - p_start
-        return np.arctan2(vector[1], vector[0])
-
-    def test_set_distributions_run_population(self):
+    def test_set_distributions_run_population_single_family(self):
         # Define a small fracture set, set distributions, and use this to
         # populate a set
+        # The test is intended that
 
         p = np.array([[0, 5], [0, 0]])
         e = np.array([[0], [1]])
@@ -33,13 +27,50 @@ class TestSingleSet(unittest.TestCase):
 
         original= FractureSet(p, e, domain)
 
+        # Set the random seed
+        np.random.seed(0)
+
         # Lognormal distribution for length
         original.set_length_distribution(stats.lognorm, (0.5, -1, 2))
         original.set_angle_distribution(stats.uniform, (0, 1))
 
         original.set_intensity_map(np.array([[1]]))
 
-        realization = original.populate(fit_distributions=False)
+        realiz = original.populate(fit_distributions=False)
+
+        # Hard-coded points
+        known_points = np.array([[3.00394785, 2.62441671, 1.66490881, 2.26625838],
+                                 [0.91037159, 0.96499309, 0.57025301, 0.05527026]])
+        known_edges = np.array([[0, 2],
+                                [1, 3]])
+
+        self.assertTrue(np.allclose(realiz.pts, known_points))
+        self.assertTrue(np.allclose(realiz.edges, known_edges))
+
+
+    def test_one_parent_several_children(self):
+        # Define
+        #Define population methods and statistical distribution for children
+        p = np.array([[0, 5], [0, 0]])
+        e = np.array([[0], [1]])
+
+        domain = {'xmin': -1, 'xmax': 6, 'ymin': -1, 'ymax': 2}
+
+        original_parent = FractureSet(p, e, domain)
+
+        p_children = np.array([[1, 2, 3, 4, 1, 2, 3, 4],
+                               [0.1, 0.1, 0.1, 0.1, 1, 1, 1, 1]], dtype=np.float)
+
+        # Children length from a lognormal distribution
+        p_children[1, [4, 5, 6, 7]] += stats.lognorm.rvs(s=1, size=4)
+
+
+        e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
+        child = ChildFractureSet(p_children, e_children, domain, original_parent)
+
+        child.compute_statistics()
+
+        realiz = child.populate(original_parent)
 
 
 class TestParentChildrenRelations(unittest.TestCase):
@@ -102,7 +133,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         self.assertTrue(isolated['density'].size == 2)
         # All four isolated belongs to the first parent
         self.assertTrue(isolated['density'][0] == 4)
-        self.assertTrue(isolated['density'][1] is None)
+        self.assertTrue(isolated['density'][1] == 0)
         # All four children have a center
         self.assertTrue(isolated['center_distance'].size == 4)
         # The distance from parent to child center is the midpoint of the child
@@ -316,6 +347,7 @@ class TestDensityCounting(unittest.TestCase):
 
 #if __name__ == '__main__':
 #    unittest.main()
-#TestParentChildrenRelations().test_isolated_and_only_y_two_parents_two_active()
-unittest.main()
+#TestParentChildrenRelations().test_only_isolated_two_parents_one_far_away()
+TestFractureSetPopulation().test_one_parent_several_children()
+#unittest.main()
 #TestDensityCounting().test_1d_counting_two_boxes()
