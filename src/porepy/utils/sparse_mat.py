@@ -199,7 +199,7 @@ def slice_indices(A, slice_ind):
     rows = slice_indices(A, np.array([0,2,3]))
     """
     assert A.getformat() == "csc" or A.getformat() == "csr"
-    if slice_ind.dtype=='bool':
+    if np.asarray(slice_ind).dtype=='bool':
         # convert to indices.
         # First check for dimension
         if slice_ind.size != A.indptr.size - 1:
@@ -243,7 +243,7 @@ def slice_mat(A, ind):
     """
     assert A.getformat() == "csc" or A.getformat() == "csr"
 
-    if ind.dtype=='bool':
+    if np.asarray(ind).dtype=='bool':
         # convert to indices.
         # First check for dimension
         if ind.size != A.indptr.size - 1:
