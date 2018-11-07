@@ -60,6 +60,7 @@ class ParabolicModel:
     def __init__(
         self,
         gb,
+        keyword="transport",
         physics="transport",
         time_step=1.0,
         end_time=1.0,
@@ -69,6 +70,7 @@ class ParabolicModel:
         self._gb = gb
         self.is_GridBucket = isinstance(self._gb, pp.GridBucket)
         self.physics = physics
+        self.keyword = keyword
         self._data = kwargs.get("data", dict())
         self._time_step = time_step
         self._end_time = end_time
@@ -80,8 +82,8 @@ class ParabolicModel:
 
         self.assembler = self._set_discretization()
         _, _, block_dof, full_dof = self.assembler._initialize_matrix_rhs(gb, None)
-        self.block_dof = block_dof
-        self.full_dof = full_dof
+        self._block_dof = block_dof
+        self._full_dof = full_dof
 
         self.time_stepper = self.time_stepper()
 
@@ -129,9 +131,10 @@ class ParabolicModel:
         if self.callback is not None:
             self.callback(self)
 
-    def split(self, x_name="solution", mortar_key="mortar_solution"):
-        self.x_name = x_name
-        self._time_disc.split(self.grid(), self.x_name, self.time_stepper.p, mortar_key)
+    def split(self):
+        self.assembler.distribute_variable(
+            self.grid(), self.time_stepper.p, self._block_dof, self._full_dof
+        )
 
     def reassemble(self):
         "Reassemble matrices and rhs"
@@ -144,8 +147,9 @@ class ParabolicModel:
     def advective_disc(self):
         "Discretization of fluid_density*fluid_specific_heat * v * \nabla T"
         class WeightedUpwindDisc(pp.Upwind):
-            def __init__(self, physics):
-                self.physics = physics
+            def __init__(self, keyword):
+                self.keyword = keyword
+                pp.Upwind.__init__(self, self.keyword)
 
             def matrix_rhs(self, g, data):
                 lhs, rhs = pp.Upwind.matrix_rhs(self, g, data)
@@ -155,9 +159,9 @@ class ParabolicModel:
                 return lhs, rhs
 
         class WeightedUpwindCoupler(pp.UpwindCoupling):
-            def __init__(self, physics):
-                self.physics = physics
-                pp.UpwindCoupling.__init__(self, self.physics)
+            def __init__(self, keyword):
+                self.keyword = keyword
+                pp.UpwindCoupling.__init__(self, self.keyword)
 
             def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
                 cc = pp.UpwindCoupling.matrix_rhs(
@@ -168,15 +172,16 @@ class ParabolicModel:
                 )
                 return (cc - matrix) * factor + matrix
 
-        return (WeightedUpwindDisc(self.physics), WeightedUpwindCoupler(self.physics))
+        return (WeightedUpwindDisc(self.keyword), WeightedUpwindCoupler(self.keyword))
 
     def diffusive_disc(self):
         "Discretization of term \nabla K \nabla T"
-        return (pp.Tpfa(self.physics), pp.RobinCoupling(self.physics))
+        tpfa = pp.Tpfa(self.keyword, self.physics)
+        return (tpfa, pp.RobinCoupling(self.keyword, tpfa))
 
     def source_disc(self):
         "Discretization of source term, q"
-        return (pp.Integral(self.physics), None)
+        return (pp.Integral(self.keyword, self.physics), None)
 
     def space_disc(self):
         """Space discretization. Returns the discretization terms that should be
@@ -215,34 +220,35 @@ class ParabolicModel:
                 rhs = np.zeros(ndof)
                 return factor * lhs, factor * rhs
 
-        return (TimeDisc(self.time_step(), self.physics), None)
+        return (TimeDisc(self.time_step(), self.keyword), None)
 
 
     def discretize(self):
         for g, d in self._gb:
             self._time_name
 
-        lhs, rhs, self.block_dof, self.full_dof = self.assembler.assemble_matrix_rhs(
+        lhs, rhs, self._block_dof, self._full_dof = self.assembler.assemble_matrix_rhs(
             self.grid(), add_matrices=False
         )
 
-        time = self._time_name + '_' + self.physics
-        space = []
-        for d in self._disc_name:
-            space.append(d + '_' + self.physics)
+        time = self._time_name + '_' + self.keyword
         lhs_time = lhs[time]
         rhs_time = rhs[time]
-        lhs_space = lhs[space[0]]
-        rhs_space = rhs[space[0]]
-        for name in space[1:]:
-            lhs_space += lhs[name]
-            rhs_space += rhs[name]
+
+        lhs_space = []
+        rhs_space = []
+        for key in lhs.keys():
+            if key!=time:
+                lhs_space.append(lhs[key])
+                rhs_space.append(rhs[key])
+        lhs_space = sum(lhs_space)
+        rhs_space = sum(rhs_space)
 
         return lhs_time, lhs_space, rhs_time, rhs_space
 
     def _set_discretization(self):
         if self.is_GridBucket:
-            key = self.physics
+            key = self.keyword
             node_disc = {}
             edge_disc = []
             disc_name = []
@@ -252,7 +258,6 @@ class ParabolicModel:
                 edge_disc.append(disc[1])
                 disc_name.append(loc_name)
             self._disc_name = disc_name
-
             time_disc, _ = self.time_disc()
             for g, d in self._gb:
                 # Choose discretization and define the solver
@@ -269,12 +274,11 @@ class ParabolicModel:
                     if disc is None:
                         continue
                     d[pp.keywords.COUPLING_DISCRETIZATION][
-                        disc_name[i] + "_mortar": {
+                        disc_name[i]] = {
                             g_slave: (key, disc_name[i]),
                             g_master: (key, disc_name[i]),
                             e: (key + '_mortar', disc),
                         }
-                    ]
                     d[pp.keywords.PRIMARY_VARIABLES][key+'_mortar'] = {"cells": 1}
 
             assembler = pp.Assembler()
@@ -287,12 +291,12 @@ class ParabolicModel:
         "Returns initial condition for global variable"
         if self.is_GridBucket:
             for _, d in self.grid():
-                d[self.physics] = d[self.physics + "_data"].initial_condition()
+                d[self.keyword] = d[self.keyword + "_data"].initial_condition()
             global_variable = self.assembler.merge_variable(
-                self.grid(), self.physics, self.block_dof, self.full_dof
+                self.grid(), self.keyword, self._block_dof, self._full_dof
             )
         else:
-            global_variable = self._data[self.physics + "_data"].initial_condition()
+            global_variable = self._data[self.keyword + "_data"].initial_condition()
         return global_variable
 
     def grid(self):
@@ -318,7 +322,7 @@ class ParabolicModel:
 
             for time_step, current_time in enumerate(time):
                 for v in variables:
-                    v_data = self.time_stepper.data[self.physics][time_step]
+                    v_data = self.time_stepper.data[self.keyword][time_step]
                     self._time_disc.split(self.grid(), v, v_data)
                 self.exporter.write_vtk(variables, time_step=time_step)
             self.exporter.write_pvd(time)

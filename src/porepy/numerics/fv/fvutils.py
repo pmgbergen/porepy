@@ -1213,7 +1213,7 @@ def compute_discharges(
         # The mapping mortar_to_hat_bc contains is composed of a mapping to
         # faces on the higher-dimensional grid, and computation of the induced
         # fluxes.
-        induced_flux = d["mortar_to_hat_bc"] * d[lam_name]
+        induced_flux = d["mortar_grid"].master_to_mortar_int.T * d[lam_name]
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0
         gb.node_props(g_h)[d_name] += induced_flux
