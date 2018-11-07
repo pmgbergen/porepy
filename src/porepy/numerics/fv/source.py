@@ -158,6 +158,6 @@ class Integral(Solver):
             source values are assumed to be integrated over the cell volumes.
         """
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
-        rhs = sps.dia_matrix(np.ones(self.ndof(g))).tocsc()
+        rhs = sps.diags(np.ones(self.ndof(g))).tocsc()
         data[self._key() + "source"] = lhs
         data[self._key() + "bound_source"] = rhs

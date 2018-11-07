@@ -14,6 +14,7 @@ class TestSource(unittest.TestCase):
         lhs, rhs = src_disc.assemble_matrix_rhs(g, d)
 
         rhs_t = np.array([0, 0, 0, 0, 1, 0, 0, 0])
+
         self.assertTrue(src_disc.ndof(g) == g.num_cells)
         self.assertTrue(np.all(rhs == rhs_t))
         self.assertTrue(lhs.shape == (8, 8))
