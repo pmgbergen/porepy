@@ -1920,7 +1920,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # Note: If we set the value at a face we need to distribute the face values to
     # the subfaces. We do this by an area-weighted average (commented line).
     # If we set the sub-face values we just pass these on directly.
-    neu_val = 1 *np.ones(neu_rob_ind_all.size)#/ num_face_nodes[fno_ext[neu_rob_ind_all]]
+    neu_val = 1 / num_face_nodes[fno_ext[neu_rob_ind_all]]
 
     # The columns will be 0:neu_rob_ind.size
     if neu_rob_ind.size > 0:
