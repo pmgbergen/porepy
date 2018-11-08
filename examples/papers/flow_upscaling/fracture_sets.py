@@ -51,6 +51,28 @@ class FractureSet(object):
 
         self.num_frac = self.edges.shape[1]
 
+    def add(self, fs):
+        """ Add this fracture set to another one, and return a new set.
+
+        The new set may contain non-unique points and edges.
+
+        Parameters:
+            fs (FractureSet): Another set to be added
+
+        Returns:
+            New fracture set, containing all points and edges in both self and
+                fs.
+        """
+        p = np.hstack((self.pts, fs.pts))
+        e = np.hstack((self.edges, fs.edges + self.num_frac))
+
+        domain = {'xmin': np.minimum(self.domain['xmin'], fs.domain['xmin']),
+                  'xmax': np.maximum(self.domain['xmax'], fs.domain['xmax']),
+                  'ymin': np.minimum(self.domain['ymin'], fs.domain['ymin']),
+                  'ymax': np.maximum(self.domain['ymax'], fs.domain['ymax'])}
+
+        return FractureSet(p, e, domain)
+
     def fit_distributions(self, **kwargs):
         self._fit_length_distribution(**kwargs)
         self._fit_angle_distribution(**kwargs)
