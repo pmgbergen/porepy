@@ -158,7 +158,7 @@ class SubcellTopology(object):
 
 
 def compute_dist_face_cell(
-    g, subcell_topology, eta, eta_at_bnd=False, return_paired=True
+    g, subcell_topology, eta, return_paired=True
 ):
     """
     Compute vectors from cell centers continuity points on each sub-face.
@@ -188,9 +188,11 @@ def compute_dist_face_cell(
 
     _, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
     cols += matrix_compression.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
-    eta_vec = eta * np.ones(subcell_topology.fno.size)
-    # Set eta values to zero at the boundary
-    if not eta_at_bnd:
+    if np.asarray(eta).size==subcell_topology.num_subfno_unique:
+        eta_vec = eta[subcell_topology.subfno]
+    else:
+        eta_vec = eta * np.ones(subcell_topology.fno.size)
+        # Set eta values to zero at the boundary
         bnd = np.in1d(subcell_topology.fno, g.get_all_boundary_faces())
         eta_vec[bnd] = 0
     cp = g.face_centers[:, subcell_topology.fno] + eta_vec * (
@@ -1216,6 +1218,10 @@ def compute_discharges(
 
 
 def boundary_to_sub_boundary(bound, subcell_topology):
+    """
+    Convert a boundary condition defined for faces to a boundary condition defined by
+    subfaces.
+    """
     bound = bound.copy()
     bound.is_dir = np.atleast_2d(bound.is_dir)[:, subcell_topology.fno_unique].squeeze()
     bound.is_rob = np.atleast_2d(bound.is_rob)[:, subcell_topology.fno_unique].squeeze()
@@ -1226,5 +1232,5 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     else:
         bound.robin_weight = bound.robin_weight[subcell_topology.fno_unique]
         bound.basis = bound.basis[subcell_topology.fno_unique]
-        
+    bound.num_faces = subcell_topology.num_subfno_unique
     return bound
