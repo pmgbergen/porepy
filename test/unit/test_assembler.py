@@ -115,7 +115,6 @@ class TestAssembler(unittest.TestCase):
         A_known = np.array([[2, 0, 1], [0, 4, 1], [-1, -1, 1]])
         self.assertTrue(np.allclose(A_known, A.todense()))
 
-
     def test_single_variable_no_node_disretization(self):
         """ A single variable, where one of the nodes have no discretization
         object assigned.
@@ -905,6 +904,47 @@ class TestAssembler(unittest.TestCase):
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
+    def test_one_variable_one_sided_coupling_between_node_and_edge_different_operator_variable_names_modifies_node(self):
+        """ Coupling between edge and one of the subdomains, but not the other
+        """
+        gb = self.define_gb()
+        term = "op"
+        for g, d in gb:
+            d[pp.keywords.PRIMARY_VARIABLES] = {'var1': {"cells": 1}}
+            if g.grid_num == 1:
+                d[pp.keywords.DISCRETIZATION] = {'var1': {term: MockNodeDiscretization(1)}}
+                g1 = g
+            else:
+                d[pp.keywords.DISCRETIZATION] = {'var1': {term: MockNodeDiscretization(3)}}
+                g2 = g
+
+        for e, d in gb.edges():
+            d[pp.keywords.PRIMARY_VARIABLES] = {'vare': {"cells": 1}}
+            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+                'tmp': {
+                        g1: ('var1', term),
+                        g2: None,
+                        e: ('vare', MockEdgeDiscretizationOneSidedModifiesNode(2, 1)),
+                }
+            }
+
+        general_assembler = pp.Assembler()
+        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+
+        A_known = np.zeros((3, 3))
+        A_known[0, 0] = 2
+        A_known[1, 1] = 3
+        A_known[2, 2] = 2
+
+        # Off-diagonal elements internal to the nodes: For the first node,
+        # the first variable depends on the second, for the second, it is the
+        # other way around.
+        A_known[2, 0] = -1
+        A_known[0, 2] = 1
+
+        self.assertTrue(np.allclose(A_known, A.todense()))
+
+
     def test_partial_matrices_two_variables_single_discretization(self):
         """ A single variable, with multiple discretizations for one of the nodes.
         Do not add discretization matrices for individual terms
@@ -1055,7 +1095,27 @@ class MockEdgeDiscretizationOneSided(object):
 
         return cc + local_matrix, np.empty(2)
 
+class MockEdgeDiscretizationOneSidedModifiesNode(object):
+    # Discretization for the case where a mortar variable depends only on one side of the
+    def __init__(self, diag_val, off_diag_val):
+        self.diag_val = diag_val
+        self.off_diag_val = off_diag_val
+
+    def assemble_matrix_rhs(self, g_master, data_master, data_edge, local_matrix):
+
+        dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        cc = cc.reshape((2, 2))
+
+        cc[1, 1] = sps.coo_matrix(self.diag_val)
+        cc[1, 0] = sps.coo_matrix(-self.off_diag_val)
+
+        cc[0, 1] = sps.coo_matrix(self.off_diag_val)
+
+        local_matrix[0, 0] += sps.coo_matrix(self.off_diag_val)
+
+
+        return cc + local_matrix, np.empty(2)
 
 if __name__ == "__main__":
     unittest.main()
-#TestAssembler().test_two_variables_coupling_between_node_and_edge_mixed_dependencies()

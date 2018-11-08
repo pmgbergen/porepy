@@ -216,6 +216,10 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     master_key = master_vals[0]
                     mi = block_dof.get((g_master, master_key))
 
+                    # Also define the key to access the matrix of the discretization of
+                    # the master variable on the master node.
+                    mat_key_master = self._variable_term_key(master_vals[1], master_key, master_key)
+
                 slave_vals = terms.get(g_slave)
                 if slave_vals is None:
                     slave_key = ""
@@ -223,19 +227,37 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 else:
                     slave_key = slave_vals[0]
                     si = block_dof.get((g_slave, slave_key))
+                    # Also define the key to access the matrix of the discretization of
+                    # the slave variable on the slave node.
+                    mat_key_slave = self._variable_term_key(slave_vals[1], slave_key, slave_key)
 
+                # Key to the matrix dictionary used to access this coupling
+                # discretization.
                 mat_key = self._variable_term_key(key, edge_key, slave_key, master_key)
 
                 e_discr = edge_vals[1]
 
                 if mi is not None and si is not None:
-                    idx = np.ix_([mi, si, ei], [mi, si, ei])
 
+                    # Assign a local matrix, which will be populated with the
+                    # current state of the local system.
+                    # Local here refers to the variable and term on the two
+                    # nodes, together with the relavant mortar variable and term
+
+                    # Associate the first variable with master, the second with
+                    # slave, and the final with edge.
                     loc_mat, _ = self._assign_matrix_vector(full_dof[[mi, si, ei]])
-                    mat_key_master = self._variable_term_key(master_vals[1], master_key, master_key)
-                    mat_key_slave = self._variable_term_key(slave_vals[1], slave_key, slave_key)
+
+                    # Pick out the discretizations on the master and slave node
+                    # for the relevant variables.
+                    # There should be no contribution or modification of the
+                    # [0, 1] and [1, 0] terms, since the variables are only
+                    # allowed to communicate via the edges.
                     loc_mat[0, 0] = matrix[mat_key_master][mi, mi]
                     loc_mat[1, 1] = matrix[mat_key_slave][si, si]
+
+                    # Run the discretization, and assign the resulting matrix
+                    # to a temporary construct
                     tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
                         g_master,
                         g_slave,
@@ -244,25 +266,48 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                         data_edge,
                         loc_mat,
                     )
+                    # The edge column and row should be assigned to mat_key
                     matrix[mat_key][(ei), (mi, si, ei)] = tmp_mat[(2), (0, 1, 2)]
                     matrix[mat_key][(mi, si), (ei)] = tmp_mat[(0, 1), (2)]
+
+                    # Also update the discretization on the master and slave
+                    # nodes
                     matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]
                     matrix[mat_key_slave][si, si] = tmp_mat[1, 1]
 
+                    # Finally take care of the right hand side
                     rhs[mat_key][[mi, si, ei]] += loc_rhs
 
                 elif mi is not None:
-                    idx = np.ix_([mi, ei], [mi, ei])
-                    matrix[mat_key][idx], loc_rhs = e_discr.assemble_matrix_rhs(
-                        g_master, data_master, data_edge, matrix[mat_key][idx]
+                    # si is None
+                    loc_mat, _ = self._assign_matrix_vector(full_dof[[mi, ei]])
+                    loc_mat[0, 0] = matrix[mat_key_master][mi, mi]
+                    tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
+                        g_master, data_master, data_edge, loc_mat
                     )
+                    matrix[mat_key][(ei), (mi, ei)] = tmp_mat[(1), (0, 1)]
+                    matrix[mat_key][mi, ei] = tmp_mat[0, 1]
+
+                    # Also update the discretization on the master and slave
+                    # nodes
+                    matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]
+
                     rhs[mat_key][[mi, ei]] += loc_rhs
 
                 elif si is not None:
-                    idx = np.ix_([si, ei], [si, ei])
-                    matrix[mat_key][idx], loc_rhs = e_discr.assemble_matrix_rhs(
-                        g_slave, data_slave, data_edge, matrix[mat_key][idx]
+                    # mi is None
+                    loc_mat, _ = self._assign_matrix_vector(full_dof[[si, ei]])
+                    loc_mat[0, 0] = matrix[mat_key_slave][si, si]
+                    tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
+                        g_slave, data_slave, data_edge, loc_mat
                     )
+                    matrix[mat_key][ei, (si, ei)] = tmp_mat[1, (0, 1)]
+                    matrix[mat_key][si, ei] = tmp_mat[0, 1]
+
+                    # Also update the discretization on the master and slave
+                    # nodes
+                    matrix[mat_key_slave][si, si] = tmp_mat[0, 0]
+
                     rhs[mat_key][[si, ei]] += loc_rhs
 
                 else:
