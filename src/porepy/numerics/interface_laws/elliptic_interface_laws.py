@@ -77,8 +77,6 @@ class RobinCoupling(object):
         # conventions here. We should be very careful.
         data_edge[self._key() + 'Robin_discr'] = -inv_M * Eta
 
-
-
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
     ):
@@ -140,10 +138,17 @@ class RobinCoupling(object):
         # discretizations
         #        dof = np.array([dof_master, dof_slave, mg.num_cells])
         dof = np.array([matrix[master_ind, master_ind].shape[1],
-                        matrix[master_ind, slave_ind].shape[1],
+                        matrix[slave_ind, slave_ind].shape[1],
                         mg.num_cells])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
+
+        # The rhs is just zeros
+        # EK: For some reason, the following lines were necessary to apease python
+        rhs = np.empty(3, dtype=np.object)
+        rhs[master_ind] = np.zeros(dof_master)
+        rhs[slave_ind] = np.zeros(dof_slave)
+        rhs[2] = np.zeros(mg.num_cells)
 
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
@@ -169,12 +174,6 @@ class RobinCoupling(object):
         self.discr_master.enforce_neumann_int_bound(
             g_master, data_edge, matrix, False, master_ind
         )
-        # The rhs is just zeros
-        # EK: For some reason, the following lines were necessary to apease python
-        rhs = np.zeros(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[2] = np.zeros(mg.num_cells)
 
         return matrix, rhs
 
@@ -271,11 +270,19 @@ class FluxPressureContinuity(RobinCoupling):
         # We know the number of dofs from the master and slave side from their
         # discretizations
         dof = np.array([matrix[master_ind, master_ind].shape[1],
-                        matrix[master_ind, slave_ind].shape[1],
+                        matrix[slave_ind, slave_ind].shape[1],
                         mg.num_cells])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc_master = cc.reshape((3, 3))
         cc_slave = cc_master.copy()
+
+        # The rhs is just zeros
+        # EK: For some reason, the following lines were necessary to apease python
+        rhs = np.empty(3, dtype=np.object)
+        rhs[master_ind] = np.zeros(dof_master)
+        rhs[slave_ind] = np.zeros(dof_slave)
+        rhs[2] = np.zeros(mg.num_cells)
+
         # The convention, for now, is to put the master grid information
         # in the first column and row in matrix, slave grid in the second
         # and mortar variables in the third
@@ -336,11 +343,5 @@ class FluxPressureContinuity(RobinCoupling):
         self.discr_slave.enforce_neumann_int_bound(
             g_slave, data_edge, matrix, True, slave_ind
         )
-        # The rhs is just zeros
-        # EK: For some reason, the following lines were necessary to apease python
-        rhs = np.zeros(3, dtype=np.object)
-        rhs[master_ind] = np.zeros(dof_master)
-        rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[2] = np.zeros(mg.num_cells)
 
         return matrix, rhs
