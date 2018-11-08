@@ -1213,3 +1213,13 @@ def compute_discharges(
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0
         gb.node_props(g_h)[d_name] += induced_flux
+
+
+def boundary_to_sub_boundary(bound, subcell_topology):
+    bound = bound.copy()
+    bound.is_dir = bound.is_dir[:, subcell_topology.fno_unique]
+    bound.is_rob = bound.is_rob[:, subcell_topology.fno_unique]
+    bound.is_neu = bound.is_neu[:, subcell_topology.fno_unique]
+    bound.robin_weight = bound.robin_weight[:, :, subcell_topology.fno_unique]
+    bound.basis = bound.basis[:, :, subcell_topology.fno_unique]
+    return bound

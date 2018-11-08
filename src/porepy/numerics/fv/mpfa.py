@@ -492,10 +492,21 @@ class Mpfa(FVElliptic):
             subcell_topology.fno_unique, subcell_topology.cno_unique
         ].A.ravel("F")
 
-        # The boundary faces will have either a Dirichlet or Neumann condition, but
-        # not both (Robin is not implemented).
+        # Expand the boundary conditions to the subfaces
+        # This is only needed for the ExcludeBoundaries since this is formulated
+        # on a subface level. We could continue to use the sub-face boundary,
+        # but we keep the original because of legacy.
+        bnd_sub = bnd.copy()
+        bnd_sub.is_dir = bnd_sub.is_dir[subcell_topology.fno_unique]
+        bnd_sub.is_rob = bnd_sub.is_rob[subcell_topology.fno_unique]
+        bnd_sub.is_neu = bnd_sub.is_neu[subcell_topology.fno_unique]
+        bnd_sub.robin_weight = bnd_sub.robin_weight[subcell_topology.fno_unique]
+        bnd_sub.basis = bnd_sub.basis[subcell_topology.fno_unique]
+
+        # The boundary faces will have either a Dirichlet or Neumann condition, or
+        # Robin condition
         # Obtain mappings to exclude boundary faces.
-        bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd, g.dim)
+        bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bnd_sub, g.dim)
 
         # No flux conditions for Dirichlet boundary faces
         nk_grad_n = bound_exclusion.exclude_robin_dirichlet(nk_grad_all)

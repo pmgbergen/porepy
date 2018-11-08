@@ -12,7 +12,7 @@ class RobinBoundTest(unittest.TestCase):
         g = pp.CartGrid([nx, ny], physdims=[1, 1])
         g.compute_geometry()
         c = pp.FourthOrderTensor(2, np.ones(g.num_cells), np.ones(g.num_cells))
-        robin_weight = np.pi
+        robin_weight = 1
 
         bot = g.face_centers[1] < 1e-10
         top = g.face_centers[1] > 1 - 1e-10
@@ -49,6 +49,7 @@ class RobinBoundTest(unittest.TestCase):
             + robin_weight * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
         )
         u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
+        import pdb; pdb.set_trace()
 
         self.assertTrue(np.allclose(u, u_ex(g.cell_centers).ravel("F")))
         self.assertTrue(np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F")))
