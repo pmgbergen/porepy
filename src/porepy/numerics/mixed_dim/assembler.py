@@ -5,7 +5,6 @@
 """
 import numpy as np
 import scipy.sparse as sps
-import collections
 
 import porepy as pp
 
@@ -228,17 +227,28 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 mat_key = self._variable_term_key(key, edge_key, slave_key, master_key)
 
                 e_discr = edge_vals[1]
+
                 if mi is not None and si is not None:
                     idx = np.ix_([mi, si, ei], [mi, si, ei])
 
-                    matrix[mat_key][idx], loc_rhs = e_discr.assemble_matrix_rhs(
+                    loc_mat, _ = self._assign_matrix_vector(full_dof[[mi, si, ei]])
+                    mat_key_master = self._variable_term_key(master_vals[1], master_key, master_key)
+                    mat_key_slave = self._variable_term_key(slave_vals[1], slave_key, slave_key)
+                    loc_mat[0, 0] = matrix[mat_key_master][mi, mi]
+                    loc_mat[1, 1] = matrix[mat_key_slave][si, si]
+                    tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
                         g_master,
                         g_slave,
                         data_master,
                         data_slave,
                         data_edge,
-                        matrix[mat_key][idx],
+                        loc_mat,
                     )
+                    matrix[mat_key][(ei), (mi, si, ei)] = tmp_mat[(2), (0, 1, 2)]
+                    matrix[mat_key][(mi, si), (ei)] = tmp_mat[(0, 1), (2)]
+                    matrix[mat_key_master][mi, mi] = tmp_mat[0, 0]
+                    matrix[mat_key_slave][si, si] = tmp_mat[1, 1]
+
                     rhs[mat_key][[mi, si, ei]] += loc_rhs
 
                 elif mi is not None:
@@ -391,6 +401,8 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         # We will have one discretization matrix per variable
         matrix_dict = {}
         rhs_dict = {}
+
+        full_dof = np.array(full_dof)
 
         # Uniquify list of variable combinations. Then iterate over all variable
         # combinations and initialize matrices of the right size
