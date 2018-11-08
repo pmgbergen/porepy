@@ -22,6 +22,7 @@ class TestAsymmetricNeumann(unittest.TestCase):
         g, k = true_2d(g, k)
 
         subcell_topology = pp.fvutils.SubcellTopology(g)
+        bc = pp.fvutils.boundary_to_sub_boundary(bc, subcell_topology)
         bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim)
         _, igrad, _, _, _ = pp.numerics.fv.mpsa.mpsa_elasticity(
             g, k, subcell_topology, bound_exclusion, 0, "python"
@@ -99,6 +100,7 @@ class TestAsymmetricNeumann(unittest.TestCase):
         k = pp.FourthOrderTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
 
         subcell_topology = pp.fvutils.SubcellTopology(g)
+        bc = pp.fvutils.boundary_to_sub_boundary(bc, subcell_topology)
         bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim)
 
         _, igrad, _, _, _ = pp.numerics.fv.mpsa.mpsa_elasticity(

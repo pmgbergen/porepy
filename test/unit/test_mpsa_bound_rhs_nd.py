@@ -29,9 +29,14 @@ class MpsaBoundTest(unittest.TestCase):
         bnd.is_neu[:, is_neu] = True
 
         sc_top = pp.fvutils.SubcellTopology(g)
+        bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
         rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
+        hf2f = pp.fvutils.map_hf_2_f(
+            sc_top.fno_unique, sc_top.subfno_unique, g.dim
+        )
+        rhs = rhs * hf2f.T
 
         rhs_known = np.array(
             [
@@ -78,9 +83,14 @@ class MpsaBoundTest(unittest.TestCase):
         bnd.is_neu[:, is_neu] = True
 
         sc_top = pp.fvutils.SubcellTopology(g)
+        bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
         rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
+        hf2f = pp.fvutils.map_hf_2_f(
+            sc_top.fno_unique, sc_top.subfno_unique, g.dim
+        )
+        rhs = rhs * hf2f.T
 
         rhs_known = np.array(
             [
@@ -144,9 +154,14 @@ class MpsaBoundTest(unittest.TestCase):
         bnd.is_neu[:, is_neu] = True
 
         sc_top = pp.fvutils.SubcellTopology(g)
+        bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
         rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
+        hf2f = pp.fvutils.map_hf_2_f(
+            sc_top.fno_unique, sc_top.subfno_unique, g.dim
+        )
+        rhs = rhs * hf2f.T
 
         rhs_known = np.array(
             [
@@ -193,9 +208,14 @@ class MpsaBoundTest(unittest.TestCase):
         bnd.is_neu[:, is_neu] = True
 
         sc_top = pp.fvutils.SubcellTopology(g)
+        bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
         rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
+        hf2f = pp.fvutils.map_hf_2_f(
+            sc_top.fno_unique, sc_top.subfno_unique, g.dim
+        )
+        rhs = rhs * hf2f.T
 
         rhs_known = np.array(
             [
@@ -243,9 +263,14 @@ class MpsaBoundTest(unittest.TestCase):
         bnd.is_neu[:, is_neu] = True
 
         sc_top = pp.fvutils.SubcellTopology(g)
+        bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
         rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
+        hf2f = pp.fvutils.map_hf_2_f(
+            sc_top.fno_unique, sc_top.subfno_unique, g.dim
+        )
+        rhs = rhs * hf2f.T
 
         rhs_known = np.array(
             [
@@ -297,9 +322,14 @@ class MpsaBoundTest(unittest.TestCase):
         bnd.is_dir[1, top] = True
 
         sc_top = pp.fvutils.SubcellTopology(g)
+        bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
         rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
+        hf2f = pp.fvutils.map_hf_2_f(
+            sc_top.fno_unique, sc_top.subfno_unique, g.dim
+        )
+        rhs = rhs * hf2f.T
 
         rhs_known = np.array(
             [
@@ -363,9 +393,15 @@ class MpsaBoundTest(unittest.TestCase):
         bnd.is_neu[:, is_neu] = True
 
         sc_top = pp.fvutils.SubcellTopology(g)
+        bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
         rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
+        hf2f = pp.fvutils.map_hf_2_f(
+            sc_top.fno_unique, sc_top.subfno_unique, g.dim
+        )
+        rhs = rhs * hf2f.T
+
         rhs_known = np.array(
             [
                 [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
@@ -420,9 +456,15 @@ class MpsaBoundTest(unittest.TestCase):
         bnd.is_neu[:, is_neu] = True
 
         sc_top = pp.fvutils.SubcellTopology(g)
+        bnd = pp.fvutils.boundary_to_sub_boundary(bnd, sc_top)
         bnd_excl = pp.fvutils.ExcludeBoundaries(sc_top, bnd, g.dim)
 
         rhs = pp.numerics.fv.mpsa.create_bound_rhs(bnd, bnd_excl, sc_top, g)
+        hf2f = pp.fvutils.map_hf_2_f(
+            sc_top.fno_unique, sc_top.subfno_unique, g.dim
+        )
+        rhs = rhs * hf2f.T
+
         rhs_indptr = np.array(
             [
                 0,

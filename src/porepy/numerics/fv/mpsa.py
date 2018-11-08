@@ -289,7 +289,7 @@ class FracturedMpsa(Mpsa):
         if data["param"].get_bc(self).bc_type == "vectorial":
             bc_val = bc_val.ravel("F")
 
-        frac_ind = pp.mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
+        frac_ind = pp.utils.mcolon.mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
         bc_val[frac_ind] = frac_disp
 
         T = data["stress"] * cell_disp + data["bound_stress"] * bc_val
@@ -391,10 +391,10 @@ class FracturedMpsa(Mpsa):
         else:
             raise NotImplementedError("not implemented given faces")
 
-        int_b_left = mcolon.mcolon(
+        int_b_left = pp.utils.mcolon.mcolon(
             g.dim * frac_faces_left, g.dim * frac_faces_left + g.dim
         )
-        int_b_right = mcolon.mcolon(
+        int_b_right = pp.utils.mcolon.mcolon(
             g.dim * frac_faces_right, g.dim * frac_faces_right + g.dim
         )
         int_b_ind = np.ravel((int_b_left, int_b_right), "C")
@@ -448,10 +448,10 @@ class FracturedMpsa(Mpsa):
         else:
             raise NotImplementedError("not implemented given faces")
 
-        int_b_left = mcolon.mcolon(
+        int_b_left = pp.utils.mcolon.mcolon(
             g.dim * frac_faces_left, g.dim * frac_faces_left + g.dim
         )
-        int_b_right = mcolon.mcolon(
+        int_b_right = pp.utils.mcolon.mcolon(
             g.dim * frac_faces_right, g.dim * frac_faces_right + g.dim
         )
         int_b_ind = np.ravel((int_b_left, int_b_right), "C")
@@ -492,10 +492,10 @@ class FracturedMpsa(Mpsa):
         else:
             raise NotImplementedError("not implemented given faces")
 
-        int_b_left = mcolon.mcolon(
+        int_b_left = pp.utils.mcolon.mcolon(
             g.dim * frac_faces_left, g.dim * frac_faces_left + g.dim
         )
-        int_b_right = mcolon.mcolon(
+        int_b_right = pp.utils.mcolon.mcolon(
             g.dim * frac_faces_right, g.dim * frac_faces_right + g.dim
         )
         int_b_ind = np.ravel((int_b_left, int_b_right), "C")
@@ -675,7 +675,7 @@ def mpsa(
         logger.info("Split MPSA discretization into " + str(num_part) + " parts")
 
         # Let partitioning module apply the best available method
-        part = partition.partition(g, num_part)
+        part = pp.partition(g, num_part)
 
         # Empty fields for stress and bound_stress. Will be expanded as we go.
         # Implementation note: It should be relatively straightforward to
@@ -932,7 +932,7 @@ def mpsa_partial(
         return stress_glob, bound_stress_glob, active_faces
     # Extract subgrid, together with mappings between local and global
     # cells
-    sub_g, l2g_faces, _ = partition.extract_subgrid(g, ind)
+    sub_g, l2g_faces, _ = pp.partition.extract_subgrid(g, ind)
     l2g_cells = sub_g.parent_cell_ind
 
     # Copy stiffness tensor, and restrict to local cells
@@ -947,7 +947,7 @@ def mpsa_partial(
     # that are on the global boundary.
     # Then transfer boundary condition on those faces.
 
-    loc_bnd = bc.BoundaryConditionVectorial(sub_g)
+    loc_bnd = pp.BoundaryConditionVectorial(sub_g)
     loc_bnd.is_dir = bound.is_dir[:, l2g_faces]
     loc_bnd.is_rob = bound.is_rob[:, l2g_faces]
     loc_bnd.is_neu[loc_bnd.is_dir + loc_bnd.is_rob] = False
@@ -989,7 +989,7 @@ def mpsa_partial(
         subcell_topology = pp.fvutils.SubcellTopology(g)
         l2g_sub_faces = np.where(np.in1d(subcell_topology.fno_unique, l2g_faces))[0]
         # We now create a fake grid, just to be able to use the function map_subgrid_to_grid.
-        subgrid = structured.CartGrid([1] * g.dim)
+        subgrid = pp.CartGrid([1] * g.dim)
         subgrid.num_faces = subcell_topology.fno_unique.size
         subgrid.num_cells = g.num_cells
         sub_face_map, _ = pp.fvutils.map_subgrid_to_grid(
@@ -1153,7 +1153,7 @@ def _mpsa_local(
         hf_bound = dist_grad * igrad * rhs_bound
         # The subface displacement is given by
         # hf_cell * u_cell_centers + hf_bound * u_bound_condition
-        return stress, bound_stress, hf_cell, hf_bound
+        return hf2f * stress, hf2f * bound_stress * hf2f.T, hf_cell, hf_bound * hf2f.T
     else:
         return hf2f * stress, hf2f * bound_stress * hf2f.T
 
