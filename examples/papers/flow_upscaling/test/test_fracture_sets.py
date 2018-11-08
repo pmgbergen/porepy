@@ -149,6 +149,64 @@ class TestFractureSetPopulation(unittest.TestCase):
         self.assertTrue(np.sum(np.abs(np.abs(p[1]) - (2 + dy)) < 1e-3) == 3)
         self.assertTrue(np.sum(np.abs(np.abs(p[1]) - (2 - dy)) < 1e-3) == 3)
 
+    def test_one_parent_all_one_y_children(self):
+        # Define population methods and statistical distribution for a network
+        # where all the children have a single y-node
+        p = np.array([[0, 5], [0, 0]])
+        e = np.array([[0], [1]])
+
+        domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
+
+        original_parent = FractureSet(p, e, domain)
+
+        p_children = np.array(
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0., 0., 0., 0., 1, 1, 1, 1]], dtype=np.float
+        )
+
+        # Children length from a lognormal distribution
+        p_children[1, [4, 5, 6, 7]] += stats.lognorm.rvs(s=1, size=4)
+
+        e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
+        child = ChildFractureSet(p_children, e_children, domain, original_parent)
+
+        # Force all parents to have exactly three children
+        child.fraction_of_parents_with_child = 1
+        child.num_children_dist = stats.randint(low=3, high=4)
+
+        # All children will be isolated
+        child.fraction_isolated = 0
+        child.fraction_one_y = 1
+
+        # All fractures have distance from parents of 2
+        child.dist_from_parents = {"dist": stats.randint(low=2, high=3), "param": {}}
+
+        # All fractures have the same length
+        known_length = np.random.rand(1)
+        child.dist_length = make_dummy_distribution(known_length)
+
+        # All fractures have the same angle
+        angle = np.pi / 2 * np.random.rand(1)
+        child.dist_angle = make_dummy_distribution(angle)
+
+        realiz = child.populate(original_parent)
+
+        p = realiz.pts
+        e = realiz.edges
+        self.assertTrue(p.shape[1] == 6)
+        self.assertTrue(e.shape[1] == 3)
+
+        # All generated fractures should have length 1
+        dx = p[:, e[1]] - p[:, e[0]]
+        length = np.sqrt(np.sum(dx ** 2, axis=0))
+        self.assertTrue(np.allclose(length, known_length))
+
+        # The end points of the fracture are shifted half the length * sin of the angle
+        # compared with the known center point
+        # We need to take the absolute value of the y-coordinate, since the child
+        # make be put on either side of the center
+        dy = known_length * np.sin(angle)
+        self.assertTrue(np.sum(np.abs(np.abs(p[1]) - dy) < 1e-3) == 3)
+        self.assertTrue(np.sum(np.abs(p[1])  < 1e-3) == 3)
 
 class TestParentChildrenRelations(unittest.TestCase):
     def test_only_isolated_one_parent(self):
@@ -462,6 +520,6 @@ def make_dummy_distribution(value):
 # if __name__ == '__main__':
 #    unittest.main()
 # TestParentChildrenRelations().test_only_isolated_two_parents_one_far_away()
-TestFractureSetPopulation().test_one_parent_all_i_children()
+TestFractureSetPopulation().test_one_parent_all_one_y_children()
 # unittest.main()
 # TestDensityCounting().test_1d_counting_two_boxes()

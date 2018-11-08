@@ -268,7 +268,7 @@ class ChildFractureSet(FractureSet):
         )
 
         # Vector from the parent line to the new center points
-        vec = np.vstack((-np.sin(child_angle), np.cos(child_angle))) * child_length
+        vec = np.vstack((np.cos(child_angle), np.sin(child_angle))) * child_length
 
         end = start + side * vec
 
