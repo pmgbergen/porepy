@@ -14,7 +14,36 @@ import porepy as pp
 
 
 class FractureSet(object):
+    """ Class representation of a set of fractures in a 2D domain.
+
+    The main intended usage is to fit statistical distributions to the fractures,
+    and use this to generate realizations based on this statistics.
+
+    Attributes:
+        pts (np.array, 2 x num_pts): Start and endpoints of the fractures. Points
+            can be shared by fractures.
+        edges (np.array, 2 x num_fracs): Indices, refering to pts, of the start
+            and end points of the fractures.
+        domain (dictionary): The domain in which the fracture set is defined.
+            Should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which
+            maps to a double giving the range of the domain.
+        num_frac (int): Number of fractures in the domain.
+
+    """
+
     def __init__(self, pts, edges, domain):
+        """ Define the frature set.
+
+        Parameters:
+            pts (np.array, 2 x n): Start and endpoints of the fractures. Points
+            can be shared by fractures.
+        edges (np.array, 2 x num_fracs): Indices, refering to pts, of the start
+            and end points of the fractures.
+        domain (dictionary): The domain in which the fracture set is defined.
+            Should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which
+            maps to a double giving the range of the domain.
+
+        """
 
         self.pts = pts
         self.edges = edges
@@ -23,21 +52,21 @@ class FractureSet(object):
         self.num_frac = self.edges.shape[1]
 
     def fit_distributions(self, **kwargs):
-        self.fit_length_distribution(**kwargs)
-        self.fit_angle_distribution(**kwargs)
-        self.fit_intensity_map(**kwargs)
+        self._fit_length_distribution(**kwargs)
+        self._fit_angle_distribution(**kwargs)
+        self._fit_intensity_map(**kwargs)
 
-    def fit_length_distribution(self, **kwargs):
+    def _fit_length_distribution(self, **kwargs):
         self.dist_length = frac_gen.fit_length_distribution(
             self.pts, self.edges, **kwargs
         )
 
-    def fit_angle_distribution(self, **kwargs):
+    def _fit_angle_distribution(self, **kwargs):
         self.dist_angle = frac_gen.fit_angle_distribution(
             self.pts, self.edges, **kwargs
         )
 
-    def fit_intensity_map(self, **kwargs):
+    def _fit_intensity_map(self, **kwargs):
         self.intensity = frac_gen.count_center_point_densities(
             self.pts, self.edges, self.domain, **kwargs
         )
@@ -75,7 +104,7 @@ class FractureSet(object):
         return FractureSet(p, e, domain)
 
     def plot(self, **kwargs):
-        """ Plote the fracture set.
+        """ Plot the fracture set.
 
         The function passes this fracture set to PorePy plot_fractures
 
@@ -156,6 +185,20 @@ class ChildFractureSet(FractureSet):
             return self.num_children_dist.rvs(1)[0]
 
     def _draw_children_along_parent(self, parent_realiz, pi, num_children):
+        """ Define location of children along the lines of a parent fracture.
+
+        The interpretation of the resulting coordinate depends on which type of
+        fracture the child is: For an isolated node this will be the projection
+        of the fracture center onto the parent. For y-nodes, the generated
+        coordinate will be the end of the children that intersects with the
+        parent.
+
+        The location of the coordinate is
+
+        Parameters:
+
+
+        """
 
         # Start and end of the parent fracture
         start = parent_realiz.pts[:, parent_realiz.edges[0, pi]].reshape((-1, 1))
@@ -280,14 +323,58 @@ class ChildFractureSet(FractureSet):
         return p, edges
 
     def _fit_dist_from_parent_distribution(self, ks_size=100, p_val_min=0.05):
-        """
+        """ For isolated fractures, fit a distribution for the distance from
+        the child center to the parent fracture, orthogonal to the parent line.
+
+        The function also evaluates the fitness of the chosen distribution by a
+        Kolgomorov-Smirnov test.
+
+        The function should be called after the field self.isolated_stats['center_distance']
+        has been assigned, e.g. by calling self.compute_statistics()
+
+        IMPLEMENTATION NOTE: The selection of appropriate distributions is a bit
+        unclear. For the moment, we chose between uniform, lognormal and
+        exponential distributions. More generally, this function can be made
+        much more advanced, see for instance Xu and Dowd (Computers and
+        Geosciences, 2010).
+
+        Parameters:
+            ks_size (int, optional): The number of realizations used in the
+                Kolmogorov-Smirnov test. Defaults to 100.
+            p_val_min (double, optional): P-value used in Kolmogorev-Smirnov test
+                for acceptance of the chosen distribution. Defaults to 0.05.
+
+        Returns:
+            dictionary, with fields 'dist': The distribution with best fit.
+                                    'param': Fitted parameters for the best
+                                        ditribution.
+                                    'p_val': P-value for the best distribution
+                                        and parameters.
+
+            If the fracture set contains no isolated fractures, and empty
+            dictionary is returned.
+
+        Raises:
+            ValueError if none of the candidate distributions give a satisfactory
+                fit.
+
         """
         data = self.isolated_stats["center_distance"]
 
+        # Special case of no isolated fractures.
+        if data.size == 0:
+            return {}
+
+        # Set of candidate distributions. This is somewhat arbitrary, better
+        # options may exist
         candidate_dist = np.array([stats.uniform, stats.lognorm, stats.expon])
+        # Fit each distribution
         dist_fit = np.array([d.fit(data, floc=0) for d in candidate_dist])
 
+        # Inline function for Kolgomorov-Smirnov test
         ks = lambda d, p: stats.ks_2samp(data, d.rvs(*p, size=ks_size))[1]
+        # Find the p-value for each of the candidate disributions, and their
+        # fitted parameters
         p_val = np.array([ks(d, p) for d, p in zip(candidate_dist, dist_fit)])
         best_fit = np.argmax(p_val)
 
@@ -310,7 +397,7 @@ class ChildFractureSet(FractureSet):
         # Define the number of children for
         num_children = np.hstack(
             (self.isolated_stats["density"], self.one_y_stats["density"])
-        )
+        ).astype(np.int)
 
         # For some reason, it seems scipy does not do parameter-fitting for
         # abstracting a set of data into a Poisson-distribution.
@@ -321,11 +408,11 @@ class ChildFractureSet(FractureSet):
         # Hand coded Poisson pdf
         def poisson(k, lamb):
             """poisson pdf, parameter lamb is the fit parameter"""
-            return (lamb ** k / scipy.misc.factorial(k)) * np.exp(-lamb)
+            return (lamb ** k / scipy.special.factorial(k)) * np.exp(-lamb)
 
         def negLogLikelihood(params, data):
             """ the negative log-Likelohood-Function"""
-            lnl = -np.sum(np.log(poisson(data, params[0])))
+            lnl = -np.sum(np.log(poisson(data, params[0])+1e-5))
             return lnl
 
         # Use maximum likelihood fit. Use scipy optimize to find the best parameter
@@ -345,11 +432,11 @@ class ChildFractureSet(FractureSet):
         # NOTE: Isolated nodes for the moment does not rule out that the child
         # intersects with a parent
 
-        num_parents = self.parents.edges.shape[1]
+        num_parents = self.parent.edges.shape[1]
 
         # Angle and length distribution as usual
-        self.fit_angle_distribution(**kwargs)
-        self.fit_length_distribution(**kwargs)
+        self._fit_angle_distribution(**kwargs)
+        self._fit_length_distribution(**kwargs)
 
         node_types_self = analyze_intersections_of_sets(self, **kwargs)
         node_types_combined_self, node_types_combined_parent = analyze_intersections_of_sets(
