@@ -108,6 +108,9 @@ class RobinCoupling(object):
             g_master, g_slave = g_slave, g_master
             data_master, data_slave = data_slave, data_master
 
+        master_ind = 0
+        slave_ind = 1
+
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
@@ -115,19 +118,19 @@ class RobinCoupling(object):
         dof_master = self.discr_master.ndof(g_master)
         dof_slave = self.discr_slave.ndof(g_slave)
 
-        if not dof_master == matrix[0, 0].shape[1]:
+        if not dof_master == matrix[master_ind, master_ind].shape[1]:
             raise ValueError(
                 """The number of dofs of the master discretization given
             in RobinCoupling must match the number of dofs given by the matrix
             """
             )
-        elif not dof_slave == matrix[0, 1].shape[1]:
+        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
             raise ValueError(
                 """The number of dofs of the slave discretization given
             in RobinCoupling must match the number of dofs given by the matrix
             """
             )
-        elif not mg.num_cells == matrix[0, 2].shape[1]:
+        elif not mg.num_cells == matrix[master_ind, 2].shape[1]:
             raise ValueError(
                 """The number of dofs of the edge discretization given
             in RobinCoupling must match the number of dofs given by the matrix
@@ -136,7 +139,9 @@ class RobinCoupling(object):
         # We know the number of dofs from the master and slave side from their
         # discretizations
         #        dof = np.array([dof_master, dof_slave, mg.num_cells])
-        dof = np.array([matrix[0, 0].shape[1], matrix[0, 1].shape[1], mg.num_cells])
+        dof = np.array([matrix[master_ind, master_ind].shape[1],
+                        matrix[master_ind, slave_ind].shape[1],
+                        mg.num_cells])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
 
@@ -146,27 +151,29 @@ class RobinCoupling(object):
         cc[2, 2] = data_edge[self._key() + "Robin_discr"]
 
         self.discr_master.assemble_int_bound_pressure_trace(
-            g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0
+            g_master, data_master, data_edge, grid_swap, cc, matrix, master_ind
         )
         self.discr_master.assemble_int_bound_flux(
-            g_master, data_master, data_edge, grid_swap, cc, matrix, self_ind=0
+            g_master, data_master, data_edge, grid_swap, cc, matrix, master_ind
         )
 
         self.discr_slave.assemble_int_bound_pressure_cell(
-            g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1
+            g_slave, data_slave, data_edge, grid_swap, cc, matrix, slave_ind
         )
         self.discr_slave.assemble_int_bound_source(
-            g_slave, data_slave, data_edge, grid_swap, cc, matrix, self_ind=1
+            g_slave, data_slave, data_edge, grid_swap, cc, matrix, slave_ind
         )
 
         matrix += cc
 
-        self.discr_master.enforce_neumann_int_bound(g_master, data_edge, matrix)
+        self.discr_master.enforce_neumann_int_bound(
+            g_master, data_edge, matrix, False, master_ind
+        )
         # The rhs is just zeros
         # EK: For some reason, the following lines were necessary to apease python
         rhs = np.zeros(3, dtype=np.object)
-        rhs[0] = np.zeros(dof_master)
-        rhs[1] = np.zeros(dof_slave)
+        rhs[master_ind] = np.zeros(dof_master)
+        rhs[slave_ind] = np.zeros(dof_slave)
         rhs[2] = np.zeros(mg.num_cells)
 
         return matrix, rhs
@@ -233,6 +240,9 @@ class FluxPressureContinuity(RobinCoupling):
         if not g_master.dim == g_slave.dim:
             raise AssertionError("Slave and master must have same dimension")
 
+        master_ind = 0
+        slave_ind = 1
+
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
         mg = data_edge["mortar_grid"]
@@ -240,27 +250,29 @@ class FluxPressureContinuity(RobinCoupling):
         dof_master = self.discr_master.ndof(g_master)
         dof_slave = self.discr_slave.ndof(g_slave)
 
-        if not dof_master == matrix[0, 0].shape[1]:
+        if not dof_master == matrix[master_ind, master_ind].shape[1]:
             raise ValueError(
                 """The number of dofs of the master discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
+            in FluxPressureContinuity must match the number of dofs given by the matrix
             """
             )
-        elif not dof_slave == matrix[0, 1].shape[1]:
+        elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
             raise ValueError(
                 """The number of dofs of the slave discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
+            in FluxPressureContinuity must match the number of dofs given by the matrix
             """
             )
-        elif not mg.num_cells == matrix[0, 2].shape[1]:
+        elif not mg.num_cells == matrix[master_ind, 2].shape[1]:
             raise ValueError(
                 """The number of dofs of the edge discretization given
-            in RobinCoupling must match the number of dofs given by the matrix
+            in FluxPressureContinuity must match the number of dofs given by the matrix
             """
             )
         # We know the number of dofs from the master and slave side from their
         # discretizations
-        dof = np.array([matrix[0, 0].shape[1], matrix[0, 1].shape[1], mg.num_cells])
+        dof = np.array([matrix[master_ind, master_ind].shape[1],
+                        matrix[master_ind, slave_ind].shape[1],
+                        mg.num_cells])
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc_master = cc.reshape((3, 3))
         cc_slave = cc_master.copy()
@@ -271,11 +283,11 @@ class FluxPressureContinuity(RobinCoupling):
         # row and coloumn. When the assembler assigns matrix[idx] it will only add
         # the slave information because of duplicate indices (master and slave is the same).
         # We therefore write the both master and slave info to the slave index.
-        slave_ind = 1
         if g_master == g_slave:
             master_ind = 1
         else:
             master_ind = 0
+
         self.discr_master.assemble_int_bound_pressure_trace(
             g_master,
             data_master,
@@ -283,7 +295,7 @@ class FluxPressureContinuity(RobinCoupling):
             False,
             cc_master,
             matrix,
-            self_ind=master_ind,
+            master_ind
         )
         self.discr_master.assemble_int_bound_flux(
             g_master,
@@ -292,15 +304,15 @@ class FluxPressureContinuity(RobinCoupling):
             False,
             cc_master,
             matrix,
-            self_ind=master_ind,
+            master_ind
         )
 
         self.discr_slave.assemble_int_bound_pressure_trace(
-            g_slave, data_slave, data_edge, True, cc_slave, matrix, self_ind=slave_ind
+            g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
         )
 
         self.discr_slave.assemble_int_bound_flux(
-            g_slave, data_slave, data_edge, True, cc_slave, matrix, self_ind=slave_ind
+            g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
         )
         # We now have to flip the sign of some of the matrices
         # First we flip the sign of the slave flux because the mortar flux points
@@ -318,13 +330,17 @@ class FluxPressureContinuity(RobinCoupling):
         # cc[1] -> p_m - p_s = 0
         matrix += cc_master + cc_slave
 
-        self.discr_master.enforce_neumann_int_bound(g_master, data_edge, matrix)
-        self.discr_slave.enforce_neumann_int_bound(g_slave, data_edge, matrix)
+        self.discr_master.enforce_neumann_int_bound(
+            g_master, data_edge, matrix, False, master_ind
+        )
+        self.discr_slave.enforce_neumann_int_bound(
+            g_slave, data_edge, matrix, True, slave_ind
+        )
         # The rhs is just zeros
         # EK: For some reason, the following lines were necessary to apease python
         rhs = np.zeros(3, dtype=np.object)
-        rhs[0] = np.zeros(dof_master)
-        rhs[1] = np.zeros(dof_slave)
+        rhs[master_ind] = np.zeros(dof_master)
+        rhs[slave_ind] = np.zeros(dof_slave)
         rhs[2] = np.zeros(mg.num_cells)
 
         return matrix, rhs
