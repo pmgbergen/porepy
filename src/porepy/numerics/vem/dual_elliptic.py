@@ -78,7 +78,7 @@ class DualElliptic(
         # First assemble the matrix
         M = self.assemble_matrix(g, data)
 
-        # Impose Neumann boundary conditions, with appropriate scaling of the
+        # Impose Neumann and Robin boundary conditions, with appropriate scaling of the
         # diagonal element
         M, bc_weight = self.assemble_neumann_robin(g, data, M, bc_weight=True)
 
@@ -192,7 +192,6 @@ class DualElliptic(
         if np.any(is_rob):
             is_rob = np.where(is_rob)[0]
             rhs[is_rob] += -sign[is_rob] * bc_val[is_rob] / bc.robin_weight[is_rob]
-
 
         if np.any(is_neu):
             is_neu = np.where(is_neu)[0]
@@ -439,7 +438,7 @@ class DualElliptic(
         d[dof] = norm
         matrix[0, 0].setdiag(d)
 
-    def extract_flux(self, g, up, d=None):
+    def extract_flux(self, g, solution_array, data=None):
         """  Extract the velocity from a dual virtual element solution.
 
         Parameters
@@ -457,15 +456,15 @@ class DualElliptic(
 
         """
         # pylint: disable=invalid-name
-        return up[: g.num_faces]
+        return solution_array[:g.num_faces]
 
-    def extract_pressure(self, g, up, d=None):
+    def extract_pressure(self, g, solution_array, data=None):
         """  Extract the pressure from a dual virtual element solution.
 
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
-        up : array (g.num_faces+g.num_cells)
+        solution_array : array (g.num_faces+g.num_cells)
             Solution, stored as [velocity,pressure]
         d: data dictionary associated with the grid.
             Unused, but included for consistency reasons.
@@ -477,4 +476,4 @@ class DualElliptic(
 
         """
         # pylint: disable=invalid-name
-        return up[g.num_faces :]
+        return solution_array[g.num_faces:]
