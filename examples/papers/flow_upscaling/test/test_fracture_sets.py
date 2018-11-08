@@ -47,8 +47,47 @@ class TestFractureSetPopulation(unittest.TestCase):
         self.assertTrue(np.allclose(realiz.pts, known_points))
         self.assertTrue(np.allclose(realiz.edges, known_edges))
 
+    def test_draw_children_type(self):
+        """ Check that the children type is drawn correctly
+        """
+        p = np.array([[0, 5], [0, 0]])
+        e = np.array([[0], [1]])
 
-    def test_one_parent_several_children(self):
+        domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
+
+        frac_set = ChildFractureSet(p, e, domain, None)
+
+        # First force only i-nodes
+        frac_set.fraction_isolated = 1
+        frac_set.fraction_one_y = 0
+        frac_set.fraction_both_y = 0
+
+        i, y, by = frac_set._draw_children_type(10)
+        self.assertTrue(np.all(i))
+        self.assertTrue(np.all(np.logical_not(y)))
+        self.assertTrue(np.all(np.logical_not(by)))
+
+        # Then only single y-nodes
+        frac_set.fraction_isolated = 0
+        frac_set.fraction_one_y = 1
+        frac_set.fraction_both_y = 0
+
+        i, y, by = frac_set._draw_children_type(10)
+        self.assertTrue(np.all(np.logical_not(i)))
+        self.assertTrue(np.all(y))
+        self.assertTrue(np.all(np.logical_not(by)))
+
+        # Then only double y-nodes
+        frac_set.fraction_isolated = 0
+        frac_set.fraction_one_y = 0
+        frac_set.fraction_both_y = 1
+
+        i, y, by = frac_set._draw_children_type(10)
+        self.assertTrue(np.all(np.logical_not(i)))
+        self.assertTrue(np.all(np.logical_not(y)))
+        self.assertTrue(np.all(by))
+
+    def test_one_parent_all_i_children(self):
         # Define
         #Define population methods and statistical distribution for children
         p = np.array([[0, 5], [0, 0]])
