@@ -87,6 +87,35 @@ class TestAssembler(unittest.TestCase):
         A_known = np.array([[1, 0, 1], [0, 2, 1], [-1, -1, 1]])
         self.assertTrue(np.allclose(A_known, A.todense()))
 
+    def test_single_variable_different_operator_names(self):
+        gb = self.define_gb()
+        for g, d in gb:
+            if g.grid_num == 1:
+                d[pp.keywords.PRIMARY_VARIABLES] = {'var1': {"cells": 1}}
+                d[pp.keywords.DISCRETIZATION] = {'var1': {'op1': MockNodeDiscretization(1)}}
+                g1 = g
+            else:
+                d[pp.keywords.PRIMARY_VARIABLES] = {'var2': {"cells": 1}}
+                d[pp.keywords.DISCRETIZATION] = {'var2': {'op2': MockNodeDiscretization(2)}}
+                g2 = g
+
+        for e, d in gb.edges():
+            d[pp.keywords.PRIMARY_VARIABLES] = {'vare': {"cells": 1}}
+            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+                'terme': {
+                    g1: ('var1', 'op1'),
+                    g2: ('var2', 'op2'),
+                    e: ('vare', MockEdgeDiscretizationModifiesNode(1, 1)),
+                }
+            }
+
+        general_assembler = pp.Assembler()
+        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+
+        A_known = np.array([[2, 0, 1], [0, 4, 1], [-1, -1, 1]])
+        self.assertTrue(np.allclose(A_known, A.todense()))
+
+
     def test_single_variable_no_node_disretization(self):
         """ A single variable, where one of the nodes have no discretization
         object assigned.
@@ -978,6 +1007,34 @@ class MockEdgeDiscretization(object):
 
         return cc + local_matrix, np.empty(3)
 
+class MockEdgeDiscretizationModifiesNode(object):
+    def __init__(self, diag_val, off_diag_val):
+        self.diag_val = diag_val
+        self.off_diag_val = off_diag_val
+
+    def assemble_matrix_rhs(
+        self, g_master, g_slave, data_master, data_slave, data_edge, local_matrix
+    ):
+
+        dof = [local_matrix[0, i].shape[1] for i in range(local_matrix.shape[1])]
+        cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
+        cc = cc.reshape((3, 3))
+
+        cc[2, 2] = sps.coo_matrix(self.diag_val)
+        cc[2, 0] = sps.coo_matrix(-self.off_diag_val)
+        cc[2, 1] = sps.coo_matrix(-self.off_diag_val)
+        cc[0, 2] = sps.coo_matrix(self.off_diag_val)
+        cc[1, 2] = sps.coo_matrix(self.off_diag_val)
+
+        if g_master.grid_num == 1:
+            local_matrix[0, 0] += sps.coo_matrix(self.off_diag_val)
+            local_matrix[1, 1] += sps.coo_matrix(2 * self.off_diag_val)
+        else:
+            local_matrix[1, 1] += sps.coo_matrix(self.off_diag_val)
+            local_matrix[0, 0] += sps.coo_matrix(2 * self.off_diag_val)
+
+        return cc + local_matrix, np.empty(3)
+
 
 class MockEdgeDiscretizationOneSided(object):
     # Discretization for the case where a mortar variable depends only on one side of the
@@ -1001,3 +1058,4 @@ class MockEdgeDiscretizationOneSided(object):
 
 if __name__ == "__main__":
     unittest.main()
+#TestAssembler().test_two_variables_coupling_between_node_and_edge_mixed_dependencies()
