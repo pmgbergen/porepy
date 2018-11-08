@@ -1107,11 +1107,12 @@ def _mpsa_local(
     # Define subcell topology
     subcell_topology = pp.fvutils.SubcellTopology(g)
     # If g is not already a sub-grid we create one
-    if "FvSubGrid" in g.name:
-        pass
+    if bound.num_faces == subcell_topology.num_subfno_unique:
+        subface_rhs = True
     else:
         # And we expand the boundary conditions to fit the sub-grid
         bound = pp.fvutils.boundary_to_sub_boundary(bound, subcell_topology)
+        subface_rhs = False
 
     # Obtain mappings to exclude boundary faces
     bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
@@ -1140,6 +1141,10 @@ def _mpsa_local(
     # Discretization of boundary values
     bound_stress = hook_igrad * rhs_bound
 
+    if not subface_rhs:
+        bound_stress = hf2f * bound_stress * hf2f.T
+        stress = hf2f * stress
+
     if hf_disp:
         eta_at_bnd = True
         if hf_eta is None:
@@ -1153,9 +1158,11 @@ def _mpsa_local(
         hf_bound = dist_grad * igrad * rhs_bound
         # The subface displacement is given by
         # hf_cell * u_cell_centers + hf_bound * u_bound_condition
-        return hf2f * stress, hf2f * bound_stress * hf2f.T, hf_cell, hf_bound * hf2f.T
+        if subface_rhs:
+            hf_bound *= hf2f.T
+        return stress, bound_stress, hf_cell, hf_bound * hf2f.T
     else:
-        return hf2f * stress, hf2f * bound_stress * hf2f.T
+        return stress, bound_stress
 
 
 def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter):
