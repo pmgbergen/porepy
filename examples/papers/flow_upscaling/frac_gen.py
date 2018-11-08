@@ -320,7 +320,7 @@ def define_centers_by_boxes(domain, intensity, distribution='poisson'):
             num_p_loc = stats.poisson(max_intensity * area_of_box).rvs(1)[0]
             p_loc = np.random.rand(2, num_p_loc)
             p_loc[0] = x0 + i * dx + p_loc[0] * dx
-            p_loc[1] = y0 + i * dy + p_loc[1] * dy
+            p_loc[1] = y0 + j * dy + p_loc[1] * dy
             pts[counter] = p_loc
             counter += 1
 

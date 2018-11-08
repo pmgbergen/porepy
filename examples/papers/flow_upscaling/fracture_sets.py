@@ -80,6 +80,114 @@ class FractureSet(object):
     def set_intensity_map(self, box):
         self.intensity = box
 
+    def _fracture_from_center_angle_length(self, p, angles, lengths):
+        """ Generate fractures from a marked-point representation.
+
+        Parameters:
+            p (np.array, 2 x num_frac): Center points of the fractures.
+            angles (np.array, num_frac): Angle from the x-axis of the fractures.
+                Measured in radians.
+            lengths (np.array, num_frac): Length of the fractures
+
+        Returns:
+            np.array (2 x 2 * num_frac): Start and endpoints of the fractures
+            np.array (2 x num_frac): For each fracture, the start and endpoint,
+                in terms of indices in the point array.
+
+        """
+        num_frac = lengths.size
+
+        start = p + 0.5 * lengths * np.vstack((np.cos(angles), np.sin(angles)))
+        end = p - 0.5 * lengths * np.vstack((np.cos(angles), np.sin(angles)))
+
+        pts = np.hstack((start, end))
+
+        e = np.vstack((np.arange(num_frac), num_frac + np.arange(num_frac)))
+        return pts, e
+
+    def _define_centers_by_boxes(self, domain, distribution='poisson'):
+        """ Define center points of fractures, intended used in a marked point
+        process.
+
+        The domain is assumed decomposed into a set of boxes, and fracture points
+        will be allocated within each box, according to the specified distribution
+        and intensity.
+
+        A tacit assumption is that the domain and intensity map corresponds to
+        values used in and computed by count_center_point_densities. If this is
+        not the case, scaling errors of the densities will arise. This should not
+        be difficult to generalize, but there is no time right now.
+
+        The implementation closely follows y Xu and Dowd:
+            A new computer code for discrete fracture network modelling
+            Computers and Geosciences, 2010
+
+        Parameters:
+            domain (dictionary): Description of the simulation domain. Should
+                contain fields xmin, xmax, ymin, ymax.
+            intensity (np.array, nx x ny): Intensity map, mean values for fracture
+                density in each of the boxes the domain will be split into.
+            distribution (str, default): Specify which distribution is followed.
+                For now a placeholder value, only 'poisson' is allowed.
+
+        Returns:
+             np.array (2 x n): Coordinates of the fracture centers.
+
+        Raises:
+            ValueError if distribution does not equal poisson.
+
+        """
+        if distribution != 'poisson':
+            return ValueError('Only Poisson point processes have been implemented')
+
+        nx, ny = self.intensity.shape
+        num_boxes = self.intensity.size
+
+        max_intensity = self.intensity.max()
+
+        x0, y0, dx, dy = self._decompose_domain(domain, nx, ny)
+
+        # It is assumed that the intensities are computed relative to boxes of the
+        # same size that are assigned in here
+        area_of_box=1
+
+        pts = np.empty(num_boxes, dtype=np.object)
+
+        # First generate the full set of points with maximum intensity
+        counter = 0
+        for i in range(nx):
+            for j in range(ny):
+                num_p_loc = stats.poisson(max_intensity * area_of_box).rvs(1)[0]
+                p_loc = np.random.rand(2, num_p_loc)
+                p_loc[0] = x0 + i * dx + p_loc[0] * dx
+                p_loc[1] = y0 + j * dy + p_loc[1] * dy
+                pts[counter] = p_loc
+                counter += 1
+
+        # Next, carry out a thinning process, which is really only necessary if the intensity is non-uniform
+        # See Xu and Dowd Computers and Geosciences 2010, section 3.2 for a description
+        counter = 0
+        for i in range(nx):
+            for j in range(ny):
+                p_loc = pts[counter]
+                threshold = np.random.rand(p_loc.shape[1])
+                delete = np.where(self.intensity[i, j] / max_intensity < threshold)[0]
+                pts[counter] = np.delete(p_loc, delete, axis=1)
+                counter += 1
+
+        return np.array([pts[i][:, j] for i in range(pts.size) for j in range(pts[i].shape[1])]).T
+
+    def _decompose_domain(self, domain, nx, ny=None):
+        x0 = domain['xmin']
+        dx = (domain['xmax'] - domain['xmin']) / nx
+
+        if 'ymin' in domain.keys() and 'ymax' in domain.keys():
+            y0 = domain['ymin']
+            dy = (domain['ymax'] - domain['ymin']) / ny
+            return x0, y0, dx, dy
+        else:
+            return x0, dx
+
     def populate(self, domain=None, fit_distributions=True, **kwargs):
         if domain is None:
             domain = self.domain
@@ -88,7 +196,7 @@ class FractureSet(object):
             self.fit_distributions()
 
         # First define points
-        p = frac_gen.define_centers_by_boxes(domain, self.intensity)
+        p = self._define_centers_by_boxes(domain)
         # bookkeeping
         if p.size == 0:
             num_fracs = 0
@@ -99,9 +207,37 @@ class FractureSet(object):
         angles = frac_gen.generate_from_distribution(num_fracs, self.dist_angle)
         lengths = frac_gen.generate_from_distribution(num_fracs, self.dist_length)
 
-        p, e = frac_gen.fracture_from_center_angle_length(p, angles, lengths)
+        p, e = self._fracture_from_center_angle_length(p, angles, lengths)
 
         return FractureSet(p, e, domain)
+
+    #--------- Utility functions below here
+
+    def length(self, fi=None):
+        """
+        Compute the total length of the fractures, based on the fracture id.
+        The output array has length as unique(frac) and ordered from the lower index
+        to the higher.
+
+        Parameters:
+            fi (np.array, or int): Index of fracture(s) where length should be
+                computed. Refers to self.edges
+
+        Return:
+            np.array: Length of each fracture
+
+        """
+        if fi is None:
+            fi = np.arange(self.num_frac)
+        fi = np.asarray(fi)
+
+        # compute the length for each segment
+        norm = lambda e0, e1: np.linalg.norm(self.pts[:, e0] - self.pts[:, e1])
+        l = np.array([norm(e[0], e[1]) for e in self.edges.T])
+
+        # compute the total length based on the fracture id
+        tot_l = lambda f: np.sum(l[np.isin(fi, f)])
+        return np.array([tot_l(f) for f in np.unique(fi)])
 
     def plot(self, **kwargs):
         """ Plot the fracture set.
