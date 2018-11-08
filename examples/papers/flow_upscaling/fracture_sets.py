@@ -132,16 +132,16 @@ class ChildFractureSet(FractureSet):
                 children_points[:, is_isolated], start_parent, end_parent
             )
 
-            p_y, edges_y = self._populate_y_fractures(
-                children_points[:, np.logical_not(is_isolated)]
-            )
+            p_y, edges_y = self._populate_y_fractures(children_points[:, is_one_y])
+
+            num_pts = all_p.shape[1]
 
             all_p = np.hstack((all_p, p_i, p_y))
 
-            edges_i += all_p.shape[1]
-            edges_y += all_p.shape[1] + p_i.shape[1]
+            edges_i += num_pts
+            edges_y += num_pts + p_i.shape[1]
 
-            all_edges = np.hstack((all_edges, edges_i, edges_y))
+            all_edges = np.hstack((all_edges, edges_i, edges_y)).astype(np.int)
 
         return ChildFractureSet(all_p, all_edges, domain, parent_realiz)
 
@@ -218,7 +218,9 @@ class ChildFractureSet(FractureSet):
 
         num_children = children_points.shape[1]
 
-        dist_from_parent = frac_gen.generate_from_distribution(num_children, self.dist_from_parents)
+        dist_from_parent = frac_gen.generate_from_distribution(
+            num_children, self.dist_from_parents
+        )
 
         # Assign equal probability that the points are on each side of the parent
         side = 2 * (np.random.rand(num_children) > 0.5) - 1
@@ -266,7 +268,7 @@ class ChildFractureSet(FractureSet):
         )
 
         # Vector from the parent line to the new center points
-        vec = np.array([[-np.sin(child_angle)], [np.cos(child_angle)]]) * child_length
+        vec = np.vstack((-np.sin(child_angle), np.cos(child_angle))) * child_length
 
         end = start + side * vec
 
@@ -277,10 +279,10 @@ class ChildFractureSet(FractureSet):
 
         return p, edges
 
-    def _fit_dist_from_parent_distribution(self, ks_size=100, p_val_min = 0.05):
+    def _fit_dist_from_parent_distribution(self, ks_size=100, p_val_min=0.05):
         """
         """
-        data = self.isolated_stats['center_distance']
+        data = self.isolated_stats["center_distance"]
 
         candidate_dist = np.array([stats.uniform, stats.lognorm, stats.expon])
         dist_fit = np.array([d.fit(data, floc=0) for d in candidate_dist])
@@ -292,10 +294,11 @@ class ChildFractureSet(FractureSet):
         if p_val[best_fit] < p_val_min:
             raise ValueError("p-value not satisfactory for length fit")
 
-        self.dist_from_parents = {'dist': candidate_dist[best_fit],
-                                  'param': dist_fit[best_fit],
-                                  'pval': p_val[best_fit]}
-
+        self.dist_from_parents = {
+            "dist": candidate_dist[best_fit],
+            "param": dist_fit[best_fit],
+            "pval": p_val[best_fit],
+        }
 
     def _fit_num_children_distribution(self):
         """ Construct a Poisson distribution for the number of children per
@@ -342,6 +345,8 @@ class ChildFractureSet(FractureSet):
         # NOTE: Isolated nodes for the moment does not rule out that the child
         # intersects with a parent
 
+        num_parents = self.parents.edges.shape[1]
+
         # Angle and length distribution as usual
         self.fit_angle_distribution(**kwargs)
         self.fit_length_distribution(**kwargs)
@@ -365,6 +370,11 @@ class ChildFractureSet(FractureSet):
         one_y = np.where(y_nodes_in_parent == 1)[0]
 
         isolated = np.where(node_types_combined_self["i_nodes"] == 2)[0]
+
+        num_children = self.edges.shape[1]
+        self.fraction_both_y = both_y.size / num_children
+        self.fraction_one_y = one_y.size / num_children
+        self.fraction_isolated = isolated.size / num_children
 
         self.isolated = isolated
         self.one_y = one_y
@@ -394,7 +404,7 @@ class ChildFractureSet(FractureSet):
             # The density is zero for all parent fratures.
             # Center-distance observations are empty.
             self.isolated_stats = {
-                "density": np.zeros(self.parent.edges.shape[1]),
+                "density": np.zeros(num_parents),
                 "center_distance": np.empty(0),
             }
 
@@ -409,13 +419,13 @@ class ChildFractureSet(FractureSet):
         else:
             # The density is zero for all parent fractures
             num_parents_with_one_y = 0
-            self.one_y_stats = {"density": np.zeros(self.parent.edges.shape[1])}
+            self.one_y_stats = {"density": np.zeros(num_parents)}
 
         # Compute bulk statistical properties of the parent family.
         #
         self.fraction_of_parents_with_child = (
             num_parents_with_isolated + num_parents_with_one_y
-        ) / self.parent.edges.shape[1]
+        ) / num_parents
 
         self._fit_num_children_distribution()
 
@@ -521,7 +531,6 @@ class ChildFractureSet(FractureSet):
         pert_dist_isolated = dist_pt(center_of_isolated, points_on_line)
 
         num_occ_all = np.zeros(self.parent.edges.shape[1])
-
 
         # Loop over all parent fractures that are closest to some children.
         # Project the children onto the parent, compute a density map along
