@@ -117,7 +117,9 @@ class ChildFractureSet(FractureSet):
                 parent_realiz, pi, num_children
             )
 
-            is_isolated = self._children_are_isolated(parent_realiz, pi, num_children)
+            is_isolated, is_one_y, is_both_y = self._draw_children_type(
+                num_children, parent_realiz, pi
+            )
 
             start_parent = parent_realiz.pts[:, parent_realiz.edges[0, pi]].reshape(
                 (-1, 1)
@@ -163,8 +165,48 @@ class ChildFractureSet(FractureSet):
 
         return start + np.random.rand(num_children) * dx
 
-    def _children_are_isolated(self, parent_realiz, pi, num_children):
-        return np.random.rand(num_children) < self.fraction_of_parents_with_child
+    def _draw_children_type(self, num_children, parent_realiz=None, pi=None):
+        """ Decide on which type of fracture is child is.
+
+        The probabilities are proportional to the number of different fracture
+        types in the original child (this object).
+
+        Parameters:
+            num_children: Number of fractures to generate
+            parent_realiz (optional, defaults to None): Parent fracture set for this
+                realization. Currently not used.
+            pi (optional, int): Index of the current parent in this realization.
+                Currently not used.
+
+        Returns:
+            np.array, boolean, length num_children: True for fractures that are
+                to be isolated.
+            np.array, boolean, length num_children: True for fractures that will
+                have one T-node.
+            np.array, boolean, length num_children: True for fractures that will
+                have two T-nodes.
+
+            Together, the return arrays should sum to the unit vector, that is,
+            all fractures should be of one of the types.
+
+        """
+        rands = np.random.rand(num_children)
+        is_isolated = rands < self.fraction_isolated
+        rands -= self.fraction_isolated
+
+        is_one_y = np.logical_and(
+            np.logical_not(is_isolated), rands < self.fraction_one_y
+        )
+
+        is_both_y = np.logical_not(np.logical_or(is_isolated, is_one_y))
+
+        if np.any(np.add.reduce((is_isolated, is_one_y, is_both_y)) != 1):
+            # If we end up here, it is most likely a sign that the fractions
+            # of different fracture types in the original set (this object)
+            # do not sum to unity.
+            raise ValueError("All fractures should be I, T or double T")
+
+        return is_isolated, is_one_y, is_both_y
 
     def _populate_isolated_fractures(self, children_points, start_parent, end_parent):
 
