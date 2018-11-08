@@ -270,6 +270,8 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
         self.bc_type = "vectorial"
 
+        # Keep track of internal boundaries
+        self.is_internal = g.tags["fracture_faces"]
         # Find boundary faces
         self.bf = g.get_all_boundary_faces()
 

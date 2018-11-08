@@ -12,17 +12,12 @@ import numpy as np
 import scipy.sparse as sps
 import logging
 
-from porepy.numerics.fv import fvutils
-from porepy.utils import matrix_compression, mcolon, sparse_mat
-from porepy.grids import structured, partition
-from porepy.params import tensor, bc
-from porepy.numerics.mixed_dim.solver import Solver
-
+import porepy as pp
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
 
-class Mpsa(Solver):
+class Mpsa(pp.numerics.mixed_dim.solver.Solver):
     def __init__(self, physics="mechanics"):
         self.physics = physics
 
@@ -70,7 +65,7 @@ class Mpsa(Solver):
         """
         if discretize:
             self.discretize(g, data, **kwargs)
-        div = fvutils.vector_divergence(g)
+        div = pp.fvutils.vector_divergence(g)
         stress = data["stress"]
         bound_stress = data["bound_stress"]
         M = div * stress
@@ -118,7 +113,7 @@ class Mpsa(Solver):
             data["bound_stress"] = bound_stress
         else:
             a = data["param"].aperture
-            fvutils.partial_discretization(
+            pp.fvutils.partial_discretization(
                 g, data, c, bnd, a, mpsa_partial, physics=self.physics
             )
 
@@ -130,7 +125,7 @@ class Mpsa(Solver):
         equation using the MPSA method. See self.matrix_rhs for a detailed
         description.
         """
-        div = fvutils.vector_divergence(g)
+        div = pp.fvutils.vector_divergence(g)
 
         return -div * bound_stress * bc_val - f
 
@@ -294,7 +289,7 @@ class FracturedMpsa(Mpsa):
         if data["param"].get_bc(self).bc_type == "vectorial":
             bc_val = bc_val.ravel("F")
 
-        frac_ind = mcolon.mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
+        frac_ind = pp.mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
         bc_val[frac_ind] = frac_disp
 
         T = data["stress"] * cell_disp + data["bound_stress"] * bc_val
@@ -384,7 +379,7 @@ class FracturedMpsa(Mpsa):
         self.discretize(g, data, **kwargs)
         stress, bound_stress = data["stress"], data["bound_stress"]
         # Create A and rhs
-        div = fvutils.vector_divergence(g)
+        div = pp.fvutils.vector_divergence(g)
         a = div * stress
         b = div * bound_stress
 
@@ -412,10 +407,10 @@ class FracturedMpsa(Mpsa):
         # external boundary faces
         b_internal = b[:, int_b_ind]
         b_external = b.copy()
-        sparse_mat.zero_columns(b_external, int_b_ind)
+        pp.utils.sparse_mat.zero_columns(b_external, int_b_ind)
 
         bound_stress_external = bound_stress.copy().tocsc()
-        sparse_mat.zero_columns(bound_stress_external, int_b_ind)
+        pp.utils.sparse_mat.zero_columns(bound_stress_external, int_b_ind)
         # We assume that the traction on the left hand side is equal but
         # opisite
 
@@ -467,7 +462,7 @@ class FracturedMpsa(Mpsa):
 
         # We obtain the stress from boundary conditions on the domain boundary
         bound_stress_external = bound_stress.copy().tocsc()
-        sparse_mat.zero_columns(bound_stress_external, int_b_ind)
+        pp.utils.sparse_mat.zero_columns(bound_stress_external, int_b_ind)
         bound_stress_external = bound_stress_external.tocsc()
 
         # We construct the L matrix, i.e., we set the traction on the left
@@ -646,7 +641,7 @@ def mpsa(
         raise AttributeError("MPSA must be given a vectorial boundary condition")
 
     if eta is None:
-        eta = fvutils.determine_eta(g)
+        eta = pp.fvutils.determine_eta(g)
 
     if max_memory is None:
         # For the moment nothing to do here, just call main mpfa method for the
@@ -709,9 +704,9 @@ def mpsa(
             )
 
             # Eliminate contribution from faces already covered
-            eliminate_ind = fvutils.expand_indices_nd(face_covered, g.dim)
-            fvutils.zero_out_sparse_rows(loc_stress, eliminate_ind)
-            fvutils.zero_out_sparse_rows(loc_bound_stress, eliminate_ind)
+            eliminate_ind = pp.fvutils.expand_indices_nd(face_covered, g.dim)
+            pp.fvutils.zero_out_sparse_rows(loc_stress, eliminate_ind)
+            pp.fvutils.zero_out_sparse_rows(loc_bound_stress, eliminate_ind)
 
             face_covered[loc_faces] = 1
 
@@ -808,9 +803,9 @@ def mpsa_update_partial(
             apertures=apertures,
         )
     # Remove old rows
-    eliminate_ind = fvutils.expand_indices_nd(active_faces, g.dim)
-    fvutils.zero_out_sparse_rows(stress, eliminate_ind)
-    fvutils.zero_out_sparse_rows(bound_stress, eliminate_ind)
+    eliminate_ind = pp.fvutils.expand_indices_nd(active_faces, g.dim)
+    pp.fvutils.zero_out_sparse_rows(stress, eliminate_ind)
+    pp.fvutils.zero_out_sparse_rows(bound_stress, eliminate_ind)
     stress += stress_loc
     bound_stress += bound_stress_loc
 
@@ -820,7 +815,7 @@ def mpsa_update_partial(
         # bound_stress, but as we are working with subfaces some more care has to be
         # taken.
         # First, find the active subfaces associated with the active_faces
-        subcell_topology = fvutils.SubcellTopology(g)
+        subcell_topology = pp.fvutils.SubcellTopology(g)
         active_subfaces = np.where(np.in1d(subcell_topology.fno_unique, active_faces))[
             0
         ]
@@ -832,8 +827,8 @@ def mpsa_update_partial(
         sub_eliminate_ind += num_subfno * np.atleast_2d(np.arange(0, g.dim)).T
         sub_eliminate_ind = sub_eliminate_ind.ravel("C")
         # Zero out the faces we have updated
-        fvutils.zero_out_sparse_rows(hf_cell, sub_eliminate_ind)
-        fvutils.zero_out_sparse_rows(hf_bound, sub_eliminate_ind)
+        pp.fvutils.zero_out_sparse_rows(hf_cell, sub_eliminate_ind)
+        pp.fvutils.zero_out_sparse_rows(hf_bound, sub_eliminate_ind)
         # and add the update.
         hf_cell += hf_cell_loc
         hf_bound += hf_bound_loc
@@ -916,7 +911,7 @@ def mpsa_partial(
             (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
     """
     if eta is None:
-        eta = fvutils.determine_eta(g)
+        eta = pp.fvutils.determine_eta(g)
 
     if cells is not None:
         warnings.warn("Cells keyword for partial mpfa has not been tested")
@@ -924,7 +919,7 @@ def mpsa_partial(
         warnings.warn("Faces keyword for partial mpfa has not been tested")
 
     # Find computational stencil, based on specified cells, faces and nodes.
-    ind, active_faces = fvutils.cell_ind_for_partial_update(
+    ind, active_faces = pp.fvutils.cell_ind_for_partial_update(
         g, cells=cells, faces=faces, nodes=nodes
     )
     if (ind.size + active_faces.size) == 0:
@@ -972,7 +967,7 @@ def mpsa_partial(
         stress_loc, bound_stress_loc = _mpsa_local(
             sub_g, loc_c, loc_bnd, eta=eta, inverter=inverter
         )
-    face_map, cell_map = fvutils.map_subgrid_to_grid(
+    face_map, cell_map = pp.fvutils.map_subgrid_to_grid(
         g, l2g_faces, l2g_cells, is_vector=True
     )
     # Update global face fields.
@@ -982,22 +977,22 @@ def mpsa_partial(
     # By design of mpfa, and the subgrids, the discretization will update faces
     # outside the active faces. Kill these.
     outside = np.setdiff1d(np.arange(g.num_faces), active_faces, assume_unique=True)
-    eliminate_ind = fvutils.expand_indices_nd(outside, g.dim)
-    fvutils.zero_out_sparse_rows(stress_glob, eliminate_ind)
-    fvutils.zero_out_sparse_rows(bound_stress_glob, eliminate_ind)
+    eliminate_ind = pp.fvutils.expand_indices_nd(outside, g.dim)
+    pp.fvutils.zero_out_sparse_rows(stress_glob, eliminate_ind)
+    pp.fvutils.zero_out_sparse_rows(bound_stress_glob, eliminate_ind)
     if hf_disp:
         # If we are returning the subface displacement reconstruction matrices we have
         # to do some more work. The following is equivalent to what is done for the stresses,
         # but as they are working on faces, the displacement reconstruction has to work on
         # subfaces.
         # First, we find the mappings from local subfaces to global subfaces
-        subcell_topology = fvutils.SubcellTopology(g)
+        subcell_topology = pp.fvutils.SubcellTopology(g)
         l2g_sub_faces = np.where(np.in1d(subcell_topology.fno_unique, l2g_faces))[0]
         # We now create a fake grid, just to be able to use the function map_subgrid_to_grid.
         subgrid = structured.CartGrid([1] * g.dim)
         subgrid.num_faces = subcell_topology.fno_unique.size
         subgrid.num_cells = g.num_cells
-        sub_face_map, _ = fvutils.map_subgrid_to_grid(
+        sub_face_map, _ = pp.fvutils.map_subgrid_to_grid(
             subgrid, l2g_sub_faces, l2g_cells, is_vector=True
         )
         # The sub_face_map is now a map from local sub_faces to global subfaces.
@@ -1019,8 +1014,8 @@ def mpsa_partial(
         sub_eliminate_ind += num_subfno * np.atleast_2d(np.arange(0, g.dim)).T
         sub_eliminate_ind = sub_eliminate_ind.ravel("C")
         # now kill the contribution of these faces
-        fvutils.zero_out_sparse_rows(hf_cell_glob, sub_eliminate_ind)
-        fvutils.zero_out_sparse_rows(hf_bound_glob, sub_eliminate_ind)
+        pp.fvutils.zero_out_sparse_rows(hf_cell_glob, sub_eliminate_ind)
+        pp.fvutils.zero_out_sparse_rows(hf_bound_glob, sub_eliminate_ind)
         return stress_glob, bound_stress_glob, hf_cell_glob, hf_bound_glob, active_faces
     else:
         return stress_glob, bound_stress_glob, active_faces
@@ -1083,7 +1078,7 @@ def _mpsa_local(
     faces and internal faces are mixed together, decided by their face ordering.
     """
     if eta is None:
-        eta = fvutils.determine_eta(g)
+        eta = pp.fvutils.determine_eta(g)
 
     if bound.bc_type != "vectorial":
         raise AttributeError("MPSA must be given a vectorial boundary condition")
@@ -1110,9 +1105,16 @@ def _mpsa_local(
     nd = g.dim
 
     # Define subcell topology
-    subcell_topology = fvutils.SubcellTopology(g)
+    subcell_topology = pp.fvutils.SubcellTopology(g)
+    # If g is not already a sub-grid we create one
+    if "FvSubGrid" in g.name:
+        pass
+    else:
+        # And we expand the boundary conditions to fit the sub-grid
+        bound = pp.fvutils.boundary_to_sub_boundary(bound, subcell_topology)
+
     # Obtain mappings to exclude boundary faces
-    bound_exclusion = fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
+    bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
     # Most of the work is done by submethod for elasticity (which is common for
     # elasticity and poro-elasticity).
 
@@ -1127,17 +1129,14 @@ def _mpsa_local(
         del igrad
 
     # Output should be on face-level (not sub-face)
-    hf2f = fvutils.map_hf_2_f(
+    hf2f = pp.fvutils.map_hf_2_f(
         subcell_topology.fno_unique, subcell_topology.subfno_unique, nd
     )
 
     # Stress discretization
     stress = hook_igrad * rhs_cells
-
     # Right hand side for boundary discretization
     rhs_bound = create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
-
-
     # Discretization of boundary values
     bound_stress = hook_igrad * rhs_bound
 
@@ -1156,7 +1155,7 @@ def _mpsa_local(
         # hf_cell * u_cell_centers + hf_bound * u_bound_condition
         return stress, bound_stress, hf_cell, hf_bound
     else:
-        return hf2f * stress, hf2f * bound_stress * hf2f
+        return hf2f * stress, hf2f * bound_stress * hf2f.T
 
 
 def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter):
@@ -1331,10 +1330,10 @@ def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
             (U_x_0, U_x_1, ..., U_x_n, U_y0, U_y1, ...)
     """
     if eta is None:
-        eta = fvutils.determine_eta(g)
+        eta = pp.fvutils.determine_eta(g)
 
     # Calculate the distance from the cell centers to continuity points
-    D_g = fvutils.compute_dist_face_cell(
+    D_g = pp.fvutils.compute_dist_face_cell(
         g, subcell_topology, eta, eta_at_bnd=eta_at_bnd, return_paired=False
     )
     # We here average the contribution on internal sub-faces.
@@ -1360,7 +1359,7 @@ def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
     D_c = sps.kron(sps.eye(g.dim), D_c)
     D_c = D_c.tocsc()
     # book keeping
-    cell_node_blocks, _ = matrix_compression.rlencode(
+    cell_node_blocks, _ = pp.utils.matrix_compression.rlencode(
         np.vstack((subcell_topology.cno, subcell_topology.nno))
     )
     num_sub_cells = cell_node_blocks[0].size
@@ -1424,7 +1423,7 @@ def __get_displacement_submatrices(
     # Distance from cell centers to face centers, this will be the
     # contribution from gradient unknown to equations for displacement
     # continuity
-    d_cont_grad = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
+    d_cont_grad = pp.fvutils.compute_dist_face_cell(g, subcell_topology, eta)
 
     # For force balance, displacements and stresses on the two sides of the
     # matrices must be paired
@@ -1455,7 +1454,7 @@ def __get_displacement_submatrices_rob(
     # Distance from cell centers to face centers, this will be the
     # contribution from gradient unknown to equations for displacement
     # at the boundary
-    rob_grad = fvutils.compute_dist_face_cell(g, subcell_topology, eta)
+    rob_grad = pp.fvutils.compute_dist_face_cell(g, subcell_topology, eta)
 
     # For the Robin condition the distance from the cell centers to face centers
     # will be the contribution from the gradients. We integrate over the subface
@@ -1592,7 +1591,7 @@ def _tensor_vector_prod(g, constit, subcell_topology):
     # correspond to a unique rows (Matlab-style) from what I understand.
     # This also means that the pairs in cell_node_blocks uniquely defines
     # subcells, and can be used to index gradients etc.
-    cell_node_blocks, blocksz = matrix_compression.rlencode(
+    cell_node_blocks, blocksz = pp.utils.matrix_compression.rlencode(
         np.vstack((subcell_topology.cno, subcell_topology.nno))
     )
 
@@ -1610,7 +1609,7 @@ def _tensor_vector_prod(g, constit, subcell_topology):
     # is adjusted according to block sizes
     _, cn = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
     sum_blocksz = np.cumsum(blocksz)
-    cn += matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
+    cn += pp.utils.matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
     ind_ptr_n = np.hstack((np.arange(0, cn.size, nd), cn.size))
 
     # Distribute faces equally on the sub-faces, and store in a matrix
@@ -1623,7 +1622,7 @@ def _tensor_vector_prod(g, constit, subcell_topology):
     # the normal vectors
     _, cc = np.meshgrid(subcell_topology.subhfno, np.arange(nd ** 2))
     sum_blocksz = np.cumsum(blocksz ** 2)
-    cc += matrix_compression.rldecode(sum_blocksz - blocksz[0] ** 2, blocksz)
+    cc += pp.utils.matrix_compression.rldecode(sum_blocksz - blocksz[0] ** 2, blocksz)
     ind_ptr_c = np.hstack((np.arange(0, cc.size, nd ** 2), cc.size))
 
     # Splitt stiffness matrix into symmetric and anti-symmatric part
@@ -1679,7 +1678,7 @@ def _tensor_vector_prod(g, constit, subcell_topology):
         # Distribute (relevant parts of) Hook's law on subcells
         # This will be nd rows, thus cell ci is associated with indices
         # ci*nd+np.arange(nd)
-        sub_cell_ind = fvutils.expand_indices_nd(cell_node_blocks[0], nd)
+        sub_cell_ind = pp.fvutils.expand_indices_nd(cell_node_blocks[0], nd)
         sym_vals = sym_dim[sub_cell_ind]
         asym_vals = asym_dim[sub_cell_ind]
 
@@ -1722,7 +1721,7 @@ def _inverse_gradient(
     # Compute inverse gradient operator, and map back again
     igrad = (
         cols2blk_diag
-        * fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
+        * pp.fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
         * rows2blk_diag
     )
     print("max igrad: ", np.max(np.abs(igrad)))
@@ -1820,8 +1819,6 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     if not num_rob == np.sum(bound.is_rob):
         raise AssertionError()
     if not num_neu == np.sum(bound.is_neu):
-        raise AssertionError()
-    if not num_neu == np.sum(bound.is_neu[:, fno]):
         raise AssertionError()
 
     num_bound = num_neu + num_dir + num_rob
@@ -1967,7 +1964,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # The user of the discretization should now nothing about half faces,
     # thus map from half face to face indices.
 
-    hf_2_f = fvutils.map_hf_2_f(fno, subfno, nd).transpose()
+    hf_2_f = pp.fvutils.map_hf_2_f(fno, subfno, nd).transpose()
 
     # the rows of rhs_bound will be ordered with first the x-component of all
     # neumann faces, then the y-component of all neumann faces, then the
@@ -2144,10 +2141,10 @@ def _zero_neu_rows(g, stress, bound_stress, bnd):
     # to +-1), but it seems to give satisfactory results.
     sgn = np.sign(np.ravel(bound_stress[neu_face_ind, neu_face_ind]))
     # Set all neumann rows to zero
-    bound_stress = fvutils.zero_out_sparse_rows(bound_stress, neu_face_ind, sgn)
+    bound_stress = pp.fvutils.zero_out_sparse_rows(bound_stress, neu_face_ind, sgn)
     # For the stress matrix we zero out any rows corresponding to the Neumann
     # boundary faces (these have been moved over to the bound_stress matrix).
-    stress = fvutils.zero_out_sparse_rows(stress, neu_face_ind)
+    stress = pp.fvutils.zero_out_sparse_rows(stress, neu_face_ind)
 
     return stress, bound_stress
 
@@ -2214,4 +2211,4 @@ def _eliminate_ncasym_neumann(
     subfno_nd += subcell_topology.fno.size * np.atleast_2d(np.arange(0, nd)).T
     dof_elim = subfno_nd.ravel("C")[remove_singular]
     # and eliminate the rows corresponding to these subfaces
-    sparse_mat.zero_rows(ncasym, dof_elim)
+    pp.utils.sparse_mat.zero_rows(ncasym, dof_elim)

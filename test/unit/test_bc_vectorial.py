@@ -55,8 +55,14 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         boundary_faces_type = ["dir_x"] * 6 + ["dir"] * 3 + ["dir_y"] * 1
 
         bound = pp.BoundaryConditionVectorial(g, boundary_faces, boundary_faces_type)
-
         subcell_topology = pp.fvutils.SubcellTopology(g)
+        # Move the boundary conditions to sub-faces
+        bound.is_dir = bound.is_dir[:, subcell_topology.fno_unique]
+        bound.is_rob = bound.is_rob[:, subcell_topology.fno_unique]
+        bound.is_neu = bound.is_neu[:, subcell_topology.fno_unique]
+        bound.robin_weight = bound.robin_weight[:, :, subcell_topology.fno_unique]
+        bound.basis = bound.basis[:, :, subcell_topology.fno_unique]
+
         # Obtain the face number for each coordinate
         fno = subcell_topology.fno_unique
         subfno = subcell_topology.subfno_unique
@@ -74,11 +80,11 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         # Pick out the Neumann boundary
 
         is_neu_nd = (
-            bound_exclusion.exclude_robin_dirichlet(bound.is_neu[:, fno].ravel("C"))
+            bound_exclusion.exclude_robin_dirichlet(bound.is_neu.ravel("C"))
             .ravel("F")
             .astype(np.bool)
         )
-
+        
         neu_ind = np.argsort(subfno_neu)
         neu_ind = neu_ind[is_neu_nd[neu_ind]]
 
@@ -116,7 +122,7 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
             "F"
         )
         is_dir_nd = (
-            bound_exclusion.exclude_neumann_robin(bound.is_dir[:, fno].ravel("C"))
+            bound_exclusion.exclude_neumann_robin(bound.is_dir.ravel("C"))
             .ravel("F")
             .astype(np.bool)
         )
