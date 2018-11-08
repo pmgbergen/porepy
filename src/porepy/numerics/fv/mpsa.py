@@ -1113,7 +1113,6 @@ def _mpsa_local(
         # And we expand the boundary conditions to fit the sub-grid
         bound = pp.fvutils.boundary_to_sub_boundary(bound, subcell_topology)
         subface_rhs = False
-
     # Obtain mappings to exclude boundary faces
     bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
     # Most of the work is done by submethod for elasticity (which is common for
@@ -1137,7 +1136,7 @@ def _mpsa_local(
     # Stress discretization
     stress = hook_igrad * rhs_cells
     # Right hand side for boundary discretization
-    rhs_bound = create_bound_rhs(bound, bound_exclusion, subcell_topology, g)
+    rhs_bound = create_bound_rhs(bound, bound_exclusion, subcell_topology, g, subface_rhs)
     # Discretization of boundary values
     bound_stress = hook_igrad * rhs_bound
 
@@ -1146,21 +1145,19 @@ def _mpsa_local(
         stress = hf2f * stress
 
     if hf_disp:
-        eta_at_bnd = True
         if hf_eta is None:
             hf_eta = eta
-            eta_at_bnd = False
         # We obtain the reconstruction of displacments
         dist_grad, cell_centers = reconstruct_displacement(
-            g, subcell_topology, hf_eta, eta_at_bnd=eta_at_bnd
+            g, subcell_topology, hf_eta
         )
         hf_cell = dist_grad * igrad * rhs_cells + cell_centers
         hf_bound = dist_grad * igrad * rhs_bound
         # The subface displacement is given by
         # hf_cell * u_cell_centers + hf_bound * u_bound_condition
-        if subface_rhs:
+        if not subface_rhs:
             hf_bound *= hf2f.T
-        return stress, bound_stress, hf_cell, hf_bound * hf2f.T
+        return stress, bound_stress, hf_cell, hf_bound
     else:
         return stress, bound_stress
 
@@ -1299,7 +1296,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     return hook, igrad, rhs_cells, cell_node_blocks, hook_normal
 
 
-def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
+def reconstruct_displacement(g, subcell_topology, eta=None):
     """
     Function for reconstructing the displacement at the half faces given the
     local gradients. For a subcell Ks associated with cell K and node s, the
@@ -1317,13 +1314,10 @@ def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
         g: Grid
         subcell_topology: Wrapper class for numbering of subcell faces, cells
             etc.
-        eta (float, range=[0,1]): Optional. Parameter determining the point at which the
-            displacement is evaluated. If eta is not given the method will call
-            fvutils.determine_eta(g) to set it.
-        eta_at_bnd (bool): Optional, defaults to False.
-            In MPSA eta is only enforced at internal faces, while is always set to
-            eta=0 at the boundary. eta_at_bnd=True will override this behaviour,
-            and give the displacement at the points given by eta, also for the boundary.
+        eta (float or ndarray, range=[0,1]): Optional. Parameter determining the point
+            at which the displacement is evaluated. If eta is a nd-array it should be on
+            the size of subcell_topology.num_subfno. If eta is not given the method will
+            call fvutils.determine_eta(g) to set it.
     Returns:
         scipy.sparse.csr_matrix (g.dim*num_sub_faces, g.dim*num_cells):
             displacement reconstruction for the displacement at the half faces. This is
@@ -1341,7 +1335,7 @@ def reconstruct_displacement(g, subcell_topology, eta=None, eta_at_bnd=False):
 
     # Calculate the distance from the cell centers to continuity points
     D_g = pp.fvutils.compute_dist_face_cell(
-        g, subcell_topology, eta, eta_at_bnd=eta_at_bnd, return_paired=False
+        g, subcell_topology, eta, return_paired=False
     )
     # We here average the contribution on internal sub-faces.
     # If you want to get out both displacements on a sub-face your can remove
@@ -1788,7 +1782,7 @@ def _block_diagonal_structure(
     return rows2blk_diag, cols2blk_diag, size_of_blocks
 
 
-def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
+def create_bound_rhs(bound, bound_exclusion, subcell_topology, g, subface_rhs):
     """
     Define rhs matrix to get basis functions for boundary
     conditions assigned face-wise
@@ -1924,10 +1918,18 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g):
     # have to do
     # so, and we will flip the sign later. This means that a stress [1,1] on a
     # boundary face pushes(or pulls) the face to the top right corner.
-    # Note: If we set the value at a face we need to distribute the face values to
-    # the subfaces. We do this by an area-weighted average (commented line).
-    # If we set the sub-face values we just pass these on directly.
-    neu_val = 1 / num_face_nodes[fno_ext[neu_rob_ind_all]]
+    # Note: 
+    if subface_rhs:
+        # In this case we set the rhs for the sub-faces. Note that the rhs values
+        # should be integrated over the subfaces, that is
+        # stress_neumann *\cdot * normal * subface_area
+        neu_val = 1 * np.ones(neu_rob_ind_all.size)
+    else:
+        # In this case we set the value at a face, thus, we need to distribute the
+        #  face values to the subfaces. We do this by an area-weighted average. Note
+        # that the rhs values should in this case be integrated over the faces, that is:
+        # stress_neumann *\cdot * normal * face_area
+        neu_val = 1 / num_face_nodes[fno_ext[neu_rob_ind_all]]
 
     # The columns will be 0:neu_rob_ind.size
     if neu_rob_ind.size > 0:
