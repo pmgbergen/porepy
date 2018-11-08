@@ -24,6 +24,10 @@ class FvSubGrid(pp.Grid):
         subcell_to_nodes = sps.csc_matrix((data, sc_n_indices, sc_n_indptr))
         # And from this obtain the subcell to subface mapping
         subcell_to_subfaces = (subface_to_nodes.T * subcell_to_nodes).tocsc()
+        # flip one sign of duplicate subfaces
+        _, ix = np.unique(subcell_to_subfaces.indices, return_index=True)
+        subcell_to_subfaces.data = subcell_to_subfaces.data.astype(np.int)
+        subcell_to_subfaces.data[ix] *= -1
 
         # As the face centers we use the continuity point
         f_c = g.face_centers[:, subcell_topology.fno_unique]
