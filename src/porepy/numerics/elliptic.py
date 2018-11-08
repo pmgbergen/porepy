@@ -338,37 +338,37 @@ class EllipticModel:
 
 
 class DualEllipticModel(EllipticModel):
-    def __init__(self, gb, data=None, physics="flow", **kwargs):
-        EllipticModel.__init__(self, gb, data, physics, **kwargs)
+    def __init__(self, gb, data=None, keyword="flow", physics="flow", **kwargs):
+        EllipticModel.__init__(self, gb, data, keyword, physics, **kwargs)
 
         self.discharge_name = str()
         self.projected_discharge_name = str()
 
-    def source_disc(self):
+    def _set_discretization(self):
+        discr = pp.MVEM(self.physics)
+        source = pp.DualSource(self.physics)
+
         if self.is_GridBucket:
-            return pp.DualSourceMixedDim(physics=self.physics, coupling=[None])
-        else:
-            return pp.DualSource(physics=self.physics)
+            key = self.keyword
 
-    def flux_disc(self):
-        if self.is_GridBucket:
-
-            key = self.physics
-            discretization_key = key + "_" + pp.keywords.DISCRETIZATION
-
-            dual_vem = pp.DualVEM(key)
-            for g, d in self._gb:
+            for _, d in self._gb:
                 # Choose discretization and define the solver
-                d[discretization_key] = dual_vem
+                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1, "faces": 1}}
+                d[pp.keywords.DISCRETIZATION] = {key: {"flux": discr, "source": source}}
 
-            for _, d in self._gb.edges():
-                d[discretization_key] = pp.RobinCoupling(key, dual_vem)
-
-            assembler = pp.EllipticAssembler(key)
-
-            return assembler
+            for e, d in self._gb.edges():
+                g_slave, g_master = self._gb.nodes_of_edge(e)
+                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+                d[pp.keywords.COUPLING_DISCRETIZATION] = {
+                    "flux": {
+                        g_slave: (key, "flux"),
+                        g_master: (key, "flux"),
+                        e: (key, pp.RobinCoupling(key, discr))
+                    }
+                }
+            return pp.Assembler()
         else:
-            return pp.DualVEM(keyword=self.physics)
+            return discr
 
     def solve(self):
         """ Discretize and solve linear system by a direct solver.
@@ -377,14 +377,21 @@ class DualEllipticModel(EllipticModel):
         other block solvers are needed. TODO.
 
         """
+        logger.error("Solve elliptic model")
+        # Discretize
+        tic = time.time()
+        logger.warning("Discretize")
+        self.lhs, self.rhs = self.reassemble()
+        logger.warning("Done. Elapsed time " + str(time.time() - tic))
+
+        # Solve
+        tic = time.time()
         ls = pp.numerics.linalg.linsolve.Factory()
-        lhs, rhs = self.reassemble()
+        logger.warning("Solve linear system using direct solver")
+        self.x = ls.direct(self.lhs, self.rhs)
+        np.set_printoptions(linewidth=3000)
+        logger.warning("Done. Elapsed time " + str(time.time() - tic))
 
-        import scipy.io as sps_io
-
-        sps_io.mmwrite("matrix.mtx", lhs)
-
-        self.x = ls.direct(lhs, rhs)
         return self.x
 
     def pressure(self, pressure_name="pressure"):
