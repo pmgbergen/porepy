@@ -11,8 +11,6 @@ import unittest
 import scipy.sparse as sps
 import porepy as pp
 
-from porepy.numerics.vem import vem_dual, vem_source
-
 # ------------------------------------------------------------------------------#
 
 
@@ -173,10 +171,10 @@ class BasicsTest(unittest.TestCase):
 
         # Darcy solver
         data = {"param": param}
-        solver = vem_dual.DualVEM("flow")
+        solver = pp.MVEM("flow")
         D_flow, b_flow = solver.assemble_matrix_rhs(g, data)
 
-        solver_source = vem_source.DualSource("flow")
+        solver_source = pp.DualSource("flow")
         D_source, b_source = solver_source.assemble_matrix_rhs(g, data)
 
         up = sps.linalg.spsolve(D_flow + D_source, b_flow + b_source)

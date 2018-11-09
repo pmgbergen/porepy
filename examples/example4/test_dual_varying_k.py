@@ -92,7 +92,7 @@ def main(N):
     data = add_data(g)
 
     # Choose and define the solvers
-    solver_flow = pp.DualVEM("flow")
+    solver_flow = pp.MVEM("flow")
     A_flow, b_flow = solver_flow.assemble_matrix_rhs(g, data)
 
     solver_source = pp.DualSource("flow")

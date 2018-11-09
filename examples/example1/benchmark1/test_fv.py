@@ -76,7 +76,7 @@ def add_data(gb, domain, kf, mesh_value):
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
+        check_P = mg.slave_to_mortar_avg()
 
         gamma = check_P * gb.node_props(g_l, "param").get_aperture()
         d["kn"] = kf * np.ones(mg.num_cells) / gamma
@@ -108,18 +108,16 @@ def main(kf, description, multi_point, if_export=False):
 
     key = "flow"
     discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+    if multi_point:
+        discr = pp.Mpfa(key)
+    else:
+        discr = pp.Tpfa(key)
 
     for g, d in gb:
-        # Choose discretization and define the solver
-        if multi_point:
-            discr = pp.Mpfa(key)
-        else:
-            discr = pp.Tpfa(key)
-
         d[discretization_key] = discr
 
     for _, d in gb.edges():
-        d[discretization_key] = pp.RobinCoupling(key)
+        d[discretization_key] = pp.RobinCoupling(key, discr)
 
     assembler = pp.EllipticAssembler(key)
 

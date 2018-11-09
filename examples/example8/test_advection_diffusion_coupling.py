@@ -3,13 +3,6 @@ import scipy.sparse as sps
 import os
 import porepy as pp
 
-from porepy.viz import exporter
-from porepy.fracs import importer
-
-
-from porepy.numerics.vem import vem_dual, vem_source
-from porepy.numerics.fv import tpfa, upwind
-
 
 # ------------------------------------------------------------------------------#
 
@@ -63,7 +56,7 @@ def add_data_darcy(gb, domain, tol):
         aperture = np.power(1e-2, gb.dim_max() - g_l.dim) * np.ones(g_l.num_cells)
 
         mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
+        check_P = mg.slave_to_mortar_avg()
 
         gamma = check_P * aperture
         d["kn"] = kf * np.ones(mg.num_cells) / gamma
@@ -126,7 +119,7 @@ tol = 1e-3
 
 mesh_kwargs = {"mesh_size_frac": 0.045, "mesh_size_min": 0.01}
 domain = {"xmin": -0.2, "xmax": 1.2, "ymin": -0.2, "ymax": 1.2}
-gb = importer.dfm_2d_from_csv(folder + "network.csv", mesh_kwargs, domain)
+gb = pp.importer.dfm_2d_from_csv(folder + "network.csv", mesh_kwargs, domain)
 gb.compute_geometry()
 gb.assign_node_ordering()
 
@@ -134,24 +127,21 @@ gb.assign_node_ordering()
 add_data_darcy(gb, domain, tol)
 
 # Choose and define the solvers and coupler
-darcy = vem_dual._DualVEMMixedDim("flow")
-A_flow, b_flow = darcy.matrix_rhs(gb)
+key = "flow"
+discretization_key = key + "_" + pp.keywords.DISCRETIZATION
 
-solver_source = vem_source.DualSourceMixedDim("flow", coupling=[None])
-A_source, b_source = solver_source.matrix_rhs(gb)
+darcy = pp.DualEllipticModel(gb)
+up = darcy.solve()
 
-up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
-darcy.split(gb, "up", up)
-
-gb.add_node_props(["pressure", "P0u"])
-for g, d in gb:
-    discharge = darcy.discr.extract_u(g, d["up"])
-    d["discharge"] = discharge
-    d["pressure"] = darcy.discr.extract_p(g, d["up"])
-    d["P0u"] = darcy.discr.project_u(g, discharge, d)
+darcy.split()
+darcy.pressure("pressure")
+darcy.discharge("u")
+#darcy.project_discharge("P0u")
 
 if do_save:
-    exporter.export_vtk(gb, "darcy", ["pressure", "P0u"], folder=export_folder)
+    save = pp.Exporter(gb, "darcy", folder=export_folder)
+    save.write_vtk(["pressure"])
+    #save.write_vtk(["pressure", "P0u"])
 
 #################################################################
 
