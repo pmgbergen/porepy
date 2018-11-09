@@ -59,7 +59,7 @@ def add_data(gb, domain, kf):
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
+        check_P = mg.slave_to_mortar_avg()
 
         gamma = check_P * gb.node_props(g_l, "param").get_aperture()
         d["kn"] = kf * np.ones(mg.num_cells) / gamma
@@ -108,14 +108,13 @@ def main(kf, description, is_coarse=False, if_export=False):
 
     # Choose and define the solvers and coupler
     discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+    discr = pp.MVEM(key)
 
     for g, d in gb:
-        # Choose discretization and define the solver
-
-        d[discretization_key] = pp.DualVEM(key)
+        d[discretization_key] = discr
 
     for _, d in gb.edges():
-        d[discretization_key] = pp.RobinCoupling(key)
+        d[discretization_key] = pp.RobinCoupling(key, discr)
 
     assembler = pp.EllipticAssembler(key)
 
@@ -135,7 +134,8 @@ def main(kf, description, is_coarse=False, if_export=False):
 
     if if_export:
         save = pp.Exporter(gb, "vem", folder="vem_" + description)
-        save.write_vtk(["pressure", "P0u"])
+        #save.write_vtk(["pressure", "P0u"])
+        save.write_vtk(["pressure"])
 
 
 # ------------------------------------------------------------------------------#
@@ -146,9 +146,6 @@ def test_vem_blocking():
     if_export = True
     main(kf, "blocking", if_export=if_export)
 
-
-
-
 # ------------------------------------------------------------------------------#
 
 
@@ -156,10 +153,9 @@ def test_vem_permeable():
     kf = 1e4
     if_export = True
     main(kf, "permeable", if_export=if_export)
-
-
-
-
 #    main(kf, "permeable_coarse", is_coarse=True)
 
 # ------------------------------------------------------------------------------#
+
+if __name__ == "__main__":
+    test_tpfa_blocking()
