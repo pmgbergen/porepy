@@ -1,6 +1,7 @@
 from __future__ import division
 import numpy as np
 import unittest
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.utils.grid_util import sign_of_boundary_faces
@@ -57,7 +58,19 @@ class BasicsTest(unittest.TestCase):
         add_constant_discharge(gb, upwind, [0, 1, 0], a)
 
         assembler = pp.Assembler()
-        U, rhs, *rest = assembler.assemble_matrix_rhs(gb)
+
+        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+
+        grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
+        keys = np.empty_like(grids)
+        for g, d in gb:
+            grids[d['node_number']] = g
+            keys[d['node_number']] = key
+        for e, d in gb.edges():
+            grids[d['edge_number'] + gb.num_graph_nodes()] = e
+            keys[d['edge_number']+ gb.num_graph_nodes()] = 'lambda_u'
+
+        U, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
 
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -132,7 +145,19 @@ class BasicsTest(unittest.TestCase):
         add_constant_discharge(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler()
-        U, rhs, *rest = assembler.assemble_matrix_rhs(gb)
+
+        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+
+        grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
+        keys = np.empty_like(grids)
+        for g, d in gb:
+            grids[d['node_number']] = g
+            keys[d['node_number']] = key
+        for e, d in gb.edges():
+            grids[d['edge_number'] + gb.num_graph_nodes()] = e
+            keys[d['edge_number']+ gb.num_graph_nodes()] = 'lambda_u'
+
+        U, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
 
@@ -256,6 +281,7 @@ class BasicsTest(unittest.TestCase):
         add_constant_discharge(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler()
+
         U, rhs, *rest = assembler.assemble_matrix_rhs(gb)
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
@@ -806,12 +832,24 @@ class BasicsTest(unittest.TestCase):
 
                 param.set_bc("transport", pp.BoundaryCondition(g, bound_faces, labels))
                 param.set_bc_val("transport", bc_val)
-
             d["param"] = param
 
         add_constant_discharge(gb, upwind, [0, 0, 1], a)
+
         assembler = pp.Assembler()
-        U, rhs, *rest = assembler.assemble_matrix_rhs(gb)
+
+        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+
+        grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
+        keys = np.empty_like(grids)
+        for g, d in gb:
+            grids[d['node_number']] = g
+            keys[d['node_number']] = key
+        for e, d in gb.edges():
+            grids[d['edge_number'] + gb.num_graph_nodes()] = e
+            keys[d['edge_number']+ gb.num_graph_nodes()] = 'lambda_u'
+
+        U, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
 
@@ -881,8 +919,22 @@ class BasicsTest(unittest.TestCase):
             d["param"] = param
 
         add_constant_discharge(gb, upwind, [1, 0, 0], a)
+
         assembler = pp.Assembler()
-        U, rhs, *rest = assembler.assemble_matrix_rhs(gb)
+
+        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+
+        grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
+        keys = np.empty_like(grids)
+        for g, d in gb:
+            grids[d['node_number']] = g
+            keys[d['node_number']] = key
+        for e, d in gb.edges():
+            grids[d['edge_number'] + gb.num_graph_nodes()] = e
+            keys[d['edge_number']+ gb.num_graph_nodes()] = 'lambda_u'
+
+        U, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
+
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
         U_known = np.array(
@@ -1178,7 +1230,20 @@ class BasicsTest(unittest.TestCase):
 
         add_constant_discharge(gb, upwind, [2, 0, 0], a)
         assembler = pp.Assembler()
-        M, rhs, *rest = assembler.assemble_matrix_rhs(gb)
+
+        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+
+        grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
+        keys = np.empty_like(grids)
+        for g, d in gb:
+            grids[d['node_number']] = g
+            keys[d['node_number']] = key
+        for e, d in gb.edges():
+            grids[d['edge_number'] + gb.num_graph_nodes()] = e
+            keys[d['edge_number']+ gb.num_graph_nodes()] = 'lambda_u'
+
+        M, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
+
         # add generic mass matrix to solve system
         I_diag = np.zeros(M.shape[0])
         I_diag[: gb.num_cells()] = 1
@@ -1265,7 +1330,19 @@ class BasicsTest(unittest.TestCase):
         add_constant_discharge(gb, upwind, [1, 1, 0], a)
 
         assembler = pp.Assembler()
-        M, rhs, *rest = assembler.assemble_matrix_rhs(gb)
+
+        U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+
+        grids = np.empty(gb.num_graph_nodes() + gb.num_graph_edges(), dtype=np.object)
+        keys = np.empty_like(grids)
+        for g, d in gb:
+            grids[d['node_number']] = g
+            keys[d['node_number']] = key
+        for e, d in gb.edges():
+            grids[d['edge_number'] + gb.num_graph_nodes()] = e
+            keys[d['edge_number']+ gb.num_graph_nodes()] = 'lambda_u'
+
+        M, rhs = permute_matrix_vector(U_tmp, rhs, block_dof, full_dof, grids, keys)
         theta = np.linalg.solve(M.A, rhs)
         M_known = np.array(
             [
@@ -1345,7 +1422,25 @@ def add_constant_discharge(gb, upwind, flux, a):
         d["param"] = pp.Parameters(g_h)
         d["flux_field"] = sign * (d["mortar_grid"].master_to_mortar_avg() * discharge)
 
+def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, keys):
+    mat = np.empty((3, 3), dtype=np.object)
+    b = np.empty(3, dtype=np.object)
+    dof = np.empty(3, dtype=np.object)
+    dof[0] = np.arange(full_dof[0])
+    dof[1] = dof[0][-1] + 1 + np.arange(full_dof[1])
+    dof[2] = dof[1][-1] + 1 + np.arange(full_dof[2])
+    for row in range(3):
+        i = block_dof[(grids[row], keys[row])]
+        b[row] = rhs[dof[i]]
+        for col in range(3):
+            j = block_dof[(grids[col], keys[col])]
+            mat[row, col] = A[dof[i]][:, dof[j]]
+
+
+    return sps.bmat(mat, format='csr'), np.concatenate(tuple(b))
+
 
 # #------------------------------------------------------------------------------#
 if __name__ == "__main__":
     unittest.main()
+#BasicsTest().test_upwind_2d_beta_positive()
