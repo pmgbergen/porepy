@@ -108,6 +108,10 @@ def add_data_advection_diffusion(gb, domain, tol):
         d["param"] = pp.Parameters(g_h)
         d["discharge"] = discharge
 
+        mg = d['mortar_grid']
+        d['flux_field'] = mg.master_to_mortar_int * discharge
+
+
 
 # ------------------------------------------------------------------------------#
 
@@ -135,7 +139,7 @@ up = darcy.solve()
 
 darcy.split()
 darcy.pressure("pressure")
-darcy.discharge("u")
+darcy.discharge("discharge")
 #darcy.project_discharge("P0u")
 
 if do_save:
@@ -146,17 +150,51 @@ if do_save:
 #################################################################
 
 physics = "transport"
-advection = upwind.UpwindMixedDim(physics)
-diffusion = tpfa.TpfaMixedDim(physics)
+
+# Identifier of the advection term
+term = 'advection'
+adv = 'advection'
+diff = 'diffusion'
+
+adv_discr = pp.Upwind(physics)
+diff_discr = pp.Tpfa(physics)
+
+adv_coupling = pp.UpwindCoupling(key)
+diff_coupling = pp.RobinCoupling(physics, diff_discr)
+
+key = 'temperature'
+
+for _, d in gb:
+    d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+    d[pp.keywords.DISCRETIZATION] = {key: {adv: adv_discr, diff: diff_discr}}
+
+for e, d in gb.edges():
+    g1, g2 = gb.nodes_of_edge(e)
+    d[pp.keywords.PRIMARY_VARIABLES] = {"lambda_adv": {
+            "cells": 1}, "lambda_diff": {"cells": 1}}
+    d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            adv: {
+                g1: (key, adv),
+                g2: (key, adv),
+                e: ("lambda_adv", adv_coupling)
+            },
+            diff: {
+                g1: (key, diff),
+                g2: (key, diff),
+                e: ("lambda_diff", diff_coupling)
+            }
+        }
+
 
 # Assign parameters
 add_data_advection_diffusion(gb, domain, tol)
 
-U, rhs_u = advection.matrix_rhs(gb)
-D, rhs_d = diffusion.matrix_rhs(gb)
+assembler = pp.Assembler()
+A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
 
-theta = sps.linalg.spsolve(D + U, rhs_u + rhs_d)
-diffusion.split(gb, "temperature", theta)
+
+theta = sps.linalg.spsolve(A, b)
+assembler.distribute_variable(gb, theta, block_dof, full_dof)
 
 if do_save:
     exporter.export_vtk(
