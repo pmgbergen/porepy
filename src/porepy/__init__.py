@@ -98,6 +98,7 @@ from porepy.params.bc import (
     BoundaryCondition,
     BoundaryConditionVectorial,
     BoundaryConditionNode,
+    face_on_side
 )
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
 from porepy.params.data import Parameters
