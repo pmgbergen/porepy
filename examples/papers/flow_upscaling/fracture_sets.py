@@ -16,8 +16,19 @@ import porepy as pp
 class FractureSet(object):
     """ Class representation of a set of fractures in a 2D domain.
 
+    The fractures are represented by their endpoints. Poly-line fractures are
+    currently not supported.
+
     The main intended usage is to fit statistical distributions to the fractures,
-    and use this to generate realizations based on this statistics.
+    and use this to generate realizations based on this statistics. The statistical
+    properties of the fracture set is characterized in terms of fracture position,
+    length and angle.
+
+    It is assumed that the fractures can meaningfully be represented by a single
+    statistical distribution. To achieve this, it may be necessary to divide a
+    fracture network into several sets, and fit them separately. As an example,
+    a network where the fractures have one out of two orientations which are orthogonal
+    to each other will not be meaningfully be represented as a single set.
 
     Attributes:
         pts (np.array, 2 x num_pts): Start and endpoints of the fractures. Points
@@ -66,32 +77,174 @@ class FractureSet(object):
         p = np.hstack((self.pts, fs.pts))
         e = np.hstack((self.edges, fs.edges + self.num_frac))
 
-        domain = {'xmin': np.minimum(self.domain['xmin'], fs.domain['xmin']),
-                  'xmax': np.maximum(self.domain['xmax'], fs.domain['xmax']),
-                  'ymin': np.minimum(self.domain['ymin'], fs.domain['ymin']),
-                  'ymax': np.maximum(self.domain['ymax'], fs.domain['ymax'])}
+        domain = {
+            "xmin": np.minimum(self.domain["xmin"], fs.domain["xmin"]),
+            "xmax": np.maximum(self.domain["xmax"], fs.domain["xmax"]),
+            "ymin": np.minimum(self.domain["ymin"], fs.domain["ymin"]),
+            "ymax": np.maximum(self.domain["ymax"], fs.domain["ymax"]),
+        }
 
         return FractureSet(p, e, domain)
 
     def fit_distributions(self, **kwargs):
-        self._fit_length_distribution(**kwargs)
-        self._fit_angle_distribution(**kwargs)
-        self._fit_intensity_map(**kwargs)
+        """ Fit statistical distributions to describe the fracture set.
 
-    def _fit_length_distribution(self, **kwargs):
-        self.dist_length = frac_gen.fit_length_distribution(
-            self.pts, self.edges, **kwargs
-        )
+        The method will compute best fit distributions for fracture length,
+        angle and position. These can later be used to generate realizations
+        of other fracture network, using the current one as a base case.
 
-    def _fit_angle_distribution(self, **kwargs):
-        self.dist_angle = frac_gen.fit_angle_distribution(
-            self.pts, self.edges, **kwargs
-        )
+        The length distribution can be either lognormal or exponential.
 
-    def _fit_intensity_map(self, **kwargs):
-        self.intensity = frac_gen.count_center_point_densities(
-            self.pts, self.edges, self.domain, **kwargs
-        )
+        The orientation is represented by a best fit of a von-Mises distribution.
+
+        The fracture positions are represented by an intensity map, which
+        divides the domain into subblocks and count the number of fracture
+        centers per block.
+
+        For more details, see the
+
+        """
+        self.fit_length_distribution(**kwargs)
+        self.fit_angle_distribution(**kwargs)
+        self.fit_intensity_map(**kwargs)
+
+    def fit_length_distribution(self, ks_size=100, p_val_min=0.05, **kwargs):
+        """ Fit a statistical distribution to describe the length of the fractures.
+
+        The best fit is sought between an exponential and lognormal representation.
+
+        The function also evaluates the fitness of the chosen distribution by a
+        Kolgomorov-Smirnov test.
+
+        Parameters:
+            ks_size (int, optional): The number of realizations used in the
+                Kolmogorov-Smirnov test. Defaults to 100.
+            p_val_min (double, optional): P-value used in Kolmogorev-Smirnov test
+                for acceptance of the chosen distribution. Defaults to 0.05.
+
+        """
+        # fit the lenght distribution
+        candidate_dist = np.array([stats.expon, stats.lognorm])
+
+        # fit the possible lenght distributions
+        l = self.length()
+        dist_fit = np.array([d.fit(l, floc=0) for d in candidate_dist])
+
+        # determine which is the best distribution with a Kolmogorov-Smirnov test
+        ks = lambda d, p: stats.ks_2samp(l, d.rvs(*p, size=ks_size))[1]
+        p_val = np.array([ks(d, p) for d, p in zip(candidate_dist, dist_fit)])
+        best_fit = np.argmax(p_val)
+
+        if p_val[best_fit] < p_val_min:
+            raise ValueError("p-value not satisfactory for length fit")
+
+        # collect the data
+        dist_l = {
+            "dist": candidate_dist[best_fit],
+            "param": dist_fit[best_fit],
+            "p_val": p_val[best_fit],
+        }
+
+        self.dist_length = dist_l
+
+    def fit_angle_distribution(self, ks_size=100, p_val_min=0.05, **kwargs):
+
+        """ Fit a statistical distribution to describe the length of the fractures.
+
+        The best fit is sought between an exponential and lognormal representation.
+
+        The function also evaluates the fitness of the chosen distribution by a
+        Kolgomorov-Smirnov test.
+
+        Parameters:
+            ks_size (int, optional): The number of realizations used in the
+                Kolmogorov-Smirnov test. Defaults to 100.
+            p_val_min (double, optional): P-value used in Kolmogorev-Smirnov test
+                for acceptance of the chosen distribution. Defaults to 0.05.
+
+        """
+        dist = stats.vonmises
+        a = self.angle()
+        dist_fit = dist.fit(a, fscale=1)
+
+        # check the goodness of the fit with Kolmogorov-Smirnov test
+        p_val = stats.ks_2samp(a, dist.rvs(*dist_fit, size=ks_size))[1]
+
+        if p_val < p_val_min:
+            raise ValueError("p-value not satisfactory for angle fit")
+
+        # collect the data
+        self.dist_angle = {"dist": dist, "param": dist_fit, "p_val": p_val}
+
+    def fit_intensity_map(self, p=None, e=None, domain=None, nx=10, ny=10, **kwargs):
+        """ Divide the domain into boxes, count the number of fracture centers
+        contained within each box.
+
+        Parameters:
+            p (np.array, 2 x n, optional): Point coordinates of the fractures. Defaults to
+                this set.
+            e (np.array, 2 x n, optional): Connections between the coordinates. Defaults to
+                this set.
+            domain (dictionary, optional): Description of the simulation domain. Should
+                contain fields xmin, xmax, ymin, ymax. Defaults to this set.
+            nx, ny (int, optional): Number of boxes in x and y direction. Defaults
+                to 10.
+
+        Returns:
+            np.array (nx x ny): Number of centers within each box
+
+        """
+        if p is None:
+            p = self.pts
+        if e is None:
+            e = self.edges
+        if domain is None:
+            domain = self.domain
+
+        p = np.atleast_2d(p)
+
+        # Special treatment when the point array is empty
+        if p.shape[1] == 0:
+            if p.shape[0] == 1:
+                return np.zeros(nx)
+            else:  # p.shape[0] == 2
+                return np.zeros((nx, ny))
+
+        pc = self._compute_center(p, e)
+
+        if p.shape[0] == 1:
+            x0, dx = self._decompose_domain(domain, nx, ny)
+            num_occ = np.zeros(nx)
+            for i in range(nx):
+                hit = np.logical_and.reduce(
+                    [pc[0] > (x0 + i * dx), pc[0] <= (x0 + (i + 1) * dx)]
+                )
+                num_occ[i] = hit.sum()
+
+            return num_occ.astype(np.int)
+
+        elif p.shape[0] == 2:
+            x0, y0, dx, dy = self._decompose_domain(domain, nx, ny)
+            num_occ = np.zeros((nx, ny))
+            # Can probably do this more vectorized, but for now, a for loop will suffice
+            for i in range(nx):
+                for j in range(ny):
+                    hit = np.logical_and.reduce(
+                        [
+                            pc[0] > (x0 + i * dx),
+                            pc[0] < (x0 + (i + 1) * dx),
+                            pc[1] > (y0 + j * dy),
+                            pc[1] < (y0 + (j + 1) * dy),
+                        ]
+                    )
+                    num_occ[i, j] = hit.sum()
+
+            return num_occ
+
+        else:
+            raise ValueError("Have not yet implemented 3D geometries")
+
+        self.intensity = num_occ
 
     def set_length_distribution(self, dist, params):
         self.dist_length = {"dist": dist, "param": params}
@@ -127,7 +280,7 @@ class FractureSet(object):
         e = np.vstack((np.arange(num_frac), num_frac + np.arange(num_frac)))
         return pts, e
 
-    def _define_centers_by_boxes(self, domain, distribution='poisson'):
+    def _define_centers_by_boxes(self, domain, distribution="poisson"):
         """ Define center points of fractures, intended used in a marked point
         process.
 
@@ -159,8 +312,8 @@ class FractureSet(object):
             ValueError if distribution does not equal poisson.
 
         """
-        if distribution != 'poisson':
-            return ValueError('Only Poisson point processes have been implemented')
+        if distribution != "poisson":
+            return ValueError("Only Poisson point processes have been implemented")
 
         nx, ny = self.intensity.shape
         num_boxes = self.intensity.size
@@ -171,7 +324,7 @@ class FractureSet(object):
 
         # It is assumed that the intensities are computed relative to boxes of the
         # same size that are assigned in here
-        area_of_box=1
+        area_of_box = 1
 
         pts = np.empty(num_boxes, dtype=np.object)
 
@@ -197,15 +350,17 @@ class FractureSet(object):
                 pts[counter] = np.delete(p_loc, delete, axis=1)
                 counter += 1
 
-        return np.array([pts[i][:, j] for i in range(pts.size) for j in range(pts[i].shape[1])]).T
+        return np.array(
+            [pts[i][:, j] for i in range(pts.size) for j in range(pts[i].shape[1])]
+        ).T
 
     def _decompose_domain(self, domain, nx, ny=None):
-        x0 = domain['xmin']
-        dx = (domain['xmax'] - domain['xmin']) / nx
+        x0 = domain["xmin"]
+        dx = (domain["xmax"] - domain["xmin"]) / nx
 
-        if 'ymin' in domain.keys() and 'ymax' in domain.keys():
-            y0 = domain['ymin']
-            dy = (domain['ymax'] - domain['ymin']) / ny
+        if "ymin" in domain.keys() and "ymax" in domain.keys():
+            y0 = domain["ymin"]
+            dy = (domain["ymax"] - domain["ymin"]) / ny
             return x0, y0, dx, dy
         else:
             return x0, dx
@@ -233,7 +388,7 @@ class FractureSet(object):
 
         return FractureSet(p, e, domain)
 
-    #--------- Utility functions below here
+    # --------- Utility functions below here
 
     def length(self, fi=None):
         """
@@ -626,7 +781,7 @@ class ChildFractureSet(FractureSet):
 
         def negLogLikelihood(params, data):
             """ the negative log-Likelohood-Function"""
-            lnl = -np.sum(np.log(poisson(data, params[0])+1e-5))
+            lnl = -np.sum(np.log(poisson(data, params[0]) + 1e-5))
             return lnl
 
         # Use maximum likelihood fit. Use scipy optimize to find the best parameter
@@ -641,7 +796,9 @@ class ChildFractureSet(FractureSet):
         # Define a Poisson distribution with the computed density function
         self.num_children_dist = stats.poisson(result.x)
 
-    def compute_statistics(self, **kwargs):
+    def fit_distributions(self, **kwargs):
+        """ Compute statistical
+        """
 
         # NOTE: Isolated nodes for the moment does not rule out that the child
         # intersects with a parent
@@ -649,8 +806,8 @@ class ChildFractureSet(FractureSet):
         num_parents = self.parent.edges.shape[1]
 
         # Angle and length distribution as usual
-        self._fit_angle_distribution(**kwargs)
-        self._fit_length_distribution(**kwargs)
+        self.fit_angle_distribution(**kwargs)
+        self.fit_length_distribution(**kwargs)
 
         node_types_self = analyze_intersections_of_sets(self, **kwargs)
         node_types_combined_self, node_types_combined_parent = analyze_intersections_of_sets(
@@ -692,7 +849,7 @@ class ChildFractureSet(FractureSet):
 
         # Treat isolated nodes
         if isolated.size > 0:
-            density, center_distance = self.compute_line_density_isolated_nodes(
+            density, center_distance = self._compute_line_density_isolated_nodes(
                 isolated
             )
             self.isolated_stats = {
@@ -714,7 +871,7 @@ class ChildFractureSet(FractureSet):
         ## fractures that have one Y-intersection with a parent
         # First, identify the parent-child relation
         if one_y.size > 0:
-            density = self.compute_line_density_one_y_node(one_y)
+            density = self._compute_line_density_one_y_node(one_y)
             self.one_y_stats = {"density": density}
             num_parents_with_one_y = np.sum(density > 0)
         else:
@@ -730,7 +887,7 @@ class ChildFractureSet(FractureSet):
 
         self._fit_num_children_distribution()
 
-    def compute_line_density_one_y_node(self, one_y):
+    def _compute_line_density_one_y_node(self, one_y):
         num_one_y = one_y.size
 
         start_parent = self.parent.pts[:, self.parent.edges[0]]
@@ -788,7 +945,7 @@ class ChildFractureSet(FractureSet):
 
         return num_occ_all
 
-    def compute_line_density_isolated_nodes(self, isolated):
+    def _compute_line_density_isolated_nodes(self, isolated):
         # To ultimately describe the isolated fractures as a marked point
         # process, with stochastic location in terms of its distribution along
         # the fracture and perpendicular to it, we describe the distance from

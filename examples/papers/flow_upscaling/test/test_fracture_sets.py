@@ -228,7 +228,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
         child = ChildFractureSet(p_children, e_children, domain, parent)
 
-        child.compute_statistics()
+        child.fit_distributions()
         isolated = child.isolated_stats
 
         # There should be one parent fracture
@@ -262,7 +262,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
         child = ChildFractureSet(p_children, e_children, domain, parent)
 
-        child.compute_statistics()
+        child.fit_distributions()
         isolated = child.isolated_stats
 
         # There should be one parent fracture
@@ -301,7 +301,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
         child = ChildFractureSet(p_children, e_children, domain, parent)
 
-        child.compute_statistics()
+        child.fit_distributions()
         isolated = child.isolated_stats
 
         # There should be one parent fracture
@@ -345,7 +345,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
         child = ChildFractureSet(p_children, e_children, domain, parent)
 
-        child.compute_statistics()
+        child.fit_distributions()
         one_y = child.one_y_stats
 
         # There should be one parent fracture
@@ -373,7 +373,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
         child = ChildFractureSet(p_children, e_children, domain, parent)
 
-        child.compute_statistics()
+        child.fit_distributions()
         one_y = child.one_y_stats
 
         # There should be one parent fracture
@@ -408,7 +408,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
         child = ChildFractureSet(p_children, e_children, domain, parent)
 
-        child.compute_statistics()
+        child.fit_distributions()
         one_y = child.one_y_stats
 
         # There should be one parent fracture
@@ -447,7 +447,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
         child = ChildFractureSet(p_children, e_children, domain, parent)
 
-        child.compute_statistics()
+        child.fit_distributions()
         isolated = child.isolated_stats
         one_y = child.one_y_stats
 
@@ -520,6 +520,6 @@ def make_dummy_distribution(value):
 # if __name__ == '__main__':
 #    unittest.main()
 # TestParentChildrenRelations().test_only_isolated_two_parents_one_far_away()
-TestFractureSetPopulation().test_one_parent_all_one_y_children()
-# unittest.main()
+#TestFractureSetPopulation().test_set_distributions_run_population_single_family()
+unittest.main()
 # TestDensityCounting().test_1d_counting_two_boxes()
