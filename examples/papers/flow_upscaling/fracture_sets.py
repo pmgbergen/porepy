@@ -261,6 +261,39 @@ class FractureSet(object):
         tot_l = lambda f: np.sum(l[np.isin(fi, f)])
         return np.array([tot_l(f) for f in np.unique(fi)])
 
+    def angle(self, fi=None):
+        """ Compute the angle of the fractures to the x-axis.
+
+        Parameters:
+            fi (np.array, or int): Index of fracture(s) where length should be
+                computed. Refers to self.edges
+
+        Return:
+            angle: Orientation of each fracture, relative to the x-axis.
+                Measured in radians, will be a number between 0 and pi.
+
+        """
+        if fi is None:
+            fi = np.arange(self.num_frac)
+        fi = np.asarray(fi)
+
+        # compute the angle for each segment
+        alpha = lambda e0, e1: np.arctan2(
+            self.pts[1, e0] - self.pts[1, e1], self.pts[0, e0] - self.pts[0, e1]
+        )
+        a = np.array([alpha(e[0], e[1]) for e in self.edges.T])
+
+        # compute the mean angle based on the fracture id
+        mean_alpha = lambda f: np.mean(a[np.isin(fi, f)])
+        mean_a = np.array([mean_alpha(f) for f in np.unique(fi)])
+
+        # we want only angles in (0, pi)
+        mask = mean_a < 0
+        mean_a[mask] = np.pi - np.abs(mean_a[mask])
+        mean_a[mean_a > np.pi] -= np.pi
+
+        return mean_a
+
     def plot(self, **kwargs):
         """ Plot the fracture set.
 
