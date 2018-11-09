@@ -397,22 +397,26 @@ class DualEllipticModel(EllipticModel):
     def pressure(self, pressure_name="pressure"):
         self.pressure_name = pressure_name
         if self.is_GridBucket:
-            self._flux_disc.extract_pressure(self._gb, self.x_name, self.pressure_name)
+            for g, d in self._gb:
+                discr = d[pp.keywords.DISCRETIZATION][self.keyword]["flux"]
+                d[self.pressure_name] = discr.extract_pressure(g, d[self.x_name])
         else:
-            pressure = self._flux_disc.extract_pressure(self._gb, self.x)
+            pressure = self._discr.extract_pressure(self._gb, self.x)
             self._data[self.pressure_name] = pressure
 
     def discharge(self, discharge_name="discharge"):
         self.discharge_name = discharge_name
         if self.is_GridBucket:
-            self._flux_disc.extract_flux(self._gb, self.x_name, self.discharge_name)
+            for g, d in self._gb:
+                discr = d[pp.keywords.DISCRETIZATION][self.keyword]["flux"]
+                d[self.discharge_name] = discr.extract_flux(g, d[self.x_name])
 
-            for e, d in self._gb.edges():
-                g_h = self._gb.nodes_of_edge(e)[1]
-                d[discharge_name] = self._gb.node_props(g_h, discharge_name)
+            #for e, d in self._gb.edges():
+            #    g_h = self._gb.nodes_of_edge(e)[1]
+            #    d[discharge_name] = self._gb.node_props(g_h, discharge_name)
 
         else:
-            discharge = self._flux_disc.extract_flux(self._gb, self.x)
+            discharge = self._discr.extract_flux(self._gb, self.x)
             self._data[self.discharge_name] = discharge
 
     def project_discharge(self, projected_discharge_name="P0u"):
@@ -425,7 +429,7 @@ class DualEllipticModel(EllipticModel):
             )
         else:
             discharge = self._data[self.discharge_name]
-            projected_discharge = self._flux_disc.project_flux(
+            projected_discharge = self._discr.project_flux(
                 self._gb, discharge, self._data
             )
             self._data[self.projected_discharge_name] = projected_discharge
