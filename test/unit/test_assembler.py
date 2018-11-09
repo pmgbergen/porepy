@@ -82,9 +82,13 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
-        A_known = np.array([[1, 0, 1], [0, 2, 1], [-1, -1, 1]])
+        A_known = np.array([[0, 0, 1], [0, 0, 1], [-1, -1, 1]])
+        g1_ind = block_dof[(g1, key)]
+        g2_ind = block_dof[(g2, key)]
+        A_known[g1_ind, g1_ind] = 1
+        A_known[g2_ind, g2_ind] = 2
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_single_variable_different_operator_names(self):
@@ -110,9 +114,14 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
-        A_known = np.array([[2, 0, 1], [0, 4, 1], [-1, -1, 1]])
+        A_known = np.array([[0, 0, 1], [0, 0, 1], [-1, -1, 1]])
+        g1_ind = block_dof[(g1, 'var1')]
+        g2_ind = block_dof[(g2, 'var2')]
+        A_known[g1_ind, g1_ind] = 2
+        A_known[g2_ind, g2_ind] = 4
+
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_single_variable_no_node_disretization(self):
@@ -141,9 +150,11 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
-        A_known = np.array([[1, 0, 1], [0, 0, 1], [-1, -1, 1]])
+        A_known = np.array([[0, 0, 1], [0, 0, 1], [-1, -1, 1]])
+        g1_ind = block_dof[(g1, key)]
+        A_known[g1_ind, g1_ind] = 1
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_single_variable_not_active(self):
@@ -210,9 +221,13 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
-        A_known = np.array([[5, 0, 1], [0, 2, 1], [-1, -1, 1]])
+        A_known = np.array([[0, 0, 1], [0, 0, 1], [-1, -1, 1]])
+        g1_ind = block_dof[(g1, key)]
+        g2_ind = block_dof[(g2, key)]
+        A_known[g1_ind, g1_ind] = 5
+        A_known[g2_ind, g2_ind] = 2
         self.assertTrue(np.allclose(A_known, A.todense()))
 
     def test_single_variable_multiple_edge_discretizations(self):
@@ -248,9 +263,13 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
-        A_known = np.array([[1, 0, 2], [0, 2, 2], [-2, -2, -2]])
+        A_known = np.array([[0, 0, 2], [0, 0, 2], [-2, -2, -2]])
+        g1_ind = block_dof[(g1, key)]
+        g2_ind = block_dof[(g2, key)]
+        A_known[g1_ind, g1_ind] = 1
+        A_known[g2_ind, g2_ind] = 2
         assert np.allclose(A_known, A.todense())
 
     def test_two_variables_no_coupling(self):
@@ -271,11 +290,13 @@ class TestAssembler(unittest.TestCase):
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                 }
+                g1 = g
             else:
                 d[pp.keywords.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                 }
+                g2 = g
 
         for e, d in gb.edges():
             d[pp.keywords.PRIMARY_VARIABLES] = {
@@ -288,15 +309,22 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((6, 6))
-        A_known[0, 0] = 1
-        A_known[1, 1] = 2
-        A_known[2, 2] = 3
-        A_known[3, 3] = 4
-        A_known[4, 4] = 5
-        A_known[5, 5] = 6
+
+        g11_ind = block_dof[(g1, key_1)]
+        g12_ind = block_dof[(g1, key_2)]
+        g21_ind = block_dof[(g2, key_1)]
+        g22_ind = block_dof[(g2, key_2)]
+        e1_ind = block_dof[(e, key_1)]
+        e2_ind = block_dof[(e, key_2)]
+        A_known[g11_ind, g11_ind] = 1
+        A_known[g12_ind, g12_ind] = 2
+        A_known[g21_ind, g21_ind] = 3
+        A_known[g22_ind, g22_ind] = 4
+        A_known[e1_ind, e1_ind] = 5
+        A_known[e2_ind, e2_ind] = 6
         assert np.allclose(A_known, A.todense())
 
     def test_two_variables_one_active(self):
@@ -318,11 +346,13 @@ class TestAssembler(unittest.TestCase):
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                 }
+                g1 = g
             else:
                 d[pp.keywords.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                 }
+                g2 = g
 
         for e, d in gb.edges():
             d[pp.keywords.PRIMARY_VARIABLES] = {
@@ -335,12 +365,18 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb, variables=[key_2])
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb, variables=[key_2])
 
         A_known = np.zeros((3, 3))
-        A_known[0, 0] = 2
-        A_known[1, 1] = 4
-        A_known[2, 2] = 6
+
+        g12_ind = block_dof[(g1, key_2)]
+        g22_ind = block_dof[(g2, key_2)]
+        e2_ind = block_dof[(e, key_2)]
+
+        A_known[g12_ind, g12_ind] = 2
+        A_known[g22_ind, g22_ind] = 4
+        A_known[e2_ind, e2_ind] = 6
+
         assert np.allclose(A_known, A.todense())
 
     def test_two_variables_one_active_one_false_active_variable(self):
@@ -363,11 +399,13 @@ class TestAssembler(unittest.TestCase):
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                 }
+                g1 = g
             else:
                 d[pp.keywords.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                 }
+                g2 = g
 
         for e, d in gb.edges():
             d[pp.keywords.PRIMARY_VARIABLES] = {
@@ -380,12 +418,17 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb, variables=[key_2, "var_11"])
+        A, b, block_dof ,_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_2, "var_11"])
 
         A_known = np.zeros((3, 3))
-        A_known[0, 0] = 2
-        A_known[1, 1] = 4
-        A_known[2, 2] = 6
+
+        g12_ind = block_dof[(g1, key_2)]
+        g22_ind = block_dof[(g2, key_2)]
+        e2_ind = block_dof[(e, key_2)]
+
+        A_known[g12_ind, g12_ind] = 2
+        A_known[g22_ind, g22_ind] = 4
+        A_known[e2_ind, e2_ind] = 6
         assert np.allclose(A_known, A.todense())
 
     ### Tests with coupling internal to each node
@@ -409,12 +452,14 @@ class TestAssembler(unittest.TestCase):
                     key_2: {term: MockNodeDiscretization(2)},
                     key_1 + "_" + key_2: {term: MockNodeDiscretization(5)},
                 }
+                g1 = g
             else:
                 d[pp.keywords.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                     key_2 + "_" + key_1: {term: MockNodeDiscretization(6)},
                 }
+                g2 = g
 
         for e, d in gb.edges():
             d[pp.keywords.PRIMARY_VARIABLES] = {
@@ -429,23 +474,30 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((6, 6))
-        A_known[0, 0] = 1
-        A_known[1, 1] = 2
-        A_known[2, 2] = 3
-        A_known[3, 3] = 4
-        A_known[4, 4] = 7
-        A_known[5, 5] = 8
+
+        g11_ind = block_dof[(g1, key_1)]
+        g12_ind = block_dof[(g1, key_2)]
+        g21_ind = block_dof[(g2, key_1)]
+        g22_ind = block_dof[(g2, key_2)]
+        e1_ind = block_dof[(e, key_1)]
+        e2_ind = block_dof[(e, key_2)]
+        A_known[g11_ind, g11_ind] = 1
+        A_known[g12_ind, g12_ind] = 2
+        A_known[g21_ind, g21_ind] = 3
+        A_known[g22_ind, g22_ind] = 4
+        A_known[e1_ind, e1_ind] = 7
+        A_known[e2_ind, e2_ind] = 8
 
         # Off-diagonal elements internal to the nodes: For the first node,
         # the first variable depends on the second, for the second, it is the
         # other way around.
-        A_known[0, 1] = 5
-        A_known[3, 2] = 6
-        A_known[4, 5] = 6
-        A_known[5, 4] = 1
+        A_known[g11_ind, g12_ind] = 5
+        A_known[g22_ind, g21_ind] = 6
+        A_known[e1_ind, e2_ind] = 6
+        A_known[e2_ind, e1_ind] = 1
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
@@ -473,12 +525,14 @@ class TestAssembler(unittest.TestCase):
                     key_2: {term: MockNodeDiscretization(2)},
                     key_1 + "_" + key_2: {term: MockNodeDiscretization(5)},
                 }
+                g1 = g
             else:
                 d[pp.keywords.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                     key_2 + "_" + key_1: {term: MockNodeDiscretization(6)},
                 }
+                g2 = g
 
         for e, d in gb.edges():
             d[pp.keywords.PRIMARY_VARIABLES] = {
@@ -493,14 +547,18 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb, variables=key_1)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb, variables=key_1)
 
         A_known = np.zeros((3, 3))
-        A_known[0, 0] = 1
 
-        A_known[1, 1] = 3
+        g11_ind = block_dof[(g1, key_1)]
+        g21_ind = block_dof[(g2, key_1)]
+        e1_ind = block_dof[(e, key_1)]
+        A_known[g11_ind, g11_ind] = 1
 
-        A_known[2, 2] = 7
+        A_known[g21_ind, g21_ind] = 3
+
+        A_known[e1_ind, e1_ind] = 7
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
@@ -545,23 +603,30 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((6, 6))
-        A_known[0, 0] = 1
-        A_known[1, 1] = 2
-        A_known[2, 2] = 3
-        A_known[3, 3] = 4
-        A_known[4, 4] = 1
-        A_known[5, 5] = 8
+
+        g11_ind = block_dof[(g1, key_1)]
+        g12_ind = block_dof[(g1, key_2)]
+        g21_ind = block_dof[(g2, key_1)]
+        g22_ind = block_dof[(g2, key_2)]
+        e1_ind = block_dof[(e, key_1)]
+        e2_ind = block_dof[(e, key_2)]
+        A_known[g11_ind, g11_ind] = 1
+        A_known[g12_ind, g12_ind] = 2
+        A_known[g21_ind, g21_ind] = 3
+        A_known[g22_ind, g22_ind] = 4
+        A_known[e1_ind, e1_ind] = 1
+        A_known[e2_ind, e2_ind] = 8
 
         # Off-diagonal elements internal to the nodes: For the first node,
         # the first variable depends on the second, for the second, it is the
         # other way around.
-        A_known[4, 0] = -2
-        A_known[4, 2] = -2
-        A_known[0, 4] = 2
-        A_known[2, 4] = 2
+        A_known[e1_ind, g11_ind] = -2
+        A_known[e1_ind, g21_ind] = -2
+        A_known[g11_ind, e1_ind] = 2
+        A_known[g21_ind, e1_ind] = 2
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
@@ -611,23 +676,31 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((6, 6))
-        A_known[0, 0] = 1
-        A_known[1, 1] = 2
-        A_known[2, 2] = 3
-        A_known[3, 3] = 4
-        A_known[4, 4] = 1
-        A_known[5, 5] = 8
+
+        g11_ind = block_dof[(g1, key_1)]
+        g12_ind = block_dof[(g1, key_2)]
+        g21_ind = block_dof[(g2, key_1)]
+        g22_ind = block_dof[(g2, key_2)]
+        e1_ind = block_dof[(e, key_1)]
+        e2_ind = block_dof[(e, key_2)]
+        A_known[g11_ind, g11_ind] = 1
+        A_known[g12_ind, g12_ind] = 2
+        A_known[g21_ind, g21_ind] = 3
+        A_known[g22_ind, g22_ind] = 4
+        A_known[e1_ind, e1_ind] = 1
+        A_known[e2_ind, e2_ind] = 8
 
         # Off-diagonal elements internal to the nodes: For the first node,
         # the first variable depends on the second, for the second, it is the
         # other way around.
-        A_known[4, 0] = -2
-        A_known[4, 3] = -2
-        A_known[0, 4] = 2
-        A_known[3, 4] = 2
+        A_known[e1_ind, g11_ind] = -2
+        A_known[e1_ind, g22_ind] = -2
+        A_known[g11_ind, e1_ind] = 2
+        A_known[g22_ind, e1_ind] = 2
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
@@ -683,22 +756,28 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((5, 5))
-        A_known[0, 0] = 1
-        A_known[1, 1] = 2
-        A_known[2, 2] = 4
-        A_known[3, 3] = 1
-        A_known[4, 4] = 8
+
+        g11_ind = block_dof[(g1, key_1)]
+        g12_ind = block_dof[(g1, key_2)]
+        g22_ind = block_dof[(g2, key_2)]
+        e1_ind = block_dof[(e, key_1)]
+        e2_ind = block_dof[(e, key_2)]
+        A_known[g11_ind, g11_ind] = 1
+        A_known[g12_ind, g12_ind] = 2
+        A_known[g22_ind, g22_ind] = 4
+        A_known[e1_ind, e1_ind] = 1
+        A_known[e2_ind, e2_ind] = 8
 
         # Off-diagonal elements internal to the nodes: For the first node,
         # the first variable depends on the second, for the second, it is the
         # other way around.
-        A_known[3, 0] = -2
-        A_known[3, 2] = -2
-        A_known[0, 3] = 2
-        A_known[2, 3] = 2
+        A_known[e1_ind, g11_ind] = -2
+        A_known[e1_ind, g22_ind] = -2
+        A_known[g11_ind, e1_ind] = 2
+        A_known[g22_ind, e1_ind] = 2
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
@@ -760,22 +839,28 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((5, 5))
-        A_known[0, 0] = 1
-        A_known[1, 1] = 2
-        A_known[2, 2] = 4
-        A_known[3, 3] = 3
-        A_known[4, 4] = 8
+
+        g11_ind = block_dof[(g1, key_1)]
+        g12_ind = block_dof[(g1, key_2)]
+        g22_ind = block_dof[(g2, key_2)]
+        e1_ind = block_dof[(e, key_1)]
+        e2_ind = block_dof[(e, key_2)]
+        A_known[g11_ind, g11_ind] = 1
+        A_known[g12_ind, g12_ind] = 2
+        A_known[g22_ind, g22_ind] = 4
+        A_known[e1_ind, e1_ind] = 3
+        A_known[e2_ind, e2_ind] = 8
 
         # Off-diagonal elements internal to the nodes: For the first node,
         # the first variable depends on the second, for the second, it is the
         # other way around.
-        A_known[3, 0] = 2
-        A_known[3, 2] = 2
-        A_known[0, 3] = -2
-        A_known[2, 3] = -2
+        A_known[e1_ind, g11_ind] = 2
+        A_known[e1_ind, g22_ind] = 2
+        A_known[g11_ind, e1_ind] = -2
+        A_known[g22_ind, e1_ind] = -2
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
@@ -837,24 +922,30 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((5, 5))
-        A_known[0, 0] = 1
-        A_known[1, 1] = 2
-        A_known[2, 2] = 4
-        A_known[3, 3] = 1
-        A_known[4, 4] = 8
+
+        g11_ind = block_dof[(g1, key_1)]
+        g12_ind = block_dof[(g1, key_2)]
+        g22_ind = block_dof[(g2, key_2)]
+        e1_ind = block_dof[(e, key_1)]
+        e2_ind = block_dof[(e, key_2)]
+        A_known[g11_ind, g11_ind] = 1
+        A_known[g12_ind, g12_ind] = 2
+        A_known[g22_ind, g22_ind] = 4
+        A_known[e1_ind, e1_ind] = 1
+        A_known[e2_ind, e2_ind] = 8
 
         # Off-diagonal elements internal to the nodes: For the first node,
         # the first variable depends on the second, for the second, it is the
         # other way around.
-        A_known[3, 0] = -2
-        A_known[3, 1] = -3
-        A_known[3, 2] = -5
-        A_known[0, 3] = 2
-        A_known[1, 3] = 3
-        A_known[2, 3] = 5
+        A_known[e1_ind, g11_ind] = -2
+        A_known[e1_ind, g12_ind] = -3
+        A_known[e1_ind, g22_ind] = -5
+        A_known[g11_ind, e1_ind] = 2
+        A_known[g12_ind, e1_ind] = 3
+        A_known[g22_ind, e1_ind] = 5
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
@@ -889,18 +980,23 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((3, 3))
-        A_known[0, 0] = 1
-        A_known[1, 1] = 3
-        A_known[2, 2] = 2
+
+        g11_ind = block_dof[(g1, key)]
+        g22_ind = block_dof[(g2, key)]
+        e1_ind = block_dof[(e, key)]
+
+        A_known[g11_ind, g11_ind] = 1
+        A_known[g22_ind, g22_ind] = 3
+        A_known[e1_ind, e1_ind] = 2
 
         # Off-diagonal elements internal to the nodes: For the first node,
         # the first variable depends on the second, for the second, it is the
         # other way around.
-        A_known[2, 0] = -1
-        A_known[0, 2] = 1
+        A_known[e1_ind, g11_ind] = -1
+        A_known[g11_ind, e1_ind] = 1
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
@@ -929,18 +1025,23 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((3, 3))
-        A_known[0, 0] = 2
-        A_known[1, 1] = 3
-        A_known[2, 2] = 2
+
+        g11_ind = block_dof[(g1, 'var1')]
+        g22_ind = block_dof[(g2, 'var1')]
+        e1_ind = block_dof[(e, 'vare')]
+
+        A_known[g11_ind, g11_ind] = 2
+        A_known[g22_ind, g22_ind] = 3
+        A_known[e1_ind, e1_ind] = 2
 
         # Off-diagonal elements internal to the nodes: For the first node,
         # the first variable depends on the second, for the second, it is the
         # other way around.
-        A_known[2, 0] = -1
-        A_known[0, 2] = 1
+        A_known[e1_ind, g11_ind] = -1
+        A_known[g11_ind, e1_ind] = 1
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
@@ -965,12 +1066,14 @@ class TestAssembler(unittest.TestCase):
                     key_2: {term: MockNodeDiscretization(2)},
                     key_1 + "_" + key_2: {term: MockNodeDiscretization(5)},
                 }
+                g1 = g
             else:
                 d[pp.keywords.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                     key_2 + "_" + key_1: {term: MockNodeDiscretization(6)},
                 }
+                g2 = g
 
         for e, d in gb.edges():
             d[pp.keywords.PRIMARY_VARIABLES] = {
@@ -988,31 +1091,38 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb, add_matrices=False)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb, add_matrices=False)
+
+        g11_ind = block_dof[(g1, key_1)]
+        g12_ind = block_dof[(g1, key_2)]
+        g21_ind = block_dof[(g2, key_1)]
+        g22_ind = block_dof[(g2, key_2)]
+        e1_ind = block_dof[(e, key_1)]
+        e2_ind = block_dof[(e, key_2)]
 
         # First check first variable, which has only one term
         A_1_1 = np.zeros((6, 6))
-        A_1_1[0, 0] = 1
-        A_1_1[2, 2] = 3
-        A_1_1[4, 4] = 7
+        A_1_1[g11_ind, g11_ind] = 1
+        A_1_1[g21_ind, g21_ind] = 3
+        A_1_1[e1_ind, e1_ind] = 7
         self.assertTrue(np.allclose(A_1_1, A[term + "_" + key_1].todense()))
 
         # Second variable, first term
         A_2_2 = np.zeros((6, 6))
-        A_2_2[1, 1] = 2
-        A_2_2[3, 3] = 4
-        A_2_2[5, 5] = 7
+        A_2_2[g12_ind, g12_ind] = 2
+        A_2_2[g22_ind, g22_ind] = 4
+        A_2_2[e2_ind, e2_ind] = 7
         self.assertTrue(np.allclose(A_2_2, A[term + "_" + key_2].todense()))
 
         # Second variable, second term
         A_2_2 = np.zeros((6, 6))
-        A_2_2[5, 5] = 8
+        A_2_2[e2_ind, e2_ind] = 8
         self.assertTrue(np.allclose(A_2_2, A[term2 + "_" + key_2].todense()))
 
         # Mixed terms
         A_1_2 = np.zeros((6, 6))
-        A_1_2[0, 1] = 5
-        A_1_2[4, 5] = 6
+        A_1_2[g11_ind, g12_ind] = 5
+        A_1_2[e1_ind, e2_ind] = 6
         self.assertTrue(
             np.allclose(A_1_2, A[term + "_" + key_1 + "_" + key_2].todense())
         )
