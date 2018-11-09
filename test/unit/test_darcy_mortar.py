@@ -11,31 +11,15 @@ import unittest
 
 import porepy as pp
 
-from porepy.grids.structured import TensorGrid
-from porepy.grids.simplex import TriangleGrid
-from porepy.grids import refinement, mortar_grid
-from porepy.fracs import meshing, mortars
-from porepy.fracs.fractures import Fracture
-
-from porepy.params.data import Parameters
-from porepy.params import bc
-from porepy.params.bc import BoundaryCondition
-from porepy.grids.grid import Grid
-from porepy.params import tensor
-
-
-from porepy.numerics.vem import vem_source
-from porepy.numerics.fv import tpfa, mpfa
-
 
 class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
     def set_param_flow(self, gb, no_flow=False, kn=1e3, multi_point=True):
         # Set up flow field with uniform flow in y-direction
         gb.add_node_props(["param"])
         for g, d in gb:
-            param = Parameters(g)
+            param = pp.Parameters(g)
 
-            perm = tensor.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
             param.set_tensor("flow", perm)
 
             aperture = np.power(1e-3, gb.dim_max() - g.dim)
@@ -43,15 +27,15 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
             if g.dim == 2:
                 b_val = np.zeros(g.num_faces)
-                bound_faces = bc.face_on_side(g, ["ymin", "ymax"])
+                bound_faces = pp.face_on_side(g, ["ymin", "ymax"])
                 if no_flow:
                     b_val[bound_faces[0]] = 1
                     b_val[bound_faces[1]] = 1
                 bound_faces = np.hstack((bound_faces[0], bound_faces[1]))
                 labels = np.array(["dir"] * bound_faces.size)
-                param.set_bc("flow", bc.BoundaryCondition(g, bound_faces, labels))
+                param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
 
-                bound_faces = bc.face_on_side(g, "ymax")[0]
+                bound_faces = pp.face_on_side(g, "ymax")[0]
                 b_val[bound_faces] = 1
                 param.set_bc_val("flow", b_val)
 
@@ -81,27 +65,27 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
     def set_grids(self, N, num_nodes_mortar, num_nodes_1d, physdims=[1, 1]):
         f1 = np.array([[0, physdims[0]], [.5, .5]])
 
-        gb = meshing.cart_grid([f1], N, **{"physdims": physdims})
+        gb = pp.meshing.cart_grid([f1], N, **{"physdims": physdims})
         gb.compute_geometry()
         gb.assign_node_ordering()
 
         for e, d in gb.edges():
             mg = d["mortar_grid"]
             new_side_grids = {
-                s: refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
+                s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
                 for s, g in mg.side_grids.items()
             }
 
-            mortars.update_mortar_grid(mg, new_side_grids, tol=1e-4)
+            pp.mortars.update_mortar_grid(mg, new_side_grids, tol=1e-4)
 
             # refine the 1d-physical grid
             old_g = gb.nodes_of_edge(e)[0]
-            new_g = refinement.remesh_1d(old_g, num_nodes=num_nodes_1d)
+            new_g = pp.refinement.remesh_1d(old_g, num_nodes=num_nodes_1d)
             new_g.compute_geometry()
 
             gb.update_nodes({old_g: new_g})
             mg = d["mortar_grid"]
-            mortars.update_physical_low_grid(mg, new_g, tol=1e-4)
+            pp.mortars.update_physical_low_grid(mg, new_g, tol=1e-4)
         return gb
 
     def test_tpfa_matching_grids_no_flow(self):
@@ -560,7 +544,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
                 np.array([[0.5, 0.5], [0.5, 1]]),
             ]
         mesh_size = {"value": 0.3, "bound_value": 0.3}
-        gb = meshing.simplex_grid(
+        gb = pp.meshing.simplex_grid(
             fracs=p, domain=domain, mesh_size=mesh_size, verbose=0
         )
         #        gb = meshing.cart_grid([np.array([[0.5, 0.5], [0, 1]])],np.array([10, 10]),
@@ -571,7 +555,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         # Refine 2D grid?
         if alpha_2d is not None:
             mesh_size = {"value": 0.3 * alpha_2d, "bound_value": 0.3 * alpha_2d}
-            gbn = meshing.simplex_grid(
+            gbn = pp.meshing.simplex_grid(
                 fracs=p, domain=domain, mesh_size=mesh_size, verbose=0
             )
             go = gb.grids_of_dimension(2)[0]
@@ -588,7 +572,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
                     else:
                         num_nodes = 1 + int(alpha_1d * g.num_cells)
                     num_nodes = 1 + int(alpha_1d * g.num_cells)
-                    gmap[g] = refinement.remesh_1d(g, num_nodes=num_nodes)
+                    gmap[g] = pp.refinement.remesh_1d(g, num_nodes=num_nodes)
                     gmap[g].compute_geometry()
 
         # Refine mortar grid
@@ -600,9 +584,9 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
                     mg_map[mg] = {}
                     for s, g in mg.side_grids.items():
                         num_nodes = int(g.num_nodes * alpha_mortar)
-                        mg_map[mg][s] = refinement.remesh_1d(g, num_nodes=num_nodes)
+                        mg_map[mg][s] = pp.refinement.remesh_1d(g, num_nodes=num_nodes)
 
-        gb = mortars.replace_grids_in_bucket(gb, gmap, mg_map, tol=1e-4)
+        gb = pp.mortars.replace_grids_in_bucket(gb, gmap, mg_map, tol=1e-4)
 
         #        if remove_tags:
         #            internal_flag = FaceTag.FRACTURE
@@ -617,9 +601,9 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
     def set_params(self, gb):
 
         for g, d in gb:
-            param = Parameters(g)
+            param = pp.Parameters(g)
 
-            perm = tensor.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
             param.set_tensor("flow", perm)
 
             aperture = np.power(1e-3, gb.dim_max() - g.dim)
@@ -632,7 +616,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             ]
             bound_faces = np.hstack((bound_faces[0], bound_faces[1]))
             labels = np.array(["dir"] * bound_faces.size)
-            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
 
             bv = np.zeros(g.num_faces)
             bound_faces = np.where(np.abs(yf - 1) < 1e-4)[0]
@@ -809,22 +793,22 @@ class TestMortar3D(unittest.TestCase):
 
         elif num_fracs == 1:
             fl = [
-                Fracture(np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]))
+                pp.Fracture(np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]))
             ]
         elif num_fracs == 2:
             fl = [
-                Fracture(np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])),
-                Fracture(np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])),
+                pp.Fracture(np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])),
+                pp.Fracture(np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])),
             ]
 
         elif num_fracs == 3:
             fl = [
-                Fracture(np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])),
-                Fracture(np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])),
-                Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])),
+                pp.Fracture(np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])),
+                pp.Fracture(np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])),
+                pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])),
             ]
 
-        gb = meshing.simplex_grid(
+        gb = pp.meshing.simplex_grid(
             fracs=fl, domain=domain, h_min=0.5, h_ideal=0.5, verbose=0
         )
 
@@ -839,9 +823,9 @@ class TestMortar3D(unittest.TestCase):
     def set_params(self, gb):
 
         for g, d in gb:
-            param = Parameters(g)
+            param = pp.Parameters(g)
 
-            perm = tensor.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
             param.set_tensor("flow", perm)
 
             aperture = np.power(1e-6, gb.dim_max() - g.dim)
@@ -854,7 +838,7 @@ class TestMortar3D(unittest.TestCase):
             ]
             bound_faces = np.hstack((bound_faces[0], bound_faces[1]))
             labels = np.array(["dir"] * bound_faces.size)
-            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
 
             bv = np.zeros(g.num_faces)
             bound_faces = np.where(np.abs(yf - 1) < 1e-4)[0]
@@ -968,7 +952,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         data = np.array([1, 1, 1, 1, -1, -1, 1, 1, 1, 1, -1, 1, 1, 1, -1, 1, 1, -1])
         cell_faces = sps.csc_matrix((data, (cf.ravel("F"), cols)))
 
-        g = Grid(2, nodes, face_nodes, cell_faces, "TriangleGrid")
+        g = pp.Grid(2, nodes, face_nodes, cell_faces, "TriangleGrid")
         g.compute_geometry()
         g.tags["fracture_faces"][[2, 3, 7, 8]] = 1
         # g.face_normals[1, [2, 3]] = -0.5
@@ -978,7 +962,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         return g
 
     def grid_1d(self, num_pts=3):
-        g = TensorGrid(np.arange(num_pts))
+        g = pp.TensorGrid(np.arange(num_pts))
         g.nodes = np.vstack(
             (np.linspace(0, 1, num_pts), 0.5 * np.ones(num_pts), np.zeros(num_pts))
         )
@@ -989,7 +973,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
     def setup(self, remove_tags=False, num_1d=3, pert_node=False):
         g2 = self.grid_2d()
         g1 = self.grid_1d()
-        gb = meshing._assemble_in_bucket([[g2], [g1]])
+        gb = pp.meshing._assemble_in_bucket([[g2], [g1]])
 
         gb.add_edge_props("face_cells")
         for e, d in gb.edges():
@@ -999,11 +983,11 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
             a[7, 0] = 1
             a[8, 1] = 1
             d["face_cells"] = sps.csc_matrix(a.T)
-        meshing.create_mortar_grids(gb)
+        pp.meshing.create_mortar_grids(gb)
 
         g_new_2d = self.grid_2d(pert_node)
         g_new_1d = self.grid_1d(num_1d)
-        mortars.replace_grids_in_bucket(gb, g_map={g2: g_new_2d, g1: g_new_1d})
+        pp.mortars.replace_grids_in_bucket(gb, g_map={g2: g_new_2d, g1: g_new_1d})
 
         #        if remove_tags:
         #            internal_flag = FaceTag.FRACTURE
@@ -1017,9 +1001,9 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
     def set_params(self, gb):
 
         for g, d in gb:
-            param = Parameters(g)
+            param = pp.Parameters(g)
 
-            perm = tensor.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
+            perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
             param.set_tensor("flow", perm)
 
             aperture = np.power(1e-3, gb.dim_max() - g.dim)
@@ -1027,7 +1011,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
             if g.dim == 2:
                 bound_faces = np.array([0, 10])
                 labels = np.array(["dir"] * bound_faces.size)
-                param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+                param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
 
                 bv = np.zeros(g.num_faces)
                 bound_faces = 10
