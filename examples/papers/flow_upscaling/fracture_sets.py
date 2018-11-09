@@ -294,6 +294,29 @@ class FractureSet(object):
 
         return mean_a
 
+    def compute_center(self, p=None, edges=None):
+        """ Compute center points of a set of fractures.
+
+        Parameters:
+            p (np.array, 2 x n , optional): Points used to describe the fractures.
+                defaults to the fractures in this set.
+            edges (np.array, 2 x num_frac, optional): Indices, refering to pts, of the start
+                and end points of the fractures for which the centres should be computed.
+                Defaults to the fractures of this set.
+
+        Returns:
+            np.array, 2 x num_frac: Coordinates of the centers of this fracture.
+
+        """
+        if p is None:
+            p = self.pts
+        if edges is None:
+            edges = self.edges
+        # first compute the fracture centres and then generate them
+        avg = lambda e0, e1: 0.5 * (np.atleast_2d(p)[:, e0] + np.atleast_2d(p)[:, e1])
+        pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
+        return pts_c
+
     def plot(self, **kwargs):
         """ Plot the fracture set.
 
