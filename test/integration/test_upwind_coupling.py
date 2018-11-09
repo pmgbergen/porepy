@@ -1303,9 +1303,11 @@ class BasicsTest(unittest.TestCase):
 
 
 def assign_discretization(gb, disc, coupling_disc, key):
+    # Identifier of the advection term
+    term = 'advection'
     for _, d in gb:
         d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-        d[pp.keywords.DISCRETIZATION] = {key: {key: disc}}
+        d[pp.keywords.DISCRETIZATION] = {key: {term: disc}}
 
     for e, d in gb.edges():
         g1, g2 = gb.nodes_of_edge(e)
@@ -1313,8 +1315,8 @@ def assign_discretization(gb, disc, coupling_disc, key):
                 "cells": 1}}
         d[pp.keywords.COUPLING_DISCRETIZATION] = {
                 key: {
-                    g1: (key, disc),
-                    g2: (key, disc),
+                    g1: (key, term),
+                    g2: (key, term),
                     e: ("lambda_u", coupling_disc)
                 }
             }
