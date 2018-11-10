@@ -59,7 +59,7 @@ class RobinCoupling(object):
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
-        faces_h, cells_h, sign_h = sps.find(g_h.cell_faces)
+        faces_h, cells_h, _ = sps.find(g_h.cell_faces)
         ind_faces_h = np.unique(faces_h, return_index=True)[1]
         cells_h = cells_h[ind_faces_h]
 
@@ -100,7 +100,6 @@ class RobinCoupling(object):
         if not self._key() + "Robin_discr" in data_edge.keys():
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
-        assert g_master.dim != g_slave.dim
         grid_swap = g_master.dim < g_slave.dim
         if grid_swap:
             g_master, g_slave = g_slave, g_master

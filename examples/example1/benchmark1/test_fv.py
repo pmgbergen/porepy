@@ -113,7 +113,7 @@ def main(kf, description, multi_point, if_export=False):
     else:
         discr = pp.Tpfa(key)
 
-    for g, d in gb:
+    for _, d in gb:
         d[discretization_key] = discr
 
     for _, d in gb.edges():
