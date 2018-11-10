@@ -88,5 +88,6 @@ class BiotTest(unittest.TestCase):
         a = biot.Biot()._face_vector_to_scalar(3, 2).toarray()
         self.assertTrue(np.allclose(known_matrix, a))
 
-    if __name__ == "__main__":
-        unittest.main()
+
+if __name__ == "__main__":
+    unittest.main()

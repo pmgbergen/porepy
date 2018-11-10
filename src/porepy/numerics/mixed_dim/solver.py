@@ -31,7 +31,7 @@ class Solver(object):
 
     # ------------------------------------------------------------------------------#
 
-    def matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(self, g, data):
         """
         Abstract method.
         Return the matrix and righ-hand side for a suitable discretization.
@@ -57,7 +57,7 @@ class SolverMixedDim(object):
     def __init__(self):
         pass
 
-    def matrix_rhs(self, gb, **kwargs):
+    def assemble_matrix_rhs(self, gb, **kwargs):
         return self.solver.matrix_rhs(gb, **kwargs)
 
     def split(self, gb, key, values, **kwargs):

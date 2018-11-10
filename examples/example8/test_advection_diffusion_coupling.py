@@ -1,21 +1,7 @@
 import numpy as np
 import scipy.sparse as sps
 import os
-import sys
-
-from porepy.viz import exporter
-from porepy.fracs import importer
-
-from porepy.params import tensor
-from porepy.grids import structured
-
-from porepy.numerics.mixed_dim import coupler
-from porepy.numerics.vem import vem_dual, vem_source
-from porepy.numerics.fv.transport import upwind
-from porepy.numerics.fv import tpfa
-
-from porepy.params.bc import BoundaryCondition
-from porepy.params.data import Parameters
+import porepy as pp
 
 
 # ------------------------------------------------------------------------------#
@@ -26,10 +12,10 @@ def add_data_darcy(gb, domain, tol):
 
     kf = 1e-4
     for g, d in gb:
-        param = Parameters(g)
+        param = pp.Parameters(g)
 
         kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
-        perm = tensor.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(g.dim, kxx)
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))
@@ -56,10 +42,10 @@ def add_data_darcy(gb, domain, tol):
             bc_dir = bound_faces[boundary]
             bc_val[bc_dir] = np.sum(g.face_centers[:, bc_dir], axis=0) * aperture
 
-            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("flow", bc_val)
         else:
-            param.set_bc("flow", BoundaryCondition(g, np.empty(0), np.empty(0)))
+            param.set_bc("flow", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
 
         d["param"] = param
 
@@ -70,7 +56,7 @@ def add_data_darcy(gb, domain, tol):
         aperture = np.power(1e-2, gb.dim_max() - g_l.dim) * np.ones(g_l.num_cells)
 
         mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
+        check_P = mg.slave_to_mortar_avg()
 
         gamma = check_P * aperture
         d["kn"] = kf * np.ones(mg.num_cells) / gamma
@@ -85,7 +71,7 @@ def add_data_advection_diffusion(gb, domain, tol):
         param = d["param"]
 
         kxx = 5 * 1e-2 * np.ones(g.num_cells)
-        perm = tensor.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(g.dim, kxx)
         param.set_tensor("transport", perm)
 
         # The 0.5 needs to be fixed in a better way
@@ -108,20 +94,23 @@ def add_data_advection_diffusion(gb, domain, tol):
             labels[boundary] = ["dir"]
 
             bc_val = np.zeros(g.num_faces)
-            bc_dir = bound_faces[boundary]
 
-            param.set_bc("transport", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("transport", pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("transport", bc_val)
         else:
-            param.set_bc("transport", BoundaryCondition(g, np.empty(0), np.empty(0)))
+            param.set_bc("transport", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
 
     # Assign coupling discharge
     gb.add_edge_props("param")
     for e, d in gb.edges():
         g_h = gb.nodes_of_edge(e)[1]
         discharge = gb.node_props(g_h)["discharge"]
-        d["param"] = Parameters(g_h)
+        d["param"] = pp.Parameters(g_h)
         d["discharge"] = discharge
+
+        mg = d['mortar_grid']
+        d['flux_field'] = mg.master_to_mortar_int * discharge
+
 
 
 # ------------------------------------------------------------------------------#
@@ -134,7 +123,7 @@ tol = 1e-3
 
 mesh_kwargs = {"mesh_size_frac": 0.045, "mesh_size_min": 0.01}
 domain = {"xmin": -0.2, "xmax": 1.2, "ymin": -0.2, "ymax": 1.2}
-gb = importer.dfm_2d_from_csv(folder + "network.csv", mesh_kwargs, domain)
+gb = pp.importer.dfm_2d_from_csv(folder + "network.csv", mesh_kwargs, domain)
 gb.compute_geometry()
 gb.assign_node_ordering()
 
@@ -142,39 +131,70 @@ gb.assign_node_ordering()
 add_data_darcy(gb, domain, tol)
 
 # Choose and define the solvers and coupler
-darcy = vem_dual.DualVEMMixedDim("flow")
-A_flow, b_flow = darcy.matrix_rhs(gb)
+key = "flow"
+discretization_key = key + "_" + pp.keywords.DISCRETIZATION
 
-solver_source = vem_source.DualSourceMixedDim("flow", coupling=[None])
-A_source, b_source = solver_source.matrix_rhs(gb)
+darcy = pp.DualEllipticModel(gb)
+up = darcy.solve()
 
-up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
-darcy.split(gb, "up", up)
-
-gb.add_node_props(["pressure", "P0u"])
-for g, d in gb:
-    discharge = darcy.discr.extract_u(g, d["up"])
-    d["discharge"] = discharge
-    d["pressure"] = darcy.discr.extract_p(g, d["up"])
-    d["P0u"] = darcy.discr.project_u(g, discharge, d)
+darcy.split()
+darcy.pressure("pressure")
+darcy.discharge("discharge")
+#darcy.project_discharge("P0u")
 
 if do_save:
-    exporter.export_vtk(gb, "darcy", ["pressure", "P0u"], folder=export_folder)
+    save = pp.Exporter(gb, "darcy", folder=export_folder)
+    save.write_vtk(["pressure"])
+    #save.write_vtk(["pressure", "P0u"])
 
 #################################################################
 
 physics = "transport"
-advection = upwind.UpwindMixedDim(physics)
-diffusion = tpfa.TpfaMixedDim(physics)
+
+# Identifier of the advection term
+term = 'advection'
+adv = 'advection'
+diff = 'diffusion'
+
+adv_discr = pp.Upwind(physics)
+diff_discr = pp.Tpfa(physics)
+
+adv_coupling = pp.UpwindCoupling(key)
+diff_coupling = pp.RobinCoupling(physics, diff_discr)
+
+key = 'temperature'
+
+for _, d in gb:
+    d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+    d[pp.keywords.DISCRETIZATION] = {key: {adv: adv_discr, diff: diff_discr}}
+
+for e, d in gb.edges():
+    g1, g2 = gb.nodes_of_edge(e)
+    d[pp.keywords.PRIMARY_VARIABLES] = {"lambda_adv": {
+            "cells": 1}, "lambda_diff": {"cells": 1}}
+    d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            adv: {
+                g1: (key, adv),
+                g2: (key, adv),
+                e: ("lambda_adv", adv_coupling)
+            },
+            diff: {
+                g1: (key, diff),
+                g2: (key, diff),
+                e: ("lambda_diff", diff_coupling)
+            }
+        }
+
 
 # Assign parameters
 add_data_advection_diffusion(gb, domain, tol)
 
-U, rhs_u = advection.matrix_rhs(gb)
-D, rhs_d = diffusion.matrix_rhs(gb)
+assembler = pp.Assembler()
+A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
 
-theta = sps.linalg.spsolve(D + U, rhs_u + rhs_d)
-diffusion.split(gb, "temperature", theta)
+
+theta = sps.linalg.spsolve(A, b)
+assembler.distribute_variable(gb, theta, block_dof, full_dof)
 
 if do_save:
     exporter.export_vtk(

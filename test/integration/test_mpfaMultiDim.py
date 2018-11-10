@@ -46,13 +46,29 @@ class TestMpfaMultiDim(unittest.TestCase):
         gb = setup_cart_2d(np.array([10, 10]))
 
         # Python inverter is most efficient for small problems
-        flux_discr = pp.MpfaMixedDim("flow")
-        A, rhs = flux_discr.matrix_rhs(gb)
+        key = "flow"
+        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+
+        tpfa = pp.Tpfa(key)
+        for g, d in gb:
+            # Choose discretization and define the solver
+            d[discretization_key] = tpfa
+
+        for _, d in gb.edges():
+            d[discretization_key] = pp.RobinCoupling(key, tpfa)
+
+        assembler = pp.EllipticAssembler(key)
+
+        A, rhs = assembler.assemble_matrix_rhs(gb)
         p = np.linalg.solve(A.A, rhs)
 
-        flux_discr.split(gb, "pressure", p)
+        assembler.split(gb, "pressure", p)
         for g, d in gb:
             pressure = d["pressure"]
             pressure_analytic = g.cell_centers[1]
             p_diff = pressure - pressure_analytic
             self.assertTrue(np.max(np.abs(p_diff)) < 0.05)
+
+
+if __name__ == "__main__":
+    unittest.main()

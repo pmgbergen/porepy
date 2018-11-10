@@ -28,13 +28,13 @@ __all__ = []
 # Numerics
 # Control volume, elliptic
 from porepy.numerics.fv.mpsa import Mpsa, FracturedMpsa
-from porepy.numerics.fv.tpfa import Tpfa, TpfaMixedDim
-from porepy.numerics.fv.mpfa import Mpfa, MpfaMixedDim
+from porepy.numerics.fv.tpfa import Tpfa
+from porepy.numerics.fv.mpfa import Mpfa
 from porepy.numerics.fv.biot import Biot
-from porepy.numerics.fv.source import Integral, IntegralMixedDim
+from porepy.numerics.fv.source import Integral
 
 # Virtual elements, elliptic
-from porepy.numerics.vem.vem_dual import DualVEM, DualVEMMixedDim
+from porepy.numerics.vem.mvem import MVEM
 from porepy.numerics.vem.vem_source import DualSource, DualSourceMixedDim
 from porepy.numerics.elliptic import DualEllipticModel
 
@@ -42,11 +42,19 @@ from porepy.numerics.elliptic import DualEllipticModel
 from porepy.numerics.fem.p1 import P1, P1MixedDim
 from porepy.numerics.fem.source import P1Source, P1SourceMixedDim
 from porepy.numerics.fem.mass_matrix import P1MassMatrix, P1MassMatrixMixedDim
-from porepy.numerics.fem.rt0 import RT0, RT0MixedDim
+from porepy.numerics.fem.rt0 import RT0
 
+# Mixed-dimensional discretizations and assemblers
+from porepy.numerics.mixed_dim.elliptic_assembler import EllipticAssembler
+from porepy.numerics.interface_laws.elliptic_interface_laws import (
+    RobinCoupling,
+    FluxPressureContinuity,
+)
+from porepy.numerics.mixed_dim.assembler import Assembler
 
 # Transport related
-from porepy.numerics.fv.transport.upwind import Upwind, UpwindMixedDim, UpwindCoupling
+from porepy.numerics.fv.upwind import Upwind
+from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
 from porepy.numerics.fv.mass_matrix import MassMatrix, MassMatrixMixedDim
 from porepy.numerics.fv.mass_matrix import InvMassMatrix, InvMassMatrixMixedDim
 
@@ -63,6 +71,8 @@ from porepy.numerics.fracture_deformation import (
     FrictionSlipDataAssigner,
 )
 
+from porepy.numerics import keywords
+
 # Time steppers
 from porepy.numerics.time_stepper import Implicit, Explicit
 
@@ -77,12 +87,14 @@ from porepy.grids.mortar_grid import MortarGrid, BoundaryMortar
 
 # Fractures
 from porepy.fracs.fractures import Fracture, EllipticFracture, FractureNetwork
+from porepy.fracs.meshing import simplex_grid
 
 # Parameters
 from porepy.params.bc import (
     BoundaryCondition,
     BoundaryConditionVectorial,
     BoundaryConditionNode,
+    face_on_side
 )
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
 from porepy.params.data import Parameters
@@ -91,7 +103,7 @@ from porepy.params.water import Water
 
 # Visualization
 from porepy.viz.exporter import Exporter
-from porepy.viz.plot_grid import plot_grid
+from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 # Modules
