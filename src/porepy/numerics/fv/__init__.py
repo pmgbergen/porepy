@@ -1,11 +1,11 @@
-from .tpfa import TpfaMixedDim, TpfaDFN, Tpfa
-from .tpfa import TpfaCoupling, TpfaCouplingDFN
+from .tpfa import Tpfa
+from .fv_elliptic import FVElliptic
 
-from .mpfa import MpfaMixedDim, MpfaDFN, Mpfa
+from .mpfa import Mpfa
 
 from .mpsa import FracturedMpsa, Mpsa
 
-from .source import IntegralMixedDim, Integral
+from .source import Integral
 
-from .transport.upwind import Upwind, UpwindMixedDim
+from .upwind import Upwind
 from .mass_matrix import MassMatrix, InvMassMatrix

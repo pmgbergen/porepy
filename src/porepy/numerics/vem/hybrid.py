@@ -8,13 +8,22 @@ import numpy as np
 from numpy.linalg import solve
 import scipy.sparse as sps
 
+import porepy as pp
+
 from porepy.numerics.mixed_dim.solver import Solver
 from porepy.utils import comp_geom as cg
-from porepy.numerics.vem import vem_dual as dual
 from porepy.params import tensor
 
 
 class HybridDualVEM(Solver):
+    """ Implementation of mixed virtual element method, using hybridization to
+    arrive at a SPD system.
+
+    WARNING: The implementation does not follow the newest formulations used
+    in PorePy. Specifically, it does not support mixed-dimensional problems.
+    This may or may not be improved in the future, depending on various factors.
+
+    """
 
     # ------------------------------------------------------------------------------#
 
@@ -118,7 +127,8 @@ class HybridDualVEM(Solver):
         rhs = np.zeros(g.num_faces)
 
         idx = 0
-        massHdiv = dual.DualVEM().massHdiv
+        # Use a dummy keyword to trick the constructor of dualVEM.
+        massHdiv = pp.MVEM("dummy").massHdiv
 
         for c in np.arange(g.num_cells):
             # For the current cell retrieve its faces
