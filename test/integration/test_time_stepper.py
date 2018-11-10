@@ -97,7 +97,7 @@ class UnitSquareInjectionMultiDim(ParabolicModel):
         ParabolicModel.__init__(self, gb)
 
     def space_disc(self):
-        return self.source_disc()
+        return [self.source_disc()]
 
     # --------Time stepping------------
 
@@ -116,3 +116,7 @@ class UnitSquareInjectionTwoSteps(UnitSquareInjectionMultiDim):
 
     def time_step(self):
         return 0.5
+
+
+if __name__ == "__main__":
+    unittest.main()

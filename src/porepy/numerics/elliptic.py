@@ -10,14 +10,7 @@ import scipy.sparse.linalg as spl
 import time
 import logging
 
-from porepy.numerics.fv import tpfa, source, fvutils
-from porepy.numerics.vem import vem_dual, vem_source
-from porepy.numerics.linalg.linsolve import Factory as LSFactory
-from porepy.grids.grid_bucket import GridBucket
-from porepy.params import bc, tensor
-from porepy.params.data import Parameters
-from porepy.viz.exporter import Exporter
-
+import porepy as pp
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -64,10 +57,11 @@ class EllipticModel:
             physics for the file name.
     """
 
-    def __init__(self, gb, data=None, physics="flow", **kwargs):
+    def __init__(self, gb, data=None, keyword="flow", physics="flow", **kwargs):
         self.physics = physics
+        self.keyword = keyword
         self._gb = gb
-        self.is_GridBucket = isinstance(self._gb, GridBucket)
+        self.is_GridBucket = isinstance(self._gb, pp.GridBucket)
         self._data = data
 
         self.lhs = []
@@ -80,11 +74,10 @@ class EllipticModel:
 
         tic = time.time()
         logger.info("Create exporter")
-        self.exporter = Exporter(self._gb, file_name, folder_name, **mesh_kw)
+        self.exporter = pp.Exporter(self._gb, file_name, folder_name, **mesh_kw)
         logger.info("Elapsed time: " + str(time.time() - tic))
 
-        self._flux_disc = self.flux_disc()
-        self._source_disc = self.source_disc()
+        self._discr = self._set_discretization()
 
     def solve(self, max_direct=40000, callback=False, **kwargs):
         """ Reassemble and solve linear system.
@@ -123,7 +116,7 @@ class EllipticModel:
 
         # Solve
         tic = time.time()
-        ls = LSFactory()
+        ls = pp.numerics.linalg.linsolve.Factory()
         if self.rhs.size < max_direct:
             logger.warning("Solve linear system using direct solver")
             self.x = ls.direct(self.lhs, self.rhs)
@@ -156,30 +149,48 @@ class EllipticModel:
         reassemble matrices. This must be called between every time step to
         update the rhs of the system.
         """
-        lhs_flux, rhs_flux = self._discretize(self._flux_disc)
-        lhs_source, rhs_source = self._discretize(self._source_disc)
-        assert lhs_source.nnz == 0, "Source lhs different from zero!"
-        self.lhs = lhs_flux
-        self.rhs = rhs_flux + rhs_source
+        lhs, rhs = self._discretize()
+        self.lhs = lhs
+        self.rhs = rhs
         return self.lhs, self.rhs
 
-    def source_disc(self):
+    def _set_discretization(self):
         if self.is_GridBucket:
-            return source.IntegralMixedDim(physics=self.physics, coupling=[None])
-        else:
-            return source.Integral(physics=self.physics)
+            key = self.keyword
 
-    def flux_disc(self):
-        if self.is_GridBucket:
-            return tpfa.TpfaMixedDim(physics=self.physics)
-        else:
-            return tpfa.Tpfa(physics=self.physics)
+            tpfa = pp.Tpfa(self.physics)
+            source = pp.Integral(self.physics)
+            for g, d in self._gb:
+                # Choose discretization and define the solver
+                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+                d[pp.keywords.DISCRETIZATION] = {key: {"flux": tpfa, "source": source}}
 
-    def _discretize(self, discr):
-        if self.is_GridBucket:
-            return discr.matrix_rhs(self.grid())
+            for e, d in self._gb.edges():
+                g_slave, g_master = self._gb.nodes_of_edge(e)
+                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+                d[pp.keywords.COUPLING_DISCRETIZATION] = {
+                    "flux": {
+                        g_slave: (key, "flux"),
+                        g_master: (key, "flux"),
+                        e: (key, pp.RobinCoupling(key, tpfa)),
+                    }
+                }
+            assembler = pp.Assembler()
+
+            return assembler
         else:
-            return discr.matrix_rhs(self.grid(), self.data())
+            return pp.Tpfa(keyword=self.physics)
+
+    def _discretize(self):
+
+        if self.is_GridBucket:
+            A, b, block_dof, full_dof = self._discr.assemble_matrix_rhs(self.grid())
+            self._block_dof = block_dof
+            self._full_dof = full_dof
+            return A, b
+        else:
+            A, b = self._discr.assemble_matrix_rhs(self.grid(), self.data())
+            return A, b
 
     def grid(self):
         return self._gb
@@ -188,8 +199,13 @@ class EllipticModel:
         return self._data
 
     def split(self, x_name="solution"):
-        self.x_name = x_name
-        self._flux_disc.split(self.grid(), self.x_name, self.x)
+        self.x_name = self.keyword
+        if self.is_GridBucket:
+            self._discr.distribute_variable(
+                self.grid(), self.x, self._block_dof, self._full_dof
+            )
+        else:
+            self._flux_disc.split(self.grid(), self.x_name, self.x)
 
     def pressure(self, pressure_name="pressure"):
         self.pressure_name = pressure_name
@@ -200,11 +216,11 @@ class EllipticModel:
 
     def discharge(self, discharge_name="discharge"):
         if self.is_GridBucket:
-            fvutils.compute_discharges(
+            pp.numerics.fv.fvutils.compute_discharges(
                 self.grid(), self.physics, p_name=self.pressure_name
             )
         else:
-            fvutils.compute_discharges(
+            pp.numerics.fv.fvutils.compute_discharges(
                 self.grid(),
                 self.physics,
                 discharge_name,
@@ -285,7 +301,7 @@ class EllipticModel:
         all_ind = np.arange(self.rhs.size)
         not_ind = [np.setdiff1d(all_ind, i) for i in ind]
 
-        factory = LSFactory()
+        factory = pp.numerics.linalg.linsolve.Factory()
         num_mat = len(mat)
         solvers = np.empty(num_mat, dtype=np.object)
         for i, A in enumerate(mat):
@@ -303,7 +319,7 @@ class EllipticModel:
 
     def _obtain_submatrix(self):
 
-        if isinstance(self.grid(), GridBucket):
+        if isinstance(self.grid(), pp.GridBucket):
             gb = self.grid()
             fd = self.flux_disc()
             mat = []
@@ -322,23 +338,37 @@ class EllipticModel:
 
 
 class DualEllipticModel(EllipticModel):
-    def __init__(self, gb, data=None, physics="flow", **kwargs):
-        EllipticModel.__init__(self, gb, data, physics, **kwargs)
+    def __init__(self, gb, data=None, keyword="flow", physics="flow", **kwargs):
+        EllipticModel.__init__(self, gb, data, keyword, physics, **kwargs)
 
         self.discharge_name = str()
         self.projected_discharge_name = str()
 
-    def source_disc(self):
-        if self.is_GridBucket:
-            return vem_source.DualSourceMixedDim(physics=self.physics, coupling=[None])
-        else:
-            return vem_source.DualSource(physics=self.physics)
+    def _set_discretization(self):
+        discr = pp.MVEM(self.physics)
+        source = pp.DualSource(self.physics)
 
-    def flux_disc(self):
         if self.is_GridBucket:
-            return vem_dual.DualVEMMixedDim(physics=self.physics)
+            key = self.keyword
+
+            for _, d in self._gb:
+                # Choose discretization and define the solver
+                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1, "faces": 1}}
+                d[pp.keywords.DISCRETIZATION] = {key: {"flux": discr, "source": source}}
+
+            for e, d in self._gb.edges():
+                g_slave, g_master = self._gb.nodes_of_edge(e)
+                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+                d[pp.keywords.COUPLING_DISCRETIZATION] = {
+                    "flux": {
+                        g_slave: (key, "flux"),
+                        g_master: (key, "flux"),
+                        e: (key, pp.RobinCoupling(key, discr))
+                    }
+                }
+            return pp.Assembler()
         else:
-            return vem_dual.DualVEM(physics=self.physics)
+            return discr
 
     def solve(self):
         """ Discretize and solve linear system by a direct solver.
@@ -347,35 +377,46 @@ class DualEllipticModel(EllipticModel):
         other block solvers are needed. TODO.
 
         """
-        ls = LSFactory()
-        lhs, rhs = self.reassemble()
+        logger.error("Solve elliptic model")
+        # Discretize
+        tic = time.time()
+        logger.warning("Discretize")
+        self.lhs, self.rhs = self.reassemble()
+        logger.warning("Done. Elapsed time " + str(time.time() - tic))
 
-        import scipy.io as sps_io
+        # Solve
+        tic = time.time()
+        ls = pp.numerics.linalg.linsolve.Factory()
+        logger.warning("Solve linear system using direct solver")
+        self.x = ls.direct(self.lhs, self.rhs)
+        np.set_printoptions(linewidth=3000)
+        logger.warning("Done. Elapsed time " + str(time.time() - tic))
 
-        sps_io.mmwrite("matrix.mtx", lhs)
-
-        self.x = ls.direct(lhs, rhs)
         return self.x
 
     def pressure(self, pressure_name="pressure"):
         self.pressure_name = pressure_name
         if self.is_GridBucket:
-            self._flux_disc.extract_p(self._gb, self.x_name, self.pressure_name)
+            for g, d in self._gb:
+                discr = d[pp.keywords.DISCRETIZATION][self.keyword]["flux"]
+                d[self.pressure_name] = discr.extract_pressure(g, d[self.x_name])
         else:
-            pressure = self._flux_disc.extract_p(self._gb, self.x)
+            pressure = self._discr.extract_pressure(self._gb, self.x)
             self._data[self.pressure_name] = pressure
 
     def discharge(self, discharge_name="discharge"):
         self.discharge_name = discharge_name
         if self.is_GridBucket:
-            self._flux_disc.extract_u(self._gb, self.x_name, self.discharge_name)
+            for g, d in self._gb:
+                discr = d[pp.keywords.DISCRETIZATION][self.keyword]["flux"]
+                d[self.discharge_name] = discr.extract_flux(g, d[self.x_name])
 
-            for e, d in self._gb.edges():
-                g_h = self._gb.nodes_of_edge(e)[1]
-                d[discharge_name] = self._gb.node_props(g_h, discharge_name)
+            #for e, d in self._gb.edges():
+            #    g_h = self._gb.nodes_of_edge(e)[1]
+            #    d[discharge_name] = self._gb.node_props(g_h, discharge_name)
 
         else:
-            discharge = self._flux_disc.extract_u(self._gb, self.x)
+            discharge = self._discr.extract_flux(self._gb, self.x)
             self._data[self.discharge_name] = discharge
 
     def project_discharge(self, projected_discharge_name="P0u"):
@@ -388,7 +429,7 @@ class DualEllipticModel(EllipticModel):
             )
         else:
             discharge = self._data[self.discharge_name]
-            projected_discharge = self._flux_disc.project_u(
+            projected_discharge = self._discr.project_flux(
                 self._gb, discharge, self._data
             )
             self._data[self.projected_discharge_name] = projected_discharge
@@ -441,7 +482,7 @@ class EllipticDataAssigner:
         self._set_data()
 
     def bc(self):
-        return bc.BoundaryCondition(self.grid())
+        return pp.BoundaryCondition(self.grid())
 
     def bc_val(self):
         return np.zeros(self.grid().num_faces)
@@ -458,7 +499,7 @@ class EllipticDataAssigner:
 
     def permeability(self):
         kxx = np.ones(self.grid().num_cells)
-        return tensor.SecondOrderTensor(self.grid().dim, kxx)
+        return pp.SecondOrderTensor(self.grid().dim, kxx)
 
     def source(self):
         return np.zeros(self.grid().num_cells)
@@ -471,7 +512,7 @@ class EllipticDataAssigner:
 
     def _set_data(self):
         if "param" not in self._data:
-            self._data["param"] = Parameters(self.grid())
+            self._data["param"] = pp.Parameters(self.grid())
         self._data["param"].set_tensor(self.physics, self.permeability())
         self._data["param"].set_bc(self.physics, self.bc())
         self._data["param"].set_bc_val(self.physics, self.bc_val())

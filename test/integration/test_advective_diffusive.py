@@ -42,7 +42,7 @@ class BasicsTest(unittest.TestCase):
         test that the mono_dimensional elliptic solver gives the same answer as
         the grid bucket elliptic
         """
-        delete_node_data(self.gb3d)
+        delete_data(self.gb3d)
 
         for sub_g, d in self.gb3d:
             if sub_g.dim == 2:
@@ -61,8 +61,7 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.abs(dE - 10) < 1e-6)
 
     def test_src_advective(self):
-        delete_node_data(self.gb3d)
-
+        delete_data(self.gb3d)
         for g, d in self.gb3d:
             if g.dim == 2:
                 d["transport_data"] = InjectionDomain(g, d)
@@ -73,13 +72,13 @@ class BasicsTest(unittest.TestCase):
             d["kn"] = 1.0 * gl.num_cells
 
         solve_elliptic_problem(self.gb3d)
-        problem = SourceAdvectiveProblem(self.gb3d)
+        problem = SourceAdvectiveProblem(self.gb3d, 'transport')
         problem.solve()
         dE = change_in_energy(problem)
         self.assertTrue(np.abs(dE - 10) < 1e-6)
 
     def test_src_advective_diffusive(self):
-        delete_node_data(self.gb3d)
+        delete_data(self.gb3d)
         for g, d in self.gb3d:
             if g.dim == 2:
                 d["transport_data"] = InjectionDomain(g, d)
@@ -96,7 +95,7 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.abs(dE - 10) < 1e-6)
 
     def test_constant_temp(self):
-        delete_node_data(self.gb3d)
+        delete_data(self.gb3d)
         for g, d in self.gb3d:
             if g.dim == 2:
                 d["transport_data"] = InjectionDomain(g, d)
@@ -120,7 +119,7 @@ class SourceProblem(pp.ParabolicModel):
         pp.ParabolicModel.__init__(self, g, physics=physics)
 
     def space_disc(self):
-        return self.source_disc()
+        return [self.source_disc()]
 
     def time_step(self):
         return 0.5
@@ -131,7 +130,7 @@ class SourceAdvectiveProblem(pp.ParabolicModel):
         pp.ParabolicModel.__init__(self, g, physics=physics)
 
     def space_disc(self):
-        return self.source_disc(), self.advective_disc()
+        return [self.source_disc(), self.advective_disc()]
 
     def time_step(self):
         return 0.5
@@ -142,7 +141,7 @@ class SourceAdvectiveDiffusiveProblem(pp.ParabolicModel):
         pp.ParabolicModel.__init__(self, g, physics=physics)
 
     def space_disc(self):
-        return self.source_disc(), self.advective_disc(), self.diffusive_disc()
+        return [self.source_disc(), self.advective_disc(), self.diffusive_disc()]
 
     def time_step(self):
         return 0.5
@@ -197,9 +196,9 @@ class InjectionDomain(MatrixDomain):
 
 def change_in_energy(problem):
     dE = 0
-    problem.advective_disc().split(problem.grid(), "T", problem._solver.p)
+    problem.split()
     for g, d in problem.grid():
-        p = d["T"]
+        p = d["transport"]
         p0 = d["transport_data"].initial_condition()
         V = g.cell_volumes * d["param"].get_aperture()
         dE += np.sum((p - p0) * V)
@@ -220,16 +219,19 @@ def solve_elliptic_problem(gb):
     for e, d in gb.edges():
         g_h = gb.nodes_of_edge(e)[1]
         d["param"] = pp.Parameters(g_h)
-    flux = pp.EllipticModel(gb)
+    flux = pp.EllipticModel(gb, keyword='flux_field', physics='flow')
     p = flux.solve()
-    flux.split("pressure")
-    pp.fvutils.compute_discharges(gb)
+    flux.split("flow")
+    pp.fvutils.compute_discharges(gb, p_name='flux_field', lam_name='flux_field')
 
 
-def delete_node_data(gb):
+def delete_data(gb):
     for _, d in gb:
         d.clear()
-
+    for _, d in gb.edges():
+        mortar_grid = d['mortar_grid']
+        d.clear()
+        d['mortar_grid'] = mortar_grid
     gb.assign_node_ordering()
 
 
