@@ -112,7 +112,7 @@ class TestFractureSetPopulation(unittest.TestCase):
 
         # Force all parents to have exactly three children
         child.fraction_of_parents_with_child = 1
-        child.num_children_dist = stats.randint(low=3, high=4)
+        child.dist_num_children = stats.randint(low=3, high=4)
 
         # All children will be isolated
         child.fraction_isolated = 1
@@ -171,7 +171,7 @@ class TestFractureSetPopulation(unittest.TestCase):
 
         # Force all parents to have exactly three children
         child.fraction_of_parents_with_child = 1
-        child.num_children_dist = stats.randint(low=3, high=4)
+        child.dist_num_children = stats.randint(low=3, high=4)
 
         # All children will be isolated
         child.fraction_isolated = 0
