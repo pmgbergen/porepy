@@ -5,7 +5,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.utils.grid_util import sign_of_boundary_faces
-
+from test.integration import _helper_test_upwind_coupling
 # ------------------------------------------------------------------------------#
 
 
@@ -1120,9 +1120,7 @@ class BasicsTest(unittest.TestCase):
 
         theta = np.linalg.solve(U.A, rhs)
         #        deltaT = solver.cfl(gb)
-
-        U_known = np.load(open("matrix_for_test_upwind_coupling_3d_2d_1d_0d.npy", "rb"))
-        rhs_known = np.load(open("rhs_for_test_upwind_coupling_3d_2d_1d_0d.npy", "rb"))
+        U_known, rhs_known = _helper_test_upwind_coupling.matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d()
 
         theta_known = np.array(
             [
