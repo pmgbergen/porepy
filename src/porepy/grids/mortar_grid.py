@@ -73,7 +73,9 @@ class MortarGrid(object):
         else:
             self.name = [name]
 
-        self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
+        self.num_cells = np.sum(
+            [g.num_cells for g in self.side_grids.values()], dtype=np.int
+        )
         self.cell_volumes = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]
         )
@@ -92,13 +94,14 @@ class MortarGrid(object):
         # the g.num_cells of the first grid. We keep this convention through the
         # implementation. The ordering is given by sides or the keys of
         # side_grids.
+
         num_cells = list(self.side_grids.values())[0].num_cells
         cells, faces, data = sps.find(face_cells)
         if self.num_sides() == 2:
             cells[faces > np.median(faces)] += num_cells
 
         shape = (num_cells * self.num_sides(), face_cells.shape[1])
-        self.high_to_mortar_int = sps.csc_matrix(
+        self.master_to_mortar_int = sps.csc_matrix(
             (data.astype(np.float), (cells, faces)), shape=shape
         )
 
@@ -106,7 +109,7 @@ class MortarGrid(object):
         # It is composed by two identity matrices since we are assuming matching
         # grids here.
         identity = [[sps.identity(num_cells)]] * self.num_sides()
-        self.low_to_mortar_int = sps.bmat(identity, format="csc")
+        self.slave_to_mortar_int = sps.bmat(identity, format="csc")
 
     # ------------------------------------------------------------------------------#
 
@@ -123,10 +126,10 @@ class MortarGrid(object):
             + str(self.dim)
             + "\n"
             + "Face_cells mapping from the higher dimensional grid to the mortar grid\n"
-            + str(self.high_to_mortar_int)
+            + str(self.master_to_mortar_int)
             + "\n"
             + "Cell_cells mapping from the mortar grid to the lower dimensional grid\n"
-            + str(self.low_to_mortar_int)
+            + str(self.slave_to_mortar_int)
         )
 
         return s
@@ -196,8 +199,8 @@ class MortarGrid(object):
         # Once the global matrix is constructed the new low_to_mortar_int and
         # high_to_mortar_int maps are updated.
         matrix = sps.bmat(matrix)
-        self.low_to_mortar_int = matrix * self.low_to_mortar_int
-        self.high_to_mortar_int = matrix * self.high_to_mortar_int
+        self.slave_to_mortar_int = matrix * self.slave_to_mortar_int
+        self.master_to_mortar_int = matrix * self.master_to_mortar_int
 
         self.num_cells = np.sum([g.num_cells for g in self.side_grids.values()])
         self.cell_volumes = np.hstack(
@@ -207,7 +210,7 @@ class MortarGrid(object):
 
     # ------------------------------------------------------------------------------#
 
-    def update_low(self, side_matrix):
+    def update_slave(self, side_matrix):
         """
         Update the low_to_mortar_int map when the lower dimensional grid is changed.
 
@@ -227,14 +230,14 @@ class MortarGrid(object):
             matrix[pos, 0] = side_matrix[side]
 
         # Update the low_to_mortar_int map. No need to update the high_to_mortar_int.
-        self.low_to_mortar_int = sps.bmat(matrix, format="csc")
+        self.slave_to_mortar_int = sps.bmat(matrix, format="csc")
         self._check_mappings()
 
     # ------------------------------------------------------------------------------#
 
-    def update_high(self, matrix):
+    def update_master(self, matrix):
         # Make a comment here
-        self.high_to_mortar_int = self.high_to_mortar_int * matrix
+        self.master_to_mortar_int = self.master_to_mortar_int * matrix
         self._check_mappings()
 
     # ------------------------------------------------------------------------------#
@@ -250,20 +253,23 @@ class MortarGrid(object):
 
     # ------------------------------------------------------------------------------#
 
-    def mortar_to_high_int(self):
-        return self.high_to_mortar_avg().T
+    def mortar_to_master_int(self):
+        return self.master_to_mortar_avg().T
+
+    def mortar_to_slave_int(self):
+        return self.slave_to_mortar_avg().T
 
     # ------------------------------------------------------------------------------#
 
-    def high_to_mortar_avg(self):
-        row_sum = self.high_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.high_to_mortar_int
+    def master_to_mortar_avg(self):
+        row_sum = self.master_to_mortar_int.sum(axis=1).A.ravel()
+        return sps.diags(1. / row_sum) * self.master_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
-    def low_to_mortar_avg(self):
-        row_sum = self.low_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.low_to_mortar_int
+    def slave_to_mortar_avg(self):
+        row_sum = self.slave_to_mortar_int.sum(axis=1).A.ravel()
+        return sps.diags(1. / row_sum) * self.slave_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
@@ -276,11 +282,11 @@ class MortarGrid(object):
     # ------------------------------------------------------------------------------#
 
     def _check_mappings(self, tol=1e-4):
-        row_sum = self.high_to_mortar_int.sum(axis=1)
+        row_sum = self.master_to_mortar_int.sum(axis=1)
         assert row_sum.min() > tol
         #        assert row_sum.max() < 1 + tol
 
-        row_sum = self.low_to_mortar_int.sum(axis=1)
+        row_sum = self.slave_to_mortar_int.sum(axis=1)
         assert row_sum.min() > tol
 
 
@@ -355,23 +361,23 @@ class BoundaryMortar(object):
         # The face_faces gives a map from the LEFT_SIDE grid to the RIGHT_SIDE
         # grid. The mortar cells are sorted after the rows of the face_faces
         # mapping.
-        right_f, left_f, data = sps.find(face_faces)
+        slave_f, master_f, data = sps.find(face_faces)
 
-        cells = np.argsort(left_f)
+        cells = np.argsort(master_f)
         self.num_cells = cells.size
         self.cell_volumes = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]
         )
-        #        self.cell_volumes = side_grids[LEFT_SIDE].face_areas[left_f]
-        #        self.cell_volumes = g.face_areas[left_f]
+        #        self.cell_volumes = side_grids[MASTER_SIDE].face_areas[master_f]
+        #        self.cell_volumes = g.face_areas[master_f]
 
-        shape_left = (self.num_cells, face_faces.shape[1])
-        shape_right = (self.num_cells, face_faces.shape[0])
-        self.left_to_mortar_int = sps.csc_matrix(
-            (data.astype(np.float), (cells, left_f)), shape=shape_left
+        shape_master = (self.num_cells, face_faces.shape[1])
+        shape_slave = (self.num_cells, face_faces.shape[0])
+        self.master_to_mortar_int = sps.csc_matrix(
+            (data.astype(np.float), (cells, master_f)), shape=shape_master
         )
-        self.right_to_mortar_int = sps.csc_matrix(
-            (data.astype(np.float), (cells, right_f)), shape=shape_right
+        self.slave_to_mortar_int = sps.csc_matrix(
+            (data.astype(np.float), (cells, slave_f)), shape=shape_slave
         )
 
     def __repr__(self):
@@ -387,10 +393,10 @@ class BoundaryMortar(object):
             + str(self.dim)
             + "\n"
             + "Face_cell mapping from the LEFT_SIDE grid to the mortar grid\n"
-            + str(self.left_to_mortar_int)
+            + str(self.master_to_mortar_int)
             + "\n"
-            + "Face_cell mapping from the RIGHT_SIDE grid to the mortar grid\n"
-            + str(self.right_to_mortar_int)
+            + "Face_cell mapping from the SLAVE_SIDE grid to the mortar grid\n"
+            + str(self.slave_to_mortar_int)
         )
 
         return s
@@ -409,17 +415,17 @@ class BoundaryMortar(object):
         )
 
         s += (
-            "Mapping from the faces of the left_side grid to"
+            "Mapping from the faces of the master_side grid to"
             + " the cells of the mortar grid. \nRows indicate the mortar"
-            + " cell id, columns indicate the left_grid face id"
+            + " cell id, columns indicate the master_grid face id"
             + "\n"
-            + str(self.left_to_mortar_int)
+            + str(self.master_to_mortar_int)
             + "\n"
-            + "Mapping from the cells of the face of the right_side grid"
+            + "Mapping from the cells of the face of the slave_side grid"
             + "to the cells of the mortar grid. \nRows indicate the mortar"
-            + " cell id, columns indicate the right_grid face id"
+            + " cell id, columns indicate the slave_grid face id"
             + "\n"
-            + str(self.right_to_mortar_int)
+            + str(self.slave_to_mortar_int)
         )
 
         return s
@@ -437,26 +443,26 @@ class BoundaryMortar(object):
 
     # ------------------------------------------------------------------------------#
 
-    def mortar_to_left_int(self):
+    def mortar_to_master_int(self):
 
-        return self.left_to_mortar_avg().T
-
-    # ------------------------------------------------------------------------------#
-
-    def left_to_mortar_avg(self):
-        row_sum = self.left_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.left_to_mortar_int
+        return self.master_to_mortar_avg().T
 
     # ------------------------------------------------------------------------------#
 
-    def right_to_mortar_avg(self):
-        row_sum = self.right_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.right_to_mortar_int
+    def master_to_mortar_avg(self):
+        row_sum = self.master_to_mortar_int.sum(axis=1).A.ravel()
+        return sps.diags(1. / row_sum) * self.master_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
-    def mortar_to_right_int(self):
-        return self.right_to_mortar_avg().T
+    def slave_to_mortar_avg(self):
+        row_sum = self.slave_to_mortar_int.sum(axis=1).A.ravel()
+        return sps.diags(1. / row_sum) * self.slave_to_mortar_int
+
+    # ------------------------------------------------------------------------------#
+
+    def mortar_to_slave_int(self):
+        return self.slave_to_mortar_avg().T
 
     # ------------------------------------------------------------------------------#
     def compute_geometry(self):

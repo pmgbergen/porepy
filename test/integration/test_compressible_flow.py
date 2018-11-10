@@ -8,10 +8,10 @@ class TestCompressibleFlow(unittest.TestCase):
     def test_3d_Fracture_problem(self):
         problem = UnitSquareInjectionMultiDim()
         problem.solve()
-        problem.pressure("pressure")
+        problem.pressure()
         for g, d in problem.grid():
             if g.dim == 3:
-                pT = d["pressure"]
+                pT = d["flow"]
         p_refT = _reference_solution_multi_grid()
         self.assertTrue(np.allclose(pT, p_refT))
 

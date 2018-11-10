@@ -159,7 +159,7 @@ class StaticModel:
         reassemble matrices. This must be called between every time step to
         update the rhs of the system.
         """
-        self.lhs, self.rhs = self._stress_disc.matrix_rhs(
+        self.lhs, self.rhs = self._stress_disc.assemble_matrix_rhs(
             self.grid(), self.data(), discretize
         )
         return self.lhs, self.rhs

@@ -1,20 +1,11 @@
 import numpy as np
 import scipy.sparse as sps
-import os
 import sys
-
+import porepy as pp
 from porepy.viz import exporter
-from porepy.fracs import importer
-
-from porepy.params import tensor
-from porepy.params.bc import BoundaryCondition
-from porepy.params.data import Parameters
-
-from porepy.grids import coarsening as co
 
 from porepy.numerics.vem import dual
-from porepy.numerics.fv.transport import upwind
-from porepy.numerics.fv import tpfa, mass_matrix
+from porepy.numerics.fv import mass_matrix, upwind
 
 # ------------------------------------------------------------------------------#
 
@@ -30,14 +21,14 @@ def add_data_darcy(gb, domain, tol):
 
     for g, d in gb:
 
-        param = Parameters(g)
+        param = pp.Parameters(g)
         d["if_tangent"] = True
         if g.dim == gb.dim_max():
             kxx = km
         else:
             kxx = kf
 
-        perm = tensor.SecondOrderTensor(g.dim, kxx * np.ones(g.num_cells))
+        perm = pp.SecondOrderTensor(g.dim, kxx * np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))
@@ -60,10 +51,10 @@ def add_data_darcy(gb, domain, tol):
             p = np.abs(domain["zmax"] - domain["zmin"]) * 1e3 * 9.81
             bc_val[bound_faces[bottom]] = p
 
-            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("flow", bc_val)
         else:
-            param.set_bc("flow", BoundaryCondition(g, np.empty(0), np.empty(0)))
+            param.set_bc("flow", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
 
         d["param"] = param
 
@@ -101,10 +92,10 @@ def add_data_advection(gb, domain, tol):
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces[bottom]] = 1
 
-            param.set_bc("transport", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("transport", pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("transport", bc_val)
         else:
-            param.set_bc("transport", BoundaryCondition(g, np.empty(0), np.empty(0)))
+            param.set_bc("transport", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
         d["param"] = param
 
     # Assign coupling discharge
@@ -112,7 +103,7 @@ def add_data_advection(gb, domain, tol):
     for e, d in gb.edges_props():
         g_h = gb.sorted_nodes_of_edge(e)[1]
         discharge = gb.node_prop(g_h, "param").get_discharge()
-        d["param"] = Parameters(g_h)
+        d["param"] = pp.Parameters(g_h)
         d["param"].set_discharge(discharge)
 
 
@@ -155,7 +146,7 @@ print("create soultz grid")
 gb = soultz_grid.create_grid(**mesh_kwargs)
 gb.compute_geometry()
 if if_coarse:
-    co.coarsen(gb, "by_volume")
+    pp.coarsening.coarsen(gb, "by_volume")
 gb.assign_node_ordering()
 
 print("solve Darcy problem")
