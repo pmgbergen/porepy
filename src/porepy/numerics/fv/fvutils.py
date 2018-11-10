@@ -2,7 +2,6 @@
 Various FV specific utility functions.
 """
 from __future__ import division
-import warnings
 import numpy as np
 import scipy.sparse as sps
 

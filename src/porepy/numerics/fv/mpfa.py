@@ -159,7 +159,7 @@ class Mpfa(FVElliptic):
             num_part = np.ceil(peak_mem / max_memory)
 
             # Let partitioning module apply the best available method
-            part = pp.grids.partition(g, num_part)
+            part = pp.partition.partition(g, num_part)
 
             # Empty fields for flux and bound_flux. Will be expanded as we go.
             # Implementation note: It should be relatively straightforward to
@@ -666,7 +666,7 @@ class Mpfa(FVElliptic):
      documented.
     """
 
-    def _estimate_peak_memory(g):
+    def _estimate_peak_memory(self, g):
         """
         Rough estimate of peak memory need
         """

@@ -310,7 +310,7 @@ class EllipticDiscretization(Solver):
         """
         raise NotImplementedError("Method not implemented")
 
-    def enforce_neumann_int_bound(self, g, data, matrix):
+    def enforce_neumann_int_bound(self, g_master, data_edge, matrix, swap_grid, self_ind):
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form will need this function to

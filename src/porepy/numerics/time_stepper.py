@@ -1,8 +1,6 @@
 import numpy as np
 import logging
-import time
 
-from porepy.grids.grid_bucket import GridBucket
 from porepy.numerics.linalg.linsolve import Factory as LSFactory
 
 logger = logging.getLogger(__name__)

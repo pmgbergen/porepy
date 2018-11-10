@@ -105,7 +105,7 @@ def main(N):
 
     u = solver_flow.extract_flux(g, up)
     p = solver_flow.extract_pressure(g, up)
-    P0u = solver_flow.project_flux(g, u, data)
+#    P0u = solver_flow.project_flux(g, u, data)
 
     diam = np.amax(g.cell_diameters())
     return diam, error_p(g, p)
@@ -125,3 +125,5 @@ class BasicsTest(unittest.TestCase):
 
 
 # ------------------------------------------------------------------------------#
+if __name__ == '__main__':
+    unittest.main()

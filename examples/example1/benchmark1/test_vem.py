@@ -110,7 +110,7 @@ def main(kf, description, is_coarse=False, if_export=False):
     discretization_key = key + "_" + pp.keywords.DISCRETIZATION
     discr = pp.MVEM(key)
 
-    for g, d in gb:
+    for _, d in gb:
         d[discretization_key] = discr
 
     for _, d in gb.edges():
