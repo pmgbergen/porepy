@@ -588,6 +588,13 @@ class FractureSet(object):
         """
         pp.plot_fractures(self.domain, self.pts, self.edges)
 
+    def __str__(self):
+        s = 'Fracture set consisting of ' + str(self.num_frac) + ' fractures,'
+        s += ' consisting of ' + str(self.pts.shape[1]) + ' points.\n'
+        s += 'Domain: '
+        s += str(self.domain)
+        return s
+
 
 class ChildFractureSet(FractureSet):
     """ Fracture set that is defined based on its distance from a member of
