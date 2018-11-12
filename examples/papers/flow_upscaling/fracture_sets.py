@@ -716,7 +716,7 @@ class ChildFractureSet(FractureSet):
             These parameters are currently not in use. In the future, the number
             of children should scale with the length of the parent fracture.
         """
-        return self.dist_num_children.rvs(1)[0]
+        return self.dist_num_children.rvs(1)[0].astype(np.int)
 
     def _draw_children_along_parent(self, parent_realiz, pi, num_children):
         """ Define location of children along the lines of a parent fracture.
