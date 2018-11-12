@@ -75,7 +75,7 @@ class FractureSet(object):
                 fs.
         """
         p = np.hstack((self.pts, fs.pts))
-        e = np.hstack((self.edges, fs.edges + self.num_frac))
+        e = np.hstack((self.edges, fs.edges + self.pts.shape[1]))
 
         domain = {
             "xmin": np.minimum(self.domain["xmin"], fs.domain["xmin"]),
