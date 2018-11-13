@@ -408,7 +408,7 @@ class FractureSet(object):
         else:
             return x0, dx
 
-    def populate(self, domain=None, fit_distributions=True, **kwargs):
+    def generate(self, domain=None, fit_distributions=True, **kwargs):
         """ Generate a realization of a fracture network from the statistical distributions
         represented in this object.
 
@@ -440,7 +440,7 @@ class FractureSet(object):
                 properties of the network. Defaults to True.
 
         Returns:
-            FractureSet: A new fracture set populated according to the statistical
+            FractureSet: A new fracture set generated according to the statistical
                 properties of this object.
 
         """
@@ -681,7 +681,7 @@ class ChildFractureSet(FractureSet):
         super(ChildFractureSet, self).__init__(pts, edges, domain)
         self.parent = parent
 
-    def populate(self, parent_realiz, domain=None):
+    def generate(self, parent_realiz, domain=None):
         """ Generate a realization of a fracture network from the statistical distributions
         represented in this object.
 
@@ -726,7 +726,7 @@ class ChildFractureSet(FractureSet):
                 used, and the domain is taken as the same as for the original child set.
 
         Returns:
-            FractureSet: A new fracture set populated according to the statistical
+            FractureSet: A new fracture set generated according to the statistical
                 properties of this object.
 
         """
@@ -1017,7 +1017,7 @@ class ChildFractureSet(FractureSet):
         # For this, we can use the function generate_y_fractures
         # The fractures will not be generated unless they cross a constraining
         # fracture, and the length will be adjusted accordingly
-        p, edges = self.populate_y_fractures(start, self.dist_maix_constrained_length)
+        p, edges = self._generate_y_fractures(start, self.dist_maix_constrained_length)
 
         num_children = edges.shape[1]
 
