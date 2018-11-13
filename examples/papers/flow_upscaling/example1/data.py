@@ -66,7 +66,7 @@ def add_data(gb, data):
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
+        check_P = mg.slave_to_mortar_avg()
 
         aperture = gb.node_props(g_l, "param").get_aperture()
         gamma = check_P * np.power(aperture, 1/(2.-g.dim))
