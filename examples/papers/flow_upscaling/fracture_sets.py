@@ -744,12 +744,12 @@ class ChildFractureSet(FractureSet):
             start_parent, end_parent = parent_realiz.get_points(pi)
 
             # Generate isolated children
-            p_i, edges_i = self._populate_isolated_fractures(
+            p_i, edges_i = self._generate_isolated_fractures(
                 children_points[:, is_isolated], start_parent, end_parent
             )
 
             # Generate Y-fractures
-            p_y, edges_y = self._populate_y_fractures(children_points[:, is_one_y])
+            p_y, edges_y = self._generate_y_fractures(children_points[:, is_one_y])
 
             # double Y fractures are not implemented
 
@@ -866,7 +866,7 @@ class ChildFractureSet(FractureSet):
 
         return is_isolated, is_one_y, is_both_y
 
-    def _populate_isolated_fractures(self, children_points, start_parent, end_parent):
+    def _generate_isolated_fractures(self, children_points, start_parent, end_parent):
 
         dx = end_parent - start_parent
         theta = np.arctan2(dx[1], dx[0])
@@ -907,7 +907,26 @@ class ChildFractureSet(FractureSet):
 
         return p, edges
 
-    def _populate_y_fractures(self, start):
+    def _generate_y_fractures(self, start, length_distribution=None):
+        """ Generate fractures that originates in a parent fracture.
+
+        Parameters:
+            start (np.array, 2 x num_frac): Start point of the fractures. Will
+                typically be located at a parent fracture.
+            distribution (optional): Statistical distribution of fracture length.
+                Used to define fracture length. If not provided, the attribute
+                self.dist_length will be used.
+
+        Returns:
+            np.array (2 x 2*num_frac): Points that describe the generated fractures.
+                The first num_frac points will be identical to start.
+            np.array (2 x num_frac): Connection between the points. The first
+                row correspond to start points, as provided in the input.
+
+        """
+
+        if length_distribution is None:
+            length_distribution = self.dist_length
 
         if start.size == 0:
             return np.empty((2, 0)), np.empty((2, 0))
@@ -922,7 +941,7 @@ class ChildFractureSet(FractureSet):
 
         child_angle = frac_gen.generate_from_distribution(num_children, self.dist_angle)
         child_length = frac_gen.generate_from_distribution(
-            num_children, self.dist_length
+            num_children, length_distribution
         )
 
         # Vector from the parent line to the new center points
@@ -1287,17 +1306,6 @@ class ChildFractureSet(FractureSet):
         return frac_gen.count_center_point_densities(
             p_x, loc_edge, domain_loc, **kwargs
         )
-
-
-class ConstrainedFractureSet(FractureSet):
-    """ Fracture set that is constrained on both sides by a parent. Will have
-    an orientation and a position distribution, but not a length (although we
-    may say that if two parent fractures are too far aparnt, they can have no
-    children of this type)
-    """
-
-    def __init__(self, pts, edges, domain, constraining_set):
-        pass
 
 
 def analyze_intersections_of_sets(set_1, set_2=None, tol=1e-4):
