@@ -14,10 +14,10 @@ from examples.papers.flow_upscaling.fracture_sets import FractureSet, ChildFract
 from examples.papers.flow_upscaling import frac_gen
 
 
-class TestFractureSetPopulation(unittest.TestCase):
+class TestFractureSetGeneration(unittest.TestCase):
     def test_set_distributions_run_population_single_family(self):
         # Define a small fracture set, set distributions, and use this to
-        # populate a set
+        # generate a set
         # The test is intended that
 
         p = np.array([[0, 5], [0, 0]])
@@ -36,7 +36,7 @@ class TestFractureSetPopulation(unittest.TestCase):
 
         original.set_intensity_map(np.array([[1]]))
 
-        realiz = original.populate(fit_distributions=False)
+        realiz = original.generate(fit_distributions=False)
 
         # Hard-coded points
         known_points = np.array(
@@ -129,7 +129,7 @@ class TestFractureSetPopulation(unittest.TestCase):
         angle = np.pi / 2 * np.random.rand(1)
         child.dist_angle = make_dummy_distribution(angle)
 
-        realiz = child.populate(original_parent)
+        realiz = child.generate(original_parent)
 
         p = realiz.pts
         e = realiz.edges
@@ -188,7 +188,7 @@ class TestFractureSetPopulation(unittest.TestCase):
         angle = np.pi / 2 * np.random.rand(1)
         child.dist_angle = make_dummy_distribution(angle)
 
-        realiz = child.populate(original_parent)
+        realiz = child.generate(original_parent)
 
         p = realiz.pts
         e = realiz.edges
