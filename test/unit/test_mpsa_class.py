@@ -17,7 +17,7 @@ class MpsaTest(unittest.TestCase):
         for g in g_list:
             solver = mpsa.Mpsa()
             data = {"param": Parameters(g)}
-            A, b = solver.matrix_rhs(g, data)
+            A, b = solver.assemble_matrix_rhs(g, data)
             self.assertTrue(
                 np.all(A.shape == (g.dim * g.num_cells, g.dim * g.num_cells))
             )
@@ -33,6 +33,6 @@ class MpsaTest(unittest.TestCase):
             face_dof = g.dim * g.num_faces
             data["stress"] = sps.csc_matrix((face_dof, cell_dof))
             data["bound_stress"] = sps.csc_matrix((face_dof, face_dof))
-            A, b = solver.matrix_rhs(g, data, discretize=False)
+            A, b = solver.assemble_matrix_rhs(g, data, discretize=False)
             self.assertTrue(np.sum(A != 0) == 0)
             self.assertTrue(np.all(b == 0))

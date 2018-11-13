@@ -76,7 +76,7 @@ def add_data(gb, domain, kf, mesh_value):
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
+        check_P = mg.slave_to_mortar_avg()
 
         gamma = check_P * gb.node_props(g_l, "param").get_aperture()
         d["kn"] = kf * np.ones(mg.num_cells) / gamma
@@ -106,21 +106,30 @@ def main(kf, description, multi_point, if_export=False):
     # Assign parameters
     add_data(gb, domain, kf, mesh_size)
 
-    # Choose discretization and define the solver
+    key = "flow"
+    discretization_key = key + "_" + pp.keywords.DISCRETIZATION
     if multi_point:
-        solver = pp.MpfaMixedDim("flow")
+        discr = pp.Mpfa(key)
     else:
-        solver = pp.TpfaMixedDim("flow")
+        discr = pp.Tpfa(key)
+
+    for _, d in gb:
+        d[discretization_key] = discr
+
+    for _, d in gb.edges():
+        d[discretization_key] = pp.RobinCoupling(key, discr)
+
+    assembler = pp.EllipticAssembler(key)
 
     # Discretize
-    A, b = solver.matrix_rhs(gb)
+    A, b = assembler.assemble_matrix_rhs(gb)
 
     # Solve the linear system
     p = sps.linalg.spsolve(A, b)
 
     # Store the solution
     gb.add_node_props(["pressure"])
-    solver.split(gb, "pressure", p)
+    assembler.split(gb, "pressure", p)
 
     if if_export:
         save = pp.Exporter(gb, "fv", folder="fv_" + description)
@@ -164,3 +173,5 @@ def test_mpfa_permeable():
 
 
 # ------------------------------------------------------------------------------#
+if __name__ == "__main__":
+    test_tpfa_blocking()

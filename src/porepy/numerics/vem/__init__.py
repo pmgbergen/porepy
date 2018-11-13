@@ -1,4 +1,3 @@
-from .vem_dual import DualMixedDim, DualVEMMixedDim, DualVEMDFN, DualVEM
-from .vem_dual import DualCoupling, DualCouplingDFN
+from .dual_elliptic import DualElliptic
 
 from .vem_source import DualSource, DualSourceMixedDim, Integral

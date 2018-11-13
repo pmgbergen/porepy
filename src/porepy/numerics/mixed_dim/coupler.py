@@ -29,7 +29,7 @@ class Coupler(object):
         # Consider the solver for each dimension
         discr_fct = kwargs.get("discr_fct")
         if discr_fct is None:
-            self.discr_fct = discr.matrix_rhs
+            self.discr_fct = discr.assemble_matrix_rhs
         else:
             self.discr_fct = discr_fct
 
@@ -54,7 +54,7 @@ class Coupler(object):
                 if c is None:  # we assign None coupling
                     coupling_matrix_rhs.append(c)
                 else:  # Assign the matrix rhs coupling function
-                    coupling_matrix_rhs.append(c.matrix_rhs)
+                    coupling_matrix_rhs.append(c.assemble_matrix_rhs)
             self.coupling_fct = [c for c in coupling_matrix_rhs]
 
         # assign how many sets of mortars we need

@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
 """
-Created on Fri Mar  4 09:04:16 2016
-
-@author: eke001
+Various FV specific utility functions.
 """
 from __future__ import division
 import numpy as np
@@ -1173,15 +1170,17 @@ def compute_discharges(
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
+    keyword = physics
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
         pa = data["param"]
-        if data.get("flux") is not None:
-            dis = data["flux"] * data[p_name] + data["bound_flux"] * pa.get_bc_val(
-                physics
-            )
+        if data.get(keyword + "_flux") is not None:
+            dis = data[keyword + "_flux"] * data[p_name] + data[
+                keyword + "_bound_flux"
+            ] * pa.get_bc_val(physics)
         else:
             raise ValueError(
-                "Discharges can only be computed if a flux-based discretization has been applied"
+                """Discharges can only be computed if a flux-based
+                                 discretization has been applied"""
             )
         data[d_name] = dis
         return
@@ -1191,11 +1190,14 @@ def compute_discharges(
     for g, d in gb:
         if g.dim > 0:
             pa = d["param"]
-            if d.get("flux") is not None:
-                dis = d["flux"] * d[p_name] + d["bound_flux"] * pa.get_bc_val(physics)
+            if d.get(keyword + "_flux") is not None:
+                dis = d[keyword + "_flux"] * d[p_name] + d[
+                    keyword + "_bound_flux"
+                ] * pa.get_bc_val(physics)
             else:
                 raise ValueError(
-                    "Discharges can only be computed if a flux-based discretization has been applied"
+                    """Discharges can only be computed if a flux-based
+                                 discretization has been applied"""
                 )
 
             d[d_name] = dis
@@ -1210,7 +1212,7 @@ def compute_discharges(
         # The mapping mortar_to_hat_bc contains is composed of a mapping to
         # faces on the higher-dimensional grid, and computation of the induced
         # fluxes.
-        induced_flux = d["mortar_to_hat_bc"] * d[lam_name]
+        induced_flux = d["mortar_grid"].master_to_mortar_int.T * d[lam_name]
         # Remove contribution directly on the boundary faces.
         induced_flux[g_h.tags["fracture_faces"]] = 0
         gb.node_props(g_h)[d_name] += induced_flux

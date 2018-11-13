@@ -1,8 +1,6 @@
 import numpy as np
 import logging
-import time
 
-from porepy.grids.grid_bucket import GridBucket
 from porepy.numerics.linalg.linsolve import Factory as LSFactory
 
 logger = logging.getLogger(__name__)
@@ -43,8 +41,6 @@ class AbstractSolver(object):
         self.data = data
         self.dt = problem.time_step()
         self.T = problem.end_time()
-        self.space_disc = problem.space_disc()
-        self.time_disc = problem.time_disc()
         self.p0 = p0
         self.p = p
         # First initial empty lhs and rhs, then initialize them through
@@ -116,25 +112,6 @@ class AbstractSolver(object):
         """
         raise NotImplementedError("subclass must overload function reasemble()")
 
-    def _discretize(self, discs):
-        if isinstance(self.g, GridBucket):
-            if not isinstance(discs, tuple):
-                discs = [discs]
-            lhs, rhs = np.array(discs[0].matrix_rhs(self.g))
-            for disc in discs[1:]:
-                lhs_n, rhs_n = disc.matrix_rhs(self.g)
-                lhs += lhs_n
-                rhs += rhs_n
-        else:
-            if not isinstance(discs, tuple):
-                discs = [discs]
-            lhs, rhs = discs[0].matrix_rhs(self.g, self.data)
-            for disc in discs[1:]:
-                lhs_n, rhs_n = disc.matrix_rhs(self.g, self.data)
-                lhs += lhs_n
-                rhs += rhs_n
-        return lhs, rhs
-
 
 class Implicit(AbstractSolver):
     """
@@ -146,8 +123,7 @@ class Implicit(AbstractSolver):
         AbstractSolver.__init__(self, problem)
 
     def reassemble(self):
-        lhs_flux, rhs_flux = self._discretize(self.space_disc)
-        lhs_time, rhs_time = self._discretize(self.time_disc)
+        lhs_time, lhs_flux, rhs_time, rhs_flux = self.problem.discretize()
 
         self.lhs = lhs_time + lhs_flux
         self.rhs = lhs_time * self.p0 + rhs_flux + rhs_time
@@ -176,9 +152,7 @@ class BDF2(AbstractSolver):
         AbstractSolver.update(self, t)
 
     def reassemble(self):
-
-        lhs_flux, rhs_flux = self._discretize(self.space_disc)
-        lhs_time, rhs_time = self._discretize(self.time_disc)
+        lhs_time, lhs_flux, rhs_time, rhs_flux = self.problem.discretize()
 
         if self.flag_first:
             self.lhs = lhs_time + lhs_flux
@@ -230,9 +204,7 @@ class Explicit(AbstractSolver):
         return self.data
 
     def reassemble(self):
-
-        lhs_flux, rhs_flux = self._discretize(self.space_disc)
-        lhs_time, rhs_time = self._discretize(self.time_disc)
+        lhs_time, lhs_flux, rhs_time, rhs_flux = self.problem.discretize()
 
         self.lhs = lhs_time
         self.rhs = (lhs_time - lhs_flux) * self.p0 + rhs_flux + rhs_time
@@ -246,8 +218,8 @@ class CrankNicolson(AbstractSolver):
 
     def __init__(self, problem):
         self.g = problem.grid()
-        self.lhs_flux, self.rhs_flux = self._discretize(problem.space_disc())
-        self.lhs_time, self.rhs_time = self._discretize(problem.time_disc())
+        self.lhs_time, self.lhs_flux, self.rhs_time, self.rhs_flux = problem.discretize()
+
         self.lhs_flux_0 = self.lhs_flux
         self.rhs_flux_0 = self.rhs_flux
         self.lhs_time_0 = self.lhs_time
@@ -265,10 +237,10 @@ class CrankNicolson(AbstractSolver):
         self.rhs_time_0 = self.rhs_time
 
     def reassemble(self):
-        self.lhs_flux, self.rhs_flux = self._discretize(self.space_disc)
-        self.lhs_time, self.rhs_time = self._discretize(self.time_disc)
+        self.lhs_time, self.lhs_flux, self.rhs_time, self.rhs_flux = self.problem.discretize()
 
         rhs1 = 0.5 * (self.rhs_flux + self.rhs_time)
         rhs0 = 0.5 * (self.rhs_flux_0 + self.rhs_time_0)
         self.lhs = self.lhs_time + 0.5 * self.lhs_flux
         self.rhs = (self.lhs_time - 0.5 * self.lhs_flux_0) * self.p0 + rhs1 + rhs0
+
