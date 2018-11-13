@@ -1,4 +1,7 @@
-# Various utility functions for  gridding
+"""
+Visualization tools for fracture networks. Plots 1d fractures as lines in a
+2d domain using pyplot. Also plots wells as points.
+"""
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -86,7 +89,7 @@ def plot_wells(d, w, colortag=None, **kwargs):
     # For the moment, some RBG values are hard coded, do something more
     # intelligent if necessary.
     if colortag is None:
-        tagmap = np.zeros(c.shape[1], dtype="int")
+        tagmap = np.zeros(w.shape[1], dtype="int")
         col = [(0, 0, 0)]
     else:
         utag, tagmap = np.unique(colortag, return_inverse=True)

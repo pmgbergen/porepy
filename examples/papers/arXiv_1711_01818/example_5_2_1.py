@@ -1,16 +1,9 @@
-
-from porepy.viz.exporter import Exporter
-from porepy.fracs import importer
-
-from porepy.params import tensor
-from porepy.params.bc import BoundaryCondition
-from porepy.params.data import Parameters
-
-from porepy.grids import coarsening as co
+import numpy as np
+import scipy.sparse as sps
+import porepy as pp
 
 from porepy.numerics.vem import vem_dual, vem_source
-from porepy.numerics.fv.transport import upwind
-from porepy.numerics.fv import tpfa, mass_matrix
+from porepy.numerics.fv import mass_matrix, upwind
 
 # ------------------------------------------------------------------------------#
 
@@ -25,12 +18,12 @@ def add_data_darcy(gb, domain, tol):
     kf_n = 1e2 * km
 
     for g, d in gb:
-        param = Parameters(g)
+        param = pp.Parameters(g)
 
         rock = g.dim == gb.dim_max()
         kxx = km if rock else kf_t
         d["is_tangential"] = True
-        perm = tensor.SecondOrderTensor(g.dim, kxx * np.ones(g.num_cells))
+        perm = pp.SecondOrderTensor(g.dim, kxx * np.ones(g.num_cells))
         param.set_tensor("flow", perm)
 
         param.set_source("flow", np.zeros(g.num_cells))
@@ -41,8 +34,6 @@ def add_data_darcy(gb, domain, tol):
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
-            top = bound_face_centers[1, :] > domain["ymax"] - tol
-            bottom = bound_face_centers[1, :] < domain["ymin"] + tol
             left = bound_face_centers[0, :] < domain["xmin"] + tol
             right = bound_face_centers[0, :] > domain["xmax"] - tol
             boundary = np.logical_or(left, right)
@@ -53,10 +44,10 @@ def add_data_darcy(gb, domain, tol):
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces[left]] = 30 * 1e6
 
-            param.set_bc("flow", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("flow", bc_val)
         else:
-            param.set_bc("flow", BoundaryCondition(g, np.empty(0), np.empty(0)))
+            param.set_bc("flow", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
 
         d["param"] = param
 
@@ -101,7 +92,6 @@ def add_data_advection(gb, domain, tol):
         if bound_faces.size != 0:
             bound_face_centers = g.face_centers[:, bound_faces]
 
-            top = bound_face_centers[1, :] > domain["ymax"] - tol
             bottom = bound_face_centers[1, :] < domain["ymin"] + tol
             left = bound_face_centers[0, :] < domain["xmin"] + tol
             right = bound_face_centers[0, :] > domain["xmax"] - tol
@@ -112,10 +102,10 @@ def add_data_advection(gb, domain, tol):
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces[left]] = 1
 
-            param.set_bc("transport", BoundaryCondition(g, bound_faces, labels))
+            param.set_bc("transport", pp.BoundaryCondition(g, bound_faces, labels))
             param.set_bc_val("transport", bc_val)
         else:
-            param.set_bc("transport", BoundaryCondition(g, np.empty(0), np.empty(0)))
+            param.set_bc("transport", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
         d["param"] = param
 
     # Assign coupling discharge
@@ -123,7 +113,7 @@ def add_data_advection(gb, domain, tol):
     for e, d in gb.edges_props():
         g = gb.sorted_nodes_of_edge(e)[1]
         discharge = gb.node_prop(g, "param").get_discharge()
-        d["param"] = Parameters(g)
+        d["param"] = pp.Parameters(g)
         d["param"].set_discharge(discharge)
 
 
@@ -142,10 +132,10 @@ if_coarse = True
 
 mesh_kwargs = {"mesh_size_frac": 500, "mesh_size_min": 20, "tol": tol}
 domain = {"xmin": 0, "xmax": 700, "ymin": 0, "ymax": 600}
-gb = importer.from_csv("network.csv", mesh_kwargs, domain)
+gb = pp.importer.from_csv("network.csv", mesh_kwargs, domain)
 gb.compute_geometry()
 if if_coarse:
-    co.coarsen(gb, "by_volume")
+    pp.coarsening.coarsen(gb, "by_volume")
 gb.assign_node_ordering()
 
 
@@ -177,7 +167,7 @@ for g, d in gb:
         flow_rate = d["discharge"][bound_faces[left]]
         total_flow_rate += np.sum(flow_rate)
 
-save = Exporter(gb, "darcy", export_folder, binary=False)
+save = pp.Exporter(gb, "darcy", export_folder, binary=False)
 save.write_vtk(["p", "P0u"])
 
 #################################################################

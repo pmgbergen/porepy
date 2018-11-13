@@ -1,25 +1,29 @@
+"""
+Module for exporting to vtu for (e.g. ParaView) visualization using the vtk module.
+
+The Exporter class contains methods for exporting a grid or grid bucket with
+associated data to the vtu format. For grid buckets with multiple grids, one
+vtu file is printed for each grid. For transient simulations with multiple
+time steps, a single pvd file takes care of the ordering of all printed vtu
+files.
+"""
+
 import sys, os
 import numpy as np
 import scipy.sparse as sps
 import logging
 import warnings
+import porepy as pp
 
 try:
     import vtk
     import vtk.util.numpy_support as ns
 except ImportError:
-    import warnings
-
     warnings.warn("No vtk module loaded.")
 try:
     import numba
 except ImportError:
     warnings.warn("Numba not available. Export may be slow for large grids")
-
-from porepy.grids import grid_bucket
-from porepy.grids import mortar_grid
-from porepy.utils import sort_points
-
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -76,7 +80,8 @@ class Field(object):
 
     def check(self, values, g):
         """
-        Some consistency check
+        Consistency checks making sure the field self.name is filled and has
+        the right dimension.
         """
         if values is None:
             raise ValueError(
@@ -111,7 +116,7 @@ class Fields(object):
 
     def __iter__(self):
         """
-        Iterated on all the fields
+        Iterator on all the fields.
         """
         for f in self.fields:
             yield f
@@ -124,7 +129,7 @@ class Fields(object):
 
     def extend(self, fields):
         """
-        Extend the list of fields with additional fields
+        Extend the list of fields with additional fields.
         """
         if self.fields is None:
             if isinstance(fields, list):
@@ -143,7 +148,7 @@ class Fields(object):
 
     def names(self):
         """
-        Return the list of name of the fields
+        Return the list of name of the fields.
         """
         return [f.name for f in self]
 
@@ -154,6 +159,8 @@ class Fields(object):
 class Exporter:
     def __init__(self, grid, name, folder=None, **kwargs):
         """
+        Class for exporting data to vtu files.
+
         Parameters:
         grid: the grid or grid bucket
         name: the root of file name without any extension.
@@ -201,7 +208,7 @@ class Exporter:
         self.binary = kwargs.get("binary", True)
         self.simplicial = kwargs.get("simplicial", False)
 
-        self.is_GridBucket = isinstance(self.gb, grid_bucket.GridBucket)
+        self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
         self.is_not_vtk = "vtk" not in sys.modules
 
         if self.is_not_vtk:
@@ -239,10 +246,11 @@ class Exporter:
     # ------------------------------------------------------------------------------#
 
     def write_vtk(self, data=None, time_step=None, grid=None, point_data=False):
-        """ Interface function to export in VTK the grid and additional data.
+        """
+        Interface function to export the grid and additional data in VTK.
 
         In 2d the cells are represented as polygon, while in 3d as polyhedra.
-        VTK module need to be installed.
+        The VTK module needs to be installed.
         In 3d the geometry of the mesh needs to be computed.
 
         To work with python3, the package vtk should be installed in version 7
@@ -255,6 +263,7 @@ class Exporter:
         time_step: (optional) in a time dependent problem defines the full name of
             the file.
         grid: (optional) in case of changing grid set a new one.
+        point_data: ***
 
         """
         if self.is_not_vtk:
@@ -264,7 +273,7 @@ class Exporter:
             raise ValueError("Inconsistency in exporter setting")
         elif not self.fixed_grid and grid is not None:
             self.gb = grid
-            self.is_GridBucket = isinstance(self.gb, grid_bucket.GridBucket)
+            self.is_GridBucket = isinstance(self.gb, pp.GridBucket)
             self._update_gVTK()
 
         if self.is_GridBucket:
@@ -275,7 +284,8 @@ class Exporter:
     # ------------------------------------------------------------------------------#
 
     def write_pvd(self, time):
-        """ Interface function to export in PVD file the time loop informations.
+        """
+        Interface function to export in PVD file the time loop information.
         The user should open only this file in paraview.
 
         We assume that the VTU associated files have the same name.
@@ -320,6 +330,9 @@ class Exporter:
     # ------------------------------------------------------------------------------#
 
     def _export_vtk_single(self, data, time_step, point_data):
+        """
+        Export a single grid (not grid bucket) to a vtu file.
+        """
         # No need of special naming, create the folder
         name = self._make_folder(self.folder, self.name)
         name = self._make_file_name(name, time_step)
@@ -386,7 +399,7 @@ class Exporter:
             d["cell_id"] = np.arange(g.num_cells, dtype=np.int)
             d["grid_node_number"] = d["node_number"] * ones
             d["is_mortar"] = np.zeros(g.num_cells, dtype=np.bool)
-            d["mortar_side"] = int(mortar_grid.NONE_SIDE) * ones
+            d["mortar_side"] = int(pp.grids.mortar_grid.NONE_SIDE) * ones
 
         # collect the data and extra data in a single stack for each dimension
         for dim in self.dims:
@@ -491,6 +504,10 @@ class Exporter:
     # ------------------------------------------------------------------------------#
 
     def _export_vtk_grid(self, gs, dim):
+        """
+        Wrapper function to export grids of dimension dim. Calls the
+        appropriate dimension specific export function.
+        """
         if dim == 0:
             return
         elif dim == 1:
@@ -503,7 +520,10 @@ class Exporter:
     # ------------------------------------------------------------------------------#
 
     def _export_vtk_1d(self, gs):
-
+        """
+        Export the geometrical data (point coordinates) and connectivity
+        information from the 1d PorePy grids to vtk.
+        """
         gVTK = vtk.vtkUnstructuredGrid()
         ptsVTK = vtk.vtkPoints()
 
@@ -529,7 +549,10 @@ class Exporter:
     # ------------------------------------------------------------------------------#
 
     def _export_vtk_2d(self, gs):
-
+        """
+        Export the geometrical data (point coordinates) and connectivity
+        information from the 2d PorePy grids to vtk.
+        """
         gVTK = vtk.vtkUnstructuredGrid()
         ptsVTK = vtk.vtkPoints()
 
@@ -546,7 +569,9 @@ class Exporter:
                         for f in faces_cells[loc]
                     ]
                 ).T
-                ptsId = sort_points.sort_point_pairs(ptsId)[0, :] + ptsId_global
+                ptsId = (
+                    pp.utils.sort_points.sort_point_pairs(ptsId)[0, :] + ptsId_global
+                )
 
                 fsVTK = vtk.vtkIdList()
                 [fsVTK.InsertNextId(p) for p in ptsId]
@@ -563,6 +588,10 @@ class Exporter:
     # ------------------------------------------------------------------------------#
 
     def _export_vtk_3d(self, gs):
+        """
+        Export the geometrical data (point coordinates) and connectivity
+        information from the 3d PorePy grids to vtk.
+        """
         # This functionality became rather complex, with possible use of numba.
         # Decided to dump this to a separate file.
         return self._define_gvtk_3d(gs)
