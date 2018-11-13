@@ -105,7 +105,7 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
             matrix[idx], loc_rhs = discr.assemble_matrix_rhs(
                 g_master, g_slave, data_master, data_slave, data_edge, loc_matrix
             )
-            rhs[rhs_idx] += loc_rhs
+            rhs[tuple(rhs_idx)] += loc_rhs
 
         return sps.bmat(matrix, matrix_format), np.concatenate(tuple(rhs))
 
