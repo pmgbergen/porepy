@@ -8,9 +8,13 @@ Created on Mon Sep 24 12:54:36 2018
 import numpy as np
 import scipy
 import scipy.stats as stats
+import logging
 
 from examples.papers.flow_upscaling import frac_gen
 import porepy as pp
+
+
+logger = logging.getLogger(__name__)
 
 
 class FractureSet(object):
@@ -62,6 +66,15 @@ class FractureSet(object):
 
         self.num_frac = self.edges.shape[1]
 
+        logger.info("Generated a fracture set with %i fractures", self.num_frac)
+        logger.info(
+            "Minimum point coordinates x: %.2f, y: %.2f", pts[0].min(), pts[1].min()
+        )
+        logger.info(
+            "Maximum point coordinates x: %.2f, y: %.2f", pts[0].max(), pts[1].max()
+        )
+        logger.info("Domain specification :" + str(domain))
+
     def add(self, fs):
         """ Add this fracture set to another one, and return a new set.
 
@@ -74,6 +87,10 @@ class FractureSet(object):
             New fracture set, containing all points and edges in both self and
                 fs.
         """
+        logger.info("Add fracture sets: ")
+        logger.info(str(self))
+        logger.info(str(fs))
+
         p = np.hstack((self.pts, fs.pts))
         e = np.hstack((self.edges, fs.edges + self.pts.shape[1]))
 
@@ -105,6 +122,7 @@ class FractureSet(object):
         distributions
 
         """
+        logger.inf("Fit length, angle and intensity distribution")
         self.fit_length_distribution(**kwargs)
         self.fit_angle_distribution(**kwargs)
         self.fit_intensity_map(**kwargs)
@@ -147,6 +165,16 @@ class FractureSet(object):
             "param": dist_fit[best_fit],
             "p_val": p_val[best_fit],
         }
+        # Logging
+        stat_string = ["exponential", "log-normal"]
+        logger.info(
+            "Fracture length represented by a %s distribution ", stat_string[best_fit]
+        )
+        s = "Fracture parameters: "
+        for p in dist_fit[best_fit]:
+            s += str(p) + ", "
+        logger.info(s)
+        logger.info("P-value for fitting: %.3f", p_val[best_fit])
 
         self.dist_length = dist_l
 
@@ -177,6 +205,14 @@ class FractureSet(object):
 
         if p_val < p_val_min:
             raise ValueError("p-value not satisfactory for angle fit")
+
+        # logging
+        logger.info("Fracture orientation represented by a von mises distribution ")
+        s = "Fracture parameters: "
+        for p in dist_fit:
+            s += str(p) + ", "
+        logger.info(s)
+        logger.info("P-value for fitting: %.3f", p_val)
 
         # collect the data
         self.dist_angle = {"dist": dist, "param": dist_fit, "p_val": p_val}
@@ -589,9 +625,9 @@ class FractureSet(object):
         pp.plot_fractures(self.domain, self.pts, self.edges)
 
     def __str__(self):
-        s = 'Fracture set consisting of ' + str(self.num_frac) + ' fractures,'
-        s += ' consisting of ' + str(self.pts.shape[1]) + ' points.\n'
-        s += 'Domain: '
+        s = "Fracture set consisting of " + str(self.num_frac) + " fractures,"
+        s += " consisting of " + str(self.pts.shape[1]) + " points.\n"
+        s += "Domain: "
         s += str(self.domain)
         return s
 
@@ -663,11 +699,20 @@ class ChildFractureSet(FractureSet):
         all_p = np.empty((2, 0))
         all_edges = np.empty((2, 0))
 
+        num_isolated = 0
+        num_one_y = 0
+        num_both_y = 0
+
+        logger.info("Generate children for fracture set: \n" + str(parent_realiz))
+
         # Loop over all fractures in the parent realization. Decide on the
         # number of realizations.
         for pi in range(num_parents):
             # Decide on the number of children
+            logging.debug("Parent fracture %i", pi)
+
             num_children = self._draw_num_children(parent_realiz, pi)
+            logging.debug("Fracture has %i children", num_children)
 
             # If this fracture has no children, continue
             if num_children == 0:
@@ -683,6 +728,16 @@ class ChildFractureSet(FractureSet):
             # For all children, decide type of child
             is_isolated, is_one_y, is_both_y = self._draw_children_type(
                 num_children, parent_realiz, pi
+            )
+            num_isolated += is_isolated.sum()
+            num_one_y += is_one_y.sum()
+            num_both_y += is_both_y.sum()
+
+            logging.debug(
+                "Isolated children: %i, one y: %i, both y: %i",
+                is_isolated.sum(),
+                is_one_y.sum(),
+                is_both_y.sum(),
             )
 
             # Start and end point of parent
@@ -710,7 +765,17 @@ class ChildFractureSet(FractureSet):
 
             all_edges = np.hstack((all_edges, edges_i, edges_y)).astype(np.int)
 
-        return ChildFractureSet(all_p, all_edges, domain, parent_realiz)
+        new_child = ChildFractureSet(all_p, all_edges, domain, parent_realiz)
+
+        logger.info("Created new child, with properties: \n" + str(new_child))
+        logging.debug(
+            "Isolated children: %i, one y: %i, both y: %i",
+            num_isolated,
+            num_one_y,
+            num_both_y,
+        )
+
+        return new_child
 
     def _draw_num_children(self, parent_realiz, pi):
         """ Draw the number of children for a fracture based on the statistical
