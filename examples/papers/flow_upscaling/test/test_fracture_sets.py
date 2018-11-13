@@ -505,6 +505,59 @@ class TestDensityCounting(unittest.TestCase):
         self.assertTrue(np.all(num_occ == np.array([1, 0])))
 
 
+class TestFractureProlongationPruning(unittest.TestCase):
+
+    def compare_points(self, a, b, tol=1e-4):
+        sz = a.shape[1]
+        ind = np.empty(sz)
+        self.assertTrue(np.all(a.shape == b.shape))
+        for i in range(sz):
+            dist = np.sqrt(np.sum((a[:, i].reshape((-1, 1)) - b)**2, axis=0))
+            mi = np.argmin(dist)
+            self.assertTrue(dist[mi] < tol)
+            ind[i] = mi
+        return ind
+
+    def test_prolong_fracture(self):
+        p_parent = np.array([[0, 1, 0.5, 0.5], [0, 0, 0.1, 1]])
+        e_parent = np.array([[0, 2], [1, 3]])
+
+        domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
+
+        parent = FractureSet(p_parent, e_parent, domain)
+        fracs = parent.snap(threshold=0.2)
+
+        p_known = np.array([[0, 1, 0.5, 0.5], [0, 0, 1, 0]])
+        ind = self.compare_points(p_known, fracs.pts)
+        self.assertTrue(np.allclose(ind, np.array([0, 1, 3, 2])))
+
+    def test_no_prolongation(self):
+        p_parent = np.array([[0, 1, 0.5, 0.5], [0, 0, 0.1, 1]])
+        e_parent = np.array([[0, 2], [1, 3]])
+
+        domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
+
+        parent = FractureSet(p_parent, e_parent, domain)
+        # The points are further away than the threshold
+        fracs = parent.snap(threshold=0.05)
+        ind = self.compare_points(p_parent, fracs.pts)
+        self.assertTrue(np.allclose(ind, np.array([0, 1, 2, 3])))
+
+    def test_branch_computation(self):
+        p = np.array([[-1, 1, 0, 0, -1, 1], [0, 0, -1, 1, 2, 2]])
+        e = np.array([[0, 2, 4], [1, 3, 5]])
+        domain = {"xmin": -2, "xmax": 6, "ymin": -2, "ymax": 3}
+
+        fracs = FractureSet(p, e, domain)
+        p_split, e_split = fracs.branches()
+
+        p_known = np.array([[-1, 1, 0, 0, -1, 1, 0], [0, 0, -1, 1, 2, 2, 0]])
+        ind = self.compare_points(p_split, p_known)
+
+        e_known = np.array([[0, 1, 2, 3, 4], [6, 6, 6, 6, 5]])
+        self.assertTrue(np.allclose(np.sort(ind[e_split[:2]], axis=0),
+                                    np.sort(e_known, axis=0)))
+
 class DummyDistribution:
     def __init__(self, value):
         self.value = value
