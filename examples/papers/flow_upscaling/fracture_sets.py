@@ -466,6 +466,46 @@ class FractureSet(object):
 
         return FractureSet(p, e, domain)
 
+    # --------- Methods for manipulation of the fracture set geometry
+
+    def snap(self, threshold):
+        """ Modify point definition so that short branches are removed, and
+        almost intersecting fractures become intersecting.
+
+        Parameters:
+            threshold (double): Threshold for geometric modifications. Points and
+                segments closer than the threshold may be modified.
+
+        Returns:
+            FractureSet: A new FractureSet with modified point coordinates.
+        """
+
+        # We will not modify the original fractures
+        p = self.pts.copy()
+        e = self.edges.copy()
+
+        # Prolong
+        p = pp.cg.snap_points_to_segments(p, e, threshold)
+
+        return FractureSet(p, e, self.domain)
+
+    def branches(self):
+        """ Split the fractures into branches.
+
+        Returns:
+            np.array (2 x npt): Start and endpoint of the fracture branches,
+                that is, start and end points of fractures, as well as intersection
+                points.
+            np.array (3 x npt): Connections between points that form branches.
+                The first two rows represent indices of the start and end points
+                of the branches. The third gives the index of the fracture to which
+                the branch belongs, referring to the ordering in self.num_frac
+
+        """
+        p = self.pts.copy()
+        e = np.vstack((self.edges.copy(), np.arange(self.num_frac)))
+        return pp.cg.remove_edge_crossings(p, e)
+
     # --------- Utility functions below here
 
     def start_points(self, fi=None):
@@ -1306,6 +1346,29 @@ class ChildFractureSet(FractureSet):
         return frac_gen.count_center_point_densities(
             p_x, loc_edge, domain_loc, **kwargs
         )
+
+    def snap(self, threshold):
+        """ Modify point definition so that short branches are removed, and
+        almost intersecting fractures become intersecting.
+
+        Parameters:
+            threshold (double): Threshold for geometric modifications. Points and
+                segments closer than the threshold may be modified.
+
+        Returns:
+            FractureSet: A new ChildFractureSet with modified point coordinates.
+        """
+        # This function overwrites FractureSet.snap(), to ensure that the
+        # returned fracture set also has a parent
+
+        # We will not modify the original fractures
+        p = self.pts.copy()
+        e = self.edges.copy()
+
+        # Prolong
+        p = pp.cg.snap_points_to_segments(p, e, threshold)
+
+        return ChildFractureSet(p, e, self.domain, self.parent)
 
 
 def analyze_intersections_of_sets(set_1, set_2=None, tol=1e-4):
