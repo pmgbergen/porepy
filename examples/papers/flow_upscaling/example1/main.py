@@ -50,8 +50,8 @@ if __name__ == "__main__":
     elif True:
         file_geo = "../networks/Algeroyna_1to10000_Points.csv"
         t_max = 1e7 * pp.SECOND
-        mesh_args = {'mesh_size_frac': 100}
-        tol = {"geo": 1e-3, "snap": 0.5*1e-3}
+        mesh_args = {'mesh_size_frac': 100, "mesh_size_min": 0.01}
+        tol = {"geo": 1.5*1e-3, "snap": 0.5*1e-3}
 
     elif False:
         file_geo = "../networks/Vikso_1to10_Points.csv"
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     elif False: # problems
         file_geo = "../networks/Vikso_1to100_Points.csv"
         t_max = 1e5 * pp.SECOND #
-        mesh_args = {'mesh_size_frac': 1}
+        mesh_args = {'mesh_size_frac': 1, "mesh_size_min": 0.001}
         tol = {"geo": 1e-3, "snap": 0.125*1e-4}
 
     elif False:
