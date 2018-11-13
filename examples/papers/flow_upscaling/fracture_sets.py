@@ -996,6 +996,74 @@ class ChildFractureSet(FractureSet):
 
         return p, edges
 
+    def _generate_constrained_fractures(self, start, parent_realiz, constraints=None):
+        """
+        """
+
+        # Eventual return array for points
+        p_found = np.empty((2, 0))
+
+        # Special treatment if no fractures are generated
+        if start.size == 0:
+            # Create empty field for edges
+            return p_found, np.empty((2, 0))
+
+        if constraints is None:
+            constraints = parent_realiz
+
+        # Create fractures with the maximum allowed length for this distribution.
+        # For this, we can use the function generate_y_fractures
+        # The fractures will not be generated unless they cross a constraining
+        # fracture, and the length will be adjusted accordingly
+        p, edges = self.populate_y_fractures(start, self.dist_maix_constrained_length)
+
+        num_children = edges.shape[1]
+
+        # Points and fractures of the parent realization
+        p_par = parent_realiz.pts
+
+        # Combine the edge arrays. Also add a third row, identifying the fractures
+        # The first num_children fractures belong to th
+        e = np.vstack((np.hstack((edges, num_children + parent_realiz.edges)),
+                       np.hstack((np.arange(num_children), num_children + np.arange(parent_realiz.num_fracs)))))
+
+        # Combine the point arrays on the fly, and then create branches of the
+        # combined geometry
+        p_split, e_split = pp.cg.remove_edge_crossings(np.hstack((p, p_par)), e)
+
+        # Loop over the children
+        for ci in range(num_children):
+            # Branches identified with this child fracture
+            bi = np.where(e_split[2] == ci)[0]
+            # Points of the branches.
+            # Ravel per column - this means that the branch
+            pi = e_split[:2, bi].ravel(order='F')
+
+            # If the fracture has not hit any intersection,
+            # TODO: What if the children hit each other? We probably need to
+            # do the whole intersection procedure one child at a time
+            if pi.size == 2:
+                continue
+
+            # Find the point in the branches which is closest to the start point
+            dist = np.sqrt(np.sum((start[:, ci].reshape((-1, 1)) - p_split[:, pi])**2, axis=0))
+            # This should really be the start point itself
+            if dist.min() > 1e-4:
+                raise ValueError("Start point not preserved in generation of constrained fractures")
+            min_dist = np.argmin(dist)
+            # Since we raveled in F-order, the relevant branch can be found by
+            # dividing the min-dist index by 2, with some adjustments
+            loc_e = e_split[:2, bi[np.floor(min_dist/2).astype(np.int)]]
+            p_found = np.hstack((p_found, p_split[:, loc_e]))
+
+        # Finally define the edges, based on the fractures being ordered by
+        # point pairs
+        num_frac = p_found.shape[1] / 2
+        e_found = np.vstack((np.arange(0, 2 * num_frac, 2), 1 + np.arange(0, 2*num_frac, 2)))
+        return p_found, e_found
+
+
+
     def _fit_dist_from_parent_distribution(self, ks_size=100, p_val_min=0.05):
         """ For isolated fractures, fit a distribution for the distance from
         the child center to the parent fracture, orthogonal to the parent line.
