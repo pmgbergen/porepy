@@ -1011,6 +1011,8 @@ class ChildFractureSet(FractureSet):
         if constraints is None:
             constraints = parent_realiz
 
+        tol = 1e-4
+
         # Create fractures with the maximum allowed length for this distribution.
         # For this, we can use the function generate_y_fractures
         # The fractures will not be generated unless they cross a constraining
@@ -1019,47 +1021,32 @@ class ChildFractureSet(FractureSet):
 
         num_children = edges.shape[1]
 
-        # Points and fractures of the parent realization
-        p_par = parent_realiz.pts
+        start_parent, end_parent = parent_realiz.get_points()
 
-        # Combine the edge arrays. Also add a third row, identifying the fractures
-        # The first num_children fractures belong to th
-        e = np.vstack((np.hstack((edges, num_children + parent_realiz.edges)),
-                       np.hstack((np.arange(num_children), num_children + np.arange(parent_realiz.num_fracs)))))
-
-        # Combine the point arrays on the fly, and then create branches of the
-        # combined geometry
-        p_split, e_split = pp.cg.remove_edge_crossings(np.hstack((p, p_par)), e)
-
-        # Loop over the children
         for ci in range(num_children):
-            # Branches identified with this child fracture
-            bi = np.where(e_split[2] == ci)[0]
-            # Points of the branches.
-            # Ravel per column - this means that the branch
-            pi = e_split[:2, bi].ravel(order='F')
+            start = p[:, edges[0, ci]].reshape((-1, 1))
+            end = p[:, edges[1, ci]].reshape((-1, 1))
+            d, cp, cg_seg = pp.cg.dist_segment_segment_set(start, end, start_parent, end_parent)
 
-            # If the fracture has not hit any intersection,
-            # TODO: What if the children hit each other? We probably need to
-            # do the whole intersection procedure one child at a time
-            if pi.size == 2:
+            hit = np.where(d < tol)[0]
+            if hit.size == 0:
+                raise ValueError('Doubly constrained fractures should be constrained at its start point')
+            elif hit.size == 1:
+                # The child failed to hit anything - this will not generate a
+                # constrained fracture
                 continue
-
-            # Find the point in the branches which is closest to the start point
-            dist = np.sqrt(np.sum((start[:, ci].reshape((-1, 1)) - p_split[:, pi])**2, axis=0))
-            # This should really be the start point itself
-            if dist.min() > 1e-4:
-                raise ValueError("Start point not preserved in generation of constrained fractures")
-            min_dist = np.argmin(dist)
-            # Since we raveled in F-order, the relevant branch can be found by
-            # dividing the min-dist index by 2, with some adjustments
-            loc_e = e_split[:2, bi[np.floor(min_dist/2).astype(np.int)]]
-            p_found = np.hstack((p_found, p_split[:, loc_e]))
+            else:
+                # Compute distance from all closest points to the start
+                dist_start = np.sqrt(np.sum((start - cp[:, hit])**2, axis=0))
+                # Find the first point along the line, away from the start
+                first_constraint = np.argsort(dist_start)[1]
+                p_found = np.hstack((p_found, start, cp[:, hit[first_constraint]].reshape((-1, 1))))
 
         # Finally define the edges, based on the fractures being ordered by
         # point pairs
         num_frac = p_found.shape[1] / 2
-        e_found = np.vstack((np.arange(0, 2 * num_frac, 2), 1 + np.arange(0, 2*num_frac, 2)))
+        e_found = np.vstack((2 * np.arange(num_frac), 1 + 2 * np.arange(num_frac)))
+
         return p_found, e_found
 
 
