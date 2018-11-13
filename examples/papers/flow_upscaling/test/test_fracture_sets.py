@@ -208,6 +208,152 @@ class TestFractureSetGeneration(unittest.TestCase):
         self.assertTrue(np.sum(np.abs(np.abs(p[1]) - dy) < 1e-3) == 3)
         self.assertTrue(np.sum(np.abs(p[1])  < 1e-3) == 3)
 
+    def test_one_parent_all_both_y_children(self):
+        # Only one constraint, no fractures should be generated
+        p = np.array([[0, 5], [0, 0]])
+        e = np.array([[0], [1]])
+
+        domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
+
+        original_parent = FractureSet(p, e, domain)
+
+        p_children = np.array(
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0., 0., 0., 0., 1, 1, 1, 1]], dtype=np.float
+        )
+
+        # Children length from a lognormal distribution
+        p_children[1, [4, 5, 6, 7]] += stats.lognorm.rvs(s=1, size=4)
+
+        e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
+        child = ChildFractureSet(p_children, e_children, domain, original_parent)
+
+        # Force all parents to have exactly three children
+        child.fraction_of_parents_with_child = 1
+        child.dist_num_children = stats.randint(low=3, high=4)
+
+        # All children will be isolated
+        child.fraction_isolated = 0
+        child.fraction_one_y = 0
+
+        # All fractures have distance from parents of 2
+        child.dist_from_parents = {"dist": stats.randint(low=2, high=3), "param": {}}
+        # Assign long fractures
+        child.dist_max_constrained_length = make_dummy_distribution(5)
+
+        # All fractures have the same length
+        known_length = np.random.rand(1)
+        child.dist_length = make_dummy_distribution(known_length)
+
+        # All fractures have the same angle
+        angle = np.pi / 2 * np.random.rand(1)
+        child.dist_angle = make_dummy_distribution(angle)
+
+        realiz = child.generate(original_parent)
+
+        p = realiz.pts
+        e = realiz.edges
+        # There should be no points in the generated child
+        self.assertTrue(p.size == 0)
+        self.assertTrue(e.size == 0)
+
+    def test_two_parents_all_both_y_children(self):
+        # Only one constraint, no fractures should be generated
+        p = np.array([[0, 5, 0, 5], [0, 0, 1, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
+
+        original_parent = FractureSet(p, e, domain)
+
+        p_children = np.array(
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0., 0., 0., 0., 1, 1, 1, 1]], dtype=np.float
+        )
+
+        # Children length from a lognormal distribution
+        p_children[1, [4, 5, 6, 7]] += stats.lognorm.rvs(s=1, size=4)
+
+        e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
+        child = ChildFractureSet(p_children, e_children, domain, original_parent)
+
+        # Force all parents to have exactly three children
+        child.fraction_of_parents_with_child = 1
+        child.dist_num_children = make_dummy_distribution(10)
+
+        # All children will be isolated
+        child.fraction_isolated = 0
+        child.fraction_one_y = 0
+
+        # All fractures have distance from parents of 2
+        child.dist_from_parents = {"dist": stats.randint(low=2, high=3), "param": {}}
+        # Assign long fractures
+        child.dist_max_constrained_length = make_dummy_distribution(5)
+
+        # All fractures have the same length
+        known_length = np.random.rand(1)
+        child.dist_length = make_dummy_distribution(known_length)
+
+        # All fractures have the same angle
+        angle = np.pi / 2 * np.random.rand(1)
+        child.dist_angle = make_dummy_distribution(angle)
+
+        realiz = child.generate(original_parent)
+
+        p = realiz.pts
+        e = realiz.edges
+        # There should be no points in the generated child
+        self.assertTrue(np.all(np.logical_or(np.abs(p[1]) < 1e-3, np.abs(p[1] - 1) < 1e-3)))
+
+        self.assertTrue(np.allclose(realiz.length(), realiz.length().mean()))
+
+    def test_two_parents_one_far_away_all_both_y_children(self):
+        # Only one constraint, no fractures should be generated
+        p = np.array([[0, 5, 0, 5], [0, 0, 10, 10]])
+        e = np.array([[0, 2], [1, 3]])
+
+        domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
+
+        original_parent = FractureSet(p, e, domain)
+
+        p_children = np.array(
+            [[1, 2, 3, 4, 1, 2, 3, 4], [0., 0., 0., 0., 1, 1, 1, 1]], dtype=np.float
+        )
+
+        # Children length from a lognormal distribution
+        p_children[1, [4, 5, 6, 7]] += stats.lognorm.rvs(s=1, size=4)
+
+        e_children = np.array([[0, 1, 2, 3], [4, 5, 6, 7]])
+        child = ChildFractureSet(p_children, e_children, domain, original_parent)
+
+        # Force all parents to have exactly three children
+        child.fraction_of_parents_with_child = 1
+        child.dist_num_children = make_dummy_distribution(10)
+
+        # All children will be isolated
+        child.fraction_isolated = 0
+        child.fraction_one_y = 0
+
+        # All fractures have distance from parents of 2
+        child.dist_from_parents = {"dist": stats.randint(low=2, high=3), "param": {}}
+        # Assign fractures much shorter than the distance between the parents
+        child.dist_max_constrained_length = make_dummy_distribution(5)
+
+        # All fractures have the same length
+        known_length = np.random.rand(1)
+        child.dist_length = make_dummy_distribution(known_length)
+
+        # All fractures have the same angle
+        angle = np.pi / 2 * np.random.rand(1)
+        child.dist_angle = make_dummy_distribution(angle)
+
+        realiz = child.generate(original_parent)
+
+        p = realiz.pts
+        e = realiz.edges
+        # There should be no points in the generated child
+        self.assertTrue(p.size == 0)
+        self.assertTrue(e.size == 0)
+
+
 class TestParentChildrenRelations(unittest.TestCase):
     def test_only_isolated_one_parent(self):
 
@@ -573,6 +719,6 @@ def make_dummy_distribution(value):
 # if __name__ == '__main__':
 #    unittest.main()
 # TestParentChildrenRelations().test_only_isolated_two_parents_one_far_away()
-#TestFractureSetPopulation().test_set_distributions_run_population_single_family()
-unittest.main()
+TestFractureSetGeneration().test_three_parents_one_shadowed_away_all_both_y_children()
+#unittest.main()
 # TestDensityCounting().test_1d_counting_two_boxes()
