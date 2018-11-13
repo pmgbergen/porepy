@@ -67,12 +67,13 @@ class FractureSet(object):
         self.num_frac = self.edges.shape[1]
 
         logger.info("Generated a fracture set with %i fractures", self.num_frac)
-        logger.info(
-            "Minimum point coordinates x: %.2f, y: %.2f", pts[0].min(), pts[1].min()
-        )
-        logger.info(
-            "Maximum point coordinates x: %.2f, y: %.2f", pts[0].max(), pts[1].max()
-        )
+        if pts.size > 0:
+            logger.info(
+                "Minimum point coordinates x: %.2f, y: %.2f", pts[0].min(), pts[1].min()
+            )
+            logger.info(
+                "Maximum point coordinates x: %.2f, y: %.2f", pts[0].max(), pts[1].max()
+            )
         logger.info("Domain specification :" + str(domain))
 
     def add(self, fs):
@@ -791,19 +792,20 @@ class ChildFractureSet(FractureSet):
             # Generate Y-fractures
             p_y, edges_y = self._generate_y_fractures(children_points[:, is_one_y])
 
-            # double Y fractures are not implemented
+            p_b_y, edges_b_y = self._generate_constrained_fractures(children_points[:, is_both_y], parent_realiz)
 
             num_pts = all_p.shape[1]
 
             # Assemble points
-            all_p = np.hstack((all_p, p_i, p_y))
+            all_p = np.hstack((all_p, p_i, p_y, p_b_y))
 
             # Adjust indices in point-fracture relation to account for previously
             # added objects
             edges_i += num_pts
             edges_y += num_pts + p_i.shape[1]
+            edges_b_y += num_pts + p_i.shape[1] + p_y.shape[1]
 
-            all_edges = np.hstack((all_edges, edges_i, edges_y)).astype(np.int)
+            all_edges = np.hstack((all_edges, edges_i, edges_y, edges_b_y)).astype(np.int)
 
         new_child = ChildFractureSet(all_p, all_edges, domain, parent_realiz)
 
@@ -828,7 +830,7 @@ class ChildFractureSet(FractureSet):
             These parameters are currently not in use. In the future, the number
             of children should scale with the length of the parent fracture.
         """
-        return self.dist_num_children.rvs(1)[0].astype(np.int)
+        return self.dist_num_children['dist'].rvs(1)[0].astype(np.int)
 
     def _draw_children_along_parent(self, parent_realiz, pi, num_children):
         """ Define location of children along the lines of a parent fracture.
@@ -1017,7 +1019,7 @@ class ChildFractureSet(FractureSet):
         # For this, we can use the function generate_y_fractures
         # The fractures will not be generated unless they cross a constraining
         # fracture, and the length will be adjusted accordingly
-        p, edges = self._generate_y_fractures(start, self.dist_maix_constrained_length)
+        p, edges = self._generate_y_fractures(start, self.dist_max_constrained_length)
 
         num_children = edges.shape[1]
 
