@@ -46,7 +46,7 @@ class FractureSet(object):
 
     """
 
-    def __init__(self, pts, edges, domain):
+    def __init__(self, pts=None, edges=None, domain=None):
         """ Define the frature set.
 
         Parameters:
@@ -66,15 +66,19 @@ class FractureSet(object):
 
         self.num_frac = self.edges.shape[1]
 
-        logger.info("Generated a fracture set with %i fractures", self.num_frac)
-        if pts.size > 0:
-            logger.info(
-                "Minimum point coordinates x: %.2f, y: %.2f", pts[0].min(), pts[1].min()
-            )
-            logger.info(
-                "Maximum point coordinates x: %.2f, y: %.2f", pts[0].max(), pts[1].max()
-            )
-        logger.info("Domain specification :" + str(domain))
+        if pts is None and edges is None:
+            logger.info('Generated empty fracture set')
+        else:
+            logger.info("Generated a fracture set with %i fractures", self.num_frac)
+            if pts.size > 0:
+                logger.info(
+                    "Minimum point coordinates x: %.2f, y: %.2f", pts[0].min(), pts[1].min()
+                )
+                logger.info(
+                    "Maximum point coordinates x: %.2f, y: %.2f", pts[0].max(), pts[1].max()
+                )
+        if domain is not None:
+            logger.info("Domain specification :" + str(domain))
 
     def add(self, fs):
         """ Add this fracture set to another one, and return a new set.
@@ -680,6 +684,7 @@ class ChildFractureSet(FractureSet):
 
     def __init__(self, pts, edges, domain, parent):
         super(ChildFractureSet, self).__init__(pts, edges, domain)
+
         self.parent = parent
 
     def generate(self, parent_realiz, domain=None):
