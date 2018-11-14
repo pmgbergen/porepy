@@ -112,7 +112,7 @@ class TestFractureSetGeneration(unittest.TestCase):
 
         # Force all parents to have exactly three children
         child.fraction_of_parents_with_child = 1
-        child.dist_num_children = make_dummy_distribution(3)
+        child.dist_num_children = make_dummy_distribution(3/5)
 
         # All children will be isolated
         child.fraction_isolated = 1
@@ -171,7 +171,7 @@ class TestFractureSetGeneration(unittest.TestCase):
 
         # Force all parents to have exactly three children
         child.fraction_of_parents_with_child = 1
-        child.dist_num_children = make_dummy_distribution(3)
+        child.dist_num_children = make_dummy_distribution(3./5)
 
         # All children will be isolated
         child.fraction_isolated = 0
@@ -380,7 +380,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         # There should be one parent fracture
         self.assertTrue(isolated["density"].size == 1)
         # All four isolated belongs to this parent
-        self.assertTrue(isolated["density"][0] == 4)
+        self.assertTrue(isolated["density"][0] * parent.length()[0] == 4)
         # All four children have a center
         self.assertTrue(isolated["center_distance"].size == 4)
         # The distance from parent to child center is the midpoint of the child
@@ -397,7 +397,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
 
         parent = FractureSet(p_parent, e_parent, domain)
-
+        parent_length = parent.length()
         p_children = np.array(
             [[1, 2, 3, 4, 1, 2, 3, 4], [0.1, 0.1, 0.1, 0.1, 1, 1, 1, 1]], dtype=np.float
         )
@@ -414,8 +414,8 @@ class TestParentChildrenRelations(unittest.TestCase):
         # There should be one parent fracture
         self.assertTrue(isolated["density"].size == 2)
         # All four isolated belongs to the first parent
-        self.assertTrue(isolated["density"][0] == 4)
-        self.assertTrue(isolated["density"][1] == 0)
+        self.assertTrue(isolated["density"][0] * parent_length[0] == 4)
+        self.assertTrue(isolated["density"][1] * parent_length[1] == 0)
         # All four children have a center
         self.assertTrue(isolated["center_distance"].size == 4)
         # The distance from parent to child center is the midpoint of the child
@@ -432,7 +432,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         domain = {"xmin": -1, "xmax": 6, "ymin": -5, "ymax": 2}
 
         parent = FractureSet(p_parent, e_parent, domain)
-
+        parent_length = parent.length()
         # Children
         p_children = np.array(
             [[1, 2, 3, 4, 1, 2, 3, 4], [0.1, 0.6, 0.1, 0.1, 1, 1, 1, 1]], dtype=np.float
@@ -453,8 +453,8 @@ class TestParentChildrenRelations(unittest.TestCase):
         # There should be one parent fracture
         self.assertTrue(isolated["density"].size == 2)
         # All four isolated belongs to the first parent
-        self.assertTrue(isolated["density"][0] == 3)
-        self.assertTrue(isolated["density"][1] == 1)
+        self.assertTrue(isolated["density"][0] * parent_length[0] == 3)
+        self.assertTrue(isolated["density"][1] * parent_length[1] == 1)
         # All four children have a center
         self.assertTrue(isolated["center_distance"].size == 4)
         # The distance from parent to child center is the midpoint of the child
@@ -497,7 +497,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         # There should be one parent fracture
         self.assertTrue(one_y["density"].size == 1)
         # All four isolated belongs to this parent
-        self.assertTrue(one_y["density"][0] == 4)
+        self.assertTrue(one_y["density"][0] * parent.length()[0] == 4)
 
     def test_only_y_two_parents_one_active(self):
         # Two parents, only one is active. All children are y-intersections for this parent
@@ -508,6 +508,8 @@ class TestParentChildrenRelations(unittest.TestCase):
         domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
 
         parent = FractureSet(p_parent, e_parent, domain)
+
+        parent_length = parent.length()[0]
 
         p_children = np.array(
             [[1, 2, 3, 4, 1, 2, 3, 4], [0., 0., 0., 0., 1, 1, 1, 1]], dtype=np.float
@@ -525,7 +527,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         # There should be one parent fracture
         self.assertTrue(one_y["density"].size == 2)
         # All four isolated belongs to this parent
-        self.assertTrue(one_y["density"][0] == 4)
+        self.assertTrue(one_y["density"][0] * parent_length == 4)
         self.assertTrue(one_y["density"][1] == 0)
 
     def test_only_y_two_parents_two_active(self):
@@ -537,7 +539,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
 
         parent = FractureSet(p_parent, e_parent, domain)
-
+        parent_length = parent.length()
         # Define children points. The edge p1-p5 (second child) will be associated
         # with the second parent
         p_children = np.array(
@@ -560,8 +562,8 @@ class TestParentChildrenRelations(unittest.TestCase):
         # There should be one parent fracture
         self.assertTrue(one_y["density"].size == 2)
         # All four isolated belongs to this parent
-        self.assertTrue(one_y["density"][0] == 3)
-        self.assertTrue(one_y["density"][1] == 1)
+        self.assertTrue(one_y["density"][0] * parent_length[0] == 3)
+        self.assertTrue(one_y["density"][1] * parent_length[1] == 1)
 
     def test_isolated_and_only_y_two_parents_two_active(self):
         # Two parents, only one is active. All children are y-intersections for this parent
@@ -572,7 +574,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
 
         parent = FractureSet(p_parent, e_parent, domain)
-
+        parent_length = parent.length()
         # Define children points. The edge p1-p5 (second child) will be associated
         # with the second parent as a y-node. The edge p2-p6 will be associated
         # with the second parent as an isolated node
@@ -598,8 +600,8 @@ class TestParentChildrenRelations(unittest.TestCase):
         one_y = child.one_y_stats
 
         self.assertTrue(isolated["density"].size == 2)
-        self.assertTrue(isolated["density"][0] == 1)
-        self.assertTrue(isolated["density"][1] == 1)
+        self.assertTrue(isolated["density"][0] * parent_length[0] == 1)
+        self.assertTrue(isolated["density"][1] * parent_length[1] == 1)
 
         self.assertTrue(isolated["center_distance"].size == 2)
         self.assertTrue(
@@ -618,8 +620,8 @@ class TestParentChildrenRelations(unittest.TestCase):
 
         # Y-nodes
         self.assertTrue(one_y["density"].size == 2)
-        self.assertTrue(one_y["density"][0] == 1)
-        self.assertTrue(one_y["density"][1] == 1)
+        self.assertTrue(one_y["density"][0] * parent_length[0] == 1)
+        self.assertTrue(one_y["density"][1] * parent_length[1] == 1)
 
 
 class TestDensityCounting(unittest.TestCase):
