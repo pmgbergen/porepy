@@ -112,7 +112,7 @@ class TestFractureSetGeneration(unittest.TestCase):
 
         # Force all parents to have exactly three children
         child.fraction_of_parents_with_child = 1
-        child.dist_num_children = stats.randint(low=3, high=4)
+        child.dist_num_children = make_dummy_distribution(3)
 
         # All children will be isolated
         child.fraction_isolated = 1
@@ -171,7 +171,7 @@ class TestFractureSetGeneration(unittest.TestCase):
 
         # Force all parents to have exactly three children
         child.fraction_of_parents_with_child = 1
-        child.dist_num_children = stats.randint(low=3, high=4)
+        child.dist_num_children = make_dummy_distribution(3)
 
         # All children will be isolated
         child.fraction_isolated = 0
@@ -229,7 +229,7 @@ class TestFractureSetGeneration(unittest.TestCase):
 
         # Force all parents to have exactly three children
         child.fraction_of_parents_with_child = 1
-        child.dist_num_children = stats.randint(low=3, high=4)
+        child.dist_num_children = make_dummy_distribution(3)
 
         # All children will be isolated
         child.fraction_isolated = 0
@@ -719,6 +719,6 @@ def make_dummy_distribution(value):
 # if __name__ == '__main__':
 #    unittest.main()
 # TestParentChildrenRelations().test_only_isolated_two_parents_one_far_away()
-TestFractureSetGeneration().test_three_parents_one_shadowed_away_all_both_y_children()
-#unittest.main()
+#TestFractureSetGeneration().test_two_parents_one_far_away_all_both_y_children()
+unittest.main()
 # TestDensityCounting().test_1d_counting_two_boxes()
