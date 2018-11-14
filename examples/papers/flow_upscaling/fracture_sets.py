@@ -456,18 +456,18 @@ class FractureSet(object):
             self.fit_distributions()
 
         # First define points
-        p = self._define_centers_by_boxes(domain)
+        p_center = self._define_centers_by_boxes(domain)
         # bookkeeping
-        if p.size == 0:
+        if p_center.size == 0:
             num_fracs = 0
         else:
-            num_fracs = p.shape[1]
+            num_fracs = p_center.shape[1]
 
         # Then assign length and orientation
         angles = frac_gen.generate_from_distribution(num_fracs, self.dist_angle)
         lengths = frac_gen.generate_from_distribution(num_fracs, self.dist_length)
 
-        p, e = self._fracture_from_center_angle_length(p, angles, lengths)
+        p, e = self._fracture_from_center_angle_length(p_center, angles, lengths)
 
         return FractureSet(p, e, domain)
 
@@ -675,6 +675,9 @@ class FractureSet(object):
         s += "Domain: "
         s += str(self.domain)
         return s
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class ChildFractureSet(FractureSet):
@@ -914,6 +917,9 @@ class ChildFractureSet(FractureSet):
         return is_isolated, is_one_y, is_both_y
 
     def _generate_isolated_fractures(self, children_points, start_parent, end_parent):
+
+        if children_points.size == 0:
+            return np.empty((2, 0)), np.empty((2, 0))
 
         dx = end_parent - start_parent
         theta = np.arctan2(dx[1], dx[0])
