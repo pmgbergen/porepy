@@ -650,6 +650,18 @@ class TestDensityCounting(unittest.TestCase):
         self.assertTrue(num_occ.size == 2)
         self.assertTrue(np.all(num_occ == np.array([1, 0])))
 
+    def test_measure_computation_1d(self):
+        n = np.random.rand(1)
+        domain = {'xmin': 0, 'xmax': n}
+        f = FractureSet(domain=domain)
+        self.assertTrue(f.domain_measure() == n)
+
+    def test_measure_computation_2d(self):
+        n = np.random.rand(2)
+        domain = {'xmin': 0, 'ymin': 0, 'xmax': n[0], 'ymax': n[1]}
+        f = FractureSet(domain=domain)
+        self.assertTrue(f.domain_measure() == n.prod())
+        self.assertTrue(f.domain_measure(domain) == n.prod())
 
 class TestFractureProlongationPruning(unittest.TestCase):
 
@@ -708,8 +720,8 @@ class DummyDistribution:
     def __init__(self, value):
         self.value = value
 
-    def rvs(self, num, **kwagrs):
-        return self.value * np.ones(num)
+    def rvs(self, size, **kwagrs):
+        return self.value * np.ones(size)
 
 
 def make_dummy_distribution(value):
@@ -720,5 +732,6 @@ def make_dummy_distribution(value):
 #    unittest.main()
 # TestParentChildrenRelations().test_only_isolated_two_parents_one_far_away()
 #TestFractureSetGeneration().test_two_parents_one_far_away_all_both_y_children()
+#TestDensityCounting().test_measure_computation_2d()
 unittest.main()
 # TestDensityCounting().test_1d_counting_two_boxes()

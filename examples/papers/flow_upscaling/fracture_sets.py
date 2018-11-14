@@ -64,7 +64,10 @@ class FractureSet(object):
         self.edges = edges
         self.domain = domain
 
-        self.num_frac = self.edges.shape[1]
+        if edges is not None:
+            self.num_frac = self.edges.shape[1]
+        else:
+            self.num_frac = 0
 
         if pts is None and edges is None:
             logger.info('Generated empty fracture set')
@@ -657,6 +660,29 @@ class FractureSet(object):
         avg = lambda e0, e1: 0.5 * (np.atleast_2d(p)[:, e0] + np.atleast_2d(p)[:, e1])
         pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
         return pts_c
+
+    def domain_measure(self, domain=None):
+        """ Get the measure (length, area) of a given box domain, specified by its
+        extensions stored in a dictionary.
+
+        The dimension of the domain is inferred from the dictionary fields.
+
+        Parameters:
+            domain (dictionary, optional): Should contain keys 'xmin' and 'xmax'
+                specifying the extension in the x-direction. If the domain is 2d,
+                it should also have keys 'ymin' and 'ymax'. If no domain is specified
+                the domain of this object will be used.
+
+        Returns:
+            double: Measure of the domain.
+
+        """
+        if domain is None:
+            domain = self.domain
+        if 'ymin' and 'ymax' in domain.keys():
+            return (domain['xmax'] - domain['xmin']) * (domain['ymax'] - domain['ymin'])
+        else:
+            return domain['xmax'] - domain['xmin']
 
     def plot(self, **kwargs):
         """ Plot the fracture set.
