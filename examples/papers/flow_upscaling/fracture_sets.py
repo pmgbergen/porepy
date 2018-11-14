@@ -227,9 +227,9 @@ class FractureSet(object):
 
     def fit_intensity_map(self, p=None, e=None, domain=None, nx=10, ny=10, **kwargs):
         """ Divide the domain into boxes, count the number of fracture centers
-        contained within each box.
+        contained within each box, and divide by the measure of the domain.
 
-        The resulting intensity map is stored in an attribute intensity
+        The resulting intensity map is stored in an attribute intensity.
 
         Parameters:
             p (np.array, 2 x n, optional): Point coordinates of the fractures. Defaults to
@@ -242,7 +242,8 @@ class FractureSet(object):
                 to 10.
 
         Returns:
-            np.array (nx x ny): Number of centers within each box
+            np.array (nx x ny): Number of centers within each box, divided by the measure
+                of the specified domain.
 
         """
         if p is None:
@@ -272,7 +273,7 @@ class FractureSet(object):
                 )
                 num_occ[i] = hit.sum()
 
-            return num_occ.astype(np.int)
+            return num_occ.astype(np.int) / self.domain_measure(domain)
 
         elif p.shape[0] == 2:
             x0, y0, dx, dy = self._decompose_domain(domain, nx, ny)
@@ -290,7 +291,7 @@ class FractureSet(object):
                     )
                     num_occ[i, j] = hit.sum()
 
-            return num_occ
+            return num_occ / self.domain_measure(domain)
 
         else:
             raise ValueError("Have not yet implemented 3D geometries")
@@ -366,10 +367,13 @@ class FractureSet(object):
         if distribution != "poisson":
             return ValueError("Only Poisson point processes have been implemented")
 
-        nx, ny = self.intensity.shape
-        num_boxes = self.intensity.size
+        # Intensity scaled to this domain
+        intensity = self.intensity * self.domain_measure(domain)
 
-        max_intensity = self.intensity.max()
+        nx, ny = intensity.shape
+        num_boxes = intensity.size
+
+        max_intensity = intensity.max()
 
         x0, y0, dx, dy = self._decompose_domain(domain, nx, ny)
 
@@ -397,7 +401,7 @@ class FractureSet(object):
             for j in range(ny):
                 p_loc = pts[counter]
                 threshold = np.random.rand(p_loc.shape[1])
-                delete = np.where(self.intensity[i, j] / max_intensity < threshold)[0]
+                delete = np.where(intensity[i, j] / max_intensity < threshold)[0]
                 pts[counter] = np.delete(p_loc, delete, axis=1)
                 counter += 1
 
@@ -864,7 +868,7 @@ class ChildFractureSet(FractureSet):
             These parameters are currently not in use. In the future, the number
             of children should scale with the length of the parent fracture.
         """
-        return self.dist_num_children['dist'].rvs(1)[0].astype(np.int)
+        return np.round(self.dist_num_children['dist'].rvs(1)[0] * parent_realiz.length()[pi]).astype(np.int)
 
     def _draw_children_along_parent(self, parent_realiz, pi, num_children):
         """ Define location of children along the lines of a parent fracture.
@@ -1165,9 +1169,9 @@ class ChildFractureSet(FractureSet):
         parent fractures.
         """
 
-        # Define the number of children for
-        num_children = np.hstack(
-            (self.isolated_stats["density"], self.one_y_stats["density"])
+        # Compute the intensity (dimensionless number of children)
+        intensity = np.hstack(
+            (self.isolated_stats["density"] + self.one_y_stats["density"] + self.both_y_stats['density'])
         ).astype(np.int)
 
         # For some reason, it seems scipy does not do parameter-fitting for
@@ -1190,7 +1194,7 @@ class ChildFractureSet(FractureSet):
         result = scipy.optimize.minimize(
             negLogLikelihood,  # function to minimize
             x0=np.ones(1),  # start value
-            args=(num_children,),  # additional arguments for function
+            args=(intensity,),  # additional arguments for function
             method="Powell",  # minimization method, see docs
         )
         ### End of code from stackoverflow
@@ -1255,7 +1259,7 @@ class ChildFractureSet(FractureSet):
                 isolated
             )
             self.isolated_stats = {
-                "density": density,
+                "density": density / self.parent.length(),
                 "center_distance": center_distance,
             }
             num_parents_with_isolated = np.sum(density > 0)
@@ -1274,18 +1278,22 @@ class ChildFractureSet(FractureSet):
         # First, identify the parent-child relation
         if one_y.size > 0:
             density = self._compute_line_density_one_y_node(one_y)
-            self.one_y_stats = {"density": density}
-            num_parents_with_one_y = np.sum(density > 0)
+            self.one_y_stats = {"density": density / self.parent.length()}
         else:
             # The density is zero for all parent fractures
-            num_parents_with_one_y = 0
             self.one_y_stats = {"density": np.zeros(num_parents)}
 
-        # Compute bulk statistical properties of the parent family.
-        #
-        self.fraction_of_parents_with_child = (
-            num_parents_with_isolated + num_parents_with_one_y
-        ) / num_parents
+        if both_y.size > 0:
+            # For the moment, we use the same computation as for one_y nodes
+            # This will count all fractures twice. We try to compencate by
+            # dividing the density by two, in effect saying that the fracture
+            # has probability 0.5 to start from the fracture.
+            # Hopefully that should not introduce bias.
+            density = self._compute_line_density_one_y_node(both_y)
+            self.both_y_stats = {"density": 0.5 * density / self.parent.length()}
+        else:
+            # The density is zero for all parent fractures
+            self.both_y_stats = {"density": np.zeros(num_parents)}
 
         self._fit_num_children_distribution()
 
