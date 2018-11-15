@@ -720,9 +720,10 @@ class ExcludeBoundaries(object):
             ).tocsr()
         elif self.bc_type == "vectorial":
             data = basis.ravel("C")
-            col = np.arange(self.num_subfno * self.nd).reshape((-1, self.num_subfno))
-            col = np.tile(col, (1, self.nd)).ravel("C")
-            row = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
+            row = np.arange(self.num_subfno * self.nd).reshape((-1, self.num_subfno))
+            row = np.tile(row, (1, self.nd)).ravel("C")
+            col = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
+
             return sps.coo_matrix(
                 (data, (row, col)),
                 shape=(self.num_subfno * self.nd, self.num_subfno * self.nd),
