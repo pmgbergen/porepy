@@ -718,6 +718,75 @@ class TestFractureProlongationPruning(unittest.TestCase):
         self.assertTrue(np.allclose(np.sort(ind[e_split[:2]], axis=0),
                                     np.sort(e_known, axis=0)))
 
+class TestDomainRestriction(unittest.TestCase):
+
+    def test_no_change(self):
+        p = np.array([[0, 1, 0.5, 0.5], [0, 0, 0.1, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        domain = {"xmin": -1, "xmax": 6, "ymin": -1, "ymax": 2}
+
+        fracs = FractureSet(p, e, domain)
+
+        new_frac = fracs.constrain_to_domain(domain)
+
+        self.assertTrue(np.allclose(new_frac.pts, fracs.pts))
+        self.assertTrue(np.allclose(new_frac.edges, fracs.edges))
+
+    def test_one_changed(self):
+        p = np.array([[0, 1, 0.5, 0.5], [0, 0, 0.1, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        # The domain is smaller than the extent of the fractures. That will
+        # not be noted until we constrain the set
+        domain = {"xmin": -1, "xmax": 0.7, "ymin": -1, "ymax": 2}
+
+        fracs = FractureSet(p, e, domain)
+
+        new_frac = fracs.constrain_to_domain(domain)
+
+        known_p = np.array([[0, 0.7, 0.5, 0.5], [0, 0, 0.1, 1]])
+        known_e = np.array([[0, 2], [1, 3]])
+
+        self.assertTrue(np.allclose(new_frac.pts, known_p))
+        self.assertTrue(np.allclose(new_frac.edges, known_e))
+
+    def test_one_dissapear(self):
+        # One fracture is completely outside the domain
+        p = np.array([[0, 1, 0.5, 0.5], [0, 0, 0.7, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        # The domain is smaller than the extent of the fractures. That will
+        # not be noted until we constrain the set
+        domain = {"xmin": -1, "xmax": 1, "ymin": -1, "ymax": 0.5}
+
+        fracs = FractureSet(p, e, domain)
+
+        new_frac = fracs.constrain_to_domain(domain)
+
+        known_p = np.array([[0, 1], [0, 0]])
+        known_e = np.array([[0], [1]])
+
+        self.assertTrue(np.allclose(new_frac.pts, known_p))
+        self.assertTrue(np.allclose(new_frac.edges, known_e))
+
+    def test_both_dissapear(self):
+        # One fracture is completely outside the domain
+        p = np.array([[0, 1, 0.5, 0.5], [0, 0, 0.7, 1]])
+        e = np.array([[0, 2], [1, 3]])
+
+        # The domain is smaller than the extent of the fractures. That will
+        # not be noted until we constrain the set
+        domain = {"xmin": -1, "xmax": 1, "ymin": -5, "ymax": -0.5}
+
+        fracs = FractureSet(p, e, domain)
+
+        new_frac = fracs.constrain_to_domain(domain)
+
+        self.assertTrue(new_frac.pts.size == 0)
+        self.assertTrue(new_frac.edges.size == 0)
+
+
 class DummyDistribution:
     def __init__(self, value):
         self.value = value
