@@ -21,7 +21,9 @@ class FractureSet(object):
     """ Class representation of a set of fractures in a 2D domain.
 
     The fractures are represented by their endpoints. Poly-line fractures are
-    currently not supported.
+    currently not supported. There is no requirement or guarantee that the
+    fractures are contained within the specified domain. The fractures can be
+    cut to a given domain by the function constrain_to_domain().
 
     The main intended usage is to fit statistical distributions to the fractures,
     and use this to generate realizations based on this statistics. The statistical
@@ -41,7 +43,8 @@ class FractureSet(object):
             and end points of the fractures.
         domain (dictionary): The domain in which the fracture set is defined.
             Should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which
-            maps to a double giving the range of the domain.
+            maps to a double giving the range of the domain. The fractures need
+            not lay inside the domain.
         num_frac (int): Number of fractures in the domain.
 
     """
@@ -517,6 +520,48 @@ class FractureSet(object):
         p = self.pts.copy()
         e = np.vstack((self.edges.copy(), np.arange(self.num_frac)))
         return pp.cg.remove_edge_crossings(p, e)
+
+
+    def constrain_to_domain(self, domain=None):
+        """ Constrain the fracture network to lay within a specified domain.
+
+        Fractures that cross the boundary of the domain will be cut to lay
+        within the boundary. Fractures that lay completely outside the domain
+        will be dropped from the constrained description.
+
+        TODO: Also return an index map from new to old fractures.
+
+        Parameters:
+            domain (dictionary, None): Domain specification, in the form of a
+                dictionary with fields 'xmin', 'xmax', 'ymin', 'ymax'. If not
+                provided, the domain of this object will be used.
+
+        Returns:
+            FractureSet: Initialized by the constrained fractures, and the
+                specified domain.
+
+        """
+        if domain is None:
+            domain = self.domain
+
+        p_domain = self._domain_to_points(domain)
+
+        p, e = pp.cg.intersect_polygon_lines(p_domain, self.pts, self.edges)
+
+        return FractureSet(p, e, domain)
+
+    def _domain_to_points(self, domain):
+        """ Helper function to convert a domain specification in the form of
+        a dictionary into a point set.
+        """
+        if domain is None:
+            domain = self.domain
+
+        p00 = np.array([domain['xmin'], domain['ymin']]).reshape((-1, 1))
+        p10 = np.array([domain['xmax'], domain['ymin']]).reshape((-1, 1))
+        p11 = np.array([domain['xmax'], domain['ymax']]).reshape((-1, 1))
+        p01 = np.array([domain['xmin'], domain['ymax']]).reshape((-1, 1))
+        return np.hstack((p00, p10, p11, p01))
 
     # --------- Utility functions below here
 
