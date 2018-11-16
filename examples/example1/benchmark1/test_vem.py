@@ -101,7 +101,7 @@ def make_grid_bucket(mesh_size, is_coarse=False):
 
 def main(kf, description, is_coarse=False, if_export=False):
     mesh_size = 0.045
-    gb, domain = make_grid_bucket(mesh_size)
+    gb, domain = make_grid_bucket(mesh_size, is_coarse)
     # Assign parameters
     add_data(gb, domain, kf)
     key = "flow"
@@ -148,14 +148,30 @@ def test_vem_blocking():
 
 # ------------------------------------------------------------------------------#
 
+def test_vem_blocking_coarse():
+    kf = 1e-4
+    if_export = True
+    main(kf, "blocking_coarse", is_coarse=True, if_export=if_export)
+
+# ------------------------------------------------------------------------------#
 
 def test_vem_permeable():
     kf = 1e4
     if_export = True
     main(kf, "permeable", if_export=if_export)
-#    main(kf, "permeable_coarse", is_coarse=True)
+
+# ------------------------------------------------------------------------------#
+
+
+def test_vem_permeable_coarse():
+    kf = 1e4
+    if_export = True
+    main(kf, "permeable_coarse", is_coarse=True, if_export=if_export)
 
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-    test_tpfa_blocking()
+    test_vem_blocking()
+    test_vem_blocking_coarse()
+    test_vem_permeable()
+    test_vem_permeable_coarse()
