@@ -2221,3 +2221,34 @@ def _eliminate_ncasym_neumann(
     dof_elim = subfno_nd.ravel("C")[remove_singular]
     # and eliminate the rows corresponding to these subfaces
     pp.utils.sparse_mat.zero_rows(ncasym, dof_elim)
+
+    ## the following is some code to enforce symmetric G. Comment for now
+    # # Find the equations for the x-values
+    # x_row = np.arange(0, round(ncasym.shape[0]/nd))
+    # # Only pick out the ones that have to many Neumann conditions
+    # move_row = np.in1d(x_row, dof_elim)
+    # Find the column index of entries
+    # x_ind_s = ncasym.indptr[x_row[move_row]]
+    # x_ind_e = ncasym.indptr[x_row[move_row] + 1]
+    # x_pntr = pp.utils.mcolon.mcolon(x_ind_s, x_ind_e)
+    # x_indices = ncasym.indices[x_pntr]
+    # # Find the \partial_x u_y and \partial_x u_z values
+    # xuy = np.mod(x_indices - 3, nd*nd) == 0
+    # xuz = np.mod(x_indices - 6, nd*nd) == 0
+    # # Move these to the \partial_y u_x and \partial_z u_x index
+    # ncasym.indices[x_pntr[xuy]] -= 2
+    # ncasym.indices[x_pntr[xuz]] -= 4
+    #
+    # # Similar for the y-coordinates
+    # y_row = np.arange(round(ncasym.shape[0]/nd), round(2*ncasym.shape[0]/nd))
+    # move_row = np.in1d(y_row, dof_elim)
+    # y_ind_s = ncasym.indptr[y_row[move_row]]
+    # y_ind_e = ncasym.indptr[y_row[move_row] + 1]
+    # y_pntr = pp.utils.mcolon.mcolon(y_ind_s, y_ind_e)
+    # y_indices = ncasym.indices[y_pntr]
+    # yuz = np.mod(y_indices - 7, nd*nd) == 0
+
+    # ncasym.indices[y_pntr[yuz]] -= 2
+
+
+
