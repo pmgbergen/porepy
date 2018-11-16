@@ -400,7 +400,7 @@ class Biot(Solver):
 
         # Right hand side for boundary discretization
         rhs_bound = mpsa.create_bound_rhs(
-            bound_mech_sub, bound_exclusion_mech, subcell_topology, g
+            bound_mech_sub, bound_exclusion_mech, subcell_topology, g, False
         )
         rhs_bound = rhs_bound * hf2f.T
         # Discretization of boundary values
