@@ -324,11 +324,15 @@ def generate_seeds(gb):
         index = np.in1d(faces, tips).nonzero()[0]
         cells = np.unique(cells[index])
 
+        # recover the mapping between the slave and the master grid
         mg = gb.graph.adj[g][g_h]["mortar_grid"]
-        master_to_mortar_int = mg.master_to_mortar_int
-        interf_cells, interf_faces, _ = sps.find(master_to_mortar_int)
-        index = np.in1d(interf_cells, cells).nonzero()[0]
+        m2m = mg.master_to_mortar_int
+        l2m = mg.slave_to_mortar_int
+        # this is the old face_cells mapping
+        face_cells = l2m.T * m2m
 
+        interf_cells, interf_faces, _ = sps.find(face_cells)
+        index = np.in1d(interf_cells, cells).nonzero()[0]
         index = np.in1d(g_h_faces, interf_faces[index]).nonzero()[0]
         seeds = np.concatenate((seeds, g_h_cells[index]))
 
