@@ -15,7 +15,7 @@ class MpsaTest(unittest.TestCase):
         g_list = setup_grids.setup_2d()
 
         for g in g_list:
-            solver = mpsa.Mpsa()
+            solver = mpsa.Mpsa('mechanics')
             data = {"param": Parameters(g)}
             A, b = solver.assemble_matrix_rhs(g, data)
             self.assertTrue(
@@ -27,12 +27,12 @@ class MpsaTest(unittest.TestCase):
         g_list = setup_grids.setup_2d()
 
         for g in g_list:
-            solver = mpsa.Mpsa()
+            solver = mpsa.Mpsa('mechanics')
             data = {"param": Parameters(g)}
             cell_dof = g.dim * g.num_cells
             face_dof = g.dim * g.num_faces
-            data["stress"] = sps.csc_matrix((face_dof, cell_dof))
-            data["bound_stress"] = sps.csc_matrix((face_dof, face_dof))
+            data["mechanics_stress"] = sps.csc_matrix((face_dof, cell_dof))
+            data["mechanics_bound_stress"] = sps.csc_matrix((face_dof, face_dof))
             A, b = solver.assemble_matrix_rhs(g, data, discretize=False)
             self.assertTrue(np.sum(A != 0) == 0)
             self.assertTrue(np.all(b == 0))
