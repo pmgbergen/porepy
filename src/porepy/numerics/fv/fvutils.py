@@ -530,7 +530,7 @@ def expand_indices_nd(ind, nd, direction=1):
     return new_ind
 
 
-def map_hf_2_f(fno, subfno, nd):
+def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     """
     Create mapping from half-faces to faces for vector problems.
 
@@ -539,12 +539,15 @@ def map_hf_2_f(fno, subfno, nd):
     fno face numbering in sub-cell topology based on unique subfno
     subfno sub-face numbering
     nd dimension
-
+    g (opitonal) If a grid is supplied the method defines all mappings
     Returns
     -------
-
     """
-
+    if g is not None:
+        s_t = SubcellTopology(g)
+        fno = s_t.fno_unique
+        subfno = s_t.subfno_unique
+        nd = g.dim
     hfi = expand_indices_nd(subfno, nd)
     hf = expand_indices_nd(fno, nd)
     hf2f = sps.coo_matrix(
