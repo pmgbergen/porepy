@@ -666,18 +666,14 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
         # Expand indices as Fortran and C. The sub_face values are given by a C
         # indexing while the faces and cells are given by a F indexing
         proj_F = sps.kron(proj, sps.eye(g.dim)).tocsr()
-        proj_C = sps.kron(sps.eye(g.dim), proj).tocsr()
-
 
         bp = data[self._key() + "bound_displacement_cell"]
         if proj_F.shape[1] == g.dim * g.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(g=g)
             num_nodes = np.diff(g.face_nodes.indptr)
-            weigth = sps.kron(sps.eye(g.dim), sps.diags(1 / num_nodes))
-            import pdb; pdb.set_trace()
-
-            cc[2, self_ind] += proj_F * weigth * hf2f * bp
-            cc[2, 2] += proj_C * hf2f * data[self._key() + "bound_displacement_face"] * proj_F.T
+            weight = sps.kron(sps.eye(g.dim), sps.diags(1 / num_nodes))
+            cc[2, self_ind] += proj_F * weight* hf2f * bp
+            cc[2, 2] += proj_F * weight * hf2f * data[self._key() + "bound_displacement_face"] * proj_F.T
         else:
             raise NotImplementedError()
  
