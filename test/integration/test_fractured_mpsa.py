@@ -27,7 +27,7 @@ class BasicsTest(unittest.TestCase):
 
         data["param"].set_bc("mechanics", bound)
 
-        solver = pp.FracturedMpsa()
+        solver = pp.FracturedMpsa('mechanics')
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -58,7 +58,7 @@ class BasicsTest(unittest.TestCase):
 
         data["param"].set_slip_distance(frac_slip.ravel("F"))
 
-        solver = pp.FracturedMpsa()
+        solver = pp.FracturedMpsa('mechanics')
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -125,7 +125,7 @@ class BasicsTest(unittest.TestCase):
         data["param"].set_bc("mechanics", bound)
         data["param"].set_bc_val("mechanics", bc_val.ravel("F"))
         data["param"].set_slip_distance(frac_slip.ravel("F"))
-        solver = pp.FracturedMpsa()
+        solver = pp.FracturedMpsa('mechanics')
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -189,7 +189,7 @@ class BasicsTest(unittest.TestCase):
         # Even though we now prescribe the traction, the discretisation uses
         # the same parameter function "get_slip_distance"
         data["param"].set_slip_distance(frac_traction.ravel("F"))
-        solver = pp.FracturedMpsa(given_traction=True)
+        solver = pp.FracturedMpsa('mechanics', given_traction=True)
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -255,7 +255,7 @@ class BasicsTest(unittest.TestCase):
         data["param"].set_bc_val("mechanics", bc_val.ravel("F"))
         data["param"].set_slip_distance(frac_slip.ravel("F"))
 
-        solver = pp.FracturedMpsa()
+        solver = pp.FracturedMpsa('mechanics')
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -306,7 +306,7 @@ class BasicsTest(unittest.TestCase):
         data["param"].set_bc("mechanics", bound)
         data["param"].set_bc_val("mechanics", bc_val)
         data["param"].set_slip_distance(frac_slip.ravel("F"))
-        solver = pp.FracturedMpsa()
+        solver = pp.FracturedMpsa('mechanics')
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 

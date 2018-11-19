@@ -122,7 +122,7 @@ class TestMpsaRotation(unittest.TestCase):
         bc.is_neu[bc.is_dir + bc.is_rob] = False
         k = pp.FourthOrderTensor(3, np.random.rand(g.num_cells), np.random.rand(g.num_cells))
         # Solve without rotations
-        stress, bound_stress = pp.numerics.fv.mpsa.mpsa(g, k, bc, inverter='python')
+        stress, bound_stress, _, _ = pp.numerics.fv.mpsa.mpsa(g, k, bc, inverter='python')
         div = pp.fvutils.vector_divergence(g)
 
         u_bound = np.random.rand(g.dim, g.num_faces)
@@ -139,7 +139,7 @@ class TestMpsaRotation(unittest.TestCase):
         bc.is_neu[0, south] = True
         bc.is_dir[:, east] = True
         bc.is_neu[bc.is_dir + bc.is_rob] = False
-        stress_b, bound_stress_b = pp.numerics.fv.mpsa.mpsa(g, k, bc, inverter='python')
+        stress_b, bound_stress_b,_, _ = pp.numerics.fv.mpsa.mpsa(g, k, bc, inverter='python')
         u_bound_b = np.sum(basis * u_bound, axis=1)
         u_b = np.linalg.solve((div * stress_b).A, -div * bound_stress_b * u_bound_b.ravel('F'))
         # Assert that solutions are the same
@@ -149,7 +149,7 @@ class TestMpsaRotation(unittest.TestCase):
         g.compute_geometry()
         k = pp.FourthOrderTensor(3, np.random.rand(g.num_cells), np.random.rand(g.num_cells))
         # Solve without rotations
-        stress, bound_stress = pp.numerics.fv.mpsa.mpsa(g, k, bc, inverter='python')
+        stress, bound_stress, _, _ = pp.numerics.fv.mpsa.mpsa(g, k, bc, inverter='python')
         div = pp.fvutils.vector_divergence(g)
 
         u_bound = np.random.rand(g.dim, g.num_faces)
@@ -157,7 +157,7 @@ class TestMpsaRotation(unittest.TestCase):
         
         # Solve with rotations
         bc.basis = basis
-        stress_b, bound_stress_b = pp.numerics.fv.mpsa.mpsa(g, k, bc, inverter='python')
+        stress_b, bound_stress_b, _, _ = pp.numerics.fv.mpsa.mpsa(g, k, bc, inverter='python')
 
 
         u_bound_b = np.sum(basis * u_bound, axis=1)

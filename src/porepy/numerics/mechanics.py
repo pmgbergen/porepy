@@ -170,7 +170,7 @@ class StaticModel:
         Returns:
             FracturedMpsa (Solver object)
         """
-        return mpsa.FracturedMpsa(physics=self.physics)
+        return mpsa.FracturedMpsa(keyword=self.physics)
 
     def grid(self):
         """

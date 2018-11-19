@@ -617,13 +617,8 @@ def zero_out_sparse_rows(A, rows, diag=None):
 
     """
 
-    # If matrix is not csr, it will be converted to csr, then the rows will be
-    # zeroed, and the matrix converted back.
-    flag = False
     if not A.getformat() == "csr":
-        mat_format = A.getformat()
-        A = A.tocsr()
-        flag = True
+        raise ValueError('Can only zero out sparse rows for csr matrix')
 
     ip = A.indptr
     row_indices = mcolon.mcolon(ip[rows], ip[rows + 1])
@@ -633,10 +628,6 @@ def zero_out_sparse_rows(A, rows, diag=None):
         diag_vals = np.zeros(A.shape[1])
         diag_vals[rows] = diag
         A += sps.dia_matrix((diag_vals, 0), shape=A.shape)
-
-    if flag:
-        # Convert matrix back
-        A = A.astype(mat_format)
 
     return A
 
