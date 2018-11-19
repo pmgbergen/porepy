@@ -1370,8 +1370,11 @@ def reconstruct_displacement(g, subcell_topology, eta=None):
     dist_grad, cell_centers = __rearange_columns_displacement_eqs(
         D_g, D_c, num_sub_cells, g.dim
     )
-
-    return dist_grad, cell_centers
+    # The row ordering is now first variable x of all subfaces then
+    # variable y of all subfaces, etc. Change the ordering to first all variables
+    # of first cell, then all variables of second cell, etc.
+    P = row_major_to_col_major(cell_centers.shape, g.dim, 0)
+    return P * dist_grad, P * cell_centers
 
 
 # -----------------------------------------------------------------------------
@@ -2096,6 +2099,33 @@ def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell, num_sub_cells,
     d_cont_cell_map = np.argsort(np.tile(np.arange(num_cells), nd), kind="mergesort")
     d_cont_cell = d_cont_cell[:, d_cont_cell_map]
     return d_cont_grad, d_cont_cell
+
+def row_major_to_col_major(shape, nd, axis):
+    """ Transform columns of displacement balance from increasing cell
+    ordering (first x-variables of all cells, then y) to increasing
+    variables (first all variables of the first cells, then...)
+
+    Parameters
+    ----------
+    d_cont_grad
+    d_cont_cell
+    num_sub_cells
+    nd
+    col            If true rearange columns. Else: rearange rows
+    Returns
+    -------
+
+    """
+    P = sps.diags(np.ones(shape[axis])).tocsc()
+    num_var = shape[axis] / nd
+    mapping = np.argsort(np.tile(np.arange(num_var), nd), kind="mergesort")
+    if axis==1:
+        P = P[:, mapping]
+    elif axis==0:
+        P = P[mapping, :]
+    else:
+        raise ValueError('axis must be 0 or 1')
+    return P
 
 
 def _neu_face_sgn(g, neu_ind):
