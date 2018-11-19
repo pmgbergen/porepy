@@ -51,6 +51,7 @@ from porepy.numerics.interface_laws.elliptic_interface_laws import (
     FluxPressureContinuity,
 )
 from porepy.numerics.mixed_dim.assembler import Assembler
+from porepy.numerics.mixed_dim.pressure_trace import PressureTrace
 
 # Transport related
 from porepy.numerics.fv.upwind import Upwind
