@@ -404,4 +404,4 @@ def test_mvem_2_matrix():
 
 
 if __name__ == "__main__":
-    TestDFN().test_tpfa_2()
+    unittest.main()
