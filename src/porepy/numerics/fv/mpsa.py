@@ -87,8 +87,8 @@ class FracturedMpsa(Mpsa):
     fracture face which describe the fracture deformation.
     """
 
-    def __init__(self, given_traction=False, **kwargs):
-        Mpsa.__init__(self, **kwargs)
+    def __init__(self,keyword, given_traction=False, **kwargs):
+        Mpsa.__init__(self,keyword, **kwargs)
         if not hasattr(self, "physics"):
             raise AttributeError("Mpsa must assign physics")
         self.given_traction_flag = given_traction
@@ -137,8 +137,8 @@ class FracturedMpsa(Mpsa):
         if discretize:
             self.discretize_fractures(g, data, **kwargs)
 
-        stress = data["stress"]
-        bound_stress = data["bound_stress"]
+        stress = data[self._key() + "stress"]
+        bound_stress = data[self._key() +"bound_stress"]
         b_e = data["b_e"]
         A_e = data["A_e"]
 
@@ -189,8 +189,8 @@ class FracturedMpsa(Mpsa):
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        stress = data["stress"]
-        bound_stress = data["bound_stress"]
+        stress = data[self._key() +"stress"]
+        bound_stress = data[self._key() +"bound_stress"]
         b_e = data["b_e"]
 
         if self.given_traction_flag:
@@ -243,7 +243,7 @@ class FracturedMpsa(Mpsa):
         frac_ind = pp.utils.mcolon.mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
         bc_val[frac_ind] = frac_disp
 
-        T = data["stress"] * cell_disp + data["bound_stress"] * bc_val
+        T = data[self._key() +"stress"] * cell_disp + data[self._key() + "bound_stress"] * bc_val
         return T
 
     def extract_u(self, g, sol):
@@ -328,7 +328,7 @@ class FracturedMpsa(Mpsa):
             raise AssertionError("Found faces that are both dirichlet and neuman")
         # Discretize with normal mpsa
         self.discretize(g, data, **kwargs)
-        stress, bound_stress = data["stress"], data["bound_stress"]
+        stress, bound_stress = data[self._key() +"stress"], data[self._key() +"bound_stress"]
         # Create A and rhs
         div = pp.fvutils.vector_divergence(g)
         a = div * stress
@@ -662,13 +662,13 @@ def mpsa(
 def mpsa_update_partial(
     stress,
     bound_stress,
+    hf_cell,
+    hf_bound,
     g,
     constit,
     bound,
-    hf_cell=None,
-    hf_bound=None,
-    hf_eta=None,
     eta=None,
+    hf_eta=None,
     inverter="numba",
     cells=None,
     faces=None,
@@ -736,8 +736,8 @@ def mpsa_update_partial(
     stress += stress_loc
     bound_stress += bound_stress_loc
 
-    # If we are given a matrix for the displacment reconstruction at the subfaces
-    # we also update this. This is equivalent to what is done for the stress and
+    # We now update the values for the reconstruction of displacement.This is
+    # equivalent to what is done for the stress and
     # bound_stress, but as we are working with subfaces some more care has to be
     # taken.
     # First, find the active subfaces associated with the active_faces
@@ -745,13 +745,15 @@ def mpsa_update_partial(
     active_subfaces = np.where(np.in1d(subcell_topology.fno_unique, active_faces))[
         0
     ]
-    # We now expand the indices for each dimension
-    num_subfno = subcell_topology.num_subfno
-    sub_eliminate_ind = np.tile(active_subfaces, (g.dim, 1))
-    # The displacement is ordered as first x for all subfaces then y and so on.
-    # Add an increment to the indices belonging to the y and z dimension.
-    sub_eliminate_ind += num_subfno * np.atleast_2d(np.arange(0, g.dim)).T
-    sub_eliminate_ind = sub_eliminate_ind.ravel("C")
+    # We now expand the indices for each dimension. 
+    # The indices are ordered as first all variables of subface 1 then all variables
+    # of subface 2, etc. Duplicate indices for each dimension and multipy by g.dim to
+    # obtain correct x-index.
+    sub_eliminate_ind = g.dim * np.tile(active_subfaces, (g.dim, 1))
+    # Next add an increment to the y (and possible z) dimension to obtain correct index
+    # For them
+    sub_eliminate_ind += np.atleast_2d(np.arange(0, g.dim)).T
+    sub_eliminate_ind = sub_eliminate_ind.ravel("F")
     # Zero out the faces we have updated
     pp.fvutils.zero_out_sparse_rows(hf_cell, sub_eliminate_ind)
     pp.fvutils.zero_out_sparse_rows(hf_bound, sub_eliminate_ind)
@@ -925,14 +927,14 @@ def mpsa_partial(
     # We map from outside faces to outside subfaces
     sub_outside = np.where(np.in1d(subcell_topology.fno_unique, outside))[0]
     # Then expand the indices.
-    num_subfno = subcell_topology.num_subfno
-    # Duplicate indices for each dimension.
-    sub_eliminate_ind = np.tile(sub_outside, (g.dim, 1))
-    # The displacement reconstruction is ordered as all subfaces for x, then y and
-    # so on. Therefore add an increment to the indices of the y and z dimension equal
-    # the number of subfaces.
-    sub_eliminate_ind += num_subfno * np.atleast_2d(np.arange(0, g.dim)).T
-    sub_eliminate_ind = sub_eliminate_ind.ravel("C")
+    # The indices are ordered as first all variables of subface 1 then all variables
+    # of subface 2, etc. Duplicate indices for each dimension and multipy by g.dim to
+    # obtain correct x-index.
+    sub_eliminate_ind = g.dim * np.tile(sub_outside, (g.dim, 1))
+    # Next add an increment to the y (and possible z) dimension to obtain correct index
+    # For them
+    sub_eliminate_ind += np.atleast_2d(np.arange(0, g.dim)).T
+    sub_eliminate_ind = sub_eliminate_ind.ravel("F")
     # now kill the contribution of these faces
     pp.fvutils.zero_out_sparse_rows(hf_cell_glob, sub_eliminate_ind)
     pp.fvutils.zero_out_sparse_rows(hf_bound_glob, sub_eliminate_ind)
@@ -2029,7 +2031,7 @@ def row_major_to_col_major(shape, nd, axis):
     -------
 
     """
-    P = sps.diags(np.ones(shape[axis])).tocsc()
+    P = sps.diags(np.ones(shape[axis])).tocsr()
     num_var = shape[axis] / nd
     mapping = np.argsort(np.tile(np.arange(num_var), nd), kind="mergesort")
     if axis==1:
