@@ -297,7 +297,7 @@ class MortarGrid(object):
 # ------------------------------------------------------------------------------#
 
 
-class BoundaryMortar(object):
+class BoundaryMortar(MortarGrid):
     """
     Parent class for a mortar grid between two grids of the same dimension.  It
     contains a mortar grid and the weighted mapping from the LEFT_SIDE grid (as
@@ -471,3 +471,4 @@ class BoundaryMortar(object):
         We assume that they are not aligned with x (1d) or x, y (2d).
         """
         [g.compute_geometry() for g in self.side_grids.values()]
+    # ------------------------------------------------------------------------------#
