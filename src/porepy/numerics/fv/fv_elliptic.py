@@ -527,7 +527,7 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
 
         div = pp.fvutils.vector_divergence(g)
 
-        return -div * bound_stress * bc_val
+        return -div * bound_stress * bc_val + param.get_source(self)
 
     def assemble_int_bound_stress(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
