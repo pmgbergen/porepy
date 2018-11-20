@@ -2005,6 +2005,18 @@ def dist_segment_segment_set(start, end, start_set, end_set):
     segments.
 
     Parameters:
+        start (np.array, nd x 1): Start point of the main segment
+        end (np.array, nd x 1): End point of the main segment
+        start_set (np.array, nd x n_segments): Start points for the segment set.
+        end_set (np.array, nd x n_segments): End points for the segment set.
+
+    Returns:
+        np.array (n_segments): The distance from the main segment to each of the
+            segments in the set.
+        np.array (nd x n_segments): For each segment in the segment set, the
+            point closest on the main segment
+        np.array (nd x n_segments): For each segment in the segment set, the
+            point closest on the secondary segment
 
     """
     start = np.squeeze(start)
@@ -2017,6 +2029,8 @@ def dist_segment_segment_set(start, end, start_set, end_set):
     cp_set = np.zeros((nd, ns))
     cp = np.zeros((nd, ns))
 
+    # Loop over all segments, compute the distance and closest point compared
+    # to the main one.
     for i in range(ns):
         dl, cpi, cpj = dist_two_segments(start, end, start_set[:, i], end_set[:, i])
         d[i] = dl
