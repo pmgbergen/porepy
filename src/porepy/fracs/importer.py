@@ -437,7 +437,7 @@ def dfn_3d_from_fab(
     if file_inters is None:
         return meshing.dfn(network, conforming, **kwargs)
     else:
-        inters = intersection_dfn_3d(file_inters, fractures)
+        inters = intersection_dfn_3d(file_inters, network._fractures)
         return meshing.dfn(network, conforming, inters, **kwargs)
 
 
