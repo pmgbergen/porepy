@@ -570,16 +570,20 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
             proj = mg.slave_to_mortar_avg()
         else:
             proj = mg.master_to_mortar_avg()
-        # Expand indices as Fortran and C. The sub_face values are given by a C
-        # indexing while the faces and cells are given by a F indexing
-        proj_F = sps.kron(proj, sps.eye(g.dim)).tocsr()
+        # Expand indices as Fortran.
+        proj_int = sps.kron(proj, sps.eye(g.dim)).tocsr()
 
         bound_stress = data[self._key() + "bound_stress"]
+
         if bound_stress.shape[0] != g.dim * g.num_faces:
+            # If bound stress is gven as sub-faces we have to map it from sub-faces
+            # to faces
             hf2f = pp.fvutils.map_hf_2_f(g=g)
             bound_stress = hf2f * bound_stress
-
-        cc[self_ind, 2] += div * bound_stress * proj_F.T
+        if bound_stress.shape[1] != proj_int.shape[1]:
+            raise ValueError('''Inconsistent shapes. Did you define a
+            sub-face boundary condition but only a face-wise mortar?''')
+        cc[self_ind, 2] += div * bound_stress * proj_int.T
 
     def assemble_int_bound_source(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
@@ -660,25 +664,29 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
         # TODO: this should become first or second or something
         if grid_swap:
             proj = mg.slave_to_mortar_avg()
+            proj_int = mg.slave_to_mortar_int
         else:
             proj = mg.master_to_mortar_avg()
-#        proj_hf_m = sps.kron(sps.eye(g.dim), proj).tocsr()
-        # Expand indices as Fortran and C. The sub_face values are given by a C
-        # indexing while the faces and cells are given by a F indexing
-        proj_F = sps.kron(proj, sps.eye(g.dim)).tocsr()
-
+            proj_int = mg.master_to_mortar_int
+        # Expand indices as Fortran indexes
+        proj_avg = sps.kron(proj, sps.eye(g.dim)).tocsr()
+        proj_int = sps.kron(proj_int, sps.eye(g.dim)).tocsr()
         bp = data[self._key() + "bound_displacement_cell"]
-        if proj_F.shape[1] == g.dim * g.num_faces:
+        if proj_avg.shape[1] == g.dim * g.num_faces:
+            # In this case we the projection is from faces to cells
+            # We therefore need to map the boundary displacements which is given as
+            # half-faces to faces.
             hf2f = pp.fvutils.map_hf_2_f(g=g)
             num_nodes = np.diff(g.face_nodes.indptr)
             weight = sps.kron(sps.eye(g.dim), sps.diags(1 / num_nodes))
-            cc[2, self_ind] += proj_F * weight* hf2f * bp
-            cc[2, 2] += proj_F * weight * hf2f * data[self._key() + "bound_displacement_face"] * proj_F.T
+            # hf2f adds all subface values to one face values. For the displacement we want
+            # to take the average, therefore we divide each face by the number of subfaces.
+            cc[2, self_ind] += proj_avg * weight * hf2f * bp
+            cc[2, 2] += proj_avg * weight * hf2f * data[self._key() + "bound_displacement_face"] *proj_int.T
         else:
-            raise NotImplementedError()
+            cc[2, self_ind] += proj_avg * bp
+            cc[2, 2] += proj_avg * data[self._key() + "bound_displacement_face"] * proj_int.T
  
- 
-
     def assemble_int_bound_displacement_cell(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
     ):
@@ -734,4 +742,3 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
         # Operation is void for finite volume methods
         pass
 
-    

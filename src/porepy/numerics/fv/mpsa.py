@@ -1147,6 +1147,7 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     _eliminate_ncasym_neumann(
         ncasym, subcell_topology, bound_exclusion, cell_node_blocks, nd
     )
+
     # For the Robin boundary conditions we need to pair the forces with the
     # displacement.
     # The contribution of the displacement at the Robin boundary is
@@ -2166,7 +2167,7 @@ def _eliminate_ncasym_neumann(
     dof_elim = subfno_nd.ravel("C")[remove_singular]
     # and eliminate the rows corresponding to these subfaces
     pp.utils.sparse_mat.zero_rows(ncasym, dof_elim)
-
+    print('number of ncasym eliminated: ', np.sum(dof_elim))
     ## the following is some code to enforce symmetric G. Comment for now
     # # Find the equations for the x-values
     # x_row = np.arange(0, round(ncasym.shape[0]/nd))

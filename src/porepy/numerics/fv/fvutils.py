@@ -547,7 +547,8 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
         s_t = SubcellTopology(g)
         fno = s_t.fno_unique
         subfno = s_t.subfno_unique
-        nd = g.dim
+        if nd is None:
+            nd = g.dim
     hfi = expand_indices_nd(subfno, nd)
     hf = expand_indices_nd(fno, nd)
     hf2f = sps.coo_matrix(

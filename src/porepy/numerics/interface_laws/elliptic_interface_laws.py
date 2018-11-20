@@ -444,7 +444,6 @@ class ContactCondition(object):
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc_master = cc.reshape((3, 3))
         cc_slave = cc_master.copy()
-
         # The rhs is just zeros
         # EK: For some reason, the following lines were necessary to apease python
         rhs = np.empty(3, dtype=np.object)
