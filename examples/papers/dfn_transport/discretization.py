@@ -39,7 +39,6 @@ def flow(gb, physics="flow", key="pressure_flux"):
 
 def advdiff(gb, physics="transport", key="scalar"):
 
-    # Identifier of the advection term
     adv = "advection"
     diff = "diffusion"
 
@@ -80,3 +79,29 @@ def advdiff(gb, physics="transport", key="scalar"):
             }
 
     return key
+
+def mass(gb, physics="transport", key="scalar"):
+
+    mass = "mass"
+
+    mass_discr = pp.MassMatrix(physics)
+
+    for g, d in gb:
+        d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+        if g.dim == gb.dim_max():
+            d[pp.keywords.DISCRETIZATION] = {key: {mass: mass_discr}}
+
+    gb.remove_edge_props(pp.keywords.COUPLING_DISCRETIZATION)
+
+    adv = "advection"
+    diff = "diffusion"
+
+    mortar_adv = "lambda_" + adv
+    mortar_diff = "lambda_" + diff
+    for e, d in gb.edges():
+        g_slave, g_master = gb.nodes_of_edge(e)
+        d[pp.keywords.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1},
+                                            mortar_diff: {"cells": 1}}
+
+    return key
+
