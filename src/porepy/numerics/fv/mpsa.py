@@ -1131,11 +1131,6 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     ) * (ncsym_all + ncasym)
 
     del ind_f
-    # The final expression of Hook's law will involve deformation gradients
-    # on one side of the faces only; eliminate the other one.
-    # Note that this must be done before we can pair forces from the two
-    # sides of the faces.
-    hook = __unique_hooks_law(ncsym_all, ncasym, subcell_topology, nd)
 
     # To avoid singular matrices we are not abe to add the asymetric part of the stress
     # tensor to the Neumann and Robin boundaries for nodes that only has more
@@ -1147,6 +1142,12 @@ def mpsa_elasticity(g, constit, subcell_topology, bound_exclusion, eta, inverter
     _eliminate_ncasym_neumann(
         ncasym, subcell_topology, bound_exclusion, cell_node_blocks, nd
     )
+
+    # The final expression of Hook's law will involve deformation gradients
+    # on one side of the faces only; eliminate the other one.
+    # Note that this must be done before we can pair forces from the two
+    # sides of the faces.
+    hook = __unique_hooks_law(ncsym_all, ncasym, subcell_topology, nd)
 
     # For the Robin boundary conditions we need to pair the forces with the
     # displacement.
