@@ -1,124 +1,136 @@
 import logging, time
 import scipy.sparse as sps
 import numpy as np
-
 import porepy as pp
-from porepy.numerics.darcy_and_transport import static_flow_IE_solver as TransportSolver
+
+import data
 
 # ------------------------------------------------------------------------------#
 
 logger = logging.getLogger(__name__)
 
-def export(gb, folder):
-
-    props = ["cell_volumes", "cell_centers"]
-    gb.add_node_props(props)
-    for g, d in gb:
-        d["cell_volumes"] = g.cell_volumes
-        d["cell_centers"] = g.cell_centers
-
-    # extra properties
-    if all(gb.has_nodes_prop(gb.get_grids(), "pressure")):
-        props.append("pressure")
-
-    if all(gb.has_nodes_prop(gb.get_grids(), "P0u")):
-        props.append("P0u")
-
-    save = pp.Exporter(gb, "sol", folder=folder)
-    save.write_vtk(props)
-
 # ------------------------------------------------------------------------------#
 
+def flow(gb, param, physics="flow", keys=("pressure_flux", "pressure", "discharge")):
 
-def pressure(gb, folder):
+    param["physics"] = physics
+    data.flow(gb, param, param["tol"])
 
-    # Choose and define the solvers and coupler
-    logger.info('VEM discretization')
-    tic = time.time()
-    solver_flow = pp.DualVEMMixedDim("flow")
-    A_flow, b_flow = solver_flow.matrix_rhs(gb)
+    flux = "flux"
+    source = "source"
 
-    logger.info('Done. Elapsed time: ' + str(time.time() - tic))
-    logger.info('Linear solver')
-    tic = time.time()
-    up = sps.linalg.spsolve(A_flow, b_flow)
-    logger.info('Done. Elapsed time ' + str(time.time() - tic))
+    flux_discr = pp.MVEM(physics)
+    source_discr = pp.DualSource(physics)
 
-    solver_flow.split(gb, "up", up)
-    solver_flow.extract_p(gb, "up", "pressure")
-    solver_flow.extract_u(gb, "up", "discharge")
-    solver_flow.project_u(gb, "discharge", "P0u")
+    key = keys[0]
+    flux_coupling = pp.RobinCoupling(key, flux_discr)
 
-    export(gb, folder)
-
-# ------------------------------------------------------------------------------#
-
-
-def transport(gb, data, folder, adv_data_assigner, callback=None, save_every=1):
-
-    physics = "transport"
-    field_name = "tracer"
+    # define the dof and discretization for the grids
     for g, d in gb:
-        d[physics + "_data"] = adv_data_assigner(gb, field_name, g, d, data)
+        d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1, "faces": 1}}
+        d[pp.keywords.DISCRETIZATION] = {key: {flux: flux_discr,
+                                               source: source_discr}}
 
-    # Assign coupling diffusivity
-    gb.add_edge_props("kn")
+    # define the interface terms to couple the grids
+    flux_mortar = "lambda_" + flux
     for e, d in gb.edges():
-        g_l = gb.nodes_of_edge(e)[0]
-        mg = d["mortar_grid"]
-        check_P = mg.low_to_mortar_avg()
+        g_slave, g_master = gb.nodes_of_edge(e)
+        d[pp.keywords.PRIMARY_VARIABLES] = {flux_mortar: {"cells": 1}}
+        d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            flux: {
+                g_slave:  (key, flux),
+                g_master: (key, flux),
+                e: (flux_mortar, flux_coupling)
+            }
+        }
 
-        gamma = check_P * gb.node_props(g_l, "param").get_aperture()
-        k = check_P * gb.node_props(g_l, "param").get_tensor(physics).perm[0, 0, :]
-        d["kn"] = k * np.ones(mg.num_cells) / gamma
+    # solution of the darcy problem
+    assembler = pp.Assembler()
 
-    advective = AdvectiveProblem(
-        gb,
-        physics,
-        time_step=data["dt"],
-        end_time=data["t_max"],
-        folder_name=folder,
-        file_name=field_name,
-        callback=callback,
-    )
-    advective.solve(field_name, save_every=save_every)
-    return advective
+    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+    up = sps.linalg.spsolve(A, b)
 
+    assembler.distribute_variable(gb, up, block_dof, full_dof)
+    for g, d in gb:
+        flow_discr = d["discretization"][key][flux]
+        d[keys[1]] = flow_discr.extract_pressure(g, d[key])
+        d[keys[2]] = flow_discr.extract_flux(g, d[key])
 
-class AdvectiveProblem(pp.ParabolicModel):
-#    def space_disc(self):
-#        return self.source_disc(), self.advective_disc()
+    return keys
 
-    def solver(self):
-        "Initiate solver"
-        return Transport(self)
+# ------------------------------------------------------------------------------#
 
+def advdiff(gb, param, physics="transport", key="scalar"):
 
-class Transport(TransportSolver):
+    param["physics"] = physics
+    data.advdiff(gb, param, param["tol"])
 
-    def __init__(self, problem):
-        self.gb = problem.grid()
-        self.outflow = np.empty(0)
-        super().__init__(problem)
+    adv = "advection"
+    diff = "diffusion"
 
-    def step(self, IE_solver):
-        "Take one time step"
-        self.p = IE_solver(self.lhs_time * self.p0 + self.static_rhs)
-        self._compute_flow_rate()
-        return self.p
+    adv_discr = pp.Upwind(physics)
+    diff_discr = pp.Tpfa(physics)
 
-    def _compute_flow_rate(self):
-        # this function is only for the first benchmark case
-        for g, d in self.gb:
-            if g.dim < 2:
-                continue
-            faces, cells, sign = sps.find(g.cell_faces)
-            index = np.argsort(cells)
-            faces, sign = faces[index], sign[index]
+    adv_coupling = pp.UpwindCoupling(key)
+    diff_coupling = pp.RobinCoupling(key, diff_discr)
 
-            discharge = d["discharge"].copy()
-            discharge[faces] *= sign
-            discharge[g.get_internal_faces()] = 0
-            discharge[discharge < 0] = 0
-            val = np.dot(discharge, np.abs(g.cell_faces) * self.p[:g.num_cells])
-            self.outflow = np.r_[self.outflow, val]
+    for g, d in gb:
+        d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+        d[pp.keywords.DISCRETIZATION] = {key: {adv: adv_discr,
+                                               diff: diff_discr}}
+
+    mortar_adv = "lambda_" + adv
+    mortar_diff = "lambda_" + diff
+    for e, d in gb.edges():
+        g_slave, g_master = gb.nodes_of_edge(e)
+        d[pp.keywords.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1},
+                                            mortar_diff: {"cells": 1}}
+        d[pp.keywords.COUPLING_DISCRETIZATION] = {
+                adv: {
+                    g_slave: (key, adv),
+                    g_master: (key, adv),
+                    e: (mortar_adv, adv_coupling)
+                },
+                diff: {
+                    g_slave: (key, diff),
+                    g_master: (key, diff),
+                    e: (mortar_diff, diff_coupling)
+                }
+            }
+
+    # setup the advection-diffusion problem
+    assembler = pp.Assembler()
+    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+
+    # mass term
+    mass = "mass"
+    mass_discr = pp.MassMatrix(physics)
+
+    for g, d in gb:
+        d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+        d[pp.keywords.DISCRETIZATION] = {key: {mass: mass_discr}}
+
+    gb.remove_edge_props(pp.keywords.COUPLING_DISCRETIZATION)
+
+    for e, d in gb.edges():
+        g_slave, g_master = gb.nodes_of_edge(e)
+        d[pp.keywords.PRIMARY_VARIABLES] = {mortar_adv: {"cells": 1},
+                                            mortar_diff: {"cells": 1}}
+
+    M, _, _, _ = assembler.assemble_matrix_rhs(gb)
+
+    # Perform an LU factorization to speedup the solver
+    IE_solver = sps.linalg.factorized((M + A).tocsc())
+
+    # time loop
+    save = pp.Exporter(gb, "solution", folder=param["folder"])
+
+    x = np.ones(A.shape[0]) * param["initial_advdiff"]
+    for i in np.arange(param["n_steps"]):
+        x = IE_solver(b + M.dot(x))
+
+        assembler.distribute_variable(gb, x, block_dof, full_dof)
+        save.write_vtk([param["keys_flow"][1], key], time_step=i)
+
+    save.write_pvd(np.arange(param["n_steps"])*param["deltaT"])
+
