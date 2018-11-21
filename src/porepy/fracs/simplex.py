@@ -277,7 +277,7 @@ def _run_gmsh(file_name, network, **kwargs):
     return pts, cells, cell_info, phys_names
 
 
-def triangle_grid(fracs, domain, subdomains, do_snap_to_grid=False, **kwargs):
+def triangle_grid(fracs, domain, subdomains, do_snap_to_grid=False, use_stable=False, **kwargs):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -367,9 +367,19 @@ def triangle_grid(fracs, domain, subdomains, do_snap_to_grid=False, **kwargs):
     # intersect, except possible at the end points
     logger.info("Remove edge crossings")
     tm = time.time()
-    pts_split, lines_split = cg.remove_edge_crossings(
-        pts_all, lines, tol=tol, snap=do_snap_to_grid
-    )
+
+    # The functionality for identification of intersections between fractures
+    # is currently being rewritten. For a while, both versions are available.
+    # The new, faster one, is default, while the old one can be invoked by
+    # passing the keyword argument use_stable=True.
+    if use_stable:
+        pts_split, lines_split = cg.remove_edge_crossings(
+            pts_all, lines, tol=tol, snap=do_snap_to_grid, box=domain
+        )
+    else:
+        pts_split, lines_split = cg.remove_edge_crossings2(
+            pts_all, lines, tol=tol
+        )
     logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points
