@@ -817,6 +817,10 @@ def _identify_overlaping_intervals(left, right):
             are sorted so that the lowest index is in the first column.
 
     """
+    # There can be no overlaps if there is less than two intervals
+    if left.size < 2:
+        return np.empty((2, 0))
+
     # Sort the coordinates
     sort_ind_left = np.argsort(left)
     sort_ind_right = np.argsort(right)
@@ -886,6 +890,10 @@ def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
             are sorted so that the lowest index is in the first column.
 
     """
+    # There can be no overlaps if there is less than two rectangles
+    if xmin.size < 2:
+        return np.empty((2, 0))
+
     # Sort the coordinates
     sort_ind_min = np.argsort(xmin)
     sort_ind_max = np.argsort(xmax)
