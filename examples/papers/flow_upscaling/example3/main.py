@@ -4,6 +4,8 @@ import porepy as pp
 
 from examples.papers.flow_upscaling.import_grid import grid, square_grid, raw_from_csv
 
+from upscaling import MpfaUpscaling
+
 def slice_out(f, m):
     return m.indices[m.indptr[f]: m.indptr[f+1]]
 
@@ -89,51 +91,62 @@ def set_boundary_conditions(gb, pts, pt, tol):
 
 
 if __name__ == "__main__":
-    #file_geo = "network.csv"
-    file_geo = "../example2/algeroyna_1to10.csv"
+    file_geo = "network.csv"
+    #file_geo = "../example2/algeroyna_1to10.csv"
     folder = "solution"
     tol = 1e-3
     tol_small = 1e-5
 
     mesh_args = {'mesh_size_frac': 1, "tol": tol}
-    mesh_args_loc = {'mesh_size_frac': 0.125}
-
-    # define the physical data
-    aperture = 1e-2
-    data = {
-        "aperture": aperture,
-        "kf": 1e4,
-        "km": 1,
-        "tol": tol
-    }
 
     gb, domain = square_grid(mesh_args)
-    #pp.plot_grid(gb, alpha=0, info="all")
+    pp.plot_grid(gb, alpha=0, info="all")
 
     np.set_printoptions(linewidth=9999)
 
     # read the background fractures
-    #fracs_pts, fracs_edges = pp.importer.lines_from_csv(file_geo)
-    fracs_pts, fracs_edges, _ = raw_from_csv(file_geo, mesh_args)
-    fracs_pts /= np.linalg.norm(np.amax(fracs_pts, axis=1))
+    fracs_pts, fracs_edges = pp.importer.lines_from_csv(file_geo)
+    #fracs_pts, fracs_edges, _ = raw_from_csv(file_geo, mesh_args)
+    #fracs_pts /= np.linalg.norm(np.amax(fracs_pts, axis=1))
 
-    solver = pp.MpfaMixedDim("flow")
+    # define the physical data
+
+    g = gb.grids_of_dimension(2)[0]
+    param = pp.Parameters(g)
+    param.set_aperture(1e-2)
+
+    data = {
+        "param": param,
+        "kf": 1e4,
+        "km": 1,
+        "tol": tol,
+        "fractures": {"points": fracs_pts, "edges": fracs_edges},
+        "mesh_args_loc": {'mesh_size_frac': 0.125}
+    }
+
+    discr = MpfaUpscaling("flow")
+    discr.assemble_matrix_rhs(g, data)
+
+
+    #solver = pp.MpfaMixedDim("flow")
     for g, d in gb:
         # assuming that the grid max is 2
-        if g.dim == 2:
+        if g.dim == gb.dim_max():
 
             face_faces = g.face_nodes.T*g.face_nodes
             face_cells = g.face_nodes.T*g.cell_nodes()
             b_nodes = g.get_all_boundary_nodes()
 
             for f in g.get_internal_faces():
-                # extract the faces (removing self), cells, and nodes
-                f_loc = np.setdiff1d(slice_out(f, face_faces), f)
+                f_loc = slice_out(f, face_faces)
                 c_loc = slice_out(f, face_cells)
                 n_loc = slice_out(f, g.face_nodes)
                 f_nodes = g.nodes[:, n_loc]
 
+                f_loc = np.setdiff1d(f_loc, f)
+                # extract the faces (removing self), cells, and nodes
                 # to make the grid conforming consider the current edge as "fracture"
+                # TODO in principle also all the macro faces are constraints for the local grid
                 subdom = {"points": f_nodes[:2, :], "edges": np.array([0, 1]).reshape((2, 1))}
                 # keep the face nodes if are on the boundary
                 n_loc = n_loc[np.isin(n_loc, b_nodes, assume_unique=True)]
@@ -151,7 +164,7 @@ if __name__ == "__main__":
                 fracs = {"points": fracs_pts_int, "edges": fracs_edges_int}
                 # prepare the data for gmsh
                 gb_loc = pp.fracs.meshing.simplex_grid(fracs, domain=pts[:2, :], subdomains=subdom, **mesh_args_loc)
-                #pp.plot_grid(gb_loc, alpha=0)
+                pp.plot_grid(gb_loc, alpha=0)
 
                 # save the faces of the face f
                 g_h = gb_loc.grids_of_dimension(2)[0]
@@ -164,6 +177,7 @@ if __name__ == "__main__":
                 # assign common data
                 set_data(gb_loc, data)
 
+                continue
                 # need to compute the upscaled transmissibility
                 # we loop on all the cell_centers and give the data
                 for pt in np.where(is_cell_centers)[0]:
@@ -179,3 +193,4 @@ if __name__ == "__main__":
                     discharge = sign * gb_loc.node_props(g_h, "discharge")[f_loc]
                     print(np.sum(discharge))
                     d
+                    # inherit from fv_elliptic called MfaElliptic
