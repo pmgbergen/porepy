@@ -16,7 +16,7 @@ import shapely.geometry as shapely_geometry
 import shapely.speedups as shapely_speedups
 
 from porepy.utils import setmembership
-
+import porepy as pp
 
 # Module level logger
 logger = logging.getLogger(__name__)
@@ -725,6 +725,404 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True, **kwa
 
     return vertices, edges
 
+def _axis_aligned_bounding_box_2d(p, e):
+    """ For a set of lines in 2d, obtain the bounding box for each line.
+
+    The lines are specified as a list of points, together with connections between
+    the points.
+
+    Parameters:
+        p (np.ndarray, 2 x n_pt): Coordinates of points to be processed
+        e (np.ndarray, n x n_con): Connections between lines. n >= 2, row
+            0 and 1 are index of start and endpoints, additional rows are tags
+
+    Returns:
+        np.array (n_pt): Minimum x-coordinate for all lines.
+        np.array (n_pt): Maximum x-coordinate for all lines.
+        np.array (n_pt): Minimum y-coordinate for all lines.
+        np.array (n_pt): Maximum y-coordinate for all lines.
+
+    """
+    x = p[0]
+    y = p[1]
+
+    x_0 = x[e[0]]
+    x_1 = x[e[1]]
+    y_0 = y[e[0]]
+    y_1 = y[e[1]]
+
+    x_min = np.minimum(x_0, x_1)
+    x_max = np.maximum(x_0, x_1)
+    y_min = np.minimum(y_0, y_1)
+    y_max = np.maximum(y_0, y_1)
+
+
+    return x_min, x_max, y_min, y_max
+
+def _axis_aligned_bounding_box_3d(polys):
+    """ For a set of polygons embedded in 3d, obtain the bounding box for each object.
+
+    The polygons are specified as a list of numpy arrays.
+
+    Parameters:
+        p (list of np.ndarray, 3 x n_pt): Each list element specifies a
+            polygon, described by its vertexes in a 3 x num_points np.array.
+
+    Returns:
+        np.array (n_pt): Minimum x-coordinate for all lines.
+        np.array (n_pt): Maximum x-coordinate for all lines.
+        np.array (n_pt): Minimum y-coordinate for all lines.
+        np.array (n_pt): Maximum y-coordinate for all lines.
+        np.array (n_pt): Minimum z-coordinate for all lines.
+        np.array (n_pt): Maximum z-coordinate for all lines.
+
+    """
+
+
+    polys = list(polys)
+
+    num_poly = len(polys)
+
+    x_min = np.empty(num_poly)
+    x_max = np.empty_like(x_min)
+    y_min = np.empty_like(x_min)
+    y_max = np.empty_like(x_min)
+    z_min = np.empty_like(x_min)
+    z_max = np.empty_like(x_min)
+
+    for ind, p in enumerate(polys):
+        x_min[ind] = np.min(p[0])
+        x_max[ind] = np.max(p[0])
+        y_min[ind] = np.min(p[1])
+        y_max[ind] = np.max(p[1])
+        z_min[ind] = np.min(p[2])
+        z_max[ind] = np.max(p[2])
+
+    return x_min, x_max, y_min, y_max, z_min, z_max
+
+
+def _identify_overlaping_intervals(left, right):
+    """ Based on a set of start and end coordinates for intervals, identify pairs of
+    overlapping intervals.
+
+    Parameters:
+        left (np.array): Minimum coordinates of the intervals.
+        right (np.array): Maximum coordinates of the intervals.
+
+        For all items, left <= right (but equality is allowed).
+
+    Returns:
+        np.array, 2 x num_overlaps: Each column contains a pair of overlapping
+            intervals, refering to their placement in left and right. The pairs
+            are sorted so that the lowest index is in the first column.
+
+    """
+    # Sort the coordinates
+    sort_ind_left = np.argsort(left)
+    sort_ind_right = np.argsort(right)
+
+    # pointers to the next start and end point of an interval
+    next_right = 0
+    next_left = 0
+
+    # List of pairs we have found
+    pairs = []
+    # List of intervals we are currently in. All intervals will join and leave this set.
+    active = []
+
+    num_lines = left.size
+
+    # Loop through the line, add and remove intervals as we come across them.
+    while True:
+        # Check if the next start (left) point is before the next endpoint,
+        # But only if there are more left points available.
+        # Less or equal is critical here, or else cases where a point interval
+        # is combined with the start of another interval may not be discovered.
+        if next_left < num_lines and left[sort_ind_left[next_left]] <= right[sort_ind_right[next_right]]:
+            # We have started a new interval. This will be paired with
+            # all active intervals
+            for a in active:
+                pairs.append([a, sort_ind_left[next_left]])
+            # Also join the new intervals to the active set.
+            active.append(sort_ind_left[next_left])
+            # Increase the index
+            next_left += 1
+        else:
+            # We have reached the end of the interval - remove it from the
+            # active ones.
+            active.remove(sort_ind_right[next_right])
+            next_right += 1
+            # Check if we have come to the end
+            if next_right == num_lines:
+                break
+
+    pairs = np.asarray(pairs).T
+    # First sort the pairs themselves
+    pairs.sort(axis=0)
+    # Next, sort the columns so that the first row is non-decreasing
+    sort_ind = np.argsort(pairs[0])
+    pairs = pairs[:, sort_ind]
+    return pairs
+
+def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
+    """ Based on a set of start and end coordinates for bounding boxes, identify pairs of
+    overlapping rectangles.
+
+    The algorithm was found in 'A fast method for fracture intersection detection
+    in discrete fracture networks' by Dong et al, omputers and Geotechniques 2018.
+
+    Parameters:
+        xmin (np.array): Minimum coordinates of the rectangle on the first axis.
+        xmax (np.array): Maximum coordinates of the rectangle on the first axis.
+        ymin (np.array): Minimum coordinates of the rectangle on the second axis.
+        ymax (np.array): Maximum coordinates of the rectangle on the second axis.
+
+        For all items, xmin <= xmax (but equality is allowed), correspondingly for
+        the y-coordinates
+
+    Returns:
+        np.array, 2 x num_overlaps: Each column contains a pair of overlapping
+            intervals, refering to their placement in left and right. The pairs
+            are sorted so that the lowest index is in the first column.
+
+    """
+    # Sort the coordinates
+    sort_ind_min = np.argsort(xmin)
+    sort_ind_max = np.argsort(xmax)
+
+    # pointers to the next start and end point of an interval
+    next_min = 0
+    next_max = 0
+
+    # List of pairs we have found
+    pairs = []
+    # List of intervals we are currently in. All intervals will join and leave this set.
+    active = []
+
+    num_lines = xmax.size
+
+    # Pass along the x-axis, identify the start and end of rectangles as we go.
+    # The idea is then for each new interval to check which of the active intervals
+    # also have overlap along the y-axis. These will be identified as pairs.
+    while True:
+        # Check if the next start (xmin) point is before the next endpoint,
+        # but only if there are more left points available.
+        # Less or equal is critical here, or else cases where a point interval
+        # is combined with the start of another interval may not be discovered.
+        if next_min < num_lines and xmin[sort_ind_min[next_min]] <= xmax[sort_ind_max[next_max]]:
+            # Find active rectangles where the y-interval is also overlapping
+            between = np.where(np.logical_and(ymax[sort_ind_min[next_min]] >= ymin[active],
+                                              ymin[sort_ind_min[next_min]] <= ymax[active]))[0]
+            # For all identified overlaps, add the new pairs
+            for a in between:
+                pairs.append([active[a], sort_ind_min[next_min]])
+            # Add this to the active rectangles, and increase the index
+            active.append(sort_ind_min[next_min])
+            next_min += 1
+        else:
+            # We are leaving a rectangle.
+            active.remove(sort_ind_max[next_max])
+            next_max += 1
+            # Check if we have come to the end
+            if next_max == num_lines:
+                break
+
+    pairs = np.asarray(pairs).T
+
+    # First sort the pairs themselves
+    pairs.sort(axis=0)
+    # Next, sort the columns so that the first row is non-decreasing
+    sort_ind = np.argsort(pairs[0])
+    pairs = pairs[:, sort_ind]
+    return pairs
+
+def _intersect_pairs(p1, p2):
+    """ For two lists containing pair of indices, find the intersection.
+
+    Parameters:
+        p1 (np.array, 2 x n): Each column contains a pair of indices.
+        p2 (np.array, 2 x m): Each column contains a pair of indices.
+
+    Returns:
+        np.array, (2 x k, k <= min(n, m)): Each column contains a pair of
+            indices that are found in both p1 and p2. The array is sorted so
+            that items in the first row is less or equal to the second row.
+            The columns are sorted according to the numbers in the first row.
+
+    """
+    # Special treatment of empty lists
+    if p1.size == 0 or p2.size == 0:
+        return np.empty((2, 0))
+    else:
+        # Do the intersection
+        _, ind = pp.utils.setmembership.ismember_rows(p1, p2)
+        pairs = p2[:, ind]
+
+        # First sort the pairs themselves
+        pairs.sort(axis=0)
+        # Next, sort the columns so that the first row is non-decreasing
+        sort_ind = np.argsort(pairs[0])
+        pairs = pairs[:, sort_ind]
+        return pairs
+
+def remove_edge_crossings2(p, e, tol=1e-4):
+    """ Process a set of points and connections between them so that the result
+    is an extended point set and new connections that do not intersect.
+
+    The function is written for gridding of fractured domains, but may be
+    of use in other cases as well. The geometry is assumed to be 2D.
+
+    The connections are defined by their start and endpoints, and can also
+    have tags assigned. If so, the tags are preserved as connections are split.
+
+    IMPLEMENTATION NOTE: This is a re-implementation of the old function
+    remove_edge_crossings, based on a much faster algorithm. The two functions
+    will coexist for a while.
+
+    Parameters:
+        p (np.ndarray, 2 x n_pt): Coordinates of points to be processed
+        e (np.ndarray, n x n_con): Connections between lines. n >= 2, row
+            0 and 1 are index of start and endpoints, additional rows are tags
+        tol (double, optional, default=1e-8): Tolerance used for comparing
+            equal points.
+
+    Returns:
+        np.ndarray, (2 x n_pt), array of points, possibly expanded.
+        np.ndarray, (n x n_edges), array of new edges. Non-intersecting.
+
+    """
+    # Find the bounding box
+    x_min, x_max, y_min, y_max = _axis_aligned_bounding_box_2d(p, e)
+    # Identify fractures with overlapping bounding boxes
+    pairs = _identify_overlapping_rectangles(x_min, x_max, y_min, y_max)
+
+    # Identify all fractures that are the first (by index) of a potentially
+    # crossing pair. A better way to group the fractures may be feasible,
+    # but this has not been investigated.
+    start_inds = np.unique(pairs[0])
+
+    num_lines = e.shape[1]
+
+    # Data structure for storage of intersection points. For each fracture,
+    # we have an array that will contain the index of the intersections.
+    isect_pt = np.empty(num_lines, dtype=np.object)
+    for i in range(isect_pt.size):
+        isect_pt[i] = np.empty(0, dtype=np.int)
+
+    # Array of new points, found in the intersection of old ones.
+    new_pts = []
+    # The new points will be appended to the old ones, thus their index
+    # must be adjusted.
+    new_ind = p.shape[1]
+
+    # Loop through all candidate pairs of intersecting fractures, check if
+    # they do intersect. If so, store the point, and for each crossing fracture
+    # take note of the index of the cross point.
+    for di, line_ind in enumerate(start_inds):
+        # First fracture in the candidate pair
+        main = line_ind
+        # Find all other fractures that is in a pair with the main as the first one.
+        hit = np.where(pairs[0] == main)
+        other = pairs[1, hit][0]
+
+        # We will first do a coarse sorting, to rule out fractures that are clearly
+        # not intersecting, and then do a finer search for an intersection below.
+
+        # Utility function to pull out one or several points from an array based
+        # on index
+        def pt(p, ind):
+            a = p[:, ind]
+            if ind.size == 1:
+                return a.reshape((-1, 1))
+            else:
+                return a
+
+        # Obtain start and endpoint of the main and other fractures
+        start_main = pt(p, e[0, main])
+        end_main = pt(p, e[1, main])
+        start_other = pt(p, e[0, other])
+        end_other = pt(p, e[1, other])
+
+        # Utility function to normalize the fracture length
+        def normalize(v):
+            nrm = np.sqrt(np.sum(v**2, axis=0))
+            return v / nrm
+
+        # Vectors along the main fracture, and from the start of the main
+        # to the start and end of the other fractures. All normalized.
+        main_vec = normalize(end_main - start_main)
+        main_other_start = normalize(start_other - start_main)
+        main_other_end = normalize(end_other - start_other)
+
+        # Modified signum function: The value is 0 if it is very close to zero.
+        def mod_sign(v, tol):
+            sgn = np.sign(v)
+            sgn[np.abs(v) < tol] = 0
+            return sgn
+
+        # Take the cross product between the vector along the main line, and the
+        # vectors to the start and end of the other lines, respectively.
+        start_cross = mod_sign(main_vec[0] * main_other_start[1] - main_vec[1] * main_other_start[0], tol)
+        end_cross = mod_sign(main_vec[0] * main_other_end[1] - main_vec[1] * main_other_end[0], tol)
+
+        # If the start and endpoint of the other fracture are clearly on the
+        # same side of the main one, these are not crossing.
+        relevant = np.where(start_cross * end_cross < 1)[0]
+
+        # Loop over all relevant (possibly crossing) fractures, look closer
+        # for an intersection.
+        for ri in relevant:
+            ipt = pp.cg.lines_intersect(start_main, end_main, pt(start_other, ri), pt(end_other, ri))
+            # Add the intersection point, if any.
+            # Implementation note: if the two fractures are overlapping,
+            # ipt will contain two points here. It should be fairly straightforward
+            # to enhance the implementation to cover this case.
+            if ipt is not None:
+                isect_pt[main] = np.append(isect_pt[main], new_ind)
+                isect_pt[other[ri]] = np.append(isect_pt[other[ri]], new_ind)
+                new_ind += 1
+                new_pts.append(ipt.squeeze())
+
+    # If we have found no intersection points, we can safely return the incoming
+    # points and edges.
+    if len(new_pts) == 0:
+        return p, e
+    # If intersection points are found, the intersecting lines must be split into
+    # shorter segments.
+    else:
+        # The full set of points, both original and newly found intersection points
+        all_pt = np.hstack((p, np.array([p for p in new_pts]).T))
+        # Remove duplicates in the point set.
+        # NOTE: The tolerance used here is a bit sensitive, if set too loose, this
+        # may merge non-intersecting fractures.
+        unique_all_pt, _, ib = pp.utils.setmembership.unique_columns_tol(all_pt, tol)
+        # Data structure for storing the split edges.
+        new_edge = np.empty((e.shape[0], 0))
+
+        # Loop over all lines, split it into non-overlapping segments.
+        for ei in range(num_lines):
+            # Find indices of all points involved in this fracture.
+            # Map them to the unique point set, and uniquify
+            inds = np.unique(ib[np.hstack((e[:2, ei], isect_pt[ei]))])
+            num_branches = inds.size - 1
+            # Get the coordinates themselves.
+            loc_pts = pt(unique_all_pt, inds)
+            # Specifically get the start point
+            loc_start = pt(unique_all_pt, inds[0])
+            # Measure the distance of the points from the start. This can be used
+            # to sort the points along the line
+            dist = np.sum((loc_pts - loc_start) **2, axis=0)
+            order = np.argsort(dist)
+            new_inds = inds[order]
+            # All new segments share the tags of the old one.
+            loc_tags = e[2:, ei].reshape((-1, 1)) * np.ones(num_branches)
+            # Define the new segments, in terms of the unique points
+            loc_edge = np.vstack((new_inds[:-1], new_inds[1:], loc_tags))
+
+            # Add to the global list of segments
+            new_edge = np.hstack((new_edge, loc_edge))
+
+        return unique_all_pt, new_edge.astype(np.int)
 
 # ----------------------------------------------------------
 #
