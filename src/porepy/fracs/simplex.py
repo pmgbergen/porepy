@@ -347,7 +347,7 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
         subdom_con = subdomains["edges"]
 
     # Unified description of points and lines for domain, and fractures
-    pts_all, lines, domain_pts = __merge_domain_fracs_2d(domain, frac_pts, frac_con, subdom_pts, subdom_con)
+    pts_all, lines, domain_pts = _merge_domain_fracs_2d(domain, frac_pts, frac_con, subdom_pts, subdom_con)
 
     # Snap to underlying grid before comparing points
     if do_snap_to_grid:
@@ -399,7 +399,7 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
     # lines. We should probably delete these.
 
     # We find the end points that are shared by more than one intersection
-    intersections = __find_intersection_points(lines_split)
+    intersections = _find_intersection_points(lines_split)
 
     intersections = np.empty(0)
 
@@ -587,7 +587,7 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
 # -----------------------------------------------------------------------------#
 
 
-def __merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
+def _merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
     """
     Merge fractures, domain boundaries and lines for compartments.
     The unified description is ready for feeding into meshing tools such as
@@ -642,7 +642,7 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
     # Adjust index of fracture points to account for the compartment points
     frac_l[:2] += dom_p.shape[1]
 
-    # Adjust index of subdomains points to account for the compartment points
+    # Adjust index of subdomains points to account for the subdomain points
     subdom_l[:2] += dom_p.shape[1] + frac_p.shape[1]
 
     l = np.hstack((dom_l, frac_l, subdom_l)).astype("int")
@@ -653,7 +653,7 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
     return p, l, dom_p
 
 
-def __find_intersection_points(lines):
+def _find_intersection_points(lines):
     const = constants.GmshConstants()
 
     frac_id = np.ravel(lines[:2, lines[2] == const.FRACTURE_TAG])
