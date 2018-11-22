@@ -277,7 +277,7 @@ def _run_gmsh(file_name, network, **kwargs):
     return pts, cells, cell_info, phys_names
 
 
-def triangle_grid(fracs, domain, subdomains, do_snap_to_grid=False, **kwargs):
+def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwargs):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -293,6 +293,10 @@ def triangle_grid(fracs, domain, subdomains, do_snap_to_grid=False, **kwargs):
         edges (2 x num_lines) connections between points, defines fractures.
     box: (dictionary) keys xmin, xmax, ymin, ymax, [together bounding box
         for the domain]
+    subdomains (dict, optional): If given, the grid is constrained to these segments
+        but they are not consiered as fractures but as auxiliary segments.
+        If given it should contains a field called "points" with all the points and a field
+        "edges" with all the edges containing the point id.
     do_snap_to_grid (boolean, optional): If true, points are snapped to an
         underlying Cartesian grid with resolution tol before geometry
         computations are carried out. This used to be the standard, but
@@ -334,9 +338,13 @@ def triangle_grid(fracs, domain, subdomains, do_snap_to_grid=False, **kwargs):
     frac_pts = fracs["points"]
     frac_con = fracs["edges"]
 
-    # Pick out the subdomain boundaries and their connections
-    subdom_pts = subdomains["points"]
-    subdom_con = subdomains["edges"]
+    if subdomains is None:
+        subdom_pts = np.zeros((2, 0))
+        subdom_con = np.zeros((2, 0))
+    else:
+        # Pick out the subdomain boundaries and their connections
+        subdom_pts = subdomains["points"]
+        subdom_con = subdomains["edges"]
 
     # Unified description of points and lines for domain, and fractures
     pts_all, lines, domain_pts = __merge_domain_fracs_2d(domain, frac_pts, frac_con, subdom_pts, subdom_con)
