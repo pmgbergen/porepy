@@ -148,23 +148,43 @@ class GmshWriter(object):
         bound_line_ind = np.argwhere(
             self.lines[2] == constants.DOMAIN_BOUNDARY_TAG
         ).ravel()
-        bound_line = self.lines[:2, bound_line_ind]
+        bound_line = self.lines[:, bound_line_ind]
         bound_line = sort_points.sort_point_pairs(bound_line, check_circular=True)
 
         s = "// Start of specification of domain"
         s += "// Define lines that make up the domain boundary\n"
 
+        bound_id = bound_line[3, :]
+        range_id = np.arange(np.amin(bound_id), np.amax(bound_id) + 1)
+        seg_id = 0
+
         loop_str = "{"
-        for i in range(bound_line.shape[1]):
-            s += "bound_line_" + str(i) + " = newl; Line(bound_line_" + str(i) + ") ={"
+        for i in range_id:
+            local_bound_id = str()
+            for mask in np.flatnonzero(bound_id == i):
+                s += "bound_line_" + str(seg_id) + " = newl;\n"
+                s += "Line(bound_line_" + str(seg_id) + ") ={"
+                s += (
+                    "p"
+                    + str(int(bound_line[0, mask]))
+                    + ", p"
+                    + str(int(bound_line[1, mask]))
+                    + "};\n"
+                )
+
+                loop_str += "bound_line_" + str(seg_id) + ", "
+                local_bound_id += "bound_line_" + str(seg_id) + ", "
+                seg_id += 1
+
+            local_bound_id = local_bound_id[:-2]
             s += (
-                "p"
-                + str(int(bound_line[0, i]))
-                + ", p"
-                + str(int(bound_line[1, i]))
-                + "};\n"
-            )
-            loop_str += "bound_line_" + str(i) + ", "
+                'Physical Line("'
+                + constants.PHYSICAL_NAME_DOMAIN_BOUNDARY
+                + str(i)
+                + '") = { '
+                + local_bound_id
+                + " };\n"
+                )
 
         s += "\n"
         loop_str = loop_str[:-2]  # Remove last comma
