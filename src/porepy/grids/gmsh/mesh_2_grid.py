@@ -118,21 +118,32 @@ def create_2d_grids(pts, cells, **kwargs):
         # Construct grid
         g_2d = simplex.TriangleGrid(pts.transpose(), triangles)
 
-        # save all the extra tags for the grids
+        # we need to add the face tags from gmsh to the current mesh,
+        # first we add them as False and after we change for the correct
+        # faces. The new tag name become the lower version of what gmsh gives
+        # in the cell_info["line"]. The map phys_names recover the literal name.
+
+        # create all the extra tags for the grids, by default they're false
         for tag in np.unique(cell_info["line"]["gmsh:physical"]):
             tag_name = phys_names[tag].lower() + "_faces"
             g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=np.bool)
 
+        # since there is not a cell-face relation from gmsh but only a cell-node
+        # relation we need to recover the corresponding face.
         for tag_id, tag in enumerate(cell_info["line"]["gmsh:physical"]):
             tag_name = phys_names[tag].lower() + "_faces"
-            # check where is the first node
+            # check where is the first node indipendent on the position
+            # in the triangle, being first, second or third node
             first = (triangles == cells["line"][tag_id, 0]).any(axis=0)
-            # check where is the second node
+            # check where is the second node, same approach as before
             second = (triangles == cells["line"][tag_id, 1]).any(axis=0)
-            # select which are the triangles that have this edge
+            # select which are the cells that have this edge
             tria = np.logical_and(first, second).astype(np.int)
-            # select the candidate faces
+            # with the cell_faces map we get the faces associated to
+            # the selected triangles
             face = np.abs(g_2d.cell_faces).dot(tria)
+            # we have two case, the face is internal or is at the boundary
+            # we consider them separately
             if np.any(face > 1):
                 # select the face if it is internal
                 g_2d.tags[tag_name][face > 1] = True
