@@ -490,7 +490,8 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
 
     # Create grids from gmsh mesh.
     logger.info("Create grids of various dimensions")
-    g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False)
+    g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False,
+                                       phys_names=phys_names, cell_info=cell_info)
     g_1d, _ = mesh_2_grid.create_1d_grids(
         pts,
         cells,
