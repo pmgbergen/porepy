@@ -1,8 +1,13 @@
 import numpy as np
-import scipy.sparse as sps
 import unittest
 
 import porepy as pp
+
+"""
+In this test we validate the propagation of physical tags from gmsh to porepy.
+We consider the case with only boundary, fractures, auxiliary segments, and a mixed of them.
+
+"""
 
 class BasicsTest(unittest.TestCase):
 
