@@ -321,5 +321,42 @@ class BasicsTest(unittest.TestCase):
         tag = np.where(g.tags["auxiliary_5_faces"])[0]
         self.assertTrue(np.allclose(known, tag))
 
+    def test_auxiliary_intersect(self):
+        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        fracs = []
+        mesh_args = {"mesh_size_frac": 1}
+
+        subdomain = {"points": np.array([[0, 0.75, 0.5, 0.5],
+                                         [0.5, 0.5, 0.25, 0.75]]),
+                     "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F")}
+
+        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain,
+                                           subdomains=subdomain,**mesh_args)
+        g = gb.grids_of_dimension(2)[0]
+
+        known = [1, 3, 45, 46]
+        tag = np.where(g.tags["domain_boundary_0_faces"])[0]
+        self.assertTrue(np.allclose(known, tag))
+
+        known = [4, 6, 41, 42]
+        tag = np.where(g.tags["domain_boundary_1_faces"])[0]
+        self.assertTrue(np.allclose(known, tag))
+
+        known = [7, 10, 49, 50]
+        tag = np.where(g.tags["domain_boundary_2_faces"])[0]
+        self.assertTrue(np.allclose(known, tag))
+
+        known = [0, 9]
+        tag = np.where(g.tags["domain_boundary_3_faces"])[0]
+        self.assertTrue(np.allclose(known, tag))
+
+        known = [12, 15, 36]
+        tag = np.where(g.tags["auxiliary_4_faces"])[0]
+        self.assertTrue(np.allclose(known, tag))
+
+        known = [22, 29]
+        tag = np.where(g.tags["auxiliary_5_faces"])[0]
+        self.assertTrue(np.allclose(known, tag))
+
 if __name__ == "__main__":
     unittest.main()
