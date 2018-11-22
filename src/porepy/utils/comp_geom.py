@@ -863,14 +863,16 @@ def _identify_overlapping_intervals(left, right):
             if next_right == num_lines:
                 break
 
-    pairs = np.asarray(pairs).T
-    # First sort the pairs themselves
-    pairs.sort(axis=0)
-    # Next, sort the columns so that the first row is non-decreasing
-    sort_ind = np.argsort(pairs[0])
-    pairs = pairs[:, sort_ind]
-    return pairs
-
+    if len(pairs) == 0:
+        return np.empty((2, 0))
+    else:
+        pairs = np.asarray(pairs).T
+        # First sort the pairs themselves
+        pairs.sort(axis=0)
+        # Next, sort the columns so that the first row is non-decreasing
+        sort_ind = np.argsort(pairs[0])
+        pairs = pairs[:, sort_ind]
+        return pairs
 
 def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
     """ Based on a set of start and end coordinates for bounding boxes, identify pairs of
@@ -946,15 +948,16 @@ def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
             if next_max == num_lines:
                 break
 
-    pairs = np.asarray(pairs).T
-
-    # First sort the pairs themselves
-    pairs.sort(axis=0)
-    # Next, sort the columns so that the first row is non-decreasing
-    sort_ind = np.argsort(pairs[0])
-    pairs = pairs[:, sort_ind]
-    return pairs
-
+    if len(pairs) == 0:
+        return np.empty((2, 0))
+    else:
+        pairs = np.asarray(pairs).T
+        # First sort the pairs themselves
+        pairs.sort(axis=0)
+        # Next, sort the columns so that the first row is non-decreasing
+        sort_ind = np.argsort(pairs[0])
+        pairs = pairs[:, sort_ind]
+        return pairs
 
 def _intersect_pairs(p1, p2):
     """ For two lists containing pair of indices, find the intersection.
