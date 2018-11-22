@@ -28,9 +28,9 @@ def create_2d_grids(pts, cells, **kwargs):
     # List of 2D grids, one for each surface
     g_2d = []
     is_embedded = kwargs.get("is_embedded", False)
+    phys_names = kwargs.get("phys_names", False)
+    cell_info = kwargs.get("cell_info", False)
     if is_embedded:
-        phys_names = kwargs.get("phys_names", False)
-        cell_info = kwargs.get("cell_info", False)
         network = kwargs.get("network", False)
 
         # Check input
@@ -113,9 +113,33 @@ def create_2d_grids(pts, cells, **kwargs):
             g_2d.append(g)
 
     else:
+
         triangles = cells["triangle"].transpose()
         # Construct grid
         g_2d = simplex.TriangleGrid(pts.transpose(), triangles)
+
+        # save all the extra tags for the grids
+        for tag in np.unique(cell_info["line"]["gmsh:physical"]):
+            tag_name = phys_names[tag].lower() + "_faces"
+            g_2d.tags[tag_name] = np.zeros(g_2d.num_faces, dtype=np.bool)
+
+        for tag_id, tag in enumerate(cell_info["line"]["gmsh:physical"]):
+            tag_name = phys_names[tag].lower() + "_faces"
+            # check where is the first node
+            first = (triangles == cells["line"][tag_id, 0]).any(axis=0)
+            # check where is the second node
+            second = (triangles == cells["line"][tag_id, 1]).any(axis=0)
+            # select which are the triangles that have this edge
+            tria = np.logical_and(first, second).astype(np.int)
+            # select the candidate faces
+            face = np.abs(g_2d.cell_faces).dot(tria)
+            if np.any(face > 1):
+                # select the face if it is internal
+                g_2d.tags[tag_name][face > 1] = True
+            else:
+                # the face is on a boundary
+                face = np.logical_and(face, g_2d.tags["domain_boundary_faces"])
+                g_2d.tags[tag_name][face] = True
 
         # Create mapping to global numbering (will be a unit mapping, but is
         # crucial for consistency with lower dimensions)
