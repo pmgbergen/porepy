@@ -801,7 +801,7 @@ def _axis_aligned_bounding_box_3d(polys):
     return x_min, x_max, y_min, y_max, z_min, z_max
 
 
-def _identify_overlaping_intervals(left, right):
+def _identify_overlapping_intervals(left, right):
     """ Based on a set of start and end coordinates for intervals, identify pairs of
     overlapping intervals.
 
@@ -1186,7 +1186,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
     # overlapping rectangles in the xy-plane.
     pairs_xy = pp.cg._identify_overlapping_rectangles(x_min, x_max, y_min, y_max)
     # Next, find overlapping intervals in the z-directien
-    pairs_z = pp.cg._identify_overlaping_intervals(z_min, z_max)
+    pairs_z = pp.cg._identify_overlapping_intervals(z_min, z_max)
 
     # Finally, do the intersection
     pairs = pp.cg._intersect_pairs(pairs_xy, pairs_z)
