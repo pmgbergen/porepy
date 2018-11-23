@@ -801,7 +801,7 @@ def _axis_aligned_bounding_box_3d(polys):
     return x_min, x_max, y_min, y_max, z_min, z_max
 
 
-def _identify_overlaping_intervals(left, right):
+def _identify_overlapping_intervals(left, right):
     """ Based on a set of start and end coordinates for intervals, identify pairs of
     overlapping intervals.
 
@@ -863,14 +863,16 @@ def _identify_overlaping_intervals(left, right):
             if next_right == num_lines:
                 break
 
-    pairs = np.asarray(pairs).T
-    # First sort the pairs themselves
-    pairs.sort(axis=0)
-    # Next, sort the columns so that the first row is non-decreasing
-    sort_ind = np.argsort(pairs[0])
-    pairs = pairs[:, sort_ind]
-    return pairs
-
+    if len(pairs) == 0:
+        return np.empty((2, 0))
+    else:
+        pairs = np.asarray(pairs).T
+        # First sort the pairs themselves
+        pairs.sort(axis=0)
+        # Next, sort the columns so that the first row is non-decreasing
+        sort_ind = np.argsort(pairs[0])
+        pairs = pairs[:, sort_ind]
+        return pairs
 
 def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
     """ Based on a set of start and end coordinates for bounding boxes, identify pairs of
@@ -946,15 +948,16 @@ def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
             if next_max == num_lines:
                 break
 
-    pairs = np.asarray(pairs).T
-
-    # First sort the pairs themselves
-    pairs.sort(axis=0)
-    # Next, sort the columns so that the first row is non-decreasing
-    sort_ind = np.argsort(pairs[0])
-    pairs = pairs[:, sort_ind]
-    return pairs
-
+    if len(pairs) == 0:
+        return np.empty((2, 0))
+    else:
+        pairs = np.asarray(pairs).T
+        # First sort the pairs themselves
+        pairs.sort(axis=0)
+        # Next, sort the columns so that the first row is non-decreasing
+        sort_ind = np.argsort(pairs[0])
+        pairs = pairs[:, sort_ind]
+        return pairs
 
 def _intersect_pairs(p1, p2):
     """ For two lists containing pair of indices, find the intersection.
@@ -1118,7 +1121,7 @@ def remove_edge_crossings2(p, e, tol=1e-4):
     # shorter segments.
     else:
         # The full set of points, both original and newly found intersection points
-        all_pt = np.hstack((p, np.array([p for p in new_pts]).T))
+        all_pt = np.hstack((p, np.vstack((i for i in new_pts)).T))
         # Remove duplicates in the point set.
         # NOTE: The tolerance used here is a bit sensitive, if set too loose, this
         # may merge non-intersecting fractures.
@@ -1155,6 +1158,11 @@ def remove_edge_crossings2(p, e, tol=1e-4):
 def intersect_polygons_3d(polys, tol=1e-8):
     """ Compute the intersection between polygons embedded in 3d.
 
+    Assumptions:
+        * All polygons are convex. Non-convex polygons will simply be treated
+          in a wrong way.
+        * No polygon contains three points on a line, that is, an angle of pi.
+
     Parameters:
         polys (list of np.array): Each list item represents a polygon, specified
             by its vertexses as a numpy array, of dimension 3 x num_pts. There
@@ -1165,6 +1173,10 @@ def intersect_polygons_3d(polys, tol=1e-8):
         np.array: 3 x num_pt, intersection coordinates.
         np.array of lists: For each of the polygons, give the index of the intersection
             points, referring to the columns of the intersection coordinates.
+        np.array of list: For each polygon, a list telling whether each of the intersections
+            is on the boundary of the polygon or not. For polygon i, the first
+            element in this list tells whether the point formed by point-indices
+            0 and 1 in the previous return argument is on the boundary.
 
     """
 
@@ -1177,7 +1189,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
     # overlapping rectangles in the xy-plane.
     pairs_xy = pp.cg._identify_overlapping_rectangles(x_min, x_max, y_min, y_max)
     # Next, find overlapping intervals in the z-directien
-    pairs_z = pp.cg._identify_overlaping_intervals(z_min, z_max)
+    pairs_z = pp.cg._identify_overlapping_intervals(z_min, z_max)
 
     # Finally, do the intersection
     pairs = pp.cg._intersect_pairs(pairs_xy, pairs_z)
@@ -1235,8 +1247,12 @@ def intersect_polygons_3d(polys, tol=1e-8):
 
     # Storage array for storing the index of the intersection points for each polygon
     isect_pt = np.empty(num_polys, dtype=np.object)
+    # Storage for whehter an intersection is on the boundary of a polygon
+    is_bound_isect = np.empty_like(isect_pt)
+    # Initialization
     for i in range(isect_pt.size):
         isect_pt[i] = []
+        is_bound_isect[i] = []
 
     # Array for storing the newly found points
     new_pt = []
@@ -1316,6 +1332,12 @@ def intersect_polygons_3d(polys, tol=1e-8):
             sign_change_main = np.where(np.abs(np.diff(dot_prod_from_main)) > 0)[0]
             sign_change_other = np.where(np.abs(np.diff(dot_prod_from_other)) > 0)[0]
 
+            # The default option is that the intersection is not on the boundary
+            # of main or other, that is, the two intersection points are identical
+            # to two vertexes of the polygon
+            isect_on_boundary_main = False
+            isect_on_boundary_other = False
+
             if np.all(dot_prod_from_main != 0):
                 # In the case where one polygon does not have a vertex in the plane of
                 # the other polygon, there should be exactly two segments crossing the plane.
@@ -1349,10 +1371,22 @@ def intersect_polygons_3d(polys, tol=1e-8):
                 )
 
             else:
+                # Both of the intersection points are vertexes.
+                # Check that there are only two points - if this assertion fails,
+                # there is a hanging node of the other polygon, which is in the
+                # plane of the other polygon. Extending to cover this case should
+                # be possible, but further treatment is unclear at the moment.
                 assert np.sum(dot_prod_from_main[:-1] == 0) == 2
                 hit = np.where(dot_prod_from_main[:-1] == 0)[0]
                 other_intersects_main_0 = other_p_expanded[:, hit[0]]
+                # Pick the last of the intersection points. This is valid also for
+                # multiple (>2) intersection points, but we keep the assertion for now.
                 other_intersects_main_1 = other_p_expanded[:, hit[1]]
+                # The other polygon has an edge laying in the plane of the main polygon.
+                # This will be registered as a boundary intersection, but only if
+                # the polygons (not only plane) intersect.
+                if hit[0] + 1 == hit[-1] or hit[0] == 0 and hit[-1] == (dot_prod_from_main.size - 2):
+                    isect_on_boundary_other = True
 
             if np.all(dot_prod_from_other != 0):
                 # In the case where one polygon does not have a vertex in the plane of
@@ -1386,10 +1420,30 @@ def intersect_polygons_3d(polys, tol=1e-8):
                     other_center,
                 )
             else:
+                # Both of the intersection points are vertexes.
+                # Check that there are only two points - if this assertion fails,
+                # there is a hanging node of the main polygon, which is in the
+                # plane of the other polygon. Extending to cover this case should
+                # be possible, but further treatment is unclear at the moment.
+                # Do not count the last point here, this is identical to the
+                # first one.
                 assert np.sum(dot_prod_from_other[:-1] == 0) == 2
                 hit = np.where(dot_prod_from_other[:-1] == 0)[0]
                 main_intersects_other_0 = main_p_expanded[:, hit[0]]
-                main_intersects_other_1 = main_p_expanded[:, hit[1]]
+                # Pick the last of the intersection points. This is valid also for
+                # multiple (>2) intersection points, but we keep the assertion for now.
+                main_intersects_other_1 = main_p_expanded[:, hit[-1]]
+                # The main polygon has an edge laying in the plane of the other polygon.
+                # If the two intersection points form a segment
+                # This will be registered as a boundary intersection, but only if
+                # the polygons (not only plane) intersect.
+                # The two points can either be one apart in the main polygon,
+                # or it can be the first and the penultimate point
+                # (in the latter case, the final point, which is identical to the
+                # first one, will also be in the plane, but this is disregarded
+                # by the [:-1] above)
+                if hit[0] + 1 == hit[-1] or hit[0] == 0 and hit[-1] == (dot_prod_from_other.size - 2):
+                    isect_on_boundary_main = True
 
             # Vectors from the intersection points in the main fracture to the
             # intersection point in the other fracture
@@ -1479,6 +1533,8 @@ def intersect_polygons_3d(polys, tol=1e-8):
             isect_pt[main].append(new_pt_ind + np.arange(num_new))
             isect_pt[o].append(new_pt_ind + np.arange(num_new))
             new_pt_ind += num_new
+            is_bound_isect[main].append(isect_on_boundary_main)
+            is_bound_isect[o].append(isect_on_boundary_other)
 
     if len(new_pt) > 0:
         new_pt = np.hstack((v for v in new_pt))
@@ -1490,8 +1546,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
         for i in range(isect_pt.size):
             isect_pt[i] = np.empty(0)
 
-    return new_pt, isect_pt
-
+    return new_pt, isect_pt, is_bound_isect
 
 # ----------------------------------------------------------
 #
