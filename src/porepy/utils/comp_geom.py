@@ -1177,9 +1177,10 @@ def intersect_polygons_3d(polys, tol=1e-8):
             is on the boundary of the polygon or not. For polygon i, the first
             element in this list tells whether the point formed by point-indices
             0 and 1 in the previous return argument is on the boundary.
+        list of tuples: Each list element is a 2-tuple with the indices of
+            intersecting polygons.
 
     """
-
     # Obtain bounding boxes for the polygons
     x_min, x_max, y_min, y_max, z_min, z_max = pp.cg._axis_aligned_bounding_box_3d(
         polys
@@ -1260,6 +1261,8 @@ def intersect_polygons_3d(polys, tol=1e-8):
 
     # Index of the main fractures, to which the other ones will be compared.
     start_inds = np.unique(pairs[0])
+
+    polygon_pairs = []
 
     # Loop over all fracture pairs (taking more than one simultaneously if an index
     # occurs several times in pairs[0]), and look for intersections
@@ -1535,6 +1538,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
             new_pt_ind += num_new
             is_bound_isect[main].append(isect_on_boundary_main)
             is_bound_isect[o].append(isect_on_boundary_other)
+            polygon_pairs.append((main, o))
 
     if len(new_pt) > 0:
         new_pt = np.hstack((v for v in new_pt))
@@ -1546,7 +1550,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
         for i in range(isect_pt.size):
             isect_pt[i] = np.empty(0)
 
-    return new_pt, isect_pt, is_bound_isect
+    return new_pt, isect_pt, is_bound_isect, polygon_pairs
 
 # ----------------------------------------------------------
 #
