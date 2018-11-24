@@ -24,13 +24,13 @@ class BasicsTest(unittest.TestCase):
         Dirichlet + inflow + no-flow, conductive fracture.
         Tests pressure solution and fluxes.
         """
-        f = np.array([[0, 1], [.5, .5]])
+        f = np.array([[0, 1], [0.5, 0.5]])
         gb = pp.meshing.cart_grid([f], [2, 2], **{"physdims": [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = pp.TpfaMixedDim(physics="flow")
+        solver = pp.TpfaMixedDim(keyword="flow")
         gb.add_node_props(["param"])
         a = 1e-2
         for g, d in gb:
@@ -100,13 +100,13 @@ class BasicsTest(unittest.TestCase):
         Dirichlet + inflow + no-flow, conductive fracture.
         Tests pressure solution and fluxes.
         """
-        f = np.array([[0, 1], [.5, .5]])
+        f = np.array([[0, 1], [0.5, 0.5]])
         gb = pp.meshing.cart_grid([f], [2, 2], **{"physdims": [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = pp.MpfaMixedDim(physics="flow")
+        solver = pp.MpfaMixedDim(keyword="flow")
         gb.add_node_props(["param"])
         a = 1e-2
         for g, d in gb:
@@ -170,8 +170,8 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(p, p_known, rtol, atol))
 
     def atest_tpfa_fluxes_2d_1d_cross_with_elimination(self):
-        f1 = np.array([[0, 1], [.5, .5]])
-        f2 = np.array([[.5, .5], [0, 1]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
+        f2 = np.array([[0.5, 0.5], [0, 1]])
 
         gb = pp.meshing.cart_grid([f1, f2], [2, 2], **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -515,14 +515,14 @@ def fluxes_2d_1d_left_right_dir_neu():
             5.00000000e-01,
             5.04994426e-01,
             5.04994950e-01,
-            0.00000000e+00,
-            0.00000000e+00,
-            0.00000000e+00,
-            0.00000000e+00,
-            0.00000000e+00,
-            0.00000000e+00,
-            0.00000000e+00,
-            0.00000000e+00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
         ]
     )
     d_1 = np.array([-1.01001192e-05, -1.11486078e-05, -1.00000000e-02])
@@ -536,27 +536,27 @@ def fluxes_2d_1d_cross_with_elimination():
     d_0 = np.array(
         [
             0.5,
-            0.,
+            0.0,
             0.04923282,
             0.5,
-            0.,
+            0.0,
             0.04923282,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
         ]
     )
 
-    d_1 = np.array([-0.91153437, 0., -0.01, 0.])
+    d_1 = np.array([-0.91153437, 0.0, -0.01, 0.0])
 
-    d_2 = np.array([0., 0., 0., 0.])
+    d_2 = np.array([0.0, 0.0, 0.0, 0.0])
     return d_0, d_1, d_2
 
 
@@ -566,40 +566,40 @@ def fluxes_2d_1d_cross_with_elimination():
 def coupling_fluxes_2d_1d_cross_no_el():
     d_01 = np.array(
         [
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
             -0.24258847,
             -0.00365602,
-            0.,
-            0.,
+            0.0,
+            0.0,
             0.24258847,
             0.00365602,
-            0.,
-            0.,
+            0.0,
+            0.0,
         ]
     )
     d_10 = np.array(
         [
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
             -0.24258847,
             -0.00365602,
-            0.,
-            0.,
-            0.,
-            0.,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
             0.24258847,
             0.00365602,
         ]
@@ -607,48 +607,48 @@ def coupling_fluxes_2d_1d_cross_no_el():
 
     d_02 = np.array(
         [
-            0.,
+            0.0,
             0.05288884,
-            0.,
-            0.,
+            0.0,
+            0.0,
             0.05288884,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
             0.25741153,
             0.25741153,
         ]
     )
     d_20 = np.array(
         [
-            0.,
+            0.0,
             0.05288884,
-            0.,
-            0.,
+            0.0,
+            0.0,
             0.05288884,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
-            0.,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
             0.25741153,
             0.25741153,
-            0.,
-            0.,
+            0.0,
+            0.0,
         ]
     )
 
-    d_13 = np.array([0., -0.49517693, 0., -0.90422232])
+    d_13 = np.array([0.0, -0.49517693, 0.0, -0.90422232])
 
-    d_23 = np.array([0., -0.20452269, 0., 0.20452269])
+    d_23 = np.array([0.0, -0.20452269, 0.0, 0.20452269])
 
     return d_01, d_10, d_02, d_20, d_13, d_23
 
@@ -661,7 +661,7 @@ def coupling_fluxes_2d_1d_cross_with_el():
 
     d_21 = np.array([0.27718625, 0.27718625, -0.07266356, -0.07266356])
 
-    d_22 = np.array([0.00000000e+00])
+    d_22 = np.array([0.00000000e00])
 
     return d_11, d_21, d_22
 

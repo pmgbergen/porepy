@@ -41,7 +41,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
     def test_three_lines_no_crossing(self):
         # This test gave an error at some point
         p = np.array(
-            [[0., 0., 0.3, 1., 1., 0.5], [2 / 3, 1 / .7, 0.3, 2 / 3, 1 / .7, 0.5]]
+            [[0.0, 0.0, 0.3, 1.0, 1.0, 0.5], [2 / 3, 1 / 0.7, 0.3, 2 / 3, 1 / 0.7, 0.5]]
         )
         lines = np.array([[0, 3], [1, 4], [2, 5]]).T
         box = np.array([[1], [2]])
@@ -53,7 +53,9 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
 
     def test_three_lines_one_crossing(self):
         # This test gave an error at some point
-        p = np.array([[0., 0.5, 0.3, 1., 0.3, 0.5], [2 / 3, 0.3, 0.3, 2 / 3, 0.5, 0.5]])
+        p = np.array(
+            [[0.0, 0.5, 0.3, 1.0, 0.3, 0.5], [2 / 3, 0.3, 0.3, 2 / 3, 0.5, 0.5]]
+        )
         lines = np.array([[0, 3], [2, 5], [1, 4]]).T
         box = np.array([[1], [2]])
 

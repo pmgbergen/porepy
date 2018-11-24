@@ -10,13 +10,7 @@ from __future__ import division
 import numpy as np
 import scipy.sparse as sps
 import unittest
-
-from porepy.fracs import meshing
-from porepy.params import bc, tensor
-from porepy.params.data import Parameters
-from porepy.numerics.fv import tpfa
-from porepy.numerics.mixed_dim import coupler, condensation
-from porepy.utils import error
+import porepy as pp
 
 # ------------------------------------------------------------------------------#
 
@@ -31,27 +25,27 @@ class BasicsTest(unittest.TestCase):
         2d case with two fractures intersecting in a single 0d grid
         at the center of the domain.
         """
-        f1 = np.array([[0, 1], [.5, .5]])
-        f2 = np.array([[.5, .5], [0, 1]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
+        f2 = np.array([[0.5, 0.5], [0, 1]])
 
-        gb = meshing.cart_grid([f1, f2], [2, 2], **{"physdims": [1, 1]})
+        gb = pp.fracs.meshing.cart_grid([f1, f2], [2, 2], **{"physdims": [1, 1]})
         gb.compute_geometry()
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = tpfa.Tpfa()
-        gb.add_node_props(["param"])
+        kw = "flow"
+        solver = pp.Tpfa(kw)
         a = 1e-2
         for g, d in gb:
-            param = Parameters(g)
-
+            param = pp.Parameters(g)
+            d[pp.keywords.PARAMETERS][kw] = param
             a_dim = np.power(a, gb.dim_max() - g.dim)
             aperture = np.ones(g.num_cells) * a_dim
             param.set_aperture(aperture)
 
             kxx = np.ones(g.num_cells) * np.power(1e3, g.dim < gb.dim_max())
 
-            p = tensor.SecondOrderTensor(3, kxx, kyy=kxx, kzz=kxx)
+            p = pp.SecondOrderTensor(3, kxx, kyy=kxx, kzz=kxx)
             param.set_tensor("flow", p)
             bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
             if bound_faces.size != 0:
@@ -97,9 +91,9 @@ class BasicsTest(unittest.TestCase):
         """
         2d case involving two 0d grids.
         """
-        f1 = np.array([[0, 1], [.5, .5]])
-        f2 = np.array([[.5, .5], [0, 1]])
-        f3 = np.array([[.25, .25], [0, 1]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
+        f2 = np.array([[0.5, 0.5], [0, 1]])
+        f3 = np.array([[0.25, 0.25], [0, 1]])
 
         gb = meshing.cart_grid([f1, f2, f3], [4, 2], **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -165,9 +159,9 @@ class BasicsTest(unittest.TestCase):
         """
         3d case with a single 0d grid.
         """
-        f1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [.5, .5, .5, .5]])
-        f2 = np.array([[.5, .5, .5, .5], [0, 1, 1, 0], [0, 0, 1, 1]])
-        f3 = np.array([[0, 1, 1, 0], [.5, .5, .5, .5], [0, 0, 1, 1]])
+        f1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
+        f2 = np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
+        f3 = np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
 
         gb = meshing.cart_grid([f1, f2, f3], [2, 2, 2], **{"physdims": [1, 1, 1]})
         gb.compute_geometry()

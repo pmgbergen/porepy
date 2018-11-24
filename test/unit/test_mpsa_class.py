@@ -1,11 +1,8 @@
 import numpy as np
 import scipy.sparse as sps
 import unittest
-import warnings
+import porepy as pp
 
-from porepy.numerics.fv import mpsa
-from porepy.fracs import meshing
-from porepy.params.data import Parameters
 
 from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 
@@ -13,10 +10,10 @@ from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 class MpsaTest(unittest.TestCase):
     def test_matrix_rhs(self):
         g_list = setup_grids.setup_2d()
-
+        kw = "mechanics"
         for g in g_list:
-            solver = mpsa.Mpsa()
-            data = {"param": Parameters(g)}
+            solver = pp.Mpsa()
+            data = pp.initialize_data({}, g, kw)
             A, b = solver.assemble_matrix_rhs(g, data)
             self.assertTrue(
                 np.all(A.shape == (g.dim * g.num_cells, g.dim * g.num_cells))
@@ -25,14 +22,22 @@ class MpsaTest(unittest.TestCase):
 
     def test_matrix_rhs_no_disc(self):
         g_list = setup_grids.setup_2d()
-
+        kw = "mechanics"
         for g in g_list:
-            solver = mpsa.Mpsa()
-            data = {"param": Parameters(g)}
+            solver = pp.Mpsa()
+            data = pp.initialize_data({}, g, kw)
             cell_dof = g.dim * g.num_cells
             face_dof = g.dim * g.num_faces
-            data["stress"] = sps.csc_matrix((face_dof, cell_dof))
-            data["bound_stress"] = sps.csc_matrix((face_dof, face_dof))
+            stress = sps.csc_matrix((face_dof, cell_dof))
+            bound_stress = sps.csc_matrix((face_dof, face_dof))
+            data[pp.keywords.DISCRETIZATION_MATRICES][kw] = {
+                "stress": stress,
+                "bound_stress": bound_stress,
+            }
             A, b = solver.assemble_matrix_rhs(g, data, discretize=False)
             self.assertTrue(np.sum(A != 0) == 0)
             self.assertTrue(np.all(b == 0))
+
+
+if __name__ == "__main__":
+    unittest.main()

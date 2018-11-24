@@ -5,16 +5,14 @@ import unittest
 import porepy as pp
 
 
-
 class MassMatrixTest(unittest.TestCase):
     def test_mass_matrix(self):
         g = pp.CartGrid([3, 3, 3])
         g.compute_geometry()
         phi = np.random.rand(g.num_cells)
         dt = 0.2
-        param = pp.Parameters(g)
-        param.set_porosity(phi)
-        data = {"param": param, "deltaT": dt}
+        specified_parameters = {"time_step": dt, "porosity": phi}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
         time_discr = pp.MassMatrix()
         lhs, rhs = time_discr.assemble_matrix_rhs(g, data)
         self.assertTrue(np.allclose(rhs, 0))
@@ -27,9 +25,8 @@ class MassMatrixTest(unittest.TestCase):
         g.compute_geometry()
         phi = np.random.rand(g.num_cells)
         dt = 0.2
-        param = pp.Parameters(g)
-        param.set_porosity(phi)
-        data = {"param": param, "deltaT": dt}
+        specified_parameters = {"time_step": dt, "porosity": phi}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
         time_discr = pp.InvMassMatrix()
         lhs, rhs = time_discr.assemble_matrix_rhs(g, data)
         self.assertTrue(np.allclose(rhs, 0))
