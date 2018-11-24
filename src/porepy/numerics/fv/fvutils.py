@@ -1134,7 +1134,7 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
 
 def compute_discharges(
     gb,
-    physics="flow",
+    keyword="flow",
     d_name="discharge",
     p_name="pressure",
     lam_name="mortar_solution",
@@ -1152,7 +1152,7 @@ def compute_discharges(
         'bc_val': Boundary condition values.
             and the following edge property field for all connected grids:
         'coupling_flux': Discretization of the coupling fluxes.
-    physics (string): defaults to 'flow'. The physic regime
+    keyword (string): defaults to 'flow'. The physic regime
     d_name (string): defaults to 'discharge'. The keyword which the computed
                      discharge will be stored by in the dictionary.
     p_name (string): defaults to 'pressure'. The keyword that the pressure
@@ -1170,30 +1170,36 @@ def compute_discharges(
         there is an implicit assumption that all normals point from the second
         to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
     """
-    keyword = physics
+    keyword = keyword
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
-        pa = data["param"]
-        if data.get(keyword + "_flux") is not None:
-            dis = data[keyword + "_flux"] * data[p_name] + data[
-                keyword + "_bound_flux"
-            ] * pa.get_bc_val(physics)
+        parameter_dictionary = data[pp.keywords.PARAMETERS][keyword]
+        matrix_dictionary = data[pp.keywords.PARAMETERS][keyword]
+        if "flux" in matrix_dictionary:
+            dis = (
+                matrix_dictionary["flux"] * data[p_name]
+                + matrix_dictionary["bound_flux"] * parameter_dictionary["bc_values"]
+            )
         else:
             raise ValueError(
                 """Discharges can only be computed if a flux-based
                                  discretization has been applied"""
             )
         data[d_name] = dis
+        parameter_dictionary[d_name] = dis
         return
 
     # Compute fluxes from pressures internal to the subdomain, and for global
     # boundary conditions.
     for g, d in gb:
         if g.dim > 0:
-            pa = d["param"]
-            if d.get(keyword + "_flux") is not None:
-                dis = d[keyword + "_flux"] * d[p_name] + d[
-                    keyword + "_bound_flux"
-                ] * pa.get_bc_val(physics)
+            parameter_dictionary = d[pp.keywords.PARAMETERS][keyword]
+            matrix_dictionary = d[pp.keywords.DISCRETIZATION_MATRICES][keyword]
+            if "flux" in matrix_dictionary:
+                dis = (
+                    matrix_dictionary["flux"] * d[p_name]
+                    + matrix_dictionary["bound_flux"]
+                    * parameter_dictionary["bc_values"]
+                )
             else:
                 raise ValueError(
                     """Discharges can only be computed if a flux-based
@@ -1201,6 +1207,7 @@ def compute_discharges(
                 )
 
             d[d_name] = dis
+            parameter_dictionary[d_name] = dis
 
     # Compute fluxes over internal faces, induced by the mortar flux. These
     # are a critical part of what makes MPFA consistent, but will not be
