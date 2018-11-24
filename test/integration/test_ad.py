@@ -43,3 +43,7 @@ class AdTest(unittest.TestCase):
         J = np.array([[np.exp(1), 1], [1, np.exp(2)]])
 
         self.assertTrue(np.allclose(z.val, val) and np.allclose(z.full_jac().A, J))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,13 +1,16 @@
+""" Disabled test of the obsolete DualElliptic module.
+"""
 import numpy as np
 import unittest
 
 import porepy as pp
 
+
 class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_mono_equals_multi(self):
+    def disabled_test_mono_equals_multi(self):
         """
         test that the mono_dimensional elliptic solver gives the same answer as
         the grid bucket elliptic
@@ -85,7 +88,7 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_elliptic_uniform_flow_cart(self):
+    def disabled_test_elliptic_uniform_flow_cart(self):
         gb = setup_2d_1d([10, 10])
         problem = pp.DualEllipticModel(gb)
         problem.solve()
@@ -100,7 +103,7 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_elliptic_uniform_flow_simplex(self):
+    def disabled_test_elliptic_uniform_flow_simplex(self):
         """
         Unstructured simplex grid. Note that the solution depends
         on the grid quality. Also sensitive to the way in which
@@ -120,7 +123,7 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_elliptic_dirich_neumann_source_sink_cart(self):
+    def disabled_test_elliptic_dirich_neumann_source_sink_cart(self):
         gb = setup_3d(np.array([4, 4, 4]), simplex_grid=False)
         problem = pp.DualEllipticModel(gb)
         problem.solve()
@@ -149,7 +152,7 @@ def setup_3d(nx, simplex_grid=False):
         gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1, 1])
     else:
         mesh_kwargs = {}
-        mesh_size = .3
+        mesh_size = 0.3
         mesh_kwargs = {
             "mesh_size_frac": mesh_size,
             "mesh_size_bound": 2 * mesh_size,
@@ -203,7 +206,7 @@ def setup_2d_1d(nx, simplex_grid=False):
     if not simplex_grid:
         gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1])
     else:
-        mesh_kwargs = {"mesh_size_frac": .2, "mesh_size_min": .02}
+        mesh_kwargs = {"mesh_size_frac": 0.2, "mesh_size_min": 0.02}
         domain = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
         gb = pp.meshing.simplex_grid(fracs, domain, **mesh_kwargs)
 
