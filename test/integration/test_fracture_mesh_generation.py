@@ -43,7 +43,6 @@ class TestMeshGeneration(unittest.TestCase):
         kwargs = {"mesh_size_frac": .5, "mesh_size_bound": 1, "mesh_size_min": .2}
 
         grids = meshing.simplex_grid([f_1, f_2], domain, **kwargs)
-        assert False
         if kwargs.get("return_expected", False):
             return grids, [1, 2, 1, 0]
         else:
