@@ -16,6 +16,7 @@ self._key() + "bound_mass" or self._key() + "bound_inv_mass", respectively.
 """
 import numpy as np
 import scipy.sparse as sps
+import porepy as pp
 
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
@@ -24,10 +25,10 @@ from porepy.numerics.mixed_dim.coupler import Coupler
 
 
 class MassMatrixMixedDim(SolverMixedDim):
-    def __init__(self, physics="flow"):
-        self.physics = physics
+    def __init__(self, keyword="flow"):
+        self.keyword = keyword
 
-        self.discr = MassMatrix(self.physics)
+        self.discr = MassMatrix(self.keyword)
 
         self.solver = Coupler(self.discr)
 
@@ -51,9 +52,6 @@ class MassMatrix(Solver):
                 discretization.
         """
         self.keyword = keyword
-
-        # The physics keyword is kept for consistency for now, but will soon be purged.
-        self.physics = keyword
 
     # ------------------------------------------------------------------------------#
 
@@ -125,10 +123,10 @@ class MassMatrix(Solver):
             scipy.sparse.csr_matrix (self.ndof x self.ndof): System matrix of this
                 discretization.
         """
-        if not self._key() + "mass" in data.keys():
+        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        if "mass" not in matrix_dictionary:
             self.discretize(g, data)
-
-        M = data[self._key() + "mass"]
+        M = matrix_dictionary["mass"]
         return M
 
     # ------------------------------------------------------------------------------#
@@ -147,10 +145,11 @@ class MassMatrix(Solver):
             np.ndarray (self.ndof): Null right hand side vector with representation of
                 boundary conditions.
         """
-        if not self._key() + "bound_mass" in data.keys():
+        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        if "bound_mass" not in matrix_dictionary:
             self.discretize(g, data)
 
-        rhs = data[self._key() + "bound_mass"]
+        rhs = matrix_dictionary["bound_mass"]
         return rhs
 
     # ------------------------------------------------------------------------------#
@@ -170,29 +169,32 @@ class MassMatrix(Solver):
 
         The names of data in the input dictionary (data) are:
         param (Parameter Class): Contains the following parameters:
-            porosity: (array, self.g.num_cells): Scalar values which represent the
-                porosity. If not given assumed unitary.
+            mass_weigh: (array, self.g.num_cells): Scalar values which may e.g.
+                represent the porosity or heat capacity. If not given assumed unitary.
             apertures (ndarray, g.num_cells): Apertures of the cells for scaling of
                 the face normals. If not given assumed unitary.
-        deltaT: Time step for a possible temporal discretization scheme. If not given
+        time_step: Time step for a possible temporal discretization scheme. If not given
             assumed unitary.
         """
+        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
         ndof = self.ndof(g)
-        phi = data["param"].get_porosity()
-        aperture = data["param"].get_aperture()
-        coeff = g.cell_volumes * phi / data["deltaT"] * aperture
-        data[self._key() + "mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
-        data[self._key() + "bound_mass"] = np.zeros(ndof)
+        w = parameter_dictionary["mass_weight"]
+        aperture = parameter_dictionary["aperture"]
+        coeff = g.cell_volumes * w / parameter_dictionary["time_step"] * aperture
+
+        matrix_dictionary["mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
+        matrix_dictionary["bound_mass"] = np.zeros(ndof)
 
 
 ##########################################################################
 
 
 class InvMassMatrixMixedDim(SolverMixedDim):
-    def __init__(self, physics="flow"):
-        self.physics = physics
+    def __init__(self, keyword="flow"):
+        self.keyword = keyword
 
-        self.discr = InvMassMatrix(self.physics)
+        self.discr = InvMassMatrix(self.keyword)
 
         self.solver = Coupler(self.discr)
 
@@ -215,9 +217,6 @@ class InvMassMatrix(Solver):
                 discretization.
         """
         self.keyword = keyword
-
-        # The physics keyword is kept for consistency for now, but will soon be purged.
-        self.physics = keyword
 
     # ------------------------------------------------------------------------------#
 
@@ -293,10 +292,11 @@ class InvMassMatrix(Solver):
             scipy.sparse.csr_matrix (self.ndof x self.ndof): System matrix of this
                 discretization.
         """
-        if not self._key() + "inv_mass" in data.keys():
+        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        if "inv_mass" not in matrix_dictionary:
             self.discretize(g, data)
 
-        M = data[self._key() + "inv_mass"]
+        M = matrix_dictionary["inv_mass"]
         return M
 
     # ------------------------------------------------------------------------------#
@@ -315,10 +315,11 @@ class InvMassMatrix(Solver):
             np.ndarray: Right hand side vector with representation of boundary
                 conditions: A null vector of length g.num_faces.
         """
-        if not self._key() + "bound_inv_mass" in data.keys():
+        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        if "bound_inv_mass" not in matrix_dictionary:
             self.discretize(g, data)
 
-        rhs = data[self._key() + "bound_inv_mass"]
+        rhs = matrix_dictionary["bound_inv_mass"]
         return rhs
 
     # ------------------------------------------------------------------------------#
@@ -347,11 +348,12 @@ class InvMassMatrix(Solver):
         deltaT: Time step for a possible temporal discretization scheme. If not given
             assumed unitary.
         """
+        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
         M, rhs = MassMatrix(keyword=self.keyword).assemble_matrix_rhs(g, data)
-        data[self._key() + "inv_mass"] = sps.dia_matrix(
-            (1. / M.diagonal(), 0), shape=M.shape
+        matrix_dictionary["inv_mass"] = sps.dia_matrix(
+            (1.0 / M.diagonal(), 0), shape=M.shape
         )
-        data[self._key() + "bound_inv_mass"] = rhs
+        matrix_dictionary["bound_inv_mass"] = rhs
 
 
 # ------------------------------------------------------------------------------#

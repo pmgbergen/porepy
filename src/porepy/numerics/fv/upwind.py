@@ -8,10 +8,10 @@ import porepy as pp
 
 
 class _UpwindMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
-    def __init__(self, physics="transport"):
-        self.physics = physics
+    def __init__(self, keyword="transport"):
+        self.keyword = keyword
 
-        self.discr = Upwind(self.physics)
+        self.discr = Upwind(self.keyword)
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = UpwindCoupling(self.discr)
 
@@ -43,9 +43,8 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, keyword="transport", physics="transport"):
+    def __init__(self, keyword="transport"):
         self.keyword = keyword
-        self.physics = physics
 
     # ------------------------------------------------------------------------------#
 
@@ -115,13 +114,13 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
         """
         if g.dim == 0:
-            data["flow_faces"] = sps.csr_matrix([0.])
-            return sps.csr_matrix([0.]), np.array([0.])
+            data["flow_faces"] = sps.csr_matrix([0.0])
+            return sps.csr_matrix([0.0]), np.array([0.0])
 
-        param = data["param"]
-        discharge = data[d_name]
-        bc = param.get_bc(self)
-        bc_val = param.get_bc_val(self)
+        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        discharge = parameter_dictionary[d_name]
+        bc = parameter_dictionary["bc"]
+        bc_val = parameter_dictionary["bc_values"]
 
         has_bc = not (bc is None or bc_val is None)
 
@@ -216,11 +215,11 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         """
         if g.dim == 0:
             return np.inf
-        # Retrieve the data, only "discharge" is mandatory
-        param = data["param"]
-        discharge = data[d_name]
-        aperture = param.get_aperture()
-        phi = param.get_porosity()
+        # Retrieve the data
+        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        discharge = parameter_dictionary[d_name]
+        aperture = parameter_dictionary["aperture"]
+        phi = parameter_dictionary["porosity"]
 
         faces, cells, _ = sps.find(g.cell_faces)
 
@@ -286,10 +285,10 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         if g.dim == 0:
             return sps.csr_matrix([0])
 
-        param = data["param"]
-        discharge = data[d_name]
-        bc = param.get_bc(self)
-        bc_val = param.get_bc_val(self)
+        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        discharge = parameter_dictionary[d_name]
+        bc = parameter_dictionary["bc"]
+        bc_val = parameter_dictionary["bc_values"]
 
         has_bc = not (bc is None or bc_val is None)
 
