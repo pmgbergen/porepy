@@ -16,3 +16,6 @@ COUPLING_DISCRETIZATION = "coupling_discretization"
 
 PRIMARY_VARIABLES = "primary_variables"
 
+PARAMETERS = "parameters"
+
+DISCRETIZATION_MATRICES = "discretization_matrices"

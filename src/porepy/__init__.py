@@ -94,10 +94,10 @@ from porepy.params.bc import (
     BoundaryCondition,
     BoundaryConditionVectorial,
     BoundaryConditionNode,
-    face_on_side
+    face_on_side,
 )
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
-from porepy.params.data import Parameters
+from porepy.params.data import Parameters, initialize_data
 from porepy.params.rock import UnitRock, Shale, SandStone, Granite
 from porepy.params.water import Water
 
