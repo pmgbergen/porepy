@@ -55,7 +55,11 @@ class RobinCoupling(object):
             data_edge: Data dictionary for the edge between the domains.
 
         """
-
+        matrix_dictionary_edge = data_edge[pp.keywords.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
+        parameter_dictionary_edge = data_edge[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary_h = data_h[pp.keywords.PARAMETERS][self.keyword]
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
@@ -63,11 +67,11 @@ class RobinCoupling(object):
         ind_faces_h = np.unique(faces_h, return_index=True)[1]
         cells_h = cells_h[ind_faces_h]
 
-        inv_M = sps.diags(1. / mg.cell_volumes)
+        inv_M = sps.diags(1.0 / mg.cell_volumes)
 
         # Normal permeability and aperture of the intersection
-        inv_k = 1. / (2. * data_edge["kn"])
-        aperture_h = data_h["param"].get_aperture()
+        inv_k = 1.0 / (2.0 * parameter_dictionary_edge["normal_diffusivity"])
+        aperture_h = parameter_dictionary_h["aperture"]
 
         proj = mg.master_to_mortar_avg()
 
@@ -75,7 +79,7 @@ class RobinCoupling(object):
 
         # @ALESSIO, @EIRIK: the tpfa and vem couplers use different sign
         # conventions here. We should be very careful.
-        data_edge[self._key() + 'Robin_discr'] = -inv_M * Eta
+        matrix_dictionary_edge["Robin_discr"] = -inv_M * Eta
 
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
@@ -97,7 +101,10 @@ class RobinCoupling(object):
             internal boundary in some numerical methods (Read: VEM, RT0)
 
         """
-        if not self._key() + "Robin_discr" in data_edge.keys():
+        matrix_dictionary_edge = data_edge[pp.keywords.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
+        if not "Robin_discr" in matrix_dictionary_edge:
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         grid_swap = g_master.dim < g_slave.dim
@@ -136,9 +143,13 @@ class RobinCoupling(object):
         # We know the number of dofs from the master and slave side from their
         # discretizations
         #        dof = np.array([dof_master, dof_slave, mg.num_cells])
-        dof = np.array([matrix[master_ind, master_ind].shape[1],
-                        matrix[slave_ind, slave_ind].shape[1],
-                        mg.num_cells])
+        dof = np.array(
+            [
+                matrix[master_ind, master_ind].shape[1],
+                matrix[slave_ind, slave_ind].shape[1],
+                mg.num_cells,
+            ]
+        )
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
 
@@ -152,7 +163,7 @@ class RobinCoupling(object):
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
         # and mortar variables in the third
-        cc[2, 2] = data_edge[self._key() + "Robin_discr"]
+        cc[2, 2] = matrix_dictionary_edge["Robin_discr"]
 
         self.discr_master.assemble_int_bound_pressure_trace(
             g_master, data_master, data_edge, grid_swap, cc, matrix, master_ind
@@ -175,6 +186,7 @@ class RobinCoupling(object):
         )
 
         return matrix, rhs
+
 
 # ------------------------------------------------------------------------------
 
@@ -232,7 +244,10 @@ class FluxPressureContinuity(RobinCoupling):
             internal boundary in some numerical methods (Read: VEM, RT0)
 
         """
-        if not self._key() + "Robin_discr" in data_edge.keys():
+        matrix_dictionary_edge = data_edge[pp.keywords.DISCRETIZATION_MATRICES][
+            self.keyword
+        ]
+        if not "Robin_discr" in matrix_dictionary_edge:
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         if not g_master.dim == g_slave.dim:
@@ -268,9 +283,13 @@ class FluxPressureContinuity(RobinCoupling):
             )
         # We know the number of dofs from the master and slave side from their
         # discretizations
-        dof = np.array([matrix[master_ind, master_ind].shape[1],
-                        matrix[slave_ind, slave_ind].shape[1],
-                        mg.num_cells])
+        dof = np.array(
+            [
+                matrix[master_ind, master_ind].shape[1],
+                matrix[slave_ind, slave_ind].shape[1],
+                mg.num_cells,
+            ]
+        )
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc_master = cc.reshape((3, 3))
         cc_slave = cc_master.copy()
@@ -295,22 +314,10 @@ class FluxPressureContinuity(RobinCoupling):
             master_ind = 0
 
         self.discr_master.assemble_int_bound_pressure_trace(
-            g_master,
-            data_master,
-            data_edge,
-            False,
-            cc_master,
-            matrix,
-            master_ind
+            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
         )
         self.discr_master.assemble_int_bound_flux(
-            g_master,
-            data_master,
-            data_edge,
-            False,
-            cc_master,
-            matrix,
-            master_ind
+            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
         )
 
         self.discr_slave.assemble_int_bound_pressure_trace(
