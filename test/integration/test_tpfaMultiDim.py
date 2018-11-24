@@ -11,7 +11,7 @@ def setup_2d_1d(nx, simplex_grid=False):
     if not simplex_grid:
         gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1])
     else:
-        mesh_size = .08
+        mesh_size = 0.08
         mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
         domain = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
         gb = pp.meshing.simplex_grid(fracs, domain, **mesh_kwargs)
@@ -23,10 +23,8 @@ def setup_2d_1d(nx, simplex_grid=False):
         kxx = np.ones(g.num_cells)
         perm = pp.SecondOrderTensor(gb.dim_max(), kxx)
         a = 0.01 / np.max(nx)
-        a = np.power(a, gb.dim_max() - g.dim)
-        param = pp.Parameters(g)
-        param.set_tensor("flow", perm)
-        param.set_aperture(a)
+        a = np.power(a, gb.dim_max() - g.dim) * np.ones(g.num_cells)
+        specified_parameters = {"aperture": a, "permeability": perm}
         if g.dim == 2:
             bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
             bound = pp.BoundaryCondition(
@@ -34,15 +32,19 @@ def setup_2d_1d(nx, simplex_grid=False):
             )
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces] = g.face_centers[1, bound_faces]
-            param.set_bc("flow", bound)
-            param.set_bc_val("flow", bc_val)
-        d["param"] = param
+            specified_parameters.update({"bc": bound, "bc_values": bc_val})
+
+        pp.params.data.initialize_data(d, g, "flow", specified_parameters)
 
     for e, d in gb.edges():
         gl, _ = gb.nodes_of_edge(e)
         d_l = gb.node_props(gl)
-        d["kn"] = 1. / np.mean(d_l["param"].get_aperture())
-
+        mg = d["mortar_grid"]
+        kn = 1.0 / np.mean(d_l[pp.keywords.PARAMETERS]["flow"]["aperture"])
+        d[pp.keywords.PARAMETERS] = pp.Parameters(
+            mg, ["flow"], [{"normal_diffusivity": kn}]
+        )
+        d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
     return gb
 
 

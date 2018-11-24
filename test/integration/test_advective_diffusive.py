@@ -1,3 +1,5 @@
+""" Disabled test of the obsolete Parabolic module.
+"""
 import numpy as np
 import unittest
 
@@ -15,7 +17,7 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_src_2d(self):
+    def disabled_test_src_2d(self):
         """
         test that the mono_dimensional elliptic solver gives the same answer as
         the grid bucket elliptic
@@ -27,17 +29,22 @@ class BasicsTest(unittest.TestCase):
                 d["transport_data"] = InjectionDomain(sub_g, d)
             else:
                 d["transport_data"] = MatrixDomain(sub_g, d)
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         for e, d in gb.edges():
             gl, _ = gb.nodes_of_edge(e)
-            d["kn"] = 1.0 * gl.num_cells
-
-        problem = SourceProblem(gb, physics="transport")
+            kn = 1.0 * gl.num_cells
+            data = {"normal_diffusivity": kn}
+            d[pp.keywords.PARAMETERS] = pp.Parameters(
+                d["mortar_grid"], ["transport"], [data]
+            )
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
+        problem = SourceProblem(gb, keyword="transport")
         problem.solve()
         dE = change_in_energy(problem)
         self.assertTrue(np.abs(dE - 10) < 1e-6)
 
-    def test_src_3d(self):
+    def disabled_test_src_3d(self):
         """
         test that the mono_dimensional elliptic solver gives the same answer as
         the grid bucket elliptic
@@ -49,10 +56,16 @@ class BasicsTest(unittest.TestCase):
                 d["transport_data"] = InjectionDomain(sub_g, d)
             else:
                 d["transport_data"] = MatrixDomain(sub_g, d)
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         for e, d in self.gb3d.edges():
             gl, _ = self.gb3d.nodes_of_edge(e)
-            d["kn"] = 1.0 * gl.num_cells
+            kn = 1.0 * gl.num_cells
+            data = {"normal_diffusivity": kn}
+            d[pp.keywords.PARAMETERS] = pp.Parameters(
+                d["mortar_grid"], ["transport"], [data]
+            )
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         problem = SourceProblem(self.gb3d)
         problem.solve()
@@ -60,33 +73,45 @@ class BasicsTest(unittest.TestCase):
 
         self.assertTrue(np.abs(dE - 10) < 1e-6)
 
-    def test_src_advective(self):
+    def disabled_test_src_advective(self):
         delete_data(self.gb3d)
         for g, d in self.gb3d:
             if g.dim == 2:
                 d["transport_data"] = InjectionDomain(g, d)
             else:
                 d["transport_data"] = MatrixDomain(g, d)
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
         for e, d in self.gb3d.edges():
             gl, _ = self.gb3d.nodes_of_edge(e)
-            d["kn"] = 1.0 * gl.num_cells
+            kn = 1.0 * gl.num_cells
+            data = {"normal_diffusivity": kn}
+            d[pp.keywords.PARAMETERS] = pp.Parameters(
+                d["mortar_grid"], ["transport"], [data]
+            )
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         solve_elliptic_problem(self.gb3d)
-        problem = SourceAdvectiveProblem(self.gb3d, 'transport')
+        problem = SourceAdvectiveProblem(self.gb3d, "transport")
         problem.solve()
         dE = change_in_energy(problem)
         self.assertTrue(np.abs(dE - 10) < 1e-6)
 
-    def test_src_advective_diffusive(self):
+    def disabled_test_src_advective_diffusive(self):
         delete_data(self.gb3d)
         for g, d in self.gb3d:
             if g.dim == 2:
                 d["transport_data"] = InjectionDomain(g, d)
             else:
                 d["transport_data"] = MatrixDomain(g, d)
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
         for e, d in self.gb3d.edges():
             gl, _ = self.gb3d.nodes_of_edge(e)
-            d["kn"] = 1.0 * gl.num_cells
+            kn = 1.0 * gl.num_cells
+            data = {"normal_diffusivity": kn}
+            d[pp.keywords.PARAMETERS] = pp.Parameters(
+                d["mortar_grid"], ["transport"], [data]
+            )
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveDiffusiveProblem(self.gb3d)
@@ -94,16 +119,22 @@ class BasicsTest(unittest.TestCase):
         dE = change_in_energy(problem)
         self.assertTrue(np.abs(dE - 10) < 1e-6)
 
-    def test_constant_temp(self):
+    def disabled_test_constant_temp(self):
         delete_data(self.gb3d)
         for g, d in self.gb3d:
             if g.dim == 2:
                 d["transport_data"] = InjectionDomain(g, d)
             else:
                 d["transport_data"] = MatrixDomain(g, d)
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
         for e, d in self.gb3d.edges():
             gl, _ = self.gb3d.nodes_of_edge(e)
-            d["kn"] = 1.0 * gl.num_cells
+            kn = 1.0 * gl.num_cells
+            data = {"normal_diffusivity": kn}
+            d[pp.keywords.PARAMETERS] = pp.Parameters(
+                d["mortar_grid"], ["transport"], [data]
+            )
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveDiffusiveDirBound(self.gb3d)
@@ -115,8 +146,8 @@ class BasicsTest(unittest.TestCase):
 
 
 class SourceProblem(pp.ParabolicModel):
-    def __init__(self, g, physics="transport"):
-        pp.ParabolicModel.__init__(self, g, physics=physics)
+    def __init__(self, g, keyword="transport"):
+        pp.ParabolicModel.__init__(self, g, keyword=keyword)
 
     def space_disc(self):
         return [self.source_disc()]
@@ -126,8 +157,8 @@ class SourceProblem(pp.ParabolicModel):
 
 
 class SourceAdvectiveProblem(pp.ParabolicModel):
-    def __init__(self, g, physics="transport"):
-        pp.ParabolicModel.__init__(self, g, physics=physics)
+    def __init__(self, g, keyword="transport"):
+        pp.ParabolicModel.__init__(self, g, keyword=keyword)
 
     def space_disc(self):
         return [self.source_disc(), self.advective_disc()]
@@ -137,8 +168,8 @@ class SourceAdvectiveProblem(pp.ParabolicModel):
 
 
 class SourceAdvectiveDiffusiveProblem(pp.ParabolicModel):
-    def __init__(self, g, physics="transport"):
-        pp.ParabolicModel.__init__(self, g, physics=physics)
+    def __init__(self, g, keyword="transport"):
+        pp.ParabolicModel.__init__(self, g, keyword=keyword)
 
     def space_disc(self):
         return [self.source_disc(), self.advective_disc(), self.diffusive_disc()]
@@ -148,8 +179,8 @@ class SourceAdvectiveDiffusiveProblem(pp.ParabolicModel):
 
 
 class SourceAdvectiveDiffusiveDirBound(SourceAdvectiveDiffusiveProblem):
-    def __init__(self, g, physics="transport"):
-        SourceAdvectiveDiffusiveProblem.__init__(self, g, physics=physics)
+    def __init__(self, g, keyword="transport"):
+        SourceAdvectiveDiffusiveProblem.__init__(self, g, keyword=keyword)
 
     def bc(self):
         dir_faces = self.grid().tags["domain_boundary_faces"].nonzero()[0]
@@ -174,16 +205,16 @@ def source(g, _):
 
 
 class MatrixDomain(pp.ParabolicDataAssigner):
-    def __init__(self, g, d, physics="transport"):
-        pp.ParabolicDataAssigner.__init__(self, g, d, physics)
+    def __init__(self, g, d, keyword="transport"):
+        pp.ParabolicDataAssigner.__init__(self, g, d, keyword)
 
     def initial_condition(self):
         return 10 * np.ones(self.grid().num_cells)
 
 
 class InjectionDomain(MatrixDomain):
-    def __init__(self, g, d, physics="transport"):
-        MatrixDomain.__init__(self, g, d, physics)
+    def __init__(self, g, d, keyword="transport"):
+        MatrixDomain.__init__(self, g, d, keyword)
 
     def source(self, t):
         flux = source(self.grid(), t)
@@ -200,7 +231,7 @@ def change_in_energy(problem):
     for g, d in problem.grid():
         p = d["transport"]
         p0 = d["transport_data"].initial_condition()
-        V = g.cell_volumes * d["param"].get_aperture()
+        V = g.cell_volumes * d[pp.keywords.PARAMETERS]["transport"]["aperture"]
         dE += np.sum((p - p0) * V)
 
     return dE
@@ -208,30 +239,49 @@ def change_in_energy(problem):
 
 def solve_elliptic_problem(gb):
     for g, d in gb:
+        # Get a default dictinoary
         if g.dim == 2:
-            d["param"].set_source("flow", source(g, 0.0))
+            d[pp.keywords.PARAMETERS]["flow"]["source"] = source(g, 0.0)
 
         dir_bound = g.tags["domain_boundary_faces"].nonzero()[0]
         bc_cond = pp.BoundaryCondition(g, dir_bound, ["dir"] * dir_bound.size)
-        d["param"].set_bc("flow", bc_cond)
+        d[pp.keywords.PARAMETERS]["flow"]["bc"] = bc_cond
+        if pp.keywords.DISCRETIZATION_MATRICES in d:
+            if "flow" not in d[pp.keywords.DISCRETIZATION_MATRICES]:
+                d[pp.keywords.DISCRETIZATION_MATRICES]["flow"] = {}
+        else:
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-    gb.add_edge_props("param")
     for e, d in gb.edges():
-        g_h = gb.nodes_of_edge(e)[1]
-        d["param"] = pp.Parameters(g_h)
-    flux = pp.EllipticModel(gb, keyword='flux_field', physics='flow')
+        g_l = gb.nodes_of_edge(e)[0]
+        data = {"normal_diffusivity": 1.0 * g_l.num_cells}
+        if pp.keywords.PARAMETERS in d:
+            d[pp.keywords.PARAMETERS]["flow"] = data
+        else:
+            d[pp.keywords.PARAMETERS] = pp.Parameters(
+                d["mortar_grid"], ["flow"], [data]
+            )
+        d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+    flux = pp.EllipticModel(gb, keyword="flow", keyword="flow")
     p = flux.solve()
-    flux.split("flow")
-    pp.fvutils.compute_discharges(gb, p_name='flux_field', lam_name='flux_field')
+    flux.split("flux_field")
+    pp.fvutils.compute_discharges(gb, p_name="flow", lam_name="flux_field")
+    move_discharge(gb, "flow", "transport")
+
+
+def move_discharge(gb, from_name, to_name):
+    for g, d in gb:
+        p = d[pp.keywords.PARAMETERS]
+        p[to_name]["discharge"] = p[from_name]["discharge"]
 
 
 def delete_data(gb):
     for _, d in gb:
         d.clear()
     for _, d in gb.edges():
-        mortar_grid = d['mortar_grid']
+        mortar_grid = d["mortar_grid"]
         d.clear()
-        d['mortar_grid'] = mortar_grid
+        d["mortar_grid"] = mortar_grid
     gb.assign_node_ordering()
 
 

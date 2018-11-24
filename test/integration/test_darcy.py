@@ -1,3 +1,5 @@
+""" Disabled test of the obsolete DualElliptic module.
+"""
 import numpy as np
 import unittest
 
@@ -8,7 +10,7 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_mono_equals_multi(self):
+    def disabled_test_mono_equals_multi(self):
         """
         test that the mono_dimensional elliptic solver gives the same answer as
         the grid bucket elliptic
@@ -51,7 +53,7 @@ class BasicsTest(unittest.TestCase):
         for e, d in gb.edges():
             gl, _ = gb.nodes_of_edge(e)
             d_l = gb.node_props(gl)
-            d["kn"] = 1. / np.mean(d_l["param"].get_aperture())
+            d["kn"] = 1.0 / np.mean(d_l["param"].get_aperture())
 
         problem_mono = pp.EllipticModel(g, {"param": param_g})
         problem_mult = pp.EllipticModel(gb)
@@ -63,21 +65,21 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_elliptic_uniform_flow_cart(self):
+    def disabled_test_elliptic_uniform_flow_cart(self):
         gb = setup_2d_1d([10, 10])
         problem = pp.EllipticModel(gb)
         p = problem.solve()
         problem.split()
 
         for g, d in gb:
-            pressure = d[problem.physics]
+            pressure = d[problem.keyword]
             p_analytic = g.cell_centers[1]
             p_diff = pressure - p_analytic
             self.assertTrue(np.max(np.abs(p_diff)) < 2e-2)
 
     # ------------------------------------------------------------------------------#
 
-    def test_elliptic_uniform_flow_simplex(self):
+    def disabled_test_elliptic_uniform_flow_simplex(self):
         """
         Unstructured simplex grid. Note that the solution depends
         on the grid quality. Also sensitive to the way in which
@@ -89,12 +91,12 @@ class BasicsTest(unittest.TestCase):
         problem.split()
 
         for g, d in gb:
-            pressure = d[problem.physics]
+            pressure = d[problem.keyword]
             p_analytic = g.cell_centers[1]
             p_diff = pressure - p_analytic
             self.assertTrue(np.max(np.abs(p_diff)) < 0.033)
 
-    def test_elliptic_dirich_neumann_source_sink_cart(self):
+    def disabled_test_elliptic_dirich_neumann_source_sink_cart(self):
         gb = setup_3d(np.array([4, 4, 4]), simplex_grid=False)
         problem = pp.EllipticModel(gb)
         p = problem.solve()
@@ -103,10 +105,10 @@ class BasicsTest(unittest.TestCase):
         for g, d in gb:
             if g.dim == 3:
                 p_ref = elliptic_dirich_neumann_source_sink_cart_ref_3d()
-                self.assertTrue(np.allclose(d[problem.physics], p_ref))
+                self.assertTrue(np.allclose(d[problem.keyword], p_ref))
             if g.dim == 0:
                 p_ref = [-10681.52153285]
-                self.assertTrue(np.allclose(d[problem.physics], p_ref))
+                self.assertTrue(np.allclose(d[problem.keyword], p_ref))
         return gb
 
 
@@ -118,7 +120,7 @@ def setup_3d(nx, simplex_grid=False):
     if not simplex_grid:
         gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1, 1])
     else:
-        mesh_size = .3
+        mesh_size = 0.3
         mesh_kwargs = {
             "mesh_size_frac": mesh_size,
             "mesh_size_bound": 2 * mesh_size,
@@ -155,7 +157,7 @@ def setup_3d(nx, simplex_grid=False):
     for e, d in gb.edges():
         gl, _ = gb.nodes_of_edge(e)
         d_l = gb.node_props(gl)
-        d["kn"] = 1. / np.mean(d_l["param"].get_aperture())
+        d["kn"] = 1.0 / np.mean(d_l["param"].get_aperture())
 
     return gb
 
@@ -168,7 +170,7 @@ def setup_2d_1d(nx, simplex_grid=False):
         gb = pp.meshing.cart_grid(fracs, nx, physdims=[1, 1])
     else:
         mesh_kwargs = {}
-        mesh_size = .08
+        mesh_size = 0.08
         mesh_kwargs = {
             "mesh_size_frac": mesh_size,
             "mesh_size_bound": 2 * mesh_size,
@@ -202,7 +204,7 @@ def setup_2d_1d(nx, simplex_grid=False):
     for e, d in gb.edges():
         gl, _ = gb.nodes_of_edge(e)
         d_l = gb.node_props(gl)
-        d["kn"] = 1. / np.mean(d_l["param"].get_aperture())
+        d["kn"] = 1.0 / np.mean(d_l["param"].get_aperture())
 
     return gb
 
@@ -280,4 +282,4 @@ def elliptic_dirich_neumann_source_sink_cart_ref_3d():
 
 
 if __name__ == "__main__":
-     unittest.main()
+    unittest.main()
