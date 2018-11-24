@@ -1417,8 +1417,8 @@ def intersect_polygons_3d(polys, tol=1e-8):
                 main_intersects_other_0 = main_p_expanded[:, hit[0]]
                 sign_change_full = np.where(np.abs(np.diff(dot_prod_from_other)) > 1)[0]
                 main_intersects_other_1 = intersection(
-                    main_p_expanded[:, sign_change_full[1]],
-                    main_p_expanded[:, sign_change_full[1] + 1],
+                    main_p_expanded[:, sign_change_full[0]],
+                    main_p_expanded[:, sign_change_full[0] + 1],
                     other_normal,
                     other_center,
                 )
@@ -1496,7 +1496,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
                             main_intersects_other_1,
                             other_intersects_main_0,
                         ]
-                    elif e_4 < 0:
+                    elif e_4 <= 0:
                         isect_pt_loc = [
                             main_intersects_other_1,
                             other_intersects_main_1,
@@ -1507,7 +1507,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
             elif e_2 >= 0:
                 # The first point on the main fracture is not involved in the intersection
                 # The case of e_1 also non-negative was covered above
-                if e_1 < 0:
+                if e_1 < 0:  # Equality is covered above
                     # The first point on the main fracture is surrounded by points on
                     # the other fracture. One of them will in turn be surrounded by the
                     # points on the main fracture, this is the intersecting one.
@@ -1516,7 +1516,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
                             main_intersects_other_0,
                             other_intersects_main_0,
                         ]
-                    elif e_4 < 0:
+                    elif e_4 <= 0:
                         isect_pt_loc = [
                             main_intersects_other_0,
                             other_intersects_main_1,
@@ -1543,7 +1543,8 @@ def intersect_polygons_3d(polys, tol=1e-8):
     if len(new_pt) > 0:
         new_pt = np.hstack((v for v in new_pt))
         for i in range(isect_pt.size):
-            isect_pt[i] = np.hstack((v for v in isect_pt[i]))
+            if len(isect_pt[i]) > 0:
+                isect_pt[i] = np.hstack((v for v in isect_pt[i]))
 
     else:
         new_pt = np.empty((3, 0))
