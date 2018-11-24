@@ -435,10 +435,6 @@ def triangle_grid(fracs, domain, subdomains, do_snap_to_grid=False, use_stable=F
     triangle_grid_run_gmsh(file_name, **kwargs)
     return triangle_grid_from_gmsh(file_name, **kwargs)
 
-
-# ------------------------------------------------------------------------------#
-
-
 def triangle_grid_run_gmsh(file_name, **kwargs):
 
     if file_name.endswith(".geo"):
@@ -461,10 +457,6 @@ def triangle_grid_run_gmsh(file_name, **kwargs):
         logger.info("Elapsed time " + str(time.time() - tm))
     else:
         logger.error("Gmsh failed with status " + str(gmsh_status))
-
-
-# ------------------------------------------------------------------------------#
-
 
 def triangle_grid_from_gmsh(file_name, **kwargs):
 
@@ -523,10 +515,6 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
 
     return grids
 
-
-# ------------------------------------------------------------------------------#
-
-
 def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
 
     start_time = time.time()
@@ -561,9 +549,7 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
     grids = [g_3d, g_2d, g_1d, g_0d]
 
     if verbose > 0:
-        print("\n")
-        print("Grid creation completed. Elapsed time " + str(time.time() - start_time))
-        print("\n")
+        logger.info("Grid creation completed. Elapsed time " + str(time.time() - start_time))
         for g_set in grids:
             if len(g_set) > 0:
                 s = (
@@ -577,14 +563,11 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
                 for g in g_set:
                     num += g.num_cells
                 s += str(num) + " cells"
-                print(s)
-        print("\n")
+                logger.info(s)
 
     return grids
 
-
-# -----------------------------------------------------------------------------#
-
+ ### Helper methods below
 
 def __merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
     """
