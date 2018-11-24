@@ -31,7 +31,7 @@ class BasicsTest(unittest.TestCase):
         2d case with two fractures intersecting in a single 0d grid
         at the center of the domain.
         """
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
 
         gb = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -92,8 +92,8 @@ class BasicsTest(unittest.TestCase):
         """
         3d case with a single 1d grid.
         """
-        f1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [.5, .5, .5, .5]])
-        f2 = np.array([[.5, .5, .5, .5], [0, 1, 1, 0], [0, 0, 1, 1]])
+        f1 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
+        f2 = np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
 
         gb = meshing.cart_grid([f1, f2], [2, 2, 2], **{"physdims": [1, 1, 1]})
         gb.compute_geometry()

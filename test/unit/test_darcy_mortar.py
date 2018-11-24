@@ -15,55 +15,62 @@ import porepy as pp
 class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
     def set_param_flow(self, gb, no_flow=False, kn=1e3, multi_point=True):
         # Set up flow field with uniform flow in y-direction
-        gb.add_node_props(["param"])
+        kw = "flow"
         for g, d in gb:
-            param = pp.Parameters(g)
+            parameter_dictionary = {}
 
             perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
-            param.set_tensor("flow", perm)
+            parameter_dictionary["second_order_tensor"] = perm
 
             aperture = np.power(1e-3, gb.dim_max() - g.dim)
-            param.set_aperture(aperture * np.ones(g.num_cells))
+            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
 
+            b_val = np.zeros(g.num_faces)
             if g.dim == 2:
-                b_val = np.zeros(g.num_faces)
                 bound_faces = pp.face_on_side(g, ["ymin", "ymax"])
                 if no_flow:
                     b_val[bound_faces[0]] = 1
                     b_val[bound_faces[1]] = 1
                 bound_faces = np.hstack((bound_faces[0], bound_faces[1]))
                 labels = np.array(["dir"] * bound_faces.size)
-                param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
+                parameter_dictionary["bc"] = pp.BoundaryCondition(
+                    g, bound_faces, labels
+                )
 
-                bound_faces = pp.face_on_side(g, "ymax")[0]
-                b_val[bound_faces] = 1
-                param.set_bc_val("flow", b_val)
+                y_max_faces = pp.face_on_side(g, "ymax")[0]
+                b_val[y_max_faces] = 1
+            else:
+                parameter_dictionary["bc"] = pp.BoundaryCondition(g)
+            parameter_dictionary["bc_values"] = b_val
 
-            d["param"] = param
+            d[pp.keywords.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
 
         gb.add_edge_props("kn")
         for e, d in gb.edges():
             mg = d["mortar_grid"]
-            gn = gb.nodes_of_edge(e)
-            d["kn"] = kn * np.ones(mg.num_cells)
+            flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
+            d[pp.keywords.PARAMETERS] = pp.Parameters(
+                keywords=["flow"], dictionaries=[flow_dictionary]
+            )
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-        key = "flow"
-        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+        discretization_key = kw + "_" + pp.keywords.DISCRETIZATION
 
         for g, d in gb:
             # Choose discretization and define the solver
             if multi_point:
-                discr = pp.Mpfa(key)
+                discr = pp.Mpfa(kw)
             else:
-                discr = pp.Tpfa(key)
+                discr = pp.Tpfa(kw)
 
             d[discretization_key] = discr
 
         for _, d in gb.edges():
-            d[discretization_key] = pp.RobinCoupling(key, discr)
+            d[discretization_key] = pp.RobinCoupling(kw, discr)
 
     def set_grids(self, N, num_nodes_mortar, num_nodes_1d, physdims=[1, 1]):
-        f1 = np.array([[0, physdims[0]], [.5, .5]])
+        f1 = np.array([[0, physdims[0]], [0.5, 0.5]])
 
         gb = pp.meshing.cart_grid([f1], N, **{"physdims": physdims})
         gb.compute_geometry()
@@ -159,7 +166,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1. / kn))
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
 
         g_1d = gb.grids_of_dimension(1)[0]
         p_1d = gb.node_props(g_1d, "pressure")
@@ -247,7 +254,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1. / kn))
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
 
         g_1d = gb.grids_of_dimension(1)[0]
         p_1d = gb.node_props(g_1d, "pressure")
@@ -328,8 +335,6 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         solver_flow = pp.EllipticAssembler("flow")
         A_flow, b_flow = solver_flow.assemble_matrix_rhs(gb)
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
 
         p = sps.linalg.spsolve(A_flow, b_flow)
         self.assertTrue(np.all(p[:3] == 1))
@@ -370,7 +375,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1. / kn))
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
 
         g_1d = gb.grids_of_dimension(1)[0]
         p_1d = gb.node_props(g_1d, "pressure")
@@ -458,7 +463,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         g_2d = gb.grids_of_dimension(2)[0]
         p_2d = gb.node_props(g_2d, "pressure")
         # NOTE: This will not be entirely correct due to impact of normal permeability at fracture
-        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1. / kn))
+        self.assertTrue(np.allclose(p_2d, g_2d.cell_centers[1], rtol=1.0 / kn))
 
         g_1d = gb.grids_of_dimension(1)[0]
         p_1d = gb.node_props(g_1d, "pressure")
@@ -588,10 +593,6 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 
         gb = pp.mortars.replace_grids_in_bucket(gb, gmap, mg_map, tol=1e-4)
 
-        #        if remove_tags:
-        #            internal_flag = FaceTag.FRACTURE
-        #            [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
         gb.assign_node_ordering()
 
         self.set_params(gb)
@@ -599,15 +600,16 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         return gb
 
     def set_params(self, gb):
-
+        kw = "flow"
         for g, d in gb:
-            param = pp.Parameters(g)
+            parameter_dictionary = {}
 
             perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
-            param.set_tensor("flow", perm)
+            parameter_dictionary["second_order_tensor"] = perm
 
             aperture = np.power(1e-3, gb.dim_max() - g.dim)
-            param.set_aperture(aperture * np.ones(g.num_cells))
+            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
+            parameter_dictionary["source"] = np.zeros(g.num_cells)
 
             yf = g.face_centers[1]
             bound_faces = [
@@ -616,20 +618,26 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             ]
             bound_faces = np.hstack((bound_faces[0], bound_faces[1]))
             labels = np.array(["dir"] * bound_faces.size)
-            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
+            parameter_dictionary["bc"] = pp.BoundaryCondition(g, bound_faces, labels)
 
             bv = np.zeros(g.num_faces)
             bound_faces = np.where(np.abs(yf - 1) < 1e-4)[0]
             bv[bound_faces] = 1
-            param.set_bc_val("flow", bv)
+            parameter_dictionary["bc_values"] = bv
 
-            d["param"] = param
+            d[pp.keywords.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
 
         gb.add_edge_props("kn")
         kn = 1e7
         for e, d in gb.edges():
             mg = d["mortar_grid"]
-            d["kn"] = kn * np.ones(mg.num_cells)
+
+            flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
+            d[pp.keywords.PARAMETERS] = pp.Parameters(
+                keywords=["flow"], dictionaries=[flow_dictionary]
+            )
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     def verify_cv(self, gb, tol=1e-2):
         # The tolerance level here is a bit touchy: With an unstructured grid,
@@ -793,19 +801,31 @@ class TestMortar3D(unittest.TestCase):
 
         elif num_fracs == 1:
             fl = [
-                pp.Fracture(np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]))
+                pp.Fracture(
+                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
+                )
             ]
         elif num_fracs == 2:
             fl = [
-                pp.Fracture(np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])),
-                pp.Fracture(np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])),
+                pp.Fracture(
+                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
+                ),
+                pp.Fracture(
+                    np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
+                ),
             ]
 
         elif num_fracs == 3:
             fl = [
-                pp.Fracture(np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])),
-                pp.Fracture(np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])),
-                pp.Fracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])),
+                pp.Fracture(
+                    np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
+                ),
+                pp.Fracture(
+                    np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
+                ),
+                pp.Fracture(
+                    np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
+                ),
             ]
 
         gb = pp.meshing.simplex_grid(
@@ -821,15 +841,15 @@ class TestMortar3D(unittest.TestCase):
         return gb
 
     def set_params(self, gb):
-
+        kw = "flow"
         for g, d in gb:
-            param = pp.Parameters(g)
+            parameter_dictionary = {}
 
             perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
-            param.set_tensor("flow", perm)
+            parameter_dictionary["second_order_tensor"] = perm
 
             aperture = np.power(1e-6, gb.dim_max() - g.dim)
-            param.set_aperture(aperture * np.ones(g.num_cells))
+            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
 
             yf = g.face_centers[1]
             bound_faces = [
@@ -838,20 +858,24 @@ class TestMortar3D(unittest.TestCase):
             ]
             bound_faces = np.hstack((bound_faces[0], bound_faces[1]))
             labels = np.array(["dir"] * bound_faces.size)
-            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
+            parameter_dictionary["bc"] = pp.BoundaryCondition(g, bound_faces, labels)
 
             bv = np.zeros(g.num_faces)
             bound_faces = np.where(np.abs(yf - 1) < 1e-4)[0]
             bv[bound_faces] = 1
-            param.set_bc_val("flow", bv)
+            parameter_dictionary["bc_values"] = bv
 
-            d["param"] = param
-
-        gb.add_edge_props("kn")
+            d[pp.keywords.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
         kn = 1e7
         for e, d in gb.edges():
             mg = d["mortar_grid"]
-            d["kn"] = kn * np.ones(mg.num_cells)
+
+            flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
+            d[pp.keywords.PARAMETERS] = pp.Parameters(
+                keywords=["flow"], dictionaries=[flow_dictionary]
+            )
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     def verify_cv(self, gb):
         for g, _ in gb.nodes():
@@ -989,42 +1013,47 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         g_new_1d = self.grid_1d(num_1d)
         pp.mortars.replace_grids_in_bucket(gb, g_map={g2: g_new_2d, g1: g_new_1d})
 
-        #        if remove_tags:
-        #            internal_flag = FaceTag.FRACTURE
-        #            [g.remove_face_tag_if_tag(FaceTag.BOUNDARY, internal_flag) for g, _ in gb]
-
         gb.assign_node_ordering()
 
         self.set_params(gb)
         return gb
 
     def set_params(self, gb):
-
+        kw = "flow"
         for g, d in gb:
-            param = pp.Parameters(g)
+            parameter_dictionary = {}
 
             perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
-            param.set_tensor("flow", perm)
+            parameter_dictionary["bc_values"] = perm
 
             aperture = np.power(1e-3, gb.dim_max() - g.dim)
-            param.set_aperture(aperture * np.ones(g.num_cells))
+            parameter_dictionary["aperture"] = aperture * np.ones(g.num_cells)
+
+            bv = np.zeros(g.num_faces)
             if g.dim == 2:
                 bound_faces = np.array([0, 10])
                 labels = np.array(["dir"] * bound_faces.size)
-                param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
-
-                bv = np.zeros(g.num_faces)
+                parameter_dictionary["bc"] = pp.BoundaryCondition(
+                    g, bound_faces, labels
+                )
                 bound_faces = 10
                 bv[bound_faces] = 1
-                param.set_bc_val("flow", bv)
+            else:
+                parameter_dictionary["bc"] = pp.BoundaryCondition(g)
+            parameter_dictionary["bc_values"] = bv
 
-            d["param"] = param
-
+            d[pp.keywords.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {}
         gb.add_edge_props("kn")
         kn = 1e7
         for e, d in gb.edges():
             mg = d["mortar_grid"]
-            d["kn"] = kn * np.ones(mg.num_cells)
+
+            flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
+            d[pp.keywords.PARAMETERS] = pp.Parameters(
+                keywords=["flow"], dictionaries=[flow_dictionary]
+            )
+            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     def verify_cv(self, gb, tol=1e-5):
         # The tolerance level here is a bit touchy: With an unstructured grid,
@@ -1096,4 +1125,3 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-#TestMortar2dSingleFractureCartesianGrid().test_tpfa_matching_grids_refine_1d_uniform_flow_larger_domain()

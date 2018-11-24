@@ -1,3 +1,7 @@
+""" Tests for the Parameters class.
+
+Tests the class' methods for parameter setting and modification.
+"""
 import numpy as np
 import unittest
 
@@ -5,189 +9,81 @@ from porepy.grids.structured import CartGrid
 from porepy.params.data import Parameters
 
 
-class TestGettersAndSetters(unittest.TestCase):
+class TestParameters(unittest.TestCase):
     def setUp(self):
         self.g = CartGrid([3, 2])
-        self.nc = self.g.num_cells
-        self.v = np.ones(self.nc)
+        self.p = Parameters()
+        self.p.update_dictionaries("dummy", {"kw0": "param0", "list": [0, 1]})
 
-    def test_biot_alpha_default(self):
-        p = Parameters(self.g)
-        self.assertEqual(p.biot_alpha, 1)
-        self.assertEqual(p.get_biot_alpha(), 1)
+    def test_add_keywords(self):
+        keyword_list = ["flow", "transport"]
+        self.p.update_dictionaries(keyword_list)
+        keyword_list.append("dummy")
+        assert sorted(self.p.keys()) == sorted(keyword_list)
 
-    def test_biot_alpha_1(self):
-        p = Parameters(self.g)
-        p.biot_alpha = 0.5
-        self.assertEqual(p.biot_alpha, 0.5)
-        self.assertEqual(p.get_biot_alpha(), 0.5)
+    def test_update_empty_dictionary(self):
+        keyword_list = ["flow"]
+        d = {"porosity": np.ones(self.g.num_cells)}
+        dictionary_list = [d]
+        self.p.update_dictionaries(keyword_list, dictionary_list)
+        assert "porosity" in self.p["flow"]
 
-    def test_biot_alpha_2(self):
-        p = Parameters(self.g)
-        p.set_biot_alpha(0.2)
-        self.assertEqual(p.biot_alpha, 0.2)
-        self.assertEqual(p.get_biot_alpha(), 0.2)
+    def test_update_dictionary(self):
+        keyword_list = ["flow"]
+        d = {"porosity": np.ones(self.g.num_cells)}
+        self.p.update_dictionaries(keyword_list, [d])
 
-    def test_biot_alpha_assertion(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_biot_alpha(1.2)
-            p.set_biot_alpha(-1)
+        d = {
+            "porosity": 2 * np.ones(self.g.num_cells),
+            "density": 3 * np.ones(self.g.num_cells),
+        }
+        self.p.update_dictionaries(keyword_list, [d])
+        success = "density" in self.p["flow"]
+        success *= np.all(np.isclose(self.p["flow"]["porosity"], 2))
+        assert success
 
-    #####
+    def test_update_empty_dictionaries(self):
+        keyword_list = ["flow", "transport"]
+        d1 = {
+            "porosity": 2 * np.ones(self.g.num_cells),
+            "density": 3 * np.ones(self.g.num_cells),
+        }
+        d2 = {
+            "porosity": 5 * np.ones(self.g.num_cells),
+            "storage_weight": 4 * np.ones(self.g.num_cells),
+        }
+        self.p.update_dictionaries(keyword_list, [d1, d2])
+        flow_p = self.p["flow"]
+        assert np.all(np.isclose(flow_p["density"], 3))
 
-    def test_fluid_viscosity_default(self):
-        p = Parameters(self.g)
-        self.assertEqual(p.fluid_viscosity, 1)
-        self.assertEqual(p.get_fluid_viscosity(), 1)
+    def test_set_from_other_subdictionary(self):
+        """ Sets a property of "flow" keyword to the one stored for "dummy".
+        """
 
-    def test_fluid_viscosity_attribute(self):
-        p = Parameters(self.g)
-        p.fluid_viscosity = 0.5
-        self.assertEqual(p.fluid_viscosity, 0.5)
-        self.assertEqual(p.get_fluid_viscosity(), 0.5)
+        self.p.update_dictionaries("flow")
+        self.p.set_from_other("flow", "dummy", ["kw0"])
+        assert self.p["flow"]["kw0"] == self.p["dummy"]["kw0"]
 
-    def test_fluid_viscosity_setter(self):
-        p = Parameters(self.g)
-        p.set_fluid_viscosity(0.2)
-        self.assertEqual(p.fluid_viscosity, 0.2)
-        self.assertEqual(p.get_fluid_viscosity(), 0.2)
+    def test_modify_shared_property(self):
+        """ Modifies a property shared by two keywords.
+        """
+        self.p.update_dictionaries(["transport", "flow"])
+        self.p.set_from_other("flow", "dummy", ["kw0"])
+        self.p.overwrite_shared_parameters(["kw0"], [13])
+        success = not ("kw0" in self.p["transport"])
+        success *= np.isclose(self.p["dummy"]["kw0"], 13)
+        success *= np.isclose(self.p["flow"]["kw0"], 13)
+        assert success
 
-    def test_fluid_viscosity_assertion(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_fluid_viscosity(-1)
+    def test_modify_shared_list(self):
+        """ Modifies a property shared by two keywords.
+        """
+        self.p.update_dictionaries(["transport", "flow"])
+        self.p.set_from_other("flow", "dummy", ["list"])
+        new_list = [2, 5]
+        self.p.modify_parameters("flow", ["list"], [new_list])
+        assert self.p["dummy"]["list"] == new_list
 
-    #####
 
-    def test_fluid_compr_default(self):
-        p = Parameters(self.g)
-        self.assertEqual(p.fluid_compr, 0)
-        self.assertEqual(p.get_fluid_compr(), 0)
-
-    def test_fluid_compr_attribute(self):
-        p = Parameters(self.g)
-        p.fluid_compr = 0.5
-        self.assertEqual(p.fluid_compr, 0.5)
-        self.assertEqual(p.get_fluid_compr(), 0.5)
-
-    def test_fluid_compr_setter(self):
-        p = Parameters(self.g)
-        p.set_fluid_compr(0.2)
-        self.assertEqual(p.fluid_compr, 0.2)
-        self.assertEqual(p.get_fluid_compr(), 0.2)
-
-    def test_fluid_compr_assertion(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_fluid_compr(-1)
-
-    #####
-    def test_background_stress_default(self):
-        p = Parameters(self.g)
-        self.assertTrue(np.allclose(p.background_stress_mechanics, 0))
-        for name in p.known_physics:
-            self.assertTrue(np.allclose(p.get_background_stress(name), 0))
-
-    def test_background_stress_setter(self):
-        p = Parameters(self.g)
-        for name in p.known_physics:
-            p.set_background_stress(name, 0.5 * np.ones((3, 3)))
-        self.assertTrue(np.allclose(p.background_stress_mechanics, 0.5))
-        for name in p.known_physics:
-            self.assertTrue(np.allclose(p.get_background_stress(name), 0.5))
-
-    #####
-
-    def _validate_ap(self, p, val=1):
-        self.assertTrue(np.allclose(p.aperture, val * self.v))
-        self.assertTrue(np.allclose(p.get_aperture(), val * self.v))
-
-    def test_aperture_default(self, val=1):
-        p = Parameters(self.g)
-        self._validate_ap(p)
-        # Set by scalar
-
-    def test_aperture_set(self):
-        p = Parameters(self.g)
-        p.set_aperture(2)
-        self._validate_ap(p, 2)
-        # Set by variable name
-
-    def test_aperture_attribute(self):
-        p = Parameters(self.g)
-        p.aperture = 3
-        self._validate_ap(p, 3)
-        # set by vector
-
-    def test_aperture_set_vector(self):
-        p = Parameters(self.g)
-        p.set_aperture(4 * self.v)
-        self._validate_ap(p, 4)
-        # Set vector by variable name
-
-    def test_aperture_set_vector_attribute(self):
-        p = Parameters(self.g)
-        p.aperture = 5 * self.v
-        self._validate_ap(p, 5)
-
-    def test_aperture_assertion(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_aperture(-1)
-
-    def test_aperture_assertion_vector(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_aperture(self.v * -1)
-
-    ##########
-
-    def _validate_porosity(self, p, val=1):
-        self.assertTrue(np.allclose(p.porosity, val * self.v))
-        self.assertTrue(np.allclose(p.get_porosity(), val * self.v))
-
-    def test_porosity_default(self, val=1):
-        p = Parameters(self.g)
-        self._validate_porosity(p)
-        # Set by scalar
-
-    def test_porosity_set(self):
-        p = Parameters(self.g)
-        p.set_porosity(.1)
-        self._validate_porosity(p, .1)
-        # Set by variable name
-
-    def test_porosity_attribute(self):
-        p = Parameters(self.g)
-        p.porosity = .3
-        self._validate_porosity(p, .3)
-        # set by vector
-
-    def test_porosity_set_vector(self):
-        p = Parameters(self.g)
-        p.set_porosity(.4 * self.v)
-        self._validate_porosity(p, .4)
-        # Set vector by variable name
-
-    def test_porosity_set_vector_attribute(self):
-        p = Parameters(self.g)
-        p.porosity = .5 * self.v
-        self._validate_porosity(p, .5)
-
-    def test_porosity_assertion(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_porosity(-1)
-            p.set_porosity(2)
-
-    def test_porosity_assertion_vector(self):
-        p = Parameters(self.g)
-        with self.assertRaises(ValueError):
-            p.set_porosity(self.v * -1)
-            p.set_porosity(self.v * 2)
-
-    #####
-
-    if __name__ == "__main__":
-        unittest.main()
+if __name__ == "__main__":
+    unittest.main()

@@ -17,8 +17,8 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         bc = pp.BoundaryConditionVectorial(g)
         basis_known = np.array(
             [
-                [[1., 1., 1., 1., 1.], [0., 0., 0., 0., 0.]],
-                [[0., 0., 0., 0., 0.], [1., 1., 1., 1., 1.]],
+                [[1.0, 1.0, 1.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0, 0.0]],
+                [[0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0, 1.0]],
             ]
         )
 

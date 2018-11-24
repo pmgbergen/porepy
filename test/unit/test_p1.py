@@ -5,6 +5,7 @@ import unittest
 import porepy as pp
 from porepy import cg
 
+
 # ------------------------------------------------------------------------------#
 
 
@@ -21,21 +22,20 @@ class BasicsTest(unittest.TestCase):
         bn = g.get_boundary_nodes()
         bc = pp.BoundaryConditionNode(g, bn, bn.size * ["neu"])
 
-        solver = pp.P1(physics="flow")
+        solver = pp.P1(keyword="flow")
 
-        param = pp.Parameters(g)
-        param.set_tensor(solver, perm)
-        param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        specified_parameters = {"bc": bc, "permeability": perm}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        M = solver.matrix(g, data).todense()
 
-        M_known = np.matrix([[1., -1.], [-1., 1.]])
+        M_known = np.matrix([[1.0, -1.0], [-1.0, 1.0]])
 
         self.assertTrue(np.allclose(M, M_known))
 
-        solver = pp.P1MassMatrix(physics="flow")
-        M = solver.matrix(g, {"param": param}).todense()
+        solver = pp.P1MassMatrix(keyword="flow")
+        M = solver.matrix(g, data).todense()
 
-        M_known = np.matrix([[2., 1.], [1., 2.]]) / 6.
+        M_known = np.matrix([[2.0, 1.0], [1.0, 2.0]]) / 6.0
 
         self.assertTrue(np.allclose(M, M_known))
 
@@ -50,32 +50,36 @@ class BasicsTest(unittest.TestCase):
         bn = g.get_boundary_nodes()
         bc = pp.BoundaryConditionNode(g, bn, ["dir", "neu"])
 
-        solver = pp.P1(physics="flow")
+        solver = pp.P1(keyword="flow")
 
-        param = pp.Parameters(g)
-        param.set_tensor(solver, perm)
-        param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        specified_parameters = {"bc": bc, "permeability": perm}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        M = solver.matrix(g, data).todense()
 
         M_known = np.matrix(
             [
-                [1., 0., 0., 0.],
-                [-3., 6., -3., 0.],
-                [0., -3., 6., -3.],
-                [0., 0., -3., 3.],
+                [1.0, 0.0, 0.0, 0.0],
+                [-3.0, 6.0, -3.0, 0.0],
+                [0.0, -3.0, 6.0, -3.0],
+                [0.0, 0.0, -3.0, 3.0],
             ]
         )
 
         self.assertTrue(np.allclose(M, M_known))
 
-        solver = pp.P1MassMatrix(physics="flow")
-        M = solver.matrix(g, {"param": param}).todense()
+        solver = pp.P1MassMatrix(keyword="flow")
+        M = solver.matrix(g, data).todense()
 
         M_known = (
             np.matrix(
-                [[0., 0., 0., 0.], [1., 4., 1., 0.], [0., 1., 4., 1.], [0., 0., 1., 2.]]
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [1.0, 4.0, 1.0, 0.0],
+                    [0.0, 1.0, 4.0, 1.0],
+                    [0.0, 0.0, 1.0, 2.0],
+                ]
             )
-            / 18.
+            / 18.0
         )
 
         self.assertTrue(np.allclose(M, M_known))
@@ -90,19 +94,18 @@ class BasicsTest(unittest.TestCase):
         perm = pp.SecondOrderTensor(3, kxx, kyy=1, kzz=1)
         bn = g.get_boundary_nodes()
         bc = pp.BoundaryConditionNode(g, bn, bn.size * ["neu"])
-        solver = pp.P1(physics="flow")
+        solver = pp.P1(keyword="flow")
 
-        param = pp.Parameters(g)
-        param.set_tensor(solver, perm)
-        param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        specified_parameters = {"bc": bc, "permeability": perm}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        M = solver.matrix(g, data).todense()
 
         M_known = np.matrix(
             [
-                [3.4976884, -3.4976884, 0., 0.],
-                [-3.4976884, 7.93596501, -4.43827662, 0.],
-                [0., -4.43827662, 9.65880718, -5.22053056],
-                [0., 0., -5.22053056, 5.22053056],
+                [3.4976884, -3.4976884, 0.0, 0.0],
+                [-3.4976884, 7.93596501, -4.43827662, 0.0],
+                [0.0, -4.43827662, 9.65880718, -5.22053056],
+                [0.0, 0.0, -5.22053056, 5.22053056],
             ]
         )
 
@@ -120,39 +123,38 @@ class BasicsTest(unittest.TestCase):
 
         bn = g.get_boundary_nodes()
         bc = pp.BoundaryConditionNode(g, bn, bn.size * ["neu"])
-        solver = pp.P1(physics="flow")
+        solver = pp.P1(keyword="flow")
 
-        param = pp.Parameters(g)
-        param.set_tensor(solver, perm)
-        param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        specified_parameters = {"bc": bc, "permeability": perm}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        M = solver.matrix(g, data).todense()
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
             [
-                [1., -0.5, -0.5, 0.],
-                [-0.5, 1., 0., -0.5],
-                [-0.5, 0., 1., -0.5],
-                [0., -0.5, -0.5, 1.],
+                [1.0, -0.5, -0.5, 0.0],
+                [-0.5, 1.0, 0.0, -0.5],
+                [-0.5, 0.0, 1.0, -0.5],
+                [0.0, -0.5, -0.5, 1.0],
             ]
         )
 
         self.assertTrue(np.allclose(M, M.T))
         self.assertTrue(np.allclose(M, M_known))
 
-        solver = pp.P1MassMatrix(physics="flow")
-        M = solver.matrix(g, {"param": param}).todense()
+        solver = pp.P1MassMatrix(keyword="flow")
+        M = solver.matrix(g, data).todense()
 
         M_known = (
             np.matrix(
                 [
-                    [1., 0.25, 0.25, 0.5],
-                    [0.25, 0.5, 0., 0.25],
-                    [0.25, 0., 0.5, 0.25],
-                    [0.5, 0.25, 0.25, 1.],
+                    [1.0, 0.25, 0.25, 0.5],
+                    [0.25, 0.5, 0.0, 0.25],
+                    [0.25, 0.0, 0.5, 0.25],
+                    [0.5, 0.25, 0.25, 1.0],
                 ]
             )
-            / 6.
+            / 6.0
         )
 
         self.assertTrue(np.allclose(M, M_known))
@@ -171,19 +173,18 @@ class BasicsTest(unittest.TestCase):
 
         bn = g.get_boundary_nodes()
         bc = pp.BoundaryConditionNode(g, bn, bn.size * ["neu"])
-        solver = pp.P1(physics="flow")
+        solver = pp.P1(keyword="flow")
 
-        param = pp.Parameters(g)
-        param.set_tensor(solver, perm)
-        param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        specified_parameters = {"bc": bc, "permeability": perm}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        M = solver.matrix(g, data).todense()
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
             [
                 [1.11111111, -0.66666667, -0.66666667, 0.22222222],
-                [-0.66666667, 1.5, 0., -0.83333333],
-                [-0.66666667, 0., 1.5, -0.83333333],
+                [-0.66666667, 1.5, 0.0, -0.83333333],
+                [-0.66666667, 0.0, 1.5, -0.83333333],
                 [0.22222222, -0.83333333, -0.83333333, 1.44444444],
             ]
         )
@@ -203,35 +204,34 @@ class BasicsTest(unittest.TestCase):
 
         bn = g.get_boundary_nodes()
         bc = pp.BoundaryConditionNode(g, bn, bn.size * ["neu"])
-        solver = pp.P1(physics="flow")
+        solver = pp.P1(keyword="flow")
 
-        param = pp.Parameters(g)
-        param.set_tensor(solver, perm)
-        param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        specified_parameters = {"bc": bc, "permeability": perm}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        M = solver.matrix(g, data).todense()
 
         M_known = matrix_for_test_p1_3d()
 
         self.assertTrue(np.allclose(M, M.T))
         self.assertTrue(np.allclose(M, M_known))
 
-        solver = pp.P1MassMatrix(physics="flow")
-        M = solver.matrix(g, {"param": param}).todense()
+        solver = pp.P1MassMatrix(keyword="flow")
+        M = solver.matrix(g, data).todense()
 
         M_known = (
             np.matrix(
                 [
-                    [1., 0.5, 0.5, 0., 0.5, 0., 0., 0.],
-                    [0.5, 5., 1.5, 1., 1.5, 1., 2., 0.],
-                    [0.5, 1.5, 3., 0.5, 1., 0., 1., 0.],
-                    [0., 1., 0.5, 3., 0., 1., 1.5, 0.5],
-                    [0.5, 1.5, 1., 0., 3., 0.5, 1., 0.],
-                    [0., 1., 0., 1., 0.5, 3., 1.5, 0.5],
-                    [0., 2., 1., 1.5, 1., 1.5, 5., 0.5],
-                    [0., 0., 0., 0.5, 0., 0.5, 0.5, 1.],
+                    [1.0, 0.5, 0.5, 0.0, 0.5, 0.0, 0.0, 0.0],
+                    [0.5, 5.0, 1.5, 1.0, 1.5, 1.0, 2.0, 0.0],
+                    [0.5, 1.5, 3.0, 0.5, 1.0, 0.0, 1.0, 0.0],
+                    [0.0, 1.0, 0.5, 3.0, 0.0, 1.0, 1.5, 0.5],
+                    [0.5, 1.5, 1.0, 0.0, 3.0, 0.5, 1.0, 0.0],
+                    [0.0, 1.0, 0.0, 1.0, 0.5, 3.0, 1.5, 0.5],
+                    [0.0, 2.0, 1.0, 1.5, 1.0, 1.5, 5.0, 0.5],
+                    [0.0, 0.0, 0.0, 0.5, 0.0, 0.5, 0.5, 1.0],
                 ]
             )
-            / 60.
+            / 60.0
         )
 
         self.assertTrue(np.allclose(M, M_known))
@@ -240,7 +240,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_p1_1d_iso_line(self):
         g = pp.structured.CartGrid(3, 1)
-        R = cg.rot(np.pi / 6., [0, 0, 1])
+        R = cg.rot(np.pi / 6.0, [0, 0, 1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
@@ -250,33 +250,37 @@ class BasicsTest(unittest.TestCase):
 
         bn = g.get_boundary_nodes()
         bc = pp.BoundaryConditionNode(g, bn, ["dir", "neu"])
-        solver = pp.P1(physics="flow")
+        solver = pp.P1(keyword="flow")
 
-        param = pp.Parameters(g)
-        param.set_tensor(solver, perm)
-        param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        specified_parameters = {"bc": bc, "permeability": perm}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        M = solver.matrix(g, data).todense()
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
             [
-                [1., 0., 0., 0.],
-                [-3., 6., -3., 0.],
-                [0., -3., 6., -3.],
-                [0., 0., -3., 3.],
+                [1.0, 0.0, 0.0, 0.0],
+                [-3.0, 6.0, -3.0, 0.0],
+                [0.0, -3.0, 6.0, -3.0],
+                [0.0, 0.0, -3.0, 3.0],
             ]
         )
 
         self.assertTrue(np.allclose(M, M_known))
 
-        solver = pp.P1MassMatrix(physics="flow")
-        M = solver.matrix(g, {"param": param}).todense()
+        solver = pp.P1MassMatrix(keyword="flow")
+        M = solver.matrix(g, data).todense()
 
         M_known = (
             np.matrix(
-                [[0., 0., 0., 0.], [1., 4., 1., 0.], [0., 1., 4., 1.], [0., 0., 1., 2.]]
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [1.0, 4.0, 1.0, 0.0],
+                    [0.0, 1.0, 4.0, 1.0],
+                    [0.0, 0.0, 1.0, 2.0],
+                ]
             )
-            / 18.
+            / 18.0
         )
 
         self.assertTrue(np.allclose(M, M_known))
@@ -285,7 +289,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_p1_2d_iso_simplex_surf(self):
         g = pp.simplex.StructuredTriangleGrid([1, 1], [1, 1])
-        R = cg.rot(-np.pi / 4., [1, 1, -1])
+        R = cg.rot(-np.pi / 4.0, [1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
@@ -295,39 +299,38 @@ class BasicsTest(unittest.TestCase):
 
         bn = g.get_boundary_nodes()
         bc = pp.BoundaryConditionNode(g, bn, bn.size * ["neu"])
-        solver = pp.P1(physics="flow")
+        solver = pp.P1(keyword="flow")
 
-        param = pp.Parameters(g)
-        param.set_tensor(solver, perm)
-        param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        specified_parameters = {"bc": bc, "permeability": perm}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        M = solver.matrix(g, data).todense()
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
             [
-                [1., -0.5, -0.5, 0.],
-                [-0.5, 1., 0., -0.5],
-                [-0.5, 0., 1., -0.5],
-                [0., -0.5, -0.5, 1.],
+                [1.0, -0.5, -0.5, 0.0],
+                [-0.5, 1.0, 0.0, -0.5],
+                [-0.5, 0.0, 1.0, -0.5],
+                [0.0, -0.5, -0.5, 1.0],
             ]
         )
 
         self.assertTrue(np.allclose(M, M.T))
         self.assertTrue(np.allclose(M, M_known))
 
-        solver = pp.P1MassMatrix(physics="flow")
-        M = solver.matrix(g, {"param": param}).todense()
+        solver = pp.P1MassMatrix(keyword="flow")
+        M = solver.matrix(g, data).todense()
 
         M_known = (
             np.matrix(
                 [
-                    [1., 0.25, 0.25, 0.5],
-                    [0.25, 0.5, 0., 0.25],
-                    [0.25, 0., 0.5, 0.25],
-                    [0.5, 0.25, 0.25, 1.],
+                    [1.0, 0.25, 0.25, 0.5],
+                    [0.25, 0.5, 0.0, 0.25],
+                    [0.25, 0.0, 0.5, 0.25],
+                    [0.5, 0.25, 0.25, 1.0],
                 ]
             )
-            / 6.
+            / 6.0
         )
 
         self.assertTrue(np.allclose(M, M_known))
@@ -343,26 +346,25 @@ class BasicsTest(unittest.TestCase):
         kxy = -np.multiply(g.cell_centers[0, :], g.cell_centers[1, :])
         perm = pp.SecondOrderTensor(3, kxx=kxx, kyy=kyy, kxy=kxy, kzz=1)
 
-        R = cg.rot(np.pi / 3., [1, 1, 0])
+        R = cg.rot(np.pi / 3.0, [1, 1, 0])
         perm.rotate(R)
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
         bn = g.get_boundary_nodes()
         bc = pp.BoundaryConditionNode(g, bn, bn.size * ["neu"])
-        solver = pp.P1(physics="flow")
+        solver = pp.P1(keyword="flow")
 
-        param = pp.Parameters(g)
-        param.set_tensor(solver, perm)
-        param.set_bc(solver, bc)
-        M = solver.matrix(g, {"param": param}).todense()
+        specified_parameters = {"bc": bc, "permeability": perm}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        M = solver.matrix(g, data).todense()
 
         # Matrix computed with an already validated code
         M_known = np.matrix(
             [
                 [1.11111111, -0.66666667, -0.66666667, 0.22222222],
-                [-0.66666667, 1.5, 0., -0.83333333],
-                [-0.66666667, 0., 1.5, -0.83333333],
+                [-0.66666667, 1.5, 0.0, -0.83333333],
+                [-0.66666667, 0.0, 1.5, -0.83333333],
                 [0.22222222, -0.83333333, -0.83333333, 1.44444444],
             ]
         )
@@ -387,13 +389,11 @@ class BasicsTest(unittest.TestCase):
             bc_val = np.zeros(g.num_nodes)
             bc_val[bn] = p_ex(g.nodes[:, bn])
 
-            solver = pp.P1(physics="flow")
+            solver = pp.P1(keyword="flow")
 
-            param = pp.Parameters(g)
-            param.set_tensor(solver, perm)
-            param.set_bc(solver, bc)
-            param.set_bc_val(solver, bc_val)
-            M, rhs = solver.matrix_rhs(g, {"param": param})
+            specified_parameters = {"bc": bc, "bc_values": bc_val, "permeability": perm}
+            data = pp.initialize_data({}, g, "flow", specified_parameters)
+            M, rhs = solver.matrix_rhs(g, data)
 
             p = sps.linalg.spsolve(M, rhs)
             err = np.sum(np.abs(p - p_ex(g.nodes)))
@@ -427,20 +427,22 @@ class BasicsTest(unittest.TestCase):
             bc = pp.BoundaryConditionNode(g, bn, bn.size * ["dir"])
             source_val = source_ex(g.nodes)
 
-            solver = pp.P1(physics="flow")
-            integral = pp.P1Source(physics="flow")
+            solver = pp.P1(keyword="flow")
+            integral = pp.P1Source(keyword="flow")
 
-            param = pp.Parameters(g)
-            param.set_tensor(solver, perm)
-            param.set_bc(solver, bc)
-            param.set_source(solver, source_val)
-            M, _ = solver.matrix_rhs(g, {"param": param})
-            _, rhs = integral.matrix_rhs(g, {"param": param})
+            specified_parameters = {
+                "bc": bc,
+                "permeability": perm,
+                "source": source_val,
+            }
+            data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+            M, _ = solver.matrix_rhs(g, data)
+            _, rhs = integral.matrix_rhs(g, data)
 
             p = sps.linalg.spsolve(M, rhs)
 
-            mass = pp.P1MassMatrix(physics="flow")
-            M = mass.matrix(g, {"param": param})
+            mass = pp.P1MassMatrix(keyword="flow")
+            M = mass.matrix(g, data)
 
             error = np.sum(M.dot(np.abs(p - p_ex(g.nodes))))
             self.assertTrue(np.isclose(error, known_error))
@@ -462,13 +464,12 @@ class BasicsTest(unittest.TestCase):
             bc_val = np.zeros(g.num_nodes)
             bc_val[bn] = p_ex(g.nodes[:, bn])
 
-            solver = pp.P1(physics="flow")
+            solver = pp.P1(keyword="flow")
 
-            param = pp.Parameters(g)
-            param.set_tensor(solver, perm)
-            param.set_bc(solver, bc)
-            param.set_bc_val(solver, bc_val)
-            M, rhs = solver.matrix_rhs(g, {"param": param})
+            specified_parameters = {"bc": bc, "bc_values": bc_val, "permeability": perm}
+            data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+
+            M, rhs = solver.matrix_rhs(g, data)
 
             p = sps.linalg.spsolve(M, rhs)
             err = np.sum(np.abs(p - p_ex(g.nodes)))
@@ -481,7 +482,7 @@ class BasicsTest(unittest.TestCase):
 def matrix_for_test_p1_3d():
     return np.matrix(
         [
-            [0.5, -0.16666667, -0.16666667, 0., -0.16666667, 0., 0., 0.],
+            [0.5, -0.16666667, -0.16666667, 0.0, -0.16666667, 0.0, 0.0, 0.0],
             [
                 -0.16666667,
                 1.16666667,
@@ -490,7 +491,7 @@ def matrix_for_test_p1_3d():
                 -0.16666667,
                 -0.5,
                 0.33333333,
-                0.,
+                0.0,
             ],
             [
                 -0.16666667,
@@ -498,16 +499,16 @@ def matrix_for_test_p1_3d():
                 0.83333333,
                 -0.16666667,
                 0.16666667,
-                0.,
+                0.0,
                 -0.5,
-                0.,
+                0.0,
             ],
             [
-                0.,
+                0.0,
                 -0.5,
                 -0.16666667,
                 0.83333333,
-                0.,
+                0.0,
                 0.16666667,
                 -0.16666667,
                 -0.16666667,
@@ -516,16 +517,16 @@ def matrix_for_test_p1_3d():
                 -0.16666667,
                 -0.16666667,
                 0.16666667,
-                0.,
+                0.0,
                 0.83333333,
                 -0.16666667,
                 -0.5,
-                0.,
+                0.0,
             ],
             [
-                0.,
+                0.0,
                 -0.5,
-                0.,
+                0.0,
                 0.16666667,
                 -0.16666667,
                 0.83333333,
@@ -533,7 +534,7 @@ def matrix_for_test_p1_3d():
                 -0.16666667,
             ],
             [
-                0.,
+                0.0,
                 0.33333333,
                 -0.5,
                 -0.16666667,
@@ -542,9 +543,12 @@ def matrix_for_test_p1_3d():
                 1.16666667,
                 -0.16666667,
             ],
-            [0., 0., 0., -0.16666667, 0., -0.16666667, -0.16666667, 0.5],
+            [0.0, 0.0, 0.0, -0.16666667, 0.0, -0.16666667, -0.16666667, 0.5],
         ]
     )
 
 
 # ------------------------------------------------------------------------------#
+
+if __name__ == "__main__":
+    unittest.main()

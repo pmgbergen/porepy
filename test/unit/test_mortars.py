@@ -33,7 +33,7 @@ class TestGridMappings1d(unittest.TestCase):
         # Weights give mappings from h to g. The first cell in h is
         # fully within the first cell in g. The second in h is split 1/3
         # in first of g, 2/3 in second.
-        self.assertTrue(np.allclose(weights, np.array([1, 1. / 3, 2. / 3])))
+        self.assertTrue(np.allclose(weights, np.array([1, 1.0 / 3, 2.0 / 3])))
         self.assertTrue(np.allclose(new, np.array([0, 0, 1])))
         self.assertTrue(np.allclose(old, np.array([0, 1, 1])))
 
@@ -60,7 +60,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # Copy the higher dimensional grid and replace. The mapping should be
         # the same.
 
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [1, 2]
         gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -88,7 +88,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
     def test_refine_high_dim(self):
         # Replace the 2d grid with a finer one
 
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [1, 2]
         gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -134,7 +134,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
     def test_coarsen_high_dim(self):
         # Replace the 2d grid with a coarser one
 
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [2, 2]
         gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -183,7 +183,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # Replace the 2d grid with a finer one, and move the nodes along the
         # interface so that areas along the interface are no longer equal.
 
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [1, 2]
         gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -240,7 +240,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # Replace the 2d grid with a finer one, and move the nodes along the
         # interface so that areas along the interface are no longer equal.
 
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [2, 2]
         gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -304,7 +304,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # Replace higher dimensional grid with an identical one, except the
         # node indices are perturbed. This will test sorting of nodes along
         # 1d lines
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [2, 2]
         gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -377,7 +377,7 @@ class TestReplaceHigherDimensionalGrid(unittest.TestCase):
         # Replace higher dimensional grid with an identical one, except the
         # node indices are perturbed. This will test sorting of nodes along
         # 1d lines. Also perturb nodes along the segment.
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
         N = [2, 2]
         gb = meshing.cart_grid([f1], N, **{"physdims": [1, 1]})
         gb.compute_geometry()
@@ -671,7 +671,7 @@ class TestMeshReplacement3d(unittest.TestCase):
         face_normals = np.vstack(
             (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
         )
-        cell_centers = np.array([[2. / 3, 0, 1. / 3], [1. / 3, 0, 2. / 3]]).T
+        cell_centers = np.array([[2.0 / 3, 0, 1.0 / 3], [1.0 / 3, 0, 2.0 / 3]]).T
         cell_volumes = 1 / 2 * np.ones(cell_centers.shape[1])
         if pert:
             cell_volumes[1] = 1
@@ -706,7 +706,7 @@ class TestMeshReplacement3d(unittest.TestCase):
         face_normals = np.vstack(
             (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
         )
-        cell_centers = np.array([[2. / 3, 0, 1. / 3], [1. / 3, 0, 2. / 3]]).T
+        cell_centers = np.array([[2.0 / 3, 0, 1.0 / 3], [1.0 / 3, 0, 2.0 / 3]]).T
         cell_volumes = 1 / 2 * np.ones(cell_centers.shape[1])
         if pert:
             cell_volumes[1] = 1
@@ -772,7 +772,7 @@ class TestMeshReplacement3d(unittest.TestCase):
             (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
         )
         cell_centers = np.array(
-            [[0.5, 0, 1. / 6], [5. / 6, 0, 0.5], [0.5, 0, 5. / 6], [1. / 6, 0, 0.5]]
+            [[0.5, 0, 1.0 / 6], [5.0 / 6, 0, 0.5], [0.5, 0, 5.0 / 6], [1.0 / 6, 0, 0.5]]
         ).T
         cell_volumes = 1 / 4 * np.ones(cell_centers.shape[1])
         if pert:
@@ -813,7 +813,7 @@ class TestMeshReplacement3d(unittest.TestCase):
             (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
         )
         cell_centers = np.array(
-            [[0.5, 0, 1. / 6], [5. / 6, 0, 0.5], [0.5, 0, 5. / 6], [1. / 6, 0, 0.5]]
+            [[0.5, 0, 1.0 / 6], [5.0 / 6, 0, 0.5], [0.5, 0, 5.0 / 6], [1.0 / 6, 0, 0.5]]
         ).T
         cell_volumes = 1 / 4 * np.ones(cell_centers.shape[1])
         if pert:
