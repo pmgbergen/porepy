@@ -50,38 +50,12 @@ class Parameters(dict):
     The intention is to provide a unified way of passing around parameters, and
     also circumvent the issue of using a solver for multiple physical
     processes (e.g. different types of boundary conditions in multi-physics
-    applications).
+    applications). The keyword assigned to parameters and discretization operators ensures
+    that the right data is used: An operator will always use the parameters stored
+    with under the keyword it has been assigned.
 
-    List of possible attributes (implemented as properties, see respective
-    getter methods for further description):
-
-    General quantities (not physics specific)
-
-    Scalar quantities
-        biot_alpha: Biot's coefficient in poro-elasticity. Defaults to 1.
-        fluid_viscosity: In a single phase system. Defaults to 1.
-        fluid_compr: Fluid compressibility in a single phase system. Defaults
-            to 0.
-
-    Cell-wise quantities:
-        aperture (fracture width). Defaults to 1.
-        porosity
-
-    Physic-specific
-        tensor (Returns permeability, conductivtiy or stiffness)
-        bc (BoundaryCondition object)
-        bc_val (Boundary values)
-        sources (flow and transport)
-
-    Solvers will access data as needed. If a solver inquires for unassigned
-    data, this will result in a runtime error.
-
-    Attributes (in addition to parameters described above):
-
-    known_physics : list
-        List of keyword signifying physical processes. There are at least one
-        Solver that uses each of the keywords.
-
+    The parameter class is a thin wrapper around a dictionary. This dictionary contains
+    one sub-dictionary for each keyword.
     """
 
     def __init__(self, g=None, keywords=[], dictionaries=[]):
@@ -104,22 +78,6 @@ class Parameters(dict):
             s += '\nThe keyword "{}" has the following parameters specified: '.format(k)
             s += ", ".join(str(p) for p in self[k].keys())
         return s
-
-#    def initialize_subdictionaries(self, keywords):
-#        """ Initialize dictionaries corresponding to some parameter keys.
-#
-#        Each new physical process will be assigned an empty data dictionary, and the
-#        keys will be added to known_physics. Existing keywords will be ignored, i.e.
-#        the corresponding dictionaries will not be overwritten.
-#
-#        Properties:
-#            physics - list of different physical processes.
-#        """
-#        if isinstance(keywords, str):
-#            keywords = [keywords]
-#        # Initialize dictionaries
-#        for key in keywords:
-#            add_nonpresent_dictionary(self, key)
 
     def update_dictionaries(self, keywords, dictionaries=None):
         """ Update the dictionaries corresponding to some keywords.
