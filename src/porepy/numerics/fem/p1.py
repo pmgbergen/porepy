@@ -1,4 +1,3 @@
-import warnings
 import numpy as np
 import scipy.sparse as sps
 import logging
@@ -16,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class P1MixedDim(SolverMixedDim):
-    def __init__(self, physics="flow"):
-        self.physics = physics
+    def __init__(self, keyword="flow"):
+        self.keyword = keyword
 
-        self.discr = P1(self.physics)
+        self.discr = P1(self.keyword)
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = P1Coupling(self.discr)
 
@@ -33,8 +32,8 @@ class P1(Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics="flow"):
-        self.physics = physics
+    def __init__(self, keyword="flow"):
+        self.keyword = keyword
 
     # ------------------------------------------------------------------------------#
 
@@ -120,15 +119,16 @@ class P1(Solver):
                 return M, 1
             return M
 
+        # Get dictionary for parameter storage
+        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
-        param = data["param"]
-        k = param.get_tensor(self)
-        bc = param.get_bc(self)
+        k = parameter_dictionary["second_order_tensor"]
+        a = parameter_dictionary["aperture"]
+        bc = parameter_dictionary["bc"]
         if not isinstance(bc, pp.BoundaryConditionNode):
             raise ValueError("Consider pp.BoundaryConditionNode to assign bc")
-        a = param.get_aperture()
 
         # Map the domain to a reference geometry (i.e. equivalent to compute
         # surface coordinates in 1d and 2d)
@@ -188,7 +188,7 @@ class P1(Solver):
             # set in an efficient way the essential boundary conditions, by
             # clear the rows and put norm in the diagonal
             for row in dir_nodes:
-                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
+                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.0
 
             d = M.diagonal()
             d[dir_nodes] = norm
@@ -215,13 +215,13 @@ class P1(Solver):
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        param = data["param"]
-
         if g.dim == 0:
             return np.zeros(1)
 
-        bc = param.get_bc(self)
-        bc_val = param.get_bc_val(self)
+        # Retrieve the boundary conditions and values
+        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        bc_val = parameter_dictionary["bc_values"]
+        bc = parameter_dictionary["bc"]
 
         if bool(bc is None) != bool(bc_val is None):
             raise ValueError("Consider to assign boundary condition value")
@@ -312,7 +312,7 @@ class P1Coupling(AbstractCoupling):
         cells_h = cells_h[ind_faces_h]
 
         # Mortar mass matrix
-        inv_M = sps.diags(1. / mg.cell_volumes)
+        inv_M = sps.diags(1.0 / mg.cell_volumes)
 
         # Projection matrix from hight/lower grid to mortar
         hat_P = mg.high_to_mortar_avg()
@@ -322,8 +322,9 @@ class P1Coupling(AbstractCoupling):
         check_P0 = g_l.cell_nodes().T.astype(np.float) / (g_l.dim + 1)
 
         # Normal permeability and aperture of the intersection
-        inv_k = 1. / (2. * data_edge["kn"])
-        aperture_h = data_h["param"].get_aperture()
+        kn = data_h[pp.keywords.PARAMETERS][self.keyword]["normal_diffusivity"]
+        inv_k = 1.0 / (2.0 * kn)
+        aperture_h = data_h[pp.keywords.PARAMETERS][self.keyword]["aperture"]
 
         # Inverse of the normal permability matrix
         Eta = sps.diags(np.divide(inv_k, hat_P * aperture_h[cells_h]))

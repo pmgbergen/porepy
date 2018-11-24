@@ -26,11 +26,6 @@ class DualElliptic(
         self.keyword = keyword
         self.name = name
 
-        # @ALL: We kee the physics keyword for now, or else we completely
-        # break the parameter assignment workflow. The physics keyword will go
-        # to be replaced by a more generalized approach, but one step at a time
-        self.physics = keyword
-
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -71,8 +66,8 @@ class DualElliptic(
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-
-        if not self._key() + self.name + '_mass' in data.keys():
+        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        if "mass" not in matrix_dictionary:
             self.discretize(g, data)
 
         # First assemble the matrix
@@ -88,11 +83,12 @@ class DualElliptic(
     def assemble_matrix(self, g, data):
         """ Assemble matrix from an existing discretization.
         """
-        if not self._key() + self.name + '_mass' in data.keys():
+        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        if not "mass" in matrix_dictionary:
             self.discretize(g, data)
 
-        mass = data[self._key() + self.name + '_mass']
-        div = data[self._key() + self.name + '_div']
+        mass = matrix_dictionary["mass"]
+        div = matrix_dictionary["div"]
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
 
     def assemble_neumann_robin(self, g, data, M, bc_weight=None):
@@ -101,11 +97,10 @@ class DualElliptic(
 
         """
         # Obtain the mass matrix
-        mass = data[self._key() + self.name + '_mass']
+        mass = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]["mass"]
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
-        param = data["param"]
-        bc = param.get_bc(self)
+        bc = data[pp.keywords.PARAMETERS][self.keyword]["bc"]
 
         # For mixed discretizations, internal boundaries
         # are handled by assigning Dirichlet conditions. Thus, we remove them
@@ -121,7 +116,7 @@ class DualElliptic(
             # set in an efficient way the essential boundary conditions, by
             # clear the rows and put norm in the diagonal
             for row in is_neu:
-                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
+                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.0
 
             d = M.diagonal()
             d[is_neu] = norm
@@ -133,14 +128,13 @@ class DualElliptic(
             # it is assumed that the faces dof are put before the cell dof
             is_rob = np.where(is_rob)[0]
 
-            data = np.zeros(self.ndof(g))
-            data[is_rob] = 1./(bc.robin_weight[is_rob]*g.face_areas[is_rob])
-            M += sps.dia_matrix((data, 0), shape=(data.size, data.size))
+            rob_val = np.zeros(self.ndof(g))
+            rob_val[is_rob] = 1.0 / (bc.robin_weight[is_rob] * g.face_areas[is_rob])
+            M += sps.dia_matrix((rob_val, 0), shape=(rob_val.size, rob_val.size))
 
         if bc_weight:
             return M, norm
         return M
-
 
     def assemble_rhs(self, g, data, bc_weight=1):
         """
@@ -157,14 +151,14 @@ class DualElliptic(
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        param = data["param"]
-        f = param.get_source(self)
+        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        f = parameter_dictionary["source"]
 
         if g.dim == 0:
             return np.hstack(([0], f))
 
-        bc = param.get_bc(self)
-        bc_val = param.get_bc_val(self)
+        bc = parameter_dictionary["bc"]
+        bc_val = parameter_dictionary["bc_values"]
 
         assert not bool(bc is None) != bool(bc_val is None)
 
@@ -210,8 +204,8 @@ class DualElliptic(
 
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
-        param = data["param"]
-        bc = param.get_bc(self)
+        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        bc = parameter_dictionary["bc"]
 
         # assign the Neumann boundary conditions
         # For dual discretizations, internal boundaries
@@ -226,7 +220,7 @@ class DualElliptic(
             # set in an efficient way the essential boundary conditions, by
             # clear the rows and put norm in the diagonal
             for row in is_neu:
-                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
+                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.0
 
             d = M.diagonal()
             d[is_neu] = norm
@@ -375,7 +369,6 @@ class DualElliptic(
         cc[2, self_ind] -= hat_E_int.T * matrix[self_ind, self_ind]
         cc[2, 2] -= hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int
 
-
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
     ):
@@ -409,7 +402,7 @@ class DualElliptic(
 
         """
         mg = data_edge["mortar_grid"]
-        #proj = mg.slave_to_mortar_avg()
+        # proj = mg.slave_to_mortar_avg()
 
         if grid_swap:
             proj = mg.master_to_mortar_avg()
@@ -445,11 +438,11 @@ class DualElliptic(
         for row in dof:
             matrix_indptr = matrix[self_ind, self_ind].indptr
             idx = slice(matrix_indptr[row], matrix_indptr[row + 1])
-            matrix[self_ind, self_ind].data[idx] = 0.
+            matrix[self_ind, self_ind].data[idx] = 0.0
 
             matrix_indptr = matrix[self_ind, 2].indptr
             idx = slice(matrix_indptr[row], matrix_indptr[row + 1])
-            matrix[self_ind, 2].data[idx] = 0.
+            matrix[self_ind, 2].data[idx] = 0.0
 
         d = matrix[self_ind, self_ind].diagonal()
         d[dof] = norm
@@ -473,7 +466,7 @@ class DualElliptic(
 
         """
         # pylint: disable=invalid-name
-        return solution_array[:g.num_faces]
+        return solution_array[: g.num_faces]
 
     def extract_pressure(self, g, solution_array, data=None):
         """  Extract the pressure from a dual virtual element solution.
@@ -493,4 +486,4 @@ class DualElliptic(
 
         """
         # pylint: disable=invalid-name
-        return solution_array[g.num_faces:]
+        return solution_array[g.num_faces :]

@@ -10,10 +10,10 @@ from porepy.numerics.mixed_dim.coupler import Coupler
 
 
 class P1MassMatrixMixedDim(SolverMixedDim):
-    def __init__(self, physics="flow"):
-        self.physics = physics
+    def __init__(self, keyword="flow"):
+        self.keyword = keyword
 
-        self.discr = P1MassMatrix(self.physics)
+        self.discr = P1MassMatrix(self.keyword)
 
         self.solver = Coupler(self.discr)
 
@@ -25,8 +25,8 @@ class P1MassMatrix(Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics="flow"):
-        self.physics = physics
+    def __init__(self, keyword="flow"):
+        self.keyword = keyword
 
     # ------------------------------------------------------------------------------#
 
@@ -104,13 +104,13 @@ class P1MassMatrix(Solver):
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        param = data["param"]
-        phi = param.get_porosity()
-        aperture = param.get_aperture()
-        coeff = phi / data.get("deltaT", 1.) * aperture
+        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        phi = parameter_dictionary["porosity"]
+        aperture = parameter_dictionary["aperture"]
+        coeff = phi / parameter_dictionary.get("time_step", 1.0) * aperture
 
         # TODO the coeff is not used since the default values are cell based.
-        bc = param.get_bc(self)
+        bc = parameter_dictionary["bc"]
         assert isinstance(bc, pp.BoundaryConditionNode)
 
         # If a 0-d grid is given then we return an identity matrix
@@ -158,7 +158,7 @@ class P1MassMatrix(Solver):
             # set in an efficient way the essential boundary conditions, by
             # clear the rows and put norm in the diagonal
             for row in dir_nodes:
-                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.
+                M.data[M.indptr[row] : M.indptr[row + 1]] = 0.0
 
         return M
 
