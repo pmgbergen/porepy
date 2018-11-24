@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 # be used for anything. However, we keep it temporarily to decide on what to do
 # with the method check_conservation
 class _DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
-
     def check_conservation(self, gb, u, conservation):
         """
         Save in the grid bucket a piece-wise vector representation of the Darcy
@@ -55,6 +54,7 @@ class _DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
 
             d[P0u] = self.discr.project_u(g, u_e + d[u], d)
 
+
 class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
     """
     @ALL: I have kept the inheritance from the general Solver for now, or else
@@ -64,10 +64,8 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
     """
 
-
     def __init__(self, keyword):
         super(MVEM, self).__init__(keyword, "MVEM")
-
 
     def discretize(self, g, data):
         """
@@ -87,21 +85,22 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        name = self._key() + self.name + "_"
-
+        # Get dictionary for discretization matrix storage
+        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
-            data[name + "mass"] = mass
-            data[name + "div"] = sps.csr_matrix((g.num_faces, g.num_cells))
+            matrix_dictionary["mass"] = mass
+            matrix_dictionary["div"] = sps.csr_matrix((g.num_faces, g.num_cells))
             return
 
+        # Get dictionary for parameter storage
+        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
-        param = data["param"]
-        k = param.get_tensor(self)
-        a = param.get_aperture()
+        k = parameter_dictionary["second_order_tensor"]
+        a = parameter_dictionary["aperture"]
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)
@@ -164,11 +163,10 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
 
-        data[name + "mass"] = mass
-        data[name + "div"] = div
+        matrix_dictionary["mass"] = mass
+        matrix_dictionary["div"] = div
 
-    @staticmethod
-    def project_flux(g, u, data):
+    def project_flux(self, g, u, data):
         """  Project the velocity computed with a dual vem solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
@@ -191,8 +189,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to MVEM.massHdiv
         k = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
-        param = data["param"]
-        a = param.get_aperture()
+        a = data[pp.keywords.PARAMETERS][self.keyword]["aperture"]
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)
@@ -226,7 +223,6 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             P0u[:, c] = np.dot(R.T, P0u[:, c])
 
         return P0u
-
 
     @staticmethod
     def massHdiv(K, c_center, c_volume, f_centers, normals, sign, diam, weight=0):

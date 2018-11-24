@@ -12,7 +12,6 @@ import porepy as pp
 
 from porepy.numerics.mixed_dim.solver import Solver
 from porepy.utils import comp_geom as cg
-from porepy.params import tensor
 
 
 class HybridDualVEM(Solver):
@@ -27,8 +26,8 @@ class HybridDualVEM(Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, physics="flow"):
-        self.physics = physics
+    def __init__(self, keyword="flow"):
+        self.keyword = keyword
 
     def ndof(self, g):
         """
@@ -101,12 +100,12 @@ class HybridDualVEM(Solver):
         if g.dim == 0:
             return sps.identity(self.ndof(g), format="csr"), np.zeros(1)
 
-        param = data["param"]
-        k = param.get_tensor(self)
-        f = param.get_source(self)
-        bc = param.get_bc(self)
-        bc_val = param.get_bc_val(self)
-        a = param.aperture
+        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        k = parameter_dictionary["second_order_tensor"]
+        f = parameter_dictionary["source"]
+        bc = parameter_dictionary["bc"]
+        bc_val = parameter_dictionary["bc_values"]
+        a = parameter_dictionary["aperture"]
 
         faces, _, sgn = sps.find(g.cell_faces)
 

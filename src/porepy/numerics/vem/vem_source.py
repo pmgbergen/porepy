@@ -4,6 +4,7 @@ Discretization of the source term of an equation.
 
 import numpy as np
 import scipy.sparse as sps
+import porepy as pp
 
 from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
 from porepy.numerics.mixed_dim.coupler import Coupler
@@ -16,19 +17,18 @@ class DualSource(Solver):
     over each grid cell.
 
     All this function does is returning a zero lhs and
-    rhs = - param.get_source.physics in a saddle point fashion.
+    rhs = - param.get_source.keyword in a saddle point fashion.
     """
 
-    def __init__(self, physics="flow"):
-        self.physics = physics
+    def __init__(self, keyword="flow"):
+        self.keyword = keyword
         Solver.__init__(self)
 
     def ndof(self, g):
         return g.num_cells + g.num_faces
 
     def assemble_matrix_rhs(self, g, data):
-        param = data["param"]
-        sources = param.get_source(self)
+        sources = data[pp.keywords.PARAMETERS][self.keyword]["source"]
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
         assert (
             sources.size == g.num_cells
@@ -48,10 +48,10 @@ class DualSource(Solver):
 
 
 class DualSourceMixedDim(SolverMixedDim):
-    def __init__(self, physics="flow", coupling=None):
-        self.physics = physics
+    def __init__(self, keyword="flow", coupling=None):
+        self.keyword = keyword
 
-        self.discr = DualSource(self.physics)
+        self.discr = DualSource(self.keyword)
         self.discr_ndof = self.discr.ndof
         self.coupling_conditions = coupling
 
@@ -63,7 +63,7 @@ class DualSourceMixedDim(SolverMixedDim):
 
 
 class DualSourceDFN(SolverMixedDim):
-    def __init__(self, dim_max, physics="flow"):
+    def __init__(self, dim_max, keyword="flow"):
         # NOTE: There is no flow along the intersections of the fractures.
         # In this case a mixed solver is considered. We assume only two
         # (contiguous) dimensions active. In the higher dimensional grid the
@@ -73,10 +73,10 @@ class DualSourceDFN(SolverMixedDim):
         # For this reason the matrix_rhs and ndof need to be carefully taking
         # care.
 
-        self.physics = physics
+        self.keyword = keyword
         self.dim_max = dim_max
 
-        self.discr = DualSource(self.physics)
+        self.discr = DualSource(self.keyword)
         self.coupling_conditions = None
 
         kwargs = {"discr_ndof": self.__ndof__, "discr_fct": self.__matrix_rhs__}
@@ -113,19 +113,18 @@ class Integral(Solver):
     over each grid cell.
 
     All this function does is returning a zero lhs and
-    rhs = - param.get_source.physics in a saddle point fashion.
+    rhs = - param.get_source.keyword in a saddle point fashion.
     """
 
-    def __init__(self, physics="flow"):
-        self.physics = physics
+    def __init__(self, keyword="flow"):
+        self.keyword = keyword
         Solver.__init__(self)
 
     def ndof(self, g):
         return g.num_cells + g.num_faces
 
     def assemble_matrix_rhs(self, g, data):
-        param = data["param"]
-        sources = param.get_source(self)
+        sources = data[pp.keywords.PARAMETERS][self.keyword]["source"]
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
         assert (
             sources.size == g.num_cells
