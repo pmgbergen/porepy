@@ -116,8 +116,8 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
                 k = k.copy()
                 k.rotate(R)
                 remove_dim = np.where(np.logical_not(dim))[0]
-                k.perm = np.delete(k.perm, (remove_dim), axis=0)
-                k.perm = np.delete(k.perm, (remove_dim), axis=1)
+                k.value = np.delete(k.value, (remove_dim), axis=0)
+                k.value = np.delete(k.value, (remove_dim), axis=1)
 
         # In the virtual cell approach the cell diameters should involve the
         # apertures, however to keep consistency with the hybrid-dimensional
@@ -141,7 +141,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
             # Compute the H_div-mass local matrix
             A = MVEM.massHdiv(
-                a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
+                a[c] * k.value[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 g.cell_volumes[c],
                 f_centers[:, faces_loc],
@@ -209,7 +209,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             faces_loc = faces[loc]
 
             Pi_s = MVEM.massHdiv(
-                a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
+                a[c] * k.value[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 g.cell_volumes[c],
                 f_centers[:, faces_loc],

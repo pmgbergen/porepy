@@ -70,8 +70,8 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
                 k = k.copy()
                 k.rotate(R)
                 remove_dim = np.where(np.logical_not(dim))[0]
-                k.perm = np.delete(k.perm, (remove_dim), axis=0)
-                k.perm = np.delete(k.perm, (remove_dim), axis=1)
+                k.value = np.delete(k.value, (remove_dim), axis=0)
+                k.value = np.delete(k.value, (remove_dim), axis=1)
 
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
@@ -101,7 +101,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
             # Compute the H_div-mass local matrix
             A = RT0.massHdiv(
-                a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
+                a[c] * k.value[0 : g.dim, 0 : g.dim, c],
                 g.cell_volumes[c],
                 coord_loc,
                 sign[loc],

@@ -960,7 +960,7 @@ def mpsa_partial(
 
     # Copy stiffness tensor, and restrict to local cells
     loc_c = constit.copy()
-    loc_c.c = loc_c.c[::, ::, l2g_cells]
+    loc_c.values = loc_c.values[::, ::, l2g_cells]
     # Also restrict the lambda and mu fields; we will copy the stiffness
     # tensors later.
     loc_c.lmbda = loc_c.lmbda[l2g_cells]
@@ -1122,8 +1122,8 @@ def _mpsa_local(
         g.nodes = np.delete(g.nodes, (2), axis=0)
 
         constit = constit.copy()
-        constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=0)
-        constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=1)
+        constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=0)
+        constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=1)
 
     nd = g.dim
 
@@ -1531,13 +1531,13 @@ def _split_stiffness_matrix(constit):
     csym part of stiffness tensor that enters the local calculation
     casym part of stiffness matrix not included in local calculation
     """
-    dim = np.sqrt(constit.c.shape[0])
+    dim = np.sqrt(constit.values.shape[0])
 
     # We do not know how constit is used outside the discretization,
     # so create deep copies to avoid overwriting. Not really sure if this is
     # necessary
-    csym = 0 * constit.copy().c
-    casym = constit.copy().c
+    csym = 0 * constit.copy().values
+    casym = constit.copy().values
 
     # The copy constructor for the stiffness matrix will represent all
     # dimensions as 3d. If dim==2, delete the redundant rows and columns
