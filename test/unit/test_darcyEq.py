@@ -87,8 +87,8 @@ class BasicsTest(unittest.TestCase):
     def check_parameters(self, param_c, param_t):
         bc_c = param_c["bc"]
         bc_t = param_t["bc"]
-        k_c = param_c["second_order_tensor"].perm
-        k_t = param_t["second_order_tensor"].perm
+        k_c = param_c["second_order_tensor"].value
+        k_t = param_t["second_order_tensor"].value
 
         self.assertTrue(np.alltrue(bc_c.is_dir == bc_t.is_dir))
         self.assertTrue(np.alltrue(param_c["bc_values"] == param_t["bc_values"]))
