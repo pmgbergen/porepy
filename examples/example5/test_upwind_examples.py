@@ -28,29 +28,27 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         advect = pp.Upwind("transport")
-        param = pp.Parameters(g)
         dis = advect.discharge(g, [1, 0, 0])
 
         b_faces = g.get_all_boundary_faces()
         bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
-        param.set_bc("transport", bc)
-        param.set_bc_val("transport", bc_val)
-
-        data = {"param": param, "discharge": dis}
-        data["deltaT"] = advect.cfl(g, data)
+        specified_parameters = {"bc": bc, "bc_values": bc_val, "discharge": dis}
+        data = pp.params.data.initialize_data({}, g, "transport", specified_parameters)
+        time_step = advect.cfl(g, data)
+        data[pp.keywords.PARAMETERS]["transport"]["time_step"] = time_step
 
         U, rhs = advect.assemble_matrix_rhs(g, data)
         OF = advect.outflow(g, data)
-        M, _ = pp.MassMatrix().assemble_matrix_rhs(g, data)
+        M, _ = pp.MassMatrix("transport").assemble_matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
 
         M_minus_U = M - U
-        invM, _ = pp.InvMassMatrix().assemble_matrix_rhs(g, data)
+        invM, _ = pp.InvMassMatrix("transport").assemble_matrix_rhs(g, data)
 
         # Loop over the time
-        Nt = int(T / data["deltaT"])
+        Nt = int(T / time_step)
         time = np.empty(Nt)
         folder = "example0"
         production = np.zeros(Nt)
@@ -60,7 +58,7 @@ class BasicsTest(unittest.TestCase):
             # Update the solution
             production[i] = np.sum(OF.dot(conc))
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
-            time[i] = data["deltaT"] * i
+            time[i] = time_step * i
             if if_export:
                 save.write_vtk({"conc": conc}, time_step=i)
 
@@ -82,20 +80,18 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         advect = pp.Upwind("transport")
-        param = pp.Parameters(g)
         dis = advect.discharge(g, [1, 0, 0])
 
         b_faces = g.get_all_boundary_faces()
         bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
-        param.set_bc("transport", bc)
-        param.set_bc_val("transport", bc_val)
-
-        data = {"param": param, "discharge": dis}
-        data["deltaT"] = advect.cfl(g, data)
+        specified_parameters = {"bc": bc, "bc_values": bc_val, "discharge": dis}
+        data = pp.params.data.initialize_data({}, g, "transport", specified_parameters)
+        time_step = advect.cfl(g, data)
+        data[pp.keywords.PARAMETERS]["transport"]["time_step"] = time_step
 
         U, rhs = advect.assemble_matrix_rhs(g, data)
-        M, _ = pp.MassMatrix().assemble_matrix_rhs(g, data)
+        M, _ = pp.MassMatrix("transport").assemble_matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
 
@@ -103,7 +99,7 @@ class BasicsTest(unittest.TestCase):
         IE_solver = sps.linalg.factorized((M + U).tocsc())
 
         # Loop over the time
-        Nt = int(T / data["deltaT"])
+        Nt = int(T / time_step)
         time = np.empty(Nt)
         folder = "example1"
         save = pp.Exporter(g, "conc_IE", folder)
@@ -112,7 +108,7 @@ class BasicsTest(unittest.TestCase):
             # Update the solution
             # Backward and forward substitution to solve the system
             conc = IE_solver(M.dot(conc) + rhs)
-            time[i] = data["deltaT"] * i
+            time[i] = time_step * i
             if if_export:
                 save.write_vtk({"conc": conc}, time_step=i)
 
@@ -133,6 +129,7 @@ class BasicsTest(unittest.TestCase):
                 0.51725056,
             ]
         )
+        print(conc)
         assert np.allclose(conc, known)
 
     # ------------------------------------------------------------------------------#
@@ -152,25 +149,16 @@ class BasicsTest(unittest.TestCase):
         g = pp.CartGrid([Nx, Ny], [1, 1])
         g.compute_geometry()
 
-        param = pp.Parameters(g)
-
         # Permeability
         perm = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
-        param.set_tensor("flow", perm)
-
-        # Source term
-        param.set_source("flow", np.zeros(g.num_cells))
 
         # Boundaries
         b_faces = g.get_all_boundary_faces()
         bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.zeros(g.num_faces)
         bc_val[b_faces] = funp_ex(g.face_centers[:, b_faces])
-        param.set_bc("flow", bc)
-        param.set_bc_val("flow", bc_val)
-
-        # Darcy solver
-        data = {"param": param}
+        specified_parameters = {"bc": bc, "bc_values": bc_val, "permeability": perm}
+        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
         solver = pp.MVEM("flow")
         D_flow, b_flow = solver.assemble_matrix_rhs(g, data)
 
@@ -193,32 +181,31 @@ class BasicsTest(unittest.TestCase):
         # Boundaries
         bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
-        param.set_bc("transport", bc)
-        param.set_bc_val("transport", bc_val)
-
-        data = {"param": param, "discharge": dis}
+        specified_parameters = {"bc": bc, "bc_values": bc_val, "discharge": dis}
+        data = pp.params.data.initialize_data({}, g, "transport", specified_parameters)
 
         # Advect solver
         advect = pp.Upwind("transport")
 
         U, rhs = advect.assemble_matrix_rhs(g, data)
 
-        data["deltaT"] = advect.cfl(g, data)
-        M, _ = pp.MassMatrix().assemble_matrix_rhs(g, data)
+        time_step = advect.cfl(g, data)
+        data[pp.keywords.PARAMETERS]["transport"]["time_step"] = time_step
+        M, _ = pp.MassMatrix("transport").assemble_matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)
         M_minus_U = M - U
-        invM, _ = pp.InvMassMatrix().assemble_matrix_rhs(g, data)
+        invM, _ = pp.InvMassMatrix("transport").assemble_matrix_rhs(g, data)
 
         # Loop over the time
-        Nt = int(T / data["deltaT"])
+        Nt = int(T / time_step)
         time = np.empty(Nt)
         save.change_name("conc_darcy")
         for i in np.arange(Nt):
 
             # Update the solution
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
-            time[i] = data["deltaT"] * i
+            time[i] = time_step * i
             if if_export:
                 save.write_vtk({"conc": conc}, time_step=i)
 
@@ -334,3 +321,5 @@ class BasicsTest(unittest.TestCase):
 
 
 # ------------------------------------------------------------------------------#
+if __name__ == "__main__":
+    unittest.main()
