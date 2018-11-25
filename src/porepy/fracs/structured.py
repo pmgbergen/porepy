@@ -62,7 +62,7 @@ def cart_grid_3d(fracs, nx, physdims=None):
     g_0d = []
     # We set the tolerance for finding points in a plane. This can be any
     # small number, that is smaller than .25 of the cell sizes.
-    tol = .1 * physdims / nx
+    tol = 0.1 * physdims / nx
 
     # Create 2D grids
     for fi, f in enumerate(fracs):

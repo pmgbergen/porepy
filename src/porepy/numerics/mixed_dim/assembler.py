@@ -218,7 +218,9 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
                     # Also define the key to access the matrix of the discretization of
                     # the master variable on the master node.
-                    mat_key_master = self._variable_term_key(master_vals[1], master_key, master_key)
+                    mat_key_master = self._variable_term_key(
+                        master_vals[1], master_key, master_key
+                    )
 
                 slave_vals = terms.get(g_slave)
                 if slave_vals is None:
@@ -229,7 +231,9 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     si = block_dof.get((g_slave, slave_key))
                     # Also define the key to access the matrix of the discretization of
                     # the slave variable on the slave node.
-                    mat_key_slave = self._variable_term_key(slave_vals[1], slave_key, slave_key)
+                    mat_key_slave = self._variable_term_key(
+                        slave_vals[1], slave_key, slave_key
+                    )
 
                 # Key to the matrix dictionary used to access this coupling
                 # discretization.
@@ -259,12 +263,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     # Run the discretization, and assign the resulting matrix
                     # to a temporary construct
                     tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
-                        g_master,
-                        g_slave,
-                        data_master,
-                        data_slave,
-                        data_edge,
-                        loc_mat,
+                        g_master, g_slave, data_master, data_slave, data_edge, loc_mat
                     )
                     # The edge column and row should be assigned to mat_key
                     matrix[mat_key][(ei), (mi, si, ei)] = tmp_mat[(2), (0, 1, 2)]
@@ -520,7 +519,6 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 data = gb.edge_props(g)
             data[var_name] = var[dof[bi] : dof[bi + 1]]
 
-
     def merge_variable(self, gb, var, block_dof, full_dof):
         """ Merge a vector to the nodes and edges in the GridBucket.
 
@@ -549,7 +547,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 data = gb.node_props(g)
             else:  # This is really an edge
                 data = gb.edge_props(g)
-            if var_name==var:
+            if var_name == var:
                 loc_value = data[var_name]
             else:
                 loc_value = 0

@@ -78,7 +78,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
             dist, pt_int = pp.cg.distance_point_segment(pt, start, end)
             # If the distance is small than the input value we need to consider
             # it
-            if dist < vals[pt_id] and not np.isclose(dist, 0.):
+            if dist < vals[pt_id] and not np.isclose(dist, 0.0):
                 dist_pts[pt_id] = min(dist_pts[pt_id], dist)
 
                 dist_start = np.linalg.norm(pt_int - start)
@@ -183,7 +183,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
             new_pt = 0.5 * (pts[:, seg[0]] + pts[:, seg[1]])
             pts = np.c_[pts, new_pt]
 
-            mesh_size = np.amin(np.r_[vals[seg[:2]], dist / 2.])
+            mesh_size = np.amin(np.r_[vals[seg[:2]], dist / 2.0])
 
             for old_seg in old_lines.T:
                 start, end = old_pts[:, old_seg[0]], old_pts[:, old_seg[1]]
@@ -191,7 +191,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
                 dist1, pt_int = pp.cg.distance_point_segment(new_pt, start, end)
                 # If the distance is small than the input value we need to consider
                 # it
-                if dist1 < mesh_size and not np.isclose(dist1, 0.):
+                if dist1 < mesh_size and not np.isclose(dist1, 0.0):
                     mesh_size = dist1
 
             dist_pts = np.r_[dist_pts, mesh_size]

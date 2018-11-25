@@ -263,13 +263,13 @@ class MortarGrid(object):
 
     def master_to_mortar_avg(self):
         row_sum = self.master_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.master_to_mortar_int
+        return sps.diags(1.0 / row_sum) * self.master_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
     def slave_to_mortar_avg(self):
         row_sum = self.slave_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.slave_to_mortar_int
+        return sps.diags(1.0 / row_sum) * self.slave_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
@@ -451,13 +451,13 @@ class BoundaryMortar(object):
 
     def master_to_mortar_avg(self):
         row_sum = self.master_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.master_to_mortar_int
+        return sps.diags(1.0 / row_sum) * self.master_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 
     def slave_to_mortar_avg(self):
         row_sum = self.slave_to_mortar_int.sum(axis=1).A.ravel()
-        return sps.diags(1. / row_sum) * self.slave_to_mortar_int
+        return sps.diags(1.0 / row_sum) * self.slave_to_mortar_int
 
     # ------------------------------------------------------------------------------#
 

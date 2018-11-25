@@ -3,12 +3,9 @@
 import numpy as np
 import scipy.sparse as sps
 import scipy.stats as stats
+import porepy as pp
 
 from porepy.grids import grid, grid_bucket
-
-from porepy.params.data import Parameters
-from porepy.params import tensor
-from porepy.params.bc import BoundaryCondition
 
 
 from porepy.utils import matrix_compression, mcolon, accumarray, setmembership
@@ -285,13 +282,15 @@ def tpfa_matrix(g, perm=None):
         g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
 
     if perm is None:
-        perm = tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+        perm = pp.SecondOrderTensor(g.dim, np.ones(g.num_cells))
 
-    solver = tpfa.Tpfa("flow")
-    param = Parameters(g)
-    param.set_tensor(solver, perm)
-    param.set_bc(solver, BoundaryCondition(g, np.empty(0), ""))
-    return solver.assemble_matrix_rhs(g, {"param": param})[0]
+    solver = pp.Tpfa("flow")
+    specified_parameters = {
+        "permeability": perm,
+        "bc": pp.BoundaryCondition(g, np.empty(0), ""),
+    }
+    data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+    return solver.assemble_matrix_rhs(g, data)[0]
 
 
 # ------------------------------------------------------------------------------#
@@ -359,8 +358,8 @@ def create_aggregations(g, **kwargs):
         c2c = g.cell_connection_map()
 
         # Compute the inverse of the harminc mean
-        weight = kwargs.get("weight", 1.)
-        mean = weight / stats.hmean(1. / volumes)
+        weight = kwargs.get("weight", 1.0)
+        mean = weight / stats.hmean(1.0 / volumes)
 
         new_id = 1
         while np.any(partition_local < 0):
@@ -503,7 +502,7 @@ def create_partition(A, seeds=None, **kwargs):
     for i in np.arange(Nc):
         loc = slice(At.indptr[i], At.indptr[i + 1])
         ci, vals = At.indices[loc], At.data[loc]
-        neg = vals < 0.
+        neg = vals < 0.0
         nvals = vals[neg]
         nci = ci[neg]
         minId = np.argmin(nvals)
