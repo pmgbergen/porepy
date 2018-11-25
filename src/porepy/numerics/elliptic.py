@@ -29,7 +29,7 @@ class EllipticModel:
         keyword 'param'.
     data: (dictionary) Defaults to None. Only used if gb is a Grid. Should
           contain a Parameter class with the keyword 'Param'
-    physics: (string): defaults to 'flow'
+    keyword: (string): defaults to 'flow'
 
     Functions:
     solve(): Calls reassemble and solves the linear system.
@@ -54,11 +54,10 @@ class EllipticModel:
     save(): calls split('pressure'). Then export the pressure to a vtk file to the
             folder kwargs['folder_name'] with file name
             kwargs['file_name'], default values are 'results' for the folder and
-            physics for the file name.
+            keyword for the file name.
     """
 
-    def __init__(self, gb, data=None, keyword="flow", physics="flow", **kwargs):
-        self.physics = physics
+    def __init__(self, gb, data=None, keyword="flow", **kwargs):
         self.keyword = keyword
         self._gb = gb
         self.is_GridBucket = isinstance(self._gb, pp.GridBucket)
@@ -68,7 +67,7 @@ class EllipticModel:
         self.rhs = []
         self.x = []
 
-        file_name = kwargs.get("file_name", physics)
+        file_name = kwargs.get("file_name", keyword)
         folder_name = kwargs.get("folder_name", "results")
         mesh_kw = kwargs.get("mesh_kw", {})
 
@@ -158,8 +157,8 @@ class EllipticModel:
         if self.is_GridBucket:
             key = self.keyword
 
-            tpfa = pp.Tpfa(self.physics)
-            source = pp.Integral(self.physics)
+            tpfa = pp.Tpfa(self.keyword)
+            source = pp.Integral(self.keyword)
             for g, d in self._gb:
                 # Choose discretization and define the solver
                 d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
@@ -179,7 +178,7 @@ class EllipticModel:
 
             return assembler
         else:
-            return pp.Tpfa(keyword=self.physics)
+            return pp.Tpfa(keyword=self.keyword)
 
     def _discretize(self):
 
@@ -199,7 +198,7 @@ class EllipticModel:
         return self._data
 
     def split(self, x_name="solution"):
-        self.x_name = self.keyword
+        self.x_name = x_name
         if self.is_GridBucket:
             self._discr.distribute_variable(
                 self.grid(), self.x, self._block_dof, self._full_dof
@@ -217,12 +216,12 @@ class EllipticModel:
     def discharge(self, discharge_name="discharge"):
         if self.is_GridBucket:
             pp.numerics.fv.fvutils.compute_discharges(
-                self.grid(), self.physics, p_name=self.pressure_name
+                self.grid(), self.keyword, p_name=self.pressure_name
             )
         else:
             pp.numerics.fv.fvutils.compute_discharges(
                 self.grid(),
-                self.physics,
+                self.keyword,
                 discharge_name,
                 self.pressure_name,
                 self._data,
@@ -254,16 +253,22 @@ class EllipticModel:
             ind = get_ind(n)
             if self.is_GridBucket:
                 for _, d in self.grid():
-                    d[n] = d["param"].get_permeability().perm[ind, ind, :]
+                    d[n] = d[pp.keywords.PARAMETERS][self.keyword][
+                        "second_order_tensor"
+                    ].value[ind, ind, :]
             else:
-                self._data[n] = self._data["param"].get_permeability().perm[ind, ind, :]
+                self._data[n] = self._data[pp.keywords.PARAMETERS][self.keyword][
+                    "second_order_tensor"
+                ].value[ind, ind, :]
 
     def porosity(self, poro_name="porosity"):
         if self.is_GridBucket:
             for _, d in self.grid():
-                d[poro_name] = d["param"].get_porosity()
+                d[poro_name] = d[pp.keywords.PARAMETERS][self.keyword]["porosity"]
         else:
-            self._data[poro_name] = self._data["param"].get_porosity()
+            self._data[poro_name] = self._data[pp.keywords.PARAMETERS][self.keyword][
+                "porosity"
+            ]
 
     def save(self, variables=None, save_every=None):
         if variables is None:
@@ -338,15 +343,15 @@ class EllipticModel:
 
 
 class DualEllipticModel(EllipticModel):
-    def __init__(self, gb, data=None, keyword="flow", physics="flow", **kwargs):
-        EllipticModel.__init__(self, gb, data, keyword, physics, **kwargs)
+    def __init__(self, gb, data=None, keyword="flow", **kwargs):
+        EllipticModel.__init__(self, gb, data, keyword, **kwargs)
 
         self.discharge_name = str()
         self.projected_discharge_name = str()
 
     def _set_discretization(self):
-        discr = pp.MVEM(self.physics)
-        source = pp.DualSource(self.physics)
+        discr = pp.MVEM(self.keyword)
+        source = pp.DualSource(self.keyword)
 
         if self.is_GridBucket:
             key = self.keyword
@@ -363,7 +368,7 @@ class DualEllipticModel(EllipticModel):
                     "flux": {
                         g_slave: (key, "flux"),
                         g_master: (key, "flux"),
-                        e: (key, pp.RobinCoupling(key, discr))
+                        e: (key, pp.RobinCoupling(key, discr)),
                     }
                 }
             return pp.Assembler()
@@ -411,7 +416,7 @@ class DualEllipticModel(EllipticModel):
                 discr = d[pp.keywords.DISCRETIZATION][self.keyword]["flux"]
                 d[self.discharge_name] = discr.extract_flux(g, d[self.x_name])
 
-            #for e, d in self._gb.edges():
+            # for e, d in self._gb.edges():
             #    g_h = self._gb.nodes_of_edge(e)[1]
             #    d[discharge_name] = self._gb.node_props(g_h, discharge_name)
 
@@ -453,7 +458,7 @@ class EllipticDataAssigner:
     gb: (Grid /GridBucket) a grid or grid bucket object
     data: (dictionary) Dictionary which Parameter will be added to with keyword
           'param'
-    physics: (string): defaults to 'flow'
+    keyword: (string): defaults to 'flow'
 
     Functions that assign data to Parameter class:
         bc(): defaults to neumann boundary condition
@@ -474,11 +479,11 @@ class EllipticDataAssigner:
 
     """
 
-    def __init__(self, g, data, physics="flow"):
+    def __init__(self, g, data, keyword="flow"):
         self._g = g
         self._data = data
 
-        self.physics = physics
+        self.keyword = keyword
         self._set_data()
 
     def bc(self):
@@ -511,14 +516,19 @@ class EllipticDataAssigner:
         return self._g
 
     def _set_data(self):
-        if "param" not in self._data:
-            self._data["param"] = pp.Parameters(self.grid())
-        self._data["param"].set_tensor(self.physics, self.permeability())
-        self._data["param"].set_bc(self.physics, self.bc())
-        self._data["param"].set_bc_val(self.physics, self.bc_val())
-        self._data["param"].set_source(self.physics, self.source())
+        if pp.keywords.PARAMETERS not in self._data:
+            self._data[pp.keywords.PARAMETERS] = pp.Parameters(
+                self.grid(), [self.keyword], [{}]
+            )
+        self._data[pp.keywords.PARAMETERS].update_dictionaries([self.keyword], [{}])
+        parameter_dictionary = self._data[pp.keywords.PARAMETERS][self.keyword]
+
+        parameter_dictionary["second_order_tensor"] = self.permeability()
+        parameter_dictionary["bc"] = self.bc()
+        parameter_dictionary["bc_values"] = self.bc_val()
+        parameter_dictionary["source"] = self.source()
 
         if self.porosity() is not None:
-            self._data["param"].set_porosity(self.porosity())
+            parameter_dictionary["porosity"] = self.porosity()
         if self.aperture() is not None:
-            self._data["param"].set_aperture(self.aperture())
+            parameter_dictionary["aperture"] = self.aperture()
