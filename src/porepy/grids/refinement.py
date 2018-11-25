@@ -237,7 +237,7 @@ def remesh_1d(g_old, num_nodes, tol=1e-6):
     # Not sure why the new axis was necessary.
     nodes = g_old.nodes[:, start, np.newaxis] * theta + g_old.nodes[
         :, end, np.newaxis
-    ] * (1. - theta)
+    ] * (1.0 - theta)
 
     # Create the new grid, and assign nodes.
     g = TensorGrid(nodes[0, :])

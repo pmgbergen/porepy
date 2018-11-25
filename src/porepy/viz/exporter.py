@@ -193,7 +193,7 @@ class Exporter:
             save.write_vtk(["conc"], time_step=i)
         save.write_pvd(steps*deltaT)
 
-        In the case of different physics, change the file name with
+        In the case of different keywords, change the file name with
         "change_name".
 
         NOTE: the following names are reserved for data exporting: grid_dim,
@@ -235,7 +235,7 @@ class Exporter:
 
     def change_name(self, name):
         """
-        Change the root name of the files, useful when different physics are
+        Change the root name of the files, useful when different keywords are
         considered but on the same grid.
 
         Parameters:
@@ -801,21 +801,21 @@ def _point_ind(
             nodes_loc = nodes[:, ptsId]
             # Sort points. Cut-down version of
             # sort_points.sort_points_plane() and subfunctions
-            reference = np.array([0., 0., 1])
+            reference = np.array([0.0, 0.0, 1])
             angle = np.arccos(np.dot(normals[:, fi], reference))
             vect = np.cross(normals[:, fi], reference)
             # Cut-down version of cg.rot()
             W = np.array(
                 [
-                    [0., -vect[2], vect[1]],
-                    [vect[2], 0., -vect[0]],
-                    [-vect[1], vect[0], 0.],
+                    [0.0, -vect[2], vect[1]],
+                    [vect[2], 0.0, -vect[0]],
+                    [-vect[1], vect[0], 0.0],
                 ]
             )
             R = (
                 np.identity(3)
                 + np.sin(angle) * W
-                + (1. - np.cos(angle)) * np.linalg.matrix_power(W, 2)
+                + (1.0 - np.cos(angle)) * np.linalg.matrix_power(W, 2)
             )
             # pts is now a npt x 3 matrix
             pts = np.array([R.dot(nodes_loc[:, i]) for i in range(nodes_loc.shape[1])])
@@ -861,7 +861,7 @@ if "numba" in sys.modules:
                     nodes_loc[:, iter1] = nodes[:, ptsId[iter1]]
                 #            # Sort points. Cut-down version of
                 #            # sort_points.sort_points_plane() and subfunctions
-                reference = np.array([0., 0., 1])
+                reference = np.array([0.0, 0.0, 1])
                 angle = np.arccos(np.dot(normals[:, fi], reference))
                 # Hand code cross product, not supported by current numba version
                 vect = np.array(
@@ -875,22 +875,22 @@ if "numba" in sys.modules:
                 ##            # Cut-down version of cg.rot()
                 W = np.array(
                     [
-                        0.,
+                        0.0,
                         -vect[2],
                         vect[1],
                         vect[2],
-                        0.,
+                        0.0,
                         -vect[0],
                         -vect[1],
                         vect[0],
-                        0.,
+                        0.0,
                     ]
                 ).reshape((3, 3))
                 R = (
                     np.identity(3)
                     + np.sin(angle) * W.reshape((3, 3))
                     + (
-                        (1. - np.cos(angle)) * np.linalg.matrix_power(W, 2).ravel()
+                        (1.0 - np.cos(angle)) * np.linalg.matrix_power(W, 2).ravel()
                     ).reshape((3, 3))
                 )
                 ##            # pts is now a npt x 3 matrix

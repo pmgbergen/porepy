@@ -698,7 +698,7 @@ class Fracture(object):
                 normal_bf = cg.compute_normal(bf.p)
                 tangent = np.cross(normal_self, normal_bf)
                 # Unit vector
-                tangent *= 1. / np.linalg.norm(tangent)
+                tangent *= 1.0 / np.linalg.norm(tangent)
 
                 isect_ind = np.argwhere(sort_ind >= num_pts_orig).ravel("F")
                 p_isect = self.p[:, isect_ind]

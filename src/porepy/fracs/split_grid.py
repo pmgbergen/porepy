@@ -316,9 +316,9 @@ def update_cell_connectivity(g, face_id, normal, x0):
 
     # Assume that fracture is either on boundary (above case) or completely
     # innside domain. Check that each face added two cells:
-    assert (
-        sum(left_cell) * 2 == left_cell.size
-    ), "Fractures must either be" "on boundary or completely innside domain"
+    assert sum(left_cell) * 2 == left_cell.size, (
+        "Fractures must either be" "on boundary or completely innside domain"
+    )
 
     # We create a cell_faces mapping for the new faces. This will be added
     # on the end of the excisting cell_faces mapping. We have here assumed
