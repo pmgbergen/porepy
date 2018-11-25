@@ -262,7 +262,7 @@ def solve_elliptic_problem(gb):
                 d["mortar_grid"], ["flow"], [data]
             )
         d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
-    flux = pp.EllipticModel(gb, keyword="flow", keyword="flow")
+    flux = pp.EllipticModel(gb, keyword="flow")
     p = flux.solve()
     flux.split("flux_field")
     pp.fvutils.compute_discharges(gb, p_name="flow", lam_name="flux_field")

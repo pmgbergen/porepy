@@ -413,8 +413,8 @@ def true_2d(g, constit=None):
     if constit is None:
         return g
     constit = constit.copy()
-    constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=0)
-    constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=1)
+    constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=0)
+    constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=1)
     return g, constit
 
 
