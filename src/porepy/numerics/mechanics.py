@@ -29,7 +29,7 @@ class StaticModel:
     gb: (Grid) a grid object.
     data (dictionary): dictionary of data. Should contain a Parameter class
                        with the keyword 'Param'
-    physics: (string): defaults to 'mechanics'
+    keyword: (string): defaults to 'mechanics'
 
     Functions:
     solve(): Calls reassemble and solves the linear system.
@@ -49,11 +49,11 @@ class StaticModel:
     save(): calls split('d'). Then export the pressure to a vtk file to the
             folder kwargs['folder_name'] with file name
             kwargs['file_name'], default values are 'results' for the folder and
-            physics for the file name.
+            keyword for the file name.
     """
 
-    def __init__(self, gb, data, physics="mechanics", **kwargs):
-        self.physics = physics
+    def __init__(self, gb, data, keyword="mechanics", **kwargs):
+        self.keyword = keyword
         self._gb = gb
         if not isinstance(self._gb, Grid):
             raise ValueError("StaticModel only defined for Grid class")
@@ -64,7 +64,7 @@ class StaticModel:
         self.rhs = []
         self.x = []
 
-        file_name = kwargs.get("file_name", physics)
+        file_name = kwargs.get("file_name", keyword)
         folder_name = kwargs.get("folder_name", "results")
 
         tic = time.time()
@@ -170,7 +170,7 @@ class StaticModel:
         Returns:
             FracturedMpsa (Solver object)
         """
-        return mpsa.FracturedMpsa(physics=self.physics)
+        return mpsa.FracturedMpsa(keyword=self.keyword)
 
     def grid(self):
         """
@@ -247,7 +247,7 @@ class StaticModel:
         T = self._stress_disc.traction(self.grid(), self._data, self.x)
         T = T.reshape((self.grid().dim, -1), order="F")
         T_b = np.zeros(T.shape)
-        sigma = self._data["param"].get_background_stress(self.physics)
+        sigma = self._data["param"].get_background_stress(self.keyword)
         if np.any(sigma):
             normals = self.grid().face_normals
             for i in range(normals.shape[1]):
@@ -336,7 +336,7 @@ class StaticDataAssigner:
     gb (Grid): a grid object
     data (dictionary): Dictionary which Parameter will be added to with keyword
                        'param'
-    physics: (string): defaults to 'mechanics'
+    keyword: (string): defaults to 'mechanics'
 
     Functions that assign data to Parameter class:
         bc(): defaults to neumann boundary condition
@@ -351,11 +351,11 @@ class StaticDataAssigner:
 
     """
 
-    def __init__(self, g, data, physics="mechanics"):
+    def __init__(self, g, data, keyword="mechanics"):
         self._g = g
         self._data = data
 
-        self.physics = physics
+        self.keyword = keyword
         self._set_data()
 
     def bc(self):
@@ -380,10 +380,10 @@ class StaticDataAssigner:
     def _set_data(self):
         if "param" not in self._data:
             self._data["param"] = Parameters(self.grid())
-        self._data["param"].set_bc(self.physics, self.bc())
-        self._data["param"].set_bc_val(self.physics, self.bc_val())
+        self._data["param"].set_bc(self.keyword, self.bc())
+        self._data["param"].set_bc_val(self.keyword, self.bc_val())
         self._data["param"].set_background_stress(
-            self.physics, self.background_stress()
+            self.keyword, self.background_stress()
         )
         if self.stress_tensor() is not None:
-            self._data["param"].set_tensor(self.physics, self.stress_tensor())
+            self._data["param"].set_tensor(self.keyword, self.stress_tensor())

@@ -16,7 +16,7 @@ class ParabolicModel:
 
     Init:
     - gb (Grid/GridBucket) Grid or grid bucket for the problem
-    - physics (string) Physics key word. See Parameters class for valid physics
+    - keyword (string) Keyword key word. See Parameters class for valid keyword
 
     Functions:
     data(): returns data dictionary. Is only used for single grids (I.e. not
@@ -61,7 +61,6 @@ class ParabolicModel:
         self,
         gb,
         keyword="transport",
-        physics="transport",
         time_step=1.0,
         end_time=1.0,
         callback=None,
@@ -69,17 +68,16 @@ class ParabolicModel:
     ):
         self._gb = gb
         self.is_GridBucket = isinstance(self._gb, pp.GridBucket)
-        self.physics = physics
         self.keyword = keyword
         self._data = kwargs.get("data", dict())
         self._time_step = time_step
         self._end_time = end_time
 
         self._disc_name = None
-        self._time_name = 'time_disc'
+        self._time_name = "time_disc"
 
         self.callback = callback
-
+        self.x_name = "solution"
         self.assembler = self._set_discretization()
         _, _, block_dof, full_dof = self.assembler._initialize_matrix_rhs(gb, None)
         self._block_dof = block_dof
@@ -87,15 +85,12 @@ class ParabolicModel:
 
         self.time_stepper = self.time_stepper()
 
-
         logger.info("Create exporter")
         tic = time.time()
         file_name = kwargs.get("file_name", "solution")
         folder_name = kwargs.get("folder_name", "results")
         self.exporter = pp.Exporter(self._gb, file_name, folder_name)
         logger.info("Done. Elapsed time: " + str(time.time() - tic))
-
-        self.x_name = "solution"
 
     def data(self):
         "Get data dictionary"
@@ -124,9 +119,9 @@ class ParabolicModel:
         "Update parameters to time t"
         if self.is_GridBucket:
             for g, d in self.grid():
-                d[self.physics + "_data"].update(t)
+                d[self.keyword + "_data"].update(t)
         else:
-            self.data()[self.physics + "_data"].update(t)
+            self.data()[pp.keywords.PARAMETERS][self.keyword].update(t)
 
         if self.callback is not None:
             self.callback(self)
@@ -146,6 +141,7 @@ class ParabolicModel:
 
     def advective_disc(self):
         "Discretization of fluid_density*fluid_specific_heat * v * \nabla T"
+
         class WeightedUpwindDisc(pp.Upwind):
             def __init__(self, keyword):
                 self.keyword = keyword
@@ -153,7 +149,11 @@ class ParabolicModel:
 
             def matrix_rhs(self, g, data):
                 lhs, rhs = pp.Upwind.matrix_rhs(self, g, data)
-                factor = data["param"].fluid_specific_heat * data["param"].fluid_density
+                parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+                factor = (
+                    parameter_dictionary["fluid_specific_heat"]
+                    * parameter_dictionary["fluid_density"]
+                )
                 lhs *= factor
                 rhs *= factor
                 return lhs, rhs
@@ -167,8 +167,10 @@ class ParabolicModel:
                 cc = pp.UpwindCoupling.matrix_rhs(
                     self, matrix, g_h, g_l, data_h, data_l, data_edge
                 )
+                parameter_dictionary = data_h[pp.keywords.PARAMETERS][self.keyword]
                 factor = (
-                    data_h["param"].fluid_specific_heat * data_h["param"].fluid_density
+                    parameter_dictionary["fluid_specific_heat"]
+                    * parameter_dictionary["fluid_density"]
                 )
                 return (cc - matrix) * factor + matrix
 
@@ -176,12 +178,12 @@ class ParabolicModel:
 
     def diffusive_disc(self):
         "Discretization of term \nabla K \nabla T"
-        tpfa = pp.Tpfa(self.keyword, self.physics)
+        tpfa = pp.Tpfa(self.keyword, self.keyword)
         return (tpfa, pp.RobinCoupling(self.keyword, tpfa))
 
     def source_disc(self):
         "Discretization of source term, q"
-        return (pp.Integral(self.keyword, self.physics), None)
+        return (pp.Integral(self.keyword, self.keyword), None)
 
     def space_disc(self):
         """Space discretization. Returns the discretization terms that should be
@@ -192,25 +194,27 @@ class ParabolicModel:
         """
         Returns the time discretization.
         """
+
         class TimeDisc(object):
-            def __init__(self, deltaT, keyword):
+            def __init__(self, time_step, keyword):
                 self.keyword = keyword
-                self.deltaT = deltaT
+                self.time_step = time_step
 
             def assemble_matrix_rhs(self, g, data):
                 ndof = g.num_cells
-                aperture = data["param"].get_aperture()
-                coeff = g.cell_volumes * aperture / self.deltaT
+                parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+                aperture = parameter_dictionary["aperture"]
+                coeff = g.cell_volumes * aperture / self.time_step
 
                 factor_fluid = (
-                    data["param"].fluid_specific_heat
-                    * data["param"].fluid_density
-                    * data["param"].porosity
+                    parameter_dictionary["fluid_specific_heat"]
+                    * parameter_dictionary["fluid_density"]
+                    * parameter_dictionary["porosity"]
                 )
                 factor_rock = (
-                    data["param"].rock_specific_heat
-                    * data["param"].rock_density
-                    * (1 - data["param"].porosity)
+                    parameter_dictionary["rock_specific_heat"]
+                    * parameter_dictionary["rock_density"]
+                    * (1 - parameter_dictionary["porosity"])
                 )
                 factor = sps.dia_matrix(
                     (factor_fluid + factor_rock, 0), shape=(ndof, ndof)
@@ -222,7 +226,6 @@ class ParabolicModel:
 
         return (TimeDisc(self.time_step(), self.keyword), None)
 
-
     def discretize(self):
         for g, d in self._gb:
             self._time_name
@@ -231,14 +234,14 @@ class ParabolicModel:
             self.grid(), add_matrices=False
         )
 
-        time = self._time_name + '_' + self.keyword
+        time = self._time_name + "_" + self.keyword
         lhs_time = lhs[time]
         rhs_time = rhs[time]
 
         lhs_space = []
         rhs_space = []
         for key in lhs.keys():
-            if key!=time:
+            if key != time:
                 lhs_space.append(lhs[key])
                 rhs_space.append(rhs[key])
         lhs_space = sum(lhs_space)
@@ -249,11 +252,12 @@ class ParabolicModel:
     def _set_discretization(self):
         if self.is_GridBucket:
             key = self.keyword
+            var = self.x_name
             node_disc = {}
             edge_disc = []
             disc_name = []
             for i, disc in enumerate(self.space_disc()):
-                loc_name = 'disc_' + str(i)
+                loc_name = "disc_" + str(i)
                 node_disc[loc_name] = disc[0]
                 edge_disc.append(disc[1])
                 disc_name.append(loc_name)
@@ -261,7 +265,7 @@ class ParabolicModel:
             time_disc, _ = self.time_disc()
             for g, d in self._gb:
                 # Choose discretization and define the solver
-                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+                d[pp.keywords.PRIMARY_VARIABLES] = {var: {"cells": 1}}
                 node_disc[self._time_name] = time_disc
                 d[pp.keywords.DISCRETIZATION] = {key: node_disc}
 
@@ -273,19 +277,17 @@ class ParabolicModel:
                 for i, disc in enumerate(edge_disc):
                     if disc is None:
                         continue
-                    d[pp.keywords.COUPLING_DISCRETIZATION][
-                        disc_name[i]] = {
-                            g_slave: (key, disc_name[i]),
-                            g_master: (key, disc_name[i]),
-                            e: (key + '_mortar', disc),
-                        }
-                    d[pp.keywords.PRIMARY_VARIABLES][key+'_mortar'] = {"cells": 1}
+                    d[pp.keywords.COUPLING_DISCRETIZATION][disc_name[i]] = {
+                        g_slave: (key, disc_name[i]),
+                        g_master: (key, disc_name[i]),
+                        e: (key + "_mortar", disc),
+                    }
+                    d[pp.keywords.PRIMARY_VARIABLES][var + "_mortar"] = {"cells": 1}
 
             assembler = pp.Assembler()
             return assembler
         else:
             raise NotImplementedError()
-
 
     def initial_condition(self):
         "Returns initial condition for global variable"
@@ -328,14 +330,13 @@ class ParabolicModel:
             self.exporter.write_pvd(time)
 
 
-
 class ParabolicDataAssigner:
     """
     Base class for assigning valid data to a grid.
     Init:
     - g    (Grid) Grid that data should correspond to
     - d    (dictionary) data dictionary that data will be assigned to
-    - physics (string) Physics key word. See Parameters class for valid physics
+    - keyword (string) Keyword key word. See Parameters class for valid keyword
 
     Functions:
         update(t): Update source and bc term to time t
@@ -371,18 +372,18 @@ class ParabolicDataAssigner:
         d['problem'] = ExampleData(g, d)
     """
 
-    def __init__(self, g, data, physics="transport"):
+    def __init__(self, g, data, keyword="transport"):
         self._g = g
         self._data = data
-        self.physics = physics
+        self.keyword = keyword
         self._set_data()
 
     def update(self, t):
         "Update source and bc_val term to time step t"
         source = self.source(t)
         bc_val = self.bc_val(t)
-        self.data()["param"].set_source(self.physics, source)
-        self.data()["param"].set_bc_val(self.physics, bc_val)
+        self.data()[pp.keywords.PARAMETERS][self.keyword]["source"] = source
+        self.data()[pp.keywords.PARAMETERS][self.keyword]["bc_values"] = bc_val
 
     def bc(self):
         "Define boundary condition"
@@ -403,7 +404,7 @@ class ParabolicDataAssigner:
     def porosity(self):
         """Returns apperture of each cell. If None is returned, default
         Parameter class value is used"""
-        return None
+        return np.ones(self.grid().num_cells)
 
     def diffusivity(self):
         "Returns diffusivity tensor"
@@ -413,31 +414,31 @@ class ParabolicDataAssigner:
     def aperture(self):
         """Returns apperture of each cell. If None is returned, default
         Parameter class value is used"""
-        return None
+        return np.ones(self.grid().num_cells)
 
     def rock_specific_heat(self):
         """ Returns *constant* specific heat capacity of rock. If None is
         returned, default Parameter class value is used.
         """
-        return None
+        return np.ones(self.grid().num_cells)
 
     def fluid_specific_heat(self):
         """ Returns *constant* specific heat capacity of fluid. If None is
         returned, default Parameter class value is used.
         """
-        return None
+        return np.ones(self.grid().num_cells)
 
     def rock_density(self):
         """ Returns *constant* density of rock. If None is
         returned, default Parameter class value is used.
         """
-        return None
+        return np.ones(self.grid().num_cells)
 
     def fluid_density(self):
         """ Returns *constant* density of fluid. If None is
         returned, default Parameter class value is used.
         """
-        return None
+        return np.ones(self.grid().num_cells)
 
     def data(self):
         "Returns data dictionary"
@@ -451,22 +452,27 @@ class ParabolicDataAssigner:
         """Create a Parameter object and assign data based on the returned
         values from the functions (e.g., self.source(t))
         """
-        if "param" not in self._data:
-            self._data["param"] = pp.Parameters(self.grid())
-        self._data["param"].set_tensor(self.physics, self.diffusivity())
-        self._data["param"].set_bc(self.physics, self.bc())
-        self._data["param"].set_bc_val(self.physics, self.bc_val(0.0))
-        self._data["param"].set_source(self.physics, self.source(0.0))
+        if pp.keywords.PARAMETERS not in self._data:
+            self._data[pp.keywords.PARAMETERS] = pp.Parameters(
+                self.grid(), [self.keyword], [{}]
+            )
+        self._data[pp.keywords.PARAMETERS].update_dictionaries([self.keyword], [{}])
+        parameter_dictionary = self._data[pp.keywords.PARAMETERS][self.keyword]
+
+        parameter_dictionary["second_order_tensor"] = self.diffusivity()
+        parameter_dictionary["bc"] = self.bc()
+        parameter_dictionary["bc_values"] = self.bc_val(0.0)
+        parameter_dictionary["source"] = self.source(0.0)
 
         if self.porosity() is not None:
-            self._data["param"].set_porosity(self.porosity())
+            parameter_dictionary["porosity"] = self.porosity()
         if self.aperture() is not None:
-            self._data["param"].set_aperture(self.aperture())
+            parameter_dictionary["aperture"] = self.aperture()
         if self.rock_specific_heat() is not None:
-            self._data["param"].set_rock_specific_heat(self.rock_specific_heat())
+            parameter_dictionary["rock_specific_heat"] = self.rock_specific_heat()
         if self.fluid_specific_heat() is not None:
-            self._data["param"].set_fluid_specific_heat(self.fluid_specific_heat())
+            parameter_dictionary["fluid_specific_heat"] = self.fluid_specific_heat()
         if self.rock_density() is not None:
-            self._data["param"].set_rock_density(self.rock_density())
+            parameter_dictionary["rock_density"] = self.rock_density()
         if self.fluid_density() is not None:
-            self._data["param"].set_fluid_density(self.fluid_density())
+            parameter_dictionary["fluid_density"] = self.fluid_density()

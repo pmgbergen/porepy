@@ -56,7 +56,7 @@ class DarcyAndTransport:
         Save for visualization.
         """
         self.flow.save(variables=[self.flow.pressure_name])
-        self.transport.save([self.transport.physics], save_every=save_every)
+        self.transport.save([self.transport.keyword], save_every=save_every)
 
 
 class static_flow_IE_solver(AbstractSolver):
@@ -134,5 +134,5 @@ class static_flow_IE_solver(AbstractSolver):
 
 #        # Store result
 #        if self.parameters['store_results'] == True:
-#            self.data[self.problem.physics].append(self.p)
+#            self.data[self.problem.keyword].append(self.p)
 #            self.data['times'].append(t - self.dt)
