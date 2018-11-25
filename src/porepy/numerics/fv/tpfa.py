@@ -95,7 +95,7 @@ class Tpfa(FVElliptic):
         else:
             n = g.face_normals[:, fi] * aperture[ci]
         n *= sgn
-        perm = k.perm[::, ::, ci]
+        perm = k.value[::, ::, ci]
 
         # Distance from face center to cell center
         fc_cc = g.face_centers[::, fi] - g.cell_centers[::, ci]
