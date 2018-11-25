@@ -14,21 +14,19 @@ def add_data(gb, domain):
     a = 1e-2
 
     for g, d in gb:
-        param = pp.Parameters(g)
-
         # Permeability
         if g.dim == 2:
             perm = pp.SecondOrderTensor(g.dim, 1e-14 * np.ones(g.num_cells))
         else:
             perm = pp.SecondOrderTensor(g.dim, 1e-8 * np.ones(g.num_cells))
-        param.set_tensor("flow", perm)
 
         # Source term
-        param.set_source("flow", np.zeros(g.num_cells))
 
         # Assign apertures
-        aperture = np.power(a, gb.dim_max() - g.dim)
-        param.set_aperture(np.ones(g.num_cells) * aperture)
+        a_dim = np.power(a, gb.dim_max() - g.dim)
+        aperture = np.ones(g.num_cells) * a_dim
+
+        specified_parameters = {"aperture": aperture, "permeability": perm}
 
         # Boundaries
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -44,24 +42,28 @@ def add_data(gb, domain):
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces[left]] = 1013250
 
-            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val("flow", bc_val)
+            bound = pp.BoundaryCondition(g, bound_faces, labels)
+            specified_parameters.update({"bc": bound, "bc_values": bc_val})
         else:
-            param.set_bc("flow", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
-
-        d["param"] = param
+            bound = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
+            specified_parameters.update({"bc": bound})
+        pp.params.data.initialize_data(d, g, "flow", specified_parameters)
 
     # Assign coupling permeability
     gb.add_edge_props("kn")
     for e, d in gb.edges():
         gn = gb.nodes_of_edge(e)
-        d["kn"] = 1e-8 * np.ones(gn[0].num_cells)
+        mg = d["mortar_grid"]
+        kn = 1e-8 * np.ones(gn[0].num_cells)
+        d[pp.keywords.PARAMETERS] = pp.Parameters(
+            mg, ["flow"], [{"normal_diffusivity": kn}]
+        )
+        d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
 
 
 # ------------------------------------------------------------------------------#
 
 
-mesh_kwargs = {}
 mesh_kwargs = {"mesh_size_frac": 10, "mesh_size_bound": 40, "mesh_size_min": 1e-1}
 
 domain = {"xmin": 0, "xmax": 700, "ymin": 0, "ymax": 600}

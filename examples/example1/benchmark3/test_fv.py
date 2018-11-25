@@ -4,9 +4,9 @@ benchmark3 with the fv discretizations.
 """
 import numpy as np
 import scipy.sparse as sps
+import porepy as pp
 
 from porepy.fracs import importer
-from porepy.params import bc, tensor
 from porepy.numerics.fv import tpfa, mpfa
 from porepy.numerics.elliptic import EllipticDataAssigner, EllipticModel
 from porepy.numerics.mixed_dim import condensation as SC
@@ -25,11 +25,11 @@ def assign_darcy_data(gb, domain, left_to_right):
 
 def boundary_condition(g, left_to_right):
     if left_to_right:
-        dirfaces_four = bc.face_on_side(g, "xmin")[0]
-        dirfaces_one = bc.face_on_side(g, "xmax")[0]
+        dirfaces_four = pp.face_on_side(g, "xmin")[0]
+        dirfaces_one = pp.face_on_side(g, "xmax")[0]
     else:
-        dirfaces_one = bc.face_on_side(g, "ymin")[0]
-        dirfaces_four = bc.face_on_side(g, "ymax")[0]
+        dirfaces_one = pp.face_on_side(g, "ymin")[0]
+        dirfaces_four = pp.face_on_side(g, "ymax")[0]
 
     dirfaces = np.concatenate((dirfaces_four, dirfaces_one))
     labels = ["dir"] * dirfaces.size
@@ -61,13 +61,13 @@ class DarcyModelData(EllipticDataAssigner):
             k = 2 / np.sum(1.0 / np.array([1e4, 1e-4]))
         else:
             k = 1e4
-        return tensor.SecondOrderTensor(3, np.ones(self.grid().num_cells) * k)
+        return pp.SecondOrderTensor(3, np.ones(self.grid().num_cells) * k)
 
     def bc(self):
         if self.grid().dim < 2:
-            return bc.BoundaryCondition(self.grid())
+            return pp.BoundaryCondition(self.grid())
         dirfaces, labels, _ = boundary_condition(self.grid(), self.left_to_right)
-        return bc.BoundaryCondition(self.grid(), dirfaces, labels)
+        return pp.BoundaryCondition(self.grid(), dirfaces, labels)
 
     def bc_val(self):
         if self.grid().dim < 2:

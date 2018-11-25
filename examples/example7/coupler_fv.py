@@ -67,11 +67,11 @@ if __name__ == "__main__":
     np.set_printoptions(precision=3)
 
     # Set up and mesh the domain and collect meshes in a grid bucket
-    f_1 = np.array([[-.8, .8, .8, -.8], [0, 0, 0, 0], [-.8, -.8, .8, .8]])
-    f_2 = np.array([[0, 0, 0, 0], [-.8, .8, .8, -.8], [-.8, -.8, .8, .8]])
-    f_3 = np.array([[-.8, .8, .8, -.8], [-.8, -.8, .8, .8], [0, 0, 0, 0]])
+    f_1 = np.array([[-0.8, 0.8, 0.8, -0.8], [0, 0, 0, 0], [-0.8, -0.8, 0.8, 0.8]])
+    f_2 = np.array([[0, 0, 0, 0], [-0.8, 0.8, 0.8, -0.8], [-0.8, -0.8, 0.8, 0.8]])
+    f_3 = np.array([[-0.8, 0.8, 0.8, -0.8], [-0.8, -0.8, 0.8, 0.8], [0, 0, 0, 0]])
     f_1 = [[0, 1], [0, 1]]
-    f_2 = [[0, .1], [0.2, .1]]
+    f_2 = [[0, 0.1], [0.2, 0.1]]
     f_set = [f_1, f_2, f_3]
     f_set = [f_1, f_2]
     domain = {"xmin": -1, "xmax": 1, "ymin": -1, "ymax": 1}  # , 'zmin': -1, 'zmax': 1}
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         max_p = np.array(np.amax(np.concatenate((max_p, p1)), axis=0), ndmin=1)
         min_p = np.array(np.amin(np.concatenate((min_p, p1)), axis=0), ndmin=1)
 
-    error_norm = np.power(error_norm / normalization, .5) / (max_p - min_p)
+    error_norm = np.power(error_norm / normalization, 0.5) / (max_p - min_p)
 
     print("The error of the condensation compared to the full method is ", error_norm)
     assert error_norm < 1e-3

@@ -27,7 +27,7 @@ def add_data_transport(gb):
         b_faces = b_faces[index]
         d["bc"] = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         d["bc_val"] = {"dir": np.ones(b_faces.size)}
-        d["apertures"] = np.ones(g.num_cells) * np.power(.01, float(g.dim < 3))
+        d["apertures"] = np.ones(g.num_cells) * np.power(0.01, float(g.dim < 3))
         d["discharge"] = pp.Upwind().discharge(
             g, [1, 1, 2 * np.power(1000, g.dim < 2)], d["apertures"]
         )
@@ -45,9 +45,9 @@ if __name__ == "__main__":
     np.set_printoptions(linewidth=999999)
     np.set_printoptions(precision=7)
 
-    f_1 = np.array([[-.8, .8, .8, -.8], [0, 0, 0, 0], [-.8, -.8, .8, .8]])
-    f_2 = np.array([[0, 0, 0, 0], [-.8, .8, .8, -.8], [-.8, -.8, .8, .8]])
-    f_3 = np.array([[-.8, .8, .8, -.8], [-.8, -.8, .8, .8], [0, 0, 0, 0]])
+    f_1 = np.array([[-0.8, 0.8, 0.8, -0.8], [0, 0, 0, 0], [-0.8, -0.8, 0.8, 0.8]])
+    f_2 = np.array([[0, 0, 0, 0], [-0.8, 0.8, 0.8, -0.8], [-0.8, -0.8, 0.8, 0.8]])
+    f_3 = np.array([[-0.8, 0.8, 0.8, -0.8], [-0.8, -0.8, 0.8, 0.8], [0, 0, 0, 0]])
 
     f_set = [f_1, f_2, f_3]
 
