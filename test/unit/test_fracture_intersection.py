@@ -180,7 +180,42 @@ class TestBoundingBoxIntersection(unittest.TestCase):
 
         self.assertTrue(np.allclose(pairs_1, combined_pairs))
 
+    def test_lines_in_square(self):
+        # Lines in square, all should overlap
+        x_min = np.array([0, 1, 0, 0])
+        x_max = np.array([1, 1, 1, 0])
+
+        y_min = np.array([0, 0, 1, 0])
+        y_max = np.array([0, 1, 1, 1])
+
+        x_pairs = pp.cg._identify_overlapping_intervals(x_min, x_max)
+        y_pairs = pp.cg._identify_overlapping_intervals(y_min, y_max)
+        pairs_1 = np.sort(pp.cg._intersect_pairs(x_pairs, y_pairs), axis=0)
+        self.assertTrue(pairs_1.shape[1] == 4)
+
+        combined_pairs = np.sort(pp.cg._identify_overlapping_rectangles(x_min, x_max, y_min, y_max), axis=0)
+        self.assertTrue(combined_pairs.shape[1] == 4)
+
+        self.assertTrue(np.allclose(pairs_1, combined_pairs))
+
 class TestFractureIntersectionRemoval(unittest.TestCase):
+
+    def compare_arrays(self, a, b):
+        if not np.all(a.shape == b.shape):
+            return False
+
+        a.sort(axis=0)
+        b.sort(axis=0)
+
+        for i in range(a.shape[1]):
+            dist = np.sum((b - a[:, i].reshape((-1, 1)))**2, axis=0)
+            if dist.min() > 1e-3:
+                return False
+        for i in range(b.shape[1]):
+            dist = np.sum((a - b[:, i].reshape((-1, 1)))**2, axis=0)
+            if dist.min() > 1e-3:
+                return False
+        return True
 
     def test_lines_crossing_origin(self):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
@@ -196,7 +231,7 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         lines_known = np.array([[0, 4, 2, 4], [4, 1, 4, 3], [1, 1, 2, 2], [3, 3, 4, 4]])
 
         self.assertTrue(np.allclose(new_pts, p_known))
-        self.assertTrue(np.allclose(new_lines, lines_known))
+        self.assertTrue(self.compare_arrays(new_lines, lines_known))
 
     def test_lines_no_crossing(self):
         p = np.array([[-1, 1, 0, 0], [0, 0, -1, 1]])
@@ -228,8 +263,19 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         p_known = np.hstack((p, np.array([[0.4], [0.4]])))
         lines_known = np.array([[0, 3], [2, 6], [6, 5], [1, 6], [6, 4]]).T
         self.assertTrue(np.allclose(new_pts, p_known))
-        self.assertTrue(np.allclose(new_lines, lines_known))
+        self.assertTrue(self.compare_arrays(new_lines, lines_known))
+
+    def test_overlapping_lines(self):
+        p = np.array([[-0.6,  0.4,  0.4, -0.6,  0.4],
+                      [-0.5, -0.5,  0.5,  0.5,  0. ]])
+        lines = np.array([[0, 0, 1, 1, 2],
+                          [1, 3, 2, 4, 3]])
+        new_pts, new_lines = pp.cg.remove_edge_crossings2(p, lines)
+        lines_known = np.array([[0, 1], [0, 3], [1, 4], [2, 4], [2, 3]]).T
+        self.assertTrue(np.allclose(new_pts, p))
+        self.assertTrue(self.compare_arrays(new_lines, lines_known))
 
 
 if __name__ == '__main__':
+    TestFractureIntersectionRemoval().test_overlapping_lines()
     unittest.main()
