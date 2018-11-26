@@ -777,7 +777,7 @@ class ChildFractureSet(FractureSet):
 
         self.parent = parent
 
-    def generate(self, parent_realiz, domain=None):
+    def generate(self, parent_realiz, domain=None, y_separately=False):
         """ Generate a realization of a fracture network from the statistical distributions
         represented in this object.
 
@@ -860,21 +860,34 @@ class ChildFractureSet(FractureSet):
             children_points = self._draw_children_along_parent(
                 parent_realiz, pi, num_children
             )
-
             # For all children, decide type of child
-            is_isolated, is_one_y, is_both_y = self._draw_children_type(
-                num_children, parent_realiz, pi
-            )
-            num_isolated += is_isolated.sum()
-            num_one_y += is_one_y.sum()
-            num_both_y += is_both_y.sum()
+            if y_separately:
+                is_isolated, is_one_y, is_both_y = self._draw_children_type(
+                    num_children, parent_realiz, pi, y_separately=y_separately
+                )
+                num_isolated += is_isolated.sum()
+                num_one_y += is_one_y.sum()
+                num_both_y += is_both_y.sum()
 
-            logging.debug(
-                "Isolated children: %i, one y: %i, both y: %i",
-                is_isolated.sum(),
-                is_one_y.sum(),
-                is_both_y.sum(),
-            )
+                logging.debug(
+                    "Isolated children: %i, one y: %i, both y: %i",
+                    is_isolated.sum(),
+                    is_one_y.sum(),
+                    is_both_y.sum(),
+                )
+
+            else:
+                is_isolated, is_y = self._draw_children_type(
+                    num_children, parent_realiz, pi, y_separately=y_separately
+                )
+                num_isolated += is_isolated.sum()
+                num_one_y += is_y.sum()
+
+                logging.debug(
+                    "Isolated children: %i, one y: %i",
+                    is_isolated.sum(),
+                    is_y.sum(),
+                )
 
             # Start and end point of parent
             start_parent, end_parent = parent_realiz.get_points(pi)
@@ -883,24 +896,35 @@ class ChildFractureSet(FractureSet):
             p_i, edges_i = self._generate_isolated_fractures(
                 children_points[:, is_isolated], start_parent, end_parent
             )
-
-            # Generate Y-fractures
-            p_y, edges_y = self._generate_y_fractures(children_points[:, is_one_y])
-
-            p_b_y, edges_b_y = self._generate_constrained_fractures(children_points[:, is_both_y], parent_realiz)
-
+            # Store data
             num_pts = all_p.shape[1]
-
-            # Assemble points
-            all_p = np.hstack((all_p, p_i, p_y, p_b_y))
-
-            # Adjust indices in point-fracture relation to account for previously
-            # added objects
+            all_p = np.hstack((all_p, p_i))
             edges_i += num_pts
-            edges_y += num_pts + p_i.shape[1]
-            edges_b_y += num_pts + p_i.shape[1] + p_y.shape[1]
 
-            all_edges = np.hstack((all_edges, edges_i, edges_y, edges_b_y)).astype(np.int)
+            if y_separately:
+                # Generate Y-fractures
+                p_y, edges_y = self._generate_y_fractures(children_points[:, is_one_y])
+                p_b_y, edges_b_y = self._generate_constrained_fractures(children_points[:, is_both_y], parent_realiz)
+
+                # Assemble points
+                all_p = np.hstack((all_p, p_y, p_b_y))
+
+                # Adjust indices in point-fracture relation to account for previously
+                # added objects
+                edges_y += num_pts + p_i.shape[1]
+                edges_b_y += num_pts + p_i.shape[1] + p_y.shape[1]
+
+                all_edges = np.hstack((all_edges, edges_i, edges_y, edges_b_y)).astype(np.int)
+            else:
+                p_y, edges_y = self._generate_constrained_fractures(children_points[:, is_y], parent_realiz)
+                # Assemble points
+                all_p = np.hstack((all_p, p_y))
+
+                # Adjust indices in point-fracture relation to account for previously
+                # added objects
+                edges_y += num_pts + p_i.shape[1]
+
+                all_edges = np.hstack((all_edges, edges_i, edges_y)).astype(np.int)
 
         new_child = ChildFractureSet(all_p, all_edges, domain, parent_realiz)
 
@@ -960,7 +984,7 @@ class ChildFractureSet(FractureSet):
             p = p.reshape((-1, 1))
         return p
 
-    def _draw_children_type(self, num_children, parent_realiz=None, pi=None):
+    def _draw_children_type(self, num_children, parent_realiz=None, pi=None, y_separately=False):
         """ Decide on which type of fracture is child is.
 
         The probabilities are proportional to the number of different fracture
@@ -1001,7 +1025,10 @@ class ChildFractureSet(FractureSet):
             # do not sum to unity.
             raise ValueError("All fractures should be I, T or double T")
 
-        return is_isolated, is_one_y, is_both_y
+        if y_separately:
+            return is_isolated, is_one_y, is_both_y
+        else:
+            return is_isolated, np.logical_or(is_one_y, is_both_y)
 
     def _generate_isolated_fractures(self, children_points, start_parent, end_parent):
 
@@ -1096,7 +1123,7 @@ class ChildFractureSet(FractureSet):
 
         return p, edges
 
-    def _generate_constrained_fractures(self, start, parent_realiz, constraints=None):
+    def _generate_constrained_fractures(self, start, parent_realiz, constraints=None, y_separately=False):
         """
         """
 
@@ -1113,11 +1140,15 @@ class ChildFractureSet(FractureSet):
 
         tol = 1e-4
 
-        # Create fractures with the maximum allowed length for this distribution.
-        # For this, we can use the function generate_y_fractures
-        # The fractures will not be generated unless they cross a constraining
-        # fracture, and the length will be adjusted accordingly
-        p, edges = self._generate_y_fractures(start, self.dist_max_constrained_length)
+        if y_separately:
+            # Create fractures with the maximum allowed length for this distribution.
+            # For this, we can use the function generate_y_fractures
+            # The fractures will not be generated unless they cross a constraining
+            # fracture, and the length will be adjusted accordingly
+            p, edges = self._generate_y_fractures(start, self.dist_max_constrained_length)
+        else:
+            # Create the fracture with the standard length distribution
+            p, edges = self._generate_y_fractures(start)
 
         num_children = edges.shape[1]
 
@@ -1132,10 +1163,16 @@ class ChildFractureSet(FractureSet):
             if hit.size == 0:
                 raise ValueError('Doubly constrained fractures should be constrained at its start point')
             elif hit.size == 1:
-                # The child failed to hit anything - this will not generate a
-                # constrained fracture
-                continue
+                if y_separately:
+                    # The child failed to hit anything - this will not generate a
+                    # constrained fracture
+                    continue
+                else:
+                    # Attach this child as a singly-connected fracture
+                    p_found = np.hstack((p_found, start, end))
+
             else:
+                # The fracture has hit a constraint
                 # Compute distance from all closest points to the start
                 dist_start = np.sqrt(np.sum((start - cp[:, hit])**2, axis=0))
                 # Find the first point along the line, away from the start
@@ -1148,8 +1185,6 @@ class ChildFractureSet(FractureSet):
         e_found = np.vstack((2 * np.arange(num_frac), 1 + 2 * np.arange(num_frac)))
 
         return p_found, e_found
-
-
 
     def _fit_dist_from_parent_distribution(self, ks_size=100, p_val_min=0.05):
         """ For isolated fractures, fit a distribution for the distance from
