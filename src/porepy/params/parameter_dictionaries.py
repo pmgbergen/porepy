@@ -1,10 +1,10 @@
 """ Parameter dictionaries.
 
-Here, we store various parameter dictionaries with "sensible" default values for the
-parameters required by the discretization objects.
+Here, we store various parameter dictionaries with "sensible" (typically unitary or
+zero) default values for the parameters required by the discretization objects.
 Note that the values of the output dictionary are set according to the relationship
 between the physical process and the equation. Thus, the mass_weight ("mathematical
-term") of the flow dictionary is set to the value of the porosity ("pysical term").
+term") of the flow dictionary is set to the value of the porosity ("physical term").
 The same goes for the tensors.
 """
 
@@ -12,7 +12,7 @@ import numpy as np
 import porepy as pp
 
 
-def flow_dictionary(g, in_data={}):
+def flow_dictionary(g, in_data=None):
     """ Dictionary with parameters for standard flow problems.
 
     All parameters listed below which are not specified in in_data are assigned unitary
@@ -20,13 +20,14 @@ def flow_dictionary(g, in_data={}):
     Parameters:
         g: Grid.
         in_data: Dictionary containing any custom (non-default) parameter values.
-        kw: Keyword. The keyword is the identification connecting parameters and
-            discretizations.
+
     Returns:
         Dictionary with the "mathematical" parameters required by various flow
             discretization objects specified.
     """
-    # Ensure that parameters not handled below are copied.
+    # Ensure that parameters not handled below are copied or initialize empty dictionary
+    if not in_data:
+        in_data = {}
     d = in_data.copy()
     # Ensure that the standard flow parameters are present in d. Values from in_data
     # have priority over the default values.
@@ -47,7 +48,7 @@ def flow_dictionary(g, in_data={}):
     return d
 
 
-def transport_dictionary(g, in_data={}):
+def transport_dictionary(g, in_data=None):
     """ Dictionary with parameters for standard transport problems.
 
     All parameters listed below which are not specified in in_data are assigned unitary
@@ -61,11 +62,12 @@ def transport_dictionary(g, in_data={}):
         Dictionary with the "mathematical" parameters required by various flow
             discretization objects specified.
     """
-    # Ensure that parameters not handled below are copied.
+    # Ensure that parameters not handled below are copied or initialize empty dictionary
+    if not in_data:
+        in_data = {}
     d = in_data.copy()
     # Ensure that the standard flow parameters are present in d. Values from in_data
     # have priority over the default values.
-    d = in_data.copy()
     d["aperture"] = in_data.get("aperture", np.ones(g.num_cells))
     d["porosity"] = in_data.get("porosity", np.ones(g.num_cells))
     d["source"] = in_data.get("source", np.zeros(g.num_cells))
@@ -83,7 +85,7 @@ def transport_dictionary(g, in_data={}):
     return d
 
 
-def mechanics_dictionary(g, in_data={}):
+def mechanics_dictionary(g, in_data=None):
     """ Dictionary with parameters for standard mechanics problems.
 
     All parameters listed below which are not specified in in_data are assigned unitary
@@ -97,7 +99,9 @@ def mechanics_dictionary(g, in_data={}):
         Dictionary with the "mathematical" parameters required by various flow
             discretization objects specified.
     """
-    # Ensure that parameters not handled below are copied.
+    # Ensure that parameters not handled below are copied or initialize empty dictionary
+    if not in_data:
+        in_data = {}
     d = in_data.copy()
     # Ensure that the standard flow parameters are present in d. Values from in_data
     # have priority over the default values.

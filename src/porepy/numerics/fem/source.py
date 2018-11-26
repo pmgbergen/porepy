@@ -2,7 +2,6 @@
 Discretization of the flux term of an equation.
 """
 
-import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp

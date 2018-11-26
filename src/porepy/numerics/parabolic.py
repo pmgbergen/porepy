@@ -178,12 +178,12 @@ class ParabolicModel:
 
     def diffusive_disc(self):
         "Discretization of term \nabla K \nabla T"
-        tpfa = pp.Tpfa(self.keyword, self.keyword)
+        tpfa = pp.Tpfa(self.keyword)
         return (tpfa, pp.RobinCoupling(self.keyword, tpfa))
 
     def source_disc(self):
         "Discretization of source term, q"
-        return (pp.Integral(self.keyword, self.keyword), None)
+        return (pp.Integral(self.keyword), None)
 
     def space_disc(self):
         """Space discretization. Returns the discretization terms that should be

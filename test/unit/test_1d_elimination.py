@@ -38,7 +38,7 @@ class BasicsTest(unittest.TestCase):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = tpfa.Tpfa()
+        solver = tpfa.Tpfa("flow")
         gb.add_node_props(["param"])
         a = 1e-2
         for g, d in gb:
@@ -100,7 +100,7 @@ class BasicsTest(unittest.TestCase):
         gb.assign_node_ordering()
 
         tol = 1e-3
-        solver = tpfa.Tpfa()
+        solver = tpfa.Tpfa("flow")
         gb.add_node_props(["param"])
 
         a = 1e-2

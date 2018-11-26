@@ -18,7 +18,9 @@ There is a (not entirely clear) distinction between two types of parameters:
 should be thought of as corresponding to the terms of the mathematical equation.
 "Physical" parameters are the actual physical properties of the media.
 As an example, the standard incompressible convection-diffusion equation for temperature
+
     c \rho dT/dt + v \cdot \nabla T - \nabla \cdot (D \nabla T) = f
+
 has the physical parameters c (specific heat capacity) and \rho (density). But from the
 mathematical point of view, these combine to the parameter "mass_weight". Similarly,
 the heat diffusion tensor ("physical" name) corresponds to the "second_order_tensor"
@@ -33,8 +35,10 @@ permeability) is handled by the use of multiple keywords (e.g. "transport" and "
 Some default inner dictionaries are provided in pp.params.parameter_dictionaries.
 
 For most instances, a convenient way to set up the parameters is:
+
     specified_parameters = {pm_1: val_1, ..., pm_n: val_n}
     data = pp.initialize_data({}, grid, keyword, specified_parameters)
+
 This will assign val_i to the specified parameters pm_i and default parameters to other
 required parameters.
 """
@@ -59,7 +63,7 @@ class Parameters(dict):
     one sub-dictionary for each keyword.
     """
 
-    def __init__(self, g=None, keywords=[], dictionaries=[]):
+    def __init__(self, g=None, keywords=None, dictionaries=None):
         """ Initialize Data object.
 
         Parameters:
@@ -67,8 +71,15 @@ class Parameters(dict):
         g - grid:
             Grid where the data is valid. Currently, only number of cells and
             faces are accessed.
-
+        keywords: List of keywords to set parameters for. If none is passed, a
+            parameter class without specified keywords is initialized.
+        dictionaries: List of dictionaries with specified parameters, one for each
+            keyword in keywords.
         """
+        if not keywords:
+            keywords = []
+        if not dictionaries:
+            dictionaries = []
         self.update_dictionaries(keywords, dictionaries)
         self.grid = g
 
@@ -162,7 +173,7 @@ new Parameters class.
 """
 
 
-def initialize_data(data, g, keyword, specified_parameters={}):
+def initialize_data(data, g, keyword, specified_parameters=None):
     """ Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
@@ -173,11 +184,14 @@ def initialize_data(data, g, keyword, specified_parameters={}):
         data: Outer data dictionary, to which the parameters will be added.
         g: The grid.
         keyword: String identifying the parameters.
-        specified_parameters: A dictionary with specified parameters. Keyword specific
+        specified_parameters: A dictionary with specified parameters, defaults to empty
+            dictionary. Keyword specific
             default parameters will be set for those which are not specified.
     Returns:
         data: The filled dictionary.
     """
+    if not specified_parameters:
+        specified_parameters = {}
     add_discretization_matrix_keyword(data, keyword)
     if keyword is "flow":
         d = dicts.flow_dictionary(g, specified_parameters)

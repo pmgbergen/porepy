@@ -11,8 +11,6 @@ from porepy.grids import grid, grid_bucket
 from porepy.utils import matrix_compression, mcolon, accumarray, setmembership
 from porepy.utils import half_space, tags
 
-from porepy.numerics.fv import tpfa
-
 
 # ------------------------------------------------------------------------------#
 

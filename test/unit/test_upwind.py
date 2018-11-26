@@ -5,7 +5,6 @@ import porepy as pp
 from porepy.grids import structured, simplex
 import porepy.utils.comp_geom as cg
 from porepy.params.bc import BoundaryCondition
-from porepy.params.data import Parameters
 from porepy.numerics.fv import upwind
 
 # ------------------------------------------------------------------------------#

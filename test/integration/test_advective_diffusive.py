@@ -270,7 +270,7 @@ def solve_elliptic_problem(gb):
 
 
 def move_discharge(gb, from_name, to_name):
-    for g, d in gb:
+    for _, d in gb:
         p = d[pp.keywords.PARAMETERS]
         p[to_name]["discharge"] = p[from_name]["discharge"]
 
