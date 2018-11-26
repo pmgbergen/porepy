@@ -26,7 +26,7 @@ def define_grid():
     Make cartesian grids and a bucket. One horizontal and one vertical 1d
     fracture in a 2d matrix domain.
     """
-    f_1 = np.array([[0, 0, 1, 1], [0, 1, 1, 0], [.5, .5, .5, .5]])
+    f_1 = np.array([[0, 0, 1, 1], [0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5]])
 
     fracs = [f_1]
     mesh_kwargs = {"physdims": np.array([1, 1, 1])}

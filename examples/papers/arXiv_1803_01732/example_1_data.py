@@ -103,7 +103,7 @@ def source_f0(x, y, z):
             + (16 * x * x * y * y) / (x * x + y * y)
             + 48 * x * y * np.arctan2(y, x)
         )
-        + (1 / 5.)
+        + (1 / 5.0)
         * (
             -3 * x * x
             + 8 * x * y * y
@@ -121,10 +121,10 @@ def source_f0(x, y, z):
 def source_f1(x, y, z):
 
     val = (
-        (3 / 5.) * (-0.5 - x) * x
-        - (3 * x * x) / 5.
-        - (24 / 5.) * np.pi * (-0.5 - x) * x * np.abs(z)
-        + (24 / 5.) * np.pi * x * x * np.abs(z)
+        (3 / 5.0) * (-0.5 - x) * x
+        - (3 * x * x) / 5.0
+        - (24 / 5.0) * np.pi * (-0.5 - x) * x * np.abs(z)
+        + (24 / 5.0) * np.pi * x * x * np.abs(z)
     )
 
     return -val
@@ -163,7 +163,7 @@ def sol_f0(x, y, z):
 
 
 def sol_f1(x, y, z):
-    return (1 / 10.) * (-0.5 - x) * x * x * x - np.abs(z) * np.pi * (4 / 5.) * (
+    return (1 / 10.0) * (-0.5 - x) * x * x * x - np.abs(z) * np.pi * (4 / 5.0) * (
         -0.5 - x
     ) * x * x * x
 
@@ -214,12 +214,12 @@ def vel_f0(x, y, z):
 def vel_f1(x, y, z):
     u = np.array(
         [
-            (3 / 10.) * (-0.5 - x) * x ** 2
-            - x ** 3 / 10.
-            - (12 / 5.) * np.pi * (-0.5 - x) * x ** 2 * np.abs(z)
-            + (4 / 5.) * np.pi * x ** 3 * np.abs(z),
+            (3 / 10.0) * (-0.5 - x) * x ** 2
+            - x ** 3 / 10.0
+            - (12 / 5.0) * np.pi * (-0.5 - x) * x ** 2 * np.abs(z)
+            + (4 / 5.0) * np.pi * x ** 3 * np.abs(z),
             0,
-            -np.sign(z) * (4 / 5.) * np.pi * (-0.5 - x) * x ** 3,
+            -np.sign(z) * (4 / 5.0) * np.pi * (-0.5 - x) * x ** 3,
         ]
     )
     return -u
