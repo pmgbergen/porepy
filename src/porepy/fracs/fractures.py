@@ -1543,8 +1543,8 @@ class FractureNetwork(object):
             # It seems necessary to increase the tolerance here somewhat to
             # obtain a more robust algorithm. Not sure about how to do this
             # consistent.
-            p_new, edges_new = cg.remove_edge_crossings(
-                p_2d, edges_2d, tol=self.tol, verbose=self.verbose, snap=False
+            p_new, edges_new = cg.remove_edge_crossings2(
+                p_2d, edges_2d, tol=self.tol
             )
             # Then, patch things up by converting new points to 3D,
 
