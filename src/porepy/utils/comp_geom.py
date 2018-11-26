@@ -1047,7 +1047,8 @@ def remove_edge_crossings2(p, e, tol=1e-4):
         main = line_ind
         # Find all other fractures that is in a pair with the main as the first one.
         hit = np.where(pairs[0] == main)
-        other = pairs[1, hit][0]
+        # Sort the other points; this makes debugging simpler if nothing else.
+        other = np.sort(pairs[1, hit][0])
 
         # We will first do a coarse sorting, to rule out fractures that are clearly
         # not intersecting, and then do a finer search for an intersection below.
@@ -1072,11 +1073,26 @@ def remove_edge_crossings2(p, e, tol=1e-4):
             nrm = np.sqrt(np.sum(v ** 2, axis=0))
             return v / nrm
 
+        def dist(a, b):
+            return np.sqrt(np.sum((a - b) ** 2))
+
         # Vectors along the main fracture, and from the start of the main
         # to the start and end of the other fractures. All normalized.
+        # If the other edges share start or endpoint with the main one, normalization
+        # of the distance vector will make the vector nans. In this case, we
+        # use another point along the other line, this works equally well for the
+        # coarse identification (based on cross products).
+        # If the segments are overlapping, there will still be issues with nans,
+        # but these are dealt with below.
         main_vec = normalize(end_main - start_main)
-        main_other_start = normalize(start_other - start_main)
-        main_other_end = normalize(end_other - start_other)
+        if dist(start_other, start_main) > 1e-4:
+            main_other_start = normalize(start_other - start_main)
+        else:
+            main_other_start = normalize(0.5 * (start_other + end_other) - start_main)
+        if dist(end_other, start_main) > 1e-4:
+            main_other_end = normalize(end_other - start_main)
+        else:
+            main_other_end = normalize(0.3 * start_other + 0.7 * end_other - start_main)
 
         # Modified signum function: The value is 0 if it is very close to zero.
         def mod_sign(v, tol):
@@ -1095,7 +1111,11 @@ def remove_edge_crossings2(p, e, tol=1e-4):
 
         # If the start and endpoint of the other fracture are clearly on the
         # same side of the main one, these are not crossing.
-        relevant = np.where(start_cross * end_cross < 1)[0]
+        # For completely ovrelapping edges, the normalization will leave the
+        # vectors nan. There may be better ways of dealing with this, but we simply
+        # run the intersection finder in this case.
+        relevant = np.where(np.logical_or((start_cross * end_cross < 1),
+                            np.any(np.isnan(main_other_start + main_other_end), axis=0)))[0]
 
         # Loop over all relevant (possibly crossing) fractures, look closer
         # for an intersection.
@@ -1104,14 +1124,21 @@ def remove_edge_crossings2(p, e, tol=1e-4):
                 start_main, end_main, pt(start_other, ri), pt(end_other, ri)
             )
             # Add the intersection point, if any.
-            # Implementation note: if the two fractures are overlapping,
-            # ipt will contain two points here. It should be fairly straightforward
-            # to enhance the implementation to cover this case.
+            # If two intersection points are found, that is the edges are overlapping
+            # both points are added.
             if ipt is not None:
-                isect_pt[main] = np.append(isect_pt[main], new_ind)
-                isect_pt[other[ri]] = np.append(isect_pt[other[ri]], new_ind)
-                new_ind += 1
-                new_pts.append(ipt.squeeze())
+                num_isect = ipt.shape[1]
+                # Add indices of the new points to the main and other edge
+                isect_pt[main] = np.append(isect_pt[main], new_ind + np.arange(num_isect))
+                isect_pt[other[ri]] = np.append(isect_pt[other[ri]], new_ind + np.arange(num_isect))
+                new_ind += num_isect
+
+                # Add the one or two intertion points
+                if num_isect == 1:
+                    new_pts.append(ipt.squeeze())
+                else:
+                    # It turned out the transport was needed to get the code to work
+                    new_pts.append(ipt.squeeze().T)
 
     # If we have found no intersection points, we can safely return the incoming
     # points and edges.
@@ -1137,8 +1164,10 @@ def remove_edge_crossings2(p, e, tol=1e-4):
             num_branches = inds.size - 1
             # Get the coordinates themselves.
             loc_pts = pt(unique_all_pt, inds)
-            # Specifically get the start point
-            loc_start = pt(unique_all_pt, inds[0])
+            # Specifically get the start point: Pick one of the points of the
+            # original edge, e[0, ei], which is known to be at an end of the edge.
+            # map to the unique indices
+            loc_start = pt(unique_all_pt, ib[e[0, ei]])
             # Measure the distance of the points from the start. This can be used
             # to sort the points along the line
             dist = np.sum((loc_pts - loc_start) ** 2, axis=0)
@@ -1152,8 +1181,14 @@ def remove_edge_crossings2(p, e, tol=1e-4):
             # Add to the global list of segments
             new_edge = np.hstack((new_edge, loc_edge))
 
-        return unique_all_pt, new_edge.astype(np.int)
+        # Finally, uniquify edges. This operation is necessary for overlapping edges.
+        # Operate on sorted point indices per edge
+        new_edge[:2] = np.sort(new_edge[:2], axis=0)
+        # Uniquify.
+        _, edge_map, _ = pp.utils.setmembership.unique_columns_tol(new_edge[:2].astype(np.int), tol)
+        new_edge = new_edge[:, edge_map]
 
+        return unique_all_pt, new_edge.astype(np.int)
 
 def intersect_polygons_3d(polys, tol=1e-8):
     """ Compute the intersection between polygons embedded in 3d.
