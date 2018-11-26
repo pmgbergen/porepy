@@ -1887,9 +1887,9 @@ def map_grid(g, tol=1e-5):
     if g.dim == 1 or g.dim == 2:
 
         if g.dim == 2:
-            R = project_plane_matrix(g.nodes)
+            R = project_plane_matrix(g.nodes, tol=tol)
         else:
-            R = project_line_matrix(g.nodes)
+            R = project_line_matrix(g.nodes, tol=tol)
 
         face_centers = np.dot(R, face_centers)
 
