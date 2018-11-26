@@ -22,7 +22,7 @@ def create(conforming, tol=1e-4):
 
     extrusion_kwargs = {}
     extrusion_kwargs["tol"] = tol
-    extrusion_kwargs["exposure_angle"] = np.pi / 4. * np.ones(edges.shape[1])
+    extrusion_kwargs["exposure_angle"] = np.pi / 4.0 * np.ones(edges.shape[1])
     # Added an option not to include the points on the exposed surface. This
     # reduces cell refinement somewhat, but setting it True should also be okay
     extrusion_kwargs["outcrop_consistent"] = True

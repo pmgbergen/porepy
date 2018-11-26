@@ -31,8 +31,12 @@ def define_grid():
     fracture in a 2d matrix domain.
     """
 
-    f_1 = np.array([[.5, .5, .5, .5], [.25, .75, .75, .25], [.25, .25, .75, .75]])
-    f_2 = np.array([[0.2, .8, .8, 0.2], [.5, .5, .5, .5], [.25, .25, .75, .75]])
+    f_1 = np.array(
+        [[0.5, 0.5, 0.5, 0.5], [0.25, 0.75, 0.75, 0.25], [0.25, 0.25, 0.75, 0.75]]
+    )
+    f_2 = np.array(
+        [[0.2, 0.8, 0.8, 0.2], [0.5, 0.5, 0.5, 0.5], [0.25, 0.25, 0.75, 0.75]]
+    )
 
     fracs = [f_1, f_2]
     mesh_kwargs = {"physdims": np.array([1, 1, 1])}
@@ -65,7 +69,7 @@ class FlowData(EllipticDataAssigner):
         return np.ones(self.grid().num_cells) * a
 
     def permeability(self):
-        if np.isclose(self.grid().cell_centers[0, 0], .5):
+        if np.isclose(self.grid().cell_centers[0, 0], 0.5):
             k = 1e-6
         elif self.grid().dim == 2:
             k = 1e6
@@ -174,7 +178,7 @@ class TransportSolver(ParabolicModel):
         return 0.025
 
     def end_time(self):
-        return .5
+        return 0.5
 
     def solver(self):
         return static_flow_IE_solver(self)
@@ -216,7 +220,7 @@ def save_mrst_to_paraview(gb, u, u_name, fn):
 
 def plot_monitored_tracer(t, t_SC, tv_SD, P):
     g3d = gb.grids_of_dimension(3)[0]
-    a, b, c = .95, .45, .55
+    a, b, c = 0.95, 0.45, 0.55
     tv_SD = np.mean(tv_SD, axis=1)
 
     cell = np.where(
