@@ -284,7 +284,7 @@ class Mpfa(FVElliptic):
         # Local parameter fields
         # Copy permeability field, and restrict to local cells
         loc_k = k.copy()
-        loc_k.value = loc_k.value[::, ::, l2g_cells]
+        loc_k.values = loc_k.values[::, ::, l2g_cells]
 
         glob_bound_face = g.get_all_boundary_faces()
 
@@ -424,9 +424,9 @@ class Mpfa(FVElliptic):
 
             # Rotate the permeability tensor and delete last dimension
             k = k.copy()
-            k.value = np.tensordot(R.T, np.tensordot(R, k.value, (1, 0)), (0, 1))
-            k.value = np.delete(k.value, (2), axis=0)
-            k.value = np.delete(k.value, (2), axis=1)
+            k.values = np.tensordot(R.T, np.tensordot(R, k.values, (1, 0)), (0, 1))
+            k.values = np.delete(k.values, (2), axis=0)
+            k.values = np.delete(k.values, (2), axis=1)
 
         # Define subcell topology, that is, the local numbering of faces, subfaces,
         # sub-cells and nodes. This numbering is used throughout the
@@ -768,7 +768,7 @@ class Mpfa(FVElliptic):
         ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))
         normals_mat = sps.csr_matrix((normals.ravel("F"), j.ravel("F"), ind_ptr))
         k_mat = sps.csr_matrix(
-            (k.value[::, ::, cell_node_blocks[0]].ravel("F"), j.ravel("F"), ind_ptr)
+            (k.values[::, ::, cell_node_blocks[0]].ravel("F"), j.ravel("F"), ind_ptr)
         )
 
         nk = normals_mat * k_mat
