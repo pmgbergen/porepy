@@ -16,19 +16,21 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     surely be imporved.
 
     Parameters:
-    lines: np.ndarray, 2xn, the line pairs.
+    lines: np.ndarray, 2xn, the line pairs. If lines has more than 2 rows, we assume that
+        the points are stored in the first two rows.
     check_circular: Verify that the sorted polyline form a circle.
                     Defaluts to true.
     ordering: np.array, return in the original order if a line is flipped or not
     is_circular: if the lines form a closed set. Default is True.
 
     Returns:
-    sorted_lines: np.ndarray, 2xn, sorted line pairs.
+    sorted_lines: np.ndarray, 2xn, sorted line pairs. If lines had more than 2 rows,
+        the extra are sorted accordingly.
 
     """
 
     num_lines = lines.shape[1]
-    sorted_lines = -np.ones((2, num_lines), dtype=lines.dtype)
+    sorted_lines = -np.ones(lines.shape, dtype=lines.dtype)
 
     # Start with the first line in input
     sorted_lines[:, 0] = lines[:, 0]
@@ -37,7 +39,7 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
     if not is_circular:
         check_circular = False
         if np.count_nonzero(lines == sorted_lines[0, 0]) > 1:
-            sorted_lines[:, 0] = np.flip(sorted_lines[:, 0], 0)
+            sorted_lines[:2, 0] = np.flip(sorted_lines[:2, 0], 0)
 
     # The starting point for the next line
     prev = sorted_lines[1, 0]
@@ -64,7 +66,8 @@ def sort_point_pairs(lines, check_circular=True, ordering=False, is_circular=Tru
                 is_ordered[j] = True
                 break
             elif not found[j] and lines[1, j] == prev:
-                sorted_lines[:, i] = lines[::-1, j]
+                sorted_lines[:, i] = lines[:, j]
+                sorted_lines[:2, i] = np.flip(sorted_lines[:2, i], 0)
                 found[j] = True
                 prev = lines[0, j]
                 break
