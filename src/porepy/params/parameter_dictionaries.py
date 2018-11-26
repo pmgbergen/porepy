@@ -12,7 +12,7 @@ import numpy as np
 import porepy as pp
 
 
-def flow_dictionary(g, in_data, kw="flow"):
+def flow_dictionary(g, in_data={}):
     """ Dictionary with parameters for standard flow problems.
 
     All parameters listed below which are not specified in in_data are assigned unitary
@@ -47,7 +47,7 @@ def flow_dictionary(g, in_data, kw="flow"):
     return d
 
 
-def transport_dictionary(g, in_data, kw="transport"):
+def transport_dictionary(g, in_data={}):
     """ Dictionary with parameters for standard transport problems.
 
     All parameters listed below which are not specified in in_data are assigned unitary
@@ -83,7 +83,7 @@ def transport_dictionary(g, in_data, kw="transport"):
     return d
 
 
-def mechanics_dictionary(g, in_data, kw="mechanics"):
+def mechanics_dictionary(g, in_data={}):
     """ Dictionary with parameters for standard mechanics problems.
 
     All parameters listed below which are not specified in in_data are assigned unitary

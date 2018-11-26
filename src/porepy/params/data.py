@@ -41,6 +41,7 @@ required parameters.
 import numpy as np
 import porepy as pp
 import numbers
+import warnings
 import porepy.params.parameter_dictionaries as dicts
 
 
@@ -204,6 +205,8 @@ def modify_variable(variable, new_value):
             convertible to variable.dtype
     """
     if isinstance(variable, np.ndarray):
+        if variable.dtype != new_value.dtype:
+            warnings.warn("Modifying array: new and old values have different dtypes.")
         variable.setfield(new_value, variable.dtype)
     elif isinstance(variable, list):
         variable[:] = new_value
