@@ -105,7 +105,7 @@ class SecondOrderTensor(object):
             perm[1, 2, ::] = kyz
             perm[2, 2, ::] = kzz
 
-        self.value = perm
+        self.values = perm
 
     def copy(self):
         """
@@ -118,19 +118,19 @@ class SecondOrderTensor(object):
 
         if self.dim == 2:
 
-            kxx = self.value[0, 0, :].copy()
-            kxy = self.value[1, 0, :].copy()
-            kyy = self.value[1, 1, :].copy()
+            kxx = self.values[0, 0, :].copy()
+            kxy = self.values[1, 0, :].copy()
+            kyy = self.values[1, 1, :].copy()
 
             return SecondOrderTensor(self.dim, kxx, kxy=kxy, kyy=kyy)
         else:
-            kxx = self.value[0, 0, :].copy()
-            kxy = self.value[1, 0, :].copy()
-            kyy = self.value[1, 1, :].copy()
+            kxx = self.values[0, 0, :].copy()
+            kxy = self.values[1, 0, :].copy()
+            kyy = self.values[1, 1, :].copy()
 
-            kxz = self.value[2, 0, :].copy()
-            kyz = self.value[2, 1, :].copy()
-            kzz = self.value[2, 2, :].copy()
+            kxz = self.values[2, 0, :].copy()
+            kyz = self.values[2, 1, :].copy()
+            kzz = self.values[2, 2, :].copy()
 
             return SecondOrderTensor(
                 self.dim, kxx, kxy=kxy, kxz=kxz, kyy=kyy, kyz=kyz, kzz=kzz
@@ -143,7 +143,7 @@ class SecondOrderTensor(object):
         Parameter:
             R: a rotation matrix 3x3
         """
-        self.value = np.tensordot(R.T, np.tensordot(R, self.value, (1, 0)), (0, 1))
+        self.values = np.tensordot(R.T, np.tensordot(R, self.values, (1, 0)), (0, 1))
 
 
 # ----------------------------------------------------------------------#

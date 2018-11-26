@@ -255,11 +255,11 @@ class EllipticModel:
                 for _, d in self.grid():
                     d[n] = d[pp.keywords.PARAMETERS][self.keyword][
                         "second_order_tensor"
-                    ].value[ind, ind, :]
+                    ].values[ind, ind, :]
             else:
                 self._data[n] = self._data[pp.keywords.PARAMETERS][self.keyword][
                     "second_order_tensor"
-                ].value[ind, ind, :]
+                ].values[ind, ind, :]
 
     def porosity(self, poro_name="porosity"):
         if self.is_GridBucket:

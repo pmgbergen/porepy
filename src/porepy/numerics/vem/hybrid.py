@@ -143,7 +143,7 @@ class HybridDualVEM(Solver):
 
             # Compute the H_div-mass local matrix
             A = massHdiv(
-                k.value[0 : g.dim, 0 : g.dim, c],
+                k.values[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 a[c] * g.cell_volumes[c],
                 f_centers[:, faces_loc],
@@ -257,7 +257,7 @@ class HybridDualVEM(Solver):
 
             # Compute the H_div-mass local matrix
             A = massHdiv(
-                k.value[0 : g.dim, 0 : g.dim, c],
+                k.values[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 a[c] * g.cell_volumes[c],
                 f_centers[:, faces_loc],
