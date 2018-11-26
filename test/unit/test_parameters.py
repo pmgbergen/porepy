@@ -1,6 +1,10 @@
 """ Tests for the Parameters class.
 
 Tests the class' methods for parameter setting and modification.
+
+_kw refers to outer dictionary and is the keyword that would be given to a
+discretization, whereas
+_key identifies individual parameters.
 """
 import numpy as np
 import unittest
@@ -13,37 +17,47 @@ class TestParameters(unittest.TestCase):
     def setUp(self):
         self.g = CartGrid([3, 2])
         self.p = Parameters()
-        self.p.update_dictionaries("dummy", {"kw0": "param0", "list": [0, 1]})
+        self.p.update_dictionaries("dummy_kw", {"string_key": "string_parameter", "list_key": [0, 1]})
 
     def test_add_keywords(self):
-        keyword_list = ["flow", "transport"]
-        self.p.update_dictionaries(keyword_list)
-        keyword_list.append("dummy")
-        assert sorted(self.p.keys()) == sorted(keyword_list)
+        """ New keywords are added.
+
+        Calls update_dictionaries with a list of the new keywords and empty (default
+        option) dictionaries.
+        """
+        keyword_kw_list = ["flow", "transport"]
+        self.p.update_dictionaries(keyword_kw_list)
+        keyword_kw_list.append("dummy_kw")
+        assert sorted(self.p.keys()) == sorted(keyword_kw_list)
 
     def test_update_empty_dictionary(self):
-        keyword_list = ["flow"]
+        """ New keyword added with a parameter.
+
+        Calls update_dictionaries with a list of the new keyword and a list containing
+        the corresponding data dictionary. This gives the parameters (see self.setUp)
+        dummy_kw:   string_key, list_key
+        flow:       porosity
+        """
+        keyword_kw_list = ["flow"]
         d = {"porosity": np.ones(self.g.num_cells)}
-        dictionary_list = [d]
-        self.p.update_dictionaries(keyword_list, dictionary_list)
+        dictionary_kw_list = [d]
+        self.p.update_dictionaries(keyword_kw_list, dictionary_kw_list)
         assert "porosity" in self.p["flow"]
 
     def test_update_dictionary(self):
-        keyword_list = ["flow"]
-        d = {"porosity": np.ones(self.g.num_cells)}
-        self.p.update_dictionaries(keyword_list, [d])
-
+        """ Add parameters to a dictionary already containing parameters.
+        """
         d = {
-            "porosity": 2 * np.ones(self.g.num_cells),
+            "string_key": "foo",
             "density": 3 * np.ones(self.g.num_cells),
         }
-        self.p.update_dictionaries(keyword_list, [d])
-        success = "density" in self.p["flow"]
-        success *= np.all(np.isclose(self.p["flow"]["porosity"], 2))
+        self.p.update_dictionaries(["dummy_kw"], [d])
+        success = "density" in self.p["dummy_kw"]
+        success *= (self.p["dummy_kw"]["string_key"] == "foo")
         assert success
 
     def test_update_empty_dictionaries(self):
-        keyword_list = ["flow", "transport"]
+        keyword_kw_list = ["flow", "transport"]
         d1 = {
             "porosity": 2 * np.ones(self.g.num_cells),
             "density": 3 * np.ones(self.g.num_cells),
@@ -52,37 +66,59 @@ class TestParameters(unittest.TestCase):
             "porosity": 5 * np.ones(self.g.num_cells),
             "storage_weight": 4 * np.ones(self.g.num_cells),
         }
-        self.p.update_dictionaries(keyword_list, [d1, d2])
+        self.p.update_dictionaries(keyword_kw_list, [d1, d2])
         flow_p = self.p["flow"]
         assert np.all(np.isclose(flow_p["density"], 3))
 
     def test_set_from_other_subdictionary(self):
-        """ Sets a property of "flow" keyword to the one stored for "dummy".
+        """ Sets a property of "flow" keyword to the one stored for "dummy_kw".
         """
 
         self.p.update_dictionaries("flow")
-        self.p.set_from_other("flow", "dummy", ["kw0"])
-        assert self.p["flow"]["kw0"] == self.p["dummy"]["kw0"]
+        self.p.set_from_other("flow", "dummy_kw", ["string_key"])
+        assert self.p["flow"]["string_key"] == self.p["dummy_kw"]["string_key"]
 
-    def test_modify_shared_property(self):
+    def test_overwrite_shared_property(self):
         """ Modifies a property shared by two keywords.
         """
         self.p.update_dictionaries(["transport", "flow"])
-        self.p.set_from_other("flow", "dummy", ["kw0"])
-        self.p.overwrite_shared_parameters(["kw0"], [13])
-        success = not ("kw0" in self.p["transport"])
-        success *= np.isclose(self.p["dummy"]["kw0"], 13)
-        success *= np.isclose(self.p["flow"]["kw0"], 13)
+        self.p.set_from_other("flow", "dummy_kw", ["string_key"])
+        self.p.overwrite_shared_parameters(["string_key"], [13])
+        success = not ("string_key" in self.p["transport"])
+        success *= np.isclose(self.p["dummy_kw"]["string_key"], 13)
+        success *= np.isclose(self.p["flow"]["string_key"], 13)
         assert success
 
     def test_modify_shared_list(self):
-        """ Modifies a property shared by two keywords.
+        """ Modifies a list parameter shared by two keywords.
+
+        Note that the type of the shared parameter determines the behaviour of
+        modify_parameters, so we also test for an array in next test.
+
+        The parameter list_key is added from the dummy to the add_to kw. Then it is
+        modified under the add_to kw. We check that it has changed also in dummy_kw,
+        and that the process has not affected other_kw.
         """
-        self.p.update_dictionaries(["transport", "flow"])
-        self.p.set_from_other("flow", "dummy", ["list"])
-        new_list = [2, 5]
-        self.p.modify_parameters("flow", ["list"], [new_list])
-        assert self.p["dummy"]["list"] == new_list
+        self.p.update_dictionaries(["add_to_kw", "other_kw"])
+        self.p.set_from_other("add_to_kw", "dummy_kw", ["list_key"])
+        new_kw_list = [2, 5]
+        self.p.modify_parameters("add_to_kw", ["list_key"], [new_kw_list])
+        success = self.p["dummy_kw"]["list_key"] == new_kw_list
+        assert success and ("list_key" not in self.p["other_kw"])
+
+    def test_modify_shared_array(self):
+        """ Modifies an array parameter shared by two keywords.
+
+        See previous test.
+        Note that the dtypes of the arrays should ideally be the same.
+        """
+        self.p.update_dictionaries(["add_to_kw", "add_from_kw", "other_kw"])
+        self.p["add_from_kw"]["array_key"] = np.array([0.0, 1.0])
+        self.p.set_from_other("add_to_kw", "add_from_kw", ["array_key"])
+        new_array = np.array([3.14, 42.0])
+        self.p.modify_parameters("add_to_kw", ["array_key"], [new_array])
+        success = np.all(self.p["add_from_kw"]["array_key"] == new_array)
+        assert success and ("array_key" not in self.p["other_kw"])
 
 
 if __name__ == "__main__":
