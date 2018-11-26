@@ -246,8 +246,6 @@ class BasicsTest(unittest.TestCase):
         gb.add_node_props(["param"])
         a = 1e-2
         for g, d in gb:
-            param = pp.Parameters(g)
-
             aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
             specified_parameters = {"aperture": aperture}
 

@@ -3,7 +3,6 @@ import unittest
 import porepy as pp
 
 from porepy.numerics.elliptic import EllipticDataAssigner
-from porepy.grids import simplex
 
 # ------------------------------------------------------------------------------#
 

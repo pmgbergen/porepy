@@ -340,7 +340,7 @@ class BasicsTest(unittest.TestCase):
                     raise ValueError("Grid not found")
 
         tol = 1e-3
-        solver = mpfa.Mpfa()
+        solver = mpfa.Mpfa("flow")
         gb.add_node_props(["param"])
         a = 1e-2
         for g, d in gb:
@@ -439,7 +439,7 @@ class BasicsTest(unittest.TestCase):
                 pass
 
         tol = 1e-3
-        solver = mpfa.Mpfa()
+        solver = mpfa.Mpfa("flow")
         gb.add_node_props(["param"])
 
         a = 1e-2

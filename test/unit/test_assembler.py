@@ -369,7 +369,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
             gb, variables=[key_2]
         )
 
