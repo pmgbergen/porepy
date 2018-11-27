@@ -77,7 +77,7 @@ def main():
         x = IE_solver(b + M.dot(x))
 
         assembler.distribute_variable(gb, x, block_dof, full_dof)
-        save.write_vtk([key_pressure, key_advdiff], time_step=i)
+        save.write_vtk([key_pressure, key_advdiff, "frac_num", "cell_volumes"], time_step=i)
 
     save.write_pvd(np.arange(n_steps)*deltaT)
 

@@ -5,13 +5,17 @@ def flow(gb, data, tol):
     physics = data["physics"]
 
     for g, d in gb:
-        param = pp.Parameters(g)
-        d["is_tangential"] = True
-        d["tol"] = tol
 
         unity = np.ones(g.num_cells)
         zeros = np.zeros(g.num_cells)
         empty = np.empty(0)
+
+        d["frac_num"] = (g.frac_num if g.dim == 2 else -1) * unity
+        d["cell_volumes"] = g.cell_volumes
+        d["is_tangential"] = True
+        d["tol"] = tol
+
+        param = pp.Parameters(g)
 
         kxx = data["k"] * unity
         perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kxx, kzz=1)
