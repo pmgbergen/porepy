@@ -73,13 +73,11 @@ def add_data(gb, domain, kf, mesh_value):
         g_l = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
         check_P = mg.slave_to_mortar_avg()
-        pa_l = gb.node_props(g_l, pp.keywords.PARAMETERS)
+        pa_l = gb.node_props(g_l, pp.PARAMETERS)
         gamma = check_P * pa_l["flow"]["aperture"]
         kn = kf * np.ones(mg.num_cells) / gamma
-        d[pp.keywords.PARAMETERS] = pp.Parameters(
-            mg, ["flow"], [{"normal_diffusivity": kn}]
-        )
-        d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+        d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
 
 # ------------------------------------------------------------------------------#
@@ -107,7 +105,7 @@ def main(kf, description, multi_point, if_export=False):
     add_data(gb, domain, kf, mesh_size)
 
     key = "flow"
-    discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+    discretization_key = key + "_" + pp.DISCRETIZATION
     if multi_point:
         discr = pp.Mpfa(key)
     else:

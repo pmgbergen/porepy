@@ -161,13 +161,13 @@ class EllipticModel:
             source = pp.Integral(self.keyword)
             for g, d in self._gb:
                 # Choose discretization and define the solver
-                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-                d[pp.keywords.DISCRETIZATION] = {key: {"flux": tpfa, "source": source}}
+                d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+                d[pp.DISCRETIZATION] = {key: {"flux": tpfa, "source": source}}
 
             for e, d in self._gb.edges():
                 g_slave, g_master = self._gb.nodes_of_edge(e)
-                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-                d[pp.keywords.COUPLING_DISCRETIZATION] = {
+                d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+                d[pp.COUPLING_DISCRETIZATION] = {
                     "flux": {
                         g_slave: (key, "flux"),
                         g_master: (key, "flux"),
@@ -253,22 +253,20 @@ class EllipticModel:
             ind = get_ind(n)
             if self.is_GridBucket:
                 for _, d in self.grid():
-                    d[n] = d[pp.keywords.PARAMETERS][self.keyword][
-                        "second_order_tensor"
-                    ].values[ind, ind, :]
+                    d[n] = d[pp.PARAMETERS][self.keyword]["second_order_tensor"].values[
+                        ind, ind, :
+                    ]
             else:
-                self._data[n] = self._data[pp.keywords.PARAMETERS][self.keyword][
+                self._data[n] = self._data[pp.PARAMETERS][self.keyword][
                     "second_order_tensor"
                 ].values[ind, ind, :]
 
     def porosity(self, poro_name="porosity"):
         if self.is_GridBucket:
             for _, d in self.grid():
-                d[poro_name] = d[pp.keywords.PARAMETERS][self.keyword]["porosity"]
+                d[poro_name] = d[pp.PARAMETERS][self.keyword]["porosity"]
         else:
-            self._data[poro_name] = self._data[pp.keywords.PARAMETERS][self.keyword][
-                "porosity"
-            ]
+            self._data[poro_name] = self._data[pp.PARAMETERS][self.keyword]["porosity"]
 
     def save(self, variables=None, save_every=None):
         if variables is None:
@@ -358,13 +356,13 @@ class DualEllipticModel(EllipticModel):
 
             for _, d in self._gb:
                 # Choose discretization and define the solver
-                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1, "faces": 1}}
-                d[pp.keywords.DISCRETIZATION] = {key: {"flux": discr, "source": source}}
+                d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1, "faces": 1}}
+                d[pp.DISCRETIZATION] = {key: {"flux": discr, "source": source}}
 
             for e, d in self._gb.edges():
                 g_slave, g_master = self._gb.nodes_of_edge(e)
-                d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-                d[pp.keywords.COUPLING_DISCRETIZATION] = {
+                d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+                d[pp.COUPLING_DISCRETIZATION] = {
                     "flux": {
                         g_slave: (key, "flux"),
                         g_master: (key, "flux"),
@@ -403,7 +401,7 @@ class DualEllipticModel(EllipticModel):
         self.pressure_name = pressure_name
         if self.is_GridBucket:
             for g, d in self._gb:
-                discr = d[pp.keywords.DISCRETIZATION][self.keyword]["flux"]
+                discr = d[pp.DISCRETIZATION][self.keyword]["flux"]
                 d[self.pressure_name] = discr.extract_pressure(g, d[self.x_name])
         else:
             pressure = self._discr.extract_pressure(self._gb, self.x)
@@ -413,7 +411,7 @@ class DualEllipticModel(EllipticModel):
         self.discharge_name = discharge_name
         if self.is_GridBucket:
             for g, d in self._gb:
-                discr = d[pp.keywords.DISCRETIZATION][self.keyword]["flux"]
+                discr = d[pp.DISCRETIZATION][self.keyword]["flux"]
                 d[self.discharge_name] = discr.extract_flux(g, d[self.x_name])
 
             # for e, d in self._gb.edges():
@@ -516,12 +514,10 @@ class EllipticDataAssigner:
         return self._g
 
     def _set_data(self):
-        if pp.keywords.PARAMETERS not in self._data:
-            self._data[pp.keywords.PARAMETERS] = pp.Parameters(
-                self.grid(), [self.keyword], [{}]
-            )
-        self._data[pp.keywords.PARAMETERS].update_dictionaries([self.keyword], [{}])
-        parameter_dictionary = self._data[pp.keywords.PARAMETERS][self.keyword]
+        if pp.PARAMETERS not in self._data:
+            self._data[pp.PARAMETERS] = pp.Parameters(self.grid(), [self.keyword], [{}])
+        self._data[pp.PARAMETERS].update_dictionaries([self.keyword], [{}])
+        parameter_dictionary = self._data[pp.PARAMETERS][self.keyword]
 
         parameter_dictionary["second_order_tensor"] = self.permeability()
         parameter_dictionary["bc"] = self.bc()

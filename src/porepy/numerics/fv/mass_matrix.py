@@ -123,7 +123,7 @@ class MassMatrix(Solver):
             scipy.sparse.csr_matrix (self.ndof x self.ndof): System matrix of this
                 discretization.
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if "mass" not in matrix_dictionary:
             self.discretize(g, data)
         M = matrix_dictionary["mass"]
@@ -145,7 +145,7 @@ class MassMatrix(Solver):
             np.ndarray (self.ndof): Null right hand side vector with representation of
                 boundary conditions.
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if "bound_mass" not in matrix_dictionary:
             self.discretize(g, data)
 
@@ -176,8 +176,8 @@ class MassMatrix(Solver):
         time_step: Time step for a possible temporal discretization scheme. If not given
             assumed unitary.
         """
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         ndof = self.ndof(g)
         w = parameter_dictionary["mass_weight"]
         aperture = parameter_dictionary["aperture"]
@@ -292,7 +292,7 @@ class InvMassMatrix(Solver):
             scipy.sparse.csr_matrix (self.ndof x self.ndof): System matrix of this
                 discretization.
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if "inv_mass" not in matrix_dictionary:
             self.discretize(g, data)
 
@@ -315,7 +315,7 @@ class InvMassMatrix(Solver):
             np.ndarray: Right hand side vector with representation of boundary
                 conditions: A null vector of length g.num_faces.
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if "bound_inv_mass" not in matrix_dictionary:
             self.discretize(g, data)
 
@@ -348,7 +348,7 @@ class InvMassMatrix(Solver):
         deltaT: Time step for a possible temporal discretization scheme. If not given
             assumed unitary.
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         M, rhs = MassMatrix(keyword=self.keyword).assemble_matrix_rhs(g, data)
         matrix_dictionary["inv_mass"] = sps.dia_matrix(
             (1.0 / M.diagonal(), 0), shape=M.shape

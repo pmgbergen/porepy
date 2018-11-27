@@ -45,8 +45,8 @@ class Mpfa(FVElliptic):
         data: dictionary to store the data.
 
         """
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # Extract parameters
         k = parameter_dictionary["second_order_tensor"]
         bnd = parameter_dictionary["bc"]
@@ -388,11 +388,11 @@ class Mpfa(FVElliptic):
             params["second_order_tensor"] = k
 
             d = {
-                pp.keywords.PARAMETERS: {self.keyword: params},
-                pp.keywords.DISCRETIZATION_MATRICES: {self.keyword: {}},
+                pp.PARAMETERS: {self.keyword: params},
+                pp.DISCRETIZATION_MATRICES: {self.keyword: {}},
             }
             discr.discretize(g, d)
-            matrix_dictionary = d[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+            matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
             return (
                 matrix_dictionary["flux"],
                 matrix_dictionary["bound_flux"],

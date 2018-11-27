@@ -104,7 +104,7 @@ class P1MassMatrix(Solver):
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         phi = parameter_dictionary["porosity"]
         aperture = parameter_dictionary["aperture"]
         coeff = phi / parameter_dictionary.get("time_step", 1.0) * aperture

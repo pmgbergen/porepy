@@ -50,8 +50,8 @@ class BiotTest(unittest.TestCase):
             param[kw_f]["fluid_compressibility"] = 0
             param[kw_f]["fluid_viscosity"] = 1
             data = {"inverter": "python", "time_step": 1}
-            data[pp.keywords.PARAMETERS] = param
-            data[pp.keywords.DISCRETIZATION_MATRICES] = {kw_f: {}, kw_m: {}}
+            data[pp.PARAMETERS] = param
+            data[pp.DISCRETIZATION_MATRICES] = {kw_f: {}, kw_m: {}}
             A, b = discr.matrix_rhs(g, data)
             sol = np.linalg.solve(A.todense(), b)
 

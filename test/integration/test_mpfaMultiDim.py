@@ -35,12 +35,12 @@ def setup_cart_2d(nx):
         gl, _ = gb.nodes_of_edge(e)
 
         d_l = gb.node_props(gl)
-        kn = 1.0 / np.mean(d_l[pp.keywords.PARAMETERS][kw]["aperture"])
+        kn = 1.0 / np.mean(d_l[pp.PARAMETERS][kw]["aperture"])
         data = {"normal_diffusivity": kn}
         # Add parameters
-        d[pp.keywords.PARAMETERS] = pp.Parameters(keywords=[kw], dictionaries=[data])
+        d[pp.PARAMETERS] = pp.Parameters(keywords=[kw], dictionaries=[data])
         # Initialize matrix dictionary
-        d[pp.keywords.DISCRETIZATION_MATRICES] = {kw: {}}
+        d[pp.DISCRETIZATION_MATRICES] = {kw: {}}
     return gb
 
 
@@ -51,7 +51,7 @@ class TestMpfaMultiDim(unittest.TestCase):
 
         # Python inverter is most efficient for small problems
         key = "flow"
-        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+        discretization_key = key + "_" + pp.DISCRETIZATION
 
         tpfa = pp.Tpfa(key)
         for g, d in gb:

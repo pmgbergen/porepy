@@ -29,16 +29,14 @@ class BasicsTest(unittest.TestCase):
                 d["transport_data"] = InjectionDomain(sub_g, d)
             else:
                 d["transport_data"] = MatrixDomain(sub_g, d)
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
+            d[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         for e, d in gb.edges():
             gl, _ = gb.nodes_of_edge(e)
             kn = 1.0 * gl.num_cells
             data = {"normal_diffusivity": kn}
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
-                d["mortar_grid"], ["transport"], [data]
-            )
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
+            d[pp.PARAMETERS] = pp.Parameters(d["mortar_grid"], ["transport"], [data])
+            d[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
         problem = SourceProblem(gb, keyword="transport")
         problem.solve()
         dE = change_in_energy(problem)
@@ -56,16 +54,14 @@ class BasicsTest(unittest.TestCase):
                 d["transport_data"] = InjectionDomain(sub_g, d)
             else:
                 d["transport_data"] = MatrixDomain(sub_g, d)
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
+            d[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         for e, d in self.gb3d.edges():
             gl, _ = self.gb3d.nodes_of_edge(e)
             kn = 1.0 * gl.num_cells
             data = {"normal_diffusivity": kn}
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
-                d["mortar_grid"], ["transport"], [data]
-            )
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
+            d[pp.PARAMETERS] = pp.Parameters(d["mortar_grid"], ["transport"], [data])
+            d[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         problem = SourceProblem(self.gb3d)
         problem.solve()
@@ -80,15 +76,13 @@ class BasicsTest(unittest.TestCase):
                 d["transport_data"] = InjectionDomain(g, d)
             else:
                 d["transport_data"] = MatrixDomain(g, d)
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
+            d[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
         for e, d in self.gb3d.edges():
             gl, _ = self.gb3d.nodes_of_edge(e)
             kn = 1.0 * gl.num_cells
             data = {"normal_diffusivity": kn}
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
-                d["mortar_grid"], ["transport"], [data]
-            )
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
+            d[pp.PARAMETERS] = pp.Parameters(d["mortar_grid"], ["transport"], [data])
+            d[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveProblem(self.gb3d, "transport")
@@ -103,15 +97,13 @@ class BasicsTest(unittest.TestCase):
                 d["transport_data"] = InjectionDomain(g, d)
             else:
                 d["transport_data"] = MatrixDomain(g, d)
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
+            d[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
         for e, d in self.gb3d.edges():
             gl, _ = self.gb3d.nodes_of_edge(e)
             kn = 1.0 * gl.num_cells
             data = {"normal_diffusivity": kn}
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
-                d["mortar_grid"], ["transport"], [data]
-            )
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
+            d[pp.PARAMETERS] = pp.Parameters(d["mortar_grid"], ["transport"], [data])
+            d[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveDiffusiveProblem(self.gb3d)
@@ -126,15 +118,13 @@ class BasicsTest(unittest.TestCase):
                 d["transport_data"] = InjectionDomain(g, d)
             else:
                 d["transport_data"] = MatrixDomain(g, d)
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
+            d[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
         for e, d in self.gb3d.edges():
             gl, _ = self.gb3d.nodes_of_edge(e)
             kn = 1.0 * gl.num_cells
             data = {"normal_diffusivity": kn}
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
-                d["mortar_grid"], ["transport"], [data]
-            )
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"transport": {}}
+            d[pp.PARAMETERS] = pp.Parameters(d["mortar_grid"], ["transport"], [data])
+            d[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         solve_elliptic_problem(self.gb3d)
         problem = SourceAdvectiveDiffusiveDirBound(self.gb3d)
@@ -231,7 +221,7 @@ def change_in_energy(problem):
     for g, d in problem.grid():
         p = d["transport"]
         p0 = d["transport_data"].initial_condition()
-        V = g.cell_volumes * d[pp.keywords.PARAMETERS]["transport"]["aperture"]
+        V = g.cell_volumes * d[pp.PARAMETERS]["transport"]["aperture"]
         dE += np.sum((p - p0) * V)
 
     return dE
@@ -241,27 +231,25 @@ def solve_elliptic_problem(gb):
     for g, d in gb:
         # Get a default dictinoary
         if g.dim == 2:
-            d[pp.keywords.PARAMETERS]["flow"]["source"] = source(g, 0.0)
+            d[pp.PARAMETERS]["flow"]["source"] = source(g, 0.0)
 
         dir_bound = g.tags["domain_boundary_faces"].nonzero()[0]
         bc_cond = pp.BoundaryCondition(g, dir_bound, ["dir"] * dir_bound.size)
-        d[pp.keywords.PARAMETERS]["flow"]["bc"] = bc_cond
-        if pp.keywords.DISCRETIZATION_MATRICES in d:
-            if "flow" not in d[pp.keywords.DISCRETIZATION_MATRICES]:
-                d[pp.keywords.DISCRETIZATION_MATRICES]["flow"] = {}
+        d[pp.PARAMETERS]["flow"]["bc"] = bc_cond
+        if pp.DISCRETIZATION_MATRICES in d:
+            if "flow" not in d[pp.DISCRETIZATION_MATRICES]:
+                d[pp.DISCRETIZATION_MATRICES]["flow"] = {}
         else:
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+            d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
         data = {"normal_diffusivity": 1.0 * g_l.num_cells}
-        if pp.keywords.PARAMETERS in d:
-            d[pp.keywords.PARAMETERS]["flow"] = data
+        if pp.PARAMETERS in d:
+            d[pp.PARAMETERS]["flow"] = data
         else:
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
-                d["mortar_grid"], ["flow"], [data]
-            )
-        d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+            d[pp.PARAMETERS] = pp.Parameters(d["mortar_grid"], ["flow"], [data])
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
     flux = pp.EllipticModel(gb, keyword="flow")
     p = flux.solve()
     flux.split("flux_field")
@@ -271,7 +259,7 @@ def solve_elliptic_problem(gb):
 
 def move_discharge(gb, from_name, to_name):
     for _, d in gb:
-        p = d[pp.keywords.PARAMETERS]
+        p = d[pp.PARAMETERS]
         p[to_name]["discharge"] = p[from_name]["discharge"]
 
 

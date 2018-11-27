@@ -28,7 +28,7 @@ class DualSource(Solver):
         return g.num_cells + g.num_faces
 
     def assemble_matrix_rhs(self, g, data):
-        sources = data[pp.keywords.PARAMETERS][self.keyword]["source"]
+        sources = data[pp.PARAMETERS][self.keyword]["source"]
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
         assert (
             sources.size == g.num_cells
@@ -124,7 +124,7 @@ class Integral(Solver):
         return g.num_cells + g.num_faces
 
     def assemble_matrix_rhs(self, g, data):
-        sources = data[pp.keywords.PARAMETERS][self.keyword]["source"]
+        sources = data[pp.PARAMETERS][self.keyword]["source"]
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
         assert (
             sources.size == g.num_cells
