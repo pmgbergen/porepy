@@ -57,7 +57,7 @@ def add_data(g):
         "bc": bound,
         "bc_values": bc_val,
     }
-    return pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+    return pp.initialize_data({}, g, "flow", specified_parameters)
 
 
 # ------------------------------------------------------------------------------#

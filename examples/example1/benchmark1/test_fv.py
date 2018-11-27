@@ -66,7 +66,7 @@ def add_data(gb, domain, kf, mesh_value):
         else:
             bound = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
 
-        pp.params.data.initialize_data(d, g, "flow", specified_parameters)
+        pp.initialize_data(d, g, "flow", specified_parameters)
 
     # Assign coupling permeability
     for e, d in gb.edges():

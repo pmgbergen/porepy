@@ -51,7 +51,7 @@ def add_data(gb, domain, kf):
             specified_parameters.update({"bc": bound})
 
         d["is_tangential"] = True
-        pp.params.data.initialize_data(d, g, "flow", specified_parameters)
+        pp.initialize_data(d, g, "flow", specified_parameters)
 
     # Assign coupling permeability
     for e, d in gb.edges():

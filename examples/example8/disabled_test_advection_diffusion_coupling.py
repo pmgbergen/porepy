@@ -124,7 +124,6 @@ def add_data_advection_diffusion(gb, domain, tol):
                 g, np.empty(0), np.empty(0)
             )
             transport_parameter_dictionary["bc_values"] = np.zeros(g.num_faces)
-        pp.params.data.initialize_data(d, g, "flow", specified_parameters)
 
     # Assign coupling discharge
     for e, d in gb.edges():
@@ -212,7 +211,7 @@ for e, d in gb.edges():
 
 
 # Assign parameters
-add_data_advection_diffusion(gb, domain, temperature_kw, tol)
+add_data_advection_diffusion(gb, domain, tol)
 
 assembler = pp.Assembler()
 A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
