@@ -47,7 +47,7 @@ def add_data(gb, domain):
         else:
             bound = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
             specified_parameters.update({"bc": bound})
-        pp.params.data.initialize_data(d, g, "flow", specified_parameters)
+        pp.initialize_data(d, g, "flow", specified_parameters)
 
     # Assign coupling permeability
     gb.add_edge_props("kn")
