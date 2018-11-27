@@ -66,7 +66,7 @@ class DualElliptic(
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if "mass" not in matrix_dictionary:
             self.discretize(g, data)
 
@@ -83,7 +83,7 @@ class DualElliptic(
     def assemble_matrix(self, g, data):
         """ Assemble matrix from an existing discretization.
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if not "mass" in matrix_dictionary:
             self.discretize(g, data)
 
@@ -97,10 +97,10 @@ class DualElliptic(
 
         """
         # Obtain the mass matrix
-        mass = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]["mass"]
+        mass = data[pp.DISCRETIZATION_MATRICES][self.keyword]["mass"]
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
-        bc = data[pp.keywords.PARAMETERS][self.keyword]["bc"]
+        bc = data[pp.PARAMETERS][self.keyword]["bc"]
 
         # For mixed discretizations, internal boundaries
         # are handled by assigning Dirichlet conditions. Thus, we remove them
@@ -151,7 +151,7 @@ class DualElliptic(
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         f = parameter_dictionary["source"]
 
         if g.dim == 0:
@@ -204,7 +204,7 @@ class DualElliptic(
 
         norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
 
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         bc = parameter_dictionary["bc"]
 
         # assign the Neumann boundary conditions

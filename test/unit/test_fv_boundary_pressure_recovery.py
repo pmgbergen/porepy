@@ -46,7 +46,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         p = spl.spsolve(A, b)
 
         self.assertTrue(np.allclose(p, np.zeros_like(p)))
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = matrix_dictionary["bound_pressure_cell"] * p + matrix_dictionary[
             "bound_pressure_face"
         ] * np.zeros(g.num_faces)
@@ -69,7 +69,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
 
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -93,7 +93,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
 
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -114,7 +114,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -139,7 +139,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -164,7 +164,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -189,7 +189,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -216,7 +216,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -237,7 +237,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         # pressure is recovered.
         x = g.cell_centers[0]
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * x
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -272,7 +272,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
         self.assertTrue(np.allclose(p, np.zeros_like(p)))
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = matrix_dictionary["bound_pressure_cell"] * p + matrix_dictionary[
             "bound_pressure_face"
         ] * np.zeros(g.num_faces)
@@ -294,7 +294,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -317,7 +317,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
 
         self.assertTrue(np.allclose(p, np.ones_like(p)))
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -338,7 +338,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -365,7 +365,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -390,7 +390,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -417,7 +417,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -440,7 +440,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -462,7 +462,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         # pressure is recovered.
         x = g.cell_centers[0]
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * x
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -494,7 +494,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         x = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * x
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -525,7 +525,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         x = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * x
             + matrix_dictionary["bound_pressure_face"] * bc_val
@@ -568,7 +568,7 @@ class TestMpfaSimplexGrid(unittest.TestCase):
         A, b = fd.assemble_matrix_rhs(g, data)
         p = spl.spsolve(A, b)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_p = (
             matrix_dictionary["bound_pressure_cell"] * p
             + matrix_dictionary["bound_pressure_face"] * bc_val

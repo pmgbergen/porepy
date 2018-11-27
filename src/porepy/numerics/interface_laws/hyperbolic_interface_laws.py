@@ -18,7 +18,7 @@ class UpwindCoupling(object):
         return self.keyword + "_"
 
     def discretization_key(self):
-        return self.key() + pp.keywords.DISCRETIZATION
+        return self.key() + pp.DISCRETIZATION
 
     def ndof(self, mg):
         return mg.num_cells
@@ -53,7 +53,7 @@ class UpwindCoupling(object):
         # Normal component of the velocity from the higher dimensional grid
 
         # @ALL: This should perhaps be defined by a globalized keyword
-        lam_flux = data_edge[pp.keywords.PARAMETERS][self.keyword]["flux_field"]
+        lam_flux = data_edge[pp.PARAMETERS][self.keyword]["flux_field"]
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
         g_m = data_edge["mortar_grid"]

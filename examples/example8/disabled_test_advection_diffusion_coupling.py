@@ -54,9 +54,9 @@ def add_data_darcy(gb, domain, tol):
             flow_parameter_dictionary["bc_values"] = np.zeros(g.num_faces)
         param = pp.Parameters(g)
         param.update_dictionaries("flow", flow_parameter_dictionary)
-        d[pp.keywords.PARAMETERS] = param
-        d[pp.keywords.DISCRETIZATION_MATRICES] = {}
-        d[pp.keywords.DISCRETIZATION_MATRICES]["flow"] = {}
+        d[pp.PARAMETERS] = param
+        d[pp.DISCRETIZATION_MATRICES] = {}
+        d[pp.DISCRETIZATION_MATRICES]["flow"] = {}
 
     # Assign coupling permeability
     for e, d in gb.edges():
@@ -69,11 +69,11 @@ def add_data_darcy(gb, domain, tol):
         gamma = check_P * aperture
         kn = kf * np.ones(mg.num_cells) / gamma
         flow_dictionary = {"normal_diffusivity": kn, "aperture": aperture}
-        d[pp.keywords.PARAMETERS] = pp.Parameters(
+        d[pp.PARAMETERS] = pp.Parameters(
             keywords=["flow"], dictionaries=[flow_dictionary]
         )
-        d[pp.keywords.DISCRETIZATION_MATRICES] = {}
-        d[pp.keywords.DISCRETIZATION_MATRICES]["flow"] = {}
+        d[pp.DISCRETIZATION_MATRICES] = {}
+        d[pp.DISCRETIZATION_MATRICES]["flow"] = {}
 
 
 # ------------------------------------------------------------------------------#
@@ -82,11 +82,11 @@ def add_data_darcy(gb, domain, tol):
 def add_data_advection_diffusion(gb, domain, tol):
     diffusion_coefficient = 5 * 1e-2
     for g, d in gb:
-        param = d[pp.keywords.PARAMETERS]
+        param = d[pp.PARAMETERS]
         transport_parameter_dictionary = {}
         param.update_dictionaries("transport", transport_parameter_dictionary)
         param.set_from_other("transport", "flow", ["aperture"])
-        d[pp.keywords.DISCRETIZATION_MATRICES]["transport"] = {}
+        d[pp.DISCRETIZATION_MATRICES]["transport"] = {}
 
         kxx = diffusion_coefficient * np.ones(g.num_cells)
         cond = pp.SecondOrderTensor(g.dim, kxx)
@@ -133,13 +133,13 @@ def add_data_advection_diffusion(gb, domain, tol):
 
         mg = d["mortar_grid"]
         check_P = mg.slave_to_mortar_avg()
-        aperture = d[pp.keywords.PARAMETERS]["flow"]["aperture"]
+        aperture = d[pp.PARAMETERS]["flow"]["aperture"]
         gamma = check_P * aperture
         kn = diffusion_coefficient * np.ones(mg.num_cells) / gamma
         transport_dictionary = {"normal_diffusivity": kn}
         d["flux_field"] = mg.master_to_mortar_int * discharge
-        d[pp.keywords.PARAMETERS].update_dictionaries("transport", transport_dictionary)
-        d[pp.keywords.DISCRETIZATION_MATRICES]["transport"] = {}
+        d[pp.PARAMETERS].update_dictionaries("transport", transport_dictionary)
+        d[pp.DISCRETIZATION_MATRICES]["transport"] = {}
 
 
 # ------------------------------------------------------------------------------#
@@ -195,16 +195,13 @@ diff_coupling = pp.RobinCoupling(temperature_kw, diff_discr)
 key = "temperature"
 
 for _, d in gb:
-    d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-    d[pp.keywords.DISCRETIZATION] = {key: {adv: adv_discr, diff: diff_discr}}
+    d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+    d[pp.DISCRETIZATION] = {key: {adv: adv_discr, diff: diff_discr}}
 
 for e, d in gb.edges():
     g1, g2 = gb.nodes_of_edge(e)
-    d[pp.keywords.PRIMARY_VARIABLES] = {
-        "lambda_adv": {"cells": 1},
-        "lambda_diff": {"cells": 1},
-    }
-    d[pp.keywords.COUPLING_DISCRETIZATION] = {
+    d[pp.PRIMARY_VARIABLES] = {"lambda_adv": {"cells": 1}, "lambda_diff": {"cells": 1}}
+    d[pp.COUPLING_DISCRETIZATION] = {
         adv: {g1: (key, adv), g2: (key, adv), e: ("lambda_adv", adv_coupling)},
         diff: {g1: (key, diff), g2: (key, diff), e: ("lambda_diff", diff_coupling)},
     }

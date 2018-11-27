@@ -120,7 +120,7 @@ class P1(Solver):
             return M
 
         # Get dictionary for parameter storage
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
@@ -219,7 +219,7 @@ class P1(Solver):
             return np.zeros(1)
 
         # Retrieve the boundary conditions and values
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         bc_val = parameter_dictionary["bc_values"]
         bc = parameter_dictionary["bc"]
 
@@ -322,9 +322,9 @@ class P1Coupling(AbstractCoupling):
         check_P0 = g_l.cell_nodes().T.astype(np.float) / (g_l.dim + 1)
 
         # Normal permeability and aperture of the intersection
-        kn = data_h[pp.keywords.PARAMETERS][self.keyword]["normal_diffusivity"]
+        kn = data_h[pp.PARAMETERS][self.keyword]["normal_diffusivity"]
         inv_k = 1.0 / (2.0 * kn)
-        aperture_h = data_h[pp.keywords.PARAMETERS][self.keyword]["aperture"]
+        aperture_h = data_h[pp.PARAMETERS][self.keyword]["aperture"]
 
         # Inverse of the normal permability matrix
         Eta = sps.diags(np.divide(inv_k, hat_P * aperture_h[cells_h]))

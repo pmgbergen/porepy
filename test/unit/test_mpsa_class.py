@@ -30,7 +30,7 @@ class MpsaTest(unittest.TestCase):
             face_dof = g.dim * g.num_faces
             stress = sps.csc_matrix((face_dof, cell_dof))
             bound_stress = sps.csc_matrix((face_dof, face_dof))
-            data[pp.keywords.DISCRETIZATION_MATRICES][kw] = {
+            data[pp.DISCRETIZATION_MATRICES][kw] = {
                 "stress": stress,
                 "bound_stress": bound_stress,
             }

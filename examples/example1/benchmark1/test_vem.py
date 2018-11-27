@@ -58,13 +58,11 @@ def add_data(gb, domain, kf):
         g_l = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
         check_P = mg.slave_to_mortar_avg()
-        pa_l = gb.node_props(g_l, pp.keywords.PARAMETERS)
+        pa_l = gb.node_props(g_l, pp.PARAMETERS)
         gamma = check_P * pa_l["flow"]["aperture"]
         kn = kf * np.ones(mg.num_cells) / gamma
-        d[pp.keywords.PARAMETERS] = pp.Parameters(
-            mg, ["flow"], [{"normal_diffusivity": kn}]
-        )
-        d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+        d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
 
 # ------------------------------------------------------------------------------#
@@ -109,7 +107,7 @@ def main(kf, description, is_coarse=False, if_export=False):
     key = "flow"
 
     # Choose and define the solvers and coupler
-    discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+    discretization_key = key + "_" + pp.DISCRETIZATION
     discr = pp.MVEM(key)
 
     for _, d in gb:

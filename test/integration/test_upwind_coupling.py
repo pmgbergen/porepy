@@ -1556,13 +1556,13 @@ def assign_discretization(gb, disc, coupling_disc, key):
     # Identifier of the advection term
     term = "advection"
     for _, d in gb:
-        d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-        d[pp.keywords.DISCRETIZATION] = {key: {term: disc}}
+        d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+        d[pp.DISCRETIZATION] = {key: {term: disc}}
 
     for e, d in gb.edges():
         g1, g2 = gb.nodes_of_edge(e)
-        d[pp.keywords.PRIMARY_VARIABLES] = {"lambda_u": {"cells": 1}}
-        d[pp.keywords.COUPLING_DISCRETIZATION] = {
+        d[pp.PRIMARY_VARIABLES] = {"lambda_u": {"cells": 1}}
+        d[pp.COUPLING_DISCRETIZATION] = {
             key: {g1: (key, term), g2: (key, term), e: ("lambda_u", coupling_disc)}
         }
 
@@ -1578,12 +1578,10 @@ def add_constant_discharge(gb, upwind, flux, a):
     """
     for g, d in gb:
         aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
-        d[pp.keywords.PARAMETERS]["transport"]["discharge"] = upwind.discharge(
-            g, flux, aperture
-        )
+        d[pp.PARAMETERS]["transport"]["discharge"] = upwind.discharge(g, flux, aperture)
     for e, d in gb.edges():
         g_h = gb.nodes_of_edge(e)[1]
-        p_h = gb.node_props(g_h, pp.keywords.PARAMETERS)
+        p_h = gb.node_props(g_h, pp.PARAMETERS)
         discharge = p_h["transport"]["discharge"]
         sign = np.zeros(g_h.num_faces)
         sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
@@ -1591,12 +1589,12 @@ def add_constant_discharge(gb, upwind, flux, a):
         sign = mg.master_to_mortar_avg() * sign
         #        d["param"] = pp.Parameters(g_h)
         discharge_e = sign * (d["mortar_grid"].master_to_mortar_avg() * discharge)
-        if pp.keywords.PARAMETERS not in d:
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
+        if pp.PARAMETERS not in d:
+            d[pp.PARAMETERS] = pp.Parameters(
                 mg, ["transport"], [{"flux_field": discharge_e}]
             )
         else:
-            d[pp.keywords.PARAMETERS]["transport"]["flux_field"] = discharge_e
+            d[pp.PARAMETERS]["transport"]["flux_field"] = discharge_e
 
 
 def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, keys):

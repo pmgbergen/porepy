@@ -103,7 +103,7 @@ class Integral(Solver):
             scipy.sparse.csr_matrix (self.ndof x self.ndof): Null system matrix of this
                 discretization.
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if "source" not in matrix_dictionary:
             self.discretize(g, data)
 
@@ -124,8 +124,8 @@ class Integral(Solver):
             scipy.sparse.csr_matrix (self.ndof): Right hand side vector representing the
                 source.
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         if "bound_source" not in matrix_dictionary:
             self.discretize(g, data)
 
@@ -156,6 +156,6 @@ class Integral(Solver):
         """
         lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
         rhs = sps.diags(np.ones(self.ndof(g))).tocsc()
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         matrix_dictionary["source"] = lhs
         matrix_dictionary["bound_source"] = rhs

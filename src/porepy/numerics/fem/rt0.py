@@ -40,7 +40,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         # pylint: disable=invalid-name
 
         # Get dictionary for discretization matrix storage
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
@@ -49,7 +49,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
             return
 
         # Get dictionary for parameter storage
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
@@ -144,7 +144,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         if g.dim == 0:
             return np.zeros(3).reshape((3, 1))
 
-        a = data[pp.keywords.PARAMETERS][self.keyword]["aperture"]
+        a = data[pp.PARAMETERS][self.keyword]["aperture"]
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)

@@ -2,16 +2,16 @@
 
 At present, the Parameters class is a simple wrapper around a dictionary.
 
-The Parameters will be stored as a dictionary identified by pp.keywords.PARAMETERS in an
+The Parameters will be stored as a dictionary identified by pp.PARAMETERS in an
 "outer" dictionary (e.g. the data on the grid bucket nodes). In the Parameters object,
 there will be one dictionary containing parameters for each keyword. The keywords link
 parameters to discretization operators. For example, the operator
 discr = pp.Tpfa(keyword="flow")
 will access parameters under the keyword "flow". If outer_dictionary is the above mentioned
 outer dictionary, these parameters will be found in
-outer_dictionary[pp.keywords.PARAMETERS]["flow'],
+outer_dictionary[pp.PARAMETERS]["flow'],
 and the boundary values are extracted from this dictionary as
-bc = outer_dictionary[pp.keywords.PARAMETERS]["flow']["bc_values"]
+bc = outer_dictionary[pp.PARAMETERS]["flow']["bc_values"]
 
 There is a (not entirely clear) distinction between two types of parameters:
 "Mathematical" parameters are those operated on by the discretization objects, and
@@ -202,7 +202,7 @@ def initialize_data(data, g, keyword, specified_parameters=None):
     else:
         d = specified_parameters.copy()
     parameters = pp.Parameters(g, [keyword], [d])
-    data[pp.keywords.PARAMETERS] = parameters
+    data[pp.PARAMETERS] = parameters
     return data
 
 
@@ -248,6 +248,6 @@ def add_discretization_matrix_keyword(dictionary, keyword):
         dictionary: Main dictionary, typically stored on a grid bucket node.
         keyword: The keyword used for linking parameters and discretization operators.
     """
-    add_nonpresent_dictionary(dictionary, pp.keywords.DISCRETIZATION_MATRICES)
-    add_nonpresent_dictionary(dictionary[pp.keywords.DISCRETIZATION_MATRICES], keyword)
-    return dictionary[pp.keywords.DISCRETIZATION_MATRICES][keyword]
+    add_nonpresent_dictionary(dictionary, pp.DISCRETIZATION_MATRICES)
+    add_nonpresent_dictionary(dictionary[pp.DISCRETIZATION_MATRICES], keyword)
+    return dictionary[pp.DISCRETIZATION_MATRICES][keyword]
