@@ -27,6 +27,8 @@ except ImportError:
     vtk will not work."
     )
 
+import porepy as pp
+
 # Import of internally developed packages.
 from porepy.utils import comp_geom as cg
 from porepy.utils import setmembership, sort_points
@@ -698,7 +700,7 @@ class Fracture(object):
                 normal_bf = cg.compute_normal(bf.p)
                 tangent = np.cross(normal_self, normal_bf)
                 # Unit vector
-                tangent *= 1. / np.linalg.norm(tangent)
+                tangent *= 1.0 / np.linalg.norm(tangent)
 
                 isect_ind = np.argwhere(sort_ind >= num_pts_orig).ravel("F")
                 p_isect = self.p[:, isect_ind]
@@ -1007,7 +1009,7 @@ class FractureNetwork(object):
 
     """
 
-    def __init__(self, fractures=None, verbose=0, tol=1e-4):
+    def __init__(self, fractures=None, verbose=0, tol=1e-8):
         """ Initialize fracture network.
 
         Generate network from specified fractures. The fractures will have
@@ -1130,25 +1132,52 @@ class FractureNetwork(object):
             for f in self._fractures:
                 f.p = f.orig_p
 
-        for i, first in enumerate(self._fractures):
-            for j in range(i + 1, len(self._fractures)):
-                second = self._fractures[j]
-                logger.debug("Processing fracture %i and %i", i, j)
-                isect, bound_first, bound_second = first.intersects(second, self.tol)
-                if np.array(isect).size > 0:
-                    logger.debug("Found an intersection between %i and %i", i, j)
-                    # Let the intersection know whether both intersection
-                    # points lies on the boundary of each fracture
-                    self.intersections.append(
-                        Intersection(
-                            first,
-                            second,
-                            isect,
-                            bound_first=bound_first,
-                            bound_second=bound_second,
-                        )
-                    )
+        # Intersections are found using a method in the comp_geom module, which requires
+        # the fractures to be represented as a list of polygons.
+        polys = [f.p for f in self._fractures]
+        # Obtain intersection points, indexes of intersection points for each fracture
+        # information on whether the fracture is on the boundary, and pairs of fractures
+        # that intersect.
+        isect, point_ind, bound_info, frac_pairs = pp.cg.intersect_polygons_3d(polys)
 
+        # Loop over all pairs of intersection pairs, add the intersections to the
+        # internal list.
+        for pair in frac_pairs:
+            # Indices of the relevant pairs.
+            ind_0, ind_1 = pair
+            # Find the common indices of intersection points (referring to isect)
+            # and find where they are located in the array point_ind[ind_0]
+            common_ind, i0 = pp.utils.setmembership.ismember_rows(
+                point_ind[ind_1], point_ind[ind_0]
+            )
+            # Convert from boolean indices to indices
+            common_ind = np.where(common_ind)[0]
+            # There should be exactly two intersection points
+            assert common_ind.size == 2
+
+            # Do the same exercise with the second fracture
+            common_ind_2, i1 = pp.utils.setmembership.ismember_rows(
+                point_ind[ind_0], point_ind[ind_1]
+            )
+            common_ind_2 = np.where(common_ind_2)[0]
+            assert common_ind_2.size == 2
+
+            # Check if the intersection points form a boundary edge of each of the
+            # fractures. The indexing is a bit involved, but is based on there being
+            # two intersection points for each segment - thus the indices in i0 and i1
+            # must be divided by two.
+            on_bound_0 = bound_info[ind_0][np.floor(i0[0] / 2).astype(np.int)]
+            on_bound_1 = bound_info[ind_1][np.floor(i1[0] / 2).astype(np.int)]
+            # Add the intersection to the internal list
+            self.intersections.append(
+                Intersection(
+                    self._fractures[ind_0],
+                    self._fractures[ind_1],
+                    isect[:, point_ind[ind_1][common_ind]],
+                    bound_first=on_bound_0,
+                    bound_second=on_bound_1,
+                )
+            )
         logger.info(
             "Found %i intersections. Ellapsed time: %.5f",
             len(self.intersections),
@@ -1514,8 +1543,8 @@ class FractureNetwork(object):
             # It seems necessary to increase the tolerance here somewhat to
             # obtain a more robust algorithm. Not sure about how to do this
             # consistent.
-            p_new, edges_new = cg.remove_edge_crossings(
-                p_2d, edges_2d, tol=self.tol, verbose=self.verbose, snap=False
+            p_new, edges_new = cg.remove_edge_crossings2(
+                p_2d, edges_2d, tol=self.tol
             )
             # Then, patch things up by converting new points to 3D,
 
