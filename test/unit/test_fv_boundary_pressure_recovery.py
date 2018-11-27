@@ -231,7 +231,7 @@ class TestTpfaBoundaryPressure(unittest.TestCase):
         bc_val[[2, 5]] = -1
         t = pp.Tpfa("flow")
         data = make_dictionary(g, pp.BoundaryCondition(g), bc_val)
-        _, b = t.assemble_matrix_rhs(g, data)
+        t.assemble_matrix_rhs(g, data)
         # The problem is singular, and spsolve does not work well on all systems.
         # Instead, set a consistent solution, and check that the boundary
         # pressure is recovered.
@@ -456,7 +456,7 @@ class TestMpfaBoundaryPressure(unittest.TestCase):
         bc_val[[2, 5]] = -1
         t = pp.Mpfa("flow")
         data = make_dictionary(g, pp.BoundaryCondition(g), bc_val)
-        A, b = t.assemble_matrix_rhs(g, data)
+        _, b = t.assemble_matrix_rhs(g, data)
         # The problem is singular, and spsolve does not work well on all systems.
         # Instead, set a consistent solution, and check that the boundary
         # pressure is recovered.

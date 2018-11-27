@@ -74,7 +74,7 @@ class TestParameters(unittest.TestCase):
 
         self.p.update_dictionaries("flow")
         self.p.set_from_other("flow", "dummy_kw", ["string_key"])
-        assert self.p["flow"]["string_key"] == self.p["dummy_kw"]["string_key"]
+        self.assertEqual(self.p["flow"]["string_key"], self.p["dummy_kw"]["string_key"])
 
     def test_overwrite_shared_property(self):
         """ Modifies a property shared by two keywords.

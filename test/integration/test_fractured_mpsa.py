@@ -24,7 +24,7 @@ class BasicsTest(unittest.TestCase):
 
         bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
         specified_parameters = {"bc": bound}
-        data = pp.params.data.initialize_data({}, g, "mechanics", specified_parameters)
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
         solver = pp.FracturedMpsa()
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
@@ -52,7 +52,7 @@ class BasicsTest(unittest.TestCase):
         frac_slip[:, frac_bnd] = np.ones((g.dim, np.sum(frac_bnd)))
 
         specified_parameters = {"bc": bound, "slip_distance": frac_slip.ravel("F")}
-        data = pp.params.data.initialize_data({}, g, "mechanics", specified_parameters)
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
         solver = pp.FracturedMpsa()
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
@@ -121,7 +121,7 @@ class BasicsTest(unittest.TestCase):
             "bc_values": bc_val.ravel("F"),
             "slip_distance": frac_slip.ravel("F"),
         }
-        data = pp.params.data.initialize_data({}, g, "mechanics", specified_parameters)
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
         solver = pp.FracturedMpsa()
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
@@ -187,7 +187,7 @@ class BasicsTest(unittest.TestCase):
             "bc_values": bc_val.ravel("F"),
             "slip_distance": frac_traction.ravel("F"),
         }
-        data = pp.params.data.initialize_data({}, g, "mechanics", specified_parameters)
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
 
         solver = pp.FracturedMpsa(given_traction=True)
 
@@ -255,7 +255,7 @@ class BasicsTest(unittest.TestCase):
             "bc_values": bc_val.ravel("F"),
             "slip_distance": frac_slip.ravel("F"),
         }
-        data = pp.params.data.initialize_data({}, g, "mechanics", specified_parameters)
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
 
         solver = pp.FracturedMpsa()
 
@@ -309,7 +309,7 @@ class BasicsTest(unittest.TestCase):
             "bc_values": bc_val.ravel("F"),
             "slip_distance": frac_slip.ravel("F"),
         }
-        data = pp.params.data.initialize_data({}, g, "mechanics", specified_parameters)
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
 
         solver = pp.FracturedMpsa()
 

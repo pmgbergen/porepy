@@ -11,9 +11,7 @@ import porepy as pp
 
 
 def _assign_params(g, perm, bc):
-    data = pp.params.data.initialize_parameters(
-        {}, g, "flow", {"bc": bc, "permeability": perm}
-    )
+    data = pp.initialize_parameters({}, g, "flow", {"bc": bc, "permeability": perm})
     return data
 
 

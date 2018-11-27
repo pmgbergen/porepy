@@ -12,7 +12,7 @@ class MassMatrixTest(unittest.TestCase):
         phi = np.random.rand(g.num_cells)
         dt = 0.2
         specified_parameters = {"time_step": dt, "porosity": phi}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         time_discr = pp.MassMatrix()
         lhs, rhs = time_discr.assemble_matrix_rhs(g, data)
         self.assertTrue(np.allclose(rhs, 0))
@@ -26,7 +26,7 @@ class MassMatrixTest(unittest.TestCase):
         phi = np.random.rand(g.num_cells)
         dt = 0.2
         specified_parameters = {"time_step": dt, "porosity": phi}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         time_discr = pp.InvMassMatrix()
         lhs, rhs = time_discr.assemble_matrix_rhs(g, data)
         self.assertTrue(np.allclose(rhs, 0))

@@ -18,7 +18,6 @@ def setup_2d_1d(nx, simplex_grid=False):
 
     gb.compute_geometry()
     gb.assign_node_ordering()
-    gb.add_node_props(["param"])
     for g, d in gb:
         kxx = np.ones(g.num_cells)
         perm = pp.SecondOrderTensor(gb.dim_max(), kxx)
@@ -34,7 +33,7 @@ def setup_2d_1d(nx, simplex_grid=False):
             bc_val[bound_faces] = g.face_centers[1, bound_faces]
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-        pp.params.data.initialize_data(d, g, "flow", specified_parameters)
+        pp.initialize_data(d, g, "flow", specified_parameters)
 
     for e, d in gb.edges():
         gl, _ = gb.nodes_of_edge(e)

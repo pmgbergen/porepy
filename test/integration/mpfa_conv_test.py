@@ -100,7 +100,7 @@ class MainTester(unittest.TestCase):
         # Discretization. Use python inverter for speed
         discr = pp.Mpfa(keyword="flow")
         specified_parameters = {"permeability": k, "bc": bound_cond}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         data[pp.keywords.PARAMETERS]["flow"]["mpfa_eta"] = 0
         a = discr.assemble_matrix(g, data)
 
@@ -149,7 +149,7 @@ class MainTester(unittest.TestCase):
 
         discr = pp.Mpfa(keyword="flow")
         specified_parameters = {"permeability": perm, "bc": bound_cond}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         data[pp.keywords.PARAMETERS]["flow"]["mpfa_eta"] = 0
         a = discr.assemble_matrix(g, data)
 
