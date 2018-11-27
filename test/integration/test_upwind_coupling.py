@@ -50,7 +50,7 @@ class BasicsTest(unittest.TestCase):
                 bound = pp.BoundaryCondition(g, bound_faces, labels)
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.params.data.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_data(d, g, "transport", specified_parameters)
         add_constant_discharge(gb, upwind, [0, 1, 0], a)
 
         assembler = pp.Assembler()
@@ -135,7 +135,7 @@ class BasicsTest(unittest.TestCase):
                 bound = pp.BoundaryCondition(g, bound_faces, labels)
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.params.data.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_data(d, g, "transport", specified_parameters)
 
         add_constant_discharge(gb, upwind, [1, 0, 0], a)
 
@@ -268,7 +268,7 @@ class BasicsTest(unittest.TestCase):
             else:
                 bound = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
                 specified_parameters.update({"bc": bound})
-            pp.params.data.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_data(d, g, "transport", specified_parameters)
 
         add_constant_discharge(gb, upwind, [1, 0, 0], a)
 
@@ -854,7 +854,7 @@ class BasicsTest(unittest.TestCase):
 
                 bound = pp.BoundaryCondition(g, bound_faces, labels)
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
-            pp.params.data.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_data(d, g, "transport", specified_parameters)
 
         add_constant_discharge(gb, upwind, [0, 0, 1], a)
 
@@ -936,7 +936,7 @@ class BasicsTest(unittest.TestCase):
             bound = pp.BoundaryCondition(g, bound_faces, labels)
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.params.data.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_data(d, g, "transport", specified_parameters)
 
         add_constant_discharge(gb, upwind, [1, 0, 0], a)
 
@@ -1109,7 +1109,7 @@ class BasicsTest(unittest.TestCase):
                 bound = pp.BoundaryCondition(g, bound_faces, labels)
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.params.data.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_data(d, g, "transport", specified_parameters)
 
         add_constant_discharge(gb, upwind, [1, 0, 0], a)
         assembler = pp.Assembler()
@@ -1250,7 +1250,7 @@ class BasicsTest(unittest.TestCase):
             bf = g.tags["domain_boundary_faces"].nonzero()[0]
             bc = pp.BoundaryCondition(g, bf, bf.size * ["neu"])
             specified_parameters = {"aperture": aperture, "bc": bc}
-            pp.params.data.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_data(d, g, "transport", specified_parameters)
 
         add_constant_discharge(gb, upwind, [2, 0, 0], a)
         assembler = pp.Assembler()
@@ -1396,8 +1396,6 @@ class BasicsTest(unittest.TestCase):
         gb.add_node_props(["param"])
         a = 1e-1
         for g, d in gb:
-            param = pp.Parameters(g)
-
             aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
             specified_parameters = {"aperture": aperture}
 
@@ -1408,7 +1406,7 @@ class BasicsTest(unittest.TestCase):
 
             bound = pp.BoundaryCondition(g, bound_faces, labels)
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
-            pp.params.data.initialize_data(d, g, "transport", specified_parameters)
+            pp.initialize_data(d, g, "transport", specified_parameters)
 
         add_constant_discharge(gb, upwind, [1, 1, 0], a)
 

@@ -424,7 +424,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
             gb, variables=[key_2, "var_11"]
         )
 
@@ -510,10 +510,8 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A.todense()))
 
         # Next, define both variables to be active. Should be equivalent to
-        # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(
-            gb, variables=[key_1, key_2]
-        )
+        # running without the variables argument
+        A_2, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_two_variables_coupling_within_node_and_edge_one_active(self):

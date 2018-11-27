@@ -28,7 +28,7 @@ def setup_cart_2d(nx):
             bc_val[bound_faces] = g.face_centers[1, bound_faces]
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
         # Initialize data and matrix dictionaries in d
-        pp.params.data.initialize_data(d, g, kw, specified_parameters)
+        pp.initialize_data(d, g, kw, specified_parameters)
 
     for e, d in gb.edges():
         # Compute normal permeability

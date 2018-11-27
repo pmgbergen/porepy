@@ -25,7 +25,7 @@ class BasicsTest(unittest.TestCase):
         solver = pp.P1(keyword="flow")
 
         specified_parameters = {"bc": bc, "permeability": perm}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         M = solver.matrix(g, data).todense()
 
         M_known = np.matrix([[1.0, -1.0], [-1.0, 1.0]])
@@ -53,7 +53,7 @@ class BasicsTest(unittest.TestCase):
         solver = pp.P1(keyword="flow")
 
         specified_parameters = {"bc": bc, "permeability": perm}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         M = solver.matrix(g, data).todense()
 
         M_known = np.matrix(
@@ -97,7 +97,7 @@ class BasicsTest(unittest.TestCase):
         solver = pp.P1(keyword="flow")
 
         specified_parameters = {"bc": bc, "permeability": perm}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         M = solver.matrix(g, data).todense()
 
         M_known = np.matrix(
@@ -126,7 +126,7 @@ class BasicsTest(unittest.TestCase):
         solver = pp.P1(keyword="flow")
 
         specified_parameters = {"bc": bc, "permeability": perm}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         M = solver.matrix(g, data).todense()
 
         # Matrix computed with an already validated code
@@ -176,7 +176,7 @@ class BasicsTest(unittest.TestCase):
         solver = pp.P1(keyword="flow")
 
         specified_parameters = {"bc": bc, "permeability": perm}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         M = solver.matrix(g, data).todense()
 
         # Matrix computed with an already validated code
@@ -207,7 +207,7 @@ class BasicsTest(unittest.TestCase):
         solver = pp.P1(keyword="flow")
 
         specified_parameters = {"bc": bc, "permeability": perm}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         M = solver.matrix(g, data).todense()
 
         M_known = matrix_for_test_p1_3d()
@@ -253,7 +253,7 @@ class BasicsTest(unittest.TestCase):
         solver = pp.P1(keyword="flow")
 
         specified_parameters = {"bc": bc, "permeability": perm}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         M = solver.matrix(g, data).todense()
 
         # Matrix computed with an already validated code
@@ -302,7 +302,7 @@ class BasicsTest(unittest.TestCase):
         solver = pp.P1(keyword="flow")
 
         specified_parameters = {"bc": bc, "permeability": perm}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         M = solver.matrix(g, data).todense()
 
         # Matrix computed with an already validated code
@@ -356,7 +356,7 @@ class BasicsTest(unittest.TestCase):
         solver = pp.P1(keyword="flow")
 
         specified_parameters = {"bc": bc, "permeability": perm}
-        data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+        data = pp.initialize_data({}, g, "flow", specified_parameters)
         M = solver.matrix(g, data).todense()
 
         # Matrix computed with an already validated code
@@ -435,7 +435,7 @@ class BasicsTest(unittest.TestCase):
                 "permeability": perm,
                 "source": source_val,
             }
-            data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+            data = pp.initialize_data({}, g, "flow", specified_parameters)
             M, _ = solver.matrix_rhs(g, data)
             _, rhs = integral.matrix_rhs(g, data)
 
@@ -467,7 +467,7 @@ class BasicsTest(unittest.TestCase):
             solver = pp.P1(keyword="flow")
 
             specified_parameters = {"bc": bc, "bc_values": bc_val, "permeability": perm}
-            data = pp.params.data.initialize_data({}, g, "flow", specified_parameters)
+            data = pp.initialize_data({}, g, "flow", specified_parameters)
 
             M, rhs = solver.matrix_rhs(g, data)
 

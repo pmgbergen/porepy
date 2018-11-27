@@ -18,7 +18,7 @@ def make_dictionary(g, perm, bc, bc_val=None):
         "source": np.zeros(g.num_cells),
     }
 
-    return pp.params.data.initialize_data({}, g, "flow", d)
+    return pp.initialize_data({}, g, "flow", d)
 
 
 class BasicsTest(unittest.TestCase):

@@ -58,7 +58,7 @@ class BasicsTest(unittest.TestCase):
                 "permeability": p,
                 "aperture": aperture,
             }
-            pp.params.data.initialize_data(d, g, "flow", specified_parameters)
+            pp.initialize_data(d, g, "flow", specified_parameters)
 
         for e, d in gb.edges():
             d["kn"] = 1e-5

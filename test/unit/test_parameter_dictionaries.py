@@ -109,11 +109,10 @@ class TestParameterDictionaries(unittest.TestCase):
         self.g.compute_geometry()
         data = pp.initialize_data({}, self.g, "transport", specified_parameters)
         dictionary = data[pp.keywords.PARAMETERS]["transport"]
-        success = dictionary["foo"] == "bar"
+        self.assertEqual(dictionary["foo"], "bar")
         zeros = np.zeros(self.g.num_cells)
-        success *= np.all(np.isclose(dictionary["porosity"], zeros))
-        success *= dictionary["bc"] == 15
-        assert success
+        self.assertTrue(np.all(np.isclose(dictionary["porosity"], zeros)))
+        self.assertAlmostEqual(dictionary["bc"], 15)
 
     def check_default_flow_dictionary(self, dictionary):
         # Check that all parameters have been added.
