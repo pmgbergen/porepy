@@ -50,7 +50,7 @@ class FractureSet(object):
 
     """
 
-    def __init__(self, pts=None, edges=None, domain=None):
+    def __init__(self, pts=None, edges=None, domain=None, tol=1e-8):
         """ Define the frature set.
 
         Parameters:
@@ -67,6 +67,7 @@ class FractureSet(object):
         self.pts = pts
         self.edges = edges
         self.domain = domain
+        self.tol = tol
 
         if edges is not None:
             self.num_frac = self.edges.shape[1]
@@ -532,7 +533,7 @@ class FractureSet(object):
         """
         p = self.pts.copy()
         e = np.vstack((self.edges.copy(), np.arange(self.num_frac)))
-        return pp.cg.remove_edge_crossings(p, e)
+        return pp.cg.remove_edge_crossings(p, e, tol=self.tol)
 
 
     def constrain_to_domain(self, domain=None):
@@ -624,7 +625,7 @@ class FractureSet(object):
                 the set only contains non-intersecting branches.
 
         """
-        p, e = pp.cg.remove_edge_crossings2(self.pts, self.edges)
+        p, e = pp.cg.remove_edge_crossings2(self.pts, self.edges, tol=self.tol)
         return FractureSet(p, e, self.domain)
 
     # --------- Utility functions below here
@@ -1190,8 +1191,6 @@ class ChildFractureSet(FractureSet):
         if constraints is None:
             constraints = parent_realiz
 
-        tol = 1e-4
-
         if y_separately:
             # Create fractures with the maximum allowed length for this distribution.
             # For this, we can use the function generate_y_fractures
@@ -1211,7 +1210,7 @@ class ChildFractureSet(FractureSet):
             end = p[:, edges[1, ci]].reshape((-1, 1))
             d, cp, cg_seg = pp.cg.dist_segment_segment_set(start, end, start_parent, end_parent)
 
-            hit = np.where(d < tol)[0]
+            hit = np.where(d < self.tol)[0]
             if hit.size == 0:
                 raise ValueError('Doubly constrained fractures should be constrained at its start point')
             elif hit.size == 1:
