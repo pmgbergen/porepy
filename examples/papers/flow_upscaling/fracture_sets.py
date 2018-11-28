@@ -9,6 +9,7 @@ import numpy as np
 import scipy
 import scipy.stats as stats
 import logging
+import networkx as nx
 
 from examples.papers.flow_upscaling import frac_gen
 import porepy as pp
@@ -574,6 +575,57 @@ class FractureSet(object):
         p11 = np.array([domain['xmax'], domain['ymax']]).reshape((-1, 1))
         p01 = np.array([domain['xmin'], domain['ymax']]).reshape((-1, 1))
         return np.hstack((p00, p10, p11, p01))
+
+    # --------- Methods for analysis of the fracture set
+
+    def as_graph(self, split_intersections=True):
+        """ Represent the fracture set as a graph, using the networkx data structure.
+
+        By default the fractures will first be split into non-intersecting branches.
+
+        Parameters:
+            split_intersections (boolean, optional): If True (default), the network
+                is split into non-intersecting branches before invoking the graph
+                representation.
+
+        Returns:
+            networkx.graph: Graph representation of the network, using the networkx
+                data structure.
+            FractureSet: This fracture set, split into non-intersecting branches.
+                Only returned if split_intersections is True
+
+        """
+        if split_intersections:
+            split_network = self.split_intersections()
+            pts = split_network.pts
+            edges = split_network.edges
+        else:
+            edges = self.edges
+            pts = self.pts
+
+        G = nx.Graph()
+        for pi in range(pts.shape[1]):
+            G.add_node(pi, coordinate=pts[:, pi])
+
+        for ei in range(edges.shape[1]):
+            G.add_edge(edges[0, ei], edges[1, ei])
+
+        if split_intersections:
+            return G, split_network
+        else:
+            return G
+
+
+    def split_intersections(self):
+        """ Create a new FractureSet, with all fracture intersections removed
+
+        Returns:
+            FractureSet: New set, where all intersection points are added so that
+                the set only contains non-intersecting branches.
+
+        """
+        p, e = pp.cg.remove_edge_crossings2(self.pts, self.edges)
+        return FractureSet(p, e, self.domain)
 
     # --------- Utility functions below here
 
