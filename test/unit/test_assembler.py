@@ -185,7 +185,7 @@ class TestAssembler(unittest.TestCase):
 
         general_assembler = pp.Assembler()
         # Give a false variable name
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb, variables="var_11")
+        A, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables="var_11")
         self.assertTrue(A.shape == (0, 0))
         self.assertTrue(b.size == 0)
 
@@ -263,7 +263,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.array([[0, 0, 2], [0, 0, 2], [-2, -2, -2]])
         g1_ind = block_dof[(g1, key)]
@@ -303,7 +303,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((6, 6))
 
@@ -454,7 +454,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((6, 6))
 
@@ -483,7 +483,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # running without the variables argument
-        A_2, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
+        A_2, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_two_variables_coupling_within_node_and_edge_one_active(self):
@@ -521,7 +521,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb, variables=key_1)
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb, variables=key_1)
 
         A_known = np.zeros((3, 3))
 
@@ -571,7 +571,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((6, 6))
 
@@ -600,9 +600,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(
-            gb, variables=[key_1, key_2]
-        )
+        A_2, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_two_variables_coupling_between_node_and_edge_mixed_dependencies(self):
@@ -670,9 +668,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(
-            gb, variables=[key_1, key_2]
-        )
+        A_2, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies(
@@ -743,9 +739,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(
-            gb, variables=[key_1, key_2]
-        )
+        A_2, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies_two_discretizations(
@@ -822,9 +816,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(
-            gb, variables=[key_1, key_2]
-        )
+        A_2, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies_two_discretizations_2(
@@ -903,9 +895,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(
-            gb, variables=[key_1, key_2]
-        )
+        A_2, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_one_variable_one_sided_coupling_between_node_and_edge(self):
