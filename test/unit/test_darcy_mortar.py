@@ -43,19 +43,19 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
                 parameter_dictionary["bc"] = pp.BoundaryCondition(g)
             parameter_dictionary["bc_values"] = b_val
 
-            d[pp.keywords.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+            d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
+            d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
         gb.add_edge_props("kn")
         for e, d in gb.edges():
             mg = d["mortar_grid"]
             flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
+            d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
             )
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+            d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-        discretization_key = kw + "_" + pp.keywords.DISCRETIZATION
+        discretization_key = kw + "_" + pp.DISCRETIZATION
 
         for g, d in gb:
             # Choose discretization and define the solver
@@ -625,8 +625,8 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             bv[bound_faces] = 1
             parameter_dictionary["bc_values"] = bv
 
-            d[pp.keywords.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+            d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
+            d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
         gb.add_edge_props("kn")
         kn = 1e7
@@ -634,10 +634,10 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             mg = d["mortar_grid"]
 
             flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
+            d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
             )
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+            d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     def verify_cv(self, gb, tol=1e-2):
         # The tolerance level here is a bit touchy: With an unstructured grid,
@@ -653,7 +653,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
     def run_mpfa(self, gb):
 
         key = "flow"
-        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+        discretization_key = key + "_" + pp.DISCRETIZATION
 
         for g, d in gb:
             d[discretization_key] = pp.Mpfa(key)
@@ -669,7 +669,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 
     def run_vem(self, gb):
         key = "flow"
-        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+        discretization_key = key + "_" + pp.DISCRETIZATION
 
         for g, d in gb:
             d[discretization_key] = pp.MVEM(key)
@@ -865,17 +865,17 @@ class TestMortar3D(unittest.TestCase):
             bv[bound_faces] = 1
             parameter_dictionary["bc_values"] = bv
 
-            d[pp.keywords.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+            d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
+            d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
         kn = 1e7
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
             flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
+            d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
             )
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+            d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     def verify_cv(self, gb):
         for g, _ in gb.nodes():
@@ -884,7 +884,7 @@ class TestMortar3D(unittest.TestCase):
 
     def run_mpfa(self, gb):
         key = "flow"
-        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+        discretization_key = key + "_" + pp.DISCRETIZATION
 
         for g, d in gb:
             d[discretization_key] = pp.Mpfa(key)
@@ -1042,18 +1042,18 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
                 parameter_dictionary["bc"] = pp.BoundaryCondition(g)
             parameter_dictionary["bc_values"] = bv
 
-            d[pp.keywords.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {}
+            d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
+            d[pp.DISCRETIZATION_MATRICES] = {}
         gb.add_edge_props("kn")
         kn = 1e7
         for e, d in gb.edges():
             mg = d["mortar_grid"]
 
             flow_dictionary = {"normal_diffusivity": kn * np.ones(mg.num_cells)}
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
+            d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
             )
-            d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+            d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     def verify_cv(self, gb, tol=1e-5):
         # The tolerance level here is a bit touchy: With an unstructured grid,
@@ -1070,7 +1070,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
     def run_mpfa(self, gb):
         key = "flow"
-        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+        discretization_key = key + "_" + pp.DISCRETIZATION
 
         for g, d in gb:
             d[discretization_key] = pp.Mpfa(key)

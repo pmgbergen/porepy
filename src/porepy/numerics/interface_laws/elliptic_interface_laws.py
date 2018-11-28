@@ -34,7 +34,7 @@ class RobinCoupling(object):
         return self.keyword + "_"
 
     def _discretization_key(self):
-        return self._key() + pp.keywords.DISCRETIZATION
+        return self._key() + pp.DISCRETIZATION
 
     def ndof(self, mg):
         return mg.num_cells
@@ -55,11 +55,9 @@ class RobinCoupling(object):
             data_edge: Data dictionary for the edge between the domains.
 
         """
-        matrix_dictionary_edge = data_edge[pp.keywords.DISCRETIZATION_MATRICES][
-            self.keyword
-        ]
-        parameter_dictionary_edge = data_edge[pp.keywords.PARAMETERS][self.keyword]
-        parameter_dictionary_h = data_h[pp.keywords.PARAMETERS][self.keyword]
+        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_h = data_h[pp.PARAMETERS][self.keyword]
         # Mortar data structure.
         mg = data_edge["mortar_grid"]
 
@@ -101,9 +99,7 @@ class RobinCoupling(object):
             internal boundary in some numerical methods (Read: VEM, RT0)
 
         """
-        matrix_dictionary_edge = data_edge[pp.keywords.DISCRETIZATION_MATRICES][
-            self.keyword
-        ]
+        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         if not "Robin_discr" in matrix_dictionary_edge:
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
@@ -244,9 +240,7 @@ class FluxPressureContinuity(RobinCoupling):
             internal boundary in some numerical methods (Read: VEM, RT0)
 
         """
-        matrix_dictionary_edge = data_edge[pp.keywords.DISCRETIZATION_MATRICES][
-            self.keyword
-        ]
+        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
         if not "Robin_discr" in matrix_dictionary_edge:
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 

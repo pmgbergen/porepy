@@ -36,7 +36,7 @@ class BasicsTest(unittest.TestCase):
         specified_parameters = {"bc": bc, "bc_values": bc_val, "discharge": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         time_step = advect.cfl(g, data)
-        data[pp.keywords.PARAMETERS]["transport"]["time_step"] = time_step
+        data[pp.PARAMETERS]["transport"]["time_step"] = time_step
 
         U, rhs = advect.assemble_matrix_rhs(g, data)
         OF = advect.outflow(g, data)
@@ -88,7 +88,7 @@ class BasicsTest(unittest.TestCase):
         specified_parameters = {"bc": bc, "bc_values": bc_val, "discharge": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         time_step = advect.cfl(g, data)
-        data[pp.keywords.PARAMETERS]["transport"]["time_step"] = time_step
+        data[pp.PARAMETERS]["transport"]["time_step"] = time_step
 
         U, rhs = advect.assemble_matrix_rhs(g, data)
         M, _ = pp.MassMatrix("transport").assemble_matrix_rhs(g, data)
@@ -190,7 +190,7 @@ class BasicsTest(unittest.TestCase):
         U, rhs = advect.assemble_matrix_rhs(g, data)
 
         time_step = advect.cfl(g, data)
-        data[pp.keywords.PARAMETERS]["transport"]["time_step"] = time_step
+        data[pp.PARAMETERS]["transport"]["time_step"] = time_step
         M, _ = pp.MassMatrix("transport").assemble_matrix_rhs(g, data)
 
         conc = np.zeros(g.num_cells)

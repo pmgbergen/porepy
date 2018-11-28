@@ -100,7 +100,7 @@ class HybridDualVEM(Solver):
         if g.dim == 0:
             return sps.identity(self.ndof(g), format="csr"), np.zeros(1)
 
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         k = parameter_dictionary["second_order_tensor"]
         f = parameter_dictionary["source"]
         bc = parameter_dictionary["bc"]

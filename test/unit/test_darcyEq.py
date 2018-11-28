@@ -20,7 +20,7 @@ class BasicsTest(unittest.TestCase):
         param = pp.Parameters(g)
         elliptic_data = dict()
         EllipticDataAssigner(g, elliptic_data)
-        elliptic_param = elliptic_data[pp.keywords.PARAMETERS]
+        elliptic_param = elliptic_data[pp.PARAMETERS]
 
         self.check_parameters(elliptic_param, param)
 
@@ -77,7 +77,7 @@ class BasicsTest(unittest.TestCase):
 
         elliptic_data = dict()
         Data(g, elliptic_data)
-        elliptic_param = elliptic_data[pp.keywords.PARAMETERS][kw]
+        elliptic_param = elliptic_data[pp.PARAMETERS][kw]
 
         self.check_parameters(elliptic_param, parameter_dictionary)
 

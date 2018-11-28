@@ -69,8 +69,8 @@ class Mpsa(Solver):
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         if discretize:
             self.discretize(g, data, **kwargs)
@@ -111,8 +111,8 @@ class Mpsa(Solver):
         g : grid, or a subclass, with geometry fields computed.
         data: dictionary to store the data.
         """
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         c = parameter_dictionary["fourth_order_tensor"]
         bnd = parameter_dictionary["bc"]
 
@@ -196,8 +196,8 @@ class FracturedMpsa(Mpsa):
         if discretize:
             self.discretize_fractures(g, data, **kwargs)
 
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         stress = matrix_dictionary["stress"]
         bound_stress = matrix_dictionary["bound_stress"]
         b_e = matrix_dictionary["b_e"]
@@ -249,8 +249,8 @@ class FracturedMpsa(Mpsa):
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         stress = matrix_dictionary["stress"]
         bound_stress = matrix_dictionary["bound_stress"]
         b_e = matrix_dictionary["b_e"]
@@ -293,8 +293,8 @@ class FracturedMpsa(Mpsa):
             traction on each face
 
         """
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         bc_val = parameter_dictionary["bc_values"].copy()
         frac_disp = self.extract_frac_u(g, sol)
         cell_disp = self.extract_u(g, sol)
@@ -378,8 +378,8 @@ class FracturedMpsa(Mpsa):
 
         #    dir_bound = g.get_all_boundary_faces()
         #    bound = bc.BoundaryCondition(g, dir_bound, ['dir'] * dir_bound.size)
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         frac_faces = g.tags["fracture_faces"]
 

@@ -117,7 +117,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 size of the matrix will depend on the specific discretization.
 
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if not "flux" in matrix_dictionary:
             self.discretize(g, data)
 
@@ -145,13 +145,13 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 conditions. The size of the vector will depend on the
                 discretization.
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if not "bound_flux" in matrix_dictionary:
             self.discretize(g, data)
 
         bound_flux = matrix_dictionary["bound_flux"]
 
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
         bc_val = parameter_dictionary["bc_values"]
 
@@ -193,9 +193,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         """
         div = g.cell_faces.T
 
-        bound_flux = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword][
-            "bound_flux"
-        ]
+        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_flux"]
         # Projection operators to grid
         mg = data_edge["mortar_grid"]
 
@@ -281,7 +279,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         """
         mg = data_edge["mortar_grid"]
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # TODO: this should become first or second or something
         if grid_swap:
             proj = mg.slave_to_mortar_avg()

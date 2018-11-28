@@ -101,10 +101,10 @@ class MainTester(unittest.TestCase):
         discr = pp.Mpfa(keyword="flow")
         specified_parameters = {"permeability": k, "bc": bound_cond}
         data = pp.initialize_data({}, g, "flow", specified_parameters)
-        data[pp.keywords.PARAMETERS]["flow"]["mpfa_eta"] = 0
+        data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
         a = discr.assemble_matrix(g, data)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_flux = matrix_dictionary["bound_flux"]
         flux = matrix_dictionary["flux"]
 
@@ -150,10 +150,10 @@ class MainTester(unittest.TestCase):
         discr = pp.Mpfa(keyword="flow")
         specified_parameters = {"permeability": perm, "bc": bound_cond}
         data = pp.initialize_data({}, g, "flow", specified_parameters)
-        data[pp.keywords.PARAMETERS]["flow"]["mpfa_eta"] = 0
+        data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
         a = discr.assemble_matrix(g, data)
 
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         bound_flux = matrix_dictionary["bound_flux"]
         flux = matrix_dictionary["flux"]
 

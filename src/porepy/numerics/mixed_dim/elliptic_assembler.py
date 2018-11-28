@@ -45,7 +45,7 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
 
     def _discretization_key(self):
         # Convenience method to get a string representation for whatever
-        return self._key() + pp.keywords.DISCRETIZATION
+        return self._key() + pp.DISCRETIZATION
 
     def assemble_matrix_rhs(self, gb, matrix_format="csr"):
         """ Assemble the system matrix and right hand side  for the elliptic

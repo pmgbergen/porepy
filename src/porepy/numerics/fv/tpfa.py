@@ -40,9 +40,9 @@ class Tpfa(FVElliptic):
         We assume the following two sub-dictionaries to be present in the data
         dictionary:
             parameter_dictionary, storing all parameters.
-                Stored in data[pp.keywords.PARAMETERS][self.keyword].
+                Stored in data[pp.PARAMETERS][self.keyword].
             matrix_dictionary, for storage of discretization matrices.
-                Stored in data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         parameter_dictionary contains the following parameters:
             second_order_tensor: second_order_tensor
@@ -68,8 +68,8 @@ class Tpfa(FVElliptic):
         data: dictionary to store the data.
         """
         # Get the dictionaries for storage of data and discretization matrices
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # Extract parameters
         k = parameter_dictionary["second_order_tensor"]
         bnd = parameter_dictionary["bc"]

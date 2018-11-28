@@ -55,10 +55,8 @@ def add_data(gb, domain):
         gn = gb.nodes_of_edge(e)
         mg = d["mortar_grid"]
         kn = 1e-8 * np.ones(gn[0].num_cells)
-        d[pp.keywords.PARAMETERS] = pp.Parameters(
-            mg, ["flow"], [{"normal_diffusivity": kn}]
-        )
-        d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+        d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
 
 # ------------------------------------------------------------------------------#

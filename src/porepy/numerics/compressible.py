@@ -46,7 +46,7 @@ class SlightlyCompressibleModel(pp.ParabolicModel):
 
             def assemble_matrix_rhs(self, g, data):
                 ndof = g.num_cells
-                parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+                parameter_dictionary = data[pp.PARAMETERS][self.keyword]
                 aperture = parameter_dictionary["aperture"]
                 coeff = g.cell_volumes * aperture / self.time_step
                 lhs = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
@@ -108,7 +108,7 @@ class SlightlyCompressibleDataAssigner(pp.ParabolicDataAssigner):
 
     def _set_data(self):
         pp.ParabolicDataAssigner._set_data(self)
-        parameter_dictionary = self.data()[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = self.data()[pp.PARAMETERS][self.keyword]
         parameter_dictionary["compressibility"] = self.compressibility()
 
     def compressibility(self):
