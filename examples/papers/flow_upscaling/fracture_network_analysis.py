@@ -5,9 +5,90 @@ Various utility functions for analysis of fracture networks. For the moment, 2d
 only.
 """
 import numpy as np
+import networkx as nx
 
-import proepy as pp
+import porepy as pp
+from examples.papers.flow_upscaling import segment_pixelation
 
+
+def connectivity_field(network, num_boxes):
+    """ Compute the connectivity field associated with a fracture network.
+
+    The method is motivated by the paper
+        Connectivity field: A measure for characterizing fracture networks,
+        by Alghalandis et al. Mathematical Geosciences 2015.
+
+    Parameters:
+        network (FractureSet): fracture network to be analyzed
+        num_boxes (np.array, size 2): Number of bins to split the domain into in
+            the x and y-direction, respectively.
+
+    Returns:
+        np.array, size num_boxes: For each cell in the Cartesian division of the
+            domain, the number of other cells the cell is connected to
+
+    """
+
+    # Partition the domain
+    _, _, dx, _ = cartesian_partition(network.domain, num_x=num_boxes[0], num_y=num_boxes[1])
+    # Graph representation of the network
+    graph, split_network = network.as_graph()
+
+    num_clusters = len([sg for sg in nx.connected_components(graph)])
+
+    # Field to store the presence of a network
+    is_connected = np.zeros((num_clusters, num_boxes[0], num_boxes[1]))
+
+    # Loop over all connected subgraphs of the network, identify connected
+    # components
+    for gi, sub_graph in enumerate(nx.connected_components(graph)):
+        sg = graph.subgraph(sub_graph)
+        loc_edges = np.array([[e[0], e[1]] for e in sg.edges()]).T
+        # Use a pixelation algorithm to project fractures onto a Cartesian representation
+        # of the domain
+        pixelated = segment_pixelation.pixelate(split_network.pts, loc_edges, num_boxes, dx)
+        is_connected[gi] = pixelated
+
+    connectivity_field = np.zeros(num_boxes)
+    for i in range(num_boxes[0]):
+        for j in range(num_boxes[1]):
+            hit = np.where(is_connected[:, i, j] > 0)[0]
+            connectivity_field[i, j] = np.sum(is_connected[hit].sum(axis=0) > 0)
+
+    # Binary division of connected and non-connected components
+    return connectivity_field
+
+def cartesian_partition(domain, num_x, num_y=None):
+    """ Define a Cartesian partitioning of a domain.
+
+    The domain could be 1d or 2d.
+
+    Parameters:
+        domain (dictionary): The domain in which the fracture set is defined.
+            Should contain keys 'xmin', 'xmax', for 2d also 'ymin', 'ymax',
+            each of which maps to a double giving the range of the domain.
+        num_x (int): Number of bins in the x-direction
+        num_y (int, optional): Number of bins in the y-direction. Only if the
+            domain is 2d.
+
+    Returns:
+        double: Minimum x-coordinate of the domain
+        double (optional): Minimum y-coordinate of the domain. Only if the domain
+            is 2d.
+        double: Spacing of the cells in the x-direction.
+        double (optional): Spacing of the cells in the y-direction. Only if the
+            domain is 2d.
+
+    """
+    x0 = domain['xmin']
+    dx = (domain['xmax'] - domain['xmin']) / num_x
+
+    if 'ymin' in domain.keys() and 'ymax' in domain.keys():
+        y0 = domain['ymin']
+        dy = (domain['ymax'] - domain['ymin']) / num_y
+        return x0, y0, dx, dy
+    else:
+        return x0, dx
 
 def analyze_intersections_of_sets(set_1, set_2=None, tol=1e-4):
     """ Count the number of node types (I, X, Y) per fracture in one or two
