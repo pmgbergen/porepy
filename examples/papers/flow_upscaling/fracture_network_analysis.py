@@ -14,6 +14,9 @@ from examples.papers.flow_upscaling import segment_pixelation
 def connectivity_field(network, num_boxes):
     """ Compute the connectivity field associated with a fracture network.
 
+    The method assumes that all points of the network are contained within the
+    network's domain. This can be ensured by invoking network.constrain_to_domain().
+
     The method is motivated by the paper
         Connectivity field: A measure for characterizing fracture networks,
         by Alghalandis et al. Mathematical Geosciences 2015.
