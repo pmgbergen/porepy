@@ -2938,9 +2938,6 @@ def dist_two_segments(s1_start, s1_end, s2_start, s2_end):
 
     """
 
-    # Variable used to fine almost parallel lines. Sensitivity to this value has not been tested.
-    SMALL_TOLERANCE = 1e-6
-
     # For the rest of the algorithm, see the webpage referred to above for details.
     d1 = s1_end - s1_start
     d2 = s2_end - s2_start
@@ -2952,6 +2949,10 @@ def dist_two_segments(s1_start, s1_end, s2_start, s2_end):
     dot_1_starts = d1.dot(d_starts)
     dot_2_starts = d2.dot(d_starts)
     discr = dot_1_1 * dot_2_2 - dot_1_2 ** 2
+
+    # Variable used to fine almost parallel lines. Sensitivity to this value has not been tested.
+    SMALL_TOLERANCE = 1e-8 * np.minimum(dot_1_1, dot_2_2)
+
     # Sanity check
     assert discr >= -SMALL_TOLERANCE * dot_1_1 * dot_2_2
 
