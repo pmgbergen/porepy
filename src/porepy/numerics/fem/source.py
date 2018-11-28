@@ -6,26 +6,9 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
+from porepy.numerics.mixed_dim.solver import Solver
 
 # ------------------------------------------------------------------------------#
-
-
-class P1SourceMixedDim(SolverMixedDim):
-    def __init__(self, keyword="flow"):
-        self.keyword = keyword
-
-        self.discr = P1Source(self.keyword)
-        self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = None
-
-        self.solver = Coupler(self.discr)
-        SolverMixedDim.__init__(self)
-
-
-# ------------------------------------------------------------------------------#
-
 
 class P1Source(Solver):
     """
