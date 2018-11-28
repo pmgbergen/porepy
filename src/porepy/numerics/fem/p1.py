@@ -4,29 +4,12 @@ import logging
 
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
-from porepy.numerics.mixed_dim.abstract_coupling import AbstractCoupling
+from porepy.numerics.mixed_dim.solver import Solver
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------#
-
-
-class P1MixedDim(SolverMixedDim):
-    def __init__(self, keyword="flow"):
-        self.keyword = keyword
-
-        self.discr = P1(self.keyword)
-        self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = P1Coupling(self.discr)
-
-        self.solver = Coupler(self.discr, self.coupling_conditions)
-
-
-# ------------------------------------------------------------------------------#
-
 
 class P1(Solver):
 
@@ -270,75 +253,75 @@ class P1(Solver):
     # ------------------------------------------------------------------------------#
 
 
-class P1Coupling(AbstractCoupling):
-
-    # ------------------------------------------------------------------------------#
-
-    def __init__(self, discr):
-        self.discr_ndof = discr.ndof
-
-    # ------------------------------------------------------------------------------#
-
-    def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
-        """
-        Construct the matrix (and right-hand side) for the coupling conditions.
-        Note: the right-hand side is not implemented now.
-
-        Parameters:
-            g_h: grid of higher dimension
-            g_l: grid of lower dimension
-            data_h: dictionary which stores the data for the higher dimensional
-                grid
-            data_l: dictionary which stores the data for the lower dimensional
-                grid
-            data: dictionary which stores the data for the edges of the grid
-                bucket
-
-        Returns:
-            cc: block matrix which store the contribution of the coupling
-                condition. See the abstract coupling class for a more detailed
-                description.
-        """
-        # pylint: disable=invalid-name
-
-        # Retrieve the number of degrees of both grids
-        # Create the block matrix for the contributions
-        mg = data_edge["mortar_grid"]
-        dof, cc = self.create_block_matrix([g_h, g_l, mg])
-
-        # Recover the information for the grid-grid mapping
-        faces_h, cells_h, _ = sps.find(g_h.cell_faces)
-        ind_faces_h = np.unique(faces_h, return_index=True)[1]
-        cells_h = cells_h[ind_faces_h]
-
-        # Mortar mass matrix
-        inv_M = sps.diags(1.0 / mg.cell_volumes)
-
-        # Projection matrix from hight/lower grid to mortar
-        hat_P = mg.high_to_mortar_avg()
-        check_P = mg.low_to_mortar_avg()
-
-        hat_P0 = g_h.face_nodes.T.astype(np.float) / g_h.dim
-        check_P0 = g_l.cell_nodes().T.astype(np.float) / (g_l.dim + 1)
-
-        # Normal permeability and aperture of the intersection
-        kn = data_h[pp.keywords.PARAMETERS][self.keyword]["normal_diffusivity"]
-        inv_k = 1.0 / (2.0 * kn)
-        aperture_h = data_h[pp.keywords.PARAMETERS][self.keyword]["aperture"]
-
-        # Inverse of the normal permability matrix
-        Eta = sps.diags(np.divide(inv_k, hat_P * aperture_h[cells_h]))
-
-        # Compute the mortar variables rows
-        cc[2, 0] = -hat_P * hat_P0
-        cc[2, 1] = check_P * check_P0
-        cc[2, 2] = Eta * inv_M
-
-        # Compute the high dimensional grid coupled to mortar grid term
-        cc[0, 2] = -cc[2, 0].T
-        cc[1, 2] = -cc[2, 1].T
-
-        return matrix + cc
-
-
-# ------------------------------------------------------------------------------#
+#class P1Coupling(AbstractCoupling):
+#
+#    # ------------------------------------------------------------------------------#
+#
+#    def __init__(self, discr):
+#        self.discr_ndof = discr.ndof
+#
+#    # ------------------------------------------------------------------------------#
+#
+#    def matrix_rhs(self, matrix, g_h, g_l, data_h, data_l, data_edge):
+#        """
+#        Construct the matrix (and right-hand side) for the coupling conditions.
+#        Note: the right-hand side is not implemented now.
+#
+#        Parameters:
+#            g_h: grid of higher dimension
+#            g_l: grid of lower dimension
+#            data_h: dictionary which stores the data for the higher dimensional
+#                grid
+#            data_l: dictionary which stores the data for the lower dimensional
+#                grid
+#            data: dictionary which stores the data for the edges of the grid
+#                bucket
+#
+#        Returns:
+#            cc: block matrix which store the contribution of the coupling
+#                condition. See the abstract coupling class for a more detailed
+#                description.
+#        """
+#        # pylint: disable=invalid-name
+#
+#        # Retrieve the number of degrees of both grids
+#        # Create the block matrix for the contributions
+#        mg = data_edge["mortar_grid"]
+#        dof, cc = self.create_block_matrix([g_h, g_l, mg])
+#
+#        # Recover the information for the grid-grid mapping
+#        faces_h, cells_h, _ = sps.find(g_h.cell_faces)
+#        ind_faces_h = np.unique(faces_h, return_index=True)[1]
+#        cells_h = cells_h[ind_faces_h]
+#
+#        # Mortar mass matrix
+#        inv_M = sps.diags(1.0 / mg.cell_volumes)
+#
+#        # Projection matrix from hight/lower grid to mortar
+#        hat_P = mg.high_to_mortar_avg()
+#        check_P = mg.low_to_mortar_avg()
+#
+#        hat_P0 = g_h.face_nodes.T.astype(np.float) / g_h.dim
+#        check_P0 = g_l.cell_nodes().T.astype(np.float) / (g_l.dim + 1)
+#
+#        # Normal permeability and aperture of the intersection
+#        kn = data_h[pp.keywords.PARAMETERS][self.keyword]["normal_diffusivity"]
+#        inv_k = 1.0 / (2.0 * kn)
+#        aperture_h = data_h[pp.keywords.PARAMETERS][self.keyword]["aperture"]
+#
+#        # Inverse of the normal permability matrix
+#        Eta = sps.diags(np.divide(inv_k, hat_P * aperture_h[cells_h]))
+#
+#        # Compute the mortar variables rows
+#        cc[2, 0] = -hat_P * hat_P0
+#        cc[2, 1] = check_P * check_P0
+#        cc[2, 2] = Eta * inv_M
+#
+#        # Compute the high dimensional grid coupled to mortar grid term
+#        cc[0, 2] = -cc[2, 0].T
+#        cc[1, 2] = -cc[2, 1].T
+#
+#        return matrix + cc
+#
+#
+## ------------------------------------------------------------------------------#
