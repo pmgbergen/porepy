@@ -13,48 +13,6 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-# Implementation note: This class will be deleted in the future, and should not
-# be used for anything. However, we keep it temporarily to decide on what to do
-# with the method check_conservation
-class _DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
-    def check_conservation(self, gb, u, conservation):
-        """
-        Save in the grid bucket a piece-wise vector representation of the Darcy
-        velocity for each grid.
-
-        Parameters
-        ---------
-        gb: the grid bucket
-        u: identifier of the discharge, already split, in the grid bucket
-        P0u: identifier of the reconstructed velocity which will be added to the grid bucket.
-        mortar_key (optional): identifier of the mortar variable, already split, in the
-            grid bucket. The default value is "mortar_solution".
-
-        """
-
-        gb.add_node_props([P0u])
-        for g, d in gb:
-            # we need to recover the velocity from the mortar variable before
-            # the projection, only lower dimensional edges need to be considered.
-            u_e = np.zeros(d[u].size)
-            faces = g.tags["fracture_faces"]
-            if np.any(faces):
-                # recover the sign of the discharge, since the mortar is assumed
-                # to point from the higher to the lower dimensional problem
-                _, indices = np.unique(g.cell_faces.indices, return_index=True)
-                sign = sps.diags(g.cell_faces.data[indices], 0)
-
-                for _, d_e in gb.edges_of_node(g):
-                    g_m = d_e["mortar_grid"]
-                    if g_m.dim == g.dim:
-                        continue
-                    # project the mortar variable back to the higher dimensional
-                    # problem
-                    u_e += sign * g_m.mortar_to_high_int() * d_e[mortar_key]
-
-            d[P0u] = self.discr.project_u(g, u_e + d[u], d)
-
-
 class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
     """
     @ALL: I have kept the inheritance from the general Solver for now, or else
