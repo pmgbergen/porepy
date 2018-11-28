@@ -8,13 +8,9 @@ def main(file_geo, param, mesh_args, tol):
 
     # import the grid and the domain
     gb, param["domain"] = grid(file_geo, mesh_args, tol)
-    print(param["domain"]["xmax"] - param["domain"]["xmin"])
 
     # solve the pressure problem
     param["keys_flow"] = solvers.flow(gb, param)
-
-#    save = pp.Exporter(gb, "solution", folder=folder)
-#    save.write_vtk(keys_flow[1])
 
     solvers.advdiff(gb, param)
 
@@ -25,13 +21,13 @@ if __name__ == "__main__":
     rock = pp.Granite(theta_ref)
 
     aperture = 2*pp.MILLIMETER
-    n_steps = 200
+    n_steps = 1 #200
 
     mu = fluid.dynamic_viscosity()
 
     folder_fractures = "../fracture_networks/"
 
-    if False: # OK MESH
+    if True:
         file_geo = folder_fractures + "Algeroyna_1to1.csv"
         mesh_args = {'mesh_size_frac': 0.0390625/16}
         tol = {"geo": 2.5*1e-3, "snap": 0.75*2.5*1e-3}
@@ -46,16 +42,19 @@ if __name__ == "__main__":
     elif False: # quite slow
         file_geo = folder_fractures + "Algeroyna_1to10.csv"
         mesh_args = {'mesh_size_frac': 0.0390625}
-        tol = {"geo": 1e-3, "snap": 0.75*1e-3}
+        tol = {"geo": 1e-8, "snap": 1e-3}
         folder = "algeroyna_1to10"
 
-        t_max = 1e5 * pp.SECOND
-        bc_flow = 1e-1 * pp.BAR
+        delta_x = 2.8
+        bc_flow = pp.BAR
+        km = 1e-14
 
-    elif True:
+        t_max = delta_x * delta_x * mu / (bc_flow * km)
+
+    elif False:
         file_geo = folder_fractures + "Algeroyna_1to100.csv"
-        mesh_args = {'mesh_size_frac': 0.3125}
-        tol = {"geo": 1.25*1e-2, "snap": 0.6125*1e-2}
+        mesh_args = {'mesh_size_frac': 10+0.3125}
+        tol = {"geo": 1e-2, "snap": 1e-2}
         folder = "algeroyna_1to100"
 
         delta_x = 15.5
@@ -67,20 +66,26 @@ if __name__ == "__main__":
     elif False:
         file_geo = folder_fractures + "Algeroyna_1to1000.csv"
         mesh_args = {'mesh_size_frac': 10, "mesh_size_min": 0.01}
-        tol = {"geo": 1e-3, "snap": 0.5*1e-3}
+        tol = {"geo": 1e-2, "snap": 1e-2}
         folder = "algeroyna_1to1000"
 
-        t_max = 1e7 * pp.SECOND
-        bc_flow = 1e-1 * pp.BAR
+        delta_x = 245
+        bc_flow = pp.BAR
+        km = 1e-14
+
+        t_max = delta_x * delta_x * mu / (bc_flow * km)
 
     elif False:
         file_geo = folder_fractures + "Algeroyna_1to10000.csv"
-        mesh_args = {'mesh_size_frac': 100, "mesh_size_min": 0.01}
-        tol = {"geo": 1.5*1e-3, "snap": 0.5*1e-3}
+        mesh_args = {'mesh_size_frac': 100}
+        tol = {"geo": 1e-3, "snap": 1e-3}
         folder = "algeroyna_1to10000"
 
-        t_max = 1e7 * pp.SECOND
-        bc_flow = 1e-1 * pp.BAR
+        delta_x = 3160
+        bc_flow = pp.BAR
+        km = 1e-14
+
+        t_max = delta_x * delta_x * mu / (bc_flow * km)
 
     elif False:
         file_geo = folder_fractures + "Vikso_1to10.csv"
@@ -88,27 +93,35 @@ if __name__ == "__main__":
         tol = {"geo": 1e-3, "snap": 0.75*1e-3}
         folder = "vikso_1to10"
 
-        t_max = 1e5 * pp.SECOND #
-        bc_flow = 1e-1 * pp.BAR
+        delta_x = 4
+        bc_flow = pp.BAR
+        km = 1e-14
+
+        t_max = delta_x * delta_x * mu / (bc_flow * km)
 
     elif False:
         file_geo = folder_fractures + "Vikso_1to100.csv"
-        mesh_args = {'mesh_size_frac': 1, "mesh_size_min": 0.001}
+        mesh_args = {'mesh_size_frac': 1}
         tol = {"geo": 1e-3, "snap": 0.75*1e-3}
         folder = "vikso_1to100"
 
-        t_max = 1e5 * pp.SECOND #
-        bc_flow = 1e-1 * pp.BAR
+        delta_x = 30
+        bc_flow = pp.BAR
+        km = 1e-14
+
+        t_max = delta_x * delta_x * mu / (bc_flow * km)
 
     elif False:
         file_geo = folder_fractures + "/Vikso_1to1000.csv"
         mesh_args = {'mesh_size_frac': 10}
-        tol = {"geo": 0.5*1e-2, "snap": 0.0625*1e-2}
+        tol = {"geo": 1e-2, "snap": 1e-2}
         folder = "vikso_1to1000"
 
-        t_max = 1e5 * pp.SECOND #
-        bc_flow = 1e-1 * pp.BAR
+        delta_x = 295
+        bc_flow = pp.BAR
+        km = 1e-14
 
+        t_max = delta_x * delta_x * mu / (bc_flow * km)
 
     # select the permeability depending on the selected test case
     param = {
