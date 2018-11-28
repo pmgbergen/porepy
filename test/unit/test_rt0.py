@@ -1103,7 +1103,7 @@ class BasicsTest(unittest.TestCase):
             source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
 
             solver = pp.RT0(keyword="flow")
-            solver_rhs = pp.DualSource(keyword="flow")
+            solver_rhs = pp.DualIntegral(keyword="flow")
 
             specified_parameters = {
                 "bc": bc,
@@ -1160,7 +1160,7 @@ class BasicsTest(unittest.TestCase):
             source = np.multiply(g.cell_volumes, rhs_ex(g.cell_centers))
 
             solver = pp.RT0(keyword="flow")
-            solver_rhs = pp.DualSource(keyword="flow")
+            solver_rhs = pp.DualIntegral(keyword="flow")
 
             specified_parameters = {
                 "bc": bc,

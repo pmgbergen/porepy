@@ -162,7 +162,7 @@ class BasicsTest(unittest.TestCase):
         solver = pp.MVEM("flow")
         D_flow, b_flow = solver.assemble_matrix_rhs(g, data)
 
-        solver_source = pp.DualSource("flow")
+        solver_source = pp.DualIntegral("flow")
         D_source, b_source = solver_source.assemble_matrix_rhs(g, data)
 
         up = sps.linalg.spsolve(D_flow + D_source, b_flow + b_source)
