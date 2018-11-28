@@ -28,7 +28,7 @@ class P1Source(Solver):
         return g.num_nodes
 
     def matrix_rhs(self, g, data):
-        source = data[pp.keywords.PARAMETERS][self.keyword]["source"]
+        source = data[pp.PARAMETERS][self.keyword]["source"]
 
         solver = pp.P1MassMatrix(keyword=self.keyword)
         M = solver.matrix(g, data)

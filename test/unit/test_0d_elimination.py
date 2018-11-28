@@ -38,7 +38,7 @@ class BasicsTest(unittest.TestCase):
         a = 1e-2
         for g, d in gb:
             param = pp.Parameters(g)
-            d[pp.keywords.PARAMETERS][kw] = param
+            d[pp.PARAMETERS][kw] = param
             a_dim = np.power(a, gb.dim_max() - g.dim)
             aperture = np.ones(g.num_cells) * a_dim
             param.set_aperture(aperture)

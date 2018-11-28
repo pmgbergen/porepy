@@ -1172,8 +1172,8 @@ def compute_discharges(
     """
     keyword = keyword
     if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
-        parameter_dictionary = data[pp.keywords.PARAMETERS][keyword]
-        matrix_dictionary = data[pp.keywords.PARAMETERS][keyword]
+        parameter_dictionary = data[pp.PARAMETERS][keyword]
+        matrix_dictionary = data[pp.PARAMETERS][keyword]
         if "flux" in matrix_dictionary:
             dis = (
                 matrix_dictionary["flux"] * data[p_name]
@@ -1192,8 +1192,8 @@ def compute_discharges(
     # boundary conditions.
     for g, d in gb:
         if g.dim > 0:
-            parameter_dictionary = d[pp.keywords.PARAMETERS][keyword]
-            matrix_dictionary = d[pp.keywords.DISCRETIZATION_MATRICES][keyword]
+            parameter_dictionary = d[pp.PARAMETERS][keyword]
+            matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
             if "flux" in matrix_dictionary:
                 dis = (
                     matrix_dictionary["flux"] * d[p_name]

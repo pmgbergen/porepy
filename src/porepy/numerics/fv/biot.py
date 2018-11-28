@@ -62,14 +62,14 @@ class Biot(Solver):
             state.
 
         """
-        d = data[pp.keywords.PARAMETERS]["mechanics"]["bc_values"]
-        p = data[pp.keywords.PARAMETERS]["flow"]["bc_values"]
+        d = data[pp.PARAMETERS]["mechanics"]["bc_values"]
+        p = data[pp.PARAMETERS]["flow"]["bc_values"]
 
         div_flow = fvutils.scalar_divergence(g)
         div_mech = fvutils.vector_divergence(g)
 
-        m_matrices = data[pp.keywords.DISCRETIZATION_MATRICES]["mechanics"]
-        f_matrices = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        m_matrices = data[pp.DISCRETIZATION_MATRICES]["mechanics"]
+        f_matrices = data[pp.DISCRETIZATION_MATRICES]["flow"]
         p_bound = (
             -div_flow * f_matrices["bound_flux"] * p - m_matrices["bound_div_d"] * d
         )
@@ -102,8 +102,8 @@ class Biot(Solver):
         d = self.extractD(g, state, as_vector=True)
         p = self.extractP(g, state)
 
-        parameter_dictionary = data[pp.keywords.PARAMETERS]["mechanics"]
-        matrix_dictionaries = data[pp.keywords.DISCRETIZATION_MATRICES]
+        parameter_dictionary = data[pp.PARAMETERS]["mechanics"]
+        matrix_dictionaries = data[pp.DISCRETIZATION_MATRICES]
 
         d_scaling = parameter_dictionary.get("displacement_scaling", 1)
         div_d = matrix_dictionaries["mechanics"]["div_d"]
@@ -180,13 +180,13 @@ class Biot(Solver):
         """
         div_flow = fvutils.scalar_divergence(g)
         div_mech = fvutils.vector_divergence(g)
-        param = data[pp.keywords.PARAMETERS]
+        param = data[pp.PARAMETERS]
 
         fluid_viscosity = param["flow"]["fluid_viscosity"]
         biot_alpha = param["flow"]["biot_alpha"]
 
-        m_matrices = data[pp.keywords.DISCRETIZATION_MATRICES]["mechanics"]
-        f_matrices = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        m_matrices = data[pp.DISCRETIZATION_MATRICES]["mechanics"]
+        f_matrices = data[pp.DISCRETIZATION_MATRICES]["flow"]
         # Put together linear system
         A_flow = div_flow * f_matrices["flux"] / fluid_viscosity
         A_mech = div_mech * m_matrices["stress"]
@@ -219,8 +219,8 @@ class Biot(Solver):
         md.discretize(g, data)
 
     def _discretize_compr(self, g, data):
-        parameter_dictionary = data[pp.keywords.PARAMETERS]["flow"]
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]
+        parameter_dictionary = data[pp.PARAMETERS]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
         compr = parameter_dictionary["fluid_compressibility"]
         poro = parameter_dictionary["porosity"]
         matrix_dictionary["compr_discr"] = sps.dia_matrix(
@@ -311,8 +311,8 @@ class Biot(Solver):
             p = x[g.num_cells * gdim:]
 
         """
-        parameters = data[pp.keywords.PARAMETERS]
-        matrices = data[pp.keywords.DISCRETIZATION_MATRICES]
+        parameters = data[pp.PARAMETERS]
+        matrices = data[pp.DISCRETIZATION_MATRICES]
         bound_mech = parameters["mechanics"]["bc"]
         bound_flow = parameters["flow"]["bc"]
         constit = parameters["mechanics"]["fourth_order_tensor"]
@@ -582,9 +582,9 @@ class Biot(Solver):
             np.ndarray: Flux over all faces
 
         """
-        flux_discr = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]["flux"]
-        bound_flux = data[pp.keywords.DISCRETIZATION_MATRICES]["flow"]["bound_flux"]
-        bound_val = data[pp.keywords.PARAMETERS]["flow"]["bc_values"]
+        flux_discr = data[pp.DISCRETIZATION_MATRICES]["flow"]["flux"]
+        bound_flux = data[pp.DISCRETIZATION_MATRICES]["flow"]["bound_flux"]
+        bound_val = data[pp.PARAMETERS]["flow"]["bc_values"]
         p = self.extractP(g, u)
         flux = flux_discr * p + bound_flux * bound_val
         return flux
@@ -605,10 +605,10 @@ class Biot(Solver):
                 all stress values on the first face, then the second etc.
 
         """
-        matrix_dictionary = data[pp.keywords.DISCRETIZATION_MATRICES]["mechanics"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["mechanics"]
         stress_discr = matrix_dictionary["stress"]
         bound_stress = matrix_dictionary["bound_stress"]
-        bound_val = data[pp.keywords.PARAMETERS]["mechanics"]["bc_values"]
+        bound_val = data[pp.PARAMETERS]["mechanics"]["bc_values"]
         d = self.extractD(g, u, as_vector=True)
         stress = np.squeeze(stress_discr * d) + (bound_stress * bound_val)
         return stress

@@ -118,7 +118,7 @@ class Upwind(Solver):
             data["flow_faces"] = sps.csr_matrix([0.0])
             return sps.csr_matrix([0.0]), np.array([0.0])
 
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         discharge = parameter_dictionary[d_name]
         bc = parameter_dictionary["bc"]
         bc_val = parameter_dictionary["bc_values"]
@@ -217,7 +217,7 @@ class Upwind(Solver):
         if g.dim == 0:
             return np.inf
         # Retrieve the data
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         discharge = parameter_dictionary[d_name]
         aperture = parameter_dictionary["aperture"]
         phi = parameter_dictionary["porosity"]
@@ -286,7 +286,7 @@ class Upwind(Solver):
         if g.dim == 0:
             return sps.csr_matrix([0])
 
-        parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         discharge = parameter_dictionary[d_name]
         bc = parameter_dictionary["bc"]
         bc_val = parameter_dictionary["bc_values"]

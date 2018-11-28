@@ -39,11 +39,9 @@ def setup_2d_1d(nx, simplex_grid=False):
         gl, _ = gb.nodes_of_edge(e)
         d_l = gb.node_props(gl)
         mg = d["mortar_grid"]
-        kn = 1.0 / np.mean(d_l[pp.keywords.PARAMETERS]["flow"]["aperture"])
-        d[pp.keywords.PARAMETERS] = pp.Parameters(
-            mg, ["flow"], [{"normal_diffusivity": kn}]
-        )
-        d[pp.keywords.DISCRETIZATION_MATRICES] = {"flow": {}}
+        kn = 1.0 / np.mean(d_l[pp.PARAMETERS]["flow"]["aperture"])
+        d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
     return gb
 
 
@@ -70,7 +68,7 @@ class BasicsTest(unittest.TestCase):
 
         # Python inverter is most efficient for small problems
         key = "flow"
-        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+        discretization_key = key + "_" + pp.DISCRETIZATION
 
         tpfa = pp.Tpfa(key)
         for g, d in gb:
@@ -94,7 +92,7 @@ class BasicsTest(unittest.TestCase):
 
         # Python inverter is most efficient for small problems
         key = "flow"
-        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+        discretization_key = key + "_" + pp.DISCRETIZATION
 
         tpfa = pp.Tpfa(key)
         for g, d in gb:

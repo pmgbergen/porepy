@@ -35,7 +35,7 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             pp.initialize_data(d, g, "flow", specified_parameters)
         # assign discretization
         key = "flow"
-        discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+        discretization_key = key + "_" + pp.DISCRETIZATION
 
         tpfa = pp.Tpfa(key)
         for g, d in gb:
@@ -244,7 +244,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
         for _, d in gb.edges():
             pp.params.data.add_discretization_matrix_keyword(d, "flow")
-            d[pp.keywords.PARAMETERS] = pp.Parameters(
+            d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries={"normal_diffusivity": 1e10}
             )
 
@@ -264,17 +264,17 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         tpfa = pp.Tpfa(kw)
         src = pp.Integral(kw)
         for g, d in gb:
-            d[pp.keywords.DISCRETIZATION] = {key_p: {key_src: src, key_flux: tpfa}}
-            d[pp.keywords.PRIMARY_VARIABLES] = {key_p: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key_p: {key_src: src, key_flux: tpfa}}
+            d[pp.PRIMARY_VARIABLES] = {key_p: {"cells": 1}}
 
         for e, d in gb.edges():
             g1, g2 = gb.nodes_of_edge(e)
-            d[pp.keywords.PRIMARY_VARIABLES] = {key_m: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {key_m: {"cells": 1}}
             if g1.dim == g2.dim:
                 mortar_disc = pp.FluxPressureContinuity(kw, tpfa)
             else:
                 mortar_disc = pp.RobinCoupling(kw, tpfa)
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.COUPLING_DISCRETIZATION] = {
                 key_flux: {
                     g1: (key_p, key_flux),
                     g2: (key_p, key_flux),
@@ -306,16 +306,16 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
             _, analytic_flux, _ = analytic_p(g1.face_centers)
             # the aperture is assumed constant
-            a1 = np.max(d1[pp.keywords.PARAMETERS][kw]["aperture"])
+            a1 = np.max(d1[pp.PARAMETERS][kw]["aperture"])
             left_flux = a1 * np.sum(analytic_flux * g1.face_normals[:2], 0)
             left_flux = left_to_m * (
-                d1[pp.keywords.DISCRETIZATION_MATRICES][kw]["bound_flux"] * left_flux
+                d1[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * left_flux
             )
             # right flux is negative lambda
-            a2 = np.max(d2[pp.keywords.PARAMETERS][kw]["aperture"])
+            a2 = np.max(d2[pp.PARAMETERS][kw]["aperture"])
             right_flux = a2 * np.sum(analytic_flux * g2.face_normals[:2], 0)
             right_flux = -right_to_m * (
-                d2[pp.keywords.DISCRETIZATION_MATRICES][kw]["bound_flux"] * right_flux
+                d2[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * right_flux
             )
             self.assertTrue(np.max(np.abs(d_e[key_m] - left_flux)) < 5e-2)
             self.assertTrue(np.max(np.abs(d_e[key_m] - right_flux)) < 5e-2)

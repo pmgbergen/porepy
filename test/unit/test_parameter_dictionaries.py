@@ -88,7 +88,7 @@ class TestParameterDictionaries(unittest.TestCase):
         stored in d["parameters"].
         """
         data = pp.initialize_data({}, self.g, keyword="flow")
-        self.check_default_flow_dictionary(data[pp.keywords.PARAMETERS]["flow"])
+        self.check_default_flow_dictionary(data[pp.PARAMETERS]["flow"])
 
     def test_initialize_data_specified(self):
         """ Test transport data initialization.
@@ -108,7 +108,7 @@ class TestParameterDictionaries(unittest.TestCase):
         # The default discharge needs face normals:
         self.g.compute_geometry()
         data = pp.initialize_data({}, self.g, "transport", specified_parameters)
-        dictionary = data[pp.keywords.PARAMETERS]["transport"]
+        dictionary = data[pp.PARAMETERS]["transport"]
         self.assertEqual(dictionary["foo"], "bar")
         zeros = np.zeros(self.g.num_cells)
         self.assertTrue(np.all(np.isclose(dictionary["porosity"], zeros)))

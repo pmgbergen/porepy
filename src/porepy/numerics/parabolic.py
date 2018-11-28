@@ -121,7 +121,7 @@ class ParabolicModel:
             for g, d in self.grid():
                 d[self.keyword + "_data"].update(t)
         else:
-            self.data()[pp.keywords.PARAMETERS][self.keyword].update(t)
+            self.data()[pp.PARAMETERS][self.keyword].update(t)
 
         if self.callback is not None:
             self.callback(self)
@@ -149,7 +149,7 @@ class ParabolicModel:
 
             def matrix_rhs(self, g, data):
                 lhs, rhs = pp.Upwind.matrix_rhs(self, g, data)
-                parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+                parameter_dictionary = data[pp.PARAMETERS][self.keyword]
                 factor = (
                     parameter_dictionary["fluid_specific_heat"]
                     * parameter_dictionary["fluid_density"]
@@ -167,7 +167,7 @@ class ParabolicModel:
                 cc = pp.UpwindCoupling.matrix_rhs(
                     self, matrix, g_h, g_l, data_h, data_l, data_edge
                 )
-                parameter_dictionary = data_h[pp.keywords.PARAMETERS][self.keyword]
+                parameter_dictionary = data_h[pp.PARAMETERS][self.keyword]
                 factor = (
                     parameter_dictionary["fluid_specific_heat"]
                     * parameter_dictionary["fluid_density"]
@@ -202,7 +202,7 @@ class ParabolicModel:
 
             def assemble_matrix_rhs(self, g, data):
                 ndof = g.num_cells
-                parameter_dictionary = data[pp.keywords.PARAMETERS][self.keyword]
+                parameter_dictionary = data[pp.PARAMETERS][self.keyword]
                 aperture = parameter_dictionary["aperture"]
                 coeff = g.cell_volumes * aperture / self.time_step
 
@@ -265,24 +265,24 @@ class ParabolicModel:
             time_disc, _ = self.time_disc()
             for g, d in self._gb:
                 # Choose discretization and define the solver
-                d[pp.keywords.PRIMARY_VARIABLES] = {var: {"cells": 1}}
+                d[pp.PRIMARY_VARIABLES] = {var: {"cells": 1}}
                 node_disc[self._time_name] = time_disc
-                d[pp.keywords.DISCRETIZATION] = {key: node_disc}
+                d[pp.DISCRETIZATION] = {key: node_disc}
 
             for e, d in self._gb.edges():
                 g_slave, g_master = self._gb.nodes_of_edge(e)
                 num_mortars = 0
-                d[pp.keywords.PRIMARY_VARIABLES] = {}
-                d[pp.keywords.COUPLING_DISCRETIZATION] = {}
+                d[pp.PRIMARY_VARIABLES] = {}
+                d[pp.COUPLING_DISCRETIZATION] = {}
                 for i, disc in enumerate(edge_disc):
                     if disc is None:
                         continue
-                    d[pp.keywords.COUPLING_DISCRETIZATION][disc_name[i]] = {
+                    d[pp.COUPLING_DISCRETIZATION][disc_name[i]] = {
                         g_slave: (key, disc_name[i]),
                         g_master: (key, disc_name[i]),
                         e: (key + "_mortar", disc),
                     }
-                    d[pp.keywords.PRIMARY_VARIABLES][var + "_mortar"] = {"cells": 1}
+                    d[pp.PRIMARY_VARIABLES][var + "_mortar"] = {"cells": 1}
 
             assembler = pp.Assembler()
             return assembler
@@ -382,8 +382,8 @@ class ParabolicDataAssigner:
         "Update source and bc_val term to time step t"
         source = self.source(t)
         bc_val = self.bc_val(t)
-        self.data()[pp.keywords.PARAMETERS][self.keyword]["source"] = source
-        self.data()[pp.keywords.PARAMETERS][self.keyword]["bc_values"] = bc_val
+        self.data()[pp.PARAMETERS][self.keyword]["source"] = source
+        self.data()[pp.PARAMETERS][self.keyword]["bc_values"] = bc_val
 
     def bc(self):
         "Define boundary condition"
@@ -452,12 +452,10 @@ class ParabolicDataAssigner:
         """Create a Parameter object and assign data based on the returned
         values from the functions (e.g., self.source(t))
         """
-        if pp.keywords.PARAMETERS not in self._data:
-            self._data[pp.keywords.PARAMETERS] = pp.Parameters(
-                self.grid(), [self.keyword], [{}]
-            )
-        self._data[pp.keywords.PARAMETERS].update_dictionaries([self.keyword], [{}])
-        parameter_dictionary = self._data[pp.keywords.PARAMETERS][self.keyword]
+        if pp.PARAMETERS not in self._data:
+            self._data[pp.PARAMETERS] = pp.Parameters(self.grid(), [self.keyword], [{}])
+        self._data[pp.PARAMETERS].update_dictionaries([self.keyword], [{}])
+        parameter_dictionary = self._data[pp.PARAMETERS][self.keyword]
 
         parameter_dictionary["second_order_tensor"] = self.diffusivity()
         parameter_dictionary["bc"] = self.bc()

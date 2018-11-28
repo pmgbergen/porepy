@@ -35,7 +35,7 @@ class TestTPFA(unittest.TestCase):
         discr = pp.Tpfa(key)
 
         discr.discretize(g, d)
-        matrix_dictionary = d[pp.keywords.DISCRETIZATION_MATRICES][key]
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][key]
         trm, bound_flux = matrix_dictionary["flux"], matrix_dictionary["bound_flux"]
         div = g.cell_faces.T
         a = div * trm
