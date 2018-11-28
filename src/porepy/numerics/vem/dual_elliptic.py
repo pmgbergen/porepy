@@ -10,6 +10,44 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
+    """
+    Save in the grid bucket a piece-wise vector representation of the flux
+    for each grid.
+
+    Parameters
+    ---------
+    gb: the grid bucket
+    discr: discretization class
+    flux: identifier of the flux, already split, in the grid bucket
+    P0_flux: identifier of the reconstructed flux which will be added to the grid bucket.
+    mortar_key (optional): identifier of the mortar variable, already split, in the
+        grid bucket. The default value is "mortar_solution".
+
+    """
+
+    for g, d in gb:
+        # we need to recover the flux from the mortar variable before
+        # the projection, only lower dimensional edges need to be considered.
+        edge_flux = np.zeros(d[flux].size)
+        faces = g.tags["fracture_faces"]
+        if np.any(faces):
+            # recover the sign of the flux, since the mortar is assumed
+            # to point from the higher to the lower dimensional problem
+            _, indices = np.unique(g.cell_faces.indices, return_index=True)
+            sign = sps.diags(g.cell_faces.data[indices], 0)
+
+            for _, d_e in gb.edges_of_node(g):
+                g_m = d_e["mortar_grid"]
+                if g_m.dim == g.dim:
+                    continue
+                # project the mortar variable back to the higher dimensional
+                # problem
+                edge_flux += sign * g_m.mortar_to_high_int() * d_e[mortar_key]
+
+        d[P0_flux] = discr.project_flux(g, edge_flux + d[flux], d)
+
+#------------------------------------------------------------------------------#
 
 class DualElliptic(
     pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscretization
