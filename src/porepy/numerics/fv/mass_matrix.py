@@ -18,20 +18,7 @@ import numpy as np
 import scipy.sparse as sps
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
-
-# ------------------------------------------------------------------------------#
-
-
-class MassMatrixMixedDim(SolverMixedDim):
-    def __init__(self, keyword="flow"):
-        self.keyword = keyword
-
-        self.discr = MassMatrix(self.keyword)
-
-        self.solver = Coupler(self.discr)
-
+from porepy.numerics.mixed_dim.solver import Solver
 
 # ------------------------------------------------------------------------------#
 
@@ -188,19 +175,6 @@ class MassMatrix(Solver):
 
 
 ##########################################################################
-
-
-class InvMassMatrixMixedDim(SolverMixedDim):
-    def __init__(self, keyword="flow"):
-        self.keyword = keyword
-
-        self.discr = InvMassMatrix(self.keyword)
-
-        self.solver = Coupler(self.discr)
-
-
-# ------------------------------------------------------------------------------#
-
 
 class InvMassMatrix(Solver):
     """ Class that provides the discretization of a L2-mass bilinear form with constant

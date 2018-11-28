@@ -3,23 +3,9 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.numerics.mixed_dim.solver import Solver, SolverMixedDim
-from porepy.numerics.mixed_dim.coupler import Coupler
+from porepy.numerics.mixed_dim.solver import Solver
 
 # ------------------------------------------------------------------------------#
-
-
-class P1MassMatrixMixedDim(SolverMixedDim):
-    def __init__(self, keyword="flow"):
-        self.keyword = keyword
-
-        self.discr = P1MassMatrix(self.keyword)
-
-        self.solver = Coupler(self.discr)
-
-
-# ------------------------------------------------------------------------------#
-
 
 class P1MassMatrix(Solver):
 
