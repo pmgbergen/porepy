@@ -1,3 +1,5 @@
 from .dual_elliptic import DualElliptic
 
-from .vem_source import DualSource, DualSourceMixedDim, Integral
+from .mvem import MVEM
+
+from .vem_source import DualIntegral

@@ -35,13 +35,13 @@ from porepy.numerics.fv.source import Integral
 
 # Virtual elements, elliptic
 from porepy.numerics.vem.mvem import MVEM
-from porepy.numerics.vem.vem_source import DualSource, DualSourceMixedDim
+from porepy.numerics.vem.vem_source import DualIntegral
 from porepy.numerics.elliptic import DualEllipticModel
 
 # Finite elements, elliptic
-from porepy.numerics.fem.p1 import P1, P1MixedDim
-from porepy.numerics.fem.source import P1Source, P1SourceMixedDim
-from porepy.numerics.fem.mass_matrix import P1MassMatrix, P1MassMatrixMixedDim
+from porepy.numerics.fem.p1 import P1
+from porepy.numerics.fem.source import P1Source
+from porepy.numerics.fem.mass_matrix import P1MassMatrix
 from porepy.numerics.fem.rt0 import RT0
 
 # Mixed-dimensional discretizations and assemblers
@@ -55,8 +55,8 @@ from porepy.numerics.mixed_dim.assembler import Assembler
 # Transport related
 from porepy.numerics.fv.upwind import Upwind
 from porepy.numerics.interface_laws.hyperbolic_interface_laws import UpwindCoupling
-from porepy.numerics.fv.mass_matrix import MassMatrix, MassMatrixMixedDim
-from porepy.numerics.fv.mass_matrix import InvMassMatrix, InvMassMatrixMixedDim
+from porepy.numerics.fv.mass_matrix import MassMatrix
+from porepy.numerics.fv.mass_matrix import InvMassMatrix
 
 # Physical models
 from porepy.numerics.elliptic import EllipticModel, EllipticDataAssigner
