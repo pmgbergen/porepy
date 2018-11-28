@@ -1389,11 +1389,12 @@ class ChildFractureSet(FractureSet):
         self.both_y = both_y
 
         # Find the number of isolated fractures that cross a parent fracture.
-        # Not sure how we will use this
-        x_nodes_with_parent = (
-            node_types_combined_self["x_nodes"] - node_types_self["x_nodes"]
-        )
-        intersections_of_isolated_nodes = x_nodes_with_parent[isolated]
+        # Not sure how we will use this.
+        # Temporarily disable this part until it has a purpose
+        #x_nodes_with_parent = (
+        #    node_types_combined_self["x_nodes"] - node_types_self["x_nodes"]
+        #)
+        #intersections_of_isolated_nodes = x_nodes_with_parent[isolated]
 
         # Start and end points of the parent fractures
 
@@ -1452,6 +1453,7 @@ class ChildFractureSet(FractureSet):
         # to all parents
         # dist_start will here have dimensions num_children x num_parents
         # closest_pt_start has dimensions num_children x num_parents x dim (2)
+        # Dimensions for end-related fields are the same
         dist_start, closest_pt_start = pp.cg.dist_points_segments(
             start_y, start_parent, end_parent
         )
@@ -1471,7 +1473,7 @@ class ChildFractureSet(FractureSet):
         dist_end = dist_end[np.arange(num_one_y), closest_parent_end]
         closest_pt_end = closest_pt_end[np.arange(num_one_y), closest_parent_end, :].T
 
-        # Exactly one of the children end point should be on a parent
+        # At least one of the children end point should be on a parent.
         # The tolerance used here is arbitrary.
         assert np.all(np.logical_or(dist_start < 1e-4, dist_end < 1e-4))
 
@@ -1480,6 +1482,7 @@ class ChildFractureSet(FractureSet):
         num_parent = self.parent.num_frac
         num_occ_all = np.zeros(num_parent, dtype=np.object)
 
+        # Loop over all parents,
         for fi in range(num_parent):
             hit_start = np.logical_and(start_closest, closest_parent_start == fi)
             start_point_loc = closest_pt_start[:, hit_start]
