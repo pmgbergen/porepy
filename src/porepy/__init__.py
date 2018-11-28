@@ -71,7 +71,6 @@ from porepy.numerics.fracture_deformation import (
     FrictionSlipDataAssigner,
 )
 
-from porepy.numerics.keywords import *
 
 # Time steppers
 from porepy.numerics.time_stepper import Implicit, Explicit
@@ -112,6 +111,8 @@ from porepy.utils import comp_geom as cg
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, importer, extrusion, mortars
 from porepy.grids import structured, simplex, coarsening, partition, refinement
-from porepy.params.units import *
 from porepy.numerics.fv import fvutils
 from porepy.utils import error
+
+# Constants, units and keywords
+from porepy.utils.common_constants import *
