@@ -277,7 +277,7 @@ def _run_gmsh(file_name, network, **kwargs):
     return pts, cells, cell_info, phys_names
 
 
-def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, use_stable=False, **kwargs):
+def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwargs):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -380,7 +380,7 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, use_sta
     # is currently being rewritten. For a while, both versions are available.
     # The new, faster one, is default, while the old one can be invoked by
     # passing the keyword argument use_stable=True.
-    if use_stable:
+    if kwargs.get("use_stable", False):
         pts_split, lines_split = cg.remove_edge_crossings(
             pts_all, lines, tol=tol, snap=do_snap_to_grid, box=domain
         )
@@ -578,12 +578,6 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
 
  ### Helper methods below
 
-<<<<<<< HEAD
-# -----------------------------------------------------------------------------#
-
-
-=======
->>>>>>> 0fb4fb965579461bd0756738c787a668511c3c0f
 def _merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
     """
     Merge fractures, domain boundaries and lines for compartments.
