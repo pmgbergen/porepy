@@ -146,7 +146,7 @@ class FractureSet(object):
         distributions
 
         """
-        logger.inf("Fit length, angle and intensity distribution")
+        logger.info("Fit length, angle and intensity distribution")
         self.fit_length_distribution(**kwargs)
         self.fit_angle_distribution(**kwargs)
         self.fit_intensity_map(**kwargs)
