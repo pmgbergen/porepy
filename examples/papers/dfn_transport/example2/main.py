@@ -3,6 +3,8 @@ import scipy.sparse as sps
 import porepy as pp
 
 import examples.papers.dfn_transport.discretization as discr
+from examples.papers.dfn_transport.flux_trace import jump_flux
+
 import data
 
 def main():
@@ -13,7 +15,9 @@ def main():
 
     out_folder = "solution"
 
-    mesh_size = np.power(2., -4)
+    #mesh_size = 1 # for 1k triangles
+    #mesh_size = 0.9 * np.power(2., -4) # for 3k triangles
+    mesh_size = 0.875 * np.power(2., -5) # for 10k triangles
     mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
     tol = 1e-4
     gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, **mesh_kwargs)
@@ -47,12 +51,15 @@ def main():
         d[key_pressure] = flow_discr.extract_pressure(g, d[key])
         d[key_discharge] = flow_discr.extract_flux(g, d[key])
 
+
+    jump_flux(gb, "lambda_flux")
+
     # setup the advection-diffusion problem
     physics_advdiff = "transport"
     deltaT = 0.005
 
     key_advdiff = discr.advdiff(gb, physics_advdiff)
-    param_advdiff = {"diff": 1e-7, "deltaT": deltaT,
+    param_advdiff = {"diff": 1e-3, "deltaT": deltaT,
                      "domain": domain, "physics": physics_advdiff,
                      "flux": keys_flow[1]}
     data.advdiff(gb, param_advdiff, tol)
