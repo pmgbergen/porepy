@@ -25,7 +25,7 @@ class FrictionSlipModel:
     gb: (Grid) a Grid Object.
     data: (dictionary) Should contain a Parameter class with the keyword
         'Param'
-    physics: (string): defaults to 'slip'
+    keyword: (string): defaults to 'slip'
 
     Functions:
     solve(): Calls reassemble and solves the linear system.
@@ -47,18 +47,18 @@ class FrictionSlipModel:
     save(): calls split('pressure'). Then export the pressure to a vtk file to the
             folder kwargs['folder_name'] with file name
             kwargs['file_name'], default values are 'results' for the folder and
-            physics for the file name.
+            keyword for the file name.
     """
 
-    def __init__(self, gb, data, physics="slip", **kwargs):
-        self.physics = physics
+    def __init__(self, gb, data, keyword="slip", **kwargs):
+        self.keyword = keyword
         if isinstance(gb, GridBucket):
             raise ValueError("FrictionSlip excpected a Grid, not a GridBucket")
 
         self._gb = gb
         self._data = data
 
-        file_name = kwargs.get("file_name", physics)
+        file_name = kwargs.get("file_name", keyword)
         folder_name = kwargs.get("folder_name", "results")
 
         tic = time.time()
@@ -327,7 +327,7 @@ class FrictionSlipDataAssigner:
     gb: (Grid) a grid object 
     data: (dictionary) Dictionary which Parameter will be added to with keyword
           'param'
-    physics: (string): defaults to 'mechanics'
+    keyword: (string): defaults to 'mechanics'
 
     Functions that assign data to Parameter class:
         bc(): defaults to neumann boundary condition
@@ -342,10 +342,10 @@ class FrictionSlipDataAssigner:
 
     """
 
-    def __init__(self, g, data, physics="slip"):
+    def __init__(self, g, data, keyword="slip"):
         self._g = g
         self._data = data
-        self.physics = physics
+        self.keyword = keyword
         self._set_data()
 
     def data(self):

@@ -112,7 +112,7 @@ class Data(object):
 
             gamma = np.power(
                 check_P * self.gb.node_props(g_l, "param").get_aperture(),
-                1. / (2 - g_l.dim),
+                1.0 / (2 - g_l.dim),
             )
 
             d["kn"] = self.data["kf_n"] / gamma
@@ -129,7 +129,7 @@ class Data(object):
 
                 # to trick the code we need to do the following
                 coeff = p / self.eff_kf_t() + u
-                kf = 1. / coeff / self.data["aperture"]
+                kf = 1.0 / coeff / self.data["aperture"]
 
                 perm = pp.SecondOrderTensor(1, kxx=kf, kyy=1, kzz=1)
                 d["param"].set_tensor("flow", perm)

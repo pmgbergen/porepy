@@ -14,7 +14,6 @@ def add_data(gb, domain, kf):
     a = 1e-4
 
     for g, d in gb:
-        param = pp.Parameters(g)
 
         # Permeability
         kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
@@ -22,15 +21,14 @@ def add_data(gb, domain, kf):
             perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kxx, kzz=1)
         else:
             perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=1, kzz=1)
-        param.set_tensor("flow", perm)
 
         # Source term
-        param.set_source("flow", np.zeros(g.num_cells))
 
         # Assign apertures
-        aperture = np.power(a, gb.dim_max() - g.dim)
-        param.set_aperture(np.ones(g.num_cells) * aperture)
+        a_dim = np.power(a, gb.dim_max() - g.dim)
+        aperture = np.ones(g.num_cells) * a_dim
 
+        specified_parameters = {"aperture": aperture, "permeability": perm}
         # Boundaries
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if bound_faces.size != 0:
@@ -43,26 +41,28 @@ def add_data(gb, domain, kf):
             labels[right] = "dir"
 
             bc_val = np.zeros(g.num_faces)
-            bc_val[bound_faces[left]] = -aperture * g.face_areas[bound_faces[left]]
+            bc_val[bound_faces[left]] = -a_dim * g.face_areas[bound_faces[left]]
             bc_val[bound_faces[right]] = 1
 
-            param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
-            param.set_bc_val("flow", bc_val)
+            bound = pp.BoundaryCondition(g, bound_faces, labels)
+            specified_parameters.update({"bc": bound, "bc_values": bc_val})
         else:
-            param.set_bc("flow", pp.BoundaryCondition(g, np.empty(0), np.empty(0)))
+            bound = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
+            specified_parameters.update({"bc": bound})
 
         d["is_tangential"] = True
-        d["param"] = param
+        pp.initialize_data(d, g, "flow", specified_parameters)
 
     # Assign coupling permeability
-    gb.add_edge_props("kn")
     for e, d in gb.edges():
         g_l = gb.nodes_of_edge(e)[0]
         mg = d["mortar_grid"]
         check_P = mg.slave_to_mortar_avg()
-
-        gamma = check_P * gb.node_props(g_l, "param").get_aperture()
-        d["kn"] = kf * np.ones(mg.num_cells) / gamma
+        pa_l = gb.node_props(g_l, pp.PARAMETERS)
+        gamma = check_P * pa_l["flow"]["aperture"]
+        kn = kf * np.ones(mg.num_cells) / gamma
+        d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
 
 # ------------------------------------------------------------------------------#
@@ -107,7 +107,7 @@ def main(kf, description, is_coarse=False, if_export=False):
     key = "flow"
 
     # Choose and define the solvers and coupler
-    discretization_key = key + "_" + pp.keywords.DISCRETIZATION
+    discretization_key = key + "_" + pp.DISCRETIZATION
     discr = pp.MVEM(key)
 
     for _, d in gb:
@@ -125,16 +125,16 @@ def main(kf, description, is_coarse=False, if_export=False):
     up = sps.linalg.spsolve(A, b)
     assembler.split(gb, "up", up)
 
-    gb.add_node_props(["discharge", "pressure", "P0u"])
-    assembler.extract_flux(gb, "up", "discharge")
+    gb.add_node_props(["darcy_flux", "pressure", "P0u"])
+    assembler.extract_flux(gb, "up", "darcy_flux")
     assembler.extract_pressure(gb, "up", "pressure")
 
     # EK: For the mometn, we don't have project_u for the general assembler
-    #    assembler.project_u(gb, "discharge", "P0u")
+    #    assembler.project_u(gb, "darcy_flux", "P0u")
 
     if if_export:
         save = pp.Exporter(gb, "vem", folder="vem_" + description)
-        #save.write_vtk(["pressure", "P0u"])
+        # save.write_vtk(["pressure", "P0u"])
         save.write_vtk(["pressure"])
 
 
@@ -146,19 +146,24 @@ def test_vem_blocking():
     if_export = True
     main(kf, "blocking", if_export=if_export)
 
+
 # ------------------------------------------------------------------------------#
+
 
 def test_vem_blocking_coarse():
     kf = 1e-4
     if_export = True
     main(kf, "blocking_coarse", is_coarse=True, if_export=if_export)
 
+
 # ------------------------------------------------------------------------------#
+
 
 def test_vem_permeable():
     kf = 1e4
     if_export = True
     main(kf, "permeable", if_export=if_export)
+
 
 # ------------------------------------------------------------------------------#
 
@@ -167,6 +172,7 @@ def test_vem_permeable_coarse():
     kf = 1e4
     if_export = True
     main(kf, "permeable_coarse", is_coarse=True, if_export=if_export)
+
 
 # ------------------------------------------------------------------------------#
 

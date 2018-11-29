@@ -146,7 +146,7 @@ class RobinBoundTest(unittest.TestCase):
 
         div = pp.fvutils.scalar_divergence(g)
 
-        rob_ex = [robin_weight * .25, robin_weight * .75, 1, 1]
+        rob_ex = [robin_weight * 0.25, robin_weight * 0.75, 1, 1]
         u_bound = np.zeros(g.num_faces)
         u_bound[dir_ind] = g.face_centers[1, dir_ind]
         u_bound[rob_ind] = rob_ex * g.face_areas[rob_ind]

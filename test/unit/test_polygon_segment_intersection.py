@@ -8,8 +8,8 @@ from porepy.utils import comp_geom as cg
 class PolygonSegmentIntersectionTest(unittest.TestCase):
     def setup_polygons(self):
         p_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
-        p_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-.7, -.7, .8, .8]])
-        p_3 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [.5, .5, 1.5, 1.5]])
+        p_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
+        p_3 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [0.5, 0.5, 1.5, 1.5]])
         p_4 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]])
         return p_1, p_2, p_3, p_4
 

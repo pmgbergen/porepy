@@ -50,12 +50,12 @@ class TestPointSnapping(unittest.TestCase):
         self.assertTrue(np.allclose(p_new, p))
 
     def test_vertex_snaps(self):
-        p = np.array([[0, 1, 0., 0.], [0, 0, 1e-3, 1]])
+        p = np.array([[0, 1, 0.0, 0.0], [0, 0, 1e-3, 1]])
         e = np.array([[0, 2], [1, 3]])
         tol = 1e-2
 
         p_new = cg.snap_points_to_segments(p, e, tol)
-        p_known = np.array([[0, 1, 0., 0.], [0, 0, 0, 1]])
+        p_known = np.array([[0, 1, 0.0, 0.0], [0, 0, 0, 1]])
         self.assertTrue(np.allclose(p_new, p_known))
 
     def test_snapping_3d(self):

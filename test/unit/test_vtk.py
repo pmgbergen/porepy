@@ -179,7 +179,7 @@ class BasicsTest(unittest.TestCase):
         if not if_vtk:
             return
 
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
         gb = meshing.cart_grid([f1], [4] * 2, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
@@ -216,8 +216,8 @@ class BasicsTest(unittest.TestCase):
         if not if_vtk:
             return
 
-        f1 = np.array([[0, 1], [.5, .5]])
-        f2 = np.array([[.5, .5], [.25, .75]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
+        f2 = np.array([[0.5, 0.5], [0.25, 0.75]])
         gb = meshing.cart_grid([f1, f2], [4] * 2, **{"physdims": [1, 1]})
         gb.compute_geometry()
 
