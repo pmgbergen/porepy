@@ -45,22 +45,34 @@ class Mpfa(FVElliptic):
         data: dictionary to store the data.
 
         """
-        param = data["param"]
-        k = param.get_tensor(self)
-        bnd = param.get_bc(self)
-        a = param.aperture
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        # Extract parameters
+        k = parameter_dictionary["second_order_tensor"]
+        bnd = parameter_dictionary["bc"]
+        aperture = parameter_dictionary["aperture"]
 
-        eta = data.get("mpfa_eta", None)
+        eta = parameter_dictionary.get("mpfa_eta", None)
 
         trm, bound_flux, bp_cell, bp_face = self.mpfa(
-            g, k, bnd, eta=eta, apertures=a
+            g, k, bnd, eta=eta, apertures=aperture
         )
-        data[self._key() + "flux"] = trm
-        data[self._key() + "bound_flux"] = bound_flux
-        data[self._key() + "bound_pressure_cell"] = bp_cell
-        data[self._key() + "bound_pressure_face"] = bp_face
+        matrix_dictionary["flux"] = trm
+        matrix_dictionary["bound_flux"] = bound_flux
+        matrix_dictionary["bound_pressure_cell"] = bp_cell
+        matrix_dictionary["bound_pressure_face"] = bp_face
 
-    def mpfa(self, g, k, bnd, eta=None, inverter=None, apertures=None, max_memory=None, **kwargs):
+    def mpfa(
+        self,
+        g,
+        k,
+        bnd,
+        eta=None,
+        inverter=None,
+        apertures=None,
+        max_memory=None,
+        **kwargs
+    ):
         """
         Discretize the scalar elliptic equation by the multi-point flux
         approximation method.
@@ -145,12 +157,7 @@ class Mpfa(FVElliptic):
             # TODO: We may want to estimate the memory need, and give a warning if
             # this seems excessive
             flux, bound_flux, bound_pressure_cell, bound_pressure_face = self._local_discr(
-                g,
-                k,
-                bnd,
-                eta=eta,
-                inverter=inverter,
-                apertures=apertures,
+                g, k, bnd, eta=eta, inverter=inverter, apertures=apertures
             )
         else:
             # Estimate number of partitions necessary based on prescribed memory
@@ -277,7 +284,7 @@ class Mpfa(FVElliptic):
         # Local parameter fields
         # Copy permeability field, and restrict to local cells
         loc_k = k.copy()
-        loc_k.perm = loc_k.perm[::, ::, l2g_cells]
+        loc_k.values = loc_k.values[::, ::, l2g_cells]
 
         glob_bound_face = g.get_all_boundary_faces()
 
@@ -305,7 +312,6 @@ class Mpfa(FVElliptic):
             sub_g, loc_k, loc_bnd, eta=eta, inverter=inverter, apertures=apertures
         )
 
-
         # Map to global indices
         face_map, cell_map = fvutils.map_subgrid_to_grid(
             g, l2g_faces, l2g_cells, is_vector=False
@@ -330,7 +336,6 @@ class Mpfa(FVElliptic):
             bound_pressure_face_glob,
             active_faces,
         )
-
 
     def _local_discr(self, g, k, bnd, eta=None, inverter="numba", apertures=None):
         """
@@ -370,7 +375,7 @@ class Mpfa(FVElliptic):
         """
 
         if eta is None:
-           eta = fvutils.determine_eta(g)
+            eta = fvutils.determine_eta(g)
 
         # The method reduces to the more efficient TPFA in one dimension, so that
         # method may be called. In 0D, there is no internal discretization to be
@@ -378,16 +383,21 @@ class Mpfa(FVElliptic):
         if g.dim == 1:
             discr = pp.Tpfa(self.keyword)
             params = pp.Parameters(g)
-            params.set_bc("flow", bnd)
-            params.set_aperture(apertures)
-            params.set_tensor("flow", k)
-            d = {"param": params}
+            params["bc"] = bnd
+            params["aperture"] = apertures
+            params["second_order_tensor"] = k
+
+            d = {
+                pp.PARAMETERS: {self.keyword: params},
+                pp.DISCRETIZATION_MATRICES: {self.keyword: {}},
+            }
             discr.discretize(g, d)
+            matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][self.keyword]
             return (
-                d[self._key() + "flux"],
-                d[self._key() + "bound_flux"],
-                d[self._key() + "bound_pressure_cell"],
-                d[self._key() + "bound_pressure_face"],
+                matrix_dictionary["flux"],
+                matrix_dictionary["bound_flux"],
+                matrix_dictionary["bound_pressure_cell"],
+                matrix_dictionary["bound_pressure_face"],
             )
         elif g.dim == 0:
             return sps.csr_matrix([0]), 0, 0, 0
@@ -414,9 +424,9 @@ class Mpfa(FVElliptic):
 
             # Rotate the permeability tensor and delete last dimension
             k = k.copy()
-            k.perm = np.tensordot(R.T, np.tensordot(R, k.perm, (1, 0)), (0, 1))
-            k.perm = np.delete(k.perm, (2), axis=0)
-            k.perm = np.delete(k.perm, (2), axis=1)
+            k.values = np.tensordot(R.T, np.tensordot(R, k.values, (1, 0)), (0, 1))
+            k.values = np.delete(k.values, (2), axis=0)
+            k.values = np.delete(k.values, (2), axis=1)
 
         # Define subcell topology, that is, the local numbering of faces, subfaces,
         # sub-cells and nodes. This numbering is used throughout the
@@ -610,7 +620,7 @@ class Mpfa(FVElliptic):
         # Below here, fields necessary for reconstruction of boundary pressures
 
         # Diagonal matrix that divides by number of sub-faces per face
-        half_face_per_face = sps.diags(1. / (hf2f * np.ones(hf2f.shape[1])))
+        half_face_per_face = sps.diags(1.0 / (hf2f * np.ones(hf2f.shape[1])))
 
         # Contribution to face pressure from sub-cell gradients, calculated as
         # gradient times distance. Then further map to faces, and divide by number
@@ -758,7 +768,7 @@ class Mpfa(FVElliptic):
         ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))
         normals_mat = sps.csr_matrix((normals.ravel("F"), j.ravel("F"), ind_ptr))
         k_mat = sps.csr_matrix(
-            (k.perm[::, ::, cell_node_blocks[0]].ravel("F"), j.ravel("F"), ind_ptr)
+            (k.values[::, ::, cell_node_blocks[0]].ravel("F"), j.ravel("F"), ind_ptr)
         )
 
         nk = normals_mat * k_mat

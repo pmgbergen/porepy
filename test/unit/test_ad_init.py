@@ -97,7 +97,7 @@ class AdInitTest(unittest.TestCase):
         self.assertTrue(np.all((z.jac == J).A))
 
     def test_power_advar_advar_init(self):
-        a, b = initAdArrays([np.array(4.), np.array(-8)])
+        a, b = initAdArrays([np.array(4.0), np.array(-8)])
 
         c = a ** b
         jac = np.array([-8 * (4 ** -9), 4 ** -8 * np.log(4)])

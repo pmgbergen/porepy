@@ -9,8 +9,8 @@ We consider the case with only boundary, fractures, auxiliary segments, and a mi
 
 """
 
-class BasicsTest(unittest.TestCase):
 
+class BasicsTest(unittest.TestCase):
     def test_boundary(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
         fracs = []
@@ -64,11 +64,14 @@ class BasicsTest(unittest.TestCase):
         fracs = []
         mesh_args = {"mesh_size_frac": 1}
 
-        subdomain = {"points": np.array([[0, 0.5], [0.5, 0.5]]),
-                     "edges": np.array([0, 1]).reshape((2, -1), order="F")}
+        subdomain = {
+            "points": np.array([[0, 0.5], [0.5, 0.5]]),
+            "edges": np.array([0, 1]).reshape((2, -1), order="F"),
+        }
 
-        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain,
-                                           subdomains=subdomain,**mesh_args)
+        gb = pp.fracs.meshing.simplex_grid(
+            fracs, domain=domain, subdomains=subdomain, **mesh_args
+        )
         g = gb.grids_of_dimension(2)[0]
 
         known = [1, 3]
@@ -96,11 +99,14 @@ class BasicsTest(unittest.TestCase):
         fracs = []
         mesh_args = {"mesh_size_frac": 0.33}
 
-        subdomain = {"points": np.array([[0, 0.5], [0.5, 0.5]]),
-                     "edges": np.array([0, 1]).reshape((2, -1), order="F")}
+        subdomain = {
+            "points": np.array([[0, 0.5], [0.5, 0.5]]),
+            "edges": np.array([0, 1]).reshape((2, -1), order="F"),
+        }
 
-        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain,
-                                           subdomains=subdomain,**mesh_args)
+        gb = pp.fracs.meshing.simplex_grid(
+            fracs, domain=domain, subdomains=subdomain, **mesh_args
+        )
         g = gb.grids_of_dimension(2)[0]
 
         known = [0, 3, 25, 28]
@@ -128,12 +134,14 @@ class BasicsTest(unittest.TestCase):
         fracs = []
         mesh_args = {"mesh_size_frac": 1}
 
-        subdomain = {"points": np.array([[0, 0.5, 0.75, 0.75],
-                                         [0.5, 0.5, 0.25, 0.75]]),
-                     "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F")}
+        subdomain = {
+            "points": np.array([[0, 0.5, 0.75, 0.75], [0.5, 0.5, 0.25, 0.75]]),
+            "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F"),
+        }
 
-        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain,
-                                           subdomains=subdomain,**mesh_args)
+        gb = pp.fracs.meshing.simplex_grid(
+            fracs, domain=domain, subdomains=subdomain, **mesh_args
+        )
         g = gb.grids_of_dimension(2)[0]
 
         known = [1, 3, 39, 40]
@@ -165,12 +173,14 @@ class BasicsTest(unittest.TestCase):
         fracs = []
         mesh_args = {"mesh_size_frac": 0.125}
 
-        subdomain = {"points": np.array([[0, 0.5, 0.75, 0.75],
-                                         [0.5, 0.5, 0.25, 0.75]]),
-                     "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F")}
+        subdomain = {
+            "points": np.array([[0, 0.5, 0.75, 0.75], [0.5, 0.5, 0.25, 0.75]]),
+            "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F"),
+        }
 
-        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain,
-                                           subdomains=subdomain,**mesh_args)
+        gb = pp.fracs.meshing.simplex_grid(
+            fracs, domain=domain, subdomains=subdomain, **mesh_args
+        )
         g = gb.grids_of_dimension(2)[0]
 
         known = [0, 3, 35, 38, 41, 44, 47, 51]
@@ -199,8 +209,10 @@ class BasicsTest(unittest.TestCase):
 
     def test_fracture(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = {"points": np.array([[0.5, 0.5], [0.25, 0.75]]),
-                 "edges": np.array([0, 1]).reshape((2, -1), order="F")}
+        fracs = {
+            "points": np.array([[0.5, 0.5], [0.25, 0.75]]),
+            "edges": np.array([0, 1]).reshape((2, -1), order="F"),
+        }
         mesh_args = {"mesh_size_frac": 1}
 
         gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain, **mesh_args)
@@ -228,8 +240,10 @@ class BasicsTest(unittest.TestCase):
 
     def test_fracture_refined(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = {"points": np.array([[0.5, 0.5], [0.25, 0.75]]),
-                 "edges": np.array([0, 1]).reshape((2, -1), order="F")}
+        fracs = {
+            "points": np.array([[0.5, 0.5], [0.25, 0.75]]),
+            "edges": np.array([0, 1]).reshape((2, -1), order="F"),
+        }
         mesh_args = {"mesh_size_frac": 0.125}
 
         gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain, **mesh_args)
@@ -257,9 +271,10 @@ class BasicsTest(unittest.TestCase):
 
     def test_fracture_2(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = {"points": np.array([[0.5, 0.5, 0.25, 0.75],
-                                     [0.25, 0.75, 0.5, 0.5]]),
-                 "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F")}
+        fracs = {
+            "points": np.array([[0.5, 0.5, 0.25, 0.75], [0.25, 0.75, 0.5, 0.5]]),
+            "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F"),
+        }
         mesh_args = {"mesh_size_frac": 1}
 
         gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain, **mesh_args)
@@ -291,15 +306,20 @@ class BasicsTest(unittest.TestCase):
 
     def test_fracture_auxiliary(self):
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
-        fracs = {"points": np.array([[0.5, 0.5], [0.25, 0.75]]),
-                 "edges": np.array([0, 1]).reshape((2, -1), order="F")}
+        fracs = {
+            "points": np.array([[0.5, 0.5], [0.25, 0.75]]),
+            "edges": np.array([0, 1]).reshape((2, -1), order="F"),
+        }
         mesh_args = {"mesh_size_frac": 1}
 
-        subdomain = {"points": np.array([[0.25, 0.5], [0.5, 0.5]]),
-                     "edges": np.array([0, 1]).reshape((2, -1), order="F")}
+        subdomain = {
+            "points": np.array([[0.25, 0.5], [0.5, 0.5]]),
+            "edges": np.array([0, 1]).reshape((2, -1), order="F"),
+        }
 
-        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain,
-                                           subdomains=subdomain,**mesh_args)
+        gb = pp.fracs.meshing.simplex_grid(
+            fracs, domain=domain, subdomains=subdomain, **mesh_args
+        )
         g = gb.grids_of_dimension(2)[0]
 
         known = [0, 3, 35, 36]
@@ -331,12 +351,14 @@ class BasicsTest(unittest.TestCase):
         fracs = []
         mesh_args = {"mesh_size_frac": 1}
 
-        subdomain = {"points": np.array([[0, 0.75, 0.5, 0.5],
-                                         [0.5, 0.5, 0.25, 0.75]]),
-                     "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F")}
+        subdomain = {
+            "points": np.array([[0, 0.75, 0.5, 0.5], [0.5, 0.5, 0.25, 0.75]]),
+            "edges": np.array([0, 1, 2, 3]).reshape((2, -1), order="F"),
+        }
 
-        gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain,
-                                           subdomains=subdomain,**mesh_args)
+        gb = pp.fracs.meshing.simplex_grid(
+            fracs, domain=domain, subdomains=subdomain, **mesh_args
+        )
         g = gb.grids_of_dimension(2)[0]
 
         known = [1, 3, 45, 46]
@@ -362,6 +384,7 @@ class BasicsTest(unittest.TestCase):
         known = [22, 29]
         tag = np.where(g.tags["auxiliary_5_faces"])[0]
         self.assertTrue(np.allclose(known, tag))
+
 
 if __name__ == "__main__":
     unittest.main()

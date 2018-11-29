@@ -13,48 +13,6 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-# Implementation note: This class will be deleted in the future, and should not
-# be used for anything. However, we keep it temporarily to decide on what to do
-# with the method check_conservation
-class _DualVEMMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
-
-    def check_conservation(self, gb, u, conservation):
-        """
-        Save in the grid bucket a piece-wise vector representation of the Darcy
-        velocity for each grid.
-
-        Parameters
-        ---------
-        gb: the grid bucket
-        u: identifier of the discharge, already split, in the grid bucket
-        P0u: identifier of the reconstructed velocity which will be added to the grid bucket.
-        mortar_key (optional): identifier of the mortar variable, already split, in the
-            grid bucket. The default value is "mortar_solution".
-
-        """
-
-        gb.add_node_props([P0u])
-        for g, d in gb:
-            # we need to recover the velocity from the mortar variable before
-            # the projection, only lower dimensional edges need to be considered.
-            u_e = np.zeros(d[u].size)
-            faces = g.tags["fracture_faces"]
-            if np.any(faces):
-                # recover the sign of the discharge, since the mortar is assumed
-                # to point from the higher to the lower dimensional problem
-                _, indices = np.unique(g.cell_faces.indices, return_index=True)
-                sign = sps.diags(g.cell_faces.data[indices], 0)
-
-                for _, d_e in gb.edges_of_node(g):
-                    g_m = d_e["mortar_grid"]
-                    if g_m.dim == g.dim:
-                        continue
-                    # project the mortar variable back to the higher dimensional
-                    # problem
-                    u_e += sign * g_m.mortar_to_high_int() * d_e[mortar_key]
-
-            d[P0u] = self.discr.project_u(g, u_e + d[u], d)
-
 class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
     """
     @ALL: I have kept the inheritance from the general Solver for now, or else
@@ -64,10 +22,8 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
     """
 
-
     def __init__(self, keyword):
         super(MVEM, self).__init__(keyword, "MVEM")
-
 
     def discretize(self, g, data):
         """
@@ -87,21 +43,22 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        name = self._key() + self.name + "_"
-
+        # Get dictionary for discretization matrix storage
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # If a 0-d grid is given then we return an identity matrix
         if g.dim == 0:
             mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
-            data[name + "mass"] = mass
-            data[name + "div"] = sps.csr_matrix((g.num_faces, g.num_cells))
+            matrix_dictionary["mass"] = mass
+            matrix_dictionary["div"] = sps.csr_matrix((g.num_faces, g.num_cells))
             return
 
+        # Get dictionary for parameter storage
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         # Retrieve the permeability, boundary conditions, and aperture
         # The aperture is needed in the hybrid-dimensional case, otherwise is
         # assumed unitary
-        param = data["param"]
-        k = param.get_tensor(self)
-        a = param.get_aperture()
+        k = parameter_dictionary["second_order_tensor"]
+        a = parameter_dictionary["aperture"]
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)
@@ -117,8 +74,8 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
                 k = k.copy()
                 k.rotate(R)
                 remove_dim = np.where(np.logical_not(dim))[0]
-                k.perm = np.delete(k.perm, (remove_dim), axis=0)
-                k.perm = np.delete(k.perm, (remove_dim), axis=1)
+                k.values = np.delete(k.values, (remove_dim), axis=0)
+                k.values = np.delete(k.values, (remove_dim), axis=1)
 
         # In the virtual cell approach the cell diameters should involve the
         # apertures, however to keep consistency with the hybrid-dimensional
@@ -142,7 +99,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
             # Compute the H_div-mass local matrix
             A = MVEM.massHdiv(
-                a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
+                a[c] * k.values[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 g.cell_volumes[c],
                 f_centers[:, faces_loc],
@@ -164,11 +121,10 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         mass = sps.coo_matrix((dataIJ, (I, J)))
         div = -g.cell_faces.T
 
-        data[name + "mass"] = mass
-        data[name + "div"] = div
+        matrix_dictionary["mass"] = mass
+        matrix_dictionary["div"] = div
 
-    @staticmethod
-    def project_flux(g, u, data):
+    def project_flux(self, g, u, data):
         """  Project the velocity computed with a dual vem solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
@@ -191,8 +147,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         # The velocity field already has permeability effects incorporated,
         # thus we assign a unit permeability to be passed to MVEM.massHdiv
         k = pp.SecondOrderTensor(g.dim, kxx=np.ones(g.num_cells))
-        param = data["param"]
-        a = param.get_aperture()
+        a = data[pp.PARAMETERS][self.keyword]["aperture"]
 
         faces, cells, sign = sps.find(g.cell_faces)
         index = np.argsort(cells)
@@ -212,7 +167,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             faces_loc = faces[loc]
 
             Pi_s = MVEM.massHdiv(
-                a[c] * k.perm[0 : g.dim, 0 : g.dim, c],
+                a[c] * k.values[0 : g.dim, 0 : g.dim, c],
                 c_centers[:, c],
                 g.cell_volumes[c],
                 f_centers[:, faces_loc],
@@ -226,7 +181,6 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             P0u[:, c] = np.dot(R.T, P0u[:, c])
 
         return P0u
-
 
     @staticmethod
     def massHdiv(K, c_center, c_volume, f_centers, normals, sign, diam, weight=0):

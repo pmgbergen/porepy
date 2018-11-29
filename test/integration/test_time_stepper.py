@@ -1,3 +1,5 @@
+""" Disabled test of the obsolete Parabolic class.
+"""
 import unittest
 import numpy as np
 
@@ -13,9 +15,9 @@ class TestBase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
 
-        f_1 = np.array([[0, 1, 1, 0], [.5, .5, .5, .5], [0, 0, 1, 1]])
-        f_2 = np.array([[.5, .5, .5, .5], [0, 1, 1, 0], [0, 0, 1, 1]])
-        f_3 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [.5, .5, .5, .5]])
+        f_1 = np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
+        f_2 = np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
+        f_3 = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
         f_set = [f_1, f_2, f_3]
 
         self.gb = meshing.cart_grid(f_set, [4, 4, 4], physdims=[1, 1, 1])
@@ -23,7 +25,7 @@ class TestBase(unittest.TestCase):
         for g, d in self.gb:
             d["transport_data"] = ParabolicDataAssigner(g, d)
 
-    def test_implicit_solver(self):
+    def disabled_test_implicit_solver(self):
         """Inject 1 in cell 0. Test that rhs and pressure solution
         is correct"""
         problem = UnitSquareInjectionMultiDim(self.gb)
@@ -36,7 +38,7 @@ class TestBase(unittest.TestCase):
         self.assertTrue(np.sum(np.abs(solver.p) > 1e-6) == 1)
         self.assertTrue(np.sum(np.abs(solver.p - 1) < 1e-6) == 1)
 
-    def test_BDF2_solver(self):
+    def disabled_test_BDF2_solver(self):
         """Inject 1 in cell 0. Test that rhs and pressure solution
         is correct"""
         problem = UnitSquareInjectionTwoSteps(self.gb)
@@ -64,7 +66,7 @@ class TestBase(unittest.TestCase):
         self.assertTrue(np.sum(np.abs(solver.p0 - 0.5) < 1e-6) == 1)
         self.assertTrue(np.allclose(solver.p_1, 0.0))
 
-    def test_explicit_solver(self):
+    def disabled_test_explicit_solver(self):
         """Inject 1 in cell 0. Test that rhs and pressure solution
         is correct"""
         problem = UnitSquareInjectionMultiDim(self.gb)
@@ -74,7 +76,7 @@ class TestBase(unittest.TestCase):
         self.assertTrue(np.sum(np.abs(solver.rhs) > 1e-6) == 0)
         self.assertTrue(np.sum(np.abs(solver.p) > 1e-6) == 0)
 
-    def test_CrankNicolson_solver(self):
+    def disabled_test_CrankNicolson_solver(self):
         """Inject 1 in cell 0. Test that rhs and pressure solution
         is correct"""
         problem = UnitSquareInjectionMultiDim(self.gb)

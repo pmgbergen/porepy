@@ -17,7 +17,7 @@ from porepy.fracs.fractures import Fracture, FractureNetwork
 class TestFractureBoundaryIntersection(unittest.TestCase):
     def setup(self):
         self.f_1 = Fracture(
-            np.array([[0, 1, 1, 0], [.5, .5, .5, .5], [0, 0, 1, 1]]),
+            np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]),
             check_convexity=False,
         )
         self.domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
@@ -56,7 +56,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         network = FractureNetwork([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array(
-            [[0., 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
+            [[0.0, 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
         )
         self.assertTrue(len(network._fractures) == (1 + 6))
         p_comp = network._fractures[0].p
@@ -69,7 +69,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         f.p[2, :] = [0.2, 0.2, 0.8, 0.8]
         network = FractureNetwork([f])
         network.impose_external_boundary(self.domain)
-        p_known = np.array([[0., 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
+        p_known = np.array([[0.0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
         self.assertTrue(len(network._fractures) == (1 + 6))
         p_comp = network._fractures[0].p
         self.assertTrue(self._arrays_equal(p_known, p_comp))
@@ -82,7 +82,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         network = FractureNetwork([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array(
-            [[0., 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0., 0., 0.5, 0.75]]
+            [[0.0, 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0.0, 0.0, 0.5, 0.75]]
         )
         self.assertTrue(len(network._fractures) == (1 + 6))
         p_comp = network._fractures[0].p
@@ -95,7 +95,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
         network = FractureNetwork([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array(
-            [[0., 0.5, 0.5, 0], [5. / 6, 5. / 6, 1, 1], [0., 0., 0.25, 0.25]]
+            [[0.0, 0.5, 0.5, 0], [5.0 / 6, 5.0 / 6, 1, 1], [0.0, 0.0, 0.25, 0.25]]
         )
         self.assertTrue(len(network._fractures) == (1 + 6))
         p_comp = network._fractures[0].p

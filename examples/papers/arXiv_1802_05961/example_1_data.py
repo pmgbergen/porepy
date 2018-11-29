@@ -159,7 +159,7 @@ def add_data(gb, solver):
 
         gamma = np.power(
             check_P * gb.node_props(g_l, "param").get_aperture(),
-            1. / (gb.dim_max() - g_l.dim),
+            1.0 / (gb.dim_max() - g_l.dim),
         )
         d["kn"] = kxx * np.ones(mg.num_cells) / gamma
 

@@ -30,7 +30,7 @@ class AbstractSolver(object):
         g = problem.grid()
 
         data = problem.data()
-        data[problem.physics] = []
+        data[problem.keyword] = []
         data["times"] = []
 
         p0 = problem.initial_condition()
@@ -158,9 +158,9 @@ class BDF2(AbstractSolver):
             self.lhs = lhs_time + lhs_flux
             self.rhs = lhs_time * self.p0 + rhs_flux + rhs_time
         else:
-            self.lhs = lhs_time + 2. / 3 * lhs_flux
-            bdf2_rhs = 4. / 3 * lhs_time * self.p0 - 1. / 3 * lhs_time * self.p_1
-            self.rhs = bdf2_rhs + 2. / 3 * rhs_flux + rhs_time
+            self.lhs = lhs_time + 2.0 / 3 * lhs_flux
+            bdf2_rhs = 4.0 / 3 * lhs_time * self.p0 - 1.0 / 3 * lhs_time * self.p_1
+            self.rhs = bdf2_rhs + 2.0 / 3 * rhs_flux + rhs_time
 
 
 class Explicit(AbstractSolver):
@@ -218,7 +218,9 @@ class CrankNicolson(AbstractSolver):
 
     def __init__(self, problem):
         self.g = problem.grid()
-        self.lhs_time, self.lhs_flux, self.rhs_time, self.rhs_flux = problem.discretize()
+        self.lhs_time, self.lhs_flux, self.rhs_time, self.rhs_flux = (
+            problem.discretize()
+        )
 
         self.lhs_flux_0 = self.lhs_flux
         self.rhs_flux_0 = self.rhs_flux
@@ -237,10 +239,11 @@ class CrankNicolson(AbstractSolver):
         self.rhs_time_0 = self.rhs_time
 
     def reassemble(self):
-        self.lhs_time, self.lhs_flux, self.rhs_time, self.rhs_flux = self.problem.discretize()
+        self.lhs_time, self.lhs_flux, self.rhs_time, self.rhs_flux = (
+            self.problem.discretize()
+        )
 
         rhs1 = 0.5 * (self.rhs_flux + self.rhs_time)
         rhs0 = 0.5 * (self.rhs_flux_0 + self.rhs_time_0)
         self.lhs = self.lhs_time + 0.5 * self.lhs_flux
         self.rhs = (self.lhs_time - 0.5 * self.lhs_flux_0) * self.p0 + rhs1 + rhs0
-
