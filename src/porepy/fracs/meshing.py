@@ -130,7 +130,18 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
             frac_dic = {"points": f_pts, "edges": f_lines}
         else:
             frac_dic = fracs
-        grids = simplex.triangle_grid(frac_dic, domain, **kwargs)
+        # Convert the subdomain to a subdomain dictionary.
+        if len(subdomains) == 0:
+            subdom_lines = np.zeros((2, 0))
+            subdom_pts = np.zeros((2, 0))
+            subdom_dic = {"points": subdom_pts, "edges": subdom_lines}
+        elif not isinstance(subdomains, dict):
+            subdom_lines = np.reshape(np.arange(2 * len(subdomains)), (2, -1), order="F")
+            subdom_pts = np.hstack(subdomains)
+            subdom_dic = {"points": subdom_pts, "edges": subdom_lines}
+        else:
+            subdom_dic = subdomains
+        grids = simplex.triangle_grid(frac_dic, domain, subdom_dic, **kwargs)
     elif ndim == 3:
         grids = simplex.tetrahedral_grid(fracs, domain, network, subdomains, **kwargs)
     else:

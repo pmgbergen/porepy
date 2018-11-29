@@ -234,10 +234,12 @@ def duplicate_faces(gh, face_cells):
     # send in a logical array instead of frac_id.
     gh.tags["fracture_faces"][frac_id] = True
     gh.tags["tip_faces"][frac_id] = False
-    update_fields = tags.standard_face_tags()
+    update_fields = gh.tags.keys()
     update_values = [[]] * len(update_fields)
     for i, key in enumerate(update_fields):
-        update_values[i] = gh.tags[key][frac_id]
+        # faces related tags are doubled and the value is inherit from the original
+        if key.endswith("_faces"):
+            update_values[i] = gh.tags[key][frac_id]
     tags.append_tags(gh.tags, update_fields, update_values)
 
     return frac_id
