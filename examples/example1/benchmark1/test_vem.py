@@ -149,19 +149,22 @@ def test_vem_blocking():
 
 # ------------------------------------------------------------------------------#
 
+
 def test_vem_blocking_coarse():
     kf = 1e-4
     if_export = True
     main(kf, "blocking_coarse", is_coarse=True, if_export=if_export)
 
+
 # ------------------------------------------------------------------------------#
+
 
 def test_vem_permeable():
     kf = 1e4
     if_export = True
     main(kf, "permeable", if_export=if_export)
 
-    
+
 # ------------------------------------------------------------------------------#
 
 
@@ -169,6 +172,7 @@ def test_vem_permeable_coarse():
     kf = 1e4
     if_export = True
     main(kf, "permeable_coarse", is_coarse=True, if_export=if_export)
+
 
 # ------------------------------------------------------------------------------#
 

@@ -241,6 +241,7 @@ class BasicsTest(unittest.TestCase):
             f2 = np.array(
                 [[1.0, 5.0, 5.0, 1.0], [1.0, 1.0, 5.0, 5.0], [3.0, 3.0, 3.0, 3.0]]
             )
+            gb = pp.meshing.cart_grid([f1, f2], [6, 6, 6])
             gb.compute_geometry()
 
             g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
