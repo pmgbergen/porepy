@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.fv import fvutils
@@ -72,15 +73,17 @@ class MpfaUpscaling(FVElliptic):
         # NOTE I'm assuming a 2d grid, I tryed to be general enough
         assert g.dim == 2
 
-        #size =
-        #I =
-        #J =
-        #dataIJ =
+        # count the number of data that has to be saved in the flux matrix
+        internal_faces = g.get_internal_faces()
+        size = np.sum(patch_face_cells.indptr[internal_faces+1]-\
+                      patch_face_cells.indptr[internal_faces])
 
+        I = np.zeros(size)
+        J = np.zeros(size)
+        dataIJ = np.zeros(size)
 
-        for f in g.get_internal_faces():
-
-            print("face", f)
+        idx = 0
+        for f in internal_faces:
 
             # nodes of the current face
             f_nodes = self._slice_out(f, g.face_nodes)
@@ -106,6 +109,7 @@ class MpfaUpscaling(FVElliptic):
 
             # we need to identify the faces in the gb_patch that belong to the original face
             # this is used afterward to compute the discharge
+            # since we have used the subdomain concept an auxiliary tag is provided by gmsh
             g_h = patch_gb.grids_of_dimension(g.dim)[0]
             f_loc = [v for k, v in g_h.tags.items() if "auxiliary_" in k][0]
             f_loc = np.where(f_loc)[0]
@@ -121,8 +125,6 @@ class MpfaUpscaling(FVElliptic):
             # we loop on all the cell_centers and give the data
             for pt in np.where(bc_corner[0])[0]:
 
-                #import pdb; pdb.set_trace()
-
                 # apply the boundary conditions for the current problem
                 self._patch_set_bc(patch_gb, patch_pts, pt, bc_type, data["tol"])
 
@@ -132,6 +134,15 @@ class MpfaUpscaling(FVElliptic):
 
                 print("discharge", discharge, bc_corner[:, pt])
 
+                if bc_corner[1, pt] == 0:
+                    dataIJ[idx] = discharge
+                    I[idx] = f
+                    J[idx] = bc_corner[2, pt]
+                    idx += 1
+
+        import pdb; pdb.set_trace()
+        shape = (g.num_faces, g.num_cells)
+        flux = sps.csr_matrix((dataIJ, (I, J)), shape=shape)
 
     def _patch(self, g, f, bnd, patch_face_faces, patch_face_cells, node_faces, face_cells):
         """
@@ -168,21 +179,22 @@ class MpfaUpscaling(FVElliptic):
         bc_type[1] = False
 
         pts_pos = 0
-        faces = np.array([f_loc[0]])
+        face = f_loc[0]
+        faces = np.array([face])
+
+        # save the type of boundary condition associate with the current
+        # face
+        if b_faces[face]:
+            bc_tag = bnd.is_dir[face] * "dir" + \
+                     bnd.is_neu[face] * "neu" + \
+                     bnd.is_rob[face] * "rob"
+            bc_type[:, pts_pos] = [bc_tag, True]
 
         while f_loc.size:
 
             # select the face
             mask = np.where(np.isin(faces, f_loc))[0][0]
             face = faces[mask]
-
-            # save the type of boundary condition associate with the current
-            # face
-            if b_faces[face]:
-                bc_tag = bnd.is_dir[face] * "dir" + \
-                         bnd.is_neu[face] * "neu" + \
-                         bnd.is_rob[face] * "rob"
-                bc_type[:, pts_pos] = [bc_tag, True]
 
             # we add the face in the list
             pts[:g.dim, pts_pos] = g.face_centers[:g.dim, face]
@@ -212,6 +224,11 @@ class MpfaUpscaling(FVElliptic):
 
                 # save the fact that it is a boundary corner
                 bc_corner[:, pts_pos] = [1, 1, node]
+
+                bc_tag = bnd.is_dir[face] * "dir" + \
+                         bnd.is_neu[face] * "neu" + \
+                         bnd.is_rob[face] * "rob"
+                bc_type[:, pts_pos] = [bc_tag, True]
 
             else:
                 # identify among the cells related to the current face
@@ -257,10 +274,10 @@ class MpfaUpscaling(FVElliptic):
         # the data are user specific, in principle only the permeability and aperture
         # need to be inserted by the user and not a source term.
         for g, d in gb:
-            d.update(data["node"](g, d, gb))
+            d.update(data["node_data"](g, d, gb))
 
         for e, d in gb.edges():
-            d.update(data["edge"](e, d, gb))
+            d.update(data["edge_data"](e, d, gb))
 
     def _patch_set_bc(self, gb, pts, pt, bc_type, tol):
 
@@ -270,6 +287,7 @@ class MpfaUpscaling(FVElliptic):
         dist = lambda i, j: np.linalg.norm(pts[:, bd[j, i]] - pts[:, bd[j, i+1]])
         length = np.array([[dist(i, j) for i in np.arange(2)] for j in np.arange(2)])
         sum_length = np.sum(length, axis=1)
+
         for g, d in gb:
             param = d["param"]
 
