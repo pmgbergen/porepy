@@ -125,12 +125,12 @@ def main(kf, description, is_coarse=False, if_export=False):
     up = sps.linalg.spsolve(A, b)
     assembler.split(gb, "up", up)
 
-    gb.add_node_props(["discharge", "pressure", "P0u"])
-    assembler.extract_flux(gb, "up", "discharge")
+    gb.add_node_props(["darcy_flux", "pressure", "P0u"])
+    assembler.extract_flux(gb, "up", "darcy_flux")
     assembler.extract_pressure(gb, "up", "pressure")
 
     # EK: For the mometn, we don't have project_u for the general assembler
-    #    assembler.project_u(gb, "discharge", "P0u")
+    #    assembler.project_u(gb, "darcy_flux", "P0u")
 
     if if_export:
         save = pp.Exporter(gb, "vem", folder="vem_" + description)

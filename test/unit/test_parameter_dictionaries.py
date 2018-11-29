@@ -29,7 +29,7 @@ class TestParameterDictionaries(unittest.TestCase):
         Check that the correct parameters are present, and sample some of the values
         and check that they are correct.
         """
-        # The default discharge needs face normals:
+        # The default darcy_flux needs face normals:
         self.g.compute_geometry()
         dictionary = dicts.transport_dictionary(self.g)
         # Check that all parameters have been added.
@@ -41,7 +41,7 @@ class TestParameterDictionaries(unittest.TestCase):
             "second_order_tensor",
             "bc",
             "bc_values",
-            "discharge",
+            "darcy_flux",
             "mass_weight",
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
@@ -51,7 +51,7 @@ class TestParameterDictionaries(unittest.TestCase):
         for parameter in unitary_parameters:
             self.assertTrue(np.all(np.isclose(dictionary[parameter], ones)))
         zeros = np.zeros(self.g.num_faces)
-        self.assertTrue(np.all(np.isclose(dictionary["discharge"], zeros)))
+        self.assertTrue(np.all(np.isclose(dictionary["darcy_flux"], zeros)))
 
     def test_default_mechanics_dictionary(self):
         """ Test the default mechanics dictionary.
@@ -105,7 +105,7 @@ class TestParameterDictionaries(unittest.TestCase):
             "foo": "bar",
             "bc": 15,
         }
-        # The default discharge needs face normals:
+        # The default darcy_flux needs face normals:
         self.g.compute_geometry()
         data = pp.initialize_data({}, self.g, "transport", specified_parameters)
         dictionary = data[pp.PARAMETERS]["transport"]

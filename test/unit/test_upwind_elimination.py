@@ -137,8 +137,8 @@ class BasicsTest(unittest.TestCase):
 
         solver.split(gb_r, "pressure", p_red)
 
-        # pp.fvutils.compute_discharges(gb)
-        pp.fvutils.compute_discharges(gb_r)
+        # pp.fvutils.compute_darcy_flux(gb)
+        pp.fvutils.compute_darcy_flux(gb_r)
 
         # ------Transport------#
         advection_discr = upwind.Upwind(keyword="transport")

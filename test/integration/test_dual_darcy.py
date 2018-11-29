@@ -69,16 +69,16 @@ class BasicsTest(unittest.TestCase):
             np.allclose(problem_mono.data()["pressure"], g_gb[1]["pressure"])
         )
 
-        problem_mono.discharge("u")
-        problem_mult.discharge("u")
+        problem_mono.darcy_flux("u")
+        problem_mult.darcy_flux("u")
 
         self.assertTrue(np.allclose(problem_mono.data()["u"], g_gb[1]["u"]))
 
-        problem_mono.project_discharge("P0u")
+        problem_mono.project_darcy_flux("P0u")
         # EK: With the new framework for elliptic discretizations, functionality
         # for projecting fluxes onto cells are less than clear. Disable this
         # part of the test, at least for now
-        # problem_mult.project_discharge("P0u")
+        # problem_mult.project_darcy_flux("P0u")
 
         problem_mono.save(["pressure", "P0u"])
 

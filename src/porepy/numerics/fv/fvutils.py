@@ -1132,16 +1132,16 @@ def map_subgrid_to_grid(g, loc_faces, loc_cells, is_vector):
 # ------------------------------------------------------------------------------
 
 
-def compute_discharges(
+def compute_darcy_flux(
     gb,
     keyword="flow",
-    d_name="discharge",
+    d_name="darcy_flux",
     p_name="pressure",
     lam_name="mortar_solution",
     data=None,
 ):
     """
-    Computes discharges over all faces in the entire grid /grid bucket given
+    Computes darcy_flux over all faces in the entire grid /grid bucket given
     pressures for all nodes, provided as node properties.
 
     Parameter:
@@ -1153,8 +1153,8 @@ def compute_discharges(
             and the following edge property field for all connected grids:
         'coupling_flux': Discretization of the coupling fluxes.
     keyword (string): defaults to 'flow'. The physic regime
-    d_name (string): defaults to 'discharge'. The keyword which the computed
-                     discharge will be stored by in the dictionary.
+    d_name (string): defaults to 'darcy_flux'. The keyword which the computed
+                     darcy_flux will be stored by in the dictionary.
     p_name (string): defaults to 'pressure'. The keyword that the pressure
                      field is stored by in the dictionary
     data (dictionary): defaults to None. If gb is mono-dimensional grid the
@@ -1162,9 +1162,9 @@ def compute_discharges(
                        multi-dimensional grid, this variable has no effect
 
     Returns:
-        gb, the same grid bucket with the added field 'discharge' added to all
+        gb, the same grid bucket with the added field 'darcy_flux' added to all
         node data fields. Note that the fluxes between grids will be added only
-        at the gb edge, not at the node fields. The sign of the discharges
+        at the gb edge, not at the node fields. The sign of the darcy_flux
         correspond to the directions of the normals, in the edge/coupling case
         those of the higher grid. For edges beteween grids of equal dimension,
         there is an implicit assumption that all normals point from the second
@@ -1181,7 +1181,7 @@ def compute_discharges(
             )
         else:
             raise ValueError(
-                """Discharges can only be computed if a flux-based
+                """Darcy_Flux can only be computed if a flux-based
                                  discretization has been applied"""
             )
         data[d_name] = dis
@@ -1202,7 +1202,7 @@ def compute_discharges(
                 )
             else:
                 raise ValueError(
-                    """Discharges can only be computed if a flux-based
+                    """Darcy_Flux can only be computed if a flux-based
                                  discretization has been applied"""
                 )
 

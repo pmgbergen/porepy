@@ -48,7 +48,7 @@ class DarcyAndTransport:
             SC.compute_elimination_fluxes(
                 self.flow.full_grid, self.flow.grid(), self.flow.el_data
             )
-        self.flow.discharge()
+        self.flow.darcy_flux()
         self.transport.solve(transport_save_as, save_every)
 
     def save(self, save_every=1):

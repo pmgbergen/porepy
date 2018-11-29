@@ -78,8 +78,8 @@ def transport_dictionary(g, in_data=None):
     )
     d["bc"] = in_data.get("bc", pp.BoundaryCondition(g))
     d["bc_values"] = in_data.get("bc_values", np.zeros(g.num_faces))
-    d["discharge"] = in_data.get(
-        "discharge", pp.Upwind().discharge(g, [0, 0, 0], d["aperture"])
+    d["darcy_flux"] = in_data.get(
+        "darcy_flux", pp.Upwind().darcy_flux(g, [0, 0, 0], d["aperture"])
     )
     d["mass_weight"] = in_data.get("mass_weight", d["porosity"])
     return d

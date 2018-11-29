@@ -51,7 +51,7 @@ class BasicsTest(unittest.TestCase):
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
             pp.initialize_data(d, g, "transport", specified_parameters)
-        add_constant_discharge(gb, upwind, [0, 1, 0], a)
+        add_constant_darcy_flux(gb, upwind, [0, 1, 0], a)
 
         assembler = pp.Assembler()
 
@@ -84,8 +84,6 @@ class BasicsTest(unittest.TestCase):
 
         theta_known = [1, 1, 1, -1, 1]
 
-        deltaT_known = 5 * 1e-3
-
         rtol = 1e-15
         atol = rtol
         self.assertTrue(np.allclose(U.todense(), U_known, rtol, atol))
@@ -116,7 +114,7 @@ class BasicsTest(unittest.TestCase):
         for g, d in gb:
 
             aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
-            #            specified_parameters = {"discharge": upwind.discharge(g, [0, 1, 0], aperture), "aperture": aperture}
+            #            specified_parameters = {"darcy_flux": upwind.darcy_flux(g, [0, 1, 0], aperture), "aperture": aperture}
             specified_parameters = {"aperture": aperture}
             bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
             if bound_faces.size != 0:
@@ -137,7 +135,7 @@ class BasicsTest(unittest.TestCase):
 
             pp.initialize_data(d, g, "transport", specified_parameters)
 
-        add_constant_discharge(gb, upwind, [1, 0, 0], a)
+        add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler()
 
@@ -270,7 +268,7 @@ class BasicsTest(unittest.TestCase):
                 specified_parameters.update({"bc": bound})
             pp.initialize_data(d, g, "transport", specified_parameters)
 
-        add_constant_discharge(gb, upwind, [1, 0, 0], a)
+        add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler()
 
@@ -856,7 +854,7 @@ class BasicsTest(unittest.TestCase):
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
             pp.initialize_data(d, g, "transport", specified_parameters)
 
-        add_constant_discharge(gb, upwind, [0, 0, 1], a)
+        add_constant_darcy_flux(gb, upwind, [0, 0, 1], a)
 
         assembler = pp.Assembler()
 
@@ -938,7 +936,7 @@ class BasicsTest(unittest.TestCase):
 
             pp.initialize_data(d, g, "transport", specified_parameters)
 
-        add_constant_discharge(gb, upwind, [1, 0, 0], a)
+        add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
 
         assembler = pp.Assembler()
 
@@ -1111,7 +1109,7 @@ class BasicsTest(unittest.TestCase):
 
             pp.initialize_data(d, g, "transport", specified_parameters)
 
-        add_constant_discharge(gb, upwind, [1, 0, 0], a)
+        add_constant_darcy_flux(gb, upwind, [1, 0, 0], a)
         assembler = pp.Assembler()
 
         U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
@@ -1252,7 +1250,7 @@ class BasicsTest(unittest.TestCase):
             specified_parameters = {"aperture": aperture, "bc": bc}
             pp.initialize_data(d, g, "transport", specified_parameters)
 
-        add_constant_discharge(gb, upwind, [2, 0, 0], a)
+        add_constant_darcy_flux(gb, upwind, [2, 0, 0], a)
         assembler = pp.Assembler()
 
         U_tmp, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
@@ -1408,7 +1406,7 @@ class BasicsTest(unittest.TestCase):
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
             pp.initialize_data(d, g, "transport", specified_parameters)
 
-        add_constant_discharge(gb, upwind, [1, 1, 0], a)
+        add_constant_darcy_flux(gb, upwind, [1, 1, 0], a)
 
         assembler = pp.Assembler()
 
@@ -1567,9 +1565,9 @@ def assign_discretization(gb, disc, coupling_disc, key):
         }
 
 
-def add_constant_discharge(gb, upwind, flux, a):
+def add_constant_darcy_flux(gb, upwind, flux, a):
     """
-    Adds the constant discharge to all internal and mortar faces, the latter
+    Adds the constant darcy_flux to all internal and mortar faces, the latter
     in the "mortar_solution" field.
     gb - grid bucket
     upwind- upwind discretization class
@@ -1578,23 +1576,25 @@ def add_constant_discharge(gb, upwind, flux, a):
     """
     for g, d in gb:
         aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
-        d[pp.PARAMETERS]["transport"]["discharge"] = upwind.discharge(g, flux, aperture)
+        d[pp.PARAMETERS]["transport"]["darcy_flux"] = upwind.darcy_flux(
+            g, flux, aperture
+        )
     for e, d in gb.edges():
         g_h = gb.nodes_of_edge(e)[1]
         p_h = gb.node_props(g_h, pp.PARAMETERS)
-        discharge = p_h["transport"]["discharge"]
+        darcy_flux = p_h["transport"]["darcy_flux"]
         sign = np.zeros(g_h.num_faces)
         sign[g_h.get_all_boundary_faces()] = sign_of_boundary_faces(g_h)
         mg = d["mortar_grid"]
         sign = mg.master_to_mortar_avg() * sign
         #        d["param"] = pp.Parameters(g_h)
-        discharge_e = sign * (d["mortar_grid"].master_to_mortar_avg() * discharge)
+        darcy_flux_e = sign * (d["mortar_grid"].master_to_mortar_avg() * darcy_flux)
         if pp.PARAMETERS not in d:
             d[pp.PARAMETERS] = pp.Parameters(
-                mg, ["transport"], [{"flux_field": discharge_e}]
+                mg, ["transport"], [{"darcy_flux": darcy_flux_e}]
             )
         else:
-            d[pp.PARAMETERS]["transport"]["flux_field"] = discharge_e
+            d[pp.PARAMETERS]["transport"]["darcy_flux"] = darcy_flux_e
 
 
 def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, keys):
