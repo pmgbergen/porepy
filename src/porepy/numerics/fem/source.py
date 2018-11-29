@@ -10,6 +10,7 @@ from porepy.numerics.mixed_dim.solver import Solver
 
 # ------------------------------------------------------------------------------#
 
+
 class P1Source(Solver):
     """
     Discretization of the integrated source term

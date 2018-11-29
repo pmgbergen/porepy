@@ -10,6 +10,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+
 def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
     """
     Save in the grid bucket a piece-wise vector representation of the flux
@@ -47,7 +48,9 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
 
         d[P0_flux] = discr.project_flux(g, edge_flux + d[flux], d)
 
-#------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------#
+
 
 class DualElliptic(
     pp.numerics.mixed_dim.elliptic_discretization.EllipticDiscretization
