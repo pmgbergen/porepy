@@ -176,6 +176,7 @@ class MassMatrix(Solver):
 
 ##########################################################################
 
+
 class InvMassMatrix(Solver):
     """ Class that provides the discretization of a L2-mass bilinear form with constant
     test and trial functions.

@@ -8,7 +8,7 @@ from porepy.numerics.mixed_dim.solver import Solver
 
 # ------------------------------------------------------------------------------#
 
-#class _UpwindMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
+# class _UpwindMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
 #    def __init__(self, keyword="transport"):
 #        self.keyword = keyword
 #
