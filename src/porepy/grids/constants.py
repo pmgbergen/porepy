@@ -23,6 +23,7 @@ class GmshConstants(object):
         self.AUXILIARY_TAG = 7
 
         self.PHYSICAL_NAME_DOMAIN = "DOMAIN"
+        self.PHYSICAL_NAME_DOMAIN_BOUNDARY = "DOMAIN_BOUNDARY_"
         self.PHYSICAL_NAME_FRACTURES = "FRACTURE_"
         self.PHYSICAL_NAME_AUXILIARY = "AUXILIARY_"
 
