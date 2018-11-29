@@ -14,7 +14,7 @@ class SlightlyCompressibleModel(pp.ParabolicModel):
     - keyword (string) See Parameters class for valid keyword
 
     functions:
-    discharge(): computes the discharges and saves it in the grid bucket as 'pressure'
+    darcy_flux(): computes the darcy_flux and saves it in the grid bucket as 'pressure'
     Also see functions from ParabolicProblem
 
     Example:
@@ -60,9 +60,9 @@ class SlightlyCompressibleModel(pp.ParabolicModel):
         time_discretization = TimeDisc(self.time_step(), self.keyword)
         return (time_discretization, None)
 
-    def discharge(self, d_name="discharge", p_name="pressure"):
+    def darcy_flux(self, d_name="darcy_flux", p_name="pressure"):
         self.pressure(p_name)
-        fvutils.compute_discharges(self.grid(), d_name=d_name, p_name=p_name)
+        fvutils.compute_darcy_flux(self.grid(), d_name=d_name, p_name=p_name)
 
     def pressure(self):
         if self.is_GridBucket:

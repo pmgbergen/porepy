@@ -125,11 +125,11 @@ def add_data_advection_diffusion(gb, domain, tol):
             )
             transport_parameter_dictionary["bc_values"] = np.zeros(g.num_faces)
 
-    # Assign coupling discharge
+    # Assign coupling darcy_flux
     for e, d in gb.edges():
         g_h = gb.nodes_of_edge(e)[1]
-        discharge = gb.node_props(g_h)["discharge"]
-        d["discharge"] = discharge
+        darcy_flux = gb.node_props(g_h)["darcy_flux"]
+        d["darcy_flux"] = darcy_flux
 
         mg = d["mortar_grid"]
         check_P = mg.slave_to_mortar_avg()
@@ -137,7 +137,7 @@ def add_data_advection_diffusion(gb, domain, tol):
         gamma = check_P * aperture
         kn = diffusion_coefficient * np.ones(mg.num_cells) / gamma
         transport_dictionary = {"normal_diffusivity": kn}
-        d["flux_field"] = mg.master_to_mortar_int * discharge
+        d["darcy_flux"] = mg.master_to_mortar_int * darcy_flux
         d[pp.PARAMETERS].update_dictionaries("transport", transport_dictionary)
         d[pp.DISCRETIZATION_MATRICES]["transport"] = {}
 
@@ -169,9 +169,9 @@ add_data_darcy(gb, domain, tol)
 darcy = pp.DualEllipticModel(gb)
 up = darcy.solve()
 
-darcy.split()
+darcy.split(x_name="pressure")
 darcy.pressure("pressure")
-darcy.discharge("discharge")
+darcy.darcy_flux("darcy_flux")
 
 if do_save:
     save = pp.Exporter(gb, "darcy", folder=export_folder)

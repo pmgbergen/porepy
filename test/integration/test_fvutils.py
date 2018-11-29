@@ -131,7 +131,7 @@ class TestFvutils(unittest.TestCase):
                 # may change in the future.
                 pass
 
-    def test_compute_discharge_mono_grid(self):
+    def test_compute_darcy_flux_mono_grid(self):
         g = pp.CartGrid([1, 1])
         flux = sps.csc_matrix((4, 1))
         bound_flux = sps.csc_matrix(
@@ -145,9 +145,9 @@ class TestFvutils(unittest.TestCase):
         matrix_dictionary["flux"] = flux
         matrix_dictionary["bound_flux"] = bound_flux
         data["pressure"] = np.array([3.14])
-        fvutils.compute_discharges(g, data=data)
+        fvutils.compute_darcy_flux(g, data=data)
 
-        dis = data["discharge"]
+        dis = data["darcy_flux"]
 
         dis_true = flux * data["pressure"] + bound_flux * bc_val
         self.assertTrue(np.allclose(dis, dis_true))

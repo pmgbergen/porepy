@@ -114,7 +114,7 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
 
         This function should be called after self.split()
 
-        @ALL: This I believe replaces the old compute_discharge function for
+        @ALL: This I believe replaces the old compute_darcy_flux function for
         mpfa and tpfa, if that is still alive.
 
         @ALL: I don't like the word extract here - it makes sense for mixed
@@ -151,7 +151,7 @@ class EllipticAssembler(pp.numerics.mixed_dim.AbstractAssembler):
 
         This function should be called after self.split()
 
-        @ALL: This I believe replaces the old compute_discharge function for
+        @ALL: This I believe replaces the old compute_darcy_flux function for
         mpfa and tpfa, if that is still alive.
 
         @ALL: I don't like the word extract here - it makes sense for mixed

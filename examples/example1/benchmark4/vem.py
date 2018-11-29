@@ -83,10 +83,10 @@ A_source, b_source = solver_source.matrix_rhs(gb)
 up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 solver_flow.split(gb, "up", up)
 
-gb.add_node_props(["discharge", "pressure", "P0u"])
-solver_flow.extract_u(gb, "up", "discharge")
+gb.add_node_props(["darcy_flux", "pressure", "P0u"])
+solver_flow.extract_u(gb, "up", "darcy_flux")
 solver_flow.extract_p(gb, "up", "pressure")
-solver_flow.project_u(gb, "discharge", "P0u")
+solver_flow.project_u(gb, "darcy_flux", "P0u")
 
 save = pp.Exporter(gb, "vem", folder="vem")
 save.write_vtk(["pressure", "P0u"])

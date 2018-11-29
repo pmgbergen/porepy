@@ -252,15 +252,15 @@ def solve_elliptic_problem(gb):
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
     flux = pp.EllipticModel(gb, keyword="flow")
     p = flux.solve()
-    flux.split("flux_field")
-    pp.fvutils.compute_discharges(gb, p_name="flow", lam_name="flux_field")
-    move_discharge(gb, "flow", "transport")
+    flux.split("darcy_flux")
+    pp.fvutils.compute_darcy_flux(gb, p_name="flow", lam_name="darcy_flux")
+    move_darcy_flux(gb, "flow", "transport")
 
 
-def move_discharge(gb, from_name, to_name):
+def move_darcy_flux(gb, from_name, to_name):
     for _, d in gb:
         p = d[pp.PARAMETERS]
-        p[to_name]["discharge"] = p[from_name]["discharge"]
+        p[to_name]["darcy_flux"] = p[from_name]["darcy_flux"]
 
 
 def delete_data(gb):

@@ -49,7 +49,7 @@ class EllipticModel:
                  node in the GridBucket.
                  Parameters:
                     name: (string) The keyword assigned to the pressure
-    discharge(): Calls split('pressure'). Then calculate the discharges over each
+    darcy_flux(): Calls split('pressure'). Then calculate the darcy_flux over each
                  face in the grids and between edges in the GridBucket
     save(): calls split('pressure'). Then export the pressure to a vtk file to the
             folder kwargs['folder_name'] with file name
@@ -213,16 +213,16 @@ class EllipticModel:
         else:
             self._data[self.pressure_name] = self.x
 
-    def discharge(self, discharge_name="discharge"):
+    def darcy_flux(self, darcy_flux_name="darcy_flux"):
         if self.is_GridBucket:
-            pp.numerics.fv.fvutils.compute_discharges(
+            pp.numerics.fv.fvutils.compute_darcy_flux(
                 self.grid(), self.keyword, p_name=self.pressure_name
             )
         else:
-            pp.numerics.fv.fvutils.compute_discharges(
+            pp.numerics.fv.fvutils.compute_darcy_flux(
                 self.grid(),
                 self.keyword,
-                discharge_name,
+                darcy_flux_name,
                 self.pressure_name,
                 self._data,
             )
@@ -344,12 +344,12 @@ class DualEllipticModel(EllipticModel):
     def __init__(self, gb, data=None, keyword="flow", **kwargs):
         EllipticModel.__init__(self, gb, data, keyword, **kwargs)
 
-        self.discharge_name = str()
-        self.projected_discharge_name = str()
+        self.darcy_flux_name = str()
+        self.projected_darcy_flux_name = str()
 
     def _set_discretization(self):
         discr = pp.MVEM(self.keyword)
-        source = pp.DualSource(self.keyword)
+        source = pp.DualIntegral(self.keyword)
 
         if self.is_GridBucket:
             key = self.keyword
@@ -407,35 +407,35 @@ class DualEllipticModel(EllipticModel):
             pressure = self._discr.extract_pressure(self._gb, self.x)
             self._data[self.pressure_name] = pressure
 
-    def discharge(self, discharge_name="discharge"):
-        self.discharge_name = discharge_name
+    def darcy_flux(self, darcy_flux_name="darcy_flux"):
+        self.darcy_flux_name = darcy_flux_name
         if self.is_GridBucket:
             for g, d in self._gb:
                 discr = d[pp.DISCRETIZATION][self.keyword]["flux"]
-                d[self.discharge_name] = discr.extract_flux(g, d[self.x_name])
+                d[self.darcy_flux_name] = discr.extract_flux(g, d[self.x_name])
 
             # for e, d in self._gb.edges():
             #    g_h = self._gb.nodes_of_edge(e)[1]
-            #    d[discharge_name] = self._gb.node_props(g_h, discharge_name)
+            #    d[darcy_flux_name] = self._gb.node_props(g_h, darcy_flux_name)
 
         else:
-            discharge = self._discr.extract_flux(self._gb, self.x)
-            self._data[self.discharge_name] = discharge
+            darcy_flux = self._discr.extract_flux(self._gb, self.x)
+            self._data[self.darcy_flux_name] = darcy_flux
 
-    def project_discharge(self, projected_discharge_name="P0u"):
-        if self.discharge_name is str():
-            self.discharge()
-        self.projected_discharge_name = projected_discharge_name
+    def project_darcy_flux(self, projected_darcy_flux_name="P0u"):
+        if self.darcy_flux_name is str():
+            self.darcy_flux()
+        self.projected_darcy_flux_name = projected_darcy_flux_name
         if self.is_GridBucket:
             self._flux_disc.project_u(
-                self._gb, self.discharge_name, self.projected_discharge_name
+                self._gb, self.darcy_flux_name, self.projected_darcy_flux_name
             )
         else:
-            discharge = self._data[self.discharge_name]
-            projected_discharge = self._discr.project_flux(
-                self._gb, discharge, self._data
+            darcy_flux = self._data[self.darcy_flux_name]
+            projected_darcy_flux = self._discr.project_flux(
+                self._gb, darcy_flux, self._data
             )
-            self._data[self.projected_discharge_name] = projected_discharge
+            self._data[self.projected_darcy_flux_name] = projected_darcy_flux
 
 
 # ------------------------------------------------------------------------------#

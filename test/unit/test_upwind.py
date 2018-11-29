@@ -14,17 +14,17 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_1d_discharge_positive(self):
+    def test_upwind_1d_darcy_flux_positive(self):
         g = structured.CartGrid(3, 1)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, [2, 0, 0])
+        dis = solver.darcy_flux(g, [2, 0, 0])
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
 
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
 
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
@@ -40,16 +40,16 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_1d_discharge_negative(self):
+    def test_upwind_1d_darcy_flux_negative(self):
         g = structured.CartGrid(3, 1)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, [-2, 0, 0])
+        dis = solver.darcy_flux(g, [-2, 0, 0])
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -64,16 +64,16 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_2d_cart_discharge_positive(self):
+    def test_upwind_2d_cart_darcy_flux_positive(self):
         g = structured.CartGrid([3, 2], [1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, [2, 0, 0])
+        dis = solver.darcy_flux(g, [2, 0, 0])
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -98,16 +98,16 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_2d_cart_discharge_negative(self):
+    def test_upwind_2d_cart_darcy_flux_negative(self):
         g = structured.CartGrid([3, 2], [1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, [-2, 0, 0])
+        dis = solver.darcy_flux(g, [-2, 0, 0])
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -131,16 +131,16 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_2d_simplex_discharge_positive(self):
+    def test_upwind_2d_simplex_darcy_flux_positive(self):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, [1, 0, 0])
+        dis = solver.darcy_flux(g, [1, 0, 0])
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -155,16 +155,16 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_2d_simplex_discharge_negative(self):
+    def test_upwind_2d_simplex_darcy_flux_negative(self):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, [-1, 0, 0])
+        dis = solver.darcy_flux(g, [-1, 0, 0])
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -179,16 +179,16 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_3d_cart_discharge_negative(self):
+    def test_upwind_3d_cart_darcy_flux_negative(self):
         g = structured.CartGrid([2, 2, 2], [1, 1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, [-1, 0, 0])
+        dis = solver.darcy_flux(g, [-1, 0, 0])
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -215,16 +215,16 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_3d_cart_discharge_positive(self):
+    def test_upwind_3d_cart_darcy_flux_positive(self):
         g = structured.CartGrid([2, 2, 2], [1, 1, 1])
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, [1, 0, 0])
+        dis = solver.darcy_flux(g, [1, 0, 0])
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -251,18 +251,18 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_1d_surf_discharge_positive(self):
+    def test_upwind_1d_surf_darcy_flux_positive(self):
         g = structured.CartGrid(3, 1)
         R = cg.rot(-np.pi / 5.0, [0, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, np.dot(R, [1, 0, 0]))
+        dis = solver.darcy_flux(g, np.dot(R, [1, 0, 0]))
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -277,18 +277,18 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_1d_surf_discharge_negative(self):
+    def test_upwind_1d_surf_darcy_flux_negative(self):
         g = structured.CartGrid(3, 1)
         R = cg.rot(-np.pi / 8.0, [-1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, np.dot(R, [-1, 0, 0]))
+        dis = solver.darcy_flux(g, np.dot(R, [-1, 0, 0]))
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -303,18 +303,18 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_2d_cart_surf_discharge_positive(self):
+    def test_upwind_2d_cart_surf_darcy_flux_positive(self):
         g = structured.CartGrid([3, 2], [1, 1])
         R = cg.rot(np.pi / 4.0, [0, 1, 0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, np.dot(R, [1, 0, 0]))
+        dis = solver.darcy_flux(g, np.dot(R, [1, 0, 0]))
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -339,18 +339,18 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_2d_cart_surf_discharge_negative(self):
+    def test_upwind_2d_cart_surf_darcy_flux_negative(self):
         g = structured.CartGrid([3, 2], [1, 1])
         R = cg.rot(np.pi / 6.0, [1, 1, 0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, np.dot(R, [-1, 0, 0]))
+        dis = solver.darcy_flux(g, np.dot(R, [-1, 0, 0]))
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -375,18 +375,18 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_2d_simplex_surf_discharge_positive(self):
+    def test_upwind_2d_simplex_surf_darcy_flux_positive(self):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
         R = cg.rot(np.pi / 2.0, [1, 1, 0])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, np.dot(R, [1, 0, 0]))
+        dis = solver.darcy_flux(g, np.dot(R, [1, 0, 0]))
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -401,18 +401,18 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_2d_simplex_surf_discharge_negative(self):
+    def test_upwind_2d_simplex_surf_darcy_flux_negative(self):
         g = simplex.StructuredTriangleGrid([2, 1], [1, 1])
         R = cg.rot(-np.pi / 5.0, [1, 1, -1])
         g.nodes = np.dot(R, g.nodes)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, np.dot(R, [-1, 0, 0]))
+        dis = solver.darcy_flux(g, np.dot(R, [-1, 0, 0]))
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
-        specified_parameters = {"bc": bc, "discharge": dis}
+        specified_parameters = {"bc": bc, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -427,17 +427,17 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_1d_discharge_negative_bc_dir(self):
+    def test_upwind_1d_darcy_flux_negative_bc_dir(self):
         g = structured.CartGrid(3, 1)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, [-2, 0, 0])
+        dis = solver.darcy_flux(g, [-2, 0, 0])
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["dir"])
         bc_val = 3 * np.ones(g.num_faces).ravel("F")
-        specified_parameters = {"bc": bc, "bc_values": bc_val, "discharge": dis}
+        specified_parameters = {"bc": bc, "bc_values": bc_val, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M, rhs = solver.assemble_matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)
@@ -454,17 +454,17 @@ class BasicsTest(unittest.TestCase):
 
     # ------------------------------------------------------------------------------#
 
-    def test_upwind_1d_discharge_negative_bc_neu(self):
+    def test_upwind_1d_darcy_flux_negative_bc_neu(self):
         g = structured.CartGrid(3, 1)
         g.compute_geometry()
 
         solver = upwind.Upwind()
-        dis = solver.discharge(g, [-2, 0, 0])
+        dis = solver.darcy_flux(g, [-2, 0, 0])
 
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         bc_val = np.array([2, 0, 0, -2]).ravel("F")
-        specified_parameters = {"bc": bc, "bc_values": bc_val, "discharge": dis}
+        specified_parameters = {"bc": bc, "bc_values": bc_val, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         M, rhs = solver.assemble_matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)

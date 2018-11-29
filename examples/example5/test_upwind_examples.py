@@ -28,12 +28,12 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         advect = pp.Upwind("transport")
-        dis = advect.discharge(g, [1, 0, 0])
+        dis = advect.darcy_flux(g, [1, 0, 0])
 
         b_faces = g.get_all_boundary_faces()
         bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
-        specified_parameters = {"bc": bc, "bc_values": bc_val, "discharge": dis}
+        specified_parameters = {"bc": bc, "bc_values": bc_val, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         time_step = advect.cfl(g, data)
         data[pp.PARAMETERS]["transport"]["time_step"] = time_step
@@ -80,12 +80,12 @@ class BasicsTest(unittest.TestCase):
         g.compute_geometry()
 
         advect = pp.Upwind("transport")
-        dis = advect.discharge(g, [1, 0, 0])
+        dis = advect.darcy_flux(g, [1, 0, 0])
 
         b_faces = g.get_all_boundary_faces()
         bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
-        specified_parameters = {"bc": bc, "bc_values": bc_val, "discharge": dis}
+        specified_parameters = {"bc": bc, "bc_values": bc_val, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
         time_step = advect.cfl(g, data)
         data[pp.PARAMETERS]["transport"]["time_step"] = time_step
@@ -175,13 +175,13 @@ class BasicsTest(unittest.TestCase):
         if if_export:
             save.write_vtk({"pressure": p, "P0u": P0u})
 
-        # Discharge
+        # Darcy_Flux
         dis = u
 
         # Boundaries
         bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
-        specified_parameters = {"bc": bc, "bc_values": bc_val, "discharge": dis}
+        specified_parameters = {"bc": bc, "bc_values": bc_val, "darcy_flux": dis}
         data = pp.initialize_data({}, g, "transport", specified_parameters)
 
         # Advect solver

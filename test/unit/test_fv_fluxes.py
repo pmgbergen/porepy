@@ -72,13 +72,13 @@ class BasicsTest(unittest.TestCase):
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A, rhs)
         solver.split(gb, "pressure", p)
-        pp.fvutils.compute_discharges(gb)
+        pp.fvutils.compute_darcy_flux(gb)
 
         p_known = np.array(
             [1.7574919, 1.25249747, 1.7574919, 1.25249747, 1.25250298, 1.80993337]
         )
 
-        # Known discharges
+        # Known darcy_flux
         d_0, d_1 = fluxes_2d_1d_left_right_dir_neu()
 
         rtol = 1e-6
@@ -86,9 +86,9 @@ class BasicsTest(unittest.TestCase):
 
         for _, d in gb:
             if d["node_number"] == 0:
-                self.assertTrue(np.allclose(d["discharge"], d_0, rtol, atol))
+                self.assertTrue(np.allclose(d["darcy_flux"], d_0, rtol, atol))
             if d["node_number"] == 1:
-                self.assertTrue(np.allclose(d["discharge"], d_1, rtol, atol))
+                self.assertTrue(np.allclose(d["darcy_flux"], d_1, rtol, atol))
 
         self.assertTrue(np.allclose(p, p_known, rtol, atol))
 
@@ -148,13 +148,13 @@ class BasicsTest(unittest.TestCase):
         A, rhs = solver.matrix_rhs(gb)
         p = sps.linalg.spsolve(A, rhs)
         solver.solver.split(gb, "pressure", p)
-        pp.fvutils.compute_discharges(gb)
+        pp.fvutils.compute_darcy_flux(gb)
 
         p_known = np.array(
             [1.7574919, 1.25249747, 1.7574919, 1.25249747, 1.25250298, 1.80993337]
         )
 
-        # Known discharges
+        # Known darcy_flux
         d_0, d_1 = fluxes_2d_1d_left_right_dir_neu()
 
         rtol = 1e-6
@@ -163,9 +163,9 @@ class BasicsTest(unittest.TestCase):
         for _, d in gb:
 
             if d["node_number"] == 0:
-                self.assertTrue(np.allclose(d["discharge"], d_0, rtol, atol))
+                self.assertTrue(np.allclose(d["darcy_flux"], d_0, rtol, atol))
             if d["node_number"] == 1:
-                self.assertTrue(np.allclose(d["discharge"], d_1, rtol, atol))
+                self.assertTrue(np.allclose(d["darcy_flux"], d_1, rtol, atol))
 
         self.assertTrue(np.allclose(p, p_known, rtol, atol))
 
@@ -259,13 +259,13 @@ class BasicsTest(unittest.TestCase):
         gb_r, elimination_data = gb.duplicate_without_dimension(dim_to_remove)
         # Compute the flux discretization on the new edges
         condensation.compute_elimination_fluxes(gb, gb_r, elimination_data)
-        # Compute the discharges from the flux discretizations and computed
+        # Compute the darcy_flux from the flux discretizations and computed
         # pressures
         solver.split(gb_r, "pressure", p_red)
-        pp.fvutils.compute_discharges(gb)
-        pp.fvutils.compute_discharges(gb_r)
+        pp.fvutils.compute_darcy_flux(gb)
+        pp.fvutils.compute_darcy_flux(gb_r)
 
-        # Known discharges
+        # Known darcy_flux
         d_0, d_1, d_2 = fluxes_2d_1d_cross_with_elimination()
 
         # Check node fluxes, ...
@@ -273,19 +273,19 @@ class BasicsTest(unittest.TestCase):
         atol = rtol
         for g, d in gb:
             if d["node_number"] == 0:
-                self.assertTrue(np.allclose(d["discharge"], d_0, rtol, atol))
+                self.assertTrue(np.allclose(d["darcy_flux"], d_0, rtol, atol))
             if d["node_number"] == 1:
-                self.assertTrue(np.allclose(d["discharge"], d_1, rtol, atol))
+                self.assertTrue(np.allclose(d["darcy_flux"], d_1, rtol, atol))
             if d["node_number"] == 2:
-                self.assertTrue(np.allclose(d["discharge"], d_2, rtol, atol))
+                self.assertTrue(np.allclose(d["darcy_flux"], d_2, rtol, atol))
         for g, d in gb_r:
 
             if d["node_number"] == 0:
-                self.assertTrue(np.allclose(d["discharge"], d_0, rtol, atol))
+                self.assertTrue(np.allclose(d["darcy_flux"], d_0, rtol, atol))
             if d["node_number"] == 1:
-                self.assertTrue(np.allclose(d["discharge"], d_1, rtol, atol))
+                self.assertTrue(np.allclose(d["darcy_flux"], d_1, rtol, atol))
             if d["node_number"] == 2:
-                self.assertTrue(np.allclose(d["discharge"], d_2, rtol, atol))
+                self.assertTrue(np.allclose(d["darcy_flux"], d_2, rtol, atol))
 
         # ... edge fluxes ...
         d_01, d_10, d_02, d_20, d_13, d_23 = coupling_fluxes_2d_1d_cross_no_el()
@@ -298,18 +298,18 @@ class BasicsTest(unittest.TestCase):
 
                 if node_numbers == (0, 1):
                     self.assertTrue(
-                        np.allclose(data["discharge"], d_01, rtol, atol)
-                        or np.allclose(data["discharge"], d_10, rtol, atol)
+                        np.allclose(data["darcy_flux"], d_01, rtol, atol)
+                        or np.allclose(data["darcy_flux"], d_10, rtol, atol)
                     )
                 if node_numbers == (0, 2):
                     self.assertTrue(
-                        np.allclose(data["discharge"], d_02, rtol, atol)
-                        or np.allclose(data["discharge"], d_20, rtol, atol)
+                        np.allclose(data["darcy_flux"], d_02, rtol, atol)
+                        or np.allclose(data["darcy_flux"], d_20, rtol, atol)
                     )
                 if node_numbers == (1, 3):
-                    self.assertTrue(np.allclose(data["discharge"], d_13, rtol, atol))
+                    self.assertTrue(np.allclose(data["darcy_flux"], d_13, rtol, atol))
                 if node_numbers == (2, 3):
-                    self.assertTrue(np.allclose(data["discharge"], d_23, rtol, atol))
+                    self.assertTrue(np.allclose(data["darcy_flux"], d_23, rtol, atol))
 
         d_11, d_21, d_22 = coupling_fluxes_2d_1d_cross_with_el()
         for e, data in gb_r.edges():
@@ -320,20 +320,20 @@ class BasicsTest(unittest.TestCase):
 
                 if node_numbers == (0, 1):
                     self.assertTrue(
-                        np.allclose(data["discharge"], d_01, rtol, atol)
-                        or np.allclose(data["discharge"], d_10, rtol, atol)
+                        np.allclose(data["darcy_flux"], d_01, rtol, atol)
+                        or np.allclose(data["darcy_flux"], d_10, rtol, atol)
                     )
                 if node_numbers == (0, 2):
                     self.assertTrue(
-                        np.allclose(data["discharge"], d_02, rtol, atol)
-                        or np.allclose(data["discharge"], d_20, rtol, atol)
+                        np.allclose(data["darcy_flux"], d_02, rtol, atol)
+                        or np.allclose(data["darcy_flux"], d_20, rtol, atol)
                     )
                 if node_numbers == (1, 1):
-                    self.assertTrue(np.allclose(data["discharge"], d_11, rtol, atol))
+                    self.assertTrue(np.allclose(data["darcy_flux"], d_11, rtol, atol))
                 if node_numbers == (2, 1):
-                    self.assertTrue(np.allclose(data["discharge"], d_21, rtol, atol))
+                    self.assertTrue(np.allclose(data["darcy_flux"], d_21, rtol, atol))
                 if node_numbers == (2, 2):
-                    self.assertTrue(np.allclose(data["discharge"], d_22, rtol, atol))
+                    self.assertTrue(np.allclose(data["darcy_flux"], d_22, rtol, atol))
         # ... and pressures
         tol = 1e-10
         self.assertTrue((np.amax(np.absolute(p - p_cond))) < tol)
@@ -440,11 +440,11 @@ class BasicsTest(unittest.TestCase):
 #         A, rhs = solver_coupler.matrix_rhs(gb)
 #         p = sps.linalg.spsolve(A, rhs)
 #         solver_coupler.split(gb, "p", p)
-#         coupling_conditions.compute_discharges(gb)
+#         coupling_conditions.compute_darcy_flux(gb)
 
 
-#         discharges_known, p_known = \
-#                 discharges_pressure_for_test_tpfa_coupling_3d_2d_1d_0d()
+#         darcy_flux_known, p_known = \
+#                 darcy_flux_pressure_for_test_tpfa_coupling_3d_2d_1d_0d()
 
 #         rtol = 1e-6
 #         atol = rtol
@@ -452,13 +452,13 @@ class BasicsTest(unittest.TestCase):
 
 #         for _, d in gb:
 #             n = d['node_number']
-#             if discharges_known[n] is not None:
-#                 self.assertTrue(np.allclose(d['discharge'], discharges_known[n], rtol, atol))
+#             if darcy_flux_known[n] is not None:
+#                 self.assertTrue(np.allclose(d['darcy_flux'], darcy_flux_known[n], rtol, atol))
 #         self.assertTrue(np.allclose(p, p_known, rtol, atol))
 
 # #------------------------------------------------------------------------------#
 
-# def discharges_pressure_for_test_tpfa_coupling_3d_2d_1d_0d():
+# def darcy_flux_pressure_for_test_tpfa_coupling_3d_2d_1d_0d():
 #     d_4 = np.array([  8.32667268e-17,   0.00000000e+00])
 #     d_0 = np.array([-0.24879143, -0.25120354, -0.24879143, -0.24879143, -0.25120354,
 #                       -0.24879143, -0.24879143, -0.25120354, -0.24879143, -0.24879143,
@@ -495,7 +495,7 @@ class BasicsTest(unittest.TestCase):
 #     d_7 = np.array([ 0.09898637,  0.0990339 ])
 #     d_6 = np.array([ 0.0990339 ,  0.09898637])
 
-#     discharges = [d_0, d_1,d_2, d_3, d_4, d_5, d_6 ,d_7, d_8,d_9, d_10]
+#     darcy_flux = [d_0, d_1,d_2, d_3, d_4, d_5, d_6 ,d_7, d_8,d_9, d_10]
 #     pressure = np.array([\
 #         0.24879143,  0.75120857,  0.24879143,  0.75120857,  0.24879143,
 #         0.75120857,  0.24879143,  0.75120857,  0.24758535,  0.75241465,
@@ -503,7 +503,7 @@ class BasicsTest(unittest.TestCase):
 #         0.5       ,  0.24758535,  0.75241465,  0.24758535,  0.75241465,
 #         0.5       ,  0.5       ,  0.75241525,  0.24758475,  0.5       ,
 #         0.5       ,  0.5       ])
-#     return discharges, pressure
+#     return darcy_flux, pressure
 
 # #------------------------------------------------------------------------------#
 def fluxes_2d_1d_left_right_dir_neu():
