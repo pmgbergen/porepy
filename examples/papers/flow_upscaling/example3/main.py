@@ -54,10 +54,10 @@ def local_edge_data(e, d, gb, **kwargs):
 
     g_l = gb.nodes_of_edge(e)[0]
     mg = d["mortar_grid"]
-    check_P = mg.low_to_mortar_avg()
+    check_P = mg.slave_to_mortar_avg()
 
     aperture = gb.node_props(g_l, "param").get_aperture()
-    gamma = check_P * np.power(aperture, 1./(2.-g.dim))
+    gamma = check_P * np.power(aperture, 1./(2.-g_l.dim))
     return {"kn": kf * np.ones(mg.num_cells) / gamma}
 
 def compute_discharge(gb, **kwargs):
@@ -115,12 +115,12 @@ if __name__ == "__main__":
 
     mesh_args = {'mesh_size_frac': 0.25, "tol": tol}
 
-    g = pp.StructuredTriangleGrid([2, 2], [1, 1])
+    g = pp.StructuredTriangleGrid([3, 3], [1, 1])
     g.compute_geometry()
 
-#    gb, domain = square_grid(mesh_args)
-#    g = gb.grids_of_dimension(2)[0]
-#    pp.plot_grid(g, alpha=0, info="fcn")
+    gb, domain = square_grid(mesh_args)
+    g = gb.grids_of_dimension(2)[0]
+    pp.plot_grid(g, alpha=0, info="fc")
 
     np.set_printoptions(linewidth=9999)
 
@@ -131,11 +131,11 @@ if __name__ == "__main__":
 
     # the data for the local problem
     data_local = {
-        "node": local_node_data,
-        "edge": local_edge_data,
+        "node_data": local_node_data,
+        "edge_data": local_edge_data,
         "tol": tol,
         "fractures": {"points": fracs_pts, "edges": fracs_edges},
-        "mesh_args": {'mesh_size_frac': 1e-2},
+        "mesh_args": {'mesh_size_frac': 1},
         "compute_discharge": compute_discharge
         }
 
