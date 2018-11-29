@@ -261,6 +261,7 @@ def generate_coarse_grid_gb(gb, subdiv):
             new_m2m = sps.csr_matrix((m2m.data, indices, m2m.indptr), shape=shape)
             d["mortar_grid"].master_to_mortar_int = new_m2m.tocsc()
 
+
 # ------------------------------------------------------------------------------#
 
 
