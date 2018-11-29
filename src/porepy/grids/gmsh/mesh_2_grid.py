@@ -123,6 +123,7 @@ def create_2d_grids(pts, cells, **kwargs):
         # faces. The new tag name become the lower version of what gmsh gives
         # in the cell_info["line"]. The map phys_names recover the literal name.
 
+
         # create all the extra tags for the grids, by default they're false
         for tag in np.unique(cell_info["line"]["gmsh:physical"]):
             tag_name = phys_names[tag].lower() + "_faces"
@@ -150,6 +151,21 @@ def create_2d_grids(pts, cells, **kwargs):
             else:
                 # the face is on a boundary
                 face = np.logical_and(face, g_2d.tags["domain_boundary_faces"])
+                if np.sum(face) == 2:
+                    # the triangle has two faces at the boundary, check if it
+                    # is the first otherwise it is the other.
+                    face_id = np.where(face)[0]
+
+                    first_face = np.zeros(face.size, dtype=np.bool)
+                    first_face[face_id[0]] = True
+
+                    nodes = g_2d.face_nodes.dot(first_face)
+                    # check if the nodes of the first face are the same
+                    if np.all(nodes[cells["line"][tag_id, :]]):
+                        face[face_id[1]] = False
+                    else:
+                        face[face_id[0]] = False
+
                 g_2d.tags[tag_name][face] = True
 
         # Create mapping to global numbering (will be a unit mapping, but is
