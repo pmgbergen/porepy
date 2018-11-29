@@ -4,9 +4,8 @@ import sys
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.grids import structured, simplex
 from porepy.grids import coarsening as co
-from porepy.fracs import meshing
+import porepy as pp
 
 # ------------------------------------------------------------------------------#
 
@@ -16,7 +15,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_coarse_grid_2d(self):
-        g = structured.CartGrid([3, 2])
+        g = pp.structured.CartGrid([3, 2])
         g.compute_geometry()
         co.generate_coarse_grid(g, [5, 2, 2, 5, 2, 2])
 
@@ -61,7 +60,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_coarse_grid_3d(self):
-        g = structured.CartGrid([2, 2, 2])
+        g = pp.structured.CartGrid([2, 2, 2])
         g.compute_geometry()
         co.generate_coarse_grid(g, [0, 0, 0, 0, 1, 1, 2, 2])
 
@@ -133,7 +132,7 @@ class BasicsTest(unittest.TestCase):
         part = np.array([0, 0, 1, 1, 2, 0, 3, 1])
         f = np.array([[2, 2], [0, 2]])
 
-        gb = meshing.cart_grid([f], [4, 2])
+        gb = pp.meshing.cart_grid([f], [4, 2])
         gb.compute_geometry()
         co.generate_coarse_grid(gb, part)
 
@@ -164,7 +163,7 @@ class BasicsTest(unittest.TestCase):
             f1 = np.array([[3.0, 3.0], [1.0, 5.0]])
             f2 = np.array([[1.0, 5.0], [3.0, 3.0]])
 
-            gb = meshing.cart_grid([f1, f2], [6, 6])
+            gb = pp.meshing.cart_grid([f1, f2], [6, 6])
             gb.compute_geometry()
 
             cell_centers_1 = np.array(
@@ -212,7 +211,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_coarse_grid_3d_2d(self):
         f = np.array([[2.0, 2.0, 2.0, 2.0], [0.0, 2.0, 2.0, 0.0], [0.0, 0.0, 2.0, 2.0]])
-        gb = meshing.cart_grid([f], [4, 2, 2])
+        gb = pp.meshing.cart_grid([f], [4, 2, 2])
         gb.compute_geometry()
 
         g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
@@ -241,7 +240,7 @@ class BasicsTest(unittest.TestCase):
             f2 = np.array(
                 [[1.0, 5.0, 5.0, 1.0], [1.0, 1.0, 5.0, 5.0], [3.0, 3.0, 3.0, 3.0]]
             )
-            gb = meshing.cart_grid([f1, f2], [6, 6, 6])
+            gb = pp.meshing.cart_grid([f1, f2], [6, 6, 6])
             gb.compute_geometry()
 
             g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
@@ -534,7 +533,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_cart(self):
-        g = structured.CartGrid([5, 5])
+        g = pp.structured.CartGrid([5, 5])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g))
         known = np.array(
@@ -545,7 +544,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_tri(self):
-        g = simplex.StructuredTriangleGrid([3, 2])
+        g = pp.simplex.StructuredTriangleGrid([3, 2])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g))
         known = np.array([1, 1, 1, 0, 0, 1, 0, 2, 2, 0, 2, 2])
@@ -555,7 +554,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_cart_cdepth4(self):
-        g = structured.CartGrid([10, 10])
+        g = pp.structured.CartGrid([10, 10])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g), cdepth=4)
         known = (
@@ -670,7 +669,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_3d_cart(self):
-        g = structured.CartGrid([4, 4, 4])
+        g = pp.structured.CartGrid([4, 4, 4])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g))
         known = (
@@ -750,7 +749,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_create_partition_2d_1d_test0(self):
         f = np.array([[1.0, 1.0], [0.0, 2.0]])
-        gb = meshing.cart_grid([f], [2, 2])
+        gb = pp.meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
         part = co.create_partition(co.tpfa_matrix(gb))
@@ -769,7 +768,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_create_partition_2d_1d_test1(self):
         f = np.array([[1.0, 1.0], [0.0, 1.0]])
-        gb = meshing.cart_grid([f], [2, 2])
+        gb = pp.meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
         part = co.create_partition(co.tpfa_matrix(gb))
@@ -788,7 +787,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_create_partition_2d_1d_test2(self):
         f = np.array([[1.0, 1.0], [0.0, 1.0]])
-        gb = meshing.cart_grid([f], [2, 2])
+        gb = pp.meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
         seeds = co.generate_seeds(gb)
@@ -811,7 +810,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_create_partition_2d_1d_test3(self):
         f = np.array([[1.0, 1.0], [1.0, 2.0]])
-        gb = meshing.cart_grid([f], [2, 2])
+        gb = pp.meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
         part = co.create_partition(co.tpfa_matrix(gb))
@@ -830,7 +829,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_create_partition_2d_1d_test4(self):
         f = np.array([[1.0, 1.0], [1.0, 2.0]])
-        gb = meshing.cart_grid([f], [2, 2])
+        gb = pp.meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
         seeds = co.generate_seeds(gb)
@@ -857,7 +856,7 @@ class BasicsTest(unittest.TestCase):
         if sys.version_info >= (3, 6):
             f1 = np.array([[3.0, 3.0], [1.0, 5.0]])
             f2 = np.array([[1.0, 5.0], [3.0, 3.0]])
-            gb = meshing.cart_grid([f1, f2], [6, 6])
+            gb = pp.meshing.cart_grid([f1, f2], [6, 6])
             gb.compute_geometry()
 
             part = co.create_partition(co.tpfa_matrix(gb), cdepth=3)
@@ -914,7 +913,7 @@ class BasicsTest(unittest.TestCase):
         if sys.version_info >= (3, 6):
             f1 = np.array([[3.0, 3.0], [1.0, 5.0]])
             f2 = np.array([[1.0, 5.0], [3.0, 3.0]])
-            gb = meshing.cart_grid([f1, f2], [6, 6])
+            gb = pp.meshing.cart_grid([f1, f2], [6, 6])
             gb.compute_geometry()
 
             seeds = co.generate_seeds(gb)
@@ -976,7 +975,7 @@ class BasicsTest(unittest.TestCase):
             N = 20
             f1 = np.array([[N / 2.0, N / 2.0], [1.0, N - 1.0]])
             f2 = np.array([[1.0, N - 1.0], [N / 2.0, N / 2.0]])
-            gb = meshing.cart_grid([f1, f2], [N, N])
+            gb = pp.meshing.cart_grid([f1, f2], [N, N])
             gb.compute_geometry()
 
             seeds = co.generate_seeds(gb)
