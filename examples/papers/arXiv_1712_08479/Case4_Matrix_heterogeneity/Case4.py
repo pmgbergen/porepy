@@ -36,22 +36,26 @@ def define_grid():
 
     domain = {
         "xmin": 0.2,
-        "xmax": .8,
+        "xmax": 0.8,
         "ymin": 0.25,
-        "ymax": .75,
+        "ymax": 0.75,
         "zmin": 0.5,
-        "zmax": .7,
+        "zmax": 0.7,
     }
 
-    f_1 = np.array([[0.2, .8, .8, 0.2], [.5, .5, .5, .5], [.5, .5, .7, .7]])
-    f_2 = np.array([[.5, .5, .5, .5], [.3, .7, .7, .3], [.5, .5, .7, .7]])
-    f_3 = np.array([[.7, .7, .7, .7], [.25, .75, .75, .25], [.5, .5, .7, .7]])
-    f_4 = np.array([[.3, .3, .3, .3], [.25, .75, .75, .25], [.5, .5, .7, .7]])
-    c_1 = np.array([.35, .6, .6])
-    c_5 = np.array([.35, .4, .6])
-    c_2 = np.array([.65, .38, .65])
-    c_3 = np.array([.65, .62, .65])
-    c_4 = np.array([.5, .5, .6])
+    f_1 = np.array([[0.2, 0.8, 0.8, 0.2], [0.5, 0.5, 0.5, 0.5], [0.5, 0.5, 0.7, 0.7]])
+    f_2 = np.array([[0.5, 0.5, 0.5, 0.5], [0.3, 0.7, 0.7, 0.3], [0.5, 0.5, 0.7, 0.7]])
+    f_3 = np.array(
+        [[0.7, 0.7, 0.7, 0.7], [0.25, 0.75, 0.75, 0.25], [0.5, 0.5, 0.7, 0.7]]
+    )
+    f_4 = np.array(
+        [[0.3, 0.3, 0.3, 0.3], [0.25, 0.75, 0.75, 0.25], [0.5, 0.5, 0.7, 0.7]]
+    )
+    c_1 = np.array([0.35, 0.6, 0.6])
+    c_5 = np.array([0.35, 0.4, 0.6])
+    c_2 = np.array([0.65, 0.38, 0.65])
+    c_3 = np.array([0.65, 0.62, 0.65])
+    c_4 = np.array([0.5, 0.5, 0.6])
     ma_1, mi_1, a_1, s_1, d_1 = 0.15, 0.08, -5 / 9, -5 / 9, np.pi / 2
     ma_5, mi_5, a_5, s_5, d_5 = 0.15, 0.08, 5 / 9, 5 / 9, np.pi / 2
     ma_2, mi_2, a_2, s_2, d_2 = 0.12, 0.07, -np.pi / 4, 0, 0
@@ -96,7 +100,7 @@ def bc_values(g):
 
 def perm(g):
 
-    if np.isclose(g.cell_centers[2, 0], .6) or g.dim == 0:
+    if np.isclose(g.cell_centers[2, 0], 0.6) or g.dim == 0:
         kxx = np.ones(g.num_cells) * 1e-5
 
     elif g.dim < 3:
@@ -104,7 +108,7 @@ def perm(g):
 
     else:
         kxx = np.ones(g.num_cells) * 1e-2
-        kxx[g.cell_centers[1, :] < .5] = 1e-3
+        kxx[g.cell_centers[1, :] < 0.5] = 1e-3
     return tensor.SecondOrderTensor(3, kxx)
 
 
@@ -112,8 +116,8 @@ def sources(g):
     s = np.zeros(g.num_cells)
     if (
         g.dim == 1
-        and np.isclose(g.cell_centers[0, 0], .5)
-        and g.cell_centers[2, 0] < .6
+        and np.isclose(g.cell_centers[0, 0], 0.5)
+        and g.cell_centers[2, 0] < 0.6
     ):
         s[-1] = 1
     return s
@@ -252,7 +256,7 @@ class TransportSolver(ParabolicModel):
         return self.advective_disc(), self.source_disc()
 
     def time_step(self):
-        return .5
+        return 0.5
 
     def end_time(self):
         return 2

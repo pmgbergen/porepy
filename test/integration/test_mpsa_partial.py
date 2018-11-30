@@ -199,3 +199,7 @@ class TestDisplacementReconstruction(unittest.TestCase):
         self.assertTrue(np.allclose((bound_stress - bound_stress_rob).data, 0))
         self.assertTrue(np.allclose((hf_cell - hf_cell_rob).data, 0))
         self.assertTrue(np.allclose((hf_bound - hf_bound_rob).data, 0))
+
+
+if __name__ == "__main__":
+    unittest.main()

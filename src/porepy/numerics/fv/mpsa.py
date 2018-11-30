@@ -11,6 +11,7 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 import logging
+import porepy as pp
 
 import porepy as pp
 from porepy.numerics.fv.fv_elliptic import FVVectorElliptic
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class Mpsa(FVVectorElliptic):
-
+  
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -63,9 +64,10 @@ class Mpsa(FVVectorElliptic):
         g : grid, or a subclass, with geometry fields computed.
         data: dictionary to store the data.
         """
-
-        c = data["param"].get_tensor(self)
-        bnd = data["param"].get_bc(self)
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        c = parameter_dictionary["fourth_order_tensor"]
+        bnd = parameter_dictionary["bc"]
 
         partial = data.get("partial_update", False)
         if not partial:
@@ -87,10 +89,10 @@ class FracturedMpsa(Mpsa):
     fracture face which describe the fracture deformation.
     """
 
-    def __init__(self,keyword, given_traction=False, **kwargs):
-        Mpsa.__init__(self,keyword, **kwargs)
-        if not hasattr(self, "physics"):
-            raise AttributeError("Mpsa must assign physics")
+    def __init__(self, given_traction=False, **kwargs):
+        Mpsa.__init__(self, **kwargs)
+        if not hasattr(self, "keyword"):
+            raise AttributeError("Mpsa must assign keyword")
         self.given_traction_flag = given_traction
 
     def ndof(self, g):
@@ -137,28 +139,30 @@ class FracturedMpsa(Mpsa):
         if discretize:
             self.discretize_fractures(g, data, **kwargs)
 
-        stress = data[self._key() + "stress"]
-        bound_stress = data[self._key() +"bound_stress"]
-        b_e = data["b_e"]
-        A_e = data["A_e"]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        stress = matrix_dictionary["stress"]
+        bound_stress = matrix_dictionary["bound_stress"]
+        b_e = matrix_dictionary["b_e"]
+        A_e = matrix_dictionary["A_e"]
+
 
         if self.given_traction_flag:
             L, b_l = self.given_traction(g, stress, bound_stress)
         else:
             L, b_l = self.given_slip_distance(g, stress, bound_stress)
 
-        bc_val = data["param"].get_bc_val(self)
+        bc_val = parameter_dictionary["bc_values"]
 
         frac_faces = np.matlib.repmat(g.tags["fracture_faces"], g.dim, 1)
-        if data["param"].get_bc(self).bc_type == "scalar":
+        if parameter_dictionary["bc"].bc_type == "scalar":
             frac_faces = frac_faces.ravel("F")
-
-        elif data["param"].get_bc(self).bc_type == "vectorial":
+        elif parameter_dictionary["bc"].bc_type == "vectorial":
             bc_val = bc_val.ravel("F")
         else:
             raise ValueError("Unknown boundary type")
 
-        slip_distance = data["param"].get_slip_distance()
+        slip_distance = parameter_dictionary["slip_distance"]
 
         A = sps.vstack((A_e, L), format="csr")
         rhs = np.hstack((b_e * bc_val, b_l * (slip_distance + bc_val)))
@@ -189,27 +193,30 @@ class FracturedMpsa(Mpsa):
             Right-hand side which contains the boundary conditions and the scalar
             source term.
         """
-        stress = data[self._key() +"stress"]
-        bound_stress = data[self._key() +"bound_stress"]
-        b_e = data["b_e"]
+
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        stress = matrix_dictionary["stress"]
+        bound_stress = matrix_dictionary["bound_stress"]
+        b_e = matrix_dictionary["b_e"]
 
         if self.given_traction_flag:
             _, b_l = self.given_traction(g, stress, bound_stress)
         else:
             _, b_l = self.given_slip_distance(g, stress, bound_stress)
 
-        bc_val = data["param"].get_bc_val(self)
+        bc_val = parameter_dictionary["bc_values"]
 
         frac_faces = np.matlib.repmat(g.tags["fracture_faces"], 3, 1)
-        if data["param"].get_bc(self).bc_type == "scalar":
+        if parameter_dictionary["bc"].bc_type == "scalar":
             frac_faces = frac_faces.ravel("F")
 
-        elif data["param"].get_bc(self).bc_type == "vectorial":
+        elif parameter_dictionary["bc"].bc_type == "vectorial":
             bc_val = bc_val.ravel("F")
         else:
             raise ValueError("Unknown boundary type")
 
-        slip_distance = data["param"].get_slip_distance()
+        slip_distance = parameter_dictionary["slip_distance"]
 
         rhs = np.hstack((b_e * bc_val, b_l * (slip_distance + bc_val)))
 
@@ -231,19 +238,26 @@ class FracturedMpsa(Mpsa):
             traction on each face
 
         """
-        bc_val = data["param"].get_bc_val(self.physics).copy()
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        bc_val = parameter_dictionary["bc_values"].copy()
         frac_disp = self.extract_frac_u(g, sol)
         cell_disp = self.extract_u(g, sol)
 
         frac_faces = (g.frac_pairs).ravel("C")
 
-        if data["param"].get_bc(self).bc_type == "vectorial":
+        if parameter_dictionary["bc"].bc_type == "vectorial":
             bc_val = bc_val.ravel("F")
 
         frac_ind = pp.utils.mcolon.mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
         bc_val[frac_ind] = frac_disp
 
-        T = data[self._key() +"stress"] * cell_disp + data[self._key() + "bound_stress"] * bc_val
+
+        T = (
+            matrix_dictionary["stress"] * cell_disp
+            + matrix_dictionary["bound_stress"] * bc_val
+        )
+
         return T
 
     def extract_u(self, g, sol):
@@ -311,10 +325,12 @@ class FracturedMpsa(Mpsa):
 
         #    dir_bound = g.get_all_boundary_faces()
         #    bound = bc.BoundaryCondition(g, dir_bound, ['dir'] * dir_bound.size)
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         frac_faces = g.tags["fracture_faces"]
 
-        bound = data["param"].get_bc(self)
+        bound = parameter_dictionary["bc"]
 
         if bound.bc_type == "scalar":
             bound.is_dir[frac_faces] = True
@@ -328,7 +344,12 @@ class FracturedMpsa(Mpsa):
             raise AssertionError("Found faces that are both dirichlet and neuman")
         # Discretize with normal mpsa
         self.discretize(g, data, **kwargs)
-        stress, bound_stress = data[self._key() +"stress"], data[self._key() +"bound_stress"]
+
+        stress, bound_stress = (
+            matrix_dictionary["stress"],
+            matrix_dictionary["bound_stress"],
+        )
+
         # Create A and rhs
         div = pp.fvutils.vector_divergence(g)
         a = div * stress
@@ -387,8 +408,8 @@ class FracturedMpsa(Mpsa):
 
         b_matrix = sps.vstack((d_b, d_t), format="csr")
 
-        data["b_e"] = b_matrix
-        data["A_e"] = A
+        matrix_dictionary["b_e"] = b_matrix
+        matrix_dictionary["A_e"] = A
 
     def given_traction(self, g, stress, bound_stress, faces=None, **kwargs):
         # we find the matrix indices of the fracture
@@ -863,7 +884,7 @@ def mpsa_partial(
 
     # Copy stiffness tensor, and restrict to local cells
     loc_c = constit.copy()
-    loc_c.c = loc_c.c[::, ::, l2g_cells]
+    loc_c.values = loc_c.values[::, ::, l2g_cells]
     # Also restrict the lambda and mu fields; we will copy the stiffness
     # tensors later.
     loc_c.lmbda = loc_c.lmbda[l2g_cells]
@@ -1019,8 +1040,8 @@ def _mpsa_local(
         g.nodes = np.delete(g.nodes, (2), axis=0)
 
         constit = constit.copy()
-        constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=0)
-        constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=1)
+        constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=0)
+        constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=1)
 
     nd = g.dim
 
@@ -1435,13 +1456,13 @@ def _split_stiffness_matrix(constit):
     csym part of stiffness tensor that enters the local calculation
     casym part of stiffness matrix not included in local calculation
     """
-    dim = np.sqrt(constit.c.shape[0])
+    dim = np.sqrt(constit.values.shape[0])
 
     # We do not know how constit is used outside the discretization,
     # so create deep copies to avoid overwriting. Not really sure if this is
     # necessary
-    csym = 0 * constit.copy().c
-    casym = constit.copy().c
+    csym = 0 * constit.copy().values
+    casym = constit.copy().values
 
     # The copy constructor for the stiffness matrix will represent all
     # dimensions as 3d. If dim==2, delete the redundant rows and columns

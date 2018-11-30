@@ -18,7 +18,7 @@ from porepy.numerics.mixed_dim import coupler, condensation
 
 def add_data_transport(gb):
 
-    gb.add_node_props(["bc", "bc_val", "discharge", "apertures"])
+    gb.add_node_props(["bc", "bc_val", "darcy_flux", "apertures"])
     for g, d in gb:
         b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         index = np.nonzero(
@@ -27,15 +27,15 @@ def add_data_transport(gb):
         b_faces = b_faces[index]
         d["bc"] = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         d["bc_val"] = {"dir": np.ones(b_faces.size)}
-        d["apertures"] = np.ones(g.num_cells) * np.power(.01, float(g.dim < 3))
-        d["discharge"] = pp.Upwind().discharge(
+        d["apertures"] = np.ones(g.num_cells) * np.power(0.01, float(g.dim < 3))
+        d["darcy_flux"] = pp.Upwind().darcy_flux(
             g, [1, 1, 2 * np.power(1000, g.dim < 2)], d["apertures"]
         )
 
-    gb.add_edge_prop("discharge")
+    gb.add_edge_prop("darcy_flux")
     for e, d in gb.edges_props():
         g_h = gb.sorted_nodes_of_edge(e)[1]
-        d["discharge"] = gb.node_prop(g_h, "discharge")
+        d["darcy_flux"] = gb.node_prop(g_h, "darcy_flux")
 
 
 # ------------------------------------------------------------------------------#
@@ -45,9 +45,9 @@ if __name__ == "__main__":
     np.set_printoptions(linewidth=999999)
     np.set_printoptions(precision=7)
 
-    f_1 = np.array([[-.8, .8, .8, -.8], [0, 0, 0, 0], [-.8, -.8, .8, .8]])
-    f_2 = np.array([[0, 0, 0, 0], [-.8, .8, .8, -.8], [-.8, -.8, .8, .8]])
-    f_3 = np.array([[-.8, .8, .8, -.8], [-.8, -.8, .8, .8], [0, 0, 0, 0]])
+    f_1 = np.array([[-0.8, 0.8, 0.8, -0.8], [0, 0, 0, 0], [-0.8, -0.8, 0.8, 0.8]])
+    f_2 = np.array([[0, 0, 0, 0], [-0.8, 0.8, 0.8, -0.8], [-0.8, -0.8, 0.8, 0.8]])
+    f_3 = np.array([[-0.8, 0.8, 0.8, -0.8], [-0.8, -0.8, 0.8, 0.8], [0, 0, 0, 0]])
 
     f_set = [f_1, f_2, f_3]
 

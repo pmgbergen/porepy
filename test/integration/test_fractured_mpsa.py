@@ -22,12 +22,11 @@ class BasicsTest(unittest.TestCase):
         """
         g = self.gb3d.grids_of_dimension(3)[0]
 
-        data = {"param": pp.Parameters(g)}
         bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
 
-        data["param"].set_bc("mechanics", bound)
-
-        solver = pp.FracturedMpsa('mechanics')
+        specified_parameters = {"bc": bound}
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
+        solver = pp.FracturedMpsa()
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -47,18 +46,15 @@ class BasicsTest(unittest.TestCase):
             [frac], [3, 3, 2], physdims=physdims
         ).grids_of_dimension(3)[0]
 
-        data = {"param": pp.Parameters(g)}
         bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
-
-        data["param"].set_bc("mechanics", bound)
 
         frac_slip = np.zeros((g.dim, g.num_faces))
         frac_bnd = g.tags["fracture_faces"]
         frac_slip[:, frac_bnd] = np.ones((g.dim, np.sum(frac_bnd)))
-
-        data["param"].set_slip_distance(frac_slip.ravel("F"))
-
-        solver = pp.FracturedMpsa('mechanics')
+        
+        specified_parameters = {"bc": bound, "slip_distance": frac_slip.ravel("F")}
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
+        solver = pp.FracturedMpsa()
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -108,7 +104,6 @@ class BasicsTest(unittest.TestCase):
         g = pp.meshing.cart_grid(
             [frac], [3, 3, 2], physdims=physdims
         ).grids_of_dimension(3)[0]
-        data = {"param": pp.Parameters(g)}
 
         # Define boundary conditions
         bc_val = np.zeros((g.dim, g.num_faces))
@@ -122,10 +117,13 @@ class BasicsTest(unittest.TestCase):
 
         bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
 
-        data["param"].set_bc("mechanics", bound)
-        data["param"].set_bc_val("mechanics", bc_val.ravel("F"))
-        data["param"].set_slip_distance(frac_slip.ravel("F"))
-        solver = pp.FracturedMpsa('mechanics')
+        specified_parameters = {
+            "bc": bound,
+            "bc_values": bc_val.ravel("F"),
+            "slip_distance": frac_slip.ravel("F"),
+        }
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
+        solver = pp.FracturedMpsa()
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -171,7 +169,6 @@ class BasicsTest(unittest.TestCase):
         g = pp.meshing.cart_grid(
             [frac], [3, 3, 2], physdims=physdims
         ).grids_of_dimension(3)[0]
-        data = {"param": pp.Parameters(g)}
 
         # Define boundary conditions
         bc_val = np.zeros((g.dim, g.num_faces))
@@ -184,12 +181,16 @@ class BasicsTest(unittest.TestCase):
 
         bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
 
-        data["param"].set_bc("mechanics", bound)
-        data["param"].set_bc_val("mechanics", bc_val.ravel("F"))
         # Even though we now prescribe the traction, the discretisation uses
         # the same parameter function "get_slip_distance"
-        data["param"].set_slip_distance(frac_traction.ravel("F"))
-        solver = pp.FracturedMpsa('mechanics', given_traction=True)
+        specified_parameters = {
+            "bc": bound,
+            "bc_values": bc_val.ravel("F"),
+            "slip_distance": frac_traction.ravel("F"),
+        }
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
+
+        solver = pp.FracturedMpsa(given_traction=True)
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -220,7 +221,7 @@ class BasicsTest(unittest.TestCase):
         # The normal displacements should be equal and of opposite direction.
         self.assertTrue(np.all(np.isclose(u_left + u_right, 0)))
         # They should also correspond to an opening of the fracture
-        self.assertTrue(np.all((u_left - u_right)[normal_ind] > .2))
+        self.assertTrue(np.all((u_left - u_right)[normal_ind] > 0.2))
 
         # The maximum displacement magnitude should be observed at the fracture
         self.assertTrue(np.all(np.abs(u_c) < np.max(u_left[normal_ind])))
@@ -235,7 +236,6 @@ class BasicsTest(unittest.TestCase):
 
         frac = np.array([[0, 0, 1], [0, 3, 1], [3, 3, 1], [3, 0, 1]]).T
         g = pp.meshing.cart_grid([frac], [3, 3, 2]).grids_of_dimension(3)[0]
-        data = {"param": pp.Parameters(g)}
 
         tol = 1e-6
         frac_bnd = g.tags["fracture_faces"]
@@ -251,9 +251,12 @@ class BasicsTest(unittest.TestCase):
         frac_slip = np.zeros((g.dim, g.num_faces))
         frac_slip[:, frac_bnd] = np.ones(np.sum(frac_bnd))
 
-        data["param"].set_bc("mechanics", bound)
-        data["param"].set_bc_val("mechanics", bc_val.ravel("F"))
-        data["param"].set_slip_distance(frac_slip.ravel("F"))
+        specified_parameters = {
+            "bc": bound,
+            "bc_values": bc_val.ravel("F"),
+            "slip_distance": frac_slip.ravel("F"),
+        }
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
 
         solver = pp.FracturedMpsa('mechanics')
 
@@ -302,11 +305,14 @@ class BasicsTest(unittest.TestCase):
         bc_val[:, dom_bnd] = g.face_centers[:, dom_bnd]
 
         bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
+        specified_parameters = {
+            "bc": bound,
+            "bc_values": bc_val.ravel("F"),
+            "slip_distance": frac_slip.ravel("F"),
+        }
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
 
-        data["param"].set_bc("mechanics", bound)
-        data["param"].set_bc_val("mechanics", bc_val)
-        data["param"].set_slip_distance(frac_slip.ravel("F"))
-        solver = pp.FracturedMpsa('mechanics')
+        solver = pp.FracturedMpsa()
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -343,5 +349,4 @@ class BasicsTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #    BasicsTest().test_given_traction_on_fracture()
     unittest.main()
