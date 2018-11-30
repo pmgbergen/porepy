@@ -415,7 +415,7 @@ class Biot(Solver):
         )
         rhs_bound = rhs_bound * hf2f.T
         # Discretization of boundary values
-        bound_stress = hf2f * hook * igrad * rhs_bound 
+        bound_stress = hf2f * hook * igrad * rhs_bound
 
         # Face-wise gradient operator. Used for the term grad_p in Biot's
         # equations.

@@ -181,7 +181,9 @@ class MainTester(unittest.TestCase):
     def solve_system_homogeneous_elasticity(
         self, g, bound_cond, bound_faces, k, an_sol
     ):
-        stress, bound_stress,_,_ = mpsa.mpsa(g, k, bound_cond, inverter="python", eta=0)
+        stress, bound_stress, _, _ = mpsa.mpsa(
+            g, k, bound_cond, inverter="python", eta=0
+        )
         div = fvutils.vector_divergence(g)
         a = div * stress
 
@@ -210,7 +212,9 @@ class MainTester(unittest.TestCase):
         mat_vec = (1 - char_func_cells) + kappa * char_func_cells
 
         k = tensor.FourthOrderTensor(2, mat_vec, mat_vec)
-        stress, bound_stress,_,_ = mpsa.mpsa(g, k, bound_cond, inverter="python", eta=0)
+        stress, bound_stress, _, _ = mpsa.mpsa(
+            g, k, bound_cond, inverter="python", eta=0
+        )
         div = fvutils.vector_divergence(g)
         a = div * stress
 

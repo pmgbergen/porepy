@@ -247,18 +247,17 @@ class TestExtractSubGrid(unittest.TestCase):
         self.assertTrue(np.allclose(g.face_areas[sub_f], h.cell_volumes))
         self.assertTrue(np.allclose(g.face_centers[:, sub_f], h.cell_centers))
 
-
     def test_assertion(self):
-        g = pp.CartGrid([1,1,1])
+        g = pp.CartGrid([1, 1, 1])
 
-        f = np.array([0,0, 1]) < 0.5
+        f = np.array([0, 0, 1]) < 0.5
         self.assertRaises(IndexError, pp.partition.extract_subgrid, g, f, faces=True)
         self.assertRaises(IndexError, pp.partition.extract_subgrid, g, f)
 
     def test_assertion_extraction(self):
-        g = pp.CartGrid([1,1,1])
+        g = pp.CartGrid([1, 1, 1])
 
-        f = np.array([0,2])
+        f = np.array([0, 2])
         self.assertRaises(ValueError, pp.partition.extract_subgrid, g, f, faces=True)
 
     def test_cart_grid_3d(self):
@@ -266,10 +265,12 @@ class TestExtractSubGrid(unittest.TestCase):
         g.compute_geometry()
 
         f = g.face_centers[1] < 1e-10
-        true_nodes = np.where(g.nodes[1]<1e-10)[0]
+        true_nodes = np.where(g.nodes[1] < 1e-10)[0]
 
-        g.nodes[[0, 2]] = g.nodes[[0,2]] + 0.2 * np.random.random(g.nodes.shape)[[0,2]]
-        g.nodes[1] = g.nodes[1] + 0.2*np.random.rand(1)
+        g.nodes[[0, 2]] = (
+            g.nodes[[0, 2]] + 0.2 * np.random.random(g.nodes.shape)[[0, 2]]
+        )
+        g.nodes[1] = g.nodes[1] + 0.2 * np.random.rand(1)
         g.compute_geometry()
 
         h, sub_f, sub_n = pp.partition.extract_subgrid(g, f, faces=True)
@@ -313,16 +314,15 @@ class TestExtractSubGrid(unittest.TestCase):
 
             self.compare_grid_geometries(g, h, f, true_faces, true_nodes)
 
-
     def test_tetrahedron_grid(self):
         g = pp.StructuredTetrahedralGrid([1, 1, 1])
         g.compute_geometry()
 
         f = g.face_centers[2] < 1e-10
-        true_nodes = np.where(g.nodes[2]<1e-10)[0]
+        true_nodes = np.where(g.nodes[2] < 1e-10)[0]
 
         g.nodes[:2] = g.nodes[:2] + 0.2 * np.random.random(g.nodes.shape)[:2]
-        g.nodes[2] = g.nodes[2] + 0.2*np.random.rand(1)
+        g.nodes[2] = g.nodes[2] + 0.2 * np.random.rand(1)
         g.compute_geometry()
 
         h, sub_f, sub_n = pp.partition.extract_subgrid(g, f, faces=True)

@@ -25,9 +25,7 @@ class TestBasisTransformation(unittest.TestCase):
         g_sub = pp.FvSubGrid(g, 0)
         bc = pp.BoundaryConditionVectorial(g_sub)
 
-        bc.basis = np.array(
-            [[[1]*8, [1]*8], [[1]*8, [-1]*8]]
-        )
+        bc.basis = np.array([[[1] * 8, [1] * 8], [[1] * 8, [-1] * 8]])
 
         BM = pp.fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim).basis_matrix
 

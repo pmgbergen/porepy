@@ -39,7 +39,7 @@ class FvSubGrid(unittest.TestCase):
     def compare_grids(self, g, gsub, eta):
         s_t = pp.numerics.fv.fvutils.SubcellTopology(g)
 
-        continuity_point = g.face_centers[:, s_t.fno_unique] + eta* (
+        continuity_point = g.face_centers[:, s_t.fno_unique] + eta * (
             g.nodes[:, s_t.nno_unique] - g.face_centers[:, s_t.fno_unique]
         )
         self.assertTrue(np.allclose(gsub.nodes, g.nodes))
@@ -47,5 +47,6 @@ class FvSubGrid(unittest.TestCase):
         self.assertTrue(np.allclose(gsub.face_nodes.indices, s_t.nno_unique))
         self.assertTrue(np.allclose(gsub.cell_nodes().indices, g.cell_nodes().indices))
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     unittest.main()

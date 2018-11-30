@@ -15,12 +15,12 @@ import porepy as pp
 
 import porepy as pp
 from porepy.numerics.fv.fv_elliptic import FVVectorElliptic
+
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
 
 class Mpsa(FVVectorElliptic):
-  
     def ndof(self, g):
         """
         Return the number of degrees of freedom associated to the method.
@@ -72,16 +72,18 @@ class Mpsa(FVVectorElliptic):
         partial = data.get("partial_update", False)
         if not partial:
             stress, bound_stress, bound_displacement_cell, bound_displacement_face = mpsa(
-                g, c, bnd, **kwargs)
+                g, c, bnd, **kwargs
+            )
             data[self._key() + "stress"] = stress
             data[self._key() + "bound_stress"] = bound_stress
-            data[self._key() + "bound_displacement_cell"]  = bound_displacement_cell
-            data[self._key() + "bound_displacement_face"]  = bound_displacement_face
+            data[self._key() + "bound_displacement_cell"] = bound_displacement_cell
+            data[self._key() + "bound_displacement_face"] = bound_displacement_face
         else:
             a = data["param"].aperture
             pp.fvutils.partial_discretization(
                 g, data, c, bnd, a, mpsa_partial, physics=self.physics
             )
+
 
 class FracturedMpsa(Mpsa):
     """
@@ -145,7 +147,6 @@ class FracturedMpsa(Mpsa):
         bound_stress = matrix_dictionary["bound_stress"]
         b_e = matrix_dictionary["b_e"]
         A_e = matrix_dictionary["A_e"]
-
 
         if self.given_traction_flag:
             L, b_l = self.given_traction(g, stress, bound_stress)
@@ -249,9 +250,10 @@ class FracturedMpsa(Mpsa):
         if parameter_dictionary["bc"].bc_type == "vectorial":
             bc_val = bc_val.ravel("F")
 
-        frac_ind = pp.utils.mcolon.mcolon(g.dim * frac_faces, g.dim * frac_faces + g.dim)
+        frac_ind = pp.utils.mcolon.mcolon(
+            g.dim * frac_faces, g.dim * frac_faces + g.dim
+        )
         bc_val[frac_ind] = frac_disp
-
 
         T = (
             matrix_dictionary["stress"] * cell_disp
@@ -621,14 +623,14 @@ def mpsa(
         # TODO: We may want to estimate the memory need, and give a warning if
         # this seems excessive
         stress, bound_stress, hf_cell, hf_bound = _mpsa_local(
-                g,
-                constit,
-                bound,
-                eta=eta,
-                inverter=inverter,
-                hf_disp=hf_disp,
-                hf_eta=hf_eta,
-            )
+            g,
+            constit,
+            bound,
+            eta=eta,
+            inverter=inverter,
+            hf_disp=hf_disp,
+            hf_eta=hf_eta,
+        )
     else:
         # Estimate number of partitions necessary based on prescribed memory
         # usage
@@ -675,7 +677,6 @@ def mpsa(
 
             stress += loc_stress
             bound_stress += loc_bound_stress
-
 
     return stress, bound_stress, hf_cell, hf_bound
 
@@ -737,18 +738,18 @@ def mpsa_update_partial(
     hf_bound = hf_bound.copy()
 
     stress_loc, bound_stress_loc, hf_cell_loc, hf_bound_loc, active_faces = mpsa_partial(
-            g,
-            constit,
-            bound,
-            eta,
-            inverter,
-            cells,
-            faces,
-            nodes=nodes,
-            apertures=apertures,
-            hf_disp=True,
-            hf_eta=hf_eta,
-        )
+        g,
+        constit,
+        bound,
+        eta,
+        inverter,
+        cells,
+        faces,
+        nodes=nodes,
+        apertures=apertures,
+        hf_disp=True,
+        hf_eta=hf_eta,
+    )
 
     # Remove old rows
     eliminate_ind = pp.fvutils.expand_indices_nd(active_faces, g.dim)
@@ -763,10 +764,8 @@ def mpsa_update_partial(
     # taken.
     # First, find the active subfaces associated with the active_faces
     subcell_topology = pp.fvutils.SubcellTopology(g)
-    active_subfaces = np.where(np.in1d(subcell_topology.fno_unique, active_faces))[
-        0
-    ]
-    # We now expand the indices for each dimension. 
+    active_subfaces = np.where(np.in1d(subcell_topology.fno_unique, active_faces))[0]
+    # We now expand the indices for each dimension.
     # The indices are ordered as first all variables of subface 1 then all variables
     # of subface 2, etc. Duplicate indices for each dimension and multipy by g.dim to
     # obtain correct x-index.
@@ -1074,7 +1073,9 @@ def _mpsa_local(
     # Stress discretization
     stress = hook_igrad * rhs_cells
     # Right hand side for boundary discretization
-    rhs_bound = create_bound_rhs(bound, bound_exclusion, subcell_topology, g, subface_rhs)
+    rhs_bound = create_bound_rhs(
+        bound, bound_exclusion, subcell_topology, g, subface_rhs
+    )
     # Discretization of boundary values
     bound_stress = hook_igrad * rhs_bound
 
@@ -1082,14 +1083,11 @@ def _mpsa_local(
         bound_stress = hf2f * bound_stress * hf2f.T
         stress = hf2f * stress
 
-
     # Calculate the reconstruction of dispacement at faces
     if hf_eta is None:
         hf_eta = eta
     # We obtain the reconstruction of displacments
-    dist_grad, cell_centers = reconstruct_displacement(
-        g, subcell_topology, hf_eta
-    )
+    dist_grad, cell_centers = reconstruct_displacement(g, subcell_topology, hf_eta)
 
     hf_cell = dist_grad * igrad * rhs_cells + cell_centers
     hf_bound = dist_grad * igrad * rhs_bound
@@ -1808,9 +1806,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g, subface_rhs):
         subfno_nd.ravel("C"), transform=False
     ).ravel("F")
     is_dir_nd = (
-        bound_exclusion.exclude_neumann_robin(
-            bound.is_dir.ravel("C"), transform=False
-        )
+        bound_exclusion.exclude_neumann_robin(bound.is_dir.ravel("C"), transform=False)
         .ravel("F")
         .astype(np.bool)
     )
@@ -1861,7 +1857,7 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g, subface_rhs):
     # have to do
     # so, and we will flip the sign later. This means that a stress [1,1] on a
     # boundary face pushes(or pulls) the face to the top right corner.
-    # Note: 
+    # Note:
     if subface_rhs:
         # In this case we set the rhs for the sub-faces. Note that the rhs values
         # should be integrated over the subfaces, that is
@@ -2038,6 +2034,7 @@ def __rearange_columns_displacement_eqs(d_cont_grad, d_cont_cell, num_sub_cells,
     d_cont_cell = d_cont_cell[:, d_cont_cell_map]
     return d_cont_grad, d_cont_cell
 
+
 def row_major_to_col_major(shape, nd, axis):
     """ Transform columns of displacement balance from increasing cell
     ordering (first x-variables of all cells, then y) to increasing
@@ -2057,12 +2054,12 @@ def row_major_to_col_major(shape, nd, axis):
     P = sps.diags(np.ones(shape[axis])).tocsr()
     num_var = shape[axis] / nd
     mapping = np.argsort(np.tile(np.arange(num_var), nd), kind="mergesort")
-    if axis==1:
+    if axis == 1:
         P = P[:, mapping]
-    elif axis==0:
+    elif axis == 0:
         P = P[mapping, :]
     else:
-        raise ValueError('axis must be 0 or 1')
+        raise ValueError("axis must be 0 or 1")
     return P
 
 
@@ -2189,7 +2186,7 @@ def _eliminate_ncasym_neumann(
     dof_elim = subfno_nd.ravel("C")[remove_singular]
     # and eliminate the rows corresponding to these subfaces
     pp.utils.sparse_mat.zero_rows(ncasym, dof_elim)
-    print('number of ncasym eliminated: ', np.sum(dof_elim.size))
+    print("number of ncasym eliminated: ", np.sum(dof_elim.size))
     ## the following is some code to enforce symmetric G. Comment for now
     # # Find the equations for the x-values
     # x_row = np.arange(0, round(ncasym.shape[0]/nd))
@@ -2217,6 +2214,3 @@ def _eliminate_ncasym_neumann(
     # yuz = np.mod(y_indices - 7, nd*nd) == 0
 
     # ncasym.indices[y_pntr[yuz]] -= 2
-
-
-

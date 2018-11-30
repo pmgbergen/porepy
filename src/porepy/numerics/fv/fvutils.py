@@ -157,9 +157,7 @@ class SubcellTopology(object):
 # ------------------------ End of class SubcellTopology ----------------------
 
 
-def compute_dist_face_cell(
-    g, subcell_topology, eta, return_paired=True
-):
+def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
     """
     Compute vectors from cell centers continuity points on each sub-face.
 
@@ -188,7 +186,7 @@ def compute_dist_face_cell(
 
     _, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
     cols += matrix_compression.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
-    if np.asarray(eta).size==subcell_topology.num_subfno_unique:
+    if np.asarray(eta).size == subcell_topology.num_subfno_unique:
         eta_vec = eta[subcell_topology.subfno]
     else:
         eta_vec = eta * np.ones(subcell_topology.fno.size)
@@ -604,6 +602,7 @@ def vector_divergence(g):
 
     return block_div.transpose()
 
+
 def zero_out_sparse_rows(A, rows, diag=None):
     """
     zeros out given rows from sparse csr matrix. Optionally also set values on
@@ -618,7 +617,7 @@ def zero_out_sparse_rows(A, rows, diag=None):
     """
 
     if not A.getformat() == "csr":
-        raise ValueError('Can only zero out sparse rows for csr matrix')
+        raise ValueError("Can only zero out sparse rows for csr matrix")
 
     ip = A.indptr
     row_indices = mcolon.mcolon(ip[rows], ip[rows + 1])
@@ -1228,7 +1227,7 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     bound.is_dir = np.atleast_2d(bound.is_dir)[:, subcell_topology.fno_unique].squeeze()
     bound.is_rob = np.atleast_2d(bound.is_rob)[:, subcell_topology.fno_unique].squeeze()
     bound.is_neu = np.atleast_2d(bound.is_neu)[:, subcell_topology.fno_unique].squeeze()
-    if bound.robin_weight.ndim==3:
+    if bound.robin_weight.ndim == 3:
         bound.robin_weight = bound.robin_weight[:, :, subcell_topology.fno_unique]
         bound.basis = bound.basis[:, :, subcell_topology.fno_unique]
     else:

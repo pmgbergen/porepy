@@ -13,12 +13,12 @@ class FvSubGrid(pp.Grid):
         nodes = g.nodes.copy()
 
         nno_unique = subcell_topology.nno_unique
-        sf_n_indptr = np.arange(nno_unique.size+1)
+        sf_n_indptr = np.arange(nno_unique.size + 1)
         data = np.ones(nno_unique.size, dtype=np.bool)
-        subface_to_nodes  = sps.csc_matrix((data, nno_unique, sf_n_indptr))
+        subface_to_nodes = sps.csc_matrix((data, nno_unique, sf_n_indptr))
         # We now add the mapping from sub_cells to nodes
         sc_n_indices = g.cell_nodes().indices
-        sc_n_indptr = np.arange(sc_n_indices.size+1)
+        sc_n_indptr = np.arange(sc_n_indices.size + 1)
         data = np.ones(sc_n_indices.size, dtype=np.bool)
         subcell_to_nodes = sps.csc_matrix((data, sc_n_indices, sc_n_indptr))
         # And from this obtain the subcell to subface mapping
@@ -31,11 +31,13 @@ class FvSubGrid(pp.Grid):
         # As the face centers we use the continuity point
         f_c = g.face_centers[:, subcell_topology.fno_unique]
         sub_nodes = g.nodes[:, subcell_topology.nno_unique]
-        self.face_centers = f_c + eta* (sub_nodes - f_c)
+        self.face_centers = f_c + eta * (sub_nodes - f_c)
         # Finally we call the parrent constructor
         name = g.name.copy()
-        name.append('FvSubGrid')
-        pp.Grid.__init__(self, g.dim, nodes, subface_to_nodes, subcell_to_subfaces, name)
+        name.append("FvSubGrid")
+        pp.Grid.__init__(
+            self, g.dim, nodes, subface_to_nodes, subcell_to_subfaces, name
+        )
 
         num_nodes_per_face = np.diff(g.face_nodes.indptr)
         self.face_areas = g.face_areas / num_nodes_per_face
@@ -44,8 +46,9 @@ class FvSubGrid(pp.Grid):
             is_master = np.zeros(g.num_faces, dtype=np.bool)
             is_slave = np.zeros(g.num_faces, dtype=np.bool)
             is_master[g.frac_pairs[0]] = True
-            is_slave[g.frac_pairs[1]] =  True
+            is_slave[g.frac_pairs[1]] = True
             is_master_hf = is_master[subcell_topology.fno_unique]
             is_slave_hf = is_slave[subcell_topology.fno_unique]
-            self.frac_pairs = np.vstack((np.where(is_master_hf)[0], np.where(is_slave_hf)[0]))
-            
+            self.frac_pairs = np.vstack(
+                (np.where(is_master_hf)[0], np.where(is_slave_hf)[0])
+            )

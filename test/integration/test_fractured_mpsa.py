@@ -51,7 +51,7 @@ class BasicsTest(unittest.TestCase):
         frac_slip = np.zeros((g.dim, g.num_faces))
         frac_bnd = g.tags["fracture_faces"]
         frac_slip[:, frac_bnd] = np.ones((g.dim, np.sum(frac_bnd)))
-        
+
         specified_parameters = {"bc": bound, "slip_distance": frac_slip.ravel("F")}
         data = pp.initialize_data({}, g, "mechanics", specified_parameters)
         solver = pp.FracturedMpsa()
@@ -258,7 +258,7 @@ class BasicsTest(unittest.TestCase):
         }
         data = pp.initialize_data({}, g, "mechanics", specified_parameters)
 
-        solver = pp.FracturedMpsa('mechanics')
+        solver = pp.FracturedMpsa("mechanics")
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 

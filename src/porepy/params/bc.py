@@ -36,6 +36,7 @@ class AbstractBoundaryCondition(object):
         bc.is_internal = self.is_internal
         return bc
 
+
 class BoundaryCondition(AbstractBoundaryCondition):
 
     """ Class to store information on boundary conditions.

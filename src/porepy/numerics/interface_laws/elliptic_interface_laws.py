@@ -347,11 +347,10 @@ class FluxPressureContinuity(RobinCoupling):
         return matrix, rhs
 
 
-
-
 class RobinContact(object):
     """Contact condition for elastic problem
     """
+
     def __init__(self, keyword, discr_master, discr_slave=None):
         # @ALL should the node discretization default to Tpfa?
         self.keyword = keyword
@@ -384,10 +383,10 @@ class RobinContact(object):
         mg = data_edge["mortar_grid"]
 
         # Zero in normal direction and ones in tangential
-        mortar_weight = sps.block_diag(data_edge['mortar_weight'])
-        robin_weight = sps.block_diag(data_edge['robin_weight'])
-        data_edge[self._key() + 'mortar_weight'] = mortar_weight
-        data_edge[self._key() + 'robin_weight'] = robin_weight
+        mortar_weight = sps.block_diag(data_edge["mortar_weight"])
+        robin_weight = sps.block_diag(data_edge["robin_weight"])
+        data_edge[self._key() + "mortar_weight"] = mortar_weight
+        data_edge[self._key() + "robin_weight"] = robin_weight
 
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
@@ -444,9 +443,13 @@ class RobinContact(object):
             )
         # We know the number of dofs from the master and slave side from their
         # discretizations
-        dof = np.array([matrix[master_ind, master_ind].shape[1],
-                        matrix[slave_ind, slave_ind].shape[1],
-                        self.ndof(mg)])
+        dof = np.array(
+            [
+                matrix[master_ind, master_ind].shape[1],
+                matrix[slave_ind, slave_ind].shape[1],
+                self.ndof(mg),
+            ]
+        )
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc_master = cc.reshape((3, 3))
         cc_slave = cc_master.copy()
@@ -457,7 +460,7 @@ class RobinContact(object):
         rhs = np.empty(3, dtype=np.object)
         rhs[master_ind] = np.zeros(dof_master)
         rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[2] = data_edge['rhs']
+        rhs[2] = data_edge["rhs"]
 
         # The convention, for now, is to put the master grid information
         # in the first column and row in matrix, slave grid in the second
@@ -472,23 +475,11 @@ class RobinContact(object):
             master_ind = 0
 
         self.discr_master.assemble_int_bound_displacement_trace(
-            g_master,
-            data_master,
-            data_edge,
-            False,
-            cc_master,
-            matrix,
-            master_ind
+            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
         )
 
         self.discr_master.assemble_int_bound_stress(
-            g_master,
-            data_master,
-            data_edge,
-            False,
-            cc_master,
-            matrix,
-            master_ind
+            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
         )
 
         self.discr_slave.assemble_int_bound_displacement_trace(
@@ -513,10 +504,10 @@ class RobinContact(object):
         # cc[1] -> u_s - u_m = 0
 
         # Finally we add the mortar discretization
-        cc_mortar[2, 2] = data_edge[self._key() + 'mortar_weight']
+        cc_mortar[2, 2] = data_edge[self._key() + "mortar_weight"]
 
         # multiply by robin weight
-        robin_weight = data_edge[self._key() + 'robin_weight']
+        robin_weight = data_edge[self._key() + "robin_weight"]
         cc_sm = cc_master + cc_slave
         for i in range(3):
             cc_sm[2, i] = robin_weight * cc_sm[2, i]
@@ -531,11 +522,9 @@ class RobinContact(object):
         )
 
         return matrix, rhs
-    
 
 
 class StressDisplacementContinuity(RobinContact):
-
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """ Nothing really to do here
 
@@ -605,9 +594,13 @@ class StressDisplacementContinuity(RobinContact):
             )
         # We know the number of dofs from the master and slave side from their
         # discretizations
-        dof = np.array([matrix[master_ind, master_ind].shape[1],
-                        matrix[slave_ind, slave_ind].shape[1],
-                        self.ndof(mg)])
+        dof = np.array(
+            [
+                matrix[master_ind, master_ind].shape[1],
+                matrix[slave_ind, slave_ind].shape[1],
+                self.ndof(mg),
+            ]
+        )
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc_master = cc.reshape((3, 3))
         cc_slave = cc_master.copy()
@@ -631,22 +624,10 @@ class StressDisplacementContinuity(RobinContact):
             master_ind = 0
 
         self.discr_master.assemble_int_bound_displacement_trace(
-            g_master,
-            data_master,
-            data_edge,
-            False,
-            cc_master,
-            matrix,
-            master_ind
+            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
         )
         self.discr_master.assemble_int_bound_stress(
-            g_master,
-            data_master,
-            data_edge,
-            False,
-            cc_master,
-            matrix,
-            master_ind
+            g_master, data_master, data_edge, False, cc_master, matrix, master_ind
         )
 
         self.discr_slave.assemble_int_bound_displacement_trace(
@@ -671,7 +652,7 @@ class StressDisplacementContinuity(RobinContact):
         # cc[1] -> flux_s = -mortar_stress
         # cc[1] -> u_s - u_m = 0
 
-#        cc_master[2, 2] = sps.eye(self.ndof(mg))
+        #        cc_master[2, 2] = sps.eye(self.ndof(mg))
         matrix += cc_master + cc_slave
 
         self.discr_master.enforce_neumann_int_bound(
@@ -682,4 +663,3 @@ class StressDisplacementContinuity(RobinContact):
         )
 
         return matrix, rhs
-    
