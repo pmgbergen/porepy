@@ -2189,7 +2189,7 @@ def _eliminate_ncasym_neumann(
     dof_elim = subfno_nd.ravel("C")[remove_singular]
     # and eliminate the rows corresponding to these subfaces
     pp.utils.sparse_mat.zero_rows(ncasym, dof_elim)
-    print('number of ncasym eliminated: ', np.sum(dof_elim))
+    print('number of ncasym eliminated: ', np.sum(dof_elim.size))
     ## the following is some code to enforce symmetric G. Comment for now
     # # Find the equations for the x-values
     # x_row = np.arange(0, round(ncasym.shape[0]/nd))

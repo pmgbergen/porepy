@@ -566,8 +566,9 @@ def __extract_cells_from_faces_3d(g, f):
 
     h = pp.Grid(g.dim - 1, g.nodes[:, unique_nodes], face_nodes, cell_faces, name)
 
+#    We could now just copy the corresponding geometric values from g to h, but we
+#    run h.compute_geometry() to check if everything went ok.
     h.compute_geometry()
-
     if not np.all(np.isclose(g.face_areas[f], h.cell_volumes)):
         raise AssertionError('''Somethign went wrong in extracting subgrid. Face area of
         higher dim is not equal face centers of lower dim grid''')
