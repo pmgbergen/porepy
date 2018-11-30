@@ -2,7 +2,7 @@ import scipy.sparse as sps
 import numpy as np
 import numpy.linalg
 import unittest
-
+import porepy as pp
 from porepy.numerics.fv import mpfa, mpsa, fvutils, biot
 from porepy.params import tensor, bc
 from porepy.params.data import Parameters
@@ -12,6 +12,8 @@ from test.integration import setup_grids_mpfa_mpsa_tests as setup_grids
 class BiotTest(unittest.TestCase):
     def test_no_dynamics_2d(self):
         g_list = setup_grids.setup_2d()
+        kw_f = "flow"
+        kw_m = "mechanics"
         for g in g_list:
             discr = biot.Biot()
 
@@ -28,18 +30,28 @@ class BiotTest(unittest.TestCase):
             k = tensor.SecondOrderTensor(g.dim, np.ones(g.num_cells))
 
             bound_val = np.zeros(g.num_faces)
+            porosity = np.ones(g.num_cells)
+            aperture = np.ones(g.num_cells)
 
-            param = Parameters(g)
-            param.set_bc("flow", bound)
-            param.set_bc("mechanics", bound_mech)
-            param.set_tensor("flow", k)
-            param.set_tensor("mechanics", c)
-            param.set_bc_val("mechanics", np.tile(bound_val, g.dim))
-            param.set_bc_val("flow", bound_val)
-            param.porosity = np.ones(g.num_cells)
-            param.biot_alpha = 1
-            data = {"param": param, "inverter": "python", "dt": 1}
+            param = Parameters(g, [kw_f, kw_m], [{}, {}])
 
+            param[kw_f]["bc"] = bound
+            param[kw_m]["bc"] = bound_mech
+            param[kw_f]["aperture"] = aperture
+            param[kw_m]["aperture"] = aperture
+            param[kw_f]["second_order_tensor"] = k
+            param[kw_m]["fourth_order_tensor"] = c
+            param[kw_f]["bc_values"] = bound_val
+            param[kw_m]["bc_values"] = np.tile(bound_val, g.dim)
+            param[kw_f]["porosity"] = porosity
+            param[kw_m]["porosity"] = porosity
+            param[kw_f]["biot_alpha"] = 1
+            param[kw_m]["biot_alpha"] = 1
+            param[kw_f]["fluid_compressibility"] = 0
+            param[kw_f]["fluid_viscosity"] = 1
+            data = {"inverter": "python", "time_step": 1}
+            data[pp.PARAMETERS] = param
+            data[pp.DISCRETIZATION_MATRICES] = {kw_f: {}, kw_m: {}}
             A, b = discr.matrix_rhs(g, data)
             sol = np.linalg.solve(A.todense(), b)
 

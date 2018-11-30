@@ -11,16 +11,16 @@ import porepy as pp
 
 def rhs(x, y, z):
     return (
-        7. * z * (x ** 2 + y ** 2 + 1.)
-        - y * (x ** 2 - 9. * z ** 2)
-        - 4. * x ** 2 * z
+        7.0 * z * (x ** 2 + y ** 2 + 1.0)
+        - y * (x ** 2 - 9.0 * z ** 2)
+        - 4.0 * x ** 2 * z
         - (
-            8. * np.sin(np.pi * y)
-            - 4. * np.pi ** 2 * y ** 2 * np.sin(np.pi * y)
-            + 16. * np.pi * y * np.cos(np.pi * y)
+            8.0 * np.sin(np.pi * y)
+            - 4.0 * np.pi ** 2 * y ** 2 * np.sin(np.pi * y)
+            + 16.0 * np.pi * y * np.cos(np.pi * y)
         )
-        * (x ** 2 / 2. + y ** 2 / 2. + 1. / 2.)
-        - 4. * y ** 2 * (2. * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
+        * (x ** 2 / 2.0 + y ** 2 / 2.0 + 1.0 / 2.0)
+        - 4.0 * y ** 2 * (2.0 * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
     )
 
 
@@ -28,14 +28,14 @@ def rhs(x, y, z):
 
 
 def solution(x, y, z):
-    return x ** 2 * z + 4. * y ** 2 * np.sin(np.pi * y) - 3. * z ** 3
+    return x ** 2 * z + 4.0 * y ** 2 * np.sin(np.pi * y) - 3.0 * z ** 3
 
 
 # ------------------------------------------------------------------------------#
 
 
 def permeability(x, y, z):
-    return 1. + x ** 2 + y ** 2
+    return 1.0 + x ** 2 + y ** 2
 
 
 # ------------------------------------------------------------------------------#
@@ -45,15 +45,12 @@ def add_data(g):
     """
     Define the permeability, apertures, boundary conditions
     """
-    param = pp.Parameters(g)
-
     # Permeability
     kxx = np.array([permeability(*pt) for pt in g.cell_centers.T])
-    param.set_tensor("flow", pp.SecondOrderTensor(3, kxx))
+    perm = pp.SecondOrderTensor(3, kxx)
 
     # Source term
-    source = np.array([rhs(*pt) for pt in g.cell_centers.T])
-    param.set_source("flow", g.cell_volumes * source)
+    source = g.cell_volumes * np.array([rhs(*pt) for pt in g.cell_centers.T])
 
     # Boundariesy
     bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
@@ -64,10 +61,14 @@ def add_data(g):
     bc_val = np.zeros(g.num_faces)
     bc_val[bound_faces] = np.array([solution(*pt) for pt in bound_face_centers.T])
 
-    param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
-    param.set_bc_val("flow", bc_val)
-
-    return {"param": param}
+    bound = pp.BoundaryCondition(g, bound_faces, labels)
+    specified_parameters = {
+        "permeability": perm,
+        "source": source,
+        "bc": bound,
+        "bc_values": bc_val,
+    }
+    return pp.initialize_data({}, g, "flow", specified_parameters)
 
 
 # ------------------------------------------------------------------------------#
@@ -86,7 +87,7 @@ def main(N):
     Nx = Ny = N
     # g = structured.CartGrid([Nx, Ny], [1, 1])
     g = pp.StructuredTriangleGrid([Nx, Ny], [1, 1])
-    R = pp.cg.rot(np.pi / 4., [1, 0, 0])
+    R = pp.cg.rot(np.pi / 4.0, [1, 0, 0])
     g.nodes = np.dot(R, g.nodes)
     g.compute_geometry()
     # co.coarsen(g, 'by_volume')
@@ -98,14 +99,14 @@ def main(N):
     solver_flow = pp.MVEM("flow")
     A_flow, b_flow = solver_flow.assemble_matrix_rhs(g, data)
 
-    solver_source = pp.DualSource("flow")
+    solver_source = pp.DualIntegral("flow")
     A_source, b_source = solver_source.assemble_matrix_rhs(g, data)
 
     up = sps.linalg.spsolve(A_flow + A_source, b_flow + b_source)
 
     u = solver_flow.extract_flux(g, up)
     p = solver_flow.extract_pressure(g, up)
-#    P0u = solver_flow.project_flux(g, u, data)
+    #    P0u = solver_flow.project_flux(g, u, data)
 
     diam = np.amax(g.cell_diameters())
     return diam, error_p(g, p)
@@ -125,5 +126,5 @@ class BasicsTest(unittest.TestCase):
 
 
 # ------------------------------------------------------------------------------#
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -1,23 +1,22 @@
+""" Disabled test of the obsolete Static class.
+"""
 import numpy as np
 import unittest
-
+import porepy as pp
 from porepy.numerics.mechanics import StaticModel
 from porepy.fracs import meshing
-from porepy.params.data import Parameters
-from porepy.params import bc
 
 
 class BasicsTest(unittest.TestCase):
-    def test_zero_force(self):
+    def disabled_test_zero_force(self):
         """
         if nothing is touched nothing should happen
         """
         f = np.array([[0, 0, 1], [0, 1, 1], [1, 1, 1], [1, 0, 1]]).T
         g = meshing.cart_grid([f], [4, 4, 2]).grids_of_dimension(3)[0]
-        data = {"param": Parameters(g)}
 
-        bound = bc.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
-        data["param"].set_bc("mechanics", bound)
+        bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
+        data = pp.initialize_data({}, g, "mechanics", {"bc": bound})
 
         solver = StaticModel(g, data)
         d = solver.solve()
@@ -25,21 +24,19 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.all(d == 0))
         self.assertTrue(np.all(data["T"] == 0))
 
-    def test_unit_slip(self):
+    def disabled_test_unit_slip(self):
         """
         Unit slip of fractures
         """
 
         f = np.array([[0, 0, 1], [0, 2, 1], [2, 2, 1], [2, 0, 1]]).T
         g = meshing.cart_grid([f], [2, 2, 2]).grids_of_dimension(3)[0]
-        data = {"param": Parameters(g)}
 
-        bound = bc.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
-        data["param"].set_bc("mechanics", bound)
+        bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
 
         slip = np.ones(g.dim * g.num_faces)
-        data["param"].set_slip_distance(slip)
-
+        specified_parameters = {"bc": bound, "slip_distance": slip}
+        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
         solver = StaticModel(g, data)
         solver.solve()
 

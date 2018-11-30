@@ -123,8 +123,8 @@ class TestIsmember(unittest.TestCase):
         # Referred to an implementation of ismember which is now replaced.
         a = np.array(
             [
-                [0., 1., 1., 0., 0.2, 0.8, 0.5, 0.5, 0.5],
-                [0., 0., 1., 1., 0.5, 0.5, 0.8, 0.2, 0.5],
+                [0.0, 1.0, 1.0, 0.0, 0.2, 0.8, 0.5, 0.5, 0.5],
+                [0.0, 0.0, 1.0, 1.0, 0.5, 0.5, 0.8, 0.2, 0.5],
             ]
         )
         b = np.array([[0, 1, 1, 0], [0, 0, 1, 1]])

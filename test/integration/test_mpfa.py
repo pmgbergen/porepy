@@ -11,18 +11,14 @@ import unittest
 
 import porepy as pp
 
-from porepy.grids import structured
-from porepy.params import tensor, bc
-from porepy.numerics.fv import mpfa
-
 
 def setup_cart_2d(nx):
 
-    g = structured.CartGrid(nx)
+    g = pp.CartGrid(nx)
     g.compute_geometry()
 
     kxx = np.ones(g.num_cells)
-    perm = tensor.SecondOrderTensor(g.dim, kxx)
+    perm = pp.SecondOrderTensor(g.dim, kxx)
 
     return g, perm
 
@@ -46,7 +42,7 @@ class TestMpfa(unittest.TestCase):
         g, perm = setup_cart_2d(np.array([3, 3]))
 
         bnd_faces = np.array([0, 3, 12])
-        bound = bc.BoundaryCondition(g, bnd_faces, ["dir"] * bnd_faces.size)
+        bound = pp.BoundaryCondition(g, bnd_faces, ["dir"] * bnd_faces.size)
 
         # Python inverter is most efficient for small problems
         flux, bound_flux, _, _ = pp.Mpfa("flow")._local_discr(
@@ -85,7 +81,7 @@ class TestMpfa(unittest.TestCase):
         # Structured Cartesian grid
         g, perm = setup_cart_2d(np.array([10, 10]))
         bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel("F") == 1)
-        bound = bc.BoundaryCondition(
+        bound = pp.BoundaryCondition(
             g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
         )
 
@@ -111,7 +107,7 @@ class TestMpfa(unittest.TestCase):
         g.compute_geometry()
 
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-        bound = bc.BoundaryCondition(
+        bound = pp.BoundaryCondition(
             g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
         )
 
@@ -139,7 +135,7 @@ class TestMpfa(unittest.TestCase):
         # Randomly perturbed grid, with random linear pressure field
         g, perm = setup_cart_2d(np.array([10, 10]))
         dx = 1
-        pert = .4
+        pert = 0.4
         g.nodes = g.nodes + dx * pert * (
             0.5 - np.random.rand(g.nodes.shape[0], g.num_nodes)
         )
@@ -148,7 +144,7 @@ class TestMpfa(unittest.TestCase):
         g.compute_geometry()
 
         bound_faces = np.argwhere(np.abs(g.cell_faces).sum(axis=1).A.ravel("F") == 1)
-        bound = bc.BoundaryCondition(
+        bound = pp.BoundaryCondition(
             g, bound_faces.ravel("F"), ["dir"] * bound_faces.size
         )
 

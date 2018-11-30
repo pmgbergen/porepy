@@ -43,7 +43,7 @@ class TestUpwindCoupling(unittest.TestCase):
         zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
 
         lam = np.arange(de["mortar_grid"].num_cells)
-        de["flux_field"] = lam
+        de[pp.PARAMETERS] = {"transport": {"darcy_flux": lam}}
 
         upwind_coupler = pp.UpwindCoupling("transport")
 
@@ -88,7 +88,7 @@ class TestUpwindCoupling(unittest.TestCase):
         zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
 
         lam = np.arange(de["mortar_grid"].num_cells)
-        de["flux_field"] = -lam
+        de[pp.PARAMETERS] = {"transport": {"darcy_flux": -lam}}
 
         upwind_coupler = pp.UpwindCoupling("transport")
 
