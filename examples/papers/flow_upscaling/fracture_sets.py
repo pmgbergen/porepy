@@ -40,8 +40,9 @@ class FractureSet(object):
     Attributes:
         pts (np.array, 2 x num_pts): Start and endpoints of the fractures. Points
             can be shared by fractures.
-        edges (np.array, 2 x num_fracs): Indices, refering to pts, of the start
-            and end points of the fractures.
+        edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
+            indices, refering to pts, of the start and end points of the fractures.
+            Additional rows are optional tags of the fractures.
         domain (dictionary): The domain in which the fracture set is defined.
             Should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which
             maps to a double giving the range of the domain. The fractures need
@@ -56,8 +57,9 @@ class FractureSet(object):
         Parameters:
             pts (np.array, 2 x n): Start and endpoints of the fractures. Points
             can be shared by fractures.
-        edges (np.array, 2 x num_fracs): Indices, refering to pts, of the start
-            and end points of the fractures.
+        edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
+            indices, refering to pts, of the start and end points of the fractures.
+            Additional rows are optional tags of the fractures.
         domain (dictionary): The domain in which the fracture set is defined.
             Should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which
             maps to a double giving the range of the domain.
@@ -93,6 +95,10 @@ class FractureSet(object):
 
         The new set may contain non-unique points and edges.
 
+        WARNING: Tags, in FractureSet.edges[2:] are preserved. If the two sets have different
+        set of tags, the necessary rows and columns are filled with what is essentially
+        random values.
+
         Parameters:
             fs (FractureSet): Another set to be added
 
@@ -105,7 +111,27 @@ class FractureSet(object):
         logger.info(str(fs))
 
         p = np.hstack((self.pts, fs.pts))
-        e = np.hstack((self.edges, fs.edges + self.pts.shape[1]))
+        e = np.hstack((self.edges[:2], fs.edges[:2] + self.pts.shape[1]))
+
+        if self.edges.shape[0] > 2:
+            self_tags = self.edges[2:]
+        else:
+            self_tags = np.empty((0, self.num_frac))
+        if fs.edges.shape[0] > 2:
+            fs_tags = fs.edges[2:]
+        else:
+            fs_tags = np.empty((0, fs.num_frac))
+        if self_tags.size > 0 or fs_tags.size > 0:
+            n_self = self_tags.shape[0]
+            n_fs = fs_tags.shape[0]
+            if n_self < n_fs:
+                extra_tags = np.empty((n_fs - n_self, self.num_frac), dtype=np.int)
+                self_tags = np.vstack((self_tags, extra_tags))
+            elif n_self > n_fs:
+                extra_tags = np.empty((n_self - n_fs, fs.num_frac), dtype=np.int)
+                fs_tags = np.vstack((fs_tags, extra_tags))
+            tags = np.hstack((self_tags, fs_tags)).astype(np.int)
+            e = np.vstack((e, tags))
 
         domain = {
             "xmin": np.minimum(self.domain["xmin"], fs.domain["xmin"]),
