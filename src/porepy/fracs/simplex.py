@@ -277,7 +277,7 @@ def _run_gmsh(file_name, network, **kwargs):
     return pts, cells, cell_info, phys_names
 
 
-def triangle_grid(fracs, domain, do_snap_to_grid=False, **kwargs):
+def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwargs):
     """
     Generate a gmsh grid in a 2D domain with fractures.
 
@@ -293,6 +293,10 @@ def triangle_grid(fracs, domain, do_snap_to_grid=False, **kwargs):
         edges (2 x num_lines) connections between points, defines fractures.
     box: (dictionary) keys xmin, xmax, ymin, ymax, [together bounding box
         for the domain]
+    subdomains (dict, optional): If given, the grid is constrained to these segments
+        but they are not consiered as fractures but as auxiliary segments.
+        If given it should contains a field called "points" with all the points and a field
+        "edges" with all the edges containing the point id.
     do_snap_to_grid (boolean, optional): If true, points are snapped to an
         underlying Cartesian grid with resolution tol before geometry
         computations are carried out. This used to be the standard, but
@@ -334,8 +338,18 @@ def triangle_grid(fracs, domain, do_snap_to_grid=False, **kwargs):
     frac_pts = fracs["points"]
     frac_con = fracs["edges"]
 
+    if subdomains is None:
+        subdom_pts = np.zeros((2, 0))
+        subdom_con = np.zeros((2, 0))
+    else:
+        # Pick out the subdomain boundaries and their connections
+        subdom_pts = subdomains["points"]
+        subdom_con = subdomains["edges"]
+
     # Unified description of points and lines for domain, and fractures
-    pts_all, lines, domain_pts = __merge_domain_fracs_2d(domain, frac_pts, frac_con)
+    pts_all, lines, domain_pts = _merge_domain_fracs_2d(
+        domain, frac_pts, frac_con, subdom_pts, subdom_con
+    )
 
     # Snap to underlying grid before comparing points
     if do_snap_to_grid:
@@ -387,7 +401,7 @@ def triangle_grid(fracs, domain, do_snap_to_grid=False, **kwargs):
     # lines. We should probably delete these.
 
     # We find the end points that are shared by more than one intersection
-    intersections = __find_intersection_points(lines_split)
+    intersections = _find_intersection_points(lines_split)
 
     # Gridding size
     if "mesh_size_frac" in kwargs.keys():
@@ -476,7 +490,9 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
 
     # Create grids from gmsh mesh.
     logger.info("Create grids of various dimensions")
-    g_2d = mesh_2_grid.create_2d_grids(pts, cells, is_embedded=False)
+    g_2d = mesh_2_grid.create_2d_grids(
+        pts, cells, is_embedded=False, phys_names=phys_names, cell_info=cell_info
+    )
     g_1d, _ = mesh_2_grid.create_1d_grids(
         pts,
         cells,
@@ -572,7 +588,7 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
 # -----------------------------------------------------------------------------#
 
 
-def __merge_domain_fracs_2d(dom, frac_p, frac_l):
+def _merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
     """
     Merge fractures, domain boundaries and lines for compartments.
     The unified description is ready for feeding into meshing tools such as
@@ -607,7 +623,7 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l):
         tmp = np.arange(dom_p.shape[1])
         dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
 
-    num_dom_lines = dom_lines.shape[1]  # Should be 4
+    num_dom_lines = dom_lines.shape[1]  # Should be 4 for the dictionary case
 
     # The  lines will have all fracture-related tags set to zero.
     # The plan is to ignore these tags for the boundary and compartments,
@@ -618,13 +634,19 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     # Also add a tag to the fractures, signifying that these are fractures
     frac_l = np.vstack((frac_l, const.FRACTURE_TAG * np.ones(frac_l.shape[1])))
 
+    # Also add a tag to the subdomains, signifying that these are subdomains
+    subdom_l = np.vstack((subdom_l, const.AUXILIARY_TAG * np.ones(subdom_l.shape[1])))
+
     # Merge the point arrays, compartment points first
-    p = np.hstack((dom_p, frac_p))
+    p = np.hstack((dom_p, frac_p, subdom_p))
 
     # Adjust index of fracture points to account for the compartment points
     frac_l[:2] += dom_p.shape[1]
 
-    l = np.hstack((dom_l, frac_l)).astype("int")
+    # Adjust index of subdomains points to account for the subdomain points
+    subdom_l[:2] += dom_p.shape[1] + frac_p.shape[1]
+
+    l = np.hstack((dom_l, frac_l, subdom_l)).astype("int")
 
     # Add a second tag as an identifier of each line.
     l = np.vstack((l, np.arange(l.shape[1])))
@@ -632,8 +654,25 @@ def __merge_domain_fracs_2d(dom, frac_p, frac_l):
     return p, l, dom_p
 
 
-def __find_intersection_points(lines):
+def _find_intersection_points(lines):
     const = constants.GmshConstants()
+
     frac_id = np.ravel(lines[:2, lines[2] == const.FRACTURE_TAG])
-    _, ia, count = np.unique(frac_id, True, False, True)
-    return frac_id[ia[count > 1]]
+    _, frac_ia, frac_count = np.unique(frac_id, True, False, True)
+
+    # In the case we have auxiliary points remove do not create a 0d point in
+    # case one intersects a single fracture. In the case of multiple fractures intersection
+    # with an auxiliary point do consider the 0d.
+    aux_id = lines[2] == const.AUXILIARY_TAG
+    if np.any(aux_id):
+        aux_id = np.ravel(lines[:2, aux_id])
+        _, aux_ia, aux_count = np.unique(aux_id, True, False, True)
+
+        # probably it can be done more efficiently but currently we rarely use the
+        # auxiliary points in 2d
+        for a in aux_id[aux_ia[aux_count > 1]]:
+            # if a match is found decrease the frac_count only by one, this prevent
+            # the multiple fracture case to be handle wrongly
+            frac_count[frac_id[frac_ia] == a] -= 1
+
+    return frac_id[frac_ia[frac_count > 1]]

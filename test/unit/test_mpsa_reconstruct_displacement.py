@@ -955,3 +955,7 @@ def make_true_2d(g):
         g.nodes = np.delete(g.nodes, (2), axis=0)
 
     return g
+
+
+if __name__ == "__main__":
+    unittest.main()

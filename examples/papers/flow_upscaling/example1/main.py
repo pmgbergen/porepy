@@ -33,7 +33,7 @@ if __name__ == "__main__":
     file_geo = "Algeroyna.csv"
     folder = "solution"
 
-    theta_ref = 30. * pp.CELSIUS
+    theta_ref = 30.0 * pp.CELSIUS
     fluid = pp.Water(theta_ref)
     rock = pp.Granite(theta_ref)
 

@@ -152,3 +152,7 @@ class MpsaReconstructDisplacement(unittest.TestCase):
         U_f = U_hf[:, IA]
 
         self.assertTrue(np.all(np.abs(U_f[:, dir_ind] - u_b[:, dir_ind]) < 1e-10))
+
+
+if __name__ == "__main__":
+    unittest.main()

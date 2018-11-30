@@ -256,3 +256,7 @@ class RobinBoundTest(unittest.TestCase):
         u = np.linalg.solve(a.A, b)
         T = stress * u + bound_stress * u_bound.ravel("F")
         return u, T
+
+
+if __name__ == "__main__":
+    unittest.main()

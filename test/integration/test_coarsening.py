@@ -4,9 +4,9 @@ import sys
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.grids import structured, simplex
 from porepy.grids import coarsening as co
-from porepy.fracs import meshing
+import porepy as pp
+
 
 # ------------------------------------------------------------------------------#
 
@@ -16,7 +16,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_coarse_grid_2d(self):
-        g = structured.CartGrid([3, 2])
+        g = pp.CartGrid([3, 2])
         g.compute_geometry()
         co.generate_coarse_grid(g, [5, 2, 2, 5, 2, 2])
 
@@ -61,7 +61,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_coarse_grid_3d(self):
-        g = structured.CartGrid([2, 2, 2])
+        g = pp.CartGrid([2, 2, 2])
         g.compute_geometry()
         co.generate_coarse_grid(g, [0, 0, 0, 0, 1, 1, 2, 2])
 
@@ -133,7 +133,7 @@ class BasicsTest(unittest.TestCase):
         part = np.array([0, 0, 1, 1, 2, 0, 3, 1])
         f = np.array([[2, 2], [0, 2]])
 
-        gb = meshing.cart_grid([f], [4, 2])
+        gb = pp.meshing.cart_grid([f], [4, 2])
         gb.compute_geometry()
         co.generate_coarse_grid(gb, part)
 
@@ -141,7 +141,7 @@ class BasicsTest(unittest.TestCase):
         known = np.array([1, 5, 18, 19])
 
         for _, d in gb.edges():
-            faces = sps.find(d["face_cells"])[1]
+            faces = sps.find(d["mortar_grid"].master_to_mortar_int)[1]
             self.assertTrue(np.array_equal(faces, known))
 
     # ------------------------------------------------------------------------------#
@@ -161,23 +161,23 @@ class BasicsTest(unittest.TestCase):
             part[[9, 10]] = 8
             part[[20, 26, 25]] = 9
             part[[3, 4, 5, 11]] = 10
-            f1 = np.array([[3., 3.], [1., 5.]])
-            f2 = np.array([[1., 5.], [3., 3.]])
+            f1 = np.array([[3.0, 3.0], [1.0, 5.0]])
+            f2 = np.array([[1.0, 5.0], [3.0, 3.0]])
 
-            gb = meshing.cart_grid([f1, f2], [6, 6])
+            gb = pp.meshing.cart_grid([f1, f2], [6, 6])
             gb.compute_geometry()
 
             cell_centers_1 = np.array(
                 [
-                    [3.00000000e+00, 3.00000000e+00, 3.00000000e+00, 3.00000000e+00],
-                    [4.50000000e+00, 3.50000000e+00, 2.50000000e+00, 1.50000000e+00],
+                    [3.00000000e00, 3.00000000e00, 3.00000000e00, 3.00000000e00],
+                    [4.50000000e00, 3.50000000e00, 2.50000000e00, 1.50000000e00],
                     [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17, 1.66533454e-16],
                 ]
             )
             cell_centers_2 = np.array(
                 [
-                    [4.50000000e+00, 3.50000000e+00, 2.50000000e+00, 1.50000000e+00],
-                    [3.00000000e+00, 3.00000000e+00, 3.00000000e+00, 3.00000000e+00],
+                    [4.50000000e00, 3.50000000e00, 2.50000000e00, 1.50000000e00],
+                    [3.00000000e00, 3.00000000e00, 3.00000000e00, 3.00000000e00],
                     [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17, 1.66533454e-16],
                 ]
             )
@@ -186,7 +186,7 @@ class BasicsTest(unittest.TestCase):
 
             # Test
             for e_d in gb.edges():
-                faces = sps.find(e_d[1]["face_cells"])[1]
+                faces = sps.find(e_d[1]["mortar_grid"].master_to_mortar_int)[1]
 
                 if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) or (
                     e_d[0][0].dim == 1 and e_d[0][1].dim == 0
@@ -211,21 +211,21 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_coarse_grid_3d_2d(self):
-        f = np.array([[2., 2., 2., 2.], [0., 2., 2., 0.], [0., 0., 2., 2.]])
-        gb = meshing.cart_grid([f], [4, 2, 2])
+        f = np.array([[2.0, 2.0, 2.0, 2.0], [0.0, 2.0, 2.0, 0.0], [0.0, 0.0, 2.0, 2.0]])
+        gb = pp.meshing.cart_grid([f], [4, 2, 2])
         gb.compute_geometry()
 
         g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
         part = np.zeros(g.num_cells)
-        part[g.cell_centers[0, :] < 2.] = 1
+        part[g.cell_centers[0, :] < 2.0] = 1
         co.generate_coarse_grid(gb, part)
 
         # Test
-        known_indices = np.array([1, 3, 0, 2, 1, 3, 0, 2])
+        known_indices = np.array([1, 3, 0, 2, 5, 7, 4, 6])
         known = np.array([1, 4, 7, 10, 44, 45, 46, 47])
 
         for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["face_cells"])
+            indices, faces, _ = sps.find(d["mortar_grid"].master_to_mortar_int)
             self.assertTrue(np.array_equal(indices, known_indices))
             self.assertTrue(np.array_equal(faces, known))
 
@@ -235,14 +235,18 @@ class BasicsTest(unittest.TestCase):
         # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
         # non-fixed order, we need to exclude this test.
         if sys.version_info >= (3, 6):
-            f1 = np.array([[3., 3., 3., 3.], [1., 5., 5., 1.], [1., 1., 5., 5.]])
-            f2 = np.array([[1., 5., 5., 1.], [1., 1., 5., 5.], [3., 3., 3., 3.]])
-            gb = meshing.cart_grid([f1, f2], [6, 6, 6])
+            f1 = np.array(
+                [[3.0, 3.0, 3.0, 3.0], [1.0, 5.0, 5.0, 1.0], [1.0, 1.0, 5.0, 5.0]]
+            )
+            f2 = np.array(
+                [[1.0, 5.0, 5.0, 1.0], [1.0, 1.0, 5.0, 5.0], [3.0, 3.0, 3.0, 3.0]]
+            )
+            gb = pp.meshing.cart_grid([f1, f2], [6, 6, 6])
             gb.compute_geometry()
 
             g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
             part = np.zeros(g.num_cells)
-            p1, p2 = g.cell_centers[0, :] < 3., g.cell_centers[2, :] < 3.
+            p1, p2 = g.cell_centers[0, :] < 3.0, g.cell_centers[2, :] < 3.0
             part[np.logical_and(p1, p2)] = 1
             part[np.logical_and(p1, np.logical_not(p2))] = 2
             part[np.logical_and(np.logical_not(p1), p2)] = 3
@@ -252,7 +256,24 @@ class BasicsTest(unittest.TestCase):
 
             cell_centers_1 = np.array(
                 [
-                    [3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3.],
+                    [
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                    ],
                     [
                         1.5,
                         1.5,
@@ -329,18 +350,35 @@ class BasicsTest(unittest.TestCase):
                         4.5,
                         4.5,
                     ],
-                    [3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3., 3.],
+                    [
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                        3.0,
+                    ],
                 ]
             )
 
             # Test
             for e_d in gb.edges():
-                indices, faces, _ = sps.find(e_d[1]["face_cells"])
+                indices, faces, _ = sps.find(e_d[1]["mortar_grid"].master_to_mortar_int)
 
                 if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) or (
                     e_d[0][0].dim == 2 and e_d[0][1].dim == 1
                 ):
-                    known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
+                    known_indices = [3, 2, 1, 0, 7, 6, 5, 4]
                     known = [2, 7, 12, 17, 40, 41, 42, 43]
 
                 if (e_d[0][0].dim == 2 and e_d[0][1].dim == 3) or (
@@ -367,22 +405,22 @@ class BasicsTest(unittest.TestCase):
                             4,
                             8,
                             12,
-                            3,
-                            7,
-                            11,
-                            15,
-                            2,
-                            6,
-                            10,
-                            14,
-                            1,
-                            5,
-                            9,
-                            13,
-                            0,
-                            4,
-                            8,
-                            12,
+                            19,
+                            23,
+                            27,
+                            31,
+                            18,
+                            22,
+                            26,
+                            30,
+                            17,
+                            21,
+                            25,
+                            29,
+                            16,
+                            20,
+                            24,
+                            28,
                         ]
                         known = [
                             22,
@@ -436,22 +474,22 @@ class BasicsTest(unittest.TestCase):
                             13,
                             14,
                             15,
-                            0,
-                            1,
-                            2,
-                            3,
-                            4,
-                            5,
-                            6,
-                            7,
-                            8,
-                            9,
-                            10,
-                            11,
-                            12,
-                            13,
-                            14,
-                            15,
+                            16,
+                            17,
+                            18,
+                            19,
+                            20,
+                            21,
+                            22,
+                            23,
+                            24,
+                            25,
+                            26,
+                            27,
+                            28,
+                            29,
+                            30,
+                            31,
                         ]
                         known = [
                             223,
@@ -489,14 +527,13 @@ class BasicsTest(unittest.TestCase):
                         ]
                     else:
                         raise ValueError("Grid not found")
-
                 self.assertTrue(np.array_equal(indices, np.array(known_indices)))
                 self.assertTrue(np.array_equal(faces, np.array(known)))
 
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_cart(self):
-        g = structured.CartGrid([5, 5])
+        g = pp.CartGrid([5, 5])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g))
         known = np.array(
@@ -507,7 +544,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_tri(self):
-        g = simplex.StructuredTriangleGrid([3, 2])
+        g = pp.StructuredTriangleGrid([3, 2])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g))
         known = np.array([1, 1, 1, 0, 0, 1, 0, 2, 2, 0, 2, 2])
@@ -517,7 +554,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_cart_cdepth4(self):
-        g = structured.CartGrid([10, 10])
+        g = pp.CartGrid([10, 10])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g), cdepth=4)
         known = (
@@ -632,7 +669,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_3d_cart(self):
-        g = structured.CartGrid([4, 4, 4])
+        g = pp.CartGrid([4, 4, 4])
         g.compute_geometry()
         part = co.create_partition(co.tpfa_matrix(g))
         known = (
@@ -711,46 +748,46 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test0(self):
-        f = np.array([[1., 1.], [0., 2.]])
-        gb = meshing.cart_grid([f], [2, 2])
+        f = np.array([[1.0, 1.0], [0.0, 2.0]])
+        gb = pp.meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
         part = co.create_partition(co.tpfa_matrix(gb))
         co.generate_coarse_grid(gb, part)
 
         # Test
-        known_indices = np.array([1, 0, 1, 0])
+        known_indices = np.array([1, 0, 3, 2])
         known = np.array([1, 4, 10, 11])
 
         for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["face_cells"])
+            indices, faces, _ = sps.find(d["mortar_grid"].master_to_mortar_int)
             self.assertTrue(np.array_equal(faces, known))
             self.assertTrue(np.array_equal(indices, known_indices))
 
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test1(self):
-        f = np.array([[1., 1.], [0., 1.]])
-        gb = meshing.cart_grid([f], [2, 2])
+        f = np.array([[1.0, 1.0], [0.0, 1.0]])
+        gb = pp.meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
         part = co.create_partition(co.tpfa_matrix(gb))
         co.generate_coarse_grid(gb, part)
 
         # Test
-        known_indices = np.array([0, 0])
+        known_indices = np.array([0, 1])
         known = np.array([1, 9])
 
         for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["face_cells"])
+            indices, faces, _ = sps.find(d["mortar_grid"].master_to_mortar_int)
             self.assertTrue(np.array_equal(faces, known))
             self.assertTrue(np.array_equal(indices, known_indices))
 
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test2(self):
-        f = np.array([[1., 1.], [0., 1.]])
-        gb = meshing.cart_grid([f], [2, 2])
+        f = np.array([[1.0, 1.0], [0.0, 1.0]])
+        gb = pp.meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
         seeds = co.generate_seeds(gb)
@@ -761,38 +798,38 @@ class BasicsTest(unittest.TestCase):
         co.generate_coarse_grid(gb, part)
 
         # Test
-        known_indices = np.array([0, 0])
+        known_indices = np.array([0, 1])
         known = np.array([1, 10])
 
         for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["face_cells"])
+            indices, faces, _ = sps.find(d["mortar_grid"].master_to_mortar_int)
             self.assertTrue(np.array_equal(faces, known))
             self.assertTrue(np.array_equal(indices, known_indices))
 
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test3(self):
-        f = np.array([[1., 1.], [1., 2.]])
-        gb = meshing.cart_grid([f], [2, 2])
+        f = np.array([[1.0, 1.0], [1.0, 2.0]])
+        gb = pp.meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
         part = co.create_partition(co.tpfa_matrix(gb))
         co.generate_coarse_grid(gb, part)
 
         # Test
-        known_indices = np.array([0, 0])
+        known_indices = np.array([0, 1])
         known = np.array([3, 9])
 
         for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["face_cells"])
+            indices, faces, _ = sps.find(d["mortar_grid"].master_to_mortar_int)
             self.assertTrue(np.array_equal(faces, known))
             self.assertTrue(np.array_equal(indices, known_indices))
 
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test4(self):
-        f = np.array([[1., 1.], [1., 2.]])
-        gb = meshing.cart_grid([f], [2, 2])
+        f = np.array([[1.0, 1.0], [1.0, 2.0]])
+        gb = pp.meshing.cart_grid([f], [2, 2])
         gb.compute_geometry()
 
         seeds = co.generate_seeds(gb)
@@ -803,11 +840,11 @@ class BasicsTest(unittest.TestCase):
         co.generate_coarse_grid(gb, part)
 
         # Test
-        known_indices = np.array([0, 0])
+        known_indices = np.array([0, 1])
         known = np.array([4, 10])
 
         for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["face_cells"])
+            indices, faces, _ = sps.find(d["mortar_grid"].master_to_mortar_int)
             self.assertTrue(np.array_equal(faces, known))
             self.assertTrue(np.array_equal(indices, known_indices))
 
@@ -817,9 +854,9 @@ class BasicsTest(unittest.TestCase):
         # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
         # non-fixed order, we need to exclude this test.
         if sys.version_info >= (3, 6):
-            f1 = np.array([[3., 3.], [1., 5.]])
-            f2 = np.array([[1., 5.], [3., 3.]])
-            gb = meshing.cart_grid([f1, f2], [6, 6])
+            f1 = np.array([[3.0, 3.0], [1.0, 5.0]])
+            f2 = np.array([[1.0, 5.0], [3.0, 3.0]])
+            gb = pp.meshing.cart_grid([f1, f2], [6, 6])
             gb.compute_geometry()
 
             part = co.create_partition(co.tpfa_matrix(gb), cdepth=3)
@@ -827,28 +864,28 @@ class BasicsTest(unittest.TestCase):
 
             cell_centers_1 = np.array(
                 [
-                    [3.00000000e+00, 3.00000000e+00, 3.00000000e+00, 3.00000000e+00],
-                    [4.50000000e+00, 3.50000000e+00, 2.50000000e+00, 1.50000000e+00],
+                    [3.00000000e00, 3.00000000e00, 3.00000000e00, 3.00000000e00],
+                    [4.50000000e00, 3.50000000e00, 2.50000000e00, 1.50000000e00],
                     [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17, 1.66533454e-16],
                 ]
             )
             cell_centers_2 = np.array(
                 [
-                    [4.50000000e+00, 3.50000000e+00, 2.50000000e+00, 1.50000000e+00],
-                    [3.00000000e+00, 3.00000000e+00, 3.00000000e+00, 3.00000000e+00],
+                    [4.50000000e00, 3.50000000e00, 2.50000000e00, 1.50000000e00],
+                    [3.00000000e00, 3.00000000e00, 3.00000000e00, 3.00000000e00],
                     [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17, 1.66533454e-16],
                 ]
             )
 
             # Test
             for e_d in gb.edges():
-                indices, faces, _ = sps.find(e_d[1]["face_cells"])
+                indices, faces, _ = sps.find(e_d[1]["mortar_grid"].master_to_mortar_int)
 
                 if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) or (
                     e_d[0][0].dim == 1 and e_d[0][1].dim == 0
                 ):
                     known = [2, 5]
-                    known_indices = [0, 0]
+                    known_indices = [0, 1]
 
                 if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) or (
                     e_d[0][0].dim == 2 and e_d[0][1].dim == 1
@@ -858,10 +895,10 @@ class BasicsTest(unittest.TestCase):
 
                     if np.allclose(g.cell_centers, cell_centers_1):
                         known = [4, 9, 12, 16, 44, 45, 46, 47]
-                        known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
+                        known_indices = [3, 2, 1, 0, 7, 6, 5, 4]
                     elif np.allclose(g.cell_centers, cell_centers_2):
                         known = [31, 32, 33, 34, 48, 49, 50, 51]
-                        known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
+                        known_indices = [3, 2, 1, 0, 7, 6, 5, 4]
                     else:
                         raise ValueError("Grid not found")
 
@@ -874,9 +911,9 @@ class BasicsTest(unittest.TestCase):
         # NOTE: Since for python 2.7 and 3.5 the meshes in gridbucket may have
         # non-fixed order, we need to exclude this test.
         if sys.version_info >= (3, 6):
-            f1 = np.array([[3., 3.], [1., 5.]])
-            f2 = np.array([[1., 5.], [3., 3.]])
-            gb = meshing.cart_grid([f1, f2], [6, 6])
+            f1 = np.array([[3.0, 3.0], [1.0, 5.0]])
+            f2 = np.array([[1.0, 5.0], [3.0, 3.0]])
+            gb = pp.meshing.cart_grid([f1, f2], [6, 6])
             gb.compute_geometry()
 
             seeds = co.generate_seeds(gb)
@@ -888,28 +925,28 @@ class BasicsTest(unittest.TestCase):
 
             cell_centers_1 = np.array(
                 [
-                    [3.00000000e+00, 3.00000000e+00, 3.00000000e+00, 3.00000000e+00],
-                    [4.50000000e+00, 3.50000000e+00, 2.50000000e+00, 1.50000000e+00],
+                    [3.00000000e00, 3.00000000e00, 3.00000000e00, 3.00000000e00],
+                    [4.50000000e00, 3.50000000e00, 2.50000000e00, 1.50000000e00],
                     [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17, 1.66533454e-16],
                 ]
             )
             cell_centers_2 = np.array(
                 [
-                    [4.50000000e+00, 3.50000000e+00, 2.50000000e+00, 1.50000000e+00],
-                    [3.00000000e+00, 3.00000000e+00, 3.00000000e+00, 3.00000000e+00],
+                    [4.50000000e00, 3.50000000e00, 2.50000000e00, 1.50000000e00],
+                    [3.00000000e00, 3.00000000e00, 3.00000000e00, 3.00000000e00],
                     [-1.66533454e-16, -5.55111512e-17, 5.55111512e-17, 1.66533454e-16],
                 ]
             )
 
             # Test
             for e_d in gb.edges():
-                indices, faces, _ = sps.find(e_d[1]["face_cells"])
+                indices, faces, _ = sps.find(e_d[1]["mortar_grid"].master_to_mortar_int)
 
                 if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) or (
                     e_d[0][0].dim == 1 and e_d[0][1].dim == 0
                 ):
                     known = [2, 5]
-                    known_indices = [0, 0]
+                    known_indices = [0, 1]
 
                 if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) or (
                     e_d[0][0].dim == 2 and e_d[0][1].dim == 1
@@ -919,10 +956,10 @@ class BasicsTest(unittest.TestCase):
 
                     if np.allclose(g.cell_centers, cell_centers_1):
                         known = [5, 10, 14, 18, 52, 53, 54, 55]
-                        known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
+                        known_indices = [3, 2, 1, 0, 7, 6, 5, 4]
                     elif np.allclose(g.cell_centers, cell_centers_2):
                         known = [37, 38, 39, 40, 56, 57, 58, 59]
-                        known_indices = [3, 2, 1, 0, 3, 2, 1, 0]
+                        known_indices = [3, 2, 1, 0, 7, 6, 5, 4]
                     else:
                         raise ValueError("Grid not found")
 
@@ -936,9 +973,9 @@ class BasicsTest(unittest.TestCase):
         # non-fixed order, we need to exclude this test.
         if sys.version_info >= (3, 6):
             N = 20
-            f1 = np.array([[N / 2., N / 2.], [1., N - 1.]])
-            f2 = np.array([[1., N - 1.], [N / 2., N / 2.]])
-            gb = meshing.cart_grid([f1, f2], [N, N])
+            f1 = np.array([[N / 2.0, N / 2.0], [1.0, N - 1.0]])
+            f2 = np.array([[1.0, N - 1.0], [N / 2.0, N / 2.0]])
+            gb = pp.meshing.cart_grid([f1, f2], [N, N])
             gb.compute_geometry()
 
             seeds = co.generate_seeds(gb)
@@ -951,44 +988,44 @@ class BasicsTest(unittest.TestCase):
             cell_centers_1 = np.array(
                 [
                     [
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
                     ],
                     [
-                        1.85000000e+01,
-                        1.75000000e+01,
-                        1.65000000e+01,
-                        1.55000000e+01,
-                        1.45000000e+01,
-                        1.35000000e+01,
-                        1.25000000e+01,
-                        1.15000000e+01,
-                        1.05000000e+01,
-                        9.50000000e+00,
-                        8.50000000e+00,
-                        7.50000000e+00,
-                        6.50000000e+00,
-                        5.50000000e+00,
-                        4.50000000e+00,
-                        3.50000000e+00,
-                        2.50000000e+00,
-                        1.50000000e+00,
+                        1.85000000e01,
+                        1.75000000e01,
+                        1.65000000e01,
+                        1.55000000e01,
+                        1.45000000e01,
+                        1.35000000e01,
+                        1.25000000e01,
+                        1.15000000e01,
+                        1.05000000e01,
+                        9.50000000e00,
+                        8.50000000e00,
+                        7.50000000e00,
+                        6.50000000e00,
+                        5.50000000e00,
+                        4.50000000e00,
+                        3.50000000e00,
+                        2.50000000e00,
+                        1.50000000e00,
                     ],
                     [
                         -9.43689571e-16,
@@ -1015,44 +1052,44 @@ class BasicsTest(unittest.TestCase):
             cell_centers_2 = np.array(
                 [
                     [
-                        1.85000000e+01,
-                        1.75000000e+01,
-                        1.65000000e+01,
-                        1.55000000e+01,
-                        1.45000000e+01,
-                        1.35000000e+01,
-                        1.25000000e+01,
-                        1.15000000e+01,
-                        1.05000000e+01,
-                        9.50000000e+00,
-                        8.50000000e+00,
-                        7.50000000e+00,
-                        6.50000000e+00,
-                        5.50000000e+00,
-                        4.50000000e+00,
-                        3.50000000e+00,
-                        2.50000000e+00,
-                        1.50000000e+00,
+                        1.85000000e01,
+                        1.75000000e01,
+                        1.65000000e01,
+                        1.55000000e01,
+                        1.45000000e01,
+                        1.35000000e01,
+                        1.25000000e01,
+                        1.15000000e01,
+                        1.05000000e01,
+                        9.50000000e00,
+                        8.50000000e00,
+                        7.50000000e00,
+                        6.50000000e00,
+                        5.50000000e00,
+                        4.50000000e00,
+                        3.50000000e00,
+                        2.50000000e00,
+                        1.50000000e00,
                     ],
                     [
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
-                        1.00000000e+01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
+                        1.00000000e01,
                     ],
                     [
                         -9.43689571e-16,
@@ -1079,13 +1116,13 @@ class BasicsTest(unittest.TestCase):
 
             # Test
             for e_d in gb.edges():
-                indices, faces, _ = sps.find(e_d[1]["face_cells"])
+                indices, faces, _ = sps.find(e_d[1]["mortar_grid"].master_to_mortar_int)
 
                 if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) or (
                     e_d[0][0].dim == 1 and e_d[0][1].dim == 0
                 ):
                     known = [9, 19]
-                    known_indices = [0, 0]
+                    known_indices = [0, 1]
 
                 if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) or (
                     e_d[0][0].dim == 2 and e_d[0][1].dim == 1
@@ -1151,24 +1188,24 @@ class BasicsTest(unittest.TestCase):
                             2,
                             1,
                             0,
-                            17,
-                            16,
-                            15,
-                            14,
-                            13,
-                            12,
-                            11,
-                            10,
-                            9,
-                            8,
-                            7,
-                            6,
-                            5,
-                            4,
-                            3,
-                            2,
-                            1,
-                            0,
+                            35,
+                            34,
+                            33,
+                            32,
+                            31,
+                            30,
+                            29,
+                            28,
+                            27,
+                            26,
+                            25,
+                            24,
+                            23,
+                            22,
+                            21,
+                            20,
+                            19,
+                            18,
                         ]
                     elif np.allclose(g.cell_centers, cell_centers_2):
                         known = [
@@ -1228,24 +1265,24 @@ class BasicsTest(unittest.TestCase):
                             2,
                             1,
                             0,
-                            17,
-                            16,
-                            15,
-                            14,
-                            13,
-                            12,
-                            11,
-                            10,
-                            9,
-                            8,
-                            7,
-                            6,
-                            5,
-                            4,
-                            3,
-                            2,
-                            1,
-                            0,
+                            35,
+                            34,
+                            33,
+                            32,
+                            31,
+                            30,
+                            29,
+                            28,
+                            27,
+                            26,
+                            25,
+                            24,
+                            23,
+                            22,
+                            21,
+                            20,
+                            19,
+                            18,
                         ]
                     else:
                         raise ValueError("Grid not found")
@@ -1255,5 +1292,6 @@ class BasicsTest(unittest.TestCase):
 
 
 # ------------------------------------------------------------------------------#
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,10 +1,9 @@
 import scipy.sparse as sps
 import scipy.sparse.linalg as la
-import time
 import numpy as np
+import porepy as pp
 
-from porepy.numerics.fv import mpfa, mpsa, fvutils
-from porepy.params import tensor, bc
+from porepy.numerics.fv import fvutils, mpsa
 from porepy.numerics.mixed_dim.solver import Solver
 
 
@@ -63,14 +62,18 @@ class Biot(Solver):
             state.
 
         """
-        d = data["param"].get_bc_val("mechanics")
-        p = data["param"].get_bc_val("flow")
+        d = data[pp.PARAMETERS]["mechanics"]["bc_values"]
+        p = data[pp.PARAMETERS]["flow"]["bc_values"]
 
         div_flow = fvutils.scalar_divergence(g)
         div_mech = fvutils.vector_divergence(g)
 
-        p_bound = -div_flow * data["bound_flux"] * p - data["bound_div_d"] * d
-        s_bound = -div_mech * data["bound_stress"] * d
+        m_matrices = data[pp.DISCRETIZATION_MATRICES]["mechanics"]
+        f_matrices = data[pp.DISCRETIZATION_MATRICES]["flow"]
+        p_bound = (
+            -div_flow * f_matrices["bound_flux"] * p - m_matrices["bound_div_d"] * d
+        )
+        s_bound = -div_mech * m_matrices["bound_stress"] * d
         return np.hstack((s_bound, p_bound))
 
     def rhs_time(self, g, data):
@@ -99,10 +102,14 @@ class Biot(Solver):
         d = self.extractD(g, state, as_vector=True)
         p = self.extractP(g, state)
 
-        d_scaling = data.get("displacement_scaling", 1)
+        parameter_dictionary = data[pp.PARAMETERS]["mechanics"]
+        matrix_dictionaries = data[pp.DISCRETIZATION_MATRICES]
 
-        div_d = np.squeeze(data["param"].biot_alpha * data["div_d"] * d * d_scaling)
-        p_cmpr = data["compr_discr"] * p
+        d_scaling = parameter_dictionary.get("displacement_scaling", 1)
+        div_d = matrix_dictionaries["mechanics"]["div_d"]
+
+        div_d = np.squeeze(parameter_dictionary["biot_alpha"] * div_d * d * d_scaling)
+        p_cmpr = matrix_dictionaries["flow"]["compr_discr"] * p
 
         mech_rhs = np.zeros(g.dim * g.num_cells)
 
@@ -173,26 +180,30 @@ class Biot(Solver):
         """
         div_flow = fvutils.scalar_divergence(g)
         div_mech = fvutils.vector_divergence(g)
-        param = data["param"]
+        param = data[pp.PARAMETERS]
 
-        fluid_viscosity = param.fluid_viscosity
-        biot_alpha = param.biot_alpha
+        fluid_viscosity = param["flow"]["fluid_viscosity"]
+        biot_alpha = param["flow"]["biot_alpha"]
 
+        m_matrices = data[pp.DISCRETIZATION_MATRICES]["mechanics"]
+        f_matrices = data[pp.DISCRETIZATION_MATRICES]["flow"]
         # Put together linear system
-        A_flow = div_flow * data["flux"] / fluid_viscosity
-        A_mech = div_mech * data["stress"]
+        A_flow = div_flow * f_matrices["flux"] / fluid_viscosity
+        A_mech = div_mech * m_matrices["stress"]
 
         # Time step size
-        dt = data["dt"]
+        dt = data["time_step"]
 
-        d_scaling = data.get("displacement_scaling", 1)
+        d_scaling = param["mechanics"].get("displacement_scaling", 1)
         # Matrix for left hand side
         A_biot = sps.bmat(
             [
-                [A_mech, data["grad_p"] * biot_alpha],
+                [A_mech, f_matrices["grad_p"] * biot_alpha],
                 [
-                    data["div_d"] * biot_alpha * d_scaling,
-                    data["compr_discr"] + dt * A_flow + data["stabilization"],
+                    m_matrices["div_d"] * biot_alpha * d_scaling,
+                    f_matrices["compr_discr"]
+                    + dt * A_flow
+                    + m_matrices["stabilization"],
                 ],
             ]
         ).tocsr()
@@ -203,17 +214,16 @@ class Biot(Solver):
 
         # Discretiztaion using MPFA
         key = "flow"
-        md = mpfa.Mpfa(key)
+        md = pp.Mpfa(key)
 
         md.discretize(g, data)
-        data["flux"] = data[md._key() + "flux"]
-        data["bound_flux"] = data[md._key() + "bound_flux"]
 
     def _discretize_compr(self, g, data):
-        param = data["param"]
-        compr = param.fluid_compr
-        poro = param.porosity
-        data["compr_discr"] = sps.dia_matrix(
+        parameter_dictionary = data[pp.PARAMETERS]["flow"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]
+        compr = parameter_dictionary["fluid_compressibility"]
+        poro = parameter_dictionary["porosity"]
+        matrix_dictionary["compr_discr"] = sps.dia_matrix(
             (g.cell_volumes * compr * poro, 0), shape=(g.num_cells, g.num_cells)
         )
 
@@ -301,10 +311,11 @@ class Biot(Solver):
             p = x[g.num_cells * gdim:]
 
         """
-        param = data["param"]
-        bound_mech = param.get_bc("mechanics")
-        bound_flow = param.get_bc("flow")
-        constit = param.get_tensor("mechanics")
+        parameters = data[pp.PARAMETERS]
+        matrices = data[pp.DISCRETIZATION_MATRICES]
+        bound_mech = parameters["mechanics"]["bc"]
+        bound_flow = parameters["flow"]["bc"]
+        constit = parameters["mechanics"]["fourth_order_tensor"]
 
         eta = data.get("eta", 0)
         inverter = data.get("inverter", None)
@@ -325,8 +336,8 @@ class Biot(Solver):
             g.face_normals = np.delete(g.face_normals, (2), axis=0)
             g.nodes = np.delete(g.nodes, (2), axis=0)
 
-            constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=0)
-            constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=1)
+            constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=0)
+            constit.values = np.delete(constit.values, (2, 5, 6, 7, 8), axis=1)
         nd = g.dim
 
         # Define subcell topology
@@ -435,12 +446,12 @@ class Biot(Solver):
 
         stabilization = div * igrad * rhs_normals
 
-        data["stress"] = stress
-        data["bound_stress"] = bound_stress
-        data["grad_p"] = grad_p
-        data["div_d"] = div_d
-        data["stabilization"] = stabilization
-        data["bound_div_d"] = bound_div_d
+        matrices["mechanics"]["stress"] = stress
+        matrices["mechanics"]["bound_stress"] = bound_stress
+        matrices["flow"]["grad_p"] = grad_p
+        matrices["mechanics"]["div_d"] = div_d
+        matrices["mechanics"]["stabilization"] = stabilization
+        matrices["mechanics"]["bound_div_d"] = bound_div_d
 
     def _face_vector_to_scalar(self, nf, nd):
         """ Create a mapping from vector quantities on faces (stresses) to
@@ -574,9 +585,9 @@ class Biot(Solver):
             np.ndarray: Flux over all faces
 
         """
-        flux_discr = data["flux"]
-        bound_flux = data["bound_flux"]
-        bound_val = data["bc_val_flow"]
+        flux_discr = data[pp.DISCRETIZATION_MATRICES]["flow"]["flux"]
+        bound_flux = data[pp.DISCRETIZATION_MATRICES]["flow"]["bound_flux"]
+        bound_val = data[pp.PARAMETERS]["flow"]["bc_values"]
         p = self.extractP(g, u)
         flux = flux_discr * p + bound_flux * bound_val
         return flux
@@ -597,10 +608,10 @@ class Biot(Solver):
                 all stress values on the first face, then the second etc.
 
         """
-        param = data["param"]
-        stress_discr = data["stress"]
-        bound_stress = data["bound_stress"]
-        bound_val = param.get_bc_val_mechanics()
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["mechanics"]
+        stress_discr = matrix_dictionary["stress"]
+        bound_stress = matrix_dictionary["bound_stress"]
+        bound_val = data[pp.PARAMETERS]["mechanics"]["bc_values"]
         d = self.extractD(g, u, as_vector=True)
         stress = np.squeeze(stress_discr * d) + (bound_stress * bound_val)
         return stress

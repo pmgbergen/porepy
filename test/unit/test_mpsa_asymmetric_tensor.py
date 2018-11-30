@@ -51,3 +51,7 @@ def true_2d(g, constit=None):
     constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=0)
     constit.c = np.delete(constit.c, (2, 5, 6, 7, 8), axis=1)
     return g, constit
+
+
+if __name__ == "__main__":
+    unittest.main()

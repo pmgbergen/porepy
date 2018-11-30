@@ -31,7 +31,7 @@ def L2(ref, other, cell_volumes, value_range=None, mapping=None):
         l2 = np.multiply(np.power(ref - other, 2), cell_volumes)
     else:
         l2 = np.multiply(np.power(ref - mapping * other, 2), cell_volumes)
-    l2 = np.power(np.sum(l2), .5)
+    l2 = np.power(np.sum(l2), 0.5)
 
     if value_range is None:
 

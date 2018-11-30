@@ -15,16 +15,10 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
     """
 
-    def __init__(self, keyword, physics=None):
-        self.keyword = keyword
+    def __init__(self, keyword):
 
-        # @ALL: We kee the physics keyword for now, or else we completely
-        # break the parameter assignment workflow. The physics keyword will go
-        # to be replaced by a more generalized approach, but one step at a time
-        if physics is None:
-            self.physics = keyword
-        else:
-            self.physics = physics
+        # Identify which parameters to use:
+        self.keyword = keyword
 
     def ndof(self, g):
         """
@@ -126,11 +120,12 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 size of the matrix will depend on the specific discretization.
 
         """
-        if not self._key() + "flux" in data.keys():
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        if not "flux" in matrix_dictionary:
             self.discretize(g, data)
 
         div = pp.fvutils.scalar_divergence(g)
-        flux = data[self._key() + "flux"]
+        flux = matrix_dictionary["flux"]
         M = div * flux
 
         return M
@@ -153,14 +148,15 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
                 conditions. The size of the vector will depend on the
                 discretization.
         """
-        if not self._key() + "bound_flux" in data.keys():
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        if not "bound_flux" in matrix_dictionary:
             self.discretize(g, data)
 
-        bound_flux = data[self._key() + "bound_flux"]
+        bound_flux = matrix_dictionary["bound_flux"]
 
-        param = data["param"]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
-        bc_val = param.get_bc_val(self)
+        bc_val = parameter_dictionary["bc_values"]
 
         div = g.cell_faces.T
 
@@ -200,6 +196,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         """
         div = g.cell_faces.T
 
+        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_flux"]
         # Projection operators to grid
         mg = data_edge["mortar_grid"]
 
@@ -208,7 +205,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         else:
             proj = mg.master_to_mortar_avg()
 
-        cc[self_ind, 2] += div * data[self._key() + "bound_flux"] * proj.T
+        cc[self_ind, 2] += div * bound_flux * proj.T
 
     def assemble_int_bound_source(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
@@ -285,15 +282,15 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         """
         mg = data_edge["mortar_grid"]
 
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # TODO: this should become first or second or something
         if grid_swap:
             proj = mg.slave_to_mortar_avg()
         else:
             proj = mg.master_to_mortar_avg()
 
-        bp = data[self._key() + "bound_pressure_cell"]
-        cc[2, self_ind] += proj * bp
-        cc[2, 2] += proj * data[self._key() + "bound_pressure_face"] * proj.T
+        cc[2, self_ind] += proj * matrix_dictionary["bound_pressure_cell"]
+        cc[2, 2] += proj * matrix_dictionary["bound_pressure_face"] * proj.T
 
     def assemble_int_bound_pressure_cell(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
@@ -335,7 +332,9 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
         cc[2, self_ind] -= proj
 
-    def enforce_neumann_int_bound(self, g_master, data_edge, matrix, swap_grid, self_ind):
+    def enforce_neumann_int_bound(
+        self, g_master, data_edge, matrix, swap_grid, self_ind
+    ):
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         The method is void for finite volume approaches, but is implemented

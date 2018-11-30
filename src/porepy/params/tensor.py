@@ -105,7 +105,7 @@ class SecondOrderTensor(object):
             perm[1, 2, ::] = kyz
             perm[2, 2, ::] = kzz
 
-        self.perm = perm
+        self.values = perm
 
     def copy(self):
         """
@@ -118,19 +118,19 @@ class SecondOrderTensor(object):
 
         if self.dim == 2:
 
-            kxx = self.perm[0, 0, :].copy()
-            kxy = self.perm[1, 0, :].copy()
-            kyy = self.perm[1, 1, :].copy()
+            kxx = self.values[0, 0, :].copy()
+            kxy = self.values[1, 0, :].copy()
+            kyy = self.values[1, 1, :].copy()
 
             return SecondOrderTensor(self.dim, kxx, kxy=kxy, kyy=kyy)
         else:
-            kxx = self.perm[0, 0, :].copy()
-            kxy = self.perm[1, 0, :].copy()
-            kyy = self.perm[1, 1, :].copy()
+            kxx = self.values[0, 0, :].copy()
+            kxy = self.values[1, 0, :].copy()
+            kyy = self.values[1, 1, :].copy()
 
-            kxz = self.perm[2, 0, :].copy()
-            kyz = self.perm[2, 1, :].copy()
-            kzz = self.perm[2, 2, :].copy()
+            kxz = self.values[2, 0, :].copy()
+            kyz = self.values[2, 1, :].copy()
+            kzz = self.values[2, 2, :].copy()
 
             return SecondOrderTensor(
                 self.dim, kxx, kxy=kxy, kxz=kxz, kyy=kyy, kyz=kyz, kzz=kzz
@@ -143,7 +143,7 @@ class SecondOrderTensor(object):
         Parameter:
             R: a rotation matrix 3x3
         """
-        self.perm = np.tensordot(R.T, np.tensordot(R, self.perm, (1, 0)), (0, 1))
+        self.values = np.tensordot(R.T, np.tensordot(R, self.values, (1, 0)), (0, 1))
 
 
 # ----------------------------------------------------------------------#
@@ -169,7 +169,7 @@ class FourthOrderTensor(object):
     have not been tested.
 
     Attributes:
-        c - numpy.ndarray, dimensions (dim^2,dim^2,nc), cell-wise
+        values - numpy.ndarray, dimensions (dim^2,dim^2,nc), cell-wise
             representation of the stiffness matrix.
         dim (int): Real dimension of the tensor (as oposed to the 3d
             representation of the data)
@@ -310,7 +310,7 @@ class FourthOrderTensor(object):
         phi_mat = phi_mat[:, :, np.newaxis]
 
         c = mu_mat * mu + lmbda_mat * lmbda + phi_mat * phi
-        self.c = c
+        self.values = c
 
     def copy(self):
         return FourthOrderTensor(self.dim, mu=self.mu, lmbda=self.lmbda)

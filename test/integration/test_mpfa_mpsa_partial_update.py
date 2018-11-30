@@ -3,19 +3,15 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.numerics.fv import mpfa, mpsa, fvutils
-from porepy.params.tensor import SecondOrderTensor as PermTensor
-from porepy.params.tensor import FourthOrderTensor as StiffnessTensor
-from porepy.grids.structured import CartGrid
-from porepy.params import bc
+from porepy.numerics.fv import mpsa
 
 
 class TestPartialMPFA(unittest.TestCase):
     def setup(self):
-        g = CartGrid([5, 5])
+        g = pp.CartGrid([5, 5])
         g.compute_geometry()
-        perm = PermTensor(g.dim, np.ones(g.num_cells))
-        bnd = bc.BoundaryCondition(g)
+        perm = pp.SecondOrderTensor(g.dim, np.ones(g.num_cells))
+        bnd = pp.BoundaryCondition(g)
         flux, bound_flux, _, _ = pp.Mpfa("flow")._local_discr(
             g, perm, bnd, inverter="python"
         )
@@ -79,7 +75,7 @@ class TestPartialMPFA(unittest.TestCase):
         # with a single computation.
         # The test is similar to what will happen with a memory-constrained
         # splitting.
-        g = CartGrid([3, 3])
+        g = pp.CartGrid([3, 3])
         g.compute_geometry()
 
         # Assign random permeabilities, for good measure
@@ -88,13 +84,13 @@ class TestPartialMPFA(unittest.TestCase):
         kyy = np.random.random(g.num_cells)
         # Ensure positive definiteness
         kxy = np.random.random(g.num_cells) * kxx * kyy
-        perm = PermTensor(2, kxx=kxx, kyy=kyy, kxy=kxy)
+        perm = pp.SecondOrderTensor(2, kxx=kxx, kyy=kyy, kxy=kxy)
 
         flux = sps.csr_matrix((g.num_faces, g.num_cells))
         bound_flux = sps.csr_matrix((g.num_faces, g.num_faces))
         faces_covered = np.zeros(g.num_faces, np.bool)
 
-        bnd = bc.BoundaryCondition(g)
+        bnd = pp.BoundaryCondition(g)
 
         cn = g.cell_nodes()
         for ci in range(g.num_cells):
@@ -125,11 +121,14 @@ class TestPartialMPFA(unittest.TestCase):
 
 class TestPartialMPSA(unittest.TestCase):
     def setup(self):
-        g = CartGrid([5, 5])
+        g = pp.CartGrid([5, 5])
         g.compute_geometry()
-        stiffness = StiffnessTensor(g.dim, np.ones(g.num_cells), np.ones(g.num_cells))
+        stiffness = pp.FourthOrderTensor(
+            g.dim, np.ones(g.num_cells), np.ones(g.num_cells)
+        )
         bnd = bc.BoundaryConditionVectorial(g)
         stress, bound_stress, _, _ = mpsa.mpsa(g, stiffness, bnd, inverter="python")
+
         return g, stiffness, bnd, stress, bound_stress
 
     def expand_indices_nd(self, ind, nd, direction=1):
@@ -199,14 +198,14 @@ class TestPartialMPSA(unittest.TestCase):
         # Update one and one cell, and verify that the result is the same as
         # with a single computation. The test is similar to what will happen
         # with a memory-constrained splitting.
-        g = CartGrid([3, 3])
+        g = pp.CartGrid([3, 3])
         g.compute_geometry()
 
         # Assign random permeabilities, for good measure
         np.random.seed(42)
         mu = np.random.random(g.num_cells)
         lmbda = np.random.random(g.num_cells)
-        stiffness = StiffnessTensor(2, mu=mu, lmbda=lmbda)
+        stiffness = pp.FourthOrderTensor(2, mu=mu, lmbda=lmbda)
 
         stress = sps.csr_matrix((g.num_faces * g.dim, g.num_cells * g.dim))
         bound_stress = sps.csr_matrix((g.num_faces * g.dim, g.num_faces * g.dim))
@@ -214,6 +213,7 @@ class TestPartialMPSA(unittest.TestCase):
 
         bnd = bc.BoundaryConditionVectorial(g)
         stress_full, bound_stress_full, _, _ = mpsa.mpsa(g, stiffness, bnd, inverter="python")
+
 
         cn = g.cell_nodes()
         for ci in range(g.num_cells):
