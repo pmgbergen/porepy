@@ -15,7 +15,7 @@ def kwarguments_and_domain():
     kwargs = {
         "mesh_size_frac": 1,
         "mesh_size_bound": 1,
-        "mesh_size_min": .2,
+        "mesh_size_min": 0.2,
         "return_expected": True,
     }
 

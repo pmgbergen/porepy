@@ -97,7 +97,7 @@ class TestFractureIsVertex(unittest.TestCase):
         self.assertTrue(ind is None)
 
     def test_is_vertex(self):
-        p = np.array([0., 0., 0])
+        p = np.array([0.0, 0.0, 0])
         f = self.frac()
         is_vert, ind = f.is_vertex(p)
         self.assertTrue(is_vert == True)

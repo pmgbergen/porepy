@@ -68,45 +68,61 @@ def color(g):
     y = g.cell_centers[1, :]
     z = g.cell_centers[2, :]
 
-    val[np.logical_and.reduce((x < .5, y < .5, z < .5))] = 0
-    val[np.logical_and.reduce((x > .5, y < .5, z < .5))] = 1
-    val[np.logical_and.reduce((x < .5, y > .5, z < .5))] = 2
-    val[np.logical_and.reduce((x > .5, y > .5, z < .5))] = 3
-    val[np.logical_and.reduce((x < .5, y < .5, z > .5))] = 4
-    val[np.logical_and.reduce((x > .5, y < .5, z > .5))] = 5
-    val[np.logical_and.reduce((x < .5, y > .5, z > .5))] = 6
+    val[np.logical_and.reduce((x < 0.5, y < 0.5, z < 0.5))] = 0
+    val[np.logical_and.reduce((x > 0.5, y < 0.5, z < 0.5))] = 1
+    val[np.logical_and.reduce((x < 0.5, y > 0.5, z < 0.5))] = 2
+    val[np.logical_and.reduce((x > 0.5, y > 0.5, z < 0.5))] = 3
+    val[np.logical_and.reduce((x < 0.5, y < 0.5, z > 0.5))] = 4
+    val[np.logical_and.reduce((x > 0.5, y < 0.5, z > 0.5))] = 5
+    val[np.logical_and.reduce((x < 0.5, y > 0.5, z > 0.5))] = 6
 
-    val[np.logical_and.reduce((x > .75, y > .75, z > .75))] = 7
-    val[np.logical_and.reduce((x > .75, y > .5, y < .75, z > .75))] = 8
-    val[np.logical_and.reduce((x > .5, x < .75, y > .75, z > .75))] = 9
-    val[np.logical_and.reduce((x > .5, x < .75, y > .5, y < .75, z > .75))] = 10
-    val[np.logical_and.reduce((x > .75, y > .75, z > .5, z < .75))] = 11
-    val[np.logical_and.reduce((x > .75, y > .5, y < .75, z > .5, z < .75))] = 12
-    val[np.logical_and.reduce((x > .5, x < .75, y > .75, z > .5, z < .75))] = 13
+    val[np.logical_and.reduce((x > 0.75, y > 0.75, z > 0.75))] = 7
+    val[np.logical_and.reduce((x > 0.75, y > 0.5, y < 0.75, z > 0.75))] = 8
+    val[np.logical_and.reduce((x > 0.5, x < 0.75, y > 0.75, z > 0.75))] = 9
+    val[np.logical_and.reduce((x > 0.5, x < 0.75, y > 0.5, y < 0.75, z > 0.75))] = 10
+    val[np.logical_and.reduce((x > 0.75, y > 0.75, z > 0.5, z < 0.75))] = 11
+    val[np.logical_and.reduce((x > 0.75, y > 0.5, y < 0.75, z > 0.5, z < 0.75))] = 12
+    val[np.logical_and.reduce((x > 0.5, x < 0.75, y > 0.75, z > 0.5, z < 0.75))] = 13
 
     val[
-        np.logical_and.reduce((x > .5, x < .625, y > .5, y < .625, z > .5, z < .625))
+        np.logical_and.reduce(
+            (x > 0.5, x < 0.625, y > 0.5, y < 0.625, z > 0.5, z < 0.625)
+        )
     ] = 14
     val[
-        np.logical_and.reduce((x > .625, x < .75, y > .5, y < .625, z > .5, z < .625))
+        np.logical_and.reduce(
+            (x > 0.625, x < 0.75, y > 0.5, y < 0.625, z > 0.5, z < 0.625)
+        )
     ] = 15
     val[
-        np.logical_and.reduce((x > .5, x < .625, y > .625, y < .75, z > .5, z < .625))
+        np.logical_and.reduce(
+            (x > 0.5, x < 0.625, y > 0.625, y < 0.75, z > 0.5, z < 0.625)
+        )
     ] = 16
     val[
-        np.logical_and.reduce((x > .625, x < .75, y > .625, y < .75, z > .5, z < .625))
+        np.logical_and.reduce(
+            (x > 0.625, x < 0.75, y > 0.625, y < 0.75, z > 0.5, z < 0.625)
+        )
     ] = 17
     val[
-        np.logical_and.reduce((x > .5, x < .625, y > .5, y < .625, z > .625, z < .75))
+        np.logical_and.reduce(
+            (x > 0.5, x < 0.625, y > 0.5, y < 0.625, z > 0.625, z < 0.75)
+        )
     ] = 18
     val[
-        np.logical_and.reduce((x > .625, x < .75, y > .5, y < .625, z > .625, z < .75))
+        np.logical_and.reduce(
+            (x > 0.625, x < 0.75, y > 0.5, y < 0.625, z > 0.625, z < 0.75)
+        )
     ] = 19
     val[
-        np.logical_and.reduce((x > .5, x < .625, y > .625, y < .75, z > .625, z < .75))
+        np.logical_and.reduce(
+            (x > 0.5, x < 0.625, y > 0.625, y < 0.75, z > 0.625, z < 0.75)
+        )
     ] = 20
     val[
-        np.logical_and.reduce((x > .625, x < .75, y > .625, y < .75, z > .625, z < .75))
+        np.logical_and.reduce(
+            (x > 0.625, x < 0.75, y > 0.625, y < 0.75, z > 0.625, z < 0.75)
+        )
     ] = 21
 
     return val

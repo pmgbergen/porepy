@@ -302,7 +302,7 @@ if __name__ == "__main__":
     kf = {0: 1e-4, 1: 1e4}
     # it's (kf_t, kf_n)
     tests = np.array([[1, 1], [1, 0]])
-    betas = np.array([1., 1e2, 1e4, 1e6])
+    betas = np.array([1.0, 1e2, 1e4, 1e6])
 
     for t, n in tests:
         name = "_" + str(n)

@@ -107,7 +107,7 @@ class FlowData(pp.EllipticDataAssigner):
             apert = self.pb["fracture"]["aperture"]
             return np.power(apert, 2 - self.grid().dim)
         else:
-            return 1.
+            return 1.0
 
     def permeability(self):
         if self.is_fracture:
@@ -190,7 +190,7 @@ class TransportData(pp.ParabolicDataAssigner):
             phi = self.pb["fracture"]["porosity"]
         else:
             phi = self.pb["rock"].POROSITY
-        lambda_e = np.power(lambda_w, phi) * np.power(lambda_r, 1. - phi)
+        lambda_e = np.power(lambda_w, phi) * np.power(lambda_r, 1.0 - phi)
 
         kxx = lambda_e * np.ones(self.grid().num_cells)
         return pp.SecondOrderTensor(3, kxx)
@@ -200,7 +200,7 @@ class TransportData(pp.ParabolicDataAssigner):
             apert = self.pb["fracture"]["aperture"]
             return np.power(apert, 2 - self.grid().dim)
         else:
-            return 1.
+            return 1.0
 
     def rock_specific_heat(self):
         return self.pb["rock"].specific_heat_capacity()

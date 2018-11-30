@@ -52,3 +52,7 @@ class TestRock(unittest.TestCase):
         self.assertEqual(R.POISSON_RATIO, 0.3)
         self.assertEqual(R.LAMBDA, 865384615.3846153)
         self.assertEqual(R.MU, 576923076.9230769)
+
+
+if __name__ == "__main__":
+    unittest.main()

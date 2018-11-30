@@ -138,7 +138,9 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
             subdom_pts = np.zeros((2, 0))
             subdom_dic = {"points": subdom_pts, "edges": subdom_lines}
         elif not isinstance(subdomains, dict):
-            subdom_lines = np.reshape(np.arange(2 * len(subdomains)), (2, -1), order="F")
+            subdom_lines = np.reshape(
+                np.arange(2 * len(subdomains)), (2, -1), order="F"
+            )
             subdom_pts = np.hstack(subdomains)
             subdom_dic = {"points": subdom_pts, "edges": subdom_lines}
         else:

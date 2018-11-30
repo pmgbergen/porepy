@@ -94,11 +94,13 @@ class GmshWriter(object):
 
         # We consider fractures, boundary tag, an auxiliary tag (fake fractures/mesh constraints)
         ind = np.argwhere(
-            np.logical_or.reduce((
-                self.lines[2] == constants.COMPARTMENT_BOUNDARY_TAG,
-                self.lines[2] == constants.FRACTURE_TAG,
-                self.lines[2] == constants.AUXILIARY_TAG
-            ))
+            np.logical_or.reduce(
+                (
+                    self.lines[2] == constants.COMPARTMENT_BOUNDARY_TAG,
+                    self.lines[2] == constants.FRACTURE_TAG,
+                    self.lines[2] == constants.AUXILIARY_TAG,
+                )
+            )
         ).ravel()
         lines = self.lines[:, ind]
         tag = self.lines[2, ind]
@@ -198,7 +200,7 @@ class GmshWriter(object):
                 + '") = { '
                 + local_bound_id
                 + " };\n"
-                )
+            )
 
         s += "\n"
         loop_str = loop_str[:-2]  # Remove last comma

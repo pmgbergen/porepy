@@ -121,7 +121,7 @@ def darcy_dualVEM_example2(**kwargs):
     #######################
     Nx = Ny = 25
     g = simplex.StructuredTriangleGrid([Nx, Ny], [1, 1])
-    R = cg.rot(np.pi / 6., [0, 1, 1])
+    R = cg.rot(np.pi / 6.0, [0, 1, 1])
     g.nodes = np.dot(R, g.nodes)
     g.compute_geometry()
 

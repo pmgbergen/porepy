@@ -4,36 +4,37 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-# ------------------------------------------------------------------------------#
-
-
-class _UpwindMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
-    def __init__(self, physics="transport"):
-        self.physics = physics
-
-        self.discr = Upwind(self.physics)
-        self.discr_ndof = self.discr.ndof
-        self.coupling_conditions = UpwindCoupling(self.discr)
-
-        self.solver = pp.numerics.mixed_dim.coupler.Coupler(
-            self.discr, self.coupling_conditions
-        )
-
-    def cfl(self, gb):
-        deltaT = gb.apply_function(self.discr.cfl, self.coupling_conditions.cfl).data
-        return np.amin(deltaT)
-
-    def outflow(self, gb):
-        def bind(g, d):
-            return self.discr.outflow(g, d), np.zeros(g.num_cells)
-
-        return pp.Coupler(self.discr, solver_fct=bind).matrix_rhs(gb)[0]
-
+from porepy.numerics.mixed_dim.solver import Solver
 
 # ------------------------------------------------------------------------------#
 
+# class _UpwindMixedDim(pp.numerics.mixed_dim.solver.SolverMixedDim):
+#    def __init__(self, keyword="transport"):
+#        self.keyword = keyword
+#
+#        self.discr = Upwind(self.keyword)
+#        self.discr_ndof = self.discr.ndof
+#        self.coupling_conditions = UpwindCoupling(self.discr)
+#
+#        self.solver = pp.numerics.mixed_dim.coupler.Coupler(
+#            self.discr, self.coupling_conditions
+#        )
+#
+#    def cfl(self, gb):
+#        deltaT = gb.apply_function(self.discr.cfl, self.coupling_conditions.cfl).data
+#        return np.amin(deltaT)
+#
+#    def outflow(self, gb):
+#        def bind(g, d):
+#            return self.discr.outflow(g, d), np.zeros(g.num_cells)
+#
+#        return pp.Coupler(self.discr, solver_fct=bind).matrix_rhs(gb)[0]
 
-class Upwind(pp.numerics.mixed_dim.solver.Solver):
+
+# ------------------------------------------------------------------------------#
+
+
+class Upwind(Solver):
     """
     Discretize a hyperbolic transport equation using a single point upstream
     weighting scheme.
@@ -43,9 +44,8 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, keyword="transport", physics="transport"):
+    def __init__(self, keyword="transport"):
         self.keyword = keyword
-        self.physics = physics
 
     # ------------------------------------------------------------------------------#
 
@@ -67,7 +67,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def assemble_matrix_rhs(self, g, data, d_name="discharge"):
+    def assemble_matrix_rhs(self, g, data, d_name="darcy_flux"):
         """
         Return the matrix and righ-hand side for a discretization of a scalar
         linear transport problem using the upwind scheme.
@@ -77,7 +77,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         the outflow boundary conditions are open.
 
         The name of data in the input dictionary (data) are:
-        discharge : array (g.num_faces)
+        darcy_flux : array (g.num_faces)
             Normal velocity at each face, weighted by the face area.
         bc : boundary conditions (optional)
         bc_val : dictionary (optional)
@@ -100,7 +100,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
         Examples
         --------
-        data = {'discharge': u, 'bc': bnd, 'bc_val': bnd_val}
+        data = {'darcy_flux': u, 'bc': bnd, 'bc_val': bnd_val}
         advect = upwind.Upwind()
         U, rhs = advect.matrix_rhs(g, data)
 
@@ -115,20 +115,20 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
             conc = invM.dot((M_minus_U).dot(conc) + rhs)
         """
         if g.dim == 0:
-            data["flow_faces"] = sps.csr_matrix([0.])
-            return sps.csr_matrix([0.]), np.array([0.])
+            data["flow_faces"] = sps.csr_matrix([0.0])
+            return sps.csr_matrix([0.0]), np.array([0.0])
 
-        param = data["param"]
-        discharge = data[d_name]
-        bc = param.get_bc(self)
-        bc_val = param.get_bc_val(self)
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        darcy_flux = parameter_dictionary[d_name]
+        bc = parameter_dictionary["bc"]
+        bc_val = parameter_dictionary["bc_values"]
 
         has_bc = not (bc is None or bc_val is None)
 
         # Compute the face flux respect to the real direction of the normals
         indices = g.cell_faces.indices
         flow_faces = g.cell_faces.copy()
-        flow_faces.data *= discharge[indices]
+        flow_faces.data *= darcy_flux[indices]
 
         # Retrieve the faces boundary and their numeration in the flow_faces
         # We need to impose no-flow for the inflow faces without boundary
@@ -193,14 +193,14 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def cfl(self, g, data, d_name="discharge"):
+    def cfl(self, g, data, d_name="darcy_flux"):
         """
         Return the time step according to the CFL condition.
         Note: the vector field is assumed to be given as the normal velocity,
         weighted with the face area, at each face.
 
         The name of data in the input dictionary (data) are:
-        discharge : array (g.num_faces)
+        darcy_flux : array (g.num_faces)
             Normal velocity at each face, weighted by the face area.
 
         Parameters
@@ -216,16 +216,16 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         """
         if g.dim == 0:
             return np.inf
-        # Retrieve the data, only "discharge" is mandatory
-        param = data["param"]
-        discharge = data[d_name]
-        aperture = param.get_aperture()
-        phi = param.get_porosity()
+        # Retrieve the data
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        darcy_flux = parameter_dictionary[d_name]
+        aperture = parameter_dictionary["aperture"]
+        phi = parameter_dictionary["porosity"]
 
         faces, cells, _ = sps.find(g.cell_faces)
 
-        # Detect and remove the faces which have zero in discharge
-        not_zero = ~np.isclose(np.zeros(faces.size), discharge[faces], atol=0)
+        # Detect and remove the faces which have zero in darcy_flux
+        not_zero = ~np.isclose(np.zeros(faces.size), darcy_flux[faces], atol=0)
         if not np.any(not_zero):
             return np.inf
 
@@ -237,15 +237,15 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
         # Element-wise scalar products between the distance vectors and the
         # normals
         dist = np.einsum("ij,ij->j", dist_vector, g.face_normals[:, faces])
-        # Since discharge is multiplied by the aperture, we get rid of it!!!!
+        # Since darcy_flux is multiplied by the aperture, we get rid of it!!!!
         # Additionally we consider the phi (porosity) and the cell-mapping
         coeff = (aperture * phi)[cells]
-        # deltaT is deltaX/discharge with coefficient
-        return np.amin(np.abs(np.divide(dist, discharge[faces])) * coeff)
+        # deltaT is deltaX/darcy_flux with coefficient
+        return np.amin(np.abs(np.divide(dist, darcy_flux[faces])) * coeff)
 
     # ------------------------------------------------------------------------------#
 
-    def discharge(self, g, beta, cell_apertures=None):
+    def darcy_flux(self, g, beta, cell_apertures=None):
         """
         Return the normal component of the velocity, for each face, weighted by
         the face area and aperture.
@@ -258,7 +258,7 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
         Return
         ------
-        discharge : array (g.num_faces)
+        darcy_flux : array (g.num_faces)
             Normal velocity at each face, weighted by the face area.
 
         """
@@ -282,21 +282,21 @@ class Upwind(pp.numerics.mixed_dim.solver.Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def outflow(self, g, data, d_name="discharge"):
+    def outflow(self, g, data, d_name="darcy_flux"):
         if g.dim == 0:
             return sps.csr_matrix([0])
 
-        param = data["param"]
-        discharge = data[d_name]
-        bc = param.get_bc(self)
-        bc_val = param.get_bc_val(self)
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        darcy_flux = parameter_dictionary[d_name]
+        bc = parameter_dictionary["bc"]
+        bc_val = parameter_dictionary["bc_values"]
 
         has_bc = not (bc is None or bc_val is None)
 
         # Compute the face flux respect to the real direction of the normals
         indices = g.cell_faces.indices
         flow_faces = g.cell_faces.copy()
-        flow_faces.data *= discharge[indices]
+        flow_faces.data *= darcy_flux[indices]
 
         # Retrieve the faces boundary and their numeration in the flow_faces
         # We need to impose no-flow for the inflow faces without boundary
