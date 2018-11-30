@@ -926,12 +926,11 @@ class ChildFractureSet(FractureSet):
             # Decide on the number of children
             logging.debug("Parent fracture %i", pi)
 
-            num_children = self._draw_num_children(parent_realiz, pi)
-            logging.debug("Fracture has %i children", num_children)
-
-            # If this fracture has no children, continue
-            if num_children == 0:
-                continue
+            if self.points_along_fracture != 'distribution':
+                num_children = self._draw_num_children(parent_realiz, pi)
+                logging.debug("Fracture has %i children", num_children)
+            else:
+                num_children = 0
 
             # Find the location of children points along the parent.
             # The interpretation of this point will differ, depending on whether
@@ -939,6 +938,11 @@ class ChildFractureSet(FractureSet):
             children_points = self._draw_children_along_parent(
                 parent_realiz, pi, num_children
             )
+            num_children = children_points.shape[1]
+            # If this fracture has no children, continue
+            if num_children == 0:
+                continue
+
             # For all children, decide type of child
             if y_separately:
                 is_isolated, is_one_y, is_both_y = self._draw_children_type(
@@ -1028,7 +1032,8 @@ class ChildFractureSet(FractureSet):
             These parameters are currently not in use. In the future, the number
             of children should scale with the length of the parent fracture.
         """
-        return np.round(self.dist_num_children['dist'].rvs(1)[0] * parent_realiz.length()[pi]).astype(np.int)
+        nc = frac_gen.generate_from_distribution(1, self.dist_num_children)
+        return np.round(nc * parent_realiz.length()[pi]).astype(np.int)
 
     def _draw_children_along_parent(self, parent_realiz, pi, num_children):
         """ Define location of children along the lines of a parent fracture.
@@ -1052,13 +1057,29 @@ class ChildFractureSet(FractureSet):
             np.array, 2 x num_children: Children points along the parent fracture.
 
         """
-
         # Start and end of the parent fracture
         start, end = parent_realiz.get_points(pi)
-
+        # Vector along parent
         dx = end - start
 
-        p = start + np.random.rand(num_children) * dx
+        # Random distribution
+        if self.points_along_fracture == 'random':
+            p = start + np.random.rand(num_children) * dx
+        elif self.points_along_fracture == 'uniform':
+            dist = (0.5 + np.arange(num_children))/(num_children + 1)
+            p = start + dist * dx
+            print(p)
+        elif self.points_along_fracture == 'distribution':
+            nrm_dx = np.sqrt(np.sum(dx **2))
+            length = 0
+            p = np.empty((2, 0))
+            while True:
+                length += frac_gen.generate_from_distribution(1, self.dist_along_fracture)
+                if length > nrm_dx:
+                    break
+                p = np.hstack((p, start + length * dx / nrm_dx))
+
+
         if p.size == 2:
             p = p.reshape((-1, 1))
         return p
