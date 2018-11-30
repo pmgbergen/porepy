@@ -74,10 +74,10 @@ class Mpsa(FVVectorElliptic):
             stress, bound_stress, bound_displacement_cell, bound_displacement_face = mpsa(
                 g, c, bnd, **kwargs
             )
-            data[self._key() + "stress"] = stress
-            data[self._key() + "bound_stress"] = bound_stress
-            data[self._key() + "bound_displacement_cell"] = bound_displacement_cell
-            data[self._key() + "bound_displacement_face"] = bound_displacement_face
+            matrix_dictionary["stress"] = stress
+            matrix_dictionary["bound_stress"] = bound_stress
+            matrix_dictionary["bound_displacement_cell"] = bound_displacement_cell
+            matrix_dictionary["bound_displacement_face"] = bound_displacement_face
         else:
             a = data["param"].aperture
             pp.fvutils.partial_discretization(
@@ -91,8 +91,8 @@ class FracturedMpsa(Mpsa):
     fracture face which describe the fracture deformation.
     """
 
-    def __init__(self, given_traction=False, **kwargs):
-        Mpsa.__init__(self, **kwargs)
+    def __init__(self, keyword, given_traction=False, **kwargs):
+        Mpsa.__init__(self, keyword, **kwargs)
         if not hasattr(self, "keyword"):
             raise AttributeError("Mpsa must assign keyword")
         self.given_traction_flag = given_traction

@@ -481,11 +481,12 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
             scipy.sparse.csr_matrix: System matrix of this discretization. The
                 size of the matrix will depend on the specific discretization.
         """
-        if not self._key() + "stress" in data.keys():
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        if not "stress" in matrix_dictionary:
             self.discretize(g, data)
 
         div = pp.fvutils.vector_divergence(g)
-        stress = data[self._key() + "stress"]
+        stress = matrix_dictionary["stress"]
         if stress.shape[0] != g.dim * g.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(g=g)
             stress = hf2f * stress
@@ -511,21 +512,22 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
                 conditions. The size of the vector will depend on the
                 discretization.
         """
-        if not self._key() + "bound_stress" in data.keys():
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        if not "bound_stress" in matrix_dictionary:
             self.discretize(g, data)
 
-        bound_stress = data[self._key() + "bound_stress"]
+        bound_stress = matrix_dictionary["bound_stress"]
         if bound_stress.shape[0] != g.dim * g.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(g=g)
             bound_stress = hf2f * bound_stress
 
-        param = data["param"]
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
-        bc_val = param.get_bc_val(self)
+        bc_val = parameter_dictionary["bc_values"]
 
         div = pp.fvutils.vector_divergence(g)
 
-        return -div * bound_stress * bc_val + param.get_source(self)
+        return -div * bound_stress * bc_val + parameter_dictionary["source"]
 
     def assemble_int_bound_stress(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
@@ -571,7 +573,8 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
         # Expand indices as Fortran.
         proj_int = sps.kron(proj, sps.eye(g.dim)).tocsr()
 
-        bound_stress = data[self._key() + "bound_stress"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        bound_stress = matrix_dictionary["bound_stress"]
 
         if bound_stress.shape[0] != g.dim * g.num_faces:
             # If bound stress is gven as sub-faces we have to map it from sub-faces
@@ -679,7 +682,8 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
         proj_avg_swap = sps.kron(proj_swap, sps.eye(g.dim)).tocsr()
         proj_int_swap = sps.kron(proj_int_swap, sps.eye(g.dim)).tocsr()
 
-        bp = data[self._key() + "bound_displacement_cell"]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        bp = matrix_dictionary["bound_displacement_cell"]
         if proj_avg.shape[1] == g.dim * g.num_faces:
             # In this case we the projection is from faces to cells
             # We therefore need to map the boundary displacements which is given as
@@ -694,13 +698,13 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
                 proj_avg
                 * weight
                 * hf2f
-                * data[self._key() + "bound_displacement_face"]
+                * matrix_dictionary["bound_displacement_face"]
                 * proj_int.T
             )
         else:
             cc[2, self_ind] += proj_avg * bp
             cc[2, 2] += (
-                proj_avg * data[self._key() + "bound_displacement_face"] * proj_int.T
+                proj_avg * matrix_dictionary["bound_displacement_face"] * proj_int.T
             )
             # Add the contibution to the displacement for the other mortar. This can
             # typically happen if you simulate the contact between the two sides of a
@@ -709,7 +713,7 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
             # tractions T_s = -T_m has different sign.
             cc[2, 2] -= (
                 proj_avg
-                * data[self._key() + "bound_displacement_face"]
+                * matrix_dictionary["bound_displacement_face"]
                 * proj_int_swap.T
             )
 

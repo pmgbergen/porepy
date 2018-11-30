@@ -26,7 +26,7 @@ class BasicsTest(unittest.TestCase):
 
         specified_parameters = {"bc": bound}
         data = pp.initialize_data({}, g, "mechanics", specified_parameters)
-        solver = pp.FracturedMpsa()
+        solver = pp.FracturedMpsa("mechanics")
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -54,7 +54,7 @@ class BasicsTest(unittest.TestCase):
 
         specified_parameters = {"bc": bound, "slip_distance": frac_slip.ravel("F")}
         data = pp.initialize_data({}, g, "mechanics", specified_parameters)
-        solver = pp.FracturedMpsa()
+        solver = pp.FracturedMpsa("mechanics")
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -123,7 +123,7 @@ class BasicsTest(unittest.TestCase):
             "slip_distance": frac_slip.ravel("F"),
         }
         data = pp.initialize_data({}, g, "mechanics", specified_parameters)
-        solver = pp.FracturedMpsa()
+        solver = pp.FracturedMpsa("mechanics")
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -190,7 +190,7 @@ class BasicsTest(unittest.TestCase):
         }
         data = pp.initialize_data({}, g, "mechanics", specified_parameters)
 
-        solver = pp.FracturedMpsa(given_traction=True)
+        solver = pp.FracturedMpsa("mechanics", given_traction=True)
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 
@@ -312,7 +312,7 @@ class BasicsTest(unittest.TestCase):
         }
         data = pp.initialize_data({}, g, "mechanics", specified_parameters)
 
-        solver = pp.FracturedMpsa()
+        solver = pp.FracturedMpsa("mechanics")
 
         A, b = solver.assemble_matrix_rhs(g, data, inverter="python")
 

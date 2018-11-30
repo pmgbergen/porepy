@@ -12,7 +12,7 @@ class MpsaTest(unittest.TestCase):
         g_list = setup_grids.setup_2d()
         kw = "mechanics"
         for g in g_list:
-            solver = mpsa.Mpsa(kw)
+            solver = pp.numerics.fv.mpsa.Mpsa(kw)
             data = pp.initialize_data({}, g, kw)
             A, b = solver.assemble_matrix_rhs(g, data)
             self.assertTrue(
@@ -24,7 +24,7 @@ class MpsaTest(unittest.TestCase):
         g_list = setup_grids.setup_2d()
         kw = "mechanics"
         for g in g_list:
-            solver = mpsa.Mpsa(kw)
+            solver = pp.numerics.fv.mpsa.Mpsa(kw)
             data = pp.initialize_data({}, g, kw)
             cell_dof = g.dim * g.num_cells
             face_dof = g.dim * g.num_faces
