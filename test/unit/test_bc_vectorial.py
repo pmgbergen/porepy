@@ -84,7 +84,7 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
             .ravel("F")
             .astype(np.bool)
         )
-        
+
         neu_ind = np.argsort(subfno_neu)
         neu_ind = neu_ind[is_neu_nd[neu_ind]]
 

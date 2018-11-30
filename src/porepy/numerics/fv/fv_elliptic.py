@@ -349,7 +349,6 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         pass
 
 
-
 class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
     """ Superclass for finite volume discretizations of the elliptic equation.
 
@@ -580,8 +579,10 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
             hf2f = pp.fvutils.map_hf_2_f(g=g)
             bound_stress = hf2f * bound_stress
         if bound_stress.shape[1] != proj_int.shape[1]:
-            raise ValueError('''Inconsistent shapes. Did you define a
-            sub-face boundary condition but only a face-wise mortar?''')
+            raise ValueError(
+                """Inconsistent shapes. Did you define a
+            sub-face boundary condition but only a face-wise mortar?"""
+            )
         cc[self_ind, 2] += div * bound_stress * proj_int.T
 
     def assemble_int_bound_source(
@@ -689,16 +690,29 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
             # hf2f adds all subface values to one face values. For the displacement we want
             # to take the average, therefore we divide each face by the number of subfaces.
             cc[2, self_ind] += proj_avg * weight * hf2f * bp
-            cc[2, 2] += proj_avg * weight * hf2f * data[self._key() + "bound_displacement_face"] *proj_int.T
+            cc[2, 2] += (
+                proj_avg
+                * weight
+                * hf2f
+                * data[self._key() + "bound_displacement_face"]
+                * proj_int.T
+            )
         else:
             cc[2, self_ind] += proj_avg * bp
-            cc[2, 2] += proj_avg * data[self._key() + "bound_displacement_face"] * proj_int.T
-            # Add the contibution to the displacement for the other mortar. This can 
+            cc[2, 2] += (
+                proj_avg * data[self._key() + "bound_displacement_face"] * proj_int.T
+            )
+            # Add the contibution to the displacement for the other mortar. This can
             # typically happen if you simulate the contact between the two sides of a
             # fracture. The interaction region around the nodes on the edge will then
             # get a contribution from both sides. We need a negative sign because the
             # tractions T_s = -T_m has different sign.
-            cc[2, 2] -= proj_avg * data[self._key() + "bound_displacement_face"] * proj_int_swap.T
+            cc[2, 2] -= (
+                proj_avg
+                * data[self._key() + "bound_displacement_face"]
+                * proj_int_swap.T
+            )
+
     def assemble_int_bound_displacement_cell(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
     ):
@@ -740,7 +754,9 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
 
         cc[2, self_ind] -= proj
 
-    def enforce_neumann_int_bound(self, g_master, data_edge, matrix, swap_grid, self_ind):
+    def enforce_neumann_int_bound(
+        self, g_master, data_edge, matrix, swap_grid, self_ind
+    ):
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         The method is void for finite volume approaches, but is implemented
@@ -753,4 +769,3 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
         """
         # Operation is void for finite volume methods
         pass
-
