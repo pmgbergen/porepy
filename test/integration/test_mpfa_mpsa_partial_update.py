@@ -126,7 +126,7 @@ class TestPartialMPSA(unittest.TestCase):
         stiffness = pp.FourthOrderTensor(
             g.dim, np.ones(g.num_cells), np.ones(g.num_cells)
         )
-        bnd = bc.BoundaryConditionVectorial(g)
+        bnd = pp.BoundaryConditionVectorial(g)
         stress, bound_stress, _, _ = mpsa.mpsa(g, stiffness, bnd, inverter="python")
 
         return g, stiffness, bnd, stress, bound_stress
@@ -211,7 +211,7 @@ class TestPartialMPSA(unittest.TestCase):
         bound_stress = sps.csr_matrix((g.num_faces * g.dim, g.num_faces * g.dim))
         faces_covered = np.zeros(g.num_faces, np.bool)
 
-        bnd = bc.BoundaryConditionVectorial(g)
+        bnd = pp.BoundaryConditionVectorial(g)
         stress_full, bound_stress_full, _, _ = mpsa.mpsa(
             g, stiffness, bnd, inverter="python"
         )
