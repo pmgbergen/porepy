@@ -4,7 +4,7 @@ from __future__ import division
 import numpy as np
 from enum import Enum
 from scipy import sparse as sps
-
+import copy
 
 # Module level constants, used to define sides of a mortar grid.
 # This is in essence an Enum, but that led to trouble in pickling a GridBucket.
@@ -363,7 +363,7 @@ class BoundaryMortar(MortarGrid):
         # mapping.
         slave_f, master_f, data = sps.find(face_faces)
 
-        cells = np.argsort(master_f)
+        cells = np.argsort(slave_f)
         self.num_cells = cells.size
         self.cell_volumes = np.hstack(
             [g.cell_volumes for g in self.side_grids.values()]

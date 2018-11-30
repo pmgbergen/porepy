@@ -604,7 +604,6 @@ def vector_divergence(g):
 
     return block_div.transpose()
 
-
 def zero_out_sparse_rows(A, rows, diag=None):
     """
     zeros out given rows from sparse csr matrix. Optionally also set values on
