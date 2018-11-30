@@ -833,7 +833,7 @@ class FractureSet(object):
             **kwargs: Keyword arguments to be passed on to matplotlib.
 
         """
-        pp.plot_fractures(self.domain, self.pts, self.edges)
+        pp.plot_fractures(self.domain, self.pts, self.edges, **kwargs)
 
     def __str__(self):
         s = "Fracture set consisting of " + str(self.num_frac) + " fractures,"
