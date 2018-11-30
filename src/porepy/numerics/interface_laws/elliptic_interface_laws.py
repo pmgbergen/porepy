@@ -479,6 +479,7 @@ class RobinContact(object):
             matrix,
             master_ind
         )
+
         self.discr_master.assemble_int_bound_stress(
             g_master,
             data_master,
@@ -503,7 +504,6 @@ class RobinContact(object):
         # Then we flip the sign for the displacement continuity since we have
         # We have that p_m - p_s = 0.
         cc_master[2, master_ind] = -cc_master[2, master_ind]
-
         # Note that cc_master[2, 2] is fliped twice, first for displacement continuity
         # now, the matrix cc = cc_slave + cc_master expresses the flux and pressure
         # continuities over the mortars.

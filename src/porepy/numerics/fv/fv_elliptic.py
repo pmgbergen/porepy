@@ -665,12 +665,20 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
         if grid_swap:
             proj = mg.slave_to_mortar_avg()
             proj_int = mg.slave_to_mortar_int
+            proj_swap = mg.master_to_mortar_avg()
+            proj_int_swap = mg.master_to_mortar_int
         else:
             proj = mg.master_to_mortar_avg()
             proj_int = mg.master_to_mortar_int
+            proj_swap = mg.slave_to_mortar_avg()
+            proj_int_swap = mg.slave_to_mortar_int
+
         # Expand indices as Fortran indexes
         proj_avg = sps.kron(proj, sps.eye(g.dim)).tocsr()
         proj_int = sps.kron(proj_int, sps.eye(g.dim)).tocsr()
+        proj_avg_swap = sps.kron(proj_swap, sps.eye(g.dim)).tocsr()
+        proj_int_swap = sps.kron(proj_int_swap, sps.eye(g.dim)).tocsr()
+
         bp = data[self._key() + "bound_displacement_cell"]
         if proj_avg.shape[1] == g.dim * g.num_faces:
             # In this case we the projection is from faces to cells
@@ -686,7 +694,12 @@ class FVVectorElliptic(pp.numerics.mixed_dim.solver.Solver):
         else:
             cc[2, self_ind] += proj_avg * bp
             cc[2, 2] += proj_avg * data[self._key() + "bound_displacement_face"] * proj_int.T
- 
+            # Add the contibution to the displacement for the other mortar. This can 
+            # typically happen if you simulate the contact between the two sides of a
+            # fracture. The interaction region around the nodes on the edge will then
+            # get a contribution from both sides. We need a negative sign because the
+            # tractions T_s = -T_m has different sign.
+            cc[2, 2] -= proj_avg * data[self._key() + "bound_displacement_face"] * proj_int_swap.T
     def assemble_int_bound_displacement_cell(
         self, g, data, data_edge, grid_swap, cc, matrix, self_ind
     ):
