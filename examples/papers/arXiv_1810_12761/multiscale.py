@@ -94,7 +94,7 @@ class Multiscale(object):
         # conditions
         for dof_basis in np.where(self.if_p)[0]:
             rhs = np.zeros(self.if_p.size)
-            rhs[dof_basis] = 1.
+            rhs[dof_basis] = 1.0
             # project from the co-dimensional pressure to the Robin boundary
             # condition
             rhs = np.r_[[0] * self.dof_h, -self.C_h * rhs]

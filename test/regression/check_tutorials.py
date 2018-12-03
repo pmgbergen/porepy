@@ -20,8 +20,9 @@ def run_all():
             print("********************\n")
             failed = True
         cmd_delete = "rm " + new_file
-        # os.system(cmd_delete)
-
+        os.system(cmd_delete)
+    if not failed:
+        print("\n\n All tutorials ran. \n")
     assert not failed
 
 

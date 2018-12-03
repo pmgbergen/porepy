@@ -7,18 +7,12 @@ Created on Sun Feb 28 20:55:56 2016
 
 import numpy as np
 import unittest
-
-from porepy.grids import structured
-from porepy.params import tensor, bc, data
-from porepy.numerics.fv import tpfa
+import porepy as pp
 
 
-def _assign_params(g, perm, bound):
-    params = data.Parameters(g)
-    params.set_tensor("Flow", perm)
-    params.set_bc("Flow", bound)
-    d = {"param": params}
-    return d
+def _assign_params(g, perm, bc):
+    data = pp.initialize_parameters({}, g, "flow", {"bc": bc, "permeability": perm})
+    return data
 
 
 class TestTPFA(unittest.TestCase):
@@ -27,20 +21,22 @@ class TestTPFA(unittest.TestCase):
 
         # Set up 3 X 3 Cartesian grid
         nx = np.array([3, 3])
-        g = structured.CartGrid(nx)
+        g = pp.CartGrid(nx)
         g.compute_geometry()
 
         kxx = np.ones(g.num_cells)
-        perm = tensor.SecondOrderTensor(g.dim, kxx)
+        perm = pp.SecondOrderTensor(g.dim, kxx)
 
         bound_faces = np.array([0, 3, 12])
-        bound = bc.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)
+        bound = pp.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)
 
         key = "flow"
-        discr = tpfa.Tpfa(key)
-        d = _assign_params(g, perm, bound)
+        d = pp.initialize_data({}, g, key, {"permeability": perm, "bc": bound})
+        discr = pp.Tpfa(key)
+
         discr.discretize(g, d)
-        trm, bound_flux = d[discr._key() + "flux"], d[discr._key() + "bound_flux"]
+        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][key]
+        trm, bound_flux = matrix_dictionary["flux"], matrix_dictionary["bound_flux"]
         div = g.cell_faces.T
         a = div * trm
         b = -(div * bound_flux).A

@@ -63,17 +63,17 @@ class TestAssembler(unittest.TestCase):
         key = "var_1"
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {key: {term: MockNodeDiscretization(1)}}
+                d[pp.DISCRETIZATION] = {key: {term: MockNodeDiscretization(1)}}
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {key: {term: MockNodeDiscretization(2)}}
+                d[pp.DISCRETIZATION] = {key: {term: MockNodeDiscretization(2)}}
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 term: {
                     g1: (key, term),
                     g2: (key, term),
@@ -95,21 +95,21 @@ class TestAssembler(unittest.TestCase):
         gb = self.define_gb()
         for g, d in gb:
             if g.grid_num == 1:
-                d[pp.keywords.PRIMARY_VARIABLES] = {'var1': {"cells": 1}}
-                d[pp.keywords.DISCRETIZATION] = {'var1': {'op1': MockNodeDiscretization(1)}}
+                d[pp.PRIMARY_VARIABLES] = {"var1": {"cells": 1}}
+                d[pp.DISCRETIZATION] = {"var1": {"op1": MockNodeDiscretization(1)}}
                 g1 = g
             else:
-                d[pp.keywords.PRIMARY_VARIABLES] = {'var2': {"cells": 1}}
-                d[pp.keywords.DISCRETIZATION] = {'var2': {'op2': MockNodeDiscretization(2)}}
+                d[pp.PRIMARY_VARIABLES] = {"var2": {"cells": 1}}
+                d[pp.DISCRETIZATION] = {"var2": {"op2": MockNodeDiscretization(2)}}
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {'vare': {"cells": 1}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
-                'terme': {
-                    g1: ('var1', 'op1'),
-                    g2: ('var2', 'op2'),
-                    e: ('vare', MockEdgeDiscretizationModifiesNode(1, 1)),
+            d[pp.PRIMARY_VARIABLES] = {"vare": {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
+                "terme": {
+                    g1: ("var1", "op1"),
+                    g2: ("var2", "op2"),
+                    e: ("vare", MockEdgeDiscretizationModifiesNode(1, 1)),
                 }
             }
 
@@ -117,8 +117,8 @@ class TestAssembler(unittest.TestCase):
         A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.array([[0, 0, 1], [0, 0, 1], [-1, -1, 1]])
-        g1_ind = block_dof[(g1, 'var1')]
-        g2_ind = block_dof[(g2, 'var2')]
+        g1_ind = block_dof[(g1, "var1")]
+        g2_ind = block_dof[(g2, "var2")]
         A_known[g1_ind, g1_ind] = 2
         A_known[g2_ind, g2_ind] = 4
 
@@ -132,16 +132,16 @@ class TestAssembler(unittest.TestCase):
         key = "var_1"
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {key: {term: MockNodeDiscretization(1)}}
+                d[pp.DISCRETIZATION] = {key: {term: MockNodeDiscretization(1)}}
                 g1 = g
             else:
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 term: {
                     g1: (key, term),
                     g2: (key, term),
@@ -165,17 +165,17 @@ class TestAssembler(unittest.TestCase):
         key = "var_1"
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {key: {term: MockNodeDiscretization(1)}}
+                d[pp.DISCRETIZATION] = {key: {term: MockNodeDiscretization(1)}}
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {key: {term: MockNodeDiscretization(2)}}
+                d[pp.DISCRETIZATION] = {key: {term: MockNodeDiscretization(2)}}
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 term: {
                     g1: (key, term),
                     g2: (key, term),
@@ -185,7 +185,7 @@ class TestAssembler(unittest.TestCase):
 
         general_assembler = pp.Assembler()
         # Give a false variable name
-        A, b, *rest = general_assembler.assemble_matrix_rhs(gb, variables="var_11")
+        A, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables="var_11")
         self.assertTrue(A.shape == (0, 0))
         self.assertTrue(b.size == 0)
 
@@ -197,9 +197,9 @@ class TestAssembler(unittest.TestCase):
         term = "op"
         term2 = "term2"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key: {
                         term: MockNodeDiscretization(1),
                         term2: MockNodeDiscretization(4),
@@ -207,12 +207,12 @@ class TestAssembler(unittest.TestCase):
                 }
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {key: {term: MockNodeDiscretization(2)}}
+                d[pp.DISCRETIZATION] = {key: {term: MockNodeDiscretization(2)}}
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 term: {
                     g1: (key, term),
                     g2: (key, term),
@@ -239,17 +239,17 @@ class TestAssembler(unittest.TestCase):
         term = "op"
         term2 = "term2"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {key: {term: MockNodeDiscretization(1)}}
+                d[pp.DISCRETIZATION] = {key: {term: MockNodeDiscretization(1)}}
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {key: {term: MockNodeDiscretization(2)}}
+                d[pp.DISCRETIZATION] = {key: {term: MockNodeDiscretization(2)}}
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 term: {
                     g1: (key, term),
                     g2: (key, term),
@@ -263,7 +263,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.array([[0, 0, 2], [0, 0, 2], [-2, -2, -2]])
         g1_ind = block_dof[(g1, key)]
@@ -281,35 +281,29 @@ class TestAssembler(unittest.TestCase):
         key_2 = "var_2"
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                 }
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                 }
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
-            d[pp.keywords.DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {
                 key_1: {term: MockNodeDiscretization(5)},
                 key_2: {term: MockNodeDiscretization(6)},
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((6, 6))
 
@@ -337,35 +331,31 @@ class TestAssembler(unittest.TestCase):
         key_2 = "var_2"
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                 }
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                 }
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
-            d[pp.keywords.DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {
                 key_1: {term: MockNodeDiscretization(5)},
                 key_2: {term: MockNodeDiscretization(6)},
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb, variables=[key_2])
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
+            gb, variables=[key_2]
+        )
 
         A_known = np.zeros((3, 3))
 
@@ -390,35 +380,31 @@ class TestAssembler(unittest.TestCase):
         key_2 = "var_2"
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                 }
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                 }
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
-            d[pp.keywords.DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {
                 key_1: {term: MockNodeDiscretization(5)},
                 key_2: {term: MockNodeDiscretization(6)},
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof ,_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_2, "var_11"])
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(
+            gb, variables=[key_2, "var_11"]
+        )
 
         A_known = np.zeros((3, 3))
 
@@ -442,19 +428,16 @@ class TestAssembler(unittest.TestCase):
         key_2 = "var_2"
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                     key_1 + "_" + key_2: {term: MockNodeDiscretization(5)},
                 }
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                     key_2 + "_" + key_1: {term: MockNodeDiscretization(6)},
@@ -462,11 +445,8 @@ class TestAssembler(unittest.TestCase):
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
-            d[pp.keywords.DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {
                 key_1: {term: MockNodeDiscretization(7)},
                 key_2: {term: MockNodeDiscretization(8)},
                 key_1 + "_" + key_2: {term: MockNodeDiscretization(6)},
@@ -474,7 +454,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((6, 6))
 
@@ -502,8 +482,8 @@ class TestAssembler(unittest.TestCase):
         self.assertTrue(np.allclose(A_known, A.todense()))
 
         # Next, define both variables to be active. Should be equivalent to
-        # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
+        # running without the variables argument
+        A_2, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_two_variables_coupling_within_node_and_edge_one_active(self):
@@ -515,19 +495,16 @@ class TestAssembler(unittest.TestCase):
         key_2 = "var_2"
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                     key_1 + "_" + key_2: {term: MockNodeDiscretization(5)},
                 }
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                     key_2 + "_" + key_1: {term: MockNodeDiscretization(6)},
@@ -535,11 +512,8 @@ class TestAssembler(unittest.TestCase):
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
-            d[pp.keywords.DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {
                 key_1: {term: MockNodeDiscretization(7)},
                 key_2: {term: MockNodeDiscretization(8)},
                 key_1 + "_" + key_2: {term: MockNodeDiscretization(6)},
@@ -547,7 +521,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb, variables=key_1)
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb, variables=key_1)
 
         A_known = np.zeros((3, 3))
 
@@ -571,30 +545,24 @@ class TestAssembler(unittest.TestCase):
         key_2 = "var_2"
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                 }
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                 }
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
-            d[pp.keywords.DISCRETIZATION] = {key_2: {term: MockNodeDiscretization(8)}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key_2: {term: MockNodeDiscretization(8)}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 term: {
                     g1: (key_1, term),
                     g2: (key_1, term),
@@ -603,7 +571,7 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
+        A, _, block_dof, _ = general_assembler.assemble_matrix_rhs(gb)
 
         A_known = np.zeros((6, 6))
 
@@ -632,7 +600,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
+        A_2, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_two_variables_coupling_between_node_and_edge_mixed_dependencies(self):
@@ -644,30 +612,24 @@ class TestAssembler(unittest.TestCase):
         key_2 = "var_2"
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                 }
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                 }
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
-            d[pp.keywords.DISCRETIZATION] = {key_2: {term: MockNodeDiscretization(8)}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key_2: {term: MockNodeDiscretization(8)}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 term: {
                     g1: (key_1, term),
                     g2: (key_2, term),
@@ -706,7 +668,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
+        A_2, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies(
@@ -722,32 +684,26 @@ class TestAssembler(unittest.TestCase):
         for g, d in gb:
 
             if g.grid_num == 1:
-                d[pp.keywords.PRIMARY_VARIABLES] = {
-                    key_1: {"cells": 1},
-                    key_2: {"cells": 1},
-                }
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                 }
                 g1 = g
             else:
                 # Grid 2 has only one variable
-                d[pp.keywords.PRIMARY_VARIABLES] = {key_2: {"cells": 1}}
+                d[pp.PRIMARY_VARIABLES] = {key_2: {"cells": 1}}
                 # We add a discretization to variable 1, but this should never be activated
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                 }
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
-            d[pp.keywords.DISCRETIZATION] = {key_2: {term: MockNodeDiscretization(8)}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key_2: {term: MockNodeDiscretization(8)}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 term: {
                     g1: (key_1, term),
                     g2: (key_2, term),
@@ -783,7 +739,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
+        A_2, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies_two_discretizations(
@@ -800,32 +756,26 @@ class TestAssembler(unittest.TestCase):
         for g, d in gb:
 
             if g.grid_num == 1:
-                d[pp.keywords.PRIMARY_VARIABLES] = {
-                    key_1: {"cells": 1},
-                    key_2: {"cells": 1},
-                }
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                 }
                 g1 = g
             else:
                 # Grid 2 has only one variable
-                d[pp.keywords.PRIMARY_VARIABLES] = {key_2: {"cells": 1}}
+                d[pp.PRIMARY_VARIABLES] = {key_2: {"cells": 1}}
                 # We add a discretization to variable 1, but this should never be activated
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                 }
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
-            d[pp.keywords.DISCRETIZATION] = {key_2: {term: MockNodeDiscretization(8)}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key_2: {term: MockNodeDiscretization(8)}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 term: {
                     g1: (key_1, term),
                     g2: (key_2, term),
@@ -866,7 +816,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
+        A_2, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_one_and_two_variables_coupling_between_node_and_edge_mixed_dependencies_two_discretizations_2(
@@ -883,32 +833,26 @@ class TestAssembler(unittest.TestCase):
         for g, d in gb:
 
             if g.grid_num == 1:
-                d[pp.keywords.PRIMARY_VARIABLES] = {
-                    key_1: {"cells": 1},
-                    key_2: {"cells": 1},
-                }
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                 }
                 g1 = g
             else:
                 # Grid 2 has only one variable
-                d[pp.keywords.PRIMARY_VARIABLES] = {key_2: {"cells": 1}}
+                d[pp.PRIMARY_VARIABLES] = {key_2: {"cells": 1}}
                 # We add a discretization to variable 1, but this should never be activated
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                 }
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
-            d[pp.keywords.DISCRETIZATION] = {key_2: {term: MockNodeDiscretization(8)}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {key_2: {term: MockNodeDiscretization(8)}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 term: {
                     g1: (key_1, term),
                     g2: (key_2, term),
@@ -951,7 +895,7 @@ class TestAssembler(unittest.TestCase):
 
         # Next, define both variables to be active. Should be equivalent to
         # runing without the variables argument
-        A_2, b, *rest = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
+        A_2, b, *_ = general_assembler.assemble_matrix_rhs(gb, variables=[key_1, key_2])
         self.assertTrue(np.allclose(A_known, A_2.todense()))
 
     def test_one_variable_one_sided_coupling_between_node_and_edge(self):
@@ -961,17 +905,17 @@ class TestAssembler(unittest.TestCase):
         key = "var_1"
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {key: {term: MockNodeDiscretization(1)}}
+                d[pp.DISCRETIZATION] = {key: {term: MockNodeDiscretization(1)}}
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {key: {term: MockNodeDiscretization(3)}}
+                d[pp.DISCRETIZATION] = {key: {term: MockNodeDiscretization(3)}}
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key: {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 term: {
                     g1: (key, term),
                     g2: None,
@@ -1000,27 +944,29 @@ class TestAssembler(unittest.TestCase):
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
-    def test_one_variable_one_sided_coupling_between_node_and_edge_different_operator_variable_names_modifies_node(self):
+    def test_one_variable_one_sided_coupling_between_node_and_edge_different_operator_variable_names_modifies_node(
+        self
+    ):
         """ Coupling between edge and one of the subdomains, but not the other
         """
         gb = self.define_gb()
         term = "op"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {'var1': {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES] = {"var1": {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {'var1': {term: MockNodeDiscretization(1)}}
+                d[pp.DISCRETIZATION] = {"var1": {term: MockNodeDiscretization(1)}}
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {'var1': {term: MockNodeDiscretization(3)}}
+                d[pp.DISCRETIZATION] = {"var1": {term: MockNodeDiscretization(3)}}
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {'vare': {"cells": 1}}
-            d[pp.keywords.COUPLING_DISCRETIZATION] = {
-                'tmp': {
-                        g1: ('var1', term),
-                        g2: None,
-                        e: ('vare', MockEdgeDiscretizationOneSidedModifiesNode(2, 1)),
+            d[pp.PRIMARY_VARIABLES] = {"vare": {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
+                "tmp": {
+                    g1: ("var1", term),
+                    g2: None,
+                    e: ("vare", MockEdgeDiscretizationOneSidedModifiesNode(2, 1)),
                 }
             }
 
@@ -1029,9 +975,9 @@ class TestAssembler(unittest.TestCase):
 
         A_known = np.zeros((3, 3))
 
-        g11_ind = block_dof[(g1, 'var1')]
-        g22_ind = block_dof[(g2, 'var1')]
-        e1_ind = block_dof[(e, 'vare')]
+        g11_ind = block_dof[(g1, "var1")]
+        g22_ind = block_dof[(g2, "var1")]
+        e1_ind = block_dof[(e, "vare")]
 
         A_known[g11_ind, g11_ind] = 2
         A_known[g22_ind, g22_ind] = 3
@@ -1045,7 +991,6 @@ class TestAssembler(unittest.TestCase):
 
         self.assertTrue(np.allclose(A_known, A.todense()))
 
-
     def test_partial_matrices_two_variables_single_discretization(self):
         """ A single variable, with multiple discretizations for one of the nodes.
         Do not add discretization matrices for individual terms
@@ -1056,19 +1001,16 @@ class TestAssembler(unittest.TestCase):
         term = "op"
         term2 = "term2"
         for g, d in gb:
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
             if g.grid_num == 1:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(1)},
                     key_2: {term: MockNodeDiscretization(2)},
                     key_1 + "_" + key_2: {term: MockNodeDiscretization(5)},
                 }
                 g1 = g
             else:
-                d[pp.keywords.DISCRETIZATION] = {
+                d[pp.DISCRETIZATION] = {
                     key_1: {term: MockNodeDiscretization(3)},
                     key_2: {term: MockNodeDiscretization(4)},
                     key_2 + "_" + key_1: {term: MockNodeDiscretization(6)},
@@ -1076,11 +1018,8 @@ class TestAssembler(unittest.TestCase):
                 g2 = g
 
         for e, d in gb.edges():
-            d[pp.keywords.PRIMARY_VARIABLES] = {
-                key_1: {"cells": 1},
-                key_2: {"cells": 1},
-            }
-            d[pp.keywords.DISCRETIZATION] = {
+            d[pp.PRIMARY_VARIABLES] = {key_1: {"cells": 1}, key_2: {"cells": 1}}
+            d[pp.DISCRETIZATION] = {
                 key_1: {term: MockNodeDiscretization(7)},
                 key_2: {
                     term2: MockNodeDiscretization(8),
@@ -1091,7 +1030,9 @@ class TestAssembler(unittest.TestCase):
             }
 
         general_assembler = pp.Assembler()
-        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(gb, add_matrices=False)
+        A, b, block_dof, _ = general_assembler.assemble_matrix_rhs(
+            gb, add_matrices=False
+        )
 
         g11_ind = block_dof[(g1, key_1)]
         g12_ind = block_dof[(g1, key_2)]
@@ -1157,6 +1098,7 @@ class MockEdgeDiscretization(object):
 
         return cc + local_matrix, np.empty(3)
 
+
 class MockEdgeDiscretizationModifiesNode(object):
     def __init__(self, diag_val, off_diag_val):
         self.diag_val = diag_val
@@ -1205,6 +1147,7 @@ class MockEdgeDiscretizationOneSided(object):
 
         return cc + local_matrix, np.empty(2)
 
+
 class MockEdgeDiscretizationOneSidedModifiesNode(object):
     # Discretization for the case where a mortar variable depends only on one side of the
     def __init__(self, diag_val, off_diag_val):
@@ -1224,8 +1167,8 @@ class MockEdgeDiscretizationOneSidedModifiesNode(object):
 
         local_matrix[0, 0] += sps.coo_matrix(self.off_diag_val)
 
-
         return cc + local_matrix, np.empty(2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -740,7 +740,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_2d_1d_cart(self):
-        f1 = np.array([[0, 1], [.5, .5]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
         gb = meshing.cart_grid([f1], [4, 4], **{"physdims": [1, 1]})
 
         for g, _ in gb:
@@ -808,8 +808,8 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_tag_2d_1d_cart_complex(self):
-        f1 = np.array([[0, 1], [.5, .5]])
-        f2 = np.array([[.5, .5], [.25, .75]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
+        f2 = np.array([[0.5, 0.5], [0.25, 0.75]])
         gb = meshing.cart_grid([f1, f2], [4, 4], **{"physdims": [1, 1]})
 
         for g, _ in gb:

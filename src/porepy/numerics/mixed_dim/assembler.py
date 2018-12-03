@@ -60,7 +60,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         degrees of freedom they define, are defined on the relevant data
         dictionary, with the following syntax:
 
-            d[pp.keywords.PRIMARY_VARIABLE] = {'var_1': {'cells': 3},
+            d[pp.PRIMARY_VARIABLE] = {'var_1': {'cells': 3},
                                                'var_2': {'cells': 1, 'faces': 2}}
 
         This defines a variable identified by the string 'var_1' as living on
@@ -73,7 +73,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         contain one or a list of discretization objects that can be accessed by
         the call
 
-            d['var_1' + '_' + pp.keywords.DISCRETIZATION]
+            d['var_1' + '_' + pp.DISCRETIZATION]
 
         The object should have a method termed assemble_matrix_rhs, that takes
         arguments grid (on a node) or a mortar grid (on an edge) and the
@@ -85,8 +85,8 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         Coupling between variables on the same node are similarly defined by
         one or a list of discretizations, identified by the fields
 
-            d['var_1' + '_' + 'var_2' + '_' + pp.keywords.DISCRETIZATION]
-            d['var_2' + '_' + 'var_1' + '_' + pp.keywords.DISCRETIZATION]
+            d['var_1' + '_' + 'var_2' + '_' + pp.DISCRETIZATION]
+            d['var_2' + '_' + 'var_1' + '_' + pp.DISCRETIZATION]
 
         Here, the first item represents the impact of var_2 on var_1, stored in
         block (var_1, var_2); the definition of the second term is similar.
@@ -98,7 +98,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         variables on the neighboring nodes (or list of dictionaries if there is
         more than one dependency). This inner dictionary has fields
 
-            {g1: 'var_1', g2: 'var_2', pp.keywords.DISCRETIZATION: foo()}
+            {g1: 'var_1', g2: 'var_2', pp.DISCRETIZATION: foo()}
 
         Here, 'var_1' (str) is the identifier of the coupled variable on the
         node identified by the neighboring grid g1, similar for g2. foo() is a
@@ -112,7 +112,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         variable and only one of its neighboring grids can be constructed by
         letting the inactive grid map to None, e.g.
 
-            {g1: 'var_1', g2: None, pp.keywords.DISCRETIZATION: foo()}
+            {g1: 'var_1', g2: None, pp.DISCRETIZATION: foo()}
 
         In this case, foo should have a method assemble_matrix_rhs that takes
         arguments
@@ -140,7 +140,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     ri = block_dof[(g, row)]
                     ci = block_dof[(g, col)]
 
-                    discr_data = data.get(pp.keywords.DISCRETIZATION, None)
+                    discr_data = data.get(pp.DISCRETIZATION, None)
                     if discr_data is None:
                         continue
                     discr = discr_data.get(self.discretization_key(row, col), None)
@@ -178,7 +178,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     ri = block_dof[(e, row)]
                     ci = block_dof[(e, col)]
 
-                    discr_data = data_edge.get(pp.keywords.DISCRETIZATION)
+                    discr_data = data_edge.get(pp.DISCRETIZATION)
                     if discr_data is None:
                         continue
                     discr = discr_data.get(self.discretization_key(row, col), None)
@@ -199,7 +199,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
             # Then, discretize the interaction between the edge variables of
             # this edge, and the adjacent node variables.
-            discr = data_edge.get(pp.keywords.COUPLING_DISCRETIZATION, None)
+            discr = data_edge.get(pp.COUPLING_DISCRETIZATION, None)
             if discr is None:
                 continue
 
@@ -218,7 +218,9 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
                     # Also define the key to access the matrix of the discretization of
                     # the master variable on the master node.
-                    mat_key_master = self._variable_term_key(master_vals[1], master_key, master_key)
+                    mat_key_master = self._variable_term_key(
+                        master_vals[1], master_key, master_key
+                    )
 
                 slave_vals = terms.get(g_slave)
                 if slave_vals is None:
@@ -229,7 +231,9 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     si = block_dof.get((g_slave, slave_key))
                     # Also define the key to access the matrix of the discretization of
                     # the slave variable on the slave node.
-                    mat_key_slave = self._variable_term_key(slave_vals[1], slave_key, slave_key)
+                    mat_key_slave = self._variable_term_key(
+                        slave_vals[1], slave_key, slave_key
+                    )
 
                 # Key to the matrix dictionary used to access this coupling
                 # discretization.
@@ -259,12 +263,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     # Run the discretization, and assign the resulting matrix
                     # to a temporary construct
                     tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
-                        g_master,
-                        g_slave,
-                        data_master,
-                        data_slave,
-                        data_edge,
-                        loc_mat,
+                        g_master, g_slave, data_master, data_slave, data_edge, loc_mat
                     )
                     # The edge column and row should be assigned to mat_key
                     matrix[mat_key][(ei), (mi, si, ei)] = tmp_mat[(2), (0, 1, 2)]
@@ -376,7 +375,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                         key = k
                     else:
                         key = k + "_" + k2
-                    discr = d.get(pp.keywords.DISCRETIZATION, None)
+                    discr = d.get(pp.DISCRETIZATION, None)
                     if discr is None:
                         continue
                     terms = discr.get(key, None)
@@ -407,7 +406,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                         key = k
                     else:
                         key = k + "_" + k2
-                    discr = d.get(pp.keywords.DISCRETIZATION, None)
+                    discr = d.get(pp.DISCRETIZATION, None)
                     if discr is None:
                         continue
                     terms = discr.get(key, None)
@@ -420,7 +419,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
             # Finally, identify variable combinations for coupling terms
             g_slave, g_master = gb.nodes_of_edge(e)
-            discr = d.get(pp.keywords.COUPLING_DISCRETIZATION, None)
+            discr = d.get(pp.COUPLING_DISCRETIZATION, None)
             if discr is None:
                 continue
             for term, val in discr.items():
@@ -480,7 +479,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         # Short-hand function to check if a limited number of admissible
         # variables is given, and if so, if a certain value is contained in
         # the set
-        loc_variables = d.get(pp.keywords.PRIMARY_VARIABLES, None)
+        loc_variables = d.get(pp.PRIMARY_VARIABLES, None)
         if variables is None:
             return loc_variables
         else:
@@ -520,7 +519,6 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 data = gb.edge_props(g)
             data[var_name] = var[dof[bi] : dof[bi + 1]]
 
-
     def merge_variable(self, gb, var, block_dof, full_dof):
         """ Merge a vector to the nodes and edges in the GridBucket.
 
@@ -549,7 +547,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                 data = gb.node_props(g)
             else:  # This is really an edge
                 data = gb.edge_props(g)
-            if var_name==var:
+            if var_name == var:
                 loc_value = data[var_name]
             else:
                 loc_value = 0

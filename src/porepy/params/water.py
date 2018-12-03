@@ -21,7 +21,7 @@ class Water:
             theta = self.theta_ref
         theta_0 = 10 * (pp.CELSIUS)
         rho_0 = 999.8349 * (pp.KILOGRAM / pp.METER ** 3)
-        return rho_0 / (1. + self.thermal_expansion(theta - theta_0))
+        return rho_0 / (1.0 + self.thermal_expansion(theta - theta_0))
 
     def thermal_conductivity(self, theta=None):  # theta in CELSIUS
         if theta is None:

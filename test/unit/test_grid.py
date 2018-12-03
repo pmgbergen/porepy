@@ -13,7 +13,7 @@ class TestDiameterComputation(unittest.TestCase):
     def test_cell_diameters_2d(self):
         g = pp.CartGrid([3, 2], [1, 1])
         cell_diameters = g.cell_diameters()
-        known = np.repeat(np.sqrt(0.5 ** 2 + 1. / 3. ** 2), g.num_cells)
+        known = np.repeat(np.sqrt(0.5 ** 2 + 1.0 / 3.0 ** 2), g.num_cells)
         self.assertTrue(np.allclose(cell_diameters, known))
 
     def test_cell_diameters_3d(self):
@@ -50,7 +50,7 @@ class TestClosestCell(unittest.TestCase):
     def test_out_of_plane(self):
         g = pp.CartGrid([2, 2])
         g.compute_geometry()
-        p = np.array([[.1], [.1], [1]])
+        p = np.array([[0.1], [0.1], [1]])
         ind = g.closest_cell(p)
         self.assertTrue(ind[0] == 0)
         self.assertTrue(ind.size == 1)

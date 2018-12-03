@@ -2,6 +2,7 @@ import numpy as np
 import scipy.sparse as sps
 import porepy as pp
 
+
 class SlightlyCompressibleModel(pp.ParabolicModel):
     """
     Inherits from ParabolicProblem
@@ -10,10 +11,10 @@ class SlightlyCompressibleModel(pp.ParabolicModel):
 
     Init:
     - gb (Grid/GridBucket) Grid or grid bucket for the problem
-    - physics (string) Physics key word. See Parameters class for valid physics
+    - keyword (string) See Parameters class for valid keyword
 
     functions:
-    discharge(): computes the discharges and saves it in the grid bucket as 'pressure'
+    darcy_flux(): computes the darcy_flux and saves it in the grid bucket as 'pressure'
     Also see functions from ParabolicProblem
 
     Example:
@@ -26,9 +27,9 @@ class SlightlyCompressibleModel(pp.ParabolicModel):
     problem.solve()
    """
 
-    def __init__(self, gb, keyword="flow", physics="flow", **kwargs):
+    def __init__(self, gb, keyword="flow", **kwargs):
         self.is_GridBucket = isinstance(gb, pp.GridBucket)
-        pp.ParabolicModel.__init__(self, gb, keyword, physics, **kwargs)
+        pp.ParabolicModel.__init__(self, gb, keyword, **kwargs)
 
     def space_disc(self):
         return self.diffusive_disc(), self.source_disc()
@@ -39,25 +40,29 @@ class SlightlyCompressibleModel(pp.ParabolicModel):
         """
 
         class TimeDisc(object):
-            def __init__(self, deltaT, keyword):
+            def __init__(self, time_step, keyword):
                 self.keyword = keyword
-                self.deltaT = deltaT
+                self.time_step = time_step
 
             def assemble_matrix_rhs(self, g, data):
                 ndof = g.num_cells
-                aperture = data["param"].get_aperture()
-                coeff = g.cell_volumes * aperture / self.deltaT
+                parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+                aperture = parameter_dictionary["aperture"]
+                coeff = g.cell_volumes * aperture / self.time_step
                 lhs = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
                 rhs = np.zeros(ndof)
 
-                return lhs * data["compressibility"], rhs * data["compressibility"]
+                return (
+                    lhs * parameter_dictionary["compressibility"],
+                    rhs * parameter_dictionary["compressibility"],
+                )
 
         time_discretization = TimeDisc(self.time_step(), self.keyword)
         return (time_discretization, None)
 
-    def discharge(self, d_name="discharge", p_name="pressure"):
+    def darcy_flux(self, d_name="darcy_flux", p_name="pressure"):
         self.pressure(p_name)
-        fvutils.compute_discharges(self.grid(), d_name=d_name, p_name=p_name)
+        fvutils.compute_darcy_flux(self.grid(), d_name=d_name, p_name=p_name)
 
     def pressure(self):
         if self.is_GridBucket:
@@ -73,7 +78,7 @@ class SlightlyCompressibleDataAssigner(pp.ParabolicDataAssigner):
     Init:
     - g    (Grid) Grid that data should correspond to
     - d    (dictionary) data dictionary that data will be assigned to
-    - physics (string) Physics key word. See Parameters class for valid physics
+    - keyword (string) Keyword key word. See Parameters class for valid keyword
 
     Functions:
         compressibility: (float) the compressibility of the fluid
@@ -98,12 +103,13 @@ class SlightlyCompressibleDataAssigner(pp.ParabolicDataAssigner):
         d['problem'] = ExampleData(g, d)
     """
 
-    def __init__(self, g, data, physics="flow"):
-        pp.ParabolicDataAssigner.__init__(self, g, data, physics)
+    def __init__(self, g, data, keyword="flow"):
+        pp.ParabolicDataAssigner.__init__(self, g, data, keyword)
 
     def _set_data(self):
         pp.ParabolicDataAssigner._set_data(self)
-        self.data()["compressibility"] = self.compressibility()
+        parameter_dictionary = self.data()[pp.PARAMETERS][self.keyword]
+        parameter_dictionary["compressibility"] = self.compressibility()
 
     def compressibility(self):
         return 1.0
