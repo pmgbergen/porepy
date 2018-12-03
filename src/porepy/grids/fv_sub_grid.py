@@ -1,10 +1,40 @@
+"""
+This is a module for creating the sub-grids used in the multi-point finite
+volume discretizations (MPFA MPSA). Note that this is experimental and should
+not be excpected to work with standard porepy functions (e.g., g.compute_geometry()).
+
+Intended use is for now to set sub-face boundary conditions.
+"""
+
 import numpy as np
 import scipy.sparse as sps
 import porepy as pp
 
 
 class FvSubGrid(pp.Grid):
+    """
+    Define a subgrid for the finite volume discretizations. Each cell is divided
+    up into subcells according to the nodes. A 2D Cartesian cell is divided in
+    four sub-cells while a 2D simplex cell is divided into three cells. The
+    face-centers of the sub-grid will be the continuity point as given by eta.
+    This should correspond the the eta given to the finite volume discretization.
+
+    """
     def __init__(self, g, eta):
+        """
+        Initialization of grid.
+
+        Parameters:
+        -----------
+        g (pp.Grid): A grid that will be divided into subcells.
+        eta (np.ndarray): Defines the face centers of the sub-grid (continuity point
+            of the finite volume methods). eta=0 retrives the face centers of g, while
+            eta=1 sets the face centers of the subgrid equal the nodes of g.
+
+        Returns:
+        --------
+        pp.Grid: The computed subgrid.
+        """
         subcell_topology = pp.numerics.fv.fvutils.SubcellTopology(g)
         # we collect all nodes in the subgrid. This will be all nodes of the
         # grid + the face-centers + the cell_centers
