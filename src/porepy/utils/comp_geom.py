@@ -3639,15 +3639,21 @@ def intersect_polygon_lines(poly_pts, pts, edges):
     Returns:
     int_pts (np.ndarray, 2xn): the point associated to the lines after the intersection
     int_edges (np.ndarray, 2xn): for each column the id of the points for the line after the
-        intersection
+        intersection. If the input edges have tags, stored in rows [2:], these will be
+        preserved.
+
     """
     # it stores the points after the intersection
     int_pts = np.empty((2, 0))
     # define the polygon
     poly = shapely_geometry.Polygon(poly_pts[:2, :].T)
+
+    # Kept edges
+    edges_kept = []
+
     # we do the computation for each edge once at time, to avoid the splitting
     # caused by other edges.
-    for e in edges.T:
+    for ei, e in enumerate(edges.T):
         # define the line
         line = shapely_geometry.LineString([pts[:2, e[0]], pts[:2, e[1]]])
         # compute the intersections between the poligon and the current line
@@ -3658,15 +3664,20 @@ def intersect_polygon_lines(poly_pts, pts, edges):
             # lines on the boundary of the polygon
             if not int_lines.touches(poly):
                 int_pts = np.c_[int_pts, np.array(int_lines.xy)]
+                edges_kept.append(ei)
         elif type(int_lines) is shapely_geometry.MultiLineString:
             # consider the case of multiple intersections by avoiding to consider
             # lines on the boundary of the polygon
             for int_line in int_lines:
                 if not int_line.touches(poly):
                     int_pts = np.c_[int_pts, np.array(int_line.xy)]
+                    edges_kept.append(ei)
 
     # define the list of edges
     int_edges = np.arange(int_pts.shape[1]).reshape((2, -1), order="F")
+    edges_kept = np.array(edges_kept)
+    edges_kept.sort()
+    int_edges = np.vstack((int_edges, edges[2:, edges_kept]))
     return int_pts, int_edges
 
 
