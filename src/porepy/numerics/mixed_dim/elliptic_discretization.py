@@ -402,7 +402,7 @@ class VectorEllipticDiscretization(Solver):
 
     # ------------------------------------------------------------------------------#
 
-    def assemble_matrix_rhs(self, g, data, discretize=True, **kwargs):
+    def assemble_matrix_rhs(self, g, data):
 
         """
         Return the matrix and right-hand side for a discretization of a second
@@ -534,9 +534,8 @@ class VectorEllipticDiscretization(Solver):
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node. 
+            self_ind (int): Index in cc and matrix associated with this node.
                Should be either 1 or 2.
-
         """
         raise NotImplementedError("Method not implemented")
 

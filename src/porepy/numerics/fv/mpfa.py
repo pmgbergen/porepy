@@ -58,9 +58,9 @@ class Mpfa(FVElliptic):
 
         matrix_dictionary will be updated with the following entries:
             flux: sps.csc_matrix (g.num_faces, g.num_cells)
-                flux discretization, cell center contribution 
+                flux discretization, cell center contribution
             bound_flux: sps.csc_matrix (g.num_faces, g.num_faces)
-                flux discretization, face contribution 
+                flux discretization, face contribution
             bound_pressure_cell: sps.csc_matrix (g.num_faces, g.num_cells)
                 Operator for reconstructing the pressure trace. Cell center contribution
             bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)

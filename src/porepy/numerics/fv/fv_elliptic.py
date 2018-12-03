@@ -1,9 +1,6 @@
 """
 Module contains superclass for mpfa and tpfa.
 """
-import scipy.sparse as sps
-import numpy as np
-
 import porepy as pp
 
 

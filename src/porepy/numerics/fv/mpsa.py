@@ -77,14 +77,13 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
 
         matrix_dictionary will be updated with the following entries:
             stress: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_cells)
-                stress discretization, cell center contribution 
+                stress discretization, cell center contribution
             bound_flux: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_faces)
-                stress discretization, face contribution 
+                stress discretization, face contribution
             bound_displacement_cell: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_cells)
                 Operator for reconstructing the displacement trace. Cell center contribution
             bound_displacement_face: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_faces)
                 Operator for reconstructing the displacement trace. Face contribution
-            
 
         Hidden option (intended as "advanced" option that one should normally not
         care about):
@@ -302,7 +301,7 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
                 The discretization of the relevant term is done in-place in cc.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node. 
+            self_ind (int): Index in cc and matrix associated with this node.
                Should be either 1 or 2.
 
         """
@@ -354,7 +353,6 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
         if grid_swap:
             proj = mg.slave_to_mortar_avg()
             proj_int = mg.slave_to_mortar_int
-            proj_swap = mg.master_to_mortar_avg()
             proj_int_swap = mg.master_to_mortar_int
         else:
             proj = mg.master_to_mortar_avg()
@@ -2279,11 +2277,6 @@ def create_bound_rhs(bound, bound_exclusion, subcell_topology, g, subface_rhs):
         (np.ones(num_bound), (np.arange(num_bound), bnd_ind)),
         shape=(num_bound, num_subfno * nd),
     )
-
-    # The user of the discretization should now nothing about half faces,
-    # thus map from half face to face indices.
-
-    hf_2_f = pp.fvutils.map_hf_2_f(fno, subfno, nd).transpose()
 
     # the rows of rhs_bound will be ordered with first the x-component of all
     # neumann faces, then the y-component of all neumann faces, then the
