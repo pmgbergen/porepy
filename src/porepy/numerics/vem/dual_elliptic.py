@@ -44,7 +44,7 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
                     continue
                 # project the mortar variable back to the higher dimensional
                 # problem
-                edge_flux += sign * g_m.mortar_to_high_int() * d_e[mortar_key]
+                edge_flux += sign * g_m.mortar_to_master_int() * d_e[mortar_key]
 
         d[P0_flux] = discr.project_flux(g, edge_flux + d[flux], d)
 
