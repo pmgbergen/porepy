@@ -117,10 +117,12 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
             matrix_dictionary["bound_displacement_cell"] = bound_displacement_cell
             matrix_dictionary["bound_displacement_face"] = bound_displacement_face
         else:
-            raise NotImplementedError("""Partial discretiation for the Mpsa class is not
-            implemented. See mpsa.mpsa_partial(...)""")
+            raise NotImplementedError(
+                """Partial discretiation for the Mpsa class is not
+            implemented. See mpsa.mpsa_partial(...)"""
+            )
 
-    def assemble_matrix_rhs(self, g, data, discretize=True, **kwargs):
+    def assemble_matrix_rhs(self, g, data):
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point stress
@@ -363,7 +365,6 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
         # Expand indices as Fortran indexes
         proj_avg = sps.kron(proj, sps.eye(g.dim)).tocsr()
         proj_int = sps.kron(proj_int, sps.eye(g.dim)).tocsr()
-        proj_avg_swap = sps.kron(proj_swap, sps.eye(g.dim)).tocsr()
         proj_int_swap = sps.kron(proj_int_swap, sps.eye(g.dim)).tocsr()
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
@@ -464,6 +465,7 @@ class FracturedMpsa(Mpsa):
     Subclass of MPSA for discretizing a fractured domain. Adds DOFs on each
     fracture face which describe the fracture deformation.
     """
+
     def __init__(self, keyword, given_traction=False, **kwargs):
         Mpsa.__init__(self, keyword, **kwargs)
         if not hasattr(self, "keyword"):
@@ -1013,7 +1015,7 @@ def mpsa(
         logger.info("Split MPSA discretization into " + str(num_part) + " parts")
 
         # Let partitioning module apply the best available method
-        part = pp.partition(g, num_part)
+        part = pp.grid.partition.partition_metis(g, num_part)
 
         # Empty fields for stress and bound_stress. Will be expanded as we go.
         # Implementation note: It should be relatively straightforward to
