@@ -121,13 +121,10 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
         """
         # Define the matrix format, common for all the sub-matrices
-        if matrix_format == "csr":
-            sps_matrix = sps.csr_matrix
-        elif matrix_format == "csc":
+        if matrix_format == "csc":
             sps_matrix = sps.csc_matrix
-        else: # coo
-            sps_matrix = sps.coo_matrix
-
+        else:
+            sps_matrix = sps.csr_matrix
 
         # Initialize the global matrix.
         matrix, rhs, block_dof, full_dof = self._initialize_matrix_rhs(gb, variables, sps_matrix)
@@ -355,7 +352,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
             return matrix, rhs, block_dof, full_dof
 
-    def _initialize_matrix_rhs(self, gb, variables=None, sps_matrix):
+    def _initialize_matrix_rhs(self, gb, variables, sps_matrix):
         """
         Initialize local matrices for all combinations of variables and operators.
 
