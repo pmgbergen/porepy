@@ -173,11 +173,19 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
     g: Grid
     subcell_topology: Of class subcell topology in this module
     eta: [0,1), eta = 0 gives cont. pt. at face midpoint, eta = 1 means at
-    the vertex
+        the vertex. If eta is given as a scalar this value will be applied to
+        all subfaces except the boundary faces, where eta=0 will be enforced.
+        If the length of eta equals the number of subfaces, eta[i] will be used
+        in the computation of the continuity point of the subface s_t.subfno_unique[i].
+        Note that eta=0 at the boundary is ONLY enforced for scalar eta.
 
     Returns
     -------
     sps.csr() matrix representation of vectors. Size g.nf x (g.nc * g.nd)
+
+    Raises:
+    -------
+    ValueError if the size of eta is not 1 or subcell_topology.num_subfno_unique.
     """
     _, blocksz = matrix_compression.rlencode(
         np.vstack((subcell_topology.cno, subcell_topology.nno))
@@ -188,11 +196,13 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
     cols += matrix_compression.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
     if np.asarray(eta).size == subcell_topology.num_subfno_unique:
         eta_vec = eta[subcell_topology.subfno]
-    else:
+    elif np.asarray(eta).size == 1:
         eta_vec = eta * np.ones(subcell_topology.fno.size)
         # Set eta values to zero at the boundary
         bnd = np.in1d(subcell_topology.fno, g.get_all_boundary_faces())
         eta_vec[bnd] = 0
+    else:
+        raise ValueError("size of eta must either be 1 or number of subfaces")
     cp = g.face_centers[:, subcell_topology.fno] + eta_vec * (
         g.nodes[:, subcell_topology.nno] - g.face_centers[:, subcell_topology.fno]
     )
@@ -531,13 +541,20 @@ def expand_indices_nd(ind, nd, direction=1):
 def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     """
     Create mapping from half-faces to faces for vector problems.
+    Either fno, subfno and nd should be given or g (and optinally nd) should be
+    given.
 
     Parameters
     ----------
-    fno face numbering in sub-cell topology based on unique subfno
-    subfno sub-face numbering
-    nd dimension
-    g (opitonal) If a grid is supplied the method defines all mappings
+    EITHER:
+       fno (np.ndarray): face numbering in sub-cell topology based on unique subfno
+       subfno (np.ndarrary): sub-face numbering
+       nd (int): dimension
+    OR:
+        g (pp.Grid): If a grid is supplied the function will set:
+            fno = pp.fvutils.SubcellTopology(g).fno_unique
+            subfno = pp.fvutils.SubcellTopology(g).subfno_unique
+        nd (int): Optinal, defaults to g.dim. Defines the dimension of the vector.
     Returns
     -------
     """
@@ -635,33 +652,60 @@ def zero_out_sparse_rows(A, rows, diag=None):
 
 
 class ExcludeBoundaries(object):
-    """ Wrapper class to store mapping for exclusion of equations that are
-    redundant due to the presence of boundary conditions.
+    """ Wrapper class to store mappings needed in the finite volume discretizations.
+    The original use for this class was for exclusion of equations that are
+    redundant due to the presence of boundary conditions, hence the name. The use of
+    this class has increased to also include linear transformation that can be applied
+    to the subfaces before the exclusion operator. This will typically be a rotation matrix,
+    so that the boundary conditions can be specified in an arbitary coordinate system.
 
     The systems being set up in mpfa (and mpsa) describe continuity of flux and
-    potential (respectively stress and displacement) on all sub-faces. For
-    boundary faces, one of the two should be excluded (e.g. for a Dirichlet
-    boundary condition, there is no concept of continuity of flux/stresses).
-    The class contains mappings to eliminate the necessary fields.
+    potential (respectively stress and displacement) on all sub-faces. For the boundary
+    faces, unless a Robin condition is specified, only one of the two should be included
+    (e.g. for a Dirichlet boundary condition, there is no concept of continuity of
+    flux/stresses). This class contains mappings to eliminate the necessary fields in
+    order set the correct boundary conditions.
 
     """
 
     def __init__(self, subcell_topology, bound, nd):
         """
-        Define mappings to exclude boundary faces/components with dirichlet and neumann
-        conditions
+        Define mappings to exclude boundary subfaces/components with Dirichlet,
+        Neumann or Robin conditions. If bound.bc_type=="scalar" we assign one
+        component per subface, while if bound.bc_type=="vector" we assign nd
+        components per subface.
 
         Parameters
         ----------
-        subcell_topology
-        bound
+        subcell_topology (pp.SubcellTopology)
+        bound (pp.BoundaryCondition / pp.BoundaryConditionVectorial)
+        nd (int)
 
-        Returns
-        -------
-        exclude_neumann: Matrix, mapping from all faces/components to those having flux
-                         continuity
-        exclude_dirichlet: Matrix, mapping from all faces/components to those having pressure
-                           continuity
+        Attributes:
+        ----------
+        basis_matrix: sps.csc_matrix, mapping from all subfaces/components to all
+            subfaces/components. Will be applied to other before the exclusion
+            operator for the functions self.exlude...(other, transform),
+            if transform==True.
+        robin_weight: sps.csc_matrix, mapping from all subfaces/components to all
+            subfaces/components. Gives the weight that is applied to the displacement in
+            the Robin condition.
+        exclude_neu: sps.csc_matrix, mapping from all subfaces/components to those having
+            pressure continuity
+        exclude_dir: sps.csc_matrix, mapping from all subfaces/components to those having
+            flux continuity
+        exclude_neu_dir: sps.csc_matrix, mapping from all subfaces/components to those
+            having both pressure and flux continuity (i.e., Robin + internal)
+        exclude_neu_rob: sps.csc_matrix, mapping from all subfaces/components to those
+            not having Neumann or Robin conditions (i.e., Dirichlet + internal)
+        exclude_rob_dir: sps.csc_matrix, mapping from all subfaces/components to those
+            not having Robin or Dirichlet conditions (i.e., Neumann + internal)
+        exclude_bnd: sps.csc_matrix, mapping from all subfaces/components to internal
+            subfaces/components.
+        keep_neu: sps.csc_matrix, mapping from all subfaces/components to only Neumann
+            subfaces/components.
+        keep_rob: sps.csc_matrix, mapping from all subfaces/components to only Robin
+            subfaces/components.
         """
         self.nd = nd
         self.bc_type = bound.bc_type
@@ -672,8 +716,8 @@ class ExcludeBoundaries(object):
 
         # Define mappings to exclude boundary values
         if self.bc_type == "scalar":
-            self.basis_matrix = self._basis_transformation(bound.basis)
-            self.robin_weight = self._basis_transformation(bound.robin_weight)
+            self.basis_matrix = self._linear_transformation(bound.basis)
+            self.robin_weight = self._linear_transformation(bound.robin_weight)
 
             self.exclude_neu = self._exclude_matrix(bound.is_neu)
             self.exclude_dir = self._exclude_matrix(bound.is_dir)
@@ -688,8 +732,8 @@ class ExcludeBoundaries(object):
             self.keep_rob = self._exclude_matrix(~bound.is_rob)
 
         elif self.bc_type == "vectorial":
-            self.basis_matrix = self._basis_transformation(bound.basis)
-            self.robin_weight = self._basis_transformation(bound.robin_weight)
+            self.basis_matrix = self._linear_transformation(bound.basis)
+            self.robin_weight = self._linear_transformation(bound.robin_weight)
 
             self.exclude_neu = self._exclude_matrix_xyz(bound.is_neu)
             self.exclude_dir = self._exclude_matrix_xyz(bound.is_dir)
@@ -703,16 +747,38 @@ class ExcludeBoundaries(object):
             self.keep_rob = self._exclude_matrix_xyz(~bound.is_rob)
             self.keep_neu = self._exclude_matrix_xyz(~bound.is_neu)
 
-    def _basis_transformation(self, basis):
+    def _linear_transformation(self, loc_trans):
+        """
+        Creates a global linear transformation matrix from a set of local matrices.
+        The global matrix is a mapping from sub-faces to sub-faces as given by loc_trans.
+        The loc_trans matrices are given per sub-face and is a mapping from a nd vector
+        on each subface to a nd vector on each subface. (If self.bc_type="scalar" nd=1
+        is enforced). The loc_trans is a (nd, nd, num_subfno_unique) matrix where
+        loc_trans[:, :, i] gives the local transformation matrix to be applied to 
+        subface i.
+
+        Example:
+        --------
+        # We have two subfaces in dimension 2.
+        self.num_subfno = 4
+        self.nd = 2
+        # Identity map on first subface and rotate second by np.pi/2 radians
+        loc_trans = np.array([[[1, 0], [0, -1]], [[0, 1], [1, 0]]])
+        print(sef._linear_transformation(loc_trans))
+            [[1, 0, 0, 0],
+             [0, 0, 0, -1],
+             [0, 1, 0, 0],
+             [0, 0, 1, 0]]
+        """
         if self.bc_type == "scalar":
-            data = basis
+            data = loc_trans
             col = np.arange(self.num_subfno)
             row = np.arange(self.num_subfno)
             return sps.coo_matrix(
                 (data, (row, col)), shape=(self.num_subfno, self.num_subfno)
             ).tocsr()
         elif self.bc_type == "vectorial":
-            data = basis.ravel("C")
+            data = loc_trans.ravel("C")
             row = np.arange(self.num_subfno * self.nd).reshape((-1, self.num_subfno))
             row = np.tile(row, (1, self.nd)).ravel("C")
             col = np.tile(np.arange(self.num_subfno * self.nd), (1, self.nd)).ravel()
@@ -722,7 +788,7 @@ class ExcludeBoundaries(object):
                 shape=(self.num_subfno * self.nd, self.num_subfno * self.nd),
             ).tocsr()
         else:
-            raise AttributeError("Unknow basis type: " + self.bc_type)
+            raise AttributeError("Unknow loc_trans type: " + self.bc_type)
 
     def _exclude_matrix(self, ids):
         """
@@ -1222,6 +1288,19 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     """
     Convert a boundary condition defined for faces to a boundary condition defined by
     subfaces.
+
+    Parameters:
+    -----------
+    bound (pp.BoundaryCondition/pp.BoundarConditionVectorial):
+        Boundary condition given for faces.
+    subcell_topology (pp.fvutils.SubcellTopology):
+        The subcell topology defining the finite volume subgrid.
+
+    Returns:
+    --------
+    pp.BoundarCondition/pp.BoundarConditionVectorial: An instance of the
+        BoundaryCondition/BoundaryConditionVectorial class, where all face values of
+        bound has been copied to the subfaces as defined by subcell_topology.
     """
     bound = bound.copy()
     bound.is_dir = np.atleast_2d(bound.is_dir)[:, subcell_topology.fno_unique].squeeze()
