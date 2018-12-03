@@ -409,6 +409,9 @@ def extract_subgrid(g, c, sort=True, faces=False):
         np.ndarray, dtype=int: Index of the extracted nodes, ordered so that
             element i is the global index of node i in the subgrid.
 
+    Raises:
+        IndexError if index is as boolean and do not match the array size.
+
     """
     if np.asarray(c).dtype == "bool":
         # convert to indices.
@@ -530,6 +533,14 @@ def __extract_cells_from_faces_2d(g, f):
 
 
 def __extract_cells_from_faces_3d(g, f):
+    """
+    Extract a 2D grid from the faces of a 3D grid. One of the uses of this function
+    is to obtain a 2D MortarGrid from the boundary of a 3D grid. The faces f
+    must for now be planar, however, this is mainly because compute_geometry does not
+    handle non-planar grids. If the compute_geometry and exceptions are removed
+    this function should handle non-planar grids, however, this has not
+    been tested thouroghly thoroughly.
+    """
     # Local cell-face and face-node maps.
     cell_nodes, unique_nodes = __extract_submatrix(g.face_nodes, f)
     if not pp.cg.is_planar(g.nodes[:, unique_nodes]):
