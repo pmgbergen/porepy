@@ -193,17 +193,17 @@ class DualElliptic(
         # pylint: disable=invalid-name
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        f = parameter_dictionary["source"]
+
+        rhs = np.zeros(self.ndof(g))
 
         if g.dim == 0:
-            return np.hstack(([0], f))
+            return rhs
 
         bc = parameter_dictionary["bc"]
         bc_val = parameter_dictionary["bc_values"]
 
         assert not bool(bc is None) != bool(bc_val is None)
 
-        rhs = np.zeros(self.ndof(g))
         if bc is None:
             return rhs
 
