@@ -24,9 +24,7 @@ class BasicsTest(unittest.TestCase):
 
         bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
 
-        specified_parameters = {"bc": bound,
-                                "inverter": "python",
-        }
+        specified_parameters = {"bc": bound, "inverter": "python"}
         data = pp.initialize_data({}, g, "mechanics", specified_parameters)
         solver = pp.FracturedMpsa("mechanics")
 
@@ -54,9 +52,10 @@ class BasicsTest(unittest.TestCase):
         frac_bnd = g.tags["fracture_faces"]
         frac_slip[:, frac_bnd] = np.ones((g.dim, np.sum(frac_bnd)))
 
-        specified_parameters = {"bc": bound,
-                                "slip_distance": frac_slip.ravel("F"),
-                                "inverter": "python",
+        specified_parameters = {
+            "bc": bound,
+            "slip_distance": frac_slip.ravel("F"),
+            "inverter": "python",
         }
         data = pp.initialize_data({}, g, "mechanics", specified_parameters)
         solver = pp.FracturedMpsa("mechanics")

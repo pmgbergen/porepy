@@ -379,9 +379,6 @@ class RobinContact(object):
             data_edge: Data dictionary for the edge between the domains.
 
         """
-        # Mortar data structure.
-        mg = data_edge["mortar_grid"]
-
         # Zero in normal direction and ones in tangential
         mortar_weight = sps.block_diag(data_edge["mortar_weight"])
         robin_weight = sps.block_diag(data_edge["robin_weight"])

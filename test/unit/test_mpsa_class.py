@@ -34,7 +34,7 @@ class MpsaTest(unittest.TestCase):
                 "stress": stress,
                 "bound_stress": bound_stress,
             }
-            A, b = solver.assemble_matrix_rhs(g, data, discretize=False)
+            A, b = solver.assemble_matrix_rhs(g, data)
             self.assertTrue(np.sum(A != 0) == 0)
             self.assertTrue(np.all(b == 0))
 

@@ -64,7 +64,6 @@ class testBoundaryConditionsVectorial(unittest.TestCase):
         bound.basis = bound.basis[:, :, subcell_topology.fno_unique]
 
         # Obtain the face number for each coordinate
-        fno = subcell_topology.fno_unique
         subfno = subcell_topology.subfno_unique
         subfno_nd = np.tile(subfno, (nd, 1)) * nd + np.atleast_2d(np.arange(0, nd)).T
 

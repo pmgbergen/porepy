@@ -20,6 +20,7 @@ class FvSubGrid(pp.Grid):
     This should correspond the the eta given to the finite volume discretization.
 
     """
+
     def __init__(self, g, eta):
         """
         Initialization of grid.

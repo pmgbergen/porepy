@@ -1,5 +1,4 @@
 import numpy as np
-import scipy.sparse as sps
 import unittest
 
 import porepy as pp
