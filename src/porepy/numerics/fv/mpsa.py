@@ -68,7 +68,7 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
         parameter_dictionary contains the entries:
             fourth_order_tensor : (pp.FourthOrderTensor) Stiffness tensor defined cell-wise.
             bc : (BoundaryConditionVectorial) boundary conditions
-            continuity_point: (float/np.ndarray) Optional. Range [0, 1). Location of
+            mpsa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
                 displacement continuity point: eta. eta = 0 gives cont. pt. at face midpoint,
                 eta = 1 at the vertex. If not given, porepy tries to set an optimal
                 value. If a float is given this value is set to all subfaces, except the
@@ -103,25 +103,24 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
         c = parameter_dictionary["fourth_order_tensor"]
         bnd = parameter_dictionary["bc"]
 
-        eta = parameter_dictionary.get("continuity_point", None)
+        eta = parameter_dictionary.get("mpsa_eta", None)
 
-        partial = data.get("partial_update", False)
+        partial = parameter_dictionary.get("partial_update", False)
+        inverter = parameter_dictionary.get("inverter", None)
+
         if not partial:
             stress, bound_stress, bound_displacement_cell, bound_displacement_face = mpsa(
-                g, c, bnd, eta=eta
+                g, c, bnd, eta=eta, inverter=inverter
             )
             matrix_dictionary["stress"] = stress
             matrix_dictionary["bound_stress"] = bound_stress
             matrix_dictionary["bound_displacement_cell"] = bound_displacement_cell
             matrix_dictionary["bound_displacement_face"] = bound_displacement_face
         else:
-            a = data["param"].aperture
-            pp.fvutils.partial_discretization(
-                g, data, c, bnd, a, mpsa_partial, physics=self.physics
-            )
+            raise NotImplementedError("""Partial discretiation for the Mpsa class is not
+            implemented. See mpsa.mpsa_partial(...)""")
 
     def assemble_matrix_rhs(self, g, data, discretize=True, **kwargs):
-
         """
         Return the matrix and right-hand side for a discretization of a second
         order elliptic equation using a FV method with a multi-point stress
@@ -465,10 +464,8 @@ class FracturedMpsa(Mpsa):
     Subclass of MPSA for discretizing a fractured domain. Adds DOFs on each
     fracture face which describe the fracture deformation.
     """
-
     def __init__(self, keyword, given_traction=False, **kwargs):
         Mpsa.__init__(self, keyword, **kwargs)
-        raise Warning("FracturedMpsa will be removed in later versions")
         if not hasattr(self, "keyword"):
             raise AttributeError("Mpsa must assign keyword")
         self.given_traction_flag = given_traction

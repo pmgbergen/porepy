@@ -52,8 +52,9 @@ class Mpfa(FVElliptic):
             bc : (BoundaryCondition) boundary conditions
             apertures : (np.ndarray) apertures of the cells for scaling of
                 the face normals.
-            mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of pressure
-                continuity point. If not given, porepy tries to set an optimal value.
+            mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
+            pressure continuity point. If not given, porepy tries to set an optimal
+            value.
 
         matrix_dictionary will be updated with the following entries:
             flux: sps.csc_matrix (g.num_faces, g.num_cells)
