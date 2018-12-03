@@ -12,13 +12,13 @@ import porepy as pp
 
 def rhs(x, y, z):
     return (
-        8.
+        8.0
         * np.pi ** 2
-        * np.sin(2. * np.pi * x)
-        * np.sin(2. * np.pi * y)
+        * np.sin(2.0 * np.pi * x)
+        * np.sin(2.0 * np.pi * y)
         * permeability(x, y, z)
-        - 400. * np.pi * y * np.cos(2. * np.pi * y) * np.sin(2. * np.pi * x)
-        - 400. * np.pi * x * np.cos(2. * np.pi * x) * np.sin(2. * np.pi * y)
+        - 400.0 * np.pi * y * np.cos(2.0 * np.pi * y) * np.sin(2.0 * np.pi * x)
+        - 400.0 * np.pi * x * np.cos(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
     )
 
 
@@ -26,14 +26,14 @@ def rhs(x, y, z):
 
 
 def solution(x, y, z):
-    return np.sin(2. * np.pi * x) * np.sin(2. * np.pi * y)
+    return np.sin(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
 
 
 # ------------------------------------------------------------------------------#
 
 
 def permeability(x, y, z):
-    return 1. + 100. * x ** 2 + 100. * y ** 2
+    return 1.0 + 100.0 * x ** 2 + 100.0 * y ** 2
 
 
 # ------------------------------------------------------------------------------#
@@ -43,15 +43,12 @@ def add_data(g):
     """
     Define the permeability, apertures, boundary conditions
     """
-    param = pp.Parameters(g)
-
     # Permeability
     kxx = np.array([permeability(*pt) for pt in g.cell_centers.T])
-    param.set_tensor("flow", pp.SecondOrderTensor(3, kxx))
+    perm = pp.SecondOrderTensor(3, kxx)
 
     # Source term
-    source = np.array([rhs(*pt) for pt in g.cell_centers.T])
-    param.set_source("flow", g.cell_volumes * source)
+    source = g.cell_volumes * np.array([rhs(*pt) for pt in g.cell_centers.T])
 
     # Boundaries
     bound_faces = g.get_all_boundary_faces()
@@ -62,10 +59,14 @@ def add_data(g):
     bc_val = np.zeros(g.num_faces)
     bc_val[bound_faces] = np.array([solution(*pt) for pt in bound_face_centers.T])
 
-    param.set_bc("flow", pp.BoundaryCondition(g, bound_faces, labels))
-    param.set_bc_val("flow", bc_val)
-
-    return {"param": param}
+    bound = pp.BoundaryCondition(g, bound_faces, labels)
+    specified_parameters = {
+        "permeability": perm,
+        "source": source,
+        "bc": bound,
+        "bc_values": bc_val,
+    }
+    return pp.initialize_data({}, g, "flow", specified_parameters)
 
 
 # ------------------------------------------------------------------------------#
@@ -114,5 +115,5 @@ class BasicsTest(unittest.TestCase):
 
 
 # ------------------------------------------------------------------------------#
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

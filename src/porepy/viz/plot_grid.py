@@ -366,8 +366,9 @@ def add_info(g, info, ax, **kwargs):
         disp_loop(g.face_centers, "y", "d")
 
     if "O" in info.upper() and g.dim != 0:
-        normals = np.array([n / np.linalg.norm(n) for n in g.face_normals.T]).T
-        quiver(normals, ax, g, **kwargs)
+        # Plot face normals. Scaling set to reduce interference with other information
+        # and other face normals
+        quiver(g.face_normals * 0.4, ax, g, **kwargs)
 
 
 # ------------------------------------------------------------------------------#

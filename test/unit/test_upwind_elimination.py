@@ -23,8 +23,8 @@ class BasicsTest(unittest.TestCase):
         matrix, rhs, solution and time step estimate. Full solution included
         (as comments) for comparison purposes if test breaks.
         """
-        f1 = np.array([[0, 1], [.5, .5]])
-        f2 = np.array([[.5, .5], [0, 1]])
+        f1 = np.array([[0, 1], [0.5, 0.5]])
+        f2 = np.array([[0.5, 0.5], [0, 1]])
         domain = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
         mesh_size = 0.4
         mesh_kwargs = {}
@@ -137,17 +137,17 @@ class BasicsTest(unittest.TestCase):
 
         solver.split(gb_r, "pressure", p_red)
 
-        # pp.fvutils.compute_discharges(gb)
-        pp.fvutils.compute_discharges(gb_r)
+        # pp.fvutils.compute_darcy_flux(gb)
+        pp.fvutils.compute_darcy_flux(gb_r)
 
         # ------Transport------#
-        advection_discr = upwind.Upwind(physics="transport")
+        advection_discr = upwind.Upwind(keyword="transport")
         advection_coupling_conditions = upwind.UpwindCoupling(advection_discr)
         advection_coupler = coupler.Coupler(
             advection_discr, advection_coupling_conditions
         )
         U_r, rhs_u_r = advection_coupler.matrix_rhs(gb_r)
-        _, rhs_src_r = pp.IntegralMixedDim(physics="transport").matrix_rhs(gb_r)
+        _, rhs_src_r = pp.IntegralMixedDim(keyword="transport").matrix_rhs(gb_r)
         rhs_u_r = rhs_u_r + rhs_src_r
         deltaT = np.amin(
             gb_r.apply_function(
@@ -175,12 +175,12 @@ def fluxes_2d_1d_left_right_dir_neu():
             5.00000000e-01,
             5.04994426e-01,
             5.04994950e-01,
-            0.00000000e+00,
-            0.00000000e+00,
+            0.00000000e00,
+            0.00000000e00,
             4.99442570e-03,
             5.24244319e-07,
-            0.00000000e+00,
-            0.00000000e+00,
+            0.00000000e00,
+            0.00000000e00,
             -4.99442570e-03,
             -5.24244319e-07,
         ]
@@ -197,48 +197,48 @@ def known_for_elimination():
         [
             [
                 5.00000000e-01,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
             ],
             [
-                0.00000000e+00,
+                0.00000000e00,
                 5.28888404e-02,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
                 -5.28888404e-02,
             ],
             [
-                0.00000000e+00,
-                0.00000000e+00,
+                0.00000000e00,
+                0.00000000e00,
                 5.00000000e-01,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
             ],
             [
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
                 5.28888404e-02,
-                0.00000000e+00,
-                0.00000000e+00,
+                0.00000000e00,
+                0.00000000e00,
                 -5.28888404e-02,
-                0.00000000e+00,
+                0.00000000e00,
             ],
             [
-                0.00000000e+00,
+                0.00000000e00,
                 -3.65602442e-03,
-                0.00000000e+00,
+                0.00000000e00,
                 -3.65602442e-03,
                 9.11534368e-01,
                 -3.49849812e-01,
@@ -247,32 +247,32 @@ def known_for_elimination():
             ],
             [
                 -2.42588465e-01,
-                0.00000000e+00,
+                0.00000000e00,
                 -2.42588465e-01,
-                0.00000000e+00,
-                0.00000000e+00,
+                0.00000000e00,
+                0.00000000e00,
                 4.95176930e-01,
-                0.00000000e+00,
-                0.00000000e+00,
+                0.00000000e00,
+                0.00000000e00,
             ],
             [
-                0.00000000e+00,
-                0.00000000e+00,
+                0.00000000e00,
+                0.00000000e00,
                 -2.57411535e-01,
-                0.00000000e+00,
-                0.00000000e+00,
+                0.00000000e00,
+                0.00000000e00,
                 -7.26635590e-02,
                 3.30075094e-01,
                 -3.55271368e-15,
             ],
             [
                 -2.57411535e-01,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
-                0.00000000e+00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
                 -7.26635590e-02,
-                0.00000000e+00,
+                0.00000000e00,
                 3.30075094e-01,
             ],
         ]

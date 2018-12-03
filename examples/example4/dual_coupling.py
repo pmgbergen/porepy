@@ -179,13 +179,13 @@ def darcy_dualVEM_coupling_example2(**kwargs):
     np.set_printoptions(linewidth=999999, threshold=np.nan, precision=16)
 
     f_1 = np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]])
-    f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1.5, -1.5, .8, .8]])
+    f_2 = np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1.5, -1.5, 0.8, 0.8]])
     domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
 
     kwargs = {
-        "mesh_size_frac": .25,
+        "mesh_size_frac": 0.25,
         "mesh_size_bound": 10,
-        "mesh_size_min": .02,
+        "mesh_size_min": 0.02,
         "gmsh_path": "~/gmsh/bin/gmsh",
     }
 

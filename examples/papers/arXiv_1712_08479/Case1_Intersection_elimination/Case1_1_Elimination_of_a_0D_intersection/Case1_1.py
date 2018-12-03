@@ -24,8 +24,8 @@ def define_grid(nx, ny):
     fracture in a 2D matrix domain.
     """
     mesh_kwargs = {"physdims": np.array([1, 1])}
-    f_1 = np.array([[.5, .5], [0, 1]])
-    f_2 = np.array([[0, 1], [.5, .5]])
+    f_1 = np.array([[0.5, 0.5], [0, 1]])
+    f_2 = np.array([[0, 1], [0.5, 0.5]])
     fracs = [f_1, f_2]
     gb = meshing.cart_grid(fracs, [nx, ny], **mesh_kwargs)
     gb.assign_node_ordering()
@@ -51,7 +51,7 @@ class FlowData(EllipticDataAssigner):
     def bc(self):
         # Default values (Neumann) on the vertical fracture and
         # 0D grid
-        if self.grid().dim < 1 or abs(self.grid().face_centers[0, 0] - .5) < 1e-3:
+        if self.grid().dim < 1 or abs(self.grid().face_centers[0, 0] - 0.5) < 1e-3:
             return bc.BoundaryCondition(self.grid())
         # Dirichlet on the two other
         dirfaces = bc.face_on_side(self.grid(), ["xmin", "xmax"])
@@ -62,7 +62,7 @@ class FlowData(EllipticDataAssigner):
 
     def bc_val(self):
         bc_values = np.zeros(self.grid().num_faces)
-        if self.grid().dim > 0 and abs(self.grid().face_centers[0, 0] - .5) > 1e-3:
+        if self.grid().dim > 0 and abs(self.grid().face_centers[0, 0] - 0.5) > 1e-3:
             # p_D = 1-x for the two Dirichlet grids
             bc_values[bc.face_on_side(self.grid(), "xmin")[0]] = 1
         return bc_values
@@ -75,9 +75,9 @@ def update_perm(gb, k_hor, k_ver, k_intersection):
     for g, d in gb:
         if g.dim > 1:
             continue
-        if np.isclose(g.cell_centers[0, 0], .5):
+        if np.isclose(g.cell_centers[0, 0], 0.5):
             perm = tensor.SecondOrderTensor(3, k_ver * np.ones(g.num_cells))
-        if np.isclose(g.cell_centers[1, 0], .5) and g.dim == 1:
+        if np.isclose(g.cell_centers[1, 0], 0.5) and g.dim == 1:
             perm = tensor.SecondOrderTensor(3, k_hor * np.ones(g.num_cells))
         if g.dim == 0:
             perm = tensor.SecondOrderTensor(3, k_intersection * np.ones(g.num_cells))
@@ -145,9 +145,9 @@ def barplot(values, title="Schur complement", plot_type="error_"):
         ax.set_zlim([0, 2.5])
     else:
         z_label = "$E$"
-        es = np.array([.05, .1, .15])
+        es = np.array([0.05, 0.1, 0.15])
         zedges = es
-        ax.set_zlim([0, .155])
+        ax.set_zlim([0, 0.155])
     ax.view_init(27, 125)
     ax.set_zticks(zedges)
     sz_small = 10
@@ -163,7 +163,7 @@ def barplot(values, title="Schur complement", plot_type="error_"):
     sz = 14
     ax.text2D(1, 0.54, z_label, transform=ax.transAxes, size=sz)
     ax.text2D(0.25, 0, "$K_h$", transform=ax.transAxes, size=sz)
-    ax.text2D(.85, 0.08, "$K_v$", transform=ax.transAxes, size=sz)
+    ax.text2D(0.85, 0.08, "$K_v$", transform=ax.transAxes, size=sz)
     #    plt.title(t1 + ', ' + title, position=(.5, 1.06), size=sz)
     plt.savefig("figures/" + plot_type + title + ".png")
 

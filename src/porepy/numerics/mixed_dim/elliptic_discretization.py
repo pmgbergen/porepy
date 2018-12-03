@@ -48,9 +48,6 @@ class EllipticDiscretization(Solver):
         """
         self.keyword = keyword
 
-        # The physics keyword is kept for consistency for now, but will soon be purged.
-        self.physics = keyword
-
     def _key(self):
         """ Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
@@ -310,7 +307,9 @@ class EllipticDiscretization(Solver):
         """
         raise NotImplementedError("Method not implemented")
 
-    def enforce_neumann_int_bound(self, g_master, data_edge, matrix, swap_grid, self_ind):
+    def enforce_neumann_int_bound(
+        self, g_master, data_edge, matrix, swap_grid, self_ind
+    ):
         """ Enforce Neumann boundary conditions on a given system matrix.
 
         Methods based on a mixed variational form will need this function to

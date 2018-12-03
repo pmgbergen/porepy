@@ -482,9 +482,9 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True, **kwa
 
     """
     # Sanity check of input specification edge endpoints
-    assert np.all(
-        np.diff(edges[:2], axis=0) != 0
-    ), "Found point edge before" "removal of intersections"
+    assert np.all(np.diff(edges[:2], axis=0) != 0), (
+        "Found point edge before" "removal of intersections"
+    )
 
     # Use a non-standard naming convention for the logger to
     logger = logging.getLogger(__name__ + ".remove_edge_crossings")
@@ -540,8 +540,8 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True, **kwa
         b = -(end_x - start_x)
 
         # Midpoint of this edge
-        xm = (start_x[edge_counter] + end_x[edge_counter]) / 2.
-        ym = (start_y[edge_counter] + end_y[edge_counter]) / 2.
+        xm = (start_x[edge_counter] + end_x[edge_counter]) / 2.0
+        ym = (start_y[edge_counter] + end_y[edge_counter]) / 2.0
 
         # For all lines, find which side of line i it's two endpoints are.
         # If c1 and c2 have different signs, they will be on different sides
@@ -1662,17 +1662,19 @@ def rot(a, vect):
     matrix: np.ndarray, 3x3, the rotation matrix.
 
     """
-    if np.allclose(vect, [0., 0., 0.]):
+    if np.allclose(vect, [0.0, 0.0, 0.0]):
         return np.identity(3)
     vect = vect / np.linalg.norm(vect)
 
     # Prioritize readability over PEP0008 whitespaces.
     # pylint: disable=bad-whitespace
     W = np.array(
-        [[0., -vect[2], vect[1]], [vect[2], 0., -vect[0]], [-vect[1], vect[0], 0.]]
+        [[0.0, -vect[2], vect[1]], [vect[2], 0.0, -vect[0]], [-vect[1], vect[0], 0.0]]
     )
     return (
-        np.identity(3) + np.sin(a) * W + (1. - np.cos(a)) * np.linalg.matrix_power(W, 2)
+        np.identity(3)
+        + np.sin(a) * W
+        + (1.0 - np.cos(a)) * np.linalg.matrix_power(W, 2)
     )
 
 
@@ -1757,7 +1759,7 @@ def compute_normal(pts):
 def compute_normals_1d(pts):
     t = compute_tangent(pts)
     n = np.array([t[1], -t[0], 0]) / np.sqrt(t[0] ** 2 + t[1] ** 2)
-    return np.r_["1,2,0", n, np.dot(rot(np.pi / 2., t), n)]
+    return np.r_["1,2,0", n, np.dot(rot(np.pi / 2.0, t), n)]
 
 
 # ------------------------------------------------------------------------------#
@@ -2506,7 +2508,7 @@ def distance_point_segment(pt, start, end):
     pt_shift = end - start
     length = np.dot(pt_shift, pt_shift)
     u = np.dot(pt - start, pt_shift) / (length if length != 0 else 1)
-    dx = start + np.clip(u, 0., 1.) * pt_shift - pt
+    dx = start + np.clip(u, 0.0, 1.0) * pt_shift - pt
 
     return np.sqrt(np.dot(dx, dx)), dx + pt
 

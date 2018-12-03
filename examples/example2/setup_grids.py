@@ -25,11 +25,11 @@ def setup_2d():
     nx = np.array([3, 3])
     g_cart_rpert = structured.CartGrid(nx)
     dx = 1
-    pert = .4
+    pert = 0.4
     rand = np.vstack(
         (
             np.random.rand(g_cart_rpert.dim, g_cart_rpert.num_nodes),
-            np.repeat(0., g_cart_rpert.num_nodes),
+            np.repeat(0.0, g_cart_rpert.num_nodes),
         )
     )
     g_cart_rpert.nodes = g_cart_rpert.nodes + dx * pert * (0.5 - rand)
