@@ -153,7 +153,10 @@ def fracture_from_center_angle_length(c, l, a):
     return pts_n, edges_n
 
 def generate_from_distribution(num_fracs, dist_a):
-    return dist_a["dist"].rvs(*dist_a["param"], size=num_fracs)
+    if isinstance(dist_a['param'], dict):
+        return dist_a["dist"].rvs(**dist_a["param"], size=num_fracs)
+    else:
+        return dist_a["dist"].rvs(*dist_a["param"], size=num_fracs)
 
 
 def length(pts, edges, frac):

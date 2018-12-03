@@ -40,8 +40,9 @@ class FractureSet(object):
     Attributes:
         pts (np.array, 2 x num_pts): Start and endpoints of the fractures. Points
             can be shared by fractures.
-        edges (np.array, 2 x num_fracs): Indices, refering to pts, of the start
-            and end points of the fractures.
+        edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
+            indices, refering to pts, of the start and end points of the fractures.
+            Additional rows are optional tags of the fractures.
         domain (dictionary): The domain in which the fracture set is defined.
             Should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which
             maps to a double giving the range of the domain. The fractures need
@@ -56,8 +57,9 @@ class FractureSet(object):
         Parameters:
             pts (np.array, 2 x n): Start and endpoints of the fractures. Points
             can be shared by fractures.
-        edges (np.array, 2 x num_fracs): Indices, refering to pts, of the start
-            and end points of the fractures.
+        edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
+            indices, refering to pts, of the start and end points of the fractures.
+            Additional rows are optional tags of the fractures.
         domain (dictionary): The domain in which the fracture set is defined.
             Should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which
             maps to a double giving the range of the domain.
@@ -93,6 +95,10 @@ class FractureSet(object):
 
         The new set may contain non-unique points and edges.
 
+        WARNING: Tags, in FractureSet.edges[2:] are preserved. If the two sets have different
+        set of tags, the necessary rows and columns are filled with what is essentially
+        random values.
+
         Parameters:
             fs (FractureSet): Another set to be added
 
@@ -105,7 +111,27 @@ class FractureSet(object):
         logger.info(str(fs))
 
         p = np.hstack((self.pts, fs.pts))
-        e = np.hstack((self.edges, fs.edges + self.pts.shape[1]))
+        e = np.hstack((self.edges[:2], fs.edges[:2] + self.pts.shape[1]))
+
+        if self.edges.shape[0] > 2:
+            self_tags = self.edges[2:]
+        else:
+            self_tags = np.empty((0, self.num_frac))
+        if fs.edges.shape[0] > 2:
+            fs_tags = fs.edges[2:]
+        else:
+            fs_tags = np.empty((0, fs.num_frac))
+        if self_tags.size > 0 or fs_tags.size > 0:
+            n_self = self_tags.shape[0]
+            n_fs = fs_tags.shape[0]
+            if n_self < n_fs:
+                extra_tags = np.empty((n_fs - n_self, self.num_frac), dtype=np.int)
+                self_tags = np.vstack((self_tags, extra_tags))
+            elif n_self > n_fs:
+                extra_tags = np.empty((n_self - n_fs, fs.num_frac), dtype=np.int)
+                fs_tags = np.vstack((fs_tags, extra_tags))
+            tags = np.hstack((self_tags, fs_tags)).astype(np.int)
+            e = np.vstack((e, tags))
 
         domain = {
             "xmin": np.minimum(self.domain["xmin"], fs.domain["xmin"]),
@@ -807,7 +833,7 @@ class FractureSet(object):
             **kwargs: Keyword arguments to be passed on to matplotlib.
 
         """
-        pp.plot_fractures(self.domain, self.pts, self.edges)
+        pp.plot_fractures(self.domain, self.pts, self.edges, **kwargs)
 
     def __str__(self):
         s = "Fracture set consisting of " + str(self.num_frac) + " fractures,"
@@ -900,12 +926,11 @@ class ChildFractureSet(FractureSet):
             # Decide on the number of children
             logging.debug("Parent fracture %i", pi)
 
-            num_children = self._draw_num_children(parent_realiz, pi)
-            logging.debug("Fracture has %i children", num_children)
-
-            # If this fracture has no children, continue
-            if num_children == 0:
-                continue
+            if self.points_along_fracture != 'distribution':
+                num_children = self._draw_num_children(parent_realiz, pi)
+                logging.debug("Fracture has %i children", num_children)
+            else:
+                num_children = 0
 
             # Find the location of children points along the parent.
             # The interpretation of this point will differ, depending on whether
@@ -913,6 +938,11 @@ class ChildFractureSet(FractureSet):
             children_points = self._draw_children_along_parent(
                 parent_realiz, pi, num_children
             )
+            num_children = children_points.shape[1]
+            # If this fracture has no children, continue
+            if num_children == 0:
+                continue
+
             # For all children, decide type of child
             if y_separately:
                 is_isolated, is_one_y, is_both_y = self._draw_children_type(
@@ -1002,7 +1032,8 @@ class ChildFractureSet(FractureSet):
             These parameters are currently not in use. In the future, the number
             of children should scale with the length of the parent fracture.
         """
-        return np.round(self.dist_num_children['dist'].rvs(1)[0] * parent_realiz.length()[pi]).astype(np.int)
+        nc = frac_gen.generate_from_distribution(1, self.dist_num_children)
+        return np.round(nc * parent_realiz.length()[pi]).astype(np.int)
 
     def _draw_children_along_parent(self, parent_realiz, pi, num_children):
         """ Define location of children along the lines of a parent fracture.
@@ -1026,13 +1057,29 @@ class ChildFractureSet(FractureSet):
             np.array, 2 x num_children: Children points along the parent fracture.
 
         """
-
         # Start and end of the parent fracture
         start, end = parent_realiz.get_points(pi)
-
+        # Vector along parent
         dx = end - start
 
-        p = start + np.random.rand(num_children) * dx
+        # Random distribution
+        if self.points_along_fracture == 'random':
+            p = start + np.random.rand(num_children) * dx
+        elif self.points_along_fracture == 'uniform':
+            dist = (0.5 + np.arange(num_children))/(num_children + 1)
+            p = start + dist * dx
+            print(p)
+        elif self.points_along_fracture == 'distribution':
+            nrm_dx = np.sqrt(np.sum(dx **2))
+            length = 0
+            p = np.empty((2, 0))
+            while True:
+                length += frac_gen.generate_from_distribution(1, self.dist_along_fracture)
+                if length > nrm_dx:
+                    break
+                p = np.hstack((p, start + length * dx / nrm_dx))
+
+
         if p.size == 2:
             p = p.reshape((-1, 1))
         return p
