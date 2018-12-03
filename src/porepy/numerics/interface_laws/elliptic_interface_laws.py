@@ -417,8 +417,10 @@ class RobinContact(object):
 
         mortar_weight = sps.block_diag(parameter_dictionary_edge["mortar_weight"])
         robin_weight = sps.block_diag(parameter_dictionary_edge["robin_weight"])
+        robin_rhs = parameter_dictionary_edge["robin_rhs"]
         matrix_dictionary_edge["mortar_weight"] = mortar_weight
         matrix_dictionary_edge["robin_weight"] = robin_weight
+        matrix_dictionary_edge["robin_rhs"] = robin_rhs
 
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
@@ -524,7 +526,7 @@ class RobinContact(object):
         # We now have to flip the sign of some of the matrices
         # First we flip the sign of the master stress because the mortar stress
         # is defined from the slave stress. Then, stress_master = -\lambda
-        cc_master[master_ind, 2] = -cc_master[slave_ind, 2]
+        cc_master[master_ind, 2] = -cc_master[master_ind, 2]
         # Then we flip the sign for the master displacement since the displacement
         # jump is defined as u_slave - u_master
         cc_master[2, master_ind] = -cc_master[2, master_ind]
@@ -543,6 +545,7 @@ class RobinContact(object):
 
         # The displacement jump is scaled by a matrix in the Robin condition:
         robin_weight = matrix_dictionary_edge["robin_weight"]
+
         cc_sm = cc_master + cc_slave
         for i in range(3):
             cc_sm[2, i] = robin_weight * cc_sm[2, i]
@@ -593,6 +596,7 @@ class StressDisplacementContinuity(RobinContact):
         """ Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
         Parameters:
+        ----------
             g_master: Grid on one neighboring subdomain.
             g_slave: Grid on the other neighboring subdomain.
             data_master: Data dictionary for the master suddomain
@@ -602,11 +606,6 @@ class StressDisplacementContinuity(RobinContact):
             matrix_slave: original discretization for the slave subdomain
 
         """
-        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
-
-        if not "mortar_weight" in matrix_dictionary_edge.keys():
-            self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         if not g_master.dim == g_slave.dim:
             raise AssertionError("Slave and master must have same dimension")
@@ -689,7 +688,7 @@ class StressDisplacementContinuity(RobinContact):
         # We now have to flip the sign of some of the matrices
         # First we flip the sign of the master stress because the mortar stress
         # is defined from the slave stress. Then, stress_master = -\lambda
-        cc_master[master_ind, 2] = -cc_master[slave_ind, 2]
+        cc_master[master_ind, 2] = -cc_master[master_ind, 2]
         # Then we flip the sign for the master displacement since the displacement
         # jump is defined as u_slave - u_master
         cc_master[2, master_ind] = -cc_master[2, master_ind]

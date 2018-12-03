@@ -49,6 +49,8 @@ from porepy.numerics.mixed_dim.elliptic_assembler import EllipticAssembler
 from porepy.numerics.interface_laws.elliptic_interface_laws import (
     RobinCoupling,
     FluxPressureContinuity,
+    RobinContact,
+    StressDisplacementContinuity,
 )
 from porepy.numerics.mixed_dim.assembler import Assembler
 
