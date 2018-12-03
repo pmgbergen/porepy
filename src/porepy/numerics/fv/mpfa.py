@@ -34,16 +34,48 @@ class Mpfa(FVElliptic):
 
     def discretize(self, g, data):
         """
-        The data should contain a parameter class under the field "param".
-        The following parameters will be accessed:
-        get_tensor : SecondOrderTensor. Permeability defined cell-wise.
-        get_bc : boundary conditions
-        get_robin_weight : float. Weight for pressure in Robin condition
+        Discretize the second order elliptic equation using multi-point flux
+        approximation.
+
+        The method computes fluxes over faces in terms of pressures defined at the
+        cell centers.
+
+        We assume the following two sub-dictionaries to be present in the data
+        dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        parameter_dictionary contains the entries:
+            second_order_tensor : (SecondOrderTensor) Permeability defined cell-wise.
+            bc : (BoundaryCondition) boundary conditions
+            apertures : (np.ndarray) apertures of the cells for scaling of
+                the face normals.
+            mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of pressure
+                continuity point. If not given, porepy tries to set an optimal value.
+
+        matrix_dictionary will be updated with the following entries:
+            flux: sps.csc_matrix (g.num_faces, g.num_cells)
+                flux discretization, cell center contribution 
+            bound_flux: sps.csc_matrix (g.num_faces, g.num_faces)
+                flux discretization, face contribution 
+            bound_pressure_cell: sps.csc_matrix (g.num_faces, g.num_cells)
+                Operator for reconstructing the pressure trace. Cell center contribution
+            bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
+                Operator for reconstructing the pressure trace. Face contribution
+
+        Hidden option (intended as "advanced" option that one should normally not
+        care about):
+            Half transmissibility calculation according to Ivar Aavatsmark, see
+            folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry
+            Aavatsmark_transmissibilities: True   to the data dictionary.
+
         Parameters
         ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
-
+        g (pp.Grid): grid, or a subclass, with geometry fields computed.
+        data (dict): For entries, see above.
+        faces (np.ndarray): optional. Defines active faces.
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
