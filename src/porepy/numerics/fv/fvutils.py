@@ -754,7 +754,7 @@ class ExcludeBoundaries(object):
         The loc_trans matrices are given per sub-face and is a mapping from a nd vector
         on each subface to a nd vector on each subface. (If self.bc_type="scalar" nd=1
         is enforced). The loc_trans is a (nd, nd, num_subfno_unique) matrix where
-        loc_trans[:, :, i] gives the local transformation matrix to be applied to 
+        loc_trans[:, :, i] gives the local transformation matrix to be applied to
         subface i.
 
         Example:
