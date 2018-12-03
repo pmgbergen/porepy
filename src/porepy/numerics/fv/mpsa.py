@@ -34,7 +34,6 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
         """
         return g.dim * g.num_cells
 
-
     def extract_displacement(self, g, solution_array, d):
         """ Extract the pressure part of a solution.
         The method is trivial for finite volume methods, with the pressure
@@ -52,40 +51,64 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
         """
         return solution_array
 
-    def discretize(self, g, data, **kwargs):
+    def discretize(self, g, data):
         """
-        Discretize the vector elliptic equation by the multi-point stress
+        Discretize the second order vector elliptic equation using multi-point
+        stress approximation.
 
-        The method computes fluxes over faces in terms of displacements in
-        adjacent cells (defined as the two cells sharing the face).
+        The method computes traction over faces in terms of cell center displacements.
 
-        The name of data in the input dictionary (data) are:
-        param : Parameter(Class). Contains the following parameters:
-            tensor : fourth_order_tensor
-                Permeability defined cell-wise. If not given a identity permeability
-                is assumed and a warning arised.
-            bc : boundary conditions (optional)
-            bc_val : dictionary (optional)
-                Values of the boundary conditions. The dictionary has at most the
-                following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-                conditions, respectively.
-            apertures : (np.ndarray) (optional) apertures of the cells for scaling of
-                the face normals.
+        We assume the following two sub-dictionaries to be present in the data
+        dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        parameter_dictionary contains the entries:
+            fourth_order_tensor : (pp.FourthOrderTensor) Stiffness tensor defined cell-wise.
+            bc : (BoundaryConditionVectorial) boundary conditions
+            continuity_point: (float/np.ndarray) Optional. Range [0, 1). Location of
+                displacement continuity point: eta. eta = 0 gives cont. pt. at face midpoint,
+                eta = 1 at the vertex. If not given, porepy tries to set an optimal
+                value. If a float is given this value is set to all subfaces, except the
+                boundary (where, 0 is used). If eta is a np.ndarray its size should
+                equal SubcellTopology(g).num_subfno.
+
+        matrix_dictionary will be updated with the following entries:
+            stress: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_cells)
+                stress discretization, cell center contribution 
+            bound_flux: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_faces)
+                stress discretization, face contribution 
+            bound_displacement_cell: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_cells)
+                Operator for reconstructing the displacement trace. Cell center contribution
+            bound_displacement_face: sps.csc_matrix (g.dim * g.num_faces, g.dim * g.num_faces)
+                Operator for reconstructing the displacement trace. Face contribution
+            
+
+        Hidden option (intended as "advanced" option that one should normally not
+        care about):
+            Half transmissibility calculation according to Ivar Aavatsmark, see
+            folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry
+            Aavatsmark_transmissibilities: True   to the data dictionary.
 
         Parameters
         ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
+        g (pp.Grid): grid, or a subclass, with geometry fields computed.
+        data (dict): For entries, see above.
+        faces (np.ndarray): optional. Defines active faces.
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         c = parameter_dictionary["fourth_order_tensor"]
         bnd = parameter_dictionary["bc"]
 
+        eta = parameter_dictionary.get("continuity_point", None)
+
         partial = data.get("partial_update", False)
         if not partial:
             stress, bound_stress, bound_displacement_cell, bound_displacement_face = mpsa(
-                g, c, bnd, **kwargs
+                g, c, bnd, eta=eta
             )
             matrix_dictionary["stress"] = stress
             matrix_dictionary["bound_stress"] = bound_stress
@@ -445,7 +468,7 @@ class FracturedMpsa(Mpsa):
 
     def __init__(self, keyword, given_traction=False, **kwargs):
         Mpsa.__init__(self, keyword, **kwargs)
-        raise Warning('FracturedMpsa will be removed in later versions')
+        raise Warning("FracturedMpsa will be removed in later versions")
         if not hasattr(self, "keyword"):
             raise AttributeError("Mpsa must assign keyword")
         self.given_traction_flag = given_traction
@@ -1061,13 +1084,9 @@ def mpsa_update_partial(
     bound_stress (scipy.sparse.csr_matrix (shape num_faces, num_faces)): bound stress
             discretization of boundary conditions as returned form mpsa(...).
     hf_cell (scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_cells)):
-            Defaults to None. If None is given only stress and bound_stress is updated.
-            If a matrix is given it is updated for the displacement reconstruction
-            at the sub faces.
+            Sub-face displacement reconstruction at the sub faces.
     hf_bound (scipy.sparse.csr_matrix (g.dim*shape num_hfaces, g.dim*num_faces)):
-            Defaults to None. If None is given only stress and bound_stress is updated.
-            If a matrix is given it is updated for the displacement reconstruction
-            at the sub faces.
+            Sub-face displacement reconstruction at the sub faces.
     This is just a wrapper for the mpsa_partial(...), see this function for information
     abount the remainding parameters.
 
@@ -1606,7 +1625,7 @@ def reconstruct_displacement(g, subcell_topology, eta=None):
         g: Grid
         subcell_topology: Wrapper class for numbering of subcell faces, cells
             etc.
-        eta (float or ndarray, range=[0,1]): Optional. Parameter determining the point
+        eta (float or ndarray, range=[0,1)): Optional. Parameter determining the point
             at which the displacement is evaluated. If eta is a nd-array it should be on
             the size of subcell_topology.num_subfno. If eta is not given the method will
             call fvutils.determine_eta(g) to set it.

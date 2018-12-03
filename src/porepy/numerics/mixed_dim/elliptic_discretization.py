@@ -325,7 +325,6 @@ class EllipticDiscretization(Solver):
         """
         raise NotImplementedError("Method not implemented")
 
-    
 
 class VectorEllipticDiscretization(Solver):
     """ Superclass for finite volume discretizations of the vector elliptic equation.
