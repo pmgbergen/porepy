@@ -348,11 +348,24 @@ class FluxPressureContinuity(RobinCoupling):
 
 
 class RobinContact(object):
-    """Contact condition for elastic problem
+    """
+    Contact condition for elastic problem. This condition defines a Robin condition
+    for the stress and displacement jump between slave and master boundaries. g_slave
+    and g_master must have the same dimension.
+
+    The contact condition is Newton's third law
+    \sigma \cdot n_slave = -\sigma \cdot n_master,
+    i.e., traction on the two sides must be equal and oposite, and a Robin-type condition
+    on the displacement jump
+    MW * \lambda + RW [u] = robin_rhs
+    where MW and RW are matrices of size (g_slave.dim, g.slave.dim), and
+    \labmda = \sigma \cdot \n_slave.
+    The jump operator [\cdot] is given by
+    [v] = v_slave - v_master,
+    and robin_rhs is a given rhs.
     """
 
     def __init__(self, keyword, discr_master, discr_slave=None):
-        # @ALL should the node discretization default to Tpfa?
         self.keyword = keyword
         if discr_slave is None:
             discr_slave = discr_master
@@ -369,7 +382,27 @@ class RobinContact(object):
         return (mg.dim + 1) * mg.num_cells
 
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
-        """ Nothing really to do here
+        """
+        Discretize the Mortar coupling.
+        We assume the following two sub-dictionaries to be present in the data_edge
+        dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        parameter_dictionary contains the entries:
+            robin_weigth (list): a list of mortar_grid.num_cells np.ndarrays of 
+                shape (mortar_grid.dim + 1, mortar_grid.dim + 1) giving the displacement
+                jump weight.
+            mortar_weigth (list): a list of mortar_grid.num_cells np.ndarrays of 
+                shape (mortar_grid.dim + 1, mortar_grid.dim + 1) giving the mortar
+
+        matrix_dictionary will be updated with the following entries:
+            mortar_weigth: sps.csc_matrix (mg.num_cells * mg.dim, mg.num_cells * mg.dim)
+                The weight matrix applied to the mortar variables.
+            robin_weigth: sps.csc_matrix (mg.num_cells * mg.dim, mg.num_cells * mg.dim)
+                The weight matrix applied to the displacement jump.
 
         Parameters:
             g_h: Grid of the master domanin.
@@ -379,11 +412,13 @@ class RobinContact(object):
             data_edge: Data dictionary for the edge between the domains.
 
         """
-        # Zero in normal direction and ones in tangential
-        mortar_weight = sps.block_diag(data_edge["mortar_weight"])
-        robin_weight = sps.block_diag(data_edge["robin_weight"])
-        data_edge[self._key() + "mortar_weight"] = mortar_weight
-        data_edge[self._key() + "robin_weight"] = robin_weight
+        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
+
+        mortar_weight = sps.block_diag(parameter_dictionary_edge["mortar_weight"])
+        robin_weight = sps.block_diag(parameter_dictionary_edge["robin_weight"])
+        matrix_dictionary_edge["mortar_weight"] = mortar_weight
+        matrix_dictionary_edge["robin_weight"] = robin_weight
 
     def assemble_matrix_rhs(
         self, g_master, g_slave, data_master, data_slave, data_edge, matrix
@@ -399,12 +434,11 @@ class RobinContact(object):
             matrix_master: original discretization for the master subdomain
             matrix_slave: original discretization for the slave subdomain
 
-            The discretization matrices must be included since they will be
-            changed by the imposition of Neumann boundary conditions on the
-            internal boundary in some numerical methods (Read: VEM, RT0)
-
         """
-        if not self._key() + "contact_discr" in data_edge.keys():
+        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
+
+        if not "mortar_weight" in matrix_dictionary_edge.keys():
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         if not g_master.dim == g_slave.dim:
@@ -423,19 +457,19 @@ class RobinContact(object):
         if not dof_master == matrix[master_ind, master_ind].shape[1]:
             raise ValueError(
                 """The number of dofs of the master discretization given
-            in FluxPressureContinuity must match the number of dofs given by the matrix
+            in RobinContact must match the number of dofs given by the matrix
             """
             )
         elif not dof_slave == matrix[master_ind, slave_ind].shape[1]:
             raise ValueError(
                 """The number of dofs of the slave discretization given
-            in FluxPressureContinuity must match the number of dofs given by the matrix
+            in RobinContact must match the number of dofs given by the matrix
             """
             )
         elif not self.ndof(mg) == matrix[master_ind, 2].shape[1]:
             raise ValueError(
                 """The number of dofs of the edge discretization given
-            in FluxPressureContinuity must match the number of dofs given by the matrix
+            in RobinContact must match the number of dofs given by the matrix
             """
             )
         # We know the number of dofs from the master and slave side from their
@@ -452,12 +486,12 @@ class RobinContact(object):
         cc_slave = cc_master.copy()
         cc_mortar = cc_master.copy()
 
-        # The rhs is just zeros
         # EK: For some reason, the following lines were necessary to apease python
         rhs = np.empty(3, dtype=np.object)
         rhs[master_ind] = np.zeros(dof_master)
         rhs[slave_ind] = np.zeros(dof_slave)
-        rhs[2] = data_edge["rhs"]
+        # For the robin condition we assign a rhs
+        rhs[2] = matrix_dictionary_edge["robin_rhs"]
 
         # The convention, for now, is to put the master grid information
         # in the first column and row in matrix, slave grid in the second
@@ -471,46 +505,54 @@ class RobinContact(object):
         else:
             master_ind = 0
 
+        # Obtain the displacement trace u_master
         self.discr_master.assemble_int_bound_displacement_trace(
             g_master, data_master, data_edge, False, cc_master, matrix, master_ind
         )
-
+        # set \sigma_master = -\lamba
         self.discr_master.assemble_int_bound_stress(
             g_master, data_master, data_edge, False, cc_master, matrix, master_ind
         )
-
+        # Obtain the displacement trace u_slave
         self.discr_slave.assemble_int_bound_displacement_trace(
             g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
         )
-
+        # set \sigma_slave = \lamba
         self.discr_slave.assemble_int_bound_stress(
             g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
         )
         # We now have to flip the sign of some of the matrices
         # First we flip the sign of the master stress because the mortar stress
-        # is defined from the slave stress. Then, flux_m = -mortar_flux
+        # is defined from the slave stress. Then, stress_master = -\lambda
         cc_master[master_ind, 2] = -cc_master[slave_ind, 2]
-        # Then we flip the sign for the displacement continuity since we have
-        # We have that p_m - p_s = 0.
+        # Then we flip the sign for the master displacement since the displacement
+        # jump is defined as u_slave - u_master
         cc_master[2, master_ind] = -cc_master[2, master_ind]
-        # Note that cc_master[2, 2] is fliped twice, first for displacement continuity
-        # now, the matrix cc = cc_slave + cc_master expresses the flux and pressure
-        # continuities over the mortars.
-        # cc[0] -> flux_m = mortar_stress
-        # cc[1] -> flux_s = -mortar_stress
-        # cc[1] -> u_s - u_m = 0
+        # Note that cc_master[2, 2] is fliped twice, first in Newton's third law,
+        # then for the displacement jump.
 
-        # Finally we add the mortar discretization
-        cc_mortar[2, 2] = data_edge[self._key() + "mortar_weight"]
+        # now, the matrix cc = cc_slave + cc_master expresses the stress and displacement
+        # continuities over the mortar grid.
+        # cc[0] -> stress_master = mortar_stress
+        # cc[1] -> stress_slave = -mortar_stress
+        # cc[2] -> u_slave - u_master = 0
 
-        # multiply by robin weight
-        robin_weight = data_edge[self._key() + "robin_weight"]
+        # We don't want to enforce the displacement jump, but a Robin condition.
+        # We therefore add the mortar variable to the last equation.
+        cc_mortar[2, 2] = matrix_dictionary_edge["mortar_weight"]
+
+        # The displacement jump is scaled by a matrix in the Robin condition:
+        robin_weight = matrix_dictionary_edge["robin_weight"]
         cc_sm = cc_master + cc_slave
         for i in range(3):
             cc_sm[2, i] = robin_weight * cc_sm[2, i]
 
+        # Now define the complete Robin condition:
+        # mortar_weight * \lambda + "robin_weight" * [u] = robin_rhs
         matrix += cc_sm + cc_mortar
 
+        # The following two functions might or might not be needed when using
+        # a finite element discretization (see RobinCoupling for flow).
         self.discr_master.enforce_neumann_int_bound(
             g_master, data_edge, matrix, False, master_ind
         )
@@ -522,6 +564,16 @@ class RobinContact(object):
 
 
 class StressDisplacementContinuity(RobinContact):
+    """
+    Contact condition for elastic problem. This condition defines continuity for
+    the stress and displacement jump between slave and master boundaries. g_slave
+    and g_master must have the same dimension.
+
+    This contact condition is equivalent as if the slave and master domain was
+    a single connected domain (the discrete solution will be different as the
+    discretization will be slightly different).
+    """
+
     def discretize(self, g_h, g_l, data_h, data_l, data_edge):
         """ Nothing really to do here
 
@@ -540,7 +592,6 @@ class StressDisplacementContinuity(RobinContact):
     ):
         """ Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
-
         Parameters:
             g_master: Grid on one neighboring subdomain.
             g_slave: Grid on the other neighboring subdomain.
@@ -550,12 +601,11 @@ class StressDisplacementContinuity(RobinContact):
             matrix_master: original discretization for the master subdomain
             matrix_slave: original discretization for the slave subdomain
 
-            The discretization matrices must be included since they will be
-            changed by the imposition of Neumann boundary conditions on the
-            internal boundary in some numerical methods (Read: VEM, RT0)
-
         """
-        if not self._key() + "contact_discr" in data_edge.keys():
+        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
+        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
+
+        if not "mortar_weight" in matrix_dictionary_edge.keys():
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)
 
         if not g_master.dim == g_slave.dim:
@@ -620,38 +670,42 @@ class StressDisplacementContinuity(RobinContact):
         else:
             master_ind = 0
 
+        # Obtain the displacement trace u_master
         self.discr_master.assemble_int_bound_displacement_trace(
             g_master, data_master, data_edge, False, cc_master, matrix, master_ind
         )
+        # set \sigma_master = -\lamba
         self.discr_master.assemble_int_bound_stress(
             g_master, data_master, data_edge, False, cc_master, matrix, master_ind
         )
-
+        # Obtain the displacement trace u_slave
         self.discr_slave.assemble_int_bound_displacement_trace(
             g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
         )
-
+        # set \sigma_slave = \lamba
         self.discr_slave.assemble_int_bound_stress(
             g_slave, data_slave, data_edge, True, cc_slave, matrix, slave_ind
         )
         # We now have to flip the sign of some of the matrices
         # First we flip the sign of the master stress because the mortar stress
-        # is defined from the slave stress. Then, flux_m = -mortar_flux
+        # is defined from the slave stress. Then, stress_master = -\lambda
         cc_master[master_ind, 2] = -cc_master[slave_ind, 2]
-        # Then we flip the sign for the displacement continuity since we have
-        # We have that p_m - p_s = 0.
+        # Then we flip the sign for the master displacement since the displacement
+        # jump is defined as u_slave - u_master
         cc_master[2, master_ind] = -cc_master[2, master_ind]
+        # Note that cc_master[2, 2] is fliped twice, first in Newton's third law,
+        # then for the displacement jump.
 
-        # Note that cc_master[2, 2] is fliped twice, first for displacement continuity
-        # now, the matrix cc = cc_slave + cc_master expresses the flux and pressure
-        # continuities over the mortars.
-        # cc[0] -> flux_m = mortar_stress
-        # cc[1] -> flux_s = -mortar_stress
-        # cc[1] -> u_s - u_m = 0
+        # now, the matrix cc = cc_slave + cc_master expresses the stress and displacement
+        # continuities over the mortar grid.
+        # cc[0] -> stress_master = mortar_stress
+        # cc[1] -> stress_slave = -mortar_stress
+        # cc[2] -> u_slave - u_master = 0
 
-        #        cc_master[2, 2] = sps.eye(self.ndof(mg))
         matrix += cc_master + cc_slave
 
+        # The following two functions might or might not be needed when using
+        # a finite element discretization (see RobinCoupling for flow).
         self.discr_master.enforce_neumann_int_bound(
             g_master, data_edge, matrix, False, master_ind
         )
