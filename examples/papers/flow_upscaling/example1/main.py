@@ -127,23 +127,23 @@ if __name__ == "__main__":
 
             t_max = delta_x * delta_x * mu / (bc_flow * km)
 
-    mesh_args = {'mesh_size_frac': h, "mesh_size_min": h/2}
+        mesh_args = {'mesh_size_frac': h, "mesh_size_min": h/2}
 
-    # select the permeability depending on the selected test case
-    param = {
-        "aperture": aperture,
-        "kf": aperture**2 / 12,
-        "km": km,
-        "porosity_f": 0.85,
-        "time_step": t_max/n_steps,
-        "n_steps": n_steps,
-        "fluid": fluid,
-        "rock": rock,
-        "tol": tol["geo"],
-        "folder": folder,
-        "bc_flow": bc_flow,
-        "initial_advdiff": theta_ref,
-        "bc_advdiff": 20 * pp.CELSIUS
-    }
+        # select the permeability depending on the selected test case
+        param = {
+            "aperture": aperture,
+            "kf": aperture**2 / 12,
+            "km": km,
+            "porosity_f": 0.85,
+            "time_step": t_max/n_steps,
+            "n_steps": n_steps,
+            "fluid": fluid,
+            "rock": rock,
+            "tol": tol["geo"],
+            "folder": folder,
+            "bc_flow": bc_flow,
+            "initial_advdiff": theta_ref,
+            "bc_advdiff": 20 * pp.CELSIUS
+        }
 
-    main(file_geo, param, mesh_args, tol)
+        main(file_geo, param, mesh_args, tol)
