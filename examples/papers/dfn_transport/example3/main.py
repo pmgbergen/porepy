@@ -4,22 +4,14 @@ import porepy as pp
 import examples.papers.dfn_transport.discretization as discr
 from examples.papers.dfn_transport.flux_trace import jump_flux
 
-def bc_flag(g, domain, tol): # TODO TOFIX
+def bc_flag(g, domain, out_flow_start, out_flow_end, in_flow_start, in_flow_end, tol):
     b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
     b_face_centers = g.face_centers[:, b_faces]
-
-    # define inflow type boundary conditions
-    out_flow_start = np.array([1.011125, 0.249154, 0.598708])
-    out_flow_end = np.array([1.012528, 0.190858, 0.886822])
 
     # detect all the points aligned with the segment
     dist, _ = pp.cg.dist_points_segments(b_face_centers, out_flow_start, out_flow_end)
     dist = dist.flatten()
     out_flow = np.logical_and(dist < tol, dist >=-tol)
-
-    # define outflow type boundary conditions
-    in_flow_start = np.array([0.206507, 0.896131, 0.183632])
-    in_flow_end = np.array([0.181980, 0.813947, 0.478618])
 
     # detect all the points aligned with the segment
     dist, _ = pp.cg.dist_points_segments(b_face_centers, in_flow_start, in_flow_end)
@@ -27,6 +19,30 @@ def bc_flag(g, domain, tol): # TODO TOFIX
     in_flow = np.logical_and(dist < tol, dist >=-tol)
 
     return in_flow, out_flow
+
+def bc_different(g, domain, tol):
+
+    # define inflow type boundary conditions
+    out_flow_start = np.array([600, 681.692, 452.268])
+    out_flow_end = np.array([600, 681.692, 1000])
+
+    # define outflow type boundary conditions
+    in_flow_start = np.array([-800, 1057.86, 303.448])
+    in_flow_end = np.array([-800, 1057.86, 1000])
+
+    return bc_flag(g, domain, out_flow_start, out_flow_end, in_flow_start, in_flow_end, tol)
+
+def bc_same(g, domain, tol):
+
+    # define inflow type boundary conditions
+    out_flow_start = np.array([134.428, 100, 18.9949])
+    out_flow_end = np.array([134.429, 100, 1000])
+
+    # define outflow type boundary conditions
+    in_flow_start = np.array([-84.3598, 1500, -6.65313])
+    in_flow_end = np.array([-84.3598, 1500, 1000])
+
+    return bc_flag(g, domain, out_flow_start, out_flow_end, in_flow_start, in_flow_end, tol)
 
 def main():
 
@@ -37,25 +53,30 @@ def main():
     mesh_size = 1e2 #np.power(2., -4)
     mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
     tol = 1e-2
-    gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, **mesh_kwargs)
 
-    gb.remove_nodes(lambda g: g.dim == 0)
-    gb.compute_geometry()
-    gb.assign_node_ordering()
+    bc_types = {"same": bc_same, "different": bc_different}
 
-    domain = gb.bounding_box(as_dict=True)
+    for folder, bc_type in bc_types.items():
 
-    param = {"domain": domain, "tol": tol, "k": 1,
-             "diff": 1e-4, "time_step": 0.05, "n_steps": 1,
-             "folder": "solution"}
+        gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, **mesh_kwargs)
 
-    # the flow problem
-    model_flow = discr.flow(gb, param, bc_flag)
+        gb.remove_nodes(lambda g: g.dim == 0)
+        gb.compute_geometry()
+        gb.assign_node_ordering()
 
-    jump_flux(gb, param["mortar_flux"])
+        domain = gb.bounding_box(as_dict=True)
 
-    # the advection-diffusion problem
-    discr.advdiff(gb, param, model_flow, bc_flag)
+        param = {"domain": domain, "tol": tol, "k": 1,
+                 "diff": 1e-4, "time_step": 0.05, "n_steps": 10000,
+                 "folder": folder}
+
+        # the flow problem
+        model_flow = discr.flow(gb, param, bc_type)
+
+        #jump_flux(gb, param["mortar_flux"])
+
+        # the advection-diffusion problem
+        discr.advdiff(gb, param, model_flow, bc_type)
 
 
 if __name__ == "__main__":
