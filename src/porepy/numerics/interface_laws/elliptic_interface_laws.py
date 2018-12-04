@@ -392,10 +392,10 @@ class RobinContact(object):
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         parameter_dictionary contains the entries:
-            robin_weigth (list): a list of mortar_grid.num_cells np.ndarrays of 
+            robin_weigth (list): a list of mortar_grid.num_cells np.ndarrays of
                 shape (mortar_grid.dim + 1, mortar_grid.dim + 1) giving the displacement
                 jump weight.
-            mortar_weigth (list): a list of mortar_grid.num_cells np.ndarrays of 
+            mortar_weigth (list): a list of mortar_grid.num_cells np.ndarrays of
                 shape (mortar_grid.dim + 1, mortar_grid.dim + 1) giving the mortar
 
         matrix_dictionary will be updated with the following entries:
@@ -438,7 +438,6 @@ class RobinContact(object):
 
         """
         matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
-        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
 
         if not "mortar_weight" in matrix_dictionary_edge.keys():
             self.discretize(g_master, g_slave, data_master, data_slave, data_edge)

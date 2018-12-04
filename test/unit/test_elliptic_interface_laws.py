@@ -22,35 +22,6 @@ class TestTwoGridCoupling(unittest.TestCase):
     variable.
     """
 
-    def define_gb(self):
-        """
-        Construct grids
-        """
-        g1 = pp.CartGrid([1, 1])
-        g2 = pp.CartGrid([1, 1])
-        g1.compute_geometry()
-        g2.compute_geometry()
-
-        g1.grid_num = 1
-        g2.grid_num = 2
-
-        gb = pp.GridBucket()
-        gb.add_nodes([g1, g2])
-        gb.add_edge([g1, g2], None)
-        mortar_grid = pp.Grid(
-            1,
-            np.array([[0, 0, 0], [0, 1, 0]]).T,
-            sps.csc_matrix(([True, True], [0, 1], [0, 1, 2])),
-            sps.csc_matrix(([1, -1], [0, 1], [0, 2])),
-            "mortar_grid",
-        )
-        mortar_grid.compute_geometry()
-        face_faces = sps.csc_matrix(([True], [0], [0, 0, 1, 1, 1]), shape=(4, 4))
-        mg = pp.BoundaryMortar(1, mortar_grid, face_faces)
-        mg.num_cells = 1
-        gb.set_edge_prop([g1, g2], "mortar_grid", mg)
-        return gb
-
     def test_robin_assembly_master(self):
         """
         We test the RobinContact interface law. This gives a Robin condition
@@ -59,7 +30,7 @@ class TestTwoGridCoupling(unittest.TestCase):
         Test the assembly of the master terms.
         """
         self.kw = "mech"
-        gb = self.define_gb()
+        gb = define_gb()
         mortar_weight = np.zeros(gb.dim_max())
         robin_weight = np.ones(gb.dim_max())
         rhs = np.ones(gb.dim_max())
@@ -95,7 +66,7 @@ class TestTwoGridCoupling(unittest.TestCase):
         Test the assembly of the slave terms.
         """
         self.kw = "mech"
-        gb = self.define_gb()
+        gb = define_gb()
         mortar_weight = np.zeros(gb.dim_max())
         robin_weight = np.ones(gb.dim_max())
         rhs = np.ones(gb.dim_max())
@@ -131,7 +102,7 @@ class TestTwoGridCoupling(unittest.TestCase):
         Test the assembly of the mortar terms.
         """
         self.kw = "mech"
-        gb = self.define_gb()
+        gb = define_gb()
         mortar_weight = np.ones(gb.dim_max())
         robin_weight = np.zeros(gb.dim_max())
         rhs = np.ones(gb.dim_max())
@@ -167,7 +138,7 @@ class TestTwoGridCoupling(unittest.TestCase):
         Test the assembly of the master terms.
         """
         self.kw = "mech"
-        gb = self.define_gb()
+        gb = define_gb()
         varargs = get_variables(gb)
         robin_contact = pp.StressDisplacementContinuity(self.kw, MockId(), MockZero())
         matrix, rhs = robin_contact.assemble_matrix_rhs(*varargs)
@@ -199,7 +170,7 @@ class TestTwoGridCoupling(unittest.TestCase):
         Test the assembly of the slave terms.
         """
         self.kw = "mech"
-        gb = self.define_gb()
+        gb = define_gb()
         varargs = get_variables(gb)
 
         robin_contact = pp.StressDisplacementContinuity(self.kw, MockZero(), MockId())
@@ -231,7 +202,7 @@ class TestTwoGridCoupling(unittest.TestCase):
         Test the assembly of the mortar terms.
         """
         self.kw = "mech"
-        gb = self.define_gb()
+        gb = define_gb()
         varargs = get_variables(gb)
 
         robin_contact = pp.StressDisplacementContinuity(self.kw, MockZero(), MockZero())
@@ -276,13 +247,13 @@ class MockId(object):
     def ndof(self, g):
         return g.dim * g.num_cells
 
-    def assemble_int_bound_displacement_trace(*vargs):
-        identity_mapping(*vargs)
+    def assemble_int_bound_displacement_trace(self, *vargs):
+        identity_mapping(self, *vargs)
 
-    def assemble_int_bound_stress(*vargs):
-        identity_mapping(*vargs)
+    def assemble_int_bound_stress(self, *vargs):
+        identity_mapping(self, *vargs)
 
-    def enforce_neumann_int_bound(*varargs):
+    def enforce_neumann_int_bound(self, *varargs):
         pass
 
 
@@ -294,13 +265,13 @@ class MockZero(object):
     def ndof(self, g):
         return g.dim * g.num_cells
 
-    def assemble_int_bound_displacement_trace(*vargs):
+    def assemble_int_bound_displacement_trace(self, *vargs):
         pass
 
-    def assemble_int_bound_stress(*vargs):
+    def assemble_int_bound_stress(self, *vargs):
         pass
 
-    def enforce_neumann_int_bound(*varargs):
+    def enforce_neumann_int_bound(self, *varargs):
         pass
 
 
@@ -333,6 +304,36 @@ def get_variables(gb):
     matrix = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
     matrix = matrix.reshape((3, 3))
     return g_master, g_slave, data_master, data_slave, data_edge, matrix
+
+
+def define_gb(self):
+    """
+    Construct grids
+    """
+    g1 = pp.CartGrid([1, 1])
+    g2 = pp.CartGrid([1, 1])
+    g1.compute_geometry()
+    g2.compute_geometry()
+
+    g1.grid_num = 1
+    g2.grid_num = 2
+
+    gb = pp.GridBucket()
+    gb.add_nodes([g1, g2])
+    gb.add_edge([g1, g2], None)
+    mortar_grid = pp.Grid(
+        1,
+        np.array([[0, 0, 0], [0, 1, 0]]).T,
+        sps.csc_matrix(([True, True], [0, 1], [0, 1, 2])),
+        sps.csc_matrix(([1, -1], [0, 1], [0, 2])),
+        "mortar_grid",
+    )
+    mortar_grid.compute_geometry()
+    face_faces = sps.csc_matrix(([True], [0], [0, 0, 1, 1, 1]), shape=(4, 4))
+    mg = pp.BoundaryMortar(1, mortar_grid, face_faces)
+    mg.num_cells = 1
+    gb.set_edge_prop([g1, g2], "mortar_grid", mg)
+    return gb
 
 
 if __name__ == "__main__":
