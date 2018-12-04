@@ -367,6 +367,7 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         bp = matrix_dictionary["bound_displacement_cell"]
+
         if proj_avg.shape[1] == g.dim * g.num_faces:
             # In this case we the projection is from faces to cells
             # We therefore need to map the boundary displacements which is given as
@@ -437,7 +438,7 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
             proj = mg.master_to_mortar_avg()
         else:
             proj = mg.slave_to_mortar_avg()
-        proj = sps.kron(sps.eye(g.dim), proj).tocsr()
+        proj = sps.kron(proj, sps.eye(g.dim)).tocsr()
 
         cc[2, self_ind] -= proj
 
