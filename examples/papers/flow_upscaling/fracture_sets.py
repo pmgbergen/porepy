@@ -1148,7 +1148,7 @@ class ChildFractureSet(FractureSet):
         )
 
         # Assign equal probability that the points are on each side of the parent
-        side = 2 * (np.random.rand(num_children) > 0.5) - 1
+        side = frac_gen.generate_from_distribution(num_children, self.dist_side)
 
         # Vector from the parent line to the new center points
         vec = np.vstack((-np.sin(theta), np.cos(theta))) * dist_from_parent
@@ -1204,7 +1204,7 @@ class ChildFractureSet(FractureSet):
         num_children = start.shape[1]
 
         # Assign equal probability that the points are on each side of the parent
-        side = 2 * (np.random.rand(num_children) > 0.5) - 1
+        side = frac_gen.generate_from_distribution(num_children, self.dist_side)
 
         child_angle = frac_gen.generate_from_distribution(num_children, self.dist_angle)
         child_length = frac_gen.generate_from_distribution(
