@@ -248,10 +248,6 @@ class TestTwoGridCoupling(unittest.TestCase):
                 [0, 0, 0, 0, 0, 0],
             ]
         )
-        import pdb
-
-        pdb.set_trace()
-
         matrix = sps.bmat(matrix)
         self.assertTrue(np.allclose(A, matrix.A))
         self.assertTrue(

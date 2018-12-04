@@ -206,6 +206,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
             for key, terms in discr.items():
                 edge_vals = terms.get(e)
                 edge_key = edge_vals[0]
+
                 ei = block_dof[(e, edge_key)]
 
                 master_vals = terms.get(g_master)

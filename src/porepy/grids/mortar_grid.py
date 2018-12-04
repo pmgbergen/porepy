@@ -360,7 +360,7 @@ class BoundaryMortar(MortarGrid):
         # The face_faces gives a map from the LEFT_SIDE grid to the RIGHT_SIDE
         # grid. The mortar cells are sorted after the rows of the face_faces
         # mapping.
-        slave_f, master_f, data = sps.find(face_faces)
+        master_f, slave_f, data = sps.find(face_faces)
 
         cells = np.argsort(slave_f)
         self.num_cells = cells.size
