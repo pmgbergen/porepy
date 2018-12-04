@@ -66,10 +66,6 @@ class TestTwoGridCoupling(unittest.TestCase):
         for e, d in gb.edges():
             mg = d["mortar_grid"]
             gs, gm = gb.nodes_of_edge(e)
-            if gs.grid_num == 2:
-                g_temp = gs
-                gs = gm
-                gm = g_temp
 
             ds = gb.node_props(gs)
             dm = gb.node_props(gm)
@@ -109,17 +105,6 @@ class TestTwoGridCoupling(unittest.TestCase):
             for i in range(len(RW)):
                 rhs_robin = MW[i].dot(lam_nd[:, i]) + RW[i].dot(jump_u[:, i])
                 self.assertTrue(np.allclose(rhs_robin, rhs[:, i]))
-
-    def solve_and_compare(self, gb):
-        assembler = pp.Assembler()
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(
-            gb, variables=["mech"]
-        )
-        u = sps.linalg.spsolve(matrix, rhs)
-        assembler.distribute_variable(gb, u, block_dof, full_dof)
-        uc = sps.linalg.spsolve(matrix_c, rhs_c)
-
-        self.assertTrue(np.allclose(u, uc))
 
     def assign_discretization(self, gb, robin=True):
         for _, d in gb:
@@ -190,6 +175,7 @@ def define_gb():
 
     gb = pp.GridBucket()
     gb.add_nodes([g_s, g_m])
+
     contact_s = np.where(g_s.face_centers[0] > 1 - 1e-10)[0]
     contact_m = np.where(g_m.face_centers[0] < 1 + 1e-10)[0]
     data = np.ones(contact_s.size, dtype=np.bool)
@@ -197,9 +183,21 @@ def define_gb():
     shape = (g_s.num_faces, g_m.num_faces)
     slave_master = sps.csc_matrix((data, (contact_m, contact_s)), shape=shape)
 
+    mortar_grid, _, _ = pp.grids.partition.extract_subgrid(g_s, contact_s, faces=True)
+
     gb.add_edge([g_s, g_m], slave_master)
 
-    mortar_grid, _, _ = pp.grids.partition.extract_subgrid(g_s, contact_s, faces=True)
+    gb.assign_node_ordering()
+    # Slave and master is defined by the node number.
+    # In python 3.5 the node-nombering does not follow the one given in gb.add_edge
+    # I guess also the face_face mapping given on the edge also should change,
+    # but this is not used
+    g_1, _ = gb.nodes_of_edge([g_s, g_m])
+    if g_1.grid_num == 2:
+        g_m = g_s
+        g_s = g_1
+        slave_master = slave_master.T
+
     mg = pp.BoundaryMortar(mortar_grid.dim, mortar_grid, slave_master.T)
     gb.set_edge_prop([g_s, g_m], "mortar_grid", mg)
     return gb
