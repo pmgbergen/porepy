@@ -1,17 +1,38 @@
 import numpy as np
-import scipy.sparse as sps
 import porepy as pp
 
 import examples.papers.dfn_transport.discretization as discr
-import data
+from examples.papers.dfn_transport.flux_trace import jump_flux
+
+def bc_flag(g, domain, tol): # TODO TOFIX
+    b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+    b_face_centers = g.face_centers[:, b_faces]
+
+    # define inflow type boundary conditions
+    out_flow_start = np.array([1.011125, 0.249154, 0.598708])
+    out_flow_end = np.array([1.012528, 0.190858, 0.886822])
+
+    # detect all the points aligned with the segment
+    dist, _ = pp.cg.dist_points_segments(b_face_centers, out_flow_start, out_flow_end)
+    dist = dist.flatten()
+    out_flow = np.logical_and(dist < tol, dist >=-tol)
+
+    # define outflow type boundary conditions
+    in_flow_start = np.array([0.206507, 0.896131, 0.183632])
+    in_flow_end = np.array([0.181980, 0.813947, 0.478618])
+
+    # detect all the points aligned with the segment
+    dist, _ = pp.cg.dist_points_segments(b_face_centers, in_flow_start, in_flow_end)
+    dist = dist.flatten()
+    in_flow = np.logical_and(dist < tol, dist >=-tol)
+
+    return in_flow, out_flow
 
 def main():
 
     input_folder = "../geometries/"
     file_name = input_folder + "example4.fab"
     file_inters = None #input_folder + "example4.dat"
-
-    out_folder = "solution"
 
     mesh_size = 1e2 #np.power(2., -4)
     mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
@@ -24,62 +45,18 @@ def main():
 
     domain = gb.bounding_box(as_dict=True)
 
-    # setup the flow problem
-    physics_flow = "flow"
-    key_pressure = "pressure"
-    key_discharge = "discharge"
+    param = {"domain": domain, "tol": tol, "k": 1,
+             "diff": 1e-4, "time_step": 0.05, "n_steps": 1,
+             "folder": "solution"}
 
-    keys_flow = discr.flow(gb, physics_flow)
-    param_flow = {"k": 1,
-                  "domain": domain, "physics": physics_flow}
-    data.flow(gb, param_flow, tol)
+    # the flow problem
+    model_flow = discr.flow(gb, param, bc_flag)
 
-    # solution of the darcy problem
-    assembler = pp.Assembler()
+    jump_flux(gb, param["mortar_flux"])
 
-    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
-    up = sps.linalg.spsolve(A, b)
+    # the advection-diffusion problem
+    discr.advdiff(gb, param, model_flow, bc_flag)
 
-    assembler.distribute_variable(gb, up, block_dof, full_dof)
-    for g, d in gb:
-        key, key_discr = keys_flow
-        flow_discr = d["discretization"][key][key_discr]
-        d[key_pressure] = flow_discr.extract_pressure(g, d[key])
-        d[key_discharge] = flow_discr.extract_flux(g, d[key])
-
-    # setup the advection-diffusion problem
-    physics_advdiff = "transport"
-    deltaT = 0.005
-
-    key_advdiff = discr.advdiff(gb, physics_advdiff)
-    param_advdiff = {"diff": 1e-7, "deltaT": deltaT,
-                     "domain": domain, "physics": physics_advdiff,
-                     "flux": keys_flow[1]}
-    data.advdiff(gb, param_advdiff, tol)
-
-    A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
-
-    # setup the mass problem
-    discr.mass(gb, physics_advdiff)
-
-    M, _, _, _ = assembler.assemble_matrix_rhs(gb)
-
-    # Perform an LU factorization to speedup the solver
-    IE_solver = sps.linalg.factorized((M + A).tocsc())
-
-    # time loop
-    save = pp.Exporter(gb, "solution", folder=out_folder)
-
-    x = np.zeros(A.shape[0])
-    n_steps = 1
-
-    for i in np.arange(n_steps):
-        x = IE_solver(b + M.dot(x))
-
-        assembler.distribute_variable(gb, x, block_dof, full_dof)
-        save.write_vtk([key_pressure, key_advdiff, "frac_num", "cell_volumes"], time_step=i)
-
-    save.write_pvd(np.arange(n_steps)*deltaT)
 
 if __name__ == "__main__":
     main()
