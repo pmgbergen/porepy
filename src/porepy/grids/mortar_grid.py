@@ -301,7 +301,7 @@ class BoundaryMortar(MortarGrid):
     Class for a mortar grid between two grids of the same dimension. This class
     inherits from the MortarGrid class, however, one should be carefull when using
     functions defined in MortarGrid and not BoundaryMortar as not all have been
-    thested thoroughly.BoundaryMortar contains a mortar grid and the weighted 
+    thested thoroughly.BoundaryMortar contains a mortar grid and the weighted
     mapping from the slave grid (as set of faces) to the mortar grid and from the
     master grid (as set of faces) to the mortar grid.
 
@@ -343,8 +343,10 @@ class BoundaryMortar(MortarGrid):
         name (str): Name of grid
         """
 
-        assert dim >= 0 and dim < 3
-        assert mortar_grid.dim == dim
+        if not dim >= 0 and dim < 3:
+            raise ValueError("Mortar grid dimension must be 0, 1 or 2")
+        if not mortar_grid.dim == dim:
+            raise ValueError("Dimension of mortar grid does not match given dimension")
 
         self.dim = dim
         self.side_grids = {"mortar_grid": mortar_grid}
