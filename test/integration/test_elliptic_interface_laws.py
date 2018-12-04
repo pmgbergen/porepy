@@ -163,7 +163,7 @@ class TestTwoGridCoupling(unittest.TestCase):
             }
             pp.initialize_data(d, g, self.kw, data)
 
-        for e, d in gb.edges():
+        for _, d in gb.edges():
             mg = d["mortar_grid"]
             MW = sps.diags(mortar_weight)
             RW = sps.diags(robin_weight)
