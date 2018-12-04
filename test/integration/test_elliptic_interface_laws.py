@@ -42,12 +42,14 @@ class TestTwoGridCoupling(unittest.TestCase):
         data = np.ones(contact_s.size, dtype=np.bool)
 
         shape = (g_s.num_faces, g_m.num_faces)
-        slave_master = sps.csc_matrix((data, (contact_m, contact_s)),shape=shape)
+        slave_master = sps.csc_matrix((data, (contact_m, contact_s)), shape=shape)
 
         gb.add_edge([g_s, g_m], slave_master)
 
-        mortar_grid, _, _ = pp.grids.partition.extract_subgrid(g_s, contact_s, faces=True)
-        mg = pp.BoundaryMortar(mortar_grid.dim, {'mg': mortar_grid}, slave_master)
+        mortar_grid, _, _ = pp.grids.partition.extract_subgrid(
+            g_s, contact_s, faces=True
+        )
+        mg = pp.BoundaryMortar(mortar_grid.dim, mortar_grid, slave_master.T)
         gb.set_edge_prop([g_s, g_m], "mortar_grid", mg)
         return gb
 
@@ -82,9 +84,9 @@ class TestTwoGridCoupling(unittest.TestCase):
 
     def check_solution(self, gb):
         for e, d in gb.edges():
-            mg = d['mortar_grid']
+            mg = d["mortar_grid"]
             gs, gm = gb.nodes_of_edge(e)
-            if gs.grid_num==2:
+            if gs.grid_num == 2:
                 g_temp = gs
                 gs = gm
                 gm = g_temp
@@ -111,25 +113,33 @@ class TestTwoGridCoupling(unittest.TestCase):
 
             RW = d[pp.PARAMETERS][self.kw]["robin_weight"]
             MW = d[pp.PARAMETERS][self.kw]["mortar_weight"]
-            rhs = d[pp.PARAMETERS][self.kw]["robin_rhs"].reshape((gs.dim, -1), order='F')
+            rhs = d[pp.PARAMETERS][self.kw]["robin_rhs"].reshape(
+                (gs.dim, -1), order="F"
+            )
             slv2mrt_nd = sps.kron(mg.slave_to_mortar_int, sps.eye(gs.dim)).tocsr()
             mstr2mrt_nd = sps.kron(mg.master_to_mortar_int, sps.eye(gs.dim)).tocsr()
 
             hf2fs = pp.fvutils.map_hf_2_f(g=gs) / 2
             hf2fm = pp.fvutils.map_hf_2_f(g=gm) / 2
             jump_u = (
-                slv2mrt_nd * hf2fs * (bdcs * us + bdfs * (bc_val_s + slv2mrt_nd.T * lam)) -
-                mstr2mrt_nd * hf2fm * (bdcm * um - bdfm * (bc_val_m + mstr2mrt_nd.T * lam))
-                ).reshape((gs.dim, -1), order='F')
-            lam_nd = lam.reshape((gs.dim, -1), order='F')
-            
+                slv2mrt_nd
+                * hf2fs
+                * (bdcs * us + bdfs * (bc_val_s + slv2mrt_nd.T * lam))
+                - mstr2mrt_nd
+                * hf2fm
+                * (bdcm * um - bdfm * (bc_val_m + mstr2mrt_nd.T * lam))
+            ).reshape((gs.dim, -1), order="F")
+            lam_nd = lam.reshape((gs.dim, -1), order="F")
+
             for i in range(len(RW)):
                 rhs_robin = MW[i].dot(lam_nd[:, i]) + RW[i].dot(jump_u[:, i])
                 self.assertTrue(np.allclose(rhs_robin, rhs[:, i]))
 
     def solve_and_compare(self, gb):
         assembler = pp.Assembler()
-        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(gb, variables=['mech'])
+        matrix, rhs, block_dof, full_dof = assembler.assemble_matrix_rhs(
+            gb, variables=["mech"]
+        )
         u = sps.linalg.spsolve(matrix, rhs)
         assembler.distribute_variable(gb, u, block_dof, full_dof)
         uc = sps.linalg.spsolve(matrix_c, rhs_c)
@@ -139,7 +149,7 @@ class TestTwoGridCoupling(unittest.TestCase):
     def assign_discretization(self, gb, robin=True):
         for g, d in gb:
             d[pp.PRIMARY_VARIABLES] = {self.kw: {"cells": gb.dim_max()}}
-            d[pp.DISCRETIZATION] = {self.kw: {'mortar': pp.Mpsa(self.kw)}}
+            d[pp.DISCRETIZATION] = {self.kw: {"mortar": pp.Mpsa(self.kw)}}
 
         if robin:
             contact = pp.RobinContact(self.kw, pp.Mpsa(self.kw))
@@ -150,29 +160,32 @@ class TestTwoGridCoupling(unittest.TestCase):
             d[pp.PRIMARY_VARIABLES] = {self.kw: {"cells": gb.dim_max()}}
             d[pp.COUPLING_DISCRETIZATION] = {
                 self.kw: {
-                    g1: (self.kw, 'mortar'),
-                    g2: (self.kw, 'mortar'),
-                    e: (self.kw, contact)
+                    g1: (self.kw, "mortar"),
+                    g2: (self.kw, "mortar"),
+                    e: (self.kw, contact),
                 }
             }
 
     def assign_parameters(self, gb, mortar_weight, robin_weight, rhs):
         for g, d in gb:
-            if g.grid_num==1:
+            if g.grid_num == 1:
                 dir_faces = g.face_centers[0] < 1e-10
-            elif g.grid_num==2:
+            elif g.grid_num == 2:
                 dir_faces = g.face_centers[0] > 2 - 1e-10
 
             bc_val = np.zeros((g.dim, g.num_faces))
             bc_val[0, dir_faces] = 0.1 * g.face_centers[0, dir_faces]
-            bc = pp.BoundaryConditionVectorial(g, dir_faces, 'dir')
-            C = pp.FourthOrderTensor(gb.dim_max(), np.ones(g.num_cells), np.ones(g.num_cells))
-            data = {'bc': bc,
-                    'bc_values': bc_val.ravel('F'),
-                    'fourth_order_tensor': C,
-                    'source': np.zeros(g.num_cells * g.dim),
-                    'inverter': "python",
-                    }
+            bc = pp.BoundaryConditionVectorial(g, dir_faces, "dir")
+            C = pp.FourthOrderTensor(
+                gb.dim_max(), np.ones(g.num_cells), np.ones(g.num_cells)
+            )
+            data = {
+                "bc": bc,
+                "bc_values": bc_val.ravel("F"),
+                "fourth_order_tensor": C,
+                "source": np.zeros(g.num_cells * g.dim),
+                "inverter": "python",
+            }
             pp.initialize_data(d, g, self.kw, data)
 
         for e, d in gb.edges():
