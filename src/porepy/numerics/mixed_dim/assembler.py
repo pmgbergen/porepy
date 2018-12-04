@@ -120,12 +120,17 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
             (g1, data_1, data_edge, local_matrix)
 
         """
+        # Define the matrix format, common for all the sub-matrices
+        if matrix_format == "csc":
+            sps_matrix = sps.csc_matrix
+        else:
+            sps_matrix = sps.csr_matrix
 
         # Initialize the global matrix.
-        matrix, rhs, block_dof, full_dof = self._initialize_matrix_rhs(gb, variables)
+        matrix, rhs, block_dof, full_dof = self._initialize_matrix_rhs(gb, variables, sps_matrix)
         if len(full_dof) == 0:
             if add_matrices:
-                mat, vec = self._assign_matrix_vector(full_dof)
+                mat, vec = self._assign_matrix_vector(full_dof, sps_matrix)
                 return mat, vec, block_dof, full_dof
             else:
                 return matrix, rhs, block_dof, full_dof
@@ -156,7 +161,13 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
                             # Assign values in global matrix
                             var_key_name = self._variable_term_key(term, row, col)
-                            matrix[var_key_name][ri, ci] += loc_A
+                            # Check if the current block is None or not, it could
+                            # happend based on the problem setting. Better to stay
+                            # on the safe side.
+                            if matrix[var_key_name][ri, ci] is None:
+                                matrix[var_key_name][ri, ci] = loc_A
+                            else:
+                                matrix[var_key_name][ri, ci] += loc_A
                             rhs[var_key_name][ri] += loc_b
 
         # Loop over all edges
@@ -194,7 +205,13 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
                             # Assign values in global matrix
                             var_key_name = self._variable_term_key(term, row, col)
-                            matrix[var_key_name][ri, ci] += loc_A
+                            # Check if the current block is None or not, it could
+                            # happend based on the problem setting. Better to stay
+                            # on the safe side.
+                            if matrix[var_key_name][ri, ci] is None:
+                                matrix[var_key_name][ri, ci] = loc_A
+                            else:
+                                matrix[var_key_name][ri, ci] += loc_A
                             rhs[var_key_name][ri] += loc_b
 
             # Then, discretize the interaction between the edge variables of
@@ -250,7 +267,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
                     # Associate the first variable with master, the second with
                     # slave, and the final with edge.
-                    loc_mat, _ = self._assign_matrix_vector(full_dof[[mi, si, ei]])
+                    loc_mat, _ = self._assign_matrix_vector(full_dof[[mi, si, ei]], sps_matrix)
 
                     # Pick out the discretizations on the master and slave node
                     # for the relevant variables.
@@ -279,7 +296,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
                 elif mi is not None:
                     # si is None
-                    loc_mat, _ = self._assign_matrix_vector(full_dof[[mi, ei]])
+                    loc_mat, _ = self._assign_matrix_vector(full_dof[[mi, ei]], sps_matrix)
                     loc_mat[0, 0] = matrix[mat_key_master][mi, mi]
                     tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
                         g_master, data_master, data_edge, loc_mat
@@ -295,7 +312,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
                 elif si is not None:
                     # mi is None
-                    loc_mat, _ = self._assign_matrix_vector(full_dof[[si, ei]])
+                    loc_mat, _ = self._assign_matrix_vector(full_dof[[si, ei]], sps_matrix)
                     loc_mat[0, 0] = matrix[mat_key_slave][si, si]
                     tmp_mat, loc_rhs = e_discr.assemble_matrix_rhs(
                         g_slave, data_slave, data_edge, loc_mat
@@ -315,19 +332,18 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
                     )
 
         if add_matrices:
+            size = np.sum(full_dof)
+            full_matrix = sps_matrix((size, size))
+            full_rhs = np.zeros(size)
 
-            full_matrix, full_rhs = self._assign_matrix_vector(full_dof)
             for mat in matrix.values():
-                full_matrix += mat
-            for vec in rhs.values():
-                full_rhs += vec
+                full_matrix += sps.bmat(mat, matrix_format)
 
-            return (
-                sps.bmat(full_matrix, matrix_format),
-                np.concatenate(tuple(full_rhs)),
-                block_dof,
-                full_dof,
-            )
+            for vec in rhs.values():
+                full_rhs += np.concatenate(tuple(vec))
+
+            return full_matrix, full_rhs, block_dof, full_dof
+
         else:
             for k, v in matrix.items():
                 matrix[k] = sps.bmat(v, matrix_format)
@@ -336,7 +352,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
             return matrix, rhs, block_dof, full_dof
 
-    def _initialize_matrix_rhs(self, gb, variables=None):
+    def _initialize_matrix_rhs(self, gb, variables, sps_matrix):
         """
         Initialize local matrices for all combinations of variables and operators.
 
@@ -450,14 +466,21 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
 
         # Uniquify list of variable combinations. Then iterate over all variable
         # combinations and initialize matrices of the right size
+        num_blocks = len(full_dof)
         for var in list(set(variable_combinations)):
-            matrix, rhs = self._assign_matrix_vector(full_dof)
-            matrix_dict[var] = matrix
-            rhs_dict[var] = rhs
+
+            matrix_dict[var] = np.empty((num_blocks, num_blocks), dtype=np.object)
+            rhs_dict[var] = np.empty(num_blocks, dtype=np.object)
+
+            for di in np.arange(num_blocks):
+                # Initilize the block diagonal parts, this is useful for the bmat done
+                # at the end of assemble_matrix_rhs to know the correct shape of the full_matrix
+                matrix_dict[var][di, di] = sps_matrix((full_dof[di], full_dof[di]))
+                rhs_dict[var][di] = np.zeros(full_dof[di])
 
         return matrix_dict, rhs_dict, block_dof, full_dof
 
-    def _assign_matrix_vector(self, dof):
+    def _assign_matrix_vector(self, dof, sps_matrix):
         # Assign a block matrix and vector with specified number of dofs per block
         num_blocks = len(dof)
         matrix = np.empty((num_blocks, num_blocks), dtype=np.object)
@@ -466,7 +489,7 @@ class Assembler(pp.numerics.mixed_dim.AbstractAssembler):
         for ri in range(num_blocks):
             rhs[ri] = np.zeros(dof[ri])
             for ci in range(num_blocks):
-                matrix[ri, ci] = sps.coo_matrix((dof[ri], dof[ci]))
+                matrix[ri, ci] = sps_matrix((dof[ri], dof[ci]))
 
         return matrix, rhs
 
