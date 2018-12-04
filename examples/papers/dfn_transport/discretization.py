@@ -45,7 +45,10 @@ def data_flow(gb, model, data, bc_flag):
         param["second_order_tensor"] = perm
 
         # assign aperture
-        param["aperture"] = unity
+        if g.dim == 1:
+            param["aperture"] = 1e-14 * unity
+        else:
+            param["aperture"] = unity
 
         # source
         param["source"] = zeros
@@ -181,8 +184,14 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         param_diff["second_order_tensor"] = pp.SecondOrderTensor(3, kxx)
 
         # Assign apertures
-        param_diff["aperture"] = unity
-        param_adv["aperture"] = unity
+        # assign aperture
+        if g.dim == 1:
+            param_diff["aperture"] = 1e-14 * unity
+            param_adv["aperture"] = 1e-14 * unity
+
+        else:
+            param_diff["aperture"] = unity
+            param_adv["aperture"] = unity
 
         # Flux
         param_adv[flux_discharge_name] = d[flux_discharge_name]
