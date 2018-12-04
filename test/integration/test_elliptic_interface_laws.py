@@ -20,9 +20,15 @@ class TestTwoGridCoupling(unittest.TestCase):
            g_mortar
     There is one cell per grid and they are coupled together by a single mortar
     variable.
+    
+    We define a random Robin and Mortar weights and test if we recover the
+    condition on the interface.
     """
 
     def test_robin_coupling(self):
+        """
+        Test a Robin condition on the interface
+        """
         self.kw = "mech"
         gb = define_gb()
         mortar_weight = np.random.rand(gb.dim_max())
@@ -37,6 +43,11 @@ class TestTwoGridCoupling(unittest.TestCase):
         self.check_solution(gb)
 
     def test_continuity_coupling(self):
+        """
+        Test a continuity condition on the interface. This is equivalent to
+        zero mortar weight and identity matrix for the robin weight. These
+        matrices are only used to check the solution.
+        """
         self.kw = "mech"
         gb = define_gb()
         # We assign weighs according to the condition.

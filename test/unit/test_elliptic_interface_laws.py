@@ -306,7 +306,7 @@ def get_variables(gb):
     return g_master, g_slave, data_master, data_slave, data_edge, matrix
 
 
-def define_gb(self):
+def define_gb():
     """
     Construct grids
     """
