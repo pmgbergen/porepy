@@ -46,7 +46,7 @@ class TestTwoGridCoupling(unittest.TestCase):
         )
         mortar_grid.compute_geometry()
         face_faces = sps.csc_matrix(([True], [0], [0, 0, 1, 1, 1]), shape=(4, 4))
-        mg = pp.BoundaryMortar(1, {"slave": mortar_grid}, face_faces)
+        mg = pp.BoundaryMortar(1, mortar_grid, face_faces)
         mg.num_cells = 1
         gb.set_edge_prop([g1, g2], "mortar_grid", mg)
         return gb
