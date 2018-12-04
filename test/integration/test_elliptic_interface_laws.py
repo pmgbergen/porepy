@@ -22,40 +22,9 @@ class TestTwoGridCoupling(unittest.TestCase):
     variable.
     """
 
-    def define_gb(self):
-        """
-        Construct grids
-        """
-        g_s = pp.CartGrid([1, 2], [1, 2])
-        g_m = pp.CartGrid([1, 2], [1, 2])
-        g_m.nodes[0] += 1
-        g_s.compute_geometry()
-        g_m.compute_geometry()
-
-        g_s.grid_num = 1
-        g_m.grid_num = 2
-
-        gb = pp.GridBucket()
-        gb.add_nodes([g_s, g_m])
-        contact_s = np.where(g_s.face_centers[0] > 1 - 1e-10)[0]
-        contact_m = np.where(g_m.face_centers[0] < 1 + 1e-10)[0]
-        data = np.ones(contact_s.size, dtype=np.bool)
-
-        shape = (g_s.num_faces, g_m.num_faces)
-        slave_master = sps.csc_matrix((data, (contact_m, contact_s)), shape=shape)
-
-        gb.add_edge([g_s, g_m], slave_master)
-
-        mortar_grid, _, _ = pp.grids.partition.extract_subgrid(
-            g_s, contact_s, faces=True
-        )
-        mg = pp.BoundaryMortar(mortar_grid.dim, mortar_grid, slave_master.T)
-        gb.set_edge_prop([g_s, g_m], "mortar_grid", mg)
-        return gb
-
     def test_robin_coupling(self):
         self.kw = "mech"
-        gb = self.define_gb()
+        gb = define_gb()
         mortar_weight = np.random.rand(gb.dim_max())
         robin_weight = np.random.rand(gb.dim_max())
         rhs = np.random.rand(gb.dim_max())
@@ -69,7 +38,7 @@ class TestTwoGridCoupling(unittest.TestCase):
 
     def test_continuity_coupling(self):
         self.kw = "mech"
-        gb = self.define_gb()
+        gb = define_gb()
         # We assign weighs according to the condition.
         mortar_weight = np.zeros(gb.dim_max())
         robin_weight = np.ones(gb.dim_max())
@@ -97,11 +66,6 @@ class TestTwoGridCoupling(unittest.TestCase):
             us = ds[self.kw]
             um = dm[self.kw]
             lam = d[self.kw]
-
-            stress_s = ds[pp.DISCRETIZATION_MATRICES][self.kw]["stress"]
-            stress_m = dm[pp.DISCRETIZATION_MATRICES][self.kw]["stress"]
-            bound_stress_s = ds[pp.DISCRETIZATION_MATRICES][self.kw]["bound_stress"]
-            bound_stress_m = dm[pp.DISCRETIZATION_MATRICES][self.kw]["bound_stress"]
 
             bdcs = ds[pp.DISCRETIZATION_MATRICES][self.kw]["bound_displacement_cell"]
             bdcm = dm[pp.DISCRETIZATION_MATRICES][self.kw]["bound_displacement_cell"]
@@ -147,7 +111,7 @@ class TestTwoGridCoupling(unittest.TestCase):
         self.assertTrue(np.allclose(u, uc))
 
     def assign_discretization(self, gb, robin=True):
-        for g, d in gb:
+        for _, d in gb:
             d[pp.PRIMARY_VARIABLES] = {self.kw: {"cells": gb.dim_max()}}
             d[pp.DISCRETIZATION] = {self.kw: {"mortar": pp.Mpsa(self.kw)}}
 
@@ -198,3 +162,33 @@ class TestTwoGridCoupling(unittest.TestCase):
                 "robin_rhs": np.tile(rhs, (mg.num_cells)),
             }
             pp.initialize_data(d, mg, self.kw, data)
+
+
+def define_gb():
+    """
+    Construct grids
+    """
+    g_s = pp.CartGrid([1, 2], [1, 2])
+    g_m = pp.CartGrid([1, 2], [1, 2])
+    g_m.nodes[0] += 1
+    g_s.compute_geometry()
+    g_m.compute_geometry()
+
+    g_s.grid_num = 1
+    g_m.grid_num = 2
+
+    gb = pp.GridBucket()
+    gb.add_nodes([g_s, g_m])
+    contact_s = np.where(g_s.face_centers[0] > 1 - 1e-10)[0]
+    contact_m = np.where(g_m.face_centers[0] < 1 + 1e-10)[0]
+    data = np.ones(contact_s.size, dtype=np.bool)
+
+    shape = (g_s.num_faces, g_m.num_faces)
+    slave_master = sps.csc_matrix((data, (contact_m, contact_s)), shape=shape)
+
+    gb.add_edge([g_s, g_m], slave_master)
+
+    mortar_grid, _, _ = pp.grids.partition.extract_subgrid(g_s, contact_s, faces=True)
+    mg = pp.BoundaryMortar(mortar_grid.dim, mortar_grid, slave_master.T)
+    gb.set_edge_prop([g_s, g_m], "mortar_grid", mg)
+    return gb

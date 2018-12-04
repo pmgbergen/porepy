@@ -357,7 +357,6 @@ class Mpsa(pp.numerics.mixed_dim.EllipticDiscretization):
         else:
             proj = mg.master_to_mortar_avg()
             proj_int = mg.master_to_mortar_int
-            proj_swap = mg.slave_to_mortar_avg()
             proj_int_swap = mg.slave_to_mortar_int
 
         # Expand indices as Fortran indexes
