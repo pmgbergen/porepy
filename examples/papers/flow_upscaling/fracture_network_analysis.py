@@ -11,6 +11,88 @@ import porepy as pp
 from examples.papers.flow_upscaling import segment_pixelation
 
 
+def permeability_upscaling(network, data, mesh_args, directions):
+
+    gb = network.mesh(network.tol, **mesh_args)
+
+    direction = 0
+    gb = _setup_simulation(gb, data, direction)
+
+    key = "flow"
+    discretization_key = key + "_" + pp.DISCRETIZATION
+
+    mpfa = pp.Mpfa(key)
+    for g, d in gb:
+        d[discretization_key] = mpfa
+
+    for _, d in gb.edges():
+        d[discretization_key] = pp.RobinCoupling(key, mpfa)
+
+    assembler = pp.EllipticAssembler(key)
+
+    # Discretize
+    A, b = assembler.assemble_matrix_rhs(gb)
+    p = np.linalg.solve(A.A, b)
+    assembler.split(gb, "pressure", p)
+
+    for g, d in gb:
+        inlet = d.get('inlet_faces', None)
+        if inlet is None:
+            continue
+        flux = d['flux'] * pressure
+
+
+
+def _setup_simulation(gb, data, direction):
+
+    if direction == 0:
+        min_coord = gb.bounding_box()['xmin']
+        max_coord = gb.bounding_box()['xmax']
+    else:
+        min_coord = gb.bounding_box()['ymin']
+        max_coord = gb.bounding_box()['ymax']
+
+    for g, d in gb:
+
+        if g.dim == 2:
+            kxx = np.ones(g.num_cells)
+        else:
+            kxx = np.power(data['aperture'], gb.dim_max() - g.dim)
+        perm = pp.SecondOrderTensor(gb.dim_max(), kxx)
+        a = data['aperture']
+        a = np.power(a, gb.dim_max() - g.dim) * np.ones(g.num_cells)
+        specified_parameters = {"aperture": a, "permeability": perm}
+
+        bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+        if bound_faces.size > 0:
+            hit_out = np.where(np.abs(g.face_centers[direction, bound_faces] - max_coord) < 1e-8)[0]
+            hit_in = np.where(np.abs(g.face_centers[direction, bound_faces] - min_coord) < 1e-8)[0]
+            bound_type = ["neu"] * bound_faces.size
+            bound_type[hit_out] = 'dir'
+            bound_type[hit_in] = 'dir'
+            bound = pp.BoundaryCondition(
+                g, bound_faces.ravel("F"), bound_type
+            )
+            bc_val = np.zeros(g.num_faces)
+            bc_val[bound_faces] = 0
+            bc_val[bound_faces[hit_in]] = 1
+            specified_parameters.update({"bc": bound, "bc_values": bc_val})
+
+            d['inlet_faces'] = hit_in
+
+        pp.initialize_data(d, g, "flow", specified_parameters)
+
+    for e, d in gb.edges():
+        gl, _ = gb.nodes_of_edge(e)
+        d_l = gb.node_props(gl)
+        mg = d["mortar_grid"]
+        kn = 1.0 / np.mean(d_l[pp.PARAMETERS]["flow"]["aperture"])
+        d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
+        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
+
+    return gb
+
+
 def connectivity_field(network, num_boxes):
     """ Compute the connectivity field associated with a fracture network.
 
