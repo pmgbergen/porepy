@@ -32,7 +32,7 @@ class Tpfa(FVElliptic):
 
     def discretize(self, g, data, faces=None):
         """
-        Discretize the second order elliptic equation using two-point flux
+        Discretize the second order elliptic equation using two-point flux approximation.
 
         The method computes fluxes over faces in terms of pressures in adjacent
         cells (defined as the two cells sharing the face).
@@ -44,17 +44,21 @@ class Tpfa(FVElliptic):
             matrix_dictionary, for storage of discretization matrices.
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
-        parameter_dictionary contains the following parameters:
-            second_order_tensor: second_order_tensor
-                Permeability defined cell-wise. If not given a identity permeability
-                is assumed and a warning arised.
-            bc : boundary conditions (optional)
-            bc_val : dictionary (optional)
-                Values of the boundary conditions. The dictionary has at most the
-                following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-                conditions, respectively.
-            apertures : (np.ndarray) (optional) apertures of the cells for scaling of
+        parameter_dictionary contains the entries:
+            second_order_tensor : (SecondOrderTensor) Permeability defined cell-wise.
+            bc : (BoundaryCondition) boundary conditions
+            apertures : (np.ndarray) apertures of the cells for scaling of
                 the face normals.
+
+        matrix_dictionary will be updated with the following entries:
+            flux: sps.csc_matrix (g.num_faces, g.num_cells)
+                flux discretization, cell center contribution
+            bound_flux: sps.csc_matrix (g.num_faces, g.num_faces)
+                flux discretization, face contribution
+            bound_pressure_cell: sps.csc_matrix (g.num_faces, g.num_cells)
+                Operator for reconstructing the pressure trace. Cell center contribution
+            bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
+                Operator for reconstructing the pressure trace. Face contribution
 
         Hidden option (intended as "advanced" option that one should normally not
         care about):
@@ -64,8 +68,9 @@ class Tpfa(FVElliptic):
 
         Parameters
         ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
+        g (pp.Grid): grid, or a subclass, with geometry fields computed.
+        data (dict): For entries, see above.
+        faces (np.ndarray): optional. Defines active faces.
         """
         # Get the dictionaries for storage of data and discretization matrices
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
