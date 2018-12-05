@@ -5,7 +5,7 @@ import warnings
 import time
 import sys
 import numpy as np
-from meshio import gmsh_io
+import meshio
 import logging
 
 from porepy.grids import constants
@@ -268,11 +268,20 @@ def _run_gmsh(file_name, network, **kwargs):
             logger.error("Gmsh failed with status " + str(gmsh_status))
             sys.exit()
 
-    pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
+    # The interface of meshio changed between versions 1 and 2. We make no
+    # assumption on which version is installed here.
+    if int(meshio.__version__[0]) < 2:
+        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(file_name)
+        # Invert phys_names dictionary to map from physical tags to corresponding
+        # physical names
+        phys_names = {v[0]: k for k, v in phys_names.items()}
+    else:
+        mesh = meshio.read(out_file)
 
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names
-    phys_names = {v[0]: k for k, v in phys_names.items()}
+        pts = mesh.points
+        cells = mesh.cells
+        cell_info = mesh.cell_data
+        phys_names = {v[0]: k for k, v in mesh.field_data.items()}
 
     return pts, cells, cell_info, phys_names
 
@@ -477,13 +486,20 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
     # Verbosity level
     verbose = kwargs.get("verbose", 1)
 
-    pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
+    # The interface of meshio changed between versions 1 and 2. We make no
+    # assumption on which version is installed here.
+    if int(meshio.__version__[0]) < 2:
+        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(file_name)
+        # Invert phys_names dictionary to map from physical tags to corresponding
+        # physical names
+        phys_names = {v[0]: k for k, v in phys_names.items()}
+    else:
+        mesh = meshio.read(out_file)
 
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names.
-    # As of meshio 1.10, the value of the physical name is defined as a numpy
-    # array, with the first item being the tag, the second the dimension.
-    phys_names = {v[0]: k for k, v in phys_names.items()}
+        pts = mesh.points
+        cells = mesh.cells
+        cell_info = mesh.cell_data
+        phys_names = {v[0]: k for k, v in mesh.field_data.items()}
 
     # Constants used in the gmsh.geo-file
     const = constants.GmshConstants()
@@ -539,11 +555,20 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
         file_name = file_name[:-4]
     file_name = file_name + ".msh"
 
-    pts, cells, _, cell_info, phys_names = gmsh_io.read(file_name)
+    # The interface of meshio changed between versions 1 and 2. We make no
+    # assumption on which version is installed here.
+    if int(meshio.__version__[0]) < 2:
+        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(file_name)
+        # Invert phys_names dictionary to map from physical tags to corresponding
+        # physical names
+        phys_names = {v[0]: k for k, v in phys_names.items()}
+    else:
+        mesh = meshio.read(file_name)
 
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names
-    phys_names = {v[0]: k for k, v in phys_names.items()}
+        pts = mesh.points
+        cells = mesh.cells
+        cell_info = mesh.cell_data
+        phys_names = {v[0]: k for k, v in mesh.field_data.items()}
 
     # Call upon helper functions to create grids in various dimensions.
     # The constructors require somewhat different information, reflecting the
