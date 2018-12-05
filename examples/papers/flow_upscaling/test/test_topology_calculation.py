@@ -7,8 +7,8 @@ a unit test in the future.
 import unittest
 import numpy as np
 
-from examples.papers.flow_upscaling.fracture_sets import count_node_types_between_families as top_compute
-from examples.papers.flow_upscaling import fracture_sets
+from examples.papers.flow_upscaling.fracture_network_analysis import count_node_types_between_families as top_compute
+from examples.papers.flow_upscaling import fracture_sets, fracture_network_analysis
 
 
 
@@ -194,7 +194,7 @@ class TestFractureSetIntersectionComputation(unittest.TestCase):
                       [0, 0, 1, 1]])
 
         fracs = self.define_set(p, e)
-        node_types = fracture_sets.analyze_intersections_of_sets(fracs)
+        node_types = fracture_network_analysis.analyze_intersections_of_sets(fracs)
 
         self.assertTrue( np.all(node_types["i_nodes"] == 2))
         self.assertTrue( np.all(node_types["y_nodes"] == 0))
@@ -208,7 +208,7 @@ class TestFractureSetIntersectionComputation(unittest.TestCase):
                       [0, 0, -1, 1]])
 
         fracs = self.define_set(p, e)
-        node_types = fracture_sets.analyze_intersections_of_sets(fracs)
+        node_types = fracture_network_analysis.analyze_intersections_of_sets(fracs)
 
         self.assertTrue( np.all(node_types["i_nodes"] == 2))
         self.assertTrue( np.all(node_types["y_nodes"] == 0))
@@ -223,7 +223,7 @@ class TestFractureSetIntersectionComputation(unittest.TestCase):
                       [0, 0, 0, 1]])
 
         fracs = self.define_set(p, e)
-        node_types = fracture_sets.analyze_intersections_of_sets(fracs)
+        node_types = fracture_network_analysis.analyze_intersections_of_sets(fracs)
 
         assert np.all(node_types["i_nodes"] == np.array([2, 1]))
         self.assertTrue( np.all(node_types["y_nodes"] == np.array([0, 1])))
@@ -243,7 +243,7 @@ class TestFractureSetIntersectionComputation(unittest.TestCase):
                       [1, 1]])
         fracs_2 = self.define_set(p_2, e_2)
 
-        node_types_1, node_types_2 = fracture_sets.analyze_intersections_of_sets(fracs_1, fracs_2)
+        node_types_1, node_types_2 = fracture_network_analysis.analyze_intersections_of_sets(fracs_1, fracs_2)
 
         self.assertTrue( np.all(node_types_1["i_nodes"] == 2))
         self.assertTrue( np.all(node_types_1["y_nodes"] == 0))
@@ -267,7 +267,7 @@ class TestFractureSetIntersectionComputation(unittest.TestCase):
                        [-1, 1]])
         fracs_2 = self.define_set(p_2, e_2)
 
-        node_types_1, node_types_2 = fracture_sets.analyze_intersections_of_sets(fracs_1, fracs_2)
+        node_types_1, node_types_2 = fracture_network_analysis.analyze_intersections_of_sets(fracs_1, fracs_2)
 
         self.assertTrue( np.all(node_types_1["i_nodes"] == 2))
         self.assertTrue( np.all(node_types_1["y_nodes"] == 0))
@@ -292,7 +292,7 @@ class TestFractureSetIntersectionComputation(unittest.TestCase):
                         [0, 1]])
         fracs_2 = self.define_set(p_2, e_2)
 
-        node_types_1, node_types_2 = fracture_sets.analyze_intersections_of_sets(fracs_1, fracs_2)
+        node_types_1, node_types_2 = fracture_network_analysis.analyze_intersections_of_sets(fracs_1, fracs_2)
 
         self.assertTrue( np.all(node_types_1["i_nodes"] == 2))
         self.assertTrue( np.all(node_types_1["y_nodes"] == 0))
@@ -316,7 +316,7 @@ class TestFractureSetIntersectionComputation(unittest.TestCase):
                         [0, 1]])
         fracs_2 = self.define_set(p_2, e_2)
 
-        node_types_2, node_types_1 = fracture_sets.analyze_intersections_of_sets(fracs_2, fracs_1)
+        node_types_2, node_types_1 = fracture_network_analysis.analyze_intersections_of_sets(fracs_2, fracs_1)
 
         self.assertTrue( np.all(node_types_1["i_nodes"] == 2))
         self.assertTrue( np.all(node_types_1["y_nodes"] == 0))
