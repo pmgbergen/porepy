@@ -276,7 +276,7 @@ def analyze_intersections_of_sets(set_1, set_2=None, tol=1e-4):
 
     num_fracs = edges.shape[1]
 
-    _, e_split = pp.cg.remove_edge_crossings2(pts, edges, tol=tol, snap=False)
+    _, e_split = pp.cg.remove_edge_crossings2(pts, edges, tol=tol)
 
     # Find which of the split edges belong to family_1 and 2
     family_1 = np.isin(e_split[2], np.arange(num_fracs_1))
