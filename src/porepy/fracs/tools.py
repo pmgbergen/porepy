@@ -47,7 +47,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
     if val_bound is not None:
         vals[pts_on_boundary] = val_bound
     if val_min is None:
-        val_min = 0.01 * val
+        val_min = 1e-8 * val
     # Compute the lenght of each pair of points (fractures + domain boundary)
     pts_id = lines[:2, :]
     dist = np.linalg.norm(pts[:, pts_id[0, :]] - pts[:, pts_id[1, :]], axis=0)
@@ -107,7 +107,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
         # We know there is a single segment, thus the distance vector can be reduced
         dist = dist[:, 0]
         # Find points that are closer than the target distance
-        hit = np.where(dist < vals)[0]
+        hit = np.where(np.logical_and(dist < vals, np.logical_not(np.isclose(dist, 0.0))))[0]
         # Update the minimum distance found for these points
         dist_pts[hit] = np.minimum(dist_pts[hit], dist[hit])
 
@@ -124,8 +124,7 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
         # start and end is not smaller than the minimum point. The latter removes
         # lines having their own end points added, and also avoids arbitrarily
         # small segments along the line.
-        to_add = np.logical_and.reduce((dist[hit] < dist_start, dist[hit] < dist_end,
-                                        dist_start > val_min, dist_end > val_min))
+        to_add = np.logical_and.reduce((dist[hit] < dist_start, dist[hit] < dist_end))
         if np.any(to_add):
             dist_extra = np.r_[dist_extra, np.minimum(dist[hit[to_add]], vals[hit[to_add]])]
             pts_extra = np.c_[pts_extra, cp[hit[to_add], 0].T]
@@ -229,8 +228,9 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
 
             # Compute the ditsacne between the current point and all old lines
             dist1, cp = pp.cg.dist_points_segments(new_pt, start_old, end_old)
-            # Disregard points that lie on the old segment
-            dist1[dist1 < val_min] = val
+            # Disregard points that lie on the old segment by assigning a value so high
+            # that it will not be picked up by the minimum.
+            dist1[np.isclose(dist1, 0.)] = mesh_size * 10
             # Update the minimum mesh size if any dist1 is less than the current value
             mesh_size = np.minimum(mesh_size, dist1.min())
 
