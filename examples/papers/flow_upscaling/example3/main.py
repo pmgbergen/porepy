@@ -6,48 +6,57 @@ from examples.papers.flow_upscaling.import_grid import grid, square_grid, raw_fr
 
 from mpfa_upscalig import MpfaUpscaling
 
-def global_data(g, **kwargs):
+def global_data(g, keyword="flow"):
     km = 1.
-    physics = kwargs.get("physics", "flow")
 
-    param = pp.Parameters(g)
+    param = {}
+
     # set the permeability
     perm = pp.SecondOrderTensor(3, km*np.ones(g.num_cells))
-    param.set_tensor("flow", perm)
+    param["second_order_tensor"] = perm
+
+    # Assign apertures
+    param["aperture"] = np.ones(g.num_cells)
 
     # Boundaries
     b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
+    bc_val = np.zeros(g.num_faces)
     if b_faces.size:
-
         labels = np.array(["dir"] * b_faces.size)
-        param.set_bc(physics, pp.BoundaryCondition(g, b_faces, labels))
-
-        bc_val = np.zeros(g.num_faces)
-        param.set_bc_val(physics, bc_val)
+        param["bc"] = pp.BoundaryCondition(g, b_faces, labels)
     else:
-        param.set_bc(physics, pp.BoundaryCondition(g, empty, empty))
+        param["bc"] = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
 
-    return param
+    param["bc_values"] = bc_val
+
+    data = {pp.PARAMETERS: pp.Parameters(g, keyword, param),
+            pp.DISCRETIZATION_MATRICES: {keyword: {}}}
+    return data
 
 def local_node_data(g, d, gb, **kwargs):
+    # do not set the boundary conditions,
+    # the local grid bucket is different than the global one
+
     kf = 1e4
     km = 1.
     aperture = 1e-3
-    physics = kwargs.get("physics", "flow")
+    keyword = kwargs.get("keyword", "flow")
+    param = {}
 
-    param = pp.Parameters(g)
-    # set the permeability
+    # set the permeability and aperture
     if g.dim == 2:
         kxx = km
     else: #g.dim == 1:
         kxx = kf
     perm = pp.SecondOrderTensor(3, kxx*np.ones(g.num_cells))
-    param.set_tensor(physics, perm)
+    param["second_order_tensor"] = perm
 
     # Assign apertures
-    param.set_aperture(np.power(aperture, 2-g.dim))
+    param["aperture"] = np.power(aperture, 2-g.dim)*np.ones(g.num_cells)
 
-    return {"param": param}
+    data = {pp.PARAMETERS: pp.Parameters(g, keyword, param),
+            pp.DISCRETIZATION_MATRICES: {keyword: {}}}
+    return data
 
 def local_edge_data(e, d, gb, **kwargs):
     kf = 1e4
@@ -62,29 +71,29 @@ def local_edge_data(e, d, gb, **kwargs):
 
 def compute_discharge(gb, **kwargs):
 
-    physics = kwargs.get("physics", "flow")
-    key = kwargs.get("key", "pressure")
+    keyword = kwargs.get("keyword", "flow")
+    variable = kwargs.get("variable", "pressure")
 
-    flux = "flux"
-    flux_mortar = "lambda_" + flux
+    discr_id = "flow"
+    mortar = "lambda_" + variable
 
-    flux_discr = pp.Mpfa(physics)
-    flux_coupling = pp.RobinCoupling(key, flux_discr)
+    discr = pp.Mpfa(keyword)
+    coupling = pp.RobinCoupling(keyword, discr)
 
     # define the dof and discretization for the grids
     for g, d in gb:
-        d[pp.keywords.PRIMARY_VARIABLES] = {key: {"cells": 1}}
-        d[pp.keywords.DISCRETIZATION] = {key: {flux: flux_discr}}
+        d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
+        d[pp.DISCRETIZATION] = {variable: {discr_id: discr}}
 
     # define the interface terms to couple the grids
     for e, d in gb.edges():
         g_slave, g_master = gb.nodes_of_edge(e)
-        d[pp.keywords.PRIMARY_VARIABLES] = {flux_mortar: {"cells": 1}}
-        d[pp.keywords.COUPLING_DISCRETIZATION] = {
+        d[pp.PRIMARY_VARIABLES] = {mortar: {"cells": 1}}
+        d[pp.COUPLING_DISCRETIZATION] = {
             flux: {
-                g_slave:  (key, flux),
-                g_master: (key, flux),
-                e: (flux_mortar, flux_coupling)
+                g_slave:  (variable, discr_id),
+                g_master: (variable, discr_id),
+                e: (mortar, coupling)
             }
         }
 
@@ -96,7 +105,8 @@ def compute_discharge(gb, **kwargs):
 
     # compute the discharge and fix the sign with f
     assembler.distribute_variable(gb, p, block_dof, full_dof)
-    pp.fvutils.compute_discharges(gb, physics=physics, p_name=key, lam_name=flux_mortar)
+    flux_name = "darcy_flux"
+    pp.fvutils.compute_darcy_flux(gb, keyword, flux_name, variable, mortar)
 
 #    for g, d in gb:
 #        if g.dim == 2:
@@ -104,7 +114,7 @@ def compute_discharge(gb, **kwargs):
 #            pp.plot_grid(g, d["pressure"])
 
     # extract the discharge and return it
-    return gb.node_props(gb.grids_of_dimension(gb.dim_max())[0], "discharge")
+    return gb.node_props(gb.grids_of_dimension(gb.dim_max())[0], flux_name)
 
 if __name__ == "__main__":
     file_geo = "network.csv"
@@ -115,11 +125,11 @@ if __name__ == "__main__":
 
     mesh_args = {'mesh_size_frac': 0.25, "tol": tol}
 
-    g = pp.StructuredTriangleGrid([3, 3], [1, 1])
+    g = pp.StructuredTriangleGrid([2, 2], [1, 1])
     g.compute_geometry()
 
-    gb, domain = square_grid(mesh_args)
-    g = gb.grids_of_dimension(2)[0]
+    #gb, domain = square_grid(mesh_args)
+    #g = gb.grids_of_dimension(2)[0]
     pp.plot_grid(g, alpha=0, info="fc")
 
     np.set_printoptions(linewidth=9999)
@@ -139,12 +149,8 @@ if __name__ == "__main__":
         "compute_discharge": compute_discharge
         }
 
-    data = {
-        "param": global_data(g),
-        "tol": tol,
-        "local_problem": data_local
-    }
-
+    data = global_data(g)
+    data.update({"tol": tol, "local_problem": data_local})
 
     #discr = pp.Mpfa("flow")
     #discr.assemble_matrix_rhs(g, data)
