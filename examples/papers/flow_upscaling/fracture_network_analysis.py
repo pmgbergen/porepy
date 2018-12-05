@@ -11,53 +11,79 @@ import porepy as pp
 from examples.papers.flow_upscaling import segment_pixelation
 
 
-def permeability_upscaling(network, data, mesh_args, directions):
+def permeability_upscaling(network, data, mesh_args, directions, do_viz=True):
 
-    gb = network.mesh(network.tol, **mesh_args)
+    gb = network.mesh(network.tol, mesh_args)
+    directions = np.asarray(directions)
+    upscaled_perm = np.zeros(directions.size)
 
-    direction = 0
-    gb = _setup_simulation(gb, data, direction)
+    for di, direct in enumerate(directions):
+        gb = _setup_simulation(gb, data, direct)
 
-    key = "flow"
-    discretization_key = key + "_" + pp.DISCRETIZATION
+        key = "flow"
+        discretization_key = key + "_" + pp.DISCRETIZATION
 
-    mpfa = pp.Mpfa(key)
-    for g, d in gb:
-        d[discretization_key] = mpfa
+        mpfa = pp.Tpfa(key)
+        for g, d in gb:
+            d[pp.PRIMARY_VARIABLES] = {
+                'pressure': {"cells": 1},
+            }
+            d[pp.DISCRETIZATION] = {
+                'pressure': {"diffusive": pp.Tpfa('flow')},
+            }
+        coupler = pp.RobinCoupling('flow', pp.Tpfa('flow'))
+        for e, d in gb.edges():
+            g1, g2 = gb.nodes_of_edge(e)
+            d[pp.PRIMARY_VARIABLES] = {'pressure': {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
+                'lambda': {
+                    g1: ('pressure', "diffusive"),
+                    g2: ('pressure', "diffusive"),
+                    e: ('pressure', coupler),
+                    }}
 
-    for _, d in gb.edges():
-        d[discretization_key] = pp.RobinCoupling(key, mpfa)
+            d[discretization_key] = pp.RobinCoupling(key, mpfa)
 
-    assembler = pp.EllipticAssembler(key)
+        assembler = pp.Assembler()
 
-    # Discretize
-    A, b = assembler.assemble_matrix_rhs(gb)
-    p = np.linalg.solve(A.A, b)
-    assembler.split(gb, "pressure", p)
+        # Discretize
+        A, b, block_dof, full_dof = assembler.assemble_matrix_rhs(gb)
+        p = np.linalg.solve(A.A, b)
+        assembler.distribute_variable(gb, p, block_dof, full_dof)
 
-    for g, d in gb:
-        inlet = d.get('inlet_faces', None)
-        if inlet is None:
-            continue
-        flux = d['flux'] * pressure
+        tot_inlet_flux = 0
 
+        for g, d in gb:
+            inlet = d.get('inlet_faces', None)
+            if inlet is None or inlet.size == 0:
+                continue
+            flux = d[pp.DISCRETIZATION_MATRICES][key]['flux'] * d['pressure']
+            flux += d[pp.DISCRETIZATION_MATRICES][key]['bound_flux'] * d['parameters'][key]['bc_values']
+            tot_inlet_flux += flux[inlet].sum()
+            if g.dim == gb.dim_max():
+                dx = g.nodes[direct].max() - g.nodes[direct].min()
+                area = (g.nodes[:g.dim].max(axis=1) - g.nodes[:g.dim].min(axis=1)).prod() / dx
+        upscaled_perm[di] = tot_inlet_flux * dx / area
 
+        if do_viz:
+            exp = pp.Exporter(gb, 'direction_' + str(direct))
+            exp.write_vtk('pressure')
+
+    return upscaled_perm
 
 def _setup_simulation(gb, data, direction):
 
-    if direction == 0:
-        min_coord = gb.bounding_box()['xmin']
-        max_coord = gb.bounding_box()['xmax']
-    else:
-        min_coord = gb.bounding_box()['ymin']
-        max_coord = gb.bounding_box()['ymax']
+
+    min_coord = gb.bounding_box()[0][direction]
+    max_coord = gb.bounding_box()[1][direction]
 
     for g, d in gb:
 
-        if g.dim == 2:
+        if g.dim == gb.dim_max():
             kxx = np.ones(g.num_cells)
         else:
-            kxx = np.power(data['aperture'], gb.dim_max() - g.dim)
+            kxx = np.ones(g.num_cells) * data['fracture_perm']
+
         perm = pp.SecondOrderTensor(gb.dim_max(), kxx)
         a = data['aperture']
         a = np.power(a, gb.dim_max() - g.dim) * np.ones(g.num_cells)
@@ -67,7 +93,7 @@ def _setup_simulation(gb, data, direction):
         if bound_faces.size > 0:
             hit_out = np.where(np.abs(g.face_centers[direction, bound_faces] - max_coord) < 1e-8)[0]
             hit_in = np.where(np.abs(g.face_centers[direction, bound_faces] - min_coord) < 1e-8)[0]
-            bound_type = ["neu"] * bound_faces.size
+            bound_type = np.array(["neu"] * bound_faces.size)
             bound_type[hit_out] = 'dir'
             bound_type[hit_in] = 'dir'
             bound = pp.BoundaryCondition(
@@ -76,17 +102,17 @@ def _setup_simulation(gb, data, direction):
             bc_val = np.zeros(g.num_faces)
             bc_val[bound_faces] = 0
             bc_val[bound_faces[hit_in]] = 1
+
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            d['inlet_faces'] = hit_in
+            d['inlet_faces'] = bound_faces[hit_in]
 
         pp.initialize_data(d, g, "flow", specified_parameters)
 
     for e, d in gb.edges():
         gl, _ = gb.nodes_of_edge(e)
-        d_l = gb.node_props(gl)
         mg = d["mortar_grid"]
-        kn = 1.0 / np.mean(d_l[pp.PARAMETERS]["flow"]["aperture"])
+        kn = data['fracture_perm']
         d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
