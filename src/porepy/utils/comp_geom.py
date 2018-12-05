@@ -3675,9 +3675,16 @@ def intersect_polygon_lines(poly_pts, pts, edges):
 
     # define the list of edges
     int_edges = np.arange(int_pts.shape[1]).reshape((2, -1), order="F")
-    edges_kept = np.array(edges_kept)
-    edges_kept.sort()
-    int_edges = np.vstack((int_edges, edges[2:, edges_kept]))
+
+    # Also preserve tags, if any
+    if len(edges_kept) > 0:
+        edges_kept = np.array(edges_kept)
+        edges_kept.sort()
+        int_edges = np.vstack((int_edges, edges[2:, edges_kept]))
+    else:
+        # If no edges are kept, return an empty array with the right dimensions
+        int_edges = np.empty((edges.shape[0], 0))
+
     return int_pts, int_edges
 
 
