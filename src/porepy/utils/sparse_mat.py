@@ -199,6 +199,13 @@ def slice_indices(A, slice_ind):
     rows = slice_indices(A, np.array([0,2,3]))
     """
     assert A.getformat() == "csc" or A.getformat() == "csr"
+    if np.asarray(slice_ind).dtype == "bool":
+        # convert to indices.
+        # First check for dimension
+        if slice_ind.size != A.indptr.size - 1:
+            raise IndexError("boolean index did not match indexed array")
+        slice_ind = np.where(slice_ind)[0]
+
     if isinstance(slice_ind, int):
         indices = A.indices[
             slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
@@ -235,6 +242,13 @@ def slice_mat(A, ind):
     rows = slice_mat(A, np.array([0,2,3]))
     """
     assert A.getformat() == "csc" or A.getformat() == "csr"
+
+    if np.asarray(ind).dtype == "bool":
+        # convert to indices.
+        # First check for dimension
+        if ind.size != A.indptr.size - 1:
+            raise IndexError("boolean index did not match indexed array")
+        ind = np.where(ind)[0]
 
     if isinstance(ind, int):
         N = 1
