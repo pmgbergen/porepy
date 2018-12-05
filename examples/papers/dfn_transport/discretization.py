@@ -45,10 +45,7 @@ def data_flow(gb, model, data, bc_flag):
         param["second_order_tensor"] = perm
 
         # assign aperture
-        if g.dim == 1:
-            param["aperture"] = 1e-14 * unity
-        else:
-            param["aperture"] = unity
+        param["aperture"] = unity
 
         # source
         param["source"] = zeros
@@ -184,14 +181,8 @@ def data_advdiff(gb, model, model_flow, data, bc_flag):
         param_diff["second_order_tensor"] = pp.SecondOrderTensor(3, kxx)
 
         # Assign apertures
-        # assign aperture
-        if g.dim == 1:
-            param_diff["aperture"] = 1e-14 * unity
-            param_adv["aperture"] = 1e-14 * unity
-
-        else:
-            param_diff["aperture"] = unity
-            param_adv["aperture"] = unity
+        param_diff["aperture"] = unity
+        param_adv["aperture"] = unity
 
         # Flux
         param_adv[flux_discharge_name] = d[flux_discharge_name]
@@ -269,11 +260,10 @@ def advdiff(gb, param, model_flow, bc_flag):
     coupling_diff = pp.FluxPressureContinuity(model_data_diff, discr_diff, trace_diff)
 
     for g, d in gb:
+        d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
         if g.dim == gb.dim_max():
-            d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
             d[pp.DISCRETIZATION] = {variable: {adv_id: discr_adv, diff_id: discr_diff}}
         else:
-            d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
             d[pp.DISCRETIZATION] = {variable: {adv_id: trace_adv, diff_id: trace_diff}}
 
     for e, d in gb.edges():
@@ -302,10 +292,14 @@ def advdiff(gb, param, model_flow, bc_flag):
     # mass term
     mass_id = "mass"
     discr_mass = pp.MassMatrix(model_data_adv)
+    trace_mass = pp.PressureTrace(model_data_adv)
 
     for g, d in gb:
         d[pp.PRIMARY_VARIABLES] = {variable: {"cells": 1}}
-        d[pp.DISCRETIZATION] = {variable: {mass_id: discr_mass}}
+        if g.dim == gb.dim_max():
+            d[pp.DISCRETIZATION] = {variable: {mass_id: discr_mass}}
+        else:
+            d[pp.DISCRETIZATION] = {variable: {mass_id: trace_mass}}
 
     gb.remove_edge_props(pp.COUPLING_DISCRETIZATION)
 
