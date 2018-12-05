@@ -751,7 +751,7 @@ class TestDomainRestriction(unittest.TestCase):
         self.assertTrue(np.allclose(new_frac.pts, known_p))
         self.assertTrue(np.allclose(new_frac.edges, known_e))
 
-    def test_one_dissapear(self):
+    def test_one_disapear(self):
         # One fracture is completely outside the domain
         p = np.array([[0, 1, 0.5, 0.5], [0, 0, 0.7, 1]])
         e = np.array([[0, 2], [1, 3]])
@@ -770,7 +770,7 @@ class TestDomainRestriction(unittest.TestCase):
         self.assertTrue(np.allclose(new_frac.pts, known_p))
         self.assertTrue(np.allclose(new_frac.edges, known_e))
 
-    def test_both_dissapear(self):
+    def test_both_disapear(self):
         # One fracture is completely outside the domain
         p = np.array([[0, 1, 0.5, 0.5], [0, 0, 0.7, 1]])
         e = np.array([[0, 2], [1, 3]])
@@ -799,10 +799,11 @@ def make_dummy_distribution(value):
     return {"dist": DummyDistribution(value), "param": {}}
 
 
-# if __name__ == '__main__':
-#    unittest.main()
+if __name__ == '__main__':
+    unittest.main()
 # TestParentChildrenRelations().test_only_isolated_two_parents_one_far_away()
 #TestFractureSetGeneration().test_two_parents_one_far_away_all_both_y_children()
 #TestDensityCounting().test_measure_computation_2d()
-unittest.main()
+#unittest.main()
+#TestDomainRestriction().test_both_disapear()
 # TestDensityCounting().test_1d_counting_two_boxes()
