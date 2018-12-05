@@ -357,7 +357,7 @@ class TestFractureSetGeneration(unittest.TestCase):
 
 
 class TestParentChildrenRelations(unittest.TestCase):
-    def test_only_isolated_one_parent(self):
+    def atest_only_isolated_one_parent(self):
 
         p_parent = np.array([[0, 5], [0, 0]])
         e_parent = np.array([[0], [1]])
@@ -390,7 +390,7 @@ class TestParentChildrenRelations(unittest.TestCase):
             np.all(isolated["center_distance"] == 0.5 * (0.1 + p_children[1, 4:]))
         )
 
-    def test_only_isolated_two_parents_one_far_away(self):
+    def atest_only_isolated_two_parents_one_far_away(self):
         # Isolated children. Two parents, but only one has children
 
         p_parent = np.array([[0, 5, 0, 5], [0, 0, -0.5, -0.5]])
@@ -425,7 +425,7 @@ class TestParentChildrenRelations(unittest.TestCase):
             np.all(isolated["center_distance"] == 0.5 * (0.1 + p_children[1, 4:]))
         )
 
-    def test_only_isolated_two_parents_both_active(self):
+    def atest_only_isolated_two_parents_both_active(self):
         # Isolated children. Two active parents both have children
 
         p_parent = np.array([[0, 5, 0, 5], [0, 0, -0.5, -0.5]])
@@ -473,7 +473,7 @@ class TestParentChildrenRelations(unittest.TestCase):
             )
         )
 
-    def test_only_y_one_parent(self):
+    def atest_only_y_one_parent(self):
         # Only one parent. All children are y-intersections for this parent
 
         p_parent = np.array([[0, 5], [0, 0]])
@@ -501,7 +501,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         # All four isolated belongs to this parent
         self.assertTrue(one_y["density"][0] * parent.length()[0] == 4)
 
-    def test_only_y_two_parents_one_active(self):
+    def atest_only_y_two_parents_one_active(self):
         # Two parents, only one is active. All children are y-intersections for this parent
 
         p_parent = np.array([[0, 5, 0, 5], [0, 0, -0.5, -0.5]])
@@ -532,7 +532,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         self.assertTrue(one_y["density"][0] * parent_length == 4)
         self.assertTrue(one_y["density"][1] == 0)
 
-    def test_only_y_two_parents_two_active(self):
+    def atest_only_y_two_parents_two_active(self):
         # Two parents, only one is active. All children are y-intersections for this parent
 
         p_parent = np.array([[0, 5, 0, 5], [0, 0, -0.5, -0.5]])
@@ -567,7 +567,7 @@ class TestParentChildrenRelations(unittest.TestCase):
         self.assertTrue(one_y["density"][0] * parent_length[0] == 3)
         self.assertTrue(one_y["density"][1] * parent_length[1] == 1)
 
-    def test_isolated_and_only_y_two_parents_two_active(self):
+    def atest_isolated_and_only_y_two_parents_two_active(self):
         # Two parents, only one is active. All children are y-intersections for this parent
 
         p_parent = np.array([[0, 5, 0, 5], [0, 0, -0.5, -0.5]])
