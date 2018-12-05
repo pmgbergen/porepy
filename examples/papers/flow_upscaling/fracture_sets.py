@@ -11,7 +11,7 @@ import scipy.stats as stats
 import logging
 import networkx as nx
 
-from examples.papers.flow_upscaling import frac_gen
+from examples.papers.flow_upscaling import frac_gen, fracture_network_analysis
 import porepy as pp
 
 
@@ -1033,7 +1033,7 @@ class ChildFractureSet(FractureSet):
             of children should scale with the length of the parent fracture.
         """
         nc = frac_gen.generate_from_distribution(1, self.dist_num_children)
-        return np.round(nc * parent_realiz.length()[pi]).astype(np.int)
+        return np.round(nc * parent_realiz.length()[pi]).astype(np.int)[0]
 
     def _draw_children_along_parent(self, parent_realiz, pi, num_children):
         """ Define location of children along the lines of a parent fracture.
@@ -1405,8 +1405,8 @@ class ChildFractureSet(FractureSet):
         self.fit_angle_distribution(**kwargs)
         self.fit_length_distribution(**kwargs)
 
-        node_types_self = analyze_intersections_of_sets(self, **kwargs)
-        node_types_combined_self, node_types_combined_parent = analyze_intersections_of_sets(
+        node_types_self = fracture_network_analysis.analyze_intersections_of_sets(self, **kwargs)
+        node_types_combined_self, node_types_combined_parent = fracture_network_analysis.analyze_intersections_of_sets(
             self, self.parent, **kwargs
         )
 
