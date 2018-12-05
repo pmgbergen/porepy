@@ -249,8 +249,8 @@ def determine_mesh_size(pts, pts_on_boundary=None, lines=None, **kwargs):
                 lines, [seg[0], pt_id, seg[2], seg[3]], [pt_id, seg[1], seg[2], seg[3]]
             ]
     # Make sure no mesh size assignments are below minimum value.
-    if val_min is not None:
-        dist_pts[dist_pts < val_min] = val_min
+#    if val_min is not None:
+#        dist_pts[dist_pts < val_min] = val_min
 
     return dist_pts, pts, lines
 
