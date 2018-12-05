@@ -62,6 +62,9 @@ def plot_fractures(d, p, c, colortag=None, **kwargs):
             "o-",
             color=col[tagmap[i]],
         )
+    if kwargs.get('axis_equal', True):
+        plt.axis('equal')
+
     # Finally set axis
     if kwargs.get("plot", True):
         plt.show()

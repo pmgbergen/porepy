@@ -16,7 +16,7 @@ import shapely.geometry as shapely_geometry
 import shapely.speedups as shapely_speedups
 
 from porepy.utils import setmembership
-
+import porepy as pp
 
 # Module level logger
 logger = logging.getLogger(__name__)
@@ -725,6 +725,868 @@ def remove_edge_crossings(vertices, edges, tol=1e-3, verbose=0, snap=True, **kwa
 
     return vertices, edges
 
+
+def _axis_aligned_bounding_box_2d(p, e):
+    """ For a set of lines in 2d, obtain the bounding box for each line.
+
+    The lines are specified as a list of points, together with connections between
+    the points.
+
+    Parameters:
+        p (np.ndarray, 2 x n_pt): Coordinates of points to be processed
+        e (np.ndarray, n x n_con): Connections between lines. n >= 2, row
+            0 and 1 are index of start and endpoints, additional rows are tags
+
+    Returns:
+        np.array (n_pt): Minimum x-coordinate for all lines.
+        np.array (n_pt): Maximum x-coordinate for all lines.
+        np.array (n_pt): Minimum y-coordinate for all lines.
+        np.array (n_pt): Maximum y-coordinate for all lines.
+
+    """
+    x = p[0]
+    y = p[1]
+
+    x_0 = x[e[0]]
+    x_1 = x[e[1]]
+    y_0 = y[e[0]]
+    y_1 = y[e[1]]
+
+    x_min = np.minimum(x_0, x_1)
+    x_max = np.maximum(x_0, x_1)
+    y_min = np.minimum(y_0, y_1)
+    y_max = np.maximum(y_0, y_1)
+
+    return x_min, x_max, y_min, y_max
+
+
+def _axis_aligned_bounding_box_3d(polys):
+    """ For a set of polygons embedded in 3d, obtain the bounding box for each object.
+
+    The polygons are specified as a list of numpy arrays.
+
+    Parameters:
+        p (list of np.ndarray, 3 x n_pt): Each list element specifies a
+            polygon, described by its vertexes in a 3 x num_points np.array.
+
+    Returns:
+        np.array (n_pt): Minimum x-coordinate for all lines.
+        np.array (n_pt): Maximum x-coordinate for all lines.
+        np.array (n_pt): Minimum y-coordinate for all lines.
+        np.array (n_pt): Maximum y-coordinate for all lines.
+        np.array (n_pt): Minimum z-coordinate for all lines.
+        np.array (n_pt): Maximum z-coordinate for all lines.
+
+    """
+
+    polys = list(polys)
+
+    num_poly = len(polys)
+
+    x_min = np.empty(num_poly)
+    x_max = np.empty_like(x_min)
+    y_min = np.empty_like(x_min)
+    y_max = np.empty_like(x_min)
+    z_min = np.empty_like(x_min)
+    z_max = np.empty_like(x_min)
+
+    for ind, p in enumerate(polys):
+        x_min[ind] = np.min(p[0])
+        x_max[ind] = np.max(p[0])
+        y_min[ind] = np.min(p[1])
+        y_max[ind] = np.max(p[1])
+        z_min[ind] = np.min(p[2])
+        z_max[ind] = np.max(p[2])
+
+    return x_min, x_max, y_min, y_max, z_min, z_max
+
+
+def _identify_overlapping_intervals(left, right):
+    """ Based on a set of start and end coordinates for intervals, identify pairs of
+    overlapping intervals.
+
+    Parameters:
+        left (np.array): Minimum coordinates of the intervals.
+        right (np.array): Maximum coordinates of the intervals.
+
+        For all items, left <= right (but equality is allowed).
+
+    Returns:
+        np.array, 2 x num_overlaps: Each column contains a pair of overlapping
+            intervals, refering to their placement in left and right. The pairs
+            are sorted so that the lowest index is in the first column.
+
+    """
+    # There can be no overlaps if there is less than two intervals
+    if left.size < 2:
+        return np.empty((2, 0))
+
+    # Sort the coordinates
+    sort_ind_left = np.argsort(left)
+    sort_ind_right = np.argsort(right)
+
+    # pointers to the next start and end point of an interval
+    next_right = 0
+    next_left = 0
+
+    # List of pairs we have found
+    pairs = []
+    # List of intervals we are currently in. All intervals will join and leave this set.
+    active = []
+
+    num_lines = left.size
+
+    # Loop through the line, add and remove intervals as we come across them.
+    while True:
+        # Check if the next start (left) point is before the next endpoint,
+        # But only if there are more left points available.
+        # Less or equal is critical here, or else cases where a point interval
+        # is combined with the start of another interval may not be discovered.
+        if (
+            next_left < num_lines
+            and left[sort_ind_left[next_left]] <= right[sort_ind_right[next_right]]
+        ):
+            # We have started a new interval. This will be paired with
+            # all active intervals
+            for a in active:
+                pairs.append([a, sort_ind_left[next_left]])
+            # Also join the new intervals to the active set.
+            active.append(sort_ind_left[next_left])
+            # Increase the index
+            next_left += 1
+        else:
+            # We have reached the end of the interval - remove it from the
+            # active ones.
+            active.remove(sort_ind_right[next_right])
+            next_right += 1
+            # Check if we have come to the end
+            if next_right == num_lines:
+                break
+
+    if len(pairs) == 0:
+        return np.empty((2, 0))
+    else:
+        pairs = np.asarray(pairs).T
+        # First sort the pairs themselves
+        pairs.sort(axis=0)
+        # Next, sort the columns so that the first row is non-decreasing
+        sort_ind = np.argsort(pairs[0])
+        pairs = pairs[:, sort_ind]
+        return pairs
+
+def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
+    """ Based on a set of start and end coordinates for bounding boxes, identify pairs of
+    overlapping rectangles.
+
+    The algorithm was found in 'A fast method for fracture intersection detection
+    in discrete fracture networks' by Dong et al, omputers and Geotechniques 2018.
+
+    Parameters:
+        xmin (np.array): Minimum coordinates of the rectangle on the first axis.
+        xmax (np.array): Maximum coordinates of the rectangle on the first axis.
+        ymin (np.array): Minimum coordinates of the rectangle on the second axis.
+        ymax (np.array): Maximum coordinates of the rectangle on the second axis.
+
+        For all items, xmin <= xmax (but equality is allowed), correspondingly for
+        the y-coordinates
+
+    Returns:
+        np.array, 2 x num_overlaps: Each column contains a pair of overlapping
+            intervals, refering to their placement in left and right. The pairs
+            are sorted so that the lowest index is in the first column.
+
+    """
+    # There can be no overlaps if there is less than two rectangles
+    if xmin.size < 2:
+        return np.empty((2, 0))
+
+    # Sort the coordinates
+    sort_ind_min = np.argsort(xmin)
+    sort_ind_max = np.argsort(xmax)
+
+    # pointers to the next start and end point of an interval
+    next_min = 0
+    next_max = 0
+
+    # List of pairs we have found
+    pairs = []
+    # List of intervals we are currently in. All intervals will join and leave this set.
+    active = []
+
+    num_lines = xmax.size
+
+    # Pass along the x-axis, identify the start and end of rectangles as we go.
+    # The idea is then for each new interval to check which of the active intervals
+    # also have overlap along the y-axis. These will be identified as pairs.
+    while True:
+        # Check if the next start (xmin) point is before the next endpoint,
+        # but only if there are more left points available.
+        # Less or equal is critical here, or else cases where a point interval
+        # is combined with the start of another interval may not be discovered.
+        if (
+            next_min < num_lines
+            and xmin[sort_ind_min[next_min]] <= xmax[sort_ind_max[next_max]]
+        ):
+            # Find active rectangles where the y-interval is also overlapping
+            between = np.where(
+                np.logical_and(
+                    ymax[sort_ind_min[next_min]] >= ymin[active],
+                    ymin[sort_ind_min[next_min]] <= ymax[active],
+                )
+            )[0]
+            # For all identified overlaps, add the new pairs
+            for a in between:
+                pairs.append([active[a], sort_ind_min[next_min]])
+            # Add this to the active rectangles, and increase the index
+            active.append(sort_ind_min[next_min])
+            next_min += 1
+        else:
+            # We are leaving a rectangle.
+            active.remove(sort_ind_max[next_max])
+            next_max += 1
+            # Check if we have come to the end
+            if next_max == num_lines:
+                break
+
+    if len(pairs) == 0:
+        return np.empty((2, 0))
+    else:
+        pairs = np.asarray(pairs).T
+        # First sort the pairs themselves
+        pairs.sort(axis=0)
+        # Next, sort the columns so that the first row is non-decreasing
+        sort_ind = np.argsort(pairs[0])
+        pairs = pairs[:, sort_ind]
+        return pairs
+
+def _intersect_pairs(p1, p2):
+    """ For two lists containing pair of indices, find the intersection.
+
+    Parameters:
+        p1 (np.array, 2 x n): Each column contains a pair of indices.
+        p2 (np.array, 2 x m): Each column contains a pair of indices.
+
+    Returns:
+        np.array, (2 x k, k <= min(n, m)): Each column contains a pair of
+            indices that are found in both p1 and p2. The array is sorted so
+            that items in the first row is less or equal to the second row.
+            The columns are sorted according to the numbers in the first row.
+
+    """
+    # Special treatment of empty lists
+    if p1.size == 0 or p2.size == 0:
+        return np.empty((2, 0))
+    else:
+        # Do the intersection
+        _, ind = pp.utils.setmembership.ismember_rows(p1, p2)
+        pairs = p2[:, ind]
+
+        # First sort the pairs themselves
+        pairs.sort(axis=0)
+        # Next, sort the columns so that the first row is non-decreasing
+        sort_ind = np.argsort(pairs[0])
+        pairs = pairs[:, sort_ind]
+        return pairs
+
+
+def remove_edge_crossings2(p, e, tol=1e-4):
+    """ Process a set of points and connections between them so that the result
+    is an extended point set and new connections that do not intersect.
+
+    The function is written for gridding of fractured domains, but may be
+    of use in other cases as well. The geometry is assumed to be 2D.
+
+    The connections are defined by their start and endpoints, and can also
+    have tags assigned. If so, the tags are preserved as connections are split.
+
+    IMPLEMENTATION NOTE: This is a re-implementation of the old function
+    remove_edge_crossings, based on a much faster algorithm. The two functions
+    will coexist for a while.
+
+    Parameters:
+        p (np.ndarray, 2 x n_pt): Coordinates of points to be processed
+        e (np.ndarray, n x n_con): Connections between lines. n >= 2, row
+            0 and 1 are index of start and endpoints, additional rows are tags
+        tol (double, optional, default=1e-8): Tolerance used for comparing
+            equal points.
+
+    Returns:
+        np.ndarray, (2 x n_pt), array of points, possibly expanded.
+        np.ndarray, (n x n_edges), array of new edges. Non-intersecting.
+
+    """
+    # Find the bounding box
+    x_min, x_max, y_min, y_max = _axis_aligned_bounding_box_2d(p, e)
+    # Identify fractures with overlapping bounding boxes
+    pairs = _identify_overlapping_rectangles(x_min, x_max, y_min, y_max)
+
+    # Identify all fractures that are the first (by index) of a potentially
+    # crossing pair. A better way to group the fractures may be feasible,
+    # but this has not been investigated.
+    start_inds = np.unique(pairs[0])
+
+    num_lines = e.shape[1]
+
+    # Data structure for storage of intersection points. For each fracture,
+    # we have an array that will contain the index of the intersections.
+    isect_pt = np.empty(num_lines, dtype=np.object)
+    for i in range(isect_pt.size):
+        isect_pt[i] = np.empty(0, dtype=np.int)
+
+    # Array of new points, found in the intersection of old ones.
+    new_pts = []
+    # The new points will be appended to the old ones, thus their index
+    # must be adjusted.
+    new_ind = p.shape[1]
+
+    # Loop through all candidate pairs of intersecting fractures, check if
+    # they do intersect. If so, store the point, and for each crossing fracture
+    # take note of the index of the cross point.
+    for di, line_ind in enumerate(start_inds):
+        # First fracture in the candidate pair
+        main = line_ind
+        # Find all other fractures that is in a pair with the main as the first one.
+        hit = np.where(pairs[0] == main)
+        # Sort the other points; this makes debugging simpler if nothing else.
+        other = np.sort(pairs[1, hit][0])
+
+        # We will first do a coarse sorting, to rule out fractures that are clearly
+        # not intersecting, and then do a finer search for an intersection below.
+
+        # Utility function to pull out one or several points from an array based
+        # on index
+        def pt(p, ind):
+            a = p[:, ind]
+            if ind.size == 1:
+                return a.reshape((-1, 1))
+            else:
+                return a
+
+        # Obtain start and endpoint of the main and other fractures
+        start_main = pt(p, e[0, main])
+        end_main = pt(p, e[1, main])
+        start_other = pt(p, e[0, other])
+        end_other = pt(p, e[1, other])
+
+        # Utility function to normalize the fracture length
+        def normalize(v):
+            nrm = np.sqrt(np.sum(v ** 2, axis=0))
+            return v / nrm
+
+        def dist(a, b):
+            return np.sqrt(np.sum((a - b) ** 2))
+
+        # Vectors along the main fracture, and from the start of the main
+        # to the start and end of the other fractures. All normalized.
+        # If the other edges share start or endpoint with the main one, normalization
+        # of the distance vector will make the vector nans. In this case, we
+        # use another point along the other line, this works equally well for the
+        # coarse identification (based on cross products).
+        # If the segments are overlapping, there will still be issues with nans,
+        # but these are dealt with below.
+        main_vec = normalize(end_main - start_main)
+        if dist(start_other, start_main) > 1e-4:
+            main_other_start = normalize(start_other - start_main)
+        else:
+            main_other_start = normalize(0.5 * (start_other + end_other) - start_main)
+        if dist(end_other, start_main) > 1e-4:
+            main_other_end = normalize(end_other - start_main)
+        else:
+            main_other_end = normalize(0.3 * start_other + 0.7 * end_other - start_main)
+
+        # Modified signum function: The value is 0 if it is very close to zero.
+        def mod_sign(v, tol):
+            sgn = np.sign(v)
+            sgn[np.abs(v) < tol] = 0
+            return sgn
+
+        # Take the cross product between the vector along the main line, and the
+        # vectors to the start and end of the other lines, respectively.
+        start_cross = mod_sign(
+            main_vec[0] * main_other_start[1] - main_vec[1] * main_other_start[0], tol
+        )
+        end_cross = mod_sign(
+            main_vec[0] * main_other_end[1] - main_vec[1] * main_other_end[0], tol
+        )
+
+        # If the start and endpoint of the other fracture are clearly on the
+        # same side of the main one, these are not crossing.
+        # For completely ovrelapping edges, the normalization will leave the
+        # vectors nan. There may be better ways of dealing with this, but we simply
+        # run the intersection finder in this case.
+        relevant = np.where(np.logical_or((start_cross * end_cross < 1),
+                            np.any(np.isnan(main_other_start + main_other_end), axis=0)))[0]
+
+        # Loop over all relevant (possibly crossing) fractures, look closer
+        # for an intersection.
+        for ri in relevant:
+            ipt = pp.cg.lines_intersect(
+                start_main, end_main, pt(start_other, ri), pt(end_other, ri)
+            )
+            # Add the intersection point, if any.
+            # If two intersection points are found, that is the edges are overlapping
+            # both points are added.
+            if ipt is not None:
+                num_isect = ipt.shape[1]
+                # Add indices of the new points to the main and other edge
+                isect_pt[main] = np.append(isect_pt[main], new_ind + np.arange(num_isect))
+                isect_pt[other[ri]] = np.append(isect_pt[other[ri]], new_ind + np.arange(num_isect))
+                new_ind += num_isect
+
+                # Add the one or two intertion points
+                if num_isect == 1:
+                    new_pts.append(ipt.squeeze())
+                else:
+                    # It turned out the transport was needed to get the code to work
+                    new_pts.append(ipt.squeeze().T)
+
+    # If we have found no intersection points, we can safely return the incoming
+    # points and edges.
+    if len(new_pts) == 0:
+        return p, e
+    # If intersection points are found, the intersecting lines must be split into
+    # shorter segments.
+    else:
+        # The full set of points, both original and newly found intersection points
+        all_pt = np.hstack((p, np.vstack((i for i in new_pts)).T))
+        # Remove duplicates in the point set.
+        # NOTE: The tolerance used here is a bit sensitive, if set too loose, this
+        # may merge non-intersecting fractures.
+        unique_all_pt, _, ib = pp.utils.setmembership.unique_columns_tol(all_pt, tol)
+        # Data structure for storing the split edges.
+        new_edge = np.empty((e.shape[0], 0))
+
+        # Loop over all lines, split it into non-overlapping segments.
+        for ei in range(num_lines):
+            # Find indices of all points involved in this fracture.
+            # Map them to the unique point set, and uniquify
+            inds = np.unique(ib[np.hstack((e[:2, ei], isect_pt[ei]))])
+            num_branches = inds.size - 1
+            # Get the coordinates themselves.
+            loc_pts = pt(unique_all_pt, inds)
+            # Specifically get the start point: Pick one of the points of the
+            # original edge, e[0, ei], which is known to be at an end of the edge.
+            # map to the unique indices
+            loc_start = pt(unique_all_pt, ib[e[0, ei]])
+            # Measure the distance of the points from the start. This can be used
+            # to sort the points along the line
+            dist = np.sum((loc_pts - loc_start) ** 2, axis=0)
+            order = np.argsort(dist)
+            new_inds = inds[order]
+            # All new segments share the tags of the old one.
+            loc_tags = e[2:, ei].reshape((-1, 1)) * np.ones(num_branches)
+            # Define the new segments, in terms of the unique points
+            loc_edge = np.vstack((new_inds[:-1], new_inds[1:], loc_tags))
+
+            # Add to the global list of segments
+            new_edge = np.hstack((new_edge, loc_edge))
+
+        # Finally, uniquify edges. This operation is necessary for overlapping edges.
+        # Operate on sorted point indices per edge
+        new_edge[:2] = np.sort(new_edge[:2], axis=0)
+        # Uniquify.
+        _, edge_map, _ = pp.utils.setmembership.unique_columns_tol(new_edge[:2].astype(np.int), tol)
+        new_edge = new_edge[:, edge_map]
+
+        return unique_all_pt, new_edge.astype(np.int)
+
+def intersect_polygons_3d(polys, tol=1e-8):
+    """ Compute the intersection between polygons embedded in 3d.
+
+    Assumptions:
+        * All polygons are convex. Non-convex polygons will simply be treated
+          in a wrong way.
+        * No polygon contains three points on a line, that is, an angle of pi.
+
+    Parameters:
+        polys (list of np.array): Each list item represents a polygon, specified
+            by its vertexses as a numpy array, of dimension 3 x num_pts. There
+            should be at least three vertexes in the polygon.
+        tol (double, optional): Geometric tolerance for the computations.
+
+    Returns:
+        np.array: 3 x num_pt, intersection coordinates.
+        np.array of lists: For each of the polygons, give the index of the intersection
+            points, referring to the columns of the intersection coordinates.
+        np.array of list: For each polygon, a list telling whether each of the intersections
+            is on the boundary of the polygon or not. For polygon i, the first
+            element in this list tells whether the point formed by point-indices
+            0 and 1 in the previous return argument is on the boundary.
+        list of tuples: Each list element is a 2-tuple with the indices of
+            intersecting polygons.
+
+    """
+    # Obtain bounding boxes for the polygons
+    x_min, x_max, y_min, y_max, z_min, z_max = pp.cg._axis_aligned_bounding_box_3d(
+        polys
+    )
+
+    # Identify overlapping bounding boxes: First, use a fast method to find
+    # overlapping rectangles in the xy-plane.
+    pairs_xy = pp.cg._identify_overlapping_rectangles(x_min, x_max, y_min, y_max)
+    # Next, find overlapping intervals in the z-directien
+    pairs_z = pp.cg._identify_overlapping_intervals(z_min, z_max)
+
+    # Finally, do the intersection
+    pairs = pp.cg._intersect_pairs(pairs_xy, pairs_z)
+
+    # Various utility functions
+    def center(p):
+        # Compute the mean coordinate of a set of points
+        return p.mean(axis=1).reshape((-1, 1))
+
+    def normalize(v):
+        # Normalize a vector
+        nrm = np.sqrt(np.sum(v ** 2, axis=0))
+        return v / nrm
+
+    def mod_sign(v, tol=1e-8):
+        # Modified signum function: The value is 0 if it is very close to zero.
+        sgn = np.sign(v)
+        sgn[np.abs(v) < tol] = 0
+        return sgn
+
+    def intersection(start, end, normal, center):
+        # Find a point p on the segment between start and end, so that the vector
+        # p - center is perpendicular to normal
+
+        # Vector along the segment
+        dx = end - start
+        dot_prod = np.sum(normal.ravel() * dx)
+        assert np.abs(dot_prod) > 1e-6
+        t = -np.sum((start - center.ravel()) * normal.ravel()) / dot_prod
+
+        assert t >= 0 and t <= 1
+        return start + t * dx
+
+    def vector_pointset_point(a, b, tol=1e-4):
+        # Create a set of non-zero vectors from a point in the plane spanned by
+        # a, to all points in b
+        found = None
+        # Loop over all points in a, search for a point that is sufficiently
+        # far away from b. Mainly this involves finding a point in a which is
+        # not in b
+        for i in range(a.shape[1]):
+            dist = np.sqrt(np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0))
+            if np.min(dist) > tol:
+                found = i
+                break
+        if found is None:
+            # All points in a are also in b. We could probably use some other
+            # point in a, but this seems so strange that we will rather
+            # raise an error, with the expectation that this should never happen.
+            raise ValueError("Coinciding polygons")
+
+        return b - a[:, found].reshape((-1, 1))
+
+    num_polys = len(polys)
+
+    # Storage array for storing the index of the intersection points for each polygon
+    isect_pt = np.empty(num_polys, dtype=np.object)
+    # Storage for whehter an intersection is on the boundary of a polygon
+    is_bound_isect = np.empty_like(isect_pt)
+    # Initialization
+    for i in range(isect_pt.size):
+        isect_pt[i] = []
+        is_bound_isect[i] = []
+
+    # Array for storing the newly found points
+    new_pt = []
+    new_pt_ind = 0
+
+    # Index of the main fractures, to which the other ones will be compared.
+    start_inds = np.unique(pairs[0])
+
+    polygon_pairs = []
+
+    # Loop over all fracture pairs (taking more than one simultaneously if an index
+    # occurs several times in pairs[0]), and look for intersections
+    for di, line_ind in enumerate(start_inds):
+        # The algorithm first does a coarse filtering, to check if the candidate
+        # pairs both crosses each others plane. For those pairs that passes
+        # this test, we next compute the intersection points, and check if
+        # they are contained within the fractures.
+
+        # The main fracture, from the first row in pairs
+        main = line_ind
+
+        # Find the other fracture of all pairs starting with the main one
+        hit = np.where(pairs[0] == main)
+        other = pairs[1, hit][0]
+
+        # Center point and normal vector of the main fracture
+        main_center = center(polys[main])
+        main_normal = pp.cg.compute_normal(polys[main]).reshape((-1, 1))
+
+        # Create an expanded version of the main points, so that the start
+        # and end points are the same. Thus the segments can be formed by
+        # merging main_p_expanded[:-1] with main_p_expanded[1:]
+        num_main = polys[main].shape[1]
+        ind_main_cyclic = np.arange(num_main + 1) % num_main
+        main_p_expanded = polys[main][:, ind_main_cyclic]
+
+        # Loop over the other polygon in the pairs, look for intersections
+        for o in other:
+            # Expanded version of the other polygon
+            num_other = polys[o].shape[1]
+            ind_other_cyclic = np.arange(num_other + 1) % num_other
+            other_p_expanded = polys[o][:, ind_other_cyclic]
+
+            # Normal vector and cetner of the other polygon
+            other_normal = pp.cg.compute_normal(polys[o]).reshape((-1, 1))
+            other_center = center(polys[o])
+
+            # Point a vector from the main center to the vertexes of the
+            # other polygon. Then take the dot product with the normal vector
+            # of the main fracture. If all dot products have the same sign,
+            # the other fracture does not cross the plane of the main polygon.
+            # Note that we use mod_sign to safeguard the computation - if
+            # the vertexes are close, we will take a closer look at the combination
+            vec_from_main = normalize(
+                vector_pointset_point(polys[main], other_p_expanded)
+            )
+            dot_prod_from_main = mod_sign(np.sum(main_normal * vec_from_main, axis=0))
+
+            # Similar procedure: Vector from ohter center to the main polygon,
+            # then dot product.
+            vec_from_other = normalize(vector_pointset_point(polys[o], main_p_expanded))
+            dot_prod_from_other = mod_sign(
+                np.sum(other_normal * vec_from_other, axis=0)
+            )
+
+            # If one of the polygons lie completely on one side of the other,
+            # there can be no intersection.
+            if (
+                np.all(dot_prod_from_main > 0)
+                or np.all(dot_prod_from_main < 0)
+                or np.all(dot_prod_from_other > 0)
+                or np.all(dot_prod_from_other < 0)
+            ):
+                continue
+
+            # At this stage, we are fairly sure both polygons cross the plane of
+            # the other polygon.
+            # Identify the segments where the polygon crosses the plane
+            sign_change_main = np.where(np.abs(np.diff(dot_prod_from_main)) > 0)[0]
+            sign_change_other = np.where(np.abs(np.diff(dot_prod_from_other)) > 0)[0]
+
+            # The default option is that the intersection is not on the boundary
+            # of main or other, that is, the two intersection points are identical
+            # to two vertexes of the polygon
+            isect_on_boundary_main = False
+            isect_on_boundary_other = False
+
+            if np.all(dot_prod_from_main != 0):
+                # In the case where one polygon does not have a vertex in the plane of
+                # the other polygon, there should be exactly two segments crossing the plane.
+                assert sign_change_main.size == 2
+                # Compute the intersection points between the segments of the other polygon
+                # and the plane of the main polygon.
+                other_intersects_main_0 = intersection(
+                    other_p_expanded[:, sign_change_main[0]],
+                    other_p_expanded[:, sign_change_main[0] + 1],
+                    main_normal,
+                    main_center,
+                )
+                other_intersects_main_1 = intersection(
+                    other_p_expanded[:, sign_change_main[1]],
+                    other_p_expanded[:, sign_change_main[1] + 1],
+                    main_normal,
+                    main_center,
+                )
+            elif np.sum(dot_prod_from_main[:-1] == 0) == 1:
+                # The first and last element represent the same point, thus include
+                # only one of them when counting the number of points in the plane
+                # of the other fracture.
+                hit = np.where(dot_prod_from_main[:-1] == 0)[0]
+                other_intersects_main_0 = other_p_expanded[:, hit[0]]
+                sign_change_full = np.where(np.abs(np.diff(dot_prod_from_main)) > 1)[0]
+                other_intersects_main_1 = intersection(
+                    other_p_expanded[:, sign_change_full[0]],
+                    other_p_expanded[:, sign_change_full[0] + 1],
+                    main_normal,
+                    main_center,
+                )
+
+            else:
+                # Both of the intersection points are vertexes.
+                # Check that there are only two points - if this assertion fails,
+                # there is a hanging node of the other polygon, which is in the
+                # plane of the other polygon. Extending to cover this case should
+                # be possible, but further treatment is unclear at the moment.
+                assert np.sum(dot_prod_from_main[:-1] == 0) == 2
+                hit = np.where(dot_prod_from_main[:-1] == 0)[0]
+                other_intersects_main_0 = other_p_expanded[:, hit[0]]
+                # Pick the last of the intersection points. This is valid also for
+                # multiple (>2) intersection points, but we keep the assertion for now.
+                other_intersects_main_1 = other_p_expanded[:, hit[1]]
+                # The other polygon has an edge laying in the plane of the main polygon.
+                # This will be registered as a boundary intersection, but only if
+                # the polygons (not only plane) intersect.
+                if hit[0] + 1 == hit[-1] or hit[0] == 0 and hit[-1] == (dot_prod_from_main.size - 2):
+                    isect_on_boundary_other = True
+
+            if np.all(dot_prod_from_other != 0):
+                # In the case where one polygon does not have a vertex in the plane of
+                # the other polygon, there should be exactly two segments crossing the plane.
+                assert sign_change_other.size == 2
+                # Compute the intersection points between the segments of the main polygon
+                # and the plane of the other polygon.
+                main_intersects_other_0 = intersection(
+                    main_p_expanded[:, sign_change_other[0]],
+                    main_p_expanded[:, sign_change_other[0] + 1],
+                    other_normal,
+                    other_center,
+                )
+                main_intersects_other_1 = intersection(
+                    main_p_expanded[:, sign_change_other[1]],
+                    main_p_expanded[:, sign_change_other[1] + 1],
+                    other_normal,
+                    other_center,
+                )
+            elif np.sum(dot_prod_from_other[:-1] == 0) == 1:
+                # The first and last element represent the same point, thus include
+                # only one of them when counting the number of points in the plane
+                # of the other fracture.
+                hit = np.where(dot_prod_from_other[:-1] == 0)[0]
+                main_intersects_other_0 = main_p_expanded[:, hit[0]]
+                sign_change_full = np.where(np.abs(np.diff(dot_prod_from_other)) > 1)[0]
+                main_intersects_other_1 = intersection(
+                    main_p_expanded[:, sign_change_full[0]],
+                    main_p_expanded[:, sign_change_full[0] + 1],
+                    other_normal,
+                    other_center,
+                )
+            else:
+                # Both of the intersection points are vertexes.
+                # Check that there are only two points - if this assertion fails,
+                # there is a hanging node of the main polygon, which is in the
+                # plane of the other polygon. Extending to cover this case should
+                # be possible, but further treatment is unclear at the moment.
+                # Do not count the last point here, this is identical to the
+                # first one.
+                assert np.sum(dot_prod_from_other[:-1] == 0) == 2
+                hit = np.where(dot_prod_from_other[:-1] == 0)[0]
+                main_intersects_other_0 = main_p_expanded[:, hit[0]]
+                # Pick the last of the intersection points. This is valid also for
+                # multiple (>2) intersection points, but we keep the assertion for now.
+                main_intersects_other_1 = main_p_expanded[:, hit[-1]]
+                # The main polygon has an edge laying in the plane of the other polygon.
+                # If the two intersection points form a segment
+                # This will be registered as a boundary intersection, but only if
+                # the polygons (not only plane) intersect.
+                # The two points can either be one apart in the main polygon,
+                # or it can be the first and the penultimate point
+                # (in the latter case, the final point, which is identical to the
+                # first one, will also be in the plane, but this is disregarded
+                # by the [:-1] above)
+                if hit[0] + 1 == hit[-1] or hit[0] == 0 and hit[-1] == (dot_prod_from_other.size - 2):
+                    isect_on_boundary_main = True
+
+            # Vectors from the intersection points in the main fracture to the
+            # intersection point in the other fracture
+            main_0_other_0 = other_intersects_main_0 - main_intersects_other_0
+            main_0_other_1 = other_intersects_main_1 - main_intersects_other_0
+            main_1_other_0 = other_intersects_main_0 - main_intersects_other_1
+            main_1_other_1 = other_intersects_main_1 - main_intersects_other_1
+
+            # To finalize the computation, we need to sort out how the intersection
+            # points are located relative to each other. Only if there is an overlap
+            # between the intersection points of the main and the other polygon
+            # is there a real intersection (contained within the polygons, not only)
+            # in their planes, but outside the features themselves.
+
+            # e_1 is positive if both points of the other fracture lie on the same side of the
+            # first intersection point of the main one
+            e_1 = np.sum(main_0_other_0 * main_0_other_1)
+            # e_2 is positive if both points of the other fracture lie on the same side of the
+            # second intersection point of the main one
+            e_2 = np.sum(main_1_other_0 * main_1_other_1)
+            # e_3 is positive if both points of the main fracture lie on the same side of the
+            # first intersection point of the other one
+            e_3 = np.sum((-main_0_other_0) * (-main_1_other_0))
+            # e_3 is positive if both points of the main fracture lie on the same side of the
+            # second intersection point of the other one
+            e_4 = np.sum((-main_0_other_1) * (-main_1_other_1))
+
+            # This is in essence an implementation of the flow chart in Figure 9 in Dong et al,
+            # However the inequality signs are changed a bit to make the logic clearer
+            if e_1 > 0 and e_2 > 0 and e_3 > 0 and e_4 > 0:
+                # The intersection points for the two fractures are separated.
+                # There is no intersection
+                continue
+            if e_1 >= 0:
+                # The first point on the main fracture is not involved in the intersection
+                if e_2 >= 0:
+                    # The second point on the main fracture is not involved
+                    # We know that e_3 and e_4 are negative (positive is covered above
+                    # and a combination is not possible)
+                    isect_pt_loc = [other_intersects_main_0, other_intersects_main_1]
+                else:
+                    # The second point on the main fracture is surrounded by points on
+                    # the other fracture. One of them will in turn be surrounded by the
+                    # points on the main fracture, this is the intersecting one.
+                    if e_3 <= 0:
+                        isect_pt_loc = [
+                            main_intersects_other_1,
+                            other_intersects_main_0,
+                        ]
+                    elif e_4 <= 0:
+                        isect_pt_loc = [
+                            main_intersects_other_1,
+                            other_intersects_main_1,
+                        ]
+                    else:
+                        # We may eventually end up here for overlapping fractures
+                        assert False
+            elif e_2 >= 0:
+                # The first point on the main fracture is not involved in the intersection
+                # The case of e_1 also non-negative was covered above
+                if e_1 < 0:  # Equality is covered above
+                    # The first point on the main fracture is surrounded by points on
+                    # the other fracture. One of them will in turn be surrounded by the
+                    # points on the main fracture, this is the intersecting one.
+                    if e_3 <= 0:
+                        isect_pt_loc = [
+                            main_intersects_other_0,
+                            other_intersects_main_0,
+                        ]
+                    elif e_4 <= 0:
+                        isect_pt_loc = [
+                            main_intersects_other_0,
+                            other_intersects_main_1,
+                        ]
+                    else:
+                        # We may eventually end up here for overlapping fractures
+                        assert False
+            elif e_1 < 0 and e_2 < 0:
+                # The points in on the main fracture are the intersection points
+                isect_pt_loc = [main_intersects_other_0, main_intersects_other_1]
+            else:
+                # This should never happen
+                assert False
+
+            new_pt.append(np.array(isect_pt_loc).T)
+            num_new = len(isect_pt_loc)
+            isect_pt[main].append(new_pt_ind + np.arange(num_new))
+            isect_pt[o].append(new_pt_ind + np.arange(num_new))
+            new_pt_ind += num_new
+            is_bound_isect[main].append(isect_on_boundary_main)
+            is_bound_isect[o].append(isect_on_boundary_other)
+            polygon_pairs.append((main, o))
+
+    if len(new_pt) > 0:
+        new_pt = np.hstack((v for v in new_pt))
+        for i in range(isect_pt.size):
+            if len(isect_pt[i]) > 0:
+                isect_pt[i] = np.hstack((v for v in isect_pt[i]))
+
+    else:
+        new_pt = np.empty((3, 0))
+        for i in range(isect_pt.size):
+            isect_pt[i] = np.empty(0)
+
+    return new_pt, isect_pt, is_bound_isect, polygon_pairs
 
 # ----------------------------------------------------------
 #
@@ -1850,6 +2712,58 @@ def make_collinear(pts):
     return pts[:, 0, np.newaxis] * (1 - dist) + pts[:, end, np.newaxis] * dist
 
 
+def project_points_to_line(p, tol=1e-4):
+    """ Project a set of colinear points onto a line.
+
+    The points should be co-linear such that a 1d description is meaningful.
+
+    Parameters:
+        p (np.ndarray, nd x n_pt): Coordinates of the points. Should be
+            co-linear, but can have random ordering along the common line.
+        tol (double, optional): Tolerance used for testing of co-linearity.
+
+    Returns:
+        np.ndarray, n_pt: 1d coordinates of the points, sorted along the line.
+        np.ndarray (3x3): Rotation matrix used for mapping the points onto a
+            coordinate axis.
+        int: The dimension which onto which the point coordinates were mapped.
+        np.ndarary (n_pt): Index array used to sort the points onto the line.
+
+    Raises:
+        ValueError if the points are not aligned on a line.
+
+    """
+    center = np.mean(p, axis=1).reshape((-1, 1))
+    p -= center
+
+    if p.shape[0] == 2:
+        p = np.vstack((p, np.zeros(p.shape[1])))
+
+    # Check that the points indeed form a line
+    if not is_collinear(p, tol):
+        raise ValueError("Elements are not colinear")
+    # Find the tangent of the line
+    tangent = compute_tangent(p)
+    # Projection matrix
+    rot = project_line_matrix(p, tangent)
+
+    p_1d = rot.dot(p)
+    # The points are now 1d along one of the coordinate axis, but we
+    # don't know which yet. Find this.
+    sum_coord = np.sum(np.abs(p_1d), axis=1)
+    sum_coord /= np.amax(sum_coord)
+    active_dimension = np.logical_not(np.isclose(sum_coord, 0, atol=tol, rtol=0))
+
+    # Check that we are indeed in 1d
+    assert np.sum(active_dimension) == 1
+    # Sort nodes, and create grid
+    coord_1d = p_1d[active_dimension]
+    sort_ind = np.argsort(coord_1d)[0]
+    sorted_coord = coord_1d[0, sort_ind]
+
+    return sorted_coord, rot, active_dimension, sort_ind
+
+
 # ------------------------------------------------------------------------------#
 
 
@@ -1956,6 +2870,18 @@ def dist_segment_segment_set(start, end, start_set, end_set):
     segments.
 
     Parameters:
+        start (np.array, nd x 1): Start point of the main segment
+        end (np.array, nd x 1): End point of the main segment
+        start_set (np.array, nd x n_segments): Start points for the segment set.
+        end_set (np.array, nd x n_segments): End points for the segment set.
+
+    Returns:
+        np.array (n_segments): The distance from the main segment to each of the
+            segments in the set.
+        np.array (nd x n_segments): For each segment in the segment set, the
+            point closest on the main segment
+        np.array (nd x n_segments): For each segment in the segment set, the
+            point closest on the secondary segment
 
     """
     start = np.squeeze(start)
@@ -1968,6 +2894,8 @@ def dist_segment_segment_set(start, end, start_set, end_set):
     cp_set = np.zeros((nd, ns))
     cp = np.zeros((nd, ns))
 
+    # Loop over all segments, compute the distance and closest point compared
+    # to the main one.
     for i in range(ns):
         dl, cpi, cpj = dist_two_segments(start, end, start_set[:, i], end_set[:, i])
         d[i] = dl
@@ -2010,9 +2938,6 @@ def dist_two_segments(s1_start, s1_end, s2_start, s2_end):
 
     """
 
-    # Variable used to fine almost parallel lines. Sensitivity to this value has not been tested.
-    SMALL_TOLERANCE = 1e-6
-
     # For the rest of the algorithm, see the webpage referred to above for details.
     d1 = s1_end - s1_start
     d2 = s2_end - s2_start
@@ -2024,6 +2949,10 @@ def dist_two_segments(s1_start, s1_end, s2_start, s2_end):
     dot_1_starts = d1.dot(d_starts)
     dot_2_starts = d2.dot(d_starts)
     discr = dot_1_1 * dot_2_2 - dot_1_2 ** 2
+
+    # Variable used to fine almost parallel lines. Sensitivity to this value has not been tested.
+    SMALL_TOLERANCE = 1e-8 * np.minimum(dot_1_1, dot_2_2)
+
     # Sanity check
     assert discr >= -SMALL_TOLERANCE * dot_1_1 * dot_2_2
 
@@ -2691,6 +3620,75 @@ def intersect_triangulations(p_1, p_2, t_1, t_2):
             if isinstance(isect, shapely_geometry.Polygon):
                 intersections.append((i, j, isect.area))
     return intersections
+
+
+# ------------------------------------------------------------------------------#
+
+
+def intersect_polygon_lines(poly_pts, pts, edges):
+    """
+    Compute the intersections between a polygon (also not convex) and a set of lines.
+    The computation is done line by line to avoid the splitting of edges caused by other
+    edges. The implementation assume that the polygon and lines are on the plane (x, y).
+
+    Parameters:
+    poly_pts (np.ndarray, 3xn or 2xn): the points that define the polygon
+    pts (np.ndarray, 3xn or 2xn): the points associated to the lines
+    edges (np.ndarray, 2xn): for each column the id of the points for the line
+
+    Returns:
+    int_pts (np.ndarray, 2xn): the point associated to the lines after the intersection
+    int_edges (np.ndarray, 2xn): for each column the id of the points for the line after the
+        intersection. If the input edges have tags, stored in rows [2:], these will be
+        preserved.
+
+    """
+    # it stores the points after the intersection
+    int_pts = np.empty((2, 0))
+    # define the polygon
+    poly = shapely_geometry.Polygon(poly_pts[:2, :].T)
+
+    # Kept edges
+    edges_kept = []
+
+    # we do the computation for each edge once at time, to avoid the splitting
+    # caused by other edges.
+    for ei, e in enumerate(edges.T):
+        # define the line
+        line = shapely_geometry.LineString([pts[:2, e[0]], pts[:2, e[1]]])
+        # compute the intersections between the poligon and the current line
+        int_lines = poly.intersection(line)
+        # only line or multilines are considered, no points
+        if type(int_lines) is shapely_geometry.LineString:
+            # consider the case of single intersection by avoiding to consider
+            # lines on the boundary of the polygon
+            if not int_lines.touches(poly):
+                int_pts = np.c_[int_pts, np.array(int_lines.xy)]
+                edges_kept.append(ei)
+        elif type(int_lines) is shapely_geometry.MultiLineString:
+            # consider the case of multiple intersections by avoiding to consider
+            # lines on the boundary of the polygon
+            for int_line in int_lines:
+                if not int_line.touches(poly):
+                    int_pts = np.c_[int_pts, np.array(int_line.xy)]
+                    edges_kept.append(ei)
+
+    # define the list of edges
+    int_edges = np.arange(int_pts.shape[1]).reshape((2, -1), order="F")
+
+    # Also preserve tags, if any
+    if len(edges_kept) > 0:
+        edges_kept = np.array(edges_kept)
+        edges_kept.sort()
+        int_edges = np.vstack((int_edges, edges[2:, edges_kept]))
+    else:
+        # If no edges are kept, return an empty array with the right dimensions
+        int_edges = np.empty((edges.shape[0], 0))
+
+    return int_pts, int_edges
+
+
+# ------------------------------------------------------------------------------#
 
 
 def bounding_box(pts, overlap=0):

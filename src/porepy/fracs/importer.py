@@ -358,7 +358,8 @@ def lines_from_csv(
             edges = np.vstack((edges, data[:, tagcols].T))
 
     pts, _, old_2_new = unique_columns_tol(pts, tol=tol)
-    edges[:2] = old_2_new[edges[:2]]
+
+    edges[:2] = old_2_new[edges[:2].astype(np.int)]
 
     to_remove = np.where(edges[0, :] == edges[1, :])[0]
     edges = np.delete(edges, to_remove, axis=1)
@@ -408,6 +409,33 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
 
 # ------------ End of gmsh-based functions, start of fab related --------------#
 
+def dfm_3d_from_fab(file_name, tol=1e-4, domain=None, return_domain=False, **mesh_kwargs):
+    """
+    Create the grid bucket from a set of 3d fractures stored in a fab file and
+    domain.
+
+    Parameters:
+        file_name: name of the file
+        tol: (optional) tolerance for the methods
+        domain: (optional) the domain, otherwise a bounding box is considered
+        mesh_kwargs: kwargs for the gridding, see meshing.simplex_grid
+
+    Return:
+        gb: the grid bucket
+    """
+
+    network = network_3d_from_fab(file_name, return_all=False, tol=tol)
+
+    # Define the domain as bounding-box if not defined
+    if domain is None:
+        domain = network.bounding_box()
+
+    gb = meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
+
+    if return_domain:
+        return gb, domain
+    else:
+        return gb
 
 def dfn_3d_from_fab(
     file_name, file_inters=None, conforming=True, tol=None, vtk_name=None, **kwargs
@@ -538,6 +566,9 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
             elif line.strip() == "BEGIN TESSFRACTURE":
                 # Read tess_fractures
                 tess_fracs, tess_frac_ids, tess_sgn = read_fractures(f, is_tess=True)
+            elif line.strip() == "BEGIN ROCKBLOCK":
+                # Not considered block
+                pass
             elif line.strip()[:5] == "BEGIN":
                 # Check for keywords not yet implemented.
                 raise ValueError("Unknown section type " + line)
