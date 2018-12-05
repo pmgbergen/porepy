@@ -279,6 +279,10 @@ class BasicsTest(unittest.TestCase):
 
         gb = pp.fracs.meshing.simplex_grid(fracs, domain=domain, **mesh_args)
         g = gb.grids_of_dimension(2)[0]
+        # Check the ordering of the 1d grids in the grid bucket. This affects the order
+        # in which the 2d faces are split, and hence the id of the added faces.
+        neigh = np.array(gb.node_neighbors(g))
+        right_order = neigh[0].frac_num == 4
 
         known = [0, 3, 44, 45]
         tag = np.where(g.tags["domain_boundary_0_faces"])[0]
@@ -297,10 +301,14 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(known, tag))
 
         known = [12, 19, 104, 105]
+        if not right_order:
+            known = [12, 19, 106, 107]
         tag = np.where(g.tags["fracture_4_faces"])[0]
         self.assertTrue(np.allclose(known, tag))
 
         known = [26, 33, 106, 107]
+        if not right_order:
+            known = [26, 33, 104, 105]
         tag = np.where(g.tags["fracture_5_faces"])[0]
         self.assertTrue(np.allclose(known, tag))
 
