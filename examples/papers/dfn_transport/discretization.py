@@ -247,6 +247,9 @@ def advdiff(gb, param, model_flow, bc_flag):
     mortar_adv = "lambda_" + variable + "_" + adv_id
     mortar_diff = "lambda_" + variable + "_" + diff_id
 
+    # save variable name for the post-process
+    param["scalar"] = variable
+
     adv = "advection"
     diff = "diffusion"
 
@@ -322,6 +325,8 @@ def advdiff(gb, param, model_flow, bc_flag):
     variables = [variable, param["pressure"], param["P0_flux"], "frac_num", "cell_volumes"]
 
     x = np.zeros(A.shape[0])
+    outflow = np.zeros(param["n_steps"])
+
     logger.info("Start the time loop with " + str(param["n_steps"]) + " steps")
     for i in np.arange(param["n_steps"]):
         logger.info("Solve the linear system for time step " + str(i))
@@ -336,4 +341,38 @@ def advdiff(gb, param, model_flow, bc_flag):
         save.write_vtk(variables, time_step=i)
         logger.info("done")
 
-    save.write_pvd(np.arange(param["n_steps"])*param["time_step"])
+        logger.info("Compute the production")
+        outflow[i] = compute_outflow(gb, param)
+        logger.info("done")
+
+    time = np.arange(param["n_steps"])*param["time_step"]
+    save.write_pvd(time)
+
+    logger.info("Save outflow on file")
+    file_out = param["folder"] + "/outflow.csv"
+    data = np.vstack((time, outflow)).T
+    np.savetxt(file_out, data, delimiter=',')
+    logger.info("done")
+
+# ------------------------------------------------------------------------------#
+
+def compute_outflow(gb, param):
+    outflow = 0.0
+    for g, d in gb:
+        if g.dim < 2:
+            continue
+        faces, cells, sign = sps.find(g.cell_faces)
+        index = np.argsort(cells)
+        faces, sign = faces[index], sign[index]
+
+        flux = d[param["flux"]].copy()
+        scalar = d[param["scalar"]]
+
+        flux[faces] *= sign
+        flux[g.get_internal_faces()] = 0
+        flux[flux < 0] = 0
+        outflow += np.dot(flux, np.abs(g.cell_faces).dot(scalar))
+
+    return outflow
+
+# ------------------------------------------------------------------------------#
