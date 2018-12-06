@@ -13,7 +13,7 @@ import porepy as pp
 
 
 class TestFractureNetworkBoundingBox(unittest.TestCase):
-    def test_sinle_fracture(self):
+    def test_single_fracture(self):
         # Test of method FractureNetwork.bounding_box() to inquire about
         # network extent
         f1 = pp.Fracture(

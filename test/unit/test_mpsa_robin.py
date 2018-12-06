@@ -12,7 +12,7 @@ class RobinBoundTest(unittest.TestCase):
         g = pp.CartGrid([nx, ny], physdims=[1, 1])
         g.compute_geometry()
         c = pp.FourthOrderTensor(2, np.ones(g.num_cells), np.ones(g.num_cells))
-        robin_weight = np.pi
+        robin_weight = 1
 
         bot = g.face_centers[1] < 1e-10
         top = g.face_centers[1] > 1 - 1e-10
@@ -246,7 +246,7 @@ class RobinBoundTest(unittest.TestCase):
 
     def solve_mpsa(self, g, c, robin_weight, bnd, u_bound):
         bnd.robin_weight *= robin_weight
-        stress, bound_stress = pp.numerics.fv.mpsa._mpsa_local(
+        stress, bound_stress, _, _ = pp.numerics.fv.mpsa._mpsa_local(
             g, c, bnd, inverter="python"
         )
         div = pp.fvutils.vector_divergence(g)

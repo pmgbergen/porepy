@@ -549,6 +549,7 @@ class Grid(object):
                 self.cell_faces.indptr,
             )
         )
+
         mat = (self.face_nodes * cf_loc) > 0
         return mat
 

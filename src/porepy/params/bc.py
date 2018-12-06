@@ -8,7 +8,36 @@ import numpy as np
 import warnings
 
 
-class BoundaryCondition(object):
+class AbstractBoundaryCondition(object):
+    """
+    This is an abstract class that include the shared functionality of the
+    boundary conditions
+    """
+
+    def copy(self):
+        """
+        Create a deep copy of the boundary condition.
+
+        Returns:
+            bc: A deep copy of self. All attributes will also be copied.
+
+        """
+        # We don't call the init since we don't have access to the grid.
+        # Maybe this is bad style.
+        bc = BoundaryCondition.__new__(BoundaryCondition)
+        bc.bc_type = self.bc_type
+        bc.is_neu = self.is_neu
+        bc.is_dir = self.is_dir
+        bc.is_rob = self.is_rob
+        bc.basis = self.basis
+        bc.robin_weight = self.robin_weight
+        bc.num_faces = self.num_faces
+        bc.dim = self.dim
+        bc.is_internal = self.is_internal
+        return bc
+
+
+class BoundaryCondition(AbstractBoundaryCondition):
 
     """ Class to store information on boundary conditions.
 
@@ -120,7 +149,7 @@ class BoundaryCondition(object):
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
 
-class BoundaryConditionNode(object):
+class BoundaryConditionNode(AbstractBoundaryCondition):
 
     """ Class to store information on boundary conditions for nodal numerical
         schemes.
@@ -212,7 +241,7 @@ class BoundaryConditionNode(object):
                     raise ValueError("Boundary should be Dirichlet or Neumann")
 
 
-class BoundaryConditionVectorial(object):
+class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
     """
     Class to store information on boundary conditions.
@@ -242,6 +271,8 @@ class BoundaryConditionVectorial(object):
 
         self.bc_type = "vectorial"
 
+        # Keep track of internal boundaries
+        self.is_internal = g.tags["fracture_faces"]
         # Find boundary faces
         self.bf = g.get_all_boundary_faces()
 
