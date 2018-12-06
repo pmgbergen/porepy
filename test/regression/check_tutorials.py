@@ -30,7 +30,7 @@ def run_all():
     else:
         print("********************\n")
         print("The following tutorials failed: \n")
-        print(*failed_files, sep=', ')
+        print(*failed_files, sep=", ")
         print("********************\n")
     assert not failed
 

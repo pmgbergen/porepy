@@ -11,8 +11,8 @@ import numpy as np
 
 import porepy as pp
 
-class TestSweepAndPrune(unittest.TestCase):
 
+class TestSweepAndPrune(unittest.TestCase):
     def pairs_contain(self, pairs, a):
         for pi in range(pairs.shape[1]):
             if a[0] == pairs[0, pi] and a[1] == pairs[1, pi]:
@@ -125,12 +125,12 @@ class TestSweepAndPrune(unittest.TestCase):
         self.assertTrue(self.pairs_contain(pairs, [0, 1]))
         self.assertTrue(self.pairs_contain(pairs, [1, 2]))
 
+
 class TestBoundingBoxIntersection(unittest.TestCase):
     # For all cases, run both 1d search + intersection, and 2d search.
     # They should be equivalent.
     # Note: The tests are only between the bounding boxes of the fractures,
     # not the fractures themselves
-
 
     def test_no_intersection(self):
         # Use same coordinates for x and y, that is, the fractures are
@@ -143,7 +143,9 @@ class TestBoundingBoxIntersection(unittest.TestCase):
         pairs_1 = pp.cg._intersect_pairs(x_pairs, y_pairs)
         self.assertTrue(pairs_1.size == 0)
 
-        combined_pairs = pp.cg._identify_overlapping_rectangles(x_min, x_max, x_min, x_max)
+        combined_pairs = pp.cg._identify_overlapping_rectangles(
+            x_min, x_max, x_min, x_max
+        )
         self.assertTrue(combined_pairs.size == 0)
 
     def test_intersection_x_not_y(self):
@@ -159,7 +161,9 @@ class TestBoundingBoxIntersection(unittest.TestCase):
         pairs_1 = pp.cg._intersect_pairs(x_pairs, y_pairs)
         self.assertTrue(pairs_1.size == 0)
 
-        combined_pairs = pp.cg._identify_overlapping_rectangles(x_min, x_max, y_min, y_max)
+        combined_pairs = pp.cg._identify_overlapping_rectangles(
+            x_min, x_max, y_min, y_max
+        )
         self.assertTrue(combined_pairs.size == 0)
 
     def test_intersection_x_and_y(self):
@@ -175,7 +179,9 @@ class TestBoundingBoxIntersection(unittest.TestCase):
         pairs_1 = np.sort(pp.cg._intersect_pairs(x_pairs, y_pairs), axis=0)
         self.assertTrue(pairs_1.size == 2)
 
-        combined_pairs = np.sort(pp.cg._identify_overlapping_rectangles(x_min, x_max, y_min, y_max), axis=0)
+        combined_pairs = np.sort(
+            pp.cg._identify_overlapping_rectangles(x_min, x_max, y_min, y_max), axis=0
+        )
         self.assertTrue(combined_pairs.size == 2)
 
         self.assertTrue(np.allclose(pairs_1, combined_pairs))
@@ -193,13 +199,15 @@ class TestBoundingBoxIntersection(unittest.TestCase):
         pairs_1 = np.sort(pp.cg._intersect_pairs(x_pairs, y_pairs), axis=0)
         self.assertTrue(pairs_1.shape[1] == 4)
 
-        combined_pairs = np.sort(pp.cg._identify_overlapping_rectangles(x_min, x_max, y_min, y_max), axis=0)
+        combined_pairs = np.sort(
+            pp.cg._identify_overlapping_rectangles(x_min, x_max, y_min, y_max), axis=0
+        )
         self.assertTrue(combined_pairs.shape[1] == 4)
 
         self.assertTrue(np.allclose(pairs_1, combined_pairs))
 
-class TestFractureIntersectionRemoval(unittest.TestCase):
 
+class TestFractureIntersectionRemoval(unittest.TestCase):
     def compare_arrays(self, a, b):
         if not np.all(a.shape == b.shape):
             return False
@@ -208,11 +216,11 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         b.sort(axis=0)
 
         for i in range(a.shape[1]):
-            dist = np.sum((b - a[:, i].reshape((-1, 1)))**2, axis=0)
+            dist = np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0)
             if dist.min() > 1e-3:
                 return False
         for i in range(b.shape[1]):
-            dist = np.sum((a - b[:, i].reshape((-1, 1)))**2, axis=0)
+            dist = np.sum((a - b[:, i].reshape((-1, 1))) ** 2, axis=0)
             if dist.min() > 1e-3:
                 return False
         return True
@@ -226,7 +234,7 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         new_pts, new_lines = pp.cg.remove_edge_crossings2(p, lines)
 
         p_known = np.hstack((p, np.array([[0], [0]])))
-#        p_known = cg.snap_to_grid(p_known, box=box)
+        #        p_known = cg.snap_to_grid(p_known, box=box)
 
         lines_known = np.array([[0, 4, 2, 4], [4, 1, 4, 3], [1, 1, 2, 2], [3, 3, 4, 4]])
 
@@ -245,7 +253,7 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
     def test_three_lines_no_crossing(self):
         # This test gave an error at some point
         p = np.array(
-            [[0., 0., 0.3, 1., 1., 0.5], [2 / 3, 1 / .7, 0.3, 2 / 3, 1 / .7, 0.5]]
+            [[0.0, 0.0, 0.3, 1.0, 1.0, 0.5], [2 / 3, 1 / 0.7, 0.3, 2 / 3, 1 / 0.7, 0.5]]
         )
         lines = np.array([[0, 3], [1, 4], [2, 5]]).T
 
@@ -256,7 +264,9 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
 
     def test_three_lines_one_crossing(self):
         # This test gave an error at some point
-        p = np.array([[0., 0.5, 0.3, 1., 0.3, 0.5], [2 / 3, 0.3, 0.3, 2 / 3, 0.5, 0.5]])
+        p = np.array(
+            [[0.0, 0.5, 0.3, 1.0, 0.3, 0.5], [2 / 3, 0.3, 0.3, 2 / 3, 0.5, 0.5]]
+        )
         lines = np.array([[0, 3], [2, 5], [1, 4]]).T
 
         new_pts, new_lines = pp.cg.remove_edge_crossings2(p, lines)
@@ -266,16 +276,14 @@ class TestFractureIntersectionRemoval(unittest.TestCase):
         self.assertTrue(self.compare_arrays(new_lines, lines_known))
 
     def test_overlapping_lines(self):
-        p = np.array([[-0.6,  0.4,  0.4, -0.6,  0.4],
-                      [-0.5, -0.5,  0.5,  0.5,  0. ]])
-        lines = np.array([[0, 0, 1, 1, 2],
-                          [1, 3, 2, 4, 3]])
+        p = np.array([[-0.6, 0.4, 0.4, -0.6, 0.4], [-0.5, -0.5, 0.5, 0.5, 0.0]])
+        lines = np.array([[0, 0, 1, 1, 2], [1, 3, 2, 4, 3]])
         new_pts, new_lines = pp.cg.remove_edge_crossings2(p, lines)
         lines_known = np.array([[0, 1], [0, 3], [1, 4], [2, 4], [2, 3]]).T
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(self.compare_arrays(new_lines, lines_known))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TestFractureIntersectionRemoval().test_overlapping_lines()
     unittest.main()

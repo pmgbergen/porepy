@@ -395,9 +395,7 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
             pts_all, lines, tol=tol, snap=do_snap_to_grid, box=domain
         )
     else:
-        pts_split, lines_split = cg.remove_edge_crossings2(
-            pts_all, lines, tol=tol
-        )
+        pts_split, lines_split = cg.remove_edge_crossings2(pts_all, lines, tol=tol)
     logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points
@@ -453,6 +451,7 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
     triangle_grid_run_gmsh(file_name, **kwargs)
     return triangle_grid_from_gmsh(file_name, **kwargs)
 
+
 def triangle_grid_run_gmsh(file_name, **kwargs):
 
     if file_name.endswith(".geo"):
@@ -475,6 +474,7 @@ def triangle_grid_run_gmsh(file_name, **kwargs):
         logger.info("Elapsed time " + str(time.time() - tm))
     else:
         logger.error("Gmsh failed with status " + str(gmsh_status))
+
 
 def triangle_grid_from_gmsh(file_name, **kwargs):
 
@@ -539,6 +539,7 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
 
     return grids
 
+
 def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
 
     start_time = time.time()
@@ -582,7 +583,9 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
     grids = [g_3d, g_2d, g_1d, g_0d]
 
     if verbose > 0:
-        logger.info("Grid creation completed. Elapsed time " + str(time.time() - start_time))
+        logger.info(
+            "Grid creation completed. Elapsed time " + str(time.time() - start_time)
+        )
         for g_set in grids:
             if len(g_set) > 0:
                 s = (
@@ -600,7 +603,9 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
 
     return grids
 
- ### Helper methods below
+
+### Helper methods below
+
 
 def _merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
     """
