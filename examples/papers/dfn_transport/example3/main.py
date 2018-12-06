@@ -20,27 +20,27 @@ def bc_flag(g, domain, out_flow_start, out_flow_end, in_flow_start, in_flow_end,
 
     return in_flow, out_flow
 
-def bc_different(g, domain, tol):
-
-    # define inflow type boundary conditions
-    out_flow_start = np.array([600, 681.692, 452.268])
-    out_flow_end = np.array([600, 681.692, 1000])
+def bc_same(g, domain, tol):
 
     # define outflow type boundary conditions
-    in_flow_start = np.array([-800, 1057.86, 303.448])
-    in_flow_end = np.array([-800, 1057.86, 1000])
+    out_flow_start = np.array([-319.289, 212.271, 400])
+    out_flow_end = np.array([-300.035, 317.811, 128.887])
+
+    # define inflow type boundary conditions
+    in_flow_start = np.array([-84.3598, 1500, -6.65313])
+    in_flow_end = np.array([-84.3598, 1500, 400])
 
     return bc_flag(g, domain, out_flow_start, out_flow_end, in_flow_start, in_flow_end, tol)
 
-def bc_same(g, domain, tol):
-
-    # define inflow type boundary conditions
-    out_flow_start = np.array([134.428, 100, 18.9949])
-    out_flow_end = np.array([134.429, 100, 1000])
+def bc_different(g, domain, tol):
 
     # define outflow type boundary conditions
+    out_flow_start = np.array([134.428, 100, 18.9949])
+    out_flow_end = np.array([134.429, 100, 400])
+
+    # define inflow type boundary conditions
     in_flow_start = np.array([-84.3598, 1500, -6.65313])
-    in_flow_end = np.array([-84.3598, 1500, 1000])
+    in_flow_end = np.array([-84.3598, 1500, 400])
 
     return bc_flag(g, domain, out_flow_start, out_flow_end, in_flow_start, in_flow_end, tol)
 
@@ -56,18 +56,23 @@ def main():
 
     bc_types = {"same": bc_same, "different": bc_different}
 
+    box = {"xmin": -1000, "xmax": 800,
+           "ymin": 0,     "ymax": 2000,
+           "zmin": -200,  "zmax": 400}
+
     for folder, bc_type in bc_types.items():
 
-        gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, **mesh_kwargs)
+        gb = pp.importer.dfn_3d_from_fab(file_name, file_inters, tol=tol, box=box, **mesh_kwargs)
 
         gb.remove_nodes(lambda g: g.dim == 0)
         gb.compute_geometry()
         gb.assign_node_ordering()
 
+        # recombute the domanin
         domain = gb.bounding_box(as_dict=True)
 
         param = {"domain": domain, "tol": tol, "k": 1,
-                 "diff": 1e-4, "time_step": 0.05, "n_steps": 10000,
+                 "diff": 1e-4, "time_step": 1, "n_steps": 100,
                  "folder": folder}
 
         # the flow problem
