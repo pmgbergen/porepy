@@ -78,35 +78,53 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         order elliptic equation.
 
         Also discretize the necessary operators if the data dictionary does not
-        contain a transmissibility matrix.
+        contain a transmissibility matrix. In that case, we assume the following two
+        sub-dictionaries to be present in the data dictionary:
+            parameter_dictionary, storing all parameters.
+                Stored in data[pp.PARAMETERS][self.keyword].
+            matrix_dictionary, for storage of discretization matrices.
+                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
+        parameter_dictionary contains the entries:
+            second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
+            bc: (pp.BoundaryCondition) boundary conditions.
+            bc_values: array (self.num_faces) The boundary condition values.
+            aperture: (np.ndarray) apertures of the cells for scaling of the face
+                normals.
+            Optional parameters: See the discretize methods.
+
+        After discretization, matrix_dictionary will be updated with the following
+        entries:
+            flux: sps.csc_matrix (g.num_faces, g.num_cells)
+                Flux discretization, cell center contribution.
+            bound_flux: sps.csc_matrix (g.num_faces, g.num_faces)
+                Flux discretization, face contribution.
+            bound_pressure_cell: sps.csc_matrix (g.num_faces, g.num_cells)
+                Operator for reconstructing the pressure trace, cell center
+                contribution.
+            bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
+                Operator for reconstructing the pressure trace, face contribution.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
         Returns:
-            scipy.sparse.csr_matrix: System matrix of this discretization. The
-                size of the matrix will depend on the specific discretization.
+            scipy.sparse.csr_matrix: System matrix of this discretization. The size of
+                the matrix will depend on the specific discretization.
             np.ndarray: Right hand side vector with representation of boundary
-                conditions. The size of the vector will depend on the
-                discretization.
+                conditions. The size of the vector will depend on the discretization.
         """
 
         return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
 
     def assemble_matrix(self, g, data):
-        """
-        Return the matrix for a discretization of a second order elliptic equation
+        """ Return the matrix for a discretization of a second order elliptic equation
         using a FV method.
 
-        The name of data in the input dictionary (data) are:
-        k : second_order_tensor
-            Permeability defined cell-wise.
-        bc : boundary conditions (optional)
-        bc_val : dictionary (optional)
-            Values of the boundary conditions. The dictionary has at most the
-            following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-            conditions, respectively.
+        Also discretize the necessary operators if the data dictionary does not contain
+        a discretization of the boundary equation. For the required fields of the data
+        dictionary, see the assemble_matrix_rhs and discretize methods.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -115,7 +133,6 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
         Returns:
             scipy.sparse.csr_matrix: System matrix of this discretization. The
                 size of the matrix will depend on the specific discretization.
-
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if not "flux" in matrix_dictionary:
@@ -130,11 +147,12 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
     # ------------------------------------------------------------------------------#
 
     def assemble_rhs(self, g, data):
-        """ Return the right-hand side for a discretization of a second
-        order elliptic equation using a finite volume method.
+        """ Return the right-hand side for a discretization of a second order elliptic
+        equation using a finite volume method.
 
-        Also discretize the necessary operators if the data dictionary does not
-        contain a discretization of the boundary equation.
+        Also discretize the necessary operators if the data dictionary does not contain
+        a discretization of the boundary equation. For the required fields of the data
+        dictionary, see the assemble_matrix_rhs and discretize methods.
 
         Parameters:
             g (Grid): Computational grid, with geometry fields computed.
@@ -142,8 +160,7 @@ class FVElliptic(pp.numerics.mixed_dim.EllipticDiscretization):
 
         Returns:
             np.ndarray: Right hand side vector with representation of boundary
-                conditions. The size of the vector will depend on the
-                discretization.
+                conditions. The size of the vector will depend on the discretization.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if not "bound_flux" in matrix_dictionary:
