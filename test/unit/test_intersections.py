@@ -13,6 +13,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
     fairly well covered by unit tests, in the form of doctests.
 
     """
+
     def compare_arrays(self, a, b):
         if not np.all(a.shape == b.shape):
             return False
@@ -20,11 +21,11 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         b.sort(axis=0)
 
         for i in range(a.shape[1]):
-            dist = np.sum((b - a[:, i].reshape((-1, 1)))**2, axis=0)
+            dist = np.sum((b - a[:, i].reshape((-1, 1))) ** 2, axis=0)
             if dist.min() > 1e-3:
                 return False
         for i in range(b.shape[1]):
-            dist = np.sum((a - b[:, i].reshape((-1, 1)))**2, axis=0)
+            dist = np.sum((a - b[:, i].reshape((-1, 1))) ** 2, axis=0)
             if dist.min() > 1e-3:
                 return False
         return True
@@ -151,6 +152,7 @@ class SplitIntersectingLines2DTest(unittest.TestCase):
         self.assertTrue(np.allclose(new_pts, p))
         self.assertTrue(self.compare_arrays(new_lines, lines_known))
 
+
 class SnapToGridTest(unittest.TestCase):
     def setUp(self):
         self.box = np.array([1, 1])
@@ -164,6 +166,7 @@ class SnapToGridTest(unittest.TestCase):
     def test_aniso_snapping(self):
         p_snapped = cg.snap_to_grid(self.p, box=self.anisobox, tol=1)
         self.assertTrue(np.allclose(p_snapped, np.array([0, 1])))
+
 
 class LinesIntersectTest(unittest.TestCase):
     def test_lines_intersect_segments_do_not(self):
@@ -243,6 +246,7 @@ class LinesIntersectTest(unittest.TestCase):
 
         pi = cg.lines_intersect(s0, e0, s1, e1)
         self.assertTrue(pi[0, 0] == 1 and pi[1, 0] == 0)
+
 
 if __name__ == "__main__":
     unittest.main()

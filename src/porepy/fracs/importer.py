@@ -409,7 +409,10 @@ def dfm_from_gmsh(file_name, dim, network=None, **kwargs):
 
 # ------------ End of gmsh-based functions, start of fab related --------------#
 
-def dfm_3d_from_fab(file_name, tol=1e-4, domain=None, return_domain=False, **mesh_kwargs):
+
+def dfm_3d_from_fab(
+    file_name, tol=1e-4, domain=None, return_domain=False, **mesh_kwargs
+):
     """
     Create the grid bucket from a set of 3d fractures stored in a fab file and
     domain.
@@ -436,6 +439,7 @@ def dfm_3d_from_fab(file_name, tol=1e-4, domain=None, return_domain=False, **mes
         return gb, domain
     else:
         return gb
+
 
 def dfn_3d_from_fab(
     file_name, file_inters=None, conforming=True, tol=None, vtk_name=None, **kwargs
