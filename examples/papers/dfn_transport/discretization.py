@@ -149,7 +149,7 @@ def flow(gb, param, bc_flag):
             d[pressure] = np.zeros(g.num_cells)
             d[flux] = np.zeros(g.num_faces)
 
-    #pp.project_flux(gb, discr, flux, P0_flux, mortar)
+    pp.project_flux(gb, discr, flux, P0_flux, mortar)
     logger.info("done")
 
     return model_data
@@ -319,8 +319,7 @@ def advdiff(gb, param, model_flow, bc_flag):
     logger.info("Prepare the exporting")
     save = pp.Exporter(gb, "solution", folder=param["folder"])
     logger.info("done")
-    #variables = [variable, param["pressure"], param["P0_flux"]]
-    variables = [variable, param["pressure"]]
+    variables = [variable, param["pressure"], param["P0_flux"]]
 
     x = np.zeros(A.shape[0])
     logger.info("Start the time loop with " + str(param["n_steps"]) + " steps")
