@@ -5,6 +5,7 @@ from vtk.util.numpy_support import vtk_to_numpy
 
 import csv
 import os
+import shutil
 
 import numpy as np
 from scipy.io import mmread
@@ -104,9 +105,27 @@ def cot_domain(file_in, step, field, num_frac, padding=6):
 
 #------------------------------------------------------------------------------#
 
+def num_cells(file_in, num_frac, padding=6):
+
+    i = 0
+
+    ifile = file_in+str(i).zfill(padding)+".vtu"
+    vtk_reader = read_file(ifile)
+
+    frac_num = read_data(vtk_reader, "frac_num")
+    num = np.zeros(num_frac+1, dtype=np.int)
+
+    for frac_id in np.arange(num_frac):
+        num[frac_id] = np.sum(frac_num == frac_id)
+
+    num[-1] = np.sum(num[:-1])
+    return num
+
+#------------------------------------------------------------------------------#
+
 def main():
 
-    num_simul = 2
+    num_simul = 5
 
     field = "scalar"
     n_step = 300
@@ -146,6 +165,15 @@ def main():
         data = np.insert(cot_avg, 0, times, axis=1).T
         write_csv(file_out, labels, data)
 
+        # count number of cells
+        num = num_cells(file_in, num_frac)
+        file_out = folder_out + "num_cells.csv"
+        np.savetxt(file_out, np.atleast_2d(num), delimiter=',')
+
+        # copy outflow file
+        file_in = folder_in + "outflow.csv"
+        file_out = folder_out + "outflow.csv"
+        shutil.copy(file_in, file_out)
 
 if __name__ == "__main__":
     main()
