@@ -44,7 +44,7 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
                     continue
                 # project the mortar variable back to the higher dimensional
                 # problem
-                edge_flux += sign * g_m.mortar_to_high_int() * d_e[mortar_key]
+                edge_flux += sign * g_m.mortar_to_master_int() * d_e[mortar_key]
 
         d[P0_flux] = discr.project_flux(g, edge_flux + d[flux], d)
 
@@ -193,17 +193,17 @@ class DualElliptic(
         # pylint: disable=invalid-name
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        f = parameter_dictionary["source"]
+
+        rhs = np.zeros(self.ndof(g))
 
         if g.dim == 0:
-            return np.hstack(([0], f))
+            return rhs
 
         bc = parameter_dictionary["bc"]
         bc_val = parameter_dictionary["bc_values"]
 
         assert not bool(bc is None) != bool(bc_val is None)
 
-        rhs = np.zeros(self.ndof(g))
         if bc is None:
             return rhs
 
