@@ -271,7 +271,7 @@ def _run_gmsh(file_name, network, **kwargs):
     # The interface of meshio changed between versions 1 and 2. We make no
     # assumption on which version is installed here.
     if int(meshio.__version__[0]) < 2:
-        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(file_name)
+        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(out_file)
         # Invert phys_names dictionary to map from physical tags to corresponding
         # physical names
         phys_names = {v[0]: k for k, v in phys_names.items()}
