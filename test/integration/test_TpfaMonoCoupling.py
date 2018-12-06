@@ -32,7 +32,7 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             bc_val[left] = xmax
             bc_val[right] = 0
             specified_parameters = {"bc": bound, "bc_values": bc_val}
-            pp.initialize_data(d, g, "flow", specified_parameters)
+            pp.initialize_default_data(g, d, "flow", specified_parameters)
         # assign discretization
         key = "flow"
         discretization_key = key + "_" + pp.DISCRETIZATION
@@ -167,7 +167,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             pa, _, lpc = analytic_p(g.cell_centers)
             src = -lpc * g.cell_volumes
             specified_parameters = {"bc": bound, "bc_values": bc_val, "source": src}
-            pp.initialize_data(d, g, "flow", specified_parameters)
+            pp.initialize_default_data(g, d, "flow", specified_parameters)
 
         for _, d in gb.edges():
             pp.params.data.add_discretization_matrix_keyword(d, "flow")
@@ -238,7 +238,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                 "source": src,
                 "aperture": aperture,
             }
-            pp.initialize_data(d, g, "flow", specified_parameters)
+            pp.initialize_default_data(g, d, "flow", specified_parameters)
 
         for _, d in gb.edges():
             pp.params.data.add_discretization_matrix_keyword(d, "flow")
