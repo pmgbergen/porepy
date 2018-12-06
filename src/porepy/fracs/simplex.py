@@ -341,7 +341,6 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
     tol = kwargs.get("tol", 1e-4)
 
     in_file = file_name + ".geo"
-    out_file = file_name + ".msh"
 
     # Pick out fracture points, and their connections
     frac_pts = fracs["points"]
@@ -485,13 +484,10 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
         file_name = file_name[:-4]
     out_file = file_name + ".msh"
 
-    # Verbosity level
-    verbose = kwargs.get("verbose", 1)
-
     # The interface of meshio changed between versions 1 and 2. We make no
     # assumption on which version is installed here.
     if int(meshio.__version__[0]) < 2:
-        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(file_name)
+        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(out_file)
         # Invert phys_names dictionary to map from physical tags to corresponding
         # physical names
         phys_names = {v[0]: k for k, v in phys_names.items()}
