@@ -32,8 +32,7 @@ class TestGridMappings1d(unittest.TestCase):
         left_side = pp.PointGrid(np.array([0, 0, 0]).T)
         left_side.compute_geometry()
 
-        side_grids = {pp.grids.mortar_grid.LEFT_SIDE: left_side}
-        mg = pp.grids.mortar_grid.BoundaryMortar(0, side_grids, face_faces)
+        mg = pp.grids.mortar_grid.BoundaryMortar(0, left_side, face_faces)
 
         self.assertTrue(mg.num_cells == 1)
         self.assertTrue(mg.num_sides() == 1)
@@ -58,9 +57,8 @@ class TestGridMappings1d(unittest.TestCase):
         face_faces = sps.csc_matrix(face_faces)
         left_side = pp.PointGrid(np.array([2, 0, 0]).T)
         left_side.compute_geometry()
-        side_grids = {pp.grids.mortar_grid.LEFT_SIDE: left_side}
 
-        mg = pp.grids.mortar_grid.BoundaryMortar(0, side_grids, face_faces)
+        mg = pp.grids.mortar_grid.BoundaryMortar(0, left_side, face_faces)
 
         self.assertTrue(mg.num_cells == 1)
         self.assertTrue(mg.num_sides() == 1)

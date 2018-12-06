@@ -34,6 +34,7 @@ from porepy.numerics.fv.biot import Biot
 from porepy.numerics.fv.source import Integral
 
 # Virtual elements, elliptic
+from porepy.numerics.vem.dual_elliptic import project_flux
 from porepy.numerics.vem.mvem import MVEM
 from porepy.numerics.vem.vem_source import DualIntegral
 from porepy.numerics.elliptic import DualEllipticModel
@@ -49,6 +50,8 @@ from porepy.numerics.mixed_dim.elliptic_assembler import EllipticAssembler
 from porepy.numerics.interface_laws.elliptic_interface_laws import (
     RobinCoupling,
     FluxPressureContinuity,
+    RobinContact,
+    StressDisplacementContinuity,
 )
 from porepy.numerics.mixed_dim.assembler import Assembler
 from porepy.numerics.mixed_dim.pressure_trace import PressureTrace
@@ -77,6 +80,7 @@ from porepy.numerics.time_stepper import Implicit, Explicit
 
 # Grids
 from porepy.grids.grid import Grid
+from porepy.grids.fv_sub_grid import FvSubGrid
 from porepy.grids.grid_bucket import GridBucket
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid

@@ -343,12 +343,14 @@ class Biot(Solver):
         # Define subcell topology
         subcell_topology = fvutils.SubcellTopology(g)
         # Obtain mappings to exclude boundary faces for mechanics
+        bound_mech_sub = fvutils.boundary_to_sub_boundary(bound_mech, subcell_topology)
         bound_exclusion_mech = fvutils.ExcludeBoundaries(
-            subcell_topology, bound_mech, nd
+            subcell_topology, bound_mech_sub, nd
         )
         # ... and flow
+        bound_flow_sub = fvutils.boundary_to_sub_boundary(bound_flow, subcell_topology)
         bound_exclusion_flow = fvutils.ExcludeBoundaries(
-            subcell_topology, bound_flow, nd
+            subcell_topology, bound_flow_sub, nd
         )
 
         num_subhfno = subcell_topology.subhfno.size
@@ -409,8 +411,9 @@ class Biot(Solver):
 
         # Right hand side for boundary discretization
         rhs_bound = mpsa.create_bound_rhs(
-            bound_mech, bound_exclusion_mech, subcell_topology, g
+            bound_mech_sub, bound_exclusion_mech, subcell_topology, g, False
         )
+        rhs_bound = rhs_bound * hf2f.T
         # Discretization of boundary values
         bound_stress = hf2f * hook * igrad * rhs_bound
 

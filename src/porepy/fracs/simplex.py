@@ -5,7 +5,7 @@ import warnings
 import time
 import sys
 import numpy as np
-from meshio import gmsh_io
+import meshio
 import logging
 
 from porepy.grids import constants
@@ -268,11 +268,20 @@ def _run_gmsh(file_name, network, **kwargs):
             logger.error("Gmsh failed with status " + str(gmsh_status))
             sys.exit()
 
-    pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
+    # The interface of meshio changed between versions 1 and 2. We make no
+    # assumption on which version is installed here.
+    if int(meshio.__version__[0]) < 2:
+        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(file_name)
+        # Invert phys_names dictionary to map from physical tags to corresponding
+        # physical names
+        phys_names = {v[0]: k for k, v in phys_names.items()}
+    else:
+        mesh = meshio.read(out_file)
 
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names
-    phys_names = {v[0]: k for k, v in phys_names.items()}
+        pts = mesh.points
+        cells = mesh.cells
+        cell_info = mesh.cell_data
+        phys_names = {v[0]: k for k, v in mesh.field_data.items()}
 
     return pts, cells, cell_info, phys_names
 
@@ -377,9 +386,19 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
     # intersect, except possible at the end points
     logger.info("Remove edge crossings")
     tm = time.time()
-    pts_split, lines_split = cg.remove_edge_crossings(
-        pts_all, lines, tol=tol, snap=do_snap_to_grid
-    )
+
+    # The functionality for identification of intersections between fractures
+    # is currently being rewritten. For a while, both versions are available.
+    # The new, faster one, is default, while the old one can be invoked by
+    # passing the keyword argument use_stable=True.
+    if kwargs.get("use_stable", False):
+        pts_split, lines_split = cg.remove_edge_crossings(
+            pts_all, lines, tol=tol, snap=do_snap_to_grid, box=domain
+        )
+    else:
+        pts_split, lines_split = cg.remove_edge_crossings2(
+            pts_all, lines, tol=tol
+        )
     logger.info("Done. Elapsed time " + str(time.time() - tm))
 
     # Ensure unique description of points
@@ -435,10 +454,6 @@ def triangle_grid(fracs, domain, subdomains=None, do_snap_to_grid=False, **kwarg
     triangle_grid_run_gmsh(file_name, **kwargs)
     return triangle_grid_from_gmsh(file_name, **kwargs)
 
-
-# ------------------------------------------------------------------------------#
-
-
 def triangle_grid_run_gmsh(file_name, **kwargs):
 
     if file_name.endswith(".geo"):
@@ -462,10 +477,6 @@ def triangle_grid_run_gmsh(file_name, **kwargs):
     else:
         logger.error("Gmsh failed with status " + str(gmsh_status))
 
-
-# ------------------------------------------------------------------------------#
-
-
 def triangle_grid_from_gmsh(file_name, **kwargs):
 
     start_time = time.time()
@@ -477,13 +488,20 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
     # Verbosity level
     verbose = kwargs.get("verbose", 1)
 
-    pts, cells, _, cell_info, phys_names = gmsh_io.read(out_file)
+    # The interface of meshio changed between versions 1 and 2. We make no
+    # assumption on which version is installed here.
+    if int(meshio.__version__[0]) < 2:
+        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(file_name)
+        # Invert phys_names dictionary to map from physical tags to corresponding
+        # physical names
+        phys_names = {v[0]: k for k, v in phys_names.items()}
+    else:
+        mesh = meshio.read(out_file)
 
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names.
-    # As of meshio 1.10, the value of the physical name is defined as a numpy
-    # array, with the first item being the tag, the second the dimension.
-    phys_names = {v[0]: k for k, v in phys_names.items()}
+        pts = mesh.points
+        cells = mesh.cells
+        cell_info = mesh.cell_data
+        phys_names = {v[0]: k for k, v in mesh.field_data.items()}
 
     # Constants used in the gmsh.geo-file
     const = constants.GmshConstants()
@@ -525,10 +543,6 @@ def triangle_grid_from_gmsh(file_name, **kwargs):
 
     return grids
 
-
-# ------------------------------------------------------------------------------#
-
-
 def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
 
     start_time = time.time()
@@ -539,11 +553,20 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
         file_name = file_name[:-4]
     file_name = file_name + ".msh"
 
-    pts, cells, _, cell_info, phys_names = gmsh_io.read(file_name)
+    # The interface of meshio changed between versions 1 and 2. We make no
+    # assumption on which version is installed here.
+    if int(meshio.__version__[0]) < 2:
+        pts, cells, _, cell_info, phys_names = meshio.gmsh_io.read(file_name)
+        # Invert phys_names dictionary to map from physical tags to corresponding
+        # physical names
+        phys_names = {v[0]: k for k, v in phys_names.items()}
+    else:
+        mesh = meshio.read(file_name)
 
-    # Invert phys_names dictionary to map from physical tags to corresponding
-    # physical names
-    phys_names = {v[0]: k for k, v in phys_names.items()}
+        pts = mesh.points
+        cells = mesh.cells
+        cell_info = mesh.cell_data
+        phys_names = {v[0]: k for k, v in mesh.field_data.items()}
 
     # Call upon helper functions to create grids in various dimensions.
     # The constructors require somewhat different information, reflecting the
@@ -563,9 +586,7 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
     grids = [g_3d, g_2d, g_1d, g_0d]
 
     if verbose > 0:
-        print("\n")
-        print("Grid creation completed. Elapsed time " + str(time.time() - start_time))
-        print("\n")
+        logger.info("Grid creation completed. Elapsed time " + str(time.time() - start_time))
         for g_set in grids:
             if len(g_set) > 0:
                 s = (
@@ -579,14 +600,11 @@ def tetrahedral_grid_from_gmsh(file_name, network, **kwargs):
                 for g in g_set:
                     num += g.num_cells
                 s += str(num) + " cells"
-                print(s)
-        print("\n")
+                logger.info(s)
 
     return grids
 
-
-# -----------------------------------------------------------------------------#
-
+ ### Helper methods below
 
 def _merge_domain_fracs_2d(dom, frac_p, frac_l, subdom_p, subdom_l):
     """
