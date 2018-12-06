@@ -22,7 +22,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
 
         M_known = 1e-2 * np.array(
@@ -55,7 +57,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
 
         M_known = 1e-2 * np.array(
@@ -105,7 +109,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
 
         # Matrix computed with an already validated code (MRST)
@@ -143,7 +149,9 @@ class BasicsTest(unittest.TestCase):
         bc = pp.BoundaryCondition(g, bf, bf.size * ["dir"])
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
 
         # Matrix computed with an already validated code (MRST)
@@ -250,7 +258,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
 
         # Matrix computed with an already validated code (MRST)
@@ -316,8 +326,8 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data(
-            {}, g, "flow", {"permeability": perm, "bc": bc, "bc_values": bc_val}
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc, "bc_values": bc_val}
         )
         M, rhs = solver.assemble_matrix_rhs(g, data)
         up = sps.linalg.spsolve(M, rhs)
@@ -355,7 +365,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
 
         # Matrix computed with an already validated code (MRST)
@@ -408,7 +420,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
         # np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
         M_known = matrix_for_test_dual_vem_3d_iso_cart()
@@ -435,7 +449,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
         # np.savetxt('matrix.txt', M, delimiter=',', newline='],\n[')
         M_known = matrix_for_test_dual_vem_3d_ani_cart()
@@ -462,7 +478,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
         # Matrix computed with an already validated code (MRST)
         M_known = 1e-2 * np.array(
@@ -499,7 +517,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
         # Matrix computed with an already validated code (MRST)
         M_known = np.array(
@@ -542,7 +562,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
         # Matrix computed with an already validated code (MRST)
         M_known = np.array(
@@ -651,7 +673,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
         # Matrix computed with an already validated code (MRST)
         faces = np.arange(5)
@@ -710,7 +734,9 @@ class BasicsTest(unittest.TestCase):
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data({}, g, "flow", {"permeability": perm, "bc": bc})
+        data = pp.initialize_default_data(
+            g, {}, "flow", {"second_order_tensor": perm, "bc": bc}
+        )
         M = solver.assemble_matrix(g, data).todense()
         # assemble_matrix_rhs computed with an already validated code (MRST)
         faces = np.arange(5)
