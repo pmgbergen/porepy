@@ -874,6 +874,7 @@ def _identify_overlapping_intervals(left, right):
         pairs = pairs[:, sort_ind]
         return pairs
 
+
 def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
     """ Based on a set of start and end coordinates for bounding boxes, identify pairs of
     overlapping rectangles.
@@ -958,6 +959,7 @@ def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
         sort_ind = np.argsort(pairs[0])
         pairs = pairs[:, sort_ind]
         return pairs
+
 
 def _intersect_pairs(p1, p2):
     """ For two lists containing pair of indices, find the intersection.
@@ -1114,8 +1116,12 @@ def remove_edge_crossings2(p, e, tol=1e-4):
         # For completely ovrelapping edges, the normalization will leave the
         # vectors nan. There may be better ways of dealing with this, but we simply
         # run the intersection finder in this case.
-        relevant = np.where(np.logical_or((start_cross * end_cross < 1),
-                            np.any(np.isnan(main_other_start + main_other_end), axis=0)))[0]
+        relevant = np.where(
+            np.logical_or(
+                (start_cross * end_cross < 1),
+                np.any(np.isnan(main_other_start + main_other_end), axis=0),
+            )
+        )[0]
 
         # Loop over all relevant (possibly crossing) fractures, look closer
         # for an intersection.
@@ -1129,8 +1135,12 @@ def remove_edge_crossings2(p, e, tol=1e-4):
             if ipt is not None:
                 num_isect = ipt.shape[1]
                 # Add indices of the new points to the main and other edge
-                isect_pt[main] = np.append(isect_pt[main], new_ind + np.arange(num_isect))
-                isect_pt[other[ri]] = np.append(isect_pt[other[ri]], new_ind + np.arange(num_isect))
+                isect_pt[main] = np.append(
+                    isect_pt[main], new_ind + np.arange(num_isect)
+                )
+                isect_pt[other[ri]] = np.append(
+                    isect_pt[other[ri]], new_ind + np.arange(num_isect)
+                )
                 new_ind += num_isect
 
                 # Add the one or two intertion points
@@ -1185,10 +1195,13 @@ def remove_edge_crossings2(p, e, tol=1e-4):
         # Operate on sorted point indices per edge
         new_edge[:2] = np.sort(new_edge[:2], axis=0)
         # Uniquify.
-        _, edge_map, _ = pp.utils.setmembership.unique_columns_tol(new_edge[:2].astype(np.int), tol)
+        _, edge_map, _ = pp.utils.setmembership.unique_columns_tol(
+            new_edge[:2].astype(np.int), tol
+        )
         new_edge = new_edge[:, edge_map]
 
         return unique_all_pt, new_edge.astype(np.int)
+
 
 def intersect_polygons_3d(polys, tol=1e-8):
     """ Compute the intersection between polygons embedded in 3d.
@@ -1423,7 +1436,11 @@ def intersect_polygons_3d(polys, tol=1e-8):
                 # The other polygon has an edge laying in the plane of the main polygon.
                 # This will be registered as a boundary intersection, but only if
                 # the polygons (not only plane) intersect.
-                if hit[0] + 1 == hit[-1] or hit[0] == 0 and hit[-1] == (dot_prod_from_main.size - 2):
+                if (
+                    hit[0] + 1 == hit[-1]
+                    or hit[0] == 0
+                    and hit[-1] == (dot_prod_from_main.size - 2)
+                ):
                     isect_on_boundary_other = True
 
             if np.all(dot_prod_from_other != 0):
@@ -1480,7 +1497,11 @@ def intersect_polygons_3d(polys, tol=1e-8):
                 # (in the latter case, the final point, which is identical to the
                 # first one, will also be in the plane, but this is disregarded
                 # by the [:-1] above)
-                if hit[0] + 1 == hit[-1] or hit[0] == 0 and hit[-1] == (dot_prod_from_other.size - 2):
+                if (
+                    hit[0] + 1 == hit[-1]
+                    or hit[0] == 0
+                    and hit[-1] == (dot_prod_from_other.size - 2)
+                ):
                     isect_on_boundary_main = True
 
             # Vectors from the intersection points in the main fracture to the
@@ -1587,6 +1608,7 @@ def intersect_polygons_3d(polys, tol=1e-8):
             isect_pt[i] = np.empty(0)
 
     return new_pt, isect_pt, is_bound_isect, polygon_pairs
+
 
 # ----------------------------------------------------------
 #
