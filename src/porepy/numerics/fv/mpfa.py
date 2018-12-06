@@ -48,9 +48,9 @@ class Mpfa(FVElliptic):
                 Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         parameter_dictionary contains the entries:
-            second_order_tensor : (SecondOrderTensor) Permeability defined cell-wise.
-            bc : (BoundaryCondition) boundary conditions
-            apertures : (np.ndarray) apertures of the cells for scaling of
+            second_order_tensor: (SecondOrderTensor) Permeability defined cell-wise.
+            bc: (BoundaryCondition) boundary conditions
+            aperture: (np.ndarray) apertures of the cells for scaling of
                 the face normals.
             mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of
             pressure continuity point. If not given, porepy tries to set an optimal
@@ -65,12 +65,6 @@ class Mpfa(FVElliptic):
                 Operator for reconstructing the pressure trace. Cell center contribution
             bound_pressure_face: sps.csc_matrix (g.num_faces, g.num_faces)
                 Operator for reconstructing the pressure trace. Face contribution
-
-        Hidden option (intended as "advanced" option that one should normally not
-        care about):
-            Half transmissibility calculation according to Ivar Aavatsmark, see
-            folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry
-            Aavatsmark_transmissibilities: True   to the data dictionary.
 
         Parameters
         ----------
