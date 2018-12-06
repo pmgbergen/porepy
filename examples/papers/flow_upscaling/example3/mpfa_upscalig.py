@@ -39,20 +39,23 @@ class MpfaUpscaling(FVElliptic):
         data: dictionary to store the data.
 
         """
-        param = data["param"]
+        # Get the dictionaries for storage of data and discretization matrices
+        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
+        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
+
         #k = param.get_tensor(self)
         k = 1
-        bnd = param.get_bc(self)
+        bnd = parameter_dictionary["bc"]
 
         data_patch = data["local_problem"]
 
         flux, bound_flux, bound_pressure_cell, bound_pressure_face = \
             self._local_discr(g, k, bnd, data_patch)
 
-        data[self._key() + "flux"] = flux
-        data[self._key() + "bound_flux"] = bound_flux
-        data[self._key() + "bound_pressure_cell"] = bound_pressure_cell
-        data[self._key() + "bound_pressure_face"] = bound_pressure_face
+        matrix_dictionary["flux"] = flux
+        matrix_dictionary["bound_flux"] = bound_flux
+        matrix_dictionary["bound_pressure_cell"] = bound_pressure_cell
+        matrix_dictionary["bound_pressure_face"] = bound_pressure_face
 
     def _local_discr(self, g, k, bnd, data):
 
@@ -289,18 +292,17 @@ class MpfaUpscaling(FVElliptic):
         sum_length = np.sum(length, axis=1)
 
         for g, d in gb:
-            param = d["param"]
+            param = {}
 
             # Boundaries
             b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-            if b_faces.size != 0:
+            bc_val = np.zeros(g.num_faces)
+            if b_faces.size:
 
                 labels = ["dir"] * b_faces.size
-                bc = pp.BoundaryCondition(g, b_faces, labels)
-                param.set_bc("flow", bc)
+                param["bc"] = pp.BoundaryCondition(g, b_faces, labels)
 
                 b_face_centers = g.face_centers[:, b_faces]
-                bc_val = np.zeros(g.num_faces)
                 for j in np.arange(2):
                     x_0 = np.array([0, length[j, 0]])
                     x_1 = np.array([length[j, 0], sum_length[j]])
@@ -322,12 +324,12 @@ class MpfaUpscaling(FVElliptic):
                         val = (y_1[i] - y_0[i])/(x_1[i] - x_0[i])
                         bc_val[b_faces[mask]] = np.linalg.norm(delta, axis=0)*val + y_0[i]
 
-                param.set_bc_val("flow", bc_val)
             else:
-                bc = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
-                param.set_bc("flow", bc)
+                param["bc"] = pp.BoundaryCondition(g, np.empty(0), np.empty(0))
 
-            d["param"] = param
+            param["bc_values"] = bc_val
+
+            d[pp.PARAMETERS].update_dictionaries("flow", param)
 
     def _slice_out(self, f, m):
         return m.indices[m.indptr[f]: m.indptr[f+1]]
