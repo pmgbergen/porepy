@@ -106,11 +106,13 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
             ndim = fracs[0].shape[0]
         else:
             ndim = network[0].p.shape[0]
-
-    elif "zmax" in domain:
-        ndim = 3
-    elif "ymax" in domain:
-        ndim = 2
+    elif isinstance(domain, dict):
+        if "zmax" in domain:
+            ndim = 3
+        elif "ymax" in domain:
+            ndim = 2
+    elif isinstance(domain, np.ndarray):
+        ndim = domain.shape[0]
     else:
         raise ValueError("simplex_grid only supported for 2 or 3 dimensions")
 

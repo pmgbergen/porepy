@@ -34,6 +34,7 @@ from porepy.numerics.fv.biot import Biot
 from porepy.numerics.fv.source import Integral
 
 # Virtual elements, elliptic
+from porepy.numerics.vem.dual_elliptic import project_flux
 from porepy.numerics.vem.mvem import MVEM
 from porepy.numerics.vem.vem_source import DualIntegral
 from porepy.numerics.elliptic import DualEllipticModel
