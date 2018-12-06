@@ -13,7 +13,7 @@ class MpsaTest(unittest.TestCase):
         kw = "mechanics"
         for g in g_list:
             solver = pp.numerics.fv.mpsa.Mpsa(kw)
-            data = pp.initialize_data({}, g, kw)
+            data = pp.initialize_default_data(g, {}, kw)
             A, b = solver.assemble_matrix_rhs(g, data)
             self.assertTrue(
                 np.all(A.shape == (g.dim * g.num_cells, g.dim * g.num_cells))
@@ -25,7 +25,7 @@ class MpsaTest(unittest.TestCase):
         kw = "mechanics"
         for g in g_list:
             solver = pp.numerics.fv.mpsa.Mpsa(kw)
-            data = pp.initialize_data({}, g, kw)
+            data = pp.initialize_default_data(g, {}, kw)
             cell_dof = g.dim * g.num_cells
             face_dof = g.dim * g.num_faces
             stress = sps.csc_matrix((face_dof, cell_dof))

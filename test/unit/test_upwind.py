@@ -25,7 +25,7 @@ class BasicsTest(unittest.TestCase):
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
 
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
 
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
@@ -50,7 +50,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -74,7 +74,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -108,7 +108,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -141,7 +141,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -165,7 +165,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -189,7 +189,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -225,7 +225,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -263,7 +263,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -289,7 +289,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -315,7 +315,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -351,7 +351,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -387,7 +387,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -413,7 +413,7 @@ class BasicsTest(unittest.TestCase):
         bf = g.tags["domain_boundary_faces"].nonzero()[0]
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         specified_parameters = {"bc": bc, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M = solver.assemble_matrix_rhs(g, data)[0].todense()
         deltaT = solver.cfl(g, data)
 
@@ -438,7 +438,7 @@ class BasicsTest(unittest.TestCase):
         bc = BoundaryCondition(g, bf, bf.size * ["dir"])
         bc_val = 3 * np.ones(g.num_faces).ravel("F")
         specified_parameters = {"bc": bc, "bc_values": bc_val, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M, rhs = solver.assemble_matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)
 
@@ -465,7 +465,7 @@ class BasicsTest(unittest.TestCase):
         bc = BoundaryCondition(g, bf, bf.size * ["neu"])
         bc_val = np.array([2, 0, 0, -2]).ravel("F")
         specified_parameters = {"bc": bc, "bc_values": bc_val, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         M, rhs = solver.assemble_matrix_rhs(g, data)
         deltaT = solver.cfl(g, data)
 

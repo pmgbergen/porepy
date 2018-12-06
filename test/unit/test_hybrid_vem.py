@@ -13,12 +13,12 @@ def make_dictionary(g, perm, bc, bc_val=None):
     d = {
         "bc": bc,
         "bc_values": bc_val,
-        "permeability": perm,
+        "second_order_tensor": perm,
         "aperture": np.ones(g.num_cells),
         "source": np.zeros(g.num_cells),
     }
 
-    return pp.initialize_data({}, g, "flow", d)
+    return pp.initialize_default_data(g, {}, "flow", d)
 
 
 class BasicsTest(unittest.TestCase):
