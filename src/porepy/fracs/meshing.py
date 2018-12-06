@@ -196,7 +196,6 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, box=None, tol=1e-
     # Populate intersections in FractureNetowrk, or find intersections if not
     # provided.
 
-    import pdb; pdb.set_trace()
     if intersections is not None:
         if box is not None:
             logger.error("You cannot impose a box if fracture intersections are provided")
