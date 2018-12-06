@@ -319,7 +319,7 @@ def advdiff(gb, param, model_flow, bc_flag):
     logger.info("Prepare the exporting")
     save = pp.Exporter(gb, "solution", folder=param["folder"])
     logger.info("done")
-    variables = [variable, param["pressure"], param["P0_flux"]]
+    variables = [variable, param["pressure"], param["P0_flux"], "frac_num", "cell_volumes"]
 
     x = np.zeros(A.shape[0])
     logger.info("Start the time loop with " + str(param["n_steps"]) + " steps")
