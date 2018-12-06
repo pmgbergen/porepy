@@ -3,6 +3,8 @@ import numpy as np
 from scipy import sparse as sps
 from itertools import islice
 import csv
+import time
+import logging
 
 from porepy.grids import grid, grid_bucket
 from porepy.grids.gmsh import gmsh_interface
@@ -12,6 +14,7 @@ from porepy.utils.setmembership import unique_columns_tol
 from porepy.utils.sort_points import sort_point_pairs
 import porepy.utils.comp_geom as cg
 
+logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------------------#
 
 
@@ -438,7 +441,7 @@ def dfm_3d_from_fab(file_name, tol=1e-4, domain=None, return_domain=False, **mes
         return gb
 
 def dfn_3d_from_fab(
-    file_name, file_inters=None, conforming=True, tol=None, vtk_name=None, **kwargs
+    file_name, file_inters=None, conforming=True, tol=None, vtk_name=None, box=None, **kwargs
 ):
     """ Read the fractures and (possible) intersection from files.
     The fractures are in a .fab file, as specified by FracMan.
@@ -457,16 +460,31 @@ def dfn_3d_from_fab(
         gb (GridBucket): The grid bucket.
 
     """
+
+    tic = time.time()
+    logger.info("Read the fracture network from fab file")
     network = network_3d_from_fab(file_name, return_all=False, tol=tol)
+    logger.info("Done. Elapsed time " + str(time.time() - tic))
+
+    if file_inters is not None and box is not None:
+       raise ValueError("You cannot give intersection file and box")
 
     if vtk_name is not None:
+        tic = time.time()
+        logger.info("Export DFN read from the file with vtk")
         network.to_vtk(vtk_name)
+        logger.info("Done. Elapsed time " + str(time.time() - tic))
 
     if file_inters is None:
-        return meshing.dfn(network, conforming, **kwargs)
+        logger.info("Create DFN mesh")
+        return meshing.dfn(network, conforming, box=box, tol=tol, **kwargs)
     else:
+        tic = time.time()
+        logger.info("Compute DFN intersections")
         inters = intersection_dfn_3d(file_inters, network._fractures)
-        return meshing.dfn(network, conforming, inters, **kwargs)
+        logger.info("Done. Elapsed time " + str(time.time() - tic))
+        logger.info("Create DFN mesh")
+        return meshing.dfn(network, conforming, inters, box=box, tol=tol, **kwargs)
 
 
 # ------------------------------------------------------------------------------#

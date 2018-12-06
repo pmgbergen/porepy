@@ -161,7 +161,7 @@ def simplex_grid(fracs=None, domain=None, network=None, subdomains=[], **kwargs)
     return grid_list_to_grid_bucket(grids, time_tot=tm_tot, **kwargs)
 
 
-def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4, **kwargs):
+def dfn(fracs, conforming, intersections=None, keep_geo=False, box=None, tol=1e-4, **kwargs):
     """ Create a mesh of a DFN model, that is, only of fractures.
 
     The mesh can eihter be conforming along fracture intersections, or each
@@ -196,10 +196,20 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4, **kwarg
     # Populate intersections in FractureNetowrk, or find intersections if not
     # provided.
 
+    import pdb; pdb.set_trace()
     if intersections is not None:
+        if box is not None:
+            logger.error("You cannot impose a box if fracture intersections are provided")
+
         logger.warn("FractureNetwork use pre-computed intersections")
         network.intersections = [Intersection(*i) for i in intersections]
     else:
+        if box is not None:
+            tic = time.time()
+            logger.info("FractureNetwork impose box in DFN")
+            network.impose_external_boundary(box, keep_box=False)
+            logger.info("Done. Elapsed time " + str(time.time() - tic))
+
         logger.warn("FractureNetwork find intersections in DFN")
         tic = time.time()
         network.find_intersections()
