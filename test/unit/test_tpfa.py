@@ -11,7 +11,9 @@ import porepy as pp
 
 
 def _assign_params(g, perm, bc):
-    data = pp.initialize_parameters({}, g, "flow", {"bc": bc, "permeability": perm})
+    data = pp.initialize_parameters(
+        {}, g, "flow", {"bc": bc, "second_order_tensor": perm}
+    )
     return data
 
 
@@ -31,7 +33,9 @@ class TestTPFA(unittest.TestCase):
         bound = pp.BoundaryCondition(g, bound_faces, ["dir"] * bound_faces.size)
 
         key = "flow"
-        d = pp.initialize_data({}, g, key, {"permeability": perm, "bc": bound})
+        d = pp.initialize_default_data(
+            g, {}, key, {"second_order_tensor": perm, "bc": bound}
+        )
         discr = pp.Tpfa(key)
 
         discr.discretize(g, d)
