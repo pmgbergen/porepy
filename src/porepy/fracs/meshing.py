@@ -197,19 +197,19 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4, **kwarg
     # provided.
 
     if intersections is not None:
-        logger.warn("FractureNetwork use pre-computed intersections")
+        logger.warning("FractureNetwork use pre-computed intersections")
         network.intersections = [Intersection(*i) for i in intersections]
     else:
-        logger.warn("FractureNetwork find intersections in DFN")
+        logger.warning("FractureNetwork find intersections in DFN")
         tic = time.time()
         network.find_intersections()
-        logger.warn("Done. Elapsed time " + str(time.time() - tic))
+        logger.warning("Done. Elapsed time " + str(time.time() - tic))
 
     if conforming:
-        logger.warn("Create conforming mesh for DFN network")
+        logger.warning("Create conforming mesh for DFN network")
         grids = simplex.triangle_grid_embedded(network, find_isect=False, **kwargs)
     else:
-        logger.warn("Create non-conforming mesh for DFN network")
+        logger.warning("Create non-conforming mesh for DFN network")
         tic = time.time()
         grid_list = []
         neigh_list = []
@@ -259,11 +259,11 @@ def dfn(fracs, conforming, intersections=None, keep_geo=False, tol=1e-4, **kwarg
             grid_list.append(grids)
             neigh_list.append(other_frac)
 
-        logger.warn("Finished creating grids. Elapsed time " + str(time.time() - tic))
-        logger.warn("Merge grids")
+        logger.warning("Finished creating grids. Elapsed time " + str(time.time() - tic))
+        logger.warning("Merge grids")
         tic = time.time()
         grids = non_conforming.merge_grids(grid_list, neigh_list)
-        logger.warn("Done. Elapsed time " + str(time.time() - tic))
+        logger.warning("Done. Elapsed time " + str(time.time() - tic))
 
         for g_set in grids:
             if len(g_set) > 0:
