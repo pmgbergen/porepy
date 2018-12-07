@@ -34,7 +34,7 @@ class BasicsTest(unittest.TestCase):
         bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
         specified_parameters = {"bc": bc, "bc_values": bc_val, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         time_step = advect.cfl(g, data)
         data[pp.PARAMETERS]["transport"]["time_step"] = time_step
 
@@ -86,7 +86,7 @@ class BasicsTest(unittest.TestCase):
         bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
         specified_parameters = {"bc": bc, "bc_values": bc_val, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
         time_step = advect.cfl(g, data)
         data[pp.PARAMETERS]["transport"]["time_step"] = time_step
 
@@ -157,8 +157,12 @@ class BasicsTest(unittest.TestCase):
         bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.zeros(g.num_faces)
         bc_val[b_faces] = funp_ex(g.face_centers[:, b_faces])
-        specified_parameters = {"bc": bc, "bc_values": bc_val, "permeability": perm}
-        data = pp.initialize_data({}, g, "flow", specified_parameters)
+        specified_parameters = {
+            "bc": bc,
+            "bc_values": bc_val,
+            "second_order_tensor": perm,
+        }
+        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
         solver = pp.MVEM("flow")
         D_flow, b_flow = solver.assemble_matrix_rhs(g, data)
 
@@ -182,7 +186,7 @@ class BasicsTest(unittest.TestCase):
         bc = pp.BoundaryCondition(g, b_faces, ["dir"] * b_faces.size)
         bc_val = np.hstack(([1], np.zeros(g.num_faces - 1)))
         specified_parameters = {"bc": bc, "bc_values": bc_val, "darcy_flux": dis}
-        data = pp.initialize_data({}, g, "transport", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "transport", specified_parameters)
 
         # Advect solver
         advect = pp.Upwind("transport")

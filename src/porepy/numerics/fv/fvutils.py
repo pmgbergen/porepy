@@ -509,7 +509,7 @@ def block_diag_index(m, n=None):
 # ------------------- End of methods related to block inversion ---------------
 
 
-def expand_indices_nd(ind, nd, direction=1):
+def expand_indices_nd(ind, nd, direction="F"):
     """
     Expand indices from scalar to vector form.
 
@@ -518,7 +518,7 @@ def expand_indices_nd(ind, nd, direction=1):
     >>> __expand_indices_nd(i, 2)
     (array([0, 1, 2, 3, 6, 7]))
 
-    >>> __expand_indices_nd(i, 3, 0)
+    >>> __expand_indices_nd(i, 3, "C")
     (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
 
     Parameters

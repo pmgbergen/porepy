@@ -68,8 +68,8 @@ class DualElliptic(
         self.name = name
 
     def ndof(self, g):
-        """
-        Return the number of degrees of freedom associated to the method.
+        """ Return the number of degrees of freedom associated to the method.
+
         In this case number of faces (velocity dofs) plus the number of cells
         (pressure dof). If a mortar grid is given the number of dof are equal to
         the number of cells, we are considering an inter-dimensional interface
@@ -104,8 +104,7 @@ class DualElliptic(
         matrix: sparse csr (g.num_faces+g_num_cells, g.num_faces+g_num_cells)
             Saddle point matrix obtained from the discretization.
         rhs: array (g.num_faces+g_num_cells)
-            Right-hand side which contains the boundary conditions and the scalar
-            source term.
+            Right-hand side which contains the boundary conditions.
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         if "mass" not in matrix_dictionary:
@@ -135,7 +134,6 @@ class DualElliptic(
     def assemble_neumann_robin(self, g, data, M, bc_weight=None):
         """ Impose Neumann and Robin boundary discretization on an already assembled
         system matrix.
-
         """
         # Obtain the mass matrix
         mass = data[pp.DISCRETIZATION_MATRICES][self.keyword]["mass"]

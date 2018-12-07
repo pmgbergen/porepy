@@ -16,7 +16,7 @@ class BasicsTest(unittest.TestCase):
         g = meshing.cart_grid([f], [4, 4, 2]).grids_of_dimension(3)[0]
 
         bound = pp.BoundaryConditionVectorial(g, g.get_all_boundary_faces(), "dir")
-        data = pp.initialize_data({}, g, "mechanics", {"bc": bound})
+        data = pp.initialize_default_data(g, {}, "mechanics", {"bc": bound})
 
         solver = StaticModel(g, data)
         d = solver.solve()
@@ -36,7 +36,7 @@ class BasicsTest(unittest.TestCase):
 
         slip = np.ones(g.dim * g.num_faces)
         specified_parameters = {"bc": bound, "slip_distance": slip}
-        data = pp.initialize_data({}, g, "mechanics", specified_parameters)
+        data = pp.initialize_default_data(g, {}, "mechanics", specified_parameters)
         solver = StaticModel(g, data)
         solver.solve()
 
