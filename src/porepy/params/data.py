@@ -6,12 +6,18 @@ The Parameters will be stored as a dictionary identified by pp.PARAMETERS in an
 "outer" dictionary (e.g. the data on the grid bucket nodes). In the Parameters object,
 there will be one dictionary containing parameters for each keyword. The keywords link
 parameters to discretization operators. For example, the operator
+
 discr = pp.Tpfa(keyword="flow")
-will access parameters under the keyword "flow". If outer_dictionary is the above mentioned
-outer dictionary, these parameters will be found in
+
+will access parameters under the keyword "flow". If outer_dictionary is the above
+mentioned outer dictionary, these parameters will be found in
+
 outer_dictionary[pp.PARAMETERS]["flow'],
+
 and the boundary values are extracted from this dictionary as
+
 bc = outer_dictionary[pp.PARAMETERS]["flow']["bc_values"]
+
 
 There is a (not entirely clear) distinction between two types of parameters:
 "Mathematical" parameters are those operated on by the discretization objects, and
@@ -26,7 +32,7 @@ mathematical point of view, these combine to the parameter "mass_weight". Simila
 the heat diffusion tensor ("physical" name) corresponds to the "second_order_tensor"
 ("mathematical" name).
 If we consider the Darcy equation as another example, the "second_order_tensor" is
-commonly termed the permeability ("physical"). Since the discretization schemes are
+commonly termed the permeability ("physical"). Since the discretization schemes
 do not know the physical terminology, the dictionary passed to these has to have the
 _mathematical_ parameters defined. Solving (systems of) equations with multiple
 instances of the same mathematical parameter (e.g. both thermal diffusivity and
@@ -194,6 +200,7 @@ def initialize_default_data(
         specified_parameters: A dictionary with specified parameters, overriding the
             default values. Defualts to an empty dictionary (only default values).
         keyword: String to identify the parameters. Defaults to the parameter type.
+
      Returns:
         data: The filled dictionary.
 
@@ -224,16 +231,14 @@ def initialize_data(g, data, keyword, specified_parameters=None):
     """ Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
-    matrix dictionary in the proper fields of data. If a known keyword is passed,
-    default data are added for a certain set of "basic"
+    matrix dictionary in the proper fields of data.
 
     Args:
         data: Outer data dictionary, to which the parameters will be added.
         g: The grid.
         keyword: String identifying the parameters.
         specified_parameters: A dictionary with specified parameters, defaults to empty
-            dictionary. Keyword specific default parameters will be set for those which
-            are not specified.
+            dictionary.
 
     Returns:
         data: The filled dictionary.
